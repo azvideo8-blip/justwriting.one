@@ -12,7 +12,8 @@ import {
   User as UserIcon,
   Sun,
   Moon,
-  WifiOff
+  WifiOff,
+  Shield
 } from 'lucide-react';
 import { onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from './lib/firestore-errors';
@@ -28,14 +29,17 @@ import { WritingView } from './views/WritingView';
 import { ProfileView } from './views/ProfileView';
 import { ArchiveView } from './views/ArchiveView';
 import { FeedView } from './views/FeedView';
+import { AdminView } from './views/AdminView';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<{ nickname?: string } | null>(null);
-  const [view, setView] = useState<'write' | 'profile' | 'archive' | 'feed'>('write');
+  const [profile, setProfile] = useState<{ nickname?: string; role?: string } | null>(null);
+  const [view, setView] = useState<'write' | 'profile' | 'archive' | 'feed' | 'admin'>('write');
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
+  
+  const isAdmin = profile?.role === 'admin' || user?.email === 'freudcries@gmail.com';
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('theme') === 'dark';
@@ -131,6 +135,9 @@ export default function App() {
           <NavButton active={view === 'archive'} onClick={() => setView('archive')} icon={<History size={18} />} label="Архив" />
           <NavButton active={view === 'profile'} onClick={() => setView('profile')} icon={<UserIcon size={18} />} label="Профиль" />
           <NavButton active={view === 'feed'} onClick={() => setView('feed')} icon={<Globe size={18} />} label="Лента" />
+          {isAdmin && (
+            <NavButton active={view === 'admin'} onClick={() => setView('admin')} icon={<Shield size={18} className="text-red-500" />} label="Админ" />
+          )}
           
           <div className="h-6 w-px bg-stone-200 dark:bg-stone-800 mx-2" />
           
@@ -219,6 +226,14 @@ export default function App() {
                   icon={<Globe size={20} />} 
                   label="Лента" 
                 />
+                {isAdmin && (
+                  <MobileNavButton 
+                    active={view === 'admin'} 
+                    onClick={() => { setView('admin'); setMobileMenuOpen(false); }} 
+                    icon={<Shield size={20} className="text-red-500" />} 
+                    label="Админ-панель" 
+                  />
+                )}
               </div>
 
               <button 
@@ -240,6 +255,7 @@ export default function App() {
           {view === 'archive' && <ArchiveView key="archive" user={user} />}
           {view === 'profile' && <ProfileView key="profile" user={user} profile={profile} />}
           {view === 'feed' && <FeedView key="feed" />}
+          {view === 'admin' && isAdmin && <AdminView key="admin" />}
         </AnimatePresence>
       </main>
       </div>
