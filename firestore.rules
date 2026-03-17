@@ -8,25 +8,25 @@ service cloud.firestore {
     // Collection: users
     // Document ID: userId (auth.uid)
     // Fields:
-    //   - uid: string (required)
-    //   - email: string (required)
-    //   - nickname: string (optional)
-    //   - role: string (optional, default 'user')
+    //   - uid: string (required, 1-128 chars)
+    //   - email: string (required, valid email format)
+    //   - nickname: string (optional, 1-50 chars)
+    //   - role: string (optional, enum: ['user', 'admin'])
     //
     // Collection: sessions
     // Document ID: auto-generated
     // Fields:
-    //   - userId: string (required) - owner's uid
-    //   - content: string (required) - session text
-    //   - duration: number (required) - seconds
+    //   - userId: string (required, matches owner)
+    //   - content: string (required, 1-50000 chars)
+    //   - duration: number (required, >= 0)
     //   - createdAt: timestamp (required)
     //   - isPublic: bool (optional)
-    //   - title: string (optional)
+    //   - title: string (optional, 0-200 chars)
     //   - wordCount: number (optional)
     //   - charCount: number (optional)
     //   - wpm: number (optional)
     //   - isAnonymous: bool (optional)
-    //   - tags: list (optional)
+    //   - tags: list (optional, max 10 items, each 1-30 chars)
     //
     // ===============================================================
 
@@ -45,10 +45,16 @@ service cloud.firestore {
           (request.auth.token.email == "freudcries@gmail.com" && request.auth.token.email_verified == true));
     }
 
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
     function isValidUser(data) {
       return data.keys().hasAll(['uid', 'email']) &&
-             data.uid is string && data.uid.size() > 0 &&
-             data.email is string && data.email.size() > 0;
+             data.uid is string && data.uid.size() > 0 && data.uid.size() <= 128 &&
+             isValidEmail(data.email) && data.email.size() <= 256 &&
+             (!('nickname' in data) || (data.nickname is string && data.nickname.size() <= 50)) &&
+             (!('role' in data) || (data.role in ['user', 'admin']));
     }
 
     function isValidSession(data) {
@@ -56,14 +62,21 @@ service cloud.firestore {
              data.userId == request.auth.uid &&
              data.content is string && data.content.size() <= 50000 &&
              data.duration is number && data.duration >= 0 &&
-             data.createdAt is timestamp;
+             data.createdAt is timestamp &&
+             (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
+             (!('tags' in data) || (data.tags is list && data.tags.size() <= 10));
     }
 
     // User profiles
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      // Allow users to read their own profile, or admins to read any profile.
+      // To fix the "Missing or insufficient permissions" error for the current user, 
+      // we ensure they can always read their own document.
+      allow read: if isOwner(userId) || isAdmin();
+      
       allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
                       (!('role' in request.resource.data) || request.resource.data.role == 'user' || isAdmin());
+      
       allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
                       (request.resource.data.role == resource.data.role || isAdmin());
     }

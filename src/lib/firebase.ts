@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { initializeFirestore, doc, getDocFromServer, terminate, disableNetwork, enableNetwork } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -21,7 +21,7 @@ export const db = initializeFirestore(app, {
 }, firebaseConfig.firestoreDatabaseId);
 
 export const googleProvider = new GoogleAuthProvider();
-export { signInWithPopup, signOut };
+export { signInWithPopup, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword };
 
 // Connection status tracking
 export let isFirestoreConnected = true;
