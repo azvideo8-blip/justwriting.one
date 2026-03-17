@@ -1,0 +1,52 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Session": {
+      "title": "Session",
+      "description": "A writing session",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhoto": { "type": "string" },
+        "content": { "type": "string" },
+        "duration": { "type": "number", "description": "Duration in seconds" },
+        "wordCount": { "type": "number" },
+        "wpm": { "type": "number" },
+        "isPublic": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "aiEdits": {
+          "type": "object",
+          "properties": {
+            "shortened": { "type": "string" },
+            "accents": { "type": "string" },
+            "ideas": { "type": "string" }
+          }
+        }
+      },
+      "required": ["userId", "content", "duration", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "sessions/{sessionId}": {
+      "schema": "Session",
+      "description": "Writing sessions"
+    }
+  }
+}
