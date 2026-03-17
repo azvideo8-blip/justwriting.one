@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
-import { 
-  collection, query, where, orderBy, onSnapshot, doc, setDoc 
-} from 'firebase/firestore';
+import { onSnapshot, collection, query, where, orderBy, doc, setDoc } from 'firebase/firestore';
 import { 
   TrendingUp, PenLine, User as UserIcon, Sparkles, Check, X 
 } from 'lucide-react';
@@ -14,6 +12,7 @@ import { ACHIEVEMENTS } from '../constants/achievements';
 import { SessionChart } from '../components/SessionChart';
 import { AchievementSection } from '../components/AchievementSection';
 import { Calendar } from '../components/Calendar';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface ProfileViewProps {
   user: User;
@@ -36,6 +35,8 @@ export function ProfileView({ user, profile }: ProfileViewProps) {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Session));
       setSessions(docs);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'sessions');
     });
 
     return unsubscribe;
@@ -47,7 +48,7 @@ export function ProfileView({ user, profile }: ProfileViewProps) {
       await setDoc(doc(db, 'users', user.uid), { nickname: newNickname }, { merge: true });
       setEditingNickname(false);
     } catch (e) {
-      console.error("Update nickname error:", e);
+      handleFirestoreError(e, OperationType.WRITE, `users/${user.uid}`);
     }
   };
 

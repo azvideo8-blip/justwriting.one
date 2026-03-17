@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
-import { 
-  collection, query, where, orderBy, onSnapshot 
-} from 'firebase/firestore';
+import { onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
 import { format, isSameDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { History } from 'lucide-react';
@@ -12,6 +10,7 @@ import { Session } from '../types';
 import { SessionCard } from '../components/SessionCard';
 import { Calendar } from '../components/Calendar';
 import { parseFirestoreDate } from '../lib/utils';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface ArchiveViewProps {
   user: User;
@@ -33,6 +32,8 @@ export function ArchiveView({ user }: ArchiveViewProps) {
       const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Session));
       setSessions(docs);
       setLoading(false);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'sessions');
     });
 
     return unsubscribe;

@@ -1,5 +1,4 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertCircle, RefreshCw } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
@@ -26,29 +25,35 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
+      let displayMessage = 'Something went wrong.';
+      
+      try {
+        if (this.state.error?.message) {
+          const parsed = JSON.parse(this.state.error.message);
+          if (parsed.error && parsed.operationType) {
+            displayMessage = `Firestore Error (${parsed.operationType}): ${parsed.error}`;
+          }
+        }
+      } catch (e) {
+        // Not a JSON error message
+        displayMessage = this.state.error?.message || displayMessage;
+      }
+
       return (
         <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-6">
-          <div className="max-w-md w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-8 shadow-xl text-center space-y-6">
-            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-2xl flex items-center justify-center mx-auto">
-              <AlertCircle size={32} />
+          <div className="max-w-md w-full bg-white dark:bg-stone-900 p-8 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-xl text-center space-y-6">
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mx-auto">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold dark:text-stone-100">Что-то пошло не так</h2>
-              <p className="text-stone-500 dark:text-stone-400 text-sm">
-                Произошла непредвиденная ошибка. Мы уже работаем над её исправлением.
-              </p>
-            </div>
-            <div className="p-4 bg-stone-50 dark:bg-stone-950 rounded-xl border border-stone-100 dark:border-stone-800 text-left overflow-auto max-h-32">
-              <code className="text-xs text-red-500 font-mono">
-                {this.state.error?.message || 'Unknown error'}
-              </code>
-            </div>
+            <h2 className="text-2xl font-bold dark:text-stone-100">Oops! An error occurred</h2>
+            <p className="text-stone-600 dark:text-stone-400 text-sm break-words">
+              {displayMessage}
+            </p>
             <button
               onClick={() => window.location.reload()}
-              className="w-full flex items-center justify-center gap-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-3 rounded-xl font-bold hover:opacity-90 transition-opacity"
+              className="w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-3 rounded-xl font-bold hover:scale-[1.02] transition-transform"
             >
-              <RefreshCw size={18} />
-              Обновить страницу
+              Reload Application
             </button>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { auth, db, signOut } from './lib/firebase';
+import { auth, db, signOut, onConnectionChange } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -11,9 +11,12 @@ import {
   LogOut, 
   User as UserIcon,
   Sun,
-  Moon
+  Moon,
+  WifiOff
 } from 'lucide-react';
 import { onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from './lib/firestore-errors';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Components
 import { NavButton } from './components/NavButton';
@@ -32,12 +35,17 @@ export default function App() {
   const [view, setView] = useState<'write' | 'profile' | 'archive' | 'feed'>('write');
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('theme') === 'dark';
     }
     return false;
   });
+
+  useEffect(() => {
+    return onConnectionChange(setIsConnected);
+  }, []);
 
   useEffect(() => {
     if (darkMode) {
@@ -58,11 +66,20 @@ export default function App() {
           if (snap.exists()) {
             setProfile(snap.data() as { nickname?: string });
           } else {
-            const initialProfile = { nickname: u.email?.split('@')[0] || 'User' };
-            setDoc(userDoc, initialProfile);
+            const initialProfile = { 
+              uid: u.uid,
+              email: u.email || '',
+              nickname: u.email?.split('@')[0] || 'User',
+              role: 'user'
+            };
+            setDoc(userDoc, initialProfile).catch(err => {
+              handleFirestoreError(err, OperationType.WRITE, `users/${u.uid}`);
+            });
             setProfile(initialProfile);
           }
           setLoading(false);
+        }, (err) => {
+          handleFirestoreError(err, OperationType.GET, `users/${u.uid}`);
         });
       } else {
         setProfile(null);
@@ -87,9 +104,16 @@ export default function App() {
   if (!user) return <LoginView />;
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans selection:bg-stone-200 dark:selection:bg-stone-800">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans selection:bg-stone-200 dark:selection:bg-stone-800">
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 h-16 bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border-b border-stone-200 dark:border-stone-800 z-50 px-4 md:px-6 flex items-center justify-between">
+        {!isConnected && (
+          <div className="absolute top-16 left-0 right-0 bg-red-500 text-white text-[10px] font-bold py-1 px-4 flex items-center justify-center gap-2 animate-pulse">
+            <WifiOff size={12} />
+            НЕТ СВЯЗИ С БАЗОЙ ДАННЫХ. ПРОВЕРЬТЕ ИНТЕРНЕТ.
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <button 
             onClick={() => setMobileMenuOpen(true)}
@@ -218,6 +242,7 @@ export default function App() {
           {view === 'feed' && <FeedView key="feed" />}
         </AnimatePresence>
       </main>
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 }
