@@ -8,6 +8,7 @@ import { User } from 'firebase/auth';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { cn } from '../lib/utils';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface WritingViewProps {
   user: User;
@@ -136,7 +137,7 @@ export function WritingView({ user, profile }: WritingViewProps) {
       setTags([]);
       setStatus('idle');
     } catch (e) {
-      console.error("Save error:", e);
+      handleFirestoreError(e, OperationType.CREATE, 'sessions');
     }
   };
 

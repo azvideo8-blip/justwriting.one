@@ -9,6 +9,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { Session } from '../types';
 import { parseFirestoreDate, cn } from '../lib/utils';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 export function SessionCard({ session, showAuthor }: { session: Session, showAuthor?: boolean }) {
   const [expanded, setExpanded] = useState(false);
@@ -31,7 +32,7 @@ export function SessionCard({ session, showAuthor }: { session: Session, showAut
       });
       setIsEditing(false);
     } catch (e) {
-      console.error("Update error:", e);
+      handleFirestoreError(e, OperationType.UPDATE, `sessions/${session.id}`);
     }
   };
 

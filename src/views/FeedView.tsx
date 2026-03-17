@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { 
-  collection, query, where, orderBy, onSnapshot, limit 
-} from 'firebase/firestore';
+import { onSnapshot, collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { Globe } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { Session } from '../types';
 import { SessionCard } from '../components/SessionCard';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 export function FeedView() {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -24,6 +23,8 @@ export function FeedView() {
       const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Session));
       setSessions(docs);
       setLoading(false);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'sessions');
     });
 
     return unsubscribe;
