@@ -1,0 +1,40 @@
+export const ACHIEVEMENTS = {
+  streaks: [
+    { id: 'streak_1', threshold: 1, title: 'Проба пера', icon: '✏️' },
+    { id: 'streak_3', threshold: 3, title: 'Стремящийся писатель', icon: '🔥' },
+    { id: 'streak_7', threshold: 7, title: 'Недельный вдохновитель', icon: '📅' },
+    { id: 'streak_10', threshold: 10, title: 'Десятидневный упрямец', icon: '💪' },
+    { id: 'streak_14', threshold: 14, title: 'Двухнедельный чемпион', icon: '🏆' },
+    { id: 'streak_21', threshold: 21, title: 'Трёхнедельный фанатик', icon: '😎' },
+    { id: 'streak_30', threshold: 30, title: 'Месячный легенда', icon: '🌟' },
+    { id: 'streak_60', threshold: 60, title: 'Двухмесячный железный', icon: '🦾' },
+    { id: 'streak_90', threshold: 90, title: 'Квартальный король клавиш', icon: '👑' },
+    { id: 'streak_180', threshold: 180, title: 'Полугодовой гигант пера', icon: '🐘' },
+    { id: 'streak_365', threshold: 365, title: 'Годовой бессмертный', icon: '🕰️' },
+  ],
+  words: [
+    { id: 'words_500', threshold: 500, title: 'Пятисотсловный стартер', icon: '🚀' },
+    { id: 'words_1000', threshold: 1000, title: 'Килословный герой', icon: '🦸' },
+    { id: 'words_2500', threshold: 2500, title: 'Двухполовинный словесный воин', icon: '⚔️' },
+    { id: 'words_5000', threshold: 5000, title: 'Пятитысячный рассказчик', icon: '📖' },
+    { id: 'words_10000', threshold: 10000, title: 'Десятитысячник', icon: '💯' },
+    { id: 'words_25000', threshold: 25000, title: 'Двадцатипятитысячный романтик', icon: '❤️' },
+    { id: 'words_50000', threshold: 50000, title: 'Полусотенный эпик', icon: '📜' },
+    { id: 'words_100000', threshold: 100000, title: 'Сотня тысяч — мастер', icon: '🧙' },
+    { id: 'words_250000', threshold: 250000, title: 'Четвертьмиллионный визионер', icon: '👁️' },
+    { id: 'words_500000', threshold: 500000, title: 'Полмиллиона — словесный бог', icon: '⚡' },
+  ],
+  notes: [
+    { id: 'notes_5', threshold: 5, title: 'Пятёрка идей', icon: '💡' },
+    { id: 'notes_10', threshold: 10, title: 'Десятка мыслей', icon: '🧠' },
+    { id: 'notes_25', threshold: 25, title: 'Двадцать пять сокровищ', icon: '💎' },
+    { id: 'notes_50', threshold: 50, title: 'Полсотни записей', icon: '📋' },
+    { id: 'notes_100', threshold: 100, title: 'Сотня историй', icon: '📚' },
+    { id: 'notes_250', threshold: 250, title: 'Четверть тысячи идей', icon: '🔟0️⃣0️⃣' },
+  ],
+  duration: [
+    { id: 'duration_30', threshold: 30, title: 'Полчаса славы', icon: '⌛' },
+    { id: 'duration_60', threshold: 60, title: 'Часовой воин', icon: '🕐' },
+    { id: 'duration_180', threshold: 180, title: 'Трёхчасовой титан', icon: '🕒' },
+  ]
+};
