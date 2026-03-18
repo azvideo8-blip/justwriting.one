@@ -3,11 +3,11 @@ import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
 import { onSnapshot, collection, query, where, orderBy, doc, setDoc } from 'firebase/firestore';
 import { 
-  TrendingUp, PenLine, User as UserIcon, Sparkles, Check, X 
+  TrendingUp, PenLine, User as UserIcon, Sparkles, Check, X, Cloud, ArrowLeft
 } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { Session } from '../types';
-import { calculateStreak } from '../lib/utils';
+import { calculateStreak, parseFirestoreDate } from '../lib/utils';
 import { ACHIEVEMENTS } from '../constants/achievements';
 import { SessionChart } from '../components/SessionChart';
 import { AchievementSection } from '../components/AchievementSection';
@@ -24,6 +24,7 @@ export function ProfileView({ user, profile }: ProfileViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [editingNickname, setEditingNickname] = useState(false);
   const [newNickname, setNewNickname] = useState(profile?.nickname || '');
+  const [selectedWord, setSelectedWord] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(
@@ -57,6 +58,84 @@ export function ProfileView({ user, profile }: ProfileViewProps) {
   const totalWords = sessions.reduce((acc, s) => acc + s.wordCount, 0);
   const totalNotes = sessions.length;
   const maxSessionDuration = sessions.reduce((acc, s) => Math.max(acc, s.duration / 60), 0);
+
+  // Word Cloud Logic
+  const getWordCloud = () => {
+    const stopWords = new Set(['меня', 'тебя', 'было', 'есть', 'если', 'когда', 'только', 'через', 'после', 'этого', 'потому', 'чтобы', 'будет', 'очень', 'просто', 'можно', 'нужно', 'хотя', 'перед', 'между', 'вдоль', 'кроме', 'вместо', 'ввиду', 'вслед', 'среди', 'будто', 'словно', 'точно', 'ровно', 'почти', 'разве', 'неужели', 'даже', 'лишь', 'хоть', 'пусть', 'пускай', 'давай', 'именно', 'как', 'что', 'это', 'все', 'так', 'вот', 'уже', 'был', 'была', 'были', 'для', 'его', 'ее', 'их', 'нам', 'вам', 'мне', 'тебе', 'себе', 'свои', 'свой', 'своя', 'свое', 'всех', 'всего', 'всем', 'всеми', 'эти', 'этих', 'этим', 'этими', 'этот', 'эта', 'это', 'эту', 'этой', 'этом']);
+    const words: Record<string, number> = {};
+    
+    sessions.forEach(s => {
+      const contentWords = s.content.toLowerCase()
+        .replace(/[^\w\sа-яё]/gi, '')
+        .split(/\s+/)
+        .filter(w => w.length > 3 && !stopWords.has(w));
+      
+      contentWords.forEach(w => {
+        words[w] = (words[w] || 0) + 1;
+      });
+    });
+
+    return Object.entries(words)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 30);
+  };
+
+  const wordCloud = getWordCloud();
+  const filteredSessions = selectedWord 
+    ? sessions.filter(s => s.content.toLowerCase().includes(selectedWord.toLowerCase()))
+    : [];
+
+  if (selectedWord) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="space-y-8 pb-20"
+      >
+        <button 
+          onClick={() => setSelectedWord(null)}
+          className="flex items-center gap-2 text-stone-500 hover:text-stone-900 dark:hover:text-stone-100 transition-colors font-bold"
+        >
+          <ArrowLeft size={20} />
+          Назад к профилю
+        </button>
+
+        <div className="space-y-4">
+          <h2 className="text-3xl font-bold dark:text-stone-100">
+            Заметки со словом <span className="text-stone-400 italic">"{selectedWord}"</span>
+          </h2>
+          <p className="text-stone-500">Найдено {filteredSessions.length} сессий</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {filteredSessions.map(session => (
+            <div 
+              key={session.id}
+              className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm hover:shadow-md transition-all group"
+            >
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-xl font-bold dark:text-stone-100 group-hover:text-stone-600 dark:group-hover:text-stone-400 transition-colors">
+                  {session.title || 'Без названия'}
+                </h3>
+                <span className="text-xs font-mono text-stone-400">
+                  {parseFirestoreDate(session.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+              <p className="text-stone-600 dark:text-stone-400 line-clamp-3 mb-6 leading-relaxed">
+                {session.content}
+              </p>
+              <div className="flex items-center justify-between pt-4 border-t border-stone-100 dark:border-stone-800">
+                <div className="flex items-center gap-4 text-xs text-stone-400">
+                  <span className="flex items-center gap-1"><PenLine size={12} /> {session.wordCount} слов</span>
+                  <span className="flex items-center gap-1"><TrendingUp size={12} /> {session.wpm} WPM</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div 
@@ -158,6 +237,33 @@ export function ProfileView({ user, profile }: ProfileViewProps) {
         <div className="w-full md:w-80 shrink-0 space-y-8">
           <Calendar sessions={sessions} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
           
+          <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
+            <h3 className="font-bold dark:text-stone-100 flex items-center gap-2">
+              <Cloud size={18} className="text-stone-400" />
+              Облако слов
+            </h3>
+            <div className="flex flex-wrap gap-x-3 gap-y-2">
+              {wordCloud.length === 0 ? (
+                <span className="text-stone-400 text-sm italic">Слов пока нет</span>
+              ) : (
+                wordCloud.map(([word, count]) => (
+                  <button 
+                    key={word} 
+                    onClick={() => setSelectedWord(word)}
+                    className="hover:text-stone-900 dark:hover:text-stone-100 transition-colors"
+                    style={{ 
+                      fontSize: `${Math.max(0.75, Math.min(1.5, 0.75 + count * 0.1))}rem`,
+                      opacity: Math.max(0.5, Math.min(1, 0.5 + count * 0.1)),
+                      fontWeight: count > 5 ? 'bold' : 'normal'
+                    }}
+                  >
+                    {word}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
           <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
             <h3 className="font-bold dark:text-stone-100">Облако тегов</h3>
             <div className="flex flex-wrap gap-2">

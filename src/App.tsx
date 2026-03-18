@@ -100,7 +100,7 @@ export default function App() {
         transition={{ repeat: Infinity, duration: 2 }}
         className="text-stone-400 text-2xl"
       >
-        JustWrite...
+        justwriting.one...
       </motion.div>
     </div>
   );
@@ -126,7 +126,7 @@ export default function App() {
             <Menu size={24} />
           </button>
           <div className="w-8 h-8 bg-stone-900 dark:bg-stone-100 rounded-lg flex items-center justify-center text-white dark:text-stone-900 font-bold text-xl">J</div>
-          <span className="font-bold text-xl tracking-tight hidden sm:inline">JustWrite.io</span>
+          <span className="font-bold text-xl tracking-tight hidden sm:inline">justwriting.one</span>
         </div>
         
         {/* Desktop Navigation */}
@@ -191,7 +191,7 @@ export default function App() {
               <div className="flex items-center justify-between mb-10">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-stone-900 dark:bg-stone-100 rounded-lg flex items-center justify-center text-white dark:text-stone-900 font-bold text-xl">J</div>
-                  <span className="font-bold text-xl tracking-tight">JustWrite</span>
+                  <span className="font-bold text-xl tracking-tight">justwriting.one</span>
                 </div>
                 <button 
                   onClick={() => setMobileMenuOpen(false)}
