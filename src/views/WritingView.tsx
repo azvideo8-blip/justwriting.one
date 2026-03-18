@@ -9,6 +9,7 @@ import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { cn } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { editWithAI } from '../services/geminiService';
 
 interface WritingViewProps {
   user: User;
@@ -32,6 +33,7 @@ export function WritingView({ user, profile }: WritingViewProps) {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
   
   const [timeGoalReached, setTimeGoalReached] = useState(false);
   const [wordGoalReached, setWordGoalReached] = useState(false);
@@ -182,6 +184,25 @@ export function WritingView({ user, profile }: WritingViewProps) {
 
   const removeTag = (t: string) => {
     setTags(tags.filter(tag => tag !== t));
+  };
+
+  const handleAiAction = async (action: 'shorten' | 'accents' | 'ideas') => {
+    if (!content.trim() || isAiLoading) return;
+    setIsAiLoading(true);
+    try {
+      const result = await editWithAI(content, action);
+      if (action === 'ideas') {
+        setContent(prev => prev + "\n\n---\nAI Ideas:\n" + result);
+      } else {
+        if (result && result !== "Error generating AI response.") {
+          setContent(result);
+        }
+      }
+    } catch (error) {
+      console.error("AI Action failed:", error);
+    } finally {
+      setIsAiLoading(false);
+    }
   };
 
   const formatTime = (s: number) => {
@@ -418,6 +439,35 @@ export function WritingView({ user, profile }: WritingViewProps) {
               </div>
               <button onClick={() => setSetupMode('selection')} className="text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 text-sm font-medium">Назад</button>
             </div>
+          </div>
+        )}
+
+        {status !== 'idle' && (
+          <div className="flex items-center gap-2 mb-4">
+            <button 
+              onClick={() => handleAiAction('shorten')}
+              disabled={isAiLoading || !content.trim()}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 rounded-lg text-xs font-bold hover:bg-stone-200 dark:hover:bg-stone-700 transition-all disabled:opacity-50"
+            >
+              <Zap size={14} className="text-amber-500" /> Сократить (AI)
+            </button>
+            <button 
+              onClick={() => handleAiAction('accents')}
+              disabled={isAiLoading || !content.trim()}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 rounded-lg text-xs font-bold hover:bg-stone-200 dark:hover:bg-stone-700 transition-all disabled:opacity-50"
+            >
+              <Zap size={14} className="text-indigo-500" /> Улучшить стиль (AI)
+            </button>
+            <button 
+              onClick={() => handleAiAction('ideas')}
+              disabled={isAiLoading || !content.trim()}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 rounded-lg text-xs font-bold hover:bg-stone-200 dark:hover:bg-stone-700 transition-all disabled:opacity-50"
+            >
+              <Zap size={14} className="text-emerald-500" /> Идеи (AI)
+            </button>
+            {isAiLoading && (
+              <div className="w-4 h-4 border-2 border-stone-300 border-t-stone-900 dark:border-stone-700 dark:border-t-stone-100 rounded-full animate-spin ml-2" />
+            )}
           </div>
         )}
 
