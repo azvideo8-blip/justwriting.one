@@ -2,14 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { 
   Pause, Play, Square, X, Zap, Timer, 
-  Globe, Lock, Clock, Type, PenLine, CheckCircle2, Target
+  Globe, Lock, Clock, Type, PenLine, CheckCircle2, Target,
+  User as UserIcon, ChevronDown, Monitor, Layout, Settings
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { cn } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { editWithAI } from '../services/geminiService';
+
+import confetti from 'canvas-confetti';
 
 interface WritingViewProps {
   user: User;
@@ -33,10 +35,14 @@ export function WritingView({ user, profile }: WritingViewProps) {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
-  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [fontSize, setFontSize] = useState(20);
+  const [fontFamily, setFontFamily] = useState('Inter');
   
   const [timeGoalReached, setTimeGoalReached] = useState(false);
   const [wordGoalReached, setWordGoalReached] = useState(false);
+  const [hasDraft, setHasDraft] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   
   const timerRef = useRef<any>(null);
   const countdownRef = useRef<any>(null);
@@ -45,13 +51,16 @@ export function WritingView({ user, profile }: WritingViewProps) {
   useEffect(() => {
     const draft = localStorage.getItem(`draft_${user.uid}`);
     if (draft) {
+      setHasDraft(true);
       const { 
         content: savedContent, 
         title: savedTitle, 
         seconds: savedSeconds, 
         sessionType: savedType, 
         timerDuration: savedDuration,
-        wordGoal: savedWordGoal
+        wordGoal: savedWordGoal,
+        fontSize: savedFontSize,
+        fontFamily: savedFontFamily
       } = JSON.parse(draft);
       setContent(savedContent);
       setTitle(savedTitle || '');
@@ -59,6 +68,8 @@ export function WritingView({ user, profile }: WritingViewProps) {
       setSessionType(savedType || 'stopwatch');
       setTimerDuration(savedDuration || 15 * 60);
       setWordGoal(savedWordGoal || 500);
+      if (savedFontSize) setFontSize(savedFontSize);
+      if (savedFontFamily) setFontFamily(savedFontFamily);
     }
   }, [user.uid]);
 
@@ -72,10 +83,12 @@ export function WritingView({ user, profile }: WritingViewProps) {
         sessionType,
         timerDuration,
         wordGoal,
+        fontSize,
+        fontFamily,
         updatedAt: new Date().toISOString()
       }));
     }
-  }, [content, title, seconds, status, user.uid, sessionType, timerDuration, wordGoal]);
+  }, [content, title, seconds, status, user.uid, sessionType, timerDuration, wordGoal, fontSize, fontFamily]);
 
   useEffect(() => {
     if (status === 'writing') {
@@ -105,6 +118,17 @@ export function WritingView({ user, profile }: WritingViewProps) {
     }
   }, [content, seconds, sessionType, wordGoal]);
 
+  useEffect(() => {
+    if (wordGoalReached) {
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#141414', '#ffffff', '#4ade80']
+      });
+    }
+  }, [wordGoalReached]);
+
   const handleStart = () => {
     setStatus('writing');
     setSetupMode(null);
@@ -129,8 +153,11 @@ export function WritingView({ user, profile }: WritingViewProps) {
   };
 
   const handlePause = () => setStatus('paused');
-  const handleFinish = async () => {
+  const handleFinish = () => {
     setStatus('finished');
+  };
+
+  const handleSave = async () => {
     const currentWordCount = content.trim().split(/\s+/).filter(x => x.length > 3).length;
     
     try {
@@ -158,6 +185,9 @@ export function WritingView({ user, profile }: WritingViewProps) {
       setTitle('');
       setSeconds(0);
       setTags([]);
+      setIsPublic(false);
+      setIsAnonymous(false);
+      setHasDraft(false);
       setStatus('idle');
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, 'sessions');
@@ -165,14 +195,16 @@ export function WritingView({ user, profile }: WritingViewProps) {
   };
 
   const handleCancel = () => {
-    if (confirm('Вы уверены, что хотите отменить сессию? Прогресс не будет сохранен.')) {
-      localStorage.removeItem(`draft_${user.uid}`);
-      setContent('');
-      setTitle('');
-      setSeconds(0);
-      setTags([]);
-      setStatus('idle');
-    }
+    localStorage.removeItem(`draft_${user.uid}`);
+    setContent('');
+    setTitle('');
+    setSeconds(0);
+    setTags([]);
+    setIsPublic(false);
+    setIsAnonymous(false);
+    setHasDraft(false);
+    setStatus('idle');
+    setShowCancelConfirm(false);
   };
 
   const addTag = () => {
@@ -186,32 +218,7 @@ export function WritingView({ user, profile }: WritingViewProps) {
     setTags(tags.filter(tag => tag !== t));
   };
 
-  const handleAiAction = async (action: 'shorten' | 'accents' | 'ideas') => {
-    if (!content.trim() || isAiLoading) return;
-    setIsAiLoading(true);
-    try {
-      const result = await editWithAI(content, action);
-      if (action === 'ideas') {
-        setContent(prev => prev + "\n\n---\nAI Ideas:\n" + result);
-      } else {
-        if (result && result !== "Error generating AI response.") {
-          setContent(result);
-        }
-      }
-    } catch (error) {
-      console.error("AI Action failed:", error);
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
   const formatTime = (s: number) => {
-    if (sessionType === 'timer') {
-      const remaining = Math.max(0, timerDuration - s);
-      const mins = Math.floor(remaining / 60);
-      const secs = remaining % 60;
-      return `${mins}:${secs.toString().padStart(2, '0')}`;
-    }
     const mins = Math.floor(s / 60);
     const secs = s % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -221,12 +228,213 @@ export function WritingView({ user, profile }: WritingViewProps) {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="max-w-4xl mx-auto space-y-8 pb-20"
+      className="w-full space-y-8 pb-20"
     >
+      {/* Progress Bar at the very top */}
+      {status !== 'idle' && sessionType === 'words' && (
+        <div className="fixed top-0 left-0 w-full h-1 z-[100] bg-stone-100 dark:bg-stone-800">
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${Math.min((wordCount / wordGoal) * 100, 100)}%` }}
+            className={cn(
+              "h-full transition-colors duration-500",
+              wordGoalReached ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-stone-900 dark:bg-stone-100"
+            )}
+          />
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 z-[60] bg-stone-900/60 backdrop-blur-md flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white dark:bg-stone-900 p-8 rounded-3xl max-w-sm w-full space-y-8 shadow-2xl border border-stone-200 dark:border-stone-800"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold">Настройки текста</h3>
+              <button 
+                onClick={() => setShowSettings(false)}
+                className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Шрифт</label>
+                <select 
+                  value={fontFamily}
+                  onChange={(e) => setFontFamily(e.target.value)}
+                  className="w-full bg-stone-50 dark:bg-stone-800 p-4 rounded-xl font-bold dark:text-stone-100 outline-none cursor-pointer"
+                >
+                  <option value="Inter">Inter (Sans)</option>
+                  <option value="Playfair Display">Playfair (Serif)</option>
+                  <option value="JetBrains Mono">JetBrains (Mono)</option>
+                  <option value="Cormorant Garamond">Cormorant (Elegant)</option>
+                  <option value="Space Grotesk">Space (Modern)</option>
+                </select>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Размер шрифта: {fontSize}px</label>
+                <input 
+                  type="range"
+                  min="14"
+                  max="32"
+                  value={fontSize}
+                  onChange={(e) => setFontSize(Number(e.target.value))}
+                  className="w-full h-2 bg-stone-100 dark:bg-stone-800 rounded-lg appearance-none cursor-pointer accent-stone-900 dark:accent-stone-100"
+                />
+              </div>
+            </div>
+
+            <button 
+              onClick={() => setShowSettings(false)}
+              className="w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-4 rounded-xl font-bold shadow-lg"
+            >
+              Готово
+            </button>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Cancel Confirmation Modal */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-[60] bg-stone-900/60 backdrop-blur-md flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white dark:bg-stone-900 w-full max-w-sm rounded-3xl p-8 shadow-2xl space-y-6 text-center"
+          >
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mx-auto">
+              <X size={32} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold dark:text-stone-100">Отменить сессию?</h3>
+              <p className="text-stone-500 dark:text-stone-400 text-sm">Весь несохраненный прогресс будет безвозвратно удален.</p>
+            </div>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowCancelConfirm(false)}
+                className="flex-1 px-4 py-3 border border-stone-200 dark:border-stone-800 rounded-xl font-bold hover:bg-stone-50 dark:hover:bg-stone-800 transition-all"
+              >
+                Назад
+              </button>
+              <button 
+                onClick={handleCancel}
+                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all"
+              >
+                Удалить
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Review & Save Modal */}
+      {status === 'finished' && (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-md flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white dark:bg-stone-900 w-full max-w-lg rounded-3xl p-8 shadow-2xl space-y-8"
+          >
+            <div className="text-center space-y-2">
+              <h3 className="text-2xl font-bold dark:text-stone-100">Сессия завершена!</h3>
+              <p className="text-stone-500 dark:text-stone-400">Настройте параметры публикации перед сохранением.</p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div className="p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl">
+                <div className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">Слова</div>
+                <div className="text-xl font-mono font-bold dark:text-stone-100">{wordCount}</div>
+              </div>
+              <div className="p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl">
+                <div className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">Время</div>
+                <div className="text-xl font-mono font-bold dark:text-stone-100">{formatTime(seconds)}</div>
+              </div>
+              <div className="p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl">
+                <div className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">WPM</div>
+                <div className="text-xl font-mono font-bold dark:text-stone-100">{wpm}</div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-stone-200 dark:bg-stone-700 rounded-full flex items-center justify-center text-stone-500 dark:text-stone-400">
+                    <Globe size={20} />
+                  </div>
+                  <div>
+                    <div className="font-bold text-sm dark:text-stone-100">Публичный доступ</div>
+                    <div className="text-xs text-stone-500">Ваш текст увидят другие авторы</div>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsPublic(!isPublic)}
+                  className={cn(
+                    "w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center",
+                    isPublic ? "bg-emerald-500" : "bg-stone-300 dark:bg-stone-600"
+                  )}
+                >
+                  <motion.div 
+                    animate={{ x: isPublic ? 24 : 0 }}
+                    className="w-4 h-4 bg-white rounded-full shadow-sm"
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-stone-200 dark:bg-stone-700 rounded-full flex items-center justify-center text-stone-500 dark:text-stone-400">
+                    <UserIcon size={20} />
+                  </div>
+                  <div>
+                    <div className="font-bold text-sm dark:text-stone-100">Анонимно</div>
+                    <div className="text-xs text-stone-500">Скрыть ваше имя в ленте</div>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsAnonymous(!isAnonymous)}
+                  className={cn(
+                    "w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center",
+                    isAnonymous ? "bg-stone-900 dark:bg-stone-100" : "bg-stone-300 dark:bg-stone-600"
+                  )}
+                >
+                  <motion.div 
+                    animate={{ x: isAnonymous ? 24 : 0 }}
+                    className="w-4 h-4 bg-white dark:bg-stone-900 rounded-full shadow-sm"
+                  />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setStatus('writing')}
+                className="flex-1 px-6 py-4 border border-stone-200 dark:border-stone-800 rounded-2xl font-bold hover:bg-stone-50 dark:hover:bg-stone-800 transition-all"
+              >
+                Вернуться
+              </button>
+              <button 
+                onClick={handleSave}
+                className="flex-1 px-6 py-4 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-2xl font-bold shadow-xl hover:scale-105 transition-all"
+              >
+                Сохранить
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* Header Controls */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm">
-        <div className="flex items-center gap-6">
-          <div className="flex flex-col relative">
+      <div className="w-full bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 sticky top-0 z-40 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center gap-6 overflow-x-auto no-scrollbar">
+            <div className="flex flex-col relative shrink-0">
             <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1 flex items-center gap-1">
               Время {sessionType === 'timer' && timeGoalReached && <CheckCircle2 size={10} className="text-emerald-500" />}
             </span>
@@ -259,13 +467,32 @@ export function WritingView({ user, profile }: WritingViewProps) {
 
         <div className="flex items-center gap-3">
           {status === 'idle' && (
-            <button 
-              onClick={() => setSetupMode('selection')}
-              className="w-full md:w-auto flex items-center justify-center gap-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-8 py-4 rounded-2xl font-bold shadow-xl shadow-stone-200 dark:shadow-none hover:scale-105 transition-all"
-            >
-              <Play size={20} fill="currentColor" />
-              Начать сессию
-            </button>
+            <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+              <button 
+                onClick={() => setSetupMode('selection')}
+                className="flex items-center justify-center gap-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-8 py-4 rounded-2xl font-bold shadow-xl shadow-stone-200 dark:shadow-none hover:scale-105 transition-all"
+              >
+                <Play size={20} fill="currentColor" />
+                Новая сессия
+              </button>
+              {hasDraft && (
+                <button 
+                  onClick={() => setStatus('writing')}
+                  className="flex items-center justify-center gap-2 bg-white dark:bg-stone-900 border-2 border-stone-900 dark:border-stone-100 text-stone-900 dark:text-stone-100 px-8 py-4 rounded-2xl font-bold hover:bg-stone-50 dark:hover:bg-stone-800 transition-all"
+                >
+                  <Clock size={20} />
+                  Продолжить сессию
+                </button>
+              )}
+              <button 
+                onClick={() => setShowSettings(true)}
+                className="flex items-center justify-center gap-2 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 px-6 py-4 rounded-2xl font-bold hover:bg-stone-200 dark:hover:bg-stone-700 transition-all"
+                title="Настройки текста"
+              >
+                <Settings size={20} />
+                Настройки
+              </button>
+            </div>
           )}
           {status === 'writing' && (
             <>
@@ -305,8 +532,8 @@ export function WritingView({ user, profile }: WritingViewProps) {
           )}
           {(status === 'writing' || status === 'paused') && (
             <button 
-              onClick={handleCancel}
-              className="p-2 md:p-3 text-stone-400 hover:text-red-500 transition-colors"
+              onClick={() => setShowCancelConfirm(true)}
+              className="p-2 md:p-3 text-stone-400 hover:text-red-500 transition-colors shrink-0"
               title="Отменить сессию"
             >
               <X size={24} />
@@ -314,9 +541,11 @@ export function WritingView({ user, profile }: WritingViewProps) {
           )}
         </div>
       </div>
+      </div>
 
-      {/* Editor Area */}
-      <div className="space-y-4">
+      <div className="max-w-4xl mx-auto px-4 space-y-8">
+        {/* Editor Area */}
+        <div className="space-y-4">
         {status !== 'idle' && (
           <input 
             type="text"
@@ -443,97 +672,33 @@ export function WritingView({ user, profile }: WritingViewProps) {
         )}
 
         {status !== 'idle' && (
-          <div className="flex items-center gap-2 mb-4">
-            <button 
-              onClick={() => handleAiAction('shorten')}
-              disabled={isAiLoading || !content.trim()}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 rounded-lg text-xs font-bold hover:bg-stone-200 dark:hover:bg-stone-700 transition-all disabled:opacity-50"
-            >
-              <Zap size={14} className="text-amber-500" /> Сократить (AI)
-            </button>
-            <button 
-              onClick={() => handleAiAction('accents')}
-              disabled={isAiLoading || !content.trim()}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 rounded-lg text-xs font-bold hover:bg-stone-200 dark:hover:bg-stone-700 transition-all disabled:opacity-50"
-            >
-              <Zap size={14} className="text-indigo-500" /> Улучшить стиль (AI)
-            </button>
-            <button 
-              onClick={() => handleAiAction('ideas')}
-              disabled={isAiLoading || !content.trim()}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 rounded-lg text-xs font-bold hover:bg-stone-200 dark:hover:bg-stone-700 transition-all disabled:opacity-50"
-            >
-              <Zap size={14} className="text-emerald-500" /> Идеи (AI)
-            </button>
-            {isAiLoading && (
-              <div className="w-4 h-4 border-2 border-stone-300 border-t-stone-900 dark:border-stone-700 dark:border-t-stone-100 rounded-full animate-spin ml-2" />
-            )}
-          </div>
+          <div className="h-4" />
         )}
 
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
           disabled={status === 'idle' || status === 'paused'}
-          placeholder={status === 'idle' ? "Нажмите 'Начать сессию', чтобы приступить к письму..." : "Пишите всё, что на уме..."}
+          placeholder={status === 'idle' ? "Нажмите 'Новая сессия', чтобы приступить к письму..." : "Пишите всё, что на уме..."}
+          style={{ 
+            fontSize: `${fontSize}px`,
+            fontFamily: fontFamily === 'Inter' ? 'Inter, sans-serif' : 
+                        fontFamily === 'Playfair Display' ? '"Playfair Display", serif' :
+                        fontFamily === 'JetBrains Mono' ? '"JetBrains Mono", monospace' :
+                        fontFamily === 'Cormorant Garamond' ? '"Cormorant Garamond", serif' :
+                        fontFamily === 'Space Grotesk' ? '"Space Grotesk", sans-serif' : 'inherit'
+          }}
           className={cn(
-            "w-full min-h-[400px] md:min-h-[500px] p-6 md:p-12 bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm focus:shadow-xl focus:border-stone-300 dark:focus:border-stone-700 transition-all outline-none text-lg md:text-xl leading-relaxed resize-none dark:text-stone-100",
+            "w-full min-h-[400px] md:min-h-[500px] p-6 md:p-12 bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm focus:shadow-xl focus:border-stone-300 dark:focus:border-stone-700 transition-all outline-none leading-relaxed resize-none dark:text-stone-100",
             (status === 'idle' || status === 'paused') && "opacity-50 cursor-not-allowed"
           )}
         />
-        
+      </div>
+      </div>
+
+        {/* Tags Input */}
         {status !== 'idle' && (
-          <div className="absolute bottom-6 right-8 flex items-center gap-6">
-            <label className="flex items-center gap-2 cursor-pointer group/label">
-              <input 
-                type="checkbox" 
-                checked={isAnonymous} 
-                onChange={(e) => setIsAnonymous(e.target.checked)}
-                className="hidden"
-              />
-              <div className={cn(
-                "w-10 h-6 rounded-full p-1 transition-colors duration-300 flex items-center",
-                isAnonymous ? "bg-stone-900 dark:bg-stone-100" : "bg-stone-200 dark:bg-stone-800"
-              )}>
-                <motion.div 
-                  animate={{ x: isAnonymous ? 16 : 0 }}
-                  className="w-4 h-4 bg-white dark:bg-stone-900 rounded-full shadow-sm"
-                />
-              </div>
-              <span className="text-sm font-medium text-stone-500 dark:text-stone-400 group-hover/label:text-stone-900 dark:group-hover/label:text-stone-100 transition-colors">
-                Анонимно
-              </span>
-            </label>
-
-            <label className="flex items-center gap-2 cursor-pointer group/label">
-              <input 
-                type="checkbox" 
-                checked={isPublic} 
-                onChange={(e) => setIsPublic(e.target.checked)}
-                className="hidden"
-              />
-              <div className={cn(
-                "w-10 h-6 rounded-full p-1 transition-colors duration-300 flex items-center",
-                isPublic ? "bg-emerald-500" : "bg-stone-200 dark:bg-stone-800"
-              )}>
-                <motion.div 
-                  animate={{ x: isPublic ? 16 : 0 }}
-                  className="w-4 h-4 bg-white rounded-full shadow-sm"
-                />
-              </div>
-              <span className="text-sm font-medium text-stone-500 dark:text-stone-400 group-hover/label:text-stone-900 dark:group-hover/label:text-stone-100 transition-colors flex items-center gap-1.5">
-                {isPublic ? <Globe size={14} /> : <Lock size={14} />}
-                {isPublic ? "Публично" : "Приватно"}
-              </span>
-            </label>
-          </div>
-        )}
-      </div>
-      </div>
-
-      {/* Tags Input */}
-      {status !== 'idle' && (
-        <div className="flex flex-wrap items-center gap-2 p-4 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800">
+          <div className="flex flex-wrap items-center gap-2 p-4 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800">
           <div className="flex flex-wrap gap-2">
             {tags.map(tag => (
               <span key={tag} className="flex items-center gap-1 px-2 py-1 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 rounded-lg text-xs font-medium">
@@ -552,6 +717,7 @@ export function WritingView({ user, profile }: WritingViewProps) {
           />
         </div>
       )}
+      </div>
     </motion.div>
   );
 }
