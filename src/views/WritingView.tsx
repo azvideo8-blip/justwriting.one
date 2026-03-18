@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { 
   Pause, Play, Square, X, Zap, Timer, 
-  Globe, Lock, Clock, Type, PenLine 
+  Globe, Lock, Clock, Type, PenLine, CheckCircle2, Target
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
@@ -17,19 +17,24 @@ interface WritingViewProps {
 
 export function WritingView({ user, profile }: WritingViewProps) {
   const [status, setStatus] = useState<'idle' | 'writing' | 'paused' | 'finished'>('idle');
-  const [setupMode, setSetupMode] = useState<'selection' | 'timer-config' | 'countdown' | null>(null);
-  const [sessionType, setSessionType] = useState<'stopwatch' | 'timer'>('stopwatch');
+  const [setupMode, setSetupMode] = useState<'selection' | 'timer-config' | 'words-config' | 'countdown' | null>(null);
+  const [sessionType, setSessionType] = useState<'stopwatch' | 'timer' | 'words'>('stopwatch');
   const [timerDuration, setTimerDuration] = useState(15 * 60); // Default 15 mins
+  const [wordGoal, setWordGoal] = useState(500); // Default 500 words
   const [countdown, setCountdown] = useState<number | null>(null);
   
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
   const [seconds, setSeconds] = useState(0);
   const [wpm, setWpm] = useState(0);
+  const [wordCount, setWordCount] = useState(0);
   const [isPublic, setIsPublic] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+  
+  const [timeGoalReached, setTimeGoalReached] = useState(false);
+  const [wordGoalReached, setWordGoalReached] = useState(false);
   
   const timerRef = useRef<any>(null);
   const countdownRef = useRef<any>(null);
@@ -38,12 +43,20 @@ export function WritingView({ user, profile }: WritingViewProps) {
   useEffect(() => {
     const draft = localStorage.getItem(`draft_${user.uid}`);
     if (draft) {
-      const { content: savedContent, title: savedTitle, seconds: savedSeconds, sessionType: savedType, timerDuration: savedDuration } = JSON.parse(draft);
+      const { 
+        content: savedContent, 
+        title: savedTitle, 
+        seconds: savedSeconds, 
+        sessionType: savedType, 
+        timerDuration: savedDuration,
+        wordGoal: savedWordGoal
+      } = JSON.parse(draft);
       setContent(savedContent);
       setTitle(savedTitle || '');
       setSeconds(savedSeconds);
-      setSessionType(savedType);
-      setTimerDuration(savedDuration);
+      setSessionType(savedType || 'stopwatch');
+      setTimerDuration(savedDuration || 15 * 60);
+      setWordGoal(savedWordGoal || 500);
     }
   }, [user.uid]);
 
@@ -56,10 +69,11 @@ export function WritingView({ user, profile }: WritingViewProps) {
         seconds,
         sessionType,
         timerDuration,
+        wordGoal,
         updatedAt: new Date().toISOString()
       }));
     }
-  }, [content, title, seconds, status, user.uid, sessionType, timerDuration]);
+  }, [content, title, seconds, status, user.uid, sessionType, timerDuration, wordGoal]);
 
   useEffect(() => {
     if (status === 'writing') {
@@ -67,8 +81,7 @@ export function WritingView({ user, profile }: WritingViewProps) {
         setSeconds(s => {
           const next = s + 1;
           if (sessionType === 'timer' && next >= timerDuration) {
-            handleFinish();
-            return s;
+            setTimeGoalReached(true);
           }
           return next;
         });
@@ -80,18 +93,24 @@ export function WritingView({ user, profile }: WritingViewProps) {
   }, [status, sessionType, timerDuration]);
 
   useEffect(() => {
+    const words = content.trim().split(/\s+/).filter(x => x.length > 3).length;
+    setWordCount(words);
     if (seconds > 0) {
-      const words = content.trim().split(/\s+/).filter(x => x.length > 3).length;
       setWpm(Math.round((words / seconds) * 60));
     }
-  }, [content, seconds]);
+    if (sessionType === 'words' && words >= wordGoal) {
+      setWordGoalReached(true);
+    }
+  }, [content, seconds, sessionType, wordGoal]);
 
   const handleStart = () => {
     setStatus('writing');
     setSetupMode(null);
+    setTimeGoalReached(false);
+    setWordGoalReached(false);
   };
 
-  const startCountdown = (type: 'stopwatch' | 'timer') => {
+  const startCountdown = (type: 'stopwatch' | 'timer' | 'words') => {
     setSessionType(type);
     setSetupMode('countdown');
     setCountdown(3);
@@ -110,7 +129,7 @@ export function WritingView({ user, profile }: WritingViewProps) {
   const handlePause = () => setStatus('paused');
   const handleFinish = async () => {
     setStatus('finished');
-    const wordCount = content.trim().split(/\s+/).filter(x => x.length > 3).length;
+    const currentWordCount = content.trim().split(/\s+/).filter(x => x.length > 3).length;
     
     try {
       await addDoc(collection(db, 'sessions'), {
@@ -122,12 +141,14 @@ export function WritingView({ user, profile }: WritingViewProps) {
         title,
         content,
         duration: seconds,
-        wordCount,
+        wordCount: currentWordCount,
         charCount: content.length,
         wpm,
         isPublic,
         tags,
-        createdAt: Timestamp.now()
+        createdAt: Timestamp.now(),
+        sessionType,
+        goalReached: sessionType === 'timer' ? timeGoalReached : (sessionType === 'words' ? wordGoalReached : true)
       });
       
       localStorage.removeItem(`draft_${user.uid}`);
@@ -184,14 +205,29 @@ export function WritingView({ user, profile }: WritingViewProps) {
       {/* Header Controls */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm">
         <div className="flex items-center gap-6">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1">Время</span>
-            <span className="text-3xl font-mono font-bold dark:text-stone-100">{formatTime(seconds)}</span>
+          <div className="flex flex-col relative">
+            <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1 flex items-center gap-1">
+              Время {sessionType === 'timer' && timeGoalReached && <CheckCircle2 size={10} className="text-emerald-500" />}
+            </span>
+            <span className={cn(
+              "text-3xl font-mono font-bold transition-colors",
+              sessionType === 'timer' && timeGoalReached ? "text-emerald-500" : "dark:text-stone-100"
+            )}>
+              {formatTime(seconds)}
+            </span>
           </div>
           <div className="h-10 w-px bg-stone-100 dark:bg-stone-800" />
-          <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1">Слова</span>
-            <span className="text-3xl font-mono font-bold dark:text-stone-100">{content.trim().split(/\s+/).filter(x => x.length > 3).length}</span>
+          <div className="flex flex-col relative">
+            <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1 flex items-center gap-1">
+              Слова {sessionType === 'words' && wordGoalReached && <CheckCircle2 size={10} className="text-emerald-500" />}
+            </span>
+            <span className={cn(
+              "text-3xl font-mono font-bold transition-colors",
+              sessionType === 'words' && wordGoalReached ? "text-emerald-500" : "dark:text-stone-100"
+            )}>
+              {wordCount}
+              {sessionType === 'words' && <span className="text-sm text-stone-400 ml-1">/ {wordGoal}</span>}
+            </span>
           </div>
           <div className="h-10 w-px bg-stone-100 dark:bg-stone-800" />
           <div className="flex flex-col">
@@ -274,7 +310,7 @@ export function WritingView({ user, profile }: WritingViewProps) {
           <div className="absolute inset-0 z-20 bg-white/90 dark:bg-stone-950/90 backdrop-blur-sm rounded-3xl flex items-center justify-center p-6">
             <div className="max-w-md w-full space-y-6 text-center">
               <h3 className="text-2xl font-bold">Выберите режим сессии</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <button 
                   onClick={() => startCountdown('stopwatch')}
                   className="flex flex-col items-center gap-4 p-6 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl hover:border-stone-400 transition-all group"
@@ -282,9 +318,9 @@ export function WritingView({ user, profile }: WritingViewProps) {
                   <div className="w-12 h-12 bg-stone-900 dark:bg-stone-100 rounded-full flex items-center justify-center text-white dark:text-stone-900">
                     <Zap size={24} />
                   </div>
-                  <div className="text-left">
-                    <span className="block font-bold">Секундомер</span>
-                    <span className="text-xs text-stone-500">Пишите без ограничений</span>
+                  <div className="text-center">
+                    <span className="block font-bold">Свободный</span>
+                    <span className="text-[10px] text-stone-500 uppercase tracking-wider">Без ограничений</span>
                   </div>
                 </button>
                 <button 
@@ -294,9 +330,21 @@ export function WritingView({ user, profile }: WritingViewProps) {
                   <div className="w-12 h-12 bg-stone-900 dark:bg-stone-100 rounded-full flex items-center justify-center text-white dark:text-stone-900">
                     <Timer size={24} />
                   </div>
-                  <div className="text-left">
+                  <div className="text-center">
                     <span className="block font-bold">Таймер</span>
-                    <span className="text-xs text-stone-500">Установите цель по времени</span>
+                    <span className="text-[10px] text-stone-500 uppercase tracking-wider">Цель по времени</span>
+                  </div>
+                </button>
+                <button 
+                  onClick={() => setSetupMode('words-config')}
+                  className="flex flex-col items-center gap-4 p-6 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl hover:border-stone-400 transition-all group"
+                >
+                  <div className="w-12 h-12 bg-stone-900 dark:bg-stone-100 rounded-full flex items-center justify-center text-white dark:text-stone-900">
+                    <Target size={24} />
+                  </div>
+                  <div className="text-center">
+                    <span className="block font-bold">Слова</span>
+                    <span className="text-[10px] text-stone-500 uppercase tracking-wider">Цель по словам</span>
                   </div>
                 </button>
               </div>
@@ -342,6 +390,34 @@ export function WritingView({ user, profile }: WritingViewProps) {
             >
               {countdown === 0 ? "GO!" : countdown}
             </motion.div>
+          </div>
+        )}
+
+        {setupMode === 'words-config' && (
+          <div className="absolute inset-0 z-20 bg-white/90 dark:bg-stone-950/90 backdrop-blur-sm rounded-3xl flex items-center justify-center p-6">
+            <div className="max-w-sm w-full space-y-8 text-center">
+              <h3 className="text-2xl font-bold">Цель по словам</h3>
+              <div className="flex flex-col gap-6">
+                <div className="flex flex-col items-center gap-4">
+                  <input 
+                    type="number" 
+                    value={wordGoal}
+                    onChange={(e) => setWordGoal(Number(e.target.value))}
+                    className="w-32 text-center text-4xl font-bold bg-transparent border-b-2 border-stone-900 dark:border-stone-100 outline-none"
+                    min="10"
+                    step="50"
+                  />
+                  <div className="text-stone-400 text-sm font-bold uppercase tracking-widest">слов</div>
+                </div>
+                <button 
+                  onClick={() => startCountdown('words')}
+                  className="w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-4 rounded-xl font-bold shadow-lg"
+                >
+                  Начать
+                </button>
+              </div>
+              <button onClick={() => setSetupMode('selection')} className="text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 text-sm font-medium">Назад</button>
+            </div>
           </div>
         )}
 
