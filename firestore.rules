@@ -41,8 +41,11 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          (request.auth.token.email == "freudcries@gmail.com" && request.auth.token.email_verified == true));
+        (
+          (request.auth.token.email == "freudcries@gmail.com" && request.auth.token.email_verified == true) ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+        );
     }
 
     function isValidEmail(email) {
@@ -70,15 +73,18 @@ service cloud.firestore {
     // User profiles
     match /users/{userId} {
       // Allow users to read their own profile, or admins to read any profile.
-      // To fix the "Missing or insufficient permissions" error for the current user, 
-      // we ensure they can always read their own document.
-      allow read: if isOwner(userId) || isAdmin();
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       
       allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
                       (!('role' in request.resource.data) || request.resource.data.role == 'user' || isAdmin());
       
       allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
                       (request.resource.data.role == resource.data.role || isAdmin());
+    }
+
+    // Connection test
+    match /_connection_test_/{docId} {
+      allow read: if true;
     }
 
     // Sessions
