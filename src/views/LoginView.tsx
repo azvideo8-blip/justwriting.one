@@ -48,6 +48,13 @@ export function LoginView() {
       if (err.code === 'auth/wrong-password') msg = "Неверный пароль.";
       if (err.code === 'auth/email-already-in-use') msg = "Этот email уже используется.";
       if (err.code === 'auth/weak-password') msg = "Пароль слишком простой.";
+      if (err.code === 'auth/invalid-credential') msg = "Неверный email или пароль.";
+      if (err.code === 'auth/operation-not-allowed') {
+        msg = "Вход по Email не включен в консоли Firebase. Пожалуйста, включите провайдера 'Email/Password' в настройках Authentication.";
+      }
+      if (err.code === 'auth/network-request-failed') {
+        msg = "Ошибка сети при попытке входа. Проверьте соединение или убедитесь, что провайдер Email включен в консоли Firebase.";
+      }
       setError(msg);
     } finally {
       setLoading(false);
@@ -63,7 +70,7 @@ export function LoginView() {
       >
         <div className="space-y-4">
           <div className="w-16 h-16 bg-stone-900 dark:bg-stone-100 rounded-2xl flex items-center justify-center text-white dark:text-stone-900 font-bold text-4xl mx-auto shadow-2xl">J</div>
-          <h1 className="text-5xl font-bold tracking-tight dark:text-stone-100">JustWrite.io</h1>
+          <h1 className="text-5xl font-bold tracking-tight dark:text-stone-100">justwriting.one</h1>
           <p className="text-stone-500 dark:text-stone-400 text-lg leading-relaxed">
             Минималистичное пространство для писателей.
           </p>
