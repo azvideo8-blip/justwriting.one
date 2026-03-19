@@ -37,6 +37,7 @@ export function WritingView({ user, profile }: WritingViewProps) {
   const [tagInput, setTagInput] = useState('');
   const [fontSize, setFontSize] = useState(20);
   const [fontFamily, setFontFamily] = useState('Inter');
+  const [textWidth, setTextWidth] = useState<'centered' | 'full'>('centered');
   
   const [timeGoalReached, setTimeGoalReached] = useState(false);
   const [wordGoalReached, setWordGoalReached] = useState(false);
@@ -60,7 +61,8 @@ export function WritingView({ user, profile }: WritingViewProps) {
         timerDuration: savedDuration,
         wordGoal: savedWordGoal,
         fontSize: savedFontSize,
-        fontFamily: savedFontFamily
+        fontFamily: savedFontFamily,
+        textWidth: savedTextWidth
       } = JSON.parse(draft);
       setContent(savedContent);
       setTitle(savedTitle || '');
@@ -70,6 +72,7 @@ export function WritingView({ user, profile }: WritingViewProps) {
       setWordGoal(savedWordGoal || 500);
       if (savedFontSize) setFontSize(savedFontSize);
       if (savedFontFamily) setFontFamily(savedFontFamily);
+      if (savedTextWidth) setTextWidth(savedTextWidth);
     }
   }, [user.uid]);
 
@@ -85,10 +88,11 @@ export function WritingView({ user, profile }: WritingViewProps) {
         wordGoal,
         fontSize,
         fontFamily,
+        textWidth,
         updatedAt: new Date().toISOString()
       }));
     }
-  }, [content, title, seconds, status, user.uid, sessionType, timerDuration, wordGoal, fontSize, fontFamily]);
+  }, [content, title, seconds, status, user.uid, sessionType, timerDuration, wordGoal, fontSize, fontFamily, textWidth]);
 
   useEffect(() => {
     if (status === 'writing') {
@@ -250,10 +254,10 @@ export function WritingView({ user, profile }: WritingViewProps) {
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white dark:bg-stone-900 p-8 rounded-3xl max-w-sm w-full space-y-8 shadow-2xl border border-stone-200 dark:border-stone-800"
+            className="bg-white dark:bg-stone-900 p-8 rounded-3xl max-w-md w-full space-y-8 shadow-2xl border border-stone-200 dark:border-stone-800 max-h-[90vh] overflow-y-auto no-scrollbar"
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold">Настройки текста</h3>
+              <h3 className="text-xl font-bold">Настройки</h3>
               <button 
                 onClick={() => setShowSettings(false)}
                 className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full transition-colors"
@@ -263,6 +267,7 @@ export function WritingView({ user, profile }: WritingViewProps) {
             </div>
 
             <div className="space-y-6">
+
               <div className="space-y-3">
                 <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Шрифт</label>
                 <select 
@@ -276,6 +281,30 @@ export function WritingView({ user, profile }: WritingViewProps) {
                   <option value="Cormorant Garamond">Cormorant (Elegant)</option>
                   <option value="Space Grotesk">Space (Modern)</option>
                 </select>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Ширина текста</label>
+                <div className="flex bg-stone-50 dark:bg-stone-800 p-1 rounded-xl">
+                  <button 
+                    onClick={() => setTextWidth('centered')}
+                    className={cn(
+                      "flex-1 py-3 rounded-lg font-bold text-sm transition-all",
+                      textWidth === 'centered' ? "bg-white dark:bg-stone-900 shadow-sm" : "text-stone-500"
+                    )}
+                  >
+                    По центру
+                  </button>
+                  <button 
+                    onClick={() => setTextWidth('full')}
+                    className={cn(
+                      "flex-1 py-3 rounded-lg font-bold text-sm transition-all",
+                      textWidth === 'full' ? "bg-white dark:bg-stone-900 shadow-sm" : "text-stone-500"
+                    )}
+                  >
+                    На всю ширину
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-3">
@@ -439,7 +468,7 @@ export function WritingView({ user, profile }: WritingViewProps) {
               Время {sessionType === 'timer' && timeGoalReached && <CheckCircle2 size={10} className="text-emerald-500" />}
             </span>
             <span className={cn(
-              "text-3xl font-mono font-bold transition-colors",
+              "text-2xl font-mono font-bold transition-colors",
               sessionType === 'timer' && timeGoalReached ? "text-emerald-500" : "dark:text-stone-100"
             )}>
               {formatTime(seconds)}
@@ -451,7 +480,7 @@ export function WritingView({ user, profile }: WritingViewProps) {
               Слова {sessionType === 'words' && wordGoalReached && <CheckCircle2 size={10} className="text-emerald-500" />}
             </span>
             <span className={cn(
-              "text-3xl font-mono font-bold transition-colors",
+              "text-2xl font-mono font-bold transition-colors",
               sessionType === 'words' && wordGoalReached ? "text-emerald-500" : "dark:text-stone-100"
             )}>
               {wordCount}
@@ -461,7 +490,7 @@ export function WritingView({ user, profile }: WritingViewProps) {
           <div className="h-10 w-px bg-stone-100 dark:bg-stone-800" />
           <div className="flex flex-col">
             <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1">WPM</span>
-            <span className="text-3xl font-mono font-bold dark:text-stone-100">{wpm}</span>
+            <span className="text-2xl font-mono font-bold dark:text-stone-100">{wpm}</span>
           </div>
         </div>
 
@@ -543,7 +572,10 @@ export function WritingView({ user, profile }: WritingViewProps) {
       </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 space-y-8">
+      <div className={cn(
+        "mx-auto px-4 space-y-8 transition-all duration-500",
+        textWidth === 'full' ? "max-w-none" : "max-w-4xl"
+      )}>
         {/* Editor Area */}
         <div className="space-y-4">
         {status !== 'idle' && (

@@ -40,26 +40,15 @@ export default function App() {
   const [isConnected, setIsConnected] = useState(true);
   
   const isAdmin = profile?.role === 'admin' || user?.email === 'freudcries@gmail.com';
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('theme') === 'dark';
-    }
-    return false;
-  });
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add('dark');
+    root.style.colorScheme = 'dark';
+  }, []);
 
   useEffect(() => {
     return onConnectionChange(setIsConnected);
   }, []);
-
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [darkMode]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -142,13 +131,6 @@ export default function App() {
           <div className="h-6 w-px bg-stone-200 dark:bg-stone-800 mx-2" />
           
           <button 
-            onClick={() => setDarkMode(!darkMode)}
-            className="p-2 text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 transition-colors"
-          >
-            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-
-          <button 
             onClick={() => signOut(auth)}
             className="flex items-center gap-2 text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 transition-colors"
             title="Выйти"
@@ -160,12 +142,6 @@ export default function App() {
 
         {/* Mobile Header Actions */}
         <div className="flex md:hidden items-center gap-2">
-          <button 
-            onClick={() => setDarkMode(!darkMode)}
-            className="p-2 text-stone-500 dark:text-stone-400"
-          >
-            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
           <img src={user.photoURL || ''} className="w-8 h-8 rounded-full border border-stone-200 dark:border-stone-800" referrerPolicy="no-referrer" />
         </div>
       </nav>

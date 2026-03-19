@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
 import { onSnapshot, collection, query, where, orderBy, doc, setDoc } from 'firebase/firestore';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { 
-  TrendingUp, PenLine, User as UserIcon, Sparkles, Check, X, Cloud, ArrowLeft
+  TrendingUp, PenLine, User as UserIcon, Sparkles, Check, X, Cloud, ArrowLeft, Calendar as CalendarIcon
 } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { Session } from '../types';
@@ -25,6 +26,10 @@ export function ProfileView({ user, profile }: ProfileViewProps) {
   const [editingNickname, setEditingNickname] = useState(false);
   const [newNickname, setNewNickname] = useState(profile?.nickname || '');
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
+
+  // Date range for activity chart
+  const [startDate, setStartDate] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [endDate, setEndDate] = useState<Date>(() => endOfWeek(new Date(), { weekStartsOn: 1 }));
 
   useEffect(() => {
     const q = query(
@@ -222,14 +227,37 @@ export function ProfileView({ user, profile }: ProfileViewProps) {
 
           {/* Statistics Chart */}
           <div className="bg-white dark:bg-stone-900 p-8 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold dark:text-stone-100">Активность за неделю</h3>
-              <div className="flex items-center gap-2 text-stone-400 dark:text-stone-500 text-xs font-bold uppercase tracking-widest">
-                <TrendingUp size={14} />
-                Прогресс
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h3 className="text-xl font-bold dark:text-stone-100">Активность</h3>
+                <p className="text-xs text-stone-400 font-medium">
+                  {format(startDate, 'd MMM')} — {format(endDate, 'd MMM')}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 bg-stone-50 dark:bg-stone-800 p-1 rounded-xl border border-stone-100 dark:border-stone-700">
+                  <div className="flex items-center gap-1 px-2">
+                    <CalendarIcon size={12} className="text-stone-400" />
+                    <input 
+                      type="date" 
+                      value={format(startDate, 'yyyy-MM-dd')}
+                      onChange={(e) => setStartDate(new Date(e.target.value))}
+                      className="bg-transparent text-[10px] font-bold outline-none dark:text-stone-100"
+                    />
+                  </div>
+                  <div className="w-px h-4 bg-stone-200 dark:bg-stone-700" />
+                  <div className="flex items-center gap-1 px-2">
+                    <input 
+                      type="date" 
+                      value={format(endDate, 'yyyy-MM-dd')}
+                      onChange={(e) => setEndDate(new Date(e.target.value))}
+                      className="bg-transparent text-[10px] font-bold outline-none dark:text-stone-100"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
-            <SessionChart sessions={sessions} />
+            <SessionChart sessions={sessions} startDate={startDate} endDate={endDate} />
           </div>
         </div>
 

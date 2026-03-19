@@ -1,18 +1,80 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;700&family=Cormorant+Garamond:wght@400;600&family=Space+Grotesk:wght@400;700&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-stone-50: #fafaf9;
+  --color-stone-100: #f5f5f4;
+  --color-stone-200: #e7e5e4;
+  --color-stone-300: #d6d3d1;
+  --color-stone-400: #a8a29e;
+  --color-stone-500: #78716c;
+  --color-stone-600: #57534e;
+  --color-stone-700: #44403c;
+  --color-stone-800: #292524;
+  --color-stone-900: #1c1917;
+  --color-stone-950: #0c0a09;
 }
 
 @layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  .dark {
+    color-scheme: dark;
+  }
+
   body {
     @apply bg-stone-50 text-stone-900 antialiased transition-colors duration-300;
   }
+
   .dark body {
     @apply bg-stone-950 text-stone-100;
+  }
+
+  /* Global overrides for dark mode to fix remaining white elements */
+  .dark .bg-white {
+    background-color: var(--color-stone-900) !important;
+  }
+  
+  .dark .bg-white\/80 {
+    background-color: rgba(28, 25, 23, 0.8) !important;
+  }
+
+  .dark .bg-white\/90 {
+    background-color: rgba(28, 25, 23, 0.9) !important;
+  }
+
+  .dark .bg-stone-50 {
+    background-color: var(--color-stone-950) !important;
+  }
+
+  .dark .hover\:bg-stone-50:hover {
+    background-color: var(--color-stone-800) !important;
+  }
+
+  .dark .hover\:bg-stone-100:hover {
+    background-color: var(--color-stone-800) !important;
+  }
+
+  .dark .border-stone-200 {
+    border-color: var(--color-stone-800) !important;
+  }
+
+  .dark .text-stone-900 {
+    color: var(--color-stone-100) !important;
+  }
+
+  .dark .text-stone-700 {
+    color: var(--color-stone-200) !important;
+  }
+
+  .dark .text-stone-500 {
+    color: var(--color-stone-400) !important;
   }
 }
 
