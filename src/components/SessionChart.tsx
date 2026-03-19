@@ -1,5 +1,5 @@
 import React from 'react';
-import { format, subDays } from 'date-fns';
+import { format, eachDayOfInterval } from 'date-fns';
 import { 
   BarChart, 
   Bar, 
@@ -10,29 +10,30 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 import { Session } from '../types';
-
 import { parseFirestoreDate } from '../lib/utils';
 
 interface SessionChartProps {
   sessions: Session[];
+  startDate: Date;
+  endDate: Date;
 }
 
-export function SessionChart({ sessions }: SessionChartProps) {
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const d = subDays(new Date(), i);
-    return format(d, 'yyyy-MM-dd');
-  }).reverse();
+export function SessionChart({ sessions, startDate, endDate }: SessionChartProps) {
+  const days = eachDayOfInterval({
+    start: startDate,
+    end: endDate
+  });
 
-  const data = last7Days.map(date => {
+  const data = days.map(day => {
+    const dateStr = format(day, 'yyyy-MM-dd');
     const daySessions = sessions.filter(s => {
       const sDate = parseFirestoreDate(s.createdAt);
-      return format(sDate, 'yyyy-MM-dd') === date;
+      return format(sDate, 'yyyy-MM-dd') === dateStr;
     });
     return {
-      date: format(new Date(date), 'd MMM'),
+      date: format(day, 'd MMM'),
       duration: daySessions.reduce((acc, s) => acc + s.duration, 0) / 60, // in minutes
       wordCount: daySessions.reduce((acc, s) => acc + s.wordCount, 0),
-      charCount: daySessions.reduce((acc, s) => acc + (s.charCount || 0), 0),
     };
   });
 
@@ -40,13 +41,14 @@ export function SessionChart({ sessions }: SessionChartProps) {
     <div className="h-[300px] w-full min-h-[300px]">
       <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" className="opacity-30" />
           <XAxis 
             dataKey="date" 
             axisLine={false} 
             tickLine={false} 
-            tick={{ fontSize: 12, fill: '#9ca3af' }}
+            tick={{ fontSize: 10, fill: 'currentColor' }}
             dy={10}
+            className="text-stone-400"
           />
           <YAxis hide />
           <Tooltip 
@@ -69,7 +71,7 @@ export function SessionChart({ sessions }: SessionChartProps) {
             fill="currentColor" 
             className="text-stone-900 dark:text-stone-100" 
             radius={[6, 6, 0, 0]} 
-            barSize={32}
+            barSize={24}
           />
         </BarChart>
       </ResponsiveContainer>
