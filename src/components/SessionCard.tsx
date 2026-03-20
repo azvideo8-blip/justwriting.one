@@ -11,30 +11,11 @@ import { Session } from '../types';
 import { parseFirestoreDate, cn } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
-export function SessionCard({ session, showAuthor }: { session: Session, showAuthor?: boolean }) {
+import { SessionEditor } from './SessionEditor';
+
+export function SessionCard({ session, showAuthor, onContinue }: { session: Session, showAuthor?: boolean, onContinue?: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState(session.content);
-  const [editTitle, setEditTitle] = useState(session.title || '');
-  const [editTags, setEditTags] = useState<string[]>(session.tags || []);
-  const [editIsPublic, setEditIsPublic] = useState(session.isPublic);
-  const [tagInput, setTagInput] = useState('');
-
-  const handleSave = async () => {
-    try {
-      await updateDoc(doc(db, 'sessions', session.id), {
-        content: editContent,
-        title: editTitle,
-        tags: editTags,
-        isPublic: editIsPublic,
-        wordCount: editContent.trim().split(/\s+/).filter(x => x.length > 3).length,
-        charCount: editContent.length
-      });
-      setIsEditing(false);
-    } catch (e) {
-      handleFirestoreError(e, OperationType.UPDATE, `sessions/${session.id}`);
-    }
-  };
 
   const exportToTxt = (text: string) => {
     const blob = new Blob([text], { type: 'text/plain' });
@@ -44,17 +25,6 @@ export function SessionCard({ session, showAuthor }: { session: Session, showAut
     a.download = `session_${format(parseFirestoreDate(session.createdAt), 'yyyy-MM-dd_HH-mm')}.txt`;
     a.click();
     URL.revokeObjectURL(url);
-  };
-
-  const addTag = () => {
-    if (tagInput.trim() && !editTags.includes(tagInput.trim())) {
-      setEditTags([...editTags, tagInput.trim()]);
-      setTagInput('');
-    }
-  };
-
-  const removeTag = (t: string) => {
-    setEditTags(editTags.filter(tag => tag !== t));
   };
 
   const sessionDate = parseFirestoreDate(session.createdAt);
@@ -118,48 +88,11 @@ export function SessionCard({ session, showAuthor }: { session: Session, showAut
       )}
 
       {isEditing ? (
-        <div className="space-y-4">
-          <input 
-            type="text"
-            value={editTitle}
-            onChange={(e) => setEditTitle(e.target.value)}
-            placeholder="Заголовок..."
-            className="w-full px-4 py-2 bg-stone-50 dark:bg-stone-950 rounded-xl border border-stone-200 dark:border-stone-800 outline-none focus:border-stone-400 transition-all dark:text-stone-100 font-bold"
-          />
-          <textarea 
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            className="w-full min-h-[200px] p-4 bg-stone-50 dark:bg-stone-950 rounded-2xl border border-stone-200 dark:border-stone-800 outline-none focus:border-stone-400 transition-all dark:text-stone-100"
-          />
-          <div className="flex flex-wrap items-center gap-2 p-3 bg-stone-50 dark:bg-stone-950 rounded-xl border border-stone-200 dark:border-stone-800">
-            <div className="flex flex-wrap gap-2">
-              {editTags.map(tag => (
-                <span key={tag} className="flex items-center gap-1 px-2 py-1 bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400 rounded-lg text-xs font-medium">
-                  #{tag}
-                  <button onClick={() => removeTag(tag)} className="hover:text-red-500"><X size={10} /></button>
-                </span>
-              ))}
-            </div>
-            <input 
-              type="text"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addTag()}
-              placeholder="Добавить тег..."
-              className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm dark:text-stone-100"
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={editIsPublic} onChange={(e) => setEditIsPublic(e.target.checked)} className="rounded border-stone-300" />
-              <span className="text-sm text-stone-500">Публичная заметка</span>
-            </label>
-            <div className="flex gap-2">
-              <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-stone-500 hover:text-stone-900 dark:hover:text-stone-100 font-medium">Отмена</button>
-              <button onClick={handleSave} className="px-6 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-bold">Сохранить</button>
-            </div>
-          </div>
-        </div>
+        <SessionEditor 
+          session={session} 
+          onCancel={() => setIsEditing(false)} 
+          onSave={() => setIsEditing(false)} 
+        />
       ) : (
         <div className={cn("relative", !expanded && "max-h-24 overflow-hidden")}>
           <p className="text-stone-600 dark:text-stone-300 leading-relaxed whitespace-pre-wrap">
@@ -171,11 +104,27 @@ export function SessionCard({ session, showAuthor }: { session: Session, showAut
         </div>
       )}
 
-      {!isEditing && session.tags && session.tags.length > 0 && (
-        <div className="flex flex-wrap gap-2 pt-2">
-          {session.tags.map(tag => (
-            <span key={tag} className="text-xs font-medium text-stone-400">#{tag}</span>
-          ))}
+      {!isEditing && (
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-stone-100 dark:border-stone-800">
+          <div className="flex flex-wrap gap-2">
+            {session.tags && session.tags.length > 0 ? (
+              session.tags.map(tag => (
+                <span key={tag} className="text-xs font-medium text-stone-400">#{tag}</span>
+              ))
+            ) : (
+              <span className="text-xs text-stone-300 dark:text-stone-600 italic">Нет тегов</span>
+            )}
+          </div>
+          
+          {onContinue && auth.currentUser?.uid === session.userId && (
+            <button 
+              onClick={onContinue}
+              className="flex items-center gap-2 px-6 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-bold hover:opacity-90 transition-opacity text-sm"
+            >
+              <PenLine size={16} />
+              Продолжить писать
+            </button>
+          )}
         </div>
       )}
     </motion.div>
