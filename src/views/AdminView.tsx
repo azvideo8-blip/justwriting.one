@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Users, Database, Shield, AlertTriangle, Search, Trash2 } from 'lucide-react';
+import { Users, Database, Shield, AlertTriangle } from 'lucide-react';
 import { collection, query, getDocs, limit, orderBy, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { parseFirestoreDate } from '../lib/utils';
-import { format } from 'date-fns';
+import { AdminUsersTable } from '../components/admin/AdminUsersTable';
+import { AdminSessionsTable } from '../components/admin/AdminSessionsTable';
 
 export function AdminView() {
   const [users, setUsers] = useState<any[]>([]);
@@ -91,60 +91,11 @@ export function AdminView() {
       ) : (
         <div className="bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 overflow-hidden shadow-sm">
           {activeTab === 'users' && (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-stone-50 dark:bg-stone-950 border-b border-stone-200 dark:border-stone-800">
-                  <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Email</th>
-                  <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">UID</th>
-                  <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Роль</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map(u => (
-                  <tr key={u.id} className="border-b border-stone-100 dark:border-stone-800 last:border-0">
-                    <td className="px-6 py-4 text-sm font-medium dark:text-stone-200">{u.email}</td>
-                    <td className="px-6 py-4 text-sm font-mono text-stone-400">{u.uid}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${u.role === 'admin' ? 'bg-red-100 text-red-600' : 'bg-stone-100 text-stone-600'}`}>
-                        {u.role || 'user'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <AdminUsersTable users={users} />
           )}
 
           {activeTab === 'sessions' && (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-stone-50 dark:bg-stone-950 border-b border-stone-200 dark:border-stone-800">
-                  <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Заголовок</th>
-                  <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Автор</th>
-                  <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Дата</th>
-                  <th className="px-6 py-4 text-xs font-bold text-stone-400 uppercase tracking-widest">Действия</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map(s => (
-                  <tr key={s.id} className="border-b border-stone-100 dark:border-stone-800 last:border-0">
-                    <td className="px-6 py-4 text-sm font-medium dark:text-stone-200">{s.title || 'Без названия'}</td>
-                    <td className="px-6 py-4 text-sm text-stone-500">{s.authorName || 'Аноним'}</td>
-                    <td className="px-6 py-4 text-sm text-stone-400">
-                      {s.createdAt ? format(parseFirestoreDate(s.createdAt), 'dd.MM.yyyy HH:mm') : '-'}
-                    </td>
-                    <td className="px-6 py-4">
-                      <button 
-                        onClick={() => handleDeleteSession(s.id)}
-                        className="p-2 text-stone-400 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <AdminSessionsTable sessions={sessions} onDelete={handleDeleteSession} />
           )}
 
           {activeTab === 'security' && (
