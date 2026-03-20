@@ -12,11 +12,14 @@ import { Calendar } from '../components/Calendar';
 import { parseFirestoreDate } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
+import { TagCloud } from '../components/TagCloud';
+
 interface ArchiveViewProps {
   user: User;
+  onContinueSession: (session: Session) => void;
 }
 
-export function ArchiveView({ user }: ArchiveViewProps) {
+export function ArchiveView({ user, onContinueSession }: ArchiveViewProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
@@ -68,7 +71,11 @@ export function ArchiveView({ user }: ArchiveViewProps) {
                 </div>
               ) : (
                 sessionsOnSelectedDate.map(session => (
-                  <SessionCard key={session.id} session={session} />
+                  <SessionCard 
+                    key={session.id} 
+                    session={session} 
+                    onContinue={() => onContinueSession(session)}
+                  />
                 ))
               )}
             </div>
@@ -79,20 +86,7 @@ export function ArchiveView({ user }: ArchiveViewProps) {
         <div className="w-full md:w-80 shrink-0 space-y-8">
           <Calendar sessions={sessions} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
           
-          <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
-            <h3 className="font-bold dark:text-stone-100">Облако тегов</h3>
-            <div className="flex flex-wrap gap-2">
-              {allTags.length === 0 ? (
-                <span className="text-stone-400 text-sm italic">Тегов пока нет</span>
-              ) : (
-                allTags.map(tag => (
-                  <span key={tag} className="px-3 py-1 bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-400 rounded-full text-xs font-medium border border-stone-100 dark:border-stone-700">
-                    #{tag}
-                  </span>
-                ))
-              )}
-            </div>
-          </div>
+          <TagCloud tags={allTags} />
         </div>
       </div>
     </motion.div>
