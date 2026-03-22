@@ -16,8 +16,8 @@ interface WritingSettingsProps {
   setZenModeEnabled: (enabled: boolean) => void;
   dynamicBgEnabled: boolean;
   setDynamicBgEnabled: (enabled: boolean) => void;
-  flowIndicatorEnabled: boolean;
-  setFlowIndicatorEnabled: (enabled: boolean) => void;
+  stickyHeaderEnabled: boolean;
+  setStickyHeaderEnabled: (enabled: boolean) => void;
 }
 
 export function WritingSettings({ 
@@ -33,8 +33,8 @@ export function WritingSettings({
   setZenModeEnabled,
   dynamicBgEnabled,
   setDynamicBgEnabled,
-  flowIndicatorEnabled,
-  setFlowIndicatorEnabled
+  stickyHeaderEnabled,
+  setStickyHeaderEnabled
 }: WritingSettingsProps) {
   if (!showSettings) return null;
 
@@ -148,19 +148,19 @@ export function WritingSettings({
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <label className="text-sm font-bold">Индикатор потока</label>
-                <p className="text-[10px] text-stone-500">Пульсирующая линия под текстом</p>
+                <label className="text-sm font-bold">Закрепленная панель</label>
+                <p className="text-[10px] text-stone-500">Статистика всегда видна при скролле</p>
               </div>
               <button 
-                onClick={() => setFlowIndicatorEnabled(!flowIndicatorEnabled)}
+                onClick={() => setStickyHeaderEnabled(!stickyHeaderEnabled)}
                 className={cn(
                   "w-12 h-6 rounded-full transition-colors relative",
-                  flowIndicatorEnabled ? "bg-stone-900 dark:bg-stone-100" : "bg-stone-200 dark:bg-stone-800"
+                  stickyHeaderEnabled ? "bg-stone-900 dark:bg-stone-100" : "bg-stone-200 dark:bg-stone-800"
                 )}
               >
                 <div className={cn(
                   "absolute top-1 w-4 h-4 rounded-full transition-all",
-                  flowIndicatorEnabled ? "right-1 bg-white dark:bg-stone-900" : "left-1 bg-white dark:bg-stone-400"
+                  stickyHeaderEnabled ? "right-1 bg-white dark:bg-stone-900" : "left-1 bg-white dark:bg-stone-400"
                 )} />
               </button>
             </div>
