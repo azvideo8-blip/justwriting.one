@@ -5,7 +5,7 @@ import { onSnapshot, collection, query, where, orderBy } from 'firebase/firestor
 import { startOfWeek, endOfWeek } from 'date-fns';
 import { db } from '../lib/firebase';
 import { Session } from '../types';
-import { calculateStreak } from '../lib/utils';
+import { calculateStreak, parseFirestoreDate } from '../lib/utils';
 import { Calendar } from '../components/Calendar';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { ProfileHeader } from '../components/profile/ProfileHeader';
@@ -29,18 +29,38 @@ export function ProfileView({ user, profile }: ProfileViewProps) {
   const [startDate, setStartDate] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [endDate, setEndDate] = useState<Date>(() => endOfWeek(new Date(), { weekStartsOn: 1 }));
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
+    setLoading(true);
+    setError(null);
+
+    // Remove orderBy to avoid composite index requirement
     const q = query(
       collection(db, 'sessions'),
-      where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', user.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Session));
+      // Sort client-side
+      docs.sort((a, b) => {
+        const dateA = parseFirestoreDate(a.createdAt).getTime();
+        const dateB = parseFirestoreDate(b.createdAt).getTime();
+        return dateB - dateA;
+      });
       setSessions(docs);
+      setLoading(false);
     }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, 'sessions');
+      console.error('Profile load error:', err);
+      setError('Не удалось загрузить данные профиля.');
+      setLoading(false);
+      try {
+        handleFirestoreError(err, OperationType.LIST, 'sessions');
+      } catch (e) {
+        // Logged
+      }
     });
 
     return unsubscribe;
@@ -51,6 +71,20 @@ export function ProfileView({ user, profile }: ProfileViewProps) {
   const totalWords = sessions.reduce((acc, s) => acc + s.wordCount, 0);
   const totalNotes = sessions.length;
   const maxSessionDuration = sessions.reduce((acc, s) => Math.max(acc, s.duration / 60), 0);
+
+  if (loading) {
+    return (
+      <div className="text-stone-400 italic text-center py-24">Загрузка профиля...</div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-12 text-center bg-red-50 dark:bg-red-900/10 rounded-3xl border border-red-100 dark:border-red-900/30">
+        <p className="text-red-600 dark:text-red-400">{error}</p>
+      </div>
+    );
+  }
 
   if (selectedWord) {
     return (

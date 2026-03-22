@@ -6,25 +6,44 @@ import { db } from '../lib/firebase';
 import { Session } from '../types';
 import { SessionCard } from '../components/SessionCard';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { parseFirestoreDate } from '../lib/utils';
 
 export function FeedView() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
+    setLoading(true);
+    setError(null);
+
+    // Remove orderBy to avoid composite index requirement
     const q = query(
       collection(db, 'sessions'),
       where('isPublic', '==', true),
-      orderBy('createdAt', 'desc'),
-      limit(50)
+      limit(100) // Increased limit to allow client-side sorting
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Session));
-      setSessions(docs);
+      // Sort client-side
+      docs.sort((a, b) => {
+        const dateA = parseFirestoreDate(a.createdAt).getTime();
+        const dateB = parseFirestoreDate(b.createdAt).getTime();
+        return dateB - dateA;
+      });
+      setSessions(docs.slice(0, 50)); // Keep only top 50 after sorting
       setLoading(false);
     }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, 'sessions');
+      console.error('Feed load error:', err);
+      setError('Не удалось загрузить ленту. Пожалуйста, проверьте соединение.');
+      setLoading(false);
+      try {
+        handleFirestoreError(err, OperationType.LIST, 'sessions');
+      } catch (e) {
+        // Logged to console
+      }
     });
 
     return unsubscribe;
@@ -46,6 +65,10 @@ export function FeedView() {
       <div className="space-y-8">
         {loading ? (
           <div className="text-stone-400 italic text-center py-12">Загрузка ленты...</div>
+        ) : error ? (
+          <div className="p-12 text-center bg-red-50 dark:bg-red-900/10 rounded-3xl border border-red-100 dark:border-red-900/30">
+            <p className="text-red-600 dark:text-red-400">{error}</p>
+          </div>
         ) : sessions.length === 0 ? (
           <div className="p-12 text-center bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800">
             <p className="text-stone-400">Лента пока пуста. Будьте первым, кто поделится своей сессией!</p>
