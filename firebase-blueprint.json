@@ -25,6 +25,7 @@
         "duration": { "type": "number", "description": "Duration in seconds" },
         "wordCount": { "type": "number" },
         "wpm": { "type": "number" },
+        "pinnedThought": { "type": "string" },
         "isPublic": { "type": "boolean" },
         "createdAt": { "type": "string", "format": "date-time" },
         "aiEdits": {

@@ -1,12 +1,14 @@
 import React from 'react';
-import { motion } from 'motion/react';
-import { Pause, Square, Play, X, X as XIcon } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Pause, Square, Play, X, X as XIcon, Pin, PinOff } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface WritingEditorProps {
   status: 'idle' | 'writing' | 'paused' | 'finished';
   title: string;
   setTitle: (title: string) => void;
+  pinnedThought: string;
+  setPinnedThought: (thought: string) => void;
   content: string;
   setContent: (content: string) => void;
   fontSize: number;
@@ -25,12 +27,16 @@ interface WritingEditorProps {
   dynamicBgEnabled?: boolean;
   flowIndicatorEnabled?: boolean;
   wpm?: number;
+  saveStatus: 'idle' | 'saving' | 'saved' | 'error';
+  lastSavedAt: number | null;
 }
 
 export function WritingEditor({
   status,
   title,
   setTitle,
+  pinnedThought,
+  setPinnedThought,
   content,
   setContent,
   fontSize,
@@ -48,19 +54,63 @@ export function WritingEditor({
   isZenActive = false,
   dynamicBgEnabled = false,
   flowIndicatorEnabled = false,
-  wpm = 0
+  wpm = 0,
+  saveStatus,
+  lastSavedAt
 }: WritingEditorProps) {
+  const [showPinnedInput, setShowPinnedInput] = React.useState(false);
+  const [hasSelection, setHasSelection] = React.useState(false);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  // Check for text selection
+  const checkSelection = () => {
+    if (textareaRef.current) {
+      const start = textareaRef.current.selectionStart;
+      const end = textareaRef.current.selectionEnd;
+      setHasSelection(start !== end);
+    }
+  };
+
+  const handlePinSelection = () => {
+    if (!textareaRef.current) return;
+    const start = textareaRef.current.selectionStart;
+    const end = textareaRef.current.selectionEnd;
+    const selectedText = content.substring(start, end).trim();
+    
+    if (selectedText) {
+      setPinnedThought(selectedText);
+      setShowPinnedInput(true);
+      // Clear selection after pinning
+      textareaRef.current.setSelectionRange(end, end);
+      setHasSelection(false);
+    } else {
+      setShowPinnedInput(!showPinnedInput);
+    }
+  };
+
+  // Keyboard shortcut Alt+P to pin selection
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        handlePinSelection();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [content, pinnedThought, showPinnedInput]);
+
   // Calculate dynamic background color based on WPM
   // WPM 0 -> bg-white / bg-stone-900
   // WPM 60+ -> saturated warm color
   const getDynamicBgStyle = () => {
     if (!dynamicBgEnabled || status !== 'writing') return {};
-    // Increase sensitivity: reach max intensity at 60 WPM instead of 80
-    const intensity = Math.min(wpm / 60, 1); 
-    const hue = 35; // Slightly more golden
-    const saturation = intensity * 40; // Increased saturation from 20 to 40
-    const lightness = 100 - (intensity * 10); // More significant lightness drop for light mode
-    const darkLightness = 10 + (intensity * 10); // More significant lightness increase for dark mode
+    // Reach max intensity at 50 WPM
+    const intensity = Math.min(wpm / 50, 1); 
+    const hue = 30; // More amber/orange
+    const saturation = intensity * 60; // Increased saturation
+    const lightness = 100 - (intensity * 15); // More significant lightness drop
+    const darkLightness = 10 + (intensity * 15); // More significant lightness increase
     
     return {
       '--dynamic-bg-light': `hsl(${hue}, ${saturation}%, ${lightness}%)`,
@@ -81,14 +131,63 @@ export function WritingEditor({
         isZenActive ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
       )}>
         {status !== 'idle' && (
-          <input 
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Заголовок (необязательно)..."
-            className="w-full px-6 py-4 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm focus:shadow-md outline-none text-xl font-bold dark:text-stone-100 transition-all"
-            style={{ backgroundColor: dynamicBgEnabled ? 'var(--dynamic-bg-light, inherit)' : undefined }}
-          />
+          <div className="flex-1 flex flex-col gap-2">
+            <div className="relative flex items-center gap-2">
+              <input 
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Заголовок (необязательно)..."
+                className="w-full px-6 py-4 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm focus:shadow-md outline-none text-xl font-bold dark:text-stone-100 transition-all"
+                style={{ backgroundColor: dynamicBgEnabled ? 'var(--dynamic-bg-light, inherit)' : undefined }}
+              />
+              <button 
+                onClick={handlePinSelection}
+                className={cn(
+                  "p-3 rounded-xl border transition-all shrink-0 flex items-center gap-2",
+                  (pinnedThought || showPinnedInput || hasSelection)
+                    ? "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border-stone-900 dark:border-stone-100" 
+                    : "bg-white dark:bg-stone-900 text-stone-400 border-stone-200 dark:border-stone-800 hover:border-stone-400"
+                )}
+                title={hasSelection ? "Закрепить выделенное (Alt+P)" : "Закрепить мысль"}
+              >
+                <Pin size={20} className={cn(hasSelection && "animate-pulse")} />
+                {hasSelection && <span className="text-[10px] font-bold uppercase tracking-tighter hidden sm:inline">Закрепить</span>}
+              </button>
+            </div>
+
+            <AnimatePresence>
+              {(showPinnedInput || pinnedThought) && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="relative group/pinned">
+                    <textarea
+                      value={pinnedThought}
+                      onChange={(e) => setPinnedThought(e.target.value)}
+                      placeholder="Закрепленная мысль или цитата..."
+                      rows={2}
+                      className="w-full px-6 py-3 bg-stone-50 dark:bg-stone-950/50 border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-2xl outline-none text-sm italic text-stone-600 dark:text-stone-400 resize-none transition-all focus:border-stone-400 dark:focus:border-stone-600"
+                    />
+                    {pinnedThought && (
+                      <button 
+                        onClick={() => {
+                          setPinnedThought('');
+                          setShowPinnedInput(false);
+                        }}
+                        className="absolute top-2 right-2 p-1 text-stone-400 hover:text-red-500 opacity-0 group-hover/pinned:opacity-100 transition-opacity"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         )}
         <div className="flex items-center gap-3">
           {status === 'writing' && (
@@ -145,8 +244,15 @@ export function WritingEditor({
         )}
 
         <textarea
+          ref={textareaRef}
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={(e) => {
+            setContent(e.target.value);
+            checkSelection();
+          }}
+          onSelect={checkSelection}
+          onKeyUp={checkSelection}
+          onMouseUp={checkSelection}
           disabled={status === 'idle' || status === 'paused'}
           placeholder={status === 'idle' ? "Нажмите 'Новая сессия', чтобы приступить к письму..." : "Пишите всё, что на уме..."}
           style={{ 
@@ -164,6 +270,22 @@ export function WritingEditor({
             dynamicBgEnabled && "dark:!bg-[var(--dynamic-bg-dark)]"
           )}
         />
+
+        {/* Save Status Indicator */}
+        {status !== 'idle' && (
+          <div className={cn(
+            "absolute bottom-4 right-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all duration-500 pointer-events-none",
+            isZenActive ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0",
+            saveStatus === 'saving' ? "text-stone-400 animate-pulse" :
+            saveStatus === 'saved' ? "text-emerald-500" :
+            saveStatus === 'error' ? "text-red-500" : "text-stone-300 dark:text-stone-600"
+          )}>
+            {saveStatus === 'saving' && "Сохранение..."}
+            {saveStatus === 'saved' && "Сохранено"}
+            {saveStatus === 'error' && "Ошибка сохранения"}
+            {saveStatus === 'idle' && lastSavedAt && `Сохранено ${new Date(lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+          </div>
+        )}
 
         {flowIndicatorEnabled && status === 'writing' && (
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none">

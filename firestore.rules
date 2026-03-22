@@ -39,13 +39,12 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // Dynamic admin check: only checks the 'role' field in the user's document.
+    // No hardcoded emails.
     function isAdmin() {
       return isAuthenticated() &&
-        (
-          (request.auth.token.email == "freudcries@gmail.com" && request.auth.token.email_verified == true) ||
-          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
-        );
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isValidEmail(email) {
@@ -67,6 +66,7 @@ service cloud.firestore {
              data.duration is number && data.duration >= 0 &&
              data.createdAt is timestamp &&
              (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
+             (!('pinnedThought' in data) || (data.pinnedThought is string && data.pinnedThought.size() <= 2000)) &&
              (!('tags' in data) || (data.tags is list && data.tags.size() <= 10));
     }
 
@@ -75,9 +75,15 @@ service cloud.firestore {
       // Allow users to read their own profile, or admins to read any profile.
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       
+      // Allow creation of a profile. 
+      // A new user can only set their role to 'user'. 
+      // Only an existing admin can create a profile with the 'admin' role.
       allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
                       (!('role' in request.resource.data) || request.resource.data.role == 'user' || isAdmin());
       
+      // Allow updates to a profile.
+      // A user cannot change their own role unless they are already an admin.
+      // Only an existing admin can change a user's role to 'admin'.
       allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
                       (request.resource.data.role == resource.data.role || isAdmin());
     }
