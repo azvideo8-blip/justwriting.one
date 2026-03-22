@@ -12,6 +12,12 @@ interface WritingSettingsProps {
   setTextWidth: (width: 'centered' | 'full') => void;
   fontSize: number;
   setFontSize: (size: number) => void;
+  zenModeEnabled: boolean;
+  setZenModeEnabled: (enabled: boolean) => void;
+  dynamicBgEnabled: boolean;
+  setDynamicBgEnabled: (enabled: boolean) => void;
+  flowIndicatorEnabled: boolean;
+  setFlowIndicatorEnabled: (enabled: boolean) => void;
 }
 
 export function WritingSettings({ 
@@ -22,7 +28,13 @@ export function WritingSettings({
   textWidth, 
   setTextWidth, 
   fontSize, 
-  setFontSize 
+  setFontSize,
+  zenModeEnabled,
+  setZenModeEnabled,
+  dynamicBgEnabled,
+  setDynamicBgEnabled,
+  flowIndicatorEnabled,
+  setFlowIndicatorEnabled
 }: WritingSettingsProps) {
   if (!showSettings) return null;
 
@@ -93,6 +105,65 @@ export function WritingSettings({
               onChange={(e) => setFontSize(Number(e.target.value))}
               className="w-full h-2 bg-stone-100 dark:bg-stone-800 rounded-lg appearance-none cursor-pointer accent-stone-900 dark:accent-stone-100"
             />
+          </div>
+
+          <div className="space-y-4 pt-4 border-t border-stone-100 dark:border-stone-800">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <label className="text-sm font-bold">Интерфейс-невидимка</label>
+                <p className="text-[10px] text-stone-500">Скрывать UI во время письма</p>
+              </div>
+              <button 
+                onClick={() => setZenModeEnabled(!zenModeEnabled)}
+                className={cn(
+                  "w-12 h-6 rounded-full transition-colors relative",
+                  zenModeEnabled ? "bg-stone-900 dark:bg-stone-100" : "bg-stone-200 dark:bg-stone-800"
+                )}
+              >
+                <div className={cn(
+                  "absolute top-1 w-4 h-4 rounded-full transition-all",
+                  zenModeEnabled ? "right-1 bg-white dark:bg-stone-900" : "left-1 bg-white dark:bg-stone-400"
+                )} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <label className="text-sm font-bold">Живой фон</label>
+                <p className="text-[10px] text-stone-500">Цвет меняется от скорости WPM</p>
+              </div>
+              <button 
+                onClick={() => setDynamicBgEnabled(!dynamicBgEnabled)}
+                className={cn(
+                  "w-12 h-6 rounded-full transition-colors relative",
+                  dynamicBgEnabled ? "bg-stone-900 dark:bg-stone-100" : "bg-stone-200 dark:bg-stone-800"
+                )}
+              >
+                <div className={cn(
+                  "absolute top-1 w-4 h-4 rounded-full transition-all",
+                  dynamicBgEnabled ? "right-1 bg-white dark:bg-stone-900" : "left-1 bg-white dark:bg-stone-400"
+                )} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <label className="text-sm font-bold">Индикатор потока</label>
+                <p className="text-[10px] text-stone-500">Пульсирующая линия под текстом</p>
+              </div>
+              <button 
+                onClick={() => setFlowIndicatorEnabled(!flowIndicatorEnabled)}
+                className={cn(
+                  "w-12 h-6 rounded-full transition-colors relative",
+                  flowIndicatorEnabled ? "bg-stone-900 dark:bg-stone-100" : "bg-stone-200 dark:bg-stone-800"
+                )}
+              >
+                <div className={cn(
+                  "absolute top-1 w-4 h-4 rounded-full transition-all",
+                  flowIndicatorEnabled ? "right-1 bg-white dark:bg-stone-900" : "left-1 bg-white dark:bg-stone-400"
+                )} />
+              </button>
+            </div>
           </div>
         </div>
 

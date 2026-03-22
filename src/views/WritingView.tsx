@@ -54,9 +54,47 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
   const [showSettings, setShowSettings] = useState(false);
   const [tagInput, setTagInput] = useState('');
   
-  const [fontSize, setFontSize] = useState(20);
-  const [fontFamily, setFontFamily] = useState('Inter');
-  const [textWidth, setTextWidth] = useState<'centered' | 'full'>('centered');
+  const [fontSize, setFontSize] = useState(() => Number(localStorage.getItem('writing_fontSize')) || 20);
+  const [fontFamily, setFontFamily] = useState(() => localStorage.getItem('writing_fontFamily') || 'Inter');
+  const [textWidth, setTextWidth] = useState<'centered' | 'full'>(() => (localStorage.getItem('writing_textWidth') as any) || 'full');
+  const [zenModeEnabled, setZenModeEnabled] = useState(() => localStorage.getItem('writing_zenModeEnabled') === 'true');
+  const [dynamicBgEnabled, setDynamicBgEnabled] = useState(() => localStorage.getItem('writing_dynamicBgEnabled') === 'true');
+  const [flowIndicatorEnabled, setFlowIndicatorEnabled] = useState(() => localStorage.getItem('writing_flowIndicatorEnabled') === 'true');
+  
+  const [isZenActive, setIsZenActive] = useState(false);
+  const zenTimerRef = useRef<any>(null);
+
+  // Persist settings
+  useEffect(() => {
+    localStorage.setItem('writing_fontSize', fontSize.toString());
+    localStorage.setItem('writing_fontFamily', fontFamily);
+    localStorage.setItem('writing_textWidth', textWidth);
+    localStorage.setItem('writing_zenModeEnabled', zenModeEnabled.toString());
+    localStorage.setItem('writing_dynamicBgEnabled', dynamicBgEnabled.toString());
+    localStorage.setItem('writing_flowIndicatorEnabled', flowIndicatorEnabled.toString());
+  }, [fontSize, fontFamily, textWidth, zenModeEnabled, dynamicBgEnabled, flowIndicatorEnabled]);
+
+  // Zen Mode Logic
+  useEffect(() => {
+    if (status !== 'writing' || !zenModeEnabled) {
+      setIsZenActive(false);
+      return;
+    }
+
+    const handleActivity = () => {
+      setIsZenActive(true);
+      if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
+      zenTimerRef.current = setTimeout(() => {
+        setIsZenActive(false);
+      }, 3000);
+    };
+
+    window.addEventListener('keydown', handleActivity);
+    return () => {
+      window.removeEventListener('keydown', handleActivity);
+      if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
+    };
+  }, [status, zenModeEnabled]);
 
   const countdownRef = useRef<any>(null);
 
@@ -170,6 +208,12 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         setTextWidth={setTextWidth}
         fontSize={fontSize}
         setFontSize={setFontSize}
+        zenModeEnabled={zenModeEnabled}
+        setZenModeEnabled={setZenModeEnabled}
+        dynamicBgEnabled={dynamicBgEnabled}
+        setDynamicBgEnabled={setDynamicBgEnabled}
+        flowIndicatorEnabled={flowIndicatorEnabled}
+        setFlowIndicatorEnabled={setFlowIndicatorEnabled}
       />
 
       {showCancelConfirm && (
@@ -219,6 +263,8 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         setIsAnonymous={setIsAnonymous}
         handleSave={handleSave}
         setStatus={setStatus}
+        content={content}
+        title={title}
       />
 
       <WritingHeader 
@@ -238,6 +284,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         hasDraft={hasDraft}
         setStatus={setStatus}
         setShowSettings={setShowSettings}
+        isZenActive={isZenActive}
       />
 
       <div className="relative group">
@@ -273,6 +320,10 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
           setTagInput={setTagInput}
           addTag={addTag}
           removeTag={removeTag}
+          isZenActive={isZenActive}
+          dynamicBgEnabled={dynamicBgEnabled}
+          flowIndicatorEnabled={flowIndicatorEnabled}
+          wpm={wpm}
         />
       </div>
     </motion.div>

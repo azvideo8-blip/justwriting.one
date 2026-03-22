@@ -1,7 +1,10 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Globe, User as UserIcon } from 'lucide-react';
+import { Globe, User as UserIcon, FileText, Download, FileJson } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { jsPDF } from 'jspdf';
+import { Document, Packer, Paragraph, TextRun } from 'docx';
+import { saveAs } from 'file-saver';
 
 interface WritingFinishModalProps {
   status: 'idle' | 'writing' | 'paused' | 'finished';
@@ -15,6 +18,8 @@ interface WritingFinishModalProps {
   setIsAnonymous: (val: boolean) => void;
   handleSave: () => void;
   setStatus: (status: 'idle' | 'writing' | 'paused' | 'finished') => void;
+  content: string;
+  title: string;
 }
 
 export function WritingFinishModal({
@@ -28,16 +33,66 @@ export function WritingFinishModal({
   isAnonymous,
   setIsAnonymous,
   handleSave,
-  setStatus
+  setStatus,
+  content,
+  title
 }: WritingFinishModalProps) {
   if (status !== 'finished') return null;
+
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    const splitTitle = doc.splitTextToSize(title || 'Untitled Session', 180);
+    const splitContent = doc.splitTextToSize(content, 180);
+    
+    doc.setFontSize(20);
+    doc.text(splitTitle, 15, 20);
+    doc.setFontSize(12);
+    doc.text(splitContent, 15, 40);
+    doc.save(`${title || 'session'}.pdf`);
+  };
+
+  const exportMarkdown = () => {
+    const md = `# ${title || 'Untitled Session'}\n\n${content}`;
+    const blob = new Blob([md], { type: 'text/markdown' });
+    saveAs(blob, `${title || 'session'}.md`);
+  };
+
+  const exportDocx = async () => {
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: [
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: title || 'Untitled Session',
+                bold: true,
+                size: 32,
+              }),
+            ],
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: content,
+                size: 24,
+              }),
+            ],
+          }),
+        ],
+      }],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    saveAs(blob, `${title || 'session'}.docx`);
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-md flex items-center justify-center p-4">
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-white dark:bg-stone-900 w-full max-w-lg rounded-3xl p-8 shadow-2xl space-y-8"
+        className="bg-white dark:bg-stone-900 w-full max-w-lg rounded-3xl p-8 shadow-2xl space-y-8 max-h-[90vh] overflow-y-auto no-scrollbar"
       >
         <div className="text-center space-y-2">
           <h3 className="text-2xl font-bold dark:text-stone-100">Сессия завершена!</h3>
@@ -105,6 +160,33 @@ export function WritingFinishModal({
                 animate={{ x: isAnonymous ? 24 : 0 }}
                 className="w-4 h-4 bg-white dark:bg-stone-900 rounded-full shadow-sm"
               />
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Экспорт</label>
+          <div className="grid grid-cols-3 gap-3">
+            <button 
+              onClick={exportPDF}
+              className="flex flex-col items-center gap-2 p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl hover:bg-stone-100 dark:hover:bg-stone-700 transition-all"
+            >
+              <FileText size={20} className="text-red-500" />
+              <span className="text-[10px] font-bold">PDF</span>
+            </button>
+            <button 
+              onClick={exportMarkdown}
+              className="flex flex-col items-center gap-2 p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl hover:bg-stone-100 dark:hover:bg-stone-700 transition-all"
+            >
+              <FileJson size={20} className="text-blue-500" />
+              <span className="text-[10px] font-bold">MD</span>
+            </button>
+            <button 
+              onClick={exportDocx}
+              className="flex flex-col items-center gap-2 p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl hover:bg-stone-100 dark:hover:bg-stone-700 transition-all"
+            >
+              <Download size={20} className="text-emerald-500" />
+              <span className="text-[10px] font-bold">DOCX</span>
             </button>
           </div>
         </div>
