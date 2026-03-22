@@ -28,8 +28,57 @@ export function useWritingSession(user: User, profile: any) {
   const [timeGoalReached, setTimeGoalReached] = useState(false);
   const [wordGoalReached, setWordGoalReached] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const timerRef = useRef<any>(null);
+
+  // Online status listener
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      syncPendingSessions();
+    };
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const syncPendingSessions = async () => {
+    const pending = localStorage.getItem(`pending_sessions_${user.uid}`);
+    if (!pending) return;
+
+    const sessions = JSON.parse(pending);
+    const remaining = [];
+
+    for (const session of sessions) {
+      try {
+        if (session.id) {
+          await updateDoc(doc(db, 'sessions', session.id), {
+            ...session.data,
+            updatedAt: Timestamp.now()
+          });
+        } else {
+          await addDoc(collection(db, 'sessions'), {
+            ...session.data,
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now()
+          });
+        }
+      } catch (e) {
+        remaining.push(session);
+      }
+    }
+
+    if (remaining.length > 0) {
+      localStorage.setItem(`pending_sessions_${user.uid}`, JSON.stringify(remaining));
+    } else {
+      localStorage.removeItem(`pending_sessions_${user.uid}`);
+    }
+  };
 
   // Load draft
   useEffect(() => {
@@ -37,12 +86,14 @@ export function useWritingSession(user: User, profile: any) {
     if (draft) {
       setHasDraft(true);
       const data = JSON.parse(draft);
+      // Smart sync: check if draft is newer than what we might have in state
       setContent(data.content || '');
       setTitle(data.title || '');
       setSeconds(data.seconds || 0);
       setSessionType(data.sessionType || 'stopwatch');
       setTimerDuration(data.timerDuration || 15 * 60);
       setWordGoal(data.wordGoal || 500);
+      if (data.activeSessionId) setActiveSessionId(data.activeSessionId);
     }
   }, [user.uid]);
 
@@ -56,10 +107,11 @@ export function useWritingSession(user: User, profile: any) {
         sessionType,
         timerDuration,
         wordGoal,
+        activeSessionId,
         updatedAt: new Date().toISOString()
       }));
     }
-  }, [content, title, seconds, status, user.uid, sessionType, timerDuration, wordGoal]);
+  }, [content, title, seconds, status, user.uid, sessionType, timerDuration, wordGoal, activeSessionId]);
 
   // Timer logic
   useEffect(() => {
@@ -112,26 +164,36 @@ export function useWritingSession(user: User, profile: any) {
 
   const handleSave = async () => {
     const currentWordCount = content.trim().split(/\s+/).filter(x => x.length > 3).length;
-    try {
-      const sessionData = {
-        userId: user.uid,
-        authorName: user.displayName || 'Anonymous',
-        authorPhoto: user.photoURL || '',
-        nickname: profile?.nickname || '',
-        isAnonymous,
-        title,
-        content,
-        duration: initialDuration + seconds,
-        wordCount: currentWordCount,
-        charCount: content.length,
-        wpm,
-        isPublic,
-        tags,
-        updatedAt: Timestamp.now(),
-        sessionType,
-        goalReached: sessionType === 'timer' ? timeGoalReached : (sessionType === 'words' ? wordGoalReached : true)
-      };
+    const sessionData = {
+      userId: user.uid,
+      authorName: user.displayName || 'Anonymous',
+      authorPhoto: user.photoURL || '',
+      nickname: profile?.nickname || '',
+      isAnonymous,
+      title,
+      content,
+      duration: initialDuration + seconds,
+      wordCount: currentWordCount,
+      charCount: content.length,
+      wpm,
+      isPublic,
+      tags,
+      updatedAt: Timestamp.now(),
+      sessionType,
+      goalReached: sessionType === 'timer' ? timeGoalReached : (sessionType === 'words' ? wordGoalReached : true)
+    };
 
+    if (!isOnline) {
+      const pending = JSON.parse(localStorage.getItem(`pending_sessions_${user.uid}`) || '[]');
+      pending.push({ id: activeSessionId, data: sessionData });
+      localStorage.setItem(`pending_sessions_${user.uid}`, JSON.stringify(pending));
+      localStorage.removeItem(`draft_${user.uid}`);
+      resetSession();
+      setStatus('idle');
+      return;
+    }
+
+    try {
       if (activeSessionId) {
         await updateDoc(doc(db, 'sessions', activeSessionId), sessionData);
       } else {
