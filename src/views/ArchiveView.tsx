@@ -24,19 +24,38 @@ export function ArchiveView({ user, onContinueSession }: ArchiveViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
 
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
+    setLoading(true);
+    setError(null);
+    
+    // Remove orderBy to avoid composite index requirement
     const q = query(
       collection(db, 'sessions'),
-      where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', user.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Session));
+      // Sort client-side
+      docs.sort((a, b) => {
+        const dateA = parseFirestoreDate(a.createdAt).getTime();
+        const dateB = parseFirestoreDate(b.createdAt).getTime();
+        return dateB - dateA;
+      });
       setSessions(docs);
       setLoading(false);
     }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, 'sessions');
+      console.error('Archive load error:', err);
+      setError('Не удалось загрузить архив. Пожалуйста, проверьте соединение.');
+      setLoading(false);
+      // Still call handleFirestoreError for logging, but don't let it crash the UI
+      try {
+        handleFirestoreError(err, OperationType.LIST, 'sessions');
+      } catch (e) {
+        // Error already logged to console by handleFirestoreError
+      }
     });
 
     return unsubscribe;
@@ -65,6 +84,10 @@ export function ArchiveView({ user, onContinueSession }: ArchiveViewProps) {
             <div className="space-y-6">
               {loading ? (
                 <div className="text-stone-400 italic text-center py-12">Загрузка архива...</div>
+              ) : error ? (
+                <div className="p-12 text-center bg-red-50 dark:bg-red-900/10 rounded-3xl border border-red-100 dark:border-red-900/30">
+                  <p className="text-red-600 dark:text-red-400">{error}</p>
+                </div>
               ) : sessionsOnSelectedDate.length === 0 ? (
                 <div className="p-12 text-center bg-stone-50 dark:bg-stone-900/50 rounded-3xl border-2 border-dashed border-stone-200 dark:border-stone-800">
                   <p className="text-stone-400">В этот день вы не писали</p>

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { User } from 'firebase/auth';
-import { collection, addDoc, updateDoc, doc, Timestamp, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, Timestamp, query, where, orderBy, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { Session } from '../types';
 import confetti from 'canvas-confetti';
+import { saveDraft, getDraft, deleteDraft } from '../lib/db';
 
 export function useWritingSession(user: User, profile: any) {
   const [status, setStatus] = useState<'idle' | 'writing' | 'paused' | 'finished'>('idle');
@@ -18,6 +19,7 @@ export function useWritingSession(user: User, profile: any) {
   
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
+  const [pinnedThought, setPinnedThought] = useState('');
   const [seconds, setSeconds] = useState(0);
   const [wpm, setWpm] = useState(0);
   const [wordCount, setWordCount] = useState(0);
@@ -29,6 +31,8 @@ export function useWritingSession(user: User, profile: any) {
   const [wordGoalReached, setWordGoalReached] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
   const timerRef = useRef<any>(null);
 
@@ -45,7 +49,7 @@ export function useWritingSession(user: User, profile: any) {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [user.uid]);
 
   const syncPendingSessions = async () => {
     const pending = localStorage.getItem(`pending_sessions_${user.uid}`);
@@ -80,38 +84,52 @@ export function useWritingSession(user: User, profile: any) {
     }
   };
 
-  // Load draft
+  // Load draft from IndexedDB
   useEffect(() => {
-    const draft = localStorage.getItem(`draft_${user.uid}`);
-    if (draft) {
-      setHasDraft(true);
-      const data = JSON.parse(draft);
-      // Smart sync: check if draft is newer than what we might have in state
-      setContent(data.content || '');
-      setTitle(data.title || '');
-      setSeconds(data.seconds || 0);
-      setSessionType(data.sessionType || 'stopwatch');
-      setTimerDuration(data.timerDuration || 15 * 60);
-      setWordGoal(data.wordGoal || 500);
-      if (data.activeSessionId) setActiveSessionId(data.activeSessionId);
+    if (user) {
+      getDraft(user.uid).then(draft => {
+        if (draft) {
+          setHasDraft(true);
+          setContent(draft.content || '');
+          setTitle(draft.title || '');
+          setPinnedThought(draft.pinnedThought || '');
+          setSeconds(draft.seconds || 0);
+          setWpm(draft.wpm || 0);
+          setWordCount(draft.wordCount || 0);
+          if (draft.activeSessionId) setActiveSessionId(draft.activeSessionId);
+        }
+      });
     }
   }, [user.uid]);
 
-  // Autosave
+  // Autosave to IndexedDB (Debounced)
   useEffect(() => {
-    if (status === 'writing' || status === 'paused') {
-      localStorage.setItem(`draft_${user.uid}`, JSON.stringify({
-        content,
-        title,
-        seconds,
-        sessionType,
-        timerDuration,
-        wordGoal,
-        activeSessionId,
-        updatedAt: new Date().toISOString()
-      }));
+    if ((status === 'writing' || status === 'paused') && user) {
+      const timeout = setTimeout(() => {
+        setSaveStatus('saving');
+        saveDraft({
+          userId: user.uid,
+          title,
+          content,
+          pinnedThought,
+          seconds,
+          wpm,
+          wordCount,
+          activeSessionId,
+          updatedAt: Date.now()
+        }).then(() => {
+          setSaveStatus('saved');
+          setLastSavedAt(Date.now());
+          setTimeout(() => setSaveStatus('idle'), 3000);
+        }).catch((err) => {
+          console.error("Autosave error:", err);
+          setSaveStatus('error');
+        });
+      }, 3000); // Save 3s after last change
+      
+      return () => clearTimeout(timeout);
     }
-  }, [content, title, seconds, status, user.uid, sessionType, timerDuration, wordGoal, activeSessionId]);
+  }, [content, title, seconds, status, user.uid, wpm, wordCount, activeSessionId]);
 
   // Timer logic
   useEffect(() => {
@@ -172,6 +190,7 @@ export function useWritingSession(user: User, profile: any) {
       isAnonymous,
       title,
       content,
+      pinnedThought,
       duration: initialDuration + seconds,
       wordCount: currentWordCount,
       charCount: content.length,
@@ -187,7 +206,7 @@ export function useWritingSession(user: User, profile: any) {
       const pending = JSON.parse(localStorage.getItem(`pending_sessions_${user.uid}`) || '[]');
       pending.push({ id: activeSessionId, data: sessionData });
       localStorage.setItem(`pending_sessions_${user.uid}`, JSON.stringify(pending));
-      localStorage.removeItem(`draft_${user.uid}`);
+      await deleteDraft(user.uid);
       resetSession();
       setStatus('idle');
       return;
@@ -203,7 +222,7 @@ export function useWritingSession(user: User, profile: any) {
         });
       }
       
-      localStorage.removeItem(`draft_${user.uid}`);
+      await deleteDraft(user.uid);
       resetSession();
       setStatus('idle');
     } catch (e) {
@@ -214,6 +233,7 @@ export function useWritingSession(user: User, profile: any) {
   const resetSession = () => {
     setContent('');
     setTitle('');
+    setPinnedThought('');
     setSeconds(0);
     setInitialWordCount(0);
     setInitialDuration(0);
@@ -222,10 +242,12 @@ export function useWritingSession(user: User, profile: any) {
     setIsPublic(false);
     setIsAnonymous(false);
     setHasDraft(false);
+    setSaveStatus('idle');
+    setLastSavedAt(null);
   };
 
-  const handleCancel = () => {
-    localStorage.removeItem(`draft_${user.uid}`);
+  const handleCancel = async () => {
+    await deleteDraft(user.uid);
     resetSession();
     setStatus('idle');
   };
@@ -237,6 +259,7 @@ export function useWritingSession(user: User, profile: any) {
     wordGoal, setWordGoal,
     content, setContent,
     title, setTitle,
+    pinnedThought, setPinnedThought,
     seconds, setSeconds,
     wpm, wordCount,
     isPublic, setIsPublic,
@@ -247,6 +270,8 @@ export function useWritingSession(user: User, profile: any) {
     initialWordCount, setInitialWordCount,
     initialDuration, setInitialDuration,
     activeSessionId, setActiveSessionId,
-    handleStart, handleSave, handleCancel, resetSession
+    saveStatus, lastSavedAt,
+    handleStart, handleSave, handleCancel, resetSession,
+    isOnline
   };
 }

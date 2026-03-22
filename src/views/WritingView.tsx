@@ -33,6 +33,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     wordGoal, setWordGoal,
     content, setContent,
     title, setTitle,
+    pinnedThought, setPinnedThought,
     seconds, setSeconds,
     wpm, wordCount,
     isPublic, setIsPublic,
@@ -43,7 +44,9 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     initialWordCount, setInitialWordCount,
     initialDuration, setInitialDuration,
     activeSessionId, setActiveSessionId,
-    handleStart, handleSave, handleCancel, resetSession
+    saveStatus, lastSavedAt,
+    handleStart, handleSave, handleCancel, resetSession,
+    isOnline
   } = useWritingSession(user, profile);
 
   const [setupMode, setSetupMode] = useState<'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | null>(null);
@@ -86,7 +89,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
       zenTimerRef.current = setTimeout(() => {
         setIsZenActive(false);
-      }, 3000);
+      }, 5000); // Increased to 5s
     };
 
     window.addEventListener('keydown', handleActivity);
@@ -185,6 +188,18 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
       animate={{ opacity: 1 }}
       className="w-full space-y-8 pb-20"
     >
+      {/* Offline Notification */}
+      {!isOnline && (
+        <motion.div 
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-amber-500 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg flex items-center gap-2"
+        >
+          <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+          Работа в офлайн-режиме. Сессия будет сохранена локально.
+        </motion.div>
+      )}
+
       {/* Progress Bar */}
       {status !== 'idle' && sessionType === 'words' && (
         <div className="fixed top-0 left-0 w-full h-1 z-[100] bg-stone-100 dark:bg-stone-800">
@@ -306,6 +321,8 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
           status={status}
           title={title}
           setTitle={setTitle}
+          pinnedThought={pinnedThought}
+          setPinnedThought={setPinnedThought}
           content={content}
           setContent={setContent}
           fontSize={fontSize}
@@ -324,6 +341,8 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
           dynamicBgEnabled={dynamicBgEnabled}
           flowIndicatorEnabled={flowIndicatorEnabled}
           wpm={wpm}
+          saveStatus={saveStatus}
+          lastSavedAt={lastSavedAt}
         />
       </div>
     </motion.div>
