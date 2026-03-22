@@ -19,6 +19,7 @@ interface WritingHeaderProps {
   hasDraft: boolean;
   setStatus: (status: 'idle' | 'writing' | 'paused' | 'finished') => void;
   setShowSettings: (show: boolean) => void;
+  isZenActive?: boolean;
 }
 
 export function WritingHeader({
@@ -37,10 +38,14 @@ export function WritingHeader({
   loadingSessions,
   hasDraft,
   setStatus,
-  setShowSettings
+  setShowSettings,
+  isZenActive = false
 }: WritingHeaderProps) {
   return (
-    <div className="w-full bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 sticky top-0 z-40 shadow-sm">
+    <div className={cn(
+      "w-full bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 sticky top-0 z-40 shadow-sm transition-all duration-1000",
+      isZenActive ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
+    )}>
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-6 overflow-x-auto no-scrollbar">
           <div className="flex flex-col relative shrink-0">
@@ -105,16 +110,16 @@ export function WritingHeader({
                   Черновик
                 </button>
               )}
-              <button 
-                onClick={() => setShowSettings(true)}
-                className="flex items-center justify-center gap-2 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 px-6 py-4 rounded-2xl font-bold hover:bg-stone-200 dark:hover:bg-stone-700 transition-all"
-                title="Настройки текста"
-              >
-                <Settings size={20} />
-                Настройки
-              </button>
             </div>
           )}
+          <button 
+            onClick={() => setShowSettings(true)}
+            className="flex items-center justify-center gap-2 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 px-6 py-4 rounded-2xl font-bold hover:bg-stone-200 dark:hover:bg-stone-700 transition-all"
+            title="Настройки текста"
+          >
+            <Settings size={20} />
+            <span className="hidden md:inline">Настройки</span>
+          </button>
         </div>
       </div>
     </div>
