@@ -60,9 +60,18 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
   const [fontSize, setFontSize] = useState(() => Number(localStorage.getItem('writing_fontSize')) || 20);
   const [fontFamily, setFontFamily] = useState(() => localStorage.getItem('writing_fontFamily') || 'Inter');
   const [textWidth, setTextWidth] = useState<'centered' | 'full'>(() => (localStorage.getItem('writing_textWidth') as any) || 'full');
-  const [zenModeEnabled, setZenModeEnabled] = useState(() => localStorage.getItem('writing_zenModeEnabled') === 'true');
-  const [dynamicBgEnabled, setDynamicBgEnabled] = useState(() => localStorage.getItem('writing_dynamicBgEnabled') === 'true');
-  const [flowIndicatorEnabled, setFlowIndicatorEnabled] = useState(() => localStorage.getItem('writing_flowIndicatorEnabled') === 'true');
+  const [zenModeEnabled, setZenModeEnabled] = useState(() => {
+    const saved = localStorage.getItem('writing_zenModeEnabled');
+    return saved === null ? true : saved === 'true';
+  });
+  const [dynamicBgEnabled, setDynamicBgEnabled] = useState(() => {
+    const saved = localStorage.getItem('writing_dynamicBgEnabled');
+    return saved === null ? true : saved === 'true';
+  });
+  const [stickyHeaderEnabled, setStickyHeaderEnabled] = useState(() => {
+    const saved = localStorage.getItem('writing_stickyHeaderEnabled');
+    return saved === null ? true : saved === 'true';
+  });
   
   const [isZenActive, setIsZenActive] = useState(false);
   const zenTimerRef = useRef<any>(null);
@@ -74,8 +83,8 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     localStorage.setItem('writing_textWidth', textWidth);
     localStorage.setItem('writing_zenModeEnabled', zenModeEnabled.toString());
     localStorage.setItem('writing_dynamicBgEnabled', dynamicBgEnabled.toString());
-    localStorage.setItem('writing_flowIndicatorEnabled', flowIndicatorEnabled.toString());
-  }, [fontSize, fontFamily, textWidth, zenModeEnabled, dynamicBgEnabled, flowIndicatorEnabled]);
+    localStorage.setItem('writing_stickyHeaderEnabled', stickyHeaderEnabled.toString());
+  }, [fontSize, fontFamily, textWidth, zenModeEnabled, dynamicBgEnabled, stickyHeaderEnabled]);
 
   // Zen Mode Logic
   useEffect(() => {
@@ -182,11 +191,35 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     setTags(tags.filter(tag => tag !== t));
   };
 
+  const getDynamicBgStyle = () => {
+    if (!dynamicBgEnabled || status !== 'writing') return {};
+    
+    // Reach max intensity at 20 WPM
+    const intensity = Math.min(wpm / 20, 1); 
+    const hue = 30; // Warm amber
+    const saturation = intensity * 60; 
+    
+    // Light mode: from 100% lightness to ~80%
+    const lightness = 100 - (intensity * 20);
+    // Dark mode: from 12% lightness to ~30%
+    const darkLightness = 12 + (intensity * 18);
+    
+    return {
+      '--dynamic-bg': `hsl(${hue}, ${saturation}%, ${lightness}%)`,
+      '--dynamic-bg-dark': `hsl(${hue}, ${saturation}%, ${darkLightness}%)`,
+      backgroundColor: 'var(--dynamic-bg)',
+    } as React.CSSProperties;
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="w-full space-y-8 pb-20"
+      className={cn(
+        "w-full min-h-screen pb-20 transition-colors duration-1000",
+        dynamicBgEnabled && status === 'writing' && "dark:!bg-[var(--dynamic-bg-dark)]"
+      )}
+      style={getDynamicBgStyle()}
     >
       {/* Offline Notification */}
       {!isOnline && (
@@ -227,8 +260,8 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         setZenModeEnabled={setZenModeEnabled}
         dynamicBgEnabled={dynamicBgEnabled}
         setDynamicBgEnabled={setDynamicBgEnabled}
-        flowIndicatorEnabled={flowIndicatorEnabled}
-        setFlowIndicatorEnabled={setFlowIndicatorEnabled}
+        stickyHeaderEnabled={stickyHeaderEnabled}
+        setStickyHeaderEnabled={setStickyHeaderEnabled}
       />
 
       {showCancelConfirm && (
@@ -300,50 +333,52 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         setStatus={setStatus}
         setShowSettings={setShowSettings}
         isZenActive={isZenActive}
+        stickyHeaderEnabled={stickyHeaderEnabled}
       />
 
-      <div className="relative group">
-        <WritingSetup 
-          setupMode={setupMode}
-          setSetupMode={setSetupMode}
-          startCountdown={startCountdown}
-          timerDuration={timerDuration}
-          setTimerDuration={setTimerDuration}
-          wordGoal={wordGoal}
-          setWordGoal={setWordGoal}
-          countdown={countdown}
-          userSessions={userSessions}
-          continueSession={continueSession}
-          formatTime={formatTime}
-        />
+      <div className="space-y-8 mt-8">
+        <div className="relative group">
+          <WritingSetup 
+            setupMode={setupMode}
+            setSetupMode={setSetupMode}
+            startCountdown={startCountdown}
+            timerDuration={timerDuration}
+            setTimerDuration={setTimerDuration}
+            wordGoal={wordGoal}
+            setWordGoal={setWordGoal}
+            countdown={countdown}
+            userSessions={userSessions}
+            continueSession={continueSession}
+            formatTime={formatTime}
+          />
 
-        <WritingEditor 
-          status={status}
-          title={title}
-          setTitle={setTitle}
-          pinnedThought={pinnedThought}
-          setPinnedThought={setPinnedThought}
-          content={content}
-          setContent={setContent}
-          fontSize={fontSize}
-          fontFamily={fontFamily}
-          textWidth={textWidth}
-          handlePause={() => setStatus('paused')}
-          handleStart={handleStart}
-          handleFinish={() => setStatus('finished')}
-          setShowCancelConfirm={setShowCancelConfirm}
-          tags={tags}
-          tagInput={tagInput}
-          setTagInput={setTagInput}
-          addTag={addTag}
-          removeTag={removeTag}
-          isZenActive={isZenActive}
-          dynamicBgEnabled={dynamicBgEnabled}
-          flowIndicatorEnabled={flowIndicatorEnabled}
-          wpm={wpm}
-          saveStatus={saveStatus}
-          lastSavedAt={lastSavedAt}
-        />
+          <WritingEditor 
+            status={status}
+            title={title}
+            setTitle={setTitle}
+            pinnedThought={pinnedThought}
+            setPinnedThought={setPinnedThought}
+            content={content}
+            setContent={setContent}
+            fontSize={fontSize}
+            fontFamily={fontFamily}
+            textWidth={textWidth}
+            handlePause={() => setStatus('paused')}
+            handleStart={handleStart}
+            handleFinish={() => setStatus('finished')}
+            setShowCancelConfirm={setShowCancelConfirm}
+            tags={tags}
+            tagInput={tagInput}
+            setTagInput={setTagInput}
+            addTag={addTag}
+            removeTag={removeTag}
+            isZenActive={isZenActive}
+            dynamicBgEnabled={dynamicBgEnabled}
+            wpm={wpm}
+            saveStatus={saveStatus}
+            lastSavedAt={lastSavedAt}
+          />
+        </div>
       </div>
     </motion.div>
   );

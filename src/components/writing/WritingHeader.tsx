@@ -20,6 +20,7 @@ interface WritingHeaderProps {
   setStatus: (status: 'idle' | 'writing' | 'paused' | 'finished') => void;
   setShowSettings: (show: boolean) => void;
   isZenActive?: boolean;
+  stickyHeaderEnabled?: boolean;
 }
 
 export function WritingHeader({
@@ -39,11 +40,13 @@ export function WritingHeader({
   hasDraft,
   setStatus,
   setShowSettings,
-  isZenActive = false
+  isZenActive = false,
+  stickyHeaderEnabled = true
 }: WritingHeaderProps) {
   return (
     <div className={cn(
-      "w-full bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 sticky top-0 z-40 shadow-sm transition-all duration-1000",
+      "w-full bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 z-40 shadow-sm transition-all duration-1000",
+      stickyHeaderEnabled && "sticky top-16",
       isZenActive ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
     )}>
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -79,7 +82,17 @@ export function WritingHeader({
           </div>
           <div className="h-10 w-px bg-stone-100 dark:bg-stone-800" />
           <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1">WPM</span>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">WPM</span>
+              {status === 'writing' && (
+                <div className={cn(
+                  "w-2 h-2 rounded-full animate-pulse transition-colors duration-500",
+                  wpm === 0 ? "bg-stone-300" :
+                  wpm < 10 ? "bg-amber-400" :
+                  wpm < 20 ? "bg-lime-400" : "bg-emerald-500"
+                )} />
+              )}
+            </div>
             <span className="text-2xl font-mono font-bold dark:text-stone-100">{wpm}</span>
           </div>
         </div>

@@ -25,7 +25,6 @@ interface WritingEditorProps {
   removeTag: (tag: string) => void;
   isZenActive?: boolean;
   dynamicBgEnabled?: boolean;
-  flowIndicatorEnabled?: boolean;
   wpm?: number;
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt: number | null;
@@ -53,7 +52,6 @@ export function WritingEditor({
   removeTag,
   isZenActive = false,
   dynamicBgEnabled = false,
-  flowIndicatorEnabled = false,
   wpm = 0,
   saveStatus,
   lastSavedAt
@@ -100,35 +98,16 @@ export function WritingEditor({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [content, pinnedThought, showPinnedInput]);
 
-  // Calculate dynamic background color based on WPM
-  // WPM 0 -> bg-white / bg-stone-900
-  // WPM 60+ -> saturated warm color
-  const getDynamicBgStyle = () => {
-    if (!dynamicBgEnabled || status !== 'writing') return {};
-    // Reach max intensity at 50 WPM
-    const intensity = Math.min(wpm / 50, 1); 
-    const hue = 30; // More amber/orange
-    const saturation = intensity * 60; // Increased saturation
-    const lightness = 100 - (intensity * 15); // More significant lightness drop
-    const darkLightness = 10 + (intensity * 15); // More significant lightness increase
-    
-    return {
-      '--dynamic-bg-light': `hsl(${hue}, ${saturation}%, ${lightness}%)`,
-      '--dynamic-bg-dark': `hsl(${hue}, ${saturation}%, ${darkLightness}%)`,
-    } as React.CSSProperties;
-  };
-
   return (
     <div 
-      style={getDynamicBgStyle()}
       className={cn(
         "max-w-7xl mx-auto px-4 md:px-8 space-y-6 transition-all duration-1000",
         textWidth === 'centered' ? "max-w-4xl" : "max-w-full"
       )}
     >
       <div className={cn(
-        "flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-1000",
-        isZenActive ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
+        "flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-1000 sticky top-0 z-20 py-4 bg-inherit",
+        isZenActive && !pinnedThought ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
       )}>
         {status !== 'idle' && (
           <div className="flex-1 flex flex-col gap-2">
@@ -138,8 +117,11 @@ export function WritingEditor({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Заголовок (необязательно)..."
-                className="w-full px-6 py-4 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm focus:shadow-md outline-none text-xl font-bold dark:text-stone-100 transition-all"
-                style={{ backgroundColor: dynamicBgEnabled ? 'var(--dynamic-bg-light, inherit)' : undefined }}
+                className="w-full px-6 py-4 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm focus:shadow-md outline-none text-xl font-bold dark:text-stone-100 transition-all"
+                style={{ 
+                  backgroundColor: dynamicBgEnabled ? 'var(--dynamic-bg)' : undefined,
+                  background: dynamicBgEnabled ? undefined : undefined // Fallback handled by classes if needed
+                }}
               />
               <button 
                 onClick={handlePinSelection}
@@ -262,10 +244,11 @@ export function WritingEditor({
                         fontFamily === 'JetBrains Mono' ? '"JetBrains Mono", monospace' :
                         fontFamily === 'Cormorant Garamond' ? '"Cormorant Garamond", serif' :
                         fontFamily === 'Space Grotesk' ? '"Space Grotesk", sans-serif' : 'inherit',
-            backgroundColor: dynamicBgEnabled ? 'var(--dynamic-bg-light, inherit)' : undefined
+            backgroundColor: dynamicBgEnabled ? 'var(--dynamic-bg)' : undefined
           }}
           className={cn(
-            "w-full min-h-[400px] md:min-h-[500px] p-6 md:p-12 bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm focus:shadow-xl focus:border-stone-300 dark:focus:border-stone-700 transition-all outline-none leading-relaxed resize-none dark:text-stone-100",
+            "w-full min-h-[400px] md:min-h-[500px] p-6 md:p-12 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm focus:shadow-xl focus:border-stone-300 dark:focus:border-stone-700 transition-all outline-none leading-relaxed resize-none dark:text-stone-100",
+            !dynamicBgEnabled ? "bg-white dark:bg-stone-900" : "bg-transparent",
             (status === 'idle' || status === 'paused') && "opacity-50 cursor-not-allowed",
             dynamicBgEnabled && "dark:!bg-[var(--dynamic-bg-dark)]"
           )}
@@ -274,42 +257,22 @@ export function WritingEditor({
         {/* Save Status Indicator */}
         {status !== 'idle' && (
           <div className={cn(
-            "absolute bottom-4 right-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all duration-500 pointer-events-none",
-            isZenActive ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0",
-            saveStatus === 'saving' ? "text-stone-400 animate-pulse" :
+            "absolute top-4 right-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all duration-500 pointer-events-none z-10",
+            isZenActive && saveStatus === 'idle' ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0",
+            saveStatus === 'saving' ? "text-amber-500 animate-pulse" :
             saveStatus === 'saved' ? "text-emerald-500" :
-            saveStatus === 'error' ? "text-red-500" : "text-stone-300 dark:text-stone-600"
+            saveStatus === 'error' ? "text-red-500" : "text-stone-400"
           )}>
+            <div className={cn(
+              "w-1.5 h-1.5 rounded-full",
+              saveStatus === 'saving' ? "bg-amber-500" :
+              saveStatus === 'saved' ? "bg-emerald-500" :
+              saveStatus === 'error' ? "bg-red-500" : "bg-stone-300"
+            )} />
             {saveStatus === 'saving' && "Сохранение..."}
             {saveStatus === 'saved' && "Сохранено"}
             {saveStatus === 'error' && "Ошибка сохранения"}
             {saveStatus === 'idle' && lastSavedAt && `Сохранено ${new Date(lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
-          </div>
-        )}
-
-        {flowIndicatorEnabled && status === 'writing' && (
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none">
-            <motion.div 
-              initial={{ scaleX: 0 }}
-              animate={{ 
-                scaleX: Math.max(wpm / 40, 0.5), // More reactive scale
-                opacity: Math.max(wpm / 15, 0.2),
-                backgroundColor: wpm > 40 ? '#f59e0b' : '#1c1917' // Changes color when fast
-              }}
-              transition={{ duration: 0.5 }}
-              className="w-48 h-1 rounded-full blur-[0.5px]"
-            />
-            <motion.div
-              animate={{ 
-                scale: [1, 1.2, 1],
-                opacity: [0.3, 0.6, 0.3]
-              }}
-              transition={{ 
-                duration: Math.max(2 - (wpm / 40), 0.5), // Faster pulse when writing fast
-                repeat: Infinity 
-              }}
-              className="w-2 h-2 rounded-full bg-stone-900 dark:bg-stone-100"
-            />
           </div>
         )}
       </div>
