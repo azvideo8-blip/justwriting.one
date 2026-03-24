@@ -33,12 +33,13 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     wordGoal, setWordGoal,
     content, setContent,
     title, setTitle,
-    pinnedThought, setPinnedThought,
+    pinnedThoughts, setPinnedThoughts,
     seconds, setSeconds,
     wpm, wordCount,
     isPublic, setIsPublic,
     isAnonymous, setIsAnonymous,
     tags, setTags,
+    labelId, setLabelId,
     timeGoalReached, wordGoalReached,
     hasDraft, setHasDraft,
     initialWordCount, setInitialWordCount,
@@ -313,6 +314,11 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         setStatus={setStatus}
         content={content}
         title={title}
+        tags={tags}
+        setTags={setTags}
+        labelId={labelId}
+        setLabelId={setLabelId}
+        labels={profile?.labels || []}
       />
 
       <WritingHeader 
@@ -332,6 +338,10 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         hasDraft={hasDraft}
         setStatus={setStatus}
         setShowSettings={setShowSettings}
+        handlePause={() => setStatus('paused')}
+        handleStart={handleStart}
+        handleFinish={() => setStatus('finished')}
+        setShowCancelConfirm={setShowCancelConfirm}
         isZenActive={isZenActive}
         stickyHeaderEnabled={stickyHeaderEnabled}
       />
@@ -356,8 +366,8 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
             status={status}
             title={title}
             setTitle={setTitle}
-            pinnedThought={pinnedThought}
-            setPinnedThought={setPinnedThought}
+            pinnedThoughts={pinnedThoughts}
+            setPinnedThoughts={setPinnedThoughts}
             content={content}
             setContent={setContent}
             fontSize={fontSize}
@@ -367,11 +377,6 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
             handleStart={handleStart}
             handleFinish={() => setStatus('finished')}
             setShowCancelConfirm={setShowCancelConfirm}
-            tags={tags}
-            tagInput={tagInput}
-            setTagInput={setTagInput}
-            addTag={addTag}
-            removeTag={removeTag}
             isZenActive={isZenActive}
             dynamicBgEnabled={dynamicBgEnabled}
             wpm={wpm}

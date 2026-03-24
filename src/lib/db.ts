@@ -11,7 +11,7 @@ export interface Draft {
   wpm: number;
   wordCount: number;
   activeSessionId?: string | null;
-  pinnedThought?: string;
+  pinnedThoughts?: string[];
   updatedAt: number;
 }
 

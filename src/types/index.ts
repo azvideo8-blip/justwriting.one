@@ -1,5 +1,11 @@
 import { Timestamp } from 'firebase/firestore';
 
+export interface Label {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface Session {
   id: string;
   userId: string;
@@ -15,10 +21,12 @@ export interface Session {
   wpm: number;
   isPublic: boolean;
   tags?: string[];
+  labelId?: string;
   createdAt: Timestamp | Date | any;
 }
 
 export interface UserProfile {
   nickname?: string;
   isAnonymousDefault?: boolean;
+  labels?: Label[];
 }

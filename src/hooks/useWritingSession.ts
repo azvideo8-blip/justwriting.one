@@ -19,13 +19,14 @@ export function useWritingSession(user: User, profile: any) {
   
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
-  const [pinnedThought, setPinnedThought] = useState('');
+  const [pinnedThoughts, setPinnedThoughts] = useState<string[]>([]);
   const [seconds, setSeconds] = useState(0);
   const [wpm, setWpm] = useState(0);
   const [wordCount, setWordCount] = useState(0);
   const [isPublic, setIsPublic] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
+  const [labelId, setLabelId] = useState<string | undefined>(undefined);
   
   const [timeGoalReached, setTimeGoalReached] = useState(false);
   const [wordGoalReached, setWordGoalReached] = useState(false);
@@ -92,7 +93,7 @@ export function useWritingSession(user: User, profile: any) {
           setHasDraft(true);
           setContent(draft.content || '');
           setTitle(draft.title || '');
-          setPinnedThought(draft.pinnedThought || '');
+          setPinnedThoughts(draft.pinnedThoughts || []);
           setSeconds(draft.seconds || 0);
           setWpm(draft.wpm || 0);
           setWordCount(draft.wordCount || 0);
@@ -111,7 +112,7 @@ export function useWritingSession(user: User, profile: any) {
           userId: user.uid,
           title,
           content,
-          pinnedThought,
+          pinnedThoughts,
           seconds,
           wpm,
           wordCount,
@@ -129,7 +130,7 @@ export function useWritingSession(user: User, profile: any) {
       
       return () => clearTimeout(timeout);
     }
-  }, [content, title, seconds, status, user.uid, wpm, wordCount, activeSessionId]);
+  }, [content, title, seconds, status, user.uid, wpm, wordCount, activeSessionId, pinnedThoughts]);
 
   // Timer logic
   useEffect(() => {
@@ -190,7 +191,7 @@ export function useWritingSession(user: User, profile: any) {
       isAnonymous,
       title,
       content,
-      pinnedThought,
+      pinnedThoughts,
       duration: initialDuration + seconds,
       wordCount: currentWordCount,
       charCount: content.length,
@@ -233,7 +234,7 @@ export function useWritingSession(user: User, profile: any) {
   const resetSession = () => {
     setContent('');
     setTitle('');
-    setPinnedThought('');
+    setPinnedThoughts([]);
     setSeconds(0);
     setInitialWordCount(0);
     setInitialDuration(0);
@@ -259,12 +260,13 @@ export function useWritingSession(user: User, profile: any) {
     wordGoal, setWordGoal,
     content, setContent,
     title, setTitle,
-    pinnedThought, setPinnedThought,
+    pinnedThoughts, setPinnedThoughts,
     seconds, setSeconds,
     wpm, wordCount,
     isPublic, setIsPublic,
     isAnonymous, setIsAnonymous,
     tags, setTags,
+    labelId, setLabelId,
     timeGoalReached, wordGoalReached,
     hasDraft, setHasDraft,
     initialWordCount, setInitialWordCount,

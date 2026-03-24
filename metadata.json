@@ -1,5 +1,5 @@
 {
   "name": "justwriting.one",
-  "description": "A focused writing platform with AI-powered editing, session tracking, and a community feed.",
+  "description": "Минималистичная платформа для осознанного письма. Включает динамический фон, меняющийся от скорости печати, Zen-режим для глубокой концентрации, систему закрепления мыслей и подробную аналитику сессий. Поддерживает теги, гибкую фильтрацию в архиве через календарь и ленту публичных записей сообщества.",
   "requestFramePermissions": []
 }
