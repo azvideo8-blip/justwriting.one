@@ -73,6 +73,17 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     const saved = localStorage.getItem('writing_stickyHeaderEnabled');
     return saved === null ? true : saved === 'true';
   });
+
+  const [headerVisibility, setHeaderVisibility] = useState(() => {
+    const saved = localStorage.getItem('writing_headerVisibility');
+    return saved ? JSON.parse(saved) : {
+      currentTime: true,
+      sessionTime: true,
+      sessionWords: true,
+      totalWords: true,
+      wpm: true
+    };
+  });
   
   const [isZenActive, setIsZenActive] = useState(false);
   const zenTimerRef = useRef<any>(null);
@@ -85,7 +96,8 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     localStorage.setItem('writing_zenModeEnabled', zenModeEnabled.toString());
     localStorage.setItem('writing_dynamicBgEnabled', dynamicBgEnabled.toString());
     localStorage.setItem('writing_stickyHeaderEnabled', stickyHeaderEnabled.toString());
-  }, [fontSize, fontFamily, textWidth, zenModeEnabled, dynamicBgEnabled, stickyHeaderEnabled]);
+    localStorage.setItem('writing_headerVisibility', JSON.stringify(headerVisibility));
+  }, [fontSize, fontFamily, textWidth, zenModeEnabled, dynamicBgEnabled, stickyHeaderEnabled, headerVisibility]);
 
   // Zen Mode Logic
   useEffect(() => {
@@ -217,7 +229,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className={cn(
-        "w-full min-h-screen pb-20 transition-colors duration-1000",
+        "w-full transition-colors duration-1000",
         dynamicBgEnabled && status === 'writing' && "dark:!bg-[var(--dynamic-bg-dark)]"
       )}
       style={getDynamicBgStyle()}
@@ -263,6 +275,8 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         setDynamicBgEnabled={setDynamicBgEnabled}
         stickyHeaderEnabled={stickyHeaderEnabled}
         setStickyHeaderEnabled={setStickyHeaderEnabled}
+        headerVisibility={headerVisibility}
+        setHeaderVisibility={setHeaderVisibility}
       />
 
       {showCancelConfirm && (
@@ -344,6 +358,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         setShowCancelConfirm={setShowCancelConfirm}
         isZenActive={isZenActive}
         stickyHeaderEnabled={stickyHeaderEnabled}
+        headerVisibility={headerVisibility}
       />
 
       <div className="space-y-8 mt-8">
