@@ -60,13 +60,15 @@ export default function App() {
               role: 'user'
             };
             setDoc(userDoc, initialProfile).catch(err => {
-              handleFirestoreError(err, OperationType.WRITE, `users/${u.uid}`);
+              console.error('Error creating user profile:', err);
             });
             setProfile(initialProfile);
           }
           setLoading(false);
         }, (err) => {
-          handleFirestoreError(err, OperationType.GET, `users/${u.uid}`);
+          console.error('Firestore snapshot error:', err);
+          // Don't throw here, as it's an async callback and might crash the app
+          setLoading(false);
         });
       } else {
         setProfile(null);
@@ -144,6 +146,7 @@ export default function App() {
               <ArchiveView 
                 key="archive" 
                 user={user} 
+                profile={profile}
                 onContinueSession={(session) => {
                   setSessionToContinue(session);
                   setView('write');

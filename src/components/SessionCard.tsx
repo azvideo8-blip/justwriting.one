@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { Session } from '../types';
+import { Session, Label } from '../types';
 import { parseFirestoreDate, cn } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { jsPDF } from 'jspdf';
@@ -17,10 +17,12 @@ import { saveAs } from 'file-saver';
 
 import { SessionEditor } from './SessionEditor';
 
-export function SessionCard({ session, showAuthor, onContinue }: { session: Session, showAuthor?: boolean, onContinue?: () => void }) {
+export function SessionCard({ session, showAuthor, onContinue, labels }: { session: Session, showAuthor?: boolean, onContinue?: () => void, labels?: Label[] }) {
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+
+  const label = labels?.find(l => l.id === session.labelId);
 
   const exportToTxt = () => {
     const blob = new Blob([session.content], { type: 'text/plain' });
@@ -91,6 +93,12 @@ export function SessionCard({ session, showAuthor, onContinue }: { session: Sess
       layout
       className="bg-white dark:bg-stone-900 p-6 md:p-8 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm hover:shadow-md transition-all space-y-4"
     >
+      {label && (
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: label.color }} />
+          <span className="text-xs font-bold uppercase tracking-widest text-stone-500">{label.name}</span>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           {showAuthor && (

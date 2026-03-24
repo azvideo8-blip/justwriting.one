@@ -1,5 +1,5 @@
-import React from 'react';
-import { CheckCircle2, Play, Clock, Settings } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { CheckCircle2, Play, Clock, Settings, Plus, History, Pause, Square, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface WritingHeaderProps {
@@ -19,6 +19,10 @@ interface WritingHeaderProps {
   hasDraft: boolean;
   setStatus: (status: 'idle' | 'writing' | 'paused' | 'finished') => void;
   setShowSettings: (show: boolean) => void;
+  handlePause: () => void;
+  handleStart: () => void;
+  handleFinish: () => void;
+  setShowCancelConfirm: (show: boolean) => void;
   isZenActive?: boolean;
   stickyHeaderEnabled?: boolean;
 }
@@ -40,9 +44,23 @@ export function WritingHeader({
   hasDraft,
   setStatus,
   setShowSettings,
+  handlePause,
+  handleStart,
+  handleFinish,
+  setShowCancelConfirm,
   isZenActive = false,
   stickyHeaderEnabled = true
 }: WritingHeaderProps) {
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const hours = currentTime.getHours().toString().padStart(2, '0');
+  const minutes = currentTime.getMinutes().toString().padStart(2, '0');
+
   return (
     <div className={cn(
       "w-full bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 z-40 shadow-sm transition-all duration-1000",
@@ -51,6 +69,15 @@ export function WritingHeader({
     )}>
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-6 overflow-x-auto no-scrollbar">
+          <div className="flex flex-col relative shrink-0">
+            <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1">Текущее время</span>
+            <span className="text-2xl font-mono font-bold dark:text-stone-100 flex items-center">
+              {hours}
+              <span className="animate-pulse">:</span>
+              {minutes}
+            </span>
+          </div>
+          <div className="h-10 w-px bg-stone-100 dark:bg-stone-800" />
           <div className="flex flex-col relative shrink-0">
             <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1 flex items-center gap-1">
               Время {sessionType === 'timer' && timeGoalReached && <CheckCircle2 size={10} className="text-emerald-500" />}
@@ -99,39 +126,75 @@ export function WritingHeader({
 
         <div className="flex items-center gap-3">
           {status === 'idle' && (
-            <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+            <div className="flex gap-2">
               <button 
                 onClick={handleNewSession}
-                className="flex items-center justify-center gap-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-8 py-4 rounded-2xl font-bold shadow-xl shadow-stone-200 dark:shadow-none hover:scale-105 transition-all"
+                className="p-3 rounded-xl bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-lg hover:scale-105 transition-all"
+                title="Новая сессия"
               >
-                <Play size={20} fill="currentColor" />
-                Новая
+                <Plus size={20} />
               </button>
               <button 
                 onClick={fetchUserSessions}
                 disabled={loadingSessions}
-                className="flex items-center justify-center gap-2 bg-white dark:bg-stone-900 border-2 border-stone-900 dark:border-stone-100 text-stone-900 dark:text-stone-100 px-8 py-4 rounded-2xl font-bold hover:bg-stone-50 dark:hover:bg-stone-800 transition-all disabled:opacity-50"
+                className="p-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 hover:bg-stone-50 dark:hover:bg-stone-800 transition-all disabled:opacity-50"
+                title="Продолжить"
               >
                 <Clock size={20} />
-                {loadingSessions ? 'Загрузка...' : 'Продолжить'}
               </button>
               {hasDraft && (
                 <button 
                   onClick={() => setStatus('writing')}
-                  className="flex items-center justify-center gap-2 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 px-6 py-4 rounded-2xl font-bold hover:bg-stone-200 dark:hover:bg-stone-700 transition-all"
+                  className="p-3 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700 transition-all"
+                  title="Черновик"
                 >
-                  Черновик
+                  <History size={20} />
                 </button>
               )}
             </div>
           )}
+          {(status === 'writing' || status === 'paused') && (
+            <div className="flex items-center gap-3">
+              {status === 'writing' && (
+                <button 
+                  onClick={handlePause}
+                  className="p-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800 transition-all"
+                  title="Пауза"
+                >
+                  <Pause size={20} fill="currentColor" />
+                </button>
+              )}
+              {status === 'paused' && (
+                <button 
+                  onClick={handleStart}
+                  className="p-3 rounded-xl bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:scale-105 transition-all"
+                  title="Продолжить"
+                >
+                  <Play size={20} fill="currentColor" />
+                </button>
+              )}
+              <button 
+                onClick={handleFinish}
+                className="p-3 rounded-xl bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:scale-105 transition-all"
+                title="Завершить"
+              >
+                <Square size={20} fill="currentColor" />
+              </button>
+              <button 
+                onClick={() => setShowCancelConfirm(true)}
+                className="p-3 text-stone-400 hover:text-red-500 transition-colors"
+                title="Отменить сессию"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          )}
           <button 
             onClick={() => setShowSettings(true)}
-            className="flex items-center justify-center gap-2 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 px-6 py-4 rounded-2xl font-bold hover:bg-stone-200 dark:hover:bg-stone-700 transition-all"
-            title="Настройки текста"
+            className="p-3 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700 transition-all"
+            title="Настройки"
           >
             <Settings size={20} />
-            <span className="hidden md:inline">Настройки</span>
           </button>
         </div>
       </div>

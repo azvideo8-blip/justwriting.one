@@ -14,6 +14,7 @@ import { ProfileActivity } from '../components/profile/ProfileActivity';
 import { ProfileWordCloud } from '../components/profile/ProfileWordCloud';
 import { ProfileFilteredSessions } from '../components/profile/ProfileFilteredSessions';
 import { TagCloud } from '../components/TagCloud';
+import { doc, updateDoc } from 'firebase/firestore';
 
 interface ProfileViewProps {
   user: User;
@@ -91,6 +92,7 @@ export function ProfileView({ user, profile }: ProfileViewProps) {
       <ProfileFilteredSessions 
         selectedWord={selectedWord} 
         sessions={sessions} 
+        labels={profile?.labels || []}
         onBack={() => setSelectedWord(null)} 
       />
     );
