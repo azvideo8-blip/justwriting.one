@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { 
   Clock, Type, PenLine, Globe, Lock, Share2, 
   ChevronDown, ChevronUp, X, User as UserIcon,
-  FileText, Download, FileJson
+  FileText, Download, FileJson, Tag, Plus, Trash2
 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
@@ -17,12 +17,76 @@ import { saveAs } from 'file-saver';
 
 import { SessionEditor } from './SessionEditor';
 
-export function SessionCard({ session, showAuthor, onContinue, labels }: { session: Session, showAuthor?: boolean, onContinue?: () => void, labels?: Label[] }) {
+export function SessionCard({ 
+  session, 
+  showAuthor, 
+  onContinue, 
+  labels,
+  searchQuery = ''
+}: { 
+  session: Session, 
+  showAuthor?: boolean, 
+  onContinue?: () => void, 
+  labels?: Label[],
+  searchQuery?: string
+}) {
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [isAddingTag, setIsAddingTag] = useState(false);
+  const [newTag, setNewTag] = useState('');
+
+  // Auto-expand on search match
+  React.useEffect(() => {
+    if (searchQuery && (
+      session.content.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      session.title?.toLowerCase().includes(searchQuery.toLowerCase())
+    )) {
+      setExpanded(true);
+    }
+  }, [searchQuery, session.content, session.title]);
 
   const label = labels?.find(l => l.id === session.labelId);
+
+  const handleAddTag = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const tag = newTag.trim().toLowerCase();
+    if (tag && !session.tags?.includes(tag)) {
+      const updatedTags = [...(session.tags || []), tag];
+      try {
+        await updateDoc(doc(db, 'sessions', session.id), { tags: updatedTags });
+        setNewTag('');
+        setIsAddingTag(false);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, `sessions/${session.id}`);
+      }
+    }
+  };
+
+  const handleRemoveTag = async (tagToRemove: string) => {
+    const updatedTags = session.tags?.filter(t => t !== tagToRemove) || [];
+    try {
+      await updateDoc(doc(db, 'sessions', session.id), { tags: updatedTags });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `sessions/${session.id}`);
+    }
+  };
+
+  const highlightText = (text: string, query: string) => {
+    if (!query) return text;
+    const parts = text.split(new RegExp(`(${query})`, 'gi'));
+    return (
+      <>
+        {parts.map((part, i) => 
+          part.toLowerCase() === query.toLowerCase() ? (
+            <mark key={i} className="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-100 px-0.5 rounded">
+              {part}
+            </mark>
+          ) : part
+        )}
+      </>
+    );
+  };
 
   const exportToTxt = () => {
     const blob = new Blob([session.content], { type: 'text/plain' });
@@ -99,7 +163,7 @@ export function SessionCard({ session, showAuthor, onContinue, labels }: { sessi
           <span className="text-xs font-bold uppercase tracking-widest text-stone-500">{label.name}</span>
         </div>
       )}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           {showAuthor && (
             <div className="w-8 h-8 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center overflow-hidden border border-stone-100 dark:border-stone-800">
@@ -117,21 +181,24 @@ export function SessionCard({ session, showAuthor, onContinue, labels }: { sessi
             {showAuthor && <span className="font-medium text-stone-900 dark:text-stone-100">{session.isAnonymous ? 'Аноним' : (session.nickname || session.authorName)}</span>}
           </div>
         </div>
-        <div className="flex items-center gap-4 text-stone-400 dark:text-stone-500 text-xs md:text-sm font-mono">
+        <div className="flex items-center flex-wrap gap-3 text-stone-400 dark:text-stone-500 text-xs md:text-sm font-mono">
           <span className="flex items-center gap-1" title="Время"><Clock size={14} /> {Math.floor(session.duration / 60)}м</span>
           <span className="flex items-center gap-1" title="Слова"><Type size={14} /> {session.wordCount}сл</span>
           <span className="flex items-center gap-1" title="Символы"><PenLine size={14} /> {session.charCount || 0}</span>
           {session.isPublic ? <Globe size={14} /> : <Lock size={14} />}
-          <div className="flex items-center gap-1 ml-2 relative">
+          
+          <div className="flex items-center flex-wrap gap-2 relative">
             <button 
               onClick={() => setShowExportMenu(!showExportMenu)}
               className={cn(
-                "p-1 transition-colors",
-                showExportMenu ? "text-stone-900 dark:text-stone-100" : "hover:text-stone-900 dark:hover:text-stone-100"
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all",
+                showExportMenu 
+                  ? "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900" 
+                  : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700"
               )}
-              title="Экспорт"
             >
-              <Share2 size={16} />
+              <Share2 size={12} />
+              Экспорт
             </button>
 
             {showExportMenu && (
@@ -174,23 +241,28 @@ export function SessionCard({ session, showAuthor, onContinue, labels }: { sessi
             {!showAuthor && auth.currentUser?.uid === session.userId && (
               <button 
                 onClick={() => setIsEditing(!isEditing)}
-                className="p-1 hover:text-stone-900 dark:hover:text-stone-100 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700 text-[10px] font-bold uppercase tracking-wider transition-all"
               >
-                <PenLine size={16} />
+                <PenLine size={12} />
+                Редактировать
               </button>
             )}
+            
             <button 
               onClick={() => setExpanded(!expanded)}
-              className="p-1 hover:text-stone-900 dark:hover:text-stone-100 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700 text-[10px] font-bold uppercase tracking-wider transition-all"
             >
-              {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              {expanded ? 'Свернуть' : 'Развернуть'}
             </button>
           </div>
         </div>
       </div>
 
       {session.title && !isEditing && (
-        <h4 className="text-xl font-bold dark:text-stone-100">{session.title}</h4>
+        <h4 className="text-xl font-bold dark:text-stone-100">
+          {highlightText(session.title, searchQuery)}
+        </h4>
       )}
 
       {isEditing ? (
@@ -202,7 +274,7 @@ export function SessionCard({ session, showAuthor, onContinue, labels }: { sessi
       ) : (
         <div className={cn("relative", !expanded && "max-h-24 overflow-hidden")}>
           <p className="text-stone-600 dark:text-stone-300 leading-relaxed whitespace-pre-wrap">
-            {session.content}
+            {highlightText(session.content, searchQuery)}
           </p>
           {!expanded && session.content.length > 200 && (
             <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white dark:from-stone-900 to-transparent" />
@@ -212,13 +284,52 @@ export function SessionCard({ session, showAuthor, onContinue, labels }: { sessi
 
       {!isEditing && (
         <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-stone-100 dark:border-stone-800">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {session.tags && session.tags.length > 0 ? (
               session.tags.map(tag => (
-                <span key={tag} className="text-xs font-medium text-stone-400">#{tag}</span>
+                <span 
+                  key={tag} 
+                  className="group/tag flex items-center gap-1 px-2.5 py-1.5 bg-stone-50 dark:bg-stone-800 rounded-lg text-xs font-bold text-stone-500 transition-all hover:bg-stone-100 dark:hover:bg-stone-700"
+                >
+                  #{tag}
+                  {auth.currentUser?.uid === session.userId && (
+                    <button 
+                      onClick={() => handleRemoveTag(tag)}
+                      className="opacity-0 group-hover/tag:opacity-100 hover:text-red-500 transition-all"
+                    >
+                      <X size={10} />
+                    </button>
+                  )}
+                </span>
               ))
             ) : (
-              <span className="text-xs text-stone-300 dark:text-stone-600 italic">Нет тегов</span>
+              <button 
+                onClick={() => setIsAddingTag(true)}
+                className="text-xs text-stone-300 dark:text-stone-600 italic hover:text-stone-500 transition-colors"
+              >
+                + Добавить теги
+              </button>
+            )}
+
+            {isAddingTag ? (
+              <form onSubmit={handleAddTag} className="flex items-center gap-1">
+                <input 
+                  autoFocus
+                  type="text"
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  onBlur={() => !newTag && setIsAddingTag(false)}
+                  placeholder="тег..."
+                  className="w-24 px-2.5 py-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-xs outline-none"
+                />
+              </form>
+            ) : session.tags && session.tags.length > 0 && (
+              <button 
+                onClick={() => setIsAddingTag(true)}
+                className="p-1 text-stone-300 hover:text-stone-500 transition-colors"
+              >
+                <Plus size={12} />
+              </button>
             )}
           </div>
           

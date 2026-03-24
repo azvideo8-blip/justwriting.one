@@ -18,6 +18,14 @@ interface WritingSettingsProps {
   setDynamicBgEnabled: (enabled: boolean) => void;
   stickyHeaderEnabled: boolean;
   setStickyHeaderEnabled: (enabled: boolean) => void;
+  headerVisibility: {
+    currentTime: boolean;
+    sessionTime: boolean;
+    sessionWords: boolean;
+    totalWords: boolean;
+    wpm: boolean;
+  };
+  setHeaderVisibility: (v: any) => void;
 }
 
 export function WritingSettings({ 
@@ -34,9 +42,18 @@ export function WritingSettings({
   dynamicBgEnabled,
   setDynamicBgEnabled,
   stickyHeaderEnabled,
-  setStickyHeaderEnabled
+  setStickyHeaderEnabled,
+  headerVisibility,
+  setHeaderVisibility
 }: WritingSettingsProps) {
   if (!showSettings) return null;
+
+  const toggleVisibility = (key: keyof typeof headerVisibility) => {
+    setHeaderVisibility({
+      ...headerVisibility,
+      [key]: !headerVisibility[key]
+    });
+  };
 
   return (
     <div className="fixed inset-0 z-[60] bg-stone-900/60 backdrop-blur-md flex items-center justify-center p-4">
@@ -163,6 +180,33 @@ export function WritingSettings({
                   stickyHeaderEnabled ? "right-1 bg-white dark:bg-stone-900" : "left-1 bg-white dark:bg-stone-400"
                 )} />
               </button>
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-4 border-t border-stone-100 dark:border-stone-800">
+            <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Отображение элементов</label>
+            
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { key: 'currentTime', label: 'Время' },
+                { key: 'sessionTime', label: 'Таймер' },
+                { key: 'sessionWords', label: 'Слова сессии' },
+                { key: 'totalWords', label: 'Всего слов' },
+                { key: 'wpm', label: 'Скорость (WPM)' }
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => toggleVisibility(key as any)}
+                  className={cn(
+                    "px-3 py-2 rounded-lg text-[11px] font-bold transition-all border",
+                    headerVisibility[key as keyof typeof headerVisibility]
+                      ? "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border-transparent"
+                      : "bg-transparent border-stone-200 dark:border-stone-800 text-stone-500"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
         </div>

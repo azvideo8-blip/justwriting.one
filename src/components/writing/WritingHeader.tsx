@@ -25,6 +25,13 @@ interface WritingHeaderProps {
   setShowCancelConfirm: (show: boolean) => void;
   isZenActive?: boolean;
   stickyHeaderEnabled?: boolean;
+  headerVisibility: {
+    currentTime: boolean;
+    sessionTime: boolean;
+    sessionWords: boolean;
+    totalWords: boolean;
+    wpm: boolean;
+  };
 }
 
 export function WritingHeader({
@@ -49,7 +56,8 @@ export function WritingHeader({
   handleFinish,
   setShowCancelConfirm,
   isZenActive = false,
-  stickyHeaderEnabled = true
+  stickyHeaderEnabled = true,
+  headerVisibility
 }: WritingHeaderProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -69,59 +77,81 @@ export function WritingHeader({
     )}>
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-6 overflow-x-auto no-scrollbar">
-          <div className="flex flex-col relative shrink-0">
-            <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1">Текущее время</span>
-            <span className="text-2xl font-mono font-bold dark:text-stone-100 flex items-center">
-              {hours}
-              <span className="animate-pulse">:</span>
-              {minutes}
-            </span>
-          </div>
-          <div className="h-10 w-px bg-stone-100 dark:bg-stone-800" />
-          <div className="flex flex-col relative shrink-0">
-            <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1 flex items-center gap-1">
-              Время {sessionType === 'timer' && timeGoalReached && <CheckCircle2 size={10} className="text-emerald-500" />}
-            </span>
-            <span className={cn(
-              "text-2xl font-mono font-bold transition-colors",
-              sessionType === 'timer' && timeGoalReached ? "text-emerald-500" : "dark:text-stone-100"
-            )}>
-              {formatTime(seconds)}
-            </span>
-          </div>
-          <div className="h-10 w-px bg-stone-100 dark:bg-stone-800" />
-          <div className="flex flex-col relative">
-            <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1 flex items-center gap-1">
-              Написано слов {sessionType === 'words' && wordGoalReached && <CheckCircle2 size={10} className="text-emerald-500" />}
-            </span>
-            <span className={cn(
-              "text-2xl font-mono font-bold transition-colors",
-              sessionType === 'words' && wordGoalReached ? "text-emerald-500" : "dark:text-stone-100"
-            )}>
-              {Math.max(0, wordCount - initialWordCount)}
-              {sessionType === 'words' && <span className="text-sm text-stone-400 ml-1">/ {wordGoal}</span>}
-            </span>
-          </div>
-          <div className="h-10 w-px bg-stone-100 dark:bg-stone-800" />
-          <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1">Всего слов</span>
-            <span className="text-2xl font-mono font-bold dark:text-stone-100">{wordCount}</span>
-          </div>
-          <div className="h-10 w-px bg-stone-100 dark:bg-stone-800" />
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">WPM</span>
-              {status === 'writing' && (
-                <div className={cn(
-                  "w-2 h-2 rounded-full animate-pulse transition-colors duration-500",
-                  wpm === 0 ? "bg-stone-300" :
-                  wpm < 10 ? "bg-amber-400" :
-                  wpm < 20 ? "bg-lime-400" : "bg-emerald-500"
-                )} />
-              )}
+          {headerVisibility.currentTime && (
+            <>
+              <div className="flex flex-col relative shrink-0">
+                <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1">Текущее время</span>
+                <span className="text-2xl font-mono font-bold dark:text-stone-100 flex items-center">
+                  {hours}
+                  <span className="animate-pulse">:</span>
+                  {minutes}
+                </span>
+              </div>
+              <div className="h-10 w-px bg-stone-100 dark:bg-stone-800" />
+            </>
+          )}
+          
+          {headerVisibility.sessionTime && (
+            <>
+              <div className="flex flex-col relative shrink-0">
+                <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1 flex items-center gap-1">
+                  Время {sessionType === 'timer' && timeGoalReached && <CheckCircle2 size={10} className="text-emerald-500" />}
+                </span>
+                <span className={cn(
+                  "text-2xl font-mono font-bold transition-colors",
+                  sessionType === 'timer' && timeGoalReached ? "text-emerald-500" : "dark:text-stone-100"
+                )}>
+                  {formatTime(seconds)}
+                </span>
+              </div>
+              <div className="h-10 w-px bg-stone-100 dark:bg-stone-800" />
+            </>
+          )}
+
+          {headerVisibility.sessionWords && (
+            <>
+              <div className="flex flex-col relative">
+                <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1 flex items-center gap-1">
+                  Написано слов {sessionType === 'words' && wordGoalReached && <CheckCircle2 size={10} className="text-emerald-500" />}
+                </span>
+                <span className={cn(
+                  "text-2xl font-mono font-bold transition-colors",
+                  sessionType === 'words' && wordGoalReached ? "text-emerald-500" : "dark:text-stone-100"
+                )}>
+                  {Math.max(0, wordCount - initialWordCount)}
+                  {sessionType === 'words' && <span className="text-sm text-stone-400 ml-1">/ {wordGoal}</span>}
+                </span>
+              </div>
+              <div className="h-10 w-px bg-stone-100 dark:bg-stone-800" />
+            </>
+          )}
+
+          {headerVisibility.totalWords && (
+            <>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1">Всего слов</span>
+                <span className="text-2xl font-mono font-bold dark:text-stone-100">{wordCount}</span>
+              </div>
+              <div className="h-10 w-px bg-stone-100 dark:bg-stone-800" />
+            </>
+          )}
+
+          {headerVisibility.wpm && (
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">WPM</span>
+                {status === 'writing' && (
+                  <div className={cn(
+                    "w-2 h-2 rounded-full animate-pulse transition-colors duration-500",
+                    wpm === 0 ? "bg-stone-300" :
+                    wpm < 10 ? "bg-amber-400" :
+                    wpm < 20 ? "bg-lime-400" : "bg-emerald-500"
+                  )} />
+                )}
+              </div>
+              <span className="text-2xl font-mono font-bold dark:text-stone-100">{wpm}</span>
             </div>
-            <span className="text-2xl font-mono font-bold dark:text-stone-100">{wpm}</span>
-          </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
