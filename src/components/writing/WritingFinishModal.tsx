@@ -5,6 +5,7 @@ import { cn } from '../../lib/utils';
 import { jsPDF } from 'jspdf';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { saveAs } from 'file-saver';
+import { Label } from '../../types';
 
 interface WritingFinishModalProps {
   status: 'idle' | 'writing' | 'paused' | 'finished';
@@ -20,6 +21,11 @@ interface WritingFinishModalProps {
   setStatus: (status: 'idle' | 'writing' | 'paused' | 'finished') => void;
   content: string;
   title: string;
+  tags: string[];
+  setTags: (tags: string[]) => void;
+  labelId?: string;
+  setLabelId: (labelId?: string) => void;
+  labels: Label[];
 }
 
 export function WritingFinishModal({
@@ -35,9 +41,37 @@ export function WritingFinishModal({
   handleSave,
   setStatus,
   content,
-  title
+  title,
+  tags,
+  setTags,
+  labelId,
+  setLabelId,
+  labels
 }: WritingFinishModalProps) {
   if (status !== 'finished') return null;
+
+  const popularWords = React.useMemo(() => {
+    const words = content.toLowerCase().match(/\b\w{5,}\b/g) || [];
+    const freq: Record<string, number> = {};
+    words.forEach(w => freq[w] = (freq[w] || 0) + 1);
+    return Object.entries(freq)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(e => e[0]);
+  }, [content]);
+
+  const allSuggestions = React.useMemo(() => {
+    const suggestions = new Set([title.trim(), ...popularWords].filter(Boolean));
+    return Array.from(suggestions);
+  }, [title, popularWords]);
+
+  const toggleTag = (tag: string) => {
+    if (tags.includes(tag)) {
+      setTags(tags.filter(t => t !== tag));
+    } else {
+      setTags([...tags, tag]);
+    }
+  };
 
   const exportPDF = () => {
     const doc = new jsPDF();
@@ -96,7 +130,62 @@ export function WritingFinishModal({
       >
         <div className="text-center space-y-2">
           <h3 className="text-2xl font-bold dark:text-stone-100">Сессия завершена!</h3>
-          <p className="text-stone-500 dark:text-stone-400">Настройте параметры публикации перед сохранением.</p>
+          <p className="text-stone-500 dark:text-stone-400">Выберите теги для вашей сессии.</p>
+        </div>
+
+        <div className="space-y-4">
+          <div className="text-sm font-bold text-stone-500 uppercase tracking-wider">Бирка</div>
+          <div className="flex flex-wrap gap-2">
+            {labels.map(label => (
+              <button
+                key={label.id}
+                onClick={() => setLabelId(labelId === label.id ? undefined : label.id)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2",
+                  labelId === label.id
+                    ? "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-stone-900"
+                    : "hover:opacity-80"
+                )}
+                style={{ backgroundColor: label.color, outlineColor: label.color }}
+              >
+                {label.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="text-sm font-bold text-stone-500 uppercase tracking-wider">Теги</div>
+          <div className="flex flex-wrap gap-2">
+            {allSuggestions.map(tag => (
+              <button
+                key={tag}
+                onClick={() => toggleTag(tag)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1",
+                  tags.includes(tag)
+                    ? "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900"
+                    : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700"
+                )}
+              >
+                #{tag}
+              </button>
+            ))}
+          </div>
+          <input
+            type="text"
+            placeholder="Добавить свой тег..."
+            className="w-full px-4 py-2 rounded-xl border border-stone-200 dark:border-stone-800 bg-transparent outline-none"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                const val = e.currentTarget.value.trim();
+                if (val && !tags.includes(val)) {
+                  setTags([...tags, val]);
+                  e.currentTarget.value = '';
+                }
+              }
+            }}
+          />
         </div>
 
         <div className="grid grid-cols-3 gap-4 text-center">

@@ -5,13 +5,14 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn, parseFirestoreDate } from '../lib/utils';
 import { Session } from '../types';
 
-interface CalendarProps {
+  interface CalendarProps {
   sessions: Session[];
   selectedDate: Date;
   onSelectDate: (d: Date) => void;
+  onSelectMonth?: (d: Date) => void;
 }
 
-export function Calendar({ sessions, selectedDate, onSelectDate }: CalendarProps) {
+export function Calendar({ sessions, selectedDate, onSelectDate, onSelectMonth }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const start = startOfMonth(currentMonth);
   const end = endOfMonth(currentMonth);
@@ -22,7 +23,7 @@ export function Calendar({ sessions, selectedDate, onSelectDate }: CalendarProps
   return (
     <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="font-bold text-xl dark:text-stone-100 capitalize">{format(currentMonth, 'LLLL yyyy', { locale: ru })}</h3>
+        <button onClick={() => onSelectMonth?.(currentMonth)} className="font-bold text-xl dark:text-stone-100 capitalize hover:text-emerald-500 transition-colors">{format(currentMonth, 'LLLL yyyy', { locale: ru })}</button>
         <div className="flex items-center gap-1">
           <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1 hover:bg-stone-100 dark:hover:bg-stone-800 rounded transition-colors text-stone-400"><ChevronLeft size={18} /></button>
           <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1 hover:bg-stone-100 dark:hover:bg-stone-800 rounded transition-colors text-stone-400"><ChevronRight size={18} /></button>

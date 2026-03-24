@@ -11,19 +11,24 @@ import { SessionCard } from '../components/SessionCard';
 import { Calendar } from '../components/Calendar';
 import { parseFirestoreDate } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-
 import { TagCloud } from '../components/TagCloud';
+import { ArchiveLabels } from '../components/archive/ArchiveLabels';
+import { Search } from 'lucide-react';
 
 interface ArchiveViewProps {
   user: User;
+  profile: any;
   onContinueSession: (session: Session) => void;
 }
 
-export function ArchiveView({ user, onContinueSession }: ArchiveViewProps) {
+export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [selectedMonth, setSelectedMonth] = useState<Date | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
-
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,7 +55,6 @@ export function ArchiveView({ user, onContinueSession }: ArchiveViewProps) {
       console.error('Archive load error:', err);
       setError('Не удалось загрузить архив. Пожалуйста, проверьте соединение.');
       setLoading(false);
-      // Still call handleFirestoreError for logging, but don't let it crash the UI
       try {
         handleFirestoreError(err, OperationType.LIST, 'sessions');
       } catch (e) {
@@ -62,10 +66,26 @@ export function ArchiveView({ user, onContinueSession }: ArchiveViewProps) {
   }, [user.uid]);
 
   const allTags = Array.from(new Set(sessions.flatMap(s => s.tags || [])));
-  const sessionsOnSelectedDate = sessions.filter(s => {
+  
+  const filteredSessions = sessions.filter(s => {
     const sDate = parseFirestoreDate(s.createdAt);
-    return isSameDay(sDate, selectedDate);
+    const matchesDate = !selectedDate || isSameDay(sDate, selectedDate);
+    const matchesMonth = !selectedMonth || (sDate.getMonth() === selectedMonth.getMonth() && sDate.getFullYear() === selectedMonth.getFullYear());
+    const matchesTags = selectedTags.length === 0 || selectedTags.every(t => s.tags?.includes(t));
+    const matchesLabel = !selectedLabelId || s.labelId === selectedLabelId;
+    const matchesSearch = !searchQuery || s.content.toLowerCase().includes(searchQuery.toLowerCase()) || s.title?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesDate && matchesMonth && matchesTags && matchesLabel && matchesSearch;
   });
+
+  const groupedSessions = filteredSessions.reduce((acc, session) => {
+    const date = parseFirestoreDate(session.createdAt);
+    const dateKey = format(date, 'yyyy-MM-dd');
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(session);
+    return acc;
+  }, {} as Record<string, Session[]>);
+
+  const sortedDates = Object.keys(groupedSessions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
   return (
     <motion.div 
@@ -78,7 +98,7 @@ export function ArchiveView({ user, onContinueSession }: ArchiveViewProps) {
           <div className="space-y-6">
             <h3 className="text-2xl font-bold dark:text-stone-100 flex items-center gap-2">
               <History size={24} />
-              Сессии за {format(selectedDate, 'd MMMM', { locale: ru })}
+              Архив
             </h3>
             
             <div className="space-y-6">
@@ -88,17 +108,23 @@ export function ArchiveView({ user, onContinueSession }: ArchiveViewProps) {
                 <div className="p-12 text-center bg-red-50 dark:bg-red-900/10 rounded-3xl border border-red-100 dark:border-red-900/30">
                   <p className="text-red-600 dark:text-red-400">{error}</p>
                 </div>
-              ) : sessionsOnSelectedDate.length === 0 ? (
+              ) : sortedDates.length === 0 ? (
                 <div className="p-12 text-center bg-stone-50 dark:bg-stone-900/50 rounded-3xl border-2 border-dashed border-stone-200 dark:border-stone-800">
-                  <p className="text-stone-400">В этот день вы не писали</p>
+                  <p className="text-stone-400">Сессий не найдено</p>
                 </div>
               ) : (
-                sessionsOnSelectedDate.map(session => (
-                  <SessionCard 
-                    key={session.id} 
-                    session={session} 
-                    onContinue={() => onContinueSession(session)}
-                  />
+                sortedDates.map(dateKey => (
+                  <div key={dateKey} className="space-y-4">
+                    <h4 className="text-lg font-bold text-stone-500">{format(new Date(dateKey), 'd MMMM yyyy', { locale: ru })}</h4>
+                    {groupedSessions[dateKey].map(session => (
+                      <SessionCard 
+                        key={session.id} 
+                        session={session} 
+                        labels={profile?.labels || []}
+                        onContinue={() => onContinueSession(session)}
+                      />
+                    ))}
+                  </div>
                 ))
               )}
             </div>
@@ -107,9 +133,40 @@ export function ArchiveView({ user, onContinueSession }: ArchiveViewProps) {
 
         {/* Sidebar */}
         <div className="w-full md:w-80 shrink-0 space-y-8">
-          <Calendar sessions={sessions} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+          <Calendar 
+            sessions={sessions} 
+            selectedDate={selectedDate || new Date()} 
+            onSelectDate={(d) => { setSelectedDate(d); setSelectedMonth(null); }} 
+            onSelectMonth={(m) => { setSelectedMonth(m); setSelectedDate(null); }}
+          />
           
-          <TagCloud tags={allTags} />
+          <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 space-y-4">
+            <div className="flex items-center gap-2 border-b border-stone-200 dark:border-stone-800 pb-2">
+              <Search size={18} className="text-stone-400" />
+              <input 
+                type="text" 
+                value={searchQuery} 
+                onChange={e => setSearchQuery(e.target.value)} 
+                placeholder="Поиск..." 
+                className="w-full bg-transparent outline-none text-sm"
+              />
+            </div>
+          </div>
+
+          <TagCloud 
+            tags={allTags} 
+            selectedTags={selectedTags} 
+            onToggleTag={(tag) => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])} 
+          />
+
+          {/* 
+          <ArchiveLabels 
+            user={user} 
+            profile={profile} 
+            selectedLabelId={selectedLabelId} 
+            onSelectLabel={setSelectedLabelId} 
+          />
+          */}
         </div>
       </div>
     </motion.div>
