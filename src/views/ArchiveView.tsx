@@ -4,16 +4,15 @@ import { User } from 'firebase/auth';
 import { onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
 import { format, isSameDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { History } from 'lucide-react';
+import { History, Search, LayoutGrid, LayoutList } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { Session } from '../types';
 import { SessionCard } from '../components/SessionCard';
 import { Calendar } from '../components/Calendar';
-import { parseFirestoreDate } from '../lib/utils';
+import { parseFirestoreDate, cn } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { TagCloud } from '../components/TagCloud';
 import { ArchiveLabels } from '../components/archive/ArchiveLabels';
-import { Search } from 'lucide-react';
 
 interface ArchiveViewProps {
   user: User;
@@ -28,6 +27,11 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => (localStorage.getItem('archive_viewMode') as any) || 'list');
+  
+  useEffect(() => {
+    localStorage.setItem('archive_viewMode', viewMode);
+  }, [viewMode]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -91,15 +95,39 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-12 pb-20"
+      className="space-y-12 pb-10"
     >
       <div className="flex flex-col md:flex-row gap-8 items-start">
         <div className="flex-1 space-y-8">
-          <div className="space-y-6">
+          <div className="flex items-center justify-between gap-4">
             <h3 className="text-2xl font-bold dark:text-stone-100 flex items-center gap-2">
               <History size={24} />
               Архив
             </h3>
+
+            <div className="flex bg-stone-100 dark:bg-stone-800 p-1 rounded-xl">
+              <button 
+                onClick={() => setViewMode('list')}
+                className={cn(
+                  "p-2 rounded-lg transition-all",
+                  viewMode === 'list' ? "bg-white dark:bg-stone-900 shadow-sm text-stone-900 dark:text-white" : "text-stone-400"
+                )}
+                title="Список"
+              >
+                <LayoutList size={18} />
+              </button>
+              <button 
+                onClick={() => setViewMode('grid')}
+                className={cn(
+                  "p-2 rounded-lg transition-all",
+                  viewMode === 'grid' ? "bg-white dark:bg-stone-900 shadow-sm text-stone-900 dark:text-white" : "text-stone-400"
+                )}
+                title="Сетка"
+              >
+                <LayoutGrid size={18} />
+              </button>
+            </div>
+          </div>
             
             <div className="space-y-6">
               {loading ? (
@@ -116,20 +144,25 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
                 sortedDates.map(dateKey => (
                   <div key={dateKey} className="space-y-4">
                     <h4 className="text-lg font-bold text-stone-500">{format(new Date(dateKey), 'd MMMM yyyy', { locale: ru })}</h4>
-                    {groupedSessions[dateKey].map(session => (
-                      <SessionCard 
-                        key={session.id} 
-                        session={session} 
-                        labels={profile?.labels || []}
-                        onContinue={() => onContinueSession(session)}
-                      />
-                    ))}
+                    <div className={cn(
+                      "gap-4",
+                      viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2" : "flex flex-col"
+                    )}>
+                      {groupedSessions[dateKey].map(session => (
+                        <SessionCard 
+                          key={session.id} 
+                          session={session} 
+                          labels={profile?.labels || []}
+                          onContinue={() => onContinueSession(session)}
+                          searchQuery={searchQuery}
+                        />
+                      ))}
+                    </div>
                   </div>
                 ))
               )}
             </div>
           </div>
-        </div>
 
         {/* Sidebar */}
         <div className="w-full md:w-80 shrink-0 space-y-8">
@@ -147,7 +180,7 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
                 type="text" 
                 value={searchQuery} 
                 onChange={e => setSearchQuery(e.target.value)} 
-                placeholder="Поиск..." 
+                placeholder="Поиск по архиву..." 
                 className="w-full bg-transparent outline-none text-sm"
               />
             </div>

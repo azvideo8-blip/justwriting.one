@@ -102,7 +102,7 @@ export function ProfileView({ user, profile }: ProfileViewProps) {
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-12 pb-20"
+      className="space-y-12 pb-10"
     >
       <div className="flex flex-col md:flex-row gap-8 items-start">
         <div className="flex-1 space-y-8">
