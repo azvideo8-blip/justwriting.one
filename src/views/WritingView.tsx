@@ -31,6 +31,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     sessionType, setSessionType,
     timerDuration, setTimerDuration,
     wordGoal, setWordGoal,
+    targetTime, setTargetTime,
     content, setContent,
     title, setTitle,
     pinnedThoughts, setPinnedThoughts,
@@ -47,11 +48,30 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     activeSessionId, setActiveSessionId,
     saveStatus, lastSavedAt,
     handleStart, handleSave, handleCancel, resetSession,
-    isOnline
+    isOnline,
+    fetchLocalSessions,
+    loadLocalSession
   } = useWritingSession(user, profile);
 
   const [setupMode, setSetupMode] = useState<'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const totalDurationForDeadline = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (status === 'writing' && sessionType === 'finish-by' && targetTime) {
+      if (totalDurationForDeadline.current === null) {
+        const [hours, minutes] = targetTime.split(':').map(Number);
+        const target = new Date();
+        target.setHours(hours, minutes, 0, 0);
+        const now = new Date();
+        const remaining = Math.max(0, (target.getTime() - now.getTime()) / 1000);
+        totalDurationForDeadline.current = remaining + seconds;
+      }
+    } else if (status === 'idle') {
+      totalDurationForDeadline.current = null;
+    }
+  }, [status, sessionType, targetTime, seconds]);
+
   const [userSessions, setUserSessions] = useState<Session[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -73,6 +93,8 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     const saved = localStorage.getItem('writing_stickyHeaderEnabled');
     return saved === null ? true : saved === 'true';
   });
+
+  const [isLocalOnly, setIsLocalOnly] = useState(false);
 
   const [headerVisibility, setHeaderVisibility] = useState(() => {
     const saved = localStorage.getItem('writing_headerVisibility');
@@ -136,7 +158,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     setSetupMode('selection');
   };
 
-  const fetchUserSessions = async () => {
+  const fetchAllSessions = async () => {
     setLoadingSessions(true);
     try {
       const q = query(
@@ -145,8 +167,16 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         orderBy('createdAt', 'desc')
       );
       const snap = await getDocs(q);
-      const sessions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Session));
-      setUserSessions(sessions);
+      const firestoreSessions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Session));
+      
+      const localSessions = fetchLocalSessions().map(s => ({
+        ...s,
+        title: 'Локальная сессия (зашифровано)',
+        content: '',
+        isLocal: true
+      }));
+
+      setUserSessions([...firestoreSessions, ...localSessions] as Session[]);
       setSetupMode('session-selection');
     } catch (e) {
       handleFirestoreError(e, OperationType.LIST, 'sessions');
@@ -155,7 +185,24 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     }
   };
 
-  const continueSession = (session: Session) => {
+  const continueSession = async (session: Session) => {
+    console.log('continueSession called', session);
+    if ((session as any).isLocal) {
+        const loaded = loadLocalSession(session.id);
+        if (!loaded) return;
+        
+        setActiveSessionId(null);
+        setContent(loaded.content);
+        setTitle(loaded.title || '');
+        setInitialWordCount(loaded.wordCount || 0);
+        setInitialDuration(loaded.duration || 0);
+        setTags(loaded.tags || []);
+        setIsPublic(loaded.isPublic);
+        setIsAnonymous(loaded.isAnonymous || false);
+        setSetupMode(null);
+        return;
+    }
+
     setActiveSessionId(session.id);
     setContent(session.content);
     setTitle(session.title || '');
@@ -164,7 +211,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     setTags(session.tags || []);
     setIsPublic(session.isPublic);
     setIsAnonymous(session.isAnonymous || false);
-    setSetupMode('selection');
+    setSetupMode(null);
   };
 
   const startCountdown = (type: 'stopwatch' | 'timer' | 'words') => {
@@ -247,14 +294,18 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
       )}
 
       {/* Progress Bar */}
-      {status !== 'idle' && sessionType === 'words' && (
+      {status === 'writing' && (sessionType === 'words' || sessionType === 'timer' || sessionType === 'finish-by') && (
         <div className="fixed top-0 left-0 w-full h-1 z-[100] bg-stone-100 dark:bg-stone-800">
           <motion.div 
             initial={{ width: 0 }}
-            animate={{ width: `${Math.min((wordCount / wordGoal) * 100, 100)}%` }}
+            animate={{ 
+              width: sessionType === 'words' 
+                ? `${Math.min((wordCount / wordGoal) * 100, 100)}%`
+                : `${Math.min(((sessionType === 'timer' ? seconds / timerDuration : seconds / (totalDurationForDeadline.current || 1)) * 100), 100)}%`
+            }}
             className={cn(
               "h-full transition-colors duration-500",
-              wordGoalReached ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-stone-900 dark:bg-stone-100"
+              (wordGoalReached || timeGoalReached) ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-stone-900 dark:bg-stone-100"
             )}
           />
         </div>
@@ -333,6 +384,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         labelId={labelId}
         setLabelId={setLabelId}
         labels={profile?.labels || []}
+        isLocalOnly={isLocalOnly}
       />
 
       <WritingHeader 
@@ -344,10 +396,11 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         wordCount={wordCount}
         initialWordCount={initialWordCount}
         wordGoal={wordGoal}
+        targetTime={targetTime}
         wpm={wpm}
         formatTime={formatTime}
         handleNewSession={handleNewSession}
-        fetchUserSessions={fetchUserSessions}
+        fetchUserSessions={fetchAllSessions}
         loadingSessions={loadingSessions}
         hasDraft={hasDraft}
         setStatus={setStatus}
@@ -371,10 +424,14 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
             setTimerDuration={setTimerDuration}
             wordGoal={wordGoal}
             setWordGoal={setWordGoal}
+            targetTime={targetTime}
+            setTargetTime={setTargetTime}
             countdown={countdown}
             userSessions={userSessions}
             continueSession={continueSession}
             formatTime={formatTime}
+            isLocalOnly={isLocalOnly}
+            setIsLocalOnly={setIsLocalOnly}
           />
 
           <WritingEditor 

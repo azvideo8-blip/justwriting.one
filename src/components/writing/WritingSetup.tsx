@@ -1,22 +1,27 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Zap, Timer, Target, PenLine } from 'lucide-react';
+import { Zap, Timer, Target, PenLine, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Session } from '../../types';
+import { cn } from '../../lib/utils';
 
 interface WritingSetupProps {
-  setupMode: 'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | null;
+  setupMode: 'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | 'finish-by-config' | null;
   setSetupMode: (mode: any) => void;
-  startCountdown: (type: 'stopwatch' | 'timer' | 'words') => void;
+  startCountdown: (type: 'stopwatch' | 'timer' | 'words' | 'finish-by') => void;
   timerDuration: number;
   setTimerDuration: (duration: number) => void;
   wordGoal: number;
   setWordGoal: (goal: number) => void;
+  targetTime: string | null;
+  setTargetTime: (time: string | null) => void;
   countdown: number | null;
   userSessions: Session[];
   continueSession: (session: Session) => void;
   formatTime: (s: number) => string;
+  isLocalOnly: boolean;
+  setIsLocalOnly: (enabled: boolean) => void;
 }
 
 export function WritingSetup({
@@ -27,10 +32,14 @@ export function WritingSetup({
   setTimerDuration,
   wordGoal,
   setWordGoal,
+  targetTime,
+  setTargetTime,
   countdown,
   userSessions,
   continueSession,
-  formatTime
+  formatTime,
+  isLocalOnly,
+  setIsLocalOnly
 }: WritingSetupProps) {
   if (!setupMode) return null;
 
@@ -38,18 +47,18 @@ export function WritingSetup({
     <>
       {setupMode === 'selection' && (
         <div className="absolute inset-0 z-20 bg-white/90 dark:bg-stone-950/90 backdrop-blur-sm rounded-3xl flex items-center justify-center p-6">
-          <div className="max-w-md w-full space-y-8">
+          <div className="max-w-3xl w-full space-y-8">
             <div className="text-center space-y-2">
               <h3 className="text-3xl font-bold dark:text-stone-100">Выберите режим</h3>
               <p className="text-stone-500 dark:text-stone-400">Как вы хотите писать сегодня?</p>
             </div>
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <button 
                 onClick={() => startCountdown('stopwatch')}
                 className="group flex items-center gap-6 p-6 bg-white dark:bg-stone-900 border-2 border-stone-100 dark:border-stone-800 rounded-3xl hover:border-stone-900 dark:hover:border-stone-100 transition-all text-left"
               >
-                <div className="w-14 h-14 bg-stone-100 dark:bg-stone-800 rounded-2xl flex items-center justify-center text-stone-900 dark:text-stone-100 group-hover:bg-stone-900 group-hover:text-white dark:group-hover:bg-stone-100 dark:group-hover:text-stone-900 transition-colors">
-                  <Zap size={28} fill="currentColor" />
+                <div className="w-14 h-14 bg-stone-100 dark:bg-stone-800 rounded-2xl flex items-center justify-center text-stone-900 dark:text-stone-100 transition-colors">
+                  <Zap size={28} />
                 </div>
                 <div>
                   <div className="font-bold text-lg dark:text-stone-100">Свободный поток</div>
@@ -61,7 +70,7 @@ export function WritingSetup({
                 onClick={() => setSetupMode('timer-config')}
                 className="group flex items-center gap-6 p-6 bg-white dark:bg-stone-900 border-2 border-stone-100 dark:border-stone-800 rounded-3xl hover:border-stone-900 dark:hover:border-stone-100 transition-all text-left"
               >
-                <div className="w-14 h-14 bg-stone-100 dark:bg-stone-800 rounded-2xl flex items-center justify-center text-stone-900 dark:text-stone-100 group-hover:bg-stone-900 group-hover:text-white dark:group-hover:bg-stone-100 dark:group-hover:text-stone-900 transition-colors">
+                <div className="w-14 h-14 bg-stone-100 dark:bg-stone-800 rounded-2xl flex items-center justify-center text-stone-900 dark:text-stone-100 transition-colors">
                   <Timer size={28} />
                 </div>
                 <div>
@@ -74,7 +83,7 @@ export function WritingSetup({
                 onClick={() => setSetupMode('words-config')}
                 className="group flex items-center gap-6 p-6 bg-white dark:bg-stone-900 border-2 border-stone-100 dark:border-stone-800 rounded-3xl hover:border-stone-900 dark:hover:border-stone-100 transition-all text-left"
               >
-                <div className="w-14 h-14 bg-stone-100 dark:bg-stone-800 rounded-2xl flex items-center justify-center text-stone-900 dark:text-stone-100 group-hover:bg-stone-900 group-hover:text-white dark:group-hover:bg-stone-100 dark:group-hover:text-stone-900 transition-colors">
+                <div className="w-14 h-14 bg-stone-100 dark:bg-stone-800 rounded-2xl flex items-center justify-center text-stone-900 dark:text-stone-100 transition-colors">
                   <Target size={28} />
                 </div>
                 <div>
@@ -82,7 +91,33 @@ export function WritingSetup({
                   <div className="text-sm text-stone-500">Пишите, пока не достигнете лимита слов.</div>
                 </div>
               </button>
+
+              <button 
+                onClick={() => setSetupMode('finish-by-config')}
+                className="group flex items-center gap-6 p-6 bg-white dark:bg-stone-900 border-2 border-stone-100 dark:border-stone-800 rounded-3xl hover:border-stone-900 dark:hover:border-stone-100 transition-all text-left"
+              >
+                <div className="w-14 h-14 bg-stone-100 dark:bg-stone-800 rounded-2xl flex items-center justify-center text-stone-900 dark:text-stone-100 transition-colors">
+                  <Clock size={28} />
+                </div>
+                <div>
+                  <div className="font-bold text-lg dark:text-stone-100">Закончить до...</div>
+                  <div className="text-sm text-stone-500">Установите дедлайн.</div>
+                </div>
+              </button>
             </div>
+
+            <div className="mt-6 p-4 bg-stone-50 dark:bg-stone-900/50 rounded-2xl border border-stone-100 dark:border-stone-800 flex items-start gap-4 cursor-pointer" onClick={() => setIsLocalOnly(!isLocalOnly)}>
+              <div className="pt-1">
+                <div className={cn("w-10 h-6 rounded-full transition-colors relative", isLocalOnly ? "bg-emerald-500" : "bg-stone-300 dark:bg-stone-700")}>
+                  <div className={cn("absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform", isLocalOnly ? "translate-x-4" : "translate-x-0")} />
+                </div>
+              </div>
+              <div>
+                <div className="font-bold text-stone-900 dark:text-stone-100">Локальная сессия</div>
+                <div className="text-xs text-stone-500 mt-1">Сессия не будет добавлена в "Архив". Не забудьте сохранить после завершения.</div>
+              </div>
+            </div>
+
             <button onClick={() => setSetupMode(null)} className="w-full text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 text-sm font-medium">Отмена</button>
           </div>
         </div>
@@ -105,6 +140,32 @@ export function WritingSetup({
               </div>
               <button 
                 onClick={() => startCountdown('timer')}
+                className="w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-4 rounded-xl font-bold shadow-lg"
+              >
+                Начать
+              </button>
+            </div>
+            <button onClick={() => setSetupMode('selection')} className="text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 text-sm font-medium">Назад</button>
+          </div>
+        </div>
+      )}
+
+      {setupMode === 'finish-by-config' && (
+        <div className="absolute inset-0 z-20 bg-white/90 dark:bg-stone-950/90 backdrop-blur-sm rounded-3xl flex items-center justify-center p-6">
+          <div className="max-w-sm w-full space-y-8 text-center">
+            <h3 className="text-2xl font-bold">Закончить до...</h3>
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-col items-center gap-4">
+                <input 
+                  type="time" 
+                  value={targetTime || ''}
+                  onChange={(e) => setTargetTime(e.target.value)}
+                  className="w-48 text-center text-4xl font-bold bg-transparent border-b-2 border-stone-900 dark:border-stone-100 outline-none"
+                />
+                <div className="text-stone-400 text-sm font-bold uppercase tracking-widest">время</div>
+              </div>
+              <button 
+                onClick={() => startCountdown('finish-by')}
                 className="w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-4 rounded-xl font-bold shadow-lg"
               >
                 Начать
@@ -169,7 +230,10 @@ export function WritingSetup({
                 userSessions.map(session => (
                   <button 
                     key={session.id}
-                    onClick={() => continueSession(session)}
+                    onClick={() => {
+                      console.log('Session button clicked', session);
+                      continueSession(session);
+                    }}
                     className="flex flex-col gap-3 p-5 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl hover:border-stone-400 transition-all text-left group"
                   >
                     <div className="flex items-center justify-between w-full">

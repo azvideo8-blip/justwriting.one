@@ -17,7 +17,7 @@ interface WritingFinishModalProps {
   setIsPublic: (val: boolean) => void;
   isAnonymous: boolean;
   setIsAnonymous: (val: boolean) => void;
-  handleSave: () => void;
+  handleSave: (isLocalOnly: boolean) => void;
   setStatus: (status: 'idle' | 'writing' | 'paused' | 'finished') => void;
   content: string;
   title: string;
@@ -26,6 +26,7 @@ interface WritingFinishModalProps {
   labelId?: string;
   setLabelId: (labelId?: string) => void;
   labels: Label[];
+  isLocalOnly: boolean;
 }
 
 export function WritingFinishModal({
@@ -46,9 +47,14 @@ export function WritingFinishModal({
   setTags,
   labelId,
   setLabelId,
-  labels
+  labels,
+  isLocalOnly
 }: WritingFinishModalProps) {
   if (status !== 'finished') return null;
+
+  const handleSaveClick = () => {
+    handleSave(isLocalOnly);
+  };
 
   const popularWords = React.useMemo(() => {
     const words = content.toLowerCase().match(/\b\w{5,}\b/g) || [];
@@ -203,55 +209,71 @@ export function WritingFinishModal({
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-stone-200 dark:bg-stone-700 rounded-full flex items-center justify-center text-stone-500 dark:text-stone-400">
-                <Globe size={20} />
+        {!isLocalOnly ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-stone-200 dark:bg-stone-700 rounded-full flex items-center justify-center text-stone-500 dark:text-stone-400">
+                  <Globe size={20} />
+                </div>
+                <div>
+                  <div className="font-bold text-sm dark:text-stone-100">Публичный доступ</div>
+                  <div className="text-xs text-stone-500">Ваш текст увидят другие авторы</div>
+                </div>
               </div>
-              <div>
-                <div className="font-bold text-sm dark:text-stone-100">Публичный доступ</div>
-                <div className="text-xs text-stone-500">Ваш текст увидят другие авторы</div>
-              </div>
+              <button 
+                onClick={() => setIsPublic(!isPublic)}
+                className={cn(
+                  "w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center",
+                  isPublic ? "bg-emerald-500" : "bg-stone-300 dark:bg-stone-600"
+                )}
+              >
+                <motion.div 
+                  animate={{ x: isPublic ? 24 : 0 }}
+                  className="w-4 h-4 bg-white rounded-full shadow-sm"
+                />
+              </button>
             </div>
-            <button 
-              onClick={() => setIsPublic(!isPublic)}
-              className={cn(
-                "w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center",
-                isPublic ? "bg-emerald-500" : "bg-stone-300 dark:bg-stone-600"
-              )}
-            >
-              <motion.div 
-                animate={{ x: isPublic ? 24 : 0 }}
-                className="w-4 h-4 bg-white rounded-full shadow-sm"
-              />
-            </button>
-          </div>
 
-          <div className="flex items-center justify-between p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-stone-200 dark:bg-stone-700 rounded-full flex items-center justify-center text-stone-500 dark:text-stone-400">
-                <UserIcon size={20} />
+            <div className="flex items-center justify-between p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-stone-200 dark:bg-stone-700 rounded-full flex items-center justify-center text-stone-500 dark:text-stone-400">
+                  <UserIcon size={20} />
+                </div>
+                <div>
+                  <div className="font-bold text-sm dark:text-stone-100">Анонимно</div>
+                  <div className="text-xs text-stone-500">Скрыть ваше имя в ленте</div>
+                </div>
               </div>
-              <div>
-                <div className="font-bold text-sm dark:text-stone-100">Анонимно</div>
-                <div className="text-xs text-stone-500">Скрыть ваше имя в ленте</div>
+              <button 
+                onClick={() => setIsAnonymous(!isAnonymous)}
+                className={cn(
+                  "w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center",
+                  isAnonymous ? "bg-stone-900 dark:bg-stone-100" : "bg-stone-300 dark:bg-stone-600"
+                )}
+              >
+                <motion.div 
+                  animate={{ x: isAnonymous ? 24 : 0 }}
+                  className="w-4 h-4 bg-white dark:bg-stone-900 rounded-full shadow-sm"
+                />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-stone-200 dark:bg-stone-700 rounded-full flex items-center justify-center text-stone-500 dark:text-stone-400">
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <div className="font-bold text-sm dark:text-stone-100">Локальная сессия</div>
+                  <div className="text-xs text-stone-500">Текст будет сохранен только в вашем браузере</div>
+                </div>
               </div>
             </div>
-            <button 
-              onClick={() => setIsAnonymous(!isAnonymous)}
-              className={cn(
-                "w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center",
-                isAnonymous ? "bg-stone-900 dark:bg-stone-100" : "bg-stone-300 dark:bg-stone-600"
-              )}
-            >
-              <motion.div 
-                animate={{ x: isAnonymous ? 24 : 0 }}
-                className="w-4 h-4 bg-white dark:bg-stone-900 rounded-full shadow-sm"
-              />
-            </button>
           </div>
-        </div>
+        )}
 
         <div className="space-y-3">
           <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Экспорт</label>
@@ -288,7 +310,7 @@ export function WritingFinishModal({
             Вернуться
           </button>
           <button 
-            onClick={handleSave}
+            onClick={handleSaveClick}
             className="flex-1 px-6 py-4 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-2xl font-bold shadow-xl hover:scale-105 transition-all"
           >
             Сохранить
