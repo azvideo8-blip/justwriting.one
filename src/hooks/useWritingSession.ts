@@ -9,9 +9,10 @@ import { saveDraft, getDraft, deleteDraft } from '../lib/db';
 
 export function useWritingSession(user: User, profile: any) {
   const [status, setStatus] = useState<'idle' | 'writing' | 'paused' | 'finished'>('idle');
-  const [sessionType, setSessionType] = useState<'stopwatch' | 'timer' | 'words'>('stopwatch');
+  const [sessionType, setSessionType] = useState<'stopwatch' | 'timer' | 'words' | 'finish-by'>('stopwatch');
   const [timerDuration, setTimerDuration] = useState(15 * 60);
   const [wordGoal, setWordGoal] = useState(500);
+  const [targetTime, setTargetTime] = useState<string | null>(null);
   
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [initialWordCount, setInitialWordCount] = useState(0);
@@ -141,6 +142,15 @@ export function useWritingSession(user: User, profile: any) {
           if (sessionType === 'timer' && next >= timerDuration) {
             setTimeGoalReached(true);
           }
+          if (sessionType === 'finish-by' && targetTime) {
+            const [hours, minutes] = targetTime.split(':').map(Number);
+            const now = new Date();
+            const target = new Date();
+            target.setHours(hours, minutes, 0, 0);
+            if (now >= target) {
+              setTimeGoalReached(true);
+            }
+          }
           return next;
         });
       }, 1000);
@@ -148,7 +158,7 @@ export function useWritingSession(user: User, profile: any) {
       clearInterval(timerRef.current);
     }
     return () => clearInterval(timerRef.current);
-  }, [status, sessionType, timerDuration]);
+  }, [status, sessionType, timerDuration, targetTime]);
 
   // Stats logic
   useEffect(() => {
@@ -181,9 +191,9 @@ export function useWritingSession(user: User, profile: any) {
     setWordGoalReached(false);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (isLocalOnly: boolean) => {
     const currentWordCount = content.trim().split(/\s+/).filter(x => x.length > 3).length;
-    const sessionData = {
+    let sessionData: any = {
       userId: user.uid,
       authorName: user.displayName || 'Anonymous',
       authorPhoto: user.photoURL || '',
@@ -202,6 +212,14 @@ export function useWritingSession(user: User, profile: any) {
       sessionType,
       goalReached: sessionType === 'timer' ? timeGoalReached : (sessionType === 'words' ? wordGoalReached : true)
     };
+
+    if (isLocalOnly) {
+      localStorage.setItem(`local_session_${Date.now()}`, JSON.stringify(sessionData));
+      await deleteDraft(user.uid);
+      resetSession();
+      setStatus('idle');
+      return;
+    }
 
     if (!isOnline) {
       const pending = JSON.parse(localStorage.getItem(`pending_sessions_${user.uid}`) || '[]');
@@ -253,11 +271,33 @@ export function useWritingSession(user: User, profile: any) {
     setStatus('idle');
   };
 
+  const fetchLocalSessions = () => {
+    const sessions = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith('local_session_')) {
+        sessions.push({ id: key, createdAt: new Date(Number(key.replace('local_session_', ''))) });
+      }
+    }
+    return sessions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  };
+
+  const loadLocalSession = (key: string) => {
+    const raw = localStorage.getItem(key);
+    try {
+      return JSON.parse(raw || '{}');
+    } catch (e) {
+      console.error('load error:', e);
+      return null;
+    }
+  };
+
   return {
     status, setStatus,
     sessionType, setSessionType,
     timerDuration, setTimerDuration,
     wordGoal, setWordGoal,
+    targetTime, setTargetTime,
     content, setContent,
     title, setTitle,
     pinnedThoughts, setPinnedThoughts,
@@ -274,6 +314,8 @@ export function useWritingSession(user: User, profile: any) {
     activeSessionId, setActiveSessionId,
     saveStatus, lastSavedAt,
     handleStart, handleSave, handleCancel, resetSession,
-    isOnline
+    isOnline,
+    fetchLocalSessions,
+    loadLocalSession
   };
 }

@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, Play, Clock, Settings, Plus, History, Pause, Square, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { CountdownTimer } from './CountdownTimer';
 
 interface WritingHeaderProps {
   status: 'idle' | 'writing' | 'paused' | 'finished';
-  sessionType: 'stopwatch' | 'timer' | 'words';
+  sessionType: 'stopwatch' | 'timer' | 'words' | 'finish-by';
   timeGoalReached: boolean;
   wordGoalReached: boolean;
   seconds: number;
   wordCount: number;
   initialWordCount: number;
   wordGoal: number;
+  targetTime: string | null;
   wpm: number;
   formatTime: (s: number) => string;
   handleNewSession: () => void;
@@ -43,6 +45,7 @@ export function WritingHeader({
   wordCount,
   initialWordCount,
   wordGoal,
+  targetTime,
   wpm,
   formatTime,
   handleNewSession,
@@ -95,13 +98,17 @@ export function WritingHeader({
             <>
               <div className="flex flex-col relative shrink-0">
                 <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-1 flex items-center gap-1">
-                  Время {sessionType === 'timer' && timeGoalReached && <CheckCircle2 size={10} className="text-emerald-500" />}
+                  {sessionType === 'finish-by' ? 'Оставшееся время' : 'Время'} {sessionType === 'timer' && timeGoalReached && <CheckCircle2 size={10} className="text-emerald-500" />}
                 </span>
                 <span className={cn(
                   "text-2xl font-mono font-bold transition-colors",
                   sessionType === 'timer' && timeGoalReached ? "text-emerald-500" : "dark:text-stone-100"
                 )}>
-                  {formatTime(seconds)}
+                  {sessionType === 'finish-by' && targetTime ? (
+                    <CountdownTimer targetTime={targetTime} />
+                  ) : (
+                    formatTime(seconds)
+                  )}
                 </span>
               </div>
               <div className="h-10 w-px bg-stone-100 dark:bg-stone-800" />
