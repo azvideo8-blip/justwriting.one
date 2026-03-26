@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { User } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Label } from '../../types';
+import { Label, UserProfile } from '../../types';
 import { Plus, X } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../lib/firestore-errors';
 import { cn } from '../../lib/utils';
 
-export function ArchiveLabels({ user, profile, selectedLabelId, onSelectLabel }: { user: User, profile: any, selectedLabelId: string | null, onSelectLabel: (id: string | null) => void }) {
+export function ArchiveLabels({ user, profile, selectedLabelId, onSelectLabel }: { user: User, profile: UserProfile | null, selectedLabelId: string | null, onSelectLabel: (id: string | null) => void }) {
   const labels: Label[] = profile?.labels || [];
   const [newLabel, setNewLabel] = useState({ name: '', color: '#000000' });
 

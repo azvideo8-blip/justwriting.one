@@ -8,7 +8,7 @@ if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes('TODO')) {
   console.warn("Firebase API Key is missing or invalid. Please check firebase-applet-config.json");
 }
 
-const app = initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 console.log("Initializing Firestore with Database ID:", firebaseConfig.firestoreDatabaseId);

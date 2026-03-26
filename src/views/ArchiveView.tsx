@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
-import { onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
+import { onSnapshot, collection, query, where } from 'firebase/firestore';
 import { format, isSameDay } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { History, Search, LayoutGrid, LayoutList } from 'lucide-react';
@@ -12,8 +12,8 @@ import { Calendar } from '../components/Calendar';
 import { parseFirestoreDate, cn } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { TagCloud } from '../components/TagCloud';
-import { ArchiveLabels } from '../components/archive/ArchiveLabels';
 import { useLanguage } from '../lib/i18n';
+import { useDebounce } from '../hooks/useDebounce';
 
 interface ArchiveViewProps {
   user: User;
@@ -27,8 +27,8 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [selectedMonth, setSelectedMonth] = useState<Date | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => (localStorage.getItem('archive_viewMode') as any) || 'list');
   
   useEffect(() => {
@@ -41,7 +41,6 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
     setLoading(true);
     setError(null);
     
-    // Remove orderBy to avoid composite index requirement
     const q = query(
       collection(db, 'sessions'),
       where('userId', '==', user.uid)
@@ -49,7 +48,6 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Session));
-      // Sort client-side
       docs.sort((a, b) => {
         const dateA = parseFirestoreDate(a.createdAt).getTime();
         const dateB = parseFirestoreDate(b.createdAt).getTime();
@@ -71,27 +69,30 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
     return unsubscribe;
   }, [user.uid, t]);
 
-  const allTags = Array.from(new Set(sessions.flatMap(s => s.tags || [])));
+  const allTags = useMemo(() => Array.from(new Set(sessions.flatMap(s => s.tags || []))), [sessions]);
   
-  const filteredSessions = sessions.filter(s => {
-    const sDate = parseFirestoreDate(s.createdAt);
-    const matchesDate = !selectedDate || isSameDay(sDate, selectedDate);
-    const matchesMonth = !selectedMonth || (sDate.getMonth() === selectedMonth.getMonth() && sDate.getFullYear() === selectedMonth.getFullYear());
-    const matchesTags = selectedTags.length === 0 || selectedTags.every(t => s.tags?.includes(t));
-    const matchesLabel = !selectedLabelId || s.labelId === selectedLabelId;
-    const matchesSearch = !searchQuery || s.content.toLowerCase().includes(searchQuery.toLowerCase()) || s.title?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesDate && matchesMonth && matchesTags && matchesLabel && matchesSearch;
-  });
+  const filteredSessions = useMemo(() => {
+    return sessions.filter(s => {
+      const sDate = parseFirestoreDate(s.createdAt);
+      const matchesDate = !selectedDate || isSameDay(sDate, selectedDate);
+      const matchesMonth = !selectedMonth || (sDate.getMonth() === selectedMonth.getMonth() && sDate.getFullYear() === selectedMonth.getFullYear());
+      const matchesTags = selectedTags.length === 0 || selectedTags.every(t => s.tags?.includes(t));
+      const matchesSearch = !debouncedSearchQuery || s.content.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) || s.title?.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
+      return matchesDate && matchesMonth && matchesTags && matchesSearch;
+    });
+  }, [sessions, selectedDate, selectedMonth, selectedTags, debouncedSearchQuery]);
 
-  const groupedSessions = filteredSessions.reduce((acc, session) => {
-    const date = parseFirestoreDate(session.createdAt);
-    const dateKey = format(date, 'yyyy-MM-dd');
-    if (!acc[dateKey]) acc[dateKey] = [];
-    acc[dateKey].push(session);
-    return acc;
-  }, {} as Record<string, Session[]>);
+  const groupedSessions = useMemo(() => {
+    return filteredSessions.reduce((acc, session) => {
+      const date = parseFirestoreDate(session.createdAt);
+      const dateKey = format(date, 'yyyy-MM-dd');
+      if (!acc[dateKey]) acc[dateKey] = [];
+      acc[dateKey].push(session);
+      return acc;
+    }, {} as Record<string, Session[]>);
+  }, [filteredSessions]);
 
-  const sortedDates = Object.keys(groupedSessions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  const sortedDates = useMemo(() => Object.keys(groupedSessions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [groupedSessions]);
 
   const dateLocale = language === 'ru' ? ru : enUS;
 

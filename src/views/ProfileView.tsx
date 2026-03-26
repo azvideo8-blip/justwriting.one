@@ -17,9 +17,11 @@ import { TagCloud } from '../components/TagCloud';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useLanguage } from '../lib/i18n';
 
+import { UserProfile } from '../types';
+
 interface ProfileViewProps {
   user: User;
-  profile: any;
+  profile: UserProfile | null;
 }
 
 export function ProfileView({ user, profile }: ProfileViewProps) {

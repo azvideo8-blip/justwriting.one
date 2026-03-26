@@ -10,7 +10,7 @@ interface MobileMenuProps {
   isOpen: boolean;
   onClose: () => void;
   view: string;
-  setView: (view: any) => void;
+  setView: (view: 'write' | 'profile' | 'archive' | 'feed' | 'admin') => void;
   isAdmin: boolean;
 }
 

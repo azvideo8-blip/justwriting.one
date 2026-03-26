@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from './lib/firestore-errors';
+import { UIProvider } from './contexts/UIContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useLanguage } from './lib/i18n';
 
@@ -22,12 +23,12 @@ import { ProfileView } from './views/ProfileView';
 import { ArchiveView } from './views/ArchiveView';
 import { FeedView } from './views/FeedView';
 import { AdminView } from './views/AdminView';
-import { Session } from './types';
+import { Session, UserProfile } from './types';
 
 export default function App() {
   const { t } = useLanguage();
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<{ nickname?: string; role?: string } | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [view, setView] = useState<'write' | 'profile' | 'archive' | 'feed' | 'admin'>('write');
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -53,9 +54,9 @@ export default function App() {
         const userDoc = doc(db, 'users', u.uid);
         onSnapshot(userDoc, (snap) => {
           if (snap.exists()) {
-            setProfile(snap.data() as { nickname?: string });
+            setProfile(snap.data() as UserProfile);
           } else {
-            const initialProfile = { 
+            const initialProfile: UserProfile = { 
               uid: u.uid,
               email: u.email || '',
               nickname: u.email?.split('@')[0] || 'User',
@@ -95,8 +96,9 @@ export default function App() {
   if (!user) return <LoginView />;
 
   return (
-    <ErrorBoundary>
-      <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans selection:bg-stone-200 dark:selection:bg-stone-800">
+    <UIProvider>
+      <ErrorBoundary>
+        <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans selection:bg-stone-200 dark:selection:bg-stone-800">
         {/* Navigation */}
         <nav className="fixed top-0 left-0 right-0 h-16 bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border-b border-stone-200 dark:border-stone-800 z-50 px-4 md:px-6 flex items-center justify-between">
           {!isConnected && (
@@ -162,5 +164,6 @@ export default function App() {
         </main>
       </div>
     </ErrorBoundary>
+    </UIProvider>
   );
 }

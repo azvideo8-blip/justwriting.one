@@ -7,12 +7,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function parseFirestoreDate(date: any): Date {
+export function parseFirestoreDate(date: unknown): Date {
   if (!date) return new Date();
   if (date instanceof Date) return date;
-  if (typeof date.toDate === 'function') return date.toDate();
-  if (typeof date.seconds === 'number') return new Date(date.seconds * 1000);
-  return new Date(date);
+  if (typeof date === 'object' && date !== null) {
+    const d = date as { toDate?: () => Date; seconds?: number };
+    if (typeof d.toDate === 'function') return d.toDate();
+    if (typeof d.seconds === 'number') return new Date(d.seconds * 1000);
+  }
+  return new Date(date as string | number);
 }
 
 export function calculateStreak(sessions: Session[]) {

@@ -26,7 +26,10 @@ export interface Session {
 }
 
 export interface UserProfile {
-  nickname?: string;
+  uid: string;
+  email: string;
+  nickname: string;
+  role: string;
   isAnonymousDefault?: boolean;
   labels?: Label[];
 }
