@@ -14,6 +14,7 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { jsPDF } from 'jspdf';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { saveAs } from 'file-saver';
+import { useLanguage } from '../lib/i18n';
 
 import { SessionEditor } from './SessionEditor';
 
@@ -30,6 +31,7 @@ export function SessionCard({
   labels?: Label[],
   searchQuery?: string
 }) {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -178,13 +180,13 @@ export function SessionCard({
             <span className="text-[10px] md:text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">
               {format(new Date(sessionDate), 'd MMM yyyy • HH:mm')}
             </span>
-            {showAuthor && <span className="font-medium text-stone-900 dark:text-stone-100">{session.isAnonymous ? 'Аноним' : (session.nickname || session.authorName)}</span>}
+            {showAuthor && <span className="font-medium text-stone-900 dark:text-stone-100">{session.isAnonymous ? t('session_anonymous') : (session.nickname || session.authorName)}</span>}
           </div>
         </div>
         <div className="flex items-center flex-wrap gap-3 text-stone-400 dark:text-stone-500 text-xs md:text-sm font-mono">
-          <span className="flex items-center gap-1" title="Время"><Clock size={14} /> {Math.floor(session.duration / 60)}м</span>
-          <span className="flex items-center gap-1" title="Слова"><Type size={14} /> {session.wordCount}сл</span>
-          <span className="flex items-center gap-1" title="Символы"><PenLine size={14} /> {session.charCount || 0}</span>
+          <span className="flex items-center gap-1" title={t('writing_time')}><Clock size={14} /> {Math.floor(session.duration / 60)}{t('unit_min')}</span>
+          <span className="flex items-center gap-1" title={t('writing_words')}><Type size={14} /> {session.wordCount}{t('unit_words')}</span>
+          <span className="flex items-center gap-1" title={t('writing_chars')}><PenLine size={14} /> {session.charCount || 0}</span>
           {session.isPublic ? <Globe size={14} /> : <Lock size={14} />}
           
           <div className="flex items-center flex-wrap gap-2 relative">
@@ -198,7 +200,7 @@ export function SessionCard({
               )}
             >
               <Share2 size={12} />
-              Экспорт
+              {t('session_export')}
             </button>
 
             {showExportMenu && (
@@ -212,28 +214,28 @@ export function SessionCard({
                   className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-xl transition-all"
                 >
                   <FileText size={14} />
-                  Текстовый (.txt)
+                  {t('export_txt')}
                 </button>
                 <button 
                   onClick={exportPDF}
                   className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-xl transition-all"
                 >
                   <FileText size={14} className="text-red-500" />
-                  PDF (.pdf)
+                  {t('export_pdf')}
                 </button>
                 <button 
                   onClick={exportMarkdown}
                   className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-xl transition-all"
                 >
                   <FileJson size={14} className="text-blue-500" />
-                  Markdown (.md)
+                  {t('export_md')}
                 </button>
                 <button 
                   onClick={exportDocx}
                   className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-xl transition-all"
                 >
                   <Download size={14} className="text-emerald-500" />
-                  Word (.docx)
+                  {t('export_docx')}
                 </button>
               </motion.div>
             )}
@@ -244,7 +246,7 @@ export function SessionCard({
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700 text-[10px] font-bold uppercase tracking-wider transition-all"
               >
                 <PenLine size={12} />
-                Редактировать
+                {t('session_edit')}
               </button>
             )}
             
@@ -253,7 +255,7 @@ export function SessionCard({
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700 text-[10px] font-bold uppercase tracking-wider transition-all"
             >
               {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              {expanded ? 'Свернуть' : 'Развернуть'}
+              {expanded ? t('session_collapse') : t('session_expand')}
             </button>
           </div>
         </div>
@@ -307,7 +309,7 @@ export function SessionCard({
                 onClick={() => setIsAddingTag(true)}
                 className="text-xs text-stone-300 dark:text-stone-600 italic hover:text-stone-500 transition-colors"
               >
-                + Добавить теги
+                + {t('session_add_tags')}
               </button>
             )}
 
@@ -319,7 +321,7 @@ export function SessionCard({
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   onBlur={() => !newTag && setIsAddingTag(false)}
-                  placeholder="тег..."
+                  placeholder={t('session_tag_placeholder')}
                   className="w-24 px-2.5 py-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-xs outline-none"
                 />
               </form>
@@ -339,7 +341,7 @@ export function SessionCard({
               className="flex items-center gap-2 px-6 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-bold hover:opacity-90 transition-opacity text-sm"
             >
               <PenLine size={16} />
-              Продолжить писать
+              {t('session_continue')}
             </button>
           )}
         </div>

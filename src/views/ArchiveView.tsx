@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
 import { onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
 import { format, isSameDay } from 'date-fns';
-import { ru } from 'date-fns/locale';
+import { ru, enUS } from 'date-fns/locale';
 import { History, Search, LayoutGrid, LayoutList } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { Session } from '../types';
@@ -13,6 +13,7 @@ import { parseFirestoreDate, cn } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { TagCloud } from '../components/TagCloud';
 import { ArchiveLabels } from '../components/archive/ArchiveLabels';
+import { useLanguage } from '../lib/i18n';
 
 interface ArchiveViewProps {
   user: User;
@@ -21,6 +22,7 @@ interface ArchiveViewProps {
 }
 
 export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewProps) {
+  const { t, language } = useLanguage();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [selectedMonth, setSelectedMonth] = useState<Date | null>(null);
@@ -57,7 +59,7 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
       setLoading(false);
     }, (err) => {
       console.error('Archive load error:', err);
-      setError('Не удалось загрузить архив. Пожалуйста, проверьте соединение.');
+      setError(t('archive_load_error'));
       setLoading(false);
       try {
         handleFirestoreError(err, OperationType.LIST, 'sessions');
@@ -67,7 +69,7 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
     });
 
     return unsubscribe;
-  }, [user.uid]);
+  }, [user.uid, t]);
 
   const allTags = Array.from(new Set(sessions.flatMap(s => s.tags || [])));
   
@@ -91,6 +93,8 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
 
   const sortedDates = Object.keys(groupedSessions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
+  const dateLocale = language === 'ru' ? ru : enUS;
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -102,7 +106,7 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
           <div className="flex items-center justify-between gap-4">
             <h3 className="text-2xl font-bold dark:text-stone-100 flex items-center gap-2">
               <History size={24} />
-              Архив
+              {t('nav_notes')}
             </h3>
 
             <div className="flex bg-stone-100 dark:bg-stone-800 p-1 rounded-xl">
@@ -112,7 +116,7 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
                   "p-2 rounded-lg transition-all",
                   viewMode === 'list' ? "bg-white dark:bg-stone-900 shadow-sm text-stone-900 dark:text-white" : "text-stone-400"
                 )}
-                title="Список"
+                title={t('archive_list')}
               >
                 <LayoutList size={18} />
               </button>
@@ -122,7 +126,7 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
                   "p-2 rounded-lg transition-all",
                   viewMode === 'grid' ? "bg-white dark:bg-stone-900 shadow-sm text-stone-900 dark:text-white" : "text-stone-400"
                 )}
-                title="Сетка"
+                title={t('archive_grid')}
               >
                 <LayoutGrid size={18} />
               </button>
@@ -131,19 +135,19 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
             
             <div className="space-y-6">
               {loading ? (
-                <div className="text-stone-400 italic text-center py-12">Загрузка архива...</div>
+                <div className="text-stone-400 italic text-center py-12">{t('archive_loading')}</div>
               ) : error ? (
                 <div className="p-12 text-center bg-red-50 dark:bg-red-900/10 rounded-3xl border border-red-100 dark:border-red-900/30">
                   <p className="text-red-600 dark:text-red-400">{error}</p>
                 </div>
               ) : sortedDates.length === 0 ? (
                 <div className="p-12 text-center bg-stone-50 dark:bg-stone-900/50 rounded-3xl border-2 border-dashed border-stone-200 dark:border-stone-800">
-                  <p className="text-stone-400">Сессий не найдено</p>
+                  <p className="text-stone-400">{t('archive_empty')}</p>
                 </div>
               ) : (
                 sortedDates.map(dateKey => (
                   <div key={dateKey} className="space-y-4">
-                    <h4 className="text-lg font-bold text-stone-500">{format(new Date(dateKey), 'd MMMM yyyy', { locale: ru })}</h4>
+                    <h4 className="text-lg font-bold text-stone-500">{format(new Date(dateKey), 'd MMMM yyyy', { locale: dateLocale })}</h4>
                     <div className={cn(
                       "gap-4",
                       viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2" : "flex flex-col"
@@ -180,7 +184,7 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
                 type="text" 
                 value={searchQuery} 
                 onChange={e => setSearchQuery(e.target.value)} 
-                placeholder="Поиск по архиву..." 
+                placeholder={t('archive_search_placeholder')} 
                 className="w-full bg-transparent outline-none text-sm"
               />
             </div>

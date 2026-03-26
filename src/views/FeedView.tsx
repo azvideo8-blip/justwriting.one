@@ -7,8 +7,10 @@ import { Session } from '../types';
 import { SessionCard } from '../components/SessionCard';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { parseFirestoreDate } from '../lib/utils';
+import { useLanguage } from '../lib/i18n';
 
 export function FeedView() {
+  const { t } = useLanguage();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,7 +39,7 @@ export function FeedView() {
       setLoading(false);
     }, (err) => {
       console.error('Feed load error:', err);
-      setError('Не удалось загрузить ленту. Пожалуйста, проверьте соединение.');
+      setError(t('community_load_error'));
       setLoading(false);
       try {
         handleFirestoreError(err, OperationType.LIST, 'sessions');
@@ -47,7 +49,7 @@ export function FeedView() {
     });
 
     return unsubscribe;
-  }, []);
+  }, [t]);
 
   return (
     <motion.div 
@@ -57,21 +59,21 @@ export function FeedView() {
     >
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold dark:text-stone-100 flex items-center gap-3">
-          <Globe className="text-emerald-500" /> Лента
+          <Globe className="text-emerald-500" /> {t('nav_community')}
         </h2>
-        <span className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Публичные сессии</span>
+        <span className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t('community_subtitle')}</span>
       </div>
 
       <div className="space-y-8">
         {loading ? (
-          <div className="text-stone-400 italic text-center py-12">Загрузка ленты...</div>
+          <div className="text-stone-400 italic text-center py-12">{t('community_loading')}</div>
         ) : error ? (
           <div className="p-12 text-center bg-red-50 dark:bg-red-900/10 rounded-3xl border border-red-100 dark:border-red-900/30">
             <p className="text-red-600 dark:text-red-400">{error}</p>
           </div>
         ) : sessions.length === 0 ? (
           <div className="p-12 text-center bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800">
-            <p className="text-stone-400">Лента пока пуста. Будьте первым, кто поделится своей сессией!</p>
+            <p className="text-stone-400">{t('community_empty')}</p>
           </div>
         ) : (
           sessions.map(session => (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
@@ -17,6 +17,7 @@ import { WritingFinishModal } from '../components/writing/WritingFinishModal';
 
 // Hooks
 import { useWritingSession } from '../hooks/useWritingSession';
+import { useLanguage } from '../lib/i18n';
 
 interface WritingViewProps {
   user: User;
@@ -26,6 +27,7 @@ interface WritingViewProps {
 }
 
 export function WritingView({ user, profile, sessionToContinue, onSessionContinued }: WritingViewProps) {
+  const { t } = useLanguage();
   const {
     status, setStatus,
     sessionType, setSessionType,
@@ -169,12 +171,17 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
       const snap = await getDocs(q);
       const firestoreSessions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Session));
       
-      const localSessions = fetchLocalSessions().map(s => ({
-        ...s,
-        title: 'Локальная сессия (зашифровано)',
-        content: '',
-        isLocal: true
-      }));
+      const localSessions = fetchLocalSessions().map(s => {
+        const data = loadLocalSession(s.id);
+        return {
+          ...s,
+          title: data?.title || t('writing_local_session'),
+          content: data?.content || '',
+          wordCount: data?.wordCount || 0,
+          duration: data?.duration || 0,
+          isLocal: true
+        };
+      });
 
       setUserSessions([...firestoreSessions, ...localSessions] as Session[]);
       setSetupMode('session-selection');
@@ -199,7 +206,8 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         setTags(loaded.tags || []);
         setIsPublic(loaded.isPublic);
         setIsAnonymous(loaded.isAnonymous || false);
-        setSetupMode(null);
+        setIsLocalOnly(true);
+        setSetupMode('selection');
         return;
     }
 
@@ -211,10 +219,11 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     setTags(session.tags || []);
     setIsPublic(session.isPublic);
     setIsAnonymous(session.isAnonymous || false);
-    setSetupMode(null);
+    setIsLocalOnly(false);
+    setSetupMode('selection');
   };
 
-  const startCountdown = (type: 'stopwatch' | 'timer' | 'words') => {
+  const startCountdown = (type: 'stopwatch' | 'timer' | 'words' | 'finish-by') => {
     setSessionType(type);
     setSetupMode('countdown');
     setCountdown(3);
@@ -341,15 +350,15 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
               <X size={32} />
             </div>
             <div className="space-y-2">
-              <h3 className="text-xl font-bold dark:text-stone-100">Отменить сессию?</h3>
-              <p className="text-stone-500 dark:text-stone-400 text-sm">Весь несохраненный прогресс будет безвозвратно удален.</p>
+              <h3 className="text-xl font-bold dark:text-stone-100">{t('writing_cancel_confirm')}</h3>
+              <p className="text-stone-500 dark:text-stone-400 text-sm">{t('writing_cancel_desc')}</p>
             </div>
             <div className="flex gap-3">
               <button 
                 onClick={() => setShowCancelConfirm(false)}
                 className="flex-1 px-4 py-3 border border-stone-200 dark:border-stone-800 rounded-xl font-bold hover:bg-stone-50 dark:hover:bg-stone-800 transition-all"
               >
-                Назад
+                {t('writing_back')}
               </button>
               <button 
                 onClick={() => {
@@ -358,7 +367,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
                 }}
                 className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all"
               >
-                Удалить
+                {t('finish_discard')}
               </button>
             </div>
           </motion.div>
@@ -414,48 +423,51 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         headerVisibility={headerVisibility}
       />
 
-      <div className="space-y-8 mt-8">
-        <div className="relative group">
-          <WritingSetup 
-            setupMode={setupMode}
-            setSetupMode={setSetupMode}
-            startCountdown={startCountdown}
-            timerDuration={timerDuration}
-            setTimerDuration={setTimerDuration}
-            wordGoal={wordGoal}
-            setWordGoal={setWordGoal}
-            targetTime={targetTime}
-            setTargetTime={setTargetTime}
-            countdown={countdown}
-            userSessions={userSessions}
-            continueSession={continueSession}
-            formatTime={formatTime}
-            isLocalOnly={isLocalOnly}
-            setIsLocalOnly={setIsLocalOnly}
-          />
+      <div className="relative min-h-[600px]">
+        <AnimatePresence>
+          {setupMode && (
+            <WritingSetup 
+              setupMode={setupMode}
+              setSetupMode={setSetupMode}
+              startCountdown={startCountdown}
+              timerDuration={timerDuration}
+              setTimerDuration={setTimerDuration}
+              wordGoal={wordGoal}
+              setWordGoal={setWordGoal}
+              targetTime={targetTime}
+              setTargetTime={setTargetTime}
+              countdown={countdown}
+              userSessions={userSessions}
+              continueSession={continueSession}
+              formatTime={formatTime}
+              isLocalOnly={isLocalOnly}
+              setIsLocalOnly={setIsLocalOnly}
+            />
+          )}
+        </AnimatePresence>
 
-          <WritingEditor 
-            status={status}
-            title={title}
-            setTitle={setTitle}
-            pinnedThoughts={pinnedThoughts}
-            setPinnedThoughts={setPinnedThoughts}
-            content={content}
-            setContent={setContent}
-            fontSize={fontSize}
-            fontFamily={fontFamily}
-            textWidth={textWidth}
-            handlePause={() => setStatus('paused')}
-            handleStart={handleStart}
-            handleFinish={() => setStatus('finished')}
-            setShowCancelConfirm={setShowCancelConfirm}
-            isZenActive={isZenActive}
-            dynamicBgEnabled={dynamicBgEnabled}
-            wpm={wpm}
-            saveStatus={saveStatus}
-            lastSavedAt={lastSavedAt}
-          />
-        </div>
+        <WritingEditor 
+          status={status}
+          title={title}
+          setTitle={setTitle}
+          pinnedThoughts={pinnedThoughts}
+          setPinnedThoughts={setPinnedThoughts}
+          content={content}
+          setContent={setContent}
+          fontSize={fontSize}
+          fontFamily={fontFamily}
+          textWidth={textWidth}
+          handlePause={() => setStatus('paused')}
+          handleStart={handleStart}
+          handleFinish={() => setStatus('finished')}
+          setShowCancelConfirm={setShowCancelConfirm}
+          isZenActive={isZenActive}
+          dynamicBgEnabled={dynamicBgEnabled}
+          wpm={wpm}
+          saveStatus={saveStatus}
+          lastSavedAt={lastSavedAt}
+          stickyHeaderEnabled={stickyHeaderEnabled}
+        />
       </div>
     </motion.div>
   );

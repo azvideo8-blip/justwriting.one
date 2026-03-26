@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useLanguage } from '../../lib/i18n';
 
 interface WritingSettingsProps {
   showSettings: boolean;
@@ -46,6 +47,7 @@ export function WritingSettings({
   headerVisibility,
   setHeaderVisibility
 }: WritingSettingsProps) {
+  const { t } = useLanguage();
   if (!showSettings) return null;
 
   const toggleVisibility = (key: keyof typeof headerVisibility) => {
@@ -63,7 +65,7 @@ export function WritingSettings({
         className="bg-white dark:bg-stone-900 p-8 rounded-3xl max-w-md w-full space-y-8 shadow-2xl border border-stone-200 dark:border-stone-800 max-h-[90vh] overflow-y-auto no-scrollbar"
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold">Настройки</h3>
+          <h3 className="text-xl font-bold">{t('settings_title')}</h3>
           <button 
             onClick={() => setShowSettings(false)}
             className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full transition-colors"
@@ -74,7 +76,7 @@ export function WritingSettings({
 
         <div className="space-y-6">
           <div className="space-y-3">
-            <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Шрифт</label>
+            <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t('settings_font')}</label>
             <select 
               value={fontFamily}
               onChange={(e) => setFontFamily(e.target.value)}
@@ -89,7 +91,7 @@ export function WritingSettings({
           </div>
 
           <div className="space-y-3">
-            <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Ширина текста</label>
+            <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t('settings_width')}</label>
             <div className="flex bg-stone-50 dark:bg-stone-800 p-1 rounded-xl">
               <button 
                 onClick={() => setTextWidth('centered')}
@@ -98,7 +100,7 @@ export function WritingSettings({
                   textWidth === 'centered' ? "bg-white dark:bg-stone-900 shadow-sm" : "text-stone-500"
                 )}
               >
-                По центру
+                {t('settings_width_centered')}
               </button>
               <button 
                 onClick={() => setTextWidth('full')}
@@ -107,13 +109,13 @@ export function WritingSettings({
                   textWidth === 'full' ? "bg-white dark:bg-stone-900 shadow-sm" : "text-stone-500"
                 )}
               >
-                На всю ширину
+                {t('settings_width_full')}
               </button>
             </div>
           </div>
 
           <div className="space-y-3">
-            <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Размер шрифта: {fontSize}px</label>
+            <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t('settings_font_size')}: {fontSize}px</label>
             <input 
               type="range"
               min="14"
@@ -127,8 +129,8 @@ export function WritingSettings({
           <div className="space-y-4 pt-4 border-t border-stone-100 dark:border-stone-800">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <label className="text-sm font-bold">Интерфейс-невидимка</label>
-                <p className="text-[10px] text-stone-500">Скрывать UI во время письма</p>
+                <label className="text-sm font-bold">{t('settings_zen')}</label>
+                <p className="text-[10px] text-stone-500">{t('settings_zen_desc')}</p>
               </div>
               <button 
                 onClick={() => setZenModeEnabled(!zenModeEnabled)}
@@ -146,8 +148,8 @@ export function WritingSettings({
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <label className="text-sm font-bold">Живой фон</label>
-                <p className="text-[10px] text-stone-500">Цвет меняется от скорости WPM</p>
+                <label className="text-sm font-bold">{t('settings_dynamic_bg')}</label>
+                <p className="text-[10px] text-stone-500">{t('settings_dynamic_bg_desc')}</p>
               </div>
               <button 
                 onClick={() => setDynamicBgEnabled(!dynamicBgEnabled)}
@@ -165,8 +167,8 @@ export function WritingSettings({
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <label className="text-sm font-bold">Закрепленная панель</label>
-                <p className="text-[10px] text-stone-500">Статистика всегда видна при скролле</p>
+                <label className="text-sm font-bold">{t('settings_sticky')}</label>
+                <p className="text-[10px] text-stone-500">{t('settings_sticky_desc')}</p>
               </div>
               <button 
                 onClick={() => setStickyHeaderEnabled(!stickyHeaderEnabled)}
@@ -184,15 +186,15 @@ export function WritingSettings({
           </div>
 
           <div className="space-y-4 pt-4 border-t border-stone-100 dark:border-stone-800">
-            <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Отображение элементов</label>
+            <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t('settings_elements')}</label>
             
             <div className="grid grid-cols-2 gap-3">
               {[
-                { key: 'currentTime', label: 'Время' },
-                { key: 'sessionTime', label: 'Таймер' },
-                { key: 'sessionWords', label: 'Слова сессии' },
-                { key: 'totalWords', label: 'Всего слов' },
-                { key: 'wpm', label: 'Скорость (WPM)' }
+                { key: 'currentTime', label: t('writing_time') },
+                { key: 'sessionTime', label: t('writing_timer') },
+                { key: 'sessionWords', label: t('writing_words') },
+                { key: 'totalWords', label: t('writing_total') },
+                { key: 'wpm', label: t('writing_wpm') }
               ].map(({ key, label }) => (
                 <button
                   key={key}
@@ -215,7 +217,7 @@ export function WritingSettings({
           onClick={() => setShowSettings(false)}
           className="w-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 py-4 rounded-xl font-bold shadow-lg"
         >
-          Готово
+          {t('settings_done')}
         </button>
       </motion.div>
     </div>
