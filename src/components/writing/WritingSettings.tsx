@@ -26,7 +26,7 @@ interface WritingSettingsProps {
     totalWords: boolean;
     wpm: boolean;
   };
-  setHeaderVisibility: (v: any) => void;
+  setHeaderVisibility: (v: WritingSettingsProps['headerVisibility']) => void;
 }
 
 export function WritingSettings({ 
@@ -198,7 +198,7 @@ export function WritingSettings({
               ].map(({ key, label }) => (
                 <button
                   key={key}
-                  onClick={() => toggleVisibility(key as any)}
+                  onClick={() => toggleVisibility(key as keyof typeof headerVisibility)}
                   className={cn(
                     "px-3 py-2 rounded-lg text-[11px] font-bold transition-all border",
                     headerVisibility[key as keyof typeof headerVisibility]

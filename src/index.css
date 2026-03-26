@@ -22,7 +22,26 @@
 @layer base {
   :root {
     color-scheme: light;
+    --ethereal-bg-dark: #0A0A0B;
+    --ethereal-text-dark: #E5E5E0;
+    --ethereal-bg-light: #F7F5F0;
+    --ethereal-text-light: #2C2C2A;
   }
+
+  .theme-v2 {
+    --bg: var(--ethereal-bg-dark);
+    --text: var(--ethereal-text-dark);
+  }
+  
+  .theme-v2 body {
+    background-color: var(--bg);
+    color: var(--text);
+  }
+
+  .dark {
+    color-scheme: dark;
+  }
+...
 
   .dark {
     color-scheme: dark;

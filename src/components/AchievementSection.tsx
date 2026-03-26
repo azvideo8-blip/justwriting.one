@@ -1,9 +1,10 @@
 import React from 'react';
 import { AchievementBadge } from './AchievementBadge';
+import { Achievement } from '../types';
 
 interface AchievementSectionProps {
   title: string;
-  achievements: any[];
+  achievements: Achievement[];
   currentValue: number;
   suffix?: string;
 }

@@ -2,9 +2,10 @@ import React from 'react';
 import { format } from 'date-fns';
 import { Trash2 } from 'lucide-react';
 import { parseFirestoreDate } from '../../lib/utils';
+import { Session } from '../../types';
 
 interface AdminSessionsTableProps {
-  sessions: any[];
+  sessions: Session[];
   onDelete: (id: string) => void;
 }
 

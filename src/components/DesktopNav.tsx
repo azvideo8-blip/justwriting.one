@@ -5,6 +5,7 @@ import { User } from 'firebase/auth';
 import { signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useLanguage } from '../lib/i18n';
+import { useUI } from '../contexts/UIContext';
 
 interface DesktopNavProps {
   view: string;
@@ -15,9 +16,16 @@ interface DesktopNavProps {
 
 export function DesktopNav({ view, setView, isAdmin, user }: DesktopNavProps) {
   const { language, setLanguage, t } = useLanguage();
+  const { uiVersion, toggleUIVersion } = useUI();
 
   return (
     <div className="hidden md:flex items-center gap-6">
+      <button
+        onClick={toggleUIVersion}
+        className="px-2 py-1 rounded-md bg-stone-200 dark:bg-stone-800 text-xs font-bold"
+      >
+        UI v{uiVersion}
+      </button>
       <NavButton active={view === 'write'} onClick={() => setView('write')} icon={<PenLine size={18} />} label={t('nav_write')} />
       <NavButton active={view === 'archive'} onClick={() => setView('archive')} icon={<History size={18} />} label={t('nav_notes')} />
       <NavButton active={view === 'profile'} onClick={() => setView('profile')} icon={<UserIcon size={18} />} label={t('nav_profile')} />

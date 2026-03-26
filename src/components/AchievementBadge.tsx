@@ -1,14 +1,10 @@
 import React from 'react';
 import { cn } from '../lib/utils';
 import { useLanguage } from '../lib/i18n';
+import { Achievement } from '../types';
 
 interface AchievementBadgeProps {
-  achievement: {
-    id: string;
-    title: string;
-    icon: string;
-    threshold: number;
-  };
+  achievement: Achievement;
   earned: boolean;
 }
 

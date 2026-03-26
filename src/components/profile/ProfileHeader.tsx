@@ -5,10 +5,11 @@ import { User as UserIcon, PenLine, TrendingUp, Check, X } from 'lucide-react';
 import { db } from '../../lib/firebase';
 import { handleFirestoreError, OperationType } from '../../lib/firestore-errors';
 import { useLanguage } from '../../lib/i18n';
+import { UserProfile } from '../../types';
 
 interface ProfileHeaderProps {
   user: User;
-  profile: any;
+  profile: UserProfile | null;
   currentStreak: number;
   totalWords: number;
 }

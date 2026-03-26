@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Pause, Square, Play, X, X as XIcon, Pin, PinOff } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useLanguage } from '../../lib/i18n';
+import { useUI } from '../../contexts/UIContext';
 
 interface WritingEditorProps {
   status: 'idle' | 'writing' | 'paused' | 'finished';
@@ -50,6 +51,8 @@ export function WritingEditor({
   stickyHeaderEnabled = true
 }: WritingEditorProps) {
   const { t } = useLanguage();
+  const { uiVersion } = useUI();
+  const isV2 = uiVersion === '2.0';
   const [showPinnedInput, setShowPinnedInput] = React.useState(false);
   const [hasSelection, setHasSelection] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
@@ -129,9 +132,23 @@ export function WritingEditor({
     <div 
       className={cn(
         "mx-auto px-4 md:px-8 space-y-6 transition-all duration-1000 py-8",
-        textWidth === 'centered' ? "max-w-4xl" : "max-w-full"
+        textWidth === 'centered' ? "max-w-4xl" : "max-w-full",
+        isV2 && "font-serif"
       )}
     >
+      {isV2 && (
+        <motion.div
+          className="fixed inset-0 z-0 pointer-events-none"
+          animate={{
+            background: [
+              "radial-gradient(circle at 50% 50%, #1a1a1a 0%, #0a0a0b 100%)",
+              "radial-gradient(circle at 40% 60%, #2a2a2a 0%, #0a0a0b 100%)",
+              "radial-gradient(circle at 60% 40%, #1a1a1a 0%, #0a0a0b 100%)",
+            ]
+          }}
+          transition={{ duration: 10, repeat: Infinity, repeatType: "reverse" }}
+        />
+      )}
       <div className={cn(
         "flex flex-col gap-4 transition-all duration-1000 z-30 py-2",
         stickyHeaderEnabled ? "sticky top-[128px] md:top-[120px]" : "relative",
@@ -232,7 +249,7 @@ export function WritingEditor({
           disabled={status === 'idle' || status === 'paused'}
           placeholder={status === 'idle' ? t('editor_idle_placeholder') : t('editor_writing_placeholder')}
           style={{ 
-            fontSize: `${fontSize}px`,
+            fontSize: `${isV2 ? fontSize * 1.5 : fontSize}px`,
             fontFamily: fontFamily === 'Inter' ? 'Inter, sans-serif' : 
                         fontFamily === 'Playfair Display' ? '"Playfair Display", serif' :
                         fontFamily === 'JetBrains Mono' ? '"JetBrains Mono", monospace' :
@@ -241,8 +258,9 @@ export function WritingEditor({
             backgroundColor: dynamicBgEnabled ? 'var(--dynamic-bg)' : undefined
           }}
           className={cn(
-            "w-full min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-[2.5rem] border border-stone-200 dark:border-stone-800 shadow-xl focus:shadow-2xl focus:border-stone-300 dark:focus:border-stone-700 transition-all outline-none leading-relaxed resize-none dark:text-stone-100",
-            !dynamicBgEnabled ? "bg-white dark:bg-stone-900" : "bg-transparent",
+            "w-full min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-[2.5rem] border border-stone-200 dark:border-stone-800 shadow-xl focus:shadow-2xl focus:border-stone-300 dark:focus:border-stone-700 transition-all outline-none resize-none dark:text-stone-100",
+            isV2 ? "leading-[1.8] bg-transparent border-none shadow-none" : "leading-relaxed",
+            !dynamicBgEnabled && !isV2 ? "bg-white dark:bg-stone-900" : "bg-transparent",
             (status === 'idle' || status === 'paused') && "opacity-50 cursor-not-allowed",
             dynamicBgEnabled && "dark:!bg-[var(--dynamic-bg-dark)]"
           )}

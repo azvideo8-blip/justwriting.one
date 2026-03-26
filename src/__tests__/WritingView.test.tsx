@@ -21,7 +21,7 @@ vi.mock('file-saver', () => ({
 }));
 
 describe('WritingView', () => {
-  const mockUser = { uid: 'test-uid', displayName: 'Test User' } as any;
+  const mockUser = { uid: 'test-uid', displayName: 'Test User' } as unknown as import('firebase/auth').User;
   const mockProfile = { nickname: 'test-nick' };
 
   const defaultHookValue = {
@@ -48,7 +48,7 @@ describe('WritingView', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (useWritingSessionHook.useWritingSession as any).mockReturnValue(defaultHookValue);
+    vi.mocked(useWritingSessionHook.useWritingSession).mockReturnValue(defaultHookValue as unknown as ReturnType<typeof useWritingSessionHook.useWritingSession>);
   });
 
   it('renders header and settings button in idle state', () => {
@@ -65,10 +65,10 @@ describe('WritingView', () => {
   });
 
   it('shows finish modal and calls handleSave when clicking "Сохранить"', async () => {
-    (useWritingSessionHook.useWritingSession as any).mockReturnValue({
+    vi.mocked(useWritingSessionHook.useWritingSession).mockReturnValue({
       ...defaultHookValue,
       status: 'finished'
-    });
+    } as unknown as ReturnType<typeof useWritingSessionHook.useWritingSession>);
 
     render(<WritingView user={mockUser} profile={mockProfile} />);
     const saveButton = screen.getByText(/Сохранить/i);
@@ -78,10 +78,10 @@ describe('WritingView', () => {
 
   it('triggers docx export when clicking DOCX button in finish modal', async () => {
     const { saveAs } = await import('file-saver');
-    (useWritingSessionHook.useWritingSession as any).mockReturnValue({
+    vi.mocked(useWritingSessionHook.useWritingSession).mockReturnValue({
       ...defaultHookValue,
       status: 'finished'
-    });
+    } as unknown as ReturnType<typeof useWritingSessionHook.useWritingSession>);
 
     render(<WritingView user={mockUser} profile={mockProfile} />);
     const docxButton = screen.getByText(/DOCX/i);
