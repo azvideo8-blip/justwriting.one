@@ -11,6 +11,8 @@ import { handleFirestoreError, OperationType } from './lib/firestore-errors';
 import { UIProvider } from './contexts/UIContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useLanguage } from './lib/i18n';
+import { useUI } from './contexts/UIContext';
+import { cn } from './lib/utils';
 
 // Components
 import { DesktopNav } from './components/DesktopNav';
@@ -26,7 +28,17 @@ import { AdminView } from './views/AdminView';
 import { Session, UserProfile } from './types';
 
 export default function App() {
+  return (
+    <UIProvider>
+      <AppContent />
+    </UIProvider>
+  );
+}
+
+function AppContent() {
   const { t } = useLanguage();
+  const { uiVersion } = useUI();
+  const isV2 = uiVersion === '2.0';
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [view, setView] = useState<'write' | 'profile' | 'archive' | 'feed' | 'admin'>('write');
@@ -100,7 +112,12 @@ export default function App() {
       <ErrorBoundary>
         <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans selection:bg-stone-200 dark:selection:bg-stone-800">
         {/* Navigation */}
-        <nav className="fixed top-0 left-0 right-0 h-16 bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border-b border-stone-200 dark:border-stone-800 z-50 px-4 md:px-6 flex items-center justify-between">
+        <nav className={cn(
+          "fixed top-0 left-0 right-0 h-16 z-50 px-4 md:px-6 flex items-center justify-between transition-all duration-300",
+          isV2 
+            ? "bg-[#0A0A0B]/50 backdrop-blur-xl border-b border-white/5" 
+            : "bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border-b border-stone-200 dark:border-stone-800"
+        )}>
           {!isConnected && (
             <div className="absolute top-16 left-0 right-0 bg-red-500 text-white text-[10px] font-bold py-1 px-4 flex items-center justify-center gap-2 animate-pulse">
               <WifiOff size={12} />

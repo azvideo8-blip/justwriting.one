@@ -3,6 +3,8 @@ import { motion } from 'motion/react';
 import { ArrowLeft } from 'lucide-react';
 import { Session, Label } from '../../types';
 import { SessionCard } from '../SessionCard';
+import { useUI } from '../../contexts/UIContext';
+import { cn } from '../../lib/utils';
 
 interface ProfileFilteredSessionsProps {
   selectedWord: string;
@@ -12,6 +14,9 @@ interface ProfileFilteredSessionsProps {
 }
 
 export function ProfileFilteredSessions({ selectedWord, sessions, labels, onBack }: ProfileFilteredSessionsProps) {
+  const { uiVersion } = useUI();
+  const isV2 = uiVersion === '2.0';
+
   const filteredSessions = sessions.filter(s => 
     s.content.toLowerCase().includes(selectedWord.toLowerCase())
   );
@@ -24,17 +29,17 @@ export function ProfileFilteredSessions({ selectedWord, sessions, labels, onBack
     >
       <button 
         onClick={onBack}
-        className="flex items-center gap-2 text-stone-500 hover:text-stone-900 dark:hover:text-stone-100 transition-colors font-bold"
+        className={cn("flex items-center gap-2 transition-colors font-bold", isV2 ? "text-white/50 hover:text-white" : "text-stone-500 hover:text-stone-900 dark:hover:text-stone-100")}
       >
         <ArrowLeft size={20} />
         Назад к профилю
       </button>
 
       <div className="space-y-4">
-        <h2 className="text-3xl font-bold dark:text-stone-100">
-          Заметки со словом <span className="text-stone-400 italic">"{selectedWord}"</span>
+        <h2 className={cn("text-3xl font-bold", isV2 ? "text-white" : "dark:text-stone-100")}>
+          Заметки со словом <span className={cn("italic", isV2 ? "text-white/50" : "text-stone-400")}>"{selectedWord}"</span>
         </h2>
-        <p className="text-stone-500">Найдено {filteredSessions.length} сессий</p>
+        <p className={cn(isV2 ? "text-white/50" : "text-stone-500")}>Найдено {filteredSessions.length} сессий</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

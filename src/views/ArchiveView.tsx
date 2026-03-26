@@ -14,6 +14,7 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { TagCloud } from '../components/TagCloud';
 import { useLanguage } from '../lib/i18n';
 import { useDebounce } from '../hooks/useDebounce';
+import { useUI } from '../contexts/UIContext';
 
 interface ArchiveViewProps {
   user: User;
@@ -23,6 +24,8 @@ interface ArchiveViewProps {
 
 export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewProps) {
   const { t, language } = useLanguage();
+  const { uiVersion } = useUI();
+  const isV2 = uiVersion === '2.0';
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [selectedMonth, setSelectedMonth] = useState<Date | null>(null);
@@ -105,17 +108,19 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
       <div className="flex flex-col md:flex-row gap-8 items-start">
         <div className="flex-1 space-y-8">
           <div className="flex items-center justify-between gap-4">
-            <h3 className="text-2xl font-bold dark:text-stone-100 flex items-center gap-2">
+            <h3 className={cn("text-2xl font-bold flex items-center gap-2", isV2 ? "text-white" : "dark:text-stone-100")}>
               <History size={24} />
               {t('nav_notes')}
             </h3>
 
-            <div className="flex bg-stone-100 dark:bg-stone-800 p-1 rounded-xl">
+            <div className={cn("flex p-1 rounded-xl", isV2 ? "bg-white/5 border border-white/10" : "bg-stone-100 dark:bg-stone-800")}>
               <button 
                 onClick={() => setViewMode('list')}
                 className={cn(
                   "p-2 rounded-lg transition-all",
-                  viewMode === 'list' ? "bg-white dark:bg-stone-900 shadow-sm text-stone-900 dark:text-white" : "text-stone-400"
+                  viewMode === 'list' 
+                    ? (isV2 ? "bg-white/20 text-white shadow-sm" : "bg-white dark:bg-stone-900 shadow-sm text-stone-900 dark:text-white") 
+                    : (isV2 ? "text-white/50 hover:text-white" : "text-stone-400")
                 )}
                 title={t('archive_list')}
               >
@@ -125,7 +130,9 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
                 onClick={() => setViewMode('grid')}
                 className={cn(
                   "p-2 rounded-lg transition-all",
-                  viewMode === 'grid' ? "bg-white dark:bg-stone-900 shadow-sm text-stone-900 dark:text-white" : "text-stone-400"
+                  viewMode === 'grid' 
+                    ? (isV2 ? "bg-white/20 text-white shadow-sm" : "bg-white dark:bg-stone-900 shadow-sm text-stone-900 dark:text-white") 
+                    : (isV2 ? "text-white/50 hover:text-white" : "text-stone-400")
                 )}
                 title={t('archive_grid')}
               >
@@ -136,19 +143,19 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
             
             <div className="space-y-6">
               {loading ? (
-                <div className="text-stone-400 italic text-center py-12">{t('archive_loading')}</div>
+                <div className={cn("italic text-center py-12", isV2 ? "text-white/50" : "text-stone-400")}>{t('archive_loading')}</div>
               ) : error ? (
-                <div className="p-12 text-center bg-red-50 dark:bg-red-900/10 rounded-3xl border border-red-100 dark:border-red-900/30">
-                  <p className="text-red-600 dark:text-red-400">{error}</p>
+                <div className={cn("p-12 text-center rounded-3xl border", isV2 ? "bg-red-500/10 border-red-500/30" : "bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30")}>
+                  <p className={cn(isV2 ? "text-red-400" : "text-red-600 dark:text-red-400")}>{error}</p>
                 </div>
               ) : sortedDates.length === 0 ? (
-                <div className="p-12 text-center bg-stone-50 dark:bg-stone-900/50 rounded-3xl border-2 border-dashed border-stone-200 dark:border-stone-800">
-                  <p className="text-stone-400">{t('archive_empty')}</p>
+                <div className={cn("p-12 text-center rounded-3xl border-2 border-dashed", isV2 ? "bg-white/5 border-white/10" : "bg-stone-50 dark:bg-stone-900/50 border-stone-200 dark:border-stone-800")}>
+                  <p className={cn(isV2 ? "text-white/50" : "text-stone-400")}>{t('archive_empty')}</p>
                 </div>
               ) : (
                 sortedDates.map(dateKey => (
                   <div key={dateKey} className="space-y-4">
-                    <h4 className="text-lg font-bold text-stone-500">{format(new Date(dateKey), 'd MMMM yyyy', { locale: dateLocale })}</h4>
+                    <h4 className={cn("text-lg font-bold", isV2 ? "text-white/70" : "text-stone-500")}>{format(new Date(dateKey), 'd MMMM yyyy', { locale: dateLocale })}</h4>
                     <div className={cn(
                       "gap-4",
                       viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2" : "flex flex-col"
@@ -178,15 +185,20 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
             onSelectMonth={(m) => { setSelectedMonth(m); setSelectedDate(null); }}
           />
           
-          <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 space-y-4">
-            <div className="flex items-center gap-2 border-b border-stone-200 dark:border-stone-800 pb-2">
-              <Search size={18} className="text-stone-400" />
+          <div className={cn(
+            "p-6 rounded-3xl space-y-4 transition-all",
+            isV2 
+              ? "bg-white/5 backdrop-blur-xl border border-white/10 text-[#E5E5E0]" 
+              : "bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800"
+          )}>
+            <div className={cn("flex items-center gap-2 border-b pb-2", isV2 ? "border-white/10" : "border-stone-200 dark:border-stone-800")}>
+              <Search size={18} className={isV2 ? "text-white/50" : "text-stone-400"} />
               <input 
                 type="text" 
                 value={searchQuery} 
                 onChange={e => setSearchQuery(e.target.value)} 
                 placeholder={t('archive_search_placeholder')} 
-                className="w-full bg-transparent outline-none text-sm"
+                className={cn("w-full bg-transparent outline-none text-sm", isV2 ? "text-white placeholder:text-white/30" : "placeholder:text-stone-400")}
               />
             </div>
           </div>
