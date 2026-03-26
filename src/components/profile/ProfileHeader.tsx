@@ -4,6 +4,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { User as UserIcon, PenLine, TrendingUp, Check, X } from 'lucide-react';
 import { db } from '../../lib/firebase';
 import { handleFirestoreError, OperationType } from '../../lib/firestore-errors';
+import { useLanguage } from '../../lib/i18n';
 
 interface ProfileHeaderProps {
   user: User;
@@ -15,6 +16,7 @@ interface ProfileHeaderProps {
 export function ProfileHeader({ user, profile, currentStreak, totalWords }: ProfileHeaderProps) {
   const [editingNickname, setEditingNickname] = useState(false);
   const [newNickname, setNewNickname] = useState(profile?.nickname || '');
+  const { t } = useLanguage();
 
   const handleUpdateNickname = async () => {
     if (!newNickname.trim()) return;
@@ -60,11 +62,11 @@ export function ProfileHeader({ user, profile, currentStreak, totalWords }: Prof
         <div className="flex flex-wrap justify-center md:justify-start gap-4 pt-2">
           <div className="flex items-center gap-2 text-stone-400 dark:text-stone-500 text-sm">
             <TrendingUp size={16} />
-            <span className="font-bold text-stone-900 dark:text-stone-100">{currentStreak}</span> дн. стрик
+            <span className="font-bold text-stone-900 dark:text-stone-100">{currentStreak}</span> {t('profile_streak')}
           </div>
           <div className="flex items-center gap-2 text-stone-400 dark:text-stone-500 text-sm">
             <PenLine size={16} />
-            <span className="font-bold text-stone-900 dark:text-stone-100">{totalWords}</span> слов
+            <span className="font-bold text-stone-900 dark:text-stone-100">{totalWords}</span> {t('profile_words')}
           </div>
         </div>
       </div>

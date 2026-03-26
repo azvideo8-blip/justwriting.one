@@ -6,9 +6,10 @@ interface NavButtonProps {
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
+  className?: string;
 }
 
-export function NavButton({ active, onClick, icon, label }: NavButtonProps) {
+export function NavButton({ active, onClick, icon, label, className }: NavButtonProps) {
   return (
     <button 
       onClick={onClick}
@@ -16,7 +17,8 @@ export function NavButton({ active, onClick, icon, label }: NavButtonProps) {
         "flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300",
         active 
           ? "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-lg shadow-stone-200 dark:shadow-none" 
-          : "text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800"
+          : "text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800",
+        className
       )}
     >
       {icon}
