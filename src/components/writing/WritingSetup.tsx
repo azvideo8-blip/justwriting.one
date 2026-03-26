@@ -1,15 +1,18 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, Variants } from 'motion/react';
 import { Zap, Timer, Target, PenLine, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { Session } from '../../types';
 import { cn } from '../../lib/utils';
 import { useLanguage } from '../../lib/i18n';
+import { useUI } from '../../contexts/UIContext';
+
+export type SetupMode = 'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | 'finish-by-config' | null;
 
 interface WritingSetupProps {
-  setupMode: 'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | 'finish-by-config' | null;
-  setSetupMode: (mode: any) => void;
+  setupMode: SetupMode;
+  setSetupMode: (mode: SetupMode) => void;
   startCountdown: (type: 'stopwatch' | 'timer' | 'words' | 'finish-by') => void;
   timerDuration: number;
   setTimerDuration: (duration: number) => void;
@@ -43,11 +46,13 @@ export function WritingSetup({
   setIsLocalOnly
 }: WritingSetupProps) {
   const { t, language } = useLanguage();
+  const { uiVersion } = useUI();
+  const isV2 = uiVersion === '2.0';
   if (!setupMode) return null;
 
   const dateLocale = language === 'ru' ? ru : enUS;
 
-  const containerVariants: any = {
+  const containerVariants: Variants = {
     hidden: { opacity: 0, scale: 0.95 },
     visible: { 
       opacity: 1, 
@@ -62,13 +67,21 @@ export function WritingSetup({
   };
 
   return (
-    <div className="absolute inset-0 z-50 bg-stone-50/80 dark:bg-stone-950/80 backdrop-blur-xl rounded-[2rem] flex items-center justify-center p-2 md:p-8 overflow-hidden">
+    <div className={cn(
+      "absolute inset-0 z-50 flex items-center justify-center p-2 md:p-8 overflow-hidden",
+      isV2 ? "bg-[#0A0A0B]/80 backdrop-blur-2xl" : "bg-stone-50/80 dark:bg-stone-950/80 backdrop-blur-xl"
+    )}>
       <motion.div 
         variants={containerVariants}
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="w-full max-w-2xl bg-white dark:bg-stone-900 rounded-[2rem] md:rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] border border-stone-200/50 dark:border-stone-800/50 flex flex-col max-h-[95vh] md:max-h-[90vh]"
+        className={cn(
+          "w-full max-w-2xl rounded-[2rem] md:rounded-[2.5rem] flex flex-col max-h-[95vh] md:max-h-[90vh]",
+          isV2 
+            ? "bg-[#0A0A0B]/80 backdrop-blur-2xl border border-white/10 shadow-[0_0_40px_rgba(255,255,255,0.05)] text-[#E5E5E0]" 
+            : "bg-white dark:bg-stone-900 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] border border-stone-200/50 dark:border-stone-800/50"
+        )}
       >
         <div className="p-4 md:p-10 overflow-y-auto no-scrollbar space-y-6 md:space-y-8">
           {setupMode === 'selection' && (
@@ -87,7 +100,7 @@ export function WritingSetup({
                 ].map((mode) => (
                   <button 
                     key={mode.id}
-                    onClick={() => mode.id === 'stopwatch' ? startCountdown('stopwatch') : setSetupMode(mode.id as any)}
+                    onClick={() => mode.id === 'stopwatch' ? startCountdown('stopwatch') : setSetupMode(mode.id as SetupMode)}
                     className="group relative flex flex-col gap-3 md:gap-4 p-4 md:p-6 bg-stone-50 dark:bg-stone-800/50 border border-transparent hover:border-stone-900 dark:hover:border-stone-100 rounded-2xl md:rounded-3xl transition-all duration-300 text-left overflow-hidden"
                   >
                     <div className={cn("w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 duration-500", mode.bg, mode.color)}>

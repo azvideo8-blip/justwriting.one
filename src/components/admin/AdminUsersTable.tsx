@@ -1,7 +1,8 @@
 import React from 'react';
+import { AdminUser } from '../../views/AdminView';
 
 interface AdminUsersTableProps {
-  users: any[];
+  users: AdminUser[];
 }
 
 export function AdminUsersTable({ users }: AdminUsersTableProps) {

@@ -16,7 +16,8 @@ export function LoginView() {
     setError(null);
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (err: any) {
+    } catch (error: unknown) {
+      const err = error as Error & { code?: string };
       if (err.code === 'auth/cancelled-popup-request' || err.code === 'auth/popup-closed-by-user') {
         return;
       }
@@ -41,7 +42,8 @@ export function LoginView() {
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
-    } catch (err: any) {
+    } catch (error: unknown) {
+      const err = error as Error & { code?: string };
       console.error("Email auth error:", err);
       let msg = err.message;
       if (err.code === 'auth/user-not-found') msg = "Пользователь не найден.";

@@ -10,7 +10,7 @@ import { cn } from '../lib/utils';
 
 // Components
 import { WritingHeader } from '../components/writing/WritingHeader';
-import { WritingSetup } from '../components/writing/WritingSetup';
+import { WritingSetup, SetupMode } from '../components/writing/WritingSetup';
 import { WritingEditor } from '../components/writing/WritingEditor';
 import { WritingSettings } from '../components/writing/WritingSettings';
 import { WritingFinishModal } from '../components/writing/WritingFinishModal';
@@ -37,7 +37,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     content, setContent,
     title, setTitle,
     pinnedThoughts, setPinnedThoughts,
-    seconds, setSeconds,
+    seconds,
     wpm, wordCount,
     isPublic, setIsPublic,
     isAnonymous, setIsAnonymous,
@@ -55,7 +55,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     loadLocalSession
   } = useWritingSession(user, profile);
 
-  const [setupMode, setSetupMode] = useState<'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | null>(null);
+  const [setupMode, setSetupMode] = useState<SetupMode>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const totalDurationForDeadline = useRef<number | null>(null);
 
@@ -80,7 +80,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
   const [showSettings, setShowSettings] = useState(false);
   const [tagInput, setTagInput] = useState('');
   
-  const [fontSize, setFontSize] = useState(() => Number(localStorage.getItem('writing_fontSize')) || 20);
+  const [fontSize, setFontSize] = useState(() => Number(localStorage.getItem('writing_fontSize')) || 23);
   const [fontFamily, setFontFamily] = useState(() => localStorage.getItem('writing_fontFamily') || 'Inter');
   const [textWidth, setTextWidth] = useState<'centered' | 'full'>(() => (localStorage.getItem('writing_textWidth') as any) || 'full');
   const [zenModeEnabled, setZenModeEnabled] = useState(() => {

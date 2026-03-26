@@ -8,9 +8,18 @@ import { AdminUsersTable } from '../components/admin/AdminUsersTable';
 import { AdminSessionsTable } from '../components/admin/AdminSessionsTable';
 import { useLanguage } from '../lib/i18n';
 
+import { Session, UserProfile } from '../types';
+
+export interface AdminUser extends UserProfile {
+  id: string;
+  email: string;
+  uid: string;
+  role?: string;
+}
+
 export function AdminView() {
-  const [users, setUsers] = useState<any[]>([]);
-  const [sessions, setSessions] = useState<any[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'users' | 'sessions' | 'security'>('users');
   const { t } = useLanguage();
@@ -25,11 +34,11 @@ export function AdminView() {
       if (activeTab === 'users') {
         const q = query(collection(db, 'users'), limit(50));
         const snap = await getDocs(q);
-        setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as AdminUser)));
       } else if (activeTab === 'sessions') {
         const q = query(collection(db, 'sessions'), orderBy('createdAt', 'desc'), limit(50));
         const snap = await getDocs(q);
-        setSessions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setSessions(snap.docs.map(d => ({ id: d.id, ...d.data() } as Session)));
       }
     } catch (err) {
       console.error("Admin fetch error:", err);

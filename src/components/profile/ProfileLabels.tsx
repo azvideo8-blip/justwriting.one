@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { User } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Label } from '../../types';
+import { Label, UserProfile } from '../../types';
 import { Plus, X } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../lib/firestore-errors';
 
-export function ProfileLabels({ user, profile }: { user: User, profile: any }) {
+export function ProfileLabels({ user, profile }: { user: User, profile: UserProfile | null }) {
   const labels: Label[] = profile?.labels || [];
   const [newLabel, setNewLabel] = useState({ name: '', color: '#000000' });
 
