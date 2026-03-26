@@ -75,7 +75,7 @@ async function testConnection() {
 }
 
 // Initial test
-testConnection();
+// testConnection();
 
 // Re-test periodically or on focus
 window.addEventListener('focus', testConnection);

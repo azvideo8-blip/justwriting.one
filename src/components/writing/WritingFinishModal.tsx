@@ -6,6 +6,7 @@ import { jsPDF } from 'jspdf';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { saveAs } from 'file-saver';
 import { Label } from '../../types';
+import { useUI } from '../../contexts/UIContext';
 
 interface WritingFinishModalProps {
   status: 'idle' | 'writing' | 'paused' | 'finished';
@@ -50,6 +51,9 @@ export function WritingFinishModal({
   labels,
   isLocalOnly
 }: WritingFinishModalProps) {
+  const { uiVersion } = useUI();
+  const isV2 = uiVersion === '2.0';
+
   if (status !== 'finished') return null;
 
   const handleSaveClick = () => {
@@ -128,19 +132,24 @@ export function WritingFinishModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div className={cn("fixed inset-0 z-50 flex items-center justify-center p-4", isV2 ? "bg-[#0A0A0B]/80 backdrop-blur-2xl" : "bg-stone-900/60 backdrop-blur-md")}>
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-white dark:bg-stone-900 w-full max-w-lg rounded-3xl p-8 shadow-2xl space-y-8 max-h-[90vh] overflow-y-auto no-scrollbar"
+        className={cn(
+          "w-full max-w-lg rounded-3xl p-8 space-y-8 max-h-[90vh] overflow-y-auto no-scrollbar",
+          isV2 
+            ? "bg-[#0A0A0B]/80 backdrop-blur-2xl border border-white/10 text-[#E5E5E0] shadow-[0_0_60px_rgba(0,0,0,0.8)]" 
+            : "bg-white dark:bg-stone-900 shadow-2xl border border-stone-200 dark:border-stone-800"
+        )}
       >
         <div className="text-center space-y-2">
-          <h3 className="text-2xl font-bold dark:text-stone-100">Сессия завершена!</h3>
-          <p className="text-stone-500 dark:text-stone-400">Выберите теги для вашей сессии.</p>
+          <h3 className={cn("text-2xl font-bold", isV2 ? "text-white" : "dark:text-stone-100")}>Сессия завершена!</h3>
+          <p className={cn(isV2 ? "text-white/50" : "text-stone-500 dark:text-stone-400")}>Выберите теги для вашей сессии.</p>
         </div>
 
         <div className="space-y-4">
-          <div className="text-sm font-bold text-stone-500 uppercase tracking-wider">Бирка</div>
+          <div className={cn("text-sm font-bold uppercase tracking-wider", isV2 ? "text-white/50" : "text-stone-500")}>Бирка</div>
           <div className="flex flex-wrap gap-2">
             {labels.map(label => (
               <button
@@ -149,7 +158,7 @@ export function WritingFinishModal({
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2",
                   labelId === label.id
-                    ? "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-stone-900"
+                    ? (isV2 ? "ring-2 ring-offset-2 ring-offset-[#0A0A0B]" : "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-stone-900")
                     : "hover:opacity-80"
                 )}
                 style={{ backgroundColor: label.color, outlineColor: label.color }}
@@ -161,7 +170,7 @@ export function WritingFinishModal({
         </div>
 
         <div className="space-y-4">
-          <div className="text-sm font-bold text-stone-500 uppercase tracking-wider">Теги</div>
+          <div className={cn("text-sm font-bold uppercase tracking-wider", isV2 ? "text-white/50" : "text-stone-500")}>Теги</div>
           <div className="flex flex-wrap gap-2">
             {allSuggestions.map(tag => (
               <button
@@ -170,8 +179,8 @@ export function WritingFinishModal({
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1",
                   tags.includes(tag)
-                    ? "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900"
-                    : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700"
+                    ? (isV2 ? "bg-white text-black" : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900")
+                    : (isV2 ? "bg-white/5 text-white/70 hover:bg-white/10" : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700")
                 )}
               >
                 #{tag}
@@ -181,7 +190,10 @@ export function WritingFinishModal({
           <input
             type="text"
             placeholder="Добавить свой тег..."
-            className="w-full px-4 py-2 rounded-xl border border-stone-200 dark:border-stone-800 bg-transparent outline-none"
+            className={cn(
+              "w-full px-4 py-2 rounded-xl border outline-none transition-all",
+              isV2 ? "bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-white/30 focus:bg-white/10" : "border-stone-200 dark:border-stone-800 bg-transparent focus:border-stone-400 dark:focus:border-stone-600"
+            )}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 const val = e.currentTarget.value.trim();
@@ -194,81 +206,88 @@ export function WritingFinishModal({
           />
         </div>
 
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div className="p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl">
-            <div className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">Слова</div>
-            <div className="text-xl font-mono font-bold dark:text-stone-100">{wordCount}</div>
+        <div className={cn(
+          "grid grid-cols-3 gap-4 text-center",
+          isV2 ? "divide-x divide-white/10" : ""
+        )}>
+          <div className={cn(isV2 ? "p-2" : "p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl")}>
+            <div className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", isV2 ? "text-white/50" : "text-stone-400")}>Слова</div>
+            <div className={cn("text-xl font-mono font-bold", isV2 ? "text-white" : "dark:text-stone-100")}>{wordCount}</div>
           </div>
-          <div className="p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl">
-            <div className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">Время</div>
-            <div className="text-xl font-mono font-bold dark:text-stone-100">{formatTime(seconds)}</div>
+          <div className={cn(isV2 ? "p-2" : "p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl")}>
+            <div className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", isV2 ? "text-white/50" : "text-stone-400")}>Время</div>
+            <div className={cn("text-xl font-mono font-bold", isV2 ? "text-white" : "dark:text-stone-100")}>{formatTime(seconds)}</div>
           </div>
-          <div className="p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl">
-            <div className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">WPM</div>
-            <div className="text-xl font-mono font-bold dark:text-stone-100">{wpm}</div>
+          <div className={cn(isV2 ? "p-2" : "p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl")}>
+            <div className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", isV2 ? "text-white/50" : "text-stone-400")}>WPM</div>
+            <div className={cn("text-xl font-mono font-bold", isV2 ? "text-white" : "dark:text-stone-100")}>{wpm}</div>
           </div>
         </div>
 
         {!isLocalOnly ? (
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl">
+            <div className={cn("flex items-center justify-between p-4 rounded-2xl", isV2 ? "bg-white/5 border border-white/5" : "bg-stone-50 dark:bg-stone-800")}>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-stone-200 dark:bg-stone-700 rounded-full flex items-center justify-center text-stone-500 dark:text-stone-400">
+                <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", isV2 ? "bg-white/10 text-white/70" : "bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-400")}>
                   <Globe size={20} />
                 </div>
                 <div>
-                  <div className="font-bold text-sm dark:text-stone-100">Публичный доступ</div>
-                  <div className="text-xs text-stone-500">Ваш текст увидят другие авторы</div>
+                  <div className={cn("font-bold text-sm", isV2 ? "text-white" : "dark:text-stone-100")}>Публичный доступ</div>
+                  <div className={cn("text-xs", isV2 ? "text-white/50" : "text-stone-500")}>Ваш текст увидят другие авторы</div>
                 </div>
               </div>
               <button 
                 onClick={() => setIsPublic(!isPublic)}
                 className={cn(
                   "w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center",
-                  isPublic ? "bg-emerald-500" : "bg-stone-300 dark:bg-stone-600"
+                  isPublic 
+                    ? (isV2 ? "bg-white" : "bg-emerald-500") 
+                    : (isV2 ? "bg-white/20" : "bg-stone-300 dark:bg-stone-600")
                 )}
               >
                 <motion.div 
                   animate={{ x: isPublic ? 24 : 0 }}
-                  className="w-4 h-4 bg-white rounded-full shadow-sm"
+                  className={cn("w-4 h-4 rounded-full shadow-sm", isV2 && isPublic ? "bg-black" : "bg-white")}
                 />
               </button>
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl">
+            <div className={cn("flex items-center justify-between p-4 rounded-2xl", isV2 ? "bg-white/5 border border-white/5" : "bg-stone-50 dark:bg-stone-800")}>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-stone-200 dark:bg-stone-700 rounded-full flex items-center justify-center text-stone-500 dark:text-stone-400">
+                <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", isV2 ? "bg-white/10 text-white/70" : "bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-400")}>
                   <UserIcon size={20} />
                 </div>
                 <div>
-                  <div className="font-bold text-sm dark:text-stone-100">Анонимно</div>
-                  <div className="text-xs text-stone-500">Скрыть ваше имя в ленте</div>
+                  <div className={cn("font-bold text-sm", isV2 ? "text-white" : "dark:text-stone-100")}>Анонимно</div>
+                  <div className={cn("text-xs", isV2 ? "text-white/50" : "text-stone-500")}>Скрыть ваше имя в ленте</div>
                 </div>
               </div>
               <button 
                 onClick={() => setIsAnonymous(!isAnonymous)}
                 className={cn(
                   "w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center",
-                  isAnonymous ? "bg-stone-900 dark:bg-stone-100" : "bg-stone-300 dark:bg-stone-600"
+                  isAnonymous 
+                    ? (isV2 ? "bg-white" : "bg-stone-900 dark:bg-stone-100") 
+                    : (isV2 ? "bg-white/20" : "bg-stone-300 dark:bg-stone-600")
                 )}
               >
                 <motion.div 
                   animate={{ x: isAnonymous ? 24 : 0 }}
-                  className="w-4 h-4 bg-white dark:bg-stone-900 rounded-full shadow-sm"
+                  className={cn("w-4 h-4 rounded-full shadow-sm", isV2 && isAnonymous ? "bg-black" : "bg-white dark:bg-stone-900")}
                 />
               </button>
             </div>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl space-y-3">
+            <div className={cn("p-4 rounded-2xl space-y-3", isV2 ? "bg-white/5 border border-white/5" : "bg-stone-50 dark:bg-stone-800")}>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-stone-200 dark:bg-stone-700 rounded-full flex items-center justify-center text-stone-500 dark:text-stone-400">
+                <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", isV2 ? "bg-white/10 text-white/70" : "bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-400")}>
                   <FileText size={20} />
                 </div>
                 <div>
-                  <div className="font-bold text-sm dark:text-stone-100">Локальная сессия</div>
-                  <div className="text-xs text-stone-500">Текст будет сохранен только в вашем браузере</div>
+                  <div className={cn("font-bold text-sm", isV2 ? "text-white" : "dark:text-stone-100")}>Локальная сессия</div>
+                  <div className={cn("text-xs", isV2 ? "text-white/50" : "text-stone-500")}>Текст будет сохранен только в вашем браузере</div>
                 </div>
               </div>
             </div>
@@ -276,28 +295,37 @@ export function WritingFinishModal({
         )}
 
         <div className="space-y-3">
-          <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Экспорт</label>
+          <label className={cn("text-[10px] font-bold uppercase tracking-widest", isV2 ? "text-white/50" : "text-stone-400")}>Экспорт</label>
           <div className="grid grid-cols-3 gap-3">
             <button 
               onClick={exportPDF}
-              className="flex flex-col items-center gap-2 p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl hover:bg-stone-100 dark:hover:bg-stone-700 transition-all"
+              className={cn(
+                "flex flex-col items-center gap-2 p-4 transition-all",
+                isV2 ? "rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5" : "bg-stone-50 dark:bg-stone-800 rounded-2xl hover:bg-stone-100 dark:hover:bg-stone-700"
+              )}
             >
-              <FileText size={20} className="text-red-500" />
-              <span className="text-[10px] font-bold">PDF</span>
+              <FileText size={20} className={isV2 ? "text-white/70" : "text-red-500"} />
+              <span className={cn("text-[10px] font-bold", isV2 ? "text-white/70" : "")}>PDF</span>
             </button>
             <button 
               onClick={exportMarkdown}
-              className="flex flex-col items-center gap-2 p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl hover:bg-stone-100 dark:hover:bg-stone-700 transition-all"
+              className={cn(
+                "flex flex-col items-center gap-2 p-4 transition-all",
+                isV2 ? "rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5" : "bg-stone-50 dark:bg-stone-800 rounded-2xl hover:bg-stone-100 dark:hover:bg-stone-700"
+              )}
             >
-              <FileJson size={20} className="text-blue-500" />
-              <span className="text-[10px] font-bold">MD</span>
+              <FileJson size={20} className={isV2 ? "text-white/70" : "text-blue-500"} />
+              <span className={cn("text-[10px] font-bold", isV2 ? "text-white/70" : "")}>MD</span>
             </button>
             <button 
               onClick={exportDocx}
-              className="flex flex-col items-center gap-2 p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl hover:bg-stone-100 dark:hover:bg-stone-700 transition-all"
+              className={cn(
+                "flex flex-col items-center gap-2 p-4 transition-all",
+                isV2 ? "rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5" : "bg-stone-50 dark:bg-stone-800 rounded-2xl hover:bg-stone-100 dark:hover:bg-stone-700"
+              )}
             >
-              <Download size={20} className="text-emerald-500" />
-              <span className="text-[10px] font-bold">DOCX</span>
+              <Download size={20} className={isV2 ? "text-white/70" : "text-emerald-500"} />
+              <span className={cn("text-[10px] font-bold", isV2 ? "text-white/70" : "")}>DOCX</span>
             </button>
           </div>
         </div>
@@ -305,13 +333,19 @@ export function WritingFinishModal({
         <div className="flex gap-3">
           <button 
             onClick={() => setStatus('writing')}
-            className="flex-1 px-6 py-4 border border-stone-200 dark:border-stone-800 rounded-2xl font-bold hover:bg-stone-50 dark:hover:bg-stone-800 transition-all"
+            className={cn(
+              "flex-1 px-6 py-4 font-bold transition-all",
+              isV2 ? "rounded-xl border border-white/10 text-white hover:bg-white/5" : "border border-stone-200 dark:border-stone-800 rounded-2xl hover:bg-stone-50 dark:hover:bg-stone-800"
+            )}
           >
             Вернуться
           </button>
           <button 
             onClick={handleSaveClick}
-            className="flex-1 px-6 py-4 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-2xl font-bold shadow-xl hover:scale-105 transition-all"
+            className={cn(
+              "flex-1 px-6 py-4 font-bold transition-all",
+              isV2 ? "bg-white text-black rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:scale-105" : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-2xl shadow-xl hover:scale-105"
+            )}
           >
             Сохранить
           </button>

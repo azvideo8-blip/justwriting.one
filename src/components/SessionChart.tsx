@@ -10,7 +10,8 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 import { Session } from '../types';
-import { parseFirestoreDate } from '../lib/utils';
+import { parseFirestoreDate, cn } from '../lib/utils';
+import { useUI } from '../contexts/UIContext';
 
 interface SessionChartProps {
   sessions: Session[];
@@ -19,6 +20,9 @@ interface SessionChartProps {
 }
 
 export function SessionChart({ sessions, startDate, endDate }: SessionChartProps) {
+  const { uiVersion } = useUI();
+  const isV2 = uiVersion === '2.0';
+
   const days = eachDayOfInterval({
     start: startDate,
     end: endDate
@@ -41,25 +45,28 @@ export function SessionChart({ sessions, startDate, endDate }: SessionChartProps
     <div className="h-[300px] w-full min-h-[300px]">
       <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" className="opacity-30" />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isV2 ? "rgba(255,255,255,0.1)" : "#e5e7eb"} className={isV2 ? "" : "opacity-30"} />
           <XAxis 
             dataKey="date" 
             axisLine={false} 
             tickLine={false} 
-            tick={{ fontSize: 10, fill: 'currentColor' }}
+            tick={{ fontSize: 10, fill: isV2 ? 'rgba(255,255,255,0.5)' : 'currentColor' }}
             dy={10}
-            className="text-stone-400"
+            className={isV2 ? "" : "text-stone-400"}
           />
           <YAxis hide />
           <Tooltip 
-            cursor={{ fill: 'transparent' }}
+            cursor={{ fill: isV2 ? 'rgba(255,255,255,0.05)' : 'transparent' }}
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 return (
-                  <div className="bg-white dark:bg-stone-900 p-3 rounded-xl border border-stone-200 dark:border-stone-800 shadow-xl">
+                  <div className={cn(
+                    "p-3 rounded-xl shadow-xl border",
+                    isV2 ? "bg-[#0A0A0B]/90 backdrop-blur-xl border-white/10 text-white" : "bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800"
+                  )}>
                     <p className="font-bold text-sm mb-1">{payload[0].payload.date}</p>
-                    <p className="text-xs text-stone-500">Время: {Math.round(payload[0].value as number)} мин</p>
-                    <p className="text-xs text-stone-500">Слова: {payload[0].payload.wordCount}</p>
+                    <p className={cn("text-xs", isV2 ? "text-white/70" : "text-stone-500")}>Время: {Math.round(payload[0].value as number)} мин</p>
+                    <p className={cn("text-xs", isV2 ? "text-white/70" : "text-stone-500")}>Слова: {payload[0].payload.wordCount}</p>
                   </div>
                 );
               }
@@ -69,7 +76,7 @@ export function SessionChart({ sessions, startDate, endDate }: SessionChartProps
           <Bar 
             dataKey="duration" 
             fill="currentColor" 
-            className="text-stone-900 dark:text-stone-100" 
+            className={isV2 ? "text-white/80" : "text-stone-900 dark:text-stone-100"} 
             radius={[6, 6, 0, 0]} 
             barSize={24}
           />

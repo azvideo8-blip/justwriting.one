@@ -163,17 +163,24 @@ export function WritingEditor({
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder={t('editor_title_placeholder')}
                 className={cn(
-                  "w-full px-6 py-4 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm focus:shadow-xl outline-none text-xl font-black dark:text-stone-100 transition-all",
-                  dynamicBgEnabled && status === 'writing' ? "bg-[var(--dynamic-bg)]/50 dark:bg-[var(--dynamic-bg-dark)]/50 backdrop-blur-md" : "bg-white dark:bg-stone-900"
+                  "w-full px-6 py-4 rounded-2xl border shadow-sm focus:shadow-xl outline-none text-xl font-black transition-all",
+                  isV2 ? "bg-white/5 border-white/10 text-white placeholder:text-white/30" : "border-stone-200 dark:border-stone-800 dark:text-stone-100",
+                  dynamicBgEnabled && status === 'writing' && !isV2 ? "bg-[var(--dynamic-bg)]/50 dark:bg-[var(--dynamic-bg-dark)]/50 backdrop-blur-md" : (!isV2 && "bg-white dark:bg-stone-900")
                 )}
               />
               <button 
                 onClick={handlePinSelection}
                 className={cn(
                   "p-4 rounded-2xl border transition-all shrink-0 flex items-center justify-center shadow-sm",
-                  (pinnedThoughts.length > 0 || showPinnedInput || hasSelection)
-                    ? "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border-stone-900 dark:border-stone-100" 
-                    : "bg-white dark:bg-stone-900 text-stone-400 border-stone-200 dark:border-stone-800 hover:border-stone-400"
+                  isV2 ? (
+                    (pinnedThoughts.length > 0 || showPinnedInput || hasSelection)
+                      ? "bg-white text-black border-white"
+                      : "bg-white/5 text-white/50 border-white/10 hover:border-white/30 hover:text-white"
+                  ) : (
+                    (pinnedThoughts.length > 0 || showPinnedInput || hasSelection)
+                      ? "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border-stone-900 dark:border-stone-100" 
+                      : "bg-white dark:bg-stone-900 text-stone-400 border-stone-200 dark:border-stone-800 hover:border-stone-400"
+                  )
                 )}
                 title={hasSelection ? `${t('editor_pin_thought')} (Alt+P)` : t('editor_pin_thought')}
               >
@@ -201,13 +208,16 @@ export function WritingEditor({
                           }}
                           placeholder={t('editor_pinned_placeholder')}
                           rows={1}
-                          className="w-full px-6 py-3 bg-stone-50/50 dark:bg-stone-950/30 border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-2xl outline-none text-sm italic font-serif text-stone-600 dark:text-stone-400 resize-none transition-all focus:border-stone-400 dark:focus:border-stone-600"
+                          className={cn(
+                            "w-full px-6 py-3 border-2 border-dashed rounded-2xl outline-none text-sm italic font-serif resize-none transition-all",
+                            isV2 ? "bg-white/5 border-white/10 text-white/70 focus:border-white/30 placeholder:text-white/30" : "bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 focus:border-stone-400 dark:focus:border-stone-600"
+                          )}
                         />
                         <button 
                           onClick={() => {
                             setPinnedThoughts(pinnedThoughts.filter((_, i) => i !== index));
                           }}
-                          className="absolute top-2 right-2 p-1.5 text-stone-400 hover:text-red-500 opacity-0 group-hover/pinned:opacity-100 transition-opacity"
+                          className={cn("absolute top-2 right-2 p-1.5 opacity-0 group-hover/pinned:opacity-100 transition-opacity", isV2 ? "text-white/50 hover:text-white" : "text-stone-400 hover:text-red-500")}
                         >
                           <X size={14} />
                         </button>
@@ -224,7 +234,10 @@ export function WritingEditor({
                         }}
                         placeholder={t('editor_add_thought')}
                         rows={1}
-                        className="w-full px-6 py-3 bg-stone-50/50 dark:bg-stone-950/30 border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-2xl outline-none text-sm italic font-serif text-stone-600 dark:text-stone-400 resize-none transition-all focus:border-stone-400 dark:focus:border-stone-600"
+                        className={cn(
+                          "w-full px-6 py-3 border-2 border-dashed rounded-2xl outline-none text-sm italic font-serif resize-none transition-all",
+                          isV2 ? "bg-white/5 border-white/10 text-white/70 focus:border-white/30 placeholder:text-white/30" : "bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 focus:border-stone-400 dark:focus:border-stone-600"
+                        )}
                       />
                     )}
                   </div>
@@ -255,14 +268,14 @@ export function WritingEditor({
                         fontFamily === 'JetBrains Mono' ? '"JetBrains Mono", monospace' :
                         fontFamily === 'Cormorant Garamond' ? '"Cormorant Garamond", serif' :
                         fontFamily === 'Space Grotesk' ? '"Space Grotesk", sans-serif' : 'inherit',
-            backgroundColor: dynamicBgEnabled ? 'var(--dynamic-bg)' : undefined
+            backgroundColor: dynamicBgEnabled && !isV2 ? 'var(--dynamic-bg)' : undefined
           }}
           className={cn(
-            "w-full min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-[2.5rem] border border-stone-200 dark:border-stone-800 shadow-xl focus:shadow-2xl focus:border-stone-300 dark:focus:border-stone-700 transition-all outline-none resize-none dark:text-stone-100",
-            isV2 ? "leading-[1.8] bg-transparent border-none shadow-none" : "leading-relaxed",
+            "w-full min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-[2.5rem] border shadow-xl focus:shadow-2xl transition-all outline-none resize-none",
+            isV2 ? "leading-[1.8] bg-transparent border-none shadow-none text-white/90 placeholder:text-white/20" : "leading-relaxed border-stone-200 dark:border-stone-800 focus:border-stone-300 dark:focus:border-stone-700 dark:text-stone-100",
             !dynamicBgEnabled && !isV2 ? "bg-white dark:bg-stone-900" : "bg-transparent",
             (status === 'idle' || status === 'paused') && "opacity-50 cursor-not-allowed",
-            dynamicBgEnabled && "dark:!bg-[var(--dynamic-bg-dark)]"
+            dynamicBgEnabled && !isV2 && "dark:!bg-[var(--dynamic-bg-dark)]"
           )}
         />
 
@@ -273,13 +286,13 @@ export function WritingEditor({
             isZenActive && saveStatus === 'idle' ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0",
             saveStatus === 'saving' ? "text-amber-500 animate-pulse" :
             saveStatus === 'saved' ? "text-emerald-500" :
-            saveStatus === 'error' ? "text-red-500" : "text-stone-400"
+            saveStatus === 'error' ? "text-red-500" : (isV2 ? "text-white/30" : "text-stone-400")
           )}>
             <div className={cn(
               "w-2 h-2 rounded-full",
               saveStatus === 'saving' ? "bg-amber-500" :
               saveStatus === 'saved' ? "bg-emerald-500" :
-              saveStatus === 'error' ? "bg-red-500" : "bg-stone-300"
+              saveStatus === 'error' ? "bg-red-500" : (isV2 ? "bg-white/30" : "bg-stone-300")
             )} />
             {saveStatus === 'saving' && t('editor_saving')}
             {saveStatus === 'saved' && t('editor_saved')}

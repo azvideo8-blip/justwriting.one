@@ -7,22 +7,17 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { AdminUsersTable } from '../components/admin/AdminUsersTable';
 import { AdminSessionsTable } from '../components/admin/AdminSessionsTable';
 import { useLanguage } from '../lib/i18n';
-
-import { Session, UserProfile } from '../types';
-
-export interface AdminUser extends UserProfile {
-  id: string;
-  email: string;
-  uid: string;
-  role?: string;
-}
+import { useUI } from '../contexts/UIContext';
+import { cn } from '../lib/utils';
 
 export function AdminView() {
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'users' | 'sessions' | 'security'>('users');
   const { t } = useLanguage();
+  const { uiVersion } = useUI();
+  const isV2 = uiVersion === '2.0';
 
   useEffect(() => {
     fetchData();
@@ -34,11 +29,11 @@ export function AdminView() {
       if (activeTab === 'users') {
         const q = query(collection(db, 'users'), limit(50));
         const snap = await getDocs(q);
-        setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as AdminUser)));
+        setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       } else if (activeTab === 'sessions') {
         const q = query(collection(db, 'sessions'), orderBy('createdAt', 'desc'), limit(50));
         const snap = await getDocs(q);
-        setSessions(snap.docs.map(d => ({ id: d.id, ...d.data() } as Session)));
+        setSessions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       }
     } catch (err) {
       console.error("Admin fetch error:", err);
@@ -64,31 +59,46 @@ export function AdminView() {
       className="space-y-8 pb-20"
     >
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold dark:text-stone-100 flex items-center gap-3">
-          <Shield className="text-red-500" />
+        <h2 className={cn("text-3xl font-bold flex items-center gap-3", isV2 ? "text-white" : "dark:text-stone-100")}>
+          <Shield className={isV2 ? "text-red-400" : "text-red-500"} />
           {t('admin_title')}
         </h2>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 p-1 bg-stone-100 dark:bg-stone-900 rounded-2xl w-fit">
+      <div className={cn("flex gap-2 p-1 rounded-2xl w-fit", isV2 ? "bg-white/5 border border-white/10" : "bg-stone-100 dark:bg-stone-900")}>
         <button 
           onClick={() => setActiveTab('users')}
-          className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'users' ? 'bg-white dark:bg-stone-800 shadow-sm text-stone-900 dark:text-stone-100' : 'text-stone-500 hover:text-stone-700'}`}
+          className={cn(
+            "flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all",
+            activeTab === 'users' 
+              ? (isV2 ? "bg-white/20 text-white shadow-sm" : "bg-white dark:bg-stone-800 shadow-sm text-stone-900 dark:text-stone-100") 
+              : (isV2 ? "text-white/50 hover:text-white" : "text-stone-500 hover:text-stone-700")
+          )}
         >
           <Users size={16} />
           {t('admin_tab_users')}
         </button>
         <button 
           onClick={() => setActiveTab('sessions')}
-          className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'sessions' ? 'bg-white dark:bg-stone-800 shadow-sm text-stone-900 dark:text-stone-100' : 'text-stone-500 hover:text-stone-700'}`}
+          className={cn(
+            "flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all",
+            activeTab === 'sessions' 
+              ? (isV2 ? "bg-white/20 text-white shadow-sm" : "bg-white dark:bg-stone-800 shadow-sm text-stone-900 dark:text-stone-100") 
+              : (isV2 ? "text-white/50 hover:text-white" : "text-stone-500 hover:text-stone-700")
+          )}
         >
           <Database size={16} />
           {t('admin_tab_sessions')}
         </button>
         <button 
           onClick={() => setActiveTab('security')}
-          className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'security' ? 'bg-white dark:bg-stone-800 shadow-sm text-stone-900 dark:text-stone-100' : 'text-stone-500 hover:text-stone-700'}`}
+          className={cn(
+            "flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all",
+            activeTab === 'security' 
+              ? (isV2 ? "bg-white/20 text-white shadow-sm" : "bg-white dark:bg-stone-800 shadow-sm text-stone-900 dark:text-stone-100") 
+              : (isV2 ? "text-white/50 hover:text-white" : "text-stone-500 hover:text-stone-700")
+          )}
         >
           <AlertTriangle size={16} />
           {t('admin_tab_security')}
@@ -97,10 +107,15 @@ export function AdminView() {
 
       {loading ? (
         <div className="flex justify-center py-20">
-          <div className="w-10 h-10 border-4 border-stone-200 border-t-stone-900 dark:border-stone-800 dark:border-t-stone-100 rounded-full animate-spin" />
+          <div className={cn("w-10 h-10 border-4 rounded-full animate-spin", isV2 ? "border-white/10 border-t-white" : "border-stone-200 border-t-stone-900 dark:border-stone-800 dark:border-t-stone-100")} />
         </div>
       ) : (
-        <div className="bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 overflow-hidden shadow-sm">
+        <div className={cn(
+          "rounded-3xl overflow-hidden transition-all",
+          isV2 
+            ? "bg-[#0A0A0B]/80 backdrop-blur-2xl border border-white/10 shadow-[0_0_60px_rgba(0,0,0,0.8)]" 
+            : "bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm"
+        )}>
           {activeTab === 'users' && (
             <AdminUsersTable users={users} />
           )}
@@ -111,12 +126,12 @@ export function AdminView() {
 
           {activeTab === 'security' && (
             <div className="p-8 space-y-6">
-              <div className="p-6 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl">
-                <h4 className="font-bold text-emerald-800 dark:text-emerald-400 mb-2 flex items-center gap-2">
+              <div className={cn("p-6 rounded-2xl border", isV2 ? "bg-emerald-500/10 border-emerald-500/30" : "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30")}>
+                <h4 className={cn("font-bold mb-2 flex items-center gap-2", isV2 ? "text-emerald-400" : "text-emerald-800 dark:text-emerald-400")}>
                   <Shield size={18} />
                   {t('admin_security_active')}
                 </h4>
-                <ul className="text-sm text-emerald-700 dark:text-emerald-500 space-y-1 list-disc list-inside">
+                <ul className={cn("text-sm space-y-1 list-disc list-inside", isV2 ? "text-emerald-400/80" : "text-emerald-700 dark:text-emerald-500")}>
                   <li>{t('admin_security_validation')}</li>
                   <li>{t('admin_security_size_limits')}</li>
                   <li>{t('admin_security_typing')}</li>
@@ -126,13 +141,13 @@ export function AdminView() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-6 bg-stone-50 dark:bg-stone-950 rounded-2xl border border-stone-200 dark:border-stone-800">
-                  <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">XSS Protection</span>
-                  <p className="text-sm mt-2">{t('admin_security_xss')}</p>
+                <div className={cn("p-6 rounded-2xl border", isV2 ? "bg-white/5 border-white/10" : "bg-stone-50 dark:bg-stone-950 border-stone-200 dark:border-stone-800")}>
+                  <span className={cn("text-xs font-bold uppercase tracking-widest", isV2 ? "text-white/50" : "text-stone-400")}>XSS Protection</span>
+                  <p className={cn("text-sm mt-2", isV2 ? "text-white/80" : "")}>{t('admin_security_xss')}</p>
                 </div>
-                <div className="p-6 bg-stone-50 dark:bg-stone-950 rounded-2xl border border-stone-200 dark:border-stone-800">
-                  <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">CSRF Protection</span>
-                  <p className="text-sm mt-2">{t('admin_security_csrf')}</p>
+                <div className={cn("p-6 rounded-2xl border", isV2 ? "bg-white/5 border-white/10" : "bg-stone-50 dark:bg-stone-950 border-stone-200 dark:border-stone-800")}>
+                  <span className={cn("text-xs font-bold uppercase tracking-widest", isV2 ? "text-white/50" : "text-stone-400")}>CSRF Protection</span>
+                  <p className={cn("text-sm mt-2", isV2 ? "text-white/80" : "")}>{t('admin_security_csrf')}</p>
                 </div>
               </div>
             </div>
