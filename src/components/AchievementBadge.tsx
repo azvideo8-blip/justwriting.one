@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '../lib/utils';
+import { useLanguage } from '../lib/i18n';
 
 interface AchievementBadgeProps {
   achievement: {
@@ -12,6 +13,7 @@ interface AchievementBadgeProps {
 }
 
 export function AchievementBadge({ achievement, earned }: AchievementBadgeProps) {
+  const { t } = useLanguage();
   return (
     <div className={cn(
       "flex flex-col items-center p-4 rounded-2xl border transition-all",
@@ -21,11 +23,11 @@ export function AchievementBadge({ achievement, earned }: AchievementBadgeProps)
     )}>
       <div className="text-3xl mb-2">{achievement.icon}</div>
       <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest text-center leading-tight">
-        {achievement.title}
+        {t(achievement.title)}
       </span>
       {earned && (
         <div className="mt-2 px-2 py-0.5 bg-emerald-500 text-[8px] text-white font-bold rounded-full uppercase tracking-tighter">
-          Получено
+          {t('ach_earned')}
         </div>
       )}
     </div>

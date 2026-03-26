@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, subMonths, addMonths } from 'date-fns';
-import { ru } from 'date-fns/locale';
+import { ru, enUS } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn, parseFirestoreDate } from '../lib/utils';
 import { Session } from '../types';
+import { useLanguage } from '../lib/i18n';
 
   interface CalendarProps {
   sessions: Session[];
@@ -14,6 +15,8 @@ import { Session } from '../types';
 
 export function Calendar({ sessions, selectedDate, onSelectDate, onSelectMonth }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const { language } = useLanguage();
+  const locale = language === 'ru' ? ru : enUS;
   const start = startOfMonth(currentMonth);
   const end = endOfMonth(currentMonth);
   const days = eachDayOfInterval({ start, end });
@@ -23,7 +26,7 @@ export function Calendar({ sessions, selectedDate, onSelectDate, onSelectMonth }
   return (
     <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-6">
       <div className="flex items-center justify-between">
-        <button onClick={() => onSelectMonth?.(currentMonth)} className="font-bold text-xl dark:text-stone-100 capitalize hover:text-emerald-500 transition-colors">{format(currentMonth, 'LLLL yyyy', { locale: ru })}</button>
+        <button onClick={() => onSelectMonth?.(currentMonth)} className="font-bold text-xl dark:text-stone-100 capitalize hover:text-emerald-500 transition-colors">{format(currentMonth, 'LLLL yyyy', { locale })}</button>
         <div className="flex items-center gap-1">
           <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1 hover:bg-stone-100 dark:hover:bg-stone-800 rounded transition-colors text-stone-400"><ChevronLeft size={18} /></button>
           <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1 hover:bg-stone-100 dark:hover:bg-stone-800 rounded transition-colors text-stone-400"><ChevronRight size={18} /></button>
@@ -31,7 +34,7 @@ export function Calendar({ sessions, selectedDate, onSelectDate, onSelectMonth }
       </div>
 
       <div className="grid grid-cols-7 gap-2">
-        {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map((d, i) => (
+        {(language === 'ru' ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']).map((d, i) => (
           <div key={`${d}-${i}`} className="text-[10px] font-bold text-stone-300 dark:text-stone-600 text-center py-1">{d}</div>
         ))}
         {days.map(day => {

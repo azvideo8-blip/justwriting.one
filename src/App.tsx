@@ -9,6 +9,7 @@ import {
 import { onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from './lib/firestore-errors';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { useLanguage } from './lib/i18n';
 
 // Components
 import { DesktopNav } from './components/DesktopNav';
@@ -24,6 +25,7 @@ import { AdminView } from './views/AdminView';
 import { Session } from './types';
 
 export default function App() {
+  const { t } = useLanguage();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<{ nickname?: string; role?: string } | null>(null);
   const [view, setView] = useState<'write' | 'profile' | 'archive' | 'feed' | 'admin'>('write');
@@ -100,7 +102,7 @@ export default function App() {
           {!isConnected && (
             <div className="absolute top-16 left-0 right-0 bg-red-500 text-white text-[10px] font-bold py-1 px-4 flex items-center justify-center gap-2 animate-pulse">
               <WifiOff size={12} />
-              НЕТ СВЯЗИ С БАЗОЙ ДАННЫХ. ПРОВЕРЬТЕ ИНТЕРНЕТ.
+              {t('common_offline')}
             </div>
           )}
           <div className="flex items-center gap-2">

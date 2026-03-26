@@ -4,6 +4,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Session } from '../types';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { useLanguage } from '../lib/i18n';
 
 interface SessionEditorProps {
   session: Session;
@@ -12,6 +13,7 @@ interface SessionEditorProps {
 }
 
 export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps) {
+  const { t } = useLanguage();
   const [editContent, setEditContent] = useState(session.content);
   const [editTitle, setEditTitle] = useState(session.title || '');
   const [editTags, setEditTags] = useState<string[]>(session.tags || []);
@@ -51,7 +53,7 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
         type="text"
         value={editTitle}
         onChange={(e) => setEditTitle(e.target.value)}
-        placeholder="Заголовок..."
+        placeholder={t('editor_title_placeholder')}
         className="w-full px-4 py-2 bg-stone-50 dark:bg-stone-950 rounded-xl border border-stone-200 dark:border-stone-800 outline-none focus:border-stone-400 transition-all dark:text-stone-100 font-bold"
       />
       <textarea 
@@ -73,18 +75,18 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
           value={tagInput}
           onChange={(e) => setTagInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && addTag()}
-          placeholder="Добавить тег..."
+          placeholder={t('session_tag_placeholder')}
           className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm dark:text-stone-100"
         />
       </div>
       <div className="flex items-center justify-between">
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" checked={editIsPublic} onChange={(e) => setEditIsPublic(e.target.checked)} className="rounded border-stone-300" />
-          <span className="text-sm text-stone-500">Публичная заметка</span>
+          <span className="text-sm text-stone-500">{t('setup_public')}</span>
         </label>
         <div className="flex gap-2">
-          <button onClick={onCancel} className="px-4 py-2 text-stone-500 hover:text-stone-900 dark:hover:text-stone-100 font-medium">Отмена</button>
-          <button onClick={handleSave} className="px-6 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-bold">Сохранить</button>
+          <button onClick={onCancel} className="px-4 py-2 text-stone-500 hover:text-stone-900 dark:hover:text-stone-100 font-medium">{t('common_cancel')}</button>
+          <button onClick={handleSave} className="px-6 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-bold">{t('common_save')}</button>
         </div>
       </div>
     </div>

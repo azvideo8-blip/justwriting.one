@@ -15,6 +15,7 @@ import { ProfileWordCloud } from '../components/profile/ProfileWordCloud';
 import { ProfileFilteredSessions } from '../components/profile/ProfileFilteredSessions';
 import { TagCloud } from '../components/TagCloud';
 import { doc, updateDoc } from 'firebase/firestore';
+import { useLanguage } from '../lib/i18n';
 
 interface ProfileViewProps {
   user: User;
@@ -22,11 +23,12 @@ interface ProfileViewProps {
 }
 
 export function ProfileView({ user, profile }: ProfileViewProps) {
+  const { t } = useLanguage();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
 
-  // Date range for activity chart
+  // Date range for activity chart - Default to current week
   const [startDate, setStartDate] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [endDate, setEndDate] = useState<Date>(() => endOfWeek(new Date(), { weekStartsOn: 1 }));
 
@@ -55,7 +57,7 @@ export function ProfileView({ user, profile }: ProfileViewProps) {
       setLoading(false);
     }, (err) => {
       console.error('Profile load error:', err);
-      setError('Не удалось загрузить данные профиля.');
+      setError(t('profile_load_error'));
       setLoading(false);
       try {
         handleFirestoreError(err, OperationType.LIST, 'sessions');
@@ -65,7 +67,7 @@ export function ProfileView({ user, profile }: ProfileViewProps) {
     });
 
     return unsubscribe;
-  }, [user.uid]);
+  }, [user.uid, t]);
 
   const allTags = Array.from(new Set(sessions.flatMap(s => s.tags || [])));
   const currentStreak = calculateStreak(sessions);
@@ -75,7 +77,7 @@ export function ProfileView({ user, profile }: ProfileViewProps) {
 
   if (loading) {
     return (
-      <div className="text-stone-400 italic text-center py-24">Загрузка профиля...</div>
+      <div className="text-stone-400 italic text-center py-24">{t('profile_loading')}</div>
     );
   }
 

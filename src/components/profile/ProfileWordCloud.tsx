@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Cloud } from 'lucide-react';
 import { Session } from '../../types';
+import { useLanguage } from '../../lib/i18n';
 
 interface ProfileWordCloudProps {
   sessions: Session[];
@@ -8,6 +9,7 @@ interface ProfileWordCloudProps {
 }
 
 export function ProfileWordCloud({ sessions, onWordClick }: ProfileWordCloudProps) {
+  const { t } = useLanguage();
   const wordCloud = useMemo(() => {
     const stopWords = new Set(['меня', 'тебя', 'было', 'есть', 'если', 'когда', 'только', 'через', 'после', 'этого', 'потому', 'чтобы', 'будет', 'очень', 'просто', 'можно', 'нужно', 'хотя', 'перед', 'между', 'вдоль', 'кроме', 'вместо', 'ввиду', 'вслед', 'среди', 'будто', 'словно', 'точно', 'ровно', 'почти', 'разве', 'неужели', 'даже', 'лишь', 'хоть', 'пусть', 'пускай', 'давай', 'именно', 'как', 'что', 'это', 'все', 'так', 'вот', 'уже', 'был', 'была', 'были', 'для', 'его', 'ее', 'их', 'нам', 'вам', 'мне', 'тебе', 'себе', 'свои', 'свой', 'своя', 'свое', 'всех', 'всего', 'всем', 'всеми', 'эти', 'этих', 'этим', 'этими', 'этот', 'эта', 'это', 'эту', 'этой', 'этом']);
     const words: Record<string, number> = {};
@@ -32,11 +34,11 @@ export function ProfileWordCloud({ sessions, onWordClick }: ProfileWordCloudProp
     <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
       <h3 className="font-bold dark:text-stone-100 flex items-center gap-2">
         <Cloud size={18} className="text-stone-400" />
-        Облако слов
+        {t('profile_word_cloud')}
       </h3>
       <div className="flex flex-wrap gap-x-3 gap-y-2">
         {wordCloud.length === 0 ? (
-          <span className="text-stone-400 text-sm italic">Слов пока нет</span>
+          <span className="text-stone-400 text-sm italic">{t('profile_no_words')}</span>
         ) : (
           wordCloud.map(([word, count]) => (
             <button 
