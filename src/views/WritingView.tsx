@@ -7,6 +7,7 @@ import { db } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { Session } from '../types';
 import { cn } from '../lib/utils';
+import { useUI } from '../contexts/UIContext';
 
 // Components
 import { WritingHeader } from '../components/writing/WritingHeader';
@@ -28,6 +29,8 @@ interface WritingViewProps {
 
 export function WritingView({ user, profile, sessionToContinue, onSessionContinued }: WritingViewProps) {
   const { t } = useLanguage();
+  const { uiVersion } = useUI();
+  const isV2 = uiVersion === '2.0';
   const {
     status, setStatus,
     sessionType, setSessionType,
@@ -304,7 +307,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
 
       {/* Progress Bar */}
       {status === 'writing' && (sessionType === 'words' || sessionType === 'timer' || sessionType === 'finish-by') && (
-        <div className="fixed top-0 left-0 w-full h-1 z-[100] bg-stone-100 dark:bg-stone-800">
+        <div className={cn("fixed top-0 left-0 w-full h-1 z-[100]", isV2 ? "bg-white/5" : "bg-stone-100 dark:bg-stone-800")}>
           <motion.div 
             initial={{ width: 0 }}
             animate={{ 
@@ -314,7 +317,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
             }}
             className={cn(
               "h-full transition-colors duration-500",
-              (wordGoalReached || timeGoalReached) ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-stone-900 dark:bg-stone-100"
+              (wordGoalReached || timeGoalReached) ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : (isV2 ? "bg-white/50" : "bg-stone-900 dark:bg-stone-100")
             )}
           />
         </div>
@@ -340,23 +343,23 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
       />
 
       {showCancelConfirm && (
-        <div className="fixed inset-0 z-[60] bg-stone-900/60 backdrop-blur-md flex items-center justify-center p-4">
+        <div className={cn("fixed inset-0 z-[60] flex items-center justify-center p-4", isV2 ? "bg-[#0A0A0B]/80 backdrop-blur-2xl" : "bg-stone-900/60 backdrop-blur-md")}>
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white dark:bg-stone-900 w-full max-w-sm rounded-3xl p-8 shadow-2xl space-y-6 text-center"
+            className={cn("w-full max-w-sm rounded-3xl p-8 shadow-2xl space-y-6 text-center border", isV2 ? "bg-[#0A0A0B]/90 backdrop-blur-2xl border-white/10 shadow-[0_0_40px_rgba(255,255,255,0.05)]" : "bg-white dark:bg-stone-900 border-transparent")}
           >
-            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mx-auto">
+            <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mx-auto", isV2 ? "bg-red-500/10 text-red-500" : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400")}>
               <X size={32} />
             </div>
             <div className="space-y-2">
-              <h3 className="text-xl font-bold dark:text-stone-100">{t('writing_cancel_confirm')}</h3>
-              <p className="text-stone-500 dark:text-stone-400 text-sm">{t('writing_cancel_desc')}</p>
+              <h3 className={cn("text-xl font-bold", isV2 ? "text-white" : "dark:text-stone-100")}>{t('writing_cancel_confirm')}</h3>
+              <p className={cn("text-sm", isV2 ? "text-white/50" : "text-stone-500 dark:text-stone-400")}>{t('writing_cancel_desc')}</p>
             </div>
             <div className="flex gap-3">
               <button 
                 onClick={() => setShowCancelConfirm(false)}
-                className="flex-1 px-4 py-3 border border-stone-200 dark:border-stone-800 rounded-xl font-bold hover:bg-stone-50 dark:hover:bg-stone-800 transition-all"
+                className={cn("flex-1 px-4 py-3 rounded-xl font-bold transition-all border", isV2 ? "border-white/10 text-white hover:bg-white/5" : "border-stone-200 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-800")}
               >
                 {t('writing_back')}
               </button>
@@ -365,7 +368,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
                   handleCancel();
                   setShowCancelConfirm(false);
                 }}
-                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all"
+                className={cn("flex-1 px-4 py-3 rounded-xl font-bold transition-all", isV2 ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-red-600 text-white hover:bg-red-700")}
               >
                 {t('finish_discard')}
               </button>

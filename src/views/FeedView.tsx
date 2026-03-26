@@ -6,11 +6,14 @@ import { db } from '../lib/firebase';
 import { Session } from '../types';
 import { SessionCard } from '../components/SessionCard';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { parseFirestoreDate } from '../lib/utils';
+import { parseFirestoreDate, cn } from '../lib/utils';
 import { useLanguage } from '../lib/i18n';
+import { useUI } from '../contexts/UIContext';
 
 export function FeedView() {
   const { t } = useLanguage();
+  const { uiVersion } = useUI();
+  const isV2 = uiVersion === '2.0';
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -58,22 +61,22 @@ export function FeedView() {
       className="max-w-3xl mx-auto space-y-8 pb-10"
     >
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold dark:text-stone-100 flex items-center gap-3">
-          <Globe className="text-emerald-500" /> {t('nav_community')}
+        <h2 className={cn("text-3xl font-bold flex items-center gap-3", isV2 ? "text-white" : "dark:text-stone-100")}>
+          <Globe className={isV2 ? "text-emerald-400" : "text-emerald-500"} /> {t('nav_community')}
         </h2>
-        <span className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{t('community_subtitle')}</span>
+        <span className={cn("text-xs font-bold uppercase tracking-widest", isV2 ? "text-white/50" : "text-stone-400 dark:text-stone-500")}>{t('community_subtitle')}</span>
       </div>
 
       <div className="space-y-8">
         {loading ? (
-          <div className="text-stone-400 italic text-center py-12">{t('community_loading')}</div>
+          <div className={cn("italic text-center py-12", isV2 ? "text-white/50" : "text-stone-400")}>{t('community_loading')}</div>
         ) : error ? (
-          <div className="p-12 text-center bg-red-50 dark:bg-red-900/10 rounded-3xl border border-red-100 dark:border-red-900/30">
-            <p className="text-red-600 dark:text-red-400">{error}</p>
+          <div className={cn("p-12 text-center rounded-3xl border", isV2 ? "bg-red-500/10 border-red-500/30" : "bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30")}>
+            <p className={cn(isV2 ? "text-red-400" : "text-red-600 dark:text-red-400")}>{error}</p>
           </div>
         ) : sessions.length === 0 ? (
-          <div className="p-12 text-center bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800">
-            <p className="text-stone-400">{t('community_empty')}</p>
+          <div className={cn("p-12 text-center rounded-3xl border", isV2 ? "bg-white/5 border-white/10" : "bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800")}>
+            <p className={cn(isV2 ? "text-white/50" : "text-stone-400")}>{t('community_empty')}</p>
           </div>
         ) : (
           sessions.map(session => (

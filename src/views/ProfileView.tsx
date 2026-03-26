@@ -5,7 +5,7 @@ import { onSnapshot, collection, query, where, orderBy } from 'firebase/firestor
 import { startOfWeek, endOfWeek } from 'date-fns';
 import { db } from '../lib/firebase';
 import { Session } from '../types';
-import { calculateStreak, parseFirestoreDate } from '../lib/utils';
+import { calculateStreak, parseFirestoreDate, cn } from '../lib/utils';
 import { Calendar } from '../components/Calendar';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { ProfileHeader } from '../components/profile/ProfileHeader';
@@ -16,6 +16,7 @@ import { ProfileFilteredSessions } from '../components/profile/ProfileFilteredSe
 import { TagCloud } from '../components/TagCloud';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useLanguage } from '../lib/i18n';
+import { useUI } from '../contexts/UIContext';
 
 import { UserProfile } from '../types';
 
@@ -26,6 +27,8 @@ interface ProfileViewProps {
 
 export function ProfileView({ user, profile }: ProfileViewProps) {
   const { t } = useLanguage();
+  const { uiVersion } = useUI();
+  const isV2 = uiVersion === '2.0';
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
@@ -79,14 +82,14 @@ export function ProfileView({ user, profile }: ProfileViewProps) {
 
   if (loading) {
     return (
-      <div className="text-stone-400 italic text-center py-24">{t('profile_loading')}</div>
+      <div className={cn("italic text-center py-24", isV2 ? "text-white/50" : "text-stone-400")}>{t('profile_loading')}</div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-12 text-center bg-red-50 dark:bg-red-900/10 rounded-3xl border border-red-100 dark:border-red-900/30">
-        <p className="text-red-600 dark:text-red-400">{error}</p>
+      <div className={cn("p-12 text-center rounded-3xl border", isV2 ? "bg-red-500/10 border-red-500/30" : "bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30")}>
+        <p className={cn(isV2 ? "text-red-400" : "text-red-600 dark:text-red-400")}>{error}</p>
       </div>
     );
   }

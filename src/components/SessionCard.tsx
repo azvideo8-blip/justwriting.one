@@ -15,6 +15,7 @@ import { jsPDF } from 'jspdf';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { saveAs } from 'file-saver';
 import { useLanguage } from '../lib/i18n';
+import { useUI } from '../contexts/UIContext';
 
 import { SessionEditor } from './SessionEditor';
 
@@ -32,6 +33,8 @@ export function SessionCard({
   searchQuery?: string
 }) {
   const { t } = useLanguage();
+  const { uiVersion } = useUI();
+  const isV2 = uiVersion === '2.0';
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -81,7 +84,7 @@ export function SessionCard({
       <>
         {parts.map((part, i) => 
           part.toLowerCase() === query.toLowerCase() ? (
-            <mark key={i} className="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-100 px-0.5 rounded">
+            <mark key={i} className={cn("px-0.5 rounded", isV2 ? "bg-white/20 text-white" : "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-100")}>
               {part}
             </mark>
           ) : part
@@ -157,33 +160,38 @@ export function SessionCard({
   return (
     <motion.div 
       layout
-      className="bg-white dark:bg-stone-900 p-6 md:p-8 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm hover:shadow-md transition-all space-y-4"
+      className={cn(
+        "p-6 md:p-8 transition-all space-y-4",
+        isV2 
+          ? "bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl text-[#E5E5E0] hover:bg-white/10" 
+          : "bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm hover:shadow-md"
+      )}
     >
       {label && (
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: label.color }} />
-          <span className="text-xs font-bold uppercase tracking-widest text-stone-500">{label.name}</span>
+          <span className={cn("text-xs font-bold uppercase tracking-widest", isV2 ? "text-white/50" : "text-stone-500")}>{label.name}</span>
         </div>
       )}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           {showAuthor && (
-            <div className="w-8 h-8 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center overflow-hidden border border-stone-100 dark:border-stone-800">
+            <div className={cn("w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border", isV2 ? "bg-white/10 border-white/10" : "bg-stone-100 dark:bg-stone-800 border-stone-100 dark:border-stone-800")}>
               {session.authorPhoto ? (
                 <img src={session.authorPhoto} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               ) : (
-                <UserIcon size={14} className="text-stone-400" />
+                <UserIcon size={14} className={isV2 ? "text-white/50" : "text-stone-400"} />
               )}
             </div>
           )}
           <div className="flex flex-col">
-            <span className="text-[10px] md:text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">
+            <span className={cn("text-[10px] md:text-xs font-bold uppercase tracking-widest", isV2 ? "text-white/40" : "text-stone-400 dark:text-stone-500")}>
               {format(new Date(sessionDate), 'd MMM yyyy • HH:mm')}
             </span>
-            {showAuthor && <span className="font-medium text-stone-900 dark:text-stone-100">{session.isAnonymous ? t('session_anonymous') : (session.nickname || session.authorName)}</span>}
+            {showAuthor && <span className={cn("font-medium", isV2 ? "text-white" : "text-stone-900 dark:text-stone-100")}>{session.isAnonymous ? t('session_anonymous') : (session.nickname || session.authorName)}</span>}
           </div>
         </div>
-        <div className="flex items-center flex-wrap gap-3 text-stone-400 dark:text-stone-500 text-xs md:text-sm font-mono">
+        <div className={cn("flex items-center flex-wrap gap-3 text-xs md:text-sm font-mono", isV2 ? "text-white/50" : "text-stone-400 dark:text-stone-500")}>
           <span className="flex items-center gap-1" title={t('writing_time')}><Clock size={14} /> {Math.floor(session.duration / 60)}{t('unit_min')}</span>
           <span className="flex items-center gap-1" title={t('writing_words')}><Type size={14} /> {session.wordCount}{t('unit_words')}</span>
           <span className="flex items-center gap-1" title={t('writing_chars')}><PenLine size={14} /> {session.charCount || 0}</span>
@@ -195,8 +203,8 @@ export function SessionCard({
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all",
                 showExportMenu 
-                  ? "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900" 
-                  : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700"
+                  ? (isV2 ? "bg-white text-black" : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900") 
+                  : (isV2 ? "bg-white/5 text-white/70 hover:bg-white/10" : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700")
               )}
             >
               <Share2 size={12} />
@@ -207,32 +215,47 @@ export function SessionCard({
               <motion.div 
                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-stone-800 rounded-2xl shadow-xl border border-stone-100 dark:border-stone-700 p-2 z-20"
+                className={cn(
+                  "absolute right-0 top-full mt-2 w-48 rounded-2xl shadow-xl border p-2 z-20",
+                  isV2 ? "bg-[#0A0A0B]/90 backdrop-blur-xl border-white/10" : "bg-white dark:bg-stone-800 border-stone-100 dark:border-stone-700"
+                )}
               >
                 <button 
                   onClick={exportToTxt}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-xl transition-all"
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all",
+                    isV2 ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700"
+                  )}
                 >
                   <FileText size={14} />
                   {t('export_txt')}
                 </button>
                 <button 
                   onClick={exportPDF}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-xl transition-all"
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all",
+                    isV2 ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700"
+                  )}
                 >
                   <FileText size={14} className="text-red-500" />
                   {t('export_pdf')}
                 </button>
                 <button 
                   onClick={exportMarkdown}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-xl transition-all"
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all",
+                    isV2 ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700"
+                  )}
                 >
                   <FileJson size={14} className="text-blue-500" />
                   {t('export_md')}
                 </button>
                 <button 
                   onClick={exportDocx}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-xl transition-all"
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all",
+                    isV2 ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700"
+                  )}
                 >
                   <Download size={14} className="text-emerald-500" />
                   {t('export_docx')}
@@ -243,7 +266,10 @@ export function SessionCard({
             {!showAuthor && auth.currentUser?.uid === session.userId && (
               <button 
                 onClick={() => setIsEditing(!isEditing)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700 text-[10px] font-bold uppercase tracking-wider transition-all"
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all",
+                  isV2 ? "bg-white/5 text-white/70 hover:bg-white/10" : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700"
+                )}
               >
                 <PenLine size={12} />
                 {t('session_edit')}
@@ -252,7 +278,10 @@ export function SessionCard({
             
             <button 
               onClick={() => setExpanded(!expanded)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700 text-[10px] font-bold uppercase tracking-wider transition-all"
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all",
+                isV2 ? "bg-white/5 text-white/70 hover:bg-white/10" : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700"
+              )}
             >
               {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               {expanded ? t('session_collapse') : t('session_expand')}
@@ -262,7 +291,7 @@ export function SessionCard({
       </div>
 
       {session.title && !isEditing && (
-        <h4 className="text-xl font-bold dark:text-stone-100">
+        <h4 className={cn("text-xl font-bold", isV2 ? "text-white" : "dark:text-stone-100")}>
           {highlightText(session.title, searchQuery)}
         </h4>
       )}
@@ -275,23 +304,29 @@ export function SessionCard({
         />
       ) : (
         <div className={cn("relative", !expanded && "max-h-24 overflow-hidden")}>
-          <p className="text-stone-600 dark:text-stone-300 leading-relaxed whitespace-pre-wrap">
+          <p className={cn("leading-relaxed whitespace-pre-wrap", isV2 ? "text-white/80" : "text-stone-600 dark:text-stone-300")}>
             {highlightText(session.content, searchQuery)}
           </p>
           {!expanded && session.content.length > 200 && (
-            <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white dark:from-stone-900 to-transparent" />
+            <div className={cn(
+              "absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t",
+              isV2 ? "from-[#0A0A0B]/80 to-transparent" : "from-white dark:from-stone-900 to-transparent"
+            )} />
           )}
         </div>
       )}
 
       {!isEditing && (
-        <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-stone-100 dark:border-stone-800">
+        <div className={cn("flex flex-wrap items-center justify-between gap-4 pt-4 border-t", isV2 ? "border-white/10" : "border-stone-100 dark:border-stone-800")}>
           <div className="flex flex-wrap items-center gap-2">
             {session.tags && session.tags.length > 0 ? (
               session.tags.map(tag => (
                 <span 
                   key={tag} 
-                  className="group/tag flex items-center gap-1 px-2.5 py-1.5 bg-stone-50 dark:bg-stone-800 rounded-lg text-xs font-bold text-stone-500 transition-all hover:bg-stone-100 dark:hover:bg-stone-700"
+                  className={cn(
+                    "group/tag flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all",
+                    isV2 ? "bg-white/5 text-white/50 hover:bg-white/10" : "bg-stone-50 dark:bg-stone-800 text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-700"
+                  )}
                 >
                   #{tag}
                   {auth.currentUser?.uid === session.userId && (
@@ -307,7 +342,7 @@ export function SessionCard({
             ) : (
               <button 
                 onClick={() => setIsAddingTag(true)}
-                className="text-xs text-stone-300 dark:text-stone-600 italic hover:text-stone-500 transition-colors"
+                className={cn("text-xs italic transition-colors", isV2 ? "text-white/30 hover:text-white/50" : "text-stone-300 dark:text-stone-600 hover:text-stone-500")}
               >
                 + {t('session_add_tags')}
               </button>
@@ -322,13 +357,16 @@ export function SessionCard({
                   onChange={(e) => setNewTag(e.target.value)}
                   onBlur={() => !newTag && setIsAddingTag(false)}
                   placeholder={t('session_tag_placeholder')}
-                  className="w-24 px-2.5 py-1.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-xs outline-none"
+                  className={cn(
+                    "w-24 px-2.5 py-1.5 border rounded-lg text-xs outline-none",
+                    isV2 ? "bg-transparent border-white/20 text-white placeholder-white/30" : "bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700"
+                  )}
                 />
               </form>
             ) : session.tags && session.tags.length > 0 && (
               <button 
                 onClick={() => setIsAddingTag(true)}
-                className="p-1 text-stone-300 hover:text-stone-500 transition-colors"
+                className={cn("p-1 transition-colors", isV2 ? "text-white/30 hover:text-white/50" : "text-stone-300 hover:text-stone-500")}
               >
                 <Plus size={12} />
               </button>
@@ -338,7 +376,10 @@ export function SessionCard({
           {onContinue && auth.currentUser?.uid === session.userId && (
             <button 
               onClick={onContinue}
-              className="flex items-center gap-2 px-6 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-bold hover:opacity-90 transition-opacity text-sm"
+              className={cn(
+                "flex items-center gap-2 px-6 py-2 rounded-xl font-bold transition-opacity text-sm",
+                isV2 ? "bg-white text-black hover:bg-white/90" : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:opacity-90"
+              )}
             >
               <PenLine size={16} />
               {t('session_continue')}
