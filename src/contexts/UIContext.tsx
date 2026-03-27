@@ -5,6 +5,8 @@ type UIVersion = '1.0' | '2.0';
 interface UIContextType {
   uiVersion: UIVersion;
   toggleUIVersion: () => void;
+  streamMode: boolean;
+  toggleStreamMode: () => void;
 }
 
 const UIContext = createContext<UIContextType | undefined>(undefined);
@@ -12,6 +14,9 @@ const UIContext = createContext<UIContextType | undefined>(undefined);
 export function UIProvider({ children }: { children: React.ReactNode }) {
   const [uiVersion, setUIVersion] = useState<UIVersion>(() => {
     return (localStorage.getItem('uiVersion') as UIVersion) || '1.0';
+  });
+  const [streamMode, setStreamMode] = useState<boolean>(() => {
+    return localStorage.getItem('streamMode') === 'true';
   });
 
   useEffect(() => {
@@ -23,12 +28,20 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
     }
   }, [uiVersion]);
 
+  useEffect(() => {
+    localStorage.setItem('streamMode', streamMode.toString());
+  }, [streamMode]);
+
   const toggleUIVersion = () => {
     setUIVersion(prev => (prev === '1.0' ? '2.0' : '1.0'));
   };
 
+  const toggleStreamMode = () => {
+    setStreamMode(prev => !prev);
+  };
+
   return (
-    <UIContext.Provider value={{ uiVersion, toggleUIVersion }}>
+    <UIContext.Provider value={{ uiVersion, toggleUIVersion, streamMode, toggleStreamMode }}>
       {children}
     </UIContext.Provider>
   );

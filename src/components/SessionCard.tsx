@@ -161,19 +161,22 @@ export function SessionCard({
     <motion.div 
       layout
       className={cn(
-        "p-6 md:p-8 transition-all space-y-4",
+        "p-6 md:p-8 transition-all space-y-4 group relative overflow-hidden",
         isV2 
           ? "bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl text-[#E5E5E0] hover:bg-white/10" 
           : "bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm hover:shadow-md"
       )}
     >
+      {isV2 && (
+        <div className="absolute -top-16 -left-16 w-32 h-32 rounded-full blur-3xl opacity-0 transition-all duration-700 bg-white/5 mix-blend-screen group-hover:opacity-100 group-hover:translate-x-4" />
+      )}
       {label && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 relative z-10">
           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: label.color }} />
           <span className={cn("text-xs font-bold uppercase tracking-widest", isV2 ? "text-white/50" : "text-stone-500")}>{label.name}</span>
         </div>
       )}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
         <div className="flex items-center gap-3">
           {showAuthor && (
             <div className={cn("w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border", isV2 ? "bg-white/10 border-white/10" : "bg-stone-100 dark:bg-stone-800 border-stone-100 dark:border-stone-800")}>
@@ -291,7 +294,7 @@ export function SessionCard({
       </div>
 
       {session.title && !isEditing && (
-        <h4 className={cn("text-xl font-bold", isV2 ? "text-white" : "dark:text-stone-100")}>
+        <h4 className={cn("text-xl font-bold relative z-10", isV2 ? "text-white" : "dark:text-stone-100")}>
           {highlightText(session.title, searchQuery)}
         </h4>
       )}
@@ -303,7 +306,7 @@ export function SessionCard({
           onSave={() => setIsEditing(false)} 
         />
       ) : (
-        <div className={cn("relative", !expanded && "max-h-24 overflow-hidden")}>
+        <div className={cn("relative z-10", !expanded && "max-h-24 overflow-hidden")}>
           <p className={cn("leading-relaxed whitespace-pre-wrap", isV2 ? "text-white/80" : "text-stone-600 dark:text-stone-300")}>
             {highlightText(session.content, searchQuery)}
           </p>
@@ -317,7 +320,7 @@ export function SessionCard({
       )}
 
       {!isEditing && (
-        <div className={cn("flex flex-wrap items-center justify-between gap-4 pt-4 border-t", isV2 ? "border-white/10" : "border-stone-100 dark:border-stone-800")}>
+        <div className={cn("flex flex-wrap items-center justify-between gap-4 pt-4 border-t relative z-10", isV2 ? "border-white/10" : "border-stone-100 dark:border-stone-800")}>
           <div className="flex flex-wrap items-center gap-2">
             {session.tags && session.tags.length > 0 ? (
               session.tags.map(tag => (
@@ -358,8 +361,10 @@ export function SessionCard({
                   onBlur={() => !newTag && setIsAddingTag(false)}
                   placeholder={t('session_tag_placeholder')}
                   className={cn(
-                    "w-24 px-2.5 py-1.5 border rounded-lg text-xs outline-none",
-                    isV2 ? "bg-transparent border-white/20 text-white placeholder-white/30" : "bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700"
+                    "w-24 px-2.5 py-1.5 border rounded-lg text-xs outline-none transition-all",
+                    isV2 
+                      ? "bg-transparent border-white/20 text-white placeholder-white/30 focus:ring-1 focus:ring-white/20 focus:border-white/30 focus:bg-white/5" 
+                      : "bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700"
                   )}
                 />
               </form>

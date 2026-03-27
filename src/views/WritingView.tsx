@@ -29,7 +29,7 @@ interface WritingViewProps {
 
 export function WritingView({ user, profile, sessionToContinue, onSessionContinued }: WritingViewProps) {
   const { t } = useLanguage();
-  const { uiVersion } = useUI();
+  const { uiVersion, streamMode } = useUI();
   const isV2 = uiVersion === '2.0';
   const {
     status, setStatus,
@@ -52,6 +52,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     initialDuration, setInitialDuration,
     activeSessionId, setActiveSessionId,
     saveStatus, lastSavedAt,
+    // highlights, setHighlights,
     handleStart, handleSave, handleCancel, resetSession,
     isOnline,
     fetchLocalSessions,
@@ -90,10 +91,10 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     const saved = localStorage.getItem('writing_zenModeEnabled');
     return saved === null ? true : saved === 'true';
   });
-  const [dynamicBgEnabled, setDynamicBgEnabled] = useState(() => {
-    const saved = localStorage.getItem('writing_dynamicBgEnabled');
-    return saved === null ? true : saved === 'true';
-  });
+  // const [dynamicBgEnabled, setDynamicBgEnabled] = useState(() => {
+  //   const saved = localStorage.getItem('writing_dynamicBgEnabled');
+  //   return saved === null ? true : saved === 'true';
+  // });
   const [stickyHeaderEnabled, setStickyHeaderEnabled] = useState(() => {
     const saved = localStorage.getItem('writing_stickyHeaderEnabled');
     return saved === null ? true : saved === 'true';
@@ -121,10 +122,10 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     localStorage.setItem('writing_fontFamily', fontFamily);
     localStorage.setItem('writing_textWidth', textWidth);
     localStorage.setItem('writing_zenModeEnabled', zenModeEnabled.toString());
-    localStorage.setItem('writing_dynamicBgEnabled', dynamicBgEnabled.toString());
+    // localStorage.setItem('writing_dynamicBgEnabled', dynamicBgEnabled.toString());
     localStorage.setItem('writing_stickyHeaderEnabled', stickyHeaderEnabled.toString());
     localStorage.setItem('writing_headerVisibility', JSON.stringify(headerVisibility));
-  }, [fontSize, fontFamily, textWidth, zenModeEnabled, dynamicBgEnabled, stickyHeaderEnabled, headerVisibility]);
+  }, [fontSize, fontFamily, textWidth, zenModeEnabled, /* dynamicBgEnabled, */ stickyHeaderEnabled, headerVisibility]);
 
   // Zen Mode Logic
   useEffect(() => {
@@ -263,25 +264,25 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     setTags(tags.filter(tag => tag !== t));
   };
 
-  const getDynamicBgStyle = () => {
-    if (!dynamicBgEnabled || status !== 'writing') return {};
-    
-    // Reach max intensity at 20 WPM
-    const intensity = Math.min(wpm / 20, 1); 
-    const hue = 30; // Warm amber
-    const saturation = intensity * 60; 
-    
-    // Light mode: from 100% lightness to ~80%
-    const lightness = 100 - (intensity * 20);
-    // Dark mode: from 12% lightness to ~30%
-    const darkLightness = 12 + (intensity * 18);
-    
-    return {
-      '--dynamic-bg': `hsl(${hue}, ${saturation}%, ${lightness}%)`,
-      '--dynamic-bg-dark': `hsl(${hue}, ${saturation}%, ${darkLightness}%)`,
-      backgroundColor: 'var(--dynamic-bg)',
-    } as React.CSSProperties;
-  };
+  // const getDynamicBgStyle = () => {
+  //   if (!dynamicBgEnabled || status !== 'writing') return {};
+  //   
+  //   // Reach max intensity at 20 WPM
+  //   const intensity = Math.min(wpm / 20, 1); 
+  //   const hue = 30; // Warm amber
+  //   const saturation = intensity * 60; 
+  //   
+  //   // Light mode: from 100% lightness to ~80%
+  //   const lightness = 100 - (intensity * 20);
+  //   // Dark mode: from 12% lightness to ~30%
+  //   const darkLightness = 12 + (intensity * 18);
+  //   
+  //   return {
+  //     '--dynamic-bg': `hsl(${hue}, ${saturation}%, ${lightness}%)`,
+  //     '--dynamic-bg-dark': `hsl(${hue}, ${saturation}%, ${darkLightness}%)`,
+  //     backgroundColor: 'var(--dynamic-bg)',
+  //   } as React.CSSProperties;
+  // };
 
   return (
     <motion.div 
@@ -289,9 +290,9 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
       animate={{ opacity: 1 }}
       className={cn(
         "w-full transition-colors duration-1000",
-        dynamicBgEnabled && status === 'writing' && "dark:!bg-[var(--dynamic-bg-dark)]"
+        // dynamicBgEnabled && status === 'writing' && "dark:!bg-[var(--dynamic-bg-dark)]"
       )}
-      style={getDynamicBgStyle()}
+      // style={getDynamicBgStyle()}
     >
       {/* Offline Notification */}
       {!isOnline && (
@@ -334,8 +335,8 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         setFontSize={setFontSize}
         zenModeEnabled={zenModeEnabled}
         setZenModeEnabled={setZenModeEnabled}
-        dynamicBgEnabled={dynamicBgEnabled}
-        setDynamicBgEnabled={setDynamicBgEnabled}
+        // dynamicBgEnabled={dynamicBgEnabled}
+        // setDynamicBgEnabled={setDynamicBgEnabled}
         stickyHeaderEnabled={stickyHeaderEnabled}
         setStickyHeaderEnabled={setStickyHeaderEnabled}
         headerVisibility={headerVisibility}
@@ -424,6 +425,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         isZenActive={isZenActive}
         stickyHeaderEnabled={stickyHeaderEnabled}
         headerVisibility={headerVisibility}
+        streamMode={streamMode}
       />
 
       <div className="relative min-h-[600px]">
@@ -465,11 +467,14 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
           handleFinish={() => setStatus('finished')}
           setShowCancelConfirm={setShowCancelConfirm}
           isZenActive={isZenActive}
-          dynamicBgEnabled={dynamicBgEnabled}
+          // dynamicBgEnabled={dynamicBgEnabled}
           wpm={wpm}
           saveStatus={saveStatus}
           lastSavedAt={lastSavedAt}
           stickyHeaderEnabled={stickyHeaderEnabled}
+          streamMode={streamMode}
+          // highlights={highlights}
+          // setHighlights={setHighlights}
         />
       </div>
     </motion.div>

@@ -108,9 +108,11 @@ function AppContent() {
   if (!user) return <LoginView />;
 
   return (
-    <UIProvider>
-      <ErrorBoundary>
-        <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans selection:bg-stone-200 dark:selection:bg-stone-800">
+    <ErrorBoundary>
+      <div className={cn(
+        "min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans selection:bg-stone-200 dark:selection:bg-stone-800",
+        isV2 && "theme-v2"
+      )}>
         {/* Navigation */}
         <nav className={cn(
           "fixed top-0 left-0 right-0 h-16 z-50 px-4 md:px-6 flex items-center justify-between transition-all duration-300",
@@ -131,8 +133,11 @@ function AppContent() {
             >
               <Menu size={24} />
             </button>
-            <div className="w-8 h-8 bg-stone-900 dark:bg-stone-100 rounded-lg flex items-center justify-center text-white dark:text-stone-900 font-bold text-xl">J</div>
-            <span className="font-bold text-xl tracking-tight hidden sm:inline">justwriting.one</span>
+            <div className={cn(
+              "w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xl",
+              isV2 ? "bg-white text-black" : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900"
+            )}>J</div>
+            <span className={cn("font-bold text-xl tracking-tight hidden sm:inline", isV2 && "text-white")}>justwriting.one</span>
           </div>
           
           <DesktopNav view={view} setView={setView} isAdmin={isAdmin} user={user} />
@@ -181,6 +186,5 @@ function AppContent() {
         </main>
       </div>
     </ErrorBoundary>
-    </UIProvider>
   );
 }

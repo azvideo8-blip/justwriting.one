@@ -36,6 +36,7 @@ interface WritingHeaderProps {
     totalWords: boolean;
     wpm: boolean;
   };
+  streamMode?: boolean;
 }
 
 export function WritingHeader({
@@ -62,7 +63,8 @@ export function WritingHeader({
   setShowCancelConfirm,
   isZenActive = false,
   stickyHeaderEnabled = true,
-  headerVisibility
+  headerVisibility,
+  streamMode = false
 }: WritingHeaderProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const { t } = useLanguage();
@@ -122,7 +124,7 @@ export function WritingHeader({
             </div>
           )}
 
-          {headerVisibility.sessionWords && (
+          {headerVisibility.sessionWords && !streamMode && (
             <div className="flex flex-col shrink-0">
               <span className={cn(
                 "font-black uppercase tracking-widest mb-0.5 flex items-center gap-1",
@@ -142,7 +144,7 @@ export function WritingHeader({
             </div>
           )}
 
-          {headerVisibility.totalWords && (
+          {headerVisibility.totalWords && !streamMode && (
             <div className="flex flex-col shrink-0">
               <span className={cn(
                 "font-black uppercase tracking-widest mb-0.5",
@@ -155,7 +157,7 @@ export function WritingHeader({
             </div>
           )}
 
-          {headerVisibility.wpm && (
+          {headerVisibility.wpm && !streamMode && (
             <div className="flex flex-col shrink-0">
               <div className="flex items-center gap-2 mb-0.5">
                 <span className={cn(
@@ -175,6 +177,12 @@ export function WritingHeader({
               )}>{wpm}</span>
             </div>
           )}
+          {status === 'writing' && streamMode && (
+            <div className="flex items-center gap-2 text-indigo-500 animate-pulse">
+              <div className="w-2 h-2 rounded-full bg-indigo-500" />
+              <span className="text-[10px] font-black uppercase tracking-widest">{t('header_in_flow')}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -186,9 +194,9 @@ export function WritingHeader({
                   "p-2.5 rounded-xl shadow-sm hover:scale-105 transition-all",
                   isV2 ? "bg-white/10 text-white hover:bg-white/20" : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900"
                 )}
-                title={t('header_new_session')}
+                title={streamMode ? t('header_begin_release') : t('header_new_session')}
               >
-                <Plus size={18} />
+                {streamMode ? t('header_begin_release') : <Plus size={18} />}
               </button>
               <button 
                 onClick={fetchUserSessions}
