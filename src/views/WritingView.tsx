@@ -14,6 +14,7 @@ import { WritingHeader } from '../components/writing/WritingHeader';
 import { WritingSetup, SetupMode } from '../components/writing/WritingSetup';
 import { WritingEditor } from '../components/writing/WritingEditor';
 import { WritingSettings } from '../components/writing/WritingSettings';
+import { SettingsV2 } from '../components/writing/v2/SettingsV2';
 import { WritingFinishModal } from '../components/writing/WritingFinishModal';
 
 // Hooks
@@ -324,24 +325,30 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         </div>
       )}
 
-      <WritingSettings 
-        showSettings={showSettings}
-        setShowSettings={setShowSettings}
-        fontFamily={fontFamily}
-        setFontFamily={setFontFamily}
-        textWidth={textWidth}
-        setTextWidth={setTextWidth}
-        fontSize={fontSize}
-        setFontSize={setFontSize}
-        zenModeEnabled={zenModeEnabled}
-        setZenModeEnabled={setZenModeEnabled}
-        // dynamicBgEnabled={dynamicBgEnabled}
-        // setDynamicBgEnabled={setDynamicBgEnabled}
-        stickyHeaderEnabled={stickyHeaderEnabled}
-        setStickyHeaderEnabled={setStickyHeaderEnabled}
-        headerVisibility={headerVisibility}
-        setHeaderVisibility={setHeaderVisibility}
-      />
+      {isV2 && showSettings ? (
+        <SettingsV2 
+          onClose={() => setShowSettings(false)}
+        />
+      ) : !isV2 && showSettings ? (
+        <WritingSettings 
+          showSettings={showSettings}
+          setShowSettings={setShowSettings}
+          fontFamily={fontFamily}
+          setFontFamily={setFontFamily}
+          textWidth={textWidth}
+          setTextWidth={setTextWidth}
+          fontSize={fontSize}
+          setFontSize={setFontSize}
+          zenModeEnabled={zenModeEnabled}
+          setZenModeEnabled={setZenModeEnabled}
+          // dynamicBgEnabled={dynamicBgEnabled}
+          // setDynamicBgEnabled={setDynamicBgEnabled}
+          stickyHeaderEnabled={stickyHeaderEnabled}
+          setStickyHeaderEnabled={setStickyHeaderEnabled}
+          headerVisibility={headerVisibility}
+          setHeaderVisibility={setHeaderVisibility}
+        />
+      ) : null}
 
       {showCancelConfirm && (
         <div className={cn("fixed inset-0 z-[60] flex items-center justify-center p-4", isV2 ? "bg-[#0A0A0B]/80 backdrop-blur-2xl" : "bg-stone-900/60 backdrop-blur-md")}>

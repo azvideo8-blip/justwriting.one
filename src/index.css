@@ -29,8 +29,13 @@
   }
 
   .theme-v2 {
-    --bg: var(--ethereal-bg-dark);
-    --text: var(--ethereal-text-dark);
+    --v2-bg: #0A0A0B;
+    --v2-white-high: rgba(255, 255, 255, 0.95);
+    --v2-white-low: rgba(255, 255, 255, 0.5);
+    --v2-glass: rgba(255, 255, 255, 0.05);
+    --v2-border: rgba(255, 255, 255, 0.1);
+    --bg: var(--v2-bg);
+    --text: var(--v2-white-high);
   }
   
   .theme-v2 ::selection {
