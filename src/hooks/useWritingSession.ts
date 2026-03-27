@@ -3,7 +3,7 @@ import { User } from 'firebase/auth';
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { deleteDraft, getDraft } from '../lib/db';
+import { deleteDraft, getDraft, getDraftFromFirestore } from '../lib/db';
 import { useTimer } from './useTimer';
 import { useWritingStats } from './useWritingStats';
 import { useDraftAutosave } from './useDraftAutosave';
@@ -21,6 +21,7 @@ export function useWritingSession(user: User, profile: any) {
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
   const [pinnedThoughts, setPinnedThoughts] = useState<string[]>([]);
+  // const [highlights, setHighlights] = useState<{ start: number; end: number; color: string }[]>([]);
   
   const [isPublic, setIsPublic] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -82,17 +83,25 @@ export function useWritingSession(user: User, profile: any) {
     }
   };
 
-  // Load draft from IndexedDB
+  // Load draft from IndexedDB and Firestore
   useEffect(() => {
     if (user) {
-      getDraft(user.uid).then(draft => {
-        if (draft) {
+      Promise.all([getDraft(user.uid), getDraftFromFirestore(user.uid)]).then(([localDraft, cloudDraft]) => {
+        let draftToLoad = null;
+
+        if (localDraft && cloudDraft) {
+          draftToLoad = localDraft.updatedAt > cloudDraft.updatedAt ? localDraft : cloudDraft;
+        } else {
+          draftToLoad = localDraft || cloudDraft;
+        }
+
+        if (draftToLoad) {
           setHasDraft(true);
-          setContent(draft.content || '');
-          setTitle(draft.title || '');
-          setPinnedThoughts(draft.pinnedThoughts || []);
-          // Note: timer/stats state needs to be restored here or in the hooks
-          if (draft.activeSessionId) setActiveSessionId(draft.activeSessionId);
+          setContent(draftToLoad.content || '');
+          setTitle(draftToLoad.title || '');
+          setPinnedThoughts(draftToLoad.pinnedThoughts || []);
+          // setHighlights(draftToLoad.highlights || []);
+          if (draftToLoad.activeSessionId) setActiveSessionId(draftToLoad.activeSessionId);
         }
       });
     }
@@ -114,6 +123,7 @@ export function useWritingSession(user: User, profile: any) {
       title,
       content,
       pinnedThoughts,
+      // highlights,
       duration: initialDuration + seconds,
       wordCount: wordCount,
       charCount: content.length,
@@ -165,6 +175,7 @@ export function useWritingSession(user: User, profile: any) {
     setContent('');
     setTitle('');
     setPinnedThoughts([]);
+    // setHighlights([]);
     resetTimer();
     resetStats();
     setInitialWordCount(0);
@@ -213,6 +224,7 @@ export function useWritingSession(user: User, profile: any) {
     content, setContent,
     title, setTitle,
     pinnedThoughts, setPinnedThoughts,
+    // highlights, setHighlights,
     seconds,
     wpm, wordCount,
     isPublic, setIsPublic,

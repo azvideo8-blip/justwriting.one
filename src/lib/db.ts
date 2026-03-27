@@ -1,4 +1,6 @@
 import { openDB, IDBPDatabase } from 'idb';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from './firebase';
 
 const DB_NAME = 'flowwriter-db';
 const STORE_NAME = 'drafts';
@@ -30,9 +32,23 @@ function getDB() {
   return dbPromise;
 }
 
-export async function saveDraft(draft: Draft) {
+export async function saveToLocal(draft: Draft) {
   const db = await getDB();
   return db.put(STORE_NAME, draft);
+}
+
+export async function saveToFirestore(draft: Draft) {
+  const docRef = doc(db, 'drafts', draft.userId);
+  return setDoc(docRef, draft, { merge: true });
+}
+
+export async function getDraftFromFirestore(userId: string): Promise<Draft | undefined> {
+  const docRef = doc(db, 'drafts', userId);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return docSnap.data() as Draft;
+  }
+  return undefined;
 }
 
 export async function getDraft(userId: string): Promise<Draft | undefined> {

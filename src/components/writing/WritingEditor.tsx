@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Pause, Square, Play, X, X as XIcon, Pin, PinOff } from 'lucide-react';
+import { Pause, Square, Play, X, X as XIcon, Pin, PinOff, Lock, Check } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useLanguage } from '../../lib/i18n';
 import { useUI } from '../../contexts/UIContext';
@@ -21,11 +21,14 @@ interface WritingEditorProps {
   handleFinish: () => void;
   setShowCancelConfirm: (show: boolean) => void;
   isZenActive?: boolean;
-  dynamicBgEnabled?: boolean;
+  // dynamicBgEnabled?: boolean;
   wpm?: number;
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt: number | null;
   stickyHeaderEnabled?: boolean;
+  streamMode?: boolean;
+  // highlights: { start: number; end: number; color: string }[];
+  // setHighlights: (highlights: { start: number; end: number; color: string }[]) => void;
 }
 
 export function WritingEditor({
@@ -44,14 +47,17 @@ export function WritingEditor({
   handleFinish,
   setShowCancelConfirm,
   isZenActive = false,
-  dynamicBgEnabled = false,
+  // dynamicBgEnabled = false,
   wpm = 0,
   saveStatus,
   lastSavedAt,
-  stickyHeaderEnabled = true
+  stickyHeaderEnabled = true,
+  streamMode = false,
+  // highlights,
+  // setHighlights
 }: WritingEditorProps) {
   const { t } = useLanguage();
-  const { uiVersion } = useUI();
+  const { uiVersion, streamMode: streamModeContext } = useUI();
   const isV2 = uiVersion === '2.0';
   const [showPinnedInput, setShowPinnedInput] = React.useState(false);
   const [hasSelection, setHasSelection] = React.useState(false);
@@ -95,38 +101,68 @@ export function WritingEditor({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [content, pinnedThoughts, showPinnedInput]);
 
+  const getCaretCoordinates = (textarea: HTMLTextAreaElement, index: number) => {
+    const mirror = document.createElement('div');
+    mirror.style.position = 'absolute';
+    mirror.style.visibility = 'hidden';
+    mirror.style.whiteSpace = 'pre-wrap';
+    mirror.style.wordWrap = 'break-word';
+    mirror.style.width = textarea.clientWidth + 'px';
+    mirror.style.font = window.getComputedStyle(textarea).font;
+    mirror.style.padding = window.getComputedStyle(textarea).padding;
+    mirror.style.fontSize = window.getComputedStyle(textarea).fontSize;
+    mirror.style.lineHeight = window.getComputedStyle(textarea).lineHeight;
+    
+    mirror.textContent = textarea.value.substring(0, index);
+    
+    const span = document.createElement('span');
+    span.textContent = textarea.value.substring(index) || '.';
+    mirror.appendChild(span);
+    
+    document.body.appendChild(mirror);
+    
+    const spanRect = span.getBoundingClientRect();
+    const textareaRect = textarea.getBoundingClientRect();
+    
+    document.body.removeChild(mirror);
+    
+    return { 
+      top: spanRect.top - textareaRect.top + textarea.scrollTop, 
+      left: spanRect.left - textareaRect.left 
+    };
+  };
+
   // Typewriter mode: scroll textarea to center caret
   React.useLayoutEffect(() => {
     if (textareaRef.current) {
       const textarea = textareaRef.current;
-      const text = textarea.value;
-      const selectionStart = textarea.selectionStart;
-      
-      const mirror = document.createElement('div');
-      mirror.style.position = 'absolute';
-      mirror.style.visibility = 'hidden';
-      mirror.style.whiteSpace = 'pre-wrap';
-      mirror.style.wordWrap = 'break-word';
-      mirror.style.width = textarea.clientWidth + 'px';
-      mirror.style.font = window.getComputedStyle(textarea).font;
-      mirror.style.padding = window.getComputedStyle(textarea).padding;
-      mirror.style.fontSize = window.getComputedStyle(textarea).fontSize;
-      mirror.style.lineHeight = window.getComputedStyle(textarea).lineHeight;
-      
-      mirror.textContent = text.substring(0, selectionStart);
-      
-      const span = document.createElement('span');
-      span.textContent = text.substring(selectionStart) || '.';
-      mirror.appendChild(span);
-      
-      document.body.appendChild(mirror);
-      
-      const { offsetTop } = span;
-      document.body.removeChild(mirror);
-      
-      textarea.scrollTop = offsetTop - textarea.clientHeight / 2 + 50;
+      const { top } = getCaretCoordinates(textarea, textarea.selectionStart);
+      textarea.scrollTop = top - textarea.clientHeight / 2 + 50;
     }
   }, [content]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (streamMode) {
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault();
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'x' || e.key === 'c' || e.key === 'v')) {
+        e.preventDefault();
+      }
+    }
+  };
+
+  const handleCut = (e: React.ClipboardEvent) => {
+    if (streamMode) e.preventDefault();
+  };
+
+  const handleCopy = (e: React.ClipboardEvent) => {
+    if (streamMode) e.preventDefault();
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    if (streamMode) e.preventDefault();
+  };
 
   return (
     <div 
@@ -165,7 +201,7 @@ export function WritingEditor({
                 className={cn(
                   "w-full px-6 py-4 rounded-2xl border shadow-sm focus:shadow-xl outline-none text-xl font-black transition-all",
                   isV2 ? "bg-white/5 border-white/10 text-white placeholder:text-white/30" : "border-stone-200 dark:border-stone-800 dark:text-stone-100",
-                  dynamicBgEnabled && status === 'writing' && !isV2 ? "bg-[var(--dynamic-bg)]/50 dark:bg-[var(--dynamic-bg-dark)]/50 backdrop-blur-md" : (!isV2 && "bg-white dark:bg-stone-900")
+                  /* dynamicBgEnabled && status === 'writing' && !isV2 ? "bg-[var(--dynamic-bg)]/50 dark:bg-[var(--dynamic-bg-dark)]/50 backdrop-blur-md" : */ (!isV2 && "bg-white dark:bg-stone-900")
                 )}
               />
               <button 
@@ -249,6 +285,27 @@ export function WritingEditor({
       </div>
 
       <div className="relative group">
+        {/* <div className="absolute -top-12 right-0 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => {
+              if (!textareaRef.current) return;
+              const start = textareaRef.current.selectionStart;
+              const end = textareaRef.current.selectionEnd;
+              if (start !== end) {
+                setHighlights([...highlights, { start, end, color: 'yellow' }]);
+                textareaRef.current.setSelectionRange(end, end);
+                setHasSelection(false);
+              }
+            }}
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+              isV2 ? "bg-white/10 text-white hover:bg-white/20" : "bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-300 dark:hover:bg-stone-700"
+            )}
+            disabled={!hasSelection}
+          >
+            {t('editor_highlight')}
+          </button>
+        </div> */}
         <textarea
           ref={textareaRef}
           value={content}
@@ -256,6 +313,10 @@ export function WritingEditor({
             setContent(e.target.value);
             checkSelection();
           }}
+          onKeyDown={handleKeyDown}
+          onCut={handleCut}
+          onCopy={handleCopy}
+          onPaste={handlePaste}
           onSelect={checkSelection}
           onKeyUp={checkSelection}
           onMouseUp={checkSelection}
@@ -268,38 +329,37 @@ export function WritingEditor({
                         fontFamily === 'JetBrains Mono' ? '"JetBrains Mono", monospace' :
                         fontFamily === 'Cormorant Garamond' ? '"Cormorant Garamond", serif' :
                         fontFamily === 'Space Grotesk' ? '"Space Grotesk", sans-serif' : 'inherit',
-            backgroundColor: dynamicBgEnabled && !isV2 ? 'var(--dynamic-bg)' : undefined
+            // backgroundColor: dynamicBgEnabled && !isV2 ? 'var(--dynamic-bg)' : undefined,
+            caretColor: undefined,
+            userSelect: 'text'
           }}
           className={cn(
             "w-full min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-[2.5rem] border shadow-xl focus:shadow-2xl transition-all outline-none resize-none",
             isV2 ? "leading-[1.8] bg-transparent border-none shadow-none text-white/90 placeholder:text-white/20" : "leading-relaxed border-stone-200 dark:border-stone-800 focus:border-stone-300 dark:focus:border-stone-700 dark:text-stone-100",
-            !dynamicBgEnabled && !isV2 ? "bg-white dark:bg-stone-900" : "bg-transparent",
+            /* !dynamicBgEnabled && !isV2 ? "bg-white dark:bg-stone-900" : "bg-transparent", */
             (status === 'idle' || status === 'paused') && "opacity-50 cursor-not-allowed",
-            dynamicBgEnabled && !isV2 && "dark:!bg-[var(--dynamic-bg-dark)]"
+            /* dynamicBgEnabled && !isV2 && "dark:!bg-[var(--dynamic-bg-dark)]" */
           )}
         />
-
-        {/* Save Status Indicator */}
-        {status !== 'idle' && (
-          <div className={cn(
-            "absolute top-6 right-8 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all duration-500 pointer-events-none z-10",
-            isZenActive && saveStatus === 'idle' ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0",
-            saveStatus === 'saving' ? "text-amber-500 animate-pulse" :
-            saveStatus === 'saved' ? "text-emerald-500" :
-            saveStatus === 'error' ? "text-red-500" : (isV2 ? "text-white/30" : "text-stone-400")
-          )}>
-            <div className={cn(
-              "w-2 h-2 rounded-full",
-              saveStatus === 'saving' ? "bg-amber-500" :
-              saveStatus === 'saved' ? "bg-emerald-500" :
-              saveStatus === 'error' ? "bg-red-500" : (isV2 ? "bg-white/30" : "bg-stone-300")
-            )} />
-            {saveStatus === 'saving' && t('editor_saving')}
-            {saveStatus === 'saved' && t('editor_saved')}
-            {saveStatus === 'error' && t('editor_save_error')}
-            {saveStatus === 'idle' && lastSavedAt && `${t('editor_saved')} ${new Date(lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
-          </div>
-        )}
+        {/* Highlight rendering */}
+        {/* <div className="absolute inset-0 pointer-events-none p-8 md:p-12 rounded-[2.5rem] overflow-hidden">
+          {highlights.map((h, i) => {
+            const startCoord = getCaretCoordinates(textareaRef.current!, h.start);
+            const endCoord = getCaretCoordinates(textareaRef.current!, h.end);
+            return (
+              <div
+                key={i}
+                className="absolute bg-yellow-200/50"
+                style={{
+                  top: startCoord.top,
+                  left: startCoord.left,
+                  width: endCoord.left - startCoord.left,
+                  height: fontSize * 1.5,
+                }}
+              />
+            );
+          })}
+        </div> */}
       </div>
     </div>
   );
