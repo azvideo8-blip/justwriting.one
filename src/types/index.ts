@@ -22,6 +22,7 @@ export interface Session {
   isPublic: boolean;
   tags?: string[];
   labelId?: string;
+  inkblots?: { id: string; index: number; color: string; timestamp: number }[];
   createdAt: Timestamp | Date | any;
 }
 

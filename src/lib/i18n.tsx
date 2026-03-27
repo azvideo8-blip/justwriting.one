@@ -15,6 +15,7 @@ export const translations: Translations = {
   nav_notes: { ru: 'Мои заметки', en: 'My Notes' },
   nav_profile: { ru: 'Мой профиль', en: 'My Profile' },
   nav_community: { ru: 'Сообщество', en: 'Community' },
+  nav_stream_mode: { ru: 'Режим потока сознания', en: 'Stream Mode' },
   nav_admin: { ru: 'Админ', en: 'Admin' },
   nav_logout: { ru: 'Выйти', en: 'Logout' },
 
@@ -56,6 +57,7 @@ export const translations: Translations = {
   editor_saving: { ru: 'Сохранение...', en: 'Saving...' },
   editor_saved: { ru: 'Сохранено', en: 'Saved' },
   editor_save_error: { ru: 'Ошибка сохранения', en: 'Save error' },
+  editor_highlight: { ru: 'Выделить', en: 'Highlight' },
 
   // Header
   header_current_time: { ru: 'Текущее время', en: 'Current Time' },
@@ -70,6 +72,8 @@ export const translations: Translations = {
   header_continue_btn: { ru: 'Продолжить', en: 'Continue' },
   header_finish: { ru: 'Завершить', en: 'Finish' },
   header_cancel_session: { ru: 'Отменить сессию', en: 'Cancel Session' },
+  header_begin_release: { ru: 'Начать поток сознания', en: 'Begin Release' },
+  header_in_flow: { ru: 'В потоке', en: 'In Flow' },
   header_settings: { ru: 'Настройки', en: 'Settings' },
 
   // Session Card
@@ -194,6 +198,10 @@ export const translations: Translations = {
   settings_zen_desc: { ru: 'Скрывает интерфейс во время письма', en: 'Hides interface while writing' },
   settings_dynamic_bg: { ru: 'Динамический фон', en: 'Dynamic Background' },
   settings_dynamic_bg_desc: { ru: 'Цвет меняется в зависимости от скорости письма', en: 'Color changes based on typing speed' },
+  settings_stream_mode: { ru: 'Режим потока сознания', en: 'Stream of Consciousness Mode' },
+  settings_stream_mode_desc: { ru: 'нет возможности удалять, вставлять текст. Только чистый поток сознания', en: 'No ability to delete or paste text. Only pure stream of consciousness.' },
+  settings_momentum: { ru: 'Режим "Как есть"', en: 'Momentum Mode' },
+  settings_momentum_desc: { ru: 'Отключает функции Backspace и Delete, чтобы писать без исправлений, как есть', en: 'Disables Backspace and Delete to keep you moving forward.' },
   settings_sticky: { ru: 'Закрепленный заголовок', en: 'Sticky Header' },
   settings_sticky_header: { ru: 'Закрепленный заголовок', en: 'Sticky Header' },
   settings_sticky_desc: { ru: 'Заголовок остается видимым при прокрутке', en: 'Header stays visible while scrolling' },

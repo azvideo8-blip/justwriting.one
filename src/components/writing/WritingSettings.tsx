@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Type, Maximize2, Moon, Palette, Pin, Eye } from 'lucide-react';
+import { X, Type, Maximize2, Moon, Palette, Pin, Eye, Zap } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useLanguage } from '../../lib/i18n';
 import { useUI } from '../../contexts/UIContext';
@@ -16,8 +16,8 @@ interface WritingSettingsProps {
   setFontSize: (size: number) => void;
   zenModeEnabled: boolean;
   setZenModeEnabled: (enabled: boolean) => void;
-  dynamicBgEnabled: boolean;
-  setDynamicBgEnabled: (enabled: boolean) => void;
+  // dynamicBgEnabled: boolean;
+  // setDynamicBgEnabled: (enabled: boolean) => void;
   stickyHeaderEnabled: boolean;
   setStickyHeaderEnabled: (enabled: boolean) => void;
   headerVisibility: {
@@ -41,15 +41,15 @@ export function WritingSettings({
   setFontSize,
   zenModeEnabled,
   setZenModeEnabled,
-  dynamicBgEnabled,
-  setDynamicBgEnabled,
+  // dynamicBgEnabled,
+  // setDynamicBgEnabled,
   stickyHeaderEnabled,
   setStickyHeaderEnabled,
   headerVisibility,
   setHeaderVisibility
 }: WritingSettingsProps) {
   const { t } = useLanguage();
-  const { uiVersion } = useUI();
+  const { uiVersion, streamMode, toggleStreamMode } = useUI();
   const isV2 = uiVersion === '2.0';
 
   if (!showSettings) return null;
@@ -206,7 +206,7 @@ export function WritingSettings({
                   </div>
                 </div>
 
-                <div 
+                {/* <div 
                   onClick={() => setDynamicBgEnabled(!dynamicBgEnabled)}
                   className={cn(
                     "p-3 md:p-4 rounded-xl md:rounded-2xl flex items-center justify-between cursor-pointer transition-colors",
@@ -227,6 +227,31 @@ export function WritingSettings({
                     <div className={cn(
                       "absolute top-0.5 left-0.5 md:top-1 md:left-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-500", 
                       dynamicBgEnabled ? "translate-x-5 md:translate-x-6" : "translate-x-0"
+                    )} />
+                  </div>
+                </div> */}
+
+                <div 
+                  onClick={toggleStreamMode}
+                  className={cn(
+                    "p-3 md:p-4 rounded-xl md:rounded-2xl flex items-center justify-between cursor-pointer transition-colors",
+                    isV2 ? "bg-white/5 hover:bg-white/10" : "bg-stone-50 dark:bg-stone-800/50 hover:bg-stone-100 dark:hover:bg-stone-800"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <Zap size={18} className={isV2 ? "text-white/50" : "text-stone-400"} />
+                    <div>
+                      <div className={cn("font-bold text-sm md:text-base", isV2 ? "text-white" : "dark:text-stone-100")}>{t('settings_stream_mode')}</div>
+                      <div className={cn("text-[10px] md:text-xs", isV2 ? "text-white/50" : "text-stone-500 dark:text-stone-400")}>{t('settings_stream_mode_desc')}</div>
+                    </div>
+                  </div>
+                  <div className={cn(
+                    "w-10 h-5 md:w-12 md:h-6 rounded-full transition-all duration-500 relative shrink-0", 
+                    streamMode ? "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]" : (isV2 ? "bg-white/20" : "bg-stone-300 dark:bg-stone-700")
+                  )}>
+                    <div className={cn(
+                      "absolute top-0.5 left-0.5 md:top-1 md:left-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-500", 
+                      streamMode ? "translate-x-5 md:translate-x-6" : "translate-x-0"
                     )} />
                   </div>
                 </div>

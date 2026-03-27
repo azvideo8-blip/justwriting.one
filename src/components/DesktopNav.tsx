@@ -1,11 +1,12 @@
 import React from 'react';
 import { NavButton } from './NavButton';
-import { PenLine, History, User as UserIcon, Globe, Shield, LogOut, Languages } from 'lucide-react';
+import { PenLine, History, User as UserIcon, Globe, Shield, LogOut, Brain } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useLanguage } from '../lib/i18n';
 import { useUI } from '../contexts/UIContext';
+import { cn } from '../lib/utils';
 
 interface DesktopNavProps {
   view: string;
