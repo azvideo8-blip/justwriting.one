@@ -1,10 +1,10 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { WritingView } from '../views/WritingView';
-import * as useWritingSessionHook from '../hooks/useWritingSession';
+import * as useWritingSessionHook from '../features/writing/hooks/useWritingSession';
 
 // Mock the hook
-vi.mock('../hooks/useWritingSession', () => ({
+vi.mock('../features/writing/hooks/useWritingSession', () => ({
   useWritingSession: vi.fn()
 }));
 

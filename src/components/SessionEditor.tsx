@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { SessionService } from '../services/SessionService';
 import { Session } from '../types';
-import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { useLanguage } from '../lib/i18n';
+import { useLanguage } from '../core/i18n';
 
 interface SessionEditorProps {
   session: Session;
@@ -21,19 +19,15 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
   const [tagInput, setTagInput] = useState('');
 
   const handleSave = async () => {
-    try {
-      await updateDoc(doc(db, 'sessions', session.id), {
-        content: editContent,
-        title: editTitle,
-        tags: editTags,
-        isPublic: editIsPublic,
-        wordCount: editContent.trim().split(/\s+/).filter(x => x.length > 3).length,
-        charCount: editContent.length
-      });
-      onSave();
-    } catch (e) {
-      handleFirestoreError(e, OperationType.UPDATE, `sessions/${session.id}`);
-    }
+    await SessionService.updateSession(session.id, {
+      content: editContent,
+      title: editTitle,
+      tags: editTags,
+      isPublic: editIsPublic,
+      wordCount: editContent.trim().split(/\s+/).filter(x => x.length > 3).length,
+      charCount: editContent.length
+    });
+    onSave();
   };
 
   const addTag = () => {

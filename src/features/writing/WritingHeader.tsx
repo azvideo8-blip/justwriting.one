@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, Play, Clock, Settings, Plus, History, Pause, Square, X } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn } from '../../core/utils/utils';
 import { CountdownTimer } from './CountdownTimer';
-import { useLanguage } from '../../lib/i18n';
+import { useLanguage } from '../../core/i18n';
 import { useUI } from '../../contexts/UIContext';
 
 interface WritingHeaderProps {
@@ -28,6 +28,7 @@ interface WritingHeaderProps {
   handleFinish: () => void;
   setShowCancelConfirm: (show: boolean) => void;
   isZenActive?: boolean;
+  zenModeEnabled?: boolean;
   stickyHeaderEnabled?: boolean;
   headerVisibility: {
     currentTime: boolean;
@@ -62,6 +63,7 @@ export function WritingHeader({
   handleFinish,
   setShowCancelConfirm,
   isZenActive = false,
+  zenModeEnabled = true,
   stickyHeaderEnabled = true,
   headerVisibility,
   streamMode = false
@@ -70,6 +72,7 @@ export function WritingHeader({
   const { t } = useLanguage();
   const { uiVersion } = useUI();
   const isV2 = uiVersion === '2.0';
+  const showZen = isZenActive && zenModeEnabled;
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -86,7 +89,7 @@ export function WritingHeader({
         ? "bg-black/40 backdrop-blur-2xl border-b border-white/5" 
         : "bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border border-stone-200 dark:border-stone-800 rounded-3xl",
       stickyHeaderEnabled && "sticky top-16",
-      isZenActive ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
+      showZen ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
     )}>
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-6">
         <div className="flex items-center gap-4 md:gap-8 overflow-x-auto no-scrollbar py-1 flex-1">

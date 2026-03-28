@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, subMonths, addMonths } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { cn, parseFirestoreDate } from '../lib/utils';
+import { cn, parseFirestoreDate } from '../core/utils/utils';
 import { Session } from '../types';
-import { useLanguage } from '../lib/i18n';
+import { useLanguage } from '../core/i18n';
 import { useUI } from '../contexts/UIContext';
 
   interface CalendarProps {

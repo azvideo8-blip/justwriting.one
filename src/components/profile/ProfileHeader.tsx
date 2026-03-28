@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { User } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
 import { User as UserIcon, PenLine, TrendingUp, Check, X } from 'lucide-react';
-import { db } from '../../lib/firebase';
-import { handleFirestoreError, OperationType } from '../../lib/firestore-errors';
-import { useLanguage } from '../../lib/i18n';
+import { UserService } from '../../services/UserService';
+import { useLanguage } from '../../core/i18n';
 import { useUI } from '../../contexts/UIContext';
-import { cn } from '../../lib/utils';
+import { cn } from '../../core/utils/utils';
 
 interface ProfileHeaderProps {
   user: User;
@@ -24,12 +22,8 @@ export function ProfileHeader({ user, profile, currentStreak, totalWords }: Prof
 
   const handleUpdateNickname = async () => {
     if (!newNickname.trim()) return;
-    try {
-      await setDoc(doc(db, 'users', user.uid), { nickname: newNickname }, { merge: true });
-      setEditingNickname(false);
-    } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, `users/${user.uid}`);
-    }
+    await UserService.updateNickname(user.uid, newNickname);
+    setEditingNickname(false);
   };
 
   return (

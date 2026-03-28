@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { User } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+import { UserService } from '../../services/UserService';
 import { Label } from '../../types';
 import { Plus, X } from 'lucide-react';
-import { handleFirestoreError, OperationType } from '../../lib/firestore-errors';
 import { useUI } from '../../contexts/UIContext';
-import { cn } from '../../lib/utils';
+import { cn } from '../../core/utils/utils';
 
 export function ProfileLabels({ user, profile }: { user: User, profile: any }) {
   const { uiVersion } = useUI();
@@ -15,11 +13,7 @@ export function ProfileLabels({ user, profile }: { user: User, profile: any }) {
   const [newLabel, setNewLabel] = useState({ name: '', color: '#000000' });
 
   const updateLabels = async (newLabels: Label[]) => {
-    try {
-      await updateDoc(doc(db, 'users', user.uid), { labels: newLabels });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
-    }
+    await UserService.updateLabels(user.uid, newLabels);
   };
 
   const addLabel = () => {

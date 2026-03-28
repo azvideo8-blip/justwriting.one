@@ -2,24 +2,22 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
 import { User } from 'firebase/auth';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { SessionService } from '../services/SessionService';
 import { Session } from '../types';
-import { cn } from '../lib/utils';
+import { cn } from '../core/utils/utils';
 import { useUI } from '../contexts/UIContext';
 
 // Components
-import { WritingHeader } from '../components/writing/WritingHeader';
-import { WritingSetup, SetupMode } from '../components/writing/WritingSetup';
-import { WritingEditor } from '../components/writing/WritingEditor';
-import { WritingSettings } from '../components/writing/WritingSettings';
-import { SettingsV2 } from '../components/writing/v2/SettingsV2';
-import { WritingFinishModal } from '../components/writing/WritingFinishModal';
+import { WritingHeader } from '../features/writing/WritingHeader';
+import { WritingSetup, SetupMode } from '../features/writing/WritingSetup';
+import { WritingEditor } from '../features/writing/WritingEditor';
+import { WritingSettings } from '../features/writing/WritingSettings';
+import { SettingsV2 } from '../features/writing/v2/SettingsV2';
+import { WritingFinishModal } from '../features/writing/WritingFinishModal';
 
 // Hooks
-import { useWritingSession } from '../hooks/useWritingSession';
-import { useLanguage } from '../lib/i18n';
+import { useWritingSession } from '../features/writing/hooks/useWritingSession';
+import { useLanguage } from '../core/i18n';
 
 interface WritingViewProps {
   user: User;
@@ -30,10 +28,10 @@ interface WritingViewProps {
 
 export function WritingView({ user, profile, sessionToContinue, onSessionContinued }: WritingViewProps) {
   const { t } = useLanguage();
-  const { uiVersion, streamMode } = useUI();
+  const { uiVersion, streamMode, isZenActive, zenModeEnabled, status: uiStatus, setStatus: setUIStatus } = useUI();
   const isV2 = uiVersion === '2.0';
   const {
-    status, setStatus,
+    status: sessionStatus, setStatus: setSessionStatus,
     sessionType, setSessionType,
     timerDuration, setTimerDuration,
     wordGoal, setWordGoal,
@@ -88,18 +86,14 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
   const [fontSize, setFontSize] = useState(() => Number(localStorage.getItem('writing_fontSize')) || 23);
   const [fontFamily, setFontFamily] = useState(() => localStorage.getItem('writing_fontFamily') || 'Inter');
   const [textWidth, setTextWidth] = useState<'centered' | 'full'>(() => (localStorage.getItem('writing_textWidth') as any) || 'full');
-  const [zenModeEnabled, setZenModeEnabled] = useState(() => {
-    const saved = localStorage.getItem('writing_zenModeEnabled');
+  const [stickyHeaderEnabled, setStickyHeaderEnabled] = useState(() => {
+    const saved = localStorage.getItem('writing_stickyHeaderEnabled');
     return saved === null ? true : saved === 'true';
   });
   // const [dynamicBgEnabled, setDynamicBgEnabled] = useState(() => {
   //   const saved = localStorage.getItem('writing_dynamicBgEnabled');
   //   return saved === null ? true : saved === 'true';
   // });
-  const [stickyHeaderEnabled, setStickyHeaderEnabled] = useState(() => {
-    const saved = localStorage.getItem('writing_stickyHeaderEnabled');
-    return saved === null ? true : saved === 'true';
-  });
 
   const [isLocalOnly, setIsLocalOnly] = useState(false);
 
@@ -114,41 +108,19 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
     };
   });
   
-  const [isZenActive, setIsZenActive] = useState(false);
-  const zenTimerRef = useRef<any>(null);
-
   // Persist settings
   useEffect(() => {
     localStorage.setItem('writing_fontSize', fontSize.toString());
     localStorage.setItem('writing_fontFamily', fontFamily);
     localStorage.setItem('writing_textWidth', textWidth);
-    localStorage.setItem('writing_zenModeEnabled', zenModeEnabled.toString());
-    // localStorage.setItem('writing_dynamicBgEnabled', dynamicBgEnabled.toString());
     localStorage.setItem('writing_stickyHeaderEnabled', stickyHeaderEnabled.toString());
     localStorage.setItem('writing_headerVisibility', JSON.stringify(headerVisibility));
-  }, [fontSize, fontFamily, textWidth, zenModeEnabled, /* dynamicBgEnabled, */ stickyHeaderEnabled, headerVisibility]);
+  }, [fontSize, fontFamily, textWidth, stickyHeaderEnabled, headerVisibility]);
 
-  // Zen Mode Logic
+  // Sync status with UIContext
   useEffect(() => {
-    if (status !== 'writing' || !zenModeEnabled) {
-      setIsZenActive(false);
-      return;
-    }
-
-    const handleActivity = () => {
-      setIsZenActive(true);
-      if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
-      zenTimerRef.current = setTimeout(() => {
-        setIsZenActive(false);
-      }, 5000); // Increased to 5s
-    };
-
-    window.addEventListener('keydown', handleActivity);
-    return () => {
-      window.removeEventListener('keydown', handleActivity);
-      if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
-    };
-  }, [status, zenModeEnabled]);
+    setUIStatus(sessionStatus);
+  }, [sessionStatus, setUIStatus]);
 
   const countdownRef = useRef<any>(null);
 
@@ -168,13 +140,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
   const fetchAllSessions = async () => {
     setLoadingSessions(true);
     try {
-      const q = query(
-        collection(db, 'sessions'),
-        where('userId', '==', user.uid),
-        orderBy('createdAt', 'desc')
-      );
-      const snap = await getDocs(q);
-      const firestoreSessions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Session));
+      const firestoreSessions = await SessionService.getAllSessions(user.uid);
       
       const localSessions = fetchLocalSessions().map(s => {
         const data = loadLocalSession(s.id);
@@ -191,7 +157,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
       setUserSessions([...firestoreSessions, ...localSessions] as Session[]);
       setSetupMode('session-selection');
     } catch (e) {
-      handleFirestoreError(e, OperationType.LIST, 'sessions');
+      console.error('Error fetching sessions:', e);
     } finally {
       setLoadingSessions(false);
     }
@@ -339,10 +305,6 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
           setTextWidth={setTextWidth}
           fontSize={fontSize}
           setFontSize={setFontSize}
-          zenModeEnabled={zenModeEnabled}
-          setZenModeEnabled={setZenModeEnabled}
-          // dynamicBgEnabled={dynamicBgEnabled}
-          // setDynamicBgEnabled={setDynamicBgEnabled}
           stickyHeaderEnabled={stickyHeaderEnabled}
           setStickyHeaderEnabled={setStickyHeaderEnabled}
           headerVisibility={headerVisibility}
@@ -386,7 +348,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
       )}
 
       <WritingFinishModal 
-        status={status}
+        status={sessionStatus}
         wordCount={wordCount}
         seconds={seconds}
         wpm={wpm}
@@ -396,7 +358,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         isAnonymous={isAnonymous}
         setIsAnonymous={setIsAnonymous}
         handleSave={handleSave}
-        setStatus={setStatus}
+        setStatus={setSessionStatus}
         content={content}
         title={title}
         tags={tags}
@@ -408,7 +370,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
       />
 
       <WritingHeader 
-        status={status}
+        status={sessionStatus}
         sessionType={sessionType}
         timeGoalReached={timeGoalReached}
         wordGoalReached={wordGoalReached}
@@ -423,13 +385,14 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         fetchUserSessions={fetchAllSessions}
         loadingSessions={loadingSessions}
         hasDraft={hasDraft}
-        setStatus={setStatus}
+        setStatus={setSessionStatus}
         setShowSettings={setShowSettings}
-        handlePause={() => setStatus('paused')}
+        handlePause={() => setSessionStatus('paused')}
         handleStart={handleStart}
-        handleFinish={() => setStatus('finished')}
+        handleFinish={() => setSessionStatus('finished')}
         setShowCancelConfirm={setShowCancelConfirm}
         isZenActive={isZenActive}
+        zenModeEnabled={zenModeEnabled}
         stickyHeaderEnabled={stickyHeaderEnabled}
         headerVisibility={headerVisibility}
         streamMode={streamMode}
@@ -459,7 +422,7 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         </AnimatePresence>
 
         <WritingEditor 
-          status={status}
+          status={sessionStatus}
           title={title}
           setTitle={setTitle}
           pinnedThoughts={pinnedThoughts}
@@ -469,17 +432,17 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
           fontSize={fontSize}
           fontFamily={fontFamily}
           textWidth={textWidth}
-          handlePause={() => setStatus('paused')}
+          handlePause={() => setSessionStatus('paused')}
           handleStart={handleStart}
-          handleFinish={() => setStatus('finished')}
+          handleFinish={() => setSessionStatus('finished')}
           setShowCancelConfirm={setShowCancelConfirm}
-          isZenActive={isZenActive}
           // dynamicBgEnabled={dynamicBgEnabled}
           wpm={wpm}
           saveStatus={saveStatus}
           lastSavedAt={lastSavedAt}
           stickyHeaderEnabled={stickyHeaderEnabled}
           streamMode={streamMode}
+          zenModeEnabled={zenModeEnabled}
           // highlights={highlights}
           // setHighlights={setHighlights}
         />

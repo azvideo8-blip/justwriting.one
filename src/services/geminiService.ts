@@ -1,5 +1,6 @@
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { app } from "../lib/firebase";
+import { app } from "../core/firebase";
+import { mapFirebaseError } from "../core/utils/errorHandler";
 
 const functions = getFunctions(app);
 const editWithAIFunction = httpsCallable(functions, 'editWithAI');
@@ -10,6 +11,6 @@ export async function editWithAI(content: string, action: 'shorten' | 'accents' 
     return (result.data as { text: string }).text;
   } catch (error) {
     console.error("AI Error:", error);
-    return "Error generating AI response.";
+    throw new Error(mapFirebaseError({ code: 'AI Error' }));
   }
 }

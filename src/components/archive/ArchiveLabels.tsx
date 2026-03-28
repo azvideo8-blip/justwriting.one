@@ -1,22 +1,16 @@
 import React, { useState } from 'react';
 import { User } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+import { UserService } from '../../services/UserService';
 import { Label, UserProfile } from '../../types';
 import { Plus, X } from 'lucide-react';
-import { handleFirestoreError, OperationType } from '../../lib/firestore-errors';
-import { cn } from '../../lib/utils';
+import { cn } from '../../core/utils/utils';
 
 export function ArchiveLabels({ user, profile, selectedLabelId, onSelectLabel }: { user: User, profile: UserProfile | null, selectedLabelId: string | null, onSelectLabel: (id: string | null) => void }) {
   const labels: Label[] = profile?.labels || [];
   const [newLabel, setNewLabel] = useState({ name: '', color: '#000000' });
 
   const updateLabels = async (newLabels: Label[]) => {
-    try {
-      await updateDoc(doc(db, 'users', user.uid), { labels: newLabels });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
-    }
+    await UserService.updateLabels(user.uid, newLabels);
   };
 
   const addLabel = () => {

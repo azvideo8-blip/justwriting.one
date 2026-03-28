@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { onSnapshot, collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { Globe } from 'lucide-react';
-import { db } from '../lib/firebase';
 import { Session } from '../types';
 import { SessionCard } from '../components/SessionCard';
+import { SessionService } from '../services/SessionService';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { parseFirestoreDate, cn } from '../lib/utils';
-import { useLanguage } from '../lib/i18n';
+import { parseFirestoreDate, cn } from '../core/utils/utils';
+import { useLanguage } from '../core/i18n';
 import { useUI } from '../contexts/UIContext';
 
 export function FeedView() {
@@ -23,33 +22,28 @@ export function FeedView() {
     setLoading(true);
     setError(null);
 
-    // Remove orderBy to avoid composite index requirement
-    const q = query(
-      collection(db, 'sessions'),
-      where('isPublic', '==', true),
-      limit(100) // Increased limit to allow client-side sorting
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Session));
-      // Sort client-side
-      docs.sort((a, b) => {
-        const dateA = parseFirestoreDate(a.createdAt).getTime();
-        const dateB = parseFirestoreDate(b.createdAt).getTime();
-        return dateB - dateA;
-      });
-      setSessions(docs.slice(0, 50)); // Keep only top 50 after sorting
-      setLoading(false);
-    }, (err) => {
-      console.error('Feed load error:', err);
-      setError(t('community_load_error'));
-      setLoading(false);
-      try {
-        handleFirestoreError(err, OperationType.LIST, 'sessions');
-      } catch (e) {
-        // Logged to console
+    const unsubscribe = SessionService.subscribeToPublicSessions(
+      (docs) => {
+        // Sort client-side
+        docs.sort((a, b) => {
+          const dateA = parseFirestoreDate(a.createdAt).getTime();
+          const dateB = parseFirestoreDate(b.createdAt).getTime();
+          return dateB - dateA;
+        });
+        setSessions(docs.slice(0, 50)); // Keep only top 50 after sorting
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Feed load error:', err);
+        setError(t('community_load_error'));
+        setLoading(false);
+        try {
+          handleFirestoreError(err, OperationType.LIST, 'sessions');
+        } catch (e) {
+          // Logged to console
+        }
       }
-    });
+    );
 
     return unsubscribe;
   }, [t]);
