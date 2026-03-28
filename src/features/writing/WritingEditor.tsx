@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Pause, Square, Play, X, X as XIcon, Pin, PinOff, Lock, Check } from 'lucide-react';
-import { cn } from '../../lib/utils';
-import { useLanguage } from '../../lib/i18n';
+import { cn } from '../../core/utils/utils';
+import { useLanguage } from '../../core/i18n';
 import { useUI } from '../../contexts/UIContext';
 
 interface WritingEditorProps {
@@ -20,13 +20,13 @@ interface WritingEditorProps {
   handleStart: () => void;
   handleFinish: () => void;
   setShowCancelConfirm: (show: boolean) => void;
-  isZenActive?: boolean;
   // dynamicBgEnabled?: boolean;
   wpm?: number;
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt: number | null;
   stickyHeaderEnabled?: boolean;
   streamMode?: boolean;
+  zenModeEnabled?: boolean;
   // highlights: { start: number; end: number; color: string }[];
   // setHighlights: (highlights: { start: number; end: number; color: string }[]) => void;
 }
@@ -46,19 +46,20 @@ export function WritingEditor({
   handleStart,
   handleFinish,
   setShowCancelConfirm,
-  isZenActive = false,
   // dynamicBgEnabled = false,
   wpm = 0,
   saveStatus,
   lastSavedAt,
   stickyHeaderEnabled = true,
   streamMode = false,
+  zenModeEnabled = true,
   // highlights,
   // setHighlights
 }: WritingEditorProps) {
   const { t } = useLanguage();
-  const { uiVersion, streamMode: streamModeContext } = useUI();
+  const { uiVersion, streamMode: streamModeContext, isZenActive } = useUI();
   const isV2 = uiVersion === '2.0';
+  const showZen = isZenActive && zenModeEnabled;
   const [showPinnedInput, setShowPinnedInput] = React.useState(false);
   const [hasSelection, setHasSelection] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
@@ -188,7 +189,7 @@ export function WritingEditor({
       <div className={cn(
         "flex flex-col gap-4 transition-all duration-1000 z-30 py-2",
         stickyHeaderEnabled ? "sticky top-[128px] md:top-[120px]" : "relative",
-        isZenActive && pinnedThoughts.length === 0 ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
+        showZen && pinnedThoughts.length === 0 ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
       )}>
         {status !== 'idle' && (
           <div className="flex-1 flex flex-col gap-2">
@@ -285,27 +286,6 @@ export function WritingEditor({
       </div>
 
       <div className="relative group">
-        {/* <div className="absolute -top-12 right-0 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            onClick={() => {
-              if (!textareaRef.current) return;
-              const start = textareaRef.current.selectionStart;
-              const end = textareaRef.current.selectionEnd;
-              if (start !== end) {
-                setHighlights([...highlights, { start, end, color: 'yellow' }]);
-                textareaRef.current.setSelectionRange(end, end);
-                setHasSelection(false);
-              }
-            }}
-            className={cn(
-              "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-              isV2 ? "bg-white/10 text-white hover:bg-white/20" : "bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-300 dark:hover:bg-stone-700"
-            )}
-            disabled={!hasSelection}
-          >
-            {t('editor_highlight')}
-          </button>
-        </div> */}
         <textarea
           ref={textareaRef}
           value={content}
@@ -341,25 +321,6 @@ export function WritingEditor({
             /* dynamicBgEnabled && !isV2 && "dark:!bg-[var(--dynamic-bg-dark)]" */
           )}
         />
-        {/* Highlight rendering */}
-        {/* <div className="absolute inset-0 pointer-events-none p-8 md:p-12 rounded-[2.5rem] overflow-hidden">
-          {highlights.map((h, i) => {
-            const startCoord = getCaretCoordinates(textareaRef.current!, h.start);
-            const endCoord = getCaretCoordinates(textareaRef.current!, h.end);
-            return (
-              <div
-                key={i}
-                className="absolute bg-yellow-200/50"
-                style={{
-                  top: startCoord.top,
-                  left: startCoord.left,
-                  width: endCoord.left - startCoord.left,
-                  height: fontSize * 1.5,
-                }}
-              />
-            );
-          })}
-        </div> */}
       </div>
     </div>
   );

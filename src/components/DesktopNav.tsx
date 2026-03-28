@@ -3,10 +3,10 @@ import { NavButton } from './NavButton';
 import { PenLine, History, User as UserIcon, Globe, Shield, LogOut, Brain } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { signOut } from 'firebase/auth';
-import { auth } from '../lib/firebase';
-import { useLanguage } from '../lib/i18n';
+import { auth } from '../core/firebase';
+import { useLanguage } from '../core/i18n';
 import { useUI } from '../contexts/UIContext';
-import { cn } from '../lib/utils';
+import { cn } from '../core/utils/utils';
 
 interface DesktopNavProps {
   view: string;

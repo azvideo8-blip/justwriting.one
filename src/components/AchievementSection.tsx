@@ -1,7 +1,7 @@
 import React from 'react';
 import { AchievementBadge } from './AchievementBadge';
 import { useUI } from '../contexts/UIContext';
-import { cn } from '../lib/utils';
+import { cn } from '../core/utils/utils';
 
 interface AchievementSectionProps {
   title: string;

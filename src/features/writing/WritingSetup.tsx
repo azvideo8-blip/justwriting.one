@@ -4,8 +4,8 @@ import { Zap, Timer, Target, PenLine, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { Session } from '../../types';
-import { cn } from '../../lib/utils';
-import { useLanguage } from '../../lib/i18n';
+import { cn } from '../../core/utils/utils';
+import { useLanguage } from '../../core/i18n';
 import { useUI } from '../../contexts/UIContext';
 
 export type SetupMode = 'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | 'finish-by-config' | null;

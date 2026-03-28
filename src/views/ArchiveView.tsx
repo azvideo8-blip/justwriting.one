@@ -1,18 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
-import { onSnapshot, collection, query, where } from 'firebase/firestore';
 import { format, isSameDay } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { History, Search, LayoutGrid, LayoutList } from 'lucide-react';
-import { db } from '../lib/firebase';
 import { Session } from '../types';
 import { SessionCard } from '../components/SessionCard';
 import { Calendar } from '../components/Calendar';
-import { parseFirestoreDate, cn } from '../lib/utils';
+import { parseFirestoreDate, cn } from '../core/utils/utils';
+import { SessionService } from '../services/SessionService';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { TagCloud } from '../components/TagCloud';
-import { useLanguage } from '../lib/i18n';
+import { useLanguage } from '../core/i18n';
 import { useDebounce } from '../hooks/useDebounce';
 import { useUI } from '../contexts/UIContext';
 
@@ -44,30 +43,28 @@ export function ArchiveView({ user, profile, onContinueSession }: ArchiveViewPro
     setLoading(true);
     setError(null);
     
-    const q = query(
-      collection(db, 'sessions'),
-      where('userId', '==', user.uid)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Session));
-      docs.sort((a, b) => {
-        const dateA = parseFirestoreDate(a.createdAt).getTime();
-        const dateB = parseFirestoreDate(b.createdAt).getTime();
-        return dateB - dateA;
-      });
-      setSessions(docs);
-      setLoading(false);
-    }, (err) => {
-      console.error('Archive load error:', err);
-      setError(t('archive_load_error'));
-      setLoading(false);
-      try {
-        handleFirestoreError(err, OperationType.LIST, 'sessions');
-      } catch (e) {
-        // Error already logged to console by handleFirestoreError
+    const unsubscribe = SessionService.subscribeToSessions(
+      user.uid,
+      (docs) => {
+        docs.sort((a, b) => {
+          const dateA = parseFirestoreDate(a.createdAt).getTime();
+          const dateB = parseFirestoreDate(b.createdAt).getTime();
+          return dateB - dateA;
+        });
+        setSessions(docs);
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Archive load error:', err);
+        setError(t('archive_load_error'));
+        setLoading(false);
+        try {
+          handleFirestoreError(err, OperationType.LIST, 'sessions');
+        } catch (e) {
+          // Error already logged to console by handleFirestoreError
+        }
       }
-    });
+    );
 
     return unsubscribe;
   }, [user.uid, t]);

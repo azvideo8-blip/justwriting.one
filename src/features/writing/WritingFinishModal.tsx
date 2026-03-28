@@ -1,10 +1,8 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Globe, User as UserIcon, FileText, Download, FileJson } from 'lucide-react';
-import { cn } from '../../lib/utils';
-import { jsPDF } from 'jspdf';
-import { Document, Packer, Paragraph, TextRun } from 'docx';
-import { saveAs } from 'file-saver';
+import { cn } from '../../core/utils/utils';
+import { ExportService } from '../export/ExportService';
 import { Label } from '../../types';
 import { useUI } from '../../contexts/UIContext';
 
@@ -84,51 +82,15 @@ export function WritingFinishModal({
   };
 
   const exportPDF = () => {
-    const doc = new jsPDF();
-    const splitTitle = doc.splitTextToSize(title || 'Untitled Session', 180);
-    const splitContent = doc.splitTextToSize(content, 180);
-    
-    doc.setFontSize(20);
-    doc.text(splitTitle, 15, 20);
-    doc.setFontSize(12);
-    doc.text(splitContent, 15, 40);
-    doc.save(`${title || 'session'}.pdf`);
+    ExportService.toPDF(title || 'Untitled Session', content);
   };
 
   const exportMarkdown = () => {
-    const md = `# ${title || 'Untitled Session'}\n\n${content}`;
-    const blob = new Blob([md], { type: 'text/markdown' });
-    saveAs(blob, `${title || 'session'}.md`);
+    ExportService.toMarkdown(title || 'Untitled Session', content);
   };
 
   const exportDocx = async () => {
-    const doc = new Document({
-      sections: [{
-        properties: {},
-        children: [
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: title || 'Untitled Session',
-                bold: true,
-                size: 32,
-              }),
-            ],
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: content,
-                size: 24,
-              }),
-            ],
-          }),
-        ],
-      }],
-    });
-
-    const blob = await Packer.toBlob(doc);
-    saveAs(blob, `${title || 'session'}.docx`);
+    await ExportService.toDocx(title || 'Untitled Session', content);
   };
 
   return (

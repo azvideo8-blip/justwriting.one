@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Type, Maximize2, Moon, Palette, Pin, Eye, Zap } from 'lucide-react';
-import { cn } from '../../lib/utils';
-import { useLanguage } from '../../lib/i18n';
+import { cn } from '../../core/utils/utils';
+import { useLanguage } from '../../core/i18n';
 import { useUI } from '../../contexts/UIContext';
 
 interface WritingSettingsProps {
@@ -14,10 +14,6 @@ interface WritingSettingsProps {
   setTextWidth: (width: 'centered' | 'full') => void;
   fontSize: number;
   setFontSize: (size: number) => void;
-  zenModeEnabled: boolean;
-  setZenModeEnabled: (enabled: boolean) => void;
-  // dynamicBgEnabled: boolean;
-  // setDynamicBgEnabled: (enabled: boolean) => void;
   stickyHeaderEnabled: boolean;
   setStickyHeaderEnabled: (enabled: boolean) => void;
   headerVisibility: {
@@ -39,17 +35,13 @@ export function WritingSettings({
   setTextWidth, 
   fontSize, 
   setFontSize,
-  zenModeEnabled,
-  setZenModeEnabled,
-  // dynamicBgEnabled,
-  // setDynamicBgEnabled,
   stickyHeaderEnabled,
   setStickyHeaderEnabled,
   headerVisibility,
   setHeaderVisibility
 }: WritingSettingsProps) {
   const { t } = useLanguage();
-  const { uiVersion, streamMode, toggleStreamMode } = useUI();
+  const { uiVersion, streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled } = useUI();
   const isV2 = uiVersion === '2.0';
 
   if (!showSettings) return null;

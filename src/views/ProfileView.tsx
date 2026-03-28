@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
-import { onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
 import { startOfWeek, endOfWeek } from 'date-fns';
-import { db } from '../lib/firebase';
 import { Session } from '../types';
-import { calculateStreak, parseFirestoreDate, cn } from '../lib/utils';
+import { calculateStreak, parseFirestoreDate, cn } from '../core/utils/utils';
 import { Calendar } from '../components/Calendar';
+import { SessionService } from '../services/SessionService';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { ProfileHeader } from '../components/profile/ProfileHeader';
 import { ProfileAchievements } from '../components/profile/ProfileAchievements';
@@ -14,8 +13,7 @@ import { ProfileActivity } from '../components/profile/ProfileActivity';
 import { ProfileWordCloud } from '../components/profile/ProfileWordCloud';
 import { ProfileFilteredSessions } from '../components/profile/ProfileFilteredSessions';
 import { TagCloud } from '../components/TagCloud';
-import { doc, updateDoc } from 'firebase/firestore';
-import { useLanguage } from '../lib/i18n';
+import { useLanguage } from '../core/i18n';
 import { useUI } from '../contexts/UIContext';
 
 import { UserProfile } from '../types';
@@ -44,32 +42,29 @@ export function ProfileView({ user, profile }: ProfileViewProps) {
     setLoading(true);
     setError(null);
 
-    // Remove orderBy to avoid composite index requirement
-    const q = query(
-      collection(db, 'sessions'),
-      where('userId', '==', user.uid)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Session));
-      // Sort client-side
-      docs.sort((a, b) => {
-        const dateA = parseFirestoreDate(a.createdAt).getTime();
-        const dateB = parseFirestoreDate(b.createdAt).getTime();
-        return dateB - dateA;
-      });
-      setSessions(docs);
-      setLoading(false);
-    }, (err) => {
-      console.error('Profile load error:', err);
-      setError(t('profile_load_error'));
-      setLoading(false);
-      try {
-        handleFirestoreError(err, OperationType.LIST, 'sessions');
-      } catch (e) {
-        // Logged
+    const unsubscribe = SessionService.subscribeToSessions(
+      user.uid,
+      (docs) => {
+        // Sort client-side
+        docs.sort((a, b) => {
+          const dateA = parseFirestoreDate(a.createdAt).getTime();
+          const dateB = parseFirestoreDate(b.createdAt).getTime();
+          return dateB - dateA;
+        });
+        setSessions(docs);
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Profile load error:', err);
+        setError(t('profile_load_error'));
+        setLoading(false);
+        try {
+          handleFirestoreError(err, OperationType.LIST, 'sessions');
+        } catch (e) {
+          // Logged
+        }
       }
-    });
+    );
 
     return unsubscribe;
   }, [user.uid, t]);

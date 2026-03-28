@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { deleteDraft, getDraft, getDraftFromFirestore } from '../lib/db';
-import { useTimer } from './useTimer';
-import { useWritingStats } from './useWritingStats';
-import { useDraftAutosave } from './useDraftAutosave';
+import { db } from '../../../core/firebase';
+import { handleFirestoreError, OperationType } from '../../../lib/firestore-errors';
+import { deleteDraft, getDraft, getDraftFromFirestore } from '../../../lib/db';
+import { useTimer } from '../../../hooks/useTimer';
+import { useWritingStats } from '../../../hooks/useWritingStats';
+import { useDraftAutosave } from '../../../hooks/useDraftAutosave';
 
 export function useWritingSession(user: User, profile: any) {
   const [sessionType, setSessionType] = useState<'stopwatch' | 'timer' | 'words' | 'finish-by'>('stopwatch');
@@ -21,7 +21,6 @@ export function useWritingSession(user: User, profile: any) {
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
   const [pinnedThoughts, setPinnedThoughts] = useState<string[]>([]);
-  // const [highlights, setHighlights] = useState<{ start: number; end: number; color: string }[]>([]);
   
   const [isPublic, setIsPublic] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -100,7 +99,6 @@ export function useWritingSession(user: User, profile: any) {
           setContent(draftToLoad.content || '');
           setTitle(draftToLoad.title || '');
           setPinnedThoughts(draftToLoad.pinnedThoughts || []);
-          // setHighlights(draftToLoad.highlights || []);
           if (draftToLoad.activeSessionId) setActiveSessionId(draftToLoad.activeSessionId);
         }
       });
@@ -123,7 +121,6 @@ export function useWritingSession(user: User, profile: any) {
       title,
       content,
       pinnedThoughts,
-      // highlights,
       duration: initialDuration + seconds,
       wordCount: wordCount,
       charCount: content.length,
@@ -175,7 +172,6 @@ export function useWritingSession(user: User, profile: any) {
     setContent('');
     setTitle('');
     setPinnedThoughts([]);
-    // setHighlights([]);
     resetTimer();
     resetStats();
     setInitialWordCount(0);
@@ -224,7 +220,6 @@ export function useWritingSession(user: User, profile: any) {
     content, setContent,
     title, setTitle,
     pinnedThoughts, setPinnedThoughts,
-    // highlights, setHighlights,
     seconds,
     wpm, wordCount,
     isPublic, setIsPublic,
