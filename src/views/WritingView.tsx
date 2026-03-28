@@ -391,8 +391,6 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
         handleStart={handleStart}
         handleFinish={() => setSessionStatus('finished')}
         setShowCancelConfirm={setShowCancelConfirm}
-        isZenActive={isZenActive}
-        zenModeEnabled={zenModeEnabled}
         stickyHeaderEnabled={stickyHeaderEnabled}
         headerVisibility={headerVisibility}
         streamMode={streamMode}
@@ -442,7 +440,6 @@ export function WritingView({ user, profile, sessionToContinue, onSessionContinu
           lastSavedAt={lastSavedAt}
           stickyHeaderEnabled={stickyHeaderEnabled}
           streamMode={streamMode}
-          zenModeEnabled={zenModeEnabled}
           // highlights={highlights}
           // setHighlights={setHighlights}
         />
