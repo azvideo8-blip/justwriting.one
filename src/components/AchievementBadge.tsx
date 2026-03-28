@@ -1,6 +1,6 @@
 import React from 'react';
-import { cn } from '../lib/utils';
-import { useLanguage } from '../lib/i18n';
+import { cn } from '../core/utils/utils';
+import { useLanguage } from '../core/i18n';
 import { useUI } from '../contexts/UIContext';
 
 interface AchievementBadgeProps {

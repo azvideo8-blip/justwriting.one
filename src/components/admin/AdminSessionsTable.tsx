@@ -1,7 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { Trash2 } from 'lucide-react';
-import { parseFirestoreDate, cn } from '../../lib/utils';
+import { parseFirestoreDate, cn } from '../../core/utils/utils';
 import { useUI } from '../../contexts/UIContext';
 
 interface AdminSessionsTableProps {

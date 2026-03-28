@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { X, Type, Moon, Eye } from 'lucide-react';
-import { cn } from '../../../lib/utils';
-import { useLanguage } from '../../../lib/i18n';
+import { cn } from '../../../core/utils/utils';
+import { useLanguage } from '../../../core/i18n';
 import { useSettingsV2 } from '../../../hooks/useSettingsV2';
 import { useUI } from '../../../contexts/UIContext';
 

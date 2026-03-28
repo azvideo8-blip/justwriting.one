@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { auth, db, onConnectionChange } from './lib/firebase';
+import { auth, db, onConnectionChange } from './core/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -10,9 +10,9 @@ import { onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from './lib/firestore-errors';
 import { UIProvider } from './contexts/UIContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { useLanguage } from './lib/i18n';
+import { useLanguage } from './core/i18n';
 import { useUI } from './contexts/UIContext';
-import { cn } from './lib/utils';
+import { cn } from './core/utils/utils';
 
 // Components
 import { DesktopNav } from './components/DesktopNav';
@@ -47,7 +47,7 @@ function AppContent() {
   const [isConnected, setIsConnected] = useState(true);
   const [sessionToContinue, setSessionToContinue] = useState<Session | null>(null);
   
-  const isAdmin = profile?.role === 'admin' || user?.email === 'freudcries@gmail.com';
+  const isAdmin = profile?.role === 'admin';
   
   useEffect(() => {
     const root = document.documentElement;

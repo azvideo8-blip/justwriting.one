@@ -6,15 +6,12 @@ import {
   ChevronDown, ChevronUp, X, User as UserIcon,
   FileText, Download, FileJson, Tag, Plus, Trash2
 } from 'lucide-react';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { auth } from '../core/firebase';
+import { SessionService } from '../services/SessionService';
 import { Session, Label } from '../types';
-import { parseFirestoreDate, cn } from '../lib/utils';
-import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { jsPDF } from 'jspdf';
-import { Document, Packer, Paragraph, TextRun } from 'docx';
-import { saveAs } from 'file-saver';
-import { useLanguage } from '../lib/i18n';
+import { parseFirestoreDate, cn } from '../core/utils/utils';
+import { ExportService } from '../features/export/ExportService';
+import { useLanguage } from '../core/i18n';
 import { useUI } from '../contexts/UIContext';
 
 import { SessionEditor } from './SessionEditor';
@@ -58,23 +55,15 @@ export function SessionCard({
     const tag = newTag.trim().toLowerCase();
     if (tag && !session.tags?.includes(tag)) {
       const updatedTags = [...(session.tags || []), tag];
-      try {
-        await updateDoc(doc(db, 'sessions', session.id), { tags: updatedTags });
-        setNewTag('');
-        setIsAddingTag(false);
-      } catch (err) {
-        handleFirestoreError(err, OperationType.UPDATE, `sessions/${session.id}`);
-      }
+      await SessionService.updateSessionTags(session.id, updatedTags);
+      setNewTag('');
+      setIsAddingTag(false);
     }
   };
 
   const handleRemoveTag = async (tagToRemove: string) => {
     const updatedTags = session.tags?.filter(t => t !== tagToRemove) || [];
-    try {
-      await updateDoc(doc(db, 'sessions', session.id), { tags: updatedTags });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `sessions/${session.id}`);
-    }
+    await SessionService.updateSessionTags(session.id, updatedTags);
   };
 
   const highlightText = (text: string, query: string) => {
@@ -94,64 +83,22 @@ export function SessionCard({
   };
 
   const exportToTxt = () => {
-    const blob = new Blob([session.content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${session.title || 'session'}_${format(parseFirestoreDate(session.createdAt), 'yyyy-MM-dd')}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    ExportService.toTxt(session.title || 'session', session.content, parseFirestoreDate(session.createdAt));
     setShowExportMenu(false);
   };
 
   const exportPDF = () => {
-    const doc = new jsPDF();
-    const splitTitle = doc.splitTextToSize(session.title || 'Untitled Session', 180);
-    const splitContent = doc.splitTextToSize(session.content, 180);
-    
-    doc.setFontSize(20);
-    doc.text(splitTitle, 15, 20);
-    doc.setFontSize(12);
-    doc.text(splitContent, 15, 40);
-    doc.save(`${session.title || 'session'}.pdf`);
+    ExportService.toPDF(session.title || 'Untitled Session', session.content);
     setShowExportMenu(false);
   };
 
   const exportMarkdown = () => {
-    const md = `# ${session.title || 'Untitled Session'}\n\n${session.content}`;
-    const blob = new Blob([md], { type: 'text/markdown' });
-    saveAs(blob, `${session.title || 'session'}.md`);
+    ExportService.toMarkdown(session.title || 'Untitled Session', session.content);
     setShowExportMenu(false);
   };
 
   const exportDocx = async () => {
-    const doc = new Document({
-      sections: [{
-        properties: {},
-        children: [
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: session.title || 'Untitled Session',
-                bold: true,
-                size: 32,
-              }),
-            ],
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: session.content,
-                size: 24,
-              }),
-            ],
-          }),
-        ],
-      }],
-    });
-
-    const blob = await Packer.toBlob(doc);
-    saveAs(blob, `${session.title || 'session'}.docx`);
+    await ExportService.toDocx(session.title || 'Untitled Session', session.content);
     setShowExportMenu(false);
   };
 

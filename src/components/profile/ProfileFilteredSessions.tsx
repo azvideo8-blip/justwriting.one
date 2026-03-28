@@ -4,7 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Session, Label } from '../../types';
 import { SessionCard } from '../SessionCard';
 import { useUI } from '../../contexts/UIContext';
-import { cn } from '../../lib/utils';
+import { cn } from '../../core/utils/utils';
 
 interface ProfileFilteredSessionsProps {
   selectedWord: string;

@@ -1,20 +1,31 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Ethereal Ink / Stream of Consciousness
 
-# Run and deploy your AI Studio app
+Ethereal Ink is a writing application designed to help you enter a flow state, capture your stream of consciousness, and track your writing progress.
 
-This contains everything you need to run your app locally.
+## Philosophy
+Writing is not just about the final product; it's about the process. Ethereal Ink provides a distraction-free environment to help you focus on your thoughts, whether you're journaling, drafting, or just letting your mind wander.
 
-View your app in AI Studio: https://ai.studio/apps/26638cb9-0855-4980-84cb-072afd2a063d
+## Local Setup
 
-## Run Locally
+### Prerequisites
+- Node.js (v20+)
+- npm
 
-**Prerequisites:**  Node.js
+### Installation
+1. Clone the repository.
+2. Run `npm install` to install dependencies.
+3. Create a `.env.local` file in the root directory and add the following:
+   ```env
+   GEMINI_API_KEY=your_gemini_api_key
+   VITE_FIREBASE_API_KEY=your_firebase_api_key
+   VITE_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
+   VITE_FIREBASE_PROJECT_ID=your_firebase_project_id
+   VITE_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your_firebase_messaging_sender_id
+   VITE_FIREBASE_APP_ID=your_firebase_app_id
+   ```
+4. Run `npm run dev` to start the development server.
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Running and Deployment
+- **Frontend**: Run `npm run dev` for development or `npm run build` followed by `npm run preview` for production build.
+- **Cloud Functions**: Navigate to the `functions/` directory, run `npm install`, and use `firebase deploy --only functions` to deploy.

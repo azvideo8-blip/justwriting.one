@@ -4,7 +4,7 @@ import { Calendar as CalendarIcon } from 'lucide-react';
 import { SessionChart } from '../SessionChart';
 import { Session } from '../../types';
 import { useUI } from '../../contexts/UIContext';
-import { cn } from '../../lib/utils';
+import { cn } from '../../core/utils/utils';
 
 interface ProfileActivityProps {
   sessions: Session[];

@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronRight, AlertCircle, Mail, Lock, UserPlus, LogIn } from 'lucide-react';
 import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth, googleProvider } from '../lib/firebase';
+import { auth, googleProvider } from '../core/firebase';
 import { useUI } from '../contexts/UIContext';
-import { cn } from '../lib/utils';
+import { cn } from '../core/utils/utils';
 
 export function LoginView() {
   const [error, setError] = useState<string | null>(null);

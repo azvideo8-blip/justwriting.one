@@ -1,39 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Users, Database, Shield, AlertTriangle } from 'lucide-react';
-import { collection, query, getDocs, limit, orderBy, deleteDoc, doc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { UserService } from '../services/UserService';
+import { SessionService } from '../services/SessionService';
+import { auth } from '../core/firebase';
+import { User as UserIcon, PenLine, TrendingUp, Check, X, Users, Database, Shield, AlertTriangle } from 'lucide-react';
 import { AdminUsersTable } from '../components/admin/AdminUsersTable';
 import { AdminSessionsTable } from '../components/admin/AdminSessionsTable';
-import { useLanguage } from '../lib/i18n';
+import { useLanguage } from '../core/i18n';
 import { useUI } from '../contexts/UIContext';
-import { cn } from '../lib/utils';
+import { cn } from '../core/utils/utils';
 
 export function AdminView() {
   const [users, setUsers] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'users' | 'sessions' | 'security'>('users');
+  const [isAdmin, setIsAdmin] = useState(false);
   const { t } = useLanguage();
   const { uiVersion } = useUI();
   const isV2 = uiVersion === '2.0';
-
-  useEffect(() => {
-    fetchData();
-  }, [activeTab]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       if (activeTab === 'users') {
-        const q = query(collection(db, 'users'), limit(50));
-        const snap = await getDocs(q);
-        setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const usersData = await UserService.getUsers(50);
+        setUsers(usersData);
       } else if (activeTab === 'sessions') {
-        const q = query(collection(db, 'sessions'), orderBy('createdAt', 'desc'), limit(50));
-        const snap = await getDocs(q);
-        setSessions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const sessionsData = await SessionService.getAllSessionsAdmin(50);
+        setSessions(sessionsData);
       }
     } catch (err) {
       console.error("Admin fetch error:", err);
@@ -42,14 +37,28 @@ export function AdminView() {
     }
   };
 
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (auth.currentUser) {
+        const profile = await UserService.getProfile(auth.currentUser.uid);
+        const adminStatus = profile?.role === 'admin';
+        setIsAdmin(adminStatus);
+        if (adminStatus) {
+          fetchData();
+        }
+      }
+    };
+    checkAdmin();
+  }, [activeTab]);
+
+  if (!isAdmin) {
+    return <div className="text-center py-20 text-red-500">Access Denied</div>;
+  }
+
   const handleDeleteSession = async (id: string) => {
     if (!confirm(t('admin_confirm_delete_session'))) return;
-    try {
-      await deleteDoc(doc(db, 'sessions', id));
-      setSessions(sessions.filter(s => s.id !== id));
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `sessions/${id}`);
-    }
+    await SessionService.deleteSession(id);
+    setSessions(sessions.filter(s => s.id !== id));
   };
 
   return (
