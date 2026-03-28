@@ -26,9 +26,6 @@ interface WritingEditorProps {
   lastSavedAt: number | null;
   stickyHeaderEnabled?: boolean;
   streamMode?: boolean;
-  zenModeEnabled?: boolean;
-  // highlights: { start: number; end: number; color: string }[];
-  // setHighlights: (highlights: { start: number; end: number; color: string }[]) => void;
 }
 
 export function WritingEditor({
@@ -52,12 +49,11 @@ export function WritingEditor({
   lastSavedAt,
   stickyHeaderEnabled = true,
   streamMode = false,
-  zenModeEnabled = true,
   // highlights,
   // setHighlights
 }: WritingEditorProps) {
   const { t } = useLanguage();
-  const { uiVersion, streamMode: streamModeContext, isZenActive } = useUI();
+  const { uiVersion, streamMode: streamModeContext, isZenActive, zenModeEnabled } = useUI();
   const isV2 = uiVersion === '2.0';
   const showZen = isZenActive && zenModeEnabled;
   const [showPinnedInput, setShowPinnedInput] = React.useState(false);

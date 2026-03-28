@@ -62,15 +62,13 @@ export function WritingHeader({
   handleStart,
   handleFinish,
   setShowCancelConfirm,
-  isZenActive = false,
-  zenModeEnabled = true,
   stickyHeaderEnabled = true,
   headerVisibility,
   streamMode = false
 }: WritingHeaderProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const { t } = useLanguage();
-  const { uiVersion } = useUI();
+  const { uiVersion, isZenActive, zenModeEnabled } = useUI();
   const isV2 = uiVersion === '2.0';
   const showZen = isZenActive && zenModeEnabled;
 

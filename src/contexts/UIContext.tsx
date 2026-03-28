@@ -26,7 +26,7 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
   });
   const [isZenActive, setIsZenActive] = useState<boolean>(false);
   const [zenModeEnabled, setZenModeEnabled] = useState<boolean>(() => {
-    const saved = localStorage.getItem('writing_zenModeEnabled');
+    const saved = localStorage.getItem('v2_zenModeEnabled');
     return saved === null ? true : saved === 'true';
   });
   const [status, setStatus] = useState<'idle' | 'writing' | 'paused' | 'finished'>('idle');
@@ -46,7 +46,7 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
   }, [streamMode]);
 
   useEffect(() => {
-    localStorage.setItem('writing_zenModeEnabled', zenModeEnabled.toString());
+    localStorage.setItem('v2_zenModeEnabled', zenModeEnabled.toString());
     if (!zenModeEnabled) {
       setIsZenActive(false);
     }
@@ -59,19 +59,18 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     
-    // Ensure it's active when writing starts
-    setIsZenActive(true);
+    // UI should only hide after the user starts typing, so don't set active true immediately here.
 
     const handleActivity = () => {
       if (!zenModeEnabled) {
-        if (isZenActive) setIsZenActive(false);
+        setIsZenActive(false);
         return;
       }
       setIsZenActive(true);
       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
       zenTimerRef.current = setTimeout(() => {
         setIsZenActive(false);
-      }, 5000); // Increased to 5s
+      }, 5000); // 5s
     };
 
     window.addEventListener('keydown', handleActivity);

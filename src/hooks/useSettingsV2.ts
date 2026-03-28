@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useUI } from '../contexts/UIContext';
 
 export const useSettingsV2 = () => {
   const [fontFamily, setFontFamily] = useState(() => localStorage.getItem('v2_fontFamily') || 'Inter');
   const [textWidth, setTextWidth] = useState<'centered' | 'full'>(() => (localStorage.getItem('v2_textWidth') as 'centered' | 'full') || 'centered');
   const [fontSize, setFontSize] = useState(() => Number(localStorage.getItem('v2_fontSize')) || 18);
-  const [zenMode, setZenMode] = useState(() => localStorage.getItem('v2_zenModeEnabled') === 'true');
+  const { zenModeEnabled: zenMode, setZenModeEnabled: setZenMode } = useUI();
   const [stickyHeader, setStickyHeader] = useState(() => localStorage.getItem('v2_stickyHeaderEnabled') !== 'false');
   const [headerVisibility, setHeaderVisibility] = useState(() => {
     const saved = localStorage.getItem('v2_headerVisibility');
@@ -28,10 +29,6 @@ export const useSettingsV2 = () => {
   useEffect(() => {
     localStorage.setItem('v2_fontSize', fontSize.toString());
   }, [fontSize]);
-
-  useEffect(() => {
-    localStorage.setItem('v2_zenModeEnabled', zenMode.toString());
-  }, [zenMode]);
 
   useEffect(() => {
     localStorage.setItem('v2_stickyHeaderEnabled', stickyHeader.toString());
