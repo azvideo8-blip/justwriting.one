@@ -6,7 +6,7 @@ export function useWritingStats(content: string, seconds: number, initialWordCou
   const [wordGoalReached, setWordGoalReached] = useState(false);
 
   useEffect(() => {
-    const words = content.trim().split(/\s+/).filter(x => x.length > 3).length;
+    const words = content.trim().split(/\s+/).filter(x => x.length > 0).length;
     setWordCount(words);
     if (seconds > 0) {
       const sessionWords = Math.max(0, words - initialWordCount);

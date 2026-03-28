@@ -24,7 +24,7 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
       title: editTitle,
       tags: editTags,
       isPublic: editIsPublic,
-      wordCount: editContent.trim().split(/\s+/).filter(x => x.length > 3).length,
+      wordCount: editContent.trim().split(/\s+/).filter(x => x.length > 0).length,
       charCount: editContent.length
     });
     onSave();
