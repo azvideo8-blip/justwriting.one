@@ -8,6 +8,11 @@ describe('useWritingStats', () => {
     expect(result.current.wordCount).toBe(4);
   });
 
+  it('counts short words correctly', () => {
+    const { result } = renderHook(() => useWritingStats('I am in flow', 0, 0, 'stopwatch', 500));
+    expect(result.current.wordCount).toBe(4);
+  });
+
   it('calculates WPM correctly', () => {
     const { result } = renderHook(() => useWritingStats('one two three four', 60, 0, 'stopwatch', 500));
     // (4 words / 60 seconds) * 60 = 4 WPM
