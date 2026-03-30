@@ -219,6 +219,7 @@ export const translations: Translations = {
   common_untitled: { ru: 'Без названия', en: 'Untitled' },
   common_cancel: { ru: 'Отмена', en: 'Cancel' },
   common_save: { ru: 'Сохранить', en: 'Save' },
+  ai_resting_error: { ru: 'ИИ сейчас отдыхает. Пожалуйста, попробуйте позже.', en: 'AI is currently resting. Please try again later.' },
   
   // Extra
   writing_timer: { ru: 'Таймер', en: 'Timer' },

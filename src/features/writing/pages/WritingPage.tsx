@@ -6,6 +6,7 @@ import { SessionService } from '../services/SessionService';
 import { Session } from '../../../types';
 import { cn } from '../../../core/utils/utils';
 import { useUI } from '../../../contexts/UIContext';
+import { WritingSettingsProvider, useWritingSettings } from '../contexts/WritingSettingsContext';
 
 // Components
 import { WritingHeader } from '../WritingHeader';
@@ -26,9 +27,10 @@ interface WritingViewProps {
   onSessionContinued?: () => void;
 }
 
-export function WritingPage({ user, profile, sessionToContinue, onSessionContinued }: WritingViewProps) {
+function WritingPageContent({ user, profile, sessionToContinue, onSessionContinued }: WritingViewProps) {
   const { t } = useLanguage();
-  const { uiVersion, streamMode, isZenActive, zenModeEnabled, status: uiStatus, setStatus: setUIStatus } = useUI();
+  const { uiVersion } = useUI();
+  const { streamMode, isZenActive, zenModeEnabled, status: uiStatus, setStatus: setUIStatus } = useWritingSettings();
   const isV2 = uiVersion === '2.0';
   const {
     status: sessionStatus, setStatus: setSessionStatus,
@@ -445,5 +447,13 @@ export function WritingPage({ user, profile, sessionToContinue, onSessionContinu
         />
       </div>
     </motion.div>
+  );
+}
+
+export function WritingPage(props: WritingViewProps) {
+  return (
+    <WritingSettingsProvider>
+      <WritingPageContent {...props} />
+    </WritingSettingsProvider>
   );
 }

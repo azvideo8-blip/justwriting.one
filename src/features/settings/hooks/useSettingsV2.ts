@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useUI } from '../../../contexts/UIContext';
+import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
 
 export const useSettingsV2 = () => {
   const [fontFamily, setFontFamily] = useState(() => localStorage.getItem('v2_fontFamily') || 'Inter');
   const [textWidth, setTextWidth] = useState<'centered' | 'full'>(() => (localStorage.getItem('v2_textWidth') as 'centered' | 'full') || 'centered');
   const [fontSize, setFontSize] = useState(() => Number(localStorage.getItem('v2_fontSize')) || 18);
-  const { zenModeEnabled: zenMode, setZenModeEnabled: setZenMode } = useUI();
+  const { zenModeEnabled: zenMode, setZenModeEnabled: setZenMode } = useWritingSettings();
   const [stickyHeader, setStickyHeader] = useState(() => localStorage.getItem('v2_stickyHeaderEnabled') !== 'false');
   const [headerVisibility, setHeaderVisibility] = useState(() => {
     const saved = localStorage.getItem('v2_headerVisibility');

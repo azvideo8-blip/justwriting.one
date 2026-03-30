@@ -73,8 +73,8 @@ export function LoginPage() {
         className="max-w-md w-full text-center space-y-8"
       >
         <div className="space-y-4">
-          <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center font-bold text-4xl mx-auto shadow-2xl", isV2 ? "bg-white/10 text-white border border-white/20 backdrop-blur-xl" : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900")}>J</div>
-          <h1 className={cn("text-5xl font-bold tracking-tight", isV2 ? "text-white" : "dark:text-stone-100")}>justwriting.one</h1>
+          <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center font-bold text-4xl mx-auto shadow-2xl bg-white text-stone-900 border border-stone-200", isV2 && "font-black shadow-[0_0_30px_rgba(255,255,255,0.2)]")}>J</div>
+          <h1 className={cn("text-5xl font-bold tracking-tight text-stone-900 dark:text-white")}>justwriting.one</h1>
           <p className={cn("text-lg leading-relaxed", isV2 ? "text-white/50" : "text-stone-500 dark:text-stone-400")}>
             Минималистичное пространство для писателей.
           </p>

@@ -47,10 +47,10 @@ export function MobileMenu({ isOpen, onClose, view, setView, isAdmin }: MobileMe
             <div className="flex items-center justify-between mb-12">
               <div className="flex items-center gap-3">
                 <div className={cn(
-                  "w-10 h-10 rounded-xl flex items-center justify-center font-black text-2xl shadow-lg",
-                  isV2 ? "bg-white text-black" : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900"
+                  "w-10 h-10 rounded-xl flex items-center justify-center font-black text-2xl shadow-lg bg-white text-stone-900 border border-stone-200",
+                  isV2 && "shadow-[0_0_20px_rgba(255,255,255,0.2)]"
                 )}>J</div>
-                <span className={cn("font-black text-2xl tracking-tighter", isV2 ? "text-white" : "dark:text-stone-100")}>justwriting</span>
+                <span className={cn("font-black text-2xl tracking-tighter text-stone-900 dark:text-white")}>justwriting</span>
               </div>
               <button 
                 onClick={onClose}
