@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 
 interface WritingSettingsContextType {
   streamMode: boolean;
@@ -13,24 +14,11 @@ interface WritingSettingsContextType {
 const WritingSettingsContext = createContext<WritingSettingsContextType | undefined>(undefined);
 
 export function WritingSettingsProvider({ children }: { children: React.ReactNode }) {
-  const [streamMode, setStreamMode] = useState<boolean>(() => {
-    return localStorage.getItem('streamMode') === 'true';
-  });
-  const [zenModeEnabled, setZenModeEnabled] = useState<boolean>(() => {
-    const saved = localStorage.getItem('v2_zenModeEnabled');
-    return saved === null ? true : saved === 'true';
-  });
+  const [streamMode, setStreamMode] = useLocalStorage<boolean>('streamMode', false);
+  const [zenModeEnabled, setZenModeEnabled] = useLocalStorage<boolean>('v2_zenModeEnabled', true);
   const [status, setStatus] = useState<'idle' | 'writing' | 'paused' | 'finished'>('idle');
   const [isZenActive, setIsZenActive] = useState<boolean>(false);
   const zenTimerRef = useRef<any>(null);
-
-  useEffect(() => {
-    localStorage.setItem('streamMode', streamMode.toString());
-  }, [streamMode]);
-
-  useEffect(() => {
-    localStorage.setItem('v2_zenModeEnabled', zenModeEnabled.toString());
-  }, [zenModeEnabled]);
 
   useEffect(() => {
     if (status !== 'writing' || !zenModeEnabled) {
@@ -38,7 +26,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
       return;
     }
 
-    const resetZenTimer = () => {
+    const showUI = () => {
       setIsZenActive(false);
       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
       zenTimerRef.current = setTimeout(() => {
@@ -46,14 +34,20 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
       }, 3000);
     };
 
-    window.addEventListener('mousemove', resetZenTimer);
-    window.addEventListener('keydown', resetZenTimer);
+    const hideUI = () => {
+      setIsZenActive(true);
+      if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
+    };
 
-    resetZenTimer();
+    window.addEventListener('mousemove', showUI);
+    window.addEventListener('keydown', hideUI);
+
+    // Initial state: hidden if writing
+    setIsZenActive(true);
 
     return () => {
-      window.removeEventListener('mousemove', resetZenTimer);
-      window.removeEventListener('keydown', resetZenTimer);
+      window.removeEventListener('mousemove', showUI);
+      window.removeEventListener('keydown', hideUI);
       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
     };
   }, [status, zenModeEnabled]);

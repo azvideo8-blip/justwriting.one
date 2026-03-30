@@ -1,10 +1,16 @@
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
+import { savePendingSession, getAllPendingSessions, deletePendingSession } from '../../../lib/db';
 
 export const WritingSessionService = {
-  saveSession: async (sessionData: any, activeSessionId: string | null) => {
+  saveSession: async (sessionData: any, activeSessionId: string | null, isOnline: boolean, userId: string) => {
     try {
+      if (!isOnline) {
+        await savePendingSession({ sessionId: activeSessionId, data: sessionData, userId });
+        return;
+      }
+
       if (activeSessionId) {
         await updateDoc(doc(db, 'sessions', activeSessionId), {
           ...sessionData,
@@ -23,16 +29,28 @@ export const WritingSessionService = {
   },
   
   syncPendingSessions: async (userId: string) => {
-    const pending = localStorage.getItem(`pending_sessions_${userId}`);
-    if (!pending) return;
-
-    const sessions = JSON.parse(pending);
-    const remaining = [];
-
-    for (const session of sessions) {
+    // Migration: Move legacy localStorage sessions to IndexedDB
+    const legacyPending = localStorage.getItem(`pending_sessions_${userId}`);
+    if (legacyPending) {
       try {
-        if (session.id) {
-          await updateDoc(doc(db, 'sessions', session.id), {
+        const sessions = JSON.parse(legacyPending);
+        for (const session of sessions) {
+          await savePendingSession({ sessionId: session.id, data: session.data, userId });
+        }
+        localStorage.removeItem(`pending_sessions_${userId}`);
+      } catch (e) {
+        console.error('Migration failed', e);
+      }
+    }
+
+    const pending = await getAllPendingSessions();
+    const userPending = pending.filter(p => p.userId === userId);
+    if (userPending.length === 0) return;
+
+    for (const session of userPending) {
+      try {
+        if (session.sessionId) {
+          await updateDoc(doc(db, 'sessions', session.sessionId), {
             ...session.data,
             updatedAt: Timestamp.now()
           });
@@ -43,15 +61,12 @@ export const WritingSessionService = {
             updatedAt: Timestamp.now()
           });
         }
+        if (session.id) {
+          await deletePendingSession(session.id);
+        }
       } catch (e) {
-        remaining.push(session);
+        // Error is handled
       }
-    }
-
-    if (remaining.length > 0) {
-      localStorage.setItem(`pending_sessions_${userId}`, JSON.stringify(remaining));
-    } else {
-      localStorage.removeItem(`pending_sessions_${userId}`);
     }
   }
 };

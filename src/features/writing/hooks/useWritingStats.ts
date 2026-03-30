@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export function useWritingStats(content: string, seconds: number, initialWordCount: number, sessionType: string, wordGoal: number) {
   const [wordCount, setWordCount] = useState(0);
@@ -17,11 +17,11 @@ export function useWritingStats(content: string, seconds: number, initialWordCou
     }
   }, [content, seconds, sessionType, wordGoal, initialWordCount]);
 
-  const resetStats = () => {
+  const resetStats = useCallback(() => {
     setWordCount(0);
     setWpm(0);
     setWordGoalReached(false);
-  };
+  }, []);
 
   return { wordCount, wpm, wordGoalReached, setWordGoalReached, resetStats };
 }

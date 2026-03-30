@@ -26,6 +26,8 @@ interface WritingSetupProps {
   formatTime: (s: number) => string;
   isLocalOnly: boolean;
   setIsLocalOnly: (enabled: boolean) => void;
+  encryptionPassword: string;
+  setEncryptionPassword: (password: string) => void;
 }
 
 export function WritingSetup({
@@ -43,7 +45,9 @@ export function WritingSetup({
   continueSession,
   formatTime,
   isLocalOnly,
-  setIsLocalOnly
+  setIsLocalOnly,
+  encryptionPassword,
+  setEncryptionPassword
 }: WritingSetupProps) {
   const { t, language } = useLanguage();
   const { uiVersion } = useUI();
@@ -156,6 +160,33 @@ export function WritingSetup({
                       <div className={cn("text-[9px] md:text-[10px] leading-tight", isV2 ? "text-white/50" : "text-stone-500 dark:text-stone-400")}>{t('writing_local_desc')}</div>
                     </div>
                   </div>
+
+                  {isLocalOnly && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-2"
+                    >
+                      <div className={cn("text-[10px] font-black uppercase tracking-widest ml-1", isV2 ? "text-white/40" : "text-stone-400")}>
+                        {t('writing_encryption_password')}
+                      </div>
+                      <input 
+                        type="password"
+                        value={encryptionPassword}
+                        onChange={(e) => setEncryptionPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className={cn(
+                          "w-full p-4 rounded-2xl border transition-all outline-none text-sm font-mono",
+                          isV2 
+                            ? "bg-white/5 border-white/10 text-white focus:bg-white/10 focus:border-white/20" 
+                            : "bg-stone-50 dark:bg-stone-800/50 border-stone-100 dark:border-stone-800 focus:border-stone-900 dark:focus:border-stone-100"
+                        )}
+                      />
+                      <p className={cn("text-[9px] leading-tight ml-1", isV2 ? "text-white/30" : "text-stone-400 italic")}>
+                        {t('writing_encryption_desc')}
+                      </p>
+                    </motion.div>
+                  )}
                 </>
               )}
 

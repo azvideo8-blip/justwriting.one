@@ -34,7 +34,7 @@ const renderWithProviders = (ui: React.ReactElement) => {
 
 describe('WritingPage', () => {
   const mockUser = { uid: 'test-uid', displayName: 'Test User' } as unknown as import('firebase/auth').User;
-  const mockProfile = { nickname: 'test-nick' };
+  const mockProfile = { uid: 'test-uid', email: 'test@example.com', nickname: 'test-nick' };
 
   const defaultHookValue = {
     status: 'idle',
@@ -60,7 +60,8 @@ describe('WritingPage', () => {
     addPinnedThought: vi.fn(),
     removePinnedThought: vi.fn(),
     updatePinnedThought: vi.fn(),
-    resetSession: vi.fn()
+    resetSession: vi.fn(),
+    resetSessionMetadata: vi.fn()
   };
 
   beforeEach(() => {
@@ -73,11 +74,11 @@ describe('WritingPage', () => {
     expect(screen.getByTitle(/Новая сессия/i)).toBeInTheDocument();
   });
 
-  it('calls resetSession when clicking "Новая сессия"', () => {
+  it('calls resetSessionMetadata when clicking "Новая сессия"', () => {
     renderWithProviders(<WritingPage user={mockUser} profile={mockProfile} />);
     const startButton = screen.getByTitle(/Новая сессия/i);
     fireEvent.click(startButton);
-    expect(defaultHookValue.resetSession).toHaveBeenCalled();
+    expect(defaultHookValue.resetSessionMetadata).toHaveBeenCalled();
   });
 
   it('shows finish modal and calls handleSave when clicking "Сохранить"', async () => {

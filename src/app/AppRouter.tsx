@@ -20,6 +20,7 @@ import { ProfilePage } from '../features/profile/pages/ProfilePage';
 import { ArchivePage } from '../features/archive/pages/ArchivePage';
 import { FeedPage } from '../features/feed/pages/FeedPage';
 import { AdminPage } from '../features/admin/pages/AdminPage';
+import { useWritingSettings } from '../features/writing/contexts/WritingSettingsContext';
 import { Session, UserProfile } from '../types';
 
 export function AppRouter() {
@@ -33,9 +34,11 @@ export function AppRouter() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
   const [sessionToContinue, setSessionToContinue] = useState<Session | null>(null);
+  const { isZenActive, zenModeEnabled } = useWritingSettings();
+  const showZen = isZenActive && zenModeEnabled && view === 'write';
   
   const isAdmin = profile?.role === 'admin';
-  
+
   useEffect(() => {
     const root = document.documentElement;
     root.classList.add('dark');
@@ -58,16 +61,29 @@ export function AppRouter() {
             const initialProfile: UserProfile = { 
               uid: u.uid,
               email: u.email || '',
-              nickname: u.email?.split('@')[0] || 'User'
+              nickname: u.displayName || u.email?.split('@')[0] || 'User',
+              role: 'user'
             };
-            setDoc(userDoc, initialProfile).catch(err => {
+            
+            console.log('Creating initial user profile:', JSON.stringify(initialProfile));
+            
+            setDoc(userDoc, initialProfile).then(() => {
+              console.log('User profile created successfully');
+            }).catch(err => {
               console.error('Error creating user profile:', err);
+              // Try to handle the error with more context
+              if (err.code === 'permission-denied') {
+                console.error('Permission denied. Check firestore.rules and the profile data structure.');
+              }
             });
             setProfile(initialProfile);
           }
           setLoading(false);
         }, (err) => {
           console.error('Firestore snapshot error:', err);
+          if (err.code === 'permission-denied') {
+             console.error('Permission denied for user document:', u.uid);
+          }
           setLoading(false);
         });
       } else {
@@ -99,10 +115,11 @@ export function AppRouter() {
     )}>
       {/* Navigation */}
       <nav className={cn(
-        "fixed top-0 left-0 right-0 h-16 z-50 px-4 md:px-6 flex items-center justify-between transition-all duration-300",
+        "fixed top-0 left-0 right-0 h-16 z-50 px-4 md:px-6 flex items-center justify-between transition-all duration-1000",
         isV2 
           ? "bg-[#0A0A0B]/50 backdrop-blur-xl border-b border-white/5" 
-          : "bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border-b border-stone-200 dark:border-stone-800"
+          : "bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border-b border-stone-200 dark:border-stone-800",
+        showZen ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
       )}>
         {!isConnected && (
           <div className="absolute top-16 left-0 right-0 bg-red-500 text-white text-[10px] font-bold py-1 px-4 flex items-center justify-center gap-2 animate-pulse">

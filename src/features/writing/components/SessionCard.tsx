@@ -13,6 +13,7 @@ import { parseFirestoreDate, cn } from '../../../core/utils/utils';
 import { ExportService } from '../../export/ExportService';
 import { useLanguage } from '../../../core/i18n';
 import { useUI } from '../../../contexts/UIContext';
+import { useSessionTags } from '../hooks/useSessionTags';
 
 import { SessionEditor } from './SessionEditor';
 
@@ -37,6 +38,7 @@ export function SessionCard({
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTag, setNewTag] = useState('');
+  const { tags, addTag, removeTag } = useSessionTags(session.id, session.tags || []);
 
   // Auto-expand on search match
   React.useEffect(() => {
@@ -53,17 +55,15 @@ export function SessionCard({
   const handleAddTag = async (e: React.FormEvent) => {
     e.preventDefault();
     const tag = newTag.trim().toLowerCase();
-    if (tag && !session.tags?.includes(tag)) {
-      const updatedTags = [...(session.tags || []), tag];
-      await SessionService.updateSessionTags(session.id, updatedTags);
+    if (tag) {
+      addTag(tag);
       setNewTag('');
       setIsAddingTag(false);
     }
   };
 
-  const handleRemoveTag = async (tagToRemove: string) => {
-    const updatedTags = session.tags?.filter(t => t !== tagToRemove) || [];
-    await SessionService.updateSessionTags(session.id, updatedTags);
+  const handleRemoveTag = (tagToRemove: string) => {
+    removeTag(tagToRemove);
   };
 
   const highlightText = (text: string, query: string) => {
@@ -269,8 +269,8 @@ export function SessionCard({
       {!isEditing && (
         <div className={cn("flex flex-wrap items-center justify-between gap-4 pt-4 border-t relative z-10", isV2 ? "border-white/10" : "border-stone-100 dark:border-stone-800")}>
           <div className="flex flex-wrap items-center gap-2">
-            {session.tags && session.tags.length > 0 ? (
-              session.tags.map(tag => (
+            {tags && tags.length > 0 ? (
+              tags.map(tag => (
                 <span 
                   key={tag} 
                   className={cn(

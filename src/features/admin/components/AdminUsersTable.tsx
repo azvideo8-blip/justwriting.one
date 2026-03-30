@@ -2,8 +2,10 @@ import React from 'react';
 import { cn } from '../../../core/utils/utils';
 import { useUI } from '../../../contexts/UIContext';
 
+import { UserProfile } from '../../../types';
+
 interface AdminUsersTableProps {
-  users: any[];
+  users: UserProfile[];
 }
 
 export function AdminUsersTable({ users }: AdminUsersTableProps) {
@@ -21,7 +23,7 @@ export function AdminUsersTable({ users }: AdminUsersTableProps) {
       </thead>
       <tbody>
         {users.map(u => (
-          <tr key={u.id} className={cn("border-b last:border-0", isV2 ? "border-white/10" : "border-stone-100 dark:border-stone-800")}>
+          <tr key={u.uid} className={cn("border-b last:border-0", isV2 ? "border-white/10" : "border-stone-100 dark:border-stone-800")}>
             <td className={cn("px-6 py-4 text-sm font-medium", isV2 ? "text-white" : "dark:text-stone-200")}>{u.email}</td>
             <td className={cn("px-6 py-4 text-sm font-mono", isV2 ? "text-white/50" : "text-stone-400")}>{u.uid}</td>
             <td className="px-6 py-4">
