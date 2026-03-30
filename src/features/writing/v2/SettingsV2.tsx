@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { X, Type, Moon, Eye } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
-import { useSettingsV2 } from '../../../hooks/useSettingsV2';
+import { useSettingsV2 } from '../../settings/hooks/useSettingsV2';
 import { useUI } from '../../../contexts/UIContext';
 
 export function SettingsV2({ onClose }: { onClose: () => void }) {

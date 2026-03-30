@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
-import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
-import { db } from '../../../core/firebase';
-import { handleFirestoreError, OperationType } from '../../../lib/firestore-errors';
-import { deleteDraft, getDraft, getDraftFromFirestore } from '../../../lib/db';
-import { useTimer } from '../../../hooks/useTimer';
-import { useWritingStats } from '../../../hooks/useWritingStats';
-import { useDraftAutosave } from '../../../hooks/useDraftAutosave';
+import { Timestamp } from 'firebase/firestore';
+import { WritingSessionService } from '../services/WritingSessionService';
+import { WritingDraftService } from '../services/WritingDraftService';
+import { useTimer } from './useTimer';
+import { useWritingStats } from './useWritingStats';
+import { useDraftAutosave } from './useDraftAutosave';
 
 export function useWritingSession(user: User, profile: any) {
   const [sessionType, setSessionType] = useState<'stopwatch' | 'timer' | 'words' | 'finish-by'>('stopwatch');
@@ -38,7 +37,7 @@ export function useWritingSession(user: User, profile: any) {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      syncPendingSessions();
+      WritingSessionService.syncPendingSessions(user.uid);
     };
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
@@ -49,51 +48,10 @@ export function useWritingSession(user: User, profile: any) {
     };
   }, [user.uid]);
 
-  const syncPendingSessions = async () => {
-    const pending = localStorage.getItem(`pending_sessions_${user.uid}`);
-    if (!pending) return;
-
-    const sessions = JSON.parse(pending);
-    const remaining = [];
-
-    for (const session of sessions) {
-      try {
-        if (session.id) {
-          await updateDoc(doc(db, 'sessions', session.id), {
-            ...session.data,
-            updatedAt: Timestamp.now()
-          });
-        } else {
-          await addDoc(collection(db, 'sessions'), {
-            ...session.data,
-            createdAt: Timestamp.now(),
-            updatedAt: Timestamp.now()
-          });
-        }
-      } catch (e) {
-        remaining.push(session);
-      }
-    }
-
-    if (remaining.length > 0) {
-      localStorage.setItem(`pending_sessions_${user.uid}`, JSON.stringify(remaining));
-    } else {
-      localStorage.removeItem(`pending_sessions_${user.uid}`);
-    }
-  };
-
   // Load draft from IndexedDB and Firestore
   useEffect(() => {
     if (user) {
-      Promise.all([getDraft(user.uid), getDraftFromFirestore(user.uid)]).then(([localDraft, cloudDraft]) => {
-        let draftToLoad = null;
-
-        if (localDraft && cloudDraft) {
-          draftToLoad = localDraft.updatedAt > cloudDraft.updatedAt ? localDraft : cloudDraft;
-        } else {
-          draftToLoad = localDraft || cloudDraft;
-        }
-
+      WritingDraftService.loadDraft(user.uid).then((draftToLoad) => {
         if (draftToLoad) {
           setHasDraft(true);
           setContent(draftToLoad.content || '');
@@ -134,7 +92,7 @@ export function useWritingSession(user: User, profile: any) {
 
     if (isLocalOnly) {
       localStorage.setItem(`local_session_${Date.now()}`, JSON.stringify(sessionData));
-      await deleteDraft(user.uid);
+      await WritingDraftService.deleteDraft(user.uid);
       resetSession();
       setStatus('idle');
       return;
@@ -144,27 +102,19 @@ export function useWritingSession(user: User, profile: any) {
       const pending = JSON.parse(localStorage.getItem(`pending_sessions_${user.uid}`) || '[]');
       pending.push({ id: activeSessionId, data: sessionData });
       localStorage.setItem(`pending_sessions_${user.uid}`, JSON.stringify(pending));
-      await deleteDraft(user.uid);
+      await WritingDraftService.deleteDraft(user.uid);
       resetSession();
       setStatus('idle');
       return;
     }
 
     try {
-      if (activeSessionId) {
-        await updateDoc(doc(db, 'sessions', activeSessionId), sessionData);
-      } else {
-        await addDoc(collection(db, 'sessions'), {
-          ...sessionData,
-          createdAt: Timestamp.now(),
-        });
-      }
-      
-      await deleteDraft(user.uid);
+      await WritingSessionService.saveSession(sessionData, activeSessionId);
+      await WritingDraftService.deleteDraft(user.uid);
       resetSession();
       setStatus('idle');
     } catch (e) {
-      handleFirestoreError(e, activeSessionId ? OperationType.UPDATE : OperationType.CREATE, 'sessions');
+      // Error is handled in WritingSessionService
     }
   };
 
@@ -185,7 +135,7 @@ export function useWritingSession(user: User, profile: any) {
   };
 
   const handleCancel = async () => {
-    await deleteDraft(user.uid);
+    await WritingDraftService.deleteDraft(user.uid);
     resetSession();
     setStatus('idle');
   };
