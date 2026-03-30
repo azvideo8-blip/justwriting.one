@@ -14,39 +14,43 @@ export function FeedPage() {
   const { uiVersion } = useUI();
   const isV2 = uiVersion === '2.0';
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
-
+  const [lastDoc, setLastDoc] = useState<any>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setLoading(true);
+  const fetchSessions = async (isInitial = false) => {
+    if (isInitial) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
     setError(null);
 
-    const unsubscribe = SessionService.subscribeToPublicSessions(
-      (docs) => {
-        // Sort client-side
-        docs.sort((a, b) => {
-          const dateA = parseFirestoreDate(a.createdAt).getTime();
-          const dateB = parseFirestoreDate(b.createdAt).getTime();
-          return dateB - dateA;
-        });
-        setSessions(docs.slice(0, 50)); // Keep only top 50 after sorting
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Feed load error:', err);
-        setError(t('community_load_error'));
-        setLoading(false);
-        try {
-          handleFirestoreError(err, OperationType.LIST, 'sessions');
-        } catch (e) {
-          // Logged to console
-        }
+    try {
+      const result = await SessionService.getPublicSessions(20, isInitial ? undefined : lastDoc);
+      
+      if (isInitial) {
+        setSessions(result.sessions);
+      } else {
+        setSessions(prev => [...prev, ...result.sessions]);
       }
-    );
+      
+      setLastDoc(result.lastDoc);
+      setHasMore(result.sessions.length === 20);
+    } catch (err) {
+      console.error('Feed load error:', err);
+      setError(t('community_load_error'));
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
 
-    return unsubscribe;
-  }, [t]);
+  useEffect(() => {
+    fetchSessions(true);
+  }, []);
 
   return (
     <motion.div 
@@ -63,19 +67,38 @@ export function FeedPage() {
 
       <div className="space-y-8">
         {loading ? (
-          <div className={cn("italic text-center py-12", isV2 ? "text-white/50" : "text-stone-400")}>{t('community_loading')}</div>
+          <div className={cn("italic text-center py-12", isV2 ? "text-white/70" : "text-stone-400")}>{t('community_loading')}</div>
         ) : error ? (
           <div className={cn("p-12 text-center rounded-3xl border", isV2 ? "bg-red-500/10 border-red-500/30" : "bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30")}>
             <p className={cn(isV2 ? "text-red-400" : "text-red-600 dark:text-red-400")}>{error}</p>
           </div>
         ) : sessions.length === 0 ? (
           <div className={cn("p-12 text-center rounded-3xl border", isV2 ? "bg-white/5 border-white/10" : "bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800")}>
-            <p className={cn(isV2 ? "text-white/50" : "text-stone-400")}>{t('community_empty')}</p>
+            <p className={cn(isV2 ? "text-white/70" : "text-stone-400")}>{t('community_empty')}</p>
           </div>
         ) : (
-          sessions.map(session => (
-            <SessionCard key={session.id} session={session} />
-          ))
+          <>
+            {sessions.map(session => (
+              <SessionCard key={session.id} session={session} />
+            ))}
+            
+            {hasMore && (
+              <div className="flex justify-center pt-4">
+                <button
+                  onClick={() => fetchSessions(false)}
+                  disabled={loadingMore}
+                  className={cn(
+                    "px-8 py-3 rounded-2xl font-bold transition-all disabled:opacity-50",
+                    isV2 
+                      ? "bg-white/10 text-white hover:bg-white/20 border border-white/10" 
+                      : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-lg"
+                  )}
+                >
+                  {loadingMore ? t('archive_loading_more') : t('archive_load_more')}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </motion.div>

@@ -40,11 +40,10 @@ service cloud.firestore {
     }
 
     // Dynamic admin check: only checks the 'role' field in the user's document.
-    // Also includes a default admin check based on the user's email.
     function isAdmin() {
       return isAuthenticated() &&
-        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
-          (request.auth.token.email == "freudcries@gmail.com" && request.auth.token.email_verified == true)); // Default admin
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isValidEmail(email) {

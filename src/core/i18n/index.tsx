@@ -113,6 +113,8 @@ export const translations: Translations = {
   archive_load_error: { ru: 'Ошибка при загрузке заметок', en: 'Error loading notes' },
   archive_list: { ru: 'Список', en: 'List' },
   archive_grid: { ru: 'Сетка', en: 'Grid' },
+  archive_load_more: { ru: 'Загрузить еще', en: 'Load More' },
+  archive_loading_more: { ru: 'Загрузка...', en: 'Loading...' },
 
   // Profile
   profile_title: { ru: 'Мой профиль', en: 'My Profile' },

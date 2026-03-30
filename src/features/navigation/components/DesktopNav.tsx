@@ -24,6 +24,7 @@ export function DesktopNav({ view, setView, isAdmin, user }: DesktopNavProps) {
       <button
         onClick={toggleUIVersion}
         className="px-2 py-1 rounded-md bg-stone-200 dark:bg-stone-800 text-xs font-bold"
+        aria-label={`Switch to UI version ${uiVersion === '1.0' ? '2.0' : '1.0'}`}
       >
         UI v{uiVersion}
       </button>
@@ -48,6 +49,7 @@ export function DesktopNav({ view, setView, isAdmin, user }: DesktopNavProps) {
           onClick={() => setLanguage(language === 'ru' ? 'en' : 'ru')}
           className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-all text-xs font-bold"
           title={language === 'ru' ? 'Switch to English' : 'Переключить на русский'}
+          aria-label={language === 'ru' ? 'Switch to English' : 'Переключить на русский'}
         >
           <span>{language === 'ru' ? '🇷🇺 RU' : '🇺🇸 EN'}</span>
         </button>
@@ -56,6 +58,7 @@ export function DesktopNav({ view, setView, isAdmin, user }: DesktopNavProps) {
           onClick={() => signOut(auth)}
           className="flex items-center gap-3 text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 transition-colors group"
           title={t('nav_logout')}
+          aria-label={t('nav_logout')}
         >
           <div className="relative">
             <img src={user.photoURL || ''} className="w-8 h-8 rounded-full border border-stone-200 dark:border-stone-800 group-hover:border-stone-400 transition-colors" referrerPolicy="no-referrer" />

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { SessionService } from '../services/SessionService';
 import { Session, UserProfile } from '../../../types';
@@ -15,6 +14,10 @@ import { WritingEditor } from '../WritingEditor';
 import { WritingSettings } from '../WritingSettings';
 import { SettingsV2 } from '../v2/SettingsV2';
 import { WritingFinishModal } from '../WritingFinishModal';
+
+// Modals
+import { PasswordPromptModal } from '../components/modals/PasswordPromptModal';
+import { CancelConfirmModal } from '../components/modals/CancelConfirmModal';
 
 // Hooks
 import { useWritingSession } from '../hooks/useWritingSession';
@@ -31,6 +34,7 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   const { t } = useLanguage();
   const { uiVersion } = useUI();
   const { streamMode, isZenActive, zenModeEnabled, status: uiStatus, setStatus: setUIStatus } = useWritingSettings();
+  const showZen = isZenActive && zenModeEnabled;
   const isV2 = uiVersion === '2.0';
   const {
     status: sessionStatus, setStatus: setSessionStatus,
@@ -66,8 +70,6 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   const [setupMode, setSetupMode] = useState<SetupMode>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [passwordPrompt, setPasswordPrompt] = useState<{ session: Session, resolve: (p: string) => void, reject: () => void } | null>(null);
-  const [promptPassword, setPromptPassword] = useState('');
-  const [promptError, setPromptError] = useState(false);
   const totalDurationForDeadline = useRef<number | null>(null);
 
   useEffect(() => {
@@ -148,7 +150,8 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   const fetchAllSessions = async () => {
     setLoadingSessions(true);
     try {
-      const firestoreSessions = await SessionService.getAllSessions(user.uid);
+      const result = await SessionService.getAllSessions(user.uid, 50);
+      const firestoreSessions = result.sessions;
       
       const localSessions = fetchLocalSessions().map(s => {
         const data = loadLocalSession(s.id);
@@ -273,12 +276,10 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   //   } as React.CSSProperties;
   // };
 
-  const handlePromptSubmit = () => {
+  const handlePromptSubmit = (password: string) => {
     if (passwordPrompt) {
-      passwordPrompt.resolve(promptPassword);
+      passwordPrompt.resolve(password);
       setPasswordPrompt(null);
-      setPromptPassword('');
-      setPromptError(false);
     }
   };
 
@@ -286,8 +287,6 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
     if (passwordPrompt) {
       passwordPrompt.reject();
       setPasswordPrompt(null);
-      setPromptPassword('');
-      setPromptError(false);
     }
   };
 
@@ -305,7 +304,10 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
       {!isOnline && (
         <motion.div 
           initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
+          animate={{ 
+            y: showZen ? -20 : 0, 
+            opacity: showZen ? 0 : 1 
+          }}
           className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-amber-500 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg flex items-center gap-2"
         >
           <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
@@ -335,52 +337,12 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
         </div>
       )}
 
-      {passwordPrompt && (
-        <div className={cn("fixed inset-0 z-[150] flex items-center justify-center p-4", isV2 ? "bg-[#0A0A0B]/90 backdrop-blur-3xl" : "bg-stone-900/80 backdrop-blur-xl")}>
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className={cn("w-full max-w-sm rounded-[2.5rem] p-8 md:p-10 shadow-2xl space-y-6 border", isV2 ? "bg-[#0A0A0B] border-white/10" : "bg-white dark:bg-stone-900 border-transparent")}
-          >
-            <div className="text-center space-y-2">
-              <h3 className={cn("text-xl font-black", isV2 ? "text-white" : "dark:text-stone-100")}>{t('writing_enter_password')}</h3>
-              <p className={cn("text-xs", isV2 ? "text-white/50" : "text-stone-500")}>{t('writing_decrypt_desc')}</p>
-            </div>
-            
-            <div className="space-y-4">
-              <input 
-                type="password"
-                value={promptPassword}
-                onChange={(e) => setPromptPassword(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handlePromptSubmit()}
-                placeholder="••••••••"
-                className={cn(
-                  "w-full p-4 rounded-2xl border transition-all outline-none text-center font-mono",
-                  isV2 
-                    ? "bg-white/5 border-white/10 text-white focus:bg-white/10 focus:border-white/20" 
-                    : "bg-stone-50 dark:bg-stone-800/50 border-stone-100 dark:border-stone-800 focus:border-stone-900 dark:focus:border-stone-100"
-                )}
-                autoFocus
-              />
-              
-              <div className="flex gap-3">
-                <button 
-                  onClick={handlePromptCancel}
-                  className={cn("flex-1 px-4 py-3 rounded-xl font-bold transition-all border", isV2 ? "border-white/10 text-white hover:bg-white/5" : "border-stone-200 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-800")}
-                >
-                  {t('writing_cancel')}
-                </button>
-                <button 
-                  onClick={handlePromptSubmit}
-                  className={cn("flex-1 px-4 py-3 rounded-xl font-bold transition-all", isV2 ? "bg-white text-black" : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900")}
-                >
-                  {t('writing_decrypt')}
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      )}
+      <PasswordPromptModal 
+        isOpen={!!passwordPrompt}
+        isV2={isV2}
+        onConfirm={handlePromptSubmit}
+        onCancel={handlePromptCancel}
+      />
 
       {isV2 && showSettings ? (
         <SettingsV2 
@@ -403,40 +365,15 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
         />
       ) : null}
 
-      {showCancelConfirm && (
-        <div className={cn("fixed inset-0 z-[60] flex items-center justify-center p-4", isV2 ? "bg-[#0A0A0B]/80 backdrop-blur-2xl" : "bg-stone-900/60 backdrop-blur-md")}>
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className={cn("w-full max-w-sm rounded-3xl p-8 shadow-2xl space-y-6 text-center border", isV2 ? "bg-[#0A0A0B]/90 backdrop-blur-2xl border-white/10 shadow-[0_0_40px_rgba(255,255,255,0.05)]" : "bg-white dark:bg-stone-900 border-transparent")}
-          >
-            <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mx-auto", isV2 ? "bg-red-500/10 text-red-500" : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400")}>
-              <X size={32} />
-            </div>
-            <div className="space-y-2">
-              <h3 className={cn("text-xl font-bold", isV2 ? "text-white" : "dark:text-stone-100")}>{t('writing_cancel_confirm')}</h3>
-              <p className={cn("text-sm", isV2 ? "text-white/50" : "text-stone-500 dark:text-stone-400")}>{t('writing_cancel_desc')}</p>
-            </div>
-            <div className="flex gap-3">
-              <button 
-                onClick={() => setShowCancelConfirm(false)}
-                className={cn("flex-1 px-4 py-3 rounded-xl font-bold transition-all border", isV2 ? "border-white/10 text-white hover:bg-white/5" : "border-stone-200 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-800")}
-              >
-                {t('writing_back')}
-              </button>
-              <button 
-                onClick={() => {
-                  handleCancel();
-                  setShowCancelConfirm(false);
-                }}
-                className={cn("flex-1 px-4 py-3 rounded-xl font-bold transition-all", isV2 ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-red-600 text-white hover:bg-red-700")}
-              >
-                {t('finish_discard')}
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+      <CancelConfirmModal 
+        isOpen={showCancelConfirm}
+        isV2={isV2}
+        onConfirm={() => {
+          handleCancel();
+          setShowCancelConfirm(false);
+        }}
+        onCancel={() => setShowCancelConfirm(false)}
+      />
 
       <WritingFinishModal 
         status={sessionStatus}

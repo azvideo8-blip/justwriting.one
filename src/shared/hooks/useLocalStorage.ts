@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import { z } from 'zod';
 
 /**
  * A hook that manages a value in localStorage and synchronizes it across tabs.
  */
-export function useLocalStorage<T>(key: string, initialValue: T) {
+export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodType<T>) {
   // Get from local storage then
   // parse stored json or return initialValue
   const readValue = useCallback((): T => {
@@ -14,12 +15,25 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
 
     try {
       const item = window.localStorage.getItem(key);
-      return item ? (JSON.parse(item) as T) : initialValue;
+      if (!item) return initialValue;
+
+      const parsed = JSON.parse(item);
+
+      if (schema) {
+        const result = schema.safeParse(parsed);
+        if (!result.success) {
+          console.warn(`Storage schema mismatch for key “${key}”:`, result.error);
+          return initialValue;
+        }
+        return result.data;
+      }
+
+      return parsed as T;
     } catch (error) {
       console.warn(`Error reading localStorage key “${key}”:`, error);
       return initialValue;
     }
-  }, [initialValue, key]);
+  }, [initialValue, key, schema]);
 
   // State to store our value
   // Pass initial state function to useState so logic is only executed once

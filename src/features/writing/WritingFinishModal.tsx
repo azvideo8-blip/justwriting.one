@@ -154,7 +154,7 @@ export function WritingFinishModal({
             placeholder="Добавить свой тег..."
             className={cn(
               "w-full px-4 py-2 rounded-xl border outline-none transition-all",
-              isV2 ? "bg-white/5 border-white/10 text-white placeholder-white/30 focus:border-white/30 focus:bg-white/10" : "border-stone-200 dark:border-stone-800 bg-transparent focus:border-stone-400 dark:focus:border-stone-600"
+              isV2 ? "bg-white/5 border-white/10 text-white placeholder-white/60 focus:border-white/30 focus:bg-white/10" : "border-stone-200 dark:border-stone-800 bg-transparent focus:border-stone-400 dark:focus:border-stone-600"
             )}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
