@@ -5,6 +5,8 @@ The application uses a role-based access control (RBAC) system defined in Firest
 - `user`: Standard user, can manage their own sessions and profile.
 - `admin`: Elevated privileges, can view all sessions and manage users.
 
+**Admin Assignment:** Admin roles are strictly assigned manually via the Firebase Console. The client cannot mutate the `role` field.
+
 Roles are stored in the `users` collection within the `role` field. The `AuthService` acts as the single source of truth for role-checking logic on the client side, while Firestore rules and Cloud Functions enforce these roles on the backend.
 
 ## Data Isolation Assumptions

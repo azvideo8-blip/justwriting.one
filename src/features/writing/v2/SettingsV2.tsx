@@ -4,12 +4,12 @@ import { X, Type, Moon, Eye } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 import { useSettingsV2 } from '../../settings/hooks/useSettingsV2';
-import { useUI } from '../../../contexts/UIContext';
+import { useWritingSettings } from '../contexts/WritingSettingsContext';
 
 export function SettingsV2({ onClose }: { onClose: () => void }) {
   const { t } = useLanguage();
   const settings = useSettingsV2();
-  const { streamMode, toggleStreamMode } = useUI();
+  const { streamMode, toggleStreamMode } = useWritingSettings();
 
   const visibilityLabels: Record<string, string> = {
     currentTime: t('writing_time'),

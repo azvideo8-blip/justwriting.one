@@ -4,6 +4,7 @@ import { Pause, Square, Play, X, X as XIcon, Pin, PinOff, Lock, Check } from 'lu
 import { cn } from '../../core/utils/utils';
 import { useLanguage } from '../../core/i18n';
 import { useUI } from '../../contexts/UIContext';
+import { useWritingSettings } from './contexts/WritingSettingsContext';
 
 interface WritingEditorProps {
   status: 'idle' | 'writing' | 'paused' | 'finished';
@@ -53,7 +54,8 @@ export function WritingEditor({
   // setHighlights
 }: WritingEditorProps) {
   const { t } = useLanguage();
-  const { uiVersion, streamMode: streamModeContext, isZenActive, zenModeEnabled } = useUI();
+  const { uiVersion } = useUI();
+  const { streamMode: streamModeContext, isZenActive, zenModeEnabled } = useWritingSettings();
   const isV2 = uiVersion === '2.0';
   const showZen = isZenActive && zenModeEnabled;
   const [showPinnedInput, setShowPinnedInput] = React.useState(false);
@@ -211,7 +213,7 @@ export function WritingEditor({
                       : "bg-white/5 text-white/50 border-white/10 hover:border-white/30 hover:text-white"
                   ) : (
                     (pinnedThoughts.length > 0 || showPinnedInput || hasSelection)
-                      ? "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border-stone-900 dark:border-stone-100" 
+                      ? "bg-white dark:bg-stone-100 text-stone-900 dark:text-stone-900 border-stone-200 dark:border-stone-800" 
                       : "bg-white dark:bg-stone-900 text-stone-400 border-stone-200 dark:border-stone-800 hover:border-stone-400"
                   )
                 )}
@@ -243,7 +245,7 @@ export function WritingEditor({
                           rows={1}
                           className={cn(
                             "w-full px-6 py-3 border-2 border-dashed rounded-2xl outline-none text-sm italic font-serif resize-none transition-all",
-                            isV2 ? "bg-white/5 border-white/10 text-white/70 focus:border-white/30 placeholder:text-white/30" : "bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 focus:border-stone-400 dark:focus:border-stone-600"
+                            isV2 ? "bg-white/5 border-white/10 text-white/70 focus:border-white/30 placeholder:text-white/30" : "bg-white dark:bg-stone-950/30 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 focus:border-stone-400 dark:focus:border-stone-600"
                           )}
                         />
                         <button 

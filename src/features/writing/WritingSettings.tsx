@@ -4,6 +4,7 @@ import { X, Type, Maximize2, Moon, Palette, Pin, Eye, Zap } from 'lucide-react';
 import { cn } from '../../core/utils/utils';
 import { useLanguage } from '../../core/i18n';
 import { useUI } from '../../contexts/UIContext';
+import { useWritingSettings } from './contexts/WritingSettingsContext';
 
 interface WritingSettingsProps {
   showSettings: boolean;
@@ -41,7 +42,8 @@ export function WritingSettings({
   setHeaderVisibility
 }: WritingSettingsProps) {
   const { t } = useLanguage();
-  const { uiVersion, streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled } = useUI();
+  const { uiVersion } = useUI();
+  const { streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled } = useWritingSettings();
   const isV2 = uiVersion === '2.0';
 
   if (!showSettings) return null;

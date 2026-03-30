@@ -75,16 +75,14 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       
       // Allow creation of a profile. 
-      // A new user can only set their role to 'user'. 
-      // Only an existing admin can create a profile with the 'admin' role.
+      // The role field MUST NOT be present in the client's write payload.
       allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
-                      (!('role' in request.resource.data) || request.resource.data.role == 'user' || isAdmin());
+                      !('role' in request.resource.data);
       
       // Allow updates to a profile.
-      // A user cannot change their own role unless they are already an admin.
-      // Only an existing admin can change a user's role to 'admin'.
+      // The role field MUST NOT be modified by the client.
       allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
-                      (request.resource.data.role == resource.data.role || isAdmin());
+                      !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
     }
 
     // Connection test

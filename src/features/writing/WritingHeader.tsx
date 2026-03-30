@@ -4,6 +4,7 @@ import { cn } from '../../core/utils/utils';
 import { CountdownTimer } from './CountdownTimer';
 import { useLanguage } from '../../core/i18n';
 import { useUI } from '../../contexts/UIContext';
+import { useWritingSettings } from './contexts/WritingSettingsContext';
 
 interface WritingHeaderProps {
   status: 'idle' | 'writing' | 'paused' | 'finished';
@@ -68,7 +69,8 @@ export function WritingHeader({
 }: WritingHeaderProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const { t } = useLanguage();
-  const { uiVersion, isZenActive, zenModeEnabled } = useUI();
+  const { uiVersion } = useUI();
+  const { isZenActive, zenModeEnabled } = useWritingSettings();
   const isV2 = uiVersion === '2.0';
   const showZen = isZenActive && zenModeEnabled;
 
@@ -193,7 +195,7 @@ export function WritingHeader({
                 onClick={handleNewSession}
                 className={cn(
                   "p-2.5 rounded-xl shadow-sm hover:scale-105 transition-all",
-                  isV2 ? "bg-white/10 text-white hover:bg-white/20" : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900"
+                  isV2 ? "bg-white/10 text-white hover:bg-white/20" : "bg-white dark:bg-stone-100 text-stone-900 dark:text-stone-900 border border-stone-200 dark:border-stone-800"
                 )}
                 title={streamMode ? t('header_begin_release') : t('header_new_session')}
               >
@@ -247,7 +249,7 @@ export function WritingHeader({
                   onClick={handleStart}
                   className={cn(
                     "p-2.5 rounded-xl border transition-all",
-                    isV2 ? "bg-white/5 border-white/10 text-white hover:bg-white/10" : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:scale-105"
+                    isV2 ? "bg-white/5 border-white/10 text-white hover:bg-white/10" : "bg-white dark:bg-stone-100 text-stone-900 dark:text-stone-900 hover:scale-105 border-stone-200 dark:border-stone-800"
                   )}
                   title={t('header_continue_btn')}
                 >
@@ -258,7 +260,7 @@ export function WritingHeader({
                 onClick={handleFinish}
                 className={cn(
                   "p-2.5 rounded-xl transition-all hover:scale-105",
-                  isV2 ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)]" : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-xl"
+                  isV2 ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)]" : "bg-white dark:bg-stone-100 text-stone-900 dark:text-stone-900 shadow-xl border border-stone-200 dark:border-stone-800"
                 )}
                 title={t('header_finish')}
               >
