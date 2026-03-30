@@ -58,6 +58,7 @@ export function MobileMenu({ isOpen, onClose, view, setView, isAdmin }: MobileMe
                   "p-2 transition-colors",
                   isV2 ? "text-white/50 hover:text-white" : "text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
                 )}
+                aria-label={t('common_close')}
               >
                 <X size={24} strokeWidth={2.5} />
               </button>
@@ -110,6 +111,7 @@ export function MobileMenu({ isOpen, onClose, view, setView, isAdmin }: MobileMe
                     ? "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white border-white/5 hover:border-white/10" 
                     : "bg-stone-50 dark:bg-stone-800/50 text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 border-transparent hover:border-stone-200 dark:hover:border-stone-700"
                 )}
+                aria-label={language === 'ru' ? 'Switch to English' : 'Переключить на русский'}
               >
                 <div className="flex items-center gap-3">
                   <Languages size={20} />
@@ -124,6 +126,7 @@ export function MobileMenu({ isOpen, onClose, view, setView, isAdmin }: MobileMe
                   "w-full flex items-center gap-4 p-5 transition-all font-black text-sm uppercase tracking-widest group",
                   isV2 ? "text-white/50 hover:text-red-400" : "text-stone-500 hover:text-red-500"
                 )}
+                aria-label={t('nav_logout')}
               >
                 <div className={cn(
                   "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",

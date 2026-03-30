@@ -75,6 +75,15 @@
     @apply bg-stone-50 text-stone-900 antialiased transition-colors duration-300;
   }
 
+  /* Visible focus states for keyboard navigation */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-emerald-500;
+  }
+
+  .theme-v2 :focus-visible {
+    @apply outline-white;
+  }
+
   .dark body {
     @apply bg-stone-950 text-stone-100;
   }

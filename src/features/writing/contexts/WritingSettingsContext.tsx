@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { z } from 'zod';
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 
 interface WritingSettingsContextType {
@@ -14,8 +15,16 @@ interface WritingSettingsContextType {
 const WritingSettingsContext = createContext<WritingSettingsContextType | undefined>(undefined);
 
 export function WritingSettingsProvider({ children }: { children: React.ReactNode }) {
-  const [streamMode, setStreamMode] = useLocalStorage<boolean>('streamMode', false);
-  const [zenModeEnabled, setZenModeEnabled] = useLocalStorage<boolean>('v2_zenModeEnabled', true);
+  const [streamMode, setStreamMode] = useLocalStorage<boolean>(
+    'streamMode', 
+    false,
+    z.boolean()
+  );
+  const [zenModeEnabled, setZenModeEnabled] = useLocalStorage<boolean>(
+    'v2_zenModeEnabled', 
+    true,
+    z.boolean()
+  );
   const [status, setStatus] = useState<'idle' | 'writing' | 'paused' | 'finished'>('idle');
   const [isZenActive, setIsZenActive] = useState<boolean>(false);
   const zenTimerRef = useRef<any>(null);

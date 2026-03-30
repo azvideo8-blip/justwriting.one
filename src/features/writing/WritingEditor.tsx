@@ -199,7 +199,7 @@ export const WritingEditor = React.memo(function WritingEditor({
                 placeholder={t('editor_title_placeholder')}
                 className={cn(
                   "w-full px-6 py-4 rounded-2xl border shadow-sm focus:shadow-xl outline-none text-xl font-black transition-all",
-                  isV2 ? "bg-white/5 border-white/10 text-white placeholder:text-white/30" : "border-stone-200 dark:border-stone-800 dark:text-stone-100",
+                  isV2 ? "bg-white/5 border-white/10 text-white placeholder:text-white/60" : "border-stone-200 dark:border-stone-800 dark:text-stone-100",
                   /* dynamicBgEnabled && status === 'writing' && !isV2 ? "bg-[var(--dynamic-bg)]/50 dark:bg-[var(--dynamic-bg-dark)]/50 backdrop-blur-md" : */ (!isV2 && "bg-white dark:bg-stone-900")
                 )}
               />
@@ -245,7 +245,7 @@ export const WritingEditor = React.memo(function WritingEditor({
                           rows={1}
                           className={cn(
                             "w-full px-6 py-3 border-2 border-dashed rounded-2xl outline-none text-sm italic font-serif resize-none transition-all",
-                            isV2 ? "bg-white/5 border-white/10 text-white/70 focus:border-white/30 placeholder:text-white/30" : "bg-white dark:bg-stone-950/30 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 focus:border-stone-400 dark:focus:border-stone-600"
+                            isV2 ? "bg-white/5 border-white/10 text-white/70 focus:border-white/30 placeholder:text-white/60" : "bg-white dark:bg-stone-950/30 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 focus:border-stone-400 dark:focus:border-stone-600"
                           )}
                         />
                         <button 
@@ -271,7 +271,7 @@ export const WritingEditor = React.memo(function WritingEditor({
                         rows={1}
                         className={cn(
                           "w-full px-6 py-3 border-2 border-dashed rounded-2xl outline-none text-sm italic font-serif resize-none transition-all",
-                          isV2 ? "bg-white/5 border-white/10 text-white/70 focus:border-white/30 placeholder:text-white/30" : "bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 focus:border-stone-400 dark:focus:border-stone-600"
+                          isV2 ? "bg-white/5 border-white/10 text-white/70 focus:border-white/30 placeholder:text-white/40" : "bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 focus:border-stone-400 dark:focus:border-stone-600"
                         )}
                       />
                     )}
@@ -314,7 +314,7 @@ export const WritingEditor = React.memo(function WritingEditor({
           }}
           className={cn(
             "w-full min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-[2.5rem] border shadow-xl focus:shadow-2xl transition-all outline-none resize-none",
-            isV2 ? "leading-[1.8] bg-transparent border-none shadow-none text-white/90 placeholder:text-white/20" : "leading-relaxed border-stone-200 dark:border-stone-800 focus:border-stone-300 dark:focus:border-stone-700 dark:text-stone-100",
+            isV2 ? "leading-[1.8] bg-transparent border-none shadow-none text-white/90 placeholder:text-white/40" : "leading-relaxed border-stone-200 dark:border-stone-800 focus:border-stone-300 dark:focus:border-stone-700 dark:text-stone-100",
             /* !dynamicBgEnabled && !isV2 ? "bg-white dark:bg-stone-900" : "bg-transparent", */
             (status === 'idle' || status === 'paused') && "opacity-50 cursor-not-allowed",
             /* dynamicBgEnabled && !isV2 && "dark:!bg-[var(--dynamic-bg-dark)]" */

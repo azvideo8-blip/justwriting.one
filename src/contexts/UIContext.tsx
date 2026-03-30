@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect } from 'react';
+import { z } from 'zod';
 import { useLocalStorage } from '../shared/hooks/useLocalStorage';
 
 type UIVersion = '1.0' | '2.0';
@@ -11,7 +12,11 @@ interface UIContextType {
 const UIContext = createContext<UIContextType | undefined>(undefined);
 
 export function UIProvider({ children }: { children: React.ReactNode }) {
-  const [uiVersion, setUIVersion] = useLocalStorage<UIVersion>('uiVersion', '1.0');
+  const [uiVersion, setUIVersion] = useLocalStorage<UIVersion>(
+    'uiVersion', 
+    '1.0',
+    z.enum(['1.0', '2.0'])
+  );
 
   useEffect(() => {
     if (uiVersion === '2.0') {
