@@ -1,4 +1,4 @@
-import { doc, updateDoc, deleteDoc, setDoc, onSnapshot, query, where, collection, orderBy, limit, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, setDoc, onSnapshot, query, where, collection, orderBy, limit, getDocs, startAfter, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { Session } from '../../../types';
@@ -52,25 +52,73 @@ export const SessionService = {
     }
   },
 
-  async getAllSessions(userId: string) {
+  async getAllSessions(userId: string, limitCount: number = 20, lastDoc?: QueryDocumentSnapshot<DocumentData>) {
     try {
-      const q = query(collection(db, 'sessions'), where('userId', '==', userId), orderBy('createdAt', 'desc'));
+      let q = query(
+        collection(db, 'sessions'), 
+        where('userId', '==', userId), 
+        orderBy('createdAt', 'desc'), 
+        limit(limitCount)
+      );
+      
+      if (lastDoc) {
+        q = query(q, startAfter(lastDoc));
+      }
+
       const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() } as Session));
+      const sessions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Session));
+      return {
+        sessions,
+        lastDoc: snap.docs[snap.docs.length - 1] || null
+      };
     } catch (err) {
       handleFirestoreError(err, OperationType.LIST, 'sessions');
-      return [];
+      return { sessions: [], lastDoc: null };
     }
   },
 
-  async getAllSessionsAdmin(limitCount: number = 50) {
+  async getPublicSessions(limitCount: number = 20, lastDoc?: QueryDocumentSnapshot<DocumentData>) {
     try {
-      const q = query(collection(db, 'sessions'), orderBy('createdAt', 'desc'), limit(limitCount));
+      let q = query(
+        collection(db, 'sessions'), 
+        where('isPublic', '==', true), 
+        orderBy('createdAt', 'desc'), 
+        limit(limitCount)
+      );
+      
+      if (lastDoc) {
+        q = query(q, startAfter(lastDoc));
+      }
+
       const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() } as Session));
+      const sessions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Session));
+      return {
+        sessions,
+        lastDoc: snap.docs[snap.docs.length - 1] || null
+      };
     } catch (err) {
       handleFirestoreError(err, OperationType.LIST, 'sessions');
-      return [];
+      return { sessions: [], lastDoc: null };
+    }
+  },
+
+  async getAllSessionsAdmin(limitCount: number = 50, lastDoc?: QueryDocumentSnapshot<DocumentData>) {
+    try {
+      let q = query(collection(db, 'sessions'), orderBy('createdAt', 'desc'), limit(limitCount));
+      
+      if (lastDoc) {
+        q = query(q, startAfter(lastDoc));
+      }
+
+      const snap = await getDocs(q);
+      const sessions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Session));
+      return {
+        sessions,
+        lastDoc: snap.docs[snap.docs.length - 1] || null
+      };
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, 'sessions');
+      return { sessions: [], lastDoc: null };
     }
   },
 };

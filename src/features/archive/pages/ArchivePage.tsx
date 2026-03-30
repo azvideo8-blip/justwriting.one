@@ -27,6 +27,44 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
   const { uiVersion } = useUI();
   const isV2 = uiVersion === '2.0';
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [lastDoc, setLastDoc] = useState<any>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchSessions = async (isInitial = false) => {
+    if (isInitial) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+    setError(null);
+
+    try {
+      const result = await SessionService.getAllSessions(user.uid, 20, isInitial ? undefined : lastDoc);
+      
+      if (isInitial) {
+        setSessions(result.sessions);
+      } else {
+        setSessions(prev => [...prev, ...result.sessions]);
+      }
+      
+      setLastDoc(result.lastDoc);
+      setHasMore(result.sessions.length === 20);
+    } catch (err) {
+      console.error('Archive load error:', err);
+      setError(t('archive_load_error'));
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSessions(true);
+  }, [user.uid]);
+
   const { 
     selectedDate, setSelectedDate, 
     selectedMonth, setSelectedMonth, 
@@ -42,38 +80,6 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
   useEffect(() => {
     localStorage.setItem('archive_viewMode', viewMode);
   }, [viewMode]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    
-    const unsubscribe = SessionService.subscribeToSessions(
-      user.uid,
-      (docs) => {
-        docs.sort((a, b) => {
-          const dateA = parseFirestoreDate(a.createdAt).getTime();
-          const dateB = parseFirestoreDate(b.createdAt).getTime();
-          return dateB - dateA;
-        });
-        setSessions(docs);
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Archive load error:', err);
-        setError(t('archive_load_error'));
-        setLoading(false);
-        try {
-          handleFirestoreError(err, OperationType.LIST, 'sessions');
-        } catch (e) {
-          // Error already logged to console by handleFirestoreError
-        }
-      }
-    );
-
-    return unsubscribe;
-  }, [user.uid, t]);
 
   const allTags = useMemo(() => Array.from(new Set(sessions.flatMap(s => s.tags || []))), [sessions]);
   
@@ -115,6 +121,7 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
                     : (isV2 ? "text-white/50 hover:text-white" : "text-stone-400")
                 )}
                 title={t('archive_list')}
+                aria-label={t('archive_list')}
               >
                 <LayoutList size={18} />
               </button>
@@ -127,6 +134,7 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
                     : (isV2 ? "text-white/50 hover:text-white" : "text-stone-400")
                 )}
                 title={t('archive_grid')}
+                aria-label={t('archive_grid')}
               >
                 <LayoutGrid size={18} />
               </button>
@@ -135,14 +143,14 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
             
             <div className="space-y-6">
               {loading ? (
-                <div className={cn("italic text-center py-12", isV2 ? "text-white/50" : "text-stone-400")}>{t('archive_loading')}</div>
+                <div className={cn("italic text-center py-12", isV2 ? "text-white/70" : "text-stone-400")}>{t('archive_loading')}</div>
               ) : error ? (
                 <div className={cn("p-12 text-center rounded-3xl border", isV2 ? "bg-red-500/10 border-red-500/30" : "bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30")}>
                   <p className={cn(isV2 ? "text-red-400" : "text-red-600 dark:text-red-400")}>{error}</p>
                 </div>
               ) : sortedDates.length === 0 ? (
                 <div className={cn("p-12 text-center rounded-3xl border-2 border-dashed", isV2 ? "bg-white/5 border-white/10" : "bg-stone-50 dark:bg-stone-900/50 border-stone-200 dark:border-stone-800")}>
-                  <p className={cn(isV2 ? "text-white/50" : "text-stone-400")}>{t('archive_empty')}</p>
+                  <p className={cn(isV2 ? "text-white/70" : "text-stone-400")}>{t('archive_empty')}</p>
                 </div>
               ) : (
                 sortedDates.map(dateKey => (
@@ -164,6 +172,23 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
                     </div>
                   </div>
                 ))
+              )}
+
+              {hasMore && !loading && !error && (
+                <div className="flex justify-center pt-8">
+                  <button
+                    onClick={() => fetchSessions(false)}
+                    disabled={loadingMore}
+                    className={cn(
+                      "px-8 py-3 rounded-2xl font-bold transition-all disabled:opacity-50",
+                      isV2 
+                        ? "bg-white/10 text-white hover:bg-white/20 border border-white/10" 
+                        : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-lg"
+                    )}
+                  >
+                    {loadingMore ? t('archive_loading_more') : t('archive_load_more')}
+                  </button>
+                </div>
               )}
             </div>
           </div>

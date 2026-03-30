@@ -15,6 +15,9 @@ import { Session, UserProfile } from '../../../types';
 export function AdminPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [lastSessionDoc, setLastSessionDoc] = useState<any>(null);
+  const [hasMoreSessions, setHasMoreSessions] = useState(true);
+  const [loadingMoreSessions, setLoadingMoreSessions] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'users' | 'sessions' | 'security'>('users');
   const [isAdmin, setIsAdmin] = useState(false);
@@ -22,20 +25,32 @@ export function AdminPage() {
   const { uiVersion } = useUI();
   const isV2 = uiVersion === '2.0';
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (isInitial = true) => {
+    if (isInitial) {
+      setLoading(true);
+    } else {
+      setLoadingMoreSessions(true);
+    }
+    
     try {
       if (activeTab === 'users') {
         const usersData = await AdminUserService.getUsers(50);
         setUsers(usersData);
       } else if (activeTab === 'sessions') {
-        const sessionsData = await AdminSessionService.getAllSessionsAdmin(50);
-        setSessions(sessionsData);
+        const result = await AdminSessionService.getAllSessionsAdmin(20, isInitial ? undefined : lastSessionDoc);
+        if (isInitial) {
+          setSessions(result.sessions);
+        } else {
+          setSessions(prev => [...prev, ...result.sessions]);
+        }
+        setLastSessionDoc(result.lastDoc);
+        setHasMoreSessions(result.sessions.length === 20);
       }
     } catch (err) {
       console.error("Admin fetch error:", err);
     } finally {
       setLoading(false);
+      setLoadingMoreSessions(false);
     }
   };
 
@@ -132,7 +147,25 @@ export function AdminPage() {
           )}
 
           {activeTab === 'sessions' && (
-            <AdminSessionsTable sessions={sessions} onDelete={handleDeleteSession} />
+            <>
+              <AdminSessionsTable sessions={sessions} onDelete={handleDeleteSession} />
+              {hasMoreSessions && (
+                <div className="p-6 flex justify-center border-t border-stone-200 dark:border-stone-800">
+                  <button
+                    onClick={() => fetchData(false)}
+                    disabled={loadingMoreSessions}
+                    className={cn(
+                      "px-8 py-2 rounded-xl font-bold transition-all disabled:opacity-50",
+                      isV2 
+                        ? "bg-white/10 text-white hover:bg-white/20 border border-white/10" 
+                        : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-lg"
+                    )}
+                  >
+                    {loadingMoreSessions ? t('archive_loading_more') : t('archive_load_more')}
+                  </button>
+                </div>
+              )}
+            </>
           )}
 
           {activeTab === 'security' && (

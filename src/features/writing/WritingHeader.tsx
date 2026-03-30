@@ -198,6 +198,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                   isV2 ? "bg-white/10 text-white hover:bg-white/20" : "bg-white dark:bg-stone-100 text-stone-900 dark:text-stone-900 border border-stone-200 dark:border-stone-800"
                 )}
                 title={streamMode ? t('header_begin_release') : t('header_new_session')}
+                aria-label={streamMode ? t('header_begin_release') : t('header_new_session')}
               >
                 {streamMode ? t('header_begin_release') : <Plus size={18} />}
               </button>
@@ -211,6 +212,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                     : "bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 hover:bg-stone-50 dark:hover:bg-stone-800"
                 )}
                 title={t('header_continue')}
+                aria-label={t('header_continue')}
               >
                 <Clock size={18} />
               </button>
@@ -222,6 +224,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                     isV2 ? "bg-white/5 text-white hover:bg-white/10" : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700"
                   )}
                   title={t('header_draft')}
+                  aria-label={t('header_draft')}
                 >
                   <History size={18} />
                 </button>
@@ -240,6 +243,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                       : "bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800"
                   )}
                   title={t('header_pause')}
+                  aria-label={t('header_pause')}
                 >
                   <Pause size={18} fill="currentColor" />
                 </button>
@@ -252,6 +256,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                     isV2 ? "bg-white/5 border-white/10 text-white hover:bg-white/10" : "bg-white dark:bg-stone-100 text-stone-900 dark:text-stone-900 hover:scale-105 border-stone-200 dark:border-stone-800"
                   )}
                   title={t('header_continue_btn')}
+                  aria-label={t('header_continue_btn')}
                 >
                   <Play size={18} fill="currentColor" />
                 </button>
@@ -263,6 +268,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                   isV2 ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.2)]" : "bg-white dark:bg-stone-100 text-stone-900 dark:text-stone-900 shadow-xl border border-stone-200 dark:border-stone-800"
                 )}
                 title={t('header_finish')}
+                aria-label={t('header_finish')}
               >
                 <Square size={18} fill="currentColor" />
               </button>
@@ -273,6 +279,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                   isV2 ? "text-white/50 hover:text-red-400 hover:bg-white/5" : "text-stone-400 hover:text-red-500"
                 )}
                 title={t('header_cancel_session')}
+                aria-label={t('header_cancel_session')}
               >
                 <X size={18} />
               </button>
@@ -287,6 +294,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                 : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700"
             )}
             title={t('header_settings')}
+            aria-label={t('header_settings')}
           >
             <Settings size={18} />
           </button>
