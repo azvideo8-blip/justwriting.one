@@ -30,7 +30,7 @@ export interface UserProfile {
   uid: string;
   email: string;
   nickname: string;
-  role: string;
+  role?: string;
   isAnonymousDefault?: boolean;
   labels?: Label[];
 }

@@ -58,8 +58,7 @@ export function AppRouter() {
             const initialProfile: UserProfile = { 
               uid: u.uid,
               email: u.email || '',
-              nickname: u.email?.split('@')[0] || 'User',
-              role: 'user'
+              nickname: u.email?.split('@')[0] || 'User'
             };
             setDoc(userDoc, initialProfile).catch(err => {
               console.error('Error creating user profile:', err);
@@ -119,10 +118,10 @@ export function AppRouter() {
             <Menu size={24} />
           </button>
           <div className={cn(
-            "w-8 h-8 rounded-lg flex items-center justify-center text-xl",
-            isV2 ? "bg-white text-black font-black shadow-[0_0_15px_rgba(255,255,255,0.2)]" : "font-bold bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900"
+            "w-8 h-8 rounded-lg flex items-center justify-center text-xl font-bold bg-white text-stone-900 border border-stone-200 shadow-sm",
+            isV2 && "font-black shadow-[0_0_15px_rgba(255,255,255,0.2)]"
           )}>J</div>
-          <span className={cn("font-bold text-xl tracking-tight hidden sm:inline", isV2 && "text-white")}>justwriting.one</span>
+          <span className={cn("font-bold text-xl tracking-tight hidden sm:inline text-stone-900 dark:text-white")}>justwriting.one</span>
         </div>
         
         <DesktopNav view={view} setView={setView} isAdmin={isAdmin} user={user} />

@@ -1,4 +1,4 @@
-import { onCall } from "firebase-functions/v2/https";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { GoogleGenAI } from "@google/genai";
 import * as logger from "firebase-functions/logger";
 
@@ -6,24 +6,27 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
 export const editWithAI = onCall(async (request) => {
   if (!request.auth) {
-    throw new Error("unauthenticated");
+    throw new HttpsError("unauthenticated", "User must be authenticated to use AI features.");
+  }
+
+  if (!request.data || typeof request.data !== 'object') {
+    throw new HttpsError("invalid-argument", "Missing or invalid payload.");
   }
 
   const { content, action } = request.data;
   
-  if (typeof content !== 'string' || content.length > 50000) {
-    throw new Error("invalid-argument");
+  if (typeof content !== 'string' || content.length === 0 || content.length > 50000) {
+    throw new HttpsError("invalid-argument", "Content exceeds limit or is invalid");
   }
 
-  const allowedActions = ['shorten', 'accents', 'ideas'];
+  const allowedActions = ['extract_insights', 'emotional_mirror'];
   if (!allowedActions.includes(action)) {
-    throw new Error("invalid-argument");
+    throw new HttpsError("invalid-argument", "Action must be one of the allowed predefined strings.");
   }
   
   const prompts = {
-    shorten: "Shorten this text while keeping the main message. Return only the shortened text.",
-    accents: "Add accents and stylistic improvements to this text to make it more engaging. Return only the improved text.",
-    ideas: "Based on this text, suggest 3 ideas for continuing or expanding it. Return only the ideas as a bulleted list."
+    extract_insights: "Analyze this text and extract the 3 most important insights or themes. Return them as a bulleted list.",
+    emotional_mirror: "Analyze the emotional tone of this text. Reflect back the primary emotions and the underlying mood in a short, empathetic paragraph."
   };
 
   try {
@@ -34,6 +37,6 @@ export const editWithAI = onCall(async (request) => {
     return { text: response.text };
   } catch (error) {
     logger.error("AI Error:", error);
-    throw new Error("internal");
+    throw new HttpsError("internal", "The AI service is currently unavailable.");
   }
 });
