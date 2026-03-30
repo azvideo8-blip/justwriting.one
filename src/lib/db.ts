@@ -4,6 +4,7 @@ import { db } from '../core/firebase/firestore';
 
 const DB_NAME = 'flowwriter-db';
 const STORE_NAME = 'drafts';
+const PENDING_SESSIONS_STORE = 'pending_sessions';
 
 export interface Draft {
   userId: string;
@@ -17,14 +18,24 @@ export interface Draft {
   updatedAt: number;
 }
 
+export interface PendingSession {
+  id?: number;
+  sessionId: string | null;
+  data: any;
+  userId: string;
+}
+
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
 function getDB() {
   if (!dbPromise) {
-    dbPromise = openDB(DB_NAME, 1, {
+    dbPromise = openDB(DB_NAME, 2, {
       upgrade(db) {
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME, { keyPath: 'userId' });
+        }
+        if (!db.objectStoreNames.contains(PENDING_SESSIONS_STORE)) {
+          db.createObjectStore(PENDING_SESSIONS_STORE, { keyPath: 'id', autoIncrement: true });
         }
       },
     });
@@ -59,4 +70,19 @@ export async function getDraft(userId: string): Promise<Draft | undefined> {
 export async function deleteDraft(userId: string) {
   const db = await getDB();
   return db.delete(STORE_NAME, userId);
+}
+
+export async function savePendingSession(session: PendingSession) {
+  const db = await getDB();
+  return db.add(PENDING_SESSIONS_STORE, session);
+}
+
+export async function getAllPendingSessions(): Promise<PendingSession[]> {
+  const db = await getDB();
+  return db.getAll(PENDING_SESSIONS_STORE);
+}
+
+export async function deletePendingSession(id: number) {
+  const db = await getDB();
+  return db.delete(PENDING_SESSIONS_STORE, id);
 }

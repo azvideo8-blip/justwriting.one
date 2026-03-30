@@ -4,8 +4,10 @@ import { Trash2 } from 'lucide-react';
 import { parseFirestoreDate, cn } from '../../../core/utils/utils';
 import { useUI } from '../../../contexts/UIContext';
 
+import { Session } from '../../../types';
+
 interface AdminSessionsTableProps {
-  sessions: any[];
+  sessions: Session[];
   onDelete: (id: string) => void;
 }
 

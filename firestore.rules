@@ -42,8 +42,9 @@ service cloud.firestore {
     // Dynamic admin check: only checks the 'role' field in the user's document.
     // Also includes a default admin check based on the user's email.
     function isAdmin() {
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return isAuthenticated() && userDoc.data != null && userDoc.data.role == 'admin';
+      return isAuthenticated() &&
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+          (request.auth.token.email == "freudcries@gmail.com" && request.auth.token.email_verified == true)); // Default admin
     }
 
     function isValidEmail(email) {
@@ -52,9 +53,9 @@ service cloud.firestore {
 
     function isValidUser(data) {
       return data.keys().hasAll(['uid', 'email']) &&
-             data.uid is string && data.uid.size() > 0 && data.uid.size() <= 128 &&
-             isValidEmail(data.email) && data.email.size() <= 256 &&
-             (!('nickname' in data) || (data.nickname is string && data.nickname.size() <= 50)) &&
+             data.uid is string && data.uid.size() > 0 &&
+             data.email is string && data.email.size() > 0 &&
+             (!('nickname' in data) || (data.nickname is string && data.nickname.size() <= 100)) &&
              (!('role' in data) || (data.role in ['user', 'admin']));
     }
 
@@ -65,8 +66,17 @@ service cloud.firestore {
              data.duration is number && data.duration >= 0 &&
              data.createdAt is timestamp &&
              (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
-             (!('pinnedThought' in data) || (data.pinnedThought is string && data.pinnedThought.size() <= 2000)) &&
+             (!('pinnedThoughts' in data) || (data.pinnedThoughts is list && data.pinnedThoughts.size() <= 20)) &&
              (!('tags' in data) || (data.tags is list && data.tags.size() <= 10));
+    }
+
+    function isValidDraft(data) {
+      return data.keys().hasAll(['userId', 'content', 'updatedAt']) &&
+             data.userId == request.auth.uid &&
+             data.content is string && data.content.size() <= 100000 &&
+             data.updatedAt is number &&
+             (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
+             (!('pinnedThoughts' in data) || (data.pinnedThoughts is list && data.pinnedThoughts.size() <= 20));
     }
 
     // User profiles
@@ -75,9 +85,7 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       
       // Allow creation of a profile. 
-      // The role field MUST NOT be present in the client's write payload.
-      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
-                      !('role' in request.resource.data);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
       
       // Allow updates to a profile.
       // The role field MUST NOT be modified by the client.
@@ -97,6 +105,12 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isValidSession(request.resource.data);
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && isValidSession(request.resource.data);
       allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Drafts
+    match /drafts/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId) && isValidDraft(request.resource.data);
     }
   }
 }

@@ -25,7 +25,10 @@
         "duration": { "type": "number", "description": "Duration in seconds" },
         "wordCount": { "type": "number" },
         "wpm": { "type": "number" },
-        "pinnedThought": { "type": "string" },
+        "pinnedThoughts": { 
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "isPublic": { "type": "boolean" },
         "createdAt": { "type": "string", "format": "date-time" },
         "aiEdits": {
@@ -38,6 +41,26 @@
         }
       },
       "required": ["userId", "content", "duration", "createdAt"]
+    },
+    "Draft": {
+      "title": "Draft",
+      "description": "An autosaved draft",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "seconds": { "type": "number" },
+        "wpm": { "type": "number" },
+        "wordCount": { "type": "number" },
+        "activeSessionId": { "type": "string" },
+        "pinnedThoughts": { 
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["userId", "content", "updatedAt"]
     }
   },
   "firestore": {
@@ -48,6 +71,10 @@
     "sessions/{sessionId}": {
       "schema": "Session",
       "description": "Writing sessions"
+    },
+    "drafts/{userId}": {
+      "schema": "Draft",
+      "description": "Autosaved drafts"
     }
   }
 }

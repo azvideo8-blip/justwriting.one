@@ -1,9 +1,10 @@
-export function parseAiResponse(response: any): string {
+export function parseAiResponse(response: unknown): string {
   if (!response || typeof response !== 'object') {
     throw new Error('Invalid AI response format');
   }
 
-  const text = response.text;
+  const res = response as { text?: string };
+  const text = res.text;
   
   if (typeof text !== 'string') {
     throw new Error('AI response missing text field');

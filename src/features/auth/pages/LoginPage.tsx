@@ -20,12 +20,13 @@ export function LoginPage() {
     setError(null);
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (err: any) {
-      if (err.code === 'auth/cancelled-popup-request' || err.code === 'auth/popup-closed-by-user') {
+    } catch (err: unknown) {
+      const firebaseError = err as { code?: string; message?: string };
+      if (firebaseError.code === 'auth/cancelled-popup-request' || firebaseError.code === 'auth/popup-closed-by-user') {
         return;
       }
       console.error("Login error:", err);
-      setError(err.message || "Произошла ошибка при входе. Пожалуйста, попробуйте еще раз.");
+      setError(firebaseError.message || "Произошла ошибка при входе. Пожалуйста, попробуйте еще раз.");
     } finally {
       setLoading(false);
     }
@@ -45,18 +46,19 @@ export function LoginPage() {
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Email auth error:", err);
-      let msg = err.message;
-      if (err.code === 'auth/user-not-found') msg = "Пользователь не найден.";
-      if (err.code === 'auth/wrong-password') msg = "Неверный пароль.";
-      if (err.code === 'auth/email-already-in-use') msg = "Этот email уже используется.";
-      if (err.code === 'auth/weak-password') msg = "Пароль слишком простой.";
-      if (err.code === 'auth/invalid-credential') msg = "Неверный email или пароль.";
-      if (err.code === 'auth/operation-not-allowed') {
+      const firebaseError = err as { code?: string; message?: string };
+      let msg = firebaseError.message || "An error occurred";
+      if (firebaseError.code === 'auth/user-not-found') msg = "Пользователь не найден.";
+      if (firebaseError.code === 'auth/wrong-password') msg = "Неверный пароль.";
+      if (firebaseError.code === 'auth/email-already-in-use') msg = "Этот email уже используется.";
+      if (firebaseError.code === 'auth/weak-password') msg = "Пароль слишком простой.";
+      if (firebaseError.code === 'auth/invalid-credential') msg = "Неверный email или пароль.";
+      if (firebaseError.code === 'auth/operation-not-allowed') {
         msg = "Вход по Email не включен в консоли Firebase. Пожалуйста, включите провайдера 'Email/Password' в настройках Authentication.";
       }
-      if (err.code === 'auth/network-request-failed') {
+      if (firebaseError.code === 'auth/network-request-failed') {
         msg = "Ошибка сети при попытке входа. Проверьте соединение или убедитесь, что провайдер Email включен в консоли Firebase.";
       }
       setError(msg);

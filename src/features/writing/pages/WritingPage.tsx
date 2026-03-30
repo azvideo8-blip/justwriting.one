@@ -3,10 +3,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { SessionService } from '../services/SessionService';
-import { Session } from '../../../types';
+import { Session, UserProfile } from '../../../types';
 import { cn } from '../../../core/utils/utils';
 import { useUI } from '../../../contexts/UIContext';
-import { WritingSettingsProvider, useWritingSettings } from '../contexts/WritingSettingsContext';
+import { useWritingSettings } from '../contexts/WritingSettingsContext';
 
 // Components
 import { WritingHeader } from '../WritingHeader';
@@ -22,7 +22,7 @@ import { useLanguage } from '../../../core/i18n';
 
 interface WritingViewProps {
   user: User;
-  profile: any;
+  profile: UserProfile | null;
   sessionToContinue?: Session | null;
   onSessionContinued?: () => void;
 }
@@ -55,13 +55,19 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
     saveStatus, lastSavedAt,
     // highlights, setHighlights,
     handleStart, handleSave, handleCancel, resetSession,
+    resetSessionMetadata,
     isOnline,
     fetchLocalSessions,
-    loadLocalSession
+    loadLocalSession,
+    encryptionPassword, setEncryptionPassword,
+    decryptSession
   } = useWritingSession(user, profile);
 
   const [setupMode, setSetupMode] = useState<SetupMode>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [passwordPrompt, setPasswordPrompt] = useState<{ session: Session, resolve: (p: string) => void, reject: () => void } | null>(null);
+  const [promptPassword, setPromptPassword] = useState('');
+  const [promptError, setPromptError] = useState(false);
   const totalDurationForDeadline = useRef<number | null>(null);
 
   useEffect(() => {
@@ -135,7 +141,7 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   }, [sessionToContinue]);
 
   const handleNewSession = () => {
-    resetSession();
+    resetSessionMetadata();
     setSetupMode('selection');
   };
 
@@ -167,9 +173,23 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
 
   const continueSession = async (session: Session) => {
     console.log('continueSession called', session);
+    let sessionToLoad = session;
+
     if ((session as any).isLocal) {
-        const loaded = loadLocalSession(session.id);
+        let loaded = loadLocalSession(session.id);
         if (!loaded) return;
+
+        if (loaded.isEncrypted) {
+          try {
+            const password = await new Promise<string>((resolve, reject) => {
+              setPasswordPrompt({ session, resolve, reject });
+            });
+            loaded = await decryptSession(loaded, password);
+          } catch (e) {
+            console.error('Decryption failed or cancelled');
+            return;
+          }
+        }
         
         setActiveSessionId(null);
         setContent(loaded.content);
@@ -253,6 +273,24 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   //   } as React.CSSProperties;
   // };
 
+  const handlePromptSubmit = () => {
+    if (passwordPrompt) {
+      passwordPrompt.resolve(promptPassword);
+      setPasswordPrompt(null);
+      setPromptPassword('');
+      setPromptError(false);
+    }
+  };
+
+  const handlePromptCancel = () => {
+    if (passwordPrompt) {
+      passwordPrompt.reject();
+      setPasswordPrompt(null);
+      setPromptPassword('');
+      setPromptError(false);
+    }
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -277,7 +315,11 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
 
       {/* Progress Bar */}
       {status === 'writing' && (sessionType === 'words' || sessionType === 'timer' || sessionType === 'finish-by') && (
-        <div className={cn("fixed top-0 left-0 w-full h-1 z-[100]", isV2 ? "bg-white/5" : "bg-stone-100 dark:bg-stone-800")}>
+        <div className={cn(
+          "fixed top-0 left-0 w-full h-1 z-[100] transition-all duration-1000", 
+          isV2 ? "bg-white/5" : "bg-stone-100 dark:bg-stone-800",
+          isZenActive && zenModeEnabled ? "opacity-0 -translate-y-1" : "opacity-100 translate-y-0"
+        )}>
           <motion.div 
             initial={{ width: 0 }}
             animate={{ 
@@ -290,6 +332,53 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
               (wordGoalReached || timeGoalReached) ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : (isV2 ? "bg-white/50" : "bg-stone-900 dark:bg-stone-100")
             )}
           />
+        </div>
+      )}
+
+      {passwordPrompt && (
+        <div className={cn("fixed inset-0 z-[150] flex items-center justify-center p-4", isV2 ? "bg-[#0A0A0B]/90 backdrop-blur-3xl" : "bg-stone-900/80 backdrop-blur-xl")}>
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className={cn("w-full max-w-sm rounded-[2.5rem] p-8 md:p-10 shadow-2xl space-y-6 border", isV2 ? "bg-[#0A0A0B] border-white/10" : "bg-white dark:bg-stone-900 border-transparent")}
+          >
+            <div className="text-center space-y-2">
+              <h3 className={cn("text-xl font-black", isV2 ? "text-white" : "dark:text-stone-100")}>{t('writing_enter_password')}</h3>
+              <p className={cn("text-xs", isV2 ? "text-white/50" : "text-stone-500")}>{t('writing_decrypt_desc')}</p>
+            </div>
+            
+            <div className="space-y-4">
+              <input 
+                type="password"
+                value={promptPassword}
+                onChange={(e) => setPromptPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handlePromptSubmit()}
+                placeholder="••••••••"
+                className={cn(
+                  "w-full p-4 rounded-2xl border transition-all outline-none text-center font-mono",
+                  isV2 
+                    ? "bg-white/5 border-white/10 text-white focus:bg-white/10 focus:border-white/20" 
+                    : "bg-stone-50 dark:bg-stone-800/50 border-stone-100 dark:border-stone-800 focus:border-stone-900 dark:focus:border-stone-100"
+                )}
+                autoFocus
+              />
+              
+              <div className="flex gap-3">
+                <button 
+                  onClick={handlePromptCancel}
+                  className={cn("flex-1 px-4 py-3 rounded-xl font-bold transition-all border", isV2 ? "border-white/10 text-white hover:bg-white/5" : "border-stone-200 dark:border-stone-800 hover:bg-stone-50 dark:hover:bg-stone-800")}
+                >
+                  {t('writing_cancel')}
+                </button>
+                <button 
+                  onClick={handlePromptSubmit}
+                  className={cn("flex-1 px-4 py-3 rounded-xl font-bold transition-all", isV2 ? "bg-white text-black" : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900")}
+                >
+                  {t('writing_decrypt')}
+                </button>
+              </div>
+            </div>
+          </motion.div>
         </div>
       )}
 
@@ -417,6 +506,8 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
               formatTime={formatTime}
               isLocalOnly={isLocalOnly}
               setIsLocalOnly={setIsLocalOnly}
+              encryptionPassword={encryptionPassword}
+              setEncryptionPassword={setEncryptionPassword}
             />
           )}
         </AnimatePresence>
@@ -452,8 +543,6 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
 
 export function WritingPage(props: WritingViewProps) {
   return (
-    <WritingSettingsProvider>
-      <WritingPageContent {...props} />
-    </WritingSettingsProvider>
+    <WritingPageContent {...props} />
   );
 }

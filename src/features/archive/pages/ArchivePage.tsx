@@ -4,7 +4,7 @@ import { User } from 'firebase/auth';
 import { format, isSameDay } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { History, Search, LayoutGrid, LayoutList } from 'lucide-react';
-import { Session } from '../../../types';
+import { Session, UserProfile } from '../../../types';
 import { SessionCard } from '../../writing/components/SessionCard';
 import { Calendar } from '../../calendar/components/Calendar';
 import { parseFirestoreDate, cn } from '../../../core/utils/utils';
@@ -18,7 +18,7 @@ import { useUI } from '../../../contexts/UIContext';
 
 interface ArchiveViewProps {
   user: User;
-  profile: any;
+  profile: UserProfile | null;
   onContinueSession: (session: Session) => void;
 }
 
