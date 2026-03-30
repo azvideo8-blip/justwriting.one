@@ -1,6 +1,6 @@
 import { openDB, IDBPDatabase } from 'idb';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '../core/firebase';
+import { db } from '../core/firebase/firestore';
 
 const DB_NAME = 'flowwriter-db';
 const STORE_NAME = 'drafts';
