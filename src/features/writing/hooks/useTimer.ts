@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 export type TimerStatus = 'idle' | 'writing' | 'paused' | 'finished';
 
@@ -47,13 +47,13 @@ export function useTimer(
     return () => clearInterval(interval);
   }, [status, sessionType, timerDuration, targetTime]);
 
-  const resetTimer = () => {
+  const resetTimer = useCallback(() => {
     setSeconds(0);
     setStatus('idle');
     setTimeGoalReached(false);
     startTimeRef.current = null;
     pausedTimeRef.current = 0;
-  };
+  }, []);
 
   return { seconds, status, setStatus, timeGoalReached, setTimeGoalReached, resetTimer };
 }

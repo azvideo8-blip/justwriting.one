@@ -1,24 +1,20 @@
 import React, { useState } from 'react';
 import { User } from 'firebase/auth';
-import { ProfileService } from '../services/ProfileService';
-import { Label } from '../../../types';
+import { UserProfile } from '../../../types';
 import { Plus, X } from 'lucide-react';
 import { useUI } from '../../../contexts/UIContext';
 import { cn } from '../../../core/utils/utils';
+import { useProfileLabels } from '../hooks/useProfileLabels';
 
-export function ProfileLabels({ user, profile }: { user: User, profile: any }) {
+export function ProfileLabels({ user, profile }: { user: User, profile: UserProfile | null }) {
   const { uiVersion } = useUI();
   const isV2 = uiVersion === '2.0';
-  const labels: Label[] = profile?.labels || [];
+  const { labels, addLabel, removeLabel } = useProfileLabels(user.uid, profile?.labels || []);
   const [newLabel, setNewLabel] = useState({ name: '', color: '#000000' });
 
-  const updateLabels = async (newLabels: Label[]) => {
-    await ProfileService.updateLabels(user.uid, newLabels);
-  };
-
-  const addLabel = () => {
+  const handleAddLabel = () => {
     if (newLabel.name) {
-      updateLabels([...labels, { ...newLabel, id: Date.now().toString() }]);
+      addLabel(newLabel);
       setNewLabel({ name: '', color: '#000000' });
     }
   };
@@ -35,7 +31,7 @@ export function ProfileLabels({ user, profile }: { user: User, profile: any }) {
         {labels.map(label => (
           <div key={label.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-white" style={{ backgroundColor: label.color }}>
             {label.name}
-            <button onClick={() => updateLabels(labels.filter(l => l.id !== label.id))} className="hover:opacity-70 transition-opacity"><X size={14} /></button>
+            <button onClick={() => removeLabel(label.id)} className="hover:opacity-70 transition-opacity"><X size={14} /></button>
           </div>
         ))}
       </div>
@@ -62,7 +58,7 @@ export function ProfileLabels({ user, profile }: { user: User, profile: any }) {
           )} 
         />
         <button 
-          onClick={addLabel} 
+          onClick={handleAddLabel} 
           className={cn(
             "p-2 rounded-lg transition-colors flex items-center justify-center",
             isV2 

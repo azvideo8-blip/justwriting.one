@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
+import { useLocalStorage } from '../shared/hooks/useLocalStorage';
 
 type UIVersion = '1.0' | '2.0';
 
@@ -10,12 +11,9 @@ interface UIContextType {
 const UIContext = createContext<UIContextType | undefined>(undefined);
 
 export function UIProvider({ children }: { children: React.ReactNode }) {
-  const [uiVersion, setUIVersion] = useState<UIVersion>(() => {
-    return (localStorage.getItem('uiVersion') as UIVersion) || '1.0';
-  });
+  const [uiVersion, setUIVersion] = useLocalStorage<UIVersion>('uiVersion', '1.0');
 
   useEffect(() => {
-    localStorage.setItem('uiVersion', uiVersion);
     if (uiVersion === '2.0') {
       document.documentElement.classList.add('theme-v2');
     } else {

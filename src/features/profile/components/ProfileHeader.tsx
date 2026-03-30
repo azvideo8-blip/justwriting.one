@@ -5,10 +5,11 @@ import { ProfileService } from '../../../features/profile/services/ProfileServic
 import { useLanguage } from '../../../core/i18n';
 import { useUI } from '../../../contexts/UIContext';
 import { cn } from '../../../core/utils/utils';
+import { UserProfile } from '../../../types';
 
 interface ProfileHeaderProps {
   user: User;
-  profile: any;
+  profile: UserProfile | null;
   currentStreak: number;
   totalWords: number;
 }

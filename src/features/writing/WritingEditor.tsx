@@ -29,7 +29,7 @@ interface WritingEditorProps {
   streamMode?: boolean;
 }
 
-export function WritingEditor({
+export const WritingEditor = React.memo(function WritingEditor({
   status,
   title,
   setTitle,
@@ -187,7 +187,7 @@ export function WritingEditor({
       <div className={cn(
         "flex flex-col gap-4 transition-all duration-1000 z-30 py-2",
         stickyHeaderEnabled ? "sticky top-[128px] md:top-[120px]" : "relative",
-        showZen && pinnedThoughts.length === 0 ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
+        showZen ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
       )}>
         {status !== 'idle' && (
           <div className="flex-1 flex flex-col gap-2">
@@ -301,7 +301,8 @@ export function WritingEditor({
           disabled={status === 'idle' || status === 'paused'}
           placeholder={status === 'idle' ? t('editor_idle_placeholder') : t('editor_writing_placeholder')}
           style={{ 
-            fontSize: `${isV2 ? fontSize * 1.5 : fontSize}px`,
+            fontSize: '25px',
+            lineHeight: '30px',
             fontFamily: fontFamily === 'Inter' ? 'Inter, sans-serif' : 
                         fontFamily === 'Playfair Display' ? '"Playfair Display", serif' :
                         fontFamily === 'JetBrains Mono' ? '"JetBrains Mono", monospace' :
@@ -322,4 +323,4 @@ export function WritingEditor({
       </div>
     </div>
   );
-}
+});

@@ -1,4 +1,12 @@
-import { initializeFirestore, doc, getDocFromServer, disableNetwork, enableNetwork } from 'firebase/firestore';
+import { 
+  initializeFirestore, 
+  doc, 
+  getDocFromServer, 
+  disableNetwork, 
+  enableNetwork,
+  persistentLocalCache,
+  persistentMultipleTabManager
+} from 'firebase/firestore';
 import firebaseConfig from '../../../firebase-applet-config.json';
 import { app } from './client';
 
@@ -9,7 +17,10 @@ export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
   host: 'firestore.googleapis.com',
   ssl: true,
-}, firebaseConfig.firestoreDatabaseId);
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+}, (firebaseConfig as any).firestoreDatabaseId);
 
 // Connection status tracking
 export let isFirestoreConnected = true;

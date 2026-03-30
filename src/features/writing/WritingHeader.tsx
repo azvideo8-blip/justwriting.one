@@ -41,7 +41,7 @@ interface WritingHeaderProps {
   streamMode?: boolean;
 }
 
-export function WritingHeader({
+export const WritingHeader = React.memo(function WritingHeader({
   status,
   sessionType,
   timeGoalReached,
@@ -294,4 +294,4 @@ export function WritingHeader({
       </div>
     </div>
   );
-}
+});
