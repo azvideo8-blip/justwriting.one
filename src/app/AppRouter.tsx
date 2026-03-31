@@ -8,8 +8,10 @@ import { onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { useLanguage } from '../core/i18n';
 import { useUI } from '../contexts/UIContext';
 import { cn } from '../core/utils/utils';
+import { NAV_CONFIG } from '../shared/lib/layoutRegistry';
 
 // Components
+import { AppLayout } from '../shared/components/Layout/AppLayout';
 import { DesktopNav } from '../features/navigation/components/DesktopNav';
 import { MobileMenu } from '../features/navigation/components/MobileMenu';
 
@@ -29,6 +31,7 @@ export function AppRouter() {
   const isV2 = uiVersion === '2.0';
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [creationAttempted, setCreationAttempted] = useState(false);
   const [view, setView] = useState<'write' | 'profile' | 'archive' | 'feed' | 'admin'>('write');
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -52,47 +55,50 @@ export function AppRouter() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
-      if (u) {
-        const userDoc = doc(db, 'users', u.uid);
-        onSnapshot(userDoc, (snap) => {
-          if (snap.exists()) {
-            setProfile(snap.data() as UserProfile);
-          } else {
-            const initialProfile: UserProfile = { 
-              uid: u.uid,
-              email: u.email || '',
-              nickname: u.displayName || u.email?.split('@')[0] || 'User',
-              role: 'user'
-            };
-            
-            console.log('Creating initial user profile:', JSON.stringify(initialProfile));
-            
-            setDoc(userDoc, initialProfile).then(() => {
-              console.log('User profile created successfully');
-            }).catch(err => {
-              console.error('Error creating user profile:', err);
-              // Try to handle the error with more context
-              if (err.code === 'permission-denied') {
-                console.error('Permission denied. Check firestore.rules and the profile data structure.');
-              }
-            });
-            setProfile(initialProfile);
-          }
-          setLoading(false);
-        }, (err) => {
-          console.error('Firestore snapshot error:', err);
-          if (err.code === 'permission-denied') {
-             console.error('Permission denied for user document:', u.uid);
-          }
-          setLoading(false);
-        });
-      } else {
-        setProfile(null);
-        setLoading(false);
-      }
+      setLoading(false);
     });
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setProfile(null);
+      return;
+    }
+
+    const userDoc = doc(db, 'users', user.uid);
+    const unsubscribe = onSnapshot(userDoc, (snap) => {
+      if (snap.exists()) {
+        setProfile(snap.data() as UserProfile);
+      } else {
+        if (creationAttempted) return;
+        setCreationAttempted(true);
+        const initialProfile: UserProfile = { 
+          uid: user.uid,
+          email: user.email || '',
+          nickname: user.displayName || user.email?.split('@')[0] || 'User',
+          role: 'user'
+        };
+        
+        console.log('Creating initial user profile:', JSON.stringify(initialProfile));
+        
+        setDoc(userDoc, initialProfile).catch(err => {
+          console.error('Error creating user profile:', err);
+          if (err.code === 'permission-denied') {
+            console.error('Permission denied. Check firestore.rules and the profile data structure.');
+          }
+        });
+        setProfile(initialProfile);
+      }
+    }, (err) => {
+      console.error('Firestore snapshot error:', err);
+      if (err.code === 'permission-denied') {
+        console.error('Permission denied for user document:', user.uid);
+      }
+    });
+
+    return unsubscribe;
+  }, [user, creationAttempted]);
 
   if (loading) return (
     <div className="h-screen w-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950">
@@ -109,7 +115,7 @@ export function AppRouter() {
   if (!user) return <LoginPage />;
 
   return (
-    <div className={cn(
+    <AppLayout className={cn(
       "min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 font-sans selection:bg-stone-200 dark:selection:bg-stone-800",
       isV2 && "theme-v2"
     )}>
@@ -130,7 +136,7 @@ export function AppRouter() {
         <div className="flex items-center gap-2">
           <button 
             onClick={() => setMobileMenuOpen(true)}
-            className="p-2 -ml-2 text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 md:hidden"
+            className={cn("p-2 -ml-2 text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100", NAV_CONFIG.MOBILE_BREAKPOINT_CLASS)}
           >
             <Menu size={24} />
           </button>
@@ -138,13 +144,15 @@ export function AppRouter() {
             "w-8 h-8 rounded-lg flex items-center justify-center text-xl font-bold bg-white text-stone-900 border border-stone-200 shadow-sm",
             isV2 && "font-black shadow-[0_0_15px_rgba(255,255,255,0.2)]"
           )}>J</div>
-          <span className={cn("font-bold text-xl tracking-tight hidden sm:inline text-stone-900 dark:text-white")}>justwriting.one</span>
+          <span className={cn("font-bold text-xl tracking-tight hidden lg:inline text-stone-900 dark:text-white")}>justwriting.one</span>
         </div>
         
-        <DesktopNav view={view} setView={setView} isAdmin={isAdmin} user={user} />
+        <div className={NAV_CONFIG.DESKTOP_SHOW_CLASS}>
+          <DesktopNav view={view} setView={setView} isAdmin={isAdmin} user={user} />
+        </div>
 
         {/* Mobile Header Actions */}
-        <div className="flex md:hidden items-center gap-2">
+        <div className="flex lg:hidden items-center gap-2">
           <img src={user.photoURL || ''} className="w-8 h-8 rounded-full border border-stone-200 dark:border-stone-800" referrerPolicy="no-referrer" />
         </div>
       </nav>
@@ -158,7 +166,7 @@ export function AppRouter() {
       />
 
       {/* Main Content */}
-      <main className="pt-24 px-4 md:px-6 max-w-7xl mx-auto">
+      <main className="pt-24 w-full">
         <AnimatePresence mode="wait">
           {view === 'write' && (
             <WritingPage 
@@ -185,6 +193,6 @@ export function AppRouter() {
           {view === 'admin' && isAdmin && <AdminPage key="admin" />}
         </AnimatePresence>
       </main>
-    </div>
+    </AppLayout>
   );
 }

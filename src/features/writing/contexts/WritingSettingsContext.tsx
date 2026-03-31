@@ -7,6 +7,8 @@ interface WritingSettingsContextType {
   toggleStreamMode: () => void;
   zenModeEnabled: boolean;
   setZenModeEnabled: (enabled: boolean) => void;
+  textWidth: 'centered' | 'full';
+  setTextWidth: (width: 'centered' | 'full') => void;
   isZenActive: boolean;
   status: 'idle' | 'writing' | 'paused' | 'finished';
   setStatus: (status: 'idle' | 'writing' | 'paused' | 'finished') => void;
@@ -24,6 +26,11 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     'v2_zenModeEnabled', 
     true,
     z.boolean()
+  );
+  const [textWidth, setTextWidth] = useLocalStorage<'centered' | 'full'>(
+    'textWidth',
+    'centered',
+    z.enum(['centered', 'full'])
   );
   const [status, setStatus] = useState<'idle' | 'writing' | 'paused' | 'finished'>('idle');
   const [isZenActive, setIsZenActive] = useState<boolean>(false);
@@ -67,6 +74,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     <WritingSettingsContext.Provider value={{
       streamMode, toggleStreamMode,
       zenModeEnabled, setZenModeEnabled,
+      textWidth, setTextWidth,
       isZenActive,
       status, setStatus
     }}>

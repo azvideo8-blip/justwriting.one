@@ -9,7 +9,7 @@ import { useWritingSettings } from '../contexts/WritingSettingsContext';
 export function SettingsV2({ onClose }: { onClose: () => void }) {
   const { t } = useLanguage();
   const settings = useSettingsV2();
-  const { streamMode, toggleStreamMode } = useWritingSettings();
+  const { streamMode, toggleStreamMode, textWidth, setTextWidth } = useWritingSettings();
 
   const visibilityLabels: Record<string, string> = {
     currentTime: t('writing_time'),
@@ -70,7 +70,8 @@ export function SettingsV2({ onClose }: { onClose: () => void }) {
             </label>
             {[
               { label: t('settings_zen'), val: settings.zenMode, set: settings.setZenMode },
-              { label: "Stream Mode", val: streamMode, set: toggleStreamMode }
+              { label: "Stream Mode", val: streamMode, set: toggleStreamMode },
+              { label: "Text Width", val: textWidth === 'full', set: () => setTextWidth(textWidth === 'full' ? 'centered' : 'full') }
             ].map(item => (
               <div 
                 key={item.label}
