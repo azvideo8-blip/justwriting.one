@@ -53,8 +53,8 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
 
   const sessionStateData = React.useMemo(() => ({
     title, content, pinnedThoughts, isPublic, isAnonymous, tags,
-    sessionType, activeSessionId, encryptionPassword, initialDuration
-  }), [title, content, pinnedThoughts, isPublic, isAnonymous, tags, sessionType, activeSessionId, encryptionPassword, initialDuration]);
+    sessionType, activeSessionId, encryptionPassword, initialDuration, initialWordCount
+  }), [title, content, pinnedThoughts, isPublic, isAnonymous, tags, sessionType, activeSessionId, encryptionPassword, initialDuration, initialWordCount]);
 
   const timerStateData = React.useMemo(() => ({
     seconds, wpm, wordCount, status, timeGoalReached, wordGoalReached
@@ -90,8 +90,10 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
     setStatus('writing');
     setTimeGoalReached(false);
     setWordGoalReached(false);
-    setInitialWordCount(wordCount);
-  }, [setStatus, setTimeGoalReached, setWordGoalReached, setInitialWordCount, wordCount]);
+    if (initialWordCount === 0) {
+      setInitialWordCount(wordCount);
+    }
+  }, [setStatus, setTimeGoalReached, setWordGoalReached, setInitialWordCount, wordCount, initialWordCount]);
 
   return React.useMemo(() => ({
     status, setStatus,

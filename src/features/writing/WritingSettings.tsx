@@ -11,8 +11,6 @@ interface WritingSettingsProps {
   setShowSettings: (show: boolean) => void;
   fontFamily: string;
   setFontFamily: (font: string) => void;
-  textWidth: 'centered' | 'full';
-  setTextWidth: (width: 'centered' | 'full') => void;
   fontSize: number;
   setFontSize: (size: number) => void;
   stickyHeaderEnabled: boolean;
@@ -32,8 +30,6 @@ export function WritingSettings({
   setShowSettings, 
   fontFamily, 
   setFontFamily, 
-  textWidth, 
-  setTextWidth, 
   fontSize, 
   setFontSize,
   stickyHeaderEnabled,
@@ -43,7 +39,7 @@ export function WritingSettings({
 }: WritingSettingsProps) {
   const { t } = useLanguage();
   const { uiVersion } = useUI();
-  const { streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled } = useWritingSettings();
+  const { streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled, textWidth, setTextWidth } = useWritingSettings();
   const isV2 = uiVersion === '2.0';
 
   if (!showSettings) return null;

@@ -14,6 +14,8 @@ import { WritingEditor } from '../WritingEditor';
 import { WritingSettings } from '../WritingSettings';
 import { SettingsV2 } from '../v2/SettingsV2';
 import { WritingFinishModal } from '../WritingFinishModal';
+import { ProgressBar } from '../../../shared/components/Layout/ProgressBar';
+import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
 
 // Modals
 import { PasswordPromptModal } from '../components/modals/PasswordPromptModal';
@@ -33,7 +35,7 @@ interface WritingViewProps {
 function WritingPageContent({ user, profile, sessionToContinue, onSessionContinued }: WritingViewProps) {
   const { t } = useLanguage();
   const { uiVersion } = useUI();
-  const { streamMode, isZenActive, zenModeEnabled, status: uiStatus, setStatus: setUIStatus } = useWritingSettings();
+  const { streamMode, isZenActive, zenModeEnabled, status: uiStatus, setStatus: setUIStatus, textWidth } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
   const isV2 = uiVersion === '2.0';
   const {
@@ -95,7 +97,6 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   
   const [fontSize, setFontSize] = useState(() => Number(localStorage.getItem('writing_fontSize')) || 23);
   const [fontFamily, setFontFamily] = useState(() => localStorage.getItem('writing_fontFamily') || 'Inter');
-  const [textWidth, setTextWidth] = useState<'centered' | 'full'>(() => (localStorage.getItem('writing_textWidth') as any) || 'full');
   const [stickyHeaderEnabled, setStickyHeaderEnabled] = useState(() => {
     const saved = localStorage.getItem('writing_stickyHeaderEnabled');
     return saved === null ? true : saved === 'true';
@@ -122,10 +123,9 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   useEffect(() => {
     localStorage.setItem('writing_fontSize', fontSize.toString());
     localStorage.setItem('writing_fontFamily', fontFamily);
-    localStorage.setItem('writing_textWidth', textWidth);
     localStorage.setItem('writing_stickyHeaderEnabled', stickyHeaderEnabled.toString());
     localStorage.setItem('writing_headerVisibility', JSON.stringify(headerVisibility));
-  }, [fontSize, fontFamily, textWidth, stickyHeaderEnabled, headerVisibility]);
+  }, [fontSize, fontFamily, stickyHeaderEnabled, headerVisibility]);
 
   // Sync status with UIContext
   useEffect(() => {
@@ -316,26 +316,20 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
       )}
 
       {/* Progress Bar */}
-      {status === 'writing' && (sessionType === 'words' || sessionType === 'timer' || sessionType === 'finish-by') && (
-        <div className={cn(
-          "fixed top-0 left-0 w-full h-1 z-[100] transition-all duration-1000", 
-          isV2 ? "bg-white/5" : "bg-stone-100 dark:bg-stone-800",
-          isZenActive && zenModeEnabled ? "opacity-0 -translate-y-1" : "opacity-100 translate-y-0"
-        )}>
-          <motion.div 
-            initial={{ width: 0 }}
-            animate={{ 
-              width: sessionType === 'words' 
-                ? `${Math.min((wordCount / wordGoal) * 100, 100)}%`
-                : `${Math.min(((sessionType === 'timer' ? seconds / timerDuration : seconds / (totalDurationForDeadline.current || 1)) * 100), 100)}%`
-            }}
-            className={cn(
-              "h-full transition-colors duration-500",
-              (wordGoalReached || timeGoalReached) ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : (isV2 ? "bg-white/50" : "bg-stone-900 dark:bg-stone-100")
-            )}
-          />
-        </div>
-      )}
+      <ProgressBar 
+        status={sessionStatus}
+        sessionType={sessionType}
+        wordCount={wordCount}
+        wordGoal={wordGoal}
+        seconds={seconds}
+        timerDuration={timerDuration}
+        totalDurationForDeadline={totalDurationForDeadline.current}
+        wordGoalReached={wordGoalReached}
+        timeGoalReached={timeGoalReached}
+        isV2={isV2}
+        isZenActive={isZenActive}
+        zenModeEnabled={zenModeEnabled}
+      />
 
       <PasswordPromptModal 
         isOpen={!!passwordPrompt}
@@ -354,8 +348,6 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
           setShowSettings={setShowSettings}
           fontFamily={fontFamily}
           setFontFamily={setFontFamily}
-          textWidth={textWidth}
-          setTextWidth={setTextWidth}
           fontSize={fontSize}
           setFontSize={setFontSize}
           stickyHeaderEnabled={stickyHeaderEnabled}
@@ -397,83 +389,84 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
         isLocalOnly={isLocalOnly}
       />
 
-      <WritingHeader 
-        status={sessionStatus}
-        sessionType={sessionType}
-        timeGoalReached={timeGoalReached}
-        wordGoalReached={wordGoalReached}
-        seconds={seconds}
-        wordCount={wordCount}
-        initialWordCount={initialWordCount}
-        wordGoal={wordGoal}
-        targetTime={targetTime}
-        wpm={wpm}
-        formatTime={formatTime}
-        handleNewSession={handleNewSession}
-        fetchUserSessions={fetchAllSessions}
-        loadingSessions={loadingSessions}
-        hasDraft={hasDraft}
-        setStatus={setSessionStatus}
-        setShowSettings={setShowSettings}
-        handlePause={() => setSessionStatus('paused')}
-        handleStart={handleStart}
-        handleFinish={() => setSessionStatus('finished')}
-        setShowCancelConfirm={setShowCancelConfirm}
-        stickyHeaderEnabled={stickyHeaderEnabled}
-        headerVisibility={headerVisibility}
-        streamMode={streamMode}
-      />
-
-      <div className="relative min-h-[600px]">
-        <AnimatePresence>
-          {setupMode && (
-            <WritingSetup 
-              setupMode={setupMode}
-              setSetupMode={setSetupMode}
-              startCountdown={startCountdown}
-              timerDuration={timerDuration}
-              setTimerDuration={setTimerDuration}
-              wordGoal={wordGoal}
-              setWordGoal={setWordGoal}
-              targetTime={targetTime}
-              setTargetTime={setTargetTime}
-              countdown={countdown}
-              userSessions={userSessions}
-              continueSession={continueSession}
-              formatTime={formatTime}
-              isLocalOnly={isLocalOnly}
-              setIsLocalOnly={setIsLocalOnly}
-              encryptionPassword={encryptionPassword}
-              setEncryptionPassword={setEncryptionPassword}
-            />
-          )}
-        </AnimatePresence>
-
-        <WritingEditor 
+      <AdaptiveContainer size={textWidth === 'full' ? 'FULL' : 'CENTERED'}>
+        <WritingHeader 
           status={sessionStatus}
-          title={title}
-          setTitle={setTitle}
-          pinnedThoughts={pinnedThoughts}
-          setPinnedThoughts={setPinnedThoughts}
-          content={content}
-          setContent={setContent}
-          fontSize={fontSize}
-          fontFamily={fontFamily}
-          textWidth={textWidth}
+          sessionType={sessionType}
+          timeGoalReached={timeGoalReached}
+          wordGoalReached={wordGoalReached}
+          seconds={seconds}
+          wordCount={wordCount}
+          initialWordCount={initialWordCount}
+          wordGoal={wordGoal}
+          targetTime={targetTime}
+          wpm={wpm}
+          formatTime={formatTime}
+          handleNewSession={handleNewSession}
+          fetchUserSessions={fetchAllSessions}
+          loadingSessions={loadingSessions}
+          hasDraft={hasDraft}
+          setStatus={setSessionStatus}
+          setShowSettings={setShowSettings}
           handlePause={() => setSessionStatus('paused')}
           handleStart={handleStart}
           handleFinish={() => setSessionStatus('finished')}
           setShowCancelConfirm={setShowCancelConfirm}
-          // dynamicBgEnabled={dynamicBgEnabled}
-          wpm={wpm}
-          saveStatus={saveStatus}
-          lastSavedAt={lastSavedAt}
           stickyHeaderEnabled={stickyHeaderEnabled}
+          headerVisibility={headerVisibility}
           streamMode={streamMode}
-          // highlights={highlights}
-          // setHighlights={setHighlights}
         />
-      </div>
+
+        <div className="relative min-h-[600px]">
+          <AnimatePresence>
+            {setupMode && (
+              <WritingSetup 
+                setupMode={setupMode}
+                setSetupMode={setSetupMode}
+                startCountdown={startCountdown}
+                timerDuration={timerDuration}
+                setTimerDuration={setTimerDuration}
+                wordGoal={wordGoal}
+                setWordGoal={setWordGoal}
+                targetTime={targetTime}
+                setTargetTime={setTargetTime}
+                countdown={countdown}
+                userSessions={userSessions}
+                continueSession={continueSession}
+                formatTime={formatTime}
+                isLocalOnly={isLocalOnly}
+                setIsLocalOnly={setIsLocalOnly}
+                encryptionPassword={encryptionPassword}
+                setEncryptionPassword={setEncryptionPassword}
+              />
+            )}
+          </AnimatePresence>
+
+          <WritingEditor 
+            status={sessionStatus}
+            title={title}
+            setTitle={setTitle}
+            pinnedThoughts={pinnedThoughts}
+            setPinnedThoughts={setPinnedThoughts}
+            content={content}
+            setContent={setContent}
+            fontSize={fontSize}
+            fontFamily={fontFamily}
+            handlePause={() => setSessionStatus('paused')}
+            handleStart={handleStart}
+            handleFinish={() => setSessionStatus('finished')}
+            setShowCancelConfirm={setShowCancelConfirm}
+            // dynamicBgEnabled={dynamicBgEnabled}
+            wpm={wpm}
+            saveStatus={saveStatus}
+            lastSavedAt={lastSavedAt}
+            stickyHeaderEnabled={stickyHeaderEnabled}
+            streamMode={streamMode}
+            // highlights={highlights}
+            // setHighlights={setHighlights}
+          />
+        </div>
+      </AdaptiveContainer>
     </motion.div>
   );
 }

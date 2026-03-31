@@ -16,7 +16,6 @@ interface WritingEditorProps {
   setContent: (content: string) => void;
   fontSize: number;
   fontFamily: string;
-  textWidth: 'centered' | 'full';
   handlePause: () => void;
   handleStart: () => void;
   handleFinish: () => void;
@@ -39,7 +38,6 @@ export const WritingEditor = React.memo(function WritingEditor({
   setContent,
   fontSize,
   fontFamily,
-  textWidth,
   handlePause,
   handleStart,
   handleFinish,
@@ -166,8 +164,7 @@ export const WritingEditor = React.memo(function WritingEditor({
   return (
     <div 
       className={cn(
-        "mx-auto px-4 md:px-8 space-y-6 transition-all duration-1000 py-8",
-        textWidth === 'centered' ? "max-w-4xl" : "max-w-full",
+        "space-y-6 transition-all duration-1000 py-8",
         isV2 && "font-serif"
       )}
     >

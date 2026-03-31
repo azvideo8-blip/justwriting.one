@@ -11,6 +11,7 @@ export function useDraftAutosave(
     seconds: number;
     wpm: number;
     wordCount: number;
+    initialWordCount?: number;
     activeSessionId: string | null;
     status: 'idle' | 'writing' | 'paused' | 'finished';
   }
