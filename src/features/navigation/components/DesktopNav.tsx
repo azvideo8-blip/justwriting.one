@@ -20,7 +20,7 @@ export function DesktopNav({ view, setView, isAdmin, user }: DesktopNavProps) {
   const { uiVersion, toggleUIVersion } = useUI();
 
   return (
-    <div className="hidden md:flex items-center gap-6">
+    <div className="hidden lg:flex items-center gap-4 lg:gap-6">
       <button
         onClick={toggleUIVersion}
         className="px-2 py-1 rounded-md bg-stone-200 dark:bg-stone-800 text-xs font-bold"

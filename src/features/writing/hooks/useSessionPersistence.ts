@@ -21,6 +21,7 @@ export function useSessionPersistence(
     activeSessionId: string | null;
     encryptionPassword: string;
     initialDuration: number;
+    initialWordCount: number;
   },
   timerState: {
     seconds: number;
@@ -48,6 +49,7 @@ export function useSessionPersistence(
     seconds: timerState.seconds,
     wpm: timerState.wpm,
     wordCount: timerState.wordCount,
+    initialWordCount: sessionState.initialWordCount,
     activeSessionId: sessionState.activeSessionId,
     status: timerState.status
   });

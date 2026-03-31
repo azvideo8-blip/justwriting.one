@@ -13,6 +13,7 @@ export interface Draft {
   seconds: number;
   wpm: number;
   wordCount: number;
+  initialWordCount?: number;
   activeSessionId?: string | null;
   pinnedThoughts?: string[];
   updatedAt: number;
