@@ -7,6 +7,7 @@ import { calculateStreak, parseFirestoreDate, cn } from '../../../core/utils/uti
 import { Calendar } from '../../calendar/components/Calendar';
 import { SessionService } from '../../writing/services/SessionService';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
+import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
 import { ProfileHeader } from '../components/ProfileHeader';
 import { ProfileAchievements } from '../components/ProfileAchievements';
 import { ProfileActivity } from '../components/ProfileActivity';
@@ -99,48 +100,50 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   }
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-12 pb-10"
-    >
-      <div className="flex flex-col md:flex-row gap-8 items-start">
-        <div className="flex-1 space-y-8">
-          <ProfileHeader 
-            user={user} 
-            profile={profile} 
-            currentStreak={currentStreak} 
-            totalWords={totalWords} 
-          />
+    <AdaptiveContainer size="WIDE" className="pb-10">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-12"
+      >
+        <div className="flex flex-col md:flex-row gap-8 items-start">
+          <div className="flex-1 space-y-8">
+            <ProfileHeader 
+              user={user} 
+              profile={profile} 
+              currentStreak={currentStreak} 
+              totalWords={totalWords} 
+            />
 
-          <ProfileAchievements 
-            currentStreak={currentStreak}
-            totalWords={totalWords}
-            totalNotes={totalNotes}
-            maxSessionDuration={maxSessionDuration}
-          />
+            <ProfileAchievements 
+              currentStreak={currentStreak}
+              totalWords={totalWords}
+              totalNotes={totalNotes}
+              maxSessionDuration={maxSessionDuration}
+            />
 
-          <ProfileActivity 
-            sessions={sessions}
-            startDate={startDate}
-            endDate={endDate}
-            onStartDateChange={setStartDate}
-            onEndDateChange={setEndDate}
-          />
+            <ProfileActivity 
+              sessions={sessions}
+              startDate={startDate}
+              endDate={endDate}
+              onStartDateChange={setStartDate}
+              onEndDateChange={setEndDate}
+            />
+          </div>
+
+          {/* Sidebar */}
+          <div className="w-full md:w-80 shrink-0 space-y-8">
+            <Calendar sessions={sessions} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+            
+            <ProfileWordCloud 
+              sessions={sessions} 
+              onWordClick={setSelectedWord} 
+            />
+
+            <TagCloud tags={allTags} />
+          </div>
         </div>
-
-        {/* Sidebar */}
-        <div className="w-full md:w-80 shrink-0 space-y-8">
-          <Calendar sessions={sessions} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
-          
-          <ProfileWordCloud 
-            sessions={sessions} 
-            onWordClick={setSelectedWord} 
-          />
-
-          <TagCloud tags={allTags} />
-        </div>
-      </div>
-    </motion.div>
+      </motion.div>
+    </AdaptiveContainer>
   );
 }

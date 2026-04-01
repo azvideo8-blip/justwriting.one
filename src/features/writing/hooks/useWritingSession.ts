@@ -24,6 +24,7 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
     activeSessionId, setActiveSessionId,
     initialWordCount, setInitialWordCount,
     initialDuration, setInitialDuration,
+    sessionStartTime, setSessionStartTime,
     resetSessionState,
     resetSessionMetadata
   } = sessionState;
@@ -53,8 +54,8 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
 
   const sessionStateData = React.useMemo(() => ({
     title, content, pinnedThoughts, isPublic, isAnonymous, tags,
-    sessionType, activeSessionId, encryptionPassword, initialDuration, initialWordCount
-  }), [title, content, pinnedThoughts, isPublic, isAnonymous, tags, sessionType, activeSessionId, encryptionPassword, initialDuration, initialWordCount]);
+    sessionType, activeSessionId, encryptionPassword, initialDuration, initialWordCount, sessionStartTime
+  }), [title, content, pinnedThoughts, isPublic, isAnonymous, tags, sessionType, activeSessionId, encryptionPassword, initialDuration, initialWordCount, sessionStartTime]);
 
   const timerStateData = React.useMemo(() => ({
     seconds, wpm, wordCount, status, timeGoalReached, wordGoalReached
@@ -62,8 +63,8 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
 
   const persistenceActions = React.useMemo(() => ({
     setContent, setTitle, setPinnedThoughts, setActiveSessionId,
-    setHasDraft, resetSession, setStatus
-  }), [setContent, setTitle, setPinnedThoughts, setActiveSessionId, setHasDraft, resetSession, setStatus]);
+    setHasDraft, resetSession, setStatus, setInitialWordCount, setInitialDuration
+  }), [setContent, setTitle, setPinnedThoughts, setActiveSessionId, setHasDraft, resetSession, setStatus, setInitialWordCount, setInitialDuration]);
 
   const persistence = useSessionPersistence(
     user,
@@ -93,7 +94,10 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
     if (initialWordCount === 0) {
       setInitialWordCount(wordCount);
     }
-  }, [setStatus, setTimeGoalReached, setWordGoalReached, setInitialWordCount, wordCount, initialWordCount]);
+    if (!sessionStartTime) {
+      setSessionStartTime(Date.now());
+    }
+  }, [setStatus, setTimeGoalReached, setWordGoalReached, setInitialWordCount, wordCount, initialWordCount, sessionStartTime, setSessionStartTime]);
 
   return React.useMemo(() => ({
     status, setStatus,
@@ -114,6 +118,7 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
     hasDraft, setHasDraft,
     initialWordCount, setInitialWordCount,
     initialDuration, setInitialDuration,
+    sessionStartTime, setSessionStartTime,
     activeSessionId, setActiveSessionId,
     saveStatus, lastSavedAt,
     handleStart, handleSave, handleCancel, resetSession,
@@ -142,6 +147,7 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
     hasDraft, setHasDraft,
     initialWordCount, setInitialWordCount,
     initialDuration, setInitialDuration,
+    sessionStartTime, setSessionStartTime,
     activeSessionId, setActiveSessionId,
     saveStatus, lastSavedAt,
     handleStart, handleSave, handleCancel, resetSession,
