@@ -9,6 +9,7 @@ export function useSessionState() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [initialWordCount, setInitialWordCount] = useState(0);
   const [initialDuration, setInitialDuration] = useState(0);
+  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
   
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
@@ -25,6 +26,7 @@ export function useSessionState() {
   const resetSessionMetadata = useCallback(() => {
     setInitialWordCount(0);
     setInitialDuration(0);
+    setSessionStartTime(null);
     setActiveSessionId(null);
     setTags([]);
     setIsPublic(false);
@@ -49,6 +51,7 @@ export function useSessionState() {
     activeSessionId, setActiveSessionId,
     initialWordCount, setInitialWordCount,
     initialDuration, setInitialDuration,
+    sessionStartTime, setSessionStartTime,
     content, setContent,
     title, setTitle,
     pinnedThoughts, setPinnedThoughts,

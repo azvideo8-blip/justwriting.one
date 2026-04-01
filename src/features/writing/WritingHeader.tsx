@@ -115,7 +115,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                 isV2 ? "text-[9px] text-white/50" : "text-[9px] text-stone-400 dark:text-stone-500"
               )}>
                 {sessionType === 'finish-by' ? t('header_remaining_time') : t('header_session_time')} 
-                {sessionType === 'timer' && timeGoalReached && <CheckCircle2 size={10} className="text-emerald-500" />}
+                {sessionType === 'timer' && timeGoalReached && <CheckCircle2 size={16} className="text-emerald-500 animate-bounce" />}
               </span>
               <span className={cn(
                 "font-mono font-black transition-colors",
@@ -134,7 +134,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                 isV2 ? "text-[9px] text-white/50" : "text-[9px] text-stone-400 dark:text-stone-500"
               )}>
                 {t('header_session_words')} 
-                {sessionType === 'words' && wordGoalReached && <CheckCircle2 size={10} className="text-emerald-500" />}
+                {sessionType === 'words' && wordGoalReached && <CheckCircle2 size={16} className="text-emerald-500 animate-bounce" />}
               </span>
               <span className={cn(
                 "font-mono font-black transition-colors",

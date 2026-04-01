@@ -75,7 +75,7 @@ export function AdminPage() {
   const handleDeleteSession = async (id: string) => {
     if (!confirm(t('admin_confirm_delete_session'))) return;
     await AdminSessionService.deleteSession(id);
-    setSessions(sessions.filter(s => s.id !== id));
+    setSessions(prev => prev.filter(s => s.id !== id));
   };
 
   return (

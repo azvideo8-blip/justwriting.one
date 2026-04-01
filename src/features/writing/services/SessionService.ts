@@ -14,8 +14,11 @@ export const SessionService = {
 
   async deleteSession(sessionId: string) {
     try {
+      console.log('SessionService: Attempting to delete session', sessionId);
       await deleteDoc(doc(db, 'sessions', sessionId));
+      console.log('SessionService: Session deleted successfully', sessionId);
     } catch (err) {
+      console.error('SessionService: Error deleting session', sessionId, err);
       handleFirestoreError(err, OperationType.DELETE, `sessions/${sessionId}`);
     }
   },

@@ -80,6 +80,8 @@ export const translations: Translations = {
   session_anonymous: { ru: 'Аноним', en: 'Anonymous' },
   session_export: { ru: 'Экспорт', en: 'Export' },
   session_edit: { ru: 'Редактировать', en: 'Edit' },
+  session_delete: { ru: 'Удалить', en: 'Delete' },
+  session_delete_confirm: { ru: 'Подтвердить удаление', en: 'Confirm deletion' },
   session_collapse: { ru: 'Свернуть', en: 'Collapse' },
   session_expand: { ru: 'Развернуть', en: 'Expand' },
   session_add_tags: { ru: 'Добавить теги', en: 'Add tags' },

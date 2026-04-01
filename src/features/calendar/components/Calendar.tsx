@@ -23,6 +23,9 @@ export function Calendar({ sessions, selectedDate, onSelectDate, onSelectMonth }
   const start = startOfMonth(currentMonth);
   const end = endOfMonth(currentMonth);
   const days = eachDayOfInterval({ start, end });
+  const startDay = start.getDay(); // 0 (Sun) to 6 (Sat)
+  // Adjust for Monday start (0=Mon, ..., 6=Sun)
+  const offset = (startDay === 0 ? 6 : startDay - 1);
 
   const activeDays = sessions.map(s => parseFirestoreDate(s.createdAt));
 
@@ -44,6 +47,9 @@ export function Calendar({ sessions, selectedDate, onSelectDate, onSelectMonth }
       <div className="grid grid-cols-7 gap-2">
         {(language === 'ru' ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']).map((d, i) => (
           <div key={`${d}-${i}`} className={cn("text-[10px] font-bold text-center py-1", isV2 ? "text-white/30" : "text-stone-300 dark:text-stone-600")}>{d}</div>
+        ))}
+        {Array.from({ length: offset }).map((_, i) => (
+          <div key={`empty-${i}`} />
         ))}
         {days.map(day => {
           const isActive = activeDays.some(ad => isSameDay(ad, day));

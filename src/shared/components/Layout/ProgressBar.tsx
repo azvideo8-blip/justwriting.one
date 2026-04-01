@@ -42,7 +42,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
         className={cn(
           "h-full transition-colors duration-500",
           (wordGoalReached || timeGoalReached) 
-            ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" 
+            ? "bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.8)]" 
             : (isV2 ? "bg-emerald-400" : "bg-stone-900 dark:bg-stone-100")
         )}
       />

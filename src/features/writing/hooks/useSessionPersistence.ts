@@ -22,6 +22,7 @@ export function useSessionPersistence(
     encryptionPassword: string;
     initialDuration: number;
     initialWordCount: number;
+    sessionStartTime: number | null;
   },
   timerState: {
     seconds: number;
@@ -39,6 +40,8 @@ export function useSessionPersistence(
     setHasDraft: (has: boolean) => void;
     resetSession: () => void;
     setStatus: (status: 'idle' | 'writing' | 'paused' | 'finished') => void;
+    setInitialWordCount: (count: number) => void;
+    setInitialDuration: (duration: number) => void;
   }
 ) {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -50,6 +53,7 @@ export function useSessionPersistence(
     wpm: timerState.wpm,
     wordCount: timerState.wordCount,
     initialWordCount: sessionState.initialWordCount,
+    sessionStartTime: sessionState.sessionStartTime,
     activeSessionId: sessionState.activeSessionId,
     status: timerState.status
   });
@@ -88,6 +92,8 @@ export function useSessionPersistence(
         actions.setTitle(draftToLoad.title || '');
         actions.setPinnedThoughts(draftToLoad.pinnedThoughts || []);
         if (draftToLoad.activeSessionId) actions.setActiveSessionId(draftToLoad.activeSessionId);
+        if (draftToLoad.initialWordCount !== undefined) actions.setInitialWordCount(draftToLoad.initialWordCount);
+        if (draftToLoad.initialDuration !== undefined) actions.setInitialDuration(draftToLoad.initialDuration);
       }
     }
     draftLoadedRef.current = true;
@@ -111,6 +117,7 @@ export function useSessionPersistence(
       tags: sessionState.tags,
       updatedAt: Timestamp.now(),
       sessionType: sessionState.sessionType,
+      sessionStartTime: sessionState.sessionStartTime,
       goalReached: sessionState.sessionType === 'timer' ? timerState.timeGoalReached : (sessionState.sessionType === 'words' ? timerState.wordGoalReached : true)
     };
 
