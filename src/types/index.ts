@@ -23,6 +23,7 @@ export interface Session {
   tags?: string[];
   labelId?: string;
   inkblots?: { id: string; index: number; color: string; timestamp: number }[];
+  sessionStartTime?: number;
   createdAt: Timestamp | Date | any;
 }
 
