@@ -35,7 +35,15 @@ interface WritingViewProps {
 function WritingPageContent({ user, profile, sessionToContinue, onSessionContinued }: WritingViewProps) {
   const { t } = useLanguage();
   const { uiVersion } = useUI();
-  const { streamMode, isZenActive, zenModeEnabled, status: uiStatus, setStatus: setUIStatus, textWidth } = useWritingSettings();
+  const { 
+    streamMode, isZenActive, zenModeEnabled, 
+    status: uiStatus, setStatus: setUIStatus, 
+    textWidth, 
+    fontFamily, setFontFamily,
+    fontSize, setFontSize,
+    stickyHeader, setStickyHeader,
+    headerVisibility, toggleVisibility
+  } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
   const isV2 = uiVersion === '2.0';
   const {
@@ -75,7 +83,7 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   const totalDurationForDeadline = useRef<number | null>(null);
 
   useEffect(() => {
-    if (status === 'writing' && sessionType === 'finish-by' && targetTime) {
+    if (sessionStatus === 'writing' && sessionType === 'finish-by' && targetTime) {
       if (totalDurationForDeadline.current === null) {
         const [hours, minutes] = targetTime.split(':').map(Number);
         const target = new Date();
@@ -84,10 +92,10 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
         const remaining = Math.max(0, (target.getTime() - now.getTime()) / 1000);
         totalDurationForDeadline.current = remaining + seconds;
       }
-    } else if (status === 'idle') {
+    } else if (sessionStatus === 'idle') {
       totalDurationForDeadline.current = null;
     }
-  }, [status, sessionType, targetTime, seconds]);
+  }, [sessionStatus, sessionType, targetTime, seconds]);
 
   const [userSessions, setUserSessions] = useState<Session[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
@@ -95,37 +103,7 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   const [showSettings, setShowSettings] = useState(false);
   const [tagInput, setTagInput] = useState('');
   
-  const [fontSize, setFontSize] = useState(() => Number(localStorage.getItem('writing_fontSize')) || 23);
-  const [fontFamily, setFontFamily] = useState(() => localStorage.getItem('writing_fontFamily') || 'Inter');
-  const [stickyHeaderEnabled, setStickyHeaderEnabled] = useState(() => {
-    const saved = localStorage.getItem('writing_stickyHeaderEnabled');
-    return saved === null ? true : saved === 'true';
-  });
-  // const [dynamicBgEnabled, setDynamicBgEnabled] = useState(() => {
-  //   const saved = localStorage.getItem('writing_dynamicBgEnabled');
-  //   return saved === null ? true : saved === 'true';
-  // });
-
   const [isLocalOnly, setIsLocalOnly] = useState(false);
-
-  const [headerVisibility, setHeaderVisibility] = useState(() => {
-    const saved = localStorage.getItem('writing_headerVisibility');
-    return saved ? JSON.parse(saved) : {
-      currentTime: true,
-      sessionTime: true,
-      sessionWords: true,
-      totalWords: true,
-      wpm: true
-    };
-  });
-  
-  // Persist settings
-  useEffect(() => {
-    localStorage.setItem('writing_fontSize', fontSize.toString());
-    localStorage.setItem('writing_fontFamily', fontFamily);
-    localStorage.setItem('writing_stickyHeaderEnabled', stickyHeaderEnabled.toString());
-    localStorage.setItem('writing_headerVisibility', JSON.stringify(headerVisibility));
-  }, [fontSize, fontFamily, stickyHeaderEnabled, headerVisibility]);
 
   // Sync status with UIContext
   useEffect(() => {
@@ -346,14 +324,6 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
         <WritingSettings 
           showSettings={showSettings}
           setShowSettings={setShowSettings}
-          fontFamily={fontFamily}
-          setFontFamily={setFontFamily}
-          fontSize={fontSize}
-          setFontSize={setFontSize}
-          stickyHeaderEnabled={stickyHeaderEnabled}
-          setStickyHeaderEnabled={setStickyHeaderEnabled}
-          headerVisibility={headerVisibility}
-          setHeaderVisibility={setHeaderVisibility}
         />
       ) : null}
 
@@ -412,9 +382,6 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
           handleStart={handleStart}
           handleFinish={() => setSessionStatus('finished')}
           setShowCancelConfirm={setShowCancelConfirm}
-          stickyHeaderEnabled={stickyHeaderEnabled}
-          headerVisibility={headerVisibility}
-          streamMode={streamMode}
         />
 
         <div className="relative min-h-[600px]">
@@ -450,8 +417,6 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
             setPinnedThoughts={setPinnedThoughts}
             content={content}
             setContent={setContent}
-            fontSize={fontSize}
-            fontFamily={fontFamily}
             handlePause={() => setSessionStatus('paused')}
             handleStart={handleStart}
             handleFinish={() => setSessionStatus('finished')}
@@ -460,8 +425,6 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
             wpm={wpm}
             saveStatus={saveStatus}
             lastSavedAt={lastSavedAt}
-            stickyHeaderEnabled={stickyHeaderEnabled}
-            streamMode={streamMode}
             // highlights={highlights}
             // setHighlights={setHighlights}
           />

@@ -14,8 +14,6 @@ interface WritingEditorProps {
   setPinnedThoughts: (thoughts: string[]) => void;
   content: string;
   setContent: (content: string) => void;
-  fontSize: number;
-  fontFamily: string;
   handlePause: () => void;
   handleStart: () => void;
   handleFinish: () => void;
@@ -24,8 +22,6 @@ interface WritingEditorProps {
   wpm?: number;
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt: number | null;
-  stickyHeaderEnabled?: boolean;
-  streamMode?: boolean;
 }
 
 export const WritingEditor = React.memo(function WritingEditor({
@@ -36,8 +32,6 @@ export const WritingEditor = React.memo(function WritingEditor({
   setPinnedThoughts,
   content,
   setContent,
-  fontSize,
-  fontFamily,
   handlePause,
   handleStart,
   handleFinish,
@@ -45,15 +39,14 @@ export const WritingEditor = React.memo(function WritingEditor({
   // dynamicBgEnabled = false,
   wpm = 0,
   saveStatus,
-  lastSavedAt,
-  stickyHeaderEnabled = true,
-  streamMode = false,
-  // highlights,
-  // setHighlights
-}: WritingEditorProps) {
+  lastSavedAt
+}: Omit<WritingEditorProps, 'fontSize' | 'fontFamily' | 'stickyHeaderEnabled' | 'streamMode'>) {
   const { t } = useLanguage();
   const { uiVersion } = useUI();
-  const { streamMode: streamModeContext, isZenActive, zenModeEnabled } = useWritingSettings();
+  const { 
+    streamMode, isZenActive, zenModeEnabled, 
+    fontSize, fontFamily, stickyHeader 
+  } = useWritingSettings();
   const isV2 = uiVersion === '2.0';
   const showZen = isZenActive && zenModeEnabled;
   const [showPinnedInput, setShowPinnedInput] = React.useState(false);
@@ -183,7 +176,7 @@ export const WritingEditor = React.memo(function WritingEditor({
       )}
       <div className={cn(
         "flex flex-col gap-4 transition-all duration-1000 z-30 py-2",
-        stickyHeaderEnabled ? "sticky top-[128px] md:top-[120px]" : "relative",
+        stickyHeader ? "sticky top-[128px] md:top-[120px]" : "relative",
         showZen ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
       )}>
         {status !== 'idle' && (
@@ -298,8 +291,8 @@ export const WritingEditor = React.memo(function WritingEditor({
           disabled={status === 'idle' || status === 'paused'}
           placeholder={status === 'idle' ? t('editor_idle_placeholder') : t('editor_writing_placeholder')}
           style={{ 
-            fontSize: '25px',
-            lineHeight: '30px',
+            fontSize: `${fontSize}px`,
+            lineHeight: `${fontSize * 1.2}px`,
             fontFamily: fontFamily === 'Inter' ? 'Inter, sans-serif' : 
                         fontFamily === 'Playfair Display' ? '"Playfair Display", serif' :
                         fontFamily === 'JetBrains Mono' ? '"JetBrains Mono", monospace' :
