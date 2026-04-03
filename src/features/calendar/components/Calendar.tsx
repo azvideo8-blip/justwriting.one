@@ -7,7 +7,7 @@ import { Session } from '../../../types';
 import { useLanguage } from '../../../core/i18n';
 import { useUI } from '../../../contexts/UIContext';
 
-  interface CalendarProps {
+interface CalendarProps {
   sessions: Session[];
   selectedDate: Date;
   onSelectDate: (d: Date) => void;

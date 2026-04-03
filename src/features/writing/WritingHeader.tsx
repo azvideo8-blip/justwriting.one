@@ -28,17 +28,6 @@ interface WritingHeaderProps {
   handleStart: () => void;
   handleFinish: () => void;
   setShowCancelConfirm: (show: boolean) => void;
-  isZenActive?: boolean;
-  zenModeEnabled?: boolean;
-  stickyHeaderEnabled?: boolean;
-  headerVisibility: {
-    currentTime: boolean;
-    sessionTime: boolean;
-    sessionWords: boolean;
-    totalWords: boolean;
-    wpm: boolean;
-  };
-  streamMode?: boolean;
 }
 
 export const WritingHeader = React.memo(function WritingHeader({
@@ -62,15 +51,15 @@ export const WritingHeader = React.memo(function WritingHeader({
   handlePause,
   handleStart,
   handleFinish,
-  setShowCancelConfirm,
-  stickyHeaderEnabled = true,
-  headerVisibility,
-  streamMode = false
-}: WritingHeaderProps) {
+  setShowCancelConfirm
+}: Omit<WritingHeaderProps, 'isZenActive' | 'zenModeEnabled' | 'stickyHeaderEnabled' | 'headerVisibility' | 'streamMode'>) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const { t } = useLanguage();
   const { uiVersion } = useUI();
-  const { isZenActive, zenModeEnabled } = useWritingSettings();
+  const { 
+    isZenActive, zenModeEnabled, 
+    stickyHeader, headerVisibility, streamMode 
+  } = useWritingSettings();
   const isV2 = uiVersion === '2.0';
   const showZen = isZenActive && zenModeEnabled;
 
@@ -88,7 +77,7 @@ export const WritingHeader = React.memo(function WritingHeader({
       isV2 
         ? "bg-black/40 backdrop-blur-2xl border-b border-white/5" 
         : "bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border border-stone-200 dark:border-stone-800 rounded-3xl",
-      stickyHeaderEnabled && "sticky top-16",
+      stickyHeader && "sticky top-16",
       showZen ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
     )}>
       <div className="w-full mx-auto px-6 py-4 flex items-center justify-between gap-6">

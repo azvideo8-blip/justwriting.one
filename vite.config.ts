@@ -14,9 +14,9 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
         manifest: {
-          name: 'FlowWriter',
-          short_name: 'FlowWriter',
-          description: 'A minimalist writing app for deep work and flow.',
+          name: 'justwriting.one',
+          short_name: 'justwriting.one',
+          description: 'A minimalist writing space for deep work, flow state, and conscious thought.',
           theme_color: '#1c1917',
           icons: [
             {

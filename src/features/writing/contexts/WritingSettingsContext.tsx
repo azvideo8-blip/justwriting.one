@@ -2,6 +2,14 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { z } from 'zod';
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 
+interface HeaderVisibility {
+  currentTime: boolean;
+  sessionTime: boolean;
+  sessionWords: boolean;
+  totalWords: boolean;
+  wpm: boolean;
+}
+
 interface WritingSettingsContextType {
   streamMode: boolean;
   toggleStreamMode: () => void;
@@ -12,6 +20,14 @@ interface WritingSettingsContextType {
   isZenActive: boolean;
   status: 'idle' | 'writing' | 'paused' | 'finished';
   setStatus: (status: 'idle' | 'writing' | 'paused' | 'finished') => void;
+  fontFamily: string;
+  setFontFamily: (font: string) => void;
+  fontSize: number;
+  setFontSize: (size: number) => void;
+  stickyHeader: boolean;
+  setStickyHeader: (enabled: boolean) => void;
+  headerVisibility: HeaderVisibility;
+  toggleVisibility: (key: keyof HeaderVisibility) => void;
 }
 
 const WritingSettingsContext = createContext<WritingSettingsContextType | undefined>(undefined);
@@ -28,9 +44,41 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     z.boolean()
   );
   const [textWidth, setTextWidth] = useLocalStorage<'centered' | 'full'>(
-    'textWidth',
+    'v2_textWidth',
     'centered',
     z.enum(['centered', 'full'])
+  );
+  const [fontFamily, setFontFamily] = useLocalStorage<string>(
+    'v2_fontFamily', 
+    'Inter',
+    z.string()
+  );
+  const [fontSize, setFontSize] = useLocalStorage<number>(
+    'v2_fontSize', 
+    18,
+    z.number()
+  );
+  const [stickyHeader, setStickyHeader] = useLocalStorage<boolean>(
+    'v2_stickyHeaderEnabled', 
+    true,
+    z.boolean()
+  );
+  const [headerVisibility, setHeaderVisibility] = useLocalStorage<HeaderVisibility>(
+    'v2_headerVisibility', 
+    {
+      currentTime: true,
+      sessionTime: true,
+      sessionWords: true,
+      totalWords: true,
+      wpm: true,
+    },
+    z.object({
+      currentTime: z.boolean(),
+      sessionTime: z.boolean(),
+      sessionWords: z.boolean(),
+      totalWords: z.boolean(),
+      wpm: z.boolean(),
+    })
   );
   const [status, setStatus] = useState<'idle' | 'writing' | 'paused' | 'finished'>('idle');
   const [isZenActive, setIsZenActive] = useState<boolean>(false);
@@ -69,6 +117,12 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
   }, [status, zenModeEnabled]);
 
   const toggleStreamMode = () => setStreamMode(prev => !prev);
+  const toggleVisibility = (key: keyof HeaderVisibility) => {
+    setHeaderVisibility((prev: HeaderVisibility) => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
 
   return (
     <WritingSettingsContext.Provider value={{
@@ -76,7 +130,11 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
       zenModeEnabled, setZenModeEnabled,
       textWidth, setTextWidth,
       isZenActive,
-      status, setStatus
+      status, setStatus,
+      fontFamily, setFontFamily,
+      fontSize, setFontSize,
+      stickyHeader, setStickyHeader,
+      headerVisibility, toggleVisibility
     }}>
       {children}
     </WritingSettingsContext.Provider>

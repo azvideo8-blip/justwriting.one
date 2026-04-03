@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { User } from 'firebase/auth';
 import { useSessionState } from './useSessionState';
 import { useSessionTimer } from './useSessionTimer';
@@ -52,16 +52,16 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
     resetStats();
   }, [resetSessionState, resetTimer, resetStats]);
 
-  const sessionStateData = React.useMemo(() => ({
+  const sessionStateData = useMemo(() => ({
     title, content, pinnedThoughts, isPublic, isAnonymous, tags,
     sessionType, activeSessionId, encryptionPassword, initialDuration, initialWordCount, sessionStartTime
   }), [title, content, pinnedThoughts, isPublic, isAnonymous, tags, sessionType, activeSessionId, encryptionPassword, initialDuration, initialWordCount, sessionStartTime]);
 
-  const timerStateData = React.useMemo(() => ({
+  const timerStateData = useMemo(() => ({
     seconds, wpm, wordCount, status, timeGoalReached, wordGoalReached
   }), [seconds, wpm, wordCount, status, timeGoalReached, wordGoalReached]);
 
-  const persistenceActions = React.useMemo(() => ({
+  const persistenceActions = useMemo(() => ({
     setContent, setTitle, setPinnedThoughts, setActiveSessionId,
     setHasDraft, resetSession, setStatus, setInitialWordCount, setInitialDuration
   }), [setContent, setTitle, setPinnedThoughts, setActiveSessionId, setHasDraft, resetSession, setStatus, setInitialWordCount, setInitialDuration]);
@@ -91,15 +91,16 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
     setStatus('writing');
     setTimeGoalReached(false);
     setWordGoalReached(false);
-    if (initialWordCount === 0) {
-      setInitialWordCount(wordCount);
-    }
+    // Только при ПЕРВОМ старте сессии (не при возобновлении после паузы)
     if (!sessionStartTime) {
+      setInitialWordCount(wordCount);
       setSessionStartTime(Date.now());
     }
-  }, [setStatus, setTimeGoalReached, setWordGoalReached, setInitialWordCount, wordCount, initialWordCount, sessionStartTime, setSessionStartTime]);
+  }, [setStatus, setTimeGoalReached, setWordGoalReached, 
+      setInitialWordCount, wordCount, 
+      sessionStartTime, setSessionStartTime]);
 
-  return React.useMemo(() => ({
+  return useMemo(() => ({
     status, setStatus,
     sessionType, setSessionType,
     timerDuration, setTimerDuration,

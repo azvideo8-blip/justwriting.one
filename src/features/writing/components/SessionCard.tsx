@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
 import { 
@@ -39,9 +40,33 @@ export function SessionCard({
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportButtonRef = useRef<HTMLButtonElement>(null);
+  const [exportMenuPos, setExportMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTag, setNewTag] = useState('');
   const { tags, addTag, removeTag } = useSessionTags(session.id, session.tags || []);
+
+  const handleExportToggle = () => {
+    if (!showExportMenu && exportButtonRef.current) {
+      const rect = exportButtonRef.current.getBoundingClientRect();
+      setExportMenuPos({
+        top: rect.bottom + window.scrollY + 8,
+        right: window.innerWidth - rect.right
+      });
+    }
+    setShowExportMenu(!showExportMenu);
+  };
+
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportButtonRef.current && !exportButtonRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showExportMenu]);
 
   // Auto-expand on search match
   React.useEffect(() => {
@@ -167,7 +192,8 @@ export function SessionCard({
             
             <div className="flex items-center flex-wrap gap-2 relative">
               <button 
-                onClick={() => setShowExportMenu(!showExportMenu)}
+                ref={exportButtonRef}
+                onClick={handleExportToggle}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all",
                   showExportMenu 
@@ -179,56 +205,37 @@ export function SessionCard({
                 {t('session_export')}
               </button>
 
-              {showExportMenu && (
+              {showExportMenu && exportMenuPos && createPortal(
                 <motion.div 
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
+                  style={{
+                    position: 'fixed',
+                    top: exportMenuPos.top,
+                    right: exportMenuPos.right,
+                    zIndex: 9999
+                  }}
                   className={cn(
-                    "absolute right-0 top-full mt-2 w-48 rounded-2xl shadow-xl border p-2 z-50",
-                    isV2 ? "bg-[#0A0A0B]/90 backdrop-blur-xl border-white/10" : "bg-white dark:bg-stone-800 border-stone-100 dark:border-stone-700"
+                    "w-48 rounded-2xl shadow-xl border p-2",
+                    isV2 
+                      ? "bg-[#0A0A0B]/90 backdrop-blur-xl border-white/10" 
+                      : "bg-white dark:bg-stone-800 border-stone-100 dark:border-stone-700"
                   )}
                 >
-                  <button 
-                    onClick={exportToTxt}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all",
-                      isV2 ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700"
-                    )}
-                  >
-                    <FileText size={14} />
-                    {t('export_txt')}
+                  <button onClick={exportToTxt} className={cn("w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all", isV2 ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700")}>
+                    <FileText size={14} /> {t('export_txt')}
                   </button>
-                  <button 
-                    onClick={exportPDF}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all",
-                      isV2 ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700"
-                    )}
-                  >
-                    <FileText size={14} className="text-red-500" />
-                    {t('export_pdf')}
+                  <button onClick={exportPDF} className={cn("w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all", isV2 ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700")}>
+                    <FileText size={14} className="text-red-500" /> {t('export_pdf')}
                   </button>
-                  <button 
-                    onClick={exportMarkdown}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all",
-                      isV2 ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700"
-                    )}
-                  >
-                    <FileJson size={14} className="text-blue-500" />
-                    {t('export_md')}
+                  <button onClick={exportMarkdown} className={cn("w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all", isV2 ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700")}>
+                    <FileJson size={14} className="text-blue-500" /> {t('export_md')}
                   </button>
-                  <button 
-                    onClick={exportDocx}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all",
-                      isV2 ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700"
-                    )}
-                  >
-                    <Download size={14} className="text-emerald-500" />
-                    {t('export_docx')}
+                  <button onClick={exportDocx} className={cn("w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all", isV2 ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700")}>
+                    <Download size={14} className="text-emerald-500" /> {t('export_docx')}
                   </button>
-                </motion.div>
+                </motion.div>,
+                document.body
               )}
 
               {!showAuthor && auth.currentUser?.uid === session.userId && (
