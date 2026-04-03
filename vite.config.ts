@@ -15,9 +15,9 @@ export default defineConfig(({ mode }) => {
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
         manifest: {
           name: 'justwriting.one',
-          short_name: 'justwriting.one',
-          description: 'A minimalist writing space for deep work, flow state, and conscious thought.',
-          theme_color: '#1c1917',
+          short_name: 'justwriting',
+          description: 'A minimalist space for writers. Enter your flow.',
+          theme_color: '#0A0A0B',
           icons: [
             {
               src: 'pwa-192x192.png',

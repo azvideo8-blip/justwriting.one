@@ -37,7 +37,7 @@ export function useWritingStats(content: string, seconds: number, initialWordCou
       }
     }
 
-    if (sessionType === 'words' && currentWords >= wordGoal) {
+    if (sessionType === 'words' && sessionWords >= wordGoal) {
       setWordGoalReached(true);
     }
   }, [content, initialWordCount, sessionType, wordGoal]);

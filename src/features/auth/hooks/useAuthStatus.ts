@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { auth } from '../../../core/firebase/auth';
 import { db, onConnectionChange } from '../../../core/firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -9,7 +9,7 @@ export function useAuthStatus() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [creationAttempted, setCreationAttempted] = useState(false);
+  const creationAttemptedRef = useRef(false);
   const [isConnected, setIsConnected] = useState(true);
 
   useEffect(() => {
@@ -27,6 +27,7 @@ export function useAuthStatus() {
   useEffect(() => {
     if (!user) {
       setProfile(null);
+      creationAttemptedRef.current = false;
       return;
     }
 
@@ -35,8 +36,8 @@ export function useAuthStatus() {
       if (snap.exists()) {
         setProfile(snap.data() as UserProfile);
       } else {
-        if (creationAttempted) return;
-        setCreationAttempted(true);
+        if (creationAttemptedRef.current) return;
+        creationAttemptedRef.current = true;
         const initialProfile: UserProfile = { 
           uid: user.uid,
           email: user.email || '',
@@ -56,7 +57,7 @@ export function useAuthStatus() {
     });
 
     return unsubscribe;
-  }, [user, creationAttempted]);
+  }, [user]);
 
   return { user, profile, loading, isConnected };
 }
