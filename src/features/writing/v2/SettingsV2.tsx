@@ -3,13 +3,11 @@ import { motion } from 'motion/react';
 import { X, Type, Moon, Eye } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
-import { useSettingsV2 } from '../../settings/hooks/useSettingsV2';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 
 export function SettingsV2({ onClose }: { onClose: () => void }) {
   const { t } = useLanguage();
-  const settings = useSettingsV2();
-  const { streamMode, toggleStreamMode, textWidth, setTextWidth } = useWritingSettings();
+  const settings = useWritingSettings();
 
   const visibilityLabels: Record<string, string> = {
     currentTime: t('writing_time'),
@@ -69,9 +67,9 @@ export function SettingsV2({ onClose }: { onClose: () => void }) {
                {t('settings_zen')}
             </label>
             {[
-              { label: t('settings_zen'), val: settings.zenMode, set: settings.setZenMode },
-              { label: "Stream Mode", val: streamMode, set: toggleStreamMode },
-              { label: "Text Width", val: textWidth === 'full', set: () => setTextWidth(textWidth === 'full' ? 'centered' : 'full') }
+              { label: t('settings_zen'), val: settings.zenModeEnabled, set: settings.setZenModeEnabled },
+              { label: "Stream Mode", val: settings.streamMode, set: settings.toggleStreamMode },
+              { label: "Text Width", val: settings.textWidth === 'full', set: () => settings.setTextWidth(settings.textWidth === 'full' ? 'centered' : 'full') }
             ].map(item => (
               <div 
                 key={item.label}
@@ -99,11 +97,11 @@ export function SettingsV2({ onClose }: { onClose: () => void }) {
             </label>
             <div className="grid grid-cols-2 gap-3">
               {Object.keys(settings.headerVisibility).map(key => {
-                const isActive = settings.headerVisibility[key];
+                const isActive = settings.headerVisibility[key as keyof typeof settings.headerVisibility];
                 return (
                   <button
                     key={key}
-                    onClick={() => settings.toggleVisibility(key)}
+                    onClick={() => settings.toggleVisibility(key as keyof typeof settings.headerVisibility)}
                     className={cn(
                       "py-3 px-4 rounded-xl flex items-center justify-between transition-all font-bold",
                       isActive 

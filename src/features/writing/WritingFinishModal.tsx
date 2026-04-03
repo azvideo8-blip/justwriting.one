@@ -5,6 +5,7 @@ import { cn } from '../../core/utils/utils';
 import { ExportService } from '../export/ExportService';
 import { Label } from '../../types';
 import { useUI } from '../../contexts/UIContext';
+import { useLanguage } from '../../core/i18n';
 
 interface WritingFinishModalProps {
   status: 'idle' | 'writing' | 'paused' | 'finished';
@@ -50,6 +51,7 @@ export function WritingFinishModal({
   isLocalOnly
 }: WritingFinishModalProps) {
   const { uiVersion } = useUI();
+  const { t } = useLanguage();
   const isV2 = uiVersion === '2.0';
 
   if (status !== 'finished') return null;
@@ -106,12 +108,12 @@ export function WritingFinishModal({
         )}
       >
         <div className="text-center space-y-2">
-          <h3 className={cn("text-2xl font-bold", isV2 ? "text-white" : "dark:text-stone-100")}>Сессия завершена!</h3>
-          <p className={cn(isV2 ? "text-white/50" : "text-stone-500 dark:text-stone-400")}>Выберите теги для вашей сессии.</p>
+          <h3 className={cn("text-2xl font-bold", isV2 ? "text-white" : "dark:text-stone-100")}>{t('finish_congrats')}</h3>
+          <p className={cn(isV2 ? "text-white/50" : "text-stone-500 dark:text-stone-400")}>{t('finish_tags')}</p>
         </div>
 
         <div className="space-y-4">
-          <div className={cn("text-sm font-bold uppercase tracking-wider", isV2 ? "text-white/50" : "text-stone-500")}>Бирка</div>
+          <div className={cn("text-sm font-bold uppercase tracking-wider", isV2 ? "text-white/50" : "text-stone-500")}>{t('finish_tags')}</div>
           <div className="flex flex-wrap gap-2">
             {labels.map(label => (
               <button
@@ -132,7 +134,7 @@ export function WritingFinishModal({
         </div>
 
         <div className="space-y-4">
-          <div className={cn("text-sm font-bold uppercase tracking-wider", isV2 ? "text-white/50" : "text-stone-500")}>Теги</div>
+          <div className={cn("text-sm font-bold uppercase tracking-wider", isV2 ? "text-white/50" : "text-stone-500")}>{t('finish_tags')}</div>
           <div className="flex flex-wrap gap-2">
             {allSuggestions.map(tag => (
               <button
@@ -151,7 +153,7 @@ export function WritingFinishModal({
           </div>
           <input
             type="text"
-            placeholder="Добавить свой тег..."
+            placeholder={t('finish_add_tag')}
             className={cn(
               "w-full px-4 py-2 rounded-xl border outline-none transition-all",
               isV2 ? "bg-white/5 border-white/10 text-white placeholder-white/60 focus:border-white/30 focus:bg-white/10" : "border-stone-200 dark:border-stone-800 bg-transparent focus:border-stone-400 dark:focus:border-stone-600"
@@ -173,15 +175,15 @@ export function WritingFinishModal({
           isV2 ? "divide-x divide-white/10" : ""
         )}>
           <div className={cn(isV2 ? "p-2" : "p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl")}>
-            <div className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", isV2 ? "text-white/50" : "text-stone-400")}>Слова</div>
+            <div className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", isV2 ? "text-white/50" : "text-stone-400")}>{t('writing_words')}</div>
             <div className={cn("text-xl font-mono font-bold", isV2 ? "text-white" : "dark:text-stone-100")}>{wordCount}</div>
           </div>
           <div className={cn(isV2 ? "p-2" : "p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl")}>
-            <div className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", isV2 ? "text-white/50" : "text-stone-400")}>Время</div>
+            <div className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", isV2 ? "text-white/50" : "text-stone-400")}>{t('writing_time')}</div>
             <div className={cn("text-xl font-mono font-bold", isV2 ? "text-white" : "dark:text-stone-100")}>{formatTime(seconds)}</div>
           </div>
           <div className={cn(isV2 ? "p-2" : "p-4 bg-stone-50 dark:bg-stone-800 rounded-2xl")}>
-            <div className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", isV2 ? "text-white/50" : "text-stone-400")}>WPM</div>
+            <div className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", isV2 ? "text-white/50" : "text-stone-400")}>{t('writing_wpm')}</div>
             <div className={cn("text-xl font-mono font-bold", isV2 ? "text-white" : "dark:text-stone-100")}>{wpm}</div>
           </div>
         </div>

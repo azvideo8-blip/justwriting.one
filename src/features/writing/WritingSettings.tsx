@@ -27,28 +27,20 @@ interface WritingSettingsProps {
 
 export function WritingSettings({ 
   showSettings, 
-  setShowSettings, 
-  fontFamily, 
-  setFontFamily, 
-  fontSize, 
-  setFontSize,
-  stickyHeaderEnabled,
-  setStickyHeaderEnabled,
-  headerVisibility,
-  setHeaderVisibility
-}: WritingSettingsProps) {
+  setShowSettings
+}: { 
+  showSettings: boolean;
+  setShowSettings: (show: boolean) => void;
+}) {
   const { t } = useLanguage();
   const { uiVersion } = useUI();
-  const { streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled, textWidth, setTextWidth } = useWritingSettings();
+  const settings = useWritingSettings();
   const isV2 = uiVersion === '2.0';
 
   if (!showSettings) return null;
 
-  const toggleVisibility = (key: keyof typeof headerVisibility) => {
-    setHeaderVisibility({
-      ...headerVisibility,
-      [key]: !headerVisibility[key]
-    });
+  const toggleVisibility = (key: keyof typeof settings.headerVisibility) => {
+    settings.toggleVisibility(key);
   };
 
   return (
@@ -94,11 +86,11 @@ export function WritingSettings({
                     ].map(font => (
                       <button
                         key={font.id}
-                        onClick={() => setFontFamily(font.id)}
+                        onClick={() => settings.setFontFamily(font.id)}
                         className={cn(
                           "py-3 px-4 rounded-2xl text-base transition-all border font-bold",
                           font.class,
-                          fontFamily === font.id 
+                          settings.fontFamily === font.id 
                             ? "bg-white text-black border-white"
                             : "bg-transparent border-white/10 text-white/60 hover:bg-white/10 hover:text-white"
                         )}
@@ -112,14 +104,14 @@ export function WritingSettings({
                 <div>
                   <div className="flex justify-between items-center mb-3">
                     <label className={cn("text-[11px] uppercase tracking-[0.2em] text-white/50")}>{t('settings_font_size')}</label>
-                    <span className={cn("text-xs font-bold text-white")}>{fontSize}px</span>
+                    <span className={cn("text-xs font-bold text-white")}>{settings.fontSize}px</span>
                   </div>
                   <input 
                     type="range" 
                     min="14" 
                     max="32" 
-                    value={fontSize}
-                    onChange={(e) => setFontSize(Number(e.target.value))}
+                    value={settings.fontSize}
+                    onChange={(e) => settings.setFontSize(Number(e.target.value))}
                     className={cn("w-full h-1 bg-white/20 rounded-full appearance-none accent-white")}
                   />
                 </div>
@@ -143,10 +135,10 @@ export function WritingSettings({
                   ].map(width => (
                     <button
                       key={width.id}
-                      onClick={() => setTextWidth(width.id as 'centered' | 'full')}
+                      onClick={() => settings.setTextWidth(width.id as 'centered' | 'full')}
                       className={cn(
                         "py-3 px-4 rounded-2xl text-sm transition-all font-bold border",
-                        textWidth === width.id 
+                        settings.textWidth === width.id 
                           ? "bg-white text-black border-white"
                           : "bg-transparent border-white/10 text-white/60 hover:bg-white/10 hover:text-white"
                       )}
@@ -169,51 +161,51 @@ export function WritingSettings({
 
               <div className="space-y-3">
                 <div 
-                  onClick={() => setZenModeEnabled(!zenModeEnabled)}
+                  onClick={() => settings.setZenModeEnabled(!settings.zenModeEnabled)}
                   className={cn(
                     "p-4 rounded-2xl flex items-center justify-between cursor-pointer transition-all border",
-                    zenModeEnabled ? "bg-white border-white" : "bg-transparent border-white/10 hover:bg-white/10"
+                    settings.zenModeEnabled ? "bg-white border-white" : "bg-transparent border-white/10 hover:bg-white/10"
                   )}
                 >
                   <div className="flex items-center gap-3">
-                    <Moon size={18} className={zenModeEnabled ? "text-black" : "text-white/50"} />
+                    <Moon size={18} className={settings.zenModeEnabled ? "text-black" : "text-white/50"} />
                     <div>
-                      <div className={cn("font-bold text-base", zenModeEnabled ? "text-black" : "text-white")}>{t('settings_zen')}</div>
-                      <div className={cn("text-[10px] uppercase tracking-[0.2em]", zenModeEnabled ? "text-black/50" : "text-white/50")}>{t('settings_zen_desc')}</div>
+                      <div className={cn("font-bold text-base", settings.zenModeEnabled ? "text-black" : "text-white")}>{t('settings_zen')}</div>
+                      <div className={cn("text-[10px] uppercase tracking-[0.2em]", settings.zenModeEnabled ? "text-black/50" : "text-white/50")}>{t('settings_zen_desc')}</div>
                     </div>
                   </div>
                   <div className={cn(
                     "w-12 h-6 rounded-full transition-all duration-500 relative shrink-0", 
-                    zenModeEnabled ? "bg-black" : "bg-white/10"
+                    settings.zenModeEnabled ? "bg-black" : "bg-white/10"
                   )}>
                     <div className={cn(
                       "absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-500", 
-                      zenModeEnabled ? "translate-x-6" : "translate-x-0"
+                      settings.zenModeEnabled ? "translate-x-6" : "translate-x-0"
                     )} />
                   </div>
                 </div>
 
                 <div 
-                  onClick={toggleStreamMode}
+                  onClick={settings.toggleStreamMode}
                   className={cn(
                     "p-4 rounded-2xl flex items-center justify-between cursor-pointer transition-all border",
-                    streamMode ? "bg-white border-white" : "bg-transparent border-white/10 hover:bg-white/10"
+                    settings.streamMode ? "bg-white border-white" : "bg-transparent border-white/10 hover:bg-white/10"
                   )}
                 >
                   <div className="flex items-center gap-3">
-                    <Zap size={18} className={streamMode ? "text-black" : "text-white/50"} />
+                    <Zap size={18} className={settings.streamMode ? "text-black" : "text-white/50"} />
                     <div>
-                      <div className={cn("font-bold text-base", streamMode ? "text-black" : "text-white")}>{t('settings_stream_mode')}</div>
-                      <div className={cn("text-[10px] uppercase tracking-[0.2em]", streamMode ? "text-black/50" : "text-white/50")}>{t('settings_stream_mode_desc')}</div>
+                      <div className={cn("font-bold text-base", settings.streamMode ? "text-black" : "text-white")}>{t('settings_stream_mode')}</div>
+                      <div className={cn("text-[10px] uppercase tracking-[0.2em]", settings.streamMode ? "text-black/50" : "text-white/50")}>{t('settings_stream_mode_desc')}</div>
                     </div>
                   </div>
                   <div className={cn(
                     "w-12 h-6 rounded-full transition-all duration-500 relative shrink-0", 
-                    streamMode ? "bg-black" : "bg-white/10"
+                    settings.streamMode ? "bg-black" : "bg-white/10"
                   )}>
                     <div className={cn(
                       "absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-500", 
-                      streamMode ? "translate-x-6" : "translate-x-0"
+                      settings.streamMode ? "translate-x-6" : "translate-x-0"
                     )} />
                   </div>
                 </div>
@@ -231,26 +223,26 @@ export function WritingSettings({
 
               <div className="space-y-3">
                 <div 
-                  onClick={() => setStickyHeaderEnabled(!stickyHeaderEnabled)}
+                  onClick={() => settings.setStickyHeader(!settings.stickyHeader)}
                   className={cn(
                     "p-4 rounded-2xl flex items-center justify-between cursor-pointer transition-all border",
-                    stickyHeaderEnabled ? "bg-white border-white" : "bg-transparent border-white/10 hover:bg-white/10"
+                    settings.stickyHeader ? "bg-white border-white" : "bg-transparent border-white/10 hover:bg-white/10"
                   )}
                 >
                   <div className="flex items-center gap-3">
-                    <Pin size={18} className={stickyHeaderEnabled ? "text-black" : "text-white/50"} />
+                    <Pin size={18} className={settings.stickyHeader ? "text-black" : "text-white/50"} />
                     <div>
-                      <div className={cn("font-bold text-base", stickyHeaderEnabled ? "text-black" : "text-white")}>{t('settings_sticky')}</div>
-                      <div className={cn("text-[10px] uppercase tracking-[0.2em]", stickyHeaderEnabled ? "text-black/50" : "text-white/50")}>{t('settings_sticky_desc')}</div>
+                      <div className={cn("font-bold text-base", settings.stickyHeader ? "text-black" : "text-white")}>{t('settings_sticky')}</div>
+                      <div className={cn("text-[10px] uppercase tracking-[0.2em]", settings.stickyHeader ? "text-black/50" : "text-white/50")}>{t('settings_sticky_desc')}</div>
                     </div>
                   </div>
                   <div className={cn(
                     "w-12 h-6 rounded-full transition-all duration-500 relative shrink-0", 
-                    stickyHeaderEnabled ? "bg-black" : "bg-white/10"
+                    settings.stickyHeader ? "bg-black" : "bg-white/10"
                   )}>
                     <div className={cn(
                       "absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-500", 
-                      stickyHeaderEnabled ? "translate-x-6" : "translate-x-0"
+                      settings.stickyHeader ? "translate-x-6" : "translate-x-0"
                     )} />
                   </div>
                 </div>
@@ -270,10 +262,10 @@ export function WritingSettings({
                     ].map(({ key, label }) => (
                       <button
                         key={key}
-                        onClick={() => toggleVisibility(key as any)}
+                        onClick={() => toggleVisibility(key as keyof typeof settings.headerVisibility)}
                         className={cn(
                           "py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-between border",
-                          headerVisibility[key as keyof typeof headerVisibility]
+                          settings.headerVisibility[key as keyof typeof settings.headerVisibility]
                             ? "bg-white text-black border-white"
                             : "bg-transparent border-white/10 text-white/60 hover:bg-white/10 hover:text-white"
                         )}
@@ -281,7 +273,7 @@ export function WritingSettings({
                         {label}
                         <div className={cn(
                           "w-2 h-2 rounded-full transition-colors",
-                          headerVisibility[key as keyof typeof headerVisibility] ? "bg-black" : "bg-transparent"
+                          settings.headerVisibility[key as keyof typeof settings.headerVisibility] ? "bg-black" : "bg-transparent"
                         )} />
                       </button>
                     ))}

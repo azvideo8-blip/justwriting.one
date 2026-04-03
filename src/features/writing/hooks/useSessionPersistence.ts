@@ -110,7 +110,7 @@ export function useSessionPersistence(
       content: sessionState.content,
       pinnedThoughts: sessionState.pinnedThoughts,
       duration: sessionState.initialDuration + timerState.seconds,
-      wordCount: timerState.wordCount,
+      wordCount: timerState.wordCount + (sessionState.initialWordCount || 0),
       charCount: sessionState.content.length,
       wpm: timerState.wpm,
       isPublic: sessionState.isPublic,

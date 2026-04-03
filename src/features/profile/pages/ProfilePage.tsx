@@ -38,34 +38,21 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
-
-    const unsubscribe = SessionService.subscribeToSessions(
-      user.uid,
-      (docs) => {
-        // Sort client-side
-        docs.sort((a, b) => {
-          const dateA = parseFirestoreDate(a.createdAt).getTime();
-          const dateB = parseFirestoreDate(b.createdAt).getTime();
-          return dateB - dateA;
-        });
-        setSessions(docs);
-        setLoading(false);
-      },
-      (err) => {
+    const fetchSessions = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await SessionService.getAllSessions(user.uid, 50);
+        setSessions(result.sessions);
+      } catch (err) {
         console.error('Profile load error:', err);
         setError(t('profile_load_error'));
+      } finally {
         setLoading(false);
-        try {
-          handleFirestoreError(err, OperationType.LIST, 'sessions');
-        } catch (e) {
-          // Logged
-        }
       }
-    );
+    };
 
-    return unsubscribe;
+    fetchSessions();
   }, [user.uid, t]);
 
   const allTags = Array.from(new Set(sessions.flatMap(s => s.tags || [])));

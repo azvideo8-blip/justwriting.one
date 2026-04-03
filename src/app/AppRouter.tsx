@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react';
-import { auth } from '../core/firebase/auth';
-import { db, onConnectionChange } from '../core/firebase/firestore';
-import { onAuthStateChanged, User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { Menu, WifiOff } from 'lucide-react';
-import { onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { useLanguage } from '../core/i18n';
 import { useUI } from '../contexts/UIContext';
 import { cn } from '../core/utils/utils';
 import { NAV_CONFIG } from '../shared/lib/layoutRegistry';
+import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 
 // Components
 import { AppLayout } from '../shared/components/Layout/AppLayout';
@@ -23,19 +20,15 @@ import { ArchivePage } from '../features/archive/pages/ArchivePage';
 import { FeedPage } from '../features/feed/pages/FeedPage';
 import { AdminPage } from '../features/admin/pages/AdminPage';
 import { useWritingSettings } from '../features/writing/contexts/WritingSettingsContext';
-import { Session, UserProfile } from '../types';
+import { Session } from '../types';
 
 export function AppRouter() {
   const { t } = useLanguage();
   const { uiVersion } = useUI();
   const isV2 = uiVersion === '2.0';
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [creationAttempted, setCreationAttempted] = useState(false);
+  const { user, profile, loading, isConnected } = useAuthStatus();
   const [view, setView] = useState<'write' | 'profile' | 'archive' | 'feed' | 'admin'>('write');
-  const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isConnected, setIsConnected] = useState(true);
   const [sessionToContinue, setSessionToContinue] = useState<Session | null>(null);
   const { isZenActive, zenModeEnabled } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled && view === 'write';
@@ -47,58 +40,6 @@ export function AppRouter() {
     root.classList.add('dark');
     root.style.colorScheme = 'dark';
   }, []);
-
-  useEffect(() => {
-    return onConnectionChange(setIsConnected);
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false);
-    });
-    return unsubscribe;
-  }, []);
-
-  useEffect(() => {
-    if (!user) {
-      setProfile(null);
-      return;
-    }
-
-    const userDoc = doc(db, 'users', user.uid);
-    const unsubscribe = onSnapshot(userDoc, (snap) => {
-      if (snap.exists()) {
-        setProfile(snap.data() as UserProfile);
-      } else {
-        if (creationAttempted) return;
-        setCreationAttempted(true);
-        const initialProfile: UserProfile = { 
-          uid: user.uid,
-          email: user.email || '',
-          nickname: user.displayName || user.email?.split('@')[0] || 'User',
-          role: 'user'
-        };
-        
-        console.log('Creating initial user profile:', JSON.stringify(initialProfile));
-        
-        setDoc(userDoc, initialProfile).catch(err => {
-          console.error('Error creating user profile:', err);
-          if (err.code === 'permission-denied') {
-            console.error('Permission denied. Check firestore.rules and the profile data structure.');
-          }
-        });
-        setProfile(initialProfile);
-      }
-    }, (err) => {
-      console.error('Firestore snapshot error:', err);
-      if (err.code === 'permission-denied') {
-        console.error('Permission denied for user document:', user.uid);
-      }
-    });
-
-    return unsubscribe;
-  }, [user, creationAttempted]);
 
   if (loading) return (
     <div className="h-screen w-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950">
