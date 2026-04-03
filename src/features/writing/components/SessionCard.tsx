@@ -151,14 +151,16 @@ export function SessionCard({
       <motion.div 
         layout
         className={cn(
-          "p-6 md:p-8 transition-all space-y-4 group relative overflow-hidden",
+          "p-6 md:p-8 transition-all space-y-4 group relative",
           isV2 
             ? "bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl text-[#E5E5E0] hover:bg-white/10" 
             : "bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm hover:shadow-md"
         )}
       >
         {isV2 && (
-          <div className="absolute -top-16 -left-16 w-32 h-32 rounded-full blur-3xl opacity-0 transition-all duration-700 bg-white/5 mix-blend-screen group-hover:opacity-100 group-hover:translate-x-4" />
+          <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+            <div className="absolute -top-16 -left-16 w-32 h-32 rounded-full blur-3xl opacity-0 transition-all duration-700 bg-white/5 mix-blend-screen group-hover:opacity-100 group-hover:translate-x-4" />
+          </div>
         )}
         {label && (
           <div className="flex items-center gap-2 relative z-10">
