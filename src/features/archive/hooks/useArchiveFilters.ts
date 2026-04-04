@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Session } from '../../../types';
-import { parseFirestoreDate } from '../../../core/utils/utils';
+import { getSessionDate } from '../../../core/utils/utils';
 import { isSameDay } from 'date-fns';
 
 export function useArchiveFilters(sessions: Session[]) {
@@ -10,7 +10,7 @@ export function useArchiveFilters(sessions: Session[]) {
 
   const filteredSessions = useMemo(() => {
     return sessions.filter(s => {
-      const sDate = parseFirestoreDate(s.createdAt);
+      const sDate = getSessionDate(s);
       const matchesDate = !selectedDate || isSameDay(sDate, selectedDate);
       const matchesMonth = !selectedMonth || (sDate.getMonth() === selectedMonth.getMonth() && sDate.getFullYear() === selectedMonth.getFullYear());
       const matchesTags = selectedTags.length === 0 || selectedTags.every(t => s.tags?.includes(t));

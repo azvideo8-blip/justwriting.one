@@ -11,12 +11,14 @@ interface ProfileAchievementsProps {
   totalWords: number;
   totalNotes: number;
   maxSessionDuration: number;
+  earnedAchievements: string[];
 }
 
-export function ProfileAchievements({ currentStreak, totalWords, totalNotes, maxSessionDuration }: ProfileAchievementsProps) {
+export function ProfileAchievements({ currentStreak, totalWords, totalNotes, maxSessionDuration, earnedAchievements }: ProfileAchievementsProps) {
   const { t } = useLanguage();
   const { uiVersion } = useUI();
   const isV2 = uiVersion === '2.0';
+  const earnedSet = new Set(earnedAchievements);
 
   return (
     <div className="space-y-6">
@@ -28,23 +30,27 @@ export function ProfileAchievements({ currentStreak, totalWords, totalNotes, max
         <AchievementSection 
           title={t('ach_section_streaks')} 
           achievements={ACHIEVEMENTS.streaks} 
-          currentValue={currentStreak} 
+          currentValue={currentStreak}
+          earnedAchievements={earnedSet}
         />
         <AchievementSection 
           title={t('ach_section_words')} 
           achievements={ACHIEVEMENTS.words} 
-          currentValue={totalWords} 
+          currentValue={totalWords}
+          earnedAchievements={earnedSet}
         />
         <AchievementSection 
           title={t('ach_section_notes')} 
           achievements={ACHIEVEMENTS.notes} 
-          currentValue={totalNotes} 
+          currentValue={totalNotes}
+          earnedAchievements={earnedSet}
         />
         <AchievementSection 
           title={t('ach_section_duration')} 
           achievements={ACHIEVEMENTS.duration} 
           currentValue={maxSessionDuration} 
           suffix=" min"
+          earnedAchievements={earnedSet}
         />
       </div>
     </div>

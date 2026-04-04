@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, subMonths, addMonths } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { cn, parseFirestoreDate } from '../../../core/utils/utils';
+import { cn, parseFirestoreDate, getSessionDate } from '../../../core/utils/utils';
 import { Session } from '../../../types';
 import { useLanguage } from '../../../core/i18n';
 import { useUI } from '../../../contexts/UIContext';
@@ -27,7 +27,7 @@ export function Calendar({ sessions, selectedDate, onSelectDate, onSelectMonth }
   // Adjust for Monday start (0=Mon, ..., 6=Sun)
   const offset = (startDay === 0 ? 6 : startDay - 1);
 
-  const activeDays = sessions.map(s => parseFirestoreDate(s.createdAt));
+  const activeDays = sessions.map(s => getSessionDate(s));
 
   return (
     <div className={cn(

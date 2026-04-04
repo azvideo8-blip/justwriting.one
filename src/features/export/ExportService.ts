@@ -1,4 +1,3 @@
-import { jsPDF } from 'jspdf';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
@@ -9,21 +8,74 @@ export class ExportService {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
+    a.style.display = 'none';
     a.download = `${title || 'session'}_${format(createdAt, 'yyyy-MM-dd')}.txt`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
 
   static toPDF(title: string, content: string) {
-    const doc = new jsPDF();
-    const splitTitle = doc.splitTextToSize(title || 'Untitled Session', 180);
-    const splitContent = doc.splitTextToSize(content, 180);
-    
-    doc.setFontSize(20);
-    doc.text(splitTitle, 15, 20);
-    doc.setFontSize(12);
-    doc.text(splitContent, 15, 40);
-    doc.save(`${title || 'session'}.pdf`);
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>${title || 'Session'}</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+          body {
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 14px;
+            line-height: 1.7;
+            color: #1c1917;
+            max-width: 680px;
+            margin: 40px auto;
+            padding: 0 20px;
+          }
+          h1 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            border-bottom: 1px solid #e7e5e4;
+            padding-bottom: 12px;
+          }
+          pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: inherit;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>${title || 'Untitled Session'}</h1>
+        <pre>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+      </body>
+      </html>
+    `;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) return;
+    iframeDoc.open();
+    iframeDoc.write(printContent);
+    iframeDoc.close();
+
+    iframe.contentWindow?.focus();
+    iframe.contentWindow?.print();
+
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 1000);
   }
 
   static toMarkdown(title: string, content: string) {

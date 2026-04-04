@@ -41,6 +41,7 @@ export function SessionCard({
   const [isEditing, setIsEditing] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportButtonRef = useRef<HTMLButtonElement>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
   const [exportMenuPos, setExportMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTag, setNewTag] = useState('');
@@ -59,13 +60,15 @@ export function SessionCard({
 
   useEffect(() => {
     if (!showExportMenu) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (exportButtonRef.current && !exportButtonRef.current.contains(e.target as Node)) {
+    const handleClickOutside = (e: PointerEvent) => {
+      const clickedButton = exportButtonRef.current?.contains(e.target as Node);
+      const clickedMenu = exportMenuRef.current?.contains(e.target as Node);
+      if (!clickedButton && !clickedMenu) {
         setShowExportMenu(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerup', handleClickOutside);
+    return () => document.removeEventListener('pointerup', handleClickOutside);
   }, [showExportMenu]);
 
   // Auto-expand on search match
@@ -209,6 +212,7 @@ export function SessionCard({
 
               {showExportMenu && exportMenuPos && createPortal(
                 <motion.div 
+                  ref={exportMenuRef}
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   style={{

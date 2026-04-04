@@ -19,6 +19,22 @@ export const ProfileService = {
     }
   },
 
+  async updateEarnedAchievements(userId: string, ids: string[]): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'users', userId), { earnedAchievements: ids });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+    }
+  },
+
+  async resetAchievements(userId: string): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'users', userId), { earnedAchievements: [] });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+    }
+  },
+
   async getProfile(userId: string) {
     try {
       const docRef = doc(db, 'users', userId);
