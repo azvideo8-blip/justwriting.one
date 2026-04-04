@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
 import { startOfWeek, endOfWeek } from 'date-fns';
+import { ACHIEVEMENTS } from '../constants/achievements';
+import { ProfileService } from '../services/ProfileService';
 import { Session, UserProfile } from '../../../types';
-import { calculateStreak, parseFirestoreDate, cn } from '../../../core/utils/utils';
+import { calculateStreak, parseFirestoreDate, cn, getSessionDate } from '../../../core/utils/utils';
 import { Calendar } from '../../calendar/components/Calendar';
 import { SessionService } from '../../writing/services/SessionService';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
@@ -37,6 +39,10 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const handleResetAchievements = async () => {
+    await ProfileService.resetAchievements(user.uid);
+  };
+
   useEffect(() => {
     const fetchSessions = async () => {
       setLoading(true);
@@ -44,6 +50,39 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       try {
         const result = await SessionService.getAllSessions(user.uid, 50);
         setSessions(result.sessions);
+
+        // Achievement persistence logic
+        const allAchievements = [
+          ...ACHIEVEMENTS.streaks,
+          ...ACHIEVEMENTS.words,
+          ...ACHIEVEMENTS.notes,
+          ...ACHIEVEMENTS.duration,
+        ];
+
+        const currentMetrics: Record<string, number> = {
+          streak: calculateStreak(result.sessions),
+          words: result.sessions.reduce((acc, s) => acc + s.wordCount, 0),
+          notes: result.sessions.length,
+          duration: result.sessions.reduce((acc, s) => Math.max(acc, s.duration / 60), 0),
+        };
+
+        const getMetricForAchievement = (id: string) => {
+          if (id.startsWith('streak_')) return currentMetrics.streak;
+          if (id.startsWith('words_')) return currentMetrics.words;
+          if (id.startsWith('notes_')) return currentMetrics.notes;
+          if (id.startsWith('duration_')) return currentMetrics.duration;
+          return 0;
+        };
+
+        const alreadyEarned = new Set(profile?.earnedAchievements || []);
+        const newlyEarned = allAchievements
+          .filter(a => !alreadyEarned.has(a.id) && getMetricForAchievement(a.id) >= a.threshold)
+          .map(a => a.id);
+
+        if (newlyEarned.length > 0) {
+          const updated = [...alreadyEarned, ...newlyEarned];
+          await ProfileService.updateEarnedAchievements(user.uid, updated);
+        }
       } catch (err) {
         console.error('Profile load error:', err);
         setError(t('profile_load_error'));
@@ -107,6 +146,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
               totalWords={totalWords}
               totalNotes={totalNotes}
               maxSessionDuration={maxSessionDuration}
+              earnedAchievements={profile?.earnedAchievements || []}
             />
 
             <ProfileActivity 

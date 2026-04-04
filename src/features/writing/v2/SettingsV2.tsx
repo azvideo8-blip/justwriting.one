@@ -68,8 +68,8 @@ export function SettingsV2({ onClose }: { onClose: () => void }) {
             </label>
             {[
               { label: t('settings_zen'), val: settings.zenModeEnabled, set: settings.setZenModeEnabled },
-              { label: "Stream Mode", val: settings.streamMode, set: settings.toggleStreamMode },
-              { label: "Text Width", val: settings.textWidth === 'full', set: () => settings.setTextWidth(settings.textWidth === 'full' ? 'centered' : 'full') }
+              { label: t('settings_stream_mode'), val: settings.streamMode, set: settings.toggleStreamMode },
+              { label: t('settings_width'), val: settings.textWidth === 'full', set: () => settings.setTextWidth(settings.textWidth === 'full' ? 'centered' : 'full') }
             ].map(item => (
               <div 
                 key={item.label}

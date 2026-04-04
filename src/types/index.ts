@@ -34,4 +34,5 @@ export interface UserProfile {
   role?: string;
   isAnonymousDefault?: boolean;
   labels?: Label[];
+  earnedAchievements?: string[];
 }

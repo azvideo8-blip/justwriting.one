@@ -120,6 +120,16 @@ export const translations: Translations = {
 
   // Profile
   profile_title: { ru: 'Мой профиль', en: 'My Profile' },
+  profile_settings_title: { ru: 'Настройки профиля', en: 'Profile settings' },
+  profile_settings_beta: { ru: 'Бета-режим', en: 'Beta mode' },
+  profile_settings_community: { ru: 'Режим сообщества', en: 'Community mode' },
+  profile_settings_encryption: { ru: 'Шифрование', en: 'Encryption' },
+  profile_settings_ai: { ru: 'Помощь ИИ', en: 'AI assistance' },
+  profile_reset_achievements: { ru: 'Сбросить все достижения', en: 'Reset all achievements' },
+  profile_reset_achievements_confirm: {
+    ru: 'Вы уверены? Все достижения будут сброшены.',
+    en: 'Are you sure? All achievements will be reset.'
+  },
   profile_stats: { ru: 'Статистика', en: 'Statistics' },
   profile_achievements: { ru: 'Достижения', en: 'Achievements' },
   profile_nickname: { ru: 'Никнейм', en: 'Nickname' },
@@ -195,7 +205,7 @@ export const translations: Translations = {
   settings_text_width: { ru: 'Ширина текста', en: 'Text Width' },
   settings_width: { ru: 'Ширина текста', en: 'Text Width' },
   settings_width_centered: { ru: 'По центру', en: 'Centered' },
-  settings_width_full: { ru: 'На весь экран', en: 'Full Width' },
+  settings_width_full: { ru: 'На весь экран', en: 'Full screen' }, // 'Full Width' → 'Full screen'
   settings_font_size: { ru: 'Размер шрифта', en: 'Font Size' },
   settings_zen: { ru: 'Дзен-режим', en: 'Zen Mode' },
   settings_zen_mode: { ru: 'Дзен-режим', en: 'Zen Mode' },

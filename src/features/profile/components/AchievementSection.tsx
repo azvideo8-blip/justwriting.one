@@ -8,9 +8,10 @@ interface AchievementSectionProps {
   achievements: any[];
   currentValue: number;
   suffix?: string;
+  earnedAchievements: Set<string>;
 }
 
-export function AchievementSection({ title, achievements, currentValue, suffix = '' }: AchievementSectionProps) {
+export function AchievementSection({ title, achievements, currentValue, suffix = '', earnedAchievements }: AchievementSectionProps) {
   const { uiVersion } = useUI();
   const isV2 = uiVersion === '2.0';
 
@@ -22,7 +23,7 @@ export function AchievementSection({ title, achievements, currentValue, suffix =
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
         {achievements.map(a => (
-          <AchievementBadge key={a.id} achievement={a} earned={currentValue >= a.threshold} />
+          <AchievementBadge key={a.id} achievement={a} earned={earnedAchievements.has(a.id)} />
         ))}
       </div>
     </div>

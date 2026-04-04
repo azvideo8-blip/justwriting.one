@@ -7,7 +7,7 @@ import { History, Search, LayoutGrid, LayoutList } from 'lucide-react';
 import { Session, UserProfile } from '../../../types';
 import { SessionCard } from '../../writing/components/SessionCard';
 import { Calendar } from '../../calendar/components/Calendar';
-import { parseFirestoreDate, cn } from '../../../core/utils/utils';
+import { parseFirestoreDate, getSessionDate, cn } from '../../../core/utils/utils';
 import { SessionService } from '../../writing/services/SessionService';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
@@ -86,7 +86,7 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
   
   const groupedSessions = useMemo(() => {
     return filteredSessions.reduce((acc, session) => {
-      const date = parseFirestoreDate(session.createdAt);
+      const date = getSessionDate(session);
       const dateKey = format(date, 'yyyy-MM-dd');
       if (!acc[dateKey]) acc[dateKey] = [];
       acc[dateKey].push(session);
@@ -106,7 +106,42 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
         className="space-y-12 pb-10"
       >
         <div className="flex flex-col md:flex-row gap-8 items-start">
-          <div className="flex-1 space-y-8">
+          {/* Sidebar — appears first on mobile via order-first, second on desktop */}
+          <div className="w-full md:w-80 shrink-0 space-y-8 order-first md:order-last">
+            <Calendar 
+              sessions={sessions} 
+              selectedDate={selectedDate || new Date()} 
+              onSelectDate={(d) => { setSelectedDate(d); setSelectedMonth(null); }} 
+              onSelectMonth={(m) => { setSelectedMonth(m); setSelectedDate(null); }}
+            />
+            
+            <div className={cn(
+              "p-6 rounded-3xl space-y-4 transition-all",
+              isV2 
+                ? "bg-white/5 backdrop-blur-xl border border-white/10 text-[#E5E5E0]" 
+                : "bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800"
+            )}>
+              <div className={cn("flex items-center gap-2 border-b pb-2", isV2 ? "border-white/10" : "border-stone-200 dark:border-stone-800")}>
+                <Search size={18} className={isV2 ? "text-white/50" : "text-stone-400"} />
+                <input 
+                  type="text" 
+                  value={searchQuery} 
+                  onChange={e => setSearchQuery(e.target.value)} 
+                  placeholder={t('archive_search_placeholder')} 
+                  className={cn("w-full bg-transparent outline-none text-sm", isV2 ? "text-white placeholder:text-white/30" : "placeholder:text-stone-400")}
+                />
+              </div>
+            </div>
+
+            <TagCloud 
+              tags={allTags} 
+              selectedTags={selectedTags} 
+              onToggleTag={(tag) => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])} 
+            />
+          </div>
+
+          {/* Sessions list — appears second on mobile, first on desktop */}
+          <div className="flex-1 space-y-8 order-last md:order-first">
             <div className="flex items-center justify-between gap-4">
               <h3 className={cn("text-2xl font-bold flex items-center gap-2", isV2 ? "text-white" : "dark:text-stone-100")}>
                 <History size={24} />
@@ -195,40 +230,6 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
                 )}
               </div>
             </div>
-
-          {/* Sidebar */}
-          <div className="w-full md:w-80 shrink-0 space-y-8">
-            <Calendar 
-              sessions={sessions} 
-              selectedDate={selectedDate || new Date()} 
-              onSelectDate={(d) => { setSelectedDate(d); setSelectedMonth(null); }} 
-              onSelectMonth={(m) => { setSelectedMonth(m); setSelectedDate(null); }}
-            />
-            
-            <div className={cn(
-              "p-6 rounded-3xl space-y-4 transition-all",
-              isV2 
-                ? "bg-white/5 backdrop-blur-xl border border-white/10 text-[#E5E5E0]" 
-                : "bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800"
-            )}>
-              <div className={cn("flex items-center gap-2 border-b pb-2", isV2 ? "border-white/10" : "border-stone-200 dark:border-stone-800")}>
-                <Search size={18} className={isV2 ? "text-white/50" : "text-stone-400"} />
-                <input 
-                  type="text" 
-                  value={searchQuery} 
-                  onChange={e => setSearchQuery(e.target.value)} 
-                  placeholder={t('archive_search_placeholder')} 
-                  className={cn("w-full bg-transparent outline-none text-sm", isV2 ? "text-white placeholder:text-white/30" : "placeholder:text-stone-400")}
-                />
-              </div>
-            </div>
-
-            <TagCloud 
-              tags={allTags} 
-              selectedTags={selectedTags} 
-              onToggleTag={(tag) => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])} 
-            />
-          </div>
         </div>
       </motion.div>
     </AdaptiveContainer>

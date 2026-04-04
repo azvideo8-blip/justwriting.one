@@ -20,6 +20,7 @@ export function ProfileHeader({ user, profile, currentStreak, totalWords }: Prof
   const { t } = useLanguage();
   const { uiVersion } = useUI();
   const isV2 = uiVersion === '2.0';
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   const handleUpdateNickname = async () => {
     if (!newNickname.trim()) return;
@@ -78,6 +79,41 @@ export function ProfileHeader({ user, profile, currentStreak, totalWords }: Prof
             <PenLine size={16} />
             <span className={cn("font-bold", isV2 ? "text-white" : "text-stone-900 dark:text-stone-100")}>{totalWords}</span> {t('profile_words')}
           </div>
+        </div>
+        
+        {/* Buttons */}
+        <div className="flex items-center gap-3 pt-4 justify-center md:justify-start">
+          {!confirmingReset ? (
+            <button
+              onClick={() => setConfirmingReset(true)}
+              className={cn(
+                "text-xs font-medium px-3 py-1.5 rounded-lg transition-all",
+                isV2
+                  ? "text-red-400 hover:bg-red-500/10 border border-red-500/20"
+                  : "text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-900/30"
+              )}
+            >
+              {t('profile_reset_achievements')}
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className={cn("text-xs", isV2 ? "text-white/70" : "text-stone-500")}>
+                {t('profile_reset_achievements_confirm')}
+              </span>
+              <button
+                onClick={async () => { await ProfileService.resetAchievements(user.uid); setConfirmingReset(false); }}
+                className="text-xs font-bold text-red-500 hover:text-red-600 transition-colors"
+              >
+                {t('finish_discard')}
+              </button>
+              <button
+                onClick={() => setConfirmingReset(false)}
+                className={cn("text-xs font-medium transition-colors", isV2 ? "text-white/50 hover:text-white" : "text-stone-400 hover:text-stone-700")}
+              >
+                {t('writing_cancel')}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
