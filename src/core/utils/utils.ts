@@ -18,12 +18,21 @@ export function parseFirestoreDate(date: unknown): Date {
   return new Date(date as string | number);
 }
 
+export function getSessionDate(session: Session): Date {
+  let date: Date;
+  if (session.sessionStartTime) {
+    date = new Date(session.sessionStartTime);
+  } else {
+    date = parseFirestoreDate(session.createdAt);
+  }
+  return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
 export function calculateStreak(sessions: Session[]) {
   if (sessions.length === 0) return 0;
   
   const dates = sessions.map(s => {
-    const date = parseFirestoreDate(s.createdAt);
-    return format(date, 'yyyy-MM-dd');
+    return format(getSessionDate(s), 'yyyy-MM-dd');
   });
   const uniqueDates = Array.from(new Set(dates)).sort((a, b) => b.localeCompare(a));
   
