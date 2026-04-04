@@ -4,6 +4,7 @@ import { db, onConnectionChange } from '../../../core/firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { UserProfile } from '../../../types';
+import * as Sentry from '@sentry/react';
 
 export function useAuthStatus() {
   const [user, setUser] = useState<User | null>(null);
@@ -11,6 +12,14 @@ export function useAuthStatus() {
   const [loading, setLoading] = useState(true);
   const creationAttemptedRef = useRef(false);
   const [isConnected, setIsConnected] = useState(true);
+
+  useEffect(() => {
+    if (user && import.meta.env.VITE_SENTRY_DSN) {
+      Sentry.setUser({ id: user.uid, email: user.email ?? undefined });
+    } else if (!user) {
+      Sentry.setUser(null);
+    }
+  }, [user]);
 
   useEffect(() => {
     return onConnectionChange(setIsConnected);
@@ -41,8 +50,7 @@ export function useAuthStatus() {
         const initialProfile: UserProfile = { 
           uid: user.uid,
           email: user.email || '',
-          nickname: user.displayName || user.email?.split('@')[0] || 'User',
-          role: 'user'
+          nickname: user.displayName || user.email?.split('@')[0] || 'User'
         };
         
         console.log('Creating initial user profile:', JSON.stringify(initialProfile));

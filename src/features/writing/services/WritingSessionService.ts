@@ -2,6 +2,7 @@ import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestor
 import { db } from '../../../core/firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { savePendingSession, getAllPendingSessions, deletePendingSession } from '../../../lib/db';
+import { reportError } from '../../../core/errors/reportError';
 
 export const WritingSessionService = {
   saveSession: async (sessionData: any, activeSessionId: string | null, isOnline: boolean, userId: string) => {
@@ -24,6 +25,12 @@ export const WritingSessionService = {
         });
       }
     } catch (e) {
+      reportError(e, {
+        method: activeSessionId ? 'updateDoc' : 'addDoc',
+        activeSessionId: activeSessionId ?? 'none',
+        isOnline: String(isOnline),
+        userId,
+      });
       handleFirestoreError(e, activeSessionId ? OperationType.UPDATE : OperationType.CREATE, 'sessions');
     }
   },
