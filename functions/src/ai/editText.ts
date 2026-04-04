@@ -1,24 +1,27 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onCall } from "firebase-functions/v2/https";
 import { GoogleGenAI } from "@google/genai";
 import * as logger from "firebase-functions/logger";
 import { z } from "zod";
+import { unauthenticated, badInput } from "../shared/errors";
+import { sessionContentSchema } from "../shared/validators";
+import { reportError } from "../shared/errors";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
 const editSchema = z.object({
-  content: z.string().min(1).max(50000),
+  content: sessionContentSchema,
   action: z.enum(['extract_insights', 'emotional_mirror'])
 });
 
 export const editWithAI = onCall(async (request) => {
   if (!request.auth) {
-    throw new HttpsError("unauthenticated", "User must be authenticated to use AI features.");
+    throw unauthenticated();
   }
 
   const result = editSchema.safeParse(request.data);
   
   if (!result.success) {
-    throw new HttpsError("invalid-argument", "Missing or invalid payload.");
+    throw badInput();
   }
 
   const { content, action } = result.data;
@@ -30,12 +33,13 @@ export const editWithAI = onCall(async (request) => {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-3-flash-preview",
       contents: `${prompts[action]}\n\nText: ${content}`,
     });
     return { text: response.text };
   } catch (error) {
     logger.error("AI Error:", error);
-    throw new HttpsError("internal", "The AI service is currently unavailable.");
+    reportError(error, { action, contentLength: content.length }, 'error');
+    throw new Error("The AI service is currently unavailable.");
   }
 });

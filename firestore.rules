@@ -55,7 +55,7 @@ service cloud.firestore {
              data.uid is string && data.uid.size() > 0 &&
              data.email is string && data.email.size() > 0 &&
              (!('nickname' in data) || (data.nickname is string && data.nickname.size() <= 100)) &&
-             (!('role' in data) || (data.role in ['user', 'admin']));
+             !('role' in data); // role must never be set by client on create or update
     }
 
     function isValidSession(data) {
