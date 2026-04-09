@@ -3,7 +3,6 @@ import { CheckCircle2, Play, Clock, Settings, Plus, History, Pause, Square, X } 
 import { cn } from '../../core/utils/utils';
 import { CountdownTimer } from './CountdownTimer';
 import { useLanguage } from '../../core/i18n';
-import { useUI } from '../../contexts/UIContext';
 import { useWritingSettings } from './contexts/WritingSettingsContext';
 
 import { useWritingStore } from './store/useWritingStore';

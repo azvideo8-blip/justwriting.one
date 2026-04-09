@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Type, Maximize2, Moon, Palette, Pin, Eye, Zap } from 'lucide-react';
 import { cn } from '../../core/utils/utils';
 import { useLanguage } from '../../core/i18n';
-import { useUI } from '../../contexts/UIContext';
 import { useWritingSettings } from './contexts/WritingSettingsContext';
 
 interface WritingSettingsProps {

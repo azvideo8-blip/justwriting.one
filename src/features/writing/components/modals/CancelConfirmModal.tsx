@@ -6,7 +6,6 @@ import { cn } from '../../../../core/utils/utils';
 
 interface CancelConfirmModalProps {
   isOpen: boolean;
-  isV2: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -15,7 +14,7 @@ export function CancelConfirmModal({
   isOpen,
   onConfirm,
   onCancel
-}: Omit<CancelConfirmModalProps, 'isV2'>) {
+}: CancelConfirmModalProps) {
   const { t } = useLanguage();
 
   if (!isOpen) return null;

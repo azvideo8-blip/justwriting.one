@@ -2,12 +2,9 @@ import React, { useEffect, useRef } from 'react';
 import { useWritingStore } from '../../../features/writing/store/useWritingStore';
 import { ProgressBar } from '../../../shared/components/Layout/ProgressBar';
 import { useWritingSettings } from '../../../features/writing/contexts/WritingSettingsContext';
-import { useUI } from '../../../contexts/UIContext';
 
 export const WritingProgressBar: React.FC = () => {
-  const { uiVersion } = useUI();
   const { isZenActive, zenModeEnabled } = useWritingSettings();
-  const isV2 = uiVersion === '2.0';
 
   const status = useWritingStore(s => s.status);
   const sessionType = useWritingStore(s => s.sessionType);
@@ -48,7 +45,6 @@ export const WritingProgressBar: React.FC = () => {
       totalDurationForDeadline={totalDurationForDeadline}
       wordGoalReached={wordGoalReached}
       timeGoalReached={timeGoalReached}
-      isV2={isV2}
       isZenActive={isZenActive}
       zenModeEnabled={zenModeEnabled}
     />

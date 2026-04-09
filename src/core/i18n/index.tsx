@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 type Language = 'ru' | 'en';
 
@@ -131,8 +131,10 @@ export const translations: Translations = {
     en: 'Are you sure? All achievements will be reset.'
   },
   profile_stats: { ru: 'Статистика', en: 'Statistics' },
+  profile_loading: { ru: 'Загружаем профиль...', en: 'Loading profile...' },
   profile_achievements: { ru: 'Достижения', en: 'Achievements' },
   profile_nickname: { ru: 'Никнейм', en: 'Nickname' },
+  profile_theme_title: { ru: 'Дизайн', en: 'Design' },
   profile_word_cloud: { ru: 'Облако слов', en: 'Word Cloud' },
   profile_no_words: { ru: 'Слов пока нет', en: 'No words yet' },
   profile_streak: { ru: 'дн. стрик', en: 'day streak' },
@@ -233,6 +235,7 @@ export const translations: Translations = {
   common_untitled: { ru: 'Без названия', en: 'Untitled' },
   common_cancel: { ru: 'Отмена', en: 'Cancel' },
   common_save: { ru: 'Сохранить', en: 'Save' },
+  common_close: { ru: 'Закрыть', en: 'Close' },
   ai_resting_error: { ru: 'ИИ сейчас отдыхает. Пожалуйста, попробуйте позже.', en: 'AI is currently resting. Please try again later.' },
   
   // Extra
