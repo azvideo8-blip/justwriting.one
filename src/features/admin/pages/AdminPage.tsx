@@ -22,8 +22,6 @@ export function AdminPage() {
   const [activeTab, setActiveTab] = useState<'users' | 'sessions' | 'security'>('users');
   const [isAdmin, setIsAdmin] = useState(false);
   const { t } = useLanguage();
-  const { uiVersion } = useUI();
-  const isV2 = uiVersion === '2.0';
 
   const fetchData = async (isInitial = true) => {
     if (isInitial) {
@@ -85,21 +83,21 @@ export function AdminPage() {
       className="space-y-8 pb-20"
     >
       <div className="flex items-center justify-between">
-        <h2 className={cn("text-3xl font-bold flex items-center gap-3", isV2 ? "text-white" : "dark:text-stone-100")}>
-          <Shield className={isV2 ? "text-red-400" : "text-red-500"} />
+        <h2 className="text-3xl font-bold flex items-center gap-3 text-text-main">
+          <Shield className="text-red-500" />
           {t('admin_title')}
         </h2>
       </div>
 
       {/* Tabs */}
-      <div className={cn("flex gap-2 p-1 rounded-2xl w-fit", isV2 ? "bg-white/5 border border-white/10" : "bg-stone-100 dark:bg-stone-900")}>
+      <div className="flex gap-2 p-1 rounded-2xl w-fit bg-surface-base/10 border border-border-subtle">
         <button 
           onClick={() => setActiveTab('users')}
           className={cn(
             "flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all",
             activeTab === 'users' 
-              ? (isV2 ? "bg-white/20 text-white shadow-sm" : "bg-white dark:bg-stone-800 shadow-sm text-stone-900 dark:text-stone-100") 
-              : (isV2 ? "text-white/50 hover:text-white" : "text-stone-500 hover:text-stone-700")
+              ? "bg-surface-base/20 text-text-main shadow-sm" 
+              : "text-text-main/50 hover:text-text-main"
           )}
         >
           <Users size={16} />
@@ -110,8 +108,8 @@ export function AdminPage() {
           className={cn(
             "flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all",
             activeTab === 'sessions' 
-              ? (isV2 ? "bg-white/20 text-white shadow-sm" : "bg-white dark:bg-stone-800 shadow-sm text-stone-900 dark:text-stone-100") 
-              : (isV2 ? "text-white/50 hover:text-white" : "text-stone-500 hover:text-stone-700")
+              ? "bg-surface-base/20 text-text-main shadow-sm" 
+              : "text-text-main/50 hover:text-text-main"
           )}
         >
           <Database size={16} />
@@ -122,8 +120,8 @@ export function AdminPage() {
           className={cn(
             "flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all",
             activeTab === 'security' 
-              ? (isV2 ? "bg-white/20 text-white shadow-sm" : "bg-white dark:bg-stone-800 shadow-sm text-stone-900 dark:text-stone-100") 
-              : (isV2 ? "text-white/50 hover:text-white" : "text-stone-500 hover:text-stone-700")
+              ? "bg-surface-base/20 text-text-main shadow-sm" 
+              : "text-text-main/50 hover:text-text-main"
           )}
         >
           <AlertTriangle size={16} />
@@ -133,15 +131,10 @@ export function AdminPage() {
 
       {loading ? (
         <div className="flex justify-center py-20">
-          <div className={cn("w-10 h-10 border-4 rounded-full animate-spin", isV2 ? "border-white/10 border-t-white" : "border-stone-200 border-t-stone-900 dark:border-stone-800 dark:border-t-stone-100")} />
+          <div className="w-10 h-10 border-4 rounded-full animate-spin border-surface-base/10 border-t-text-main" />
         </div>
       ) : (
-        <div className={cn(
-          "rounded-3xl overflow-hidden transition-all",
-          isV2 
-            ? "bg-[#0A0A0B]/80 backdrop-blur-2xl border border-white/10 shadow-[0_0_60px_rgba(0,0,0,0.8)]" 
-            : "bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm"
-        )}>
+        <div className="rounded-3xl overflow-hidden transition-all bg-surface-card backdrop-blur-2xl border border-border-subtle shadow-sm">
           {activeTab === 'users' && (
             <AdminUsersTable users={users} />
           )}
@@ -150,16 +143,11 @@ export function AdminPage() {
             <>
               <AdminSessionsTable sessions={sessions} onDelete={handleDeleteSession} />
               {hasMoreSessions && (
-                <div className="p-6 flex justify-center border-t border-stone-200 dark:border-stone-800">
+                <div className="p-6 flex justify-center border-t border-border-subtle">
                   <button
                     onClick={() => fetchData(false)}
                     disabled={loadingMoreSessions}
-                    className={cn(
-                      "px-8 py-2 rounded-xl font-bold transition-all disabled:opacity-50",
-                      isV2 
-                        ? "bg-white/10 text-white hover:bg-white/20 border border-white/10" 
-                        : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-lg"
-                    )}
+                    className="px-8 py-2 rounded-xl font-bold transition-all disabled:opacity-50 bg-text-main text-surface-base shadow-lg"
                   >
                     {loadingMoreSessions ? t('archive_loading_more') : t('archive_load_more')}
                   </button>
@@ -170,12 +158,12 @@ export function AdminPage() {
 
           {activeTab === 'security' && (
             <div className="p-8 space-y-6">
-              <div className={cn("p-6 rounded-2xl border", isV2 ? "bg-emerald-500/10 border-emerald-500/30" : "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30")}>
-                <h4 className={cn("font-bold mb-2 flex items-center gap-2", isV2 ? "text-emerald-400" : "text-emerald-800 dark:text-emerald-400")}>
+              <div className="p-6 rounded-2xl border bg-emerald-500/10 border-emerald-500/30">
+                <h4 className="font-bold mb-2 flex items-center gap-2 text-emerald-400">
                   <Shield size={18} />
                   {t('admin_security_active')}
                 </h4>
-                <ul className={cn("text-sm space-y-1 list-disc list-inside", isV2 ? "text-emerald-400/80" : "text-emerald-700 dark:text-emerald-500")}>
+                <ul className="text-sm space-y-1 list-disc list-inside text-emerald-400/80">
                   <li>{t('admin_security_validation')}</li>
                   <li>{t('admin_security_size_limits')}</li>
                   <li>{t('admin_security_typing')}</li>
@@ -185,13 +173,13 @@ export function AdminPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className={cn("p-6 rounded-2xl border", isV2 ? "bg-white/5 border-white/10" : "bg-stone-50 dark:bg-stone-950 border-stone-200 dark:border-stone-800")}>
-                  <span className={cn("text-xs font-bold uppercase tracking-widest", isV2 ? "text-white/50" : "text-stone-400")}>XSS Protection</span>
-                  <p className={cn("text-sm mt-2", isV2 ? "text-white/80" : "")}>{t('admin_security_xss')}</p>
+                <div className="p-6 rounded-2xl border bg-surface-base/5 border-border-subtle">
+                  <span className="text-xs font-bold uppercase tracking-widest text-text-main/50">XSS Protection</span>
+                  <p className="text-sm mt-2 text-text-main/80">{t('admin_security_xss')}</p>
                 </div>
-                <div className={cn("p-6 rounded-2xl border", isV2 ? "bg-white/5 border-white/10" : "bg-stone-50 dark:bg-stone-950 border-stone-200 dark:border-stone-800")}>
-                  <span className={cn("text-xs font-bold uppercase tracking-widest", isV2 ? "text-white/50" : "text-stone-400")}>CSRF Protection</span>
-                  <p className={cn("text-sm mt-2", isV2 ? "text-white/80" : "")}>{t('admin_security_csrf')}</p>
+                <div className="p-6 rounded-2xl border bg-surface-base/5 border-border-subtle">
+                  <span className="text-xs font-bold uppercase tracking-widest text-text-main/50">CSRF Protection</span>
+                  <p className="text-sm mt-2 text-text-main/80">{t('admin_security_csrf')}</p>
                 </div>
               </div>
             </div>

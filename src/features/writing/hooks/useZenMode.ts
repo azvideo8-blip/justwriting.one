@@ -6,8 +6,10 @@ export function useZenMode(status: 'idle' | 'writing' | 'paused' | 'finished', z
 
   useEffect(() => {
     if (status !== 'writing' || !zenModeEnabled) {
-      setIsZenActive(false);
-      return;
+      const timer = setTimeout(() => {
+        setIsZenActive(false);
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
     const resetZenTimer = () => {

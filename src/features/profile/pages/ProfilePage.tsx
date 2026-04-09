@@ -16,6 +16,7 @@ import { ProfileActivity } from '../components/ProfileActivity';
 import { ProfileWordCloud } from '../components/ProfileWordCloud';
 import { ProfileFilteredSessions } from '../components/ProfileFilteredSessions';
 import { TagCloud } from '../../writing/components/TagCloud';
+import { DataTransfer } from '../../settings/components/DataTransfer';
 import { useLanguage } from '../../../core/i18n';
 import { useUI } from '../../../contexts/UIContext';
 
@@ -168,6 +169,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
             />
 
             <TagCloud tags={allTags} />
+            <DataTransfer />
           </div>
         </div>
       </motion.div>

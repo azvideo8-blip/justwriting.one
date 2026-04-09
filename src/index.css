@@ -6,93 +6,43 @@
   --font-serif: "Playfair Display", serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   
-  --color-stone-50: #fafaf9;
-  --color-stone-100: #f5f5f4;
-  --color-stone-200: #e7e5e4;
-  --color-stone-300: #d6d3d1;
-  --color-stone-400: #a8a29e;
-  --color-stone-500: #78716c;
-  --color-stone-600: #57534e;
-  --color-stone-700: #44403c;
-  --color-stone-800: #292524;
-  --color-stone-900: #1c1917;
-  --color-stone-950: #0c0a09;
+  /* Semantic Tokens */
+  --color-surface-base: var(--bg-base);
+  --color-text-main: var(--text-main);
+  --color-border-subtle: var(--border-light);
 }
 
 @layer base {
+  /* UI 1.0 Light Mode */
   :root {
     color-scheme: light;
-    --ethereal-bg-dark: #0A0A0B;
-    --ethereal-text-dark: #E5E5E0;
-    --ethereal-bg-light: #F7F5F0;
-    --ethereal-text-light: #2C2C2A;
+    --bg-base: #fafaf9; /* stone-50 */
+    --text-main: #1c1917; /* stone-900 */
+    --border-light: #e7e5e4; /* stone-200 */
   }
 
+  /* UI 1.0 Dark Mode */
+  .dark {
+    color-scheme: dark;
+    --bg-base: #0c0a09; /* stone-950 */
+    --text-main: #f5f5f4; /* stone-100 */
+    --border-light: #292524; /* stone-800 */
+  }
+
+  /* UI 2.0 (Glassmorphism Dark) */
   .theme-v2 {
     --v2-bg: #0A0A0B;
-    --v2-white-high: rgba(255, 255, 255, 0.95);
-    --v2-white-low: rgba(255, 255, 255, 0.5);
-    --v2-glass: rgba(255, 255, 255, 0.05);
-    --v2-border: rgba(255, 255, 255, 0.1);
-    --bg: var(--v2-bg);
-    --text: var(--v2-white-high);
-  }
-  
-  .theme-v2 ::selection {
-    background-color: rgba(255, 255, 255, 0.2);
-    color: white;
-  }
-
-  .theme-v2 ::-webkit-scrollbar {
-    width: 6px;
-  }
-  .theme-v2 ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .theme-v2 ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 9999px;
-  }
-  .theme-v2 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
+    --bg-base: #0A0A0B;
+    --text-main: rgba(255, 255, 255, 0.95);
+    --border-light: rgba(255, 255, 255, 0.1);
   }
 
   .theme-v2 body {
-    background-color: var(--bg);
-    color: var(--text);
-  }
-
-  .dark {
-    color-scheme: dark;
-  }
-...
-
-  .dark {
-    color-scheme: dark;
+    background-color: var(--bg-base);
+    color: var(--text-main);
   }
 
   body {
-    @apply bg-stone-50 text-stone-900 antialiased transition-colors duration-300;
+    @apply bg-surface-base text-text-main antialiased transition-colors duration-300;
   }
-
-  /* Visible focus states for keyboard navigation */
-  :focus-visible {
-    @apply outline-2 outline-offset-2 outline-emerald-500;
-  }
-
-  .theme-v2 :focus-visible {
-    @apply outline-white;
-  }
-
-  .dark body {
-    @apply bg-stone-950 text-stone-100;
-  }
-}
-
-.prose {
-  @apply max-w-none;
-}
-
-.prose p {
-  @apply mb-4 leading-relaxed;
 }

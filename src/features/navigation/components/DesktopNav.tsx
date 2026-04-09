@@ -1,8 +1,7 @@
 import React from 'react';
 import { NavButton } from './NavButton';
 import { PenLine, History, User as UserIcon, Globe, Shield, LogOut, Brain } from 'lucide-react';
-import { User } from 'firebase/auth';
-import { signOut } from 'firebase/auth';
+import { User, signOut } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { useLanguage } from '../../../core/i18n';
 import { useUI } from '../../../contexts/UIContext';
@@ -61,7 +60,7 @@ export function DesktopNav({ view, setView, isAdmin, user }: DesktopNavProps) {
           aria-label={t('nav_logout')}
         >
           <div className="relative">
-            <img src={user.photoURL || ''} className="w-8 h-8 rounded-full border border-stone-200 dark:border-stone-800 group-hover:border-stone-400 transition-colors" referrerPolicy="no-referrer" />
+            <img src={user.photoURL || undefined} className="w-8 h-8 rounded-full border border-stone-200 dark:border-stone-800 group-hover:border-stone-400 transition-colors" referrerPolicy="no-referrer" />
             <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-stone-900 rounded-full" />
           </div>
           <LogOut size={18} className="group-hover:translate-x-1 transition-transform" />

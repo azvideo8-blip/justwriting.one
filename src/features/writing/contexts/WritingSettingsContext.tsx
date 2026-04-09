@@ -86,8 +86,10 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (status !== 'writing' || !zenModeEnabled) {
-      setIsZenActive(false);
-      return;
+      const timer = setTimeout(() => {
+        setIsZenActive(false);
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
     const showUI = () => {
@@ -107,11 +109,14 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     window.addEventListener('keydown', hideUI);
 
     // Initial state: hidden if writing
-    setIsZenActive(true);
+    const timer = setTimeout(() => {
+      setIsZenActive(true);
+    }, 0);
 
     return () => {
       window.removeEventListener('mousemove', showUI);
       window.removeEventListener('keydown', hideUI);
+      clearTimeout(timer);
       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
     };
   }, [status, zenModeEnabled]);

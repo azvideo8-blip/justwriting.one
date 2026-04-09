@@ -9,29 +9,26 @@ interface AdminUsersTableProps {
 }
 
 export function AdminUsersTable({ users }: AdminUsersTableProps) {
-  const { uiVersion } = useUI();
-  const isV2 = uiVersion === '2.0';
-
   return (
     <table className="w-full text-left border-collapse">
       <thead>
-        <tr className={cn("border-b", isV2 ? "bg-white/5 border-white/10" : "bg-stone-50 dark:bg-stone-950 border-stone-200 dark:border-stone-800")}>
-          <th className={cn("px-6 py-4 text-xs font-bold uppercase tracking-widest", isV2 ? "text-white/50" : "text-stone-400")}>Email</th>
-          <th className={cn("px-6 py-4 text-xs font-bold uppercase tracking-widest", isV2 ? "text-white/50" : "text-stone-400")}>UID</th>
-          <th className={cn("px-6 py-4 text-xs font-bold uppercase tracking-widest", isV2 ? "text-white/50" : "text-stone-400")}>Роль</th>
+        <tr className="border-b bg-surface-base/5 border-border-subtle">
+          <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/50">Email</th>
+          <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/50">UID</th>
+          <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/50">Роль</th>
         </tr>
       </thead>
       <tbody>
         {users.map(u => (
-          <tr key={u.uid} className={cn("border-b last:border-0", isV2 ? "border-white/10" : "border-stone-100 dark:border-stone-800")}>
-            <td className={cn("px-6 py-4 text-sm font-medium", isV2 ? "text-white" : "dark:text-stone-200")}>{u.email}</td>
-            <td className={cn("px-6 py-4 text-sm font-mono", isV2 ? "text-white/50" : "text-stone-400")}>{u.uid}</td>
+          <tr key={u.uid} className="border-b last:border-0 border-border-subtle">
+            <td className="px-6 py-4 text-sm font-medium text-text-main">{u.email}</td>
+            <td className="px-6 py-4 text-sm font-mono text-text-main/50">{u.uid}</td>
             <td className="px-6 py-4">
               <span className={cn(
                 "px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider",
                 u.role === 'admin' 
-                  ? (isV2 ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-600") 
-                  : (isV2 ? "bg-white/10 text-white/50" : "bg-stone-100 text-stone-600")
+                  ? "bg-red-500/20 text-red-400" 
+                  : "bg-text-main/10 text-text-main/50"
               )}>
                 {u.role || 'user'}
               </span>

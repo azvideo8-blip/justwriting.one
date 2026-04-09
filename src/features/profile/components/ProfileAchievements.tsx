@@ -16,14 +16,12 @@ interface ProfileAchievementsProps {
 
 export function ProfileAchievements({ currentStreak, totalWords, totalNotes, maxSessionDuration, earnedAchievements }: ProfileAchievementsProps) {
   const { t } = useLanguage();
-  const { uiVersion } = useUI();
-  const isV2 = uiVersion === '2.0';
   const earnedSet = new Set(earnedAchievements);
 
   return (
     <div className="space-y-6">
-      <h3 className={cn("text-2xl font-bold flex items-center gap-2", isV2 ? "text-white" : "dark:text-stone-100")}>
-        <Sparkles className={isV2 ? "text-amber-400" : "text-amber-500"} /> {t('profile_achievements')}
+      <h3 className="text-2xl font-bold flex items-center gap-2 text-text-main">
+        <Sparkles className="text-amber-400" /> {t('profile_achievements')}
       </h3>
       
       <div className="space-y-8">
