@@ -2,6 +2,16 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { User } from 'firebase/auth';
 import { saveToLocal, saveToFirestore, Draft } from '../../../lib/db';
 
+function getLocalStorageUsageKB(): number {
+  let total = 0;
+  for (const key in localStorage) {
+    if (Object.prototype.hasOwnProperty.call(localStorage, key)) {
+      total += (localStorage[key].length + key.length) * 2; // UTF-16
+    }
+  }
+  return total / 1024;
+}
+
 export function useDraftAutosave(
   user: User | null,
   draftData: {
@@ -20,6 +30,14 @@ export function useDraftAutosave(
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const draftDataRef = useRef(draftData);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     draftDataRef.current = draftData;
@@ -30,17 +48,45 @@ export function useDraftAutosave(
     const draft: Draft = {
       userId: user.uid,
       ...draftDataRef.current,
+      sessionStartTime: draftDataRef.current.sessionStartTime ?? null,
       updatedAt: Date.now()
-    };
+    } as Draft;
     try {
-      setSaveStatus('saving');
-      await Promise.all([saveToLocal(draft), saveToFirestore(draft)]);
-      setSaveStatus('saved');
-      setLastSavedAt(Date.now());
-      setTimeout(() => setSaveStatus('idle'), 1000);
+      if (isMountedRef.current) setSaveStatus('saving');
+      
+      const usageKB = getLocalStorageUsageKB();
+      if (usageKB > 4500) { // ~4.5MB
+        console.warn(`localStorage usage: ${usageKB.toFixed(0)}KB — approaching limit`);
+      }
+
+      const [localResult, remoteResult] = await Promise.allSettled([
+        saveToLocal(draft),
+        saveToFirestore(draft)
+      ]);
+
+      const localOk = localResult.status === 'fulfilled';
+      const remoteOk = remoteResult.status === 'fulfilled';
+
+      if (!localOk) {
+        console.error('Local save failed:', localResult.reason);
+      }
+      if (!remoteOk) {
+        console.warn('Firestore save failed (will retry on next change):', remoteResult.reason);
+      }
+
+      if (isMountedRef.current) {
+        if (localOk || remoteOk) {
+          setSaveStatus('saved');
+          setLastSavedAt(Date.now());
+          setTimeout(() => { if (isMountedRef.current) setSaveStatus('idle'); }, 1000);
+        } else {
+          setSaveStatus('error');
+        }
+      }
     } catch (err) {
-      console.error("Force save error:", err);
-      setSaveStatus('error');
+      const isQuotaError = err instanceof DOMException && err.name === 'QuotaExceededError';
+      console.error(isQuotaError ? 'localStorage full' : 'Save error:', err);
+      if (isMountedRef.current) setSaveStatus('error');
     }
   }, [user]);
 
@@ -70,16 +116,24 @@ export function useDraftAutosave(
         const draft: Draft = {
           userId: user.uid,
           ...draftData,
+          sessionStartTime: draftData.sessionStartTime ?? null,
           updatedAt: Date.now()
-        };
+        } as Draft;
         try {
+          const usageKB = getLocalStorageUsageKB();
+          if (usageKB > 4500) {
+            console.warn(`localStorage usage: ${usageKB.toFixed(0)}KB — approaching limit`);
+          }
           await saveToLocal(draft);
-          setSaveStatus('saved');
-          setLastSavedAt(Date.now());
-          setTimeout(() => setSaveStatus('idle'), 1000);
+          if (isMountedRef.current) {
+            setSaveStatus('saved');
+            setLastSavedAt(Date.now());
+            setTimeout(() => { if (isMountedRef.current) setSaveStatus('idle'); }, 1000);
+          }
         } catch (err) {
-          console.error("Local autosave error:", err);
-          setSaveStatus('error');
+          const isQuotaError = err instanceof DOMException && err.name === 'QuotaExceededError';
+          console.error(isQuotaError ? 'localStorage full' : 'Local autosave error:', err);
+          if (isMountedRef.current) setSaveStatus('error');
         }
       }, 500); // Save 500ms after last change
       

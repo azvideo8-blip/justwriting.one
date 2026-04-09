@@ -48,17 +48,17 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
         value={editTitle}
         onChange={(e) => setEditTitle(e.target.value)}
         placeholder={t('editor_title_placeholder')}
-        className="w-full px-4 py-2 bg-stone-50 dark:bg-stone-950 rounded-xl border border-stone-200 dark:border-stone-800 outline-none focus:border-stone-400 transition-all dark:text-stone-100 font-bold"
+        className="w-full px-4 py-2 bg-surface-base rounded-xl border border-border-subtle outline-none focus:border-text-main/30 transition-all text-text-main font-bold"
       />
       <textarea 
         value={editContent}
         onChange={(e) => setEditContent(e.target.value)}
-        className="w-full min-h-[200px] p-4 bg-stone-50 dark:bg-stone-950 rounded-2xl border border-stone-200 dark:border-stone-800 outline-none focus:border-stone-400 transition-all dark:text-stone-100"
+        className="w-full min-h-[200px] p-4 bg-surface-base rounded-2xl border border-border-subtle outline-none focus:border-text-main/30 transition-all text-text-main"
       />
-      <div className="flex flex-wrap items-center gap-2 p-3 bg-stone-50 dark:bg-stone-950 rounded-xl border border-stone-200 dark:border-stone-800">
+      <div className="flex flex-wrap items-center gap-2 p-3 bg-surface-base rounded-xl border border-border-subtle">
         <div className="flex flex-wrap gap-2">
           {editTags.map(tag => (
-            <span key={tag} className="flex items-center gap-1 px-2 py-1 bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400 rounded-lg text-xs font-medium">
+            <span key={tag} className="flex items-center gap-1 px-2 py-1 bg-surface-card text-text-main/60 rounded-lg text-xs font-medium border border-border-subtle">
               #{tag}
               <button onClick={() => removeTag(tag)} className="hover:text-red-500"><X size={10} /></button>
             </span>
@@ -70,17 +70,17 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
           onChange={(e) => setTagInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && addTag()}
           placeholder={t('session_tag_placeholder')}
-          className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm dark:text-stone-100"
+          className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm text-text-main"
         />
       </div>
       <div className="flex items-center justify-between">
         <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" checked={editIsPublic} onChange={(e) => setEditIsPublic(e.target.checked)} className="rounded border-stone-300" />
-          <span className="text-sm text-stone-500">{t('setup_public')}</span>
+          <input type="checkbox" checked={editIsPublic} onChange={(e) => setEditIsPublic(e.target.checked)} className="rounded border-border-subtle accent-text-main" />
+          <span className="text-sm text-text-main/50">{t('setup_public')}</span>
         </label>
         <div className="flex gap-2">
-          <button onClick={onCancel} className="px-4 py-2 text-stone-500 hover:text-stone-900 dark:hover:text-stone-100 font-medium">{t('common_cancel')}</button>
-          <button onClick={handleSave} className="px-6 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-bold">{t('common_save')}</button>
+          <button onClick={onCancel} className="px-4 py-2 text-text-main/50 hover:text-text-main font-medium">{t('common_cancel')}</button>
+          <button onClick={handleSave} className="px-6 py-2 bg-text-main text-surface-base rounded-xl font-bold">{t('common_save')}</button>
         </div>
       </div>
     </div>

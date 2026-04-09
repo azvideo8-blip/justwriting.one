@@ -6,9 +6,10 @@ import { ErrorBoundary } from './shared/components/ErrorBoundary';
 import { LanguageProvider } from './core/i18n';
 import './index.css';
 
-if (import.meta.env.VITE_SENTRY_DSN) {
+const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
+if (sentryDsn && sentryDsn.startsWith('https://')) {
   Sentry.init({
-    dsn: import.meta.env.VITE_SENTRY_DSN,
+    dsn: sentryDsn,
     integrations: [
       Sentry.browserTracingIntegration(),
       Sentry.replayIntegration(),

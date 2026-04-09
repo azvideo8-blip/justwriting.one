@@ -4,6 +4,17 @@ import { format } from 'date-fns';
 import { reportError } from '../../core/errors/reportError';
 
 export class ExportService {
+  static toJson(draft: any) {
+    try {
+      const json = JSON.stringify(draft);
+      const blob = new Blob([json], { type: 'application/json' });
+      saveAs(blob, `draft_backup.json`);
+    } catch (error) {
+      reportError(error, { method: 'toJson' });
+      throw error;
+    }
+  }
+
   static toTxt(title: string, content: string, createdAt: Date) {
     try {
       const blob = new Blob([content], { type: 'text/plain' });
@@ -24,12 +35,22 @@ export class ExportService {
 
   static toPDF(title: string, content: string) {
     try {
+      const escapeHtml = (str: string) =>
+        str
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+
+      const safeTitle = escapeHtml(title || 'Session');
+
       const printContent = `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="UTF-8" />
-          <title>${title || 'Session'}</title>
+          <title>${safeTitle}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
             body {
@@ -56,8 +77,8 @@ export class ExportService {
           </style>
         </head>
         <body>
-          <h1>${title || 'Untitled Session'}</h1>
-          <pre>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+          <h1>${safeTitle}</h1>
+          <pre>${escapeHtml(content)}</pre>
         </body>
         </html>
       `;

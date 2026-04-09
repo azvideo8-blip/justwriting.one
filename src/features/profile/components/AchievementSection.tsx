@@ -12,14 +12,11 @@ interface AchievementSectionProps {
 }
 
 export function AchievementSection({ title, achievements, currentValue, suffix = '', earnedAchievements }: AchievementSectionProps) {
-  const { uiVersion } = useUI();
-  const isV2 = uiVersion === '2.0';
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h4 className={cn("text-sm font-bold uppercase tracking-widest", isV2 ? "text-white/50" : "text-stone-400 dark:text-stone-500")}>{title}</h4>
-        <span className={cn("text-xs font-mono", isV2 ? "text-white/30" : "text-stone-500")}>{currentValue}{suffix}</span>
+        <h4 className="text-sm font-bold uppercase tracking-widest text-text-main/50">{title}</h4>
+        <span className="text-xs font-mono text-text-main/30">{currentValue}{suffix}</span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
         {achievements.map(a => (

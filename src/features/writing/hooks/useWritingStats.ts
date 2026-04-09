@@ -1,20 +1,24 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 export function useWritingStats(content: string, seconds: number, initialWordCount: number, sessionType: string, wordGoal: number) {
-  const [wordCount, setWordCount] = useState(0);
   const [wpm, setWpm] = useState(0);
   const [wordGoalReached, setWordGoalReached] = useState(false);
   
+  const currentWords = content.trim().split(/\s+/).filter(x => x.length > 0).length;
+  const wordCount = currentWords - initialWordCount;
+  
   // Buffer for sliding window: { timestamp: number, wordCount: number }
   const buffer = useRef<{ timestamp: number, wordCount: number }[]>([]);
-  const lastUpdate = useRef(Date.now());
+  const lastUpdate = useRef(0);
 
-  // Эффект 1: считаем слова при изменении content
   useEffect(() => {
-    const currentWords = content.trim().split(/\s+/).filter(x => x.length > 0).length;
-    const sessionWords = currentWords - initialWordCount;
-    setWordCount(sessionWords);
+    if (lastUpdate.current === 0) {
+      lastUpdate.current = Date.now();
+    }
+  }, []);
 
+  // Эффект 1: считаем WPM и проверяем цель
+  useEffect(() => {
     const now = Date.now();
     const timeSinceLastSample = now - lastUpdate.current;
 
@@ -37,10 +41,10 @@ export function useWritingStats(content: string, seconds: number, initialWordCou
       }
     }
 
-    if (sessionType === 'words' && sessionWords >= wordGoal) {
+    if (sessionType === 'words' && wordCount >= wordGoal) {
       setWordGoalReached(true);
     }
-  }, [content, initialWordCount, sessionType, wordGoal]);
+  }, [currentWords, wordCount, sessionType, wordGoal]);
 
   // Эффект 2: плавное затухание WPM каждые 10 секунд при бездействии
   useEffect(() => {
@@ -55,7 +59,6 @@ export function useWritingStats(content: string, seconds: number, initialWordCou
   }, []); // запускается один раз
 
   const resetStats = useCallback(() => {
-    setWordCount(0);
     setWpm(0);
     setWordGoalReached(false);
     buffer.current = [];

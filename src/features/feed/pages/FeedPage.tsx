@@ -11,8 +11,6 @@ import { useUI } from '../../../contexts/UIContext';
 
 export function FeedPage() {
   const { t } = useLanguage();
-  const { uiVersion } = useUI();
-  const isV2 = uiVersion === '2.0';
   const [sessions, setSessions] = useState<Session[]>([]);
   const [lastDoc, setLastDoc] = useState<any>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -59,22 +57,22 @@ export function FeedPage() {
       className="max-w-3xl mx-auto space-y-8 pb-10"
     >
       <div className="flex items-center justify-between">
-        <h2 className={cn("text-3xl font-bold flex items-center gap-3", isV2 ? "text-white" : "dark:text-stone-100")}>
-          <Globe className={isV2 ? "text-emerald-400" : "text-emerald-500"} /> {t('nav_community')}
+        <h2 className="text-3xl font-bold flex items-center gap-3 text-text-main">
+          <Globe className="text-emerald-500" /> {t('nav_community')}
         </h2>
-        <span className={cn("text-xs font-bold uppercase tracking-widest", isV2 ? "text-white/50" : "text-stone-400 dark:text-stone-500")}>{t('community_subtitle')}</span>
+        <span className="text-xs font-bold uppercase tracking-widest text-text-main/50">{t('community_subtitle')}</span>
       </div>
 
       <div className="space-y-8">
         {loading ? (
-          <div className={cn("italic text-center py-12", isV2 ? "text-white/70" : "text-stone-400")}>{t('community_loading')}</div>
+          <div className="italic text-center py-12 text-text-main/70">{t('community_loading')}</div>
         ) : error ? (
-          <div className={cn("p-12 text-center rounded-3xl border", isV2 ? "bg-red-500/10 border-red-500/30" : "bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30")}>
-            <p className={cn(isV2 ? "text-red-400" : "text-red-600 dark:text-red-400")}>{error}</p>
+          <div className="p-12 text-center rounded-3xl border bg-red-500/10 border-red-500/30">
+            <p className="text-red-400">{error}</p>
           </div>
         ) : sessions.length === 0 ? (
-          <div className={cn("p-12 text-center rounded-3xl border", isV2 ? "bg-white/5 border-white/10" : "bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800")}>
-            <p className={cn(isV2 ? "text-white/70" : "text-stone-400")}>{t('community_empty')}</p>
+          <div className="p-12 text-center rounded-3xl border bg-surface-card border-border-subtle">
+            <p className="text-text-main/70">{t('community_empty')}</p>
           </div>
         ) : (
           <>
@@ -87,12 +85,7 @@ export function FeedPage() {
                 <button
                   onClick={() => fetchSessions(false)}
                   disabled={loadingMore}
-                  className={cn(
-                    "px-8 py-3 rounded-2xl font-bold transition-all disabled:opacity-50",
-                    isV2 
-                      ? "bg-white/10 text-white hover:bg-white/20 border border-white/10" 
-                      : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-lg"
-                  )}
+                  className="px-8 py-3 rounded-2xl font-bold transition-all disabled:opacity-50 bg-text-main text-surface-base shadow-lg"
                 >
                   {loadingMore ? t('archive_loading_more') : t('archive_load_more')}
                 </button>

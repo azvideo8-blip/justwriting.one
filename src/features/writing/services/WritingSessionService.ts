@@ -4,8 +4,10 @@ import { handleFirestoreError, OperationType } from '../../../shared/lib/firesto
 import { savePendingSession, getAllPendingSessions, deletePendingSession } from '../../../lib/db';
 import { reportError } from '../../../core/errors/reportError';
 
+import { SessionPayload } from '../../../types';
+
 export const WritingSessionService = {
-  saveSession: async (sessionData: any, activeSessionId: string | null, isOnline: boolean, userId: string) => {
+  saveSession: async (sessionData: SessionPayload, activeSessionId: string | null, isOnline: boolean, userId: string) => {
     try {
       if (!isOnline) {
         await savePendingSession({ sessionId: activeSessionId, data: sessionData, userId });
@@ -54,6 +56,8 @@ export const WritingSessionService = {
     const userPending = pending.filter(p => p.userId === userId);
     if (userPending.length === 0) return;
 
+    const results = { synced: 0, failed: 0 };
+
     for (const session of userPending) {
       try {
         if (session.sessionId) {
@@ -71,9 +75,15 @@ export const WritingSessionService = {
         if (session.id) {
           await deletePendingSession(session.id);
         }
+        results.synced++;
       } catch (e) {
-        // Error is handled
+        results.failed++;
+        reportError(e, { sessionId: session.sessionId ?? 'none', userId });
       }
+    }
+
+    if (results.failed > 0) {
+      console.warn(`Sync: ${results.synced} ok, ${results.failed} failed`);
     }
   }
 };

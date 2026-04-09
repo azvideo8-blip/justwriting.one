@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
+import { useWritingStore } from '../store/useWritingStore';
 import { SessionService } from '../services/SessionService';
 import { Session, UserProfile } from '../../../types';
 import { cn } from '../../../core/utils/utils';
@@ -35,6 +36,9 @@ interface WritingViewProps {
 function WritingPageContent({ user, profile, sessionToContinue, onSessionContinued }: WritingViewProps) {
   const { t } = useLanguage();
   const { uiVersion } = useUI();
+  
+  const status = useWritingStore(s => s.status);
+
   const { 
     streamMode, isZenActive, zenModeEnabled, 
     status: uiStatus, setStatus: setUIStatus, 
@@ -76,6 +80,8 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
     encryptionPassword, setEncryptionPassword,
     decryptSession
   } = useWritingSession(user, profile);
+
+  const setSessionConfig = useWritingStore(s => s.setSessionConfig);
 
   const [setupMode, setSetupMode] = useState<SetupMode>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -173,10 +179,13 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
         }
         
         setActiveSessionId(null);
-        setContent(loaded.content);
-        setTitle(loaded.title || '');
-        setInitialWordCount(loaded.wordCount || 0);
-        setInitialDuration(loaded.duration || 0);
+        useWritingStore.setState({
+          content: loaded.content,
+          title: loaded.title || '',
+          initialWordCount: loaded.wordCount || 0,
+          seconds: loaded.duration || 0,
+          wordCount: loaded.wordCount || 0
+        });
         setTags(loaded.tags || []);
         setIsPublic(loaded.isPublic);
         setIsAnonymous(loaded.isAnonymous || false);
@@ -186,10 +195,13 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
     }
 
     setActiveSessionId(session.id);
-    setContent(session.content);
-    setTitle(session.title || '');
-    setInitialWordCount(session.wordCount || 0);
-    setInitialDuration(session.duration || 0);
+    useWritingStore.setState({
+      content: session.content,
+      title: session.title || '',
+      initialWordCount: session.wordCount || 0,
+      seconds: session.duration || 0,
+      wordCount: session.wordCount || 0
+    });
     setTags(session.tags || []);
     setIsPublic(session.isPublic);
     setIsAnonymous(session.isAnonymous || false);
@@ -272,11 +284,7 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className={cn(
-        "w-full transition-colors duration-1000",
-        // dynamicBgEnabled && status === 'writing' && "dark:!bg-[var(--dynamic-bg-dark)]"
-      )}
-      // style={getDynamicBgStyle()}
+      className="w-full transition-colors duration-1000 bg-surface-base"
     >
       {/* Offline Notification */}
       {!isOnline && (
@@ -295,41 +303,26 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
 
       {/* Progress Bar */}
       <ProgressBar 
-        status={sessionStatus}
-        sessionType={sessionType}
-        wordCount={wordCount}
-        wordGoal={wordGoal}
-        seconds={seconds}
-        timerDuration={timerDuration}
         totalDurationForDeadline={totalDurationForDeadline.current}
-        wordGoalReached={wordGoalReached}
-        timeGoalReached={timeGoalReached}
-        isV2={isV2}
         isZenActive={isZenActive}
         zenModeEnabled={zenModeEnabled}
       />
 
       <PasswordPromptModal 
         isOpen={!!passwordPrompt}
-        isV2={isV2}
         onConfirm={handlePromptSubmit}
         onCancel={handlePromptCancel}
       />
 
-      {isV2 && showSettings ? (
-        <SettingsV2 
-          onClose={() => setShowSettings(false)}
-        />
-      ) : !isV2 && showSettings ? (
+      {showSettings && (
         <WritingSettings 
           showSettings={showSettings}
           setShowSettings={setShowSettings}
         />
-      ) : null}
+      )}
 
       <CancelConfirmModal 
         isOpen={showCancelConfirm}
-        isV2={isV2}
         onConfirm={() => {
           handleCancel();
           setShowCancelConfirm(false);
@@ -338,19 +331,12 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
       />
 
       <WritingFinishModal 
-        status={sessionStatus}
-        wordCount={wordCount}
-        seconds={seconds}
-        wpm={wpm}
         formatTime={formatTime}
         isPublic={isPublic}
         setIsPublic={setIsPublic}
         isAnonymous={isAnonymous}
         setIsAnonymous={setIsAnonymous}
         handleSave={handleSave}
-        setStatus={setSessionStatus}
-        content={content}
-        title={title}
         tags={tags}
         setTags={setTags}
         labelId={labelId}
@@ -361,22 +347,11 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
 
       <AdaptiveContainer size={textWidth === 'full' ? 'FULL' : 'CENTERED'}>
         <WritingHeader 
-          status={sessionStatus}
-          sessionType={sessionType}
-          timeGoalReached={timeGoalReached}
-          wordGoalReached={wordGoalReached}
-          seconds={seconds}
-          wordCount={wordCount}
-          initialWordCount={initialWordCount}
-          wordGoal={wordGoal}
-          targetTime={targetTime}
-          wpm={wpm}
           formatTime={formatTime}
           handleNewSession={handleNewSession}
           fetchUserSessions={fetchAllSessions}
           loadingSessions={loadingSessions}
           hasDraft={hasDraft}
-          setStatus={setSessionStatus}
           setShowSettings={setShowSettings}
           handlePause={() => setSessionStatus('paused')}
           handleStart={handleStart}
@@ -410,23 +385,12 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
           </AnimatePresence>
 
           <WritingEditor 
-            status={sessionStatus}
-            title={title}
-            setTitle={setTitle}
-            pinnedThoughts={pinnedThoughts}
-            setPinnedThoughts={setPinnedThoughts}
-            content={content}
-            setContent={setContent}
             handlePause={() => setSessionStatus('paused')}
             handleStart={handleStart}
             handleFinish={() => setSessionStatus('finished')}
             setShowCancelConfirm={setShowCancelConfirm}
-            // dynamicBgEnabled={dynamicBgEnabled}
-            wpm={wpm}
             saveStatus={saveStatus}
             lastSavedAt={lastSavedAt}
-            // highlights={highlights}
-            // setHighlights={setHighlights}
           />
         </div>
       </AdaptiveContainer>

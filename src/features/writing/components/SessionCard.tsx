@@ -34,8 +34,6 @@ export function SessionCard({
   onDeleteSuccess?: (sessionId: string) => void
 }) {
   const { t } = useLanguage();
-  const { uiVersion } = useUI();
-  const isV2 = uiVersion === '2.0';
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -104,7 +102,7 @@ export function SessionCard({
       <>
         {parts.map((part, i) => 
           part.toLowerCase() === query.toLowerCase() ? (
-            <mark key={i} className={cn("px-0.5 rounded", isV2 ? "bg-white/20 text-white" : "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-100")}>
+            <mark key={i} className="px-0.5 rounded bg-text-main/20 text-text-main">
               {part}
             </mark>
           ) : part
@@ -153,43 +151,36 @@ export function SessionCard({
     <>
       <motion.div 
         layout
-        className={cn(
-          "p-6 md:p-8 transition-all space-y-4 group relative",
-          isV2 
-            ? "bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl text-[#E5E5E0] hover:bg-white/10" 
-            : "bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm hover:shadow-md"
-        )}
+        className="p-6 md:p-8 transition-all space-y-4 group relative bg-surface-card backdrop-blur-xl border border-border-subtle rounded-3xl text-text-main hover:bg-white/10"
       >
-        {isV2 && (
-          <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
-            <div className="absolute -top-16 -left-16 w-32 h-32 rounded-full blur-3xl opacity-0 transition-all duration-700 bg-white/5 mix-blend-screen group-hover:opacity-100 group-hover:translate-x-4" />
-          </div>
-        )}
+        <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+          <div className="absolute -top-16 -left-16 w-32 h-32 rounded-full blur-3xl opacity-0 transition-all duration-700 bg-white/5 mix-blend-screen group-hover:opacity-100 group-hover:translate-x-4" />
+        </div>
         {label && (
           <div className="flex items-center gap-2 relative z-10">
             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: label.color }} />
-            <span className={cn("text-xs font-bold uppercase tracking-widest", isV2 ? "text-white/50" : "text-stone-500")}>{label.name}</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-text-main/50">{label.name}</span>
           </div>
         )}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
           <div className="flex items-center gap-3">
             {showAuthor && (
-              <div className={cn("w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border", isV2 ? "bg-white/10 border-white/10" : "bg-stone-100 dark:bg-stone-800 border-stone-100 dark:border-stone-800")}>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border bg-surface-base border-border-subtle">
                 {session.authorPhoto ? (
-                  <img src={session.authorPhoto} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img src={session.authorPhoto || undefined} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
-                  <UserIcon size={14} className={isV2 ? "text-white/50" : "text-stone-400"} />
+                  <UserIcon size={14} className="text-text-main/50" />
                 )}
               </div>
             )}
             <div className="flex flex-col">
-              <span className={cn("text-[10px] md:text-xs font-bold uppercase tracking-widest", isV2 ? "text-white/40" : "text-stone-400 dark:text-stone-500")}>
+              <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-text-main/40">
                 {format(new Date(session.sessionStartTime || (sessionDate.getTime() - session.duration * 1000)), 'd MMM yyyy • HH:mm')}
               </span>
-              {showAuthor && <span className={cn("font-medium", isV2 ? "text-white" : "text-stone-900 dark:text-stone-100")}>{session.isAnonymous ? t('session_anonymous') : (session.nickname || session.authorName)}</span>}
+              {showAuthor && <span className="font-medium text-text-main">{session.isAnonymous ? t('session_anonymous') : (session.nickname || session.authorName)}</span>}
             </div>
           </div>
-          <div className={cn("flex items-center flex-wrap gap-3 text-xs md:text-sm font-mono", isV2 ? "text-white/50" : "text-stone-400 dark:text-stone-500")}>
+          <div className="flex items-center flex-wrap gap-3 text-xs md:text-sm font-mono text-text-main/50">
             <span className="flex items-center gap-1" title={t('writing_time')}><Clock size={14} /> {Math.floor(session.duration / 60)}{t('unit_min')}</span>
             <span className="flex items-center gap-1" title={t('writing_words')}><Type size={14} /> {session.wordCount}{t('unit_words')}</span>
             <span className="flex items-center gap-1" title={t('writing_chars')}><PenLine size={14} /> {session.charCount || 0}</span>
@@ -202,8 +193,8 @@ export function SessionCard({
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all",
                   showExportMenu 
-                    ? (isV2 ? "bg-white text-black" : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900") 
-                    : (isV2 ? "bg-white/5 text-white/70 hover:bg-white/10" : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700")
+                    ? "bg-text-main text-surface-base" 
+                    : "bg-surface-base text-text-main/70 hover:bg-white/10"
                 )}
               >
                 <Share2 size={12} />
@@ -222,22 +213,19 @@ export function SessionCard({
                     zIndex: 9999
                   }}
                   className={cn(
-                    "w-48 rounded-2xl shadow-xl border p-2",
-                    isV2 
-                      ? "bg-[#0A0A0B]/90 backdrop-blur-xl border-white/10" 
-                      : "bg-white dark:bg-stone-800 border-stone-100 dark:border-stone-700"
+                    "w-48 rounded-2xl shadow-xl border p-2 bg-surface-card backdrop-blur-xl border-border-subtle"
                   )}
                 >
-                  <button onClick={exportToTxt} className={cn("w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all", isV2 ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700")}>
+                  <button onClick={exportToTxt} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
                     <FileText size={14} /> {t('export_txt')}
                   </button>
-                  <button onClick={exportPDF} className={cn("w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all", isV2 ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700")}>
+                  <button onClick={exportPDF} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
                     <FileText size={14} className="text-red-500" /> {t('export_pdf')}
                   </button>
-                  <button onClick={exportMarkdown} className={cn("w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all", isV2 ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700")}>
+                  <button onClick={exportMarkdown} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
                     <FileJson size={14} className="text-blue-500" /> {t('export_md')}
                   </button>
-                  <button onClick={exportDocx} className={cn("w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all", isV2 ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700")}>
+                  <button onClick={exportDocx} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
                     <Download size={14} className="text-emerald-500" /> {t('export_docx')}
                   </button>
                 </motion.div>,
@@ -248,20 +236,14 @@ export function SessionCard({
                 <>
                   <button 
                     onClick={() => setIsEditing(!isEditing)}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all",
-                      isV2 ? "bg-white/5 text-white/70 hover:bg-white/10" : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700"
-                    )}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all bg-surface-base text-text-main/70 hover:bg-white/10"
                   >
                     <PenLine size={12} />
                     {t('session_edit')}
                   </button>
                   <button 
                     onClick={() => setShowDeleteConfirm(true)}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all hover:text-red-500",
-                      isV2 ? "bg-white/5 text-white/70 hover:bg-white/10" : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700"
-                    )}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all hover:text-red-500 bg-surface-base text-text-main/70 hover:bg-white/10"
                   >
                     <Trash2 size={12} />
                     {t('session_delete')}
@@ -271,10 +253,7 @@ export function SessionCard({
               
               <button 
                 onClick={() => setExpanded(!expanded)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all",
-                  isV2 ? "bg-white/5 text-white/70 hover:bg-white/10" : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700"
-                )}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all bg-surface-base text-text-main/70 hover:bg-white/10"
               >
                 {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 {expanded ? t('session_collapse') : t('session_expand')}
@@ -284,7 +263,7 @@ export function SessionCard({
         </div>
 
         {session.title && !isEditing && (
-          <h4 className={cn("text-xl font-bold relative z-10", isV2 ? "text-white" : "dark:text-stone-100")}>
+          <h4 className="text-xl font-bold relative z-10 text-text-main">
             {highlightText(session.title, searchQuery)}
           </h4>
         )}
@@ -297,29 +276,23 @@ export function SessionCard({
           />
         ) : (
           <div className={cn("relative z-10", !expanded && "max-h-24 overflow-hidden")}>
-            <p className={cn("leading-relaxed whitespace-pre-wrap", isV2 ? "text-white/80" : "text-stone-600 dark:text-stone-300")}>
+            <p className="leading-relaxed whitespace-pre-wrap text-text-main/80">
               {highlightText(session.content, searchQuery)}
             </p>
             {!expanded && session.content.length > 200 && (
-              <div className={cn(
-                "absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t",
-                isV2 ? "from-[#0A0A0B]/80 to-transparent" : "from-white dark:from-stone-900 to-transparent"
-              )} />
+              <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-surface-card/80 to-transparent" />
             )}
           </div>
         )}
 
         {!isEditing && (
-          <div className={cn("flex flex-wrap items-center justify-between gap-4 pt-4 border-t relative z-10", isV2 ? "border-white/10" : "border-stone-100 dark:border-stone-800")}>
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t relative z-10 border-border-subtle">
             <div className="flex flex-wrap items-center gap-2">
               {tags && tags.length > 0 ? (
                 tags.map(tag => (
                   <span 
                     key={tag} 
-                    className={cn(
-                      "group/tag flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all",
-                      isV2 ? "bg-white/5 text-white/50 hover:bg-white/10" : "bg-stone-50 dark:bg-stone-800 text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-700"
-                    )}
+                    className="group/tag flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-surface-base text-text-main/50 hover:bg-white/10"
                   >
                     #{tag}
                     {auth.currentUser?.uid === session.userId && (
@@ -335,7 +308,7 @@ export function SessionCard({
               ) : (
                 <button 
                   onClick={() => setIsAddingTag(true)}
-                  className={cn("text-xs italic transition-colors", isV2 ? "text-white/30 hover:text-white/50" : "text-stone-300 dark:text-stone-600 hover:text-stone-500")}
+                  className="text-xs italic transition-colors text-text-main/30 hover:text-text-main/50"
                 >
                   + {t('session_add_tags')}
                 </button>
@@ -350,18 +323,13 @@ export function SessionCard({
                     onChange={(e) => setNewTag(e.target.value)}
                     onBlur={() => !newTag && setIsAddingTag(false)}
                     placeholder={t('session_tag_placeholder')}
-                    className={cn(
-                      "w-24 px-2.5 py-1.5 border rounded-lg text-xs outline-none transition-all",
-                      isV2 
-                        ? "bg-transparent border-white/20 text-white placeholder-white/30 focus:ring-1 focus:ring-white/20 focus:border-white/30 focus:bg-white/5" 
-                        : "bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700"
-                    )}
+                    className="w-24 px-2.5 py-1.5 border rounded-lg text-xs outline-none transition-all bg-transparent border-border-subtle text-text-main placeholder-text-main/30 focus:ring-1 focus:ring-text-main/20 focus:border-text-main/30 focus:bg-white/5"
                   />
                 </form>
               ) : session.tags && session.tags.length > 0 && (
                 <button 
                   onClick={() => setIsAddingTag(true)}
-                  className={cn("p-1 transition-colors", isV2 ? "text-white/30 hover:text-white/50" : "text-stone-300 hover:text-stone-500")}
+                  className="p-1 transition-colors text-text-main/30 hover:text-text-main/50"
                 >
                   <Plus size={12} />
                 </button>
@@ -371,10 +339,7 @@ export function SessionCard({
             {onContinue && auth.currentUser?.uid === session.userId && (
               <button 
                 onClick={onContinue}
-                className={cn(
-                  "flex items-center gap-2 px-6 py-2 rounded-xl font-bold transition-opacity text-sm",
-                  isV2 ? "bg-white text-black hover:bg-white/90" : "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:opacity-90"
-                )}
+                className="flex items-center gap-2 px-6 py-2 rounded-xl font-bold transition-opacity text-sm bg-text-main text-surface-base hover:opacity-90"
               >
                 <PenLine size={16} />
                 {t('session_continue')}
@@ -385,10 +350,10 @@ export function SessionCard({
       </motion.div>
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-          <div className={cn("p-6 rounded-3xl shadow-xl border", isV2 ? "bg-[#0A0A0B] border-white/10" : "bg-white dark:bg-stone-900 border-stone-200")}>
-            <h3 className={cn("text-lg font-bold mb-4", isV2 ? "text-white" : "text-stone-900 dark:text-stone-100")}>{t('session_delete_confirm')}</h3>
+          <div className="p-6 rounded-3xl shadow-xl border bg-surface-card border-border-subtle">
+            <h3 className="text-lg font-bold mb-4 text-text-main">{t('session_delete_confirm')}</h3>
             <div className="flex gap-3">
-              <button onClick={() => setShowDeleteConfirm(false)} className={cn("px-4 py-2 rounded-lg font-bold", isV2 ? "bg-white/10 text-white" : "bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300")}>{t('writing_cancel')}</button>
+              <button onClick={() => setShowDeleteConfirm(false)} className="px-4 py-2 rounded-lg font-bold bg-surface-base text-text-main">{t('writing_cancel')}</button>
               <button onClick={handleDelete} className="px-4 py-2 rounded-lg font-bold bg-red-500 text-white">{t('session_delete')}</button>
             </div>
           </div>

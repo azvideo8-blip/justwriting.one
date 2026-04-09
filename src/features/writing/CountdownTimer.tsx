@@ -1,36 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useWritingStore } from './store/useWritingStore';
 
-interface CountdownTimerProps {
-  targetTime: string;
-}
+export function CountdownTimer({ targetTime }: { targetTime: string }) {
+  // Подписываемся на seconds, чтобы компонент обновлялся каждую секунду
+  const seconds = useWritingStore(s => s.seconds); 
 
-export function CountdownTimer({ targetTime }: CountdownTimerProps) {
-  const [timeLeft, setTimeLeft] = useState('');
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const [hours, minutes] = targetTime.split(':').map(Number);
-      const now = new Date();
-      const target = new Date();
-      target.setHours(hours, minutes, 0, 0);
-      
-      const diff = target.getTime() - now.getTime();
-      
-      if (diff <= 0) {
-        setTimeLeft('00:00:00');
-        clearInterval(interval);
-        return;
-      }
-      
-      const h = Math.floor(diff / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      const s = Math.floor((diff % 60000) / 1000);
-      
-      setTimeLeft(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [targetTime]);
-
-  return <span>{timeLeft}</span>;
+  const [hours, minutes] = targetTime.split(':').map(Number);
+  const now = new Date();
+  const target = new Date();
+  target.setHours(hours, minutes, 0, 0);
+  
+  const diff = target.getTime() - now.getTime();
+  
+  if (diff <= 0) return <span>00:00:00</span>;
+  
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  
+  return <span>{`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`}</span>;
 }

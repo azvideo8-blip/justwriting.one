@@ -9,7 +9,8 @@ export function reportError(
 ): void {
   console.error('[reportError]', error, context);
 
-  if (!import.meta.env.VITE_SENTRY_DSN) return;
+  const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
+  if (!sentryDsn || !sentryDsn.startsWith('https://')) return;
 
   Sentry.withScope((scope) => {
     scope.setLevel(level);

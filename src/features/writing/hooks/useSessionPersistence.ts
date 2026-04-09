@@ -3,9 +3,10 @@ import { User } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
 import { WritingSessionService } from '../services/WritingSessionService';
 import { WritingDraftService } from '../services/WritingDraftService';
+import { useWritingStore } from '../store/useWritingStore';
 import { useDraftAutosave } from './useDraftAutosave';
 import { encrypt, decrypt } from '../../../shared/lib/encryption';
-import { Session, UserProfile } from '../../../types';
+import { UserProfile, SessionPayload } from '../../../types';
 
 export function useSessionPersistence(
   user: User,
@@ -79,46 +80,51 @@ export function useSessionPersistence(
   }, [sessionState]);
 
   // Load draft
-  const draftLoadedRef = useRef(false);
+  const draftLoadedForRef = useRef<string | null>(null);
   const loadDraft = useCallback(async () => {
-    if (draftLoadedRef.current) return;
+    if (draftLoadedForRef.current === user.uid) return;
     
     const draftToLoad = await WritingDraftService.loadDraft(user.uid);
     if (draftToLoad) {
       actions.setHasDraft(true);
       // Only auto-load if current content is empty to prevent overwriting active work
-      if (!sessionStateRef.current.content) {
-        actions.setContent(draftToLoad.content || '');
-        actions.setTitle(draftToLoad.title || '');
-        actions.setPinnedThoughts(draftToLoad.pinnedThoughts || []);
+      if (!useWritingStore.getState().content) {
+        useWritingStore.setState({
+          content: draftToLoad.content || '',
+          title: draftToLoad.title || '',
+          pinnedThoughts: draftToLoad.pinnedThoughts || [],
+          initialWordCount: draftToLoad.initialWordCount || 0,
+          seconds: draftToLoad.seconds || 0,
+          wordCount: draftToLoad.wordCount || 0
+        });
         if (draftToLoad.activeSessionId) actions.setActiveSessionId(draftToLoad.activeSessionId);
-        if (draftToLoad.initialWordCount !== undefined) actions.setInitialWordCount(draftToLoad.initialWordCount);
-        if (draftToLoad.initialDuration !== undefined) actions.setInitialDuration(draftToLoad.initialDuration);
       }
     }
-    draftLoadedRef.current = true;
+    draftLoadedForRef.current = user.uid;
   }, [user.uid, actions]);
 
   const handleSave = async (isLocalOnly: boolean) => {
-    let sessionData: any = {
+    const state = useWritingStore.getState();
+    
+    const sessionData: SessionPayload = {
       userId: user.uid,
-      authorName: user.displayName || 'Anonymous',
+      authorName: profile?.nickname || user.displayName || user.email?.split('@')[0] || 'Anonymous',
       authorPhoto: user.photoURL || '',
       nickname: profile?.nickname || '',
       isAnonymous: sessionState.isAnonymous,
-      title: sessionState.title,
-      content: sessionState.content,
-      pinnedThoughts: sessionState.pinnedThoughts,
-      duration: sessionState.initialDuration + timerState.seconds,
-      wordCount: timerState.wordCount + (sessionState.initialWordCount || 0),
-      charCount: sessionState.content.length,
-      wpm: timerState.wpm,
+      title: state.title,
+      content: state.content,
+      pinnedThoughts: state.pinnedThoughts,
+      duration: state.seconds,
+      wordCount: state.wordCount,
+      charCount: state.content.length,
+      wpm: state.wpm,
       isPublic: sessionState.isPublic,
       tags: sessionState.tags,
       updatedAt: Timestamp.now(),
-      sessionType: sessionState.sessionType,
+      sessionType: state.sessionType,
       sessionStartTime: sessionState.sessionStartTime,
-      goalReached: sessionState.sessionType === 'timer' ? timerState.timeGoalReached : (sessionState.sessionType === 'words' ? timerState.wordGoalReached : true)
+      goalReached: state.sessionType === 'timer' ? state.timeGoalReached : (state.sessionType === 'words' ? state.wordGoalReached : true)
     };
 
     if (isLocalOnly) {
@@ -136,7 +142,8 @@ export function useSessionPersistence(
         sessionData.isEncrypted = true;
       }
 
-      localStorage.setItem(`local_session_${Date.now()}`, JSON.stringify(sessionData));
+      const sessionKey = `local_session_${Date.now()}_${crypto.randomUUID()}`;
+      localStorage.setItem(sessionKey, JSON.stringify(sessionData));
       await WritingDraftService.deleteDraft(user.uid);
       actions.resetSession();
       actions.setStatus('idle');
@@ -167,9 +174,10 @@ export function useSessionPersistence(
         const raw = localStorage.getItem(key);
         try {
           const data = JSON.parse(raw || '{}');
+          const timestamp = key.replace('local_session_', '').split('_')[0];
           sessions.push({ 
             id: key, 
-            createdAt: new Date(Number(key.replace('local_session_', ''))),
+            createdAt: new Date(Number(timestamp)),
             isEncrypted: data.isEncrypted,
             title: data.title,
             wordCount: data.wordCount,

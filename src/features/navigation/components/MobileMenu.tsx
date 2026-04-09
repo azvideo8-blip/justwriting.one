@@ -18,8 +18,6 @@ interface MobileMenuProps {
 
 export function MobileMenu({ isOpen, onClose, view, setView, isAdmin }: MobileMenuProps) {
   const { language, setLanguage, t } = useLanguage();
-  const { uiVersion } = useUI();
-  const isV2 = uiVersion === '2.0';
 
   return (
     <AnimatePresence>
@@ -30,34 +28,23 @@ export function MobileMenu({ isOpen, onClose, view, setView, isAdmin }: MobileMe
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm z-[60]"
+            className="fixed inset-0 bg-surface-base/20 backdrop-blur-sm z-[60]"
           />
           <motion.div 
             initial={{ x: '-100%' }}
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className={cn(
-              "fixed top-0 left-0 bottom-0 w-[300px] z-[70] shadow-2xl p-8 flex flex-col",
-              isV2 
-                ? "bg-[#0A0A0B]/80 backdrop-blur-2xl border-r border-white/10" 
-                : "bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800"
-            )}
+            className="fixed top-0 left-0 bottom-0 w-[300px] z-[70] shadow-2xl p-8 flex flex-col bg-surface-card/80 backdrop-blur-2xl border-r border-border-subtle"
           >
             <div className="flex items-center justify-between mb-12">
               <div className="flex items-center gap-3">
-                <div className={cn(
-                  "w-10 h-10 rounded-xl flex items-center justify-center font-black text-2xl shadow-lg bg-white text-stone-900 border border-stone-200",
-                  isV2 && "shadow-[0_0_20px_rgba(255,255,255,0.2)]"
-                )}>J</div>
-                <span className={cn("font-black text-2xl tracking-tighter text-stone-900 dark:text-white")}>justwriting</span>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-2xl shadow-lg bg-surface-base text-text-main border border-border-subtle shadow-[0_0_20px_rgba(255,255,255,0.2)]">J</div>
+                <span className="font-black text-2xl tracking-tighter text-text-main">justwriting</span>
               </div>
               <button 
                 onClick={onClose}
-                className={cn(
-                  "p-2 transition-colors",
-                  isV2 ? "text-white/50 hover:text-white" : "text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
-                )}
+                className="p-2 transition-colors text-text-main/50 hover:text-text-main"
                 aria-label={t('common_close')}
               >
                 <X size={24} strokeWidth={2.5} />
@@ -101,16 +88,11 @@ export function MobileMenu({ isOpen, onClose, view, setView, isAdmin }: MobileMe
             </div>
 
             <div className="mt-auto pt-8 space-y-6">
-              <div className={cn("h-px w-full", isV2 ? "bg-white/10" : "bg-stone-100 dark:bg-stone-800")} />
+              <div className="h-px w-full bg-border-subtle" />
               
               <button 
                 onClick={() => setLanguage(language === 'ru' ? 'en' : 'ru')}
-                className={cn(
-                  "w-full flex items-center justify-between p-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all border",
-                  isV2 
-                    ? "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white border-white/5 hover:border-white/10" 
-                    : "bg-stone-50 dark:bg-stone-800/50 text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 border-transparent hover:border-stone-200 dark:hover:border-stone-700"
-                )}
+                className="w-full flex items-center justify-between p-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all border bg-surface-base/5 text-text-main/50 hover:bg-surface-base/10 hover:text-text-main border-border-subtle/5 hover:border-border-subtle/10"
                 aria-label={language === 'ru' ? 'Switch to English' : 'Переключить на русский'}
               >
                 <div className="flex items-center gap-3">
@@ -122,16 +104,10 @@ export function MobileMenu({ isOpen, onClose, view, setView, isAdmin }: MobileMe
 
               <button 
                 onClick={() => signOut(auth)}
-                className={cn(
-                  "w-full flex items-center gap-4 p-5 transition-all font-black text-sm uppercase tracking-widest group",
-                  isV2 ? "text-white/50 hover:text-red-400" : "text-stone-500 hover:text-red-500"
-                )}
+                className="w-full flex items-center gap-4 p-5 transition-all font-black text-sm uppercase tracking-widest group text-text-main/50 hover:text-red-400"
                 aria-label={t('nav_logout')}
               >
-                <div className={cn(
-                  "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
-                  isV2 ? "bg-white/5 group-hover:bg-red-500/10" : "bg-stone-50 dark:bg-stone-800/50 group-hover:bg-red-50 dark:group-hover:bg-red-500/10"
-                )}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors bg-surface-base/5 group-hover:bg-red-500/10">
                   <LogOut size={20} />
                 </div>
                 {t('nav_logout')}

@@ -18,8 +18,6 @@ export function ProfileHeader({ user, profile, currentStreak, totalWords }: Prof
   const [editingNickname, setEditingNickname] = useState(false);
   const [newNickname, setNewNickname] = useState(profile?.nickname || '');
   const { t } = useLanguage();
-  const { uiVersion } = useUI();
-  const isV2 = uiVersion === '2.0';
   const [confirmingReset, setConfirmingReset] = useState(false);
 
   const handleUpdateNickname = async () => {
@@ -29,20 +27,12 @@ export function ProfileHeader({ user, profile, currentStreak, totalWords }: Prof
   };
 
   return (
-    <div className={cn(
-      "p-8 rounded-3xl flex flex-col md:flex-row items-center gap-6 transition-all",
-      isV2 
-        ? "bg-[#0A0A0B]/80 backdrop-blur-2xl border border-white/10 shadow-[0_0_60px_rgba(0,0,0,0.8)]" 
-        : "bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm"
-    )}>
-      <div className={cn(
-        "w-24 h-24 rounded-full flex items-center justify-center overflow-hidden border-4 shadow-xl",
-        isV2 ? "bg-white/10 border-[#0A0A0B]" : "bg-stone-100 dark:bg-stone-800 border-white dark:border-stone-900"
-      )}>
+    <div className="p-8 rounded-3xl flex flex-col md:flex-row items-center gap-6 transition-all bg-surface-card backdrop-blur-2xl border border-border-subtle shadow-sm">
+      <div className="w-24 h-24 rounded-full flex items-center justify-center overflow-hidden border-4 shadow-xl bg-surface-base/10 border-surface-base">
         {user.photoURL ? (
-          <img src={user.photoURL} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          <img src={user.photoURL || undefined} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
         ) : (
-          <UserIcon size={40} className={isV2 ? "text-white/50" : "text-stone-300"} />
+          <UserIcon size={40} className="text-text-main/50" />
         )}
       </div>
       <div className="flex-1 text-center md:text-left space-y-2">
@@ -53,31 +43,28 @@ export function ProfileHeader({ user, profile, currentStreak, totalWords }: Prof
                 type="text"
                 value={newNickname}
                 onChange={(e) => setNewNickname(e.target.value)}
-                className={cn(
-                  "px-3 py-1 rounded-lg outline-none font-bold",
-                  isV2 ? "bg-white/5 border border-white/20 text-white focus:border-white/50" : "bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 focus:border-stone-400 dark:text-stone-100"
-                )}
+                className="px-3 py-1 rounded-lg outline-none font-bold bg-surface-base/5 border border-border-subtle text-text-main focus:border-text-main/50"
                 autoFocus
               />
-              <button onClick={handleUpdateNickname} className={cn("p-1 rounded", isV2 ? "text-emerald-400 hover:bg-emerald-400/20" : "text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20")}><Check size={20} /></button>
-              <button onClick={() => setEditingNickname(false)} className={cn("p-1 rounded", isV2 ? "text-red-400 hover:bg-red-400/20" : "text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20")}><X size={20} /></button>
+              <button onClick={handleUpdateNickname} className="p-1 rounded text-emerald-400 hover:bg-emerald-400/20"><Check size={20} /></button>
+              <button onClick={() => setEditingNickname(false)} className="p-1 rounded text-red-400 hover:bg-red-400/20"><X size={20} /></button>
             </div>
           ) : (
             <div className="flex items-center gap-2 justify-center md:justify-start">
-              <h2 className={cn("text-3xl font-bold", isV2 ? "text-white" : "dark:text-stone-100")}>{profile?.nickname || user.displayName}</h2>
-              <button onClick={() => setEditingNickname(true)} className={cn("p-1 transition-colors", isV2 ? "text-white/50 hover:text-white" : "text-stone-400 hover:text-stone-900 dark:hover:text-stone-100")}><PenLine size={16} /></button>
+              <h2 className="text-3xl font-bold text-text-main">{profile?.nickname || user.displayName}</h2>
+              <button onClick={() => setEditingNickname(true)} className="p-1 transition-colors text-text-main/50 hover:text-text-main"><PenLine size={16} /></button>
             </div>
           )}
         </div>
-        <p className={cn(isV2 ? "text-white/50" : "text-stone-500 dark:text-stone-400")}>{user.email}</p>
+        <p className="text-text-main/50">{user.email}</p>
         <div className="flex flex-wrap justify-center md:justify-start gap-4 pt-2">
-          <div className={cn("flex items-center gap-2 text-sm", isV2 ? "text-white/50" : "text-stone-400 dark:text-stone-500")}>
+          <div className="flex items-center gap-2 text-sm text-text-main/50">
             <TrendingUp size={16} />
-            <span className={cn("font-bold", isV2 ? "text-white" : "text-stone-900 dark:text-stone-100")}>{currentStreak}</span> {t('profile_streak')}
+            <span className="font-bold text-text-main">{currentStreak}</span> {t('profile_streak')}
           </div>
-          <div className={cn("flex items-center gap-2 text-sm", isV2 ? "text-white/50" : "text-stone-400 dark:text-stone-500")}>
+          <div className="flex items-center gap-2 text-sm text-text-main/50">
             <PenLine size={16} />
-            <span className={cn("font-bold", isV2 ? "text-white" : "text-stone-900 dark:text-stone-100")}>{totalWords}</span> {t('profile_words')}
+            <span className="font-bold text-text-main">{totalWords}</span> {t('profile_words')}
           </div>
         </div>
         
@@ -86,18 +73,13 @@ export function ProfileHeader({ user, profile, currentStreak, totalWords }: Prof
           {!confirmingReset ? (
             <button
               onClick={() => setConfirmingReset(true)}
-              className={cn(
-                "text-xs font-medium px-3 py-1.5 rounded-lg transition-all",
-                isV2
-                  ? "text-red-400 hover:bg-red-500/10 border border-red-500/20"
-                  : "text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-900/30"
-              )}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all text-red-400 hover:bg-red-500/10 border border-red-500/20"
             >
               {t('profile_reset_achievements')}
             </button>
           ) : (
             <div className="flex items-center gap-2">
-              <span className={cn("text-xs", isV2 ? "text-white/70" : "text-stone-500")}>
+              <span className="text-xs text-text-main/70">
                 {t('profile_reset_achievements_confirm')}
               </span>
               <button
@@ -108,7 +90,7 @@ export function ProfileHeader({ user, profile, currentStreak, totalWords }: Prof
               </button>
               <button
                 onClick={() => setConfirmingReset(false)}
-                className={cn("text-xs font-medium transition-colors", isV2 ? "text-white/50 hover:text-white" : "text-stone-400 hover:text-stone-700")}
+                className="text-xs font-medium transition-colors text-text-main/50 hover:text-text-main"
               >
                 {t('writing_cancel')}
               </button>

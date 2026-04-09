@@ -5,49 +5,38 @@ import { cn } from '../../core/utils/utils';
 import { useLanguage } from '../../core/i18n';
 import { useUI } from '../../contexts/UIContext';
 import { useWritingSettings } from './contexts/WritingSettingsContext';
+import { useWritingStore } from './store/useWritingStore';
 
 interface WritingEditorProps {
-  status: 'idle' | 'writing' | 'paused' | 'finished';
-  title: string;
-  setTitle: (title: string) => void;
-  pinnedThoughts: string[];
-  setPinnedThoughts: (thoughts: string[]) => void;
-  content: string;
-  setContent: (content: string) => void;
   handlePause: () => void;
   handleStart: () => void;
   handleFinish: () => void;
   setShowCancelConfirm: (show: boolean) => void;
-  // dynamicBgEnabled?: boolean;
-  wpm?: number;
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt: number | null;
 }
 
 export const WritingEditor = React.memo(function WritingEditor({
-  status,
-  title,
-  setTitle,
-  pinnedThoughts,
-  setPinnedThoughts,
-  content,
-  setContent,
   handlePause,
   handleStart,
   handleFinish,
   setShowCancelConfirm,
-  // dynamicBgEnabled = false,
-  wpm = 0,
   saveStatus,
   lastSavedAt
-}: Omit<WritingEditorProps, 'fontSize' | 'fontFamily' | 'stickyHeaderEnabled' | 'streamMode'>) {
+}: WritingEditorProps) {
   const { t } = useLanguage();
-  const { uiVersion } = useUI();
+  const content = useWritingStore(s => s.content);
+  const setContent = useWritingStore(s => s.setContent);
+  const title = useWritingStore(s => s.title);
+  const setTitle = useWritingStore(s => s.setTitle);
+  const status = useWritingStore(s => s.status);
+  const wpm = useWritingStore(s => s.wpm);
+  const pinnedThoughts = useWritingStore(s => s.pinnedThoughts);
+  const setPinnedThoughts = useWritingStore(s => s.setPinnedThoughts);
   const { 
     streamMode, isZenActive, zenModeEnabled, 
     fontSize, fontFamily, stickyHeader 
   } = useWritingSettings();
-  const isV2 = uiVersion === '2.0';
   const showZen = isZenActive && zenModeEnabled;
   const [showPinnedInput, setShowPinnedInput] = React.useState(false);
   const [hasSelection, setHasSelection] = React.useState(false);
@@ -155,25 +144,18 @@ export const WritingEditor = React.memo(function WritingEditor({
   };
 
   return (
-    <div 
-      className={cn(
-        "space-y-6 transition-all duration-1000 py-8",
-        isV2 && "font-serif"
-      )}
-    >
-      {isV2 && (
-        <motion.div
-          className="fixed inset-0 z-0 pointer-events-none"
-          animate={{
-            background: [
-              "radial-gradient(circle at 50% 50%, #1a1a1a 0%, #0a0a0b 100%)",
-              "radial-gradient(circle at 40% 60%, #2a2a2a 0%, #0a0a0b 100%)",
-              "radial-gradient(circle at 60% 40%, #1a1a1a 0%, #0a0a0b 100%)",
-            ]
-          }}
-          transition={{ duration: 10, repeat: Infinity, repeatType: "reverse" }}
-        />
-      )}
+    <div className="space-y-6 transition-all duration-1000 py-8 font-serif">
+      <motion.div
+        className="fixed inset-0 z-0 pointer-events-none"
+        animate={{
+          background: [
+            "radial-gradient(circle at 50% 50%, #1a1a1a 0%, #0a0a0b 100%)",
+            "radial-gradient(circle at 40% 60%, #2a2a2a 0%, #0a0a0b 100%)",
+            "radial-gradient(circle at 60% 40%, #1a1a1a 0%, #0a0a0b 100%)",
+          ]
+        }}
+        transition={{ duration: 10, repeat: Infinity, repeatType: "reverse" }}
+      />
       <div className={cn(
         "flex flex-col gap-4 transition-all duration-1000 z-30 py-2",
         stickyHeader ? "sticky top-[128px] md:top-[120px]" : "relative",
@@ -187,25 +169,15 @@ export const WritingEditor = React.memo(function WritingEditor({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder={t('editor_title_placeholder')}
-                className={cn(
-                  "w-full px-6 py-4 rounded-2xl border shadow-sm focus:shadow-xl outline-none text-xl font-black transition-all",
-                  isV2 ? "bg-white/5 border-white/10 text-white placeholder:text-white/60" : "border-stone-200 dark:border-stone-800 dark:text-stone-100",
-                  /* dynamicBgEnabled && status === 'writing' && !isV2 ? "bg-[var(--dynamic-bg)]/50 dark:bg-[var(--dynamic-bg-dark)]/50 backdrop-blur-md" : */ (!isV2 && "bg-white dark:bg-stone-900")
-                )}
+                className="w-full px-6 py-4 rounded-2xl border shadow-sm focus:shadow-xl outline-none text-xl font-black transition-all bg-surface-card border-border-subtle text-text-main placeholder:text-text-main/40"
               />
               <button 
                 onClick={handlePinSelection}
                 className={cn(
                   "p-4 rounded-2xl border transition-all shrink-0 flex items-center justify-center shadow-sm",
-                  isV2 ? (
-                    (pinnedThoughts.length > 0 || showPinnedInput || hasSelection)
-                      ? "bg-white text-black border-white"
-                      : "bg-white/5 text-white/50 border-white/10 hover:border-white/30 hover:text-white"
-                  ) : (
-                    (pinnedThoughts.length > 0 || showPinnedInput || hasSelection)
-                      ? "bg-white dark:bg-stone-100 text-stone-900 dark:text-stone-900 border-stone-200 dark:border-stone-800" 
-                      : "bg-white dark:bg-stone-900 text-stone-400 border-stone-200 dark:border-stone-800 hover:border-stone-400"
-                  )
+                  (pinnedThoughts.length > 0 || showPinnedInput || hasSelection)
+                    ? "bg-text-main text-surface-base border-text-main"
+                    : "bg-surface-card text-text-main/50 border-border-subtle hover:border-text-main/30 hover:text-text-main"
                 )}
                 title={hasSelection ? `${t('editor_pin_thought')} (Alt+P)` : t('editor_pin_thought')}
               >
@@ -233,16 +205,13 @@ export const WritingEditor = React.memo(function WritingEditor({
                           }}
                           placeholder={t('editor_pinned_placeholder')}
                           rows={1}
-                          className={cn(
-                            "w-full px-6 py-3 border-2 border-dashed rounded-2xl outline-none text-sm italic font-serif resize-none transition-all",
-                            isV2 ? "bg-white/5 border-white/10 text-white/70 focus:border-white/30 placeholder:text-white/60" : "bg-white dark:bg-stone-950/30 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 focus:border-stone-400 dark:focus:border-stone-600"
-                          )}
+                          className="w-full px-6 py-3 border-2 border-dashed rounded-2xl outline-none text-sm italic font-serif resize-none transition-all bg-surface-card/50 border-border-subtle text-text-main/70 focus:border-text-main/30 placeholder:text-text-main/40"
                         />
                         <button 
                           onClick={() => {
                             setPinnedThoughts(pinnedThoughts.filter((_, i) => i !== index));
                           }}
-                          className={cn("absolute top-2 right-2 p-1.5 opacity-0 group-hover/pinned:opacity-100 transition-opacity", isV2 ? "text-white/50 hover:text-white" : "text-stone-400 hover:text-red-500")}
+                          className="absolute top-2 right-2 p-1.5 opacity-0 group-hover/pinned:opacity-100 transition-opacity text-text-main/50 hover:text-text-main"
                         >
                           <X size={14} />
                         </button>
@@ -259,10 +228,7 @@ export const WritingEditor = React.memo(function WritingEditor({
                         }}
                         placeholder={t('editor_add_thought')}
                         rows={1}
-                        className={cn(
-                          "w-full px-6 py-3 border-2 border-dashed rounded-2xl outline-none text-sm italic font-serif resize-none transition-all",
-                          isV2 ? "bg-white/5 border-white/10 text-white/70 focus:border-white/30 placeholder:text-white/40" : "bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400 focus:border-stone-400 dark:focus:border-stone-600"
-                        )}
+                        className="w-full px-6 py-3 border-2 border-dashed rounded-2xl outline-none text-sm italic font-serif resize-none transition-all bg-surface-card/50 border-border-subtle text-text-main/70 focus:border-text-main/30 placeholder:text-text-main/40"
                       />
                     )}
                   </div>
@@ -298,16 +264,12 @@ export const WritingEditor = React.memo(function WritingEditor({
                         fontFamily === 'JetBrains Mono' ? '"JetBrains Mono", monospace' :
                         fontFamily === 'Cormorant Garamond' ? '"Cormorant Garamond", serif' :
                         fontFamily === 'Space Grotesk' ? '"Space Grotesk", sans-serif' : 'inherit',
-            // backgroundColor: dynamicBgEnabled && !isV2 ? 'var(--dynamic-bg)' : undefined,
             caretColor: undefined,
             userSelect: 'text'
           }}
           className={cn(
-            "w-full min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-[2.5rem] border shadow-xl focus:shadow-2xl transition-all outline-none resize-none",
-            isV2 ? "leading-[1.8] bg-transparent border-none shadow-none text-white/90 placeholder:text-white/40" : "leading-relaxed border-stone-200 dark:border-stone-800 focus:border-stone-300 dark:focus:border-stone-700 dark:text-stone-100",
-            /* !dynamicBgEnabled && !isV2 ? "bg-white dark:bg-stone-900" : "bg-transparent", */
-            (status === 'idle' || status === 'paused') && "opacity-50 cursor-not-allowed",
-            /* dynamicBgEnabled && !isV2 && "dark:!bg-[var(--dynamic-bg-dark)]" */
+            "w-full min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-[2.5rem] border shadow-xl focus:shadow-2xl transition-all outline-none resize-none leading-[1.8] bg-transparent border-none shadow-none text-text-main placeholder:text-text-main/40",
+            (status === 'idle' || status === 'paused') && "opacity-50 cursor-not-allowed"
           )}
         />
       </div>

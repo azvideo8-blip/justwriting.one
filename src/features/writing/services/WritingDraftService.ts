@@ -1,4 +1,4 @@
-import { deleteDraft, getDraft, getDraftFromFirestore } from '../../../lib/db';
+import { deleteDraft, getDraft, getDraftFromFirestore, saveToLocal, saveToFirestore, Draft } from '../../../lib/db';
 
 export const WritingDraftService = {
   loadDraft: async (userId: string) => {
@@ -15,6 +15,12 @@ export const WritingDraftService = {
     return draftToLoad;
   },
   
+  importDraft: async (userId: string, draft: Draft) => {
+    const newDraft = { ...draft, userId };
+    await saveToLocal(newDraft);
+    await saveToFirestore(newDraft);
+  },
+
   deleteDraft: async (userId: string) => {
     await deleteDraft(userId);
   }
