@@ -5,7 +5,6 @@ import { cn } from '../../../../core/utils/utils';
 
 interface PasswordPromptModalProps {
   isOpen: boolean;
-  isV2: boolean;
   onConfirm: (password: string) => void;
   onCancel: () => void;
 }
@@ -14,7 +13,7 @@ export function PasswordPromptModal({
   isOpen,
   onConfirm,
   onCancel
-}: Omit<PasswordPromptModalProps, 'isV2'>) {
+}: PasswordPromptModalProps) {
   const { t } = useLanguage();
   const [password, setPassword] = React.useState('');
 

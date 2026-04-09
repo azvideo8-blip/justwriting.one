@@ -15,7 +15,6 @@ import { TagCloud } from '../../writing/components/TagCloud';
 import { useLanguage } from '../../../core/i18n';
 import { useArchiveFilters } from '../hooks/useArchiveFilters';
 import { useArchiveSearch } from '../hooks/useArchiveSearch';
-import { useUI } from '../../../contexts/UIContext';
 
 interface ArchiveViewProps {
   user: User;

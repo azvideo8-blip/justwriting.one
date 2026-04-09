@@ -4,7 +4,6 @@ import { Globe, User as UserIcon, FileText, Download, FileJson } from 'lucide-re
 import { cn } from '../../core/utils/utils';
 import { ExportService } from '../export/ExportService';
 import { Label } from '../../types';
-import { useUI } from '../../contexts/UIContext';
 import { useLanguage } from '../../core/i18n';
 
 import { useWritingStore } from './store/useWritingStore';

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { Settings } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { startOfWeek, endOfWeek } from 'date-fns';
 import { ACHIEVEMENTS } from '../constants/achievements';
@@ -18,7 +19,139 @@ import { ProfileFilteredSessions } from '../components/ProfileFilteredSessions';
 import { TagCloud } from '../../writing/components/TagCloud';
 import { DataTransfer } from '../../settings/components/DataTransfer';
 import { useLanguage } from '../../../core/i18n';
-import { useUI } from '../../../contexts/UIContext';
+import { useTheme, THEMES } from '../../../core/theme/ThemeProvider';
+
+function ProfileSettingsPanel({ userId }: { userId: string }) {
+  const { t, language } = useLanguage();
+  const { themeId, setThemeId, themes } = useTheme();
+  const [open, setOpen] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+
+  // Stub toggles — no logic, UI only, state not persisted
+  const [betaMode, setBetaMode] = useState(false);
+  const [communityMode, setCommunityMode] = useState(false);
+  const [encryption, setEncryption] = useState(false);
+  const [aiAssistance, setAiAssistance] = useState(false);
+
+  const toggles = [
+    { key: 'beta', label: t('profile_settings_beta'), value: betaMode, set: setBetaMode },
+    { key: 'community', label: t('profile_settings_community'), value: communityMode, set: setCommunityMode },
+    { key: 'encryption', label: t('profile_settings_encryption'), value: encryption, set: setEncryption },
+    { key: 'ai', label: t('profile_settings_ai'), value: aiAssistance, set: setAiAssistance },
+  ];
+
+  return (
+    <div className="border-t border-border-subtle mt-4 pt-4">
+      {/* Accordion trigger */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-2 text-sm font-medium text-text-main/50 hover:text-text-main transition-colors w-full"
+      >
+        <Settings size={14} />
+        <span className="uppercase tracking-widest text-[10px] font-bold">
+          {t('profile_settings_title')}
+        </span>
+        <span className={cn("ml-auto transition-transform duration-200 text-xs", open ? "rotate-180" : "")}>
+          ▾
+        </span>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="pt-4 space-y-4">
+
+              {/* Theme selector */}
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-text-main/40">
+                  {t('profile_theme_title')}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.values(themes).map(theme => (
+                    <button
+                      key={theme.id}
+                      onClick={() => setThemeId(theme.id)}
+                      className={cn(
+                        "px-4 py-2.5 rounded-xl border text-sm font-medium transition-all text-left",
+                        themeId === theme.id
+                          ? "border-text-main bg-text-main text-surface-base"
+                          : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/30"
+                      )}
+                    >
+                      {language === 'ru' ? theme.nameRu : theme.nameEn}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Feature toggles (stubs) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {toggles.map(toggle => (
+                  <button
+                    key={toggle.key}
+                    onClick={() => toggle.set(!toggle.value)}
+                    className="flex items-center justify-between px-4 py-2.5 rounded-xl border border-border-subtle hover:bg-text-main/5 transition-all"
+                  >
+                    <span className="text-sm text-text-main/70">{toggle.label}</span>
+                    <div className={cn(
+                      "w-8 h-4 rounded-full relative transition-colors duration-200 shrink-0",
+                      toggle.value ? "bg-text-main" : "bg-text-main/20"
+                    )}>
+                      <div className={cn(
+                        "absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform duration-200",
+                        toggle.value ? "translate-x-4" : "translate-x-0"
+                      )} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Reset achievements */}
+              <div className="pt-1">
+                {!confirmReset ? (
+                  <button
+                    onClick={() => setConfirmReset(true)}
+                    className="text-xs text-red-400/70 hover:text-red-400 transition-colors underline underline-offset-2"
+                  >
+                    {t('profile_reset_achievements')}
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-xs text-text-main/50">
+                      {t('profile_reset_achievements_confirm')}
+                    </span>
+                    <button
+                      onClick={async () => {
+                        await ProfileService.resetAchievements(userId);
+                        setConfirmReset(false);
+                      }}
+                      className="text-xs font-bold text-red-400 hover:text-red-300"
+                    >
+                      {t('finish_discard')}
+                    </button>
+                    <button
+                      onClick={() => setConfirmReset(false)}
+                      className="text-xs text-text-main/40 hover:text-text-main/70"
+                    >
+                      {t('writing_cancel')}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 interface ProfilePageProps {
   user: User;
@@ -27,8 +160,6 @@ interface ProfilePageProps {
 
 export function ProfilePage({ user, profile }: ProfilePageProps) {
   const { t } = useLanguage();
-  const { uiVersion } = useUI();
-  const isV2 = uiVersion === '2.0';
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
@@ -39,10 +170,6 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const handleResetAchievements = async () => {
-    await ProfileService.resetAchievements(user.uid);
-  };
 
   useEffect(() => {
     const fetchSessions = async () => {
@@ -103,14 +230,14 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
 
   if (loading) {
     return (
-      <div className={cn("italic text-center py-24", isV2 ? "text-white/50" : "text-stone-400")}>{t('profile_loading')}</div>
+      <div className="italic text-center py-24 text-text-main/50">{t('profile_loading')}</div>
     );
   }
 
   if (error) {
     return (
-      <div className={cn("p-12 text-center rounded-3xl border", isV2 ? "bg-red-500/10 border-red-500/30" : "bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30")}>
-        <p className={cn(isV2 ? "text-red-400" : "text-red-600 dark:text-red-400")}>{error}</p>
+      <div className="p-12 text-center rounded-3xl border bg-red-500/10 border-red-500/30">
+        <p className="text-red-400">{error}</p>
       </div>
     );
   }
@@ -135,12 +262,15 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       >
         <div className="flex flex-col md:flex-row gap-8 items-start">
           <div className="flex-1 space-y-8">
-            <ProfileHeader 
-              user={user} 
-              profile={profile} 
-              currentStreak={currentStreak} 
-              totalWords={totalWords} 
-            />
+            <div className="p-8 rounded-3xl transition-all bg-surface-card backdrop-blur-2xl border border-border-subtle shadow-sm">
+              <ProfileHeader 
+                user={user} 
+                profile={profile} 
+                currentStreak={currentStreak} 
+                totalWords={totalWords} 
+              />
+              <ProfileSettingsPanel userId={user.uid} />
+            </div>
 
             <ProfileAchievements 
               currentStreak={currentStreak}

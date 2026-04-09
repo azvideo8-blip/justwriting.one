@@ -21,7 +21,7 @@ export function ArchiveLabels({ user, profile, selectedLabelId, onSelectLabel }:
   };
 
   return (
-    <div className="space-y-4 bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800">
+    <div className="space-y-4 bg-surface-card p-6 rounded-3xl border border-border-subtle">
       <h3 className="text-xl font-bold">Бирки</h3>
       <div className="flex flex-wrap gap-2">
         {labels.map(label => (
@@ -30,7 +30,7 @@ export function ArchiveLabels({ user, profile, selectedLabelId, onSelectLabel }:
             onClick={() => onSelectLabel(selectedLabelId === label.id ? null : label.id)}
             className={cn(
               "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-white transition-all",
-              selectedLabelId === label.id ? "ring-2 ring-offset-2 ring-stone-900 dark:ring-stone-100" : "opacity-80 hover:opacity-100"
+              selectedLabelId === label.id ? "ring-2 ring-offset-2 ring-text-main" : "opacity-80 hover:opacity-100"
             )} 
             style={{ backgroundColor: label.color }}
           >
@@ -40,9 +40,9 @@ export function ArchiveLabels({ user, profile, selectedLabelId, onSelectLabel }:
         ))}
       </div>
       <div className="flex gap-2">
-        <input type="text" value={newLabel.name} onChange={e => setNewLabel({...newLabel, name: e.target.value})} placeholder="Название бирки" className="p-2 rounded-lg border bg-transparent" />
-        <input type="color" value={newLabel.color} onChange={e => setNewLabel({...newLabel, color: e.target.value})} className="p-1 rounded-lg border bg-transparent" />
-        <button onClick={addLabel} className="p-2 rounded-lg bg-stone-900 text-white"><Plus size={20} /></button>
+        <input type="text" value={newLabel.name} onChange={e => setNewLabel({...newLabel, name: e.target.value})} placeholder="Название бирки" className="p-2 rounded-lg border border-border-subtle bg-transparent" />
+        <input type="color" value={newLabel.color} onChange={e => setNewLabel({...newLabel, color: e.target.value})} className="p-1 rounded-lg border border-border-subtle bg-transparent" />
+        <button onClick={addLabel} className="p-2 rounded-lg bg-text-main text-surface-base"><Plus size={20} /></button>
       </div>
     </div>
   );

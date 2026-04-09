@@ -4,7 +4,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { WritingPage } from '../pages/WritingPage';
 import * as useWritingSessionHook from '../hooks/useWritingSession';
 import { LanguageProvider } from '../../../core/i18n';
-import { UIProvider } from '../../../contexts/UIContext';
 
 // Mock the hook
 vi.mock('../hooks/useWritingSession', () => ({
@@ -26,9 +25,7 @@ vi.mock('file-saver', () => ({
 const renderWithProviders = (ui: React.ReactElement) => {
   return render(
     <LanguageProvider>
-      <UIProvider>
         {ui}
-      </UIProvider>
     </LanguageProvider>
   );
 };

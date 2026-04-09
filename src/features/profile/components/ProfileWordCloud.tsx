@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { Cloud } from 'lucide-react';
 import { Session } from '../../../types';
 import { useLanguage } from '../../../core/i18n';
-import { useUI } from '../../../contexts/UIContext';
 import { cn } from '../../../core/utils/utils';
 
 interface ProfileWordCloudProps {

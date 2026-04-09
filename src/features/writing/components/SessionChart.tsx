@@ -11,7 +11,6 @@ import {
 } from 'recharts';
 import { Session } from '../../../types';
 import { parseFirestoreDate, cn } from '../../../core/utils/utils';
-import { useUI } from '../../../contexts/UIContext';
 
 interface SessionChartProps {
   sessions: Session[];
@@ -20,9 +19,6 @@ interface SessionChartProps {
 }
 
 export function SessionChart({ sessions, startDate, endDate }: SessionChartProps) {
-  const { uiVersion } = useUI();
-  const isV2 = uiVersion === '2.0';
-
   const days = eachDayOfInterval({
     start: startDate,
     end: endDate

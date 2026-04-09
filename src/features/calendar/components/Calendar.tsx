@@ -5,7 +5,6 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn, parseFirestoreDate, getSessionDate } from '../../../core/utils/utils';
 import { Session } from '../../../types';
 import { useLanguage } from '../../../core/i18n';
-import { useUI } from '../../../contexts/UIContext';
 
 interface CalendarProps {
   sessions: Session[];

@@ -3,7 +3,6 @@ import { User } from 'firebase/auth';
 import { User as UserIcon, PenLine, TrendingUp, Check, X } from 'lucide-react';
 import { ProfileService } from '../../../features/profile/services/ProfileService';
 import { useLanguage } from '../../../core/i18n';
-import { useUI } from '../../../contexts/UIContext';
 import { cn } from '../../../core/utils/utils';
 import { UserProfile } from '../../../types';
 
@@ -27,7 +26,7 @@ export function ProfileHeader({ user, profile, currentStreak, totalWords }: Prof
   };
 
   return (
-    <div className="p-8 rounded-3xl flex flex-col md:flex-row items-center gap-6 transition-all bg-surface-card backdrop-blur-2xl border border-border-subtle shadow-sm">
+    <div className="flex flex-col md:flex-row items-center gap-6">
       <div className="w-24 h-24 rounded-full flex items-center justify-center overflow-hidden border-4 shadow-xl bg-surface-base/10 border-surface-base">
         {user.photoURL ? (
           <img src={user.photoURL || undefined} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -43,6 +42,7 @@ export function ProfileHeader({ user, profile, currentStreak, totalWords }: Prof
                 type="text"
                 value={newNickname}
                 onChange={(e) => setNewNickname(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleUpdateNickname()}
                 className="px-3 py-1 rounded-lg outline-none font-bold bg-surface-base/5 border border-border-subtle text-text-main focus:border-text-main/50"
                 autoFocus
               />
@@ -66,36 +66,6 @@ export function ProfileHeader({ user, profile, currentStreak, totalWords }: Prof
             <PenLine size={16} />
             <span className="font-bold text-text-main">{totalWords}</span> {t('profile_words')}
           </div>
-        </div>
-        
-        {/* Buttons */}
-        <div className="flex items-center gap-3 pt-4 justify-center md:justify-start">
-          {!confirmingReset ? (
-            <button
-              onClick={() => setConfirmingReset(true)}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all text-red-400 hover:bg-red-500/10 border border-red-500/20"
-            >
-              {t('profile_reset_achievements')}
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-text-main/70">
-                {t('profile_reset_achievements_confirm')}
-              </span>
-              <button
-                onClick={async () => { await ProfileService.resetAchievements(user.uid); setConfirmingReset(false); }}
-                className="text-xs font-bold text-red-500 hover:text-red-600 transition-colors"
-              >
-                {t('finish_discard')}
-              </button>
-              <button
-                onClick={() => setConfirmingReset(false)}
-                className="text-xs font-medium transition-colors text-text-main/50 hover:text-text-main"
-              >
-                {t('writing_cancel')}
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </div>
