@@ -14,9 +14,12 @@ export function useAuthStatus() {
   const [isConnected, setIsConnected] = useState(true);
 
   useEffect(() => {
-    if (user && import.meta.env.VITE_SENTRY_DSN) {
+    const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
+    const isSentryInitialized = sentryDsn && sentryDsn.startsWith('https://');
+    
+    if (user && isSentryInitialized) {
       Sentry.setUser({ id: user.uid, email: user.email ?? undefined });
-    } else if (!user) {
+    } else if (!user && isSentryInitialized) {
       Sentry.setUser(null);
     }
   }, [user]);
@@ -35,9 +38,11 @@ export function useAuthStatus() {
 
   useEffect(() => {
     if (!user) {
-      setProfile(null);
+      const timer = setTimeout(() => {
+        setProfile(null);
+      }, 0);
       creationAttemptedRef.current = false;
-      return;
+      return () => clearTimeout(timer);
     }
 
     const userDoc = doc(db, 'users', user.uid);
@@ -53,7 +58,9 @@ export function useAuthStatus() {
           nickname: user.displayName || user.email?.split('@')[0] || 'User'
         };
         
-        console.log('Creating initial user profile:', JSON.stringify(initialProfile));
+        if (import.meta.env.DEV) {
+          console.warn('Creating initial user profile:', JSON.stringify(initialProfile));
+        }
         
         setDoc(userDoc, initialProfile).catch(err => {
           console.error('Error creating user profile:', err);

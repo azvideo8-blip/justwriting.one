@@ -15,44 +15,33 @@ interface ProfileActivityProps {
 }
 
 export function ProfileActivity({ sessions, startDate, endDate, onStartDateChange, onEndDateChange }: ProfileActivityProps) {
-  const { uiVersion } = useUI();
-  const isV2 = uiVersion === '2.0';
-
   return (
-    <div className={cn(
-      "p-8 rounded-3xl transition-all space-y-6",
-      isV2 
-        ? "bg-[#0A0A0B]/80 backdrop-blur-2xl border border-white/10 shadow-[0_0_60px_rgba(0,0,0,0.8)]" 
-        : "bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm"
-    )}>
+    <div className="p-8 rounded-3xl transition-all space-y-6 bg-surface-card backdrop-blur-2xl border border-border-subtle shadow-sm">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <h3 className={cn("text-xl font-bold", isV2 ? "text-white" : "dark:text-stone-100")}>Активность</h3>
-          <p className={cn("text-xs font-medium", isV2 ? "text-white/50" : "text-stone-400")}>
+          <h3 className="text-xl font-bold text-text-main">Активность</h3>
+          <p className="text-xs font-medium text-text-main/50">
             {format(startDate, 'd MMM')} — {format(endDate, 'd MMM')}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className={cn(
-            "flex items-center gap-2 p-1 rounded-xl border",
-            isV2 ? "bg-white/5 border-white/10" : "bg-stone-50 dark:bg-stone-800 border-stone-100 dark:border-stone-700"
-          )}>
+          <div className="flex items-center gap-2 p-1 rounded-xl border bg-surface-base/5 border-border-subtle">
             <div className="flex items-center gap-1 px-2">
-              <CalendarIcon size={12} className={isV2 ? "text-white/50" : "text-stone-400"} />
+              <CalendarIcon size={12} className="text-text-main/50" />
               <input 
                 type="date" 
                 value={format(startDate, 'yyyy-MM-dd')}
                 onChange={(e) => onStartDateChange(new Date(e.target.value))}
-                className={cn("bg-transparent text-[10px] font-bold outline-none", isV2 ? "text-white" : "dark:text-stone-100")}
+                className="bg-transparent text-[10px] font-bold outline-none text-text-main"
               />
             </div>
-            <div className={cn("w-px h-4", isV2 ? "bg-white/10" : "bg-stone-200 dark:bg-stone-700")} />
+            <div className="w-px h-4 bg-border-subtle" />
             <div className="flex items-center gap-1 px-2">
               <input 
                 type="date" 
                 value={format(endDate, 'yyyy-MM-dd')}
                 onChange={(e) => onEndDateChange(new Date(e.target.value))}
-                className={cn("bg-transparent text-[10px] font-bold outline-none", isV2 ? "text-white" : "dark:text-stone-100")}
+                className="bg-transparent text-[10px] font-bold outline-none text-text-main"
               />
             </div>
           </div>

@@ -2,9 +2,8 @@ import { onCall } from "firebase-functions/v2/https";
 import { GoogleGenAI } from "@google/genai";
 import * as logger from "firebase-functions/logger";
 import { z } from "zod";
-import { unauthenticated, badInput } from "../shared/errors";
+import { unauthenticated, badInput, reportError } from "../shared/errors";
 import { sessionContentSchema } from "../shared/validators";
-import { reportError } from "../shared/errors";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 

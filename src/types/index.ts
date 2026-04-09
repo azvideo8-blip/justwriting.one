@@ -24,7 +24,30 @@ export interface Session {
   labelId?: string;
   inkblots?: { id: string; index: number; color: string; timestamp: number }[];
   sessionStartTime?: number;
-  createdAt: Timestamp | Date | any;
+  createdAt: Timestamp | Date;
+}
+
+export interface SessionPayload {
+  userId: string;
+  authorName: string;
+  authorPhoto: string;
+  nickname?: string;
+  isAnonymous?: boolean;
+  title?: string;
+  content: string;
+  pinnedThoughts?: string[];
+  duration: number;
+  wordCount: number;
+  charCount: number;
+  wpm: number;
+  isPublic: boolean;
+  tags?: string[];
+  sessionType?: 'stopwatch' | 'timer' | 'words' | 'finish-by';
+  sessionStartTime?: number | null;
+  goalReached?: boolean;
+  updatedAt?: Timestamp;
+  isEncrypted?: boolean;
+  encryption?: { salt: string; iv: string };
 }
 
 export interface UserProfile {

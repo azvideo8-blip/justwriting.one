@@ -33,10 +33,15 @@ export async function encrypt(text: string, password: string): Promise<{ encrypt
     enc.encode(text)
   );
   
+  const toBase64 = (buffer: ArrayBuffer | Uint8Array): string => {
+    const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+    return btoa(Array.from(bytes, b => String.fromCharCode(b)).join(''));
+  };
+
   return {
-    encrypted: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
-    salt: btoa(String.fromCharCode(...salt)),
-    iv: btoa(String.fromCharCode(...iv))
+    encrypted: toBase64(encrypted),
+    salt: toBase64(salt),
+    iv: toBase64(iv)
   };
 }
 
