@@ -1,5 +1,4 @@
 import React from 'react';
-import { useUI } from '../../../contexts/UIContext';
 import { cn } from '../../../core/utils/utils';
 
 interface StatCardProps {

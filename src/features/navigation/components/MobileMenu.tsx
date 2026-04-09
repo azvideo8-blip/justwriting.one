@@ -5,7 +5,6 @@ import { MobileNavButton } from './MobileNavButton';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { useLanguage } from '../../../core/i18n';
-import { useUI } from '../../../contexts/UIContext';
 import { cn } from '../../../core/utils/utils';
 
 interface MobileMenuProps {

@@ -7,7 +7,6 @@ import { SessionService } from '../../writing/services/SessionService';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { parseFirestoreDate, cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
-import { useUI } from '../../../contexts/UIContext';
 
 export function FeedPage() {
   const { t } = useLanguage();

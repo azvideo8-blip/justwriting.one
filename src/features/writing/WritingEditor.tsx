@@ -1,9 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Pause, Square, Play, X, X as XIcon, Pin, PinOff, Lock, Check } from 'lucide-react';
+import { Pin, X } from 'lucide-react';
 import { cn } from '../../core/utils/utils';
 import { useLanguage } from '../../core/i18n';
-import { useUI } from '../../contexts/UIContext';
 import { useWritingSettings } from './contexts/WritingSettingsContext';
 import { useWritingStore } from './store/useWritingStore';
 
@@ -17,12 +16,12 @@ interface WritingEditorProps {
 }
 
 export const WritingEditor = React.memo(function WritingEditor({
-  handlePause,
-  handleStart,
-  handleFinish,
-  setShowCancelConfirm,
-  saveStatus,
-  lastSavedAt
+  handlePause: _handlePause,
+  handleStart: _handleStart,
+  handleFinish: _handleFinish,
+  setShowCancelConfirm: _setShowCancelConfirm,
+  saveStatus: _saveStatus,
+  lastSavedAt: _lastSavedAt
 }: WritingEditorProps) {
   const { t } = useLanguage();
   const content = useWritingStore(s => s.content);
@@ -30,7 +29,6 @@ export const WritingEditor = React.memo(function WritingEditor({
   const title = useWritingStore(s => s.title);
   const setTitle = useWritingStore(s => s.setTitle);
   const status = useWritingStore(s => s.status);
-  const wpm = useWritingStore(s => s.wpm);
   const pinnedThoughts = useWritingStore(s => s.pinnedThoughts);
   const setPinnedThoughts = useWritingStore(s => s.setPinnedThoughts);
   const { 
@@ -145,17 +143,15 @@ export const WritingEditor = React.memo(function WritingEditor({
 
   return (
     <div className="space-y-6 transition-all duration-1000 py-8 font-serif">
-      <motion.div
-        className="fixed inset-0 z-0 pointer-events-none"
-        animate={{
-          background: [
-            "radial-gradient(circle at 50% 50%, #1a1a1a 0%, #0a0a0b 100%)",
-            "radial-gradient(circle at 40% 60%, #2a2a2a 0%, #0a0a0b 100%)",
-            "radial-gradient(circle at 60% 40%, #1a1a1a 0%, #0a0a0b 100%)",
-          ]
-        }}
-        transition={{ duration: 10, repeat: Infinity, repeatType: "reverse" }}
-      />
+      {status === 'writing' && (
+        <motion.div
+          className="fixed inset-0 z-0 pointer-events-none"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{ backgroundColor: 'var(--bg-base)' }}
+        />
+      )}
       <div className={cn(
         "flex flex-col gap-4 transition-all duration-1000 z-30 py-2",
         stickyHeader ? "sticky top-[128px] md:top-[120px]" : "relative",

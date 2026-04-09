@@ -1,6 +1,5 @@
 import React from 'react';
 import { cn } from '../../../core/utils/utils';
-import { useUI } from '../../../contexts/UIContext';
 
 import { UserProfile } from '../../../types';
 

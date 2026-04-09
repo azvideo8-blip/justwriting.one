@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Menu, WifiOff } from 'lucide-react';
 import { useLanguage } from '../core/i18n';
-import { useUI } from '../contexts/UIContext';
 import { cn } from '../core/utils/utils';
 import { NAV_CONFIG } from '../shared/lib/layoutRegistry';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
@@ -32,12 +31,6 @@ export function AppRouter() {
   const showZen = isZenActive && zenModeEnabled && view === 'write';
   
   const isAdmin = profile?.role === 'admin';
-
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.add('dark');
-    root.style.colorScheme = 'dark';
-  }, []);
 
   if (loading) return (
     <div className="h-screen w-screen flex items-center justify-center bg-surface-base">

@@ -7,7 +7,6 @@ import { User as UserIcon, PenLine, TrendingUp, Check, X, Users, Database, Shiel
 import { AdminUsersTable } from '../components/AdminUsersTable';
 import { AdminSessionsTable } from '../components/AdminSessionsTable';
 import { useLanguage } from '../../../core/i18n';
-import { useUI } from '../../../contexts/UIContext';
 import { cn } from '../../../core/utils/utils';
 
 import { Session, UserProfile } from '../../../types';

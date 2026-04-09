@@ -6,7 +6,6 @@ import { ru, enUS } from 'date-fns/locale';
 import { Session } from '../../types';
 import { cn } from '../../core/utils/utils';
 import { useLanguage } from '../../core/i18n';
-import { useUI } from '../../contexts/UIContext';
 
 export type SetupMode = 'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | 'finish-by-config' | null;
 

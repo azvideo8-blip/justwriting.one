@@ -13,7 +13,6 @@ import { Session, Label } from '../../../types';
 import { parseFirestoreDate, cn } from '../../../core/utils/utils';
 import { ExportService } from '../../export/ExportService';
 import { useLanguage } from '../../../core/i18n';
-import { useUI } from '../../../contexts/UIContext';
 import { useSessionTags } from '../hooks/useSessionTags';
 
 import { SessionEditor } from './SessionEditor';

@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { useWritingStore } from '../store/useWritingStore';
 import { SessionService } from '../services/SessionService';
 import { Session, UserProfile } from '../../../types';
-import { cn } from '../../../core/utils/utils';
-import { useUI } from '../../../contexts/UIContext';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 
 // Components
@@ -13,7 +11,6 @@ import { WritingHeader } from '../WritingHeader';
 import { WritingSetup, SetupMode } from '../WritingSetup';
 import { WritingEditor } from '../WritingEditor';
 import { WritingSettings } from '../WritingSettings';
-import { SettingsV2 } from '../v2/SettingsV2';
 import { WritingFinishModal } from '../WritingFinishModal';
 import { ProgressBar } from '../../../shared/components/Layout/ProgressBar';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
@@ -35,53 +32,33 @@ interface WritingViewProps {
 
 function WritingPageContent({ user, profile, sessionToContinue, onSessionContinued }: WritingViewProps) {
   const { t } = useLanguage();
-  const { uiVersion } = useUI();
   
-  const status = useWritingStore(s => s.status);
-
   const { 
-    streamMode, isZenActive, zenModeEnabled, 
-    status: uiStatus, setStatus: setUIStatus, 
+    isZenActive, zenModeEnabled, 
     textWidth, 
-    fontFamily, setFontFamily,
-    fontSize, setFontSize,
-    stickyHeader, setStickyHeader,
-    headerVisibility, toggleVisibility
   } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
-  const isV2 = uiVersion === '2.0';
   const {
     status: sessionStatus, setStatus: setSessionStatus,
     sessionType, setSessionType,
     timerDuration, setTimerDuration,
     wordGoal, setWordGoal,
     targetTime, setTargetTime,
-    content, setContent,
-    title, setTitle,
-    pinnedThoughts, setPinnedThoughts,
     seconds,
-    wpm, wordCount,
     isPublic, setIsPublic,
     isAnonymous, setIsAnonymous,
     tags, setTags,
     labelId, setLabelId,
-    timeGoalReached, wordGoalReached,
-    hasDraft, setHasDraft,
-    initialWordCount, setInitialWordCount,
-    initialDuration, setInitialDuration,
-    activeSessionId, setActiveSessionId,
+    hasDraft,
     saveStatus, lastSavedAt,
-    // highlights, setHighlights,
-    handleStart, handleSave, handleCancel, resetSession,
-    resetSessionMetadata,
+    handleStart, handleSave, handleCancel, resetSessionMetadata,
     isOnline,
     fetchLocalSessions,
     loadLocalSession,
     encryptionPassword, setEncryptionPassword,
-    decryptSession
+    decryptSession,
+    setActiveSessionId
   } = useWritingSession(user, profile);
-
-  const setSessionConfig = useWritingStore(s => s.setSessionConfig);
 
   const [setupMode, setSetupMode] = useState<SetupMode>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -107,14 +84,8 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [tagInput, setTagInput] = useState('');
   
   const [isLocalOnly, setIsLocalOnly] = useState(false);
-
-  // Sync status with UIContext
-  useEffect(() => {
-    setUIStatus(sessionStatus);
-  }, [sessionStatus, setUIStatus]);
 
   const countdownRef = useRef<any>(null);
 
@@ -124,6 +95,7 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
       continueSession(sessionToContinue);
       if (onSessionContinued) onSessionContinued();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionToContinue]);
 
   const handleNewSession = () => {
@@ -234,37 +206,6 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
     const secs = s % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
-
-  const addTag = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setTags([...tags, tagInput.trim()]);
-      setTagInput('');
-    }
-  };
-
-  const removeTag = (t: string) => {
-    setTags(tags.filter(tag => tag !== t));
-  };
-
-  // const getDynamicBgStyle = () => {
-  //   if (!dynamicBgEnabled || status !== 'writing') return {};
-  //   
-  //   // Reach max intensity at 20 WPM
-  //   const intensity = Math.min(wpm / 20, 1); 
-  //   const hue = 30; // Warm amber
-  //   const saturation = intensity * 60; 
-  //   
-  //   // Light mode: from 100% lightness to ~80%
-  //   const lightness = 100 - (intensity * 20);
-  //   // Dark mode: from 12% lightness to ~30%
-  //   const darkLightness = 12 + (intensity * 18);
-  //   
-  //   return {
-  //     '--dynamic-bg': `hsl(${hue}, ${saturation}%, ${lightness}%)`,
-  //     '--dynamic-bg-dark': `hsl(${hue}, ${saturation}%, ${darkLightness}%)`,
-  //     backgroundColor: 'var(--dynamic-bg)',
-  //   } as React.CSSProperties;
-  // };
 
   const handlePromptSubmit = (password: string) => {
     if (passwordPrompt) {
