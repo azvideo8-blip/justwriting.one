@@ -21,6 +21,9 @@ import { DataTransfer } from '../../settings/components/DataTransfer';
 import { useLanguage } from '../../../core/i18n';
 import { useTheme, THEMES } from '../../../core/theme/ThemeProvider';
 
+import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
+import { z } from 'zod';
+
 function ProfileSettingsPanel({ userId }: { userId: string }) {
   const { t, language } = useLanguage();
   const { themeId, setThemeId, themes } = useTheme();
@@ -28,7 +31,7 @@ function ProfileSettingsPanel({ userId }: { userId: string }) {
   const [confirmReset, setConfirmReset] = useState(false);
 
   // Stub toggles — no logic, UI only, state not persisted
-  const [betaMode, setBetaMode] = useState(false);
+  const [betaMode, setBetaMode] = useLocalStorage('beta-mode', false, z.boolean());
   const [communityMode, setCommunityMode] = useState(false);
   const [encryption, setEncryption] = useState(false);
   const [aiAssistance, setAiAssistance] = useState(false);
@@ -73,20 +76,36 @@ function ProfileSettingsPanel({ userId }: { userId: string }) {
                   {t('profile_theme_title')}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  {Object.values(themes).map(theme => (
-                    <button
-                      key={theme.id}
-                      onClick={() => setThemeId(theme.id)}
-                      className={cn(
-                        "px-4 py-2.5 rounded-xl border text-sm font-medium transition-all text-left",
-                        themeId === theme.id
-                          ? "border-text-main bg-text-main text-surface-base"
-                          : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/30"
-                      )}
-                    >
-                      {language === 'ru' ? theme.nameRu : theme.nameEn}
-                    </button>
-                  ))}
+                  {Object.values(themes).map(theme => {
+                    const THEME_ACCENT: Record<string, string> = {
+                      modern:  '#1a1a1e',
+                      stripe:  '#7c3aed',
+                      notion:  '#f6f5f4',
+                      spotify: '#1ed760',
+                    };
+                    return (
+                      <button
+                        key={theme.id}
+                        onClick={() => setThemeId(theme.id)}
+                        className={cn(
+                          "px-4 py-2.5 rounded-xl border text-sm font-medium transition-all text-left",
+                          themeId === theme.id
+                            ? "border-text-main bg-text-main text-surface-base"
+                            : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/30"
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full border border-white/20 shrink-0"
+                            style={{ backgroundColor: THEME_ACCENT[theme.id] }}
+                          />
+                          <span className={cn("text-sm", themeId === theme.id ? "text-surface-base" : "text-text-main")}>
+                            {language === 'ru' ? theme.nameRu : theme.nameEn}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

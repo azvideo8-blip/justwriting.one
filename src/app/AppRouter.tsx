@@ -5,11 +5,17 @@ import { useLanguage } from '../core/i18n';
 import { cn } from '../core/utils/utils';
 import { NAV_CONFIG } from '../shared/lib/layoutRegistry';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
+import { useLocalStorage } from '../shared/hooks/useLocalStorage';
+import { z } from 'zod';
 
 // Components
 import { AppLayout } from '../shared/components/Layout/AppLayout';
 import { DesktopNav } from '../features/navigation/components/DesktopNav';
 import { MobileMenu } from '../features/navigation/components/MobileMenu';
+import { BetaSidebar } from '../features/navigation/components/BetaSidebar';
+import { BetaBottomNav } from '../features/navigation/components/BetaBottomNav';
+
+import { ThemeBackground } from '../core/theme/ThemeBackground';
 
 // Views
 import { LoginPage } from '../features/auth/pages/LoginPage';
@@ -31,6 +37,7 @@ export function AppRouter() {
   const showZen = isZenActive && zenModeEnabled && view === 'write';
   
   const isAdmin = profile?.role === 'admin';
+  const [betaMode] = useLocalStorage('beta-mode', false, z.boolean());
 
   if (loading) return (
     <div className="h-screen w-screen flex items-center justify-center bg-surface-base">
@@ -48,48 +55,75 @@ export function AppRouter() {
 
   return (
     <AppLayout className="min-h-screen bg-surface-base text-text-main font-sans selection:bg-white/10">
-      {/* Navigation */}
-      <nav className={cn(
-        "fixed top-0 left-0 right-0 h-16 z-50 px-4 md:px-6 flex items-center justify-between transition-all duration-1000 bg-surface-base/50 backdrop-blur-xl border-b border-border-subtle",
-        showZen ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
-      )}>
-        {!isConnected && (
-          <div className="absolute top-16 left-0 right-0 bg-red-500 text-white text-[10px] font-bold py-1 px-4 flex items-center justify-center gap-2 animate-pulse">
-            <WifiOff size={12} />
-            {t('common_offline')}
+      <ThemeBackground />
+      
+      {betaMode ? (
+        <>
+          {/* Desktop: expandable sidebar — hidden on mobile */}
+          <div className="hidden lg:block">
+            <BetaSidebar view={view} setView={setView} isAdmin={isAdmin} user={user} />
           </div>
-        )}
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={() => setMobileMenuOpen(true)}
-            className={cn("p-2 -ml-2 text-text-main/50 hover:text-text-main", NAV_CONFIG.MOBILE_BREAKPOINT_CLASS)}
-          >
-            <Menu size={24} />
-          </button>
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xl font-black bg-text-main text-surface-base shadow-[0_0_15px_rgba(255,255,255,0.2)]">J</div>
-          <span className="font-bold text-xl tracking-tight hidden lg:inline text-text-main">justwriting.one</span>
-        </div>
-        
-        <div className={NAV_CONFIG.DESKTOP_SHOW_CLASS}>
-          <DesktopNav view={view} setView={setView} isAdmin={isAdmin} user={user} />
-        </div>
+          {/* Mobile: bottom navigation — hidden on desktop */}
+          <div className="lg:hidden">
+            <BetaBottomNav view={view} setView={setView} isAdmin={isAdmin} />
+          </div>
+          
+          {!isConnected && (
+            <div className="fixed top-0 left-0 right-0 z-[60] bg-red-500 text-white text-[10px] font-bold py-1 px-4 flex items-center justify-center gap-2 animate-pulse">
+              <WifiOff size={12} />
+              {t('common_offline')}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Original navigation */}
+          <nav className={cn(
+            "fixed top-0 left-0 right-0 h-16 z-50 px-4 md:px-6 flex items-center justify-between transition-all duration-1000 bg-surface-base/50 backdrop-blur-xl border-b border-border-subtle",
+            showZen ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
+          )}>
+            {!isConnected && (
+              <div className="absolute top-16 left-0 right-0 bg-red-500 text-white text-[10px] font-bold py-1 px-4 flex items-center justify-center gap-2 animate-pulse">
+                <WifiOff size={12} />
+                {t('common_offline')}
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setMobileMenuOpen(true)}
+                className={cn("p-2 -ml-2 text-text-main/50 hover:text-text-main", NAV_CONFIG.MOBILE_BREAKPOINT_CLASS)}
+              >
+                <Menu size={24} />
+              </button>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xl font-black bg-text-main text-surface-base shadow-[0_0_15px_rgba(255,255,255,0.2)]">J</div>
+              <span className="font-bold text-xl tracking-tight hidden lg:inline text-text-main">justwriting.one</span>
+            </div>
+            
+            <div className={NAV_CONFIG.DESKTOP_SHOW_CLASS}>
+              <DesktopNav view={view} setView={setView} isAdmin={isAdmin} user={user} />
+            </div>
 
-        {/* Mobile Header Actions */}
-        <div className="flex lg:hidden items-center gap-2">
-          <img src={user.photoURL || undefined} className="w-8 h-8 rounded-full border border-border-subtle" referrerPolicy="no-referrer" />
-        </div>
-      </nav>
+            {/* Mobile Header Actions */}
+            <div className="flex lg:hidden items-center gap-2">
+              <img src={user.photoURL || undefined} className="w-8 h-8 rounded-full border border-border-subtle" referrerPolicy="no-referrer" />
+            </div>
+          </nav>
 
-      <MobileMenu 
-        isOpen={mobileMenuOpen} 
-        onClose={() => setMobileMenuOpen(false)} 
-        view={view} 
-        setView={setView} 
-        isAdmin={isAdmin} 
-      />
+          <MobileMenu 
+            isOpen={mobileMenuOpen} 
+            onClose={() => setMobileMenuOpen(false)} 
+            view={view} 
+            setView={setView} 
+            isAdmin={isAdmin} 
+          />
+        </>
+      )}
 
       {/* Main Content */}
-      <main className="pt-24 w-full">
+      <main className={cn(
+        "w-full relative z-10",
+        betaMode ? "lg:pl-16 pt-8 px-4" : "pt-24"
+      )}>
         <AnimatePresence mode="wait">
           {view === 'write' && (
             <WritingPage 
@@ -116,6 +150,9 @@ export function AppRouter() {
           {view === 'admin' && isAdmin && <AdminPage key="admin" />}
         </AnimatePresence>
       </main>
+      
+      {/* Bottom nav padding on mobile in beta mode */}
+      {betaMode && <div className="lg:hidden h-20" />}
     </AppLayout>
   );
 }

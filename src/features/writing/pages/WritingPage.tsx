@@ -23,6 +23,11 @@ import { CancelConfirmModal } from '../components/modals/CancelConfirmModal';
 import { useWritingSession } from '../hooks/useWritingSession';
 import { useLanguage } from '../../../core/i18n';
 
+import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
+import { z } from 'zod';
+import { format } from 'date-fns';
+import { ru, enUS } from 'date-fns/locale';
+
 interface WritingViewProps {
   user: User;
   profile: UserProfile | null;
@@ -31,11 +36,23 @@ interface WritingViewProps {
 }
 
 function WritingPageContent({ user, profile, sessionToContinue, onSessionContinued }: WritingViewProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const [betaMode] = useLocalStorage('beta-mode', false, z.boolean());
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000); // update every minute
+    return () => clearInterval(timer);
+  }, []);
+
+  const dateLocale = language === 'ru' ? ru : enUS;
+  const dateStr = format(now, 'EEEE, d MMMM', { locale: dateLocale });
+  const timeStr = format(now, 'HH:mm');
   
   const { 
     isZenActive, zenModeEnabled, 
     textWidth, 
+    setStatus: setUIStatus
   } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
   const {
@@ -59,6 +76,10 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
     decryptSession,
     setActiveSessionId
   } = useWritingSession(user, profile);
+
+  useEffect(() => {
+    setUIStatus(sessionStatus);
+  }, [sessionStatus, setUIStatus]);
 
   const [setupMode, setSetupMode] = useState<SetupMode>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -185,19 +206,20 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
     setSessionType(type);
     setSetupMode('countdown');
     setCountdown(3);
+    
+    let count = 3;
     countdownRef.current = setInterval(() => {
-      setCountdown(c => {
-        if (c === 1) {
-          clearInterval(countdownRef.current);
-          handleStart();
-          setTimeout(() => {
-            setSetupMode(null);
-            setCountdown(null);
-          }, 800);
-          return 0;
-        }
-        return c ? c - 1 : 0;
-      });
+      count -= 1;
+      setCountdown(count);
+      
+      if (count === 0) {
+        clearInterval(countdownRef.current);
+        handleStart();
+        setTimeout(() => {
+          setSetupMode(null);
+          setCountdown(null);
+        }, 800);
+      }
     }, 1000);
   };
 
@@ -225,7 +247,7 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="w-full transition-colors duration-1000 bg-surface-base"
+      className="w-full transition-colors duration-1000"
     >
       {/* Offline Notification */}
       {!isOnline && (
@@ -287,6 +309,17 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
       />
 
       <AdaptiveContainer size={textWidth === 'full' ? 'FULL' : 'CENTERED'}>
+        {betaMode && (
+          <div className="px-6 pt-8 pb-2">
+            <h1 className="text-3xl font-bold text-text-main">
+              {dateStr}
+            </h1>
+            <p className="text-text-main/40 text-lg font-mono mt-1">
+              {timeStr}
+            </p>
+          </div>
+        )}
+
         <WritingHeader 
           formatTime={formatTime}
           handleNewSession={handleNewSession}
@@ -300,7 +333,7 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
           setShowCancelConfirm={setShowCancelConfirm}
         />
 
-        <div className="relative min-h-[600px]">
+        <div className="relative">
           <AnimatePresence>
             {setupMode && (
               <WritingSetup 
