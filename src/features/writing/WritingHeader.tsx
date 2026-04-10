@@ -67,11 +67,11 @@ export const WritingHeader = React.memo(function WritingHeader({
 
   return (
     <div className={cn(
-      "w-full transition-all duration-1000 z-40 shadow-sm bg-surface-card backdrop-blur-2xl border-b border-border-subtle",
+      "w-full transition-all duration-1000 z-40 px-4 py-3",
       stickyHeader && "sticky top-16",
       showZen ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
     )}>
-      <div className="w-full mx-auto px-6 py-4 flex items-center justify-between gap-6">
+      <div className="w-full mx-auto px-6 py-3 flex items-center justify-between gap-6 bg-surface-card backdrop-blur-2xl border border-border-subtle rounded-2xl shadow-sm">
         <div className="flex items-center gap-4 md:gap-8 overflow-x-auto no-scrollbar py-1 flex-1">
           {!betaMode && headerVisibility.currentTime && (
             <div className="flex flex-col shrink-0">

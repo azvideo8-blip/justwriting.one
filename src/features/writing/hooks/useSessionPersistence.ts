@@ -187,7 +187,8 @@ export function useSessionPersistence(
             duration: data.duration
           });
         } catch (e) {
-          sessions.push({ id: key, createdAt: new Date(Number(key.replace('local_session_', ''))) });
+          const fallbackTimestamp = key.replace('local_session_', '').split('_')[0];
+          sessions.push({ id: key, createdAt: new Date(Number(fallbackTimestamp)) });
         }
       }
     }

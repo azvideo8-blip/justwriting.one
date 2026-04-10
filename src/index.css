@@ -40,10 +40,10 @@
   /* ─── NOTION — Warm minimal light ───────────────────────── */
   .theme-notion {
     color-scheme: light;
-    --bg-base: #ede8d5;
+    --bg-base: #e8dfc0;
     --text-main: #2c2420;
     --border-light: rgba(44, 36, 32, 0.12);
-    --surface-card: #e4ddc8;
+    --surface-card: #dfd5b0;
   }
 
   .theme-notion body {
