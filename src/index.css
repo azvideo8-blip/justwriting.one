@@ -23,16 +23,44 @@
     --surface-card: rgba(255, 255, 255, 0.03);
   }
 
-  /* Classic theme — dark stone, clean typography */
-  .theme-classic {
+  /* ─── STRIPE — Elegant purple gradients ─────────────────── */
+  .theme-stripe {
     color-scheme: dark;
-    --bg-base: #0c0a09;
-    --text-main: #f5f5f4;
-    --border-light: #292524;
-    --surface-card: #1c1917;
+    --bg-base: #0a0514;
+    --text-main: rgba(255, 255, 255, 0.9);
+    --border-light: rgba(255, 255, 255, 0.12);
+    --surface-card: rgba(255, 255, 255, 0.06);
   }
 
-  .theme-classic body {
+  .theme-stripe body {
+    background-color: var(--bg-base);
+    color: var(--text-main);
+  }
+
+  /* ─── NOTION — Warm minimal light ───────────────────────── */
+  .theme-notion {
+    color-scheme: light;
+    --bg-base: #ede8d5;
+    --text-main: #2c2420;
+    --border-light: rgba(44, 36, 32, 0.12);
+    --surface-card: #e4ddc8;
+  }
+
+  .theme-notion body {
+    background-color: var(--bg-base);
+    color: var(--text-main);
+  }
+
+  /* ─── SPOTIFY — Energy dark green ───────────────────────── */
+  .theme-spotify {
+    color-scheme: dark;
+    --bg-base: #121212;
+    --text-main: #ffffff;
+    --border-light: rgba(255, 255, 255, 0.1);
+    --surface-card: #1f1f1f;
+  }
+
+  .theme-spotify body {
     background-color: var(--bg-base);
     color: var(--text-main);
   }
@@ -49,35 +77,6 @@
   .theme-modern body {
     background-color: var(--bg-base);
     color: var(--text-main);
-    position: relative;
-  }
-
-  .theme-modern body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background: radial-gradient(ellipse at 50% 50%, #1a1a1c 0%, #0A0A0B 70%);
-    animation: modernBgPulse 8s ease-in-out infinite alternate;
-  }
-
-  /* Make sure app content renders above the pseudo-element */
-  .theme-modern body > #root {
-    position: relative;
-    z-index: 1;
-  }
-
-  @keyframes modernBgPulse {
-    0%   { 
-      background: radial-gradient(ellipse at 40% 40%, #1e1e22 0%, #0A0A0B 70%);
-    }
-    50%  { 
-      background: radial-gradient(ellipse at 60% 60%, #16161a 0%, #0A0A0B 70%);
-    }
-    100% { 
-      background: radial-gradient(ellipse at 50% 30%, #1a1a1e 0%, #0A0A0B 70%);
-    }
   }
 
   body {

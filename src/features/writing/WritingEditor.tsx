@@ -143,15 +143,6 @@ export const WritingEditor = React.memo(function WritingEditor({
 
   return (
     <div className="space-y-6 transition-all duration-1000 py-8 font-serif">
-      {status === 'writing' && (
-        <motion.div
-          className="fixed inset-0 z-0 pointer-events-none"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          style={{ backgroundColor: 'var(--bg-base)' }}
-        />
-      )}
       <div className={cn(
         "flex flex-col gap-4 transition-all duration-1000 z-30 py-2",
         stickyHeader ? "sticky top-[128px] md:top-[120px]" : "relative",

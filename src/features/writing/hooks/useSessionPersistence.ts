@@ -145,6 +145,7 @@ export function useSessionPersistence(
       const sessionKey = `local_session_${Date.now()}_${crypto.randomUUID()}`;
       localStorage.setItem(sessionKey, JSON.stringify(sessionData));
       await WritingDraftService.deleteDraft(user.uid);
+      actions.setHasDraft(false);
       actions.resetSession();
       actions.setStatus('idle');
       return;
@@ -153,6 +154,7 @@ export function useSessionPersistence(
     try {
       await WritingSessionService.saveSession(sessionData, sessionState.activeSessionId, isOnline, user.uid);
       await WritingDraftService.deleteDraft(user.uid);
+      actions.setHasDraft(false);
       actions.resetSession();
       actions.setStatus('idle');
     } catch (e) {
@@ -162,6 +164,7 @@ export function useSessionPersistence(
 
   const handleCancel = async () => {
     await WritingDraftService.deleteDraft(user.uid);
+    actions.setHasDraft(false);
     actions.resetSession();
     actions.setStatus('idle');
   };
