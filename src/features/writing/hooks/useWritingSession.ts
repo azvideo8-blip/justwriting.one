@@ -66,7 +66,7 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
     return () => clearInterval(interval);
   }, [store.status, store.tick]);
 
-  return useMemo(() => ({
+  return {
     handleStart,
     handleSave: persistence.handleSave,
     handleCancel: persistence.handleCancel,
@@ -120,8 +120,6 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
     setEncryptionPassword: store.setEncryptionPassword,
     resetSession: store.resetSession,
     resetSessionMetadata: store.resetSessionMetadata
-  }), [
-    handleStart, persistence, store, hasDraft
-  ]);
+  };
 }
 

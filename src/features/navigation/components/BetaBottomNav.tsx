@@ -21,7 +21,7 @@ export function BetaBottomNav({ view, setView, isAdmin }: BetaBottomNavProps) {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-surface-card border-t border-border-subtle backdrop-blur-xl safe-area-pb">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-surface-card border-t border-border-subtle backdrop-blur-xl pb-4">
       <div className="flex items-center justify-around px-2 py-2">
         {navItems.map(item => (
           <button

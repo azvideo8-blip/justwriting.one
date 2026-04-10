@@ -142,7 +142,7 @@ export const WritingEditor = React.memo(function WritingEditor({
   };
 
   return (
-    <div className="space-y-6 transition-all duration-1000 py-8 font-serif">
+    <div className="space-y-4 transition-all duration-1000 py-4 font-serif">
       <div className={cn(
         "flex flex-col gap-4 transition-all duration-1000 z-30 py-2",
         stickyHeader ? "sticky top-[128px] md:top-[120px]" : "relative",
@@ -226,7 +226,7 @@ export const WritingEditor = React.memo(function WritingEditor({
         )}
       </div>
 
-      <div className="relative group">
+      <div className="relative group rounded-3xl border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] p-2 mt-2">
         <textarea
           ref={textareaRef}
           value={content}

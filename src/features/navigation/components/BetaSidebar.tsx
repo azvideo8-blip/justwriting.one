@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PenLine, History, User as UserIcon, Globe, Shield, LogOut, Settings } from 'lucide-react';
+import { PenLine, History, User as UserIcon, Globe, Shield, LogOut } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
