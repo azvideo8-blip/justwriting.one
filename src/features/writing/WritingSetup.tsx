@@ -82,24 +82,24 @@ export function WritingSetup({
         </div>
       )}
 
-      <div className="absolute inset-0 z-50 flex items-center justify-center p-2 md:p-8 overflow-hidden bg-surface-base/80 backdrop-blur-2xl">
+      <div className="relative z-50 flex items-start justify-center p-2 md:p-8 overflow-hidden bg-surface-base/80 backdrop-blur-2xl">
         {setupMode !== 'countdown' && (
           <motion.div 
             variants={containerVariants}
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="w-full max-w-2xl rounded-[2rem] md:rounded-[2.5rem] flex flex-col max-h-[95vh] md:max-h-[90vh] bg-surface-card backdrop-blur-2xl border border-border-subtle shadow-[0_0_40px_rgba(255,255,255,0.05)] text-text-main"
+            className="w-full max-w-2xl rounded-[2rem] md:rounded-[2.5rem] flex flex-col bg-surface-card backdrop-blur-2xl border border-border-subtle shadow-[0_0_40px_rgba(255,255,255,0.05)] text-text-main"
           >
-            <div className="p-4 md:p-10 overflow-y-auto no-scrollbar space-y-6 md:space-y-8">
+            <div className="p-4 md:p-10 overflow-y-auto no-scrollbar space-y-4 pt-4">
               {setupMode === 'selection' && (
                 <>
                   <div className="text-center space-y-2 md:space-y-3">
-                    <h3 className="text-2xl md:text-4xl font-black tracking-tight text-text-main">{t('writing_select_mode')}</h3>
+                    <h3 className="text-base font-bold text-text-main/70 uppercase tracking-widest">{t('writing_select_mode')}</h3>
                     <p className="text-sm md:text-base font-medium text-text-main/50">{t('writing_how_to_write')}</p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                  <div className="grid grid-cols-2 gap-2">
                     {[
                       { id: 'stopwatch', icon: Zap, label: 'writing_mode_flow', desc: 'writing_mode_flow_desc', color: 'text-amber-400', bg: 'bg-amber-400/10' },
                       { id: 'timer-config', icon: Timer, label: 'writing_mode_timer', desc: 'writing_mode_timer_desc', color: 'text-blue-400', bg: 'bg-blue-400/10' },
@@ -109,14 +109,18 @@ export function WritingSetup({
                       <button 
                         key={mode.id}
                         onClick={() => mode.id === 'stopwatch' ? startCountdown('stopwatch') : setSetupMode(mode.id as SetupMode)}
-                        className="group relative flex flex-col gap-3 md:gap-4 p-4 md:p-6 border rounded-2xl md:rounded-3xl transition-all duration-300 text-left overflow-hidden bg-white/5 border-border-subtle hover:bg-white/10 hover:border-white/20"
+                        className="px-4 py-3 rounded-2xl border border-border-subtle hover:border-text-main/30 hover:bg-text-main/5 transition-all flex items-center gap-3 text-left w-full"
                       >
-                        <div className={cn("w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 duration-500", mode.bg, mode.color)}>
+                        <span className={cn("text-xl shrink-0", mode.color)}>
                           <mode.icon size={20} className="md:w-6 md:h-6" strokeWidth={2.5} />
-                        </div>
-                        <div>
-                          <div className="font-bold text-base md:text-lg group-hover:translate-x-1 transition-transform duration-300 text-text-main">{t(mode.label)}</div>
-                          <div className="text-[10px] md:text-xs line-clamp-2 text-text-main/50">{t(mode.desc)}</div>
+                        </span>
+                        <div className="min-w-0">
+                          <div className="font-semibold text-sm text-text-main leading-tight">
+                            {t(mode.label)}
+                          </div>
+                          <div className="text-xs text-text-main/40 leading-tight mt-0.5 hidden sm:block">
+                            {t(mode.desc)}
+                          </div>
                         </div>
                       </button>
                     ))}
@@ -254,15 +258,15 @@ export function WritingSetup({
                         <button 
                           key={session.id}
                           onClick={() => continueSession(session)}
-                          className="group flex flex-col gap-3 md:gap-4 p-4 md:p-6 border rounded-2xl md:rounded-[2rem] transition-all duration-300 text-left bg-white/5 border-border-subtle hover:bg-white/10 hover:border-white/20"
+                          className="group flex flex-col gap-2 p-3 md:p-4 border rounded-2xl transition-all duration-300 text-left bg-white/5 border-border-subtle hover:bg-white/10 hover:border-white/20"
                         >
                           <div className="flex items-center justify-between w-full">
-                            <div className="flex items-center gap-3 md:gap-4">
-                              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center transition-colors shadow-sm bg-white/10 text-text-main/50 group-hover:text-text-main">
-                                <PenLine size={20} className="md:w-6 md:h-6" />
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors shadow-sm bg-white/10 text-text-main/50 group-hover:text-text-main">
+                                <PenLine size={16} />
                               </div>
                               <div>
-                                <div className="font-black text-base md:text-lg group-hover:translate-x-1 transition-transform duration-300 text-text-main">
+                                <div className="font-bold text-sm md:text-base group-hover:translate-x-1 transition-transform duration-300 text-text-main">
                                   {session.title || t('common_untitled')}
                                 </div>
                                 <div className="text-[10px] font-bold uppercase tracking-wider text-text-main/50">
@@ -270,13 +274,13 @@ export function WritingSetup({
                                 </div>
                               </div>
                             </div>
-                            <div className="text-[8px] md:text-[10px] font-black uppercase tracking-widest px-2 md:px-3 py-1 rounded-full bg-white/10 text-text-main/50">
-                              {session.createdAt?.toDate ? format(session.createdAt.toDate(), 'd MMM', { locale: dateLocale }) : ''}
+                            <div className="text-[8px] md:text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-white/10 text-text-main/50">
+                              {session.createdAt ? format(session.createdAt instanceof Date ? session.createdAt : (session.createdAt as any).toDate?.() || new Date(), 'd MMM', { locale: dateLocale }) : ''}
                             </div>
                           </div>
                           
                           {session.content && (
-                            <div className="text-xs md:text-sm line-clamp-2 italic font-serif leading-relaxed border-l-4 pl-3 md:pl-4 py-1 text-text-main/50 border-border-subtle">
+                            <div className="text-xs line-clamp-1 italic font-serif leading-relaxed border-l-2 pl-2 py-0.5 text-text-main/50 border-border-subtle">
                               {session.content}
                             </div>
                           )}

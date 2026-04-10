@@ -4,6 +4,8 @@ import { cn } from '../../core/utils/utils';
 import { CountdownTimer } from './CountdownTimer';
 import { useLanguage } from '../../core/i18n';
 import { useWritingSettings } from './contexts/WritingSettingsContext';
+import { useLocalStorage } from '../../shared/hooks/useLocalStorage';
+import { z } from 'zod';
 
 import { useWritingStore } from './store/useWritingStore';
 
@@ -47,11 +49,13 @@ export const WritingHeader = React.memo(function WritingHeader({
   const sessionType = useWritingStore(s => s.sessionType);
   const wordGoal = useWritingStore(s => s.wordGoal);
   const targetTime = useWritingStore(s => s.targetTime);
+  const timerDuration = useWritingStore(s => s.timerDuration);
   const timeGoalReached = useWritingStore(s => s.timeGoalReached);
   const wordGoalReached = useWritingStore(s => s.wordGoalReached);
   const setStatus = useWritingStore(s => s.setStatus);
 
   const showZen = isZenActive && zenModeEnabled;
+  const [betaMode] = useLocalStorage('beta-mode', false, z.boolean());
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -69,7 +73,7 @@ export const WritingHeader = React.memo(function WritingHeader({
     )}>
       <div className="w-full mx-auto px-6 py-4 flex items-center justify-between gap-6">
         <div className="flex items-center gap-4 md:gap-8 overflow-x-auto no-scrollbar py-1 flex-1">
-          {headerVisibility.currentTime && (
+          {!betaMode && headerVisibility.currentTime && (
             <div className="flex flex-col shrink-0">
               <span className="font-black uppercase tracking-widest mb-0.5 text-[9px] text-text-main/50">{t('header_current_time')}</span>
               <span className="font-mono font-black flex items-center text-lg text-text-main font-medium">
@@ -78,22 +82,26 @@ export const WritingHeader = React.memo(function WritingHeader({
             </div>
           )}
           
-          {headerVisibility.sessionTime && (
+          {headerVisibility.sessionTime && (status === 'writing' || status === 'paused') && (
             <div className="flex flex-col shrink-0">
               <span className="font-black uppercase tracking-widest mb-0.5 flex items-center gap-1 text-[9px] text-text-main/50">
-                {sessionType === 'finish-by' ? t('header_remaining_time') : t('header_session_time')} 
+                {sessionType === 'finish-by' || sessionType === 'timer' ? t('header_remaining_time') : t('header_session_time')} 
                 {sessionType === 'timer' && timeGoalReached && <CheckCircle2 size={16} className="text-emerald-500 animate-bounce" />}
               </span>
               <span className={cn(
                 "font-mono font-black transition-colors text-lg font-medium",
                 sessionType === 'timer' && timeGoalReached ? "text-emerald-500" : "text-text-main"
               )}>
-                {sessionType === 'finish-by' && targetTime ? <CountdownTimer targetTime={targetTime} /> : formatTime(seconds)}
+                {sessionType === 'finish-by' && targetTime 
+                  ? <CountdownTimer targetTime={targetTime} /> 
+                  : sessionType === 'timer'
+                    ? formatTime(Math.max(0, timerDuration - seconds))
+                    : formatTime(seconds)}
               </span>
             </div>
           )}
 
-          {headerVisibility.sessionWords && !streamMode && (
+          {headerVisibility.sessionWords && (status === 'writing' || status === 'paused') && !streamMode && (
             <div className="flex flex-col shrink-0">
               <span className="font-black uppercase tracking-widest mb-0.5 flex items-center gap-1 text-[9px] text-text-main/50">
                 {t('header_session_words')} 
@@ -138,7 +146,7 @@ export const WritingHeader = React.memo(function WritingHeader({
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 ml-auto">
           {status === 'idle' && (
             <div className="flex gap-1.5">
               <button 
