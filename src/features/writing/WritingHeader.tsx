@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, Play, Clock, Plus, History, Pause, Square, X } from 'lucide-react';
+import { CheckCircle2, Play, Clock, Plus, History, Pause, Square, X, Settings } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../../core/utils/utils';
 import { CountdownTimer } from './CountdownTimer';
@@ -7,6 +7,7 @@ import { useLanguage } from '../../core/i18n';
 import { useWritingSettings } from './contexts/WritingSettingsContext';
 import { useLocalStorage } from '../../shared/hooks/useLocalStorage';
 import { z } from 'zod';
+import { useSettings } from '../../core/settings/SettingsContext';
 
 import { useWritingStore } from './store/useWritingStore';
 
@@ -39,8 +40,9 @@ export const WritingHeader = React.memo(function WritingHeader({
   const { t } = useLanguage();
   const { 
     isZenActive, zenModeEnabled, 
-    stickyHeader, headerVisibility, streamMode 
+    stickyPanel, headerVisibility, streamMode 
   } = useWritingSettings();
+  const { openSettings } = useSettings();
 
   const status = useWritingStore(s => s.status);
   const seconds = useWritingStore(s => s.seconds);
@@ -53,11 +55,11 @@ export const WritingHeader = React.memo(function WritingHeader({
   const timerDuration = useWritingStore(s => s.timerDuration);
   const timeGoalReached = useWritingStore(s => s.timeGoalReached);
   const wordGoalReached = useWritingStore(s => s.wordGoalReached);
+  const overtimeSeconds = useWritingStore(s => s.overtimeSeconds);
   const setStatus = useWritingStore(s => s.setStatus);
 
   const showZen = isZenActive && zenModeEnabled;
   const [classicNav] = useLocalStorage('classic-nav', false, z.boolean());
-  const { typewriterMode } = useWritingSettings();
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -70,7 +72,7 @@ export const WritingHeader = React.memo(function WritingHeader({
   return (
     <div className={cn(
       "w-full transition-all duration-1000 z-40 px-4 py-3",
-      (stickyHeader && classicNav) && "sticky top-16",
+      (stickyPanel && classicNav) && "sticky top-16",
       showZen ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
     )}>
       <div className="w-full mx-auto px-6 py-3 flex flex-col gap-0 bg-surface-card backdrop-blur-2xl border border-border-subtle rounded-2xl shadow-sm">
@@ -78,7 +80,7 @@ export const WritingHeader = React.memo(function WritingHeader({
           <div className="flex items-center gap-4 md:gap-8 overflow-x-auto no-scrollbar py-1 flex-1">
             {classicNav && headerVisibility.currentTime && (
               <div className="flex flex-col shrink-0">
-                <span className="font-black uppercase tracking-widest mb-0.5 text-[9px] text-text-main/50">{t('header_current_time')}</span>
+                <span className="font-black uppercase tracking-widest mb-0.5 text-[9px] text-text-main/50">{t('header_currentTime')}</span>
                 <span className="font-mono font-black flex items-center text-lg text-text-main font-medium">
                   {hours}<span className="animate-pulse mx-0.5">:</span>{minutes}
                 </span>
@@ -88,7 +90,12 @@ export const WritingHeader = React.memo(function WritingHeader({
             {headerVisibility.sessionTime && (status === 'writing' || status === 'paused') && (
               <div className="flex flex-col shrink-0">
                 <span className="font-black uppercase tracking-widest mb-0.5 flex items-center gap-1 text-[9px] text-text-main/50">
-                  {sessionType === 'finish-by' || sessionType === 'timer' ? t('header_remaining_time') : t('header_session_time')} 
+                  {sessionType === 'timer' && timeGoalReached
+                    ? t('header_overtime')
+                    : (sessionType === 'timer' || sessionType === 'finish-by')
+                      ? t('header_remaining_time')
+                      : t('header_sessionTime')
+                  } 
                   {sessionType === 'timer' && timeGoalReached && <CheckCircle2 size={16} className="text-emerald-500 animate-bounce" />}
                 </span>
                 <span className={cn(
@@ -98,7 +105,9 @@ export const WritingHeader = React.memo(function WritingHeader({
                   {sessionType === 'finish-by' && targetTime 
                     ? <CountdownTimer targetTime={targetTime} /> 
                     : sessionType === 'timer'
-                      ? formatTime(Math.max(0, timerDuration - seconds))
+                      ? timeGoalReached
+                        ? <span className="text-emerald-500">+{formatTime(overtimeSeconds)}</span>
+                        : formatTime(Math.max(0, timerDuration - seconds))
                       : formatTime(seconds)}
                 </span>
               </div>
@@ -107,7 +116,7 @@ export const WritingHeader = React.memo(function WritingHeader({
             {headerVisibility.sessionWords && (status === 'writing' || status === 'paused') && !streamMode && (
               <div className="flex flex-col shrink-0">
                 <span className="font-black uppercase tracking-widest mb-0.5 flex items-center gap-1 text-[9px] text-text-main/50">
-                  {t('header_session_words')} 
+                  {t('header_sessionWords')} 
                   {sessionType === 'words' && wordGoalReached && <CheckCircle2 size={16} className="text-emerald-500 animate-bounce" />}
                 </span>
                 <span className={cn(
@@ -122,7 +131,7 @@ export const WritingHeader = React.memo(function WritingHeader({
 
             {headerVisibility.totalWords && !streamMode && (
               <div className="flex flex-col shrink-0">
-                <span className="font-black uppercase tracking-widest mb-0.5 text-[9px] text-text-main/50">{t('header_total_words')}</span>
+                <span className="font-black uppercase tracking-widest mb-0.5 text-[9px] text-text-main/50">{t('header_totalWords')}</span>
                 <span className="font-mono font-black text-lg text-text-main font-medium">{wordCount}</span>
               </div>
             )}
@@ -221,6 +230,14 @@ export const WritingHeader = React.memo(function WritingHeader({
                 </button>
               </div>
             )}
+            <button
+              onClick={openSettings}
+              className="p-2.5 rounded-xl border transition-all bg-surface-base border-border-subtle text-text-main/50 hover:bg-text-main/10"
+              title={t('nav_settings')}
+              aria-label={t('nav_settings')}
+            >
+              <Settings size={18} />
+            </button>
           </div>
         </div>
         {status === 'writing' && (sessionType === 'words' || sessionType === 'timer' || sessionType === 'finish-by') && (

@@ -1,6 +1,6 @@
 // src/features/ai/AiResponseParser.ts
 export const AiResponseParser = {
-  parse(response: any) {
+  parse(response: { text?: string }) {
     if (!response || !response.text) {
       throw new Error("Invalid AI response: No text content found.");
     }

@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
-import { format, isSameDay } from 'date-fns';
+import { format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { History, Search, LayoutGrid, LayoutList } from 'lucide-react';
 import { Session, UserProfile } from '../../../types';
 import { SessionCard } from '../../writing/components/SessionCard';
 import { Calendar } from '../../calendar/components/Calendar';
-import { parseFirestoreDate, getSessionDate, cn } from '../../../core/utils/utils';
+import { getSessionDate, cn } from '../../../core/utils/utils';
 import { SessionService } from '../../writing/services/SessionService';
-import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
 import { TagCloud } from '../../writing/components/TagCloud';
 import { useLanguage } from '../../../core/i18n';
@@ -25,7 +24,7 @@ interface ArchiveViewProps {
 export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewProps) {
   const { t, language } = useLanguage();
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [lastDoc, setLastDoc] = useState<any>(null);
+  const [lastDoc, setLastDoc] = useState<unknown>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -61,11 +60,12 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
 
   useEffect(() => {
     fetchSessions(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.uid]);
 
   const { 
     selectedDate, setSelectedDate, 
-    selectedMonth, setSelectedMonth, 
+    setSelectedMonth, 
     selectedTags, setSelectedTags,
     filteredSessions: filteredByFilters
   } = useArchiveFilters(sessions);
@@ -73,7 +73,7 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
     searchQuery, setSearchQuery, 
     searchedSessions: filteredSessions 
   } = useArchiveSearch(filteredByFilters);
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => (localStorage.getItem('archive_viewMode') as any) || 'list');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => (localStorage.getItem('archive_viewMode') as 'list' | 'grid') || 'list');
   
   useEffect(() => {
     localStorage.setItem('archive_viewMode', viewMode);

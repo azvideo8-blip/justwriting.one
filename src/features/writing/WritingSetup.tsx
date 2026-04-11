@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence, Variants } from 'motion/react';
+import { motion, Variants } from 'motion/react';
 import { Zap, Timer, Target, PenLine, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
@@ -275,7 +275,7 @@ export function WritingSetup({
                               </div>
                             </div>
                             <div className="text-[8px] md:text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-white/10 text-text-main/50">
-                              {session.createdAt ? format(session.createdAt instanceof Date ? session.createdAt : (session.createdAt as any).toDate?.() || new Date(), 'd MMM', { locale: dateLocale }) : ''}
+                              {session.createdAt ? format(session.createdAt instanceof Date ? session.createdAt : (session.createdAt as { toDate?: () => Date }).toDate?.() || new Date(), 'd MMM', { locale: dateLocale }) : ''}
                             </div>
                           </div>
                           

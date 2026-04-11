@@ -44,8 +44,8 @@ export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
     textWidth, setTextWidth,
     zenModeEnabled, setZenModeEnabled,
     streamMode, setStreamMode: toggleStreamMode,
-    typewriterMode, setTypewriterMode,
     stickyHeader, setStickyHeader,
+    stickyPanel, setStickyPanel,
     headerVisibility, toggleVisibility,
   } = useWritingSettings();
 
@@ -178,12 +178,34 @@ export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
                   <Section title={t('settings_writing_modes')}>
                     <ToggleRow emoji="🧘" label={t('settings_zen_mode')}    value={zenModeEnabled}  onChange={() => setZenModeEnabled(!zenModeEnabled)} />
                     <ToggleRow emoji="🌊" label={t('settings_stream_mode')} value={streamMode}       onChange={toggleStreamMode} />
-                    <ToggleRow emoji="⌨️"  label={t('settings_typewriter')}  value={typewriterMode}  onChange={() => setTypewriterMode(!typewriterMode)} />
                   </Section>
 
                   {/* Header */}
                   <Section title={t('settings_header')}>
-                    <ToggleRow emoji="📌" label={t('settings_sticky_header')} value={stickyHeader} onChange={() => setStickyHeader(!stickyHeader)} />
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setStickyHeader(!stickyHeader)}
+                        className={cn(
+                          "px-3 py-2.5 rounded-xl border text-sm transition-all",
+                          stickyHeader
+                            ? "border-text-main bg-text-main text-surface-base"
+                            : "border-border-subtle text-text-main/60 hover:text-text-main"
+                        )}
+                      >
+                        📌 {t('settings_sticky_header')}
+                      </button>
+                      <button
+                        onClick={() => setStickyPanel(!stickyPanel)}
+                        className={cn(
+                          "px-3 py-2.5 rounded-xl border text-sm transition-all",
+                          stickyPanel
+                            ? "border-text-main bg-text-main text-surface-base"
+                            : "border-border-subtle text-text-main/60 hover:text-text-main"
+                        )}
+                      >
+                        📊 {t('settings_sticky_panel')}
+                      </button>
+                    </div>
                   </Section>
 
                   {/* Header visibility — compact checkbox grid */}

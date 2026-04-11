@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { useWritingStore } from '../store/useWritingStore';
 import { useSessionPersistence } from './useSessionPersistence';
@@ -56,15 +56,18 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
     }
   }, [store]);
 
+  const status = store.status;
+  const tick = store.tick;
+
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
-    if (store.status === 'writing') {
+    if (status === 'writing') {
       interval = setInterval(() => {
-        store.tick();
+        tick();
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [store.status, store.tick]);
+  }, [status, tick]);
 
   return {
     handleStart,

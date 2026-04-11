@@ -4,14 +4,12 @@ import { Globe } from 'lucide-react';
 import { Session } from '../../../types';
 import { SessionCard } from '../../writing/components/SessionCard';
 import { SessionService } from '../../writing/services/SessionService';
-import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
-import { parseFirestoreDate, cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 
 export function FeedPage() {
   const { t } = useLanguage();
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [lastDoc, setLastDoc] = useState<any>(null);
+  const [lastDoc, setLastDoc] = useState<unknown>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -47,6 +45,7 @@ export function FeedPage() {
 
   useEffect(() => {
     fetchSessions(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
