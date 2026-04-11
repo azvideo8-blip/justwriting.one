@@ -17,160 +17,11 @@ import { ProfileActivity } from '../components/ProfileActivity';
 import { ProfileWordCloud } from '../components/ProfileWordCloud';
 import { ProfileFilteredSessions } from '../components/ProfileFilteredSessions';
 import { TagCloud } from '../../writing/components/TagCloud';
-import { DataTransfer } from '../../settings/components/DataTransfer';
 import { useLanguage } from '../../../core/i18n';
 import { useTheme, THEMES } from '../../../core/theme/ThemeProvider';
 
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 import { z } from 'zod';
-
-function ProfileSettingsPanel({ userId }: { userId: string }) {
-  const { t, language } = useLanguage();
-  const { themeId, setThemeId, themes } = useTheme();
-  const [open, setOpen] = useState(false);
-  const [confirmReset, setConfirmReset] = useState(false);
-
-  // Stub toggles — no logic, UI only, state not persisted
-  const [betaMode, setBetaMode] = useLocalStorage('beta-mode', false, z.boolean());
-  const [communityMode, setCommunityMode] = useState(false);
-  const [encryption, setEncryption] = useState(false);
-  const [aiAssistance, setAiAssistance] = useState(false);
-
-  const toggles = [
-    { key: 'beta', label: t('profile_settings_beta'), value: betaMode, set: setBetaMode },
-    { key: 'community', label: t('profile_settings_community'), value: communityMode, set: setCommunityMode },
-    { key: 'encryption', label: t('profile_settings_encryption'), value: encryption, set: setEncryption },
-    { key: 'ai', label: t('profile_settings_ai'), value: aiAssistance, set: setAiAssistance },
-  ];
-
-  return (
-    <div className="border-t border-border-subtle mt-4 pt-4">
-      {/* Accordion trigger */}
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2 text-sm font-medium text-text-main/50 hover:text-text-main transition-colors w-full"
-      >
-        <Settings size={14} />
-        <span className="uppercase tracking-widest text-[10px] font-bold">
-          {t('profile_settings_title')}
-        </span>
-        <span className={cn("ml-auto transition-transform duration-200 text-xs", open ? "rotate-180" : "")}>
-          ▾
-        </span>
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="pt-4 space-y-4">
-
-              {/* Theme selector */}
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-text-main/40">
-                  {t('profile_theme_title')}
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.values(themes).map(theme => {
-                    const THEME_ACCENT: Record<string, string> = {
-                      modern:  '#1a1a1e',
-                      stripe:  '#7c3aed',
-                      notion:  '#f6f5f4',
-                      spotify: '#1ed760',
-                    };
-                    return (
-                      <button
-                        key={theme.id}
-                        onClick={() => setThemeId(theme.id)}
-                        className={cn(
-                          "px-4 py-2.5 rounded-xl border text-sm font-medium transition-all text-left",
-                          themeId === theme.id
-                            ? "border-text-main bg-text-main text-surface-base"
-                            : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/30"
-                        )}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-full border border-white/20 shrink-0"
-                            style={{ backgroundColor: THEME_ACCENT[theme.id] }}
-                          />
-                          <span className={cn("text-sm", themeId === theme.id ? "text-surface-base" : "text-text-main")}>
-                            {language === 'ru' ? theme.nameRu : theme.nameEn}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Feature toggles (stubs) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {toggles.map(toggle => (
-                  <button
-                    key={toggle.key}
-                    onClick={() => toggle.set(!toggle.value)}
-                    className="flex items-center justify-between px-4 py-2.5 rounded-xl border border-border-subtle hover:bg-text-main/5 transition-all"
-                  >
-                    <span className="text-sm text-text-main/70">{toggle.label}</span>
-                    <div className={cn(
-                      "w-8 h-4 rounded-full relative transition-colors duration-200 shrink-0",
-                      toggle.value ? "bg-text-main" : "bg-text-main/20"
-                    )}>
-                      <div className={cn(
-                        "absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform duration-200",
-                        toggle.value ? "translate-x-4" : "translate-x-0"
-                      )} />
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              {/* Reset achievements */}
-              <div className="pt-1">
-                {!confirmReset ? (
-                  <button
-                    onClick={() => setConfirmReset(true)}
-                    className="text-xs text-red-400/70 hover:text-red-400 transition-colors underline underline-offset-2"
-                  >
-                    {t('profile_reset_achievements')}
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-xs text-text-main/50">
-                      {t('profile_reset_achievements_confirm')}
-                    </span>
-                    <button
-                      onClick={async () => {
-                        await ProfileService.resetAchievements(userId);
-                        setConfirmReset(false);
-                      }}
-                      className="text-xs font-bold text-red-400 hover:text-red-300"
-                    >
-                      {t('finish_discard')}
-                    </button>
-                    <button
-                      onClick={() => setConfirmReset(false)}
-                      className="text-xs text-text-main/40 hover:text-text-main/70"
-                    >
-                      {t('writing_cancel')}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
 
 interface ProfilePageProps {
   user: User;
@@ -288,7 +139,6 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
                 currentStreak={currentStreak} 
                 totalWords={totalWords} 
               />
-              <ProfileSettingsPanel userId={user.uid} />
             </div>
 
             <ProfileAchievements 
@@ -318,7 +168,6 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
             />
 
             <TagCloud tags={allTags} />
-            <DataTransfer />
           </div>
         </div>
       </motion.div>

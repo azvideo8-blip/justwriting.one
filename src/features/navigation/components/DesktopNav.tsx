@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavButton } from './NavButton';
-import { PenLine, History, User as UserIcon, Globe, Shield, LogOut } from 'lucide-react';
+import { PenLine, History, User as UserIcon, Globe, Shield, LogOut, Settings } from 'lucide-react';
 import { User, signOut } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { useLanguage } from '../../../core/i18n';
@@ -27,6 +27,7 @@ export function DesktopNav({ view, setView, isAdmin, user }: DesktopNavProps) {
         label={t('nav_community')}
         className={view === 'feed' ? "text-emerald-500" : "hover:text-emerald-500"}
       />
+      <NavButton active={view === 'settings'} onClick={() => setView('settings')} icon={<Settings size={18} />} label={t('nav_settings')} />
       {isAdmin && (
         <NavButton active={view === 'admin'} onClick={() => setView('admin')} icon={<Shield size={18} className="text-red-500" />} label={t('nav_admin')} />
       )}
