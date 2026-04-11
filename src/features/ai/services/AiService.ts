@@ -12,7 +12,7 @@ export async function editWithAI(content: string, action: AiAction) {
   try {
     const result = await editWithAIFunction({ content, action });
     return parseAiResponse(result.data);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("AI Error:", error);
     
     // Get localized fallback message

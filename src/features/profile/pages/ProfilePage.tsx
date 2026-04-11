@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Settings } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
 import { startOfWeek, endOfWeek } from 'date-fns';
 import { ACHIEVEMENTS } from '../constants/achievements';
 import { ProfileService } from '../services/ProfileService';
 import { Session, UserProfile } from '../../../types';
-import { calculateStreak, parseFirestoreDate, cn, getSessionDate } from '../../../core/utils/utils';
+import { calculateStreak } from '../../../core/utils/utils';
 import { Calendar } from '../../calendar/components/Calendar';
 import { SessionService } from '../../writing/services/SessionService';
-import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
 import { ProfileHeader } from '../components/ProfileHeader';
 import { ProfileAchievements } from '../components/ProfileAchievements';
@@ -18,10 +16,6 @@ import { ProfileWordCloud } from '../components/ProfileWordCloud';
 import { ProfileFilteredSessions } from '../components/ProfileFilteredSessions';
 import { TagCloud } from '../../writing/components/TagCloud';
 import { useLanguage } from '../../../core/i18n';
-import { useTheme, THEMES } from '../../../core/theme/ThemeProvider';
-
-import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
-import { z } from 'zod';
 
 interface ProfilePageProps {
   user: User;
@@ -90,6 +84,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
     };
 
     fetchSessions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.uid, t]);
 
   const allTags = Array.from(new Set(sessions.flatMap(s => s.tags || [])));

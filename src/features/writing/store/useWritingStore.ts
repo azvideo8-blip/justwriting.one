@@ -22,6 +22,7 @@ interface WritingState {
   wordGoal: number;
   timeGoalReached: boolean;
   wordGoalReached: boolean;
+  overtimeSeconds: number;
 
   isPublic: boolean;
   isAnonymous: boolean;
@@ -63,7 +64,7 @@ export const useWritingStore = create<WritingState>((set, get) => ({
   wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
   seconds: 0, status: 'idle', sessionType: 'stopwatch',
   timerDuration: 15 * 60, targetTime: null, wordGoal: 500,
-  timeGoalReached: false, wordGoalReached: false,
+  timeGoalReached: false, wordGoalReached: false, overtimeSeconds: 0,
 
   isPublic: false, isAnonymous: false, tags: [], labelId: undefined,
   initialDuration: 0, activeSessionId: null, encryptionPassword: '', sessionStartTime: null,
@@ -128,6 +129,7 @@ export const useWritingStore = create<WritingState>((set, get) => ({
 
     const newSeconds = state.seconds + 1;
     let timeGoalReached = state.timeGoalReached;
+    let overtimeSeconds = state.overtimeSeconds;
 
     if (state.sessionType === 'timer' && newSeconds >= state.timerDuration) {
       timeGoalReached = true;
@@ -138,6 +140,11 @@ export const useWritingStore = create<WritingState>((set, get) => ({
       if (new Date() >= target) timeGoalReached = true;
     }
 
+    // Count overtime seconds after goal reached
+    if (timeGoalReached && state.sessionType === 'timer') {
+      overtimeSeconds = newSeconds - state.timerDuration;
+    }
+
     // WPM Idle Decay
     let currentWpm = state.wpm;
     if (state.wordSnapshots.length > 0) {
@@ -145,12 +152,13 @@ export const useWritingStore = create<WritingState>((set, get) => ({
       if (Date.now() - lastActive > 10000) currentWpm = 0; // Drop to 0 after 10s idle
     }
 
-    return { seconds: newSeconds, timeGoalReached, wpm: currentWpm };
+    return { seconds: newSeconds, timeGoalReached, overtimeSeconds, wpm: currentWpm };
   }),
 
   resetSession: () => set({
     content: '', title: '', pinnedThoughts: [],
     wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
-    seconds: 0, status: 'idle', timeGoalReached: false, wordGoalReached: false
+    seconds: 0, status: 'idle', timeGoalReached: false, wordGoalReached: false,
+    overtimeSeconds: 0
   })
 }));

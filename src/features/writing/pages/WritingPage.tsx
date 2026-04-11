@@ -107,7 +107,7 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   const [isLocalOnly, setIsLocalOnly] = useState(false);
   const { openSettings } = useSettings();
 
-  const countdownRef = useRef<any>(null);
+  const countdownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Handle session continuation from external source
   useEffect(() => {
@@ -151,10 +151,7 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   };
 
   const continueSession = async (session: Session) => {
-    console.log('continueSession called', session);
-    let sessionToLoad = session;
-
-    if ((session as any).isLocal) {
+    if ('isLocal' in session && session.isLocal) {
         let loaded = loadLocalSession(session.id);
         if (!loaded) return;
 
@@ -164,7 +161,7 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
               setPasswordPrompt({ session, resolve, reject });
             });
             loaded = await decryptSession(loaded, password);
-          } catch (e) {
+          } catch {
             console.error('Decryption failed or cancelled');
             return;
           }
