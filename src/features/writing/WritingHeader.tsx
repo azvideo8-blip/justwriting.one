@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, Play, Clock, Plus, History, Pause, Square, X, Settings } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../core/utils/utils';
 import { CountdownTimer } from './CountdownTimer';
 import { useLanguage } from '../../core/i18n';
@@ -70,13 +70,20 @@ export const WritingHeader = React.memo(function WritingHeader({
   const minutes = currentTime.getMinutes().toString().padStart(2, '0');
 
   return (
-    <div className={cn(
-      "w-full transition-all duration-1000 z-40 px-4 py-3",
-      (stickyPanel && classicNav) && "sticky top-16",
-      showZen ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
-    )}>
-      <div className="w-full mx-auto px-6 py-3 flex flex-col gap-0 bg-surface-card backdrop-blur-2xl border border-border-subtle rounded-2xl shadow-sm">
-        <div className="flex items-center justify-between gap-6">
+    <AnimatePresence>
+      {!showZen && (
+        <motion.div
+          initial={{ opacity: 0, y: -16, height: 0 }}
+          animate={{ opacity: 1, y: 0, height: 'auto' }}
+          exit={{ opacity: 0, y: -16, height: 0 }}
+          transition={{ duration: 0.4, ease: 'easeInOut' }}
+          className={cn(
+            "w-full z-40 px-4 py-3 overflow-hidden",
+            (stickyPanel && classicNav) && "sticky top-16"
+          )}
+        >
+          <div className="w-full mx-auto px-6 py-3 flex flex-col gap-0 bg-surface-card backdrop-blur-2xl border border-border-subtle rounded-2xl shadow-sm">
+            <div className="flex items-center justify-between gap-6">
           <div className="flex items-center gap-4 md:gap-8 overflow-x-auto no-scrollbar py-1 flex-1">
             {classicNav && headerVisibility.currentTime && (
               <div className="flex flex-col shrink-0">
@@ -258,7 +265,9 @@ export const WritingHeader = React.memo(function WritingHeader({
             />
           </div>
         )}
-      </div>
-    </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 });
