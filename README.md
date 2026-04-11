@@ -1,36 +1,191 @@
-# Ethereal Ink / Stream of Consciousness
+# justwriting.one
 
-Ethereal Ink is a writing application designed to help you enter a flow state, capture your stream of consciousness, and track your writing progress.
+> Просто пишите. Остальное потом.
 
-## Philosophy
-Writing is not just about the final product; it's about the process. Ethereal Ink provides a distraction-free environment to help you focus on your thoughts, whether you're journaling, drafting, or just letting your mind wander.
+Минималистичное пространство для осознанного письма. Никаких отвлекающих факторов — только вы, текст и время.
 
-### Key Features
-- **Ethereal Ink**: A distraction-free writing mode that fades out previous text, encouraging you to keep moving forward without over-editing.
-- **Stream of Consciousness**: An AI-powered feature that analyzes your writing flow and provides real-time, non-intrusive suggestions or prompts to keep you unstuck.
-- **Feature-First Architecture**: The codebase is organized by domain (e.g., `src/features/writing`, `src/features/profile`), making it highly modular and easy to navigate.
+---
 
-## Local Setup
+## Что это такое
 
-### Prerequisites
-- Node.js (v20+)
+justwriting.one — это приложение для тех, кто хочет писать регулярно и без лишнего трения. Не заметки, не документы, не редактор — именно пространство для письма. С таймером, статистикой, архивом и четырьмя темами оформления под любое настроение.
+
+---
+
+## Возможности
+
+### Письмо
+
+**Четыре режима сессии**
+- *Свободный поток* — секундомер без ограничений, пишите сколько угодно
+- *По таймеру* — установите время, фокусируйтесь до звонка; после окончания счётчик переходит в режим overtime и показывает сколько вы написали сверх нормы
+- *Цель по словам* — пишите пока не наберёте нужное количество слов
+- *Закончить до...* — дедлайн по реальному времени суток
+
+**Режимы письма**
+- *Дзен-режим* — интерфейс скрывается через несколько секунд после начала печати, возвращается при движении мыши
+- *Поток сознания* — отключает возможность удалять и вставлять текст, только вперёд
+- *Закреплённые мысли* — прикрепите важную идею через Alt+P или выделив текст, она останется видна во время письма
+
+**Статистика в реальном времени**
+- Текущее время, время сессии, слова в сессии, всего слов, WPM (скользящее окно 60 секунд)
+- Прогресс-бар в панели статистики для таймера и целей по словам
+- Overtime счётчик зелёным цветом когда таймер вышел
+
+**Сохранение и черновики**
+- Автосохранение черновика каждые несколько секунд — ничего не потеряется
+- Локальный режим с шифрованием AES-256 — заметка не уходит на сервер
+- Продолжение незавершённых сессий
+- Экспорт в TXT, Markdown, DOCX и PDF (с поддержкой кириллицы)
+
+---
+
+### Архив
+
+- Интерактивный календарь с точками на днях когда были сессии — навигация по дням и месяцам
+- Даты определяются по времени *начала* сессии, а не сохранения — ночные сессии попадают в правильный день
+- Полнотекстовый поиск по всем записям
+- Фильтрация по тегам
+- Вид списком или сеткой
+- Подсчёт серии дней подряд (streak) для мотивации
+
+---
+
+### Профиль и достижения
+
+- 30+ достижений за стрики, количество слов, заметок и длительность сессий
+- Облако слов из всех записей
+- График активности за выбранный период
+- Статистика: всего слов, текущий стрик, количество заметок
+
+---
+
+### Сообщество
+
+- Публичная лента — делитесь записями с другими
+- Анонимная публикация если не хотите раскрывать имя
+- Лента отсортирована по времени
+
+---
+
+### Интерфейс
+
+**Четыре темы оформления**
+- *Современный* — глубокий чёрный с анимированным градиентом
+- *Элегантный* — тёмно-фиолетовый в стиле Stripe
+- *Тёплый* — сепия, как старая бумага (светлая тема)
+- *Энергия* — тёмный с зелёными оттенками в стиле Spotify
+
+**Два режима навигации**
+- *Десктопный* — боковая панель слева, раскрывается при наведении
+- *Мобильный* — нижняя панель вкладок
+- Автоопределение при первом запуске, ручное переключение в настройках
+
+**Настройки** открываются панелью справа из шестерёнки в хедере:
+- *Редактор*: шрифт (Inter / Playfair Display / JetBrains Mono / Cormorant Garamond), размер, ширина текста, режимы письма, видимость элементов панели
+- *Приложение*: тема, язык (RU/EN), раскладка навигации, классический интерфейс, бета-режим
+- *Аккаунт*: режим сообщества, помощь ИИ, сброс достижений, выход
+
+**Прочее**
+- PWA — устанавливается на телефон или десктоп
+- Работа офлайн с синхронизацией при восстановлении сети
+- Полная локализация RU / EN
+
+---
+
+## Стек
+
+| Слой | Технологии |
+|------|-----------|
+| Frontend | React 19, TypeScript, Vite, Tailwind v4, Framer Motion |
+| State | Zustand (writing session), React Context (settings, theme, i18n) |
+| Backend | Firebase Auth, Firestore, Cloud Functions |
+| AI | Google Gemini 1.5 Flash (через Cloud Functions) |
+| Мониторинг | Sentry |
+| Деплой | Vercel (frontend), Firebase (functions) |
+
+---
+
+## Архитектура
+
+```
+src/
+  app/          — AppRouter, AppProviders
+  core/         — Firebase, i18n, theme, utils, errors
+  features/     — доменные модули
+    writing/    — редактор, сессии, хуки, store
+    archive/    — архив, фильтры, поиск
+    profile/    — профиль, достижения
+    auth/       — авторизация
+    feed/       — публичная лента
+    navigation/ — BetaSidebar, BetaBottomNav, DesktopNav
+    settings/   — SettingsPanel
+    ai/         — AI клиент и сервисы
+    admin/      — панель администратора
+  shared/       — переиспользуемые компоненты, хуки, утилиты
+```
+
+Feature-first архитектура: каждый домен владеет своими компонентами, хуками, сервисами и страницами. Бизнес-логика изолирована от UI через сервисный слой.
+
+---
+
+## Локальная разработка
+
+### Требования
+
+- Node.js v20+
 - npm
 
-### Installation
-1. Clone the repository.
-2. Run `npm install` to install dependencies.
-3. Create a `.env.local` file in the root directory and add the following:
-   ```env
-   GEMINI_API_KEY=your_gemini_api_key
-   VITE_FIREBASE_API_KEY=your_firebase_api_key
-   VITE_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
-   VITE_FIREBASE_PROJECT_ID=your_firebase_project_id
-   VITE_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
-   VITE_FIREBASE_MESSAGING_SENDER_ID=your_firebase_messaging_sender_id
-   VITE_FIREBASE_APP_ID=your_firebase_app_id
-   ```
-4. Run `npm run dev` to start the development server.
+### Установка
 
-## Running and Deployment
-- **Frontend**: Run `npm run dev` for development or `npm run build` followed by `npm run preview` for production build.
-- **Cloud Functions**: (If applicable) Navigate to the `functions/` directory, run `npm install`, and use `firebase deploy --only functions` to deploy.
+```bash
+git clone https://github.com/your-repo/justwriting.one
+cd justwriting.one
+npm install
+```
+
+Создайте `.env.local`:
+
+```env
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+VITE_SENTRY_DSN=        # опционально
+```
+
+```bash
+npm run dev
+```
+
+### Cloud Functions
+
+```bash
+cd functions
+npm install
+# Добавьте GEMINI_API_KEY в Firebase environment
+firebase deploy --only functions
+```
+
+### Скрипты
+
+```bash
+npm run dev          # dev сервер
+npm run build        # production сборка
+npm run typecheck    # проверка типов
+npm run lint         # ESLint
+npm run test:ci      # тесты
+npm run ci           # typecheck + lint + test
+```
+
+---
+
+## Деплой
+
+Frontend деплоится на Vercel автоматически при пуше в `main`. Cloud Functions деплоятся через Firebase CLI.
+
+---
+
+*justwriting.one — потому что писать можно начать прямо сейчас.*
