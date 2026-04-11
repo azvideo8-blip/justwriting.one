@@ -294,12 +294,20 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
       />
 
       <AdaptiveContainer size={textWidth === 'full' ? 'FULL' : 'CENTERED'}>
-        {!classicNav && (
-          <div className="px-2 pt-6 pb-3">
-            <h1 className="text-2xl font-bold text-text-main">{dateStr}</h1>
-            <p className="text-text-main/40 text-base font-mono mt-0.5">{timeStr}</p>
-          </div>
-        )}
+        <AnimatePresence>
+          {!classicNav && !showZen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.4 }}
+              className="px-2 pt-6 pb-3 overflow-hidden"
+            >
+              <h1 className="text-2xl font-bold text-text-main">{dateStr}</h1>
+              <p className="text-text-main/40 text-base font-mono mt-0.5">{timeStr}</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <WritingHeader 
           formatTime={formatTime}
