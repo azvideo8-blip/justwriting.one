@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useLayoutEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Pin, X } from 'lucide-react';
 import { cn } from '../../core/utils/utils';
@@ -33,7 +33,7 @@ export const WritingEditor = React.memo(function WritingEditor({
   const setPinnedThoughts = useWritingStore(s => s.setPinnedThoughts);
   const { 
     streamMode, isZenActive, zenModeEnabled, 
-    fontSize, fontFamily, stickyHeader 
+    fontSize, fontFamily, stickyHeader, typewriterMode
   } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
   const [showPinnedInput, setShowPinnedInput] = React.useState(false);
@@ -109,14 +109,29 @@ export const WritingEditor = React.memo(function WritingEditor({
     };
   };
 
-  // Typewriter mode: scroll textarea to center caret
-  React.useLayoutEffect(() => {
-    if (textareaRef.current) {
-      const textarea = textareaRef.current;
-      const { top } = getCaretCoordinates(textarea, textarea.selectionStart);
-      textarea.scrollTop = top - textarea.clientHeight / 2 + 50;
+  // Typewriter mode: scroll window to keep caret at 45% of viewport height
+  useLayoutEffect(() => {
+    if (!typewriterMode || !textareaRef.current || status !== 'writing') return;
+
+    const textarea = textareaRef.current;
+    const caretPos = textarea.selectionStart;
+    
+    // Get pixel position of caret within textarea
+    const { top: caretTopInTextarea } = getCaretCoordinates(textarea, caretPos);
+    
+    // Get textarea's position relative to document
+    const textareaRect = textarea.getBoundingClientRect();
+    const caretTopInViewport = textareaRect.top + caretTopInTextarea - textarea.scrollTop;
+    
+    // Target: keep caret at 45% of viewport height
+    const targetY = window.innerHeight * 0.45;
+    const delta = caretTopInViewport - targetY;
+    
+    // Only scroll if caret is below the target line
+    if (delta > 0) {
+      window.scrollBy({ top: delta, behavior: 'smooth' });
     }
-  }, [content]);
+  }, [content, typewriterMode, status]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (streamMode) {
@@ -244,13 +259,14 @@ export const WritingEditor = React.memo(function WritingEditor({
           disabled={status === 'idle' || status === 'paused'}
           placeholder={status === 'idle' ? t('editor_idle_placeholder') : t('editor_writing_placeholder')}
           style={{ 
+            paddingBottom: typewriterMode ? '60vh' : '2rem',
+            paddingTop: typewriterMode ? '40vh' : undefined,
             fontSize: `${fontSize}px`,
             lineHeight: `${fontSize * 1.2}px`,
             fontFamily: fontFamily === 'Inter' ? 'Inter, sans-serif' : 
                         fontFamily === 'Playfair Display' ? '"Playfair Display", serif' :
                         fontFamily === 'JetBrains Mono' ? '"JetBrains Mono", monospace' :
-                        fontFamily === 'Cormorant Garamond' ? '"Cormorant Garamond", serif' :
-                        fontFamily === 'Space Grotesk' ? '"Space Grotesk", sans-serif' : 'inherit',
+                        fontFamily === 'Cormorant Garamond' ? '"Cormorant Garamond", serif' : 'inherit',
             caretColor: undefined,
             userSelect: 'text'
           }}

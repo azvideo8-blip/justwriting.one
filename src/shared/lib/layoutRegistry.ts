@@ -6,6 +6,6 @@ export const LAYOUT_CONSTRAINTS = {
 };
 
 export const NAV_CONFIG = {
-  MOBILE_BREAKPOINT_CLASS: "lg:hidden",
-  DESKTOP_SHOW_CLASS: "hidden lg:flex",
+  MOBILE_BREAKPOINT_CLASS: "xl:hidden",
+  DESKTOP_SHOW_CLASS: "hidden xl:flex",
 };
