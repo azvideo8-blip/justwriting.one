@@ -9,9 +9,10 @@ interface BetaSidebarProps {
   setView: (view: any) => void;
   isAdmin: boolean;
   user: User;
+  isZenActive?: boolean;
 }
 
-export function BetaSidebar({ view, setView, isAdmin, user }: BetaSidebarProps) {
+export function BetaSidebar({ view, setView, isAdmin, user, isZenActive }: BetaSidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useLanguage();
 
@@ -30,7 +31,8 @@ export function BetaSidebar({ view, setView, isAdmin, user }: BetaSidebarProps) 
       className={cn(
         "fixed top-0 left-0 h-full z-50 flex flex-col py-4 transition-all duration-300 ease-in-out",
         "bg-surface-card border-r border-border-subtle backdrop-blur-xl",
-        expanded ? "w-[220px]" : "w-16"
+        expanded ? "w-[220px]" : "w-16",
+        isZenActive ? "opacity-0 pointer-events-none -translate-x-4" : "opacity-100 translate-x-0"
       )}
     >
       {/* Logo */}
