@@ -35,105 +35,104 @@ interface WritingSettingsContextType {
 const WritingSettingsContext = createContext<WritingSettingsContextType | undefined>(undefined);
 
 export function WritingSettingsProvider({ children }: { children: React.ReactNode }) {
-  const [streamMode, setStreamMode] = useLocalStorage<boolean>(
-    'streamMode', 
-    false,
-    z.boolean()
-  );
-  const [zenModeEnabled, setZenModeEnabled] = useLocalStorage<boolean>(
-    'v2_zenModeEnabled', 
-    true,
-    z.boolean()
-  );
-  const [textWidth, setTextWidth] = useLocalStorage<'centered' | 'full'>(
-    'v2_textWidth',
-    'centered',
-    z.enum(['centered', 'full'])
-  );
-  const [fontFamily, setFontFamily] = useLocalStorage<string>(
-    'v2_fontFamily', 
-    'Inter',
-    z.string()
-  );
-  const [fontSize, setFontSize] = useLocalStorage<number>(
-    'v2_fontSize', 
-    18,
-    z.number()
-  );
-  const [stickyHeader, setStickyHeader] = useLocalStorage<boolean>(
-    'v2_stickyHeaderEnabled', 
-    true,
-    z.boolean()
-  );
-  const [stickyPanel, setStickyPanel] = useLocalStorage<boolean>(
-    'stickyPanel', 
-    true,
-    z.boolean()
-  );
+  const [streamMode, setStreamMode] = useLocalStorage<boolean>('streamMode', false, z.boolean());
+  const [zenModeEnabled, setZenModeEnabled] = useLocalStorage<boolean>('v2_zenModeEnabled', true, z.boolean());
+  const [textWidth, setTextWidth] = useLocalStorage<'centered' | 'full'>('v2_textWidth', 'centered', z.enum(['centered', 'full']));
+  const [fontFamily, setFontFamily] = useLocalStorage<string>('v2_fontFamily', 'Inter', z.string());
+  const [fontSize, setFontSize] = useLocalStorage<number>('v2_fontSize', 18, z.number());
+  const [stickyHeader, setStickyHeader] = useLocalStorage<boolean>('v2_stickyHeaderEnabled', true, z.boolean());
+  const [stickyPanel, setStickyPanel] = useLocalStorage<boolean>('stickyPanel', true, z.boolean());
   const [headerVisibility, setHeaderVisibility] = useLocalStorage<HeaderVisibility>(
-    'v2_headerVisibility', 
-    {
-      currentTime: true,
-      sessionTime: true,
-      sessionWords: true,
-      totalWords: true,
-      wpm: true,
-    },
-    z.object({
-      currentTime: z.boolean(),
-      sessionTime: z.boolean(),
-      sessionWords: z.boolean(),
-      totalWords: z.boolean(),
-      wpm: z.boolean(),
-    })
+    'v2_headerVisibility',
+    { currentTime: true, sessionTime: true, sessionWords: true, totalWords: true, wpm: true },
+    z.object({ currentTime: z.boolean(), sessionTime: z.boolean(), sessionWords: z.boolean(), totalWords: z.boolean(), wpm: z.boolean() })
   );
+
   const [status, setStatus] = useState<'idle' | 'writing' | 'paused' | 'finished'>('idle');
   const [isZenActive, setIsZenActive] = useState<boolean>(false);
-  const zenTimerRef = useRef<any>(null);
+  const zenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const guardRef = useRef<boolean>(false);
+  const lastMousePos = useRef<{ x: number; y: number }>({ x: -1, y: -1 });
+
+  const enterFullscreen = () => {
+    if (!document.fullscreenElement) {
+      guardRef.current = true;
+      document.documentElement.requestFullscreen().catch(() => {});
+      // Keep guard active for 1500ms to absorb synthetic mousemove events
+      setTimeout(() => { guardRef.current = false; }, 1500);
+    }
+  };
+
+  const exitFullscreen = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
 
   useEffect(() => {
     if (status !== 'writing' || !zenModeEnabled) {
       const timer = setTimeout(() => {
         setIsZenActive(false);
       }, 0);
+      exitFullscreen();
       return () => clearTimeout(timer);
     }
 
-    const showUI = () => {
+    const showUI = (e: MouseEvent) => {
+      // Ignore if guard is active (right after entering fullscreen)
+      if (guardRef.current) return;
+
+      // Ignore synthetic events that don't actually move the cursor
+      if (e.clientX === lastMousePos.current.x && e.clientY === lastMousePos.current.y) return;
+      lastMousePos.current = { x: e.clientX, y: e.clientY };
+
       setIsZenActive(false);
+      exitFullscreen();
+
       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
       zenTimerRef.current = setTimeout(() => {
         setIsZenActive(true);
+        enterFullscreen();
       }, 3000);
     };
 
     const hideUI = () => {
       setIsZenActive(true);
       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
+      enterFullscreen();
+    };
+
+    // Sync zen with fullscreen — if user presses Escape, exit zen too
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsZenActive(false);
+        if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
+      }
     };
 
     window.addEventListener('mousemove', showUI);
     window.addEventListener('keydown', hideUI);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
 
-    // Initial state: hidden if writing
+    // Activate zen immediately
     const timer = setTimeout(() => {
       setIsZenActive(true);
-    }, 0);
+      enterFullscreen();
+    }, 300);
 
     return () => {
       window.removeEventListener('mousemove', showUI);
       window.removeEventListener('keydown', hideUI);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
       clearTimeout(timer);
       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
+      exitFullscreen();
     };
   }, [status, zenModeEnabled]);
 
   const toggleStreamMode = () => setStreamMode(prev => !prev);
   const toggleVisibility = (key: keyof HeaderVisibility) => {
-    setHeaderVisibility((prev: HeaderVisibility) => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
+    setHeaderVisibility((prev: HeaderVisibility) => ({ ...prev, [key]: !prev[key] }));
   };
 
   return (
@@ -147,7 +146,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
       fontSize, setFontSize,
       stickyHeader, setStickyHeader,
       stickyPanel, setStickyPanel,
-      headerVisibility, toggleVisibility
+      headerVisibility, toggleVisibility,
     }}>
       {children}
     </WritingSettingsContext.Provider>

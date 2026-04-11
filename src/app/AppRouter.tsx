@@ -66,7 +66,7 @@ export function AppRouter() {
         {!classicNav ? (
           <>
             {layoutMode === 'desktop' ? (
-              <BetaSidebar view={view} setView={setView} isAdmin={isAdmin} user={user} />
+              <BetaSidebar view={view} setView={setView} isAdmin={isAdmin} user={user} isZenActive={showZen} />
             ) : (
               <BetaBottomNav view={view} setView={setView} isAdmin={isAdmin} user={user} />
             )}
