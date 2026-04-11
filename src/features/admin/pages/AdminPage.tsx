@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { AdminUserService } from '../services/AdminUserService';
 import { AdminSessionService } from '../services/AdminSessionService';
 import { auth } from '../../../core/firebase/auth';
-import { User as UserIcon, PenLine, TrendingUp, Check, X, Users, Database, Shield, AlertTriangle } from 'lucide-react';
+import { Users, Database, Shield, AlertTriangle } from 'lucide-react';
 import { AdminUsersTable } from '../components/AdminUsersTable';
 import { AdminSessionsTable } from '../components/AdminSessionsTable';
 import { useLanguage } from '../../../core/i18n';
@@ -14,7 +14,7 @@ import { Session, UserProfile } from '../../../types';
 export function AdminPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [lastSessionDoc, setLastSessionDoc] = useState<any>(null);
+  const [lastSessionDoc, setLastSessionDoc] = useState<unknown>(null);
   const [hasMoreSessions, setHasMoreSessions] = useState(true);
   const [loadingMoreSessions, setLoadingMoreSessions] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -22,7 +22,7 @@ export function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const { t } = useLanguage();
 
-  const fetchData = async (isInitial = true) => {
+  const fetchData = useCallback(async (isInitial = true) => {
     if (isInitial) {
       setLoading(true);
     } else {
@@ -49,7 +49,7 @@ export function AdminPage() {
       setLoading(false);
       setLoadingMoreSessions(false);
     }
-  };
+  }, [activeTab, lastSessionDoc]);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -63,7 +63,7 @@ export function AdminPage() {
       }
     };
     checkAdmin();
-  }, [activeTab]);
+  }, [activeTab, fetchData]);
 
   if (!isAdmin) {
     return <div className="text-center py-20 text-red-500">Access Denied</div>;

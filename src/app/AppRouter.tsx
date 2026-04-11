@@ -125,8 +125,8 @@ export function AppRouter() {
         {/* Main Content */}
         <main className={cn(
           "w-full relative z-10",
-          !classicNav && layoutMode === 'desktop' ? "pl-16 pt-8 px-4" : "pt-8 px-4",
-          classicNav && "pt-24"
+          !classicNav && layoutMode === 'desktop' ? "pl-20 pt-8 pr-4" : "pt-8 px-4",
+          classicNav && "pt-24 px-4"
         )}>
           <AnimatePresence mode="wait">
             {view === 'write' && (

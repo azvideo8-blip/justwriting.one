@@ -1,4 +1,4 @@
-import React, { useLayoutEffect } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Pin, X } from 'lucide-react';
 import { cn } from '../../core/utils/utils';
@@ -33,7 +33,7 @@ export const WritingEditor = React.memo(function WritingEditor({
   const setPinnedThoughts = useWritingStore(s => s.setPinnedThoughts);
   const { 
     streamMode, isZenActive, zenModeEnabled, 
-    fontSize, fontFamily, stickyHeader, typewriterMode
+    fontSize, fontFamily, stickyHeader
   } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
   const [showPinnedInput, setShowPinnedInput] = React.useState(false);
@@ -49,7 +49,7 @@ export const WritingEditor = React.memo(function WritingEditor({
     }
   };
 
-  const handlePinSelection = () => {
+  const handlePinSelection = React.useCallback(() => {
     if (!textareaRef.current) return;
     const start = textareaRef.current.selectionStart;
     const end = textareaRef.current.selectionEnd;
@@ -64,7 +64,7 @@ export const WritingEditor = React.memo(function WritingEditor({
     } else {
       setShowPinnedInput(!showPinnedInput);
     }
-  };
+  }, [content, pinnedThoughts, showPinnedInput, setPinnedThoughts]);
 
   // Keyboard shortcut Alt+P to pin selection
   React.useEffect(() => {
@@ -76,62 +76,7 @@ export const WritingEditor = React.memo(function WritingEditor({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [content, pinnedThoughts, showPinnedInput]);
-
-  const getCaretCoordinates = (textarea: HTMLTextAreaElement, index: number) => {
-    const mirror = document.createElement('div');
-    mirror.style.position = 'absolute';
-    mirror.style.visibility = 'hidden';
-    mirror.style.whiteSpace = 'pre-wrap';
-    mirror.style.wordWrap = 'break-word';
-    mirror.style.width = textarea.clientWidth + 'px';
-    mirror.style.font = window.getComputedStyle(textarea).font;
-    mirror.style.padding = window.getComputedStyle(textarea).padding;
-    mirror.style.fontSize = window.getComputedStyle(textarea).fontSize;
-    mirror.style.lineHeight = window.getComputedStyle(textarea).lineHeight;
-    
-    mirror.textContent = textarea.value.substring(0, index);
-    
-    const span = document.createElement('span');
-    span.textContent = textarea.value.substring(index) || '.';
-    mirror.appendChild(span);
-    
-    document.body.appendChild(mirror);
-    
-    const spanRect = span.getBoundingClientRect();
-    const textareaRect = textarea.getBoundingClientRect();
-    
-    document.body.removeChild(mirror);
-    
-    return { 
-      top: spanRect.top - textareaRect.top + textarea.scrollTop, 
-      left: spanRect.left - textareaRect.left 
-    };
-  };
-
-  // Typewriter mode: scroll window to keep caret at 45% of viewport height
-  useLayoutEffect(() => {
-    if (!typewriterMode || !textareaRef.current || status !== 'writing') return;
-
-    const textarea = textareaRef.current;
-    const caretPos = textarea.selectionStart;
-    
-    // Get pixel position of caret within textarea
-    const { top: caretTopInTextarea } = getCaretCoordinates(textarea, caretPos);
-    
-    // Get textarea's position relative to document
-    const textareaRect = textarea.getBoundingClientRect();
-    const caretTopInViewport = textareaRect.top + caretTopInTextarea - textarea.scrollTop;
-    
-    // Target: keep caret at 45% of viewport height
-    const targetY = window.innerHeight * 0.45;
-    const delta = caretTopInViewport - targetY;
-    
-    // Only scroll if caret is below the target line
-    if (delta > 0) {
-      window.scrollBy({ top: delta, behavior: 'smooth' });
-    }
-  }, [content, typewriterMode, status]);
+  }, [content, pinnedThoughts, showPinnedInput, handlePinSelection]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (streamMode) {
@@ -259,8 +204,7 @@ export const WritingEditor = React.memo(function WritingEditor({
           disabled={status === 'idle' || status === 'paused'}
           placeholder={status === 'idle' ? t('editor_idle_placeholder') : t('editor_writing_placeholder')}
           style={{ 
-            paddingBottom: typewriterMode ? '60vh' : '2rem',
-            paddingTop: typewriterMode ? '40vh' : undefined,
+            paddingBottom: '2rem',
             fontSize: `${fontSize}px`,
             lineHeight: `${fontSize * 1.2}px`,
             fontFamily: fontFamily === 'Inter' ? 'Inter, sans-serif' : 

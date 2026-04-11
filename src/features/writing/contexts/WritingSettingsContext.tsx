@@ -26,8 +26,8 @@ interface WritingSettingsContextType {
   setFontSize: (size: number) => void;
   stickyHeader: boolean;
   setStickyHeader: (enabled: boolean) => void;
-  typewriterMode: boolean;
-  setTypewriterMode: (v: boolean) => void;
+  stickyPanel: boolean;
+  setStickyPanel: (enabled: boolean) => void;
   headerVisibility: HeaderVisibility;
   toggleVisibility: (key: keyof HeaderVisibility) => void;
 }
@@ -65,9 +65,9 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     true,
     z.boolean()
   );
-  const [typewriterMode, setTypewriterMode] = useLocalStorage<boolean>(
-    'typewriter-mode',
-    false,
+  const [stickyPanel, setStickyPanel] = useLocalStorage<boolean>(
+    'stickyPanel', 
+    true,
     z.boolean()
   );
   const [headerVisibility, setHeaderVisibility] = useLocalStorage<HeaderVisibility>(
@@ -146,8 +146,8 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
       fontFamily, setFontFamily,
       fontSize, setFontSize,
       stickyHeader, setStickyHeader,
-      headerVisibility, toggleVisibility,
-      typewriterMode, setTypewriterMode
+      stickyPanel, setStickyPanel,
+      headerVisibility, toggleVisibility
     }}>
       {children}
     </WritingSettingsContext.Provider>
