@@ -5,14 +5,13 @@ import { useWritingStore } from '../store/useWritingStore';
 import { SessionService } from '../services/SessionService';
 import { Session, UserProfile } from '../../../types';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
+import { useSettings } from '../../../core/settings/SettingsContext';
 
 // Components
 import { WritingHeader } from '../WritingHeader';
 import { WritingSetup, SetupMode } from '../WritingSetup';
 import { WritingEditor } from '../WritingEditor';
-import { WritingSettings } from '../WritingSettings';
 import { WritingFinishModal } from '../WritingFinishModal';
-import { ProgressBar } from '../../../shared/components/Layout/ProgressBar';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
 
 // Modals
@@ -37,7 +36,7 @@ interface WritingViewProps {
 
 function WritingPageContent({ user, profile, sessionToContinue, onSessionContinued }: WritingViewProps) {
   const { t, language } = useLanguage();
-  const [betaMode] = useLocalStorage('beta-mode', false, z.boolean());
+  const [classicNav] = useLocalStorage('classic-nav', false, z.boolean());
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -104,9 +103,9 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   const [userSessions, setUserSessions] = useState<Session[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   
   const [isLocalOnly, setIsLocalOnly] = useState(false);
+  const { openSettings } = useSettings();
 
   const countdownRef = useRef<any>(null);
 
@@ -265,24 +264,13 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
       )}
 
       {/* Progress Bar */}
-      <ProgressBar 
-        totalDurationForDeadline={totalDurationForDeadline.current}
-        isZenActive={isZenActive}
-        zenModeEnabled={zenModeEnabled}
-      />
+      {/* ProgressBar removed, now inline in WritingHeader */}
 
       <PasswordPromptModal 
         isOpen={!!passwordPrompt}
         onConfirm={handlePromptSubmit}
         onCancel={handlePromptCancel}
       />
-
-      {showSettings && (
-        <WritingSettings 
-          showSettings={showSettings}
-          setShowSettings={setShowSettings}
-        />
-      )}
 
       <CancelConfirmModal 
         isOpen={showCancelConfirm}
@@ -309,14 +297,10 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
       />
 
       <AdaptiveContainer size={textWidth === 'full' ? 'FULL' : 'CENTERED'}>
-        {betaMode && (
-          <div className="px-6 pt-8 pb-2">
-            <h1 className="text-3xl font-bold text-text-main">
-              {dateStr}
-            </h1>
-            <p className="text-text-main/40 text-lg font-mono mt-1">
-              {timeStr}
-            </p>
+        {!classicNav && (
+          <div className="px-2 pt-6 pb-3">
+            <h1 className="text-2xl font-bold text-text-main">{dateStr}</h1>
+            <p className="text-text-main/40 text-base font-mono mt-0.5">{timeStr}</p>
           </div>
         )}
 
@@ -326,11 +310,12 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
           fetchUserSessions={fetchAllSessions}
           loadingSessions={loadingSessions}
           hasDraft={hasDraft}
-          setShowSettings={setShowSettings}
+          onOpenSettings={openSettings}
           handlePause={() => setSessionStatus('paused')}
           handleStart={handleStart}
           handleFinish={() => setSessionStatus('finished')}
           setShowCancelConfirm={setShowCancelConfirm}
+          totalDurationForDeadline={totalDurationForDeadline.current}
         />
 
         <div className="relative">
