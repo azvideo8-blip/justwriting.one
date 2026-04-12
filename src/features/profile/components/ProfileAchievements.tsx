@@ -17,12 +17,23 @@ export function ProfileAchievements({ currentStreak, totalWords, totalNotes, max
   const { t } = useLanguage();
   const earnedSet = new Set(earnedAchievements);
 
+  const allAchievements = [...ACHIEVEMENTS.streaks, ...ACHIEVEMENTS.words, ...ACHIEVEMENTS.notes, ...ACHIEVEMENTS.duration];
+  const totalCount = allAchievements.length;
+  const unlockedCount = earnedAchievements.length;
+  const legendaryCount = allAchievements.filter(a => a.tier === 'legendary' && earnedSet.has(a.id)).length;
+
   return (
     <div className="space-y-6">
       <h3 className="text-2xl font-bold flex items-center gap-2 text-text-main">
         <Sparkles className="text-amber-400" /> {t('profile_achievements')}
       </h3>
       
+      <div className="flex items-center gap-4 text-xs text-text-main/40 mb-4">
+        <span>{unlockedCount} / {totalCount} {t('achievements_unlocked')}</span>
+        <span>·</span>
+        <span>{legendaryCount} {t('achievements_legendary')}</span>
+      </div>
+
       <div className="space-y-8">
         <AchievementSection 
           title={t('ach_section_streaks')} 
