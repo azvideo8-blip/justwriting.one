@@ -2,34 +2,47 @@ import React from 'react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 
+type AchievementTier = 'common' | 'rare' | 'legendary';
+
+const TIER_STYLES: Record<AchievementTier, string> = {
+  common:    'border-border-subtle bg-surface-card text-text-main/60',
+  rare:      'border-purple-500/30 bg-purple-500/10 text-purple-400',
+  legendary: 'border-amber-500/40 bg-amber-500/10 text-amber-400',
+};
+
+const TIER_LABELS: Record<AchievementTier, { ru: string; en: string }> = {
+  common:    { ru: 'обычное',      en: 'common' },
+  rare:      { ru: 'редкое',       en: 'rare' },
+  legendary: { ru: 'легендарное',  en: 'legendary' },
+};
+
 interface AchievementBadgeProps {
   achievement: {
     id: string;
     title: string;
     icon: string;
     threshold: number;
+    tier: AchievementTier;
   };
   earned: boolean;
 }
 
 export function AchievementBadge({ achievement, earned }: AchievementBadgeProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   return (
     <div className={cn(
-      "flex flex-col items-center p-4 rounded-2xl border transition-all",
-      earned 
-        ? "bg-surface-card border-border-subtle shadow-[0_0_15px_rgba(255,255,255,0.05)]" 
-        : "bg-surface-base/5 border-border-subtle/5 opacity-40 grayscale"
+      "flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all",
+      earned ? TIER_STYLES[achievement.tier] : 'border-border-subtle opacity-30 grayscale'
     )}>
-      <div className="text-3xl mb-2">{achievement.icon}</div>
-      <span className="text-[10px] font-bold uppercase tracking-widest text-center leading-tight text-text-main/80">
+      <span className="text-3xl">{achievement.icon}</span>
+      <span className="text-xs font-bold text-center leading-tight">
         {t(achievement.title)}
       </span>
       {earned && (
-        <div className="mt-2 px-3 py-1 text-[9px] font-black rounded-full uppercase tracking-[0.2em] bg-text-main text-surface-base border-none">
-          {t('ach_earned')}
-        </div>
+        <span className="text-[9px] uppercase tracking-widest opacity-60">
+          {TIER_LABELS[achievement.tier][language]}
+        </span>
       )}
     </div>
   );

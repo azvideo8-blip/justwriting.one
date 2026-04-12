@@ -84,6 +84,15 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   const [countdown, setCountdown] = useState<number | null>(null);
   const [passwordPrompt, setPasswordPrompt] = useState<{ session: Session, resolve: (p: string) => void, reject: () => void } | null>(null);
   const totalDurationForDeadline = useRef<number | null>(null);
+  const [firstVisit, setFirstVisit] = useLocalStorage('first-visit', true, z.boolean());
+  const [sessionStartFlash, setSessionStartFlash] = useState(false);
+
+  useEffect(() => {
+    if (sessionStatus === 'writing') {
+      setSessionStartFlash(true);
+      setTimeout(() => setSessionStartFlash(false), 800);
+    }
+  }, [sessionStatus]);
 
   useEffect(() => {
     if (sessionStatus === 'writing' && sessionType === 'finish-by' && targetTime) {
@@ -263,6 +272,18 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
       {/* Progress Bar */}
       {/* ProgressBar removed, now inline in WritingHeader */}
 
+      <AnimatePresence>
+        {sessionStartFlash && (
+          <motion.div
+            initial={{ opacity: 0.6 }}
+            animate={{ opacity: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
+            className="fixed inset-0 z-[200] bg-text-main pointer-events-none"
+          />
+        )}
+      </AnimatePresence>
+
       <PasswordPromptModal 
         isOpen={!!passwordPrompt}
         onConfirm={handlePromptSubmit}
@@ -345,6 +366,26 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
                 encryptionPassword={encryptionPassword}
                 setEncryptionPassword={setEncryptionPassword}
               />
+            )}
+            {sessionStatus === 'idle' && firstVisit && !setupMode && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center py-12 space-y-4"
+              >
+                <p className="text-2xl font-bold text-text-main">
+                  {t('onboarding_title')}
+                </p>
+                <p className="text-text-main/40 text-base max-w-sm mx-auto">
+                  {t('onboarding_subtitle')}
+                </p>
+                <button
+                  onClick={() => { setFirstVisit(false); handleNewSession(); }}
+                  className="mt-4 px-8 py-3 rounded-2xl bg-text-main text-surface-base font-bold text-sm hover:opacity-90 transition-all"
+                >
+                  {t('onboarding_cta')}
+                </button>
+              </motion.div>
             )}
           </AnimatePresence>
 

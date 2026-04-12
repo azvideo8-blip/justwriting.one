@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
 import { AdminUserService } from '../services/AdminUserService';
 import { AdminSessionService } from '../services/AdminSessionService';
@@ -14,7 +14,7 @@ import { Session, UserProfile } from '../../../types';
 export function AdminPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [lastSessionDoc, setLastSessionDoc] = useState<unknown>(null);
+  const lastSessionDocRef = useRef<unknown>(null);
   const [hasMoreSessions, setHasMoreSessions] = useState(true);
   const [loadingMoreSessions, setLoadingMoreSessions] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -25,6 +25,7 @@ export function AdminPage() {
   const fetchData = useCallback(async (isInitial = true) => {
     if (isInitial) {
       setLoading(true);
+      lastSessionDocRef.current = null;
     } else {
       setLoadingMoreSessions(true);
     }
@@ -34,13 +35,16 @@ export function AdminPage() {
         const usersData = await AdminUserService.getUsers(50);
         setUsers(usersData);
       } else if (activeTab === 'sessions') {
-        const result = await AdminSessionService.getAllSessionsAdmin(20, isInitial ? undefined : lastSessionDoc);
+        const result = await AdminSessionService.getAllSessionsAdmin(
+          20,
+          isInitial ? undefined : lastSessionDocRef.current
+        );
         if (isInitial) {
           setSessions(result.sessions);
         } else {
           setSessions(prev => [...prev, ...result.sessions]);
         }
-        setLastSessionDoc(result.lastDoc);
+        lastSessionDocRef.current = result.lastDoc;
         setHasMoreSessions(result.sessions.length === 20);
       }
     } catch (err) {
@@ -49,7 +53,7 @@ export function AdminPage() {
       setLoading(false);
       setLoadingMoreSessions(false);
     }
-  }, [activeTab, lastSessionDoc]);
+  }, [activeTab]);
 
   useEffect(() => {
     const checkAdmin = async () => {

@@ -15,10 +15,10 @@ export function BetaBottomNav({ view, setView, isAdmin, user }: BetaBottomNavPro
   const { t } = useLanguage();
 
   const navItems = [
-    { id: 'write',    icon: <PenLine size={20} />,   label: t('nav_write') },
-    { id: 'archive',  icon: <History size={20} />,   label: t('nav_notes') },
-    { id: 'profile',  icon: <UserIcon size={20} />,  label: t('nav_profile') },
-    { id: 'feed',     icon: <Globe size={20} />,     label: t('nav_community') },
+    { id: 'write',    icon: <PenLine size={20} />,  label: t('nav_write_short') },
+    { id: 'archive',  icon: <History size={20} />,  label: t('nav_notes_short') },
+    { id: 'profile',  icon: <UserIcon size={20} />, label: t('nav_profile_short') },
+    { id: 'feed',     icon: <Globe size={20} />,    label: t('nav_community_short') },
     ...(isAdmin ? [{ id: 'admin', icon: <Shield size={20} className="text-red-400" />, label: t('nav_admin') }] : []),
   ];
 
@@ -31,13 +31,16 @@ export function BetaBottomNav({ view, setView, isAdmin, user }: BetaBottomNavPro
               key={item.id}
               onClick={() => setView(item.id)}
               className={cn(
-                "flex flex-col items-center justify-center p-2.5 rounded-xl transition-all duration-200 min-w-[48px]",
+                "flex flex-col items-center gap-1 py-2 px-3 rounded-xl transition-all duration-200 min-w-[52px]",
                 view === item.id
                   ? "bg-text-main text-surface-base"
-                  : "text-text-main/50 hover:text-text-main hover:bg-text-main/8"
+                  : "text-text-main/50 hover:text-text-main"
               )}
             >
               {item.icon}
+              <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
+                {item.label}
+              </span>
             </button>
           ))}
         </div>

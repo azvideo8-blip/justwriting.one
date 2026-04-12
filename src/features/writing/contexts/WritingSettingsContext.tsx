@@ -54,79 +54,38 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
   const guardRef = useRef<boolean>(false);
   const lastMousePos = useRef<{ x: number; y: number }>({ x: -1, y: -1 });
 
-  const enterFullscreen = () => {
-    if (!document.fullscreenElement) {
-      guardRef.current = true;
-      document.documentElement.requestFullscreen().catch(() => {});
-      // Keep guard active for 1500ms to absorb synthetic mousemove events
-      setTimeout(() => { guardRef.current = false; }, 1500);
-    }
-  };
-
-  const exitFullscreen = () => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
-    }
-  };
-
   useEffect(() => {
     if (status !== 'writing' || !zenModeEnabled) {
       const timer = setTimeout(() => {
         setIsZenActive(false);
       }, 0);
-      exitFullscreen();
       return () => clearTimeout(timer);
     }
 
     const showUI = (e: MouseEvent) => {
-      // Ignore if guard is active (right after entering fullscreen)
       if (guardRef.current) return;
-
-      // Ignore synthetic events that don't actually move the cursor
       if (e.clientX === lastMousePos.current.x && e.clientY === lastMousePos.current.y) return;
       lastMousePos.current = { x: e.clientX, y: e.clientY };
-
       setIsZenActive(false);
-      exitFullscreen();
-
       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
-      zenTimerRef.current = setTimeout(() => {
-        setIsZenActive(true);
-        enterFullscreen();
-      }, 3000);
+      zenTimerRef.current = setTimeout(() => setIsZenActive(true), 3000);
     };
 
     const hideUI = () => {
       setIsZenActive(true);
       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
-      enterFullscreen();
-    };
-
-    // Sync zen with fullscreen — if user presses Escape, exit zen too
-    const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) {
-        setIsZenActive(false);
-        if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
-      }
     };
 
     window.addEventListener('mousemove', showUI);
     window.addEventListener('keydown', hideUI);
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
 
-    // Activate zen immediately
-    const timer = setTimeout(() => {
-      setIsZenActive(true);
-      enterFullscreen();
-    }, 300);
+    const timer = setTimeout(() => setIsZenActive(true), 300);
 
     return () => {
       window.removeEventListener('mousemove', showUI);
       window.removeEventListener('keydown', hideUI);
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
       clearTimeout(timer);
       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
-      exitFullscreen();
     };
   }, [status, zenModeEnabled]);
 

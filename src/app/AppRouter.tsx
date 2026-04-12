@@ -130,33 +130,77 @@ export function AppRouter() {
         )}>
           <AnimatePresence mode="wait">
             {view === 'write' && (
-              <WritingPage 
-                key="write" 
-                user={user} 
-                profile={profile} 
-                sessionToContinue={sessionToContinue}
-                onSessionContinued={() => setSessionToContinue(null)}
-              />
+              <motion.div
+                key="write"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+              >
+                <WritingPage 
+                  user={user} 
+                  profile={profile} 
+                  sessionToContinue={sessionToContinue}
+                  onSessionContinued={() => setSessionToContinue(null)}
+                />
+              </motion.div>
             )}
             {view === 'archive' && (
-              <ArchivePage 
-                key="archive" 
-                user={user} 
-                profile={profile}
-                onContinueSession={(session) => {
-                  setSessionToContinue(session);
-                  setView('write');
-                }}
-              />
+              <motion.div
+                key="archive"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+              >
+                <ArchivePage 
+                  user={user} 
+                  profile={profile}
+                  onContinueSession={(session) => {
+                    setSessionToContinue(session);
+                    setView('write');
+                  }}
+                />
+              </motion.div>
             )}
-            {view === 'profile' && <ProfilePage key="profile" user={user} profile={profile} />}
-            {view === 'feed' && <FeedPage key="feed" />}
-            {view === 'admin' && isAdmin && <AdminPage key="admin" />}
+            {view === 'profile' && (
+              <motion.div
+                key="profile"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+              >
+                <ProfilePage user={user} profile={profile} />
+              </motion.div>
+            )}
+            {view === 'feed' && (
+              <motion.div
+                key="feed"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+              >
+                <FeedPage />
+              </motion.div>
+            )}
+            {view === 'admin' && isAdmin && (
+              <motion.div
+                key="admin"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+              >
+                <AdminPage />
+              </motion.div>
+            )}
           </AnimatePresence>
         </main>
         
         {/* Bottom nav padding on mobile in beta mode */}
-        {!classicNav && layoutMode === 'mobile' && <div className="h-20" />}
+        {!classicNav && layoutMode === 'mobile' && <div className="h-28" />}
         
         <SettingsPanel
           isOpen={settingsOpen}
