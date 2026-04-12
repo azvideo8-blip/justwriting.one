@@ -42,8 +42,8 @@
     color-scheme: light;
     --bg-base: #e8dfc0;
     --text-main: #2c2420;
-    --border-light: rgba(44, 36, 32, 0.12);
-    --surface-card: #dfd5b0;
+    --border-light: rgba(44, 36, 32, 0.2);   /* was 0.12 — stronger border */
+    --surface-card: #d8cfa8;                  /* was #dfd5b0 — more contrast */
   }
 
   .theme-notion body {

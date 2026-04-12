@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, Play, Clock, Plus, History, Pause, Square, X, Settings } from 'lucide-react';
+import { CheckCircle2, Play, Clock, Plus, History, Pause, Square, X, Settings, Maximize, Minimize } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../core/utils/utils';
 import { CountdownTimer } from './CountdownTimer';
@@ -37,6 +37,7 @@ export const WritingHeader = React.memo(function WritingHeader({
   totalDurationForDeadline
 }: WritingHeaderProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const { t } = useLanguage();
   const { 
     isZenActive, zenModeEnabled, 
@@ -66,6 +67,26 @@ export const WritingHeader = React.memo(function WritingHeader({
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const handleChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handleChange);
+    return () => document.removeEventListener('fullscreenchange', handleChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+
+  const isPrimary = (key: string) => {
+    if (status === 'idle') return key === 'totalWords';
+    if (sessionType === 'words') return key === 'sessionWords';
+    return key === 'sessionTime';
+  };
+
   const hours = currentTime.getHours().toString().padStart(2, '0');
   const minutes = currentTime.getMinutes().toString().padStart(2, '0');
 
@@ -82,10 +103,14 @@ export const WritingHeader = React.memo(function WritingHeader({
             (stickyPanel && classicNav) && "sticky top-16"
           )}
         >
-          <div className="w-full mx-auto px-6 py-3 flex flex-col gap-0 bg-surface-card backdrop-blur-2xl border border-border-subtle rounded-2xl shadow-sm">
+          <div className={cn(
+            "w-full mx-auto flex flex-col gap-0 bg-surface-card backdrop-blur-2xl border border-border-subtle shadow-sm",
+            "rounded-2xl transition-all duration-300",
+            status === 'idle' ? "px-4 py-2.5" : "px-6 py-3"
+          )}>
             <div className="flex items-center justify-between gap-6">
           <div className="flex items-center gap-4 md:gap-8 overflow-x-auto no-scrollbar py-1 flex-1">
-            {classicNav && headerVisibility.currentTime && (
+            {classicNav && headerVisibility.currentTime && status !== 'idle' && (
               <div className="flex flex-col shrink-0">
                 <span className="font-black uppercase tracking-widest mb-0.5 text-[9px] text-text-main/50">{t('header_currentTime')}</span>
                 <span className="font-mono font-black flex items-center text-lg text-text-main font-medium">
@@ -106,8 +131,8 @@ export const WritingHeader = React.memo(function WritingHeader({
                   {sessionType === 'timer' && timeGoalReached && <CheckCircle2 size={16} className="text-emerald-500 animate-bounce" />}
                 </span>
                 <span className={cn(
-                  "font-mono font-black transition-colors text-lg font-medium",
-                  sessionType === 'timer' && timeGoalReached ? "text-emerald-500" : "text-text-main"
+                  "font-mono font-black transition-all",
+                  isPrimary('sessionTime') ? "text-2xl text-text-main" : "text-base text-text-main/60"
                 )}>
                   {sessionType === 'finish-by' && targetTime 
                     ? <CountdownTimer targetTime={targetTime} /> 
@@ -127,8 +152,8 @@ export const WritingHeader = React.memo(function WritingHeader({
                   {sessionType === 'words' && wordGoalReached && <CheckCircle2 size={16} className="text-emerald-500 animate-bounce" />}
                 </span>
                 <span className={cn(
-                  "font-mono font-black transition-colors text-lg font-medium",
-                  sessionType === 'words' && wordGoalReached ? "text-emerald-500" : "text-text-main"
+                  "font-mono font-black transition-all",
+                  isPrimary('sessionWords') ? "text-2xl text-text-main" : "text-base text-text-main/60"
                 )}>
                   {Math.max(0, wordCount - initialWordCount)}
                   {sessionType === 'words' && <span className="text-xs text-text-main/40 ml-1">/ {wordGoal}</span>}
@@ -136,14 +161,28 @@ export const WritingHeader = React.memo(function WritingHeader({
               </div>
             )}
 
-            {headerVisibility.totalWords && !streamMode && (
-              <div className="flex flex-col shrink-0">
-                <span className="font-black uppercase tracking-widest mb-0.5 text-[9px] text-text-main/50">{t('header_totalWords')}</span>
-                <span className="font-mono font-black text-lg text-text-main font-medium">{wordCount}</span>
-              </div>
+            {headerVisibility.totalWords && (
+              status === 'idle' ? (
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl font-black font-mono text-text-main">
+                    {wordCount}
+                  </span>
+                  <span className="text-xs text-text-main/40 uppercase tracking-widest">
+                    {t('header_totalWords')}
+                  </span>
+                </div>
+              ) : !streamMode && (
+                <div className="flex flex-col shrink-0">
+                  <span className="font-black uppercase tracking-widest mb-0.5 text-[9px] text-text-main/50">{t('header_totalWords')}</span>
+                  <span className={cn(
+                    "font-mono font-black transition-all",
+                    isPrimary('totalWords') ? "text-2xl text-text-main" : "text-base text-text-main/60"
+                  )}>{wordCount}</span>
+                </div>
+              )
             )}
 
-            {headerVisibility.wpm && !streamMode && (
+            {headerVisibility.wpm && !streamMode && status !== 'idle' && (
               <div className="flex flex-col shrink-0">
                 <div className="flex items-center gap-2 mb-0.5">
                   <span className="font-black uppercase tracking-widest text-[9px] text-text-main/50">WPM</span>
@@ -154,7 +193,10 @@ export const WritingHeader = React.memo(function WritingHeader({
                     )} />
                   )}
                 </div>
-                <span className="font-mono font-black text-lg text-text-main font-medium">{wpm}</span>
+                <span className={cn(
+                  "font-mono font-black transition-all",
+                  isPrimary('wpm') ? "text-2xl text-text-main" : "text-base text-text-main/60"
+                )}>{wpm}</span>
               </div>
             )}
             {status === 'writing' && streamMode && (
@@ -171,10 +213,10 @@ export const WritingHeader = React.memo(function WritingHeader({
                 <button 
                   onClick={handleNewSession}
                   className="p-2.5 rounded-xl shadow-sm hover:scale-105 transition-all bg-surface-base text-text-main hover:bg-white/10 border border-border-subtle"
-                  title={streamMode ? t('header_begin_release') : t('header_new_session')}
-                  aria-label={streamMode ? t('header_begin_release') : t('header_new_session')}
+                  title={t('header_new_session')}
+                  aria-label={t('header_new_session')}
                 >
-                  {streamMode ? t('header_begin_release') : <Plus size={18} />}
+                  <Plus size={18} />
                 </button>
                 <button 
                   onClick={fetchUserSessions}
@@ -237,6 +279,13 @@ export const WritingHeader = React.memo(function WritingHeader({
                 </button>
               </div>
             )}
+            <button
+              onClick={toggleFullscreen}
+              className="p-2.5 rounded-xl border transition-all bg-surface-base border-border-subtle text-text-main/50 hover:bg-text-main/10"
+              title={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
+            >
+              {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+            </button>
             <button
               onClick={openSettings}
               className="p-2.5 rounded-xl border transition-all bg-surface-base border-border-subtle text-text-main/50 hover:bg-text-main/10"

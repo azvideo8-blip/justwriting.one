@@ -5,6 +5,7 @@ import { cn } from '../../core/utils/utils';
 import { useLanguage } from '../../core/i18n';
 import { useWritingSettings } from './contexts/WritingSettingsContext';
 import { useWritingStore } from './store/useWritingStore';
+import { useLayoutMode } from '../../shared/hooks/useLayoutMode';
 
 interface WritingEditorProps {
   handlePause: () => void;
@@ -35,6 +36,7 @@ export const WritingEditor = React.memo(function WritingEditor({
     streamMode, isZenActive, zenModeEnabled, 
     fontSize, fontFamily, stickyHeader
   } = useWritingSettings();
+  const { layoutMode } = useLayoutMode();
   const showZen = isZenActive && zenModeEnabled;
   const [showPinnedInput, setShowPinnedInput] = React.useState(false);
   const [hasSelection, setHasSelection] = React.useState(false);
@@ -204,7 +206,7 @@ export const WritingEditor = React.memo(function WritingEditor({
           disabled={status === 'idle' || status === 'paused'}
           placeholder={status === 'idle' ? t('editor_idle_placeholder') : t('editor_writing_placeholder')}
           style={{ 
-            paddingBottom: '2rem',
+            paddingBottom: layoutMode === 'mobile' ? '7rem' : '2rem',
             fontSize: `${fontSize}px`,
             lineHeight: `${fontSize * 1.2}px`,
             fontFamily: fontFamily === 'Inter' ? 'Inter, sans-serif' : 

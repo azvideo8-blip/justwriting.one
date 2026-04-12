@@ -177,10 +177,20 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
                   <div className="p-12 text-center rounded-3xl border bg-red-500/10 border-red-500/30">
                     <p className="text-red-400">{error}</p>
                   </div>
-                ) : sortedDates.length === 0 ? (
-                  <div className="p-12 text-center rounded-3xl border-2 border-dashed bg-surface-card border-border-subtle">
-                    <p className="text-text-main/70">{t('archive_empty')}</p>
-                  </div>
+                ) : sessions.length === 0 ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex flex-col items-center justify-center py-24 gap-4 text-center"
+                  >
+                    <div className="text-5xl mb-2">📖</div>
+                    <p className="text-xl font-bold text-text-main">
+                      {t('archive_empty_title')}
+                    </p>
+                    <p className="text-text-main/40 text-sm max-w-xs">
+                      {t('archive_empty_subtitle')}
+                    </p>
+                  </motion.div>
                 ) : (
                   sortedDates.map(dateKey => (
                     <div key={dateKey} className="space-y-4">

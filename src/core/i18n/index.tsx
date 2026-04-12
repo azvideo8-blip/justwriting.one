@@ -74,7 +74,8 @@ export const translations: Translations = {
   header_continue_btn: { ru: 'Продолжить', en: 'Continue' },
   header_finish: { ru: 'Завершить', en: 'Finish' },
   header_cancel_session: { ru: 'Отменить сессию', en: 'Cancel Session' },
-  header_begin_release: { ru: 'Начать поток сознания', en: 'Begin Release' },
+  header_fullscreen:      { ru: 'Полный экран', en: 'Fullscreen' },
+  header_exit_fullscreen: { ru: 'Выйти из полного экрана', en: 'Exit fullscreen' },
   header_in_flow: { ru: 'В потоке', en: 'In Flow' },
   header_settings: { ru: 'Настройки', en: 'Settings' },
   nav_settings: { ru: 'Настройки', en: 'Settings' },
@@ -260,6 +261,17 @@ export const translations: Translations = {
   writing_total: { ru: 'Всего', en: 'Total' },
   writing_wpm: { ru: 'Слов/мин', en: 'WPM' },
   setup_public: { ru: 'Сделать публичной', en: 'Make public' },
+  onboarding_title:    { ru: 'Просто начните писать', en: 'Just start writing' },
+  onboarding_subtitle: { ru: 'Выберите режим и нажмите +. Остальное не важно.', en: 'Pick a mode and press +. Nothing else matters.' },
+  onboarding_cta:      { ru: 'Начать первую сессию', en: 'Start first session' },
+  nav_write_short:     { ru: 'Писать',    en: 'Write' },
+  nav_notes_short:     { ru: 'Заметки',   en: 'Notes' },
+  nav_profile_short:   { ru: 'Профиль',   en: 'Profile' },
+  nav_community_short: { ru: 'Лента',     en: 'Feed' },
+  achievements_unlocked:  { ru: 'открыто', en: 'unlocked' },
+  achievements_legendary: { ru: 'легендарных', en: 'legendary' },
+  archive_empty_title:    { ru: 'Пока нет записей',          en: 'No entries yet' },
+  archive_empty_subtitle: { ru: 'Завершите первую сессию — она появится здесь', en: 'Finish your first session and it will appear here' },
 };
 
 interface LanguageContextType {

@@ -43,7 +43,7 @@ export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
     fontSize, setFontSize,
     textWidth, setTextWidth,
     zenModeEnabled, setZenModeEnabled,
-    streamMode, setStreamMode: toggleStreamMode,
+    streamMode, toggleStreamMode,
     stickyHeader, setStickyHeader,
     stickyPanel, setStickyPanel,
     headerVisibility, toggleVisibility,
