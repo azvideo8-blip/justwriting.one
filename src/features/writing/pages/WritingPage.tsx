@@ -6,6 +6,8 @@ import { SessionService } from '../services/SessionService';
 import { Session, UserProfile } from '../../../types';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useSettings } from '../../../core/settings/SettingsContext';
+import { playGoalSound } from '../../../core/utils/sound';
+import { GoalToast } from '../../../shared/components/GoalToast';
 
 // Components
 import { WritingHeader } from '../WritingHeader';
@@ -24,8 +26,6 @@ import { useLanguage } from '../../../core/i18n';
 
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 import { z } from 'zod';
-import { format } from 'date-fns';
-import { ru, enUS } from 'date-fns/locale';
 
 interface WritingViewProps {
   user: User;
@@ -35,19 +35,17 @@ interface WritingViewProps {
 }
 
 function WritingPageContent({ user, profile, sessionToContinue, onSessionContinued }: WritingViewProps) {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const [classicNav] = useLocalStorage('classic-nav', false, z.boolean());
-  const [now, setNow] = useState(new Date());
 
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 60000); // update every minute
-    return () => clearInterval(timer);
-  }, []);
+  const [goalToastVisible, setGoalToastVisible] = useState(false);
+  const [goalToastType, setGoalToastType] = useState<'time' | 'words' | null>(null);
+  const goalFiredRef = useRef(false); // prevent re-triggering
 
-  const dateLocale = language === 'ru' ? ru : enUS;
-  const dateStr = format(now, 'EEEE, d MMMM', { locale: dateLocale });
-  const timeStr = format(now, 'HH:mm');
-  
+  // Subscriptions from store
+  const timeGoalReached = useWritingStore(s => s.timeGoalReached);
+  const wordGoalReached = useWritingStore(s => s.wordGoalReached);
+
   const { 
     isZenActive, zenModeEnabled, 
     textWidth, 
@@ -79,6 +77,33 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   useEffect(() => {
     setUIStatus(sessionStatus);
   }, [sessionStatus, setUIStatus]);
+
+  useEffect(() => {
+    const isGoalJustReached = (timeGoalReached || wordGoalReached) && !goalFiredRef.current;
+    
+    if (isGoalJustReached && sessionStatus === 'writing') {
+      goalFiredRef.current = true;
+      
+      // Play sound
+      playGoalSound();
+      
+      // Show toast
+      const type = wordGoalReached ? 'words' : 'time';
+      setGoalToastType(type);
+      setGoalToastVisible(true);
+      
+      // Auto-hide after 4 seconds
+      setTimeout(() => {
+        setGoalToastVisible(false);
+      }, 4000);
+    }
+    
+    // Reset when session resets
+    if (sessionStatus === 'idle') {
+      goalFiredRef.current = false;
+      setGoalToastVisible(false);
+    }
+  }, [timeGoalReached, wordGoalReached, sessionStatus]);
 
   const [setupMode, setSetupMode] = useState<SetupMode>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -272,6 +297,8 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
       {/* Progress Bar */}
       {/* ProgressBar removed, now inline in WritingHeader */}
 
+      <GoalToast visible={goalToastVisible} type={goalToastType} />
+
       <AnimatePresence>
         {sessionStartFlash && (
           <motion.div
@@ -324,8 +351,8 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
               transition={{ duration: 0.4 }}
               className="px-2 pt-6 pb-3 overflow-hidden"
             >
-              <h1 className="text-2xl font-bold text-text-main">{dateStr}</h1>
-              <p className="text-text-main/40 text-base font-mono mt-0.5">{timeStr}</p>
+              <h1 className="text-2xl font-bold text-text-main"></h1>
+              <p className="text-text-main/40 text-base font-mono mt-0.5"></p>
             </motion.div>
           )}
         </AnimatePresence>
