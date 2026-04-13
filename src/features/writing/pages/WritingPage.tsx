@@ -314,7 +314,7 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
         isLocalOnly={isLocalOnly}
       />
 
-      <AdaptiveContainer size={textWidth === 'full' ? 'FULL' : 'CENTERED'}>
+      <AdaptiveContainer maxWidth={textWidth >= 1400 ? undefined : textWidth}>
         <AnimatePresence>
           {!classicNav && !showZen && (
             <motion.div

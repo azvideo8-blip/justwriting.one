@@ -119,7 +119,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   }
 
   return (
-    <AdaptiveContainer size="WIDE" className="pb-10">
+    <AdaptiveContainer className="pb-10">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
