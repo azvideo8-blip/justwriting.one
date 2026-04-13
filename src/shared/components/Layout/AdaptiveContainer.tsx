@@ -1,16 +1,18 @@
 import React from 'react';
 import { cn } from '../../../core/utils/utils';
-import { LAYOUT_CONSTRAINTS } from '../../lib/layoutRegistry';
 
 interface AdaptiveContainerProps {
   children: React.ReactNode;
-  size?: keyof typeof LAYOUT_CONSTRAINTS;
+  maxWidth?: number;
   className?: string;
 }
 
-export function AdaptiveContainer({ children, size = 'WIDE', className }: AdaptiveContainerProps) {
+export function AdaptiveContainer({ children, maxWidth, className }: AdaptiveContainerProps) {
   return (
-    <div className={cn(LAYOUT_CONSTRAINTS[size], className)}>
+    <div
+      className={cn("mx-auto w-full px-4", className)}
+      style={{ maxWidth: maxWidth ? `${maxWidth}px` : '100%' }}
+    >
       {children}
     </div>
   );

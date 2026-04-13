@@ -15,7 +15,7 @@ export function ArchiveLabels({ user, profile, selectedLabelId, onSelectLabel }:
 
   const addLabel = () => {
     if (newLabel.name) {
-      updateLabels([...labels, { ...newLabel, id: Date.now().toString() }]);
+      updateLabels([...labels, { ...newLabel, id: crypto.randomUUID() }]);
       setNewLabel({ name: '', color: '#000000' });
     }
   };

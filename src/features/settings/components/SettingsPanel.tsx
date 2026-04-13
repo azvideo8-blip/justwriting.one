@@ -155,22 +155,20 @@ export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
                   </Section>
 
                   {/* Text width */}
-                  <Section title={t('settings_text_width')}>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(['centered', 'full'] as const).map(w => (
-                        <button
-                          key={w}
-                          onClick={() => setTextWidth(w)}
-                          className={cn(
-                            "px-3 py-2.5 rounded-xl border text-sm transition-all",
-                            textWidth === w
-                              ? "border-text-main bg-text-main text-surface-base"
-                              : "border-border-subtle text-text-main/60 hover:text-text-main"
-                          )}
-                        >
-                          {w === 'centered' ? t('settings_width_centered') : t('settings_width_full')}
-                        </button>
-                      ))}
+                  <Section title={t('settings_editor_width')}>
+                    <div className="flex items-center gap-3 px-1">
+                      <input
+                        type="range"
+                        min={600}
+                        max={1400}
+                        step={1}
+                        value={textWidth}
+                        onChange={e => setTextWidth(Number(e.target.value))}
+                        className="flex-1 accent-text-main"
+                      />
+                      <span className="text-sm font-mono text-text-main w-16 text-right">
+                        {textWidth >= 1400 ? '100%' : `${textWidth}px`}
+                      </span>
                     </div>
                   </Section>
 

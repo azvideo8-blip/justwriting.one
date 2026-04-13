@@ -212,7 +212,7 @@ export const translations: Translations = {
   // Settings
   settings_title: { ru: 'Настройки', en: 'Settings' },
   settings_font: { ru: 'Шрифт', en: 'Font' },
-  settings_text_width: { ru: 'Ширина текста', en: 'Text Width' },
+  settings_editor_width: { ru: 'Ширина редактора', en: 'Editor width' },
   settings_width: { ru: 'Ширина текста', en: 'Text Width' },
   settings_width_centered: { ru: 'По центру', en: 'Centered' },
   settings_width_full: { ru: 'На весь экран', en: 'Full screen' },
@@ -272,6 +272,8 @@ export const translations: Translations = {
   achievements_legendary: { ru: 'легендарных', en: 'legendary' },
   archive_empty_title:    { ru: 'Пока нет записей',          en: 'No entries yet' },
   archive_empty_subtitle: { ru: 'Завершите первую сессию — она появится здесь', en: 'Finish your first session and it will appear here' },
+  error_generic: { ru: 'Что-то пошло не так', en: 'Something went wrong' },
+  error_reload: { ru: 'Перезагрузить', en: 'Reload' },
 };
 
 interface LanguageContextType {
