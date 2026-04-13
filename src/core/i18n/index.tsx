@@ -254,6 +254,8 @@ export const translations: Translations = {
   common_cancel: { ru: 'Отмена', en: 'Cancel' },
   common_save: { ru: 'Сохранить', en: 'Save' },
   common_close: { ru: 'Закрыть', en: 'Close' },
+  goal_reached_time:  { ru: 'Время вышло — цель достигнута', en: 'Time is up — goal reached' },
+  goal_reached_words: { ru: 'Цель по словам достигнута',     en: 'Word goal reached' },
   ai_resting_error: { ru: 'ИИ сейчас отдыхает. Пожалуйста, попробуйте позже.', en: 'AI is currently resting. Please try again later.' },
   
   // Extra
