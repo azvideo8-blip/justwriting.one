@@ -96,7 +96,7 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
   const dateLocale = language === 'ru' ? ru : enUS;
 
   return (
-    <AdaptiveContainer size="WIDE">
+    <AdaptiveContainer>
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

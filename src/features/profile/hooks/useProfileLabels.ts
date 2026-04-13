@@ -19,7 +19,7 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
   };
 
   const addLabel = (label: Omit<Label, 'id'>) => {
-    const newLabel: Label = { ...label, id: Date.now().toString() };
+    const newLabel: Label = { ...label, id: crypto.randomUUID() };
     updateLabels([...labels, newLabel]);
   };
 

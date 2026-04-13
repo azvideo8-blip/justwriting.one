@@ -1,9 +1,10 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useTheme } from './ThemeProvider';
 
 export function ThemeBackground() {
   const { themeId } = useTheme();
+  const reducedMotion = useReducedMotion();
 
   // Stripe — deep purple gradient shifting slowly
   if (themeId === 'stripe') {
@@ -11,7 +12,7 @@ export function ThemeBackground() {
       <motion.div
         className="fixed inset-0 pointer-events-none"
         style={{ zIndex: 0 }}
-        animate={{
+        animate={reducedMotion ? {} : {
           background: [
             'radial-gradient(ellipse at 20% 50%, #1a0533 0%, #0a0514 60%)',
             'radial-gradient(ellipse at 80% 30%, #170a38 0%, #0a0514 60%)',
@@ -29,7 +30,7 @@ export function ThemeBackground() {
       <motion.div
         className="fixed inset-0 pointer-events-none"
         style={{ zIndex: 0 }}
-        animate={{
+        animate={reducedMotion ? {} : {
           background: [
             'radial-gradient(ellipse at 30% 40%, #0d2b1a 0%, #121212 65%)',
             'radial-gradient(ellipse at 70% 60%, #0a2416 0%, #121212 65%)',
@@ -47,7 +48,7 @@ export function ThemeBackground() {
       <motion.div
         className="fixed inset-0 pointer-events-none"
         style={{ zIndex: 0 }}
-        animate={{
+        animate={reducedMotion ? {} : {
           background: [
             'radial-gradient(ellipse at 40% 40%, #1e1e22 0%, #0A0A0B 70%)',
             'radial-gradient(ellipse at 60% 60%, #16161a 0%, #0A0A0B 70%)',
