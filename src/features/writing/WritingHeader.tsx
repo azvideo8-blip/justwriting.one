@@ -49,7 +49,8 @@ export const WritingHeader = React.memo(function WritingHeader({
   const seconds = useWritingStore(s => s.seconds);
   const wpm = useWritingStore(s => s.wpm);
   const wordCount = useWritingStore(s => s.wordCount);
-  const initialWordCount = useWritingStore(s => s.initialWordCount);
+  const sessionStartWords = useWritingStore(s => s.sessionStartWords);
+  const sessionStartSeconds = useWritingStore(s => s.sessionStartSeconds);
   const sessionType = useWritingStore(s => s.sessionType);
   const wordGoal = useWritingStore(s => s.wordGoal);
   const targetTime = useWritingStore(s => s.targetTime);
@@ -58,6 +59,9 @@ export const WritingHeader = React.memo(function WritingHeader({
   const wordGoalReached = useWritingStore(s => s.wordGoalReached);
   const overtimeSeconds = useWritingStore(s => s.overtimeSeconds);
   const setStatus = useWritingStore(s => s.setStatus);
+
+  const sessionWords = wordCount - sessionStartWords;
+  const sessionSeconds = seconds - sessionStartSeconds;
 
   const showZen = isZenActive && zenModeEnabled;
   const [classicNav] = useLocalStorage('classic-nav', false, z.boolean());
@@ -112,7 +116,7 @@ export const WritingHeader = React.memo(function WritingHeader({
           <div className="flex items-center gap-4 md:gap-8 overflow-x-auto no-scrollbar py-1 flex-1">
             {classicNav && headerVisibility.currentTime && status !== 'idle' && (
               <div className="flex flex-col shrink-0">
-                <span className="font-black uppercase tracking-widest mb-0.5 text-[9px] text-text-main/50">{t('header_currentTime')}</span>
+                <span className="font-black uppercase tracking-widest mb-0.5 text-[11px] text-text-main/50">{t('header_currentTime')}</span>
                 <span className="font-mono font-black flex items-center text-lg text-text-main font-medium">
                   {hours}<span className="animate-pulse mx-0.5">:</span>{minutes}
                 </span>
@@ -121,7 +125,7 @@ export const WritingHeader = React.memo(function WritingHeader({
             
             {headerVisibility.sessionTime && (status === 'writing' || status === 'paused') && (
               <div className="flex flex-col shrink-0">
-                <span className="font-black uppercase tracking-widest mb-0.5 flex items-center gap-1 text-[9px] text-text-main/50">
+                <span className="font-black uppercase tracking-widest mb-0.5 flex items-center gap-1 text-[11px] text-text-main/50">
                   {sessionType === 'timer' && timeGoalReached
                     ? t('header_overtime')
                     : (sessionType === 'timer' || sessionType === 'finish-by')
@@ -139,15 +143,15 @@ export const WritingHeader = React.memo(function WritingHeader({
                     : sessionType === 'timer'
                       ? timeGoalReached
                         ? <span className="text-emerald-500">+{formatTime(overtimeSeconds)}</span>
-                        : formatTime(Math.max(0, timerDuration - seconds))
-                      : formatTime(seconds)}
+                        : formatTime(Math.max(0, timerDuration - sessionSeconds))
+                      : formatTime(sessionSeconds)}
                 </span>
               </div>
             )}
 
             {headerVisibility.sessionWords && (status === 'writing' || status === 'paused') && !streamMode && (
               <div className="flex flex-col shrink-0">
-                <span className="font-black uppercase tracking-widest mb-0.5 flex items-center gap-1 text-[9px] text-text-main/50">
+                <span className="font-black uppercase tracking-widest mb-0.5 flex items-center gap-1 text-[11px] text-text-main/50">
                   {t('header_sessionWords')} 
                   {sessionType === 'words' && wordGoalReached && <CheckCircle2 size={16} className="text-emerald-500 animate-bounce" />}
                 </span>
@@ -155,7 +159,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                   "font-mono font-black transition-all",
                   isPrimary('sessionWords') ? "text-2xl text-text-main" : "text-base text-text-main/60"
                 )}>
-                  {Math.max(0, wordCount - initialWordCount)}
+                  {Math.max(0, sessionWords)}
                   {sessionType === 'words' && <span className="text-xs text-text-main/40 ml-1">/ {wordGoal}</span>}
                 </span>
               </div>
@@ -173,7 +177,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                 </div>
               ) : !streamMode && (
                 <div className="flex flex-col shrink-0">
-                  <span className="font-black uppercase tracking-widest mb-0.5 text-[9px] text-text-main/50">{t('header_totalWords')}</span>
+                  <span className="font-black uppercase tracking-widest mb-0.5 text-[11px] text-text-main/50">{t('header_totalWords')}</span>
                   <span className={cn(
                     "font-mono font-black transition-all",
                     isPrimary('totalWords') ? "text-2xl text-text-main" : "text-base text-text-main/60"
@@ -185,7 +189,7 @@ export const WritingHeader = React.memo(function WritingHeader({
             {headerVisibility.wpm && !streamMode && status !== 'idle' && (
               <div className="flex flex-col shrink-0">
                 <div className="flex items-center gap-2 mb-0.5">
-                  <span className="font-black uppercase tracking-widest text-[9px] text-text-main/50">WPM</span>
+                  <span className="font-black uppercase tracking-widest text-[11px] text-text-main/50">WPM</span>
                   {status === 'writing' && (
                     <div className={cn(
                       "w-1.5 h-1.5 rounded-full animate-pulse transition-colors duration-500",
@@ -202,7 +206,7 @@ export const WritingHeader = React.memo(function WritingHeader({
             {status === 'writing' && streamMode && (
               <div className="flex items-center gap-2 text-indigo-500 animate-pulse">
                 <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                <span className="text-[10px] font-black uppercase tracking-widest">{t('header_in_flow')}</span>
+                <span className="text-[11px] font-black uppercase tracking-widest">{t('header_in_flow')}</span>
               </div>
             )}
           </div>
@@ -305,10 +309,10 @@ export const WritingHeader = React.memo(function WritingHeader({
               )}
               animate={{
                 width: sessionType === 'words'
-                  ? `${Math.min((wordCount / wordGoal) * 100, 100)}%`
+                  ? `${Math.min((sessionWords / wordGoal) * 100, 100)}%`
                   : `${Math.min(((sessionType === 'timer'
-                      ? seconds / timerDuration
-                      : seconds / (totalDurationForDeadline || 1)) * 100), 100)}%`
+                      ? sessionSeconds / timerDuration
+                      : sessionSeconds / (totalDurationForDeadline || 1)) * 100), 100)}%`
               }}
               transition={{ duration: 0.5 }}
             />

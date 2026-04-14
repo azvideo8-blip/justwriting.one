@@ -40,7 +40,7 @@ export function ProfileWordCloud({ sessions, onWordClick }: ProfileWordCloudProp
       </h3>
       <div className="flex flex-wrap gap-x-3 gap-y-2">
         {wordCloud.length === 0 ? (
-          <span className="text-sm italic text-text-main/30">{t('profile_no_words')}</span>
+          <span className="text-sm italic text-text-main/40">{t('profile_no_words')}</span>
         ) : (
           wordCloud.map(([word, count]) => (
             <button 

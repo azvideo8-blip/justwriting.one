@@ -15,7 +15,7 @@ export function AchievementSection({ title, achievements, currentValue, suffix =
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-bold uppercase tracking-widest text-text-main/50">{title}</h4>
-        <span className="text-xs font-mono text-text-main/30">{currentValue}{suffix}</span>
+        <span className="text-xs font-mono text-text-main/40">{currentValue}{suffix}</span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
         {achievements.map(a => (

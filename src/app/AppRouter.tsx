@@ -61,6 +61,12 @@ export function AppRouter() {
   return (
     <SettingsContext.Provider value={{ openSettings: () => setSettingsOpen(true) }}>
       <AppLayout className="min-h-screen bg-surface-base text-text-main font-sans selection:bg-white/10">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[999] focus:px-4 focus:py-2 focus:bg-surface-card focus:text-text-main focus:rounded-xl focus:border focus:border-border-subtle"
+        >
+          {t('skip_to_content')}
+        </a>
         <ThemeBackground />
         
         {!classicNav ? (
@@ -123,7 +129,7 @@ export function AppRouter() {
         )}
 
         {/* Main Content */}
-        <main className={cn(
+        <main id="main-content" className={cn(
           "w-full relative z-10",
           !classicNav && layoutMode === 'desktop' ? "pl-20 pt-8 pr-4" : "pt-8 px-4",
           classicNav && "pt-24 px-4"

@@ -158,15 +158,15 @@ export function WritingFinishModal({
 
         <div className="grid grid-cols-3 gap-4 text-center divide-x divide-border-subtle">
           <div className="p-2">
-            <div className="text-[10px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_words')}</div>
+            <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_words')}</div>
             <div className="text-xl font-mono font-bold text-text-main">{wordCount}</div>
           </div>
           <div className="p-2">
-            <div className="text-[10px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_time')}</div>
+            <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_time')}</div>
             <div className="text-xl font-mono font-bold text-text-main">{formatTime(seconds)}</div>
           </div>
           <div className="p-2">
-            <div className="text-[10px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_wpm')}</div>
+            <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_wpm')}</div>
             <div className="text-xl font-mono font-bold text-text-main">{wpm}</div>
           </div>
         </div>
@@ -242,28 +242,28 @@ export function WritingFinishModal({
         )}
 
         <div className="space-y-3">
-          <label className="text-[10px] font-bold uppercase tracking-widest text-text-main/50">Экспорт</label>
+          <label className="text-[11px] font-bold uppercase tracking-widest text-text-main/50">Экспорт</label>
           <div className="grid grid-cols-3 gap-3">
             <button 
               onClick={exportPDF}
               className="flex flex-col items-center gap-2 p-4 transition-all rounded-2xl bg-surface-base hover:bg-white/10 border border-border-subtle"
             >
               <FileText size={20} className="text-text-main/70" />
-              <span className="text-[10px] font-bold text-text-main/70">PDF</span>
+              <span className="text-[11px] font-bold text-text-main/70">PDF</span>
             </button>
             <button 
               onClick={exportMarkdown}
               className="flex flex-col items-center gap-2 p-4 transition-all rounded-2xl bg-surface-base hover:bg-white/10 border border-border-subtle"
             >
               <FileJson size={20} className="text-text-main/70" />
-              <span className="text-[10px] font-bold text-text-main/70">MD</span>
+              <span className="text-[11px] font-bold text-text-main/70">MD</span>
             </button>
             <button 
               onClick={exportDocx}
               className="flex flex-col items-center gap-2 p-4 transition-all rounded-2xl bg-surface-base hover:bg-white/10 border border-border-subtle"
             >
               <Download size={20} className="text-text-main/70" />
-              <span className="text-[10px] font-bold text-text-main/70">DOCX</span>
+              <span className="text-[11px] font-bold text-text-main/70">DOCX</span>
             </button>
           </div>
         </div>

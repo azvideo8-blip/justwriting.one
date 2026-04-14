@@ -14,7 +14,7 @@ export function TagCloud({ tags, title = 'Облако тегов', selectedTags
       <h3 className="font-bold text-text-main">{title}</h3>
       <div className="flex flex-wrap gap-2">
         {tags.length === 0 ? (
-          <span className="text-sm italic text-text-main/30">Тегов пока нет</span>
+          <span className="text-sm italic text-text-main/40">Тегов пока нет</span>
         ) : (
           tags.map(tag => (
             <button 
