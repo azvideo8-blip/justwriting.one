@@ -307,7 +307,7 @@ export function SessionCard({
               ) : (
                 <button 
                   onClick={() => setIsAddingTag(true)}
-                  className="text-xs italic transition-colors text-text-main/30 hover:text-text-main/50"
+                  className="text-xs italic transition-colors text-text-main/40 hover:text-text-main/50"
                 >
                   + {t('session_add_tags')}
                 </button>
@@ -322,13 +322,13 @@ export function SessionCard({
                     onChange={(e) => setNewTag(e.target.value)}
                     onBlur={() => !newTag && setIsAddingTag(false)}
                     placeholder={t('session_tag_placeholder')}
-                    className="w-24 px-2.5 py-1.5 border rounded-lg text-xs outline-none transition-all bg-transparent border-border-subtle text-text-main placeholder-text-main/30 focus:ring-1 focus:ring-text-main/20 focus:border-text-main/30 focus:bg-white/5"
+                    className="w-24 px-2.5 py-1.5 border rounded-lg text-xs outline-none transition-all bg-transparent border-border-subtle text-text-main placeholder-text-main/40 focus:ring-1 focus:ring-text-main/20 focus:border-text-main/40 focus:bg-white/5"
                   />
                 </form>
               ) : session.tags && session.tags.length > 0 && (
                 <button 
                   onClick={() => setIsAddingTag(true)}
-                  className="p-1 transition-colors text-text-main/30 hover:text-text-main/50"
+                  className="p-1 transition-colors text-text-main/40 hover:text-text-main/50"
                 >
                   <Plus size={12} />
                 </button>

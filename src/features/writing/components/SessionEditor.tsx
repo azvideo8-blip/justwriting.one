@@ -48,12 +48,12 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
         value={editTitle}
         onChange={(e) => setEditTitle(e.target.value)}
         placeholder={t('editor_title_placeholder')}
-        className="w-full px-4 py-2 bg-surface-base rounded-xl border border-border-subtle outline-none focus:border-text-main/30 transition-all text-text-main font-bold"
+        className="w-full px-4 py-2 bg-surface-base rounded-xl border border-border-subtle outline-none focus:border-text-main/40 transition-all text-text-main font-bold"
       />
       <textarea 
         value={editContent}
         onChange={(e) => setEditContent(e.target.value)}
-        className="w-full min-h-[200px] p-4 bg-surface-base rounded-2xl border border-border-subtle outline-none focus:border-text-main/30 transition-all text-text-main"
+        className="w-full min-h-[200px] p-4 bg-surface-base rounded-2xl border border-border-subtle outline-none focus:border-text-main/40 transition-all text-text-main"
       />
       <div className="flex flex-wrap items-center gap-2 p-3 bg-surface-base rounded-xl border border-border-subtle">
         <div className="flex flex-wrap gap-2">

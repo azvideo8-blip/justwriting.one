@@ -41,7 +41,7 @@ export function SessionChart({ sessions, startDate, endDate }: SessionChartProps
     <div className="h-[300px] w-full min-h-[300px]">
       <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border-subtle)" className="opacity-30" />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border-subtle)" className="opacity-40" />
           <XAxis 
             dataKey="date" 
             axisLine={false} 

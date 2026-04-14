@@ -23,6 +23,8 @@ interface WritingState {
   timeGoalReached: boolean;
   wordGoalReached: boolean;
   overtimeSeconds: number;
+  sessionStartWords: number;
+  sessionStartSeconds: number;
 
   isPublic: boolean;
   isAnonymous: boolean;
@@ -39,6 +41,7 @@ interface WritingState {
   setStatus: (status: TimerStatus) => void;
   setInitialWordCount: (count: number) => void;
   setSessionConfig: (config: Partial<WritingState>) => void;
+  setSessionStart: () => void;
   tick: () => void;
   resetSession: () => void;
 
@@ -65,6 +68,7 @@ export const useWritingStore = create<WritingState>((set, get) => ({
   seconds: 0, status: 'idle', sessionType: 'stopwatch',
   timerDuration: 15 * 60, targetTime: null, wordGoal: 500,
   timeGoalReached: false, wordGoalReached: false, overtimeSeconds: 0,
+  sessionStartWords: 0, sessionStartSeconds: 0,
 
   isPublic: false, isAnonymous: false, tags: [], labelId: undefined,
   initialDuration: 0, activeSessionId: null, encryptionPassword: '', sessionStartTime: null,
@@ -86,7 +90,9 @@ export const useWritingStore = create<WritingState>((set, get) => ({
       if (timeDiffMins > 0) currentWpm = Math.round(wordsDiff / timeDiffMins);
     }
 
-    const wordGoalReached = state.sessionType === 'words' && (words - state.initialWordCount) >= state.wordGoal;
+    // Word goal: compare session delta, not total
+    const sessionWords = words - state.sessionStartWords;
+    const wordGoalReached = state.sessionType === 'words' && sessionWords >= state.wordGoal;
 
     return { content, wordCount: words, wordSnapshots: newSnapshots, wpm: currentWpm, wordGoalReached };
   }),
@@ -96,6 +102,10 @@ export const useWritingStore = create<WritingState>((set, get) => ({
   setStatus: (status) => set({ status }),
   setInitialWordCount: (initialWordCount) => set({ initialWordCount }),
   setSessionConfig: (config) => set(config),
+  setSessionStart: () => set((state) => ({
+    sessionStartWords: state.wordCount,
+    sessionStartSeconds: state.seconds,
+  })),
   
   setSessionType: (sessionType) => set({ sessionType }),
   setTimerDuration: (timerDuration) => set({ timerDuration }),
@@ -124,14 +134,24 @@ export const useWritingStore = create<WritingState>((set, get) => ({
     encryptionPassword: ''
   }),
 
+  resetSession: () => set({
+    content: '', title: '', pinnedThoughts: [],
+    wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
+    seconds: 0, status: 'idle', timeGoalReached: false, wordGoalReached: false,
+    overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0
+  }),
+
   tick: () => set((state) => {
     if (state.status !== 'writing') return state;
 
     const newSeconds = state.seconds + 1;
+
+    // Session delta — how long THIS session has been running:
+    const sessionSeconds = newSeconds - state.sessionStartSeconds;
     let timeGoalReached = state.timeGoalReached;
     let overtimeSeconds = state.overtimeSeconds;
 
-    if (state.sessionType === 'timer' && newSeconds >= state.timerDuration) {
+    if (state.sessionType === 'timer' && sessionSeconds >= state.timerDuration) {
       timeGoalReached = true;
     }
     if (state.sessionType === 'finish-by' && state.targetTime) {
@@ -142,7 +162,7 @@ export const useWritingStore = create<WritingState>((set, get) => ({
 
     // Count overtime seconds after goal reached
     if (timeGoalReached && state.sessionType === 'timer') {
-      overtimeSeconds = newSeconds - state.timerDuration;
+      overtimeSeconds = sessionSeconds - state.timerDuration;
     }
 
     // WPM Idle Decay
@@ -154,11 +174,4 @@ export const useWritingStore = create<WritingState>((set, get) => ({
 
     return { seconds: newSeconds, timeGoalReached, overtimeSeconds, wpm: currentWpm };
   }),
-
-  resetSession: () => set({
-    content: '', title: '', pinnedThoughts: [],
-    wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
-    seconds: 0, status: 'idle', timeGoalReached: false, wordGoalReached: false,
-    overtimeSeconds: 0
-  })
 }));

@@ -83,7 +83,7 @@ export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
               <h2 className="text-lg font-bold text-text-main">{t('nav_settings')}</h2>
               <button
                 onClick={onClose}
-                className="p-2 rounded-xl text-text-main/50 hover:text-text-main hover:bg-text-main/8 transition-all"
+                className="p-3 rounded-xl text-text-main/50 hover:text-text-main hover:bg-text-main/8 transition-all"
               >
                 <X size={20} />
               </button>

@@ -88,6 +88,8 @@ export function LoginPage() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
+            role="alert"
+            aria-live="assertive"
             className="p-4 rounded-xl flex items-center gap-3 text-sm text-left border bg-red-500/10 border-red-500/30 text-red-400"
           >
             <AlertCircle size={20} className="shrink-0" />
@@ -103,6 +105,7 @@ export function LoginPage() {
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/40" size={18} />
                 <input 
                   type="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
@@ -117,6 +120,7 @@ export function LoginPage() {
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/40" size={18} />
                 <input 
                   type="password"
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"

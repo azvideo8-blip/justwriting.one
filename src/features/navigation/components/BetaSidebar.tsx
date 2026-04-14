@@ -26,6 +26,12 @@ export function BetaSidebar({ view, setView, isAdmin, user, isZenActive }: BetaS
 
   return (
     <div
+      role="navigation"
+      aria-label={t('nav_main')}
+      onFocusCapture={() => setExpanded(true)}
+      onBlurCapture={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) setExpanded(false);
+      }}
       onMouseEnter={() => setExpanded(true)}
       onMouseLeave={() => setExpanded(false)}
       className={cn(
@@ -54,6 +60,7 @@ export function BetaSidebar({ view, setView, isAdmin, user, isZenActive }: BetaS
           <button
             key={item.id}
             onClick={() => setView(item.id)}
+            aria-current={view === item.id ? 'page' : undefined}
             className={cn(
               "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
               view === item.id

@@ -82,4 +82,35 @@
   body {
     @apply bg-surface-base text-text-main antialiased transition-colors duration-300;
   }
+
+  /* Focus visible — keyboard navigation indicator */
+  *:focus {
+    outline: none;
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--text-main);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Softer focus for buttons with existing border-radius */
+  button:focus-visible,
+  a:focus-visible,
+  [role="button"]:focus-visible {
+    outline: 2px solid var(--text-main);
+    outline-offset: 3px;
+    border-radius: 8px;
+  }
+}
+
+/* Notion — светлая тема, мутный текст должен быть темнее */
+.theme-notion .text-text-main\/50,
+.theme-notion [class*="text-main/50"] {
+  opacity: 0.65; /* вместо 0.5 — даёт ~4.5:1 */
+}
+
+.theme-notion .text-text-main\/40,
+.theme-notion [class*="text-main/40"] {
+  opacity: 0.55;
 }

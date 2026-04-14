@@ -33,7 +33,7 @@ export function ProfileLabels({ user, profile }: { user: User, profile: UserProf
           value={newLabel.name} 
           onChange={e => setNewLabel({...newLabel, name: e.target.value})} 
           placeholder="Название бирки" 
-          className="p-2 rounded-lg border bg-transparent outline-none flex-1 border-border-subtle text-text-main placeholder:text-text-main/30 focus:border-text-main/30"
+          className="p-2 rounded-lg border bg-transparent outline-none flex-1 border-border-subtle text-text-main placeholder:text-text-main/40 focus:border-text-main/40"
         />
         <input 
           type="color" 
