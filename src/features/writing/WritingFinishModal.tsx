@@ -143,7 +143,7 @@ export function WritingFinishModal({
           <input
             type="text"
             placeholder={t('finish_add_tag')}
-            className="w-full px-4 py-2 rounded-xl border outline-none transition-all bg-surface-base border-border-subtle text-text-main placeholder-text-main/60 focus:border-text-main/30 focus:bg-white/10"
+            className="w-full px-4 py-2 rounded-xl border outline-none transition-all bg-surface-base border-border-subtle text-text-main placeholder-text-main/60 focus:border-text-main/40 focus:bg-white/10"
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 const val = e.currentTarget.value.trim();

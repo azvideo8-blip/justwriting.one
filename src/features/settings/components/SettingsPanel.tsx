@@ -125,7 +125,7 @@ export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
                             "px-3 py-3 rounded-xl border text-left transition-all",
                             fontFamily === font
                               ? "border-text-main bg-text-main text-surface-base"
-                              : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/30"
+                              : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
                           )}
                         >
                           <div className="text-sm font-medium" style={{ fontFamily: font }}>
@@ -230,7 +230,7 @@ export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
                           <span className="text-xs font-medium leading-tight flex-1">{item.label}</span>
                           <span className={cn(
                             "text-xs shrink-0",
-                            headerVisibility[item.key] ? "text-text-main" : "text-text-main/30"
+                            headerVisibility[item.key] ? "text-text-main" : "text-text-main/40"
                           )}>
                             {headerVisibility[item.key] ? '✓' : '○'}
                           </span>
@@ -257,7 +257,7 @@ export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
                             "px-4 py-2.5 rounded-xl border text-sm font-medium transition-all text-left",
                             themeId === theme.id
                               ? "border-text-main bg-text-main text-surface-base"
-                              : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/30"
+                              : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
                           )}
                         >
                           <div className="flex items-center gap-2">
@@ -374,7 +374,7 @@ export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-text-main/40 px-1">{title}</p>
+      <p className="text-[11px] font-bold uppercase tracking-widest text-text-main/40 px-1">{title}</p>
       <div className="space-y-1">{children}</div>
     </div>
   );

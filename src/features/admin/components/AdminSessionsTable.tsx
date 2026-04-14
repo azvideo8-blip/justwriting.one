@@ -32,7 +32,7 @@ export function AdminSessionsTable({ sessions, onDelete }: AdminSessionsTablePro
             <td className="px-6 py-4">
               <button 
                 onClick={() => onDelete(s.id)}
-                className="p-2 transition-colors text-text-main/30 hover:text-red-400"
+                className="p-3 transition-colors text-text-main/40 hover:text-red-400"
               >
                 <Trash2 size={18} />
               </button>

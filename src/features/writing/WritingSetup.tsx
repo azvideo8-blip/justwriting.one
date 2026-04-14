@@ -109,7 +109,7 @@ export function WritingSetup({
                       <button 
                         key={mode.id}
                         onClick={() => mode.id === 'stopwatch' ? startCountdown('stopwatch') : setSetupMode(mode.id as SetupMode)}
-                        className="px-4 py-3 rounded-2xl border border-border-subtle hover:border-text-main/30 hover:bg-text-main/5 transition-all flex items-center gap-3 text-left w-full"
+                        className="px-4 py-3 rounded-2xl border border-border-subtle hover:border-text-main/40 hover:bg-text-main/5 transition-all flex items-center gap-3 text-left w-full"
                       >
                         <span className={cn("text-xl shrink-0", mode.color)}>
                           <mode.icon size={20} className="md:w-6 md:h-6" strokeWidth={2.5} />
@@ -151,7 +151,7 @@ export function WritingSetup({
                       animate={{ opacity: 1, y: 0 }}
                       className="space-y-2"
                     >
-                      <div className="text-[10px] font-black uppercase tracking-widest ml-1 text-text-main/40">
+                      <div className="text-[11px] font-black uppercase tracking-widest ml-1 text-text-main/40">
                         {t('writing_encryption_password')}
                       </div>
                       <input 
@@ -190,7 +190,7 @@ export function WritingSetup({
                             min="1"
                             autoFocus
                           />
-                          <div className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/50">{t('writing_minutes')}</div>
+                          <div className="text-[11px] md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/50">{t('writing_minutes')}</div>
                         </div>
                       )}
                       {setupMode === 'words-config' && (
@@ -204,7 +204,7 @@ export function WritingSetup({
                             step="50"
                             autoFocus
                           />
-                          <div className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/50">{t('writing_words')}</div>
+                          <div className="text-[11px] md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/50">{t('writing_words')}</div>
                         </div>
                       )}
                       {setupMode === 'finish-by-config' && (
@@ -216,7 +216,7 @@ export function WritingSetup({
                             className="w-56 md:w-64 text-center text-5xl md:text-7xl font-black bg-transparent outline-none transition-all focus:scale-110 text-text-main"
                             autoFocus
                           />
-                          <div className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/50">{t('writing_time')}</div>
+                          <div className="text-[11px] md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/50">{t('writing_time')}</div>
                         </div>
                       )}
                     </div>

@@ -10,11 +10,12 @@ import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 
 import { Session, UserProfile } from '../../../types';
+import { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 
 export function AdminPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
-  const lastSessionDocRef = useRef<unknown>(null);
+  const lastSessionDocRef = useRef<QueryDocumentSnapshot<DocumentData, DocumentData> | null>(null);
   const [hasMoreSessions, setHasMoreSessions] = useState(true);
   const [loadingMoreSessions, setLoadingMoreSessions] = useState(false);
   const [loading, setLoading] = useState(true);

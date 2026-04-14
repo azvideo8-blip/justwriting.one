@@ -7,7 +7,6 @@ import { useLanguage } from '../../core/i18n';
 import { useWritingSettings } from './contexts/WritingSettingsContext';
 import { useLocalStorage } from '../../shared/hooks/useLocalStorage';
 import { z } from 'zod';
-import { useSettings } from '../../core/settings/SettingsContext';
 
 import { useWritingStore } from './store/useWritingStore';
 
@@ -22,6 +21,7 @@ interface WritingHeaderProps {
   handleFinish: () => void;
   setShowCancelConfirm: (show: boolean) => void;
   totalDurationForDeadline?: number | null;
+  onOpenSettings: () => void;
 }
 
 export const WritingHeader = React.memo(function WritingHeader({
@@ -34,7 +34,8 @@ export const WritingHeader = React.memo(function WritingHeader({
   handleStart,
   handleFinish,
   setShowCancelConfirm,
-  totalDurationForDeadline
+  totalDurationForDeadline,
+  onOpenSettings
 }: WritingHeaderProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -43,7 +44,6 @@ export const WritingHeader = React.memo(function WritingHeader({
     isZenActive, zenModeEnabled, 
     stickyPanel, headerVisibility, streamMode 
   } = useWritingSettings();
-  const { openSettings } = useSettings();
 
   const status = useWritingStore(s => s.status);
   const seconds = useWritingStore(s => s.seconds);
@@ -291,7 +291,7 @@ export const WritingHeader = React.memo(function WritingHeader({
               {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
             </button>
             <button
-              onClick={openSettings}
+              onClick={onOpenSettings}
               className="p-2.5 rounded-xl border transition-all bg-surface-base border-border-subtle text-text-main/50 hover:bg-text-main/10"
               title={t('nav_settings')}
               aria-label={t('nav_settings')}

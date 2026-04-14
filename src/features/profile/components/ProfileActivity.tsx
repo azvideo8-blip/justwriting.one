@@ -31,7 +31,7 @@ export function ProfileActivity({ sessions, startDate, endDate, onStartDateChang
                 type="date" 
                 value={format(startDate, 'yyyy-MM-dd')}
                 onChange={(e) => onStartDateChange(new Date(e.target.value))}
-                className="bg-transparent text-[10px] font-bold outline-none text-text-main"
+                className="bg-transparent text-[11px] font-bold outline-none text-text-main"
               />
             </div>
             <div className="w-px h-4 bg-border-subtle" />
@@ -40,7 +40,7 @@ export function ProfileActivity({ sessions, startDate, endDate, onStartDateChang
                 type="date" 
                 value={format(endDate, 'yyyy-MM-dd')}
                 onChange={(e) => onEndDateChange(new Date(e.target.value))}
-                className="bg-transparent text-[10px] font-bold outline-none text-text-main"
+                className="bg-transparent text-[11px] font-bold outline-none text-text-main"
               />
             </div>
           </div>
