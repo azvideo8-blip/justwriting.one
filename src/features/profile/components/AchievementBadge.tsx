@@ -40,7 +40,7 @@ export function AchievementBadge({ achievement, earned }: AchievementBadgeProps)
         {t(achievement.title)}
       </span>
       {earned && (
-        <span className="text-[9px] uppercase tracking-widest opacity-60">
+        <span className="text-[11px] uppercase tracking-widest opacity-60">
           {TIER_LABELS[achievement.tier][language]}
         </span>
       )}

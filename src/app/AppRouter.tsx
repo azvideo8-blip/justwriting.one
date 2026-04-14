@@ -78,7 +78,7 @@ export function AppRouter() {
             )}
             
             {!isConnected && (
-              <div className="fixed top-0 left-0 right-0 z-[60] bg-red-500 text-white text-[10px] font-bold py-1 px-4 flex items-center justify-center gap-2 animate-pulse">
+              <div className="fixed top-0 left-0 right-0 z-[60] bg-red-500 text-white text-[11px] font-bold py-1 px-4 flex items-center justify-center gap-2 animate-pulse">
                 <WifiOff size={12} />
                 {t('common_offline')}
               </div>
@@ -92,7 +92,7 @@ export function AppRouter() {
               showZen ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
             )}>
               {!isConnected && (
-                <div className="absolute top-16 left-0 right-0 bg-red-500 text-white text-[10px] font-bold py-1 px-4 flex items-center justify-center gap-2 animate-pulse">
+                <div className="absolute top-16 left-0 right-0 bg-red-500 text-white text-[11px] font-bold py-1 px-4 flex items-center justify-center gap-2 animate-pulse">
                   <WifiOff size={12} />
                   {t('common_offline')}
                 </div>

@@ -6,10 +6,12 @@ import { SessionCard } from '../../writing/components/SessionCard';
 import { SessionService } from '../../writing/services/SessionService';
 import { useLanguage } from '../../../core/i18n';
 
+import { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+
 export function FeedPage() {
   const { t } = useLanguage();
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [lastDoc, setLastDoc] = useState<unknown>(null);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData, DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
