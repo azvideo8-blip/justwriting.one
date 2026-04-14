@@ -38,7 +38,7 @@ export function BetaBottomNav({ view, setView, isAdmin, user }: BetaBottomNavPro
               )}
             >
               {item.icon}
-              <span className="text-[9px] font-bold uppercase tracking-wide leading-none">
+              <span className="text-[11px] font-bold uppercase tracking-wide leading-none">
                 {item.label}
               </span>
             </button>

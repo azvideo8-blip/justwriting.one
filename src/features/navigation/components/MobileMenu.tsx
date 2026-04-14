@@ -43,7 +43,7 @@ export function MobileMenu({ isOpen, onClose, view, setView, isAdmin }: MobileMe
               </div>
               <button 
                 onClick={onClose}
-                className="p-2 transition-colors text-text-main/50 hover:text-text-main"
+                className="p-3 transition-colors text-text-main/50 hover:text-text-main"
                 aria-label={t('common_close')}
               >
                 <X size={24} strokeWidth={2.5} />

@@ -54,6 +54,7 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
       store.setInitialWordCount(store.wordCount);
       store.setSessionStartTime(Date.now());
     }
+    store.setSessionStart();
   }, [store]);
 
   const status = store.status;

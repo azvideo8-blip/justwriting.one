@@ -141,7 +141,7 @@ export function WritingSetup({
                     </div>
                     <div className="flex-1">
                       <div className="font-bold text-xs md:text-sm text-text-main">{t('writing_local_session')}</div>
-                      <div className="text-[9px] md:text-[10px] leading-tight text-text-main/50">{t('writing_local_desc')}</div>
+                      <div className="text-[11px] leading-tight text-text-main/50">{t('writing_local_desc')}</div>
                     </div>
                   </div>
 
@@ -161,7 +161,7 @@ export function WritingSetup({
                         placeholder="••••••••"
                         className="w-full p-4 rounded-2xl border transition-all outline-none text-sm font-mono bg-white/5 border-border-subtle text-text-main focus:bg-white/10 focus:border-white/20"
                       />
-                      <p className="text-[9px] leading-tight ml-1 text-text-main/30">
+                      <p className="text-[11px] leading-tight ml-1 text-text-main/40">
                         {t('writing_encryption_desc')}
                       </p>
                     </motion.div>
@@ -269,12 +269,12 @@ export function WritingSetup({
                                 <div className="font-bold text-sm md:text-base group-hover:translate-x-1 transition-transform duration-300 text-text-main">
                                   {session.title || t('common_untitled')}
                                 </div>
-                                <div className="text-[10px] font-bold uppercase tracking-wider text-text-main/50">
+                                <div className="text-[11px] font-bold uppercase tracking-wider text-text-main/50">
                                   {session.wordCount} {t('writing_words')} · {formatTime(session.duration)}
                                 </div>
                               </div>
                             </div>
-                            <div className="text-[8px] md:text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-white/10 text-text-main/50">
+                            <div className="text-[11px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-white/10 text-text-main/50">
                               {session.createdAt ? format(session.createdAt instanceof Date ? session.createdAt : (session.createdAt as { toDate?: () => Date }).toDate?.() || new Date(), 'd MMM', { locale: dateLocale }) : ''}
                             </div>
                           </div>

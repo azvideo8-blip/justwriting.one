@@ -29,6 +29,13 @@ export function CancelConfirmModal({
         <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto bg-red-500/10 text-red-500">
           <X size={32} />
         </div>
+        <button 
+          onClick={onCancel}
+          className="absolute top-4 right-4 p-3 rounded-full text-text-main/50 hover:text-text-main hover:bg-text-main/10 transition-all"
+          aria-label={t('common_close')}
+        >
+          <X size={20} />
+        </button>
         <div className="space-y-2">
           <h3 className="text-xl font-bold text-text-main">
             {t('writing_cancel_confirm')}

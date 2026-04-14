@@ -38,7 +38,7 @@ export function Calendar({ sessions, selectedDate, onSelectDate, onSelectMonth }
 
       <div className="grid grid-cols-7 gap-2">
         {(language === 'ru' ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']).map((d, i) => (
-          <div key={`${d}-${i}`} className="text-[10px] font-bold text-center py-1 text-text-main/30">{d}</div>
+          <div key={`${d}-${i}`} className="text-[11px] font-bold text-center py-1 text-text-main/40">{d}</div>
         ))}
         {Array.from({ length: offset }).map((_, i) => (
           <div key={`empty-${i}`} />
@@ -57,7 +57,7 @@ export function Calendar({ sessions, selectedDate, onSelectDate, onSelectMonth }
                   : "text-text-main/50 hover:bg-surface-base/10",
                 isSelected && !isActive && "ring-1 ring-text-main/50 ring-offset-2 ring-offset-surface-base",
                 isSelected && isActive && "ring-1 ring-text-main ring-offset-2 ring-offset-surface-base",
-                isToday(day) && !isActive && !isSelected && "border border-text-main/30 text-text-main"
+                isToday(day) && !isActive && !isSelected && "border border-text-main/40 text-text-main"
               )}
             >
               {format(day, 'd')}
