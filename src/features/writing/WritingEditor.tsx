@@ -126,7 +126,7 @@ export const WritingEditor = React.memo(function WritingEditor({
                   "p-4 rounded-2xl border transition-all shrink-0 flex items-center justify-center shadow-sm",
                   (pinnedThoughts.length > 0 || showPinnedInput || hasSelection)
                     ? "bg-text-main text-surface-base border-text-main"
-                    : "bg-surface-card text-text-main/50 border-border-subtle hover:border-text-main/30 hover:text-text-main"
+                    : "bg-surface-card text-text-main/50 border-border-subtle hover:border-text-main/40 hover:text-text-main"
                 )}
                 title={hasSelection ? `${t('editor_pin_thought')} (Alt+P)` : t('editor_pin_thought')}
               >
@@ -154,7 +154,7 @@ export const WritingEditor = React.memo(function WritingEditor({
                           }}
                           placeholder={t('editor_pinned_placeholder')}
                           rows={1}
-                          className="w-full px-6 py-3 border-2 border-dashed rounded-2xl outline-none text-sm italic font-serif resize-none transition-all bg-surface-card/50 border-border-subtle text-text-main/70 focus:border-text-main/30 placeholder:text-text-main/40"
+                          className="w-full px-6 py-3 border-2 border-dashed rounded-2xl outline-none text-sm italic font-serif resize-none transition-all bg-surface-card/50 border-border-subtle text-text-main/70 focus:border-text-main/40 placeholder:text-text-main/40"
                         />
                         <button 
                           onClick={() => {
@@ -177,7 +177,7 @@ export const WritingEditor = React.memo(function WritingEditor({
                         }}
                         placeholder={t('editor_add_thought')}
                         rows={1}
-                        className="w-full px-6 py-3 border-2 border-dashed rounded-2xl outline-none text-sm italic font-serif resize-none transition-all bg-surface-card/50 border-border-subtle text-text-main/70 focus:border-text-main/30 placeholder:text-text-main/40"
+                        className="w-full px-6 py-3 border-2 border-dashed rounded-2xl outline-none text-sm italic font-serif resize-none transition-all bg-surface-card/50 border-border-subtle text-text-main/70 focus:border-text-main/40 placeholder:text-text-main/40"
                       />
                     )}
                   </div>

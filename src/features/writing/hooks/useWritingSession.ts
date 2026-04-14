@@ -47,6 +47,7 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
   );
 
   const handleStart = useCallback(() => {
+    const currentStatus = store.status;
     store.setStatus('writing');
     store.setTimeGoalReached(false);
     store.setWordGoalReached(false);
@@ -54,7 +55,9 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
       store.setInitialWordCount(store.wordCount);
       store.setSessionStartTime(Date.now());
     }
-    store.setSessionStart();
+    if (currentStatus === 'idle') {
+      store.setSessionStart();
+    }
   }, [store]);
 
   const status = store.status;

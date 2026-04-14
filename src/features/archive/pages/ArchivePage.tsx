@@ -15,6 +15,8 @@ import { useLanguage } from '../../../core/i18n';
 import { useArchiveFilters } from '../hooks/useArchiveFilters';
 import { useArchiveSearch } from '../hooks/useArchiveSearch';
 
+import { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+
 interface ArchiveViewProps {
   user: User;
   profile: UserProfile | null;
@@ -24,7 +26,7 @@ interface ArchiveViewProps {
 export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewProps) {
   const { t, language } = useLanguage();
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [lastDoc, setLastDoc] = useState<unknown>(null);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData, DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -120,7 +122,7 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
                   value={searchQuery} 
                   onChange={e => setSearchQuery(e.target.value)} 
                   placeholder={t('archive_search_placeholder')} 
-                  className="w-full bg-transparent outline-none text-sm text-text-main placeholder:text-text-main/30"
+                  className="w-full bg-transparent outline-none text-sm text-text-main placeholder:text-text-main/40"
                 />
               </div>
             </div>

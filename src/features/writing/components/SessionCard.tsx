@@ -173,7 +173,7 @@ export function SessionCard({
               </div>
             )}
             <div className="flex flex-col">
-              <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-text-main/40">
+              <span className="text-[11px] md:text-xs font-bold uppercase tracking-widest text-text-main/40">
                 {format(new Date(session.sessionStartTime || (sessionDate.getTime() - session.duration * 1000)), 'd MMM yyyy • HH:mm')}
               </span>
               {showAuthor && <span className="font-medium text-text-main">{session.isAnonymous ? t('session_anonymous') : (session.nickname || session.authorName)}</span>}
@@ -190,7 +190,7 @@ export function SessionCard({
                 ref={exportButtonRef}
                 onClick={handleExportToggle}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all",
                   showExportMenu 
                     ? "bg-text-main text-surface-base" 
                     : "bg-surface-base text-text-main/70 hover:bg-white/10"
@@ -235,14 +235,14 @@ export function SessionCard({
                 <>
                   <button 
                     onClick={() => setIsEditing(!isEditing)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all bg-surface-base text-text-main/70 hover:bg-white/10"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all bg-surface-base text-text-main/70 hover:bg-white/10"
                   >
                     <PenLine size={12} />
                     {t('session_edit')}
                   </button>
                   <button 
                     onClick={() => setShowDeleteConfirm(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all hover:text-red-500 bg-surface-base text-text-main/70 hover:bg-white/10"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all hover:text-red-500 bg-surface-base text-text-main/70 hover:bg-white/10"
                   >
                     <Trash2 size={12} />
                     {t('session_delete')}
@@ -252,7 +252,7 @@ export function SessionCard({
               
               <button 
                 onClick={() => setExpanded(!expanded)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all bg-surface-base text-text-main/70 hover:bg-white/10"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all bg-surface-base text-text-main/70 hover:bg-white/10"
               >
                 {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 {expanded ? t('session_collapse') : t('session_expand')}

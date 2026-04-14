@@ -113,6 +113,27 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   const [sessionStartFlash, setSessionStartFlash] = useState(false);
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+P (Mac) or Ctrl+P (Windows/Linux)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+        // Only during active session
+        if (sessionStatus === 'writing' || sessionStatus === 'paused') {
+          e.preventDefault(); // block browser print dialog
+          
+          if (sessionStatus === 'writing') {
+            setSessionStatus('paused');
+          } else if (sessionStatus === 'paused') {
+            handleStart();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [sessionStatus, handleStart, setSessionStatus]);
+
+  useEffect(() => {
     if (sessionStatus === 'writing') {
       setSessionStartFlash(true);
       setTimeout(() => setSessionStartFlash(false), 800);
