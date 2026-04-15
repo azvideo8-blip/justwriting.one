@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '../../../core/utils/utils';
+import { useLanguage } from '../../../core/i18n';
 
 interface TagCloudProps {
   tags: string[];
@@ -8,13 +9,15 @@ interface TagCloudProps {
   onToggleTag?: (tag: string) => void;
 }
 
-export function TagCloud({ tags, title = 'Облако тегов', selectedTags = [], onToggleTag }: TagCloudProps) {
+export function TagCloud({ tags, title, selectedTags = [], onToggleTag }: TagCloudProps) {
+  const { t } = useLanguage();
+  const displayTitle = title || t('tag_cloud_title');
   return (
     <div className="p-6 rounded-3xl space-y-4 transition-all bg-surface-card backdrop-blur-xl border border-border-subtle shadow-sm">
-      <h3 className="font-bold text-text-main">{title}</h3>
+      <h3 className="font-bold text-text-main">{displayTitle}</h3>
       <div className="flex flex-wrap gap-2">
         {tags.length === 0 ? (
-          <span className="text-sm italic text-text-main/40">Тегов пока нет</span>
+          <span className="text-sm italic text-text-main/40">{t('tag_cloud_empty')}</span>
         ) : (
           tags.map(tag => (
             <button 

@@ -3,8 +3,10 @@ import { motion } from 'motion/react';
 import { AlertCircle, Mail, Lock, UserPlus, LogIn } from 'lucide-react';
 import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, googleProvider } from '../../../core/firebase/auth';
+import { useLanguage } from '../../../core/i18n';
 
 export function LoginPage() {
+  const { t } = useLanguage();
   const [error, setError] = useState<React.ReactNode | null>(null);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -21,9 +23,9 @@ export function LoginPage() {
       const firebaseError = err as { code?: string; message?: string };
       if (firebaseError.code !== 'auth/cancelled-popup-request' && firebaseError.code !== 'auth/popup-closed-by-user') {
         if (firebaseError.code === 'auth/network-request-failed') {
-          setError("Ошибка сети при авторизации через Google. Проверьте интернет-соединение или настройки Authorized Domains в консоли Firebase.");
+          setError(t('auth_error_google_network'));
         } else {
-          setError(firebaseError.message || "Произошла ошибка при входе.");
+          setError(firebaseError.message || t('auth_error_generic'));
         }
       }
     } finally {
@@ -34,7 +36,7 @@ export function LoginPage() {
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      setError("Пожалуйста, заполните все поля.");
+      setError(t('auth_error_fields_required'));
       return;
     }
     setLoading(true);
@@ -49,19 +51,19 @@ export function LoginPage() {
       console.error("Email auth error:", err);
       const firebaseError = err as { code?: string; message?: string };
       let msg = firebaseError.message || "An error occurred";
-      if (firebaseError.code === 'auth/user-not-found') msg = "Пользователь не найден.";
-      if (firebaseError.code === 'auth/wrong-password') msg = "Неверный пароль.";
-      if (firebaseError.code === 'auth/email-already-in-use') msg = "Этот email уже используется.";
-      if (firebaseError.code === 'auth/weak-password') msg = "Пароль слишком простой.";
-      if (firebaseError.code === 'auth/invalid-credential') msg = "Неверный email или пароль.";
+      if (firebaseError.code === 'auth/user-not-found') msg = t('auth_error_user_not_found');
+      if (firebaseError.code === 'auth/wrong-password') msg = t('auth_error_wrong_password');
+      if (firebaseError.code === 'auth/email-already-in-use') msg = t('auth_error_email_in_use');
+      if (firebaseError.code === 'auth/weak-password') msg = t('auth_error_weak_password');
+      if (firebaseError.code === 'auth/invalid-credential') msg = t('auth_error_invalid_credential');
       if (firebaseError.code === 'auth/operation-not-allowed') {
-        msg = "Вход по Email не включен в консоли Firebase. Пожалуйста, включите провайдера 'Email/Password' в настройках Authentication.";
+        msg = t('auth_error_operation_not_allowed');
       }
       if (firebaseError.code === 'auth/network-request-failed') {
-        msg = "Ошибка сети при попытке входа. Проверьте соединение или убедитесь, что провайдер Email включен в консоли Firebase.";
+        msg = t('auth_error_network');
       }
       if (firebaseError.code === 'auth/internal-error') {
-        msg = "Внутренняя ошибка Firebase. Убедитесь, что провайдер Email/Password включен в консоли Firebase (Authentication -> Sign-in method), или попробуйте позже.";
+        msg = t('auth_error_internal');
       }
       setError(msg);
     } finally {
@@ -80,7 +82,7 @@ export function LoginPage() {
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center font-bold text-4xl mx-auto shadow-2xl bg-text-main text-surface-base border border-border-subtle font-black shadow-[0_0_30px_rgba(255,255,255,0.2)]">J</div>
           <h1 className="text-5xl font-bold tracking-tight text-text-main">justwriting.one</h1>
           <p className="text-lg leading-relaxed text-text-main/50">
-            Минималистичное пространство для писателей.
+            {t('auth_subtitle')}
           </p>
         </div>
 
@@ -115,7 +117,7 @@ export function LoginPage() {
             </div>
 
             <div className="space-y-2 text-left">
-              <label className="text-xs font-bold uppercase tracking-widest ml-1 text-text-main/50">Пароль</label>
+              <label className="text-xs font-bold uppercase tracking-widest ml-1 text-text-main/50">{t('auth_password')}</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/40" size={18} />
                 <input 
@@ -139,13 +141,13 @@ export function LoginPage() {
               ) : (
                 mode === 'login' ? <LogIn size={18} /> : <UserPlus size={18} />
               )}
-              {mode === 'login' ? 'Войти' : 'Создать аккаунт'}
+              {mode === 'login' ? t('auth_sign_in') : t('auth_sign_up')}
             </button>
           </form>
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border-subtle"></div></div>
-            <div className="relative flex justify-center text-xs uppercase"><span className="px-2 bg-surface-card text-text-main/40">Или</span></div>
+            <div className="relative flex justify-center text-xs uppercase"><span className="px-2 bg-surface-card text-text-main/40">{t('auth_or')}</span></div>
           </div>
 
           <button 
@@ -161,12 +163,12 @@ export function LoginPage() {
             onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
             className="text-sm font-medium transition-colors text-text-main/50 hover:text-text-main"
           >
-            {mode === 'login' ? 'Нет аккаунта? Зарегистрироваться' : 'Уже есть аккаунт? Войти'}
+            {mode === 'login' ? t('auth_no_account') : t('auth_has_account')}
           </button>
         </div>
 
         <p className="text-sm text-text-main/40">
-          Никаких отвлекающих факторов. Только вы и ваши слова.
+          {t('auth_tagline')}
         </p>
       </motion.div>
     </div>

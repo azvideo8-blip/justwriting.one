@@ -1,20 +1,22 @@
-export const mapFirebaseError = (error: any): string => {
+import { translations } from '../i18n';
+
+export const mapFirebaseError = (error: any, language: 'ru' | 'en' = 'ru'): string => {
   const code = error?.code || error?.message || 'unknown';
   
   switch (code) {
     case 'permission-denied':
-      return 'У вас нет прав для выполнения этого действия.';
+      return translations['error_permission_denied'][language];
     case 'unavailable':
-      return 'Сервис временно недоступен. Попробуйте позже.';
+      return translations['error_unavailable'][language];
     case 'auth/user-not-found':
     case 'auth/wrong-password':
-      return 'Неверный email или пароль.';
+      return translations['error_invalid_credentials'][language];
     case 'auth/too-many-requests':
-      return 'Слишком много попыток. Попробуйте позже.';
+      return translations['error_too_many_requests'][language];
     default:
       if (code.includes('AI Error')) {
-        return 'ИИ сейчас отдыхает. Попробуйте позже.';
+        return translations['error_ai_resting'][language];
       }
-      return 'Произошла ошибка. Попробуйте позже.';
+      return translations['error_generic'][language];
   }
 };
