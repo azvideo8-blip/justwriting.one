@@ -284,7 +284,5 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
 }
 
 export function WritingPage(props: WritingViewProps) {
-  return (
-    <WritingPageContent {...props} />
-  );
+  return <WritingPageContent {...props} />;
 }

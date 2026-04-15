@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { WifiOff } from 'lucide-react';
 import { useLanguage } from '../core/i18n';
 import { cn } from '../core/utils/utils';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
@@ -14,6 +13,7 @@ import { PageTransition } from '../shared/components/Layout/PageTransition';
 import { BetaSidebar } from '../features/navigation/components/BetaSidebar';
 import { BetaBottomNav } from '../features/navigation/components/BetaBottomNav';
 import { ClassicNavBar } from '../features/navigation/components/ClassicNavBar';
+import { ConnectionStatusBanner } from '../features/writing/components/ConnectionStatusBanner';
 
 import { ThemeBackground } from '../core/theme/ThemeBackground';
 
@@ -28,7 +28,7 @@ import { useWritingSettings } from '../features/writing/contexts/WritingSettings
 import { Session } from '../types';
 
 export function AppRouter() {
-  const { t } = useLanguage();
+  const { t: _t } = useLanguage();
   const { user, profile, loading, isConnected } = useAuthStatus();
   const [view, setView] = useState<'write' | 'profile' | 'archive' | 'feed' | 'admin'>('write');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -60,7 +60,7 @@ export function AppRouter() {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[999] focus:px-4 focus:py-2 focus:bg-surface-card focus:text-text-main focus:rounded-xl focus:border focus:border-border-subtle"
       >
-        {t('skip_to_content')}
+        {_t('skip_to_content')}
       </a>
       <ThemeBackground />
       
@@ -72,12 +72,7 @@ export function AppRouter() {
             <BetaBottomNav view={view} setView={setView} isAdmin={isAdmin} user={user} />
           )}
           
-          {!isConnected && (
-            <div className="fixed top-0 left-0 right-0 z-[60] bg-red-500 text-white text-[11px] font-bold py-1 px-4 flex items-center justify-center gap-2 animate-pulse">
-              <WifiOff size={12} />
-              {t('common_offline')}
-            </div>
-          )}
+          <ConnectionStatusBanner isOnline={isConnected} showZen={showZen} />
         </>
       ) : (
         <ClassicNavBar 

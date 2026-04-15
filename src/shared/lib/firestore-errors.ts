@@ -9,17 +9,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
-      userId: auth.currentUser?.uid || 'anonymous',
-      email: auth.currentUser?.email || 'none',
-      emailVerified: auth.currentUser?.emailVerified || false,
-      isAnonymous: auth.currentUser?.isAnonymous || true,
-      tenantId: auth.currentUser?.tenantId || 'none',
-      providerInfo: auth.currentUser?.providerData.map(provider => ({
-        providerId: provider.providerId,
-        displayName: provider.displayName || 'none',
-        email: provider.email || 'none',
-        photoUrl: provider.photoURL || 'none'
-      })) || []
+      userId: auth.currentUser?.uid,
     },
     operationType,
     path
@@ -29,7 +19,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   reportError(errInfo.error, { 
     operationType, 
     path: path || 'unknown',
-    userId: errInfo.authInfo.userId
+    uid: auth.currentUser?.uid
   });
 
   // Throw generic error to user
@@ -39,6 +29,10 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path: path || 'unknown'
   });
   
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  console.error('Firestore Error: ', {
+    operationType,
+    errorCode: (error as any)?.code || 'unknown',
+    path: path || null,
+  });
   throw new Error(safeMessage);
 }

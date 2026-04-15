@@ -27,12 +27,6 @@ export const WritingSessionService = {
         });
       }
     } catch (e) {
-      reportError(e, {
-        method: activeSessionId ? 'updateDoc' : 'addDoc',
-        activeSessionId: activeSessionId ?? 'none',
-        isOnline: String(isOnline),
-        userId,
-      });
       handleFirestoreError(e, activeSessionId ? OperationType.UPDATE : OperationType.CREATE, 'sessions');
     }
   },

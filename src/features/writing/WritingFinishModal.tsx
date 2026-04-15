@@ -178,8 +178,8 @@ export function WritingFinishModal({
                   <Globe size={20} />
                 </div>
                 <div>
-                  <div className="font-bold text-sm text-text-main">Публичный доступ</div>
-                  <div className="text-xs text-text-main/50">Ваш текст увидят другие авторы</div>
+                  <div className="font-bold text-sm text-text-main">{t('finish_public')}</div>
+                  <div className="text-xs text-text-main/50">{t('finish_public_desc')}</div>
                 </div>
               </div>
               <button 
@@ -204,8 +204,8 @@ export function WritingFinishModal({
                   <UserIcon size={20} />
                 </div>
                 <div>
-                  <div className="font-bold text-sm text-text-main">Анонимно</div>
-                  <div className="text-xs text-text-main/50">Скрыть ваше имя в ленте</div>
+                  <div className="font-bold text-sm text-text-main">{t('finish_anonymous')}</div>
+                  <div className="text-xs text-text-main/50">{t('finish_anonymous_desc')}</div>
                 </div>
               </div>
               <button 
@@ -232,8 +232,8 @@ export function WritingFinishModal({
                   <FileText size={20} />
                 </div>
                 <div>
-                  <div className="font-bold text-sm text-text-main">Локальная сессия</div>
-                  <div className="text-xs text-text-main/50">Текст будет сохранен только в вашем браузере</div>
+                  <div className="font-bold text-sm text-text-main">{t('writing_local_session')}</div>
+                  <div className="text-xs text-text-main/50">{t('writing_local_desc')}</div>
                 </div>
               </div>
             </div>
@@ -241,7 +241,7 @@ export function WritingFinishModal({
         )}
 
         <div className="space-y-3">
-          <label className="text-[11px] font-bold uppercase tracking-widest text-text-main/50">Экспорт</label>
+          <label className="text-[11px] font-bold uppercase tracking-widest text-text-main/50">{t('session_export')}</label>
           <div className="grid grid-cols-3 gap-3">
             <button 
               onClick={exportPDF}
@@ -272,13 +272,13 @@ export function WritingFinishModal({
             onClick={() => setStatus('writing')}
             className="flex-1 px-6 py-4 font-bold transition-all rounded-xl border border-border-subtle text-text-main hover:bg-white/5"
           >
-            Вернуться
+            {t('finish_back')}
           </button>
           <button 
             onClick={handleSaveClick}
             className="flex-1 px-6 py-4 font-bold transition-all bg-text-main text-surface-base rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:scale-105"
           >
-            Сохранить
+            {t('common_save')}
           </button>
         </div>
       </motion.div>

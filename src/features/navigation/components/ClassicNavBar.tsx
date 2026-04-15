@@ -1,7 +1,6 @@
 import React from 'react';
-import { Menu, WifiOff } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { User } from 'firebase/auth';
-import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { NAV_CONFIG } from '../../../shared/lib/layoutRegistry';
 import { DesktopNav } from './DesktopNav';
@@ -9,7 +8,7 @@ import { MobileMenu } from './MobileMenu';
 
 interface ClassicNavBarProps {
   showZen: boolean;
-  isConnected: boolean;
+  _isConnected: boolean;
   mobileMenuOpen: boolean;
   setMobileMenuOpen: (open: boolean) => void;
   view: 'write' | 'profile' | 'archive' | 'feed' | 'admin';
@@ -20,7 +19,7 @@ interface ClassicNavBarProps {
 
 export function ClassicNavBar({
   showZen,
-  isConnected,
+  _isConnected,
   mobileMenuOpen,
   setMobileMenuOpen,
   view,
@@ -28,20 +27,12 @@ export function ClassicNavBar({
   isAdmin,
   user
 }: ClassicNavBarProps) {
-  const { t } = useLanguage();
-
   return (
     <>
       <nav className={cn(
         "fixed top-0 left-0 right-0 h-16 z-50 px-4 md:px-6 flex items-center justify-between transition-all duration-1000 bg-surface-base/50 backdrop-blur-xl border-b border-border-subtle",
         showZen ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
       )}>
-        {!isConnected && (
-          <div className="absolute top-16 left-0 right-0 bg-red-500 text-white text-[11px] font-bold py-1 px-4 flex items-center justify-center gap-2 animate-pulse">
-            <WifiOff size={12} />
-            {t('common_offline')}
-          </div>
-        )}
         <div className="flex items-center gap-2">
           <button 
             onClick={() => setMobileMenuOpen(true)}
