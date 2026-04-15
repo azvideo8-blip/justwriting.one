@@ -34,7 +34,8 @@ export const WritingEditor = React.memo(function WritingEditor({
   const setPinnedThoughts = useWritingStore(s => s.setPinnedThoughts);
   const { 
     streamMode, isZenActive, zenModeEnabled, 
-    fontSize, fontFamily, stickyHeader
+    fontSize, fontFamily, stickyHeader,
+    showTitle, showPinnedThoughts
   } = useWritingSettings();
   const { layoutMode } = useLayoutMode();
   const showZen = isZenActive && zenModeEnabled;
@@ -72,13 +73,14 @@ export const WritingEditor = React.memo(function WritingEditor({
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.altKey && e.key.toLowerCase() === 'p') {
+        if (!showPinnedThoughts) return;
         e.preventDefault();
         handlePinSelection();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [content, pinnedThoughts, showPinnedInput, handlePinSelection]);
+  }, [content, pinnedThoughts, showPinnedInput, handlePinSelection, showPinnedThoughts]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (streamMode) {
@@ -113,29 +115,33 @@ export const WritingEditor = React.memo(function WritingEditor({
         {status !== 'idle' && (
           <div className="flex-1 flex flex-col gap-2">
             <div className="relative flex items-center gap-3">
-              <input 
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={t('editor_title_placeholder')}
-                className="w-full px-6 py-4 rounded-2xl border shadow-sm focus:shadow-xl outline-none text-xl font-black transition-all bg-surface-card border-border-subtle text-text-main placeholder:text-text-main/40"
-              />
-              <button 
-                onClick={handlePinSelection}
-                className={cn(
-                  "p-4 rounded-2xl border transition-all shrink-0 flex items-center justify-center shadow-sm",
-                  (pinnedThoughts.length > 0 || showPinnedInput || hasSelection)
-                    ? "bg-text-main text-surface-base border-text-main"
-                    : "bg-surface-card text-text-main/50 border-border-subtle hover:border-text-main/40 hover:text-text-main"
-                )}
-                title={hasSelection ? `${t('editor_pin_thought')} (Alt+P)` : t('editor_pin_thought')}
-              >
-                <Pin size={20} className={cn(hasSelection && "animate-pulse")} />
-              </button>
+              {showTitle && (
+                <input 
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder={t('editor_title_placeholder')}
+                  className="w-full px-6 py-4 rounded-2xl border shadow-sm focus:shadow-xl outline-none text-xl font-black transition-all bg-surface-card border-border-subtle text-text-main placeholder:text-text-main/40"
+                />
+              )}
+              {showPinnedThoughts && (
+                <button 
+                  onClick={handlePinSelection}
+                  className={cn(
+                    "p-4 rounded-2xl border transition-all shrink-0 flex items-center justify-center shadow-sm",
+                    (pinnedThoughts.length > 0 || showPinnedInput || hasSelection)
+                      ? "bg-text-main text-surface-base border-text-main"
+                      : "bg-surface-card text-text-main/50 border-border-subtle hover:border-text-main/40 hover:text-text-main"
+                  )}
+                  title={hasSelection ? `${t('editor_pin_thought')} (Alt+P)` : t('editor_pin_thought')}
+                >
+                  <Pin size={20} className={cn(hasSelection && "animate-pulse")} />
+                </button>
+              )}
             </div>
 
             <AnimatePresence>
-              {(showPinnedInput || pinnedThoughts.length > 0) && (
+              {showPinnedThoughts && (showPinnedInput || pinnedThoughts.length > 0) && (
                 <motion.div
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}

@@ -240,6 +240,8 @@ export const translations: Translations = {
   settings_done: { ru: 'Готово', en: 'Done' },
   settings_writing_modes: { ru: 'Режимы письма',       en: 'Writing modes' },
   settings_header:        { ru: 'Заголовок',            en: 'Header' },
+  settings_show_title:  { ru: 'Заголовок',          en: 'Title' },
+  settings_show_pinned: { ru: 'Закреп. мысли',       en: 'Pinned thoughts' },
   settings_show_in_panel: { ru: 'Показывать в панели',  en: 'Show in panel' },
 
   // Units

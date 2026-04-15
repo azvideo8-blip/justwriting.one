@@ -13,6 +13,7 @@ interface WritingState {
   initialWordCount: number;
   wpm: number;
   wordSnapshots: WordSnapshot[];
+  lastWordCount: number;
   
   seconds: number;
   status: TimerStatus;
@@ -65,6 +66,7 @@ interface WritingState {
 export const useWritingStore = create<WritingState>((set, get) => ({
   content: '', title: '', pinnedThoughts: [],
   wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
+  lastWordCount: 0,
   seconds: 0, status: 'idle', sessionType: 'stopwatch',
   timerDuration: 15 * 60, targetTime: null, wordGoal: 500,
   timeGoalReached: false, wordGoalReached: false, overtimeSeconds: 0,
@@ -77,24 +79,44 @@ export const useWritingStore = create<WritingState>((set, get) => ({
     const words = content.trim().split(/\s+/).filter(x => x.length > 0).length;
     const now = Date.now();
     
+    // Only track additions — ignore deletions for WPM
+    const wordsAdded = Math.max(0, words - state.lastWordCount);
+
     // Sliding Window WPM (Last 60s)
     const newSnapshots = [...state.wordSnapshots, { timestamp: now, wordCount: words }]
       .filter(snap => now - snap.timestamp <= 60000);
     
     let currentWpm = state.wpm;
-    if (newSnapshots.length > 1 && state.status === 'writing') {
+    if (state.status === 'writing' && newSnapshots.length > 1) {
       const oldest = newSnapshots[0];
       const newest = newSnapshots[newSnapshots.length - 1];
       const timeDiffMins = (newest.timestamp - oldest.timestamp) / 60000;
-      const wordsDiff = newest.wordCount - oldest.wordCount;
-      if (timeDiffMins > 0) currentWpm = Math.round(wordsDiff / timeDiffMins);
+      
+      if (timeDiffMins > 0 && wordsAdded > 0) {
+        // Raw WPM from sliding window — only positive
+        const rawWpm = Math.max(0, (newest.wordCount - oldest.wordCount) / timeDiffMins);
+
+        // EMA smoothing — alpha 0.3 feels natural
+        // Higher alpha = more reactive, lower = smoother
+        const alpha = 0.3;
+        currentWpm = Math.round(alpha * rawWpm + (1 - alpha) * state.wpm);
+      }
+      // If no words added (typing pause or deletion) — don't update WPM here
+      // Decay is handled in tick()
     }
 
     // Word goal: compare session delta, not total
     const sessionWords = words - state.sessionStartWords;
     const wordGoalReached = state.sessionType === 'words' && sessionWords >= state.wordGoal;
 
-    return { content, wordCount: words, wordSnapshots: newSnapshots, wpm: currentWpm, wordGoalReached };
+    return { 
+      content, 
+      wordCount: words, 
+      lastWordCount: words,
+      wordSnapshots: newSnapshots, 
+      wpm: currentWpm, 
+      wordGoalReached 
+    };
   }),
 
   setTitle: (title) => set({ title }),
@@ -137,6 +159,7 @@ export const useWritingStore = create<WritingState>((set, get) => ({
   resetSession: () => set({
     content: '', title: '', pinnedThoughts: [],
     wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
+    lastWordCount: 0,
     seconds: 0, status: 'idle', timeGoalReached: false, wordGoalReached: false,
     overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0
   }),
@@ -165,11 +188,18 @@ export const useWritingStore = create<WritingState>((set, get) => ({
       overtimeSeconds = sessionSeconds - state.timerDuration;
     }
 
-    // WPM Idle Decay
+    // Gradual WPM decay instead of hard drop to 0
+    // Check when last word was added
     let currentWpm = state.wpm;
     if (state.wordSnapshots.length > 0) {
       const lastActive = state.wordSnapshots[state.wordSnapshots.length - 1].timestamp;
-      if (Date.now() - lastActive > 10000) currentWpm = 0; // Drop to 0 after 10s idle
+      const idleSeconds = (Date.now() - lastActive) / 1000;
+
+      if (idleSeconds > 5) {
+        // Decay 5% per second after 5s idle — smooth fade to zero
+        // After ~60s idle WPM will be near 0
+        currentWpm = Math.max(0, Math.round(state.wpm * 0.95));
+      }
     }
 
     return { seconds: newSeconds, timeGoalReached, overtimeSeconds, wpm: currentWpm };

@@ -5,11 +5,11 @@ import { cn } from '../../core/utils/utils';
 import { ExportService } from '../export/ExportService';
 import { Label } from '../../types';
 import { useLanguage } from '../../core/i18n';
+import { formatTime } from '../../core/utils/formatTime';
 
 import { useWritingStore } from './store/useWritingStore';
 
 interface WritingFinishModalProps {
-  formatTime: (s: number) => string;
   isPublic: boolean;
   setIsPublic: (val: boolean) => void;
   isAnonymous: boolean;
@@ -24,7 +24,6 @@ interface WritingFinishModalProps {
 }
 
 export function WritingFinishModal({
-  formatTime,
   isPublic,
   setIsPublic,
   isAnonymous,
