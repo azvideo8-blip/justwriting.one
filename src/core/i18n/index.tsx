@@ -107,7 +107,7 @@ export const translations: Translations = {
   finish_stats: { ru: 'Статистика сессии', en: 'Session Stats' },
   finish_save: { ru: 'Сохранить', en: 'Save' },
   finish_discard: { ru: 'Удалить', en: 'Discard' },
-  finish_public: { ru: 'Публичная заметка', en: 'Public Note' },
+  finish_public: { ru: 'Публичный доступ', en: 'Public Access' },
   finish_anonymous: { ru: 'Анонимно', en: 'Anonymous' },
   finish_tags: { ru: 'Теги', en: 'Tags' },
   finish_add_tag: { ru: 'Добавить тег...', en: 'Add tag...' },
@@ -256,6 +256,74 @@ export const translations: Translations = {
   common_cancel: { ru: 'Отмена', en: 'Cancel' },
   common_save: { ru: 'Сохранить', en: 'Save' },
   common_close: { ru: 'Закрыть', en: 'Close' },
+  
+  // Auth
+  auth_error_google_network: { ru: 'Ошибка сети при авторизации через Google. Проверьте интернет-соединение или настройки Authorized Domains в консоли Firebase.', en: 'Network error during Google sign-in. Check your internet connection or Authorized Domains settings in Firebase Console.' },
+  auth_error_generic: { ru: 'Произошла ошибка при входе.', en: 'An error occurred during sign-in.' },
+  auth_error_fields_required: { ru: 'Пожалуйста, заполните все поля.', en: 'Please fill in all fields.' },
+  auth_error_user_not_found: { ru: 'Пользователь не найден.', en: 'User not found.' },
+  auth_error_wrong_password: { ru: 'Неверный пароль.', en: 'Incorrect password.' },
+  auth_error_email_in_use: { ru: 'Этот email уже используется.', en: 'This email is already in use.' },
+  auth_error_weak_password: { ru: 'Пароль слишком простой.', en: 'Password is too weak.' },
+  auth_error_invalid_credential: { ru: 'Неверный email или пароль.', en: 'Invalid email or password.' },
+  auth_error_operation_not_allowed: { ru: 'Вход по Email не включен в консоли Firebase. Пожалуйста, включите провайдера \'Email/Password\' в настройках Authentication.', en: 'Email sign-in is not enabled in Firebase Console. Please enable the \'Email/Password\' provider in Authentication settings.' },
+  auth_error_network: { ru: 'Ошибка сети при попытке входа. Проверьте соединение или убедитесь, что провайдер Email включен в консоли Firebase.', en: 'Network error during sign-in. Check your connection or ensure the Email provider is enabled in Firebase Console.' },
+  auth_error_internal: { ru: 'Внутренняя ошибка Firebase. Убедитесь, что провайдер Email/Password включен в консоли Firebase (Authentication -> Sign-in method), или попробуйте позже.', en: 'Internal Firebase error. Ensure the Email/Password provider is enabled in Firebase Console (Authentication -> Sign-in method), or try again later.' },
+  auth_subtitle: { ru: 'Минималистичное пространство для писателей.', en: 'A minimalist space for writers.' },
+  auth_password: { ru: 'Пароль', en: 'Password' },
+  auth_sign_in: { ru: 'Войти', en: 'Sign In' },
+  auth_sign_up: { ru: 'Создать аккаунт', en: 'Create Account' },
+  auth_or: { ru: 'Или', en: 'Or' },
+  auth_no_account: { ru: 'Нет аккаунта? Зарегистрироваться', en: "Don't have an account? Sign Up" },
+  auth_has_account: { ru: 'Уже есть аккаунт? Войти', en: 'Already have an account? Sign In' },
+  auth_tagline: { ru: 'Никаких отвлекающих факторов. Только вы и ваши слова.', en: 'No distractions. Just you and your words.' },
+
+  // Finish Modal
+  finish_public_desc: { ru: 'Ваш текст увидят другие авторы', en: 'Other authors will see your text' },
+  finish_anonymous_desc: { ru: 'Скрыть ваше имя в ленте', en: 'Hide your name in the feed' },
+  finish_back: { ru: 'Вернуться', en: 'Go Back' },
+
+  // Offline
+  offline_banner_message: { ru: 'Работа в офлайн-режиме. Сессия будет сохранена локально.', en: 'Working offline. Session will be saved locally.' },
+
+  // Charts
+  chart_time: { ru: 'Время:', en: 'Time:' },
+  chart_words: { ru: 'Слова:', en: 'Words:' },
+
+  // Tags
+  tag_cloud_title: { ru: 'Облако тегов', en: 'Tag Cloud' },
+  tag_cloud_empty: { ru: 'Тегов пока нет', en: 'No tags yet' },
+
+  // Errors
+  error_permission_denied: { ru: 'У вас нет прав для выполнения этого действия.', en: "You don't have permission to perform this action." },
+  error_unavailable: { ru: 'Сервис временно недоступен. Попробуйте позже.', en: 'Service temporarily unavailable. Please try again later.' },
+  error_invalid_credentials: { ru: 'Неверный email или пароль.', en: 'Invalid email or password.' },
+  error_too_many_requests: { ru: 'Слишком много попыток. Попробуйте позже.', en: 'Too many attempts. Please try again later.' },
+  error_ai_resting: { ru: 'ИИ сейчас отдыхает. Попробуйте позже.', en: 'AI is resting. Please try again later.' },
+
+  // Admin
+  admin_col_title: { ru: 'Заголовок', en: 'Title' },
+  admin_col_author: { ru: 'Автор', en: 'Author' },
+  admin_col_date: { ru: 'Дата', en: 'Date' },
+  admin_col_actions: { ru: 'Действия', en: 'Actions' },
+  admin_col_role: { ru: 'Роль', en: 'Role' },
+  common_anonymous: { ru: 'Аноним', en: 'Anonymous' },
+
+  // Profile
+  profile_activity: { ru: 'Активность', en: 'Activity' },
+  profile_labels: { ru: 'Бирки', en: 'Labels' },
+  profile_label_name: { ru: 'Название бирки', en: 'Label Name' },
+  profile_back: { ru: 'Назад к профилю', en: 'Back to Profile' },
+  profile_notes_with_word: { ru: 'Заметки со словом', en: 'Notes with Word' },
+  profile_sessions_found: { ru: 'Найдено сессий', en: 'Sessions Found' },
+
+  // Archive
+  archive_labels: { ru: 'Бирки', en: 'Labels' },
+  archive_label_name: { ru: 'Название бирки', en: 'Label Name' },
+
+  // Settings
+  settings_font_preview: { ru: 'Aa 123', en: 'Aa 123' },
+
   nav_main: { ru: 'Основная навигация', en: 'Main navigation' },
   skip_to_content: { ru: 'Перейти к содержимому', en: 'Skip to content' },
   goal_reached_time:  { ru: 'Время вышло — цель достигнута', en: 'Time is up — goal reached' },

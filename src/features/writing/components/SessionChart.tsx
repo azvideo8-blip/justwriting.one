@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { Session } from '../../../types';
 import { parseFirestoreDate, cn } from '../../../core/utils/utils';
+import { useLanguage } from '../../../core/i18n';
 
 interface SessionChartProps {
   sessions: Session[];
@@ -19,6 +20,7 @@ interface SessionChartProps {
 }
 
 export function SessionChart({ sessions, startDate, endDate }: SessionChartProps) {
+  const { t } = useLanguage();
   const days = eachDayOfInterval({
     start: startDate,
     end: endDate
@@ -58,8 +60,8 @@ export function SessionChart({ sessions, startDate, endDate }: SessionChartProps
                 return (
                   <div className="p-3 rounded-xl shadow-xl border bg-surface-card backdrop-blur-xl border-border-subtle text-text-main">
                     <p className="font-bold text-sm mb-1">{payload[0].payload.date}</p>
-                    <p className="text-xs text-text-main/70">Время: {Math.round(payload[0].value as number)} мин</p>
-                    <p className="text-xs text-text-main/70">Слова: {payload[0].payload.wordCount}</p>
+                    <p className="text-xs text-text-main/70">{t('chart_time')} {Math.round(payload[0].value as number)} {t('unit_min')}</p>
+                    <p className="text-xs text-text-main/70">{t('chart_words')} {payload[0].payload.wordCount}</p>
                   </div>
                 );
               }
