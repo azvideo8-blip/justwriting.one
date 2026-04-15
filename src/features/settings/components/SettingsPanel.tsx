@@ -47,6 +47,8 @@ export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
     stickyHeader, setStickyHeader,
     stickyPanel, setStickyPanel,
     headerVisibility, toggleVisibility,
+    showTitle, setShowTitle,
+    showPinnedThoughts, setShowPinnedThoughts,
   } = useWritingSettings();
 
   const tabs: { id: Tab; label: string }[] = [
@@ -202,6 +204,31 @@ export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
                         )}
                       >
                         📊 {t('settings_sticky_panel')}
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <button
+                        onClick={() => setShowTitle(!showTitle)}
+                        className={cn(
+                          "px-3 py-2.5 rounded-xl border text-sm transition-all",
+                          showTitle
+                            ? "border-text-main bg-text-main text-surface-base"
+                            : "border-border-subtle text-text-main/60 hover:text-text-main"
+                        )}
+                      >
+                        ✏️ {t('settings_show_title')}
+                      </button>
+                      <button
+                        onClick={() => setShowPinnedThoughts(!showPinnedThoughts)}
+                        className={cn(
+                          "px-3 py-2.5 rounded-xl border text-sm transition-all",
+                          showPinnedThoughts
+                            ? "border-text-main bg-text-main text-surface-base"
+                            : "border-border-subtle text-text-main/60 hover:text-text-main"
+                        )}
+                      >
+                        📎 {t('settings_show_pinned')}
                       </button>
                     </div>
                   </Section>

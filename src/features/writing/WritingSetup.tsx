@@ -6,6 +6,7 @@ import { ru, enUS } from 'date-fns/locale';
 import { Session } from '../../types';
 import { cn } from '../../core/utils/utils';
 import { useLanguage } from '../../core/i18n';
+import { formatTime } from '../../core/utils/formatTime';
 
 export type SetupMode = 'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | 'finish-by-config' | null;
 
@@ -22,7 +23,6 @@ interface WritingSetupProps {
   countdown: number | null;
   userSessions: Session[];
   continueSession: (session: Session) => void;
-  formatTime: (s: number) => string;
   isLocalOnly: boolean;
   setIsLocalOnly: (enabled: boolean) => void;
   encryptionPassword: string;
@@ -42,7 +42,6 @@ export function WritingSetup({
   countdown,
   userSessions,
   continueSession,
-  formatTime,
   isLocalOnly,
   setIsLocalOnly,
   encryptionPassword,

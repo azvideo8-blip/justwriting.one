@@ -7,11 +7,11 @@ import { useLanguage } from '../../core/i18n';
 import { useWritingSettings } from './contexts/WritingSettingsContext';
 import { useLocalStorage } from '../../shared/hooks/useLocalStorage';
 import { z } from 'zod';
+import { formatTime } from '../../core/utils/formatTime';
 
 import { useWritingStore } from './store/useWritingStore';
 
 interface WritingHeaderProps {
-  formatTime: (s: number) => string;
   handleNewSession: () => void;
   fetchUserSessions: () => void;
   loadingSessions: boolean;
@@ -25,7 +25,6 @@ interface WritingHeaderProps {
 }
 
 export const WritingHeader = React.memo(function WritingHeader({
-  formatTime,
   handleNewSession,
   fetchUserSessions,
   loadingSessions,

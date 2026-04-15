@@ -2,8 +2,6 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import * as Sentry from "@sentry/react";
 import App from './App.tsx';
-import { ErrorBoundary } from './shared/components/ErrorBoundary';
-import { LanguageProvider } from './core/i18n';
 import './index.css';
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
@@ -24,10 +22,6 @@ if (sentryDsn && sentryDsn.startsWith('https://')) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ErrorBoundary>
-      <LanguageProvider>
-        <App />
-      </LanguageProvider>
-    </ErrorBoundary>
+    <App />
   </StrictMode>,
 );
