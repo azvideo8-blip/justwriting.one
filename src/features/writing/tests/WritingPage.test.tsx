@@ -4,6 +4,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { WritingPage } from '../pages/WritingPage';
 import * as useWritingSessionHook from '../hooks/useWritingSession';
 import { LanguageProvider } from '../../../core/i18n';
+import { WritingSettingsProvider } from '../contexts/WritingSettingsContext';
+import { SettingsContext } from '../../../core/settings/SettingsContext';
+import { useWritingStore } from '../store/useWritingStore';
 
 // Mock the hook
 vi.mock('../hooks/useWritingSession', () => ({
@@ -25,7 +28,11 @@ vi.mock('file-saver', () => ({
 const renderWithProviders = (ui: React.ReactElement) => {
   return render(
     <LanguageProvider>
-        {ui}
+      <SettingsContext.Provider value={{ openSettings: vi.fn() }}>
+        <WritingSettingsProvider>
+          {ui}
+        </WritingSettingsProvider>
+      </SettingsContext.Provider>
     </LanguageProvider>
   );
 };
@@ -80,6 +87,7 @@ describe('WritingPage', () => {
   });
 
   it('shows finish modal and calls handleSave when clicking "Сохранить"', async () => {
+    useWritingStore.setState({ status: 'finished' });
     vi.mocked(useWritingSessionHook.useWritingSession).mockReturnValue({
       ...defaultHookValue,
       status: 'finished'
@@ -93,6 +101,7 @@ describe('WritingPage', () => {
 
   it('triggers docx export when clicking DOCX button in finish modal', async () => {
     const { saveAs } = await import('file-saver');
+    useWritingStore.setState({ status: 'finished' });
     vi.mocked(useWritingSessionHook.useWritingSession).mockReturnValue({
       ...defaultHookValue,
       status: 'finished'

@@ -1,17 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { useWritingStore } from '../store/useWritingStore';
-import { SessionService } from '../services/SessionService';
 import { Session, UserProfile } from '../../../types';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useSettings } from '../../../core/settings/SettingsContext';
-import { playGoalSound } from '../../../core/utils/sound';
 import { GoalToast } from '../../../shared/components/GoalToast';
 
 // Components
 import { WritingHeader } from '../WritingHeader';
-import { WritingSetup, SetupMode } from '../WritingSetup';
+import { WritingSetup } from '../WritingSetup';
 import { WritingEditor } from '../WritingEditor';
 import { WritingFinishModal } from '../WritingFinishModal';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
@@ -22,7 +20,11 @@ import { CancelConfirmModal } from '../components/modals/CancelConfirmModal';
 
 // Hooks
 import { useWritingSession } from '../hooks/useWritingSession';
+import { useSessionList } from '../hooks/useSessionList';
+import { useSessionContinue } from '../hooks/useSessionContinue';
+import { useSessionFlow } from '../hooks/useSessionFlow';
 import { useLanguage } from '../../../core/i18n';
+import { ConnectionStatusBanner } from '../components/ConnectionStatusBanner';
 
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 import { z } from 'zod';
@@ -38,11 +40,6 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   const { t } = useLanguage();
   const [classicNav] = useLocalStorage('classic-nav', false, z.boolean());
 
-  const [goalToastVisible, setGoalToastVisible] = useState(false);
-  const [goalToastType, setGoalToastType] = useState<'time' | 'words' | null>(null);
-  const goalFiredRef = useRef(false); // prevent re-triggering
-
-  // Subscriptions from store
   const timeGoalReached = useWritingStore(s => s.timeGoalReached);
   const wordGoalReached = useWritingStore(s => s.wordGoalReached);
 
@@ -78,39 +75,26 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
     setUIStatus(sessionStatus);
   }, [sessionStatus, setUIStatus]);
 
-  useEffect(() => {
-    const isGoalJustReached = (timeGoalReached || wordGoalReached) && !goalFiredRef.current;
-    
-    if (isGoalJustReached && sessionStatus === 'writing') {
-      goalFiredRef.current = true;
-      
-      // Play sound
-      playGoalSound();
-      
-      // Show toast
-      const type = wordGoalReached ? 'words' : 'time';
-      setGoalToastType(type);
-      setGoalToastVisible(true);
-      
-      // Auto-hide after 4 seconds
-      setTimeout(() => {
-        setGoalToastVisible(false);
-      }, 4000);
-    }
-    
-    // Reset when session resets
-    if (sessionStatus === 'idle') {
-      goalFiredRef.current = false;
-      setGoalToastVisible(false);
-    }
-  }, [timeGoalReached, wordGoalReached, sessionStatus]);
+  const flow = useSessionFlow(
+    handleStart, sessionStatus, sessionType, setSessionType,
+    targetTime, seconds, timeGoalReached, wordGoalReached
+  );
 
-  const [setupMode, setSetupMode] = useState<SetupMode>(null);
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const [passwordPrompt, setPasswordPrompt] = useState<{ session: Session, resolve: (p: string) => void, reject: () => void } | null>(null);
-  const totalDurationForDeadline = useRef<number | null>(null);
+  const [isLocalOnly, setIsLocalOnly] = useState(false);
+  const { openSettings } = useSettings();
+
+  const { continueSession, passwordPrompt, handlePromptSubmit, handlePromptCancel } = useSessionContinue({
+    setSetupMode: flow.setSetupMode,
+    setIsLocalOnly,
+    setActiveSessionId,
+    setTags,
+    setIsPublic,
+    setIsAnonymous,
+    loadLocalSession,
+    decryptSession
+  });
+
   const [firstVisit, setFirstVisit] = useLocalStorage('first-visit', true, z.boolean());
-  const [sessionStartFlash, setSessionStartFlash] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -133,36 +117,11 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [sessionStatus, handleStart, setSessionStatus]);
 
-  useEffect(() => {
-    if (sessionStatus === 'writing') {
-      setSessionStartFlash(true);
-      setTimeout(() => setSessionStartFlash(false), 800);
-    }
-  }, [sessionStatus]);
-
-  useEffect(() => {
-    if (sessionStatus === 'writing' && sessionType === 'finish-by' && targetTime) {
-      if (totalDurationForDeadline.current === null) {
-        const [hours, minutes] = targetTime.split(':').map(Number);
-        const target = new Date();
-        target.setHours(hours, minutes, 0, 0);
-        const now = new Date();
-        const remaining = Math.max(0, (target.getTime() - now.getTime()) / 1000);
-        totalDurationForDeadline.current = remaining + seconds;
-      }
-    } else if (sessionStatus === 'idle') {
-      totalDurationForDeadline.current = null;
-    }
-  }, [sessionStatus, sessionType, targetTime, seconds]);
-
-  const [userSessions, setUserSessions] = useState<Session[]>([]);
-  const [loadingSessions, setLoadingSessions] = useState(false);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  
-  const [isLocalOnly, setIsLocalOnly] = useState(false);
-  const { openSettings } = useSettings();
-
-  const countdownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { userSessions, loadingSessions, fetchAllSessions: fetchSessions } = useSessionList(
+    user.uid,
+    fetchLocalSessions,
+    loadLocalSession
+  );
 
   // Handle session continuation from external source
   useEffect(() => {
@@ -175,123 +134,12 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
 
   const handleNewSession = () => {
     resetSessionMetadata();
-    setSetupMode('selection');
+    flow.setSetupMode('selection');
   };
 
   const fetchAllSessions = async () => {
-    setLoadingSessions(true);
-    try {
-      const result = await SessionService.getAllSessions(user.uid, 50);
-      const firestoreSessions = result.sessions;
-      
-      const localSessions = fetchLocalSessions().map(s => {
-        const data = loadLocalSession(s.id);
-        return {
-          ...s,
-          title: data?.title || t('writing_local_session'),
-          content: data?.content || '',
-          wordCount: data?.wordCount || 0,
-          duration: data?.duration || 0,
-          isLocal: true
-        };
-      });
-
-      setUserSessions([...firestoreSessions, ...localSessions] as Session[]);
-      setSetupMode('session-selection');
-    } catch (e) {
-      console.error('Error fetching sessions:', e);
-    } finally {
-      setLoadingSessions(false);
-    }
-  };
-
-  const continueSession = async (session: Session) => {
-    if ('isLocal' in session && session.isLocal) {
-        let loaded = loadLocalSession(session.id);
-        if (!loaded) return;
-
-        if (loaded.isEncrypted) {
-          try {
-            const password = await new Promise<string>((resolve, reject) => {
-              setPasswordPrompt({ session, resolve, reject });
-            });
-            loaded = await decryptSession(loaded, password);
-          } catch {
-            console.error('Decryption failed or cancelled');
-            return;
-          }
-        }
-        
-        setActiveSessionId(null);
-        useWritingStore.setState({
-          content: loaded.content,
-          title: loaded.title || '',
-          initialWordCount: loaded.wordCount || 0,
-          seconds: loaded.duration || 0,
-          wordCount: loaded.wordCount || 0
-        });
-        setTags(loaded.tags || []);
-        setIsPublic(loaded.isPublic);
-        setIsAnonymous(loaded.isAnonymous || false);
-        setIsLocalOnly(true);
-        setSetupMode('selection');
-        return;
-    }
-
-    setActiveSessionId(session.id);
-    useWritingStore.setState({
-      content: session.content,
-      title: session.title || '',
-      initialWordCount: session.wordCount || 0,
-      seconds: session.duration || 0,
-      wordCount: session.wordCount || 0
-    });
-    setTags(session.tags || []);
-    setIsPublic(session.isPublic);
-    setIsAnonymous(session.isAnonymous || false);
-    setIsLocalOnly(false);
-    setSetupMode('selection');
-  };
-
-  const startCountdown = (type: 'stopwatch' | 'timer' | 'words' | 'finish-by') => {
-    setSessionType(type);
-    setSetupMode('countdown');
-    setCountdown(3);
-    
-    let count = 3;
-    countdownRef.current = setInterval(() => {
-      count -= 1;
-      setCountdown(count);
-      
-      if (count === 0) {
-        clearInterval(countdownRef.current);
-        handleStart();
-        setTimeout(() => {
-          setSetupMode(null);
-          setCountdown(null);
-        }, 800);
-      }
-    }, 1000);
-  };
-
-  const formatTime = (s: number) => {
-    const mins = Math.floor(s / 60);
-    const secs = s % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const handlePromptSubmit = (password: string) => {
-    if (passwordPrompt) {
-      passwordPrompt.resolve(password);
-      setPasswordPrompt(null);
-    }
-  };
-
-  const handlePromptCancel = () => {
-    if (passwordPrompt) {
-      passwordPrompt.reject();
-      setPasswordPrompt(null);
-    }
+    await fetchSessions();
+    flow.setSetupMode('session-selection');
   };
 
   return (
@@ -300,28 +148,15 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
       animate={{ opacity: 1 }}
       className="w-full transition-colors duration-1000"
     >
-      {/* Offline Notification */}
-      {!isOnline && (
-        <motion.div 
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ 
-            y: showZen ? -20 : 0, 
-            opacity: showZen ? 0 : 1 
-          }}
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-amber-500 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg flex items-center gap-2"
-        >
-          <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-          Работа в офлайн-режиме. Сессия будет сохранена локально.
-        </motion.div>
-      )}
+      <ConnectionStatusBanner isOnline={isOnline} showZen={showZen} />
 
       {/* Progress Bar */}
       {/* ProgressBar removed, now inline in WritingHeader */}
 
-      <GoalToast visible={goalToastVisible} type={goalToastType} />
+      <GoalToast visible={flow.goalToastVisible} type={flow.goalToastType} />
 
       <AnimatePresence>
-        {sessionStartFlash && (
+        {flow.sessionStartFlash && (
           <motion.div
             initial={{ opacity: 0.6 }}
             animate={{ opacity: 0 }}
@@ -339,16 +174,15 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
       />
 
       <CancelConfirmModal 
-        isOpen={showCancelConfirm}
+        isOpen={flow.showCancelConfirm}
         onConfirm={() => {
           handleCancel();
-          setShowCancelConfirm(false);
+          flow.setShowCancelConfirm(false);
         }}
-        onCancel={() => setShowCancelConfirm(false)}
+        onCancel={() => flow.setShowCancelConfirm(false)}
       />
 
       <WritingFinishModal 
-        formatTime={formatTime}
         isPublic={isPublic}
         setIsPublic={setIsPublic}
         isAnonymous={isAnonymous}
@@ -379,7 +213,6 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
         </AnimatePresence>
 
         <WritingHeader 
-          formatTime={formatTime}
           handleNewSession={handleNewSession}
           fetchUserSessions={fetchAllSessions}
           loadingSessions={loadingSessions}
@@ -388,34 +221,33 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
           handlePause={() => setSessionStatus('paused')}
           handleStart={handleStart}
           handleFinish={() => setSessionStatus('finished')}
-          setShowCancelConfirm={setShowCancelConfirm}
-          totalDurationForDeadline={totalDurationForDeadline.current}
+          setShowCancelConfirm={flow.setShowCancelConfirm}
+          totalDurationForDeadline={flow.totalDurationForDeadline}
         />
 
         <div className="relative">
           <AnimatePresence>
-            {setupMode && (
+            {flow.setupMode && (
               <WritingSetup 
-                setupMode={setupMode}
-                setSetupMode={setSetupMode}
-                startCountdown={startCountdown}
+                setupMode={flow.setupMode}
+                setSetupMode={flow.setSetupMode}
+                startCountdown={flow.startCountdown}
                 timerDuration={timerDuration}
                 setTimerDuration={setTimerDuration}
                 wordGoal={wordGoal}
                 setWordGoal={setWordGoal}
                 targetTime={targetTime}
                 setTargetTime={setTargetTime}
-                countdown={countdown}
+                countdown={flow.countdown}
                 userSessions={userSessions}
                 continueSession={continueSession}
-                formatTime={formatTime}
                 isLocalOnly={isLocalOnly}
                 setIsLocalOnly={setIsLocalOnly}
                 encryptionPassword={encryptionPassword}
                 setEncryptionPassword={setEncryptionPassword}
               />
             )}
-            {sessionStatus === 'idle' && firstVisit && !setupMode && (
+            {sessionStatus === 'idle' && firstVisit && !flow.setupMode && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -441,7 +273,7 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
             handlePause={() => setSessionStatus('paused')}
             handleStart={handleStart}
             handleFinish={() => setSessionStatus('finished')}
-            setShowCancelConfirm={setShowCancelConfirm}
+            setShowCancelConfirm={flow.setShowCancelConfirm}
             saveStatus={saveStatus}
             lastSavedAt={lastSavedAt}
           />

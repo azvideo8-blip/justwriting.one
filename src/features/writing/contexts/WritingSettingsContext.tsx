@@ -30,6 +30,10 @@ interface WritingSettingsContextType {
   setStickyPanel: (enabled: boolean) => void;
   headerVisibility: HeaderVisibility;
   toggleVisibility: (key: keyof HeaderVisibility) => void;
+  showTitle: boolean;
+  setShowTitle: (v: boolean) => void;
+  showPinnedThoughts: boolean;
+  setShowPinnedThoughts: (v: boolean) => void;
 }
 
 const WritingSettingsContext = createContext<WritingSettingsContextType | undefined>(undefined);
@@ -42,6 +46,8 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
   const [fontSize, setFontSize] = useLocalStorage<number>('v2_fontSize', 18, z.number());
   const [stickyHeader, setStickyHeader] = useLocalStorage<boolean>('v2_stickyHeaderEnabled', true, z.boolean());
   const [stickyPanel, setStickyPanel] = useLocalStorage<boolean>('stickyPanel', true, z.boolean());
+  const [showTitle, setShowTitle] = useLocalStorage<boolean>('editor-show-title', true, z.boolean());
+  const [showPinnedThoughts, setShowPinnedThoughts] = useLocalStorage<boolean>('editor-show-pinned', true, z.boolean());
   const [headerVisibility, setHeaderVisibility] = useLocalStorage<HeaderVisibility>(
     'v2_headerVisibility',
     { currentTime: true, sessionTime: true, sessionWords: true, totalWords: true, wpm: true },
@@ -106,6 +112,8 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
       stickyHeader, setStickyHeader,
       stickyPanel, setStickyPanel,
       headerVisibility, toggleVisibility,
+      showTitle, setShowTitle,
+      showPinnedThoughts, setShowPinnedThoughts,
     }}>
       {children}
     </WritingSettingsContext.Provider>
