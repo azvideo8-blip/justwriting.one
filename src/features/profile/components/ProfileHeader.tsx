@@ -3,7 +3,6 @@ import { User } from 'firebase/auth';
 import { User as UserIcon, PenLine, TrendingUp, Check, X } from 'lucide-react';
 import { ProfileService } from '../../../features/profile/services/ProfileService';
 import { useLanguage } from '../../../core/i18n';
-import { cn } from '../../../core/utils/utils';
 import { UserProfile } from '../../../types';
 
 interface ProfileHeaderProps {
@@ -17,7 +16,6 @@ export function ProfileHeader({ user, profile, currentStreak, totalWords }: Prof
   const [editingNickname, setEditingNickname] = useState(false);
   const [newNickname, setNewNickname] = useState(profile?.nickname || '');
   const { t } = useLanguage();
-  const [confirmingReset, setConfirmingReset] = useState(false);
 
   const handleUpdateNickname = async () => {
     if (!newNickname.trim()) return;

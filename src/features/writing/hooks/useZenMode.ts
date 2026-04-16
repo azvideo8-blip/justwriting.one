@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 
 export function useZenMode(status: 'idle' | 'writing' | 'paused' | 'finished', zenModeEnabled: boolean) {
   const [isZenActive, setIsZenActive] = useState<boolean>(false);
-  const zenTimerRef = useRef<any>(null);
+  const zenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (status !== 'writing' || !zenModeEnabled) {

@@ -63,7 +63,7 @@ interface WritingState {
   resetSessionMetadata: () => void;
 }
 
-export const useWritingStore = create<WritingState>((set, get) => ({
+export const useWritingStore = create<WritingState>((set) => ({
   content: '', title: '', pinnedThoughts: [],
   wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
   lastWordCount: 0,

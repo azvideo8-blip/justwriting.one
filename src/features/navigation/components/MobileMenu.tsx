@@ -5,18 +5,18 @@ import { MobileNavButton } from './MobileNavButton';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { useLanguage } from '../../../core/i18n';
-import { cn } from '../../../core/utils/utils';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface MobileMenuProps {
   isOpen: boolean;
   onClose: () => void;
-  view: string;
-  setView: (view: 'write' | 'profile' | 'archive' | 'feed' | 'admin') => void;
   isAdmin: boolean;
 }
 
-export function MobileMenu({ isOpen, onClose, view, setView, isAdmin }: MobileMenuProps) {
+export function MobileMenu({ isOpen, onClose, isAdmin }: MobileMenuProps) {
   const { language, setLanguage, t } = useLanguage();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   return (
     <AnimatePresence>
@@ -52,34 +52,34 @@ export function MobileMenu({ isOpen, onClose, view, setView, isAdmin }: MobileMe
 
             <div className="flex flex-col gap-3 flex-1 overflow-y-auto no-scrollbar">
               <MobileNavButton 
-                active={view === 'write'} 
-                onClick={() => { setView('write'); onClose(); }} 
+                active={location.pathname === '/'} 
+                onClick={() => { navigate('/'); onClose(); }} 
                 icon={<PenLine size={22} />} 
                 label={t('nav_write')} 
               />
               <MobileNavButton 
-                active={view === 'archive'} 
-                onClick={() => { setView('archive'); onClose(); }} 
+                active={location.pathname === '/archive'} 
+                onClick={() => { navigate('/archive'); onClose(); }} 
                 icon={<History size={22} />} 
                 label={t('nav_notes')} 
               />
               <MobileNavButton 
-                active={view === 'profile'} 
-                onClick={() => { setView('profile'); onClose(); }} 
+                active={location.pathname === '/profile'} 
+                onClick={() => { navigate('/profile'); onClose(); }} 
                 icon={<UserIcon size={22} />} 
                 label={t('nav_profile')} 
               />
               <MobileNavButton 
-                active={view === 'feed'} 
-                onClick={() => { setView('feed'); onClose(); }} 
-                icon={<Globe size={22} className={view === 'feed' ? "text-emerald-500" : ""} />} 
+                active={location.pathname === '/feed'} 
+                onClick={() => { navigate('/feed'); onClose(); }} 
+                icon={<Globe size={22} className={location.pathname === '/feed' ? "text-emerald-500" : ""} />} 
                 label={t('nav_community')}
-                className={view === 'feed' ? "text-emerald-500" : ""}
+                className={location.pathname === '/feed' ? "text-emerald-500" : ""}
               />
               {isAdmin && (
                 <MobileNavButton 
-                  active={view === 'admin'} 
-                  onClick={() => { setView('admin'); onClose(); }} 
+                  active={location.pathname === '/admin'} 
+                  onClick={() => { navigate('/admin'); onClose(); }} 
                   icon={<Shield size={22} className="text-red-500" />} 
                   label={t('nav_admin')} 
                 />

@@ -6,6 +6,7 @@ import { Session, UserProfile } from '../../../types';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useSettings } from '../../../core/settings/SettingsContext';
 import { GoalToast } from '../../../shared/components/GoalToast';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 // Components
 import { WritingHeader } from '../WritingHeader';
@@ -32,13 +33,14 @@ import { z } from 'zod';
 interface WritingViewProps {
   user: User;
   profile: UserProfile | null;
-  sessionToContinue?: Session | null;
-  onSessionContinued?: () => void;
 }
 
-function WritingPageContent({ user, profile, sessionToContinue, onSessionContinued }: WritingViewProps) {
+function WritingPageContent({ user, profile }: WritingViewProps) {
   const { t } = useLanguage();
   const [classicNav] = useLocalStorage('classic-nav', false, z.boolean());
+  const location = useLocation();
+  const navigate = useNavigate();
+  const sessionToContinue = (location.state as { sessionToContinue?: Session | null } | null)?.sessionToContinue || null;
 
   const timeGoalReached = useWritingStore(s => s.timeGoalReached);
   const wordGoalReached = useWritingStore(s => s.wordGoalReached);
@@ -127,7 +129,8 @@ function WritingPageContent({ user, profile, sessionToContinue, onSessionContinu
   useEffect(() => {
     if (sessionToContinue) {
       continueSession(sessionToContinue);
-      if (onSessionContinued) onSessionContinued();
+      // Очистить state
+      navigate(location.pathname, { state: {}, replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionToContinue]);

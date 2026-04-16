@@ -3,7 +3,7 @@ import { useWritingStore } from './store/useWritingStore';
 
 export function CountdownTimer({ targetTime }: { targetTime: string }) {
   // Подписываемся на seconds, чтобы компонент обновлялся каждую секунду
-  const seconds = useWritingStore(s => s.seconds); 
+  useWritingStore(s => s.seconds); 
 
   const [hours, minutes] = targetTime.split(':').map(Number);
   const now = new Date();

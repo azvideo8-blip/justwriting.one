@@ -2,6 +2,8 @@ import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 
+import { Label } from '../../../types';
+
 export const ProfileService = {
   async updateNickname(userId: string, nickname: string) {
     try {
@@ -11,7 +13,7 @@ export const ProfileService = {
     }
   },
 
-  async updateLabels(userId: string, labels: any[]) {
+  async updateLabels(userId: string, labels: Label[]) {
     try {
       await updateDoc(doc(db, 'users', userId), { labels });
     } catch (err) {

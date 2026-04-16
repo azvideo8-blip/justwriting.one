@@ -1,5 +1,4 @@
 import React from 'react';
-import { cn } from '../../../core/utils/utils';
 
 interface StatCardProps {
   icon: React.ReactNode;

@@ -6,6 +6,7 @@ import { ExportService } from '../export/ExportService';
 import { Label } from '../../types';
 import { useLanguage } from '../../core/i18n';
 import { formatTime } from '../../core/utils/formatTime';
+import { Toggle } from '../../shared/components/Toggle';
 
 import { useWritingStore } from './store/useWritingStore';
 
@@ -101,7 +102,7 @@ export function WritingFinishModal({
         </div>
 
         <div className="space-y-4">
-          <div className="text-sm font-bold uppercase tracking-wider text-text-main/50">{t('finish_tags')}</div>
+          <div className="text-sm font-bold uppercase tracking-wider text-text-main/50">{t('finish_labels')}</div>
           <div className="flex flex-wrap gap-2">
             {labels.map(label => (
               <button
@@ -142,7 +143,7 @@ export function WritingFinishModal({
           <input
             type="text"
             placeholder={t('finish_add_tag')}
-            className="w-full px-4 py-2 rounded-xl border outline-none transition-all bg-surface-base border-border-subtle text-text-main placeholder-text-main/60 focus:border-text-main/40 focus:bg-white/10"
+            className="w-full px-4 py-2 rounded-2xl border outline-none transition-all bg-surface-base border-border-subtle text-text-main placeholder-text-main/60 focus:border-text-main/40 focus:bg-white/10"
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 const val = e.currentTarget.value.trim();
@@ -182,20 +183,7 @@ export function WritingFinishModal({
                   <div className="text-xs text-text-main/50">{t('finish_public_desc')}</div>
                 </div>
               </div>
-              <button 
-                onClick={() => setIsPublic(!isPublic)}
-                className={cn(
-                  "w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center",
-                  isPublic 
-                    ? "bg-text-main" 
-                    : "bg-white/20"
-                )}
-              >
-                <motion.div 
-                  animate={{ x: isPublic ? 24 : 0 }}
-                  className={cn("w-4 h-4 rounded-full shadow-sm", isPublic ? "bg-surface-base" : "bg-white")}
-                />
-              </button>
+              <Toggle checked={isPublic} onChange={setIsPublic} />
             </div>
 
             <div className="flex items-center justify-between p-4 rounded-2xl bg-surface-base border border-border-subtle">
@@ -208,20 +196,7 @@ export function WritingFinishModal({
                   <div className="text-xs text-text-main/50">{t('finish_anonymous_desc')}</div>
                 </div>
               </div>
-              <button 
-                onClick={() => setIsAnonymous(!isAnonymous)}
-                className={cn(
-                  "w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center",
-                  isAnonymous 
-                    ? "bg-text-main" 
-                    : "bg-white/20"
-                )}
-              >
-                <motion.div 
-                  animate={{ x: isAnonymous ? 24 : 0 }}
-                  className={cn("w-4 h-4 rounded-full shadow-sm", isAnonymous ? "bg-surface-base" : "bg-white")}
-                />
-              </button>
+              <Toggle checked={isAnonymous} onChange={setIsAnonymous} />
             </div>
           </div>
         ) : (
@@ -270,13 +245,13 @@ export function WritingFinishModal({
         <div className="flex gap-3">
           <button 
             onClick={() => setStatus('writing')}
-            className="flex-1 px-6 py-4 font-bold transition-all rounded-xl border border-border-subtle text-text-main hover:bg-white/5"
+            className="flex-1 px-6 py-4 font-bold transition-all rounded-2xl border border-border-subtle text-text-main hover:bg-white/5"
           >
             {t('finish_back')}
           </button>
           <button 
             onClick={handleSaveClick}
-            className="flex-1 px-6 py-4 font-bold transition-all bg-text-main text-surface-base rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:scale-105"
+            className="flex-1 px-6 py-4 font-bold transition-all bg-text-main text-surface-base rounded-2xl shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:scale-105"
           >
             {t('common_save')}
           </button>

@@ -1,27 +1,26 @@
 import React, { useState } from 'react';
 import { PenLine, History, User as UserIcon, Globe, Shield } from 'lucide-react';
-import { User } from 'firebase/auth';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface BetaSidebarProps {
-  view: string;
-  setView: (view: any) => void;
   isAdmin: boolean;
-  user: User;
   isZenActive?: boolean;
 }
 
-export function BetaSidebar({ view, setView, isAdmin, user, isZenActive }: BetaSidebarProps) {
+export function BetaSidebar({ isAdmin, isZenActive }: BetaSidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useLanguage();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const navItems = [
-    { id: 'write',    icon: <PenLine size={20} />,   label: t('nav_write') },
-    { id: 'archive',  icon: <History size={20} />,   label: t('nav_notes') },
-    { id: 'profile',  icon: <UserIcon size={20} />,  label: t('nav_profile') },
-    { id: 'feed',     icon: <Globe size={20} />,     label: t('nav_community') },
-    ...(isAdmin ? [{ id: 'admin', icon: <Shield size={20} className="text-red-400" />, label: t('nav_admin') }] : []),
+    { id: 'write',   path: '/',       icon: <PenLine size={20} />,   label: t('nav_write') },
+    { id: 'archive', path: '/archive', icon: <History size={20} />,   label: t('nav_notes') },
+    { id: 'profile', path: '/profile', icon: <UserIcon size={20} />,  label: t('nav_profile') },
+    { id: 'feed',    path: '/feed',    icon: <Globe size={20} />,     label: t('nav_community') },
+    ...(isAdmin ? [{ id: 'admin', path: '/admin', icon: <Shield size={20} className="text-red-400" />, label: t('nav_admin') }] : []),
   ];
 
   return (
@@ -59,11 +58,11 @@ export function BetaSidebar({ view, setView, isAdmin, user, isZenActive }: BetaS
         {navItems.map(item => (
           <button
             key={item.id}
-            onClick={() => setView(item.id)}
-            aria-current={view === item.id ? 'page' : undefined}
+            onClick={() => navigate(item.path)}
+            aria-current={location.pathname === item.path ? 'page' : undefined}
             className={cn(
               "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
-              view === item.id
+              location.pathname === item.path
                 ? "bg-text-main text-surface-base"
                 : "text-text-main/50 hover:text-text-main hover:bg-text-main/8"
             )}

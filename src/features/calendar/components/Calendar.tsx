@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, subMonths, addMonths } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { cn, parseFirestoreDate, getSessionDate } from '../../../core/utils/utils';
+import { cn, getSessionDate } from '../../../core/utils/utils';
 import { Session } from '../../../types';
 import { useLanguage } from '../../../core/i18n';
 

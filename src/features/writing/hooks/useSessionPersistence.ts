@@ -157,7 +157,7 @@ export function useSessionPersistence(
       actions.setHasDraft(false);
       actions.resetSession();
       actions.setStatus('idle');
-    } catch (e) {
+    } catch {
       // Error is handled in WritingSessionService
     }
   };
@@ -186,7 +186,7 @@ export function useSessionPersistence(
             wordCount: data.wordCount,
             duration: data.duration
           });
-        } catch (e) {
+          } catch {
           const fallbackTimestamp = key.replace('local_session_', '').split('_')[0];
           sessions.push({ id: key, createdAt: new Date(Number(fallbackTimestamp)) });
         }
@@ -205,7 +205,7 @@ export function useSessionPersistence(
     }
   }, []);
 
-  const decryptSession = useCallback(async (session: any, password: string) => {
+  const decryptSession = useCallback(async (session: SessionPayload, password: string) => {
     if (!session.isEncrypted || !session.encryption) return session;
     
     try {
@@ -223,7 +223,7 @@ export function useSessionPersistence(
         pinnedThoughts: decryptedData.pinnedThoughts,
         isEncrypted: false
       };
-    } catch (e) {
+    } catch {
       throw new Error('Invalid password');
     }
   }, []);
