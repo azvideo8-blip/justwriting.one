@@ -40,7 +40,12 @@ function sanitizeContent(content: string): string {
   return content.trim();
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+  logger.error('GEMINI_API_KEY environment variable is not configured');
+  throw new HttpsError('internal', 'AI service is not configured');
+}
+const ai = new GoogleGenAI({ apiKey });
 
 const editSchema = z.object({
   content: sessionContentSchema,
