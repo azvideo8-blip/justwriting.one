@@ -14,12 +14,6 @@ export const setUserRole = onCall(async (request) => {
     throw new HttpsError('unauthenticated', 'Authentication required.');
   }
 
-  // Verify caller is admin
-  const callerDoc = await getFirestore().doc(`users/${request.auth.uid}`).get();
-  if (!callerDoc.exists || callerDoc.data()?.role !== 'admin') {
-    throw new HttpsError('permission-denied', 'Only admins can assign roles.');
-  }
-
   const parsed = schema.safeParse(request.data);
   if (!parsed.success) {
     throw new HttpsError('invalid-argument', 'Invalid payload.');
@@ -27,14 +21,39 @@ export const setUserRole = onCall(async (request) => {
 
   const { targetUid, role } = parsed.data;
 
-  const targetDoc = await getFirestore().doc(`users/${targetUid}`).get();
-  if (!targetDoc.exists) {
-    throw new HttpsError('not-found', `User ${targetUid} does not exist.`);
+  // Нельзя менять свою роль
+  if (request.auth.uid === targetUid) {
+    throw new HttpsError('invalid-argument', 'Cannot change your own role.');
   }
 
-  await getFirestore().doc(`users/${targetUid}`).update({ role });
+  const db = getFirestore();
 
-  logger.info('Role updated', { callerUid: request.auth.uid, targetUid, role });
+  await db.runTransaction(async (tx) => {
+    const callerRef = db.doc(`users/${request.auth!.uid}`);
+    const targetRef = db.doc(`users/${targetUid}`);
+
+    const [callerDoc, targetDoc] = await Promise.all([
+      tx.get(callerRef),
+      tx.get(targetRef),
+    ]);
+
+    // Проверяем роль ВНУТРИ транзакции
+    if (!callerDoc.exists || callerDoc.data()?.role !== 'admin') {
+      throw new HttpsError('permission-denied', 'Only admins can assign roles.');
+    }
+
+    if (!targetDoc.exists) {
+      throw new HttpsError('not-found', `User ${targetUid} does not exist.`);
+    }
+
+    tx.update(targetRef, { role });
+  });
+
+  logger.info('Role updated', {
+    callerUid: request.auth.uid,
+    targetUid,
+    role,
+  });
 
   return { success: true };
 });
