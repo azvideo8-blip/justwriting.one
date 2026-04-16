@@ -7,6 +7,7 @@ import { Session } from '../../types';
 import { cn } from '../../core/utils/utils';
 import { useLanguage } from '../../core/i18n';
 import { formatTime } from '../../core/utils/formatTime';
+import { Toggle } from '../../shared/components/Toggle';
 
 export type SetupMode = 'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | 'finish-by-config' | null;
 
@@ -88,7 +89,7 @@ export function WritingSetup({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="w-full max-w-2xl rounded-[2rem] md:rounded-[2.5rem] flex flex-col bg-surface-card backdrop-blur-2xl border border-border-subtle shadow-[0_0_40px_rgba(255,255,255,0.05)] text-text-main"
+            className="w-full max-w-2xl rounded-3xl md:rounded-3xl flex flex-col bg-surface-card backdrop-blur-2xl border border-border-subtle shadow-[0_0_40px_rgba(255,255,255,0.05)] text-text-main"
           >
             <div className="p-4 md:p-10 overflow-y-auto no-scrollbar space-y-4 pt-4">
               {setupMode === 'selection' && (
@@ -125,19 +126,8 @@ export function WritingSetup({
                     ))}
                   </div>
 
-                  <div 
-                    onClick={() => setIsLocalOnly(!isLocalOnly)}
-                    className="p-4 md:p-5 rounded-2xl md:rounded-3xl border flex items-center gap-3 md:gap-4 cursor-pointer transition-colors group bg-white/5 border-border-subtle hover:bg-white/10"
-                  >
-                    <div className={cn(
-                      "w-10 h-5 md:w-12 md:h-6 rounded-full transition-all duration-500 relative shrink-0", 
-                      isLocalOnly ? "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]" : "bg-text-main/20"
-                    )}>
-                      <div className={cn(
-                        "absolute top-0.5 left-0.5 md:top-1 md:left-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-500", 
-                        isLocalOnly ? "translate-x-5 md:translate-x-6" : "translate-x-0"
-                      )} />
-                    </div>
+                  <div className="p-4 md:p-5 rounded-2xl md:rounded-3xl border flex items-center gap-3 md:gap-4 transition-colors group bg-white/5 border-border-subtle hover:bg-white/10">
+                    <Toggle checked={isLocalOnly} onChange={setIsLocalOnly} />
                     <div className="flex-1">
                       <div className="font-bold text-xs md:text-sm text-text-main">{t('writing_local_session')}</div>
                       <div className="text-[11px] leading-tight text-text-main/50">{t('writing_local_desc')}</div>

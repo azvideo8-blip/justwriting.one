@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { 
   Clock, Type, PenLine, Globe, Lock, Share2, 
   ChevronDown, ChevronUp, X, User as UserIcon,
-  FileText, Download, FileJson, Tag, Plus, Trash2
+  FileText, Download, FileJson, Plus, Trash2
 } from 'lucide-react';
 import { auth } from '../../../core/firebase/auth';
 import { SessionService } from '../services/SessionService';
@@ -112,9 +112,9 @@ export function SessionCard({
 
   const handleDelete = async () => {
     try {
-      console.log('SessionCard: Attempting to delete session:', session.id);
+      console.warn('SessionCard: Attempting to delete session:', session.id);
       await SessionService.deleteSession(session.id);
-      console.log('SessionCard: Session deleted successfully:', session.id);
+      console.warn('SessionCard: Session deleted successfully:', session.id);
       setShowDeleteConfirm(false);
       if (onDeleteSuccess) {
         onDeleteSuccess(session.id);
@@ -215,16 +215,16 @@ export function SessionCard({
                     "w-48 rounded-2xl shadow-xl border p-2 bg-surface-card backdrop-blur-xl border-border-subtle"
                   )}
                 >
-                  <button onClick={exportToTxt} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
+                  <button onClick={exportToTxt} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
                     <FileText size={14} /> {t('export_txt')}
                   </button>
-                  <button onClick={exportPDF} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
+                  <button onClick={exportPDF} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
                     <FileText size={14} className="text-red-500" /> {t('export_pdf')}
                   </button>
-                  <button onClick={exportMarkdown} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
+                  <button onClick={exportMarkdown} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
                     <FileJson size={14} className="text-blue-500" /> {t('export_md')}
                   </button>
-                  <button onClick={exportDocx} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
+                  <button onClick={exportDocx} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
                     <Download size={14} className="text-emerald-500" /> {t('export_docx')}
                   </button>
                 </motion.div>,
@@ -338,7 +338,7 @@ export function SessionCard({
             {onContinue && auth.currentUser?.uid === session.userId && (
               <button 
                 onClick={onContinue}
-                className="flex items-center gap-2 px-6 py-2 rounded-xl font-bold transition-opacity text-sm bg-text-main text-surface-base hover:opacity-90"
+                className="flex items-center gap-2 px-6 py-2 rounded-2xl font-bold transition-opacity text-sm bg-text-main text-surface-base hover:opacity-90"
               >
                 <PenLine size={16} />
                 {t('session_continue')}

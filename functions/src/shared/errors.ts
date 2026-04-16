@@ -15,7 +15,7 @@ export const notFound = (entity: string) =>
 export function reportError(
   error: unknown,
   context: Record<string, string | number | boolean | null | undefined> = {},
-  level: 'error' | 'warning' = 'error'
+  _level: 'error' | 'warning' = 'error'
 ): void {
   console.error('[reportError]', error, context);
 }

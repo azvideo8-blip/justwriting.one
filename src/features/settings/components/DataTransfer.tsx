@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { z } from 'zod';
 import { writeBatch, doc, collection } from 'firebase/firestore';
-import { db } from '../../../core/firebase/client';
+import { db } from '../../../core/firebase/firestore';
 import { reportError } from '../../../core/errors/reportError';
 import { ExportService } from '../../export/ExportService';
 import { SessionService } from '../../writing/services/SessionService';

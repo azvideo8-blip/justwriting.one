@@ -22,7 +22,7 @@ export interface Draft {
 export interface PendingSession {
   id?: number;
   sessionId: string | null;
-  data: any;
+  data: Record<string, unknown>;
   userId: string;
 }
 

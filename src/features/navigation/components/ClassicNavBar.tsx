@@ -1,32 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Menu } from 'lucide-react';
-import { User } from 'firebase/auth';
 import { cn } from '../../../core/utils/utils';
 import { NAV_CONFIG } from '../../../shared/lib/layoutRegistry';
 import { DesktopNav } from './DesktopNav';
 import { MobileMenu } from './MobileMenu';
+import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 
 interface ClassicNavBarProps {
   showZen: boolean;
-  _isConnected: boolean;
-  mobileMenuOpen: boolean;
-  setMobileMenuOpen: (open: boolean) => void;
-  view: 'write' | 'profile' | 'archive' | 'feed' | 'admin';
-  setView: (view: 'write' | 'profile' | 'archive' | 'feed' | 'admin') => void;
-  isAdmin: boolean;
-  user: User;
 }
 
-export function ClassicNavBar({
-  showZen,
-  _isConnected,
-  mobileMenuOpen,
-  setMobileMenuOpen,
-  view,
-  setView,
-  isAdmin,
-  user
-}: ClassicNavBarProps) {
+export function ClassicNavBar({ showZen }: ClassicNavBarProps) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, profile } = useAuthStatus();
+  const isAdmin = profile?.role === 'admin';
+
+  if (!user) return null;
+
   return (
     <>
       <nav className={cn(
@@ -45,7 +35,7 @@ export function ClassicNavBar({
         </div>
         
         <div className={NAV_CONFIG.DESKTOP_SHOW_CLASS}>
-          <DesktopNav view={view} setView={setView} isAdmin={isAdmin} user={user} />
+          <DesktopNav isAdmin={isAdmin} user={user} />
         </div>
 
         {/* Mobile Header Actions */}
@@ -57,8 +47,6 @@ export function ClassicNavBar({
       <MobileMenu 
         isOpen={mobileMenuOpen} 
         onClose={() => setMobileMenuOpen(false)} 
-        view={view} 
-        setView={setView} 
         isAdmin={isAdmin} 
       />
     </>

@@ -3,7 +3,6 @@ import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { SessionChart } from '../../writing/components/SessionChart';
 import { Session } from '../../../types';
-import { cn } from '../../../core/utils/utils';
 
 interface ProfileActivityProps {
   sessions: Session[];

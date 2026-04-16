@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { useLanguage } from '../../../../core/i18n';
-import { cn } from '../../../../core/utils/utils';
 
 interface PasswordPromptModalProps {
   isOpen: boolean;
@@ -34,7 +33,7 @@ export function PasswordPromptModal({
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="w-full max-w-sm rounded-[2.5rem] p-8 md:p-10 shadow-2xl space-y-6 border bg-surface-card border-border-subtle"
+        className="w-full max-w-sm rounded-3xl p-8 md:p-10 shadow-2xl space-y-6 border bg-surface-card border-border-subtle"
       >
         <div className="text-center space-y-2">
           <h3 className="text-xl font-black text-text-main">

@@ -110,6 +110,7 @@ export const translations: Translations = {
   finish_public: { ru: 'Публичный доступ', en: 'Public Access' },
   finish_anonymous: { ru: 'Анонимно', en: 'Anonymous' },
   finish_tags: { ru: 'Теги', en: 'Tags' },
+  finish_labels: { ru: 'Бирки', en: 'Labels' },
   finish_add_tag: { ru: 'Добавить тег...', en: 'Add tag...' },
 
   // Archive / My Notes
@@ -208,6 +209,8 @@ export const translations: Translations = {
   community_loading: { ru: 'Загрузка ленты...', en: 'Loading feed...' },
   community_empty: { ru: 'В сообществе пока нет публичных заметок', en: 'No public notes in the community yet' },
   community_load_error: { ru: 'Ошибка при загрузке ленты', en: 'Error loading feed' },
+  feed_empty_title: { ru: 'Лента пуста', en: 'Feed is empty' },
+  feed_empty_desc: { ru: 'Опубликованные заметки появятся здесь', en: 'Published notes will appear here' },
 
   // Settings
   settings_title: { ru: 'Настройки', en: 'Settings' },

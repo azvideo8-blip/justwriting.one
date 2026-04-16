@@ -10,7 +10,7 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 import { Session } from '../../../types';
-import { parseFirestoreDate, cn } from '../../../core/utils/utils';
+import { parseFirestoreDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 
 interface SessionChartProps {

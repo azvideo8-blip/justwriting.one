@@ -31,7 +31,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   
   console.error('Firestore Error: ', {
     operationType,
-    errorCode: (error as any)?.code || 'unknown',
+    errorCode: error instanceof Error && 'code' in error ? (error as { code: string }).code : 'unknown',
     path: path || null,
   });
   throw new Error(safeMessage);

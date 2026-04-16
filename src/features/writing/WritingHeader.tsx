@@ -6,6 +6,7 @@ import { CountdownTimer } from './CountdownTimer';
 import { useLanguage } from '../../core/i18n';
 import { useWritingSettings } from './contexts/WritingSettingsContext';
 import { useLocalStorage } from '../../shared/hooks/useLocalStorage';
+import { useLayoutMode } from '../../shared/hooks/useLayoutMode';
 import { z } from 'zod';
 import { formatTime } from '../../core/utils/formatTime';
 
@@ -64,6 +65,8 @@ export const WritingHeader = React.memo(function WritingHeader({
 
   const showZen = isZenActive && zenModeEnabled;
   const [classicNav] = useLocalStorage('classic-nav', false, z.boolean());
+  const { layoutMode } = useLayoutMode();
+  const isMobile = layoutMode === 'mobile';
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -122,7 +125,7 @@ export const WritingHeader = React.memo(function WritingHeader({
               </div>
             )}
             
-            {headerVisibility.sessionTime && (status === 'writing' || status === 'paused') && (
+            {headerVisibility.sessionTime && (!isMobile || isPrimary('sessionTime')) && (status === 'writing' || status === 'paused') && (
               <div className="flex flex-col shrink-0">
                 <span className="font-black uppercase tracking-widest mb-0.5 flex items-center gap-1 text-[11px] text-text-main/50">
                   {sessionType === 'timer' && timeGoalReached
@@ -148,7 +151,7 @@ export const WritingHeader = React.memo(function WritingHeader({
               </div>
             )}
 
-            {headerVisibility.sessionWords && (status === 'writing' || status === 'paused') && !streamMode && (
+            {headerVisibility.sessionWords && !isMobile && (status === 'writing' || status === 'paused') && !streamMode && (
               <div className="flex flex-col shrink-0">
                 <span className="font-black uppercase tracking-widest mb-0.5 flex items-center gap-1 text-[11px] text-text-main/50">
                   {t('header_sessionWords')} 
@@ -174,7 +177,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                     {t('header_totalWords')}
                   </span>
                 </div>
-              ) : !streamMode && (
+              ) : !isMobile && !streamMode && (
                 <div className="flex flex-col shrink-0">
                   <span className="font-black uppercase tracking-widest mb-0.5 text-[11px] text-text-main/50">{t('header_totalWords')}</span>
                   <span className={cn(
@@ -185,7 +188,7 @@ export const WritingHeader = React.memo(function WritingHeader({
               )
             )}
 
-            {headerVisibility.wpm && !streamMode && status !== 'idle' && (
+            {headerVisibility.wpm && !isMobile && !streamMode && status !== 'idle' && (
               <div className="flex flex-col shrink-0">
                 <div className="flex items-center gap-2 mb-0.5">
                   <span className="font-black uppercase tracking-widest text-[11px] text-text-main/50">WPM</span>
@@ -215,7 +218,7 @@ export const WritingHeader = React.memo(function WritingHeader({
               <div className="flex gap-1.5">
                 <button 
                   onClick={handleNewSession}
-                  className="p-2.5 rounded-xl shadow-sm hover:scale-105 transition-all bg-surface-base text-text-main hover:bg-white/10 border border-border-subtle"
+                  className="p-2.5 rounded-2xl shadow-sm hover:scale-105 transition-all bg-[var(--surface-elevated)] text-text-main hover:bg-white/10 border border-border-subtle"
                   title={t('header_new_session')}
                   aria-label={t('header_new_session')}
                 >
@@ -224,7 +227,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                 <button 
                   onClick={fetchUserSessions}
                   disabled={loadingSessions}
-                  className="p-2.5 rounded-xl border transition-all disabled:opacity-50 bg-surface-base border-border-subtle text-text-main hover:bg-white/10"
+                  className="p-2.5 rounded-2xl border transition-all disabled:opacity-50 bg-[var(--surface-elevated)] border-border-subtle text-text-main hover:bg-white/10"
                   title={t('header_continue')}
                   aria-label={t('header_continue')}
                 >
@@ -233,7 +236,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                 {hasDraft && (
                   <button 
                     onClick={() => setStatus('writing')}
-                    className="p-2.5 rounded-xl transition-all bg-surface-base text-text-main/50 hover:bg-white/10"
+                    className="p-2.5 rounded-2xl transition-all bg-[var(--surface-elevated)] text-text-main/50 hover:bg-white/10"
                     title={t('header_draft')}
                     aria-label={t('header_draft')}
                   >
@@ -247,7 +250,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                 {status === 'writing' && (
                   <button 
                     onClick={handlePause}
-                    className="p-2.5 rounded-xl border transition-all bg-surface-base border-border-subtle text-text-main/70 hover:bg-white/10"
+                    className="p-2.5 rounded-2xl border transition-all bg-[var(--surface-elevated)] border-border-subtle text-text-main/70 hover:bg-white/10"
                     title={t('header_pause')}
                     aria-label={t('header_pause')}
                   >
@@ -257,7 +260,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                 {status === 'paused' && (
                   <button 
                     onClick={handleStart}
-                    className="p-2.5 rounded-xl border transition-all bg-surface-base border-border-subtle text-text-main hover:bg-white/10 hover:scale-105"
+                    className="p-2.5 rounded-2xl border transition-all bg-[var(--surface-elevated)] border-border-subtle text-text-main hover:bg-white/10 hover:scale-105"
                     title={t('header_continue_btn')}
                     aria-label={t('header_continue_btn')}
                   >
@@ -266,7 +269,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                 )}
                 <button 
                   onClick={handleFinish}
-                  className="p-2.5 rounded-xl transition-all hover:scale-105 bg-text-main text-surface-base shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+                  className="p-2.5 rounded-2xl transition-all hover:scale-105 bg-text-main text-surface-base shadow-[0_0_15px_rgba(255,255,255,0.2)]"
                   title={t('header_finish')}
                   aria-label={t('header_finish')}
                 >
@@ -274,7 +277,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                 </button>
                 <button 
                   onClick={() => setShowCancelConfirm(true)}
-                  className="p-2.5 transition-colors rounded-xl text-text-main/50 hover:text-red-400 hover:bg-white/5"
+                  className="p-2.5 transition-colors rounded-2xl text-text-main/50 hover:text-red-400 hover:bg-[var(--surface-elevated)]"
                   title={t('header_cancel_session')}
                   aria-label={t('header_cancel_session')}
                 >
@@ -284,14 +287,14 @@ export const WritingHeader = React.memo(function WritingHeader({
             )}
             <button
               onClick={toggleFullscreen}
-              className="p-2.5 rounded-xl border transition-all bg-surface-base border-border-subtle text-text-main/50 hover:bg-text-main/10"
+              className="p-2.5 rounded-2xl border transition-all bg-[var(--surface-elevated)] border-border-subtle text-text-main/50 hover:bg-text-main/10"
               title={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
             >
               {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
             </button>
             <button
               onClick={onOpenSettings}
-              className="p-2.5 rounded-xl border transition-all bg-surface-base border-border-subtle text-text-main/50 hover:bg-text-main/10"
+              className="p-2.5 rounded-2xl border transition-all bg-[var(--surface-elevated)] border-border-subtle text-text-main/50 hover:bg-text-main/10"
               title={t('nav_settings')}
               aria-label={t('nav_settings')}
             >

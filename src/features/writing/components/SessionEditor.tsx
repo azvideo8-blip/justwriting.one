@@ -48,14 +48,14 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
         value={editTitle}
         onChange={(e) => setEditTitle(e.target.value)}
         placeholder={t('editor_title_placeholder')}
-        className="w-full px-4 py-2 bg-surface-base rounded-xl border border-border-subtle outline-none focus:border-text-main/40 transition-all text-text-main font-bold"
+        className="w-full px-4 py-2 bg-surface-base rounded-2xl border border-border-subtle outline-none focus:border-text-main/40 transition-all text-text-main font-bold"
       />
       <textarea 
         value={editContent}
         onChange={(e) => setEditContent(e.target.value)}
         className="w-full min-h-[200px] p-4 bg-surface-base rounded-2xl border border-border-subtle outline-none focus:border-text-main/40 transition-all text-text-main"
       />
-      <div className="flex flex-wrap items-center gap-2 p-3 bg-surface-base rounded-xl border border-border-subtle">
+      <div className="flex flex-wrap items-center gap-2 p-3 bg-surface-base rounded-2xl border border-border-subtle">
         <div className="flex flex-wrap gap-2">
           {editTags.map(tag => (
             <span key={tag} className="flex items-center gap-1 px-2 py-1 bg-surface-card text-text-main/60 rounded-lg text-xs font-medium border border-border-subtle">
@@ -80,7 +80,7 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
         </label>
         <div className="flex gap-2">
           <button onClick={onCancel} className="px-4 py-2 text-text-main/50 hover:text-text-main font-medium">{t('common_cancel')}</button>
-          <button onClick={handleSave} className="px-6 py-2 bg-text-main text-surface-base rounded-xl font-bold">{t('common_save')}</button>
+          <button onClick={handleSave} className="px-6 py-2 bg-text-main text-surface-base rounded-2xl font-bold">{t('common_save')}</button>
         </div>
       </div>
     </div>

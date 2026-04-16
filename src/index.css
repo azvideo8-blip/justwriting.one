@@ -21,6 +21,7 @@
     --text-main: #f5f5f4;
     --border-light: #292524;
     --surface-card: rgba(255, 255, 255, 0.03);
+    --surface-elevated: rgba(255, 255, 255, 0.08);
   }
 
   /* ─── STRIPE — Elegant purple gradients ─────────────────── */
@@ -30,6 +31,7 @@
     --text-main: rgba(255, 255, 255, 0.9);
     --border-light: rgba(255, 255, 255, 0.12);
     --surface-card: rgba(255, 255, 255, 0.06);
+    --surface-elevated: rgba(255, 255, 255, 0.08);
   }
 
   .theme-stripe body {
@@ -44,6 +46,7 @@
     --text-main: #2c2420;
     --border-light: rgba(44, 36, 32, 0.2);   /* was 0.12 — stronger border */
     --surface-card: #d8cfa8;                  /* was #dfd5b0 — more contrast */
+    --surface-elevated: #c8be98;
   }
 
   .theme-notion body {
@@ -58,6 +61,7 @@
     --text-main: #ffffff;
     --border-light: rgba(255, 255, 255, 0.1);
     --surface-card: #1f1f1f;
+    --surface-elevated: #2a2a2a;
   }
 
   .theme-spotify body {
@@ -72,6 +76,7 @@
     --text-main: rgba(255, 255, 255, 0.95);
     --border-light: rgba(255, 255, 255, 0.1);
     --surface-card: rgba(255, 255, 255, 0.05);
+    --surface-elevated: rgba(255, 255, 255, 0.08);
   }
 
   .theme-modern body {

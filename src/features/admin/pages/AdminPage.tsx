@@ -98,7 +98,7 @@ export function AdminPage() {
         <button 
           onClick={() => setActiveTab('users')}
           className={cn(
-            "flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all",
+            "flex items-center gap-2 px-6 py-2 rounded-2xl text-sm font-bold transition-all",
             activeTab === 'users' 
               ? "bg-surface-base/20 text-text-main shadow-sm" 
               : "text-text-main/50 hover:text-text-main"
@@ -110,7 +110,7 @@ export function AdminPage() {
         <button 
           onClick={() => setActiveTab('sessions')}
           className={cn(
-            "flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all",
+            "flex items-center gap-2 px-6 py-2 rounded-2xl text-sm font-bold transition-all",
             activeTab === 'sessions' 
               ? "bg-surface-base/20 text-text-main shadow-sm" 
               : "text-text-main/50 hover:text-text-main"
@@ -151,7 +151,7 @@ export function AdminPage() {
                   <button
                     onClick={() => fetchData(false)}
                     disabled={loadingMoreSessions}
-                    className="px-8 py-2 rounded-xl font-bold transition-all disabled:opacity-50 bg-text-main text-surface-base shadow-lg"
+                    className="px-8 py-2 rounded-2xl font-bold transition-all disabled:opacity-50 bg-text-main text-surface-base shadow-lg"
                   >
                     {loadingMoreSessions ? t('archive_loading_more') : t('archive_load_more')}
                   </button>

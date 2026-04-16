@@ -3,7 +3,6 @@ import { Sparkles } from 'lucide-react';
 import { AchievementSection } from './AchievementSection';
 import { ACHIEVEMENTS } from '../constants/achievements';
 import { useLanguage } from '../../../core/i18n';
-import { cn } from '../../../core/utils/utils';
 
 interface ProfileAchievementsProps {
   currentStreak: number;

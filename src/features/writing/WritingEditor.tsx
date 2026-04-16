@@ -194,40 +194,38 @@ export const WritingEditor = React.memo(function WritingEditor({
         )}
       </div>
 
-      <div className="relative group rounded-3xl border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] p-2 mt-2">
-        <textarea
-          ref={textareaRef}
-          value={content}
-          onChange={(e) => {
-            setContent(e.target.value);
-            checkSelection();
-          }}
-          onKeyDown={handleKeyDown}
-          onCut={handleCut}
-          onCopy={handleCopy}
-          onPaste={handlePaste}
-          onSelect={checkSelection}
-          onKeyUp={checkSelection}
-          onMouseUp={checkSelection}
-          disabled={status === 'idle' || status === 'paused'}
-          placeholder={status === 'idle' ? t('editor_idle_placeholder') : t('editor_writing_placeholder')}
-          style={{ 
-            paddingBottom: layoutMode === 'mobile' ? '7rem' : '2rem',
-            fontSize: `${fontSize}px`,
-            lineHeight: `${fontSize * 1.2}px`,
-            fontFamily: fontFamily === 'Inter' ? 'Inter, sans-serif' : 
-                        fontFamily === 'Playfair Display' ? '"Playfair Display", serif' :
-                        fontFamily === 'JetBrains Mono' ? '"JetBrains Mono", monospace' :
-                        fontFamily === 'Cormorant Garamond' ? '"Cormorant Garamond", serif' : 'inherit',
-            caretColor: undefined,
-            userSelect: 'text'
-          }}
-          className={cn(
-            "w-full min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-[2.5rem] border shadow-xl focus:shadow-2xl transition-all outline-none resize-none leading-[1.8] bg-transparent border-none shadow-none text-text-main placeholder:text-text-main/40",
-            (status === 'idle' || status === 'paused') && "opacity-50 cursor-not-allowed"
-          )}
-        />
-      </div>
+      <textarea
+        ref={textareaRef}
+        value={content}
+        onChange={(e) => {
+          setContent(e.target.value);
+          checkSelection();
+        }}
+        onKeyDown={handleKeyDown}
+        onCut={handleCut}
+        onCopy={handleCopy}
+        onPaste={handlePaste}
+        onSelect={checkSelection}
+        onKeyUp={checkSelection}
+        onMouseUp={checkSelection}
+        disabled={status === 'idle' || status === 'paused'}
+        placeholder={status === 'idle' ? t('editor_idle_placeholder') : t('editor_writing_placeholder')}
+        style={{ 
+          paddingBottom: layoutMode === 'mobile' ? '7rem' : '2rem',
+          fontSize: `${fontSize}px`,
+          lineHeight: `${fontSize * 1.2}px`,
+          fontFamily: fontFamily === 'Inter' ? 'Inter, sans-serif' : 
+                      fontFamily === 'Playfair Display' ? '"Playfair Display", serif' :
+                      fontFamily === 'JetBrains Mono' ? '"JetBrains Mono", monospace' :
+                      fontFamily === 'Cormorant Garamond' ? '"Cormorant Garamond", serif' : 'inherit',
+          caretColor: undefined,
+          userSelect: 'text'
+        }}
+        className={cn(
+          "w-full min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-3xl border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] shadow-xl focus:shadow-2xl transition-all outline-none resize-none leading-[1.8] text-text-main placeholder:text-text-main/40",
+          status === 'idle' ? "opacity-40" : status === 'paused' ? "opacity-60" : ""
+        )}
+      />
     </div>
   );
 });
