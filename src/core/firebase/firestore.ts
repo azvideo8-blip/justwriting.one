@@ -4,7 +4,6 @@ import {
   getDocFromServer, 
   memoryLocalCache
 } from 'firebase/firestore';
-import firebaseConfig from '../../../firebase-applet-config.json';
 import { app } from './client';
 
 // Use initializeFirestore with forced long polling and memory cache.
@@ -12,9 +11,9 @@ import { app } from './client';
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
   localCache: memoryLocalCache()
-}, firebaseConfig.firestoreDatabaseId);
+}, import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
 
-console.log("Firestore initialized with Database ID:", firebaseConfig.firestoreDatabaseId);
+console.log("Firestore initialized with Database ID:", import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
 
 // Connection status tracking
 export let isFirestoreConnected = true;
@@ -39,7 +38,7 @@ function updateConnectionStatus(status: boolean) {
 // Simple connection test
 async function testConnection() {
   try {
-    console.log("Starting Firestore connection test to:", firebaseConfig.firestoreDatabaseId);
+    console.log("Starting Firestore connection test to:", import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
     // Try to get a document. We use getDocFromServer to bypass any local cache.
     const testDoc = await getDocFromServer(doc(db, '_connection_test_', 'ping'));
     console.log("Firestore connection test: SUCCESS (Document exists or reached server)");
