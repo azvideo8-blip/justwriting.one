@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Globe } from 'lucide-react';
+import { EmptyState } from '../../../shared/components/EmptyState';
 import { Session } from '../../../types';
 import { SessionCard } from '../../writing/components/SessionCard';
 import { SessionService } from '../../writing/services/SessionService';
@@ -71,9 +72,11 @@ export function FeedPage() {
             <p className="text-red-400">{error}</p>
           </div>
         ) : sessions.length === 0 ? (
-          <div className="p-12 text-center rounded-3xl border bg-surface-card border-border-subtle">
-            <p className="text-text-main/70">{t('community_empty')}</p>
-          </div>
+          <EmptyState
+            icon={Globe}
+            title={t('feed_empty_title')}
+            description={t('feed_empty_desc')}
+          />
         ) : (
           <>
             {sessions.map(session => (

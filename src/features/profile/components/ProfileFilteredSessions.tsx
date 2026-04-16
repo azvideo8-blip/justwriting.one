@@ -3,7 +3,6 @@ import { motion } from 'motion/react';
 import { ArrowLeft } from 'lucide-react';
 import { Session, Label } from '../../../types';
 import { SessionCard } from '../../writing/components/SessionCard';
-import { cn } from '../../../core/utils/utils';
 
 interface ProfileFilteredSessionsProps {
   selectedWord: string;

@@ -2,7 +2,6 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { useLanguage } from '../../../../core/i18n';
-import { cn } from '../../../../core/utils/utils';
 
 interface CancelConfirmModalProps {
   isOpen: boolean;

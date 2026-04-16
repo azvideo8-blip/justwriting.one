@@ -4,32 +4,42 @@ import { PenLine, History, User as UserIcon, Globe, Shield, LogOut, Settings } f
 import { User, signOut } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { useLanguage } from '../../../core/i18n';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useSettings } from '../../../core/settings/SettingsContext';
+import { cn } from '../../../core/utils/utils';
 
 interface DesktopNavProps {
-  view: string;
-  setView: (view: any) => void;
   isAdmin: boolean;
   user: User;
 }
 
-export function DesktopNav({ view, setView, isAdmin, user }: DesktopNavProps) {
+export function DesktopNav({ isAdmin, user }: DesktopNavProps) {
   const { language, setLanguage, t } = useLanguage();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { openSettings } = useSettings();
 
   return (
     <div className="hidden lg:flex items-center gap-4 lg:gap-6">
-      <NavButton active={view === 'write'} onClick={() => setView('write')} icon={<PenLine size={18} />} label={t('nav_write')} />
-      <NavButton active={view === 'archive'} onClick={() => setView('archive')} icon={<History size={18} />} label={t('nav_notes')} />
-      <NavButton active={view === 'profile'} onClick={() => setView('profile')} icon={<UserIcon size={18} />} label={t('nav_profile')} />
+      <NavButton active={location.pathname === '/'} onClick={() => navigate('/')} icon={<PenLine size={18} />} label={t('nav_write')} />
+      <NavButton active={location.pathname === '/archive'} onClick={() => navigate('/archive')} icon={<History size={18} />} label={t('nav_notes')} />
+      <NavButton active={location.pathname === '/profile'} onClick={() => navigate('/profile')} icon={<UserIcon size={18} />} label={t('nav_profile')} />
       <NavButton 
-        active={view === 'feed'} 
-        onClick={() => setView('feed')} 
-        icon={<Globe size={18} className={view === 'feed' ? "text-emerald-500" : ""} />} 
+        active={location.pathname === '/feed'} 
+        onClick={() => navigate('/feed')} 
+        icon={<Globe size={18} className={location.pathname === '/feed' ? "text-emerald-500" : ""} />} 
         label={t('nav_community')}
-        className={view === 'feed' ? "text-emerald-500" : "hover:text-emerald-500"}
+        className={location.pathname === '/feed' ? "text-emerald-500" : "hover:text-emerald-500"}
       />
-      <NavButton active={view === 'settings'} onClick={() => setView('settings')} icon={<Settings size={18} />} label={t('nav_settings')} />
+      <button
+        onClick={() => openSettings()}
+        className={cn("flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors", "text-text-main/50 hover:text-text-main")}
+      >
+        <Settings size={18} />
+        <span>{t('nav_settings')}</span>
+      </button>
       {isAdmin && (
-        <NavButton active={view === 'admin'} onClick={() => setView('admin')} icon={<Shield size={18} className="text-red-500" />} label={t('nav_admin')} />
+        <NavButton active={location.pathname === '/admin'} onClick={() => navigate('/admin')} icon={<Shield size={18} className="text-red-500" />} label={t('nav_admin')} />
       )}
       
       <div className="h-6 w-px bg-border-subtle mx-2" />

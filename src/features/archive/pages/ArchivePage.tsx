@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
 import { format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
-import { History, Search, LayoutGrid, LayoutList } from 'lucide-react';
+import { History, Search, LayoutGrid, LayoutList, BookOpen } from 'lucide-react';
 import { Session, UserProfile } from '../../../types';
 import { SessionCard } from '../../writing/components/SessionCard';
 import { Calendar } from '../../calendar/components/Calendar';
@@ -14,16 +14,17 @@ import { TagCloud } from '../../writing/components/TagCloud';
 import { useLanguage } from '../../../core/i18n';
 import { useArchiveFilters } from '../hooks/useArchiveFilters';
 import { useArchiveSearch } from '../hooks/useArchiveSearch';
+import { useNavigate } from 'react-router-dom';
+import { EmptyState } from '../../../shared/components/EmptyState';
 
 import { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 
 interface ArchiveViewProps {
   user: User;
   profile: UserProfile | null;
-  onContinueSession: (session: Session) => void;
 }
 
-export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewProps) {
+export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const { t, language } = useLanguage();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData, DocumentData> | null>(null);
@@ -31,6 +32,7 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const fetchSessions = async (isInitial = false) => {
     if (isInitial) {
@@ -142,7 +144,7 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
                 {t('nav_notes')}
               </h3>
 
-              <div className="flex p-1 rounded-xl bg-surface-base/10 border border-border-subtle">
+              <div className="flex p-1 rounded-2xl bg-surface-base/10 border border-border-subtle">
                 <button 
                   onClick={() => setViewMode('list')}
                   className={cn(
@@ -180,19 +182,11 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
                     <p className="text-red-400">{error}</p>
                   </div>
                 ) : sessions.length === 0 ? (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex flex-col items-center justify-center py-24 gap-4 text-center"
-                  >
-                    <div className="text-5xl mb-2">📖</div>
-                    <p className="text-xl font-bold text-text-main">
-                      {t('archive_empty_title')}
-                    </p>
-                    <p className="text-text-main/40 text-sm max-w-xs">
-                      {t('archive_empty_subtitle')}
-                    </p>
-                  </motion.div>
+                  <EmptyState
+                    icon={BookOpen}
+                    title={t('archive_empty_title')}
+                    description={t('archive_empty_subtitle')}
+                  />
                 ) : (
                   sortedDates.map(dateKey => (
                     <div key={dateKey} className="space-y-4">
@@ -206,7 +200,7 @@ export function ArchivePage({ user, profile, onContinueSession }: ArchiveViewPro
                             key={session.id} 
                             session={session} 
                             labels={profile?.labels || []}
-                            onContinue={() => onContinueSession(session)}
+                            onContinue={() => navigate('/', { state: { sessionToContinue: session } })}
                             searchQuery={searchQuery}
                             onDeleteSuccess={(id) => setSessions(prev => prev.filter(s => s.id !== id))}
                           />

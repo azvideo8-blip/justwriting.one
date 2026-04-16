@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { User } from 'firebase/auth';
 import { UserProfile } from '../../../types';
 import { Plus, X } from 'lucide-react';
-import { cn } from '../../../core/utils/utils';
 import { useProfileLabels } from '../hooks/useProfileLabels';
 
 export function ProfileLabels({ user, profile }: { user: User, profile: UserProfile | null }) {

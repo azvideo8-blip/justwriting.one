@@ -2,7 +2,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { GoogleGenAI } from "@google/genai";
 import * as logger from "firebase-functions/logger";
 import { z } from "zod";
-import { unauthenticated, badInput, reportError } from "../shared/errors";
+import { badInput, reportError } from "../shared/errors";
 import { sessionContentSchema } from "../shared/validators";
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
@@ -58,8 +58,8 @@ export const editWithAI = onCall(async (request) => {
 
   try {
     await checkRateLimit(uid);
-  } catch (e: any) {
-    if (e.message === 'RATE_LIMIT_EXCEEDED') {
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === 'RATE_LIMIT_EXCEEDED') {
       throw new HttpsError('resource-exhausted', 'Rate limit exceeded. Try again later.');
     }
     throw e;
