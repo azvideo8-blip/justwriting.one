@@ -7,37 +7,56 @@ interface GoalPopupProps {
   open: boolean;
   onClose: () => void;
   title: string;
+  type?: 'words' | 'time';
   presets: { value: number; label: string }[];
   current: number;
+  currentGoal?: number;
   onSelect: (val: number) => void;
   onClear: () => void;
+  onClearLabel?: string;
   placeholder: string;
   triggerRef: React.RefObject<HTMLElement | null>;
+  width?: string;
 }
 
 export function GoalPopup({
   open,
   onClose,
   title,
+  type = 'words',
   presets,
   current,
+  currentGoal,
   onSelect,
   onClear,
+  onClearLabel = '✕',
   placeholder,
-  triggerRef
+  triggerRef,
+  width = 'w-[180px]'
 }: GoalPopupProps) {
   const [coords, setCoords] = useState({ top: 0, left: 0 });
 
   useLayoutEffect(() => {
     if (open && triggerRef.current) {
       const updatePosition = () => {
-        if (triggerRef.current) {
-          const rect = triggerRef.current.getBoundingClientRect();
-          setCoords({
-            top: rect.top - 8,
-            left: rect.left
-          });
+        if (!triggerRef.current) return;
+        const rect = triggerRef.current.getBoundingClientRect();
+        
+        // Accurate positioning (BS-04 fix)
+        const POPUP_WIDTH = width === 'w-[210px]' ? 210 : 180;
+        const POPUP_HEIGHT = 160;
+        const GAP = 8;
+
+        let top = rect.top - POPUP_HEIGHT - GAP;
+        let left = rect.left;
+
+        if (left + POPUP_WIDTH > window.innerWidth - 8) {
+          left = window.innerWidth - POPUP_WIDTH - 8;
         }
+        if (left < 8) left = 8;
+        if (top < 8) top = rect.bottom + GAP;
+
+        setCoords({ top, left });
       };
 
       updatePosition();
@@ -50,7 +69,7 @@ export function GoalPopup({
         window.removeEventListener('scroll', updatePosition, true);
       };
     }
-  }, [open, triggerRef]);
+  }, [open, triggerRef, width]);
 
   if (typeof document === 'undefined') return null;
 
@@ -65,25 +84,30 @@ export function GoalPopup({
             position: 'fixed',
             top: coords.top,
             left: coords.left,
-            transform: 'translateY(-100%)',
             zIndex: 9999,
           }}
-          className="bg-surface-card border border-border-subtle rounded-2xl p-3 shadow-lg w-[180px]"
+          className={cn("bg-surface-card border border-border-subtle rounded-2xl p-3 shadow-lg", width)}
         >
           <div className="text-[11px] text-text-main/40 mb-2 font-bold uppercase tracking-widest">{title}</div>
           <div className="flex gap-1 flex-wrap mb-2">
-            {presets.map(p => (
-              <button
-                key={p.value}
-                onClick={() => { onSelect(p.value); onClose(); }}
-                className={cn(
-                  "px-2 py-1 rounded-lg text-xs border transition-all font-bold",
-                  current === p.value
-                    ? "border-text-main bg-text-main text-surface-base"
-                    : "border-border-subtle text-text-main/60 hover:text-text-main hover:bg-white/5"
-                )}
-              >{p.label}</button>
-            ))}
+            {presets.map(p => {
+              const isActive = type === 'time'
+                ? Math.round(p.value / 60) === (currentGoal ?? current)
+                : p.value === current;
+                
+              return (
+                <button
+                  key={p.value}
+                  onClick={() => { onSelect(p.value); onClose(); }}
+                  className={cn(
+                    "px-2 py-1 rounded-lg text-xs border transition-all font-bold",
+                    isActive
+                      ? "border-text-main bg-text-main text-surface-base"
+                      : "border-border-subtle text-text-main/60 hover:text-text-main hover:bg-white/5"
+                  )}
+                >{p.label}</button>
+              );
+            })}
           </div>
           <div className="flex gap-2 items-center">
             <input
@@ -104,7 +128,7 @@ export function GoalPopup({
               <button
                 onClick={() => { onClear(); onClose(); }}
                 className="text-xs text-text-main/40 hover:text-text-main/70 p-1"
-              >✕</button>
+              >{onClearLabel}</button>
             )}
           </div>
         </motion.div>
