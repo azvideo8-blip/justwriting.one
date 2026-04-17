@@ -1,22 +1,25 @@
-import { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { cn, parseFirestoreDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 import { useLifeLog } from '../hooks/useLifeLog';
 import { Session } from '../../../types';
 import { formatTime } from '../../../core/utils/formatTime';
 import { SettingsPanelContent } from '../../settings/components/SettingsPanel';
+import { CancelConfirmModal } from './modals/CancelConfirmModal';
+import { SessionService } from '../services/SessionService';
 import { motion } from 'motion/react';
-import { X, Pin } from 'lucide-react';
+import { X, Pin, Trash2 } from 'lucide-react';
 
 interface SessionItemProps {
   session: Session;
   isActive: boolean;
   onClick: () => void;
+  onDelete?: (session: Session) => void;
   t: (key: string) => string;
   language: string;
 }
 
-const SessionItem = ({ session, isActive, onClick, t, language }: SessionItemProps) => {
+const SessionItem: React.FC<SessionItemProps> = ({ session, isActive, onClick, onDelete, t, language }) => {
   const date = parseFirestoreDate(session.createdAt);
   const timeStr = date
     ? date.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })
@@ -34,7 +37,7 @@ const SessionItem = ({ session, isActive, onClick, t, language }: SessionItemPro
     <div
       onClick={onClick}
       className={cn(
-        "px-3 py-2.5 border-b border-border-subtle cursor-pointer transition-all",
+        "group px-3 py-2.5 border-b border-border-subtle cursor-pointer transition-all",
         isActive
           ? "bg-surface-base border-l-2 border-l-text-main pl-[10px]"
           : "hover:bg-surface-base/50"
@@ -44,7 +47,18 @@ const SessionItem = ({ session, isActive, onClick, t, language }: SessionItemPro
         <span className="text-[13px] font-medium text-text-main truncate max-w-[130px]">
           {session.title || t('common_untitled')}
         </span>
-        <span className="text-[11px] text-text-main/40 shrink-0">{timeStr}</span>
+        <div className="flex items-center gap-1">
+          <span className="text-[11px] text-text-main/40 shrink-0">{timeStr}</span>
+          {onDelete && session.id && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(session); }}
+              className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-text-main/30 hover:text-red-400 transition-all"
+              aria-label={t('session_delete')}
+            >
+              <Trash2 size={12} />
+            </button>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-1.5">
         <span className="text-xs text-text-main/50">
@@ -62,8 +76,8 @@ interface LifeLogPanelProps {
   userId: string;
   onContinueSession: (session: Session) => void;
   onClose: () => void;
-  activeTab?: 'log' | 'settings';
-  onTabChange?: (tab: 'log' | 'settings') => void;
+  activeTab: 'log' | 'settings';
+  onTabChange: (tab: 'log' | 'settings') => void;
   pinned?: boolean;
   onTogglePin?: () => void;
 }
@@ -72,21 +86,30 @@ export function LifeLogPanel({
   userId, 
   onContinueSession, 
   onClose, 
-  activeTab: externalTab,
+  activeTab,
   onTabChange,
   pinned,
   onTogglePin
 }: LifeLogPanelProps) {
-  const [internalTab, setInternalTab] = useState<'log' | 'settings'>('log');
-  
-  const activeTab = externalTab || internalTab;
-  const setActiveTab = (tab: 'log' | 'settings') => {
-    if (onTabChange) onTabChange(tab);
-    else setInternalTab(tab);
-  };
+  const [deleteTarget, setDeleteTarget] = useState<Session | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { t, language } = useLanguage();
-  const { sessionGroups, summary, loading } = useLifeLog(userId);
+  const { sessionGroups, summary, loading, refresh } = useLifeLog(userId);
+
+  const filteredGroups = useMemo(() => {
+    if (!searchQuery.trim()) return sessionGroups;
+    const q = searchQuery.toLowerCase();
+    return sessionGroups
+      .map(group => ({
+        ...group,
+        sessions: group.sessions.filter(s =>
+          (s.title || '').toLowerCase().includes(q) ||
+          (s.content || '').toLowerCase().includes(q)
+        )
+      }))
+      .filter(group => group.sessions.length > 0);
+  }, [sessionGroups, searchQuery]);
 
   return (
     <motion.div 
@@ -100,7 +123,7 @@ export function LifeLogPanel({
       <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
         <div className="flex gap-1">
           <button
-            onClick={() => setActiveTab('log')}
+            onClick={() => onTabChange('log')}
             className={cn(
               "px-3 py-1.5 rounded-xl text-sm transition-all",
               activeTab === 'log'
@@ -111,7 +134,7 @@ export function LifeLogPanel({
             {t('lifelog_tab_log')}
           </button>
           <button
-            onClick={() => setActiveTab('settings')}
+            onClick={() => onTabChange('settings')}
             className={cn(
               "px-3 py-1.5 rounded-xl text-sm transition-all",
               activeTab === 'settings'
@@ -150,6 +173,17 @@ export function LifeLogPanel({
 
       {activeTab === 'log' && (
         <div className="flex flex-col h-full overflow-hidden">
+          {/* Search */}
+          <div className="px-3 py-2 border-b border-border-subtle">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder={t('lifelog_search_placeholder')}
+              className="w-full bg-surface-base rounded-xl px-3 py-2 text-sm text-text-main placeholder:text-text-main/30 outline-none border border-border-subtle focus:border-text-main/30"
+            />
+          </div>
+
           {/* Daily summary */}
           <div className="shrink-0 px-3 py-3 border-b border-border-subtle bg-surface-base/50">
             <div className="text-[11px] text-text-main/40 mb-2">{t('lifelog_today')}</div>
@@ -161,8 +195,8 @@ export function LifeLogPanel({
               <div>
                 <div className="text-lg font-bold text-text-main">
                   {summary.totalMinutes >= 60
-                    ? `${Math.floor(summary.totalMinutes / 60)}ч ${summary.totalMinutes % 60}м`
-                    : `${summary.totalMinutes}м`}
+                    ? `${Math.floor(summary.totalMinutes / 60)}${t('unit_hour')} ${summary.totalMinutes % 60}${t('unit_min')}`
+                    : `${summary.totalMinutes}${t('unit_min')}`}
                 </div>
                 <div className="text-[11px] text-text-main/40">{t('lifelog_time')}</div>
               </div>
@@ -175,7 +209,7 @@ export function LifeLogPanel({
               <div className="px-3 py-2 text-[11px] text-text-main/40 font-medium">{t('lifelog_loading')}</div>
             ) : (
               <div className="sessions-list flex-1 overflow-y-auto">
-                {sessionGroups.map(group => (
+                {filteredGroups.map(group => (
                   <div key={group.date.toISOString()}>
                     <div className="px-4 py-2 text-[10px] text-text-main/30 font-bold uppercase tracking-wider sticky top-0 bg-surface-card z-10 border-b border-border-subtle/30">
                       {group.label}
@@ -184,17 +218,16 @@ export function LifeLogPanel({
                       <SessionItem
                         key={session.id}
                         session={session}
-                        isActive={false} // Managed externally if needed
-                        onClick={() => {
-                          onContinueSession(session);
-                        }}
+                        isActive={false}
+                        onClick={() => onContinueSession(session)}
+                        onDelete={(s) => setDeleteTarget(s)}
                         t={t}
                         language={language}
                       />
                     ))}
                   </div>
                 ))}
-                {sessionGroups.length === 0 && (
+                {filteredGroups.length === 0 && (
                   <div className="px-4 py-8 text-center text-sm text-text-main/30">
                     {t('lifelog_empty')}
                   </div>
@@ -210,6 +243,23 @@ export function LifeLogPanel({
           <SettingsPanelContent userId={userId} />
         </div>
       )}
+
+      {/* Delete confirm */}
+      <CancelConfirmModal
+        isOpen={!!deleteTarget}
+        title={t('session_delete_confirm')}
+        description={t('admin_confirm_delete_session')}
+        confirmLabel={t('session_delete')}
+        cancelLabel={t('common_cancel')}
+        onConfirm={async () => {
+          if (deleteTarget?.id) {
+            await SessionService.deleteSession(deleteTarget.id);
+            refresh();
+          }
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </motion.div>
   );
 }

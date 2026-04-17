@@ -21,6 +21,8 @@ interface WritingSettingsContextType {
   setBetaLifeLog: (enabled: boolean) => void;
   lifeLogVisible: boolean;
   setLifeLogVisible: (v: boolean) => void;
+  lifeLogTab: 'log' | 'settings';
+  setLifeLogTab: (tab: 'log' | 'settings') => void;
   isZenActive: boolean;
   status: 'idle' | 'writing' | 'paused' | 'finished';
   setStatus: (status: 'idle' | 'writing' | 'paused' | 'finished') => void;
@@ -50,6 +52,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
   const [editorWidth, setEditorWidth] = useLocalStorage<number>('v3_editorWidth', 896, z.number());
   const [betaLifeLog, setBetaLifeLog] = useLocalStorage<boolean>('beta-lifelog', false, z.boolean());
   const [lifeLogVisible, setLifeLogVisible] = useState(false);
+  const [lifeLogTab, setLifeLogTab] = useState<'log' | 'settings'>('log');
   const [fontFamily, setFontFamily] = useLocalStorage<string>('v2_fontFamily', 'Inter', z.string());
   const [fontSize, setFontSize] = useLocalStorage<number>('v2_fontSize', 18, z.number());
   const [stickyHeader, setStickyHeader] = useLocalStorage<boolean>('v2_stickyHeaderEnabled', true, z.boolean());
@@ -116,6 +119,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
       editorWidth, setEditorWidth,
       betaLifeLog, setBetaLifeLog,
       lifeLogVisible, setLifeLogVisible,
+      lifeLogTab, setLifeLogTab,
       isZenActive,
       status, setStatus,
       fontFamily, setFontFamily,

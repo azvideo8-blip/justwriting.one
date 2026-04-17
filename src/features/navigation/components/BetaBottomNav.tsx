@@ -14,7 +14,7 @@ interface BetaBottomNavProps {
 
 export function BetaBottomNav({ isAdmin, onOpenLifeLog }: BetaBottomNavProps) {
   const { t } = useLanguage();
-  const { betaLifeLog } = useWritingSettings();
+  const { betaLifeLog, lifeLogVisible, lifeLogTab, setLifeLogVisible, setLifeLogTab } = useWritingSettings();
   const { openSettings } = useSettings();
   const location = useLocation();
   const navigate = useNavigate();
@@ -57,15 +57,27 @@ export function BetaBottomNav({ isAdmin, onOpenLifeLog }: BetaBottomNavProps) {
 
           {betaLifeLog && (
             <button
-              onClick={onOpenLifeLog}
+              onClick={() => {
+                if (!lifeLogVisible || lifeLogTab !== 'log') {
+                  setLifeLogTab('log');
+                  setLifeLogVisible(true);
+                } else {
+                  setLifeLogVisible(false);
+                }
+              }}
               className={cn(
                 "flex flex-col items-center justify-center gap-0.5 p-2.5 rounded-2xl transition-all duration-200 min-w-[48px]",
-                "text-text-main/50 hover:text-text-main"
+                lifeLogVisible && lifeLogTab === 'log'
+                  ? "text-text-main"
+                  : "text-text-main/50 hover:text-text-main"
               )}
               aria-label={t('lifelog_tab_log')}
             >
               <PanelRight size={20} />
-              <div className="w-1 h-1 rounded-full bg-transparent" />
+              <div className={cn(
+                "w-1 h-1 rounded-full transition-all duration-200",
+                lifeLogVisible && lifeLogTab === 'log' ? "bg-text-main" : "bg-transparent"
+              )} />
             </button>
           )}
 
