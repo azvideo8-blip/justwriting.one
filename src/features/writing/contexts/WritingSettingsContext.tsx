@@ -15,8 +15,12 @@ interface WritingSettingsContextType {
   toggleStreamMode: () => void;
   zenModeEnabled: boolean;
   setZenModeEnabled: (enabled: boolean) => void;
-  textWidth: number;
-  setTextWidth: (width: number) => void;
+  editorWidth: number;
+  setEditorWidth: (width: number) => void;
+  betaLifeLog: boolean;
+  setBetaLifeLog: (enabled: boolean) => void;
+  lifeLogVisible: boolean;
+  setLifeLogVisible: (v: boolean) => void;
   isZenActive: boolean;
   status: 'idle' | 'writing' | 'paused' | 'finished';
   setStatus: (status: 'idle' | 'writing' | 'paused' | 'finished') => void;
@@ -41,7 +45,9 @@ const WritingSettingsContext = createContext<WritingSettingsContextType | undefi
 export function WritingSettingsProvider({ children }: { children: React.ReactNode }) {
   const [streamMode, setStreamMode] = useLocalStorage<boolean>('streamMode', false, z.boolean());
   const [zenModeEnabled, setZenModeEnabled] = useLocalStorage<boolean>('v2_zenModeEnabled', true, z.boolean());
-  const [textWidth, setTextWidth] = useLocalStorage<number>('v2_textWidth_px', 720, z.number());
+  const [editorWidth, setEditorWidth] = useLocalStorage<number>('v3_editorWidth', 896, z.number());
+  const [betaLifeLog, setBetaLifeLog] = useLocalStorage<boolean>('beta-lifelog', false, z.boolean());
+  const [lifeLogVisible, setLifeLogVisible] = useState(false);
   const [fontFamily, setFontFamily] = useLocalStorage<string>('v2_fontFamily', 'Inter', z.string());
   const [fontSize, setFontSize] = useLocalStorage<number>('v2_fontSize', 18, z.number());
   const [stickyHeader, setStickyHeader] = useLocalStorage<boolean>('v2_stickyHeaderEnabled', true, z.boolean());
@@ -104,7 +110,9 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     <WritingSettingsContext.Provider value={{
       streamMode, toggleStreamMode,
       zenModeEnabled, setZenModeEnabled,
-      textWidth, setTextWidth,
+      editorWidth, setEditorWidth,
+      betaLifeLog, setBetaLifeLog,
+      lifeLogVisible, setLifeLogVisible,
       isZenActive,
       status, setStatus,
       fontFamily, setFontFamily,

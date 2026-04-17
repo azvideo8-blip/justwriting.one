@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft } from 'lucide-react';
+import { useLanguage } from '../../../core/i18n';
 import { Session, Label } from '../../../types';
 import { SessionCard } from '../../writing/components/SessionCard';
 
@@ -12,6 +13,7 @@ interface ProfileFilteredSessionsProps {
 }
 
 export function ProfileFilteredSessions({ selectedWord, sessions, labels, onBack }: ProfileFilteredSessionsProps) {
+  const { t, tp } = useLanguage();
   const filteredSessions = sessions.filter(s => 
     s.content.toLowerCase().includes(selectedWord.toLowerCase())
   );
@@ -27,14 +29,14 @@ export function ProfileFilteredSessions({ selectedWord, sessions, labels, onBack
         className="flex items-center gap-2 transition-colors font-bold text-text-main/50 hover:text-text-main"
       >
         <ArrowLeft size={20} />
-        Назад к профилю
+        {t('profile_back')}
       </button>
 
       <div className="space-y-4">
         <h2 className="text-3xl font-bold text-text-main">
-          Заметки со словом <span className="italic text-text-main/50">&quot;{selectedWord}&quot;</span>
+          {t('profile_notes_with_word')} <span className="italic text-text-main/50">&quot;{selectedWord}&quot;</span>
         </h2>
-        <p className="text-text-main/50">Найдено {filteredSessions.length} сессий</p>
+        <p className="text-text-main/50">{tp('profile_sessions_found', filteredSessions.length)}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

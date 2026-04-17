@@ -14,6 +14,7 @@ interface WritingEditorProps {
   setShowCancelConfirm: (show: boolean) => void;
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt: number | null;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
 }
 
 export const WritingEditor = React.memo(function WritingEditor({
@@ -22,7 +23,8 @@ export const WritingEditor = React.memo(function WritingEditor({
   handleFinish: _handleFinish,
   setShowCancelConfirm: _setShowCancelConfirm,
   saveStatus: _saveStatus,
-  lastSavedAt: _lastSavedAt
+  lastSavedAt: _lastSavedAt,
+  onKeyDown
 }: WritingEditorProps) {
   const { t } = useLanguage();
   const content = useWritingStore(s => s.content);
@@ -35,7 +37,8 @@ export const WritingEditor = React.memo(function WritingEditor({
   const { 
     streamMode, isZenActive, zenModeEnabled, 
     fontSize, fontFamily, stickyHeader,
-    showTitle, showPinnedThoughts
+    showTitle, showPinnedThoughts,
+    betaLifeLog
   } = useWritingSettings();
   const { layoutMode } = useLayoutMode();
   const showZen = isZenActive && zenModeEnabled;
@@ -115,7 +118,7 @@ export const WritingEditor = React.memo(function WritingEditor({
         {status !== 'idle' && (
           <div className="flex-1 flex flex-col gap-2">
             <div className="relative flex items-center gap-3">
-              {showTitle && (
+              {!betaLifeLog && showTitle && (
                 <input 
                   type="text"
                   value={title}
@@ -201,14 +204,17 @@ export const WritingEditor = React.memo(function WritingEditor({
           setContent(e.target.value);
           checkSelection();
         }}
-        onKeyDown={handleKeyDown}
+        onKeyDown={(e) => {
+          handleKeyDown(e);
+          onKeyDown?.(e);
+        }}
         onCut={handleCut}
         onCopy={handleCopy}
         onPaste={handlePaste}
         onSelect={checkSelection}
         onKeyUp={checkSelection}
         onMouseUp={checkSelection}
-        disabled={status === 'idle' || status === 'paused'}
+        disabled={!betaLifeLog && (status === 'idle' || status === 'paused')}
         placeholder={status === 'idle' ? t('editor_idle_placeholder') : t('editor_writing_placeholder')}
         style={{ 
           paddingBottom: layoutMode === 'mobile' ? '7rem' : '2rem',
@@ -223,7 +229,8 @@ export const WritingEditor = React.memo(function WritingEditor({
         }}
         className={cn(
           "w-full min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-3xl border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] shadow-xl focus:shadow-2xl transition-all outline-none resize-none leading-[1.8] text-text-main placeholder:text-text-main/40",
-          status === 'idle' ? "opacity-40" : status === 'paused' ? "opacity-60" : ""
+          !betaLifeLog && status === 'idle' && "opacity-40",
+          !betaLifeLog && status === 'paused' && "opacity-60"
         )}
       />
     </div>

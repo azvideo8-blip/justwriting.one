@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 
 type Language = 'ru' | 'en';
 
@@ -318,11 +318,71 @@ export const translations: Translations = {
   profile_label_name: { ru: 'Название бирки', en: 'Label Name' },
   profile_back: { ru: 'Назад к профилю', en: 'Back to Profile' },
   profile_notes_with_word: { ru: 'Заметки со словом', en: 'Notes with Word' },
-  profile_sessions_found: { ru: 'Найдено сессий', en: 'Sessions Found' },
 
   // Archive
   archive_labels: { ru: 'Бирки', en: 'Labels' },
   archive_label_name: { ru: 'Название бирки', en: 'Label Name' },
+
+  // Data Transfer
+  data_export_success:  { ru: 'Все сессии экспортированы',  en: 'All sessions exported' },
+  data_export_error:    { ru: 'Ошибка при экспорте',         en: 'Export failed' },
+  data_import_success:  { ru: 'Сессии импортированы',        en: 'Sessions imported' },
+  data_import_error:    { ru: 'Ошибка при импорте',          en: 'Import failed' },
+  data_import_invalid:  { ru: 'Неверный формат данных',      en: 'Invalid data format' },
+  settings_data_section: { ru: 'Данные',                     en: 'Data' },
+
+  // Plurals
+  words_count_one:  { ru: '{count} слово',  en: '{count} word' },
+  words_count_few:  { ru: '{count} слова',  en: '{count} words' },
+  words_count_many: { ru: '{count} слов',   en: '{count} words' },
+
+  minutes_one:  { ru: '{count} минута',  en: '{count} minute' },
+  minutes_few:  { ru: '{count} минуты',  en: '{count} minutes' },
+  minutes_many: { ru: '{count} минут',   en: '{count} minutes' },
+
+  sessions_one:  { ru: '{count} сессия',  en: '{count} session' },
+  sessions_few:  { ru: '{count} сессии',  en: '{count} sessions' },
+  sessions_many: { ru: '{count} сессий',  en: '{count} sessions' },
+
+  profile_sessions_found: { ru: 'Найдено {count} сессий', en: '{count} sessions found' },
+  settings_beta_lifelog: { ru: 'Life Log (бета)', en: 'Life Log (beta)' },
+  topbar_new:  { ru: 'Новая заметка', en: 'New note' },
+  topbar_open: { ru: 'Открыть',       en: 'Open' },
+  topbar_save: { ru: 'Сохранить',     en: 'Save' },
+  topbar_title_placeholder: { ru: 'Название заметки...', en: 'Note title...' },
+  stats_words: { ru: 'Слова', en: 'Words' },
+  stats_time: { ru: 'Время', en: 'Time' },
+
+  beta_play:            { ru: 'Начать',      en: 'Play' },
+  beta_pause:           { ru: 'Пауза',       en: 'Pause' },
+  beta_stop:            { ru: 'Стоп',        en: 'Stop' },
+
+  lifelog_tab_log:       { ru: 'Life Log',     en: 'Life Log' },
+  lifelog_tab_settings:  { ru: 'Настройки',    en: 'Settings' },
+  lifelog_pin:           { ru: 'Закрепить',     en: 'Pin' },
+  lifelog_unpin:         { ru: 'Открепить',     en: 'Unpin' },
+  lifelog_today:         { ru: 'Сегодня',       en: 'Today' },
+  lifelog_words:         { ru: 'слов',          en: 'words' },
+  lifelog_time:          { ru: 'в потоке',      en: 'in flow' },
+  lifelog_loading:       { ru: 'Загрузка...',   en: 'Loading...' },
+  lifelog_settings_soon: { ru: 'Скоро здесь появятся настройки', en: 'Settings coming soon' },
+  lifelog_words_short:  { ru: 'сл',      en: 'w' },
+  lifelog_group_now:    { ru: 'Сейчас',  en: 'Now' },
+  lifelog_group_today:  { ru: 'Сегодня', en: 'Today' },
+  lifelog_group_yesterday: { ru: 'Вчера', en: 'Yesterday' },
+  lifelog_group_earlier: { ru: 'Раньше', en: 'Earlier' },
+  lifelog_empty:        { ru: 'Нет сессий', en: 'No sessions yet' },
+
+  stats_set_word_goal: { ru: 'Цель по словам',  en: 'Set word goal' },
+  stats_set_time_goal: { ru: 'Цель по времени', en: 'Set time goal' },
+  stats_writing:       { ru: 'пишу',            en: 'writing' },
+
+  goal_popup_words_title: { ru: 'Цель по словам',  en: 'Word goal' },
+  goal_popup_time_title:  { ru: 'Цель по времени', en: 'Time goal' },
+  goal_popup_clear:       { ru: 'Убрать',          en: 'Clear' },
+  goal_words_short:       { ru: 'слов',           en: 'words' },
+  goal_time_short:        { ru: 'мин',           en: 'mins' },
+  common_ok:              { ru: 'Ок',              en: 'OK' },
 
   // Settings
   settings_font_preview: { ru: 'Aa 123', en: 'Aa 123' },
@@ -356,7 +416,8 @@ export const translations: Translations = {
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: string) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  tp: (key: string, count: number) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -372,16 +433,39 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('app_language', lang);
   };
 
-  const t = (key: string) => {
-    if (!translations[key]) {
-      console.warn(`Translation key not found: ${key}`);
-      return key;
+  const t = (key: string, params?: Record<string, string | number>): string => {
+    let str = translations[key]?.[language] ?? key;
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
+      });
     }
-    return translations[key][language];
+    return str;
   };
 
+  const tp = useCallback((key: string, count: number): string => {
+    const getPluralSuffix = (n: number, lang: Language): string => {
+      if (lang === 'ru') {
+        const mod10 = n % 10;
+        const mod100 = n % 100;
+        if (mod100 >= 11 && mod100 <= 14) return '_many';
+        if (mod10 === 1) return '_one';
+        if (mod10 >= 2 && mod10 <= 4) return '_few';
+        return '_many';
+      }
+      return n === 1 ? '_one' : '_other';
+    };
+
+    const suffix = getPluralSuffix(count, language);
+    const fullKey = `${key}${suffix}`;
+    let str = translations[fullKey]?.[language] ?? translations[key]?.[language] ?? key;
+    return str.replace('{count}', String(count));
+  }, [language]);
+
+  const tpFn = useCallback((key: string, count: number) => tp(key, count), [tp]);
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t, tp: tpFn }}>
       {children}
     </LanguageContext.Provider>
   );

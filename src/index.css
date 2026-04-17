@@ -107,6 +107,13 @@
     outline-offset: 3px;
     border-radius: 8px;
   }
+
+  .sidebar-icon {
+    @apply w-10 h-10 rounded-xl flex items-center justify-center transition-all text-text-main/40 hover:text-text-main hover:bg-text-main/5;
+  }
+  .sidebar-icon.active {
+    @apply bg-text-main text-surface-base shadow-lg;
+  }
 }
 
 /* Notion — светлая тема, мутный текст должен быть темнее */
