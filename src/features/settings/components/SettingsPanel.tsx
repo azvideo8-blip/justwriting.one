@@ -10,6 +10,8 @@ import { ProfileService } from '../../profile/services/ProfileService';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { cn } from '../../../core/utils/utils';
+import { DataTransfer } from './DataTransfer';
+import { Toggle } from '../../../shared/components/Toggle';
 import { z } from 'zod';
 
 type Tab = 'editor' | 'app' | 'account';
@@ -27,7 +29,7 @@ interface SettingsPanelProps {
   userId: string;
 }
 
-export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
+export function SettingsPanelContent({ userId }: { userId: string }) {
   const [activeTab, setActiveTab] = useState<Tab>('editor');
   const { t, language, setLanguage } = useLanguage();
   const { themeId, setThemeId, themes } = useTheme();
@@ -41,7 +43,7 @@ export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
   const {
     fontFamily, setFontFamily,
     fontSize, setFontSize,
-    textWidth, setTextWidth,
+    editorWidth, setEditorWidth,
     zenModeEnabled, setZenModeEnabled,
     streamMode, toggleStreamMode,
     stickyHeader, setStickyHeader,
@@ -49,6 +51,7 @@ export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
     headerVisibility, toggleVisibility,
     showTitle, setShowTitle,
     showPinnedThoughts, setShowPinnedThoughts,
+    betaLifeLog, setBetaLifeLog,
   } = useWritingSettings();
 
   const tabs: { id: Tab; label: string }[] = [
@@ -58,6 +61,313 @@ export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
   ];
 
   const fonts = ['Inter', 'Playfair Display', 'JetBrains Mono', 'Cormorant Garamond'];
+
+  return (
+    <div className="flex flex-col h-full w-full">
+      {/* Tabs */}
+      <div className="flex items-center gap-1 px-4 pt-3 pb-2 shrink-0">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              "flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-all",
+              activeTab === tab.id
+                ? "bg-text-main text-surface-base"
+                : "text-text-main/50 hover:text-text-main hover:bg-text-main/8"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4">
+        {activeTab === 'editor' && (
+          <div className="space-y-5 mt-2">
+            <Section title={t('settings_font')}>
+              <div className="grid grid-cols-2 gap-2">
+                {fonts.map(font => (
+                  <button
+                    key={font}
+                    onClick={() => setFontFamily(font)}
+                    className={cn(
+                      "px-3 py-3 rounded-xl border text-left transition-all",
+                      fontFamily === font
+                        ? "border-text-main bg-text-main text-surface-base"
+                        : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
+                    )}
+                  >
+                    <div className="text-sm font-medium" style={{ fontFamily: font }}>
+                      {font.split(' ')[0]}
+                    </div>
+                    <div className="text-xs opacity-50 mt-0.5" style={{ fontFamily: font }}>
+                      Аа 123
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </Section>
+
+            <Section title={t('settings_font_size')}>
+              <div className="flex items-center gap-3 px-1">
+                <input
+                  type="range" min={14} max={24} step={1}
+                  value={fontSize}
+                  onChange={e => setFontSize(Number(e.target.value))}
+                  className="flex-1 accent-text-main"
+                />
+                <span className="text-sm font-mono text-text-main w-10 text-right">
+                  {fontSize}px
+                </span>
+              </div>
+            </Section>
+
+            <Section title={t('settings_editor_width')}>
+              <div className="flex items-center gap-3 px-1">
+                <input
+                  type="range"
+                  min={600}
+                  max={1400}
+                  step={1}
+                  value={editorWidth}
+                  onChange={e => setEditorWidth(Number(e.target.value))}
+                  className="flex-1 accent-text-main"
+                />
+                <span className="text-sm font-mono text-text-main w-16 text-right">
+                  {editorWidth >= 1400 ? '100%' : `${editorWidth}px`}
+                </span>
+              </div>
+            </Section>
+
+            <Section title={t('settings_writing_modes')}>
+              <ToggleRow emoji="🧘" label={t('settings_zen_mode')}    value={zenModeEnabled}  onChange={() => setZenModeEnabled(!zenModeEnabled)} />
+              <ToggleRow emoji="🌊" label={t('settings_stream_mode')} value={streamMode}       onChange={toggleStreamMode} />
+            </Section>
+
+            <Section title={t('settings_header')}>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setStickyHeader(!stickyHeader)}
+                  className={cn(
+                    "px-3 py-2.5 rounded-xl border text-sm transition-all",
+                    stickyHeader
+                      ? "border-text-main bg-text-main text-surface-base"
+                      : "border-border-subtle text-text-main/60 hover:text-text-main"
+                  )}
+                >
+                  📌 {t('settings_sticky_header')}
+                </button>
+                <button
+                  onClick={() => setStickyPanel(!stickyPanel)}
+                  className={cn(
+                    "px-3 py-2.5 rounded-xl border text-sm transition-all",
+                    stickyPanel
+                      ? "border-text-main bg-text-main text-surface-base"
+                      : "border-border-subtle text-text-main/60 hover:text-text-main"
+                  )}
+                >
+                  📊 {t('settings_sticky_panel')}
+                </button>
+              </div>
+
+              {!betaLifeLog && (
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <button
+                    onClick={() => setShowTitle(!showTitle)}
+                    className={cn(
+                      "px-3 py-2.5 rounded-xl border text-sm transition-all",
+                      showTitle
+                        ? "border-text-main bg-text-main text-surface-base"
+                        : "border-border-subtle text-text-main/60 hover:text-text-main"
+                    )}
+                  >
+                    ✏️ {t('settings_show_title')}
+                  </button>
+                  <button
+                    onClick={() => setShowPinnedThoughts(!showPinnedThoughts)}
+                    className={cn(
+                      "px-3 py-2.5 rounded-xl border text-sm transition-all",
+                      showPinnedThoughts
+                        ? "border-text-main bg-text-main text-surface-base"
+                        : "border-border-subtle text-text-main/60 hover:text-text-main"
+                    )}
+                  >
+                    📎 {t('settings_show_pinned')}
+                  </button>
+                </div>
+              )}
+            </Section>
+
+            <Section title={t('settings_show_in_panel')}>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { key: 'currentTime',  label: t('header_currentTime'),  emoji: '🕐' },
+                  { key: 'sessionTime',  label: t('header_sessionTime'),  emoji: '⏱' },
+                  { key: 'sessionWords', label: t('header_sessionWords'), emoji: '📝' },
+                  { key: 'totalWords',   label: t('header_totalWords'),   emoji: '📊' },
+                  { key: 'wpm',          label: t('header_wpm'),          emoji: '💨' },
+                ] as const).map(item => (
+                  <button
+                    key={item.key}
+                    onClick={() => toggleVisibility(item.key)}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all",
+                      headerVisibility[item.key]
+                        ? "border-text-main bg-text-main/10 text-text-main"
+                        : "border-border-subtle text-text-main/40 hover:text-text-main/60"
+                    )}
+                  >
+                    <span className="text-base shrink-0">{item.emoji}</span>
+                    <span className="text-xs font-medium leading-tight flex-1">{item.label}</span>
+                    <span className={cn(
+                      "text-xs shrink-0",
+                      headerVisibility[item.key] ? "text-text-main" : "text-text-main/40"
+                    )}>
+                      {headerVisibility[item.key] ? '✓' : '○'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </Section>
+
+          </div>
+        )}
+
+        {/* ── TAB 2: APP ── */}
+        {activeTab === 'app' && (
+          <div className="space-y-4 mt-2">
+
+            {/* Theme */}
+            <Section title={t('profile_theme_title')}>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.values(themes).map(theme => (
+                  <button
+                    key={theme.id}
+                    onClick={() => setThemeId(theme.id)}
+                    className={cn(
+                      "px-4 py-2.5 rounded-xl border text-sm font-medium transition-all text-left",
+                      themeId === theme.id
+                        ? "border-text-main bg-text-main text-surface-base"
+                        : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full shrink-0 border border-black/10"
+                        style={{ backgroundColor: THEME_ACCENT[theme.id] }}
+                      />
+                      <span>{language === 'ru' ? theme.nameRu : theme.nameEn}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </Section>
+
+            {/* Language */}
+            <Section title={t('settings_language')}>
+              <div className="grid grid-cols-2 gap-2">
+                {(['ru', 'en'] as const).map(lang => (
+                  <button
+                    key={lang}
+                    onClick={() => setLanguage(lang)}
+                    className={cn(
+                      "px-4 py-2.5 rounded-xl border text-sm font-medium transition-all",
+                      language === lang
+                        ? "border-text-main bg-text-main text-surface-base"
+                        : "border-border-subtle text-text-main/60 hover:text-text-main"
+                    )}
+                  >
+                    {lang === 'ru' ? '🇷🇺 Русский' : '🇺🇸 English'}
+                  </button>
+                ))}
+              </div>
+            </Section>
+
+            {/* Layout */}
+            <Section title={t('settings_layout')}>
+              <div className="grid grid-cols-2 gap-2">
+                {(['desktop', 'mobile'] as const).map(mode => (
+                  <button
+                    key={mode}
+                    onClick={() => setLayoutMode(mode)}
+                    className={cn(
+                      "px-4 py-2.5 rounded-xl border text-sm font-medium transition-all",
+                      layoutMode === mode
+                        ? "border-text-main bg-text-main text-surface-base"
+                        : "border-border-subtle text-text-main/60 hover:text-text-main"
+                    )}
+                  >
+                    {mode === 'desktop' ? `🖥 ${t('layout_desktop')}` : `📱 ${t('layout_mobile')}`}
+                  </button>
+                ))}
+              </div>
+            </Section>
+
+            {/* Interface toggles */}
+            <Section title={t('settings_interface')}>
+              <ToggleRow label={t('settings_classic_nav')} value={classicNav} onChange={() => setClassicNav(!classicNav)} />
+              <ToggleRow label={t('profile_settings_beta')} value={betaMode} onChange={() => setBetaMode(!betaMode)} />
+              <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-border-subtle hover:bg-text-main/5 transition-all">
+                <span className="text-sm text-text-main/70">{t('settings_beta_lifelog')}</span>
+                <Toggle checked={betaLifeLog} onChange={setBetaLifeLog} />
+              </div>
+            </Section>
+          </div>
+        )}
+
+        {/* ── TAB 3: ACCOUNT ── */}
+        {activeTab === 'account' && (
+          <div className="space-y-4 mt-2">
+            <Section title={t('settings_features')}>
+              <ToggleRow label={t('profile_settings_community')} value={communityMode} onChange={() => setCommunityMode(!communityMode)} />
+              <ToggleRow label={t('profile_settings_ai')} value={aiMode} onChange={() => setAiMode(!aiMode)} />
+            </Section>
+
+            <Section title={t('profile_achievements')}>
+              {!confirmReset ? (
+                <button
+                  onClick={() => setConfirmReset(true)}
+                  className="text-sm text-red-400/70 hover:text-red-400 transition-colors underline underline-offset-2"
+                >
+                  {t('profile_reset_achievements')}
+                </button>
+              ) : (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-sm text-text-main/50">{t('profile_reset_achievements_confirm')}</span>
+                  <button
+                    onClick={async () => { await ProfileService.resetAchievements(userId); setConfirmReset(false); }}
+                    className="text-sm font-bold text-red-400"
+                  >
+                    {t('finish_discard')}
+                  </button>
+                  <button onClick={() => setConfirmReset(false)} className="text-sm text-text-main/40">
+                    {t('writing_cancel')}
+                  </button>
+                </div>
+              )}
+            </Section>
+
+            <Section title={t('nav_logout')}>
+              <button
+                onClick={() => signOut(auth)}
+                className="w-full px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-red-400 hover:border-red-400/30 transition-all text-left"
+              >
+                {t('nav_logout')}
+              </button>
+            </Section>
+
+            <DataTransfer />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
+  const { t } = useLanguage();
 
   return (
     <AnimatePresence>
@@ -91,305 +401,7 @@ export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
               </button>
             </div>
 
-            {/* Tabs */}
-            <div className="flex items-center gap-1 px-4 pt-3 pb-0 shrink-0">
-              {tabs.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    "flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-all",
-                    activeTab === tab.id
-                      ? "bg-text-main text-surface-base"
-                      : "text-text-main/50 hover:text-text-main hover:bg-text-main/8"
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-
-              {/* ── TAB 1: EDITOR ── */}
-              {activeTab === 'editor' && (
-                <div className="space-y-5">
-
-                  {/* Font — 2x2 grid with preview */}
-                  <Section title={t('settings_font')}>
-                    <div className="grid grid-cols-2 gap-2">
-                      {fonts.map(font => (
-                        <button
-                          key={font}
-                          onClick={() => setFontFamily(font)}
-                          className={cn(
-                            "px-3 py-3 rounded-xl border text-left transition-all",
-                            fontFamily === font
-                              ? "border-text-main bg-text-main text-surface-base"
-                              : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
-                          )}
-                        >
-                          <div className="text-sm font-medium" style={{ fontFamily: font }}>
-                            {font.split(' ')[0]}
-                          </div>
-                          <div className="text-xs opacity-50 mt-0.5" style={{ fontFamily: font }}>
-                            Аа 123
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </Section>
-
-                  {/* Font size — slider */}
-                  <Section title={t('settings_font_size')}>
-                    <div className="flex items-center gap-3 px-1">
-                      <input
-                        type="range" min={14} max={24} step={1}
-                        value={fontSize}
-                        onChange={e => setFontSize(Number(e.target.value))}
-                        className="flex-1 accent-text-main"
-                      />
-                      <span className="text-sm font-mono text-text-main w-10 text-right">
-                        {fontSize}px
-                      </span>
-                    </div>
-                  </Section>
-
-                  {/* Text width */}
-                  <Section title={t('settings_editor_width')}>
-                    <div className="flex items-center gap-3 px-1">
-                      <input
-                        type="range"
-                        min={600}
-                        max={1400}
-                        step={1}
-                        value={textWidth}
-                        onChange={e => setTextWidth(Number(e.target.value))}
-                        className="flex-1 accent-text-main"
-                      />
-                      <span className="text-sm font-mono text-text-main w-16 text-right">
-                        {textWidth >= 1400 ? '100%' : `${textWidth}px`}
-                      </span>
-                    </div>
-                  </Section>
-
-                  {/* Writing modes — with emoji icons */}
-                  <Section title={t('settings_writing_modes')}>
-                    <ToggleRow emoji="🧘" label={t('settings_zen_mode')}    value={zenModeEnabled}  onChange={() => setZenModeEnabled(!zenModeEnabled)} />
-                    <ToggleRow emoji="🌊" label={t('settings_stream_mode')} value={streamMode}       onChange={toggleStreamMode} />
-                  </Section>
-
-                  {/* Header */}
-                  <Section title={t('settings_header')}>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => setStickyHeader(!stickyHeader)}
-                        className={cn(
-                          "px-3 py-2.5 rounded-xl border text-sm transition-all",
-                          stickyHeader
-                            ? "border-text-main bg-text-main text-surface-base"
-                            : "border-border-subtle text-text-main/60 hover:text-text-main"
-                        )}
-                      >
-                        📌 {t('settings_sticky_header')}
-                      </button>
-                      <button
-                        onClick={() => setStickyPanel(!stickyPanel)}
-                        className={cn(
-                          "px-3 py-2.5 rounded-xl border text-sm transition-all",
-                          stickyPanel
-                            ? "border-text-main bg-text-main text-surface-base"
-                            : "border-border-subtle text-text-main/60 hover:text-text-main"
-                        )}
-                      >
-                        📊 {t('settings_sticky_panel')}
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      <button
-                        onClick={() => setShowTitle(!showTitle)}
-                        className={cn(
-                          "px-3 py-2.5 rounded-xl border text-sm transition-all",
-                          showTitle
-                            ? "border-text-main bg-text-main text-surface-base"
-                            : "border-border-subtle text-text-main/60 hover:text-text-main"
-                        )}
-                      >
-                        ✏️ {t('settings_show_title')}
-                      </button>
-                      <button
-                        onClick={() => setShowPinnedThoughts(!showPinnedThoughts)}
-                        className={cn(
-                          "px-3 py-2.5 rounded-xl border text-sm transition-all",
-                          showPinnedThoughts
-                            ? "border-text-main bg-text-main text-surface-base"
-                            : "border-border-subtle text-text-main/60 hover:text-text-main"
-                        )}
-                      >
-                        📎 {t('settings_show_pinned')}
-                      </button>
-                    </div>
-                  </Section>
-
-                  {/* Header visibility — compact checkbox grid */}
-                  <Section title={t('settings_show_in_panel')}>
-                    <div className="grid grid-cols-2 gap-2">
-                      {([
-                        { key: 'currentTime',  label: t('header_currentTime'),  emoji: '🕐' },
-                        { key: 'sessionTime',  label: t('header_sessionTime'),  emoji: '⏱' },
-                        { key: 'sessionWords', label: t('header_sessionWords'), emoji: '📝' },
-                        { key: 'totalWords',   label: t('header_totalWords'),   emoji: '📊' },
-                        { key: 'wpm',          label: t('header_wpm'),          emoji: '💨' },
-                      ] as const).map(item => (
-                        <button
-                          key={item.key}
-                          onClick={() => toggleVisibility(item.key)}
-                          className={cn(
-                            "flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all",
-                            headerVisibility[item.key]
-                              ? "border-text-main bg-text-main/10 text-text-main"
-                              : "border-border-subtle text-text-main/40 hover:text-text-main/60"
-                          )}
-                        >
-                          <span className="text-base shrink-0">{item.emoji}</span>
-                          <span className="text-xs font-medium leading-tight flex-1">{item.label}</span>
-                          <span className={cn(
-                            "text-xs shrink-0",
-                            headerVisibility[item.key] ? "text-text-main" : "text-text-main/40"
-                          )}>
-                            {headerVisibility[item.key] ? '✓' : '○'}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </Section>
-
-                </div>
-              )}
-
-              {/* ── TAB 2: APP ── */}
-              {activeTab === 'app' && (
-                <div className="space-y-4">
-
-                  {/* Theme */}
-                  <Section title={t('profile_theme_title')}>
-                    <div className="grid grid-cols-2 gap-2">
-                      {Object.values(themes).map(theme => (
-                        <button
-                          key={theme.id}
-                          onClick={() => setThemeId(theme.id)}
-                          className={cn(
-                            "px-4 py-2.5 rounded-xl border text-sm font-medium transition-all text-left",
-                            themeId === theme.id
-                              ? "border-text-main bg-text-main text-surface-base"
-                              : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
-                          )}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-3 h-3 rounded-full shrink-0 border border-black/10"
-                              style={{ backgroundColor: THEME_ACCENT[theme.id] }}
-                            />
-                            <span>{language === 'ru' ? theme.nameRu : theme.nameEn}</span>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </Section>
-
-                  {/* Language */}
-                  <Section title={t('settings_language')}>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(['ru', 'en'] as const).map(lang => (
-                        <button
-                          key={lang}
-                          onClick={() => setLanguage(lang)}
-                          className={cn(
-                            "px-4 py-2.5 rounded-xl border text-sm font-medium transition-all",
-                            language === lang
-                              ? "border-text-main bg-text-main text-surface-base"
-                              : "border-border-subtle text-text-main/60 hover:text-text-main"
-                          )}
-                        >
-                          {lang === 'ru' ? '🇷🇺 Русский' : '🇺🇸 English'}
-                        </button>
-                      ))}
-                    </div>
-                  </Section>
-
-                  {/* Layout */}
-                  <Section title={t('settings_layout')}>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(['desktop', 'mobile'] as const).map(mode => (
-                        <button
-                          key={mode}
-                          onClick={() => setLayoutMode(mode)}
-                          className={cn(
-                            "px-4 py-2.5 rounded-xl border text-sm font-medium transition-all",
-                            layoutMode === mode
-                              ? "border-text-main bg-text-main text-surface-base"
-                              : "border-border-subtle text-text-main/60 hover:text-text-main"
-                          )}
-                        >
-                          {mode === 'desktop' ? `🖥 ${t('layout_desktop')}` : `📱 ${t('layout_mobile')}`}
-                        </button>
-                      ))}
-                    </div>
-                  </Section>
-
-                  {/* Interface toggles */}
-                  <Section title={t('settings_interface')}>
-                    <ToggleRow label={t('settings_classic_nav')} value={classicNav} onChange={() => setClassicNav(!classicNav)} />
-                    <ToggleRow label={t('profile_settings_beta')} value={betaMode} onChange={() => setBetaMode(!betaMode)} />
-                  </Section>
-                </div>
-              )}
-
-              {/* ── TAB 3: ACCOUNT ── */}
-              {activeTab === 'account' && (
-                <div className="space-y-4">
-                  <Section title={t('settings_features')}>
-                    <ToggleRow label={t('profile_settings_community')} value={communityMode} onChange={() => setCommunityMode(!communityMode)} />
-                    <ToggleRow label={t('profile_settings_ai')} value={aiMode} onChange={() => setAiMode(!aiMode)} />
-                  </Section>
-
-                  <Section title={t('profile_achievements')}>
-                    {!confirmReset ? (
-                      <button
-                        onClick={() => setConfirmReset(true)}
-                        className="text-sm text-red-400/70 hover:text-red-400 transition-colors underline underline-offset-2"
-                      >
-                        {t('profile_reset_achievements')}
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <span className="text-sm text-text-main/50">{t('profile_reset_achievements_confirm')}</span>
-                        <button
-                          onClick={async () => { await ProfileService.resetAchievements(userId); setConfirmReset(false); }}
-                          className="text-sm font-bold text-red-400"
-                        >
-                          {t('finish_discard')}
-                        </button>
-                        <button onClick={() => setConfirmReset(false)} className="text-sm text-text-main/40">
-                          {t('writing_cancel')}
-                        </button>
-                      </div>
-                    )}
-                  </Section>
-
-                  <Section title={t('nav_logout')}>
-                    <button
-                      onClick={() => signOut(auth)}
-                      className="w-full px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-red-400 hover:border-red-400/30 transition-all text-left"
-                    >
-                      {t('nav_logout')}
-                    </button>
-                  </Section>
-                </div>
-              )}
-            </div>
+            <SettingsPanelContent userId={userId} />
           </motion.div>
         </>
       )}

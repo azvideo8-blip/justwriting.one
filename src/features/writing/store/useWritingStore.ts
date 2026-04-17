@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 export type TimerStatus = 'idle' | 'writing' | 'paused' | 'finished';
-export type SessionType = 'stopwatch' | 'timer' | 'words' | 'finish-by';
+export type SessionType = 'free' | 'stopwatch' | 'timer' | 'words' | 'finish-by';
 
 interface WordSnapshot { timestamp: number; wordCount: number; }
 
@@ -67,7 +67,7 @@ export const useWritingStore = create<WritingState>((set) => ({
   content: '', title: '', pinnedThoughts: [],
   wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
   lastWordCount: 0,
-  seconds: 0, status: 'idle', sessionType: 'stopwatch',
+  seconds: 0, status: 'idle', sessionType: 'free',
   timerDuration: 15 * 60, targetTime: null, wordGoal: 500,
   timeGoalReached: false, wordGoalReached: false, overtimeSeconds: 0,
   sessionStartWords: 0, sessionStartSeconds: 0,

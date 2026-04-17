@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { useWritingStore } from '../store/useWritingStore';
-import { Session, UserProfile } from '../../../types';
+import { Session, UserProfile, SessionPayload } from '../../../types';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useSettings } from '../../../core/settings/SettingsContext';
 import { GoalToast } from '../../../shared/components/GoalToast';
@@ -14,6 +14,8 @@ import { WritingSetup } from '../WritingSetup';
 import { WritingEditor } from '../WritingEditor';
 import { WritingFinishModal } from '../WritingFinishModal';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
+import { LifeLogPanel } from '../components/LifeLogPanel';
+import { WritingSessionService } from '../services/WritingSessionService';
 
 // Modals
 import { PasswordPromptModal } from '../components/modals/PasswordPromptModal';
@@ -45,17 +47,10 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
   const timeGoalReached = useWritingStore(s => s.timeGoalReached);
   const wordGoalReached = useWritingStore(s => s.wordGoalReached);
 
-  const { 
-    isZenActive, zenModeEnabled, 
-    textWidth, 
-    setStatus: setUIStatus
-  } = useWritingSettings();
-  const showZen = isZenActive && zenModeEnabled;
   const {
-    status: sessionStatus, setStatus: setSessionStatus,
     sessionType, setSessionType,
-    timerDuration, setTimerDuration,
-    wordGoal, setWordGoal,
+    setTimerDuration,
+    setWordGoal,
     targetTime, setTargetTime,
     seconds,
     isPublic, setIsPublic,
@@ -64,7 +59,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
     labelId, setLabelId,
     hasDraft,
     saveStatus, lastSavedAt,
-    handleStart, handleSave, handleCancel, resetSessionMetadata,
+    handleStart: hookHandleStart, handleSave, handleCancel, resetSessionMetadata,
     isOnline,
     fetchLocalSessions,
     loadLocalSession,
@@ -73,14 +68,44 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
     setActiveSessionId
   } = useWritingSession(user, profile);
 
-  useEffect(() => {
-    setUIStatus(sessionStatus);
-  }, [sessionStatus, setUIStatus]);
+  // 1. All hooks unconditionally:
+  const { 
+    isZenActive, zenModeEnabled, 
+    editorWidth, 
+    setStatus: setUIStatus,
+    betaLifeLog,
+    lifeLogVisible, setLifeLogVisible,
+    stickyPanel, setStickyPanel
+  } = useWritingSettings();
+  const showZen = isZenActive && zenModeEnabled;
+  const [lifeLogTab, setLifeLogTab] = useState<'log' | 'settings'>('log');
+  const title = useWritingStore(s => s.title);
+  const setTitle = useWritingStore(s => s.setTitle);
+  
+  // Existing hooks that were already there
+  const sessionStatus = useWritingStore(s => s.status);
+  const setSessionStatus = useWritingStore(s => s.setStatus);
+  const wordGoal = useWritingStore(s => s.wordGoal);
+  const timerDuration = useWritingStore(s => s.timerDuration);
+  const _wordCount = useWritingStore(s => s.wordCount);
 
   const flow = useSessionFlow(
-    handleStart, sessionStatus, sessionType, setSessionType,
-    targetTime, seconds, timeGoalReached, wordGoalReached
+    hookHandleStart, sessionStatus, sessionType, setSessionType,
+    targetTime, seconds, timeGoalReached, wordGoalReached,
+    betaLifeLog
   );
+
+  const handleStart = React.useCallback((type?: 'words' | 'timer' | 'free') => {
+    if (betaLifeLog) {
+      useWritingStore.getState().setSessionType('free');
+      useWritingStore.getState().setSessionStart();
+      hookHandleStart();
+    } else {
+      flow.startCountdown(type || 'free');
+    }
+  }, [flow, betaLifeLog, hookHandleStart]);
+
+  const handleFinish = () => setSessionStatus('finished');
 
   const [isLocalOnly, setIsLocalOnly] = useState(false);
   const { openSettings } = useSettings();
@@ -96,7 +121,27 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
     decryptSession
   });
 
+  // Edit loaded session immediately in Beta life log
+  const handleBetaContinueSession = React.useCallback(async (session: Session) => {
+    await continueSession(session);
+    if (betaLifeLog) {
+      flow.setSetupMode(null);
+      setSessionStatus('writing');
+      useWritingStore.getState().setSessionStart();
+      // Fix 4 — WPM сбрасывать при смене заметки
+      useWritingStore.setState({
+        wpm: 0,
+        wordSnapshots: [],
+        lastWordCount: 0,
+      });
+    }
+  }, [continueSession, betaLifeLog, setSessionStatus, flow]);
+
   const [firstVisit, setFirstVisit] = useLocalStorage('first-visit', true, z.boolean());
+
+  useEffect(() => {
+    setUIStatus(sessionStatus);
+  }, [sessionStatus, setUIStatus]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -132,13 +177,92 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
       // Очистить state
       navigate(location.pathname, { state: {}, replace: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionToContinue]);
+  }, [sessionToContinue, continueSession, navigate, location.pathname]);
 
   const handleNewSession = () => {
     resetSessionMetadata();
     flow.setSetupMode('selection');
   };
+
+  // Beta mode handlers
+  const handleBetaNew = () => {
+    useWritingStore.getState().resetSession();
+    useWritingStore.setState({ title: '', content: '' });
+  };
+
+  const handleBetaOpen = async () => {
+    await fetchSessions();
+    setLifeLogVisible(true);
+  };
+
+  const handleBetaSave = async () => {
+    if (sessionStatus === 'idle' || _wordCount === 0) return;
+    try {
+      const state = useWritingStore.getState();
+      
+      const sessionData: SessionPayload = {
+        userId: user.uid,
+        content: state.content,
+        title: state.title || '',
+        wordCount: state.wordCount,
+        duration: state.seconds - state.sessionStartSeconds,
+        isPublic: isPublic,
+        isAnonymous: isAnonymous,
+        tags: tags,
+        authorName: profile?.nickname || user.displayName || 'Anonymous',
+        authorPhoto: user.photoURL || '',
+        wpm: state.wpm,
+        charCount: state.content.length,
+      };
+
+      await WritingSessionService.saveSession(
+        sessionData, 
+        state.activeSessionId, 
+        isOnline, 
+        user.uid
+      );
+      
+      await fetchSessions();
+    } catch (e) {
+      console.error('Save failed:', e);
+    }
+  };
+
+  const handleBetaPlay = React.useCallback(() => {
+    if (sessionStatus === 'idle') {
+      useWritingStore.getState().setSessionType('free');
+      useWritingStore.getState().setSessionStart();
+      hookHandleStart();
+    } else if (sessionStatus === 'paused') {
+      useWritingStore.getState().setStatus('writing');
+    }
+  }, [sessionStatus, hookHandleStart]);
+
+  const handleBetaPause = () => {
+    if (sessionStatus !== 'writing') return;
+    useWritingStore.getState().setStatus('paused');
+  };
+
+  const handleBetaStop = async () => {
+    if (sessionStatus === 'idle') return;
+    useWritingStore.getState().setStatus('paused');
+    await handleBetaSave();
+  };
+
+  const handleBetaKeyDown = React.useCallback((e: KeyboardEvent) => {
+    if (!betaLifeLog) return;
+    if (sessionStatus !== 'idle') return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key.length !== 1) return; // only printable characters
+
+    // Auto-start = same as Play
+    handleBetaPlay();
+  }, [betaLifeLog, sessionStatus, handleBetaPlay]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleBetaKeyDown);
+    return () => window.removeEventListener('keydown', handleBetaKeyDown);
+  }, [handleBetaKeyDown]);
 
   const fetchAllSessions = async () => {
     await fetchSessions();
@@ -152,9 +276,6 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
       className="w-full transition-colors duration-1000"
     >
       <ConnectionStatusBanner isOnline={isOnline} showZen={showZen} />
-
-      {/* Progress Bar */}
-      {/* ProgressBar removed, now inline in WritingHeader */}
 
       <GoalToast visible={flow.goalToastVisible} type={flow.goalToastType} />
 
@@ -186,6 +307,17 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
       />
 
       <WritingFinishModal 
+        isOpen={sessionStatus === 'finished'}
+        onClose={() => setSessionStatus('idle')}
+        onConfirm={() => {
+          handleSave();
+          setSessionStatus('idle');
+        }}
+        title={title}
+        setTitle={setTitle}
+        sessionType={sessionType}
+        wordCount={_wordCount}
+        duration={seconds}
         isPublic={isPublic}
         setIsPublic={setIsPublic}
         isAnonymous={isAnonymous}
@@ -199,7 +331,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
         isLocalOnly={isLocalOnly}
       />
 
-      <AdaptiveContainer maxWidth={textWidth >= 1400 ? undefined : textWidth}>
+      <AdaptiveContainer maxWidth={editorWidth >= 1400 ? undefined : editorWidth}>
         <AnimatePresence>
           {!classicNav && !showZen && (
             <motion.div
@@ -221,16 +353,22 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
           loadingSessions={loadingSessions}
           hasDraft={hasDraft}
           onOpenSettings={openSettings}
-          handlePause={() => setSessionStatus('paused')}
-          handleStart={handleStart}
-          handleFinish={() => setSessionStatus('finished')}
+          handlePause={betaLifeLog ? handleBetaPause : () => setSessionStatus('paused')}
+          handleStart={betaLifeLog ? handleBetaPlay : handleStart}
+          handleFinish={handleFinish}
           setShowCancelConfirm={flow.setShowCancelConfirm}
           totalDurationForDeadline={flow.totalDurationForDeadline}
+          onNew={betaLifeLog ? handleBetaNew : handleNewSession}
+          onOpenLog={betaLifeLog ? handleBetaOpen : handleBetaOpen}
+          onSave={betaLifeLog ? handleBetaSave : handleFinish}
+          onPlay={handleBetaPlay}
+          onPause={handleBetaPause}
+          onStop={betaLifeLog ? handleBetaStop : handleBetaStop}
         />
 
         <div className="relative">
           <AnimatePresence>
-            {flow.setupMode && (
+            {!betaLifeLog && flow.setupMode && (
               <WritingSetup 
                 setupMode={flow.setupMode}
                 setSetupMode={flow.setSetupMode}
@@ -275,13 +413,27 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
           <WritingEditor 
             handlePause={() => setSessionStatus('paused')}
             handleStart={handleStart}
-            handleFinish={() => setSessionStatus('finished')}
+            handleFinish={handleFinish}
             setShowCancelConfirm={flow.setShowCancelConfirm}
             saveStatus={saveStatus}
             lastSavedAt={lastSavedAt}
           />
         </div>
       </AdaptiveContainer>
+
+      <AnimatePresence>
+        {betaLifeLog && lifeLogVisible && (
+          <LifeLogPanel 
+            userId={user.uid} 
+            onContinueSession={handleBetaContinueSession} 
+            onClose={() => setLifeLogVisible(false)} 
+            activeTab={lifeLogTab}
+            onTabChange={setLifeLogTab}
+            pinned={stickyPanel}
+            onTogglePin={() => setStickyPanel(!stickyPanel)}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
