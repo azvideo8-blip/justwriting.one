@@ -258,6 +258,7 @@ export const translations: Translations = {
 
   // Units
   unit_min: { ru: 'м', en: 'm' },
+  unit_hour: { ru: 'ч', en: 'h' },
   unit_words: { ru: 'сл', en: 'w' },
 
   // Common
@@ -384,6 +385,7 @@ export const translations: Translations = {
   lifelog_group_yesterday: { ru: 'Вчера', en: 'Yesterday' },
   lifelog_group_earlier: { ru: 'Раньше', en: 'Earlier' },
   lifelog_empty:        { ru: 'Нет сессий', en: 'No sessions yet' },
+  lifelog_search_placeholder: { ru: 'Поиск по заметкам...', en: 'Search notes...' },
 
   stats_set_word_goal: { ru: 'Цель по словам',  en: 'Set word goal' },
   stats_set_time_goal: { ru: 'Цель по времени', en: 'Set time goal' },
