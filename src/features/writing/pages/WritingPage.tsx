@@ -28,6 +28,7 @@ import { useSessionContinue } from '../hooks/useSessionContinue';
 import { useSessionFlow } from '../hooks/useSessionFlow';
 import { useLanguage } from '../../../core/i18n';
 import { ConnectionStatusBanner } from '../components/ConnectionStatusBanner';
+import { useToast } from '../../../shared/components/Toast';
 
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 import { z } from 'zod';
@@ -75,9 +76,10 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
     setStatus: setUIStatus,
     betaLifeLog,
     lifeLogVisible, setLifeLogVisible,
-    stickyPanel, setStickyPanel
+    lifeLogPinned, setLifeLogPinned
   } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
+  const { showToast } = useToast();
   const [lifeLogTab, setLifeLogTab] = useState<'log' | 'settings'>('log');
   const title = useWritingStore(s => s.title);
   const setTitle = useWritingStore(s => s.setTitle);
@@ -143,27 +145,6 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
     setUIStatus(sessionStatus);
   }, [sessionStatus, setUIStatus]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd+P (Mac) or Ctrl+P (Windows/Linux)
-      if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
-        // Only during active session
-        if (sessionStatus === 'writing' || sessionStatus === 'paused') {
-          e.preventDefault(); // block browser print dialog
-          
-          if (sessionStatus === 'writing') {
-            setSessionStatus('paused');
-          } else if (sessionStatus === 'paused') {
-            handleStart();
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sessionStatus, handleStart, setSessionStatus]);
-
   const { userSessions, loadingSessions, fetchAllSessions: fetchSessions } = useSessionList(
     user.uid,
     fetchLocalSessions,
@@ -186,6 +167,11 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
 
   // Beta mode handlers
   const handleBetaNew = () => {
+    const state = useWritingStore.getState();
+    if (state.wordCount > 0 && state.status !== 'idle') {
+      flow.setShowCancelConfirm(true);
+      return;
+    }
     useWritingStore.getState().resetSession();
     useWritingStore.setState({ title: '', content: '' });
   };
@@ -195,7 +181,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
     setLifeLogVisible(true);
   };
 
-  const handleBetaSave = async () => {
+  const handleBetaSave = React.useCallback(async () => {
     if (sessionStatus === 'idle' || _wordCount === 0) return;
     try {
       const state = useWritingStore.getState();
@@ -223,10 +209,39 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
       );
       
       await fetchSessions();
+      showToast(t('beta_save_success'), 'success');
     } catch (e) {
       console.error('Save failed:', e);
+      showToast(t('beta_save_error'), 'error');
     }
-  };
+  }, [sessionStatus, _wordCount, user, isPublic, isAnonymous, tags, profile, isOnline, showToast, t, fetchSessions]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+P (Mac) or Ctrl+P (Windows/Linux)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+        // Only during active session
+        if (sessionStatus === 'writing' || sessionStatus === 'paused') {
+          e.preventDefault(); // block browser print dialog
+          
+          if (sessionStatus === 'writing') {
+            setSessionStatus('paused');
+          } else if (sessionStatus === 'paused') {
+            handleStart();
+          }
+        }
+      }
+
+      // New: Cmd+S for save in Beta mode
+      if (betaLifeLog && (e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        handleBetaSave();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [sessionStatus, handleStart, setSessionStatus, betaLifeLog, handleBetaSave]);
 
   const handleBetaPlay = React.useCallback(() => {
     if (sessionStatus === 'idle') {
@@ -247,7 +262,13 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
     if (sessionStatus === 'idle') return;
     useWritingStore.getState().setStatus('paused');
     await handleBetaSave();
+    useWritingStore.getState().setStatus('idle');
   };
+
+  const handleBetaPlayRef = React.useRef(handleBetaPlay);
+  useEffect(() => {
+    handleBetaPlayRef.current = handleBetaPlay;
+  }, [handleBetaPlay]);
 
   const handleBetaKeyDown = React.useCallback((e: KeyboardEvent) => {
     if (!betaLifeLog) return;
@@ -256,8 +277,8 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
     if (e.key.length !== 1) return; // only printable characters
 
     // Auto-start = same as Play
-    handleBetaPlay();
-  }, [betaLifeLog, sessionStatus, handleBetaPlay]);
+    handleBetaPlayRef.current();
+  }, [betaLifeLog, sessionStatus]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleBetaKeyDown);
@@ -426,11 +447,13 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
           <LifeLogPanel 
             userId={user.uid} 
             onContinueSession={handleBetaContinueSession} 
-            onClose={() => setLifeLogVisible(false)} 
+            onClose={() => {
+              if (!lifeLogPinned) setLifeLogVisible(false);
+            }} 
             activeTab={lifeLogTab}
             onTabChange={setLifeLogTab}
-            pinned={stickyPanel}
-            onTogglePin={() => setStickyPanel(!stickyPanel)}
+            pinned={lifeLogPinned}
+            onTogglePin={() => setLifeLogPinned(!lifeLogPinned)}
           />
         )}
       </AnimatePresence>

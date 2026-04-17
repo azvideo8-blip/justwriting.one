@@ -6,25 +6,26 @@ import { Session } from '../../../types';
 import { formatTime } from '../../../core/utils/formatTime';
 import { SettingsPanelContent } from '../../settings/components/SettingsPanel';
 import { motion } from 'motion/react';
-import { Pin } from 'lucide-react';
+import { X, Pin } from 'lucide-react';
 
 interface SessionItemProps {
   session: Session;
   isActive: boolean;
   onClick: () => void;
   t: (key: string) => string;
+  language: string;
 }
 
-const SessionItem = ({ session, isActive, onClick, t }: SessionItemProps) => {
+const SessionItem = ({ session, isActive, onClick, t, language }: SessionItemProps) => {
   const date = parseFirestoreDate(session.createdAt);
   const timeStr = date
-    ? date.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })
+    ? date.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })
     : '';
 
   const getStatusBadge = () => {
-    if (!session.id) return { label: 'не сохранено', cls: 'bg-text-main/10 text-text-main' };
-    if (session.isPublic) return { label: 'опубликовано', cls: 'bg-emerald-500/10 text-emerald-500' };
-    return { label: 'сохранено', cls: 'bg-blue-500/10 text-blue-500' };
+    if (!session.id) return { label: t('lifelog_status_unsaved'), cls: 'bg-text-main/10 text-text-main' };
+    if (session.isPublic) return { label: t('lifelog_status_published'), cls: 'bg-emerald-500/10 text-emerald-500' };
+    return { label: t('lifelog_status_saved'), cls: 'bg-blue-500/10 text-blue-500' };
   };
 
   const badge = getStatusBadge();
@@ -84,8 +85,7 @@ export function LifeLogPanel({
     else setInternalTab(tab);
   };
 
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { sessionGroups, summary, loading } = useLifeLog(userId);
 
   return (
@@ -94,7 +94,7 @@ export function LifeLogPanel({
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 380, opacity: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="fixed top-0 right-0 bottom-0 w-[380px] z-50 flex flex-col border-l border-border-subtle bg-surface-card backdrop-blur-xl shadow-2xl"
+      className="fixed top-0 right-0 bottom-0 w-full max-w-[380px] z-50 flex flex-col border-l border-border-subtle bg-surface-card backdrop-blur-xl shadow-2xl"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
@@ -141,9 +141,9 @@ export function LifeLogPanel({
           {/* Close Button */}
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-xl text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all flex items-center justify-center text-sm"
+            className="w-8 h-8 rounded-xl text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all flex items-center justify-center"
           >
-            ✕
+            <X size={14} />
           </button>
         </div>
       </div>
@@ -184,12 +184,12 @@ export function LifeLogPanel({
                       <SessionItem
                         key={session.id}
                         session={session}
-                        isActive={activeSessionId === session.id}
+                        isActive={false} // Managed externally if needed
                         onClick={() => {
-                          setActiveSessionId(session.id!);
                           onContinueSession(session);
                         }}
                         t={t}
+                        language={language}
                       />
                     ))}
                   </div>
