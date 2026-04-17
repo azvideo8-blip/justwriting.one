@@ -26,6 +26,7 @@ interface WritingState {
   overtimeSeconds: number;
   sessionStartWords: number;
   sessionStartSeconds: number;
+  accumulatedDuration: number;
 
   isPublic: boolean;
   isAnonymous: boolean;
@@ -60,6 +61,7 @@ interface WritingState {
   setSessionStartTime: (time: number | null) => void;
   setTimeGoalReached: (reached: boolean) => void;
   setWordGoalReached: (reached: boolean) => void;
+  setAccumulatedDuration: (d: number) => void;
   resetSessionMetadata: () => void;
 }
 
@@ -70,7 +72,7 @@ export const useWritingStore = create<WritingState>((set) => ({
   seconds: 0, status: 'idle', sessionType: 'free',
   timerDuration: 15 * 60, targetTime: null, wordGoal: 500,
   timeGoalReached: false, wordGoalReached: false, overtimeSeconds: 0,
-  sessionStartWords: 0, sessionStartSeconds: 0,
+  sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
 
   isPublic: false, isAnonymous: false, tags: [], labelId: undefined,
   initialDuration: 0, activeSessionId: null, encryptionPassword: '', sessionStartTime: null,
@@ -143,6 +145,7 @@ export const useWritingStore = create<WritingState>((set) => ({
   setSessionStartTime: (sessionStartTime) => set({ sessionStartTime }),
   setTimeGoalReached: (timeGoalReached) => set({ timeGoalReached }),
   setWordGoalReached: (wordGoalReached) => set({ wordGoalReached }),
+  setAccumulatedDuration: (accumulatedDuration) => set({ accumulatedDuration }),
   
   resetSessionMetadata: () => set({
     initialWordCount: 0,
@@ -161,7 +164,7 @@ export const useWritingStore = create<WritingState>((set) => ({
     wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
     lastWordCount: 0,
     seconds: 0, status: 'idle', timeGoalReached: false, wordGoalReached: false,
-    overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0
+    overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0
   }),
 
   tick: () => set((state) => {
