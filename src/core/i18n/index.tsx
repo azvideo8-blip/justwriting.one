@@ -83,6 +83,8 @@ export const translations: Translations = {
   header_cancel_session: { ru: 'Отменить сессию', en: 'Cancel Session' },
   header_fullscreen:      { ru: 'Полный экран', en: 'Fullscreen' },
   header_exit_fullscreen: { ru: 'Выйти из полного экрана', en: 'Exit fullscreen' },
+  beta_fullscreen:        { ru: 'Полный экран', en: 'Fullscreen' },
+  beta_exit_fullscreen:   { ru: 'Выйти из полного экрана', en: 'Exit fullscreen' },
   header_in_flow: { ru: 'В потоке', en: 'In Flow' },
   header_settings: { ru: 'Настройки', en: 'Settings' },
   nav_settings: { ru: 'Настройки', en: 'Settings' },

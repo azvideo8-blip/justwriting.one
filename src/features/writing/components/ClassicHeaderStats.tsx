@@ -3,6 +3,7 @@ import { Clock } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { formatTime } from '../../../core/utils/formatTime';
 import { useLanguage } from '../../../core/i18n';
+import { getWpmColor } from '../utils/wpmColors';
 
 interface ClassicHeaderStatsProps {
   status: string;
@@ -82,7 +83,7 @@ export function ClassicHeaderStats({
                   {status === 'writing' && (
                     <div className={cn(
                       "w-1.5 h-1.5 rounded-full animate-pulse transition-colors duration-500",
-                      wpm === 0 ? "bg-stone-300" : wpm < 10 ? "bg-amber-400" : wpm < 20 ? "bg-lime-400" : "bg-emerald-500"
+                      getWpmColor(wpm)
                     )} />
                   )}
                 </div>
