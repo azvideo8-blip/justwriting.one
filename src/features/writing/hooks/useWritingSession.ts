@@ -5,63 +5,106 @@ import { useSessionPersistence } from './useSessionPersistence';
 import { UserProfile } from '../../../types';
 
 export function useWritingSession(user: User, profile: UserProfile | null) {
-  const store = useWritingStore();
+  const title = useWritingStore(s => s.title);
+  const content = useWritingStore(s => s.content);
+  const pinnedThoughts = useWritingStore(s => s.pinnedThoughts);
+  const isPublic = useWritingStore(s => s.isPublic);
+  const isAnonymous = useWritingStore(s => s.isAnonymous);
+  const tags = useWritingStore(s => s.tags);
+  const sessionType = useWritingStore(s => s.sessionType);
+  const activeSessionId = useWritingStore(s => s.activeSessionId);
+  const encryptionPassword = useWritingStore(s => s.encryptionPassword);
+  const initialDuration = useWritingStore(s => s.initialDuration);
+  const initialWordCount = useWritingStore(s => s.initialWordCount);
+  const sessionStartTime = useWritingStore(s => s.sessionStartTime);
+  const seconds = useWritingStore(s => s.seconds);
+  const wpm = useWritingStore(s => s.wpm);
+  const wordCount = useWritingStore(s => s.wordCount);
+  const status = useWritingStore(s => s.status);
+  const timeGoalReached = useWritingStore(s => s.timeGoalReached);
+  const wordGoalReached = useWritingStore(s => s.wordGoalReached);
+  const wordGoal = useWritingStore(s => s.wordGoal);
+  const timerDuration = useWritingStore(s => s.timerDuration);
+  const targetTime = useWritingStore(s => s.targetTime);
+  const labelId = useWritingStore(s => s.labelId);
+
+  const setContent = useWritingStore(s => s.setContent);
+  const setTitle = useWritingStore(s => s.setTitle);
+  const setPinnedThoughts = useWritingStore(s => s.setPinnedThoughts);
+  const setActiveSessionId = useWritingStore(s => s.setActiveSessionId);
+  const setStatus = useWritingStore(s => s.setStatus);
+  const setInitialWordCount = useWritingStore(s => s.setInitialWordCount);
+  const setInitialDuration = useWritingStore(s => s.setInitialDuration);
+  const setTimeGoalReached = useWritingStore(s => s.setTimeGoalReached);
+  const setWordGoalReached = useWritingStore(s => s.setWordGoalReached);
+  const setSessionStartTime = useWritingStore(s => s.setSessionStartTime);
+  const setSessionStart = useWritingStore(s => s.setSessionStart);
+  const tick = useWritingStore(s => s.tick);
+  const setSessionType = useWritingStore(s => s.setSessionType);
+  const setTimerDuration = useWritingStore(s => s.setTimerDuration);
+  const setWordGoal = useWritingStore(s => s.setWordGoal);
+  const setTargetTime = useWritingStore(s => s.setTargetTime);
+  const setIsPublic = useWritingStore(s => s.setIsPublic);
+  const setIsAnonymous = useWritingStore(s => s.setIsAnonymous);
+  const setTags = useWritingStore(s => s.setTags);
+  const setLabelId = useWritingStore(s => s.setLabelId);
+  const setEncryptionPassword = useWritingStore(s => s.setEncryptionPassword);
+  const resetSession = useWritingStore(s => s.resetSession);
+  const resetSessionMetadata = useWritingStore(s => s.resetSessionMetadata);
+
   const [hasDraft, setHasDraft] = useState(false);
 
   const persistence = useSessionPersistence(
     user,
     profile,
     {
-      title: store.title,
-      content: store.content,
-      pinnedThoughts: store.pinnedThoughts,
-      isPublic: store.isPublic,
-      isAnonymous: store.isAnonymous,
-      tags: store.tags,
-      sessionType: store.sessionType,
-      activeSessionId: store.activeSessionId,
-      encryptionPassword: store.encryptionPassword || '',
-      initialDuration: store.initialDuration,
-      initialWordCount: store.initialWordCount,
-      sessionStartTime: store.sessionStartTime,
+      title,
+      content,
+      pinnedThoughts,
+      isPublic,
+      isAnonymous,
+      tags,
+      sessionType,
+      activeSessionId,
+      encryptionPassword: encryptionPassword || '',
+      initialDuration,
+      initialWordCount,
+      sessionStartTime,
     },
     {
-      seconds: store.seconds,
-      wpm: store.wpm,
-      wordCount: store.wordCount,
-      status: store.status,
-      timeGoalReached: store.timeGoalReached,
-      wordGoalReached: store.wordGoalReached,
+      seconds,
+      wpm,
+      wordCount,
+      status,
+      timeGoalReached,
+      wordGoalReached,
     },
     {
-      setContent: store.setContent,
-      setTitle: store.setTitle,
-      setPinnedThoughts: store.setPinnedThoughts,
-      setActiveSessionId: store.setActiveSessionId,
+      setContent,
+      setTitle,
+      setPinnedThoughts,
+      setActiveSessionId,
       setHasDraft,
-      resetSession: store.resetSession,
-      setStatus: store.setStatus,
-      setInitialWordCount: store.setInitialWordCount,
-      setInitialDuration: store.setInitialDuration,
+      resetSession,
+      setStatus,
+      setInitialWordCount,
+      setInitialDuration,
     }
   );
 
   const handleStart = useCallback(() => {
-    const currentStatus = store.status;
-    store.setStatus('writing');
-    store.setTimeGoalReached(false);
-    store.setWordGoalReached(false);
-    if (!store.sessionStartTime) {
-      store.setInitialWordCount(store.wordCount);
-      store.setSessionStartTime(Date.now());
+    const currentStatus = status;
+    setStatus('writing');
+    setTimeGoalReached(false);
+    setWordGoalReached(false);
+    if (!sessionStartTime) {
+      setInitialWordCount(wordCount);
+      setSessionStartTime(Date.now());
     }
     if (currentStatus === 'idle') {
-      store.setSessionStart();
+      setSessionStart();
     }
-  }, [store]);
-
-  const status = store.status;
-  const tick = store.tick;
+  }, [status, setStatus, setTimeGoalReached, setWordGoalReached, sessionStartTime, setInitialWordCount, wordCount, setSessionStartTime, setSessionStart]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -82,51 +125,51 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
     decryptSession: persistence.decryptSession,
     loadDraft: persistence.loadDraft,
     // State values
-    status: store.status,
-    sessionType: store.sessionType,
-    timerDuration: store.timerDuration,
-    wordGoal: store.wordGoal,
-    targetTime: store.targetTime,
-    content: store.content,
-    title: store.title,
-    pinnedThoughts: store.pinnedThoughts,
-    seconds: store.seconds,
-    wpm: store.wpm,
-    wordCount: store.wordCount,
-    isPublic: store.isPublic,
-    isAnonymous: store.isAnonymous,
-    tags: store.tags,
-    labelId: store.labelId,
-    timeGoalReached: store.timeGoalReached,
-    wordGoalReached: store.wordGoalReached,
-    initialWordCount: store.initialWordCount,
-    initialDuration: store.initialDuration,
-    activeSessionId: store.activeSessionId,
-    encryptionPassword: store.encryptionPassword,
+    status,
+    sessionType,
+    timerDuration,
+    wordGoal,
+    targetTime,
+    content,
+    title,
+    pinnedThoughts,
+    seconds,
+    wpm,
+    wordCount,
+    isPublic,
+    isAnonymous,
+    tags,
+    labelId,
+    timeGoalReached,
+    wordGoalReached,
+    initialWordCount,
+    initialDuration,
+    activeSessionId,
+    encryptionPassword,
     saveStatus: persistence.saveStatus,
     lastSavedAt: persistence.lastSavedAt,
     isOnline: persistence.isOnline,
     hasDraft,
     // Setters
     setHasDraft,
-    setStatus: store.setStatus,
-    setSessionType: store.setSessionType,
-    setTimerDuration: store.setTimerDuration,
-    setWordGoal: store.setWordGoal,
-    setTargetTime: store.setTargetTime,
-    setContent: store.setContent,
-    setTitle: store.setTitle,
-    setPinnedThoughts: store.setPinnedThoughts,
-    setIsPublic: store.setIsPublic,
-    setIsAnonymous: store.setIsAnonymous,
-    setTags: store.setTags,
-    setLabelId: store.setLabelId,
-    setInitialWordCount: store.setInitialWordCount,
-    setInitialDuration: store.setInitialDuration,
-    setActiveSessionId: store.setActiveSessionId,
-    setEncryptionPassword: store.setEncryptionPassword,
-    resetSession: store.resetSession,
-    resetSessionMetadata: store.resetSessionMetadata
+    setStatus,
+    setSessionType,
+    setTimerDuration,
+    setWordGoal,
+    setTargetTime,
+    setContent,
+    setTitle,
+    setPinnedThoughts,
+    setIsPublic,
+    setIsAnonymous,
+    setTags,
+    setLabelId,
+    setInitialWordCount,
+    setInitialDuration,
+    setActiveSessionId,
+    setEncryptionPassword,
+    resetSession,
+    resetSessionMetadata
   };
 }
 

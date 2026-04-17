@@ -50,6 +50,7 @@ export const translations: Translations = {
   editor_content_placeholder: { ru: 'Начните писать...', en: 'Start writing...' },
   editor_idle_placeholder: { ru: 'Выберите режим и нажмите "Начать", чтобы приступить к письму', en: 'Select a mode and click "Start" to begin writing' },
   editor_writing_placeholder: { ru: 'Начните писать здесь...', en: 'Start writing here...' },
+  writing_placeholder_beta: { ru: 'Просто начни писать...', en: 'Just start writing...' },
   editor_pinned_thoughts: { ru: 'Закрепленные мысли', en: 'Pinned Thoughts' },
   editor_pinned_placeholder: { ru: 'Ваша закрепленная мысль...', en: 'Your pinned thought...' },
   editor_add_thought: { ru: 'Добавить мысль...', en: 'Add a thought...' },
@@ -66,7 +67,13 @@ export const translations: Translations = {
   header_overtime: { ru: 'Сверх нормы', en: 'Overtime' },
   header_sessionWords: { ru: 'Слов в сессии',    en: 'Session words' },
   header_totalWords:   { ru: 'Всего слов',        en: 'Total words' },
-  header_wpm:          { ru: 'WPM',               en: 'WPM' },
+  header_wpm:          { ru: 'сл/мин',             en: 'wpm' },
+  header_sessionWords_hint: { ru: 'слов в сессии · цель', en: 'session words · set goal' },
+  header_time_hint:         { ru: 'время · цель',          en: 'time · set goal' },
+  goal_time_remaining:      { ru: 'осталось',              en: 'remaining' },
+  goal_time_done:           { ru: 'истекло',               en: 'done' },
+  goal_time_of:             { ru: 'из',                    en: 'of' },
+  goal_time_min:            { ru: 'мин',                   en: 'min' },
   header_new_session: { ru: 'Новая сессия', en: 'New Session' },
   header_continue: { ru: 'Продолжить', en: 'Continue' },
   header_draft: { ru: 'Черновик', en: 'Draft' },
@@ -349,7 +356,7 @@ export const translations: Translations = {
   topbar_new:  { ru: 'Новая заметка', en: 'New note' },
   topbar_open: { ru: 'Открыть',       en: 'Open' },
   topbar_save: { ru: 'Сохранить',     en: 'Save' },
-  topbar_title_placeholder: { ru: 'Название заметки...', en: 'Note title...' },
+  topbar_title_placeholder: { ru: 'Название сессии', en: 'Session title' },
   stats_words: { ru: 'Слова', en: 'Words' },
   stats_time: { ru: 'Время', en: 'Time' },
 
@@ -417,6 +424,14 @@ export const translations: Translations = {
   archive_empty_subtitle: { ru: 'Завершите первую сессию — она появится здесь', en: 'Finish your first session and it will appear here' },
   error_generic: { ru: 'Что-то пошло не так', en: 'Something went wrong' },
   error_reload: { ru: 'Перезагрузить', en: 'Reload' },
+  admin_access_denied:      { ru: 'Доступ запрещён',        en: 'Access Denied' },
+  admin_security_xss_title: { ru: 'XSS защита',             en: 'XSS Protection' },
+  admin_security_csrf_title:{ ru: 'CSRF защита',            en: 'CSRF Protection' },
+  profile_activity_title:   { ru: 'Активность',             en: 'Activity' },
+  data_export_all:          { ru: 'Экспортировать всё',      en: 'Export All Sessions' },
+  writing_go:               { ru: 'ПОЕХАЛИ!',               en: 'GO!' },
+  auth_email:               { ru: 'Email',                  en: 'Email' },
+  auth_email_placeholder:   { ru: 'ваш@email.com',          en: 'your@email.com' },
 };
 
 interface LanguageContextType {
@@ -469,6 +484,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   }, [language]);
 
   const tpFn = useCallback((key: string, count: number) => tp(key, count), [tp]);
+
+  React.useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t, tp: tpFn }}>

@@ -86,7 +86,7 @@ export function ClassicHeaderStats({
                     )} />
                   )}
                 </div>
-                <span className="text-[10px] uppercase font-bold tracking-wider text-text-main/30 leading-none">WPM</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-text-main/30 leading-none">{t('header_wpm')}</span>
               </div>
             </div>
           )}
