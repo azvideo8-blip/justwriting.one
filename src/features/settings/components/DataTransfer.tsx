@@ -6,6 +6,8 @@ import { reportError } from '../../../core/errors/reportError';
 import { ExportService } from '../../export/ExportService';
 import { SessionService } from '../../writing/services/SessionService';
 import { useAuthStatus } from '../../../features/auth/hooks/useAuthStatus';
+import { useToast } from '../../../shared/components/Toast';
+import { useLanguage } from '../../../core/i18n';
 
 const importSchema = z.array(z.object({
   content: z.string().min(1).max(50000),
@@ -23,6 +25,8 @@ export const DataTransfer: React.FC = () => {
   const { user } = useAuthStatus();
   const userId = user?.uid;
   const [loading, setLoading] = useState(false);
+  const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const handleExportAll = async () => {
     if (!userId) return;
@@ -31,10 +35,10 @@ export const DataTransfer: React.FC = () => {
       // Fetch all sessions
       const result = await SessionService.getAllSessions(userId, 1000); // Fetch up to 1000 sessions
       ExportService.toJson(result.sessions);
-      alert('All sessions exported successfully!');
+      showToast(t('data_export_success'), 'success');
     } catch (error) {
       console.error(error);
-      alert('Failed to export sessions.');
+      showToast(t('data_export_error'), 'error');
     } finally {
       setLoading(false);
     }
@@ -52,7 +56,7 @@ export const DataTransfer: React.FC = () => {
 
         if (!parsed.success) {
           console.error('Import validation failed:', parsed.error);
-          alert('Failed to import sessions: Invalid data format.');
+          showToast(t('data_import_invalid'), 'error');
           return;
         }
 
@@ -70,11 +74,11 @@ export const DataTransfer: React.FC = () => {
         }
 
         await batch.commit();
-        alert('Sessions imported successfully!');
+        showToast(t('data_import_success'), 'success');
       } catch (error) {
         console.error('Import failed:', error);
         reportError(error as Error, { context: 'data_transfer_import' });
-        alert('Failed to import sessions.');
+        showToast(t('data_import_error'), 'error');
       }
     };
     reader.readAsText(file);
@@ -82,13 +86,13 @@ export const DataTransfer: React.FC = () => {
 
   return (
     <div className="p-4 border rounded">
-      <h2 className="text-lg font-bold mb-2">Data Transfer</h2>
+      <h2 className="text-lg font-bold mb-2">{t('settings_data_section')}</h2>
       <button 
         onClick={handleExportAll} 
         disabled={loading}
         className="bg-blue-500 text-white p-2 rounded mr-2 disabled:opacity-50"
       >
-        {loading ? 'Exporting...' : 'Export All Sessions'}
+        {loading ? t('common_loading') : 'Export All Sessions'}
       </button>
       <input type="file" onChange={handleImport} className="p-2" />
     </div>

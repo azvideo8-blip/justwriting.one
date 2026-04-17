@@ -3,6 +3,7 @@ import { PenLine, History, User as UserIcon, Globe, Shield } from 'lucide-react'
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
 
 interface BetaSidebarProps {
   isAdmin: boolean;
@@ -12,6 +13,7 @@ interface BetaSidebarProps {
 export function BetaSidebar({ isAdmin, isZenActive }: BetaSidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useLanguage();
+  const { betaLifeLog, lifeLogVisible, setLifeLogVisible } = useWritingSettings();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -76,6 +78,28 @@ export function BetaSidebar({ isAdmin, isZenActive }: BetaSidebarProps) {
             </span>
           </button>
         ))}
+
+        {/* Life Log Toggle */}
+        {betaLifeLog && (
+          <button
+            onClick={() => setLifeLogVisible(!lifeLogVisible)}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden mt-1",
+              lifeLogVisible
+                ? "bg-text-main text-surface-base"
+                : "text-text-main/50 hover:text-text-main hover:bg-text-main/8"
+            )}
+            title="Life Log"
+          >
+            <span className="shrink-0"><History size={20} /></span>
+            <span className={cn(
+              "text-sm font-medium whitespace-nowrap transition-opacity duration-200",
+              expanded ? "opacity-100" : "opacity-0"
+            )}>
+              Life Log
+            </span>
+          </button>
+        )}
       </nav>
     </div>
   );
