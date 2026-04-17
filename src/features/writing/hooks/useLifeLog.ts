@@ -25,7 +25,7 @@ interface UseLifeLogReturn {
 export function useLifeLog(userId: string): UseLifeLogReturn {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const startOfToday = useMemo(() => {
     const now = new Date();
@@ -77,7 +77,7 @@ export function useLifeLog(userId: string): UseLifeLogReturn {
         } else if (sessionDay.getTime() === yesterday.getTime()) {
           label = t('lifelog_group_yesterday');
         } else {
-          label = date.toLocaleDateString('ru', {
+          label = date.toLocaleDateString(language, {
             day: 'numeric',
             month: 'long',
           });
@@ -90,7 +90,7 @@ export function useLifeLog(userId: string): UseLifeLogReturn {
 
     return Array.from(groups.values())
       .sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [sessions, startOfToday, t]);
+  }, [sessions, startOfToday, t, language]);
 
   return {
     sessionGroups,
