@@ -61,6 +61,7 @@ export function useSessionContinue({
         initialWordCount: (loaded.wordCount as number) || 0,
         seconds: (loaded.duration as number) || 0,
         wordCount: (loaded.wordCount as number) || 0,
+        accumulatedDuration: (loaded.duration as number) || 0,
       });
       setTags((loaded.tags as string[]) || []);
       setIsPublic((loaded.isPublic as boolean) || false);
@@ -77,6 +78,7 @@ export function useSessionContinue({
       initialWordCount: session.wordCount || 0,
       seconds: session.duration || 0,
       wordCount: session.wordCount || 0,
+      accumulatedDuration: session.duration || 0,
     });
     setTags(session.tags || []);
     setIsPublic(session.isPublic);
