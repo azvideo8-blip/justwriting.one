@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PenLine, History, User as UserIcon, Globe, Shield } from 'lucide-react';
+import { PenLine, History, User as UserIcon, Globe, Shield, Settings } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -13,7 +13,7 @@ interface BetaSidebarProps {
 export function BetaSidebar({ isAdmin, isZenActive }: BetaSidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useLanguage();
-  const { betaLifeLog, lifeLogVisible, setLifeLogVisible } = useWritingSettings();
+  const { betaLifeLog, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab } = useWritingSettings();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -48,20 +48,39 @@ export function BetaSidebar({ isAdmin, isZenActive }: BetaSidebarProps) {
           J
         </div>
         <span className={cn(
-          "font-bold text-lg text-text-main whitespace-nowrap transition-opacity duration-200",
-          expanded ? "opacity-100" : "opacity-0"
+          "font-bold text-lg text-text-main whitespace-nowrap overflow-hidden transition-all duration-300",
+          expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
         )}>
           justwriting
         </span>
       </div>
 
       {/* Nav items */}
-      <nav className="flex-1 flex flex-col gap-1 px-2">
+      <nav
+        className="flex-1 flex flex-col gap-1 px-2"
+        role="menubar"
+        onKeyDown={(e) => {
+          const items = Array.from(e.currentTarget.querySelectorAll('[role="menuitem"]')) as HTMLElement[];
+          const idx = items.indexOf(document.activeElement as HTMLElement);
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            const next = items[(idx + 1) % items.length];
+            next?.focus();
+          }
+          if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            const prev = items[(idx - 1 + items.length) % items.length];
+            prev?.focus();
+          }
+          if (e.key === 'Escape') setExpanded(false);
+        }}
+      >
         {navItems.map(item => (
           <button
             key={item.id}
             onClick={() => navigate(item.path)}
-            onKeyDown={(e) => { if (e.key === 'Enter') navigate(item.path); }}
+            role="menuitem"
+            tabIndex={0}
             aria-current={location.pathname === item.path ? 'page' : undefined}
             className={cn(
               "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
@@ -72,8 +91,8 @@ export function BetaSidebar({ isAdmin, isZenActive }: BetaSidebarProps) {
           >
             <span className="shrink-0">{item.icon}</span>
             <span className={cn(
-              "text-sm font-medium whitespace-nowrap transition-opacity duration-200",
-              expanded ? "opacity-100" : "opacity-0"
+              "text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
+              expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
             )}>
               {item.label}
             </span>
@@ -83,21 +102,63 @@ export function BetaSidebar({ isAdmin, isZenActive }: BetaSidebarProps) {
         {/* Life Log Toggle */}
         {betaLifeLog && (
           <button
-            onClick={() => setLifeLogVisible(!lifeLogVisible)}
+            onClick={() => {
+              if (!lifeLogVisible || lifeLogTab !== 'log') {
+                setLifeLogTab('log');
+                setLifeLogVisible(true);
+              } else {
+                setLifeLogVisible(false);
+              }
+            }}
+            role="menuitem"
+            tabIndex={0}
             className={cn(
               "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden mt-1",
-              lifeLogVisible
+              lifeLogVisible && lifeLogTab === 'log'
                 ? "bg-text-main text-surface-base"
                 : "text-text-main/50 hover:text-text-main hover:bg-text-main/8"
             )}
             title={t('lifelog_tab_log')}
+            aria-label={t('lifelog_tab_log')}
           >
             <span className="shrink-0"><History size={20} /></span>
             <span className={cn(
-              "text-sm font-medium whitespace-nowrap transition-opacity duration-200",
-              expanded ? "opacity-100" : "opacity-0"
+              "text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
+              expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
             )}>
               {t('lifelog_tab_log')}
+            </span>
+          </button>
+        )}
+
+        {/* Settings Toggle */}
+        {betaLifeLog && (
+          <button
+            onClick={() => {
+              if (!lifeLogVisible || lifeLogTab !== 'settings') {
+                setLifeLogTab('settings');
+                setLifeLogVisible(true);
+              } else {
+                setLifeLogVisible(false);
+              }
+            }}
+            role="menuitem"
+            tabIndex={0}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
+              lifeLogVisible && lifeLogTab === 'settings'
+                ? "bg-text-main text-surface-base"
+                : "text-text-main/50 hover:text-text-main hover:bg-text-main/8"
+            )}
+            title={t('lifelog_tab_settings')}
+            aria-label={t('lifelog_tab_settings')}
+          >
+            <span className="shrink-0"><Settings size={20} /></span>
+            <span className={cn(
+              "text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
+              expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
+            )}>
+              {t('lifelog_tab_settings')}
             </span>
           </button>
         )}

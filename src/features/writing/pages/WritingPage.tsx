@@ -76,11 +76,11 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
     setStatus: setUIStatus,
     betaLifeLog,
     lifeLogVisible, setLifeLogVisible,
+    lifeLogTab, setLifeLogTab,
     lifeLogPinned, setLifeLogPinned
   } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
   const { showToast } = useToast();
-  const [lifeLogTab, setLifeLogTab] = useState<'log' | 'settings'>('log');
   const title = useWritingStore(s => s.title);
   const setTitle = useWritingStore(s => s.setTitle);
   
@@ -89,7 +89,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
   const setSessionStatus = useWritingStore(s => s.setStatus);
   const wordGoal = useWritingStore(s => s.wordGoal);
   const timerDuration = useWritingStore(s => s.timerDuration);
-  const _wordCount = useWritingStore(s => s.wordCount);
+  const wordCount = useWritingStore(s => s.wordCount);
 
   const flow = useSessionFlow(
     hookHandleStart, sessionStatus, sessionType, setSessionType,
@@ -182,7 +182,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
   };
 
   const handleBetaSave = React.useCallback(async () => {
-    if (sessionStatus === 'idle' || _wordCount === 0) return;
+    if (sessionStatus === 'idle' || wordCount === 0) return;
     try {
       const state = useWritingStore.getState();
       
@@ -214,7 +214,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
       console.error('Save failed:', e);
       showToast(t('beta_save_error'), 'error');
     }
-  }, [sessionStatus, _wordCount, user, isPublic, isAnonymous, tags, profile, isOnline, showToast, t, fetchSessions]);
+  }, [sessionStatus, wordCount, user, isPublic, isAnonymous, tags, profile, isOnline, showToast, t, fetchSessions]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -260,7 +260,6 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
 
   const handleBetaStop = async () => {
     if (sessionStatus === 'idle') return;
-    useWritingStore.getState().setStatus('paused');
     await handleBetaSave();
     useWritingStore.getState().setStatus('idle');
   };
@@ -337,7 +336,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
         title={title}
         setTitle={setTitle}
         sessionType={sessionType}
-        wordCount={_wordCount}
+        wordCount={wordCount}
         duration={seconds}
         isPublic={isPublic}
         setIsPublic={setIsPublic}

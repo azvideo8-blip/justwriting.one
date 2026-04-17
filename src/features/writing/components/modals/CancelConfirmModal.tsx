@@ -1,8 +1,9 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { X } from 'lucide-react';
+import { X, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '../../../../core/i18n';
 import { useModalEscape } from '../../../../shared/hooks/useModalEscape';
+import { cn } from '../../../../core/utils/utils';
 
 interface CancelConfirmModalProps {
   isOpen: boolean;
@@ -12,7 +13,13 @@ interface CancelConfirmModalProps {
   description?: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  variant?: 'danger' | 'warning';
 }
+
+const variantConfig = {
+  danger: { bg: 'bg-red-500/10', text: 'text-red-500', icon: <X size={32} /> },
+  warning: { bg: 'bg-amber-500/10', text: 'text-amber-500', icon: <AlertTriangle size={32} /> },
+};
 
 export function CancelConfirmModal({
   isOpen,
@@ -21,9 +28,11 @@ export function CancelConfirmModal({
   title,
   description,
   confirmLabel,
-  cancelLabel
+  cancelLabel,
+  variant = 'danger'
 }: CancelConfirmModalProps) {
   const { t } = useLanguage();
+  const v = variantConfig[variant];
 
   useModalEscape(isOpen, onCancel);
 
@@ -43,8 +52,8 @@ export function CancelConfirmModal({
         >
           <X size={20} />
         </button>
-        <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto bg-red-500/10 text-red-500">
-          <X size={32} />
+        <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mx-auto", v.bg, v.text)}>
+          {v.icon}
         </div>
         <div className="space-y-2">
           <h3 className="text-xl font-bold text-text-main">

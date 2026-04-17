@@ -116,9 +116,9 @@ export const WritingHeader = React.memo(function WritingHeader({
           )}
         >
           {betaLifeLog ? (
-            <div className="w-full mx-auto flex flex-col gap-0 bg-surface-card backdrop-blur-2xl border border-border-subtle rounded-3xl shadow-sm overflow-visible p-3 px-6">
+            <div className="w-full mx-auto flex flex-col gap-0 bg-surface-card backdrop-blur-2xl border border-border-subtle rounded-3xl shadow-sm overflow-visible p-3 px-4">
               {/* Верхняя строка — панель инструментов */}
-              <div className="flex items-center gap-2 pb-3 border-b border-border-subtle/50 mb-3">
+              <div className="flex items-center gap-2 pb-2 border-b border-border-subtle mb-2">
                 <BetaToolbar 
                   onNew={onNew}
                   onOpenLog={onOpenLog}
@@ -144,6 +144,8 @@ export const WritingHeader = React.memo(function WritingHeader({
                 wordCount={wordCount}
                 wpm={wpm}
                 status={status}
+                currentTime={currentTime}
+                visibility={headerVisibility}
               />
             </div>
           ) : (
