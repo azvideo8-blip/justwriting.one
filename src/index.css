@@ -6,11 +6,30 @@
   --font-serif: "Playfair Display", serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   
-  /* Semantic Tokens */
+  /* Semantic Color Tokens */
   --color-surface-base: var(--bg-base);
   --color-text-main: var(--text-main);
   --color-border-subtle: var(--border-light);
   --color-surface-card: var(--surface-card);
+
+  /* Accent Tokens — theme-aware */
+  --color-accent-success: var(--accent-success);
+  --color-accent-warning: var(--accent-warning);
+  --color-accent-danger: var(--accent-danger);
+  --color-accent-info: var(--accent-info);
+
+  /* Muted text tokens */
+  --color-text-muted: var(--text-muted);
+  --color-text-subtle: var(--text-subtle);
+
+  /* Spacing Scale — theme-aware (px values, allow theme overrides) */
+  --sp-xs: 2px;
+  --sp-sm: 4px;
+  --sp-md: 8px;
+  --sp-lg: 12px;
+  --sp-xl: 16px;
+  --sp-2xl: 24px;
+  --sp-3xl: 32px;
 }
 
 @layer base {
@@ -22,6 +41,12 @@
     --border-light: #292524;
     --surface-card: rgba(255, 255, 255, 0.03);
     --surface-elevated: rgba(255, 255, 255, 0.08);
+    --accent-success: #34d399;
+    --accent-warning: #fbbf24;
+    --accent-danger: #f87171;
+    --accent-info: #60a5fa;
+    --text-muted: rgba(245, 245, 244, 0.55);
+    --text-subtle: rgba(245, 245, 244, 0.4);
   }
 
   /* ─── STRIPE — Elegant purple gradients ─────────────────── */
@@ -32,6 +57,12 @@
     --border-light: rgba(255, 255, 255, 0.12);
     --surface-card: rgba(255, 255, 255, 0.06);
     --surface-elevated: rgba(255, 255, 255, 0.08);
+    --accent-success: #34d399;
+    --accent-warning: #fbbf24;
+    --accent-danger: #f87171;
+    --accent-info: #a78bfa;
+    --text-muted: rgba(255, 255, 255, 0.55);
+    --text-subtle: rgba(255, 255, 255, 0.4);
   }
 
   .theme-stripe body {
@@ -47,6 +78,12 @@
     --border-light: rgba(44, 36, 32, 0.2);   /* was 0.12 — stronger border */
     --surface-card: #d8cfa8;                  /* was #dfd5b0 — more contrast */
     --surface-elevated: #c8be98;
+    --accent-success: #059669;
+    --accent-warning: #d97706;
+    --accent-danger: #dc2626;
+    --accent-info: #2563eb;
+    --text-muted: rgba(44, 36, 32, 0.65);
+    --text-subtle: rgba(44, 36, 32, 0.5);
   }
 
   .theme-notion body {
@@ -62,6 +99,12 @@
     --border-light: rgba(255, 255, 255, 0.1);
     --surface-card: #1f1f1f;
     --surface-elevated: #2a2a2a;
+    --accent-success: #1db954;
+    --accent-warning: #fbbf24;
+    --accent-danger: #e74c3c;
+    --accent-info: #1db9c5;
+    --text-muted: rgba(255, 255, 255, 0.55);
+    --text-subtle: rgba(255, 255, 255, 0.4);
   }
 
   .theme-spotify body {
@@ -77,6 +120,12 @@
     --border-light: rgba(255, 255, 255, 0.1);
     --surface-card: rgba(255, 255, 255, 0.05);
     --surface-elevated: rgba(255, 255, 255, 0.08);
+    --accent-success: #34d399;
+    --accent-warning: #fbbf24;
+    --accent-danger: #f87171;
+    --accent-info: #60a5fa;
+    --text-muted: rgba(255, 255, 255, 0.55);
+    --text-subtle: rgba(255, 255, 255, 0.4);
   }
 
   .theme-modern body {
@@ -114,15 +163,39 @@
   .sidebar-icon.active {
     @apply bg-text-main text-surface-base shadow-lg;
   }
-}
 
-/* Notion — светлая тема, мутный текст должен быть темнее */
-.theme-notion .text-text-main\/50,
-.theme-notion [class*="text-main/50"] {
-  opacity: 0.65; /* вместо 0.5 — даёт ~4.5:1 */
-}
-
-.theme-notion .text-text-main\/40,
-.theme-notion [class*="text-main/40"] {
-  opacity: 0.55;
+  /* Spacing utility shortcuts — using CSS custom properties */
+  .p-s-xs   { padding: var(--sp-xs); }
+  .p-s-sm   { padding: var(--sp-sm); }
+  .p-s-md   { padding: var(--sp-md); }
+  .p-s-lg   { padding: var(--sp-lg); }
+  .p-s-xl   { padding: var(--sp-xl); }
+  .p-s-2xl  { padding: var(--sp-2xl); }
+  .p-s-3xl  { padding: var(--sp-3xl); }
+  .px-s-xs  { padding-left: var(--sp-xs); padding-right: var(--sp-xs); }
+  .px-s-sm  { padding-left: var(--sp-sm); padding-right: var(--sp-sm); }
+  .px-s-md  { padding-left: var(--sp-md); padding-right: var(--sp-md); }
+  .px-s-lg  { padding-left: var(--sp-lg); padding-right: var(--sp-lg); }
+  .px-s-xl  { padding-left: var(--sp-xl); padding-right: var(--sp-xl); }
+  .py-s-xs  { padding-top: var(--sp-xs); padding-bottom: var(--sp-xs); }
+  .py-s-sm  { padding-top: var(--sp-sm); padding-bottom: var(--sp-sm); }
+  .py-s-md  { padding-top: var(--sp-md); padding-bottom: var(--sp-md); }
+  .py-s-lg  { padding-top: var(--sp-lg); padding-bottom: var(--sp-lg); }
+  .py-s-xl  { padding-top: var(--sp-xl); padding-bottom: var(--sp-xl); }
+  .mx-s-xs  { margin-left: var(--sp-xs); margin-right: var(--sp-xs); }
+  .mx-s-sm  { margin-left: var(--sp-sm); margin-right: var(--sp-sm); }
+  .ml-s-sm  { margin-left: var(--sp-sm); }
+  .mr-s-xl  { margin-right: var(--sp-xl); }
+  .mr-s-lg  { margin-right: var(--sp-lg); }
+  .mt-s-xs  { margin-top: var(--sp-xs); }
+  .mt-s-sm  { margin-top: var(--sp-sm); }
+  .mb-s-xs  { margin-bottom: var(--sp-xs); }
+  .mb-s-sm  { margin-bottom: var(--sp-sm); }
+  .gap-s-xs { gap: var(--sp-xs); }
+  .gap-s-sm { gap: var(--sp-sm); }
+  .gap-s-md { gap: var(--sp-md); }
+  .gap-s-lg { gap: var(--sp-lg); }
+  .gap-s-xl { gap: var(--sp-xl); }
+  .space-y-s-xl > * + * { margin-top: var(--sp-xl); }
+  .space-y-s-lg > * + * { margin-top: var(--sp-lg); }
 }
