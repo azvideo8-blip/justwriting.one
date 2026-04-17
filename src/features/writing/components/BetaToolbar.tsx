@@ -60,9 +60,9 @@ export function BetaToolbar({
         onClick={onNew}
         title={t('topbar_new')}
         aria-label={t('topbar_new')}
-        className="w-9 h-9 rounded-lg border border-border-subtle/60 bg-surface-base/30 flex items-center justify-center text-text-main/50 hover:text-text-main hover:border-border-subtle hover:bg-surface-base/50 transition-all"
+        className="w-10 h-10 rounded-xl border border-border-subtle/60 bg-surface-base/30 flex items-center justify-center text-text-main/50 hover:text-text-main hover:border-border-subtle hover:bg-surface-base/50 transition-all"
       >
-        <FilePlus size={14} />
+        <FilePlus size={16} />
       </button>
 
       {/* 2. ОТКРЫТЬ */}
@@ -70,9 +70,9 @@ export function BetaToolbar({
         onClick={onOpenLog}
         title={t('topbar_open')}
         aria-label={t('topbar_open')}
-        className="w-9 h-9 rounded-lg border border-border-subtle/60 bg-surface-base/30 flex items-center justify-center text-text-main/50 hover:text-text-main hover:border-border-subtle hover:bg-surface-base/50 transition-all"
+        className="w-10 h-10 rounded-xl border border-border-subtle/60 bg-surface-base/30 flex items-center justify-center text-text-main/50 hover:text-text-main hover:border-border-subtle hover:bg-surface-base/50 transition-all"
       >
-        <FolderOpen size={14} />
+        <FolderOpen size={16} />
       </button>
 
       {/* 3. СОХРАНИТЬ */}
@@ -82,16 +82,16 @@ export function BetaToolbar({
         title={t('topbar_save')}
         aria-label={t('topbar_save')}
         className={cn(
-          "w-9 h-9 rounded-lg border flex items-center justify-center transition-all",
+          "w-10 h-10 rounded-xl border flex items-center justify-center transition-all",
           status !== 'idle' && wordCount > 0
             ? "border-border-subtle/60 bg-surface-base/30 text-text-main/50 hover:text-text-main hover:border-border-subtle hover:bg-surface-base/50"
             : "border-border-subtle/40 text-text-main/20 cursor-not-allowed"
         )}
       >
-        <Save size={14} />
+        <Save size={16} />
       </button>
 
-      <div className="w-px h-4 bg-border-subtle mx-0.5" />
+      <div className="w-px h-5 bg-border-subtle mx-0.5" />
 
       {/* 4. PLAY */}
       <button
@@ -100,13 +100,13 @@ export function BetaToolbar({
         title={t('beta_play')}
         aria-label={t('beta_play')}
         className={cn(
-          "w-9 h-9 rounded-lg border flex items-center justify-center transition-all",
+          "w-10 h-10 rounded-xl border flex items-center justify-center transition-all",
           status !== 'writing'
             ? "border-text-main/40 text-text-main bg-text-main/5 hover:bg-text-main/10"
             : "border-border-subtle/40 text-text-main/15 cursor-not-allowed"
         )}
       >
-        <Play size={14} />
+        <Play size={16} />
       </button>
 
       {/* 5. PAUSE */}
@@ -116,13 +116,13 @@ export function BetaToolbar({
         title={t('beta_pause')}
         aria-label={t('beta_pause')}
         className={cn(
-          "w-9 h-9 rounded-lg border flex items-center justify-center transition-all",
+          "w-10 h-10 rounded-xl border flex items-center justify-center transition-all",
           status === 'writing'
-            ? "border-amber-400/40 text-amber-400 bg-amber-400/5 hover:bg-amber-400/10"
+            ? "border-accent-warning/40 text-accent-warning bg-accent-warning/5 hover:bg-accent-warning/10"
             : "border-border-subtle/40 text-text-main/15 cursor-not-allowed"
         )}
       >
-        <Pause size={14} />
+        <Pause size={16} />
       </button>
 
       {/* 6. STOP */}
@@ -132,25 +132,25 @@ export function BetaToolbar({
         title={t('beta_stop')}
         aria-label={t('beta_stop')}
         className={cn(
-          "w-9 h-9 rounded-lg border flex items-center justify-center transition-all",
+          "w-10 h-10 rounded-xl border flex items-center justify-center transition-all",
           status !== 'idle'
-            ? "border-red-400/40 text-red-400 bg-red-400/5 hover:bg-red-400/10"
+            ? "border-accent-danger/40 text-accent-danger bg-accent-danger/5 hover:bg-accent-danger/10"
             : "border-border-subtle/40 text-text-main/15 cursor-not-allowed"
         )}
       >
-        <Square size={14} />
+        <Square size={16} />
       </button>
 
-      <div className="w-px h-4 bg-border-subtle mx-0.5" />
+      <div className="w-px h-5 bg-border-subtle mx-0.5" />
 
       {/* FULLSCREEN */}
       <button
         onClick={toggleFullscreen}
         title={isFullscreen ? t('beta_exit_fullscreen') : t('beta_fullscreen')}
         aria-label={isFullscreen ? t('beta_exit_fullscreen') : t('beta_fullscreen')}
-        className="w-9 h-9 rounded-lg border border-border-subtle/60 bg-surface-base/30 flex items-center justify-center text-text-main/50 hover:text-text-main hover:border-border-subtle hover:bg-surface-base/50 transition-all"
+        className="w-10 h-10 rounded-xl border border-border-subtle/60 bg-surface-base/30 flex items-center justify-center text-text-main/50 hover:text-text-main hover:border-border-subtle hover:bg-surface-base/50 transition-all"
       >
-        {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
+        {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
       </button>
 
       {/* Название сессии */}

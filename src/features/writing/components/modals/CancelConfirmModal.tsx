@@ -17,8 +17,8 @@ interface CancelConfirmModalProps {
 }
 
 const variantConfig = {
-  danger: { bg: 'bg-red-500/10', text: 'text-red-500', icon: <X size={32} /> },
-  warning: { bg: 'bg-amber-500/10', text: 'text-amber-500', icon: <AlertTriangle size={32} /> },
+  danger: { bg: 'bg-accent-danger/10', text: 'text-accent-danger', icon: <X size={32} /> },
+  warning: { bg: 'bg-accent-warning/10', text: 'text-accent-warning', icon: <AlertTriangle size={32} /> },
 };
 
 export function CancelConfirmModal({
@@ -59,7 +59,7 @@ export function CancelConfirmModal({
           <h3 className="text-xl font-bold text-text-main">
             {title || t('writing_cancel_confirm')}
           </h3>
-          <p className="text-sm text-text-main/50">
+          <p className="text-sm text-text-muted">
             {description || t('writing_cancel_desc')}
           </p>
         </div>
@@ -72,7 +72,7 @@ export function CancelConfirmModal({
           </button>
           <button 
             onClick={onConfirm}
-            className="flex-1 px-4 py-3 rounded-xl font-bold transition-all bg-red-500/20 text-red-400 hover:bg-red-500/30"
+            className="flex-1 px-4 py-3 rounded-xl font-bold transition-all bg-accent-danger/20 text-accent-danger hover:bg-accent-danger/30"
           >
             {confirmLabel || t('finish_discard')}
           </button>

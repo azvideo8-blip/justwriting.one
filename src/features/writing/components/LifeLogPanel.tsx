@@ -27,8 +27,8 @@ const SessionItem: React.FC<SessionItemProps> = ({ session, isActive, onClick, o
 
   const getStatusBadge = () => {
     if (!session.id) return { label: t('lifelog_status_unsaved'), cls: 'bg-text-main/10 text-text-main' };
-    if (session.isPublic) return { label: t('lifelog_status_published'), cls: 'bg-emerald-500/10 text-emerald-500' };
-    return { label: t('lifelog_status_saved'), cls: 'bg-blue-500/10 text-blue-500' };
+    if (session.isPublic) return { label: t('lifelog_status_published'), cls: 'bg-accent-success/10 text-accent-success' };
+    return { label: t('lifelog_status_saved'), cls: 'bg-accent-info/10 text-accent-info' };
   };
 
   const badge = getStatusBadge();
@@ -48,11 +48,11 @@ const SessionItem: React.FC<SessionItemProps> = ({ session, isActive, onClick, o
           {session.title || t('common_untitled')}
         </span>
         <div className="flex items-center gap-1">
-          <span className="text-[11px] text-text-main/40 shrink-0">{timeStr}</span>
+          <span className="text-[11px] text-text-subtle shrink-0">{timeStr}</span>
           {onDelete && session.id && (
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(session); }}
-              className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-text-main/30 hover:text-red-400 transition-all"
+              className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-text-main/30 hover:text-accent-danger transition-all"
               aria-label={t('session_delete')}
             >
               <Trash2 size={12} />
@@ -61,7 +61,7 @@ const SessionItem: React.FC<SessionItemProps> = ({ session, isActive, onClick, o
         </div>
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="text-xs text-text-main/50">
+        <span className="text-xs text-text-muted">
           {session.wordCount} {t('lifelog_words_short')} · {formatTime(session.duration || 0)}
         </span>
         <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", badge.cls)}>
@@ -186,11 +186,11 @@ export function LifeLogPanel({
 
           {/* Daily summary */}
           <div className="shrink-0 px-3 py-3 border-b border-border-subtle bg-surface-base/50">
-            <div className="text-[11px] text-text-main/40 mb-2">{t('lifelog_today')}</div>
+            <div className="text-[11px] text-text-subtle mb-2">{t('lifelog_today')}</div>
             <div className="flex gap-4">
               <div>
                 <div className="text-lg font-bold text-text-main">{summary.totalWords.toLocaleString()}</div>
-                <div className="text-[11px] text-text-main/40">{t('lifelog_words')}</div>
+                <div className="text-[11px] text-text-subtle">{t('lifelog_words')}</div>
               </div>
               <div>
                 <div className="text-lg font-bold text-text-main">
@@ -198,7 +198,7 @@ export function LifeLogPanel({
                     ? `${Math.floor(summary.totalMinutes / 60)}${t('unit_hour')} ${summary.totalMinutes % 60}${t('unit_min')}`
                     : `${summary.totalMinutes}${t('unit_min')}`}
                 </div>
-                <div className="text-[11px] text-text-main/40">{t('lifelog_time')}</div>
+                <div className="text-[11px] text-text-subtle">{t('lifelog_time')}</div>
               </div>
             </div>
           </div>
@@ -206,12 +206,12 @@ export function LifeLogPanel({
           {/* Sessions list */}
           <div className="flex-1 overflow-y-auto">
             {loading ? (
-              <div className="px-3 py-2 text-[11px] text-text-main/40 font-medium">{t('lifelog_loading')}</div>
+              <div className="px-3 py-2 text-[11px] text-text-subtle font-medium">{t('lifelog_loading')}</div>
             ) : (
               <div className="sessions-list flex-1 overflow-y-auto">
                 {filteredGroups.map(group => (
                   <div key={group.date.toISOString()}>
-                    <div className="px-4 py-2 text-[10px] text-text-main/30 font-bold uppercase tracking-wider sticky top-0 bg-surface-card z-10 border-b border-border-subtle/30">
+                    <div className="px-4 py-2 text-[10px] text-text-subtle font-bold uppercase tracking-wider sticky top-0 bg-surface-card z-10 border-b border-border-subtle/30">
                       {group.label}
                     </div>
                     {group.sessions.map(session => (
@@ -228,7 +228,7 @@ export function LifeLogPanel({
                   </div>
                 ))}
                 {filteredGroups.length === 0 && (
-                  <div className="px-4 py-8 text-center text-sm text-text-main/30">
+                  <div className="px-4 py-8 text-center text-sm text-text-subtle">
                     {t('lifelog_empty')}
                   </div>
                 )}

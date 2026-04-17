@@ -191,7 +191,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
         content: state.content,
         title: state.title || '',
         wordCount: state.wordCount,
-        duration: state.seconds - state.sessionStartSeconds,
+        duration: state.accumulatedDuration + (state.seconds - state.sessionStartSeconds),
         isPublic: isPublic,
         isAnonymous: isAnonymous,
         tags: tags,

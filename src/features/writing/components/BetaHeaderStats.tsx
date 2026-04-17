@@ -59,7 +59,7 @@ export const BetaHeaderStats = React.memo(function BetaHeaderStats({
       {visibility.totalWords && (
         <div className="flex flex-col pr-4 mr-4 border-r border-border-subtle shrink-0">
           <span className="text-2xl font-medium text-text-main leading-none">{wordCount}</span>
-          <span className="text-[11px] text-text-main/50 mt-1">{t('header_totalWords')}</span>
+          <span className="text-[11px] text-text-muted mt-1">{t('header_totalWords')}</span>
         </div>
       )}
 
@@ -71,11 +71,11 @@ export const BetaHeaderStats = React.memo(function BetaHeaderStats({
         onClick={() => { setWordPopupOpen(!wordPopupOpen); setTimePopupOpen(false); }}
       >
         <div className="flex items-baseline gap-1.5 leading-none">
-          <span className={cn("text-2xl font-medium", wordDone ? "text-emerald-400" : "text-text-main")}>
+          <span className={cn("text-2xl font-medium", wordDone ? "text-accent-success" : "text-text-main")}>
             {sessionWords}
           </span>
           {wordGoal > 0 && (
-            <span className={cn("text-base", wordDone ? "text-emerald-400/70" : "text-text-main/40")}>
+            <span className={cn("text-base", wordDone ? "text-accent-success/70" : "text-text-subtle")}>
               / {wordGoal}
             </span>
           )}
@@ -83,12 +83,12 @@ export const BetaHeaderStats = React.memo(function BetaHeaderStats({
         {wordProgress !== null && wordGoal > 0 && (
           <div className="w-full h-1 rounded-full bg-border-subtle mt-1.5">
             <div
-              className={cn("h-1 rounded-full transition-all", wordDone ? "bg-emerald-400" : "bg-text-main")}
+              className={cn("h-1 rounded-full transition-all", wordDone ? "bg-accent-success" : "bg-text-main")}
               style={{ width: `${wordProgress}%` }}
             />
           </div>
         )}
-        <span className="text-[11px] text-text-main/50 mt-1">
+        <span className="text-[11px] text-text-muted mt-1">
           {wordGoal > 0 ? t('header_sessionWords') : t('header_sessionWords_hint')}
         </span>
 
@@ -119,11 +119,11 @@ export const BetaHeaderStats = React.memo(function BetaHeaderStats({
         onClick={() => { setTimePopupOpen(!timePopupOpen); setWordPopupOpen(false); }}
       >
         <div className="flex items-baseline gap-1.5 leading-none">
-          <span className={cn("text-2xl font-medium font-mono", timeDone ? "text-emerald-400" : "text-text-main")}>
+          <span className={cn("text-2xl font-medium tabular-nums", timeDone ? "text-accent-success" : "text-text-main")}>
             {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
           </span>
           {timerDuration > 0 && (
-            <span className={cn("text-base", timeDone ? "text-emerald-400/70" : "text-text-main/40")}>
+            <span className={cn("text-base", timeDone ? "text-accent-success/70" : "text-text-subtle")}>
               {timeDone ? t('goal_time_done') : t('goal_time_remaining')}
             </span>
           )}
@@ -131,12 +131,12 @@ export const BetaHeaderStats = React.memo(function BetaHeaderStats({
         {timeProgress !== null && timerDuration > 0 && (
           <div className="w-full h-1 rounded-full bg-border-subtle mt-1.5">
             <div
-              className={cn("h-1 rounded-full transition-all", timeDone ? "bg-emerald-400" : "bg-text-main")}
+              className={cn("h-1 rounded-full transition-all", timeDone ? "bg-accent-success" : "bg-text-main")}
               style={{ width: `${timeProgress}%` }}
             />
           </div>
         )}
-        <span className="text-[11px] text-text-main/50 mt-1">
+        <span className="text-[11px] text-text-muted mt-1">
           {timerDuration > 0
             ? `${t('goal_time_of')} ${Math.round(timerDuration / 60)} ${t('goal_time_min')}`
             : t('header_time_hint')}
@@ -169,15 +169,15 @@ export const BetaHeaderStats = React.memo(function BetaHeaderStats({
           <div className={cn("w-2 h-2 rounded-full transition-colors duration-500", getWpmColor(wpm), status === 'writing' && "animate-pulse")} />
           <span className="text-2xl font-medium text-text-main leading-none">{wpm}</span>
         </div>
-        <span className="text-[11px] text-text-main/50 mt-1">{t('header_wpm')}</span>
+        <span className="text-[11px] text-text-muted mt-1">{t('header_wpm')}</span>
       </div>
       )}
           
       {/* Индикатор записи */}
       {status === 'writing' && (
         <div className="flex items-center gap-1.5 ml-auto">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[11px] text-text-main/40 font-medium">{t('stats_writing')}</span>
+          <div className="w-2 h-2 rounded-full bg-accent-success animate-pulse" />
+          <span className="text-[11px] text-text-subtle font-medium">{t('stats_writing')}</span>
         </div>
       )}
     </div>
