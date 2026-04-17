@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '../../../core/utils/utils';
+import { useLanguage } from '../../../core/i18n';
 
 import { UserProfile } from '../../../types';
 
@@ -8,13 +9,14 @@ interface AdminUsersTableProps {
 }
 
 export function AdminUsersTable({ users }: AdminUsersTableProps) {
+  const { t } = useLanguage();
   return (
     <table className="w-full text-left border-collapse">
       <thead>
         <tr className="border-b bg-surface-base/5 border-border-subtle">
-          <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/50">Email</th>
+          <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/50">{t('auth_email')}</th>
           <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/50">UID</th>
-          <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/50">Роль</th>
+          <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/50">{t('admin_col_role')}</th>
         </tr>
       </thead>
       <tbody>

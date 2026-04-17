@@ -77,7 +77,7 @@ export function WritingSetup({
             animate={{ scale: 1, opacity: 1, rotate: 0, filter: 'blur(0px)' }}
             className="text-[15rem] font-black tracking-tighter z-10 text-text-main"
           >
-            {countdown === 0 ? "GO!" : countdown}
+            {countdown === 0 ? t('writing_go') : countdown}
           </motion.div>
         </div>
       )}

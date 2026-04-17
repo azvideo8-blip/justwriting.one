@@ -18,19 +18,16 @@
   "dependencies": {
     "@google/genai": "^1.29.0",
     "@sentry/react": "^10.46.0",
-    "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "docx": "^9.6.1",
     "file-saver": "^2.0.5",
     "firebase": "^12.10.0",
     "idb": "^8.0.3",
-    "jspdf": "^4.2.1",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.14.1",
     "recharts": "^3.8.0",
     "tailwind-merge": "^3.5.0",
@@ -41,7 +38,6 @@
     "@tailwindcss/vite": "^4.1.14",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
-    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^22.14.0",
     "@typescript-eslint/eslint-plugin": "^8.58.0",
     "@typescript-eslint/parser": "^8.58.0",
@@ -57,7 +53,6 @@
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
-    "vite-plugin-pwa": "^1.2.0",
     "vitest": "^4.1.0"
   }
 }

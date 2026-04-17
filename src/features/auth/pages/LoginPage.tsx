@@ -25,7 +25,7 @@ export function LoginPage() {
         if (firebaseError.code === 'auth/network-request-failed') {
           setError(t('auth_error_google_network'));
         } else {
-          setError(firebaseError.message || t('auth_error_generic'));
+          setError(t('auth_error_generic'));
         }
       }
     } finally {
@@ -50,7 +50,7 @@ export function LoginPage() {
     } catch (err: unknown) {
       console.error("Email auth error:", err);
       const firebaseError = err as { code?: string; message?: string };
-      let msg = firebaseError.message || "An error occurred";
+      let msg = t('auth_error_generic');
       if (firebaseError.code === 'auth/user-not-found') msg = t('auth_error_user_not_found');
       if (firebaseError.code === 'auth/wrong-password') msg = t('auth_error_wrong_password');
       if (firebaseError.code === 'auth/email-already-in-use') msg = t('auth_error_email_in_use');
@@ -102,7 +102,7 @@ export function LoginPage() {
         <div className="p-8 rounded-3xl shadow-xl space-y-6 border bg-surface-card border-border-subtle backdrop-blur-2xl">
           <form onSubmit={handleEmailAuth} className="space-y-4">
             <div className="space-y-2 text-left">
-              <label className="text-xs font-bold uppercase tracking-widest ml-1 text-text-main/50">Email</label>
+              <label className="text-xs font-bold uppercase tracking-widest ml-1 text-text-main/50">{t('auth_email')}</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/40" size={18} />
                 <input 
@@ -110,7 +110,7 @@ export function LoginPage() {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
+                  placeholder={t('auth_email_placeholder')}
                   className="w-full pl-12 pr-4 py-3 rounded-xl outline-none transition-all bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-text-main/20 placeholder:text-text-main/20"
                 />
               </div>

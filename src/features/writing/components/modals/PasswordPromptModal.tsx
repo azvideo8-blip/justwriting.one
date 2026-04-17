@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { useLanguage } from '../../../../core/i18n';
+import { useModalEscape } from '../../../../shared/hooks/useModalEscape';
 
 interface PasswordPromptModalProps {
   isOpen: boolean;
@@ -15,6 +16,8 @@ export function PasswordPromptModal({
 }: PasswordPromptModalProps) {
   const { t } = useLanguage();
   const [password, setPassword] = React.useState('');
+
+  useModalEscape(isOpen, onCancel);
 
   if (!isOpen) return null;
 

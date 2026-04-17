@@ -27,7 +27,7 @@ export function AnimatedRoutes() {
   const location = useLocation();
   const { t } = useLanguage();
   const { user, profile, isConnected } = useAuthStatus();
-  const { isZenActive, zenModeEnabled } = useWritingSettings();
+  const { isZenActive, zenModeEnabled, setLifeLogVisible } = useWritingSettings();
   const [classicNav] = useLocalStorage('classic-nav', false, z.boolean());
   const { layoutMode } = useLayoutMode();
 
@@ -52,7 +52,11 @@ export function AnimatedRoutes() {
           {layoutMode === 'desktop' ? (
             <BetaSidebar isAdmin={isAdmin} isZenActive={showZen} />
           ) : (
-            <BetaBottomNav isAdmin={isAdmin} />
+            <BetaBottomNav 
+              isAdmin={isAdmin} 
+              user={user}
+              onOpenLifeLog={() => setLifeLogVisible(true)}
+            />
           )}
           <ConnectionStatusBanner isOnline={isConnected} showZen={showZen} />
         </>
