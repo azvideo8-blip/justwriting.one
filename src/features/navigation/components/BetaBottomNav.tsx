@@ -1,14 +1,21 @@
-import { PenLine, History, User as UserIcon, Globe, Shield } from 'lucide-react';
+import { PenLine, History, User as UserIcon, Globe, Shield, PanelRight, Settings } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
+import { useSettings } from '../../../core/settings/SettingsContext';
+import { User } from 'firebase/auth';
 
 interface BetaBottomNavProps {
   isAdmin: boolean;
+  user?: User | null;
+  onOpenLifeLog?: () => void;
 }
 
-export function BetaBottomNav({ isAdmin }: BetaBottomNavProps) {
+export function BetaBottomNav({ isAdmin, onOpenLifeLog }: BetaBottomNavProps) {
   const { t } = useLanguage();
+  const { betaLifeLog } = useWritingSettings();
+  const { openSettings } = useSettings();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -30,6 +37,8 @@ export function BetaBottomNav({ isAdmin }: BetaBottomNavProps) {
               <button
                 key={item.id}
                 onClick={() => navigate(item.path)}
+                aria-label={item.label}
+                aria-current={isActive ? 'page' : undefined}
                 className={cn(
                   "flex flex-col items-center justify-center gap-0.5 p-2.5 rounded-2xl transition-all duration-200 min-w-[48px]",
                   isActive
@@ -45,6 +54,34 @@ export function BetaBottomNav({ isAdmin }: BetaBottomNavProps) {
               </button>
             );
           })}
+
+          {betaLifeLog && (
+            <button
+              onClick={onOpenLifeLog}
+              className={cn(
+                "flex flex-col items-center justify-center gap-0.5 p-2.5 rounded-2xl transition-all duration-200 min-w-[48px]",
+                "text-text-main/50 hover:text-text-main"
+              )}
+              aria-label={t('lifelog_tab_log')}
+            >
+              <PanelRight size={20} />
+              <div className="w-1 h-1 rounded-full bg-transparent" />
+            </button>
+          )}
+
+          {!betaLifeLog && (
+            <button
+              onClick={openSettings}
+              className={cn(
+                "flex flex-col items-center justify-center gap-0.5 p-2.5 rounded-2xl transition-all duration-200 min-w-[48px]",
+                "text-text-main/50 hover:text-text-main"
+              )}
+              aria-label={t('nav_settings')}
+            >
+              <Settings size={20} />
+              <div className="w-1 h-1 rounded-full bg-transparent" />
+            </button>
+          )}
         </div>
       </div>
     </div>

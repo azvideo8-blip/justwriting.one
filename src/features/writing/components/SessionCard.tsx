@@ -16,6 +16,7 @@ import { useLanguage } from '../../../core/i18n';
 import { useSessionTags } from '../hooks/useSessionTags';
 
 import { SessionEditor } from './SessionEditor';
+import { CancelConfirmModal } from './modals/CancelConfirmModal';
 
 export function SessionCard({ 
   session, 
@@ -347,17 +348,15 @@ export function SessionCard({
           </div>
         )}
       </motion.div>
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-          <div className="p-6 rounded-3xl shadow-xl border bg-surface-card border-border-subtle">
-            <h3 className="text-lg font-bold mb-4 text-text-main">{t('session_delete_confirm')}</h3>
-            <div className="flex gap-3">
-              <button onClick={() => setShowDeleteConfirm(false)} className="px-4 py-2 rounded-lg font-bold bg-surface-base text-text-main">{t('writing_cancel')}</button>
-              <button onClick={handleDelete} className="px-4 py-2 rounded-lg font-bold bg-red-500 text-white">{t('session_delete')}</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CancelConfirmModal
+        isOpen={showDeleteConfirm}
+        title={t('session_delete_confirm')}
+        description={t('session_delete_confirm_desc')}
+        confirmLabel={t('session_delete')}
+        cancelLabel={t('writing_cancel')}
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
     </>
   );
 }

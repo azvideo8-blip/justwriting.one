@@ -9,6 +9,7 @@ import { formatTime } from '../../core/utils/formatTime';
 import { Toggle } from '../../shared/components/Toggle';
 
 import { useWritingStore } from './store/useWritingStore';
+import { useModalEscape } from '../../shared/hooks/useModalEscape';
 
 interface WritingFinishModalProps {
   isPublic: boolean;
@@ -46,6 +47,8 @@ export function WritingFinishModal({
   const wpm = useWritingStore(s => s.wpm);
   const content = useWritingStore(s => s.content);
   const title = useWritingStore(s => s.title);
+  
+  useModalEscape(status === 'finished', () => setStatus('writing'));
 
   const popularWords = React.useMemo(() => {
     const words = content.toLowerCase().match(/\b\w{5,}\b/g) || [];

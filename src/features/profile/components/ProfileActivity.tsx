@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { SessionChart } from '../../writing/components/SessionChart';
 import { Session } from '../../../types';
+import { useLanguage } from '../../../core/i18n';
 
 interface ProfileActivityProps {
   sessions: Session[];
@@ -13,11 +14,12 @@ interface ProfileActivityProps {
 }
 
 export function ProfileActivity({ sessions, startDate, endDate, onStartDateChange, onEndDateChange }: ProfileActivityProps) {
+  const { t } = useLanguage();
   return (
     <div className="p-8 rounded-3xl transition-all space-y-6 bg-surface-card backdrop-blur-2xl border border-border-subtle shadow-sm">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <h3 className="text-xl font-bold text-text-main">Активность</h3>
+          <h3 className="text-xl font-bold text-text-main">{t('profile_activity_title')}</h3>
           <p className="text-xs font-medium text-text-main/50">
             {format(startDate, 'd MMM')} — {format(endDate, 'd MMM')}
           </p>

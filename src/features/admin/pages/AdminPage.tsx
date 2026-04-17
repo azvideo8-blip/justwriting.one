@@ -10,7 +10,9 @@ import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 
 import { Session, UserProfile } from '../../../types';
-import { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
+import { CancelConfirmModal } from '../../writing/components/modals/CancelConfirmModal';
+import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
 
 export function AdminPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -21,6 +23,7 @@ export function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'users' | 'sessions' | 'security'>('users');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
   const { t } = useLanguage();
 
   const fetchData = useCallback(async (isInitial = true) => {
@@ -71,11 +74,10 @@ export function AdminPage() {
   }, [activeTab, fetchData]);
 
   if (!isAdmin) {
-    return <div className="text-center py-20 text-red-500">Access Denied</div>;
+    return <div className="text-center py-20 text-red-500">{t('admin_access_denied')}</div>;
   }
 
   const handleDeleteSession = async (id: string) => {
-    if (!confirm(t('admin_confirm_delete_session'))) return;
     await AdminSessionService.deleteSession(id);
     setSessions(prev => prev.filter(s => s.id !== id));
   };
@@ -135,7 +137,7 @@ export function AdminPage() {
 
       {loading ? (
         <div className="flex justify-center py-20">
-          <div className="w-10 h-10 border-4 rounded-full animate-spin border-surface-base/10 border-t-text-main" />
+          <LoadingSpinner size={10} />
         </div>
       ) : (
         <div className="rounded-3xl overflow-hidden transition-all bg-surface-card backdrop-blur-2xl border border-border-subtle shadow-sm">
@@ -145,7 +147,7 @@ export function AdminPage() {
 
           {activeTab === 'sessions' && (
             <>
-              <AdminSessionsTable sessions={sessions} onDelete={handleDeleteSession} />
+              <AdminSessionsTable sessions={sessions} onDelete={setDeleteSessionId} />
               {hasMoreSessions && (
                 <div className="p-6 flex justify-center border-t border-border-subtle">
                   <button
@@ -178,11 +180,11 @@ export function AdminPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-6 rounded-2xl border bg-surface-base/5 border-border-subtle">
-                  <span className="text-xs font-bold uppercase tracking-widest text-text-main/50">XSS Protection</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-text-main/50">{t('admin_security_xss_title')}</span>
                   <p className="text-sm mt-2 text-text-main/80">{t('admin_security_xss')}</p>
                 </div>
                 <div className="p-6 rounded-2xl border bg-surface-base/5 border-border-subtle">
-                  <span className="text-xs font-bold uppercase tracking-widest text-text-main/50">CSRF Protection</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-text-main/50">{t('admin_security_csrf_title')}</span>
                   <p className="text-sm mt-2 text-text-main/80">{t('admin_security_csrf')}</p>
                 </div>
               </div>
@@ -190,6 +192,18 @@ export function AdminPage() {
           )}
         </div>
       )}
+      <CancelConfirmModal
+        isOpen={!!deleteSessionId}
+        title={t('admin_confirm_delete_session')}
+        description={t('admin_confirm_delete_session_desc')}
+        confirmLabel={t('session_delete')}
+        cancelLabel={t('writing_cancel')}
+        onConfirm={() => {
+          if (deleteSessionId) handleDeleteSession(deleteSessionId);
+          setDeleteSessionId(null);
+        }}
+        onCancel={() => setDeleteSessionId(null)}
+      />
     </motion.div>
   );
 }

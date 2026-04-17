@@ -23,11 +23,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   });
 
   // Throw generic error to user
-  const safeMessage = JSON.stringify({
-    error: 'An error occurred while accessing the database.',
-    operationType,
-    path: path || 'unknown'
-  });
+  const safeMessage = 'An error occurred while accessing the database. Please try again.';
   
   console.error('Firestore Error: ', {
     operationType,

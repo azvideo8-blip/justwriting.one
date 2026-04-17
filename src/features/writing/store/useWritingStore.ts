@@ -107,7 +107,7 @@ export const useWritingStore = create<WritingState>((set) => ({
 
     // Word goal: compare session delta, not total
     const sessionWords = words - state.sessionStartWords;
-    const wordGoalReached = state.sessionType === 'words' && sessionWords >= state.wordGoal;
+    const wordGoalReached = state.wordGoal > 0 && sessionWords >= state.wordGoal;
 
     return { 
       content, 
@@ -174,17 +174,17 @@ export const useWritingStore = create<WritingState>((set) => ({
     let timeGoalReached = state.timeGoalReached;
     let overtimeSeconds = state.overtimeSeconds;
 
-    if (state.sessionType === 'timer' && sessionSeconds >= state.timerDuration) {
+    if (state.timerDuration > 0 && sessionSeconds >= state.timerDuration) {
       timeGoalReached = true;
     }
-    if (state.sessionType === 'finish-by' && state.targetTime) {
+    if (state.targetTime) {
       const [hours, minutes] = state.targetTime.split(':').map(Number);
       const target = new Date(); target.setHours(hours, minutes, 0, 0);
       if (new Date() >= target) timeGoalReached = true;
     }
 
     // Count overtime seconds after goal reached
-    if (timeGoalReached && state.sessionType === 'timer') {
+    if (timeGoalReached && state.timerDuration > 0) {
       overtimeSeconds = sessionSeconds - state.timerDuration;
     }
 

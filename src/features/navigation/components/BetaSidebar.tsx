@@ -89,14 +89,14 @@ export function BetaSidebar({ isAdmin, isZenActive }: BetaSidebarProps) {
                 ? "bg-text-main text-surface-base"
                 : "text-text-main/50 hover:text-text-main hover:bg-text-main/8"
             )}
-            title="Life Log"
+            title={t('lifelog_tab_log')}
           >
             <span className="shrink-0"><History size={20} /></span>
             <span className={cn(
               "text-sm font-medium whitespace-nowrap transition-opacity duration-200",
               expanded ? "opacity-100" : "opacity-0"
             )}>
-              Life Log
+              {t('lifelog_tab_log')}
             </span>
           </button>
         )}

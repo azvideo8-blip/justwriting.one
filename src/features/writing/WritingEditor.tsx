@@ -127,7 +127,7 @@ export const WritingEditor = React.memo(function WritingEditor({
                   className="w-full px-6 py-4 rounded-2xl border shadow-sm focus:shadow-xl outline-none text-xl font-black transition-all bg-surface-card border-border-subtle text-text-main placeholder:text-text-main/40"
                 />
               )}
-              {showPinnedThoughts && (
+              {!betaLifeLog && showPinnedThoughts && (
                 <button 
                   onClick={handlePinSelection}
                   className={cn(
@@ -215,7 +215,7 @@ export const WritingEditor = React.memo(function WritingEditor({
         onKeyUp={checkSelection}
         onMouseUp={checkSelection}
         disabled={!betaLifeLog && (status === 'idle' || status === 'paused')}
-        placeholder={status === 'idle' ? t('editor_idle_placeholder') : t('editor_writing_placeholder')}
+        placeholder={betaLifeLog ? t('writing_placeholder_beta') : (status === 'idle' ? t('editor_idle_placeholder') : t('editor_writing_placeholder'))}
         style={{ 
           paddingBottom: layoutMode === 'mobile' ? '7rem' : '2rem',
           fontSize: `${fontSize}px`,
