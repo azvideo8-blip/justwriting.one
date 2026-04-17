@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { z } from 'zod';
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 
-interface HeaderVisibility {
+export interface HeaderVisibility {
   currentTime: boolean;
   sessionTime: boolean;
   sessionWords: boolean;
