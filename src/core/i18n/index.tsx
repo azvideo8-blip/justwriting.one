@@ -362,6 +362,9 @@ export const translations: Translations = {
   lifelog_pin:           { ru: 'Закрепить',     en: 'Pin' },
   lifelog_unpin:         { ru: 'Открепить',     en: 'Unpin' },
   lifelog_today:         { ru: 'Сегодня',       en: 'Today' },
+  lifelog_status_unsaved: { ru: 'не сохранено', en: 'unsaved' },
+  lifelog_status_published: { ru: 'опубликовано', en: 'published' },
+  lifelog_status_saved:   { ru: 'сохранено',     en: 'saved' },
   lifelog_words:         { ru: 'слов',          en: 'words' },
   lifelog_time:          { ru: 'в потоке',      en: 'in flow' },
   lifelog_loading:       { ru: 'Загрузка...',   en: 'Loading...' },
@@ -383,6 +386,9 @@ export const translations: Translations = {
   goal_words_short:       { ru: 'слов',           en: 'words' },
   goal_time_short:        { ru: 'мин',           en: 'mins' },
   common_ok:              { ru: 'Ок',              en: 'OK' },
+
+  beta_save_success: { ru: 'Заметка сохранена', en: 'Note saved' },
+  beta_save_error:   { ru: 'Ошибка при сохранении', en: 'Save failed' },
 
   // Settings
   settings_font_preview: { ru: 'Aa 123', en: 'Aa 123' },

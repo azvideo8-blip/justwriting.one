@@ -32,6 +32,8 @@ interface WritingSettingsContextType {
   setStickyHeader: (enabled: boolean) => void;
   stickyPanel: boolean;
   setStickyPanel: (enabled: boolean) => void;
+  lifeLogPinned: boolean;
+  setLifeLogPinned: (enabled: boolean) => void;
   headerVisibility: HeaderVisibility;
   toggleVisibility: (key: keyof HeaderVisibility) => void;
   showTitle: boolean;
@@ -52,6 +54,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
   const [fontSize, setFontSize] = useLocalStorage<number>('v2_fontSize', 18, z.number());
   const [stickyHeader, setStickyHeader] = useLocalStorage<boolean>('v2_stickyHeaderEnabled', true, z.boolean());
   const [stickyPanel, setStickyPanel] = useLocalStorage<boolean>('stickyPanel', true, z.boolean());
+  const [lifeLogPinned, setLifeLogPinned] = useLocalStorage<boolean>('v3_lifeLogPinned', false, z.boolean());
   const [showTitle, setShowTitle] = useLocalStorage<boolean>('editor-show-title', true, z.boolean());
   const [showPinnedThoughts, setShowPinnedThoughts] = useLocalStorage<boolean>('editor-show-pinned', true, z.boolean());
   const [headerVisibility, setHeaderVisibility] = useLocalStorage<HeaderVisibility>(
@@ -119,6 +122,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
       fontSize, setFontSize,
       stickyHeader, setStickyHeader,
       stickyPanel, setStickyPanel,
+      lifeLogPinned, setLifeLogPinned,
       headerVisibility, toggleVisibility,
       showTitle, setShowTitle,
       showPinnedThoughts, setShowPinnedThoughts,
