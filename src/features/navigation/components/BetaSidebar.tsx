@@ -61,6 +61,7 @@ export function BetaSidebar({ isAdmin, isZenActive }: BetaSidebarProps) {
           <button
             key={item.id}
             onClick={() => navigate(item.path)}
+            onKeyDown={(e) => { if (e.key === 'Enter') navigate(item.path); }}
             aria-current={location.pathname === item.path ? 'page' : undefined}
             className={cn(
               "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",

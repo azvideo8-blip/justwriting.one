@@ -1,5 +1,5 @@
-import React from 'react';
-import { FilePlus, FolderOpen, Save, Play, Pause, Square } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FilePlus, FolderOpen, Save, Play, Pause, Square, Maximize, Minimize } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 
@@ -29,6 +29,21 @@ export function BetaToolbar({
   setTitle
 }: BetaToolbarProps) {
   const { t } = useLanguage();
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handleChange);
+    return () => document.removeEventListener('fullscreenchange', handleChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
 
   return (
     <div className="flex items-center gap-2 px-6 py-2">
@@ -116,6 +131,18 @@ export function BetaToolbar({
         )}
       >
         <Square size={15} />
+      </button>
+
+      <div className="w-px h-5 bg-border-subtle mx-1" />
+
+      {/* FULLSCREEN — переключение */}
+      <button
+        onClick={toggleFullscreen}
+        title={isFullscreen ? t('beta_exit_fullscreen') : t('beta_fullscreen')}
+        aria-label={isFullscreen ? t('beta_exit_fullscreen') : t('beta_fullscreen')}
+        className="w-10 h-10 rounded-xl border border-border-subtle flex items-center justify-center text-text-main/60 hover:text-text-main hover:border-text-main/30 shadow-sm transition-all"
+      >
+        {isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
       </button>
 
       {/* Название справа */}
