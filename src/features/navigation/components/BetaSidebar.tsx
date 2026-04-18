@@ -4,6 +4,7 @@ import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
+import { useAutoHideChrome } from '../../writing/hooks/useAutoHideChrome';
 
 interface BetaSidebarProps {
   isAdmin: boolean;
@@ -14,6 +15,7 @@ export function BetaSidebar({ isAdmin, isZenActive }: BetaSidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useLanguage();
   const { betaLifeLog, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab } = useWritingSettings();
+  const chromeHidden = useAutoHideChrome();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -29,6 +31,11 @@ export function BetaSidebar({ isAdmin, isZenActive }: BetaSidebarProps) {
     <div
       role="navigation"
       aria-label={t('nav_main')}
+      style={{
+        opacity: chromeHidden ? 0 : 1,
+        pointerEvents: chromeHidden ? 'none' : 'auto',
+        transition: 'opacity 0.3s ease',
+      }}
       onFocusCapture={() => setExpanded(true)}
       onBlurCapture={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget)) setExpanded(false);
