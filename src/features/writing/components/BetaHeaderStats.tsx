@@ -57,7 +57,7 @@ export const BetaHeaderStats = React.memo(function BetaHeaderStats({
     <div className="flex items-center gap-0">
       {/* Всего слов */}
       {visibility.totalWords && (
-        <div className="flex flex-col pr-4 mr-4 border-r border-border-subtle shrink-0">
+        <div className="hidden sm:flex flex-col pr-4 mr-4 border-r border-border-subtle shrink-0">
           <span className="text-2xl font-medium text-text-main leading-none">{wordCount}</span>
           <span className="text-[11px] text-text-muted mt-1">{t('header_totalWords')}</span>
         </div>
@@ -67,15 +67,15 @@ export const BetaHeaderStats = React.memo(function BetaHeaderStats({
       {visibility.sessionWords && (
         <div
         ref={wordBlockRef}
-        className="relative flex flex-col pr-4 mr-4 border-r border-border-subtle shrink-0 cursor-pointer rounded-xl px-3 py-1.5 -mx-1 transition-colors hover:bg-text-main/5"
+        className="relative flex flex-col pr-2 mr-2 sm:pr-4 sm:mr-4 border-r border-border-subtle cursor-pointer rounded-xl px-2 py-1.5 sm:px-3 -mx-1 transition-colors hover:bg-text-main/5"
         onClick={() => { setWordPopupOpen(!wordPopupOpen); setTimePopupOpen(false); }}
       >
         <div className="flex items-baseline gap-1.5 leading-none">
-          <span className={cn("text-2xl font-medium", wordDone ? "text-accent-success" : "text-text-main")}>
+          <span className={cn("text-xl sm:text-2xl font-medium", wordDone ? "text-accent-success" : "text-text-main")}>
             {sessionWords}
           </span>
           {wordGoal > 0 && (
-            <span className={cn("text-base", wordDone ? "text-accent-success/70" : "text-text-subtle")}>
+            <span className={cn("text-sm sm:text-base", wordDone ? "text-accent-success/70" : "text-text-subtle")}>
               / {wordGoal}
             </span>
           )}
@@ -115,15 +115,15 @@ export const BetaHeaderStats = React.memo(function BetaHeaderStats({
       {visibility.sessionTime && (
       <div
         ref={timeBlockRef}
-        className="relative flex flex-col pr-4 mr-4 border-r border-border-subtle shrink-0 cursor-pointer rounded-xl px-3 py-1.5 -mx-1 transition-colors hover:bg-text-main/5"
+        className="relative flex flex-col pr-2 mr-2 sm:pr-4 sm:mr-4 border-r border-border-subtle cursor-pointer rounded-xl px-2 py-1.5 sm:px-3 -mx-1 transition-colors hover:bg-text-main/5"
         onClick={() => { setTimePopupOpen(!timePopupOpen); setWordPopupOpen(false); }}
       >
         <div className="flex items-baseline gap-1.5 leading-none">
-          <span className={cn("text-2xl font-medium tabular-nums", timeDone ? "text-accent-success" : "text-text-main")}>
+          <span className={cn("text-xl sm:text-2xl font-medium tabular-nums", timeDone ? "text-accent-success" : "text-text-main")}>
             {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
           </span>
           {timerDuration > 0 && (
-            <span className={cn("text-base", timeDone ? "text-accent-success/70" : "text-text-subtle")}>
+            <span className={cn("text-sm sm:text-base", timeDone ? "text-accent-success/70" : "text-text-subtle")}>
               {timeDone ? t('goal_time_done') : t('goal_time_remaining')}
             </span>
           )}
@@ -164,10 +164,10 @@ export const BetaHeaderStats = React.memo(function BetaHeaderStats({
 
       {/* WPM — некликабельный */}
       {visibility.wpm && (
-      <div className="flex flex-col shrink-0 px-3 py-1.5">
+      <div className="flex flex-col shrink-0 px-2 py-1.5 sm:px-3">
         <div className="flex items-center gap-1.5 leading-none">
           <div className={cn("w-2 h-2 rounded-full transition-colors duration-500", getWpmColor(wpm), status === 'writing' && "animate-pulse")} />
-          <span className="text-2xl font-medium text-text-main leading-none">{wpm}</span>
+          <span className="text-xl sm:text-2xl font-medium text-text-main leading-none">{wpm}</span>
         </div>
         <span className="text-[11px] text-text-muted mt-1">{t('header_wpm')}</span>
       </div>

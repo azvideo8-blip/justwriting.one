@@ -83,7 +83,7 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 pb-28 space-y-4">
         {activeTab === 'editor' && (
           <div className="space-y-5 mt-2">
             <Section title={t('settings_font')}>
