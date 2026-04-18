@@ -42,7 +42,7 @@ export interface SessionPayload {
   wpm: number;
   isPublic: boolean;
   tags?: string[];
-  sessionType?: 'stopwatch' | 'timer' | 'words' | 'finish-by';
+  sessionType?: 'free' | 'stopwatch' | 'timer' | 'words' | 'finish-by';
   sessionStartTime?: number | null;
   goalReached?: boolean;
   updatedAt?: Timestamp;

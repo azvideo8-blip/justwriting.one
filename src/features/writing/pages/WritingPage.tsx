@@ -16,6 +16,7 @@ import { WritingFinishModal } from '../WritingFinishModal';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
 import { LifeLogPanel } from '../components/LifeLogPanel';
 import { WritingSessionService } from '../services/WritingSessionService';
+import { WritingDraftService } from '../services/WritingDraftService';
 
 // Modals
 import { PasswordPromptModal } from '../components/modals/PasswordPromptModal';
@@ -111,6 +112,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
 
   const [isLocalOnly, setIsLocalOnly] = useState(false);
   const { openSettings } = useSettings();
+  const savingRef = React.useRef(false);
 
   const { continueSession, passwordPrompt, handlePromptSubmit, handlePromptCancel } = useSessionContinue({
     setSetupMode: flow.setSetupMode,
@@ -183,36 +185,49 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
 
   const handleBetaSave = React.useCallback(async () => {
     if (sessionStatus === 'idle' || wordCount === 0) return;
+    if (savingRef.current) return;
+    savingRef.current = true;
     try {
       const state = useWritingStore.getState();
       
       const sessionData: SessionPayload = {
         userId: user.uid,
-        content: state.content,
-        title: state.title || '',
-        wordCount: state.wordCount,
-        duration: state.accumulatedDuration + (state.seconds - state.sessionStartSeconds),
-        isPublic: isPublic,
-        isAnonymous: isAnonymous,
-        tags: tags,
-        authorName: profile?.nickname || user.displayName || 'Anonymous',
+        authorName: profile?.nickname || user.displayName || user.email?.split('@')[0] || 'Anonymous',
         authorPhoto: user.photoURL || '',
-        wpm: state.wpm,
+        nickname: profile?.nickname || '',
+        isAnonymous: isAnonymous,
+        title: state.title || '',
+        content: state.content,
+        pinnedThoughts: state.pinnedThoughts,
+        duration: state.accumulatedDuration + (state.seconds - state.sessionStartSeconds),
+        wordCount: state.wordCount,
         charCount: state.content.length,
+        wpm: state.wpm,
+        isPublic: isPublic,
+        tags: tags,
+        sessionType: state.sessionType,
+        sessionStartTime: state.sessionStartTime,
+        goalReached: state.sessionType === 'timer' ? state.timeGoalReached : (state.sessionType === 'words' ? state.wordGoalReached : true),
       };
 
-      await WritingSessionService.saveSession(
+      const savedId = await WritingSessionService.saveSession(
         sessionData, 
         state.activeSessionId, 
         isOnline, 
         user.uid
       );
       
+      if (savedId && !state.activeSessionId) {
+        useWritingStore.getState().setActiveSessionId(savedId);
+      }
+      
       await fetchSessions();
       showToast(t('beta_save_success'), 'success');
     } catch (e) {
       console.error('Save failed:', e);
       showToast(t('beta_save_error'), 'error');
+    } finally {
+      savingRef.current = false;
     }
   }, [sessionStatus, wordCount, user, isPublic, isAnonymous, tags, profile, isOnline, showToast, t, fetchSessions]);
 
@@ -260,8 +275,11 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
 
   const handleBetaStop = async () => {
     if (sessionStatus === 'idle') return;
+    if (savingRef.current) return;
     await handleBetaSave();
-    useWritingStore.getState().setStatus('idle');
+    useWritingStore.getState().resetSession();
+    useWritingStore.setState({ title: '', content: '' });
+    await WritingDraftService.deleteDraft(user.uid);
   };
 
   const handleBetaPlayRef = React.useRef(handleBetaPlay);
