@@ -7,11 +7,11 @@ import { reportError } from '../../../core/errors/reportError';
 import { SessionPayload } from '../../../types';
 
 export const WritingSessionService = {
-  saveSession: async (sessionData: SessionPayload, activeSessionId: string | null, isOnline: boolean, userId: string) => {
+  saveSession: async (sessionData: SessionPayload, activeSessionId: string | null, isOnline: boolean, userId: string): Promise<string | null> => {
     try {
       if (!isOnline) {
         await savePendingSession({ sessionId: activeSessionId, data: sessionData, userId });
-        return;
+        return activeSessionId;
       }
 
       if (activeSessionId) {
@@ -19,15 +19,18 @@ export const WritingSessionService = {
           ...sessionData,
           updatedAt: Timestamp.now()
         });
+        return activeSessionId;
       } else {
-        await addDoc(collection(db, 'sessions'), {
+        const ref = await addDoc(collection(db, 'sessions'), {
           ...sessionData,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now()
         });
+        return ref.id;
       }
     } catch (e) {
       handleFirestoreError(e, activeSessionId ? OperationType.UPDATE : OperationType.CREATE, 'sessions');
+      throw e;
     }
   },
   
