@@ -98,12 +98,12 @@ export const BetaHeaderStats = React.memo(function BetaHeaderStats({
             onClose={() => setWordPopupOpen(false)}
             title={t('goal_popup_words_title')}
             type="words"
-            presets={[250, 500, 1000, 1500].map(p => ({ value: p, label: String(p) }))}
+            presets={[250, 500, 1000, 1500, 2000].map(p => ({ value: p, label: String(p) }))}
             current={wordGoal}
             onSelect={(v) => onSetWordGoal(v)}
             onClear={() => onSetWordGoal(0)}
             onClearLabel={t('goal_popup_clear')}
-            placeholder="500"
+            placeholder="1000"
             triggerRef={wordBlockRef}
             width="w-[210px]"
           />

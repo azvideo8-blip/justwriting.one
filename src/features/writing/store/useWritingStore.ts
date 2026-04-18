@@ -70,7 +70,7 @@ export const useWritingStore = create<WritingState>((set) => ({
   wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
   lastWordCount: 0,
   seconds: 0, status: 'idle', sessionType: 'free',
-  timerDuration: 15 * 60, targetTime: null, wordGoal: 500,
+  timerDuration: 30 * 60, targetTime: null, wordGoal: 1000,
   timeGoalReached: false, wordGoalReached: false, overtimeSeconds: 0,
   sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
 
@@ -132,8 +132,28 @@ export const useWritingStore = create<WritingState>((set) => ({
   })),
   
   setSessionType: (sessionType) => set({ sessionType }),
-  setTimerDuration: (timerDuration) => set({ timerDuration }),
-  setWordGoal: (wordGoal) => set({ wordGoal }),
+  setTimerDuration: (timerDuration) => set((state) => {
+    if (state.status !== 'idle' && state.timeGoalReached) {
+      return {
+        timerDuration,
+        timeGoalReached: false,
+        overtimeSeconds: 0,
+        accumulatedDuration: state.accumulatedDuration + (state.seconds - state.sessionStartSeconds),
+        sessionStartSeconds: state.seconds,
+      };
+    }
+    return { timerDuration };
+  }),
+  setWordGoal: (wordGoal) => set((state) => {
+    if (state.status !== 'idle' && state.wordGoalReached) {
+      return {
+        wordGoal,
+        wordGoalReached: false,
+        sessionStartWords: state.wordCount,
+      };
+    }
+    return { wordGoal };
+  }),
   setTargetTime: (targetTime) => set({ targetTime }),
   setIsPublic: (isPublic) => set({ isPublic }),
   setIsAnonymous: (isAnonymous) => set({ isAnonymous }),
