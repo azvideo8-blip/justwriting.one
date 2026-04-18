@@ -152,7 +152,10 @@ export function useSessionPersistence(
     }
 
     try {
-      await WritingSessionService.saveSession(sessionData, sessionState.activeSessionId, isOnline, user.uid);
+      const savedId = await WritingSessionService.saveSession(sessionData, sessionState.activeSessionId, isOnline, user.uid);
+      if (savedId && !sessionState.activeSessionId) {
+        actions.setActiveSessionId(savedId);
+      }
       await WritingDraftService.deleteDraft(user.uid);
       actions.setHasDraft(false);
       actions.resetSession();
