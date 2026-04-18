@@ -22,7 +22,6 @@ export function useAutoHideChrome() {
 
     const updateActivity = () => {
       lastActivityRef.current = Date.now();
-      setIdle(false);
     };
 
     window.addEventListener('keydown', updateActivity);
@@ -32,6 +31,8 @@ export function useAutoHideChrome() {
       const elapsed = Date.now() - lastActivityRef.current;
       if (isWriting && content.length > 0 && elapsed > IDLE_DELAY) {
         setIdle(true);
+      } else {
+        setIdle(false);
       }
     }, 500);
 
