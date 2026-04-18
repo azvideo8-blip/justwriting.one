@@ -9,7 +9,7 @@ export function useAutoHideChrome() {
   const content = useWritingStore(s => s.content);
   const { autoHideChrome, betaRedesign } = useWritingSettings();
   const [idle, setIdle] = useState(false);
-  const lastActivityRef = useRef(Date.now());
+  const lastMouseRef = useRef(Date.now());
 
   const isWriting = status === 'writing';
   const enabled = betaRedesign && autoHideChrome;
@@ -20,25 +20,26 @@ export function useAutoHideChrome() {
       return;
     }
 
-    const updateActivity = () => {
-      lastActivityRef.current = Date.now();
+    const onMouse = () => {
+      lastMouseRef.current = Date.now();
+      setIdle(false);
     };
 
-    window.addEventListener('keydown', updateActivity);
-    window.addEventListener('mousemove', updateActivity);
+    window.addEventListener('mousemove', onMouse);
 
     const check = setInterval(() => {
-      const elapsed = Date.now() - lastActivityRef.current;
-      if (isWriting && content.length > 0 && elapsed > IDLE_DELAY) {
-        setIdle(true);
-      } else {
+      if (!isWriting || content.length === 0) {
         setIdle(false);
+        return;
+      }
+      const elapsed = Date.now() - lastMouseRef.current;
+      if (elapsed > IDLE_DELAY) {
+        setIdle(true);
       }
     }, 500);
 
     return () => {
-      window.removeEventListener('keydown', updateActivity);
-      window.removeEventListener('mousemove', updateActivity);
+      window.removeEventListener('mousemove', onMouse);
       clearInterval(check);
     };
   }, [enabled, isWriting, content.length]);
