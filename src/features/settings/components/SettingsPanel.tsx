@@ -51,8 +51,10 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
     headerVisibility, toggleVisibility,
     showTitle, setShowTitle,
     showPinnedThoughts, setShowPinnedThoughts,
-    betaLifeLog, setBetaLifeLog,
-  } = useWritingSettings();
+     betaLifeLog, setBetaLifeLog,
+     betaRedesign, setBetaRedesign,
+     autoHideChrome, setAutoHideChrome,
+   } = useWritingSettings();
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'editor',  label: t('settings_tab_editor') },
@@ -141,9 +143,12 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
               </div>
             </Section>
 
-            <Section title={t('settings_writing_modes')}>
+            <Section title={t('settings_zen_mode')}>
               <ToggleRow emoji="🧘" label={t('settings_zen_mode')}    value={zenModeEnabled}  onChange={() => setZenModeEnabled(!zenModeEnabled)} />
               <ToggleRow emoji="🌊" label={t('settings_stream_mode')} value={streamMode}       onChange={toggleStreamMode} />
+              {betaRedesign && (
+                <ToggleRow emoji="👻" label={t('settings_auto_hide_chrome')} value={autoHideChrome} onChange={() => setAutoHideChrome(!autoHideChrome)} />
+              )}
             </Section>
 
             <Section title={t('settings_header')}>
@@ -306,13 +311,23 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
             </Section>
 
             {/* Interface toggles */}
-            <Section title={t('settings_interface')}>
-              <ToggleRow label={t('settings_classic_nav')} value={classicNav} onChange={() => setClassicNav(!classicNav)} />
-              <ToggleRow label={t('profile_settings_beta')} value={betaMode} onChange={() => setBetaMode(!betaMode)} />
+            <Section title={t('settings_section_beta')}>
               <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-border-subtle hover:bg-text-main/5 transition-all">
                 <span className="text-sm text-text-main/70">{t('settings_beta_lifelog')}</span>
                 <Toggle checked={betaLifeLog} onChange={setBetaLifeLog} />
               </div>
+              <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-border-subtle hover:bg-text-main/5 transition-all">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-text-main/70">{t('settings_beta_redesign')}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-text-main/10 text-text-main/40">beta</span>
+                </div>
+                <Toggle checked={betaRedesign} onChange={setBetaRedesign} />
+              </div>
+            </Section>
+
+            <Section title={t('settings_interface')}>
+              <ToggleRow label={t('settings_classic_nav')} value={classicNav} onChange={() => setClassicNav(!classicNav)} />
+              <ToggleRow label={t('profile_settings_beta')} value={betaMode} onChange={() => setBetaMode(!betaMode)} />
             </Section>
           </div>
         )}
