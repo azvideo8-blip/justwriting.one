@@ -17,6 +17,8 @@ import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveCon
 import { LifeLogPanel } from '../components/LifeLogPanel';
 import { WritingSessionService } from '../services/WritingSessionService';
 import { WritingDraftService } from '../services/WritingDraftService';
+import { FlowPulse } from '../../../core/theme/FlowPulse';
+import { useAutoHideChrome } from '../hooks/useAutoHideChrome';
 
 // Modals
 import { PasswordPromptModal } from '../components/modals/PasswordPromptModal';
@@ -76,11 +78,13 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
     editorWidth, 
     setStatus: setUIStatus,
     betaLifeLog,
+    betaRedesign,
     lifeLogVisible, setLifeLogVisible,
     lifeLogTab, setLifeLogTab,
     lifeLogPinned, setLifeLogPinned
   } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
+  const chromeHidden = useAutoHideChrome();
   const { showToast } = useToast();
   const title = useWritingStore(s => s.title);
   const setTitle = useWritingStore(s => s.setTitle);
@@ -461,6 +465,11 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
 
       <AnimatePresence>
         {betaLifeLog && lifeLogVisible && (
+          <div style={{
+            opacity: chromeHidden ? 0 : 1,
+            pointerEvents: chromeHidden ? 'none' : 'auto',
+            transition: 'opacity 0.3s',
+          }}>
           <LifeLogPanel 
             userId={user.uid} 
             onContinueSession={handleBetaContinueSession} 
@@ -472,8 +481,11 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
             pinned={lifeLogPinned}
             onTogglePin={() => setLifeLogPinned(!lifeLogPinned)}
           />
+          </div>
         )}
       </AnimatePresence>
+
+      {betaRedesign && <FlowPulse />}
     </motion.div>
   );
 }
