@@ -311,6 +311,8 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
     flow.setSetupMode('session-selection');
   };
 
+  const LIFE_LOG_WIDTH = 380;
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -366,7 +368,13 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
             isLocalOnly={isLocalOnly}
           />
 
-          <div className="flex flex-col flex-1 min-w-0 h-screen overflow-hidden">
+          <div
+            className="flex flex-col flex-1 min-w-0 h-screen overflow-hidden"
+            style={{
+              paddingRight: lifeLogVisible ? `${LIFE_LOG_WIDTH}px` : '0px',
+              transition: 'padding-right 0.25s cubic-bezier(.4,.2,.2,1)'
+            }}
+          >
               <WritingHeader 
                 handleNewSession={handleNewSession}
                 fetchUserSessions={fetchAllSessions}
