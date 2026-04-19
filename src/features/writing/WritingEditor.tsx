@@ -38,7 +38,7 @@ export const WritingEditor = React.memo(function WritingEditor({
     streamMode, isZenActive, zenModeEnabled, 
     fontSize, fontFamily, stickyHeader,
     showTitle, showPinnedThoughts,
-    betaLifeLog
+    betaLifeLog, betaRedesign
   } = useWritingSettings();
   const { layoutMode } = useLayoutMode();
   const showZen = isZenActive && zenModeEnabled;
@@ -109,7 +109,10 @@ export const WritingEditor = React.memo(function WritingEditor({
   };
 
   return (
-    <div className="space-y-4 transition-all duration-1000 py-4 font-serif">
+    <div className={cn(
+      "transition-all duration-1000 font-serif",
+      betaRedesign && betaLifeLog ? "h-full overflow-y-auto p-0" : "space-y-4 py-4"
+    )}>
       <div className={cn(
         "flex flex-col gap-4 transition-all duration-1000 z-30 py-2",
         stickyHeader ? "sticky top-[128px] md:top-[120px]" : "relative",
@@ -228,7 +231,10 @@ export const WritingEditor = React.memo(function WritingEditor({
           userSelect: 'text'
         }}
         className={cn(
-          "w-full min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-3xl border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] shadow-xl focus:shadow-2xl transition-all outline-none resize-none leading-[1.8] text-text-main placeholder:text-text-main/40",
+          "w-full outline-none resize-none leading-[1.8] text-text-main placeholder:text-text-main/40",
+          betaRedesign && betaLifeLog
+            ? "h-full min-h-full bg-transparent border-0 shadow-none p-8 md:p-12"
+            : "min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-3xl border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] shadow-xl focus:shadow-2xl transition-all",
           !betaLifeLog && status === 'idle' && "opacity-40",
           !betaLifeLog && status === 'paused' && "opacity-60"
         )}
