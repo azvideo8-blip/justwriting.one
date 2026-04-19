@@ -227,7 +227,7 @@ export const WritingEditor = React.memo(function WritingEditor({
         className={cn(
           "w-full outline-none resize-none leading-[1.8] text-text-main placeholder:text-text-main/40",
           betaRedesign && betaLifeLog
-            ? "h-full min-h-full bg-transparent border-0 shadow-none p-8 md:p-12"
+            ? "h-full min-h-full bg-transparent border-0 shadow-none p-4 md:p-6"
             : "min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-3xl border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] shadow-xl focus:shadow-2xl transition-all",
           !betaLifeLog && status === 'idle' && "opacity-40",
           !betaLifeLog && status === 'paused' && "opacity-60"
