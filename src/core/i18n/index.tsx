@@ -358,7 +358,6 @@ export const translations: Translations = {
   settings_beta_lifelog: { ru: 'Life Log (бета)', en: 'Life Log (beta)' },
   settings_beta_redesign: { ru: 'Новый дизайн', en: 'New design' },
   settings_section_beta: { ru: 'Бета', en: 'Beta' },
-  settings_auto_hide_chrome: { ru: 'Скрывать интерфейс при письме', en: 'Hide UI while writing' },
   topbar_new:  { ru: 'Новая заметка', en: 'New note' },
   topbar_open: { ru: 'Открыть',       en: 'Open' },
   topbar_save: { ru: 'Сохранить',     en: 'Save' },
