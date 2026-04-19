@@ -12,8 +12,9 @@ interface BetaSidebarProps {
 export function BetaSidebar({ isAdmin }: BetaSidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useLanguage();
-  const { betaLifeLog, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isZenActive, zenModeEnabled } = useWritingSettings();
+  const { betaLifeLog, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isZenActive, zenModeEnabled, betaRedesign } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
+  const inFlow = betaRedesign && betaLifeLog;
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -36,8 +37,9 @@ export function BetaSidebar({ isAdmin }: BetaSidebarProps) {
       onMouseEnter={() => setExpanded(true)}
       onMouseLeave={() => setExpanded(false)}
       className={cn(
-        "fixed top-0 left-0 h-full z-50 flex flex-col py-4 transition-all duration-300 ease-in-out",
+        "h-full z-50 flex flex-col py-4 transition-all duration-300 ease-in-out",
         "bg-surface-card border-r border-border-subtle backdrop-blur-xl",
+        inFlow ? "sticky top-0 shrink-0" : "fixed top-0 left-0",
         expanded ? "w-[220px]" : "w-16",
         showZen ? "opacity-0 pointer-events-none -translate-x-4" : "opacity-100 translate-x-0"
       )}

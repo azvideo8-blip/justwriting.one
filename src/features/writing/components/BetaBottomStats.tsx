@@ -7,6 +7,7 @@ import { useWritingStore } from '../store/useWritingStore';
 import { formatTime } from '../../../core/utils/formatTime';
 import { useLanguage } from '../../../core/i18n';
 import { getWpmColor } from '../utils/wpmColors';
+import { useWritingSettings } from '../contexts/WritingSettingsContext';
 
 interface BetaBottomStatsProps {
   onPlay: () => void;
@@ -17,6 +18,8 @@ interface BetaBottomStatsProps {
 
 export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottomStatsProps) {
   const { t } = useLanguage();
+  const { isZenActive, zenModeEnabled } = useWritingSettings();
+  const showZen = isZenActive && zenModeEnabled;
   const status = useWritingStore(s => s.status);
   const wordCount = useWritingStore(s => s.wordCount);
   const seconds = useWritingStore(s => s.seconds);
@@ -135,6 +138,8 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
     </motion.div>,
     document.body
   );
+
+  if (showZen) return null;
 
   return (
     <div className={cn(
