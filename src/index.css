@@ -138,6 +138,28 @@
     color: var(--text-main);
   }
 
+  /* ─── AMETHYST — Dark purple gradient ──────────────────────── */
+  .theme-amethyst {
+    color-scheme: dark;
+    --bg-base: #0d0818;
+    --text-main: rgba(255, 255, 255, 0.92);
+    --border-light: rgba(255, 255, 255, 0.10);
+    --surface-card: rgba(255, 255, 255, 0.05);
+    --surface-elevated: rgba(255, 255, 255, 0.08);
+    --accent-success: #34d399;
+    --accent-warning: #fbbf24;
+    --accent-danger: #f87171;
+    --accent-info: #a78bfa;
+    --text-muted: rgba(255, 255, 255, 0.55);
+    --text-subtle: rgba(255, 255, 255, 0.4);
+    --flow-pulse-color: #a78bfa;
+  }
+
+  .theme-amethyst body {
+    background-color: var(--bg-base);
+    color: var(--text-main);
+  }
+
   body {
     @apply bg-surface-base text-text-main antialiased transition-colors duration-300;
   }

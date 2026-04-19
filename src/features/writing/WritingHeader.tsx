@@ -12,7 +12,6 @@ import { useWritingStore } from './store/useWritingStore';
 import { BetaToolbar } from './components/BetaToolbar';
 import { ClassicHeaderStats } from './components/ClassicHeaderStats';
 import { BetaHeaderStats } from './components/BetaHeaderStats';
-import { useAutoHideChrome } from './hooks/useAutoHideChrome';
 
 interface WritingHeaderProps {
   handleNewSession: () => void;
@@ -78,7 +77,6 @@ export const WritingHeader = React.memo(function WritingHeader({
   const sessionSeconds = Math.max(0, seconds - sessionStartSeconds);
 
   const showZen = isZenActive && zenModeEnabled;
-  const chromeHidden = useAutoHideChrome();
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -106,12 +104,6 @@ export const WritingHeader = React.memo(function WritingHeader({
   };
 
   return (
-    <div style={{
-      opacity: chromeHidden ? 0 : 1,
-      transform: chromeHidden ? 'translateY(-8px)' : 'translateY(0)',
-      pointerEvents: chromeHidden ? 'none' : 'auto',
-      transition: 'opacity 0.25s, transform 0.25s',
-    }}>
     <AnimatePresence>
       {!showZen && (
         <motion.div
@@ -274,6 +266,5 @@ export const WritingHeader = React.memo(function WritingHeader({
         </motion.div>
       )}
     </AnimatePresence>
-    </div>
   );
 });

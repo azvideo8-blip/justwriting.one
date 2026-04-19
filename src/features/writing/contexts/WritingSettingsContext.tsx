@@ -44,8 +44,6 @@ interface WritingSettingsContextType {
   setShowPinnedThoughts: (v: boolean) => void;
   betaRedesign: boolean;
   setBetaRedesign: (v: boolean) => void;
-  autoHideChrome: boolean;
-  setAutoHideChrome: (v: boolean) => void;
 }
 
 const WritingSettingsContext = createContext<WritingSettingsContextType | undefined>(undefined);
@@ -65,7 +63,6 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
   const [showTitle, setShowTitle] = useLocalStorage<boolean>('editor-show-title', true, z.boolean());
   const [showPinnedThoughts, setShowPinnedThoughts] = useLocalStorage<boolean>('editor-show-pinned', true, z.boolean());
   const [betaRedesign, setBetaRedesign] = useLocalStorage<boolean>('beta-redesign', false, z.boolean());
-  const [autoHideChrome, setAutoHideChrome] = useLocalStorage<boolean>('auto-hide-chrome', false, z.boolean());
   const [headerVisibility, setHeaderVisibility] = useLocalStorage<HeaderVisibility>(
     'v2_headerVisibility',
     { currentTime: true, sessionTime: true, sessionWords: true, totalWords: true, wpm: true },
@@ -137,7 +134,6 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
       showTitle, setShowTitle,
       showPinnedThoughts, setShowPinnedThoughts,
       betaRedesign, setBetaRedesign,
-      autoHideChrome, setAutoHideChrome,
     }}>
       {children}
     </WritingSettingsContext.Provider>
