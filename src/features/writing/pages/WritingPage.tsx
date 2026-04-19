@@ -364,7 +364,10 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
             isLocalOnly={isLocalOnly}
           />
 
-          <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
+          <div className={cn(
+            "flex flex-col flex-1 min-w-0 h-full overflow-hidden transition-all duration-300",
+            lifeLogVisible ? "mr-[380px]" : ""
+          )}>
               <WritingHeader 
                 handleNewSession={handleNewSession}
                 fetchUserSessions={fetchAllSessions}
