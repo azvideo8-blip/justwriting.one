@@ -118,6 +118,18 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
   const [isLocalOnly, setIsLocalOnly] = useState(false);
   const { openSettings } = useSettings();
   const savingRef = React.useRef(false);
+  const editorColRef = React.useRef<HTMLDivElement>(null);
+  const [isCompact, setIsCompact] = useState(false);
+
+  React.useEffect(() => {
+    const el = editorColRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setIsCompact(entry.contentRect.width < 600);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const { continueSession, passwordPrompt, handlePromptSubmit, handlePromptCancel } = useSessionContinue({
     setSetupMode: flow.setSetupMode,
@@ -368,7 +380,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
             style={{
               display: 'grid',
               gridTemplateColumns: `${showZen ? '0px' : 'auto'} 1fr ${lifeLogVisible ? `${LIFE_LOG_WIDTH}px` : '0px'}`,
-              gridTemplateRows: '48px 1fr 52px',
+              gridTemplateRows: '48px 1fr 64px',
               height: '100vh',
               width: '100vw',
               position: 'fixed',
@@ -403,7 +415,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
               />
             </div>
 
-            <div style={{ gridColumn: '2', gridRow: '2', overflow: 'hidden', position: 'relative' }}>
+            <div ref={editorColRef} style={{ gridColumn: '2', gridRow: '2', overflow: 'hidden', position: 'relative' }}>
               <WritingEditor 
                 handlePause={() => setSessionStatus('paused')}
                 handleStart={handleStart}
@@ -416,7 +428,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
 
             <div style={{ gridColumn: '2', gridRow: '3', overflow: 'hidden' }}>
               <BetaBottomStats
-                compact={lifeLogVisible}
+                compact={isCompact}
                 onPlay={handleBetaPlay}
                 onPause={handleBetaPause}
                 onStop={handleBetaStop}
