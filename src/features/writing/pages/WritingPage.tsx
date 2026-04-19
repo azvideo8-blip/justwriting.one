@@ -317,7 +317,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
       animate={{ opacity: 1 }}
       className={cn(
         "w-full transition-colors duration-1000",
-        betaRedesign && betaLifeLog ? "fixed inset-0 flex overflow-hidden z-20" : ""
+        betaRedesign && betaLifeLog ? "fixed inset-0 flex overflow-hidden z-20 pl-16" : ""
       )}
     >
       {betaRedesign && betaLifeLog ? (
@@ -364,8 +364,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
             isLocalOnly={isLocalOnly}
           />
 
-          <div className={cn("flex flex-1 min-w-0 h-full overflow-hidden", showZen && "ml-0")}>
-            <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
+          <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
               <WritingHeader 
                 handleNewSession={handleNewSession}
                 fetchUserSessions={fetchAllSessions}
@@ -422,7 +421,6 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
                 />
               )}
             </AnimatePresence>
-          </div>
 
           <FlowPulse />
         </>
