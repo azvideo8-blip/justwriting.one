@@ -50,14 +50,16 @@ export function AnimatedRoutes() {
 
       {!classicNav ? (
         <>
-          {layoutMode === 'desktop' && !hideSidebar ? (
-            <BetaSidebar isAdmin={isAdmin} />
-          ) : (
-            <BetaBottomNav 
-              isAdmin={isAdmin} 
-              user={user}
-              onOpenLifeLog={() => setLifeLogVisible(true)}
-            />
+          {!hideSidebar && (
+            layoutMode === 'desktop' ? (
+              <BetaSidebar isAdmin={isAdmin} />
+            ) : (
+              <BetaBottomNav 
+                isAdmin={isAdmin} 
+                user={user}
+                onOpenLifeLog={() => setLifeLogVisible(true)}
+              />
+            )
           )}
           <ConnectionStatusBanner isOnline={isConnected} showZen={showZen} />
         </>
