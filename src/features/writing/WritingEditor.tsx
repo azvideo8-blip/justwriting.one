@@ -111,7 +111,7 @@ export const WritingEditor = React.memo(function WritingEditor({
   return (
     <div className={cn(
       "transition-all duration-1000",
-      betaRedesign && betaLifeLog ? "h-full overflow-y-auto" : "space-y-4 py-4 font-serif"
+      betaRedesign && betaLifeLog ? "h-full overflow-hidden" : "space-y-4 py-4 font-serif"
     )}>
       {!(betaRedesign && betaLifeLog) && status !== 'idle' && (
           <div className="flex-1 flex flex-col gap-2">
@@ -214,7 +214,7 @@ export const WritingEditor = React.memo(function WritingEditor({
         disabled={!betaLifeLog && (status === 'idle' || status === 'paused')}
         placeholder={betaLifeLog ? t('writing_placeholder_beta') : (status === 'idle' ? t('editor_idle_placeholder') : t('editor_writing_placeholder'))}
         style={{ 
-          paddingBottom: (betaRedesign && betaLifeLog) ? '2rem' : (layoutMode === 'mobile' ? '7rem' : '2rem'),
+          paddingBottom: (betaRedesign && betaLifeLog) ? undefined : (layoutMode === 'mobile' ? '7rem' : '2rem'),
           fontSize: `${fontSize}px`,
           lineHeight: `${fontSize * 1.2}px`,
           fontFamily: fontFamily === 'Inter' ? 'Inter, sans-serif' : 
@@ -227,7 +227,7 @@ export const WritingEditor = React.memo(function WritingEditor({
         className={cn(
           "w-full outline-none resize-none leading-[1.8] text-text-main placeholder:text-text-main/40",
           betaRedesign && betaLifeLog
-            ? "h-full min-h-full bg-transparent border-0 shadow-none p-4 md:p-6"
+            ? "h-full min-h-0 bg-transparent border-0 shadow-none p-4 md:p-6 overflow-y-auto"
             : "min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-3xl border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] shadow-xl focus:shadow-2xl transition-all",
           !betaLifeLog && status === 'idle' && "opacity-40",
           !betaLifeLog && status === 'paused' && "opacity-60"

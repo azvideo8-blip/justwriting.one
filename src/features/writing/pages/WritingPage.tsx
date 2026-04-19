@@ -33,6 +33,8 @@ import { useSessionContinue } from '../hooks/useSessionContinue';
 import { useSessionFlow } from '../hooks/useSessionFlow';
 import { useLanguage } from '../../../core/i18n';
 import { ConnectionStatusBanner } from '../components/ConnectionStatusBanner';
+import { MobileWriteScreen } from '../components/MobileWriteScreen';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { useToast } from '../../../shared/components/Toast';
 
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
@@ -120,6 +122,18 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
   const savingRef = React.useRef(false);
   const editorColRef = React.useRef<HTMLDivElement>(null);
   const [isCompact, setIsCompact] = useState(false);
+  const { layoutMode, setLayoutMode } = useLayoutMode();
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'm') {
+        e.preventDefault();
+        setLayoutMode(layoutMode === 'desktop' ? 'mobile' : 'desktop');
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [layoutMode, setLayoutMode]);
 
   React.useEffect(() => {
     const el = editorColRef.current;
@@ -325,6 +339,63 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
   };
 
   const LIFE_LOG_WIDTH = 380;
+  const isMobile = layoutMode !== 'desktop';
+
+  if (isMobile && betaRedesign) {
+    return (
+      <>
+        <MobileWriteScreen
+          onPlay={handleBetaPlay}
+          onPause={handleBetaPause}
+          onStop={handleBetaStop}
+          saveStatus={saveStatus}
+        />
+
+        <GoalToast visible={flow.goalToastVisible} type={flow.goalToastType} />
+
+        <AnimatePresence>
+          {flow.sessionStartFlash && (
+            <motion.div
+              initial={{ opacity: 0.6 }}
+              animate={{ opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+              className="fixed inset-0 z-[200] bg-text-main pointer-events-none"
+            />
+          )}
+        </AnimatePresence>
+
+        <PasswordPromptModal 
+          isOpen={!!passwordPrompt}
+          onConfirm={handlePromptSubmit}
+          onCancel={handlePromptCancel}
+        />
+
+        <CancelConfirmModal 
+          isOpen={flow.showCancelConfirm}
+          onConfirm={() => { handleCancel(); flow.setShowCancelConfirm(false); }}
+          onCancel={() => flow.setShowCancelConfirm(false)}
+        />
+
+        <WritingFinishModal 
+          isOpen={sessionStatus === 'finished'}
+          onClose={() => setSessionStatus('idle')}
+          onConfirm={() => { handleSave(); setSessionStatus('idle'); }}
+          title={title} setTitle={setTitle}
+          sessionType={sessionType} wordCount={wordCount} duration={seconds}
+          isPublic={isPublic} setIsPublic={setIsPublic}
+          isAnonymous={isAnonymous} setIsAnonymous={setIsAnonymous}
+          handleSave={handleSave}
+          tags={tags} setTags={setTags}
+          labelId={labelId} setLabelId={setLabelId}
+          labels={profile?.labels || []}
+          isLocalOnly={isLocalOnly}
+        />
+
+        <FlowPulse />
+      </>
+    );
+  }
 
   return (
     <motion.div 
@@ -391,7 +462,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
             }}
           >
             <div style={{ gridColumn: '1', gridRow: '1 / 4', overflow: 'hidden' }}>
-              <BetaSidebar isAdmin={!!profile?.role && profile.role === 'admin'} />
+              <BetaSidebar isAdmin={!!profile?.role && profile.role === 'admin'} inGrid />
             </div>
 
             <div style={{ gridColumn: '2', gridRow: '1', overflow: 'hidden' }}>
@@ -415,15 +486,32 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
               />
             </div>
 
-            <div ref={editorColRef} style={{ gridColumn: '2', gridRow: '2', overflow: 'hidden', position: 'relative' }}>
-              <WritingEditor 
-                handlePause={() => setSessionStatus('paused')}
-                handleStart={handleStart}
-                handleFinish={handleFinish}
-                setShowCancelConfirm={flow.setShowCancelConfirm}
-                saveStatus={saveStatus}
-                lastSavedAt={lastSavedAt}
-              />
+            <div ref={editorColRef} style={{
+              gridColumn: '2',
+              gridRow: '2',
+              overflow: 'hidden',
+              position: 'relative',
+              display: 'flex',
+              justifyContent: 'center',
+            }}>
+              <div style={{
+                width: editorWidth < 100 ? `${editorWidth}%` : '100%',
+                height: '100%',
+                position: 'relative',
+              }}
+              className={cn(
+                editorWidth < 100 && "rounded-2xl m-2 border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] shadow-xl"
+              )}
+              >
+                <WritingEditor 
+                  handlePause={() => setSessionStatus('paused')}
+                  handleStart={handleStart}
+                  handleFinish={handleFinish}
+                  setShowCancelConfirm={flow.setShowCancelConfirm}
+                  saveStatus={saveStatus}
+                  lastSavedAt={lastSavedAt}
+                />
+              </div>
             </div>
 
             <div style={{ gridColumn: '2', gridRow: '3', overflow: 'hidden' }}>
@@ -513,7 +601,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
         isLocalOnly={isLocalOnly}
       />
 
-      <AdaptiveContainer maxWidth={editorWidth >= 1400 ? undefined : editorWidth}>
+      <AdaptiveContainer widthPercent={editorWidth}>
         <AnimatePresence>
           {!classicNav && !showZen && (
             <motion.div
