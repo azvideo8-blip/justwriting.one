@@ -50,7 +50,7 @@ export function AnimatedRoutes() {
       {!classicNav ? (
         <>
           {layoutMode === 'desktop' ? (
-            <BetaSidebar isAdmin={isAdmin} isZenActive={showZen} />
+            <BetaSidebar isAdmin={isAdmin} />
           ) : (
             <BetaBottomNav 
               isAdmin={isAdmin} 

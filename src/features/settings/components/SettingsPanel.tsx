@@ -17,10 +17,11 @@ import { z } from 'zod';
 type Tab = 'editor' | 'app' | 'account';
 
 const THEME_ACCENT: Record<string, string> = {
-  modern:  '#1e1e22',
-  stripe:  '#7c3aed',
-  notion:  '#e8dfc0',
-  spotify: '#1ed760',
+  modern:    '#1e1e22',
+  stripe:    '#7c3aed',
+  notion:    '#e8dfc0',
+  spotify:   '#1ed760',
+  amethyst:  '#7c3aed',
 };
 
 interface SettingsPanelProps {
@@ -53,7 +54,6 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
     showPinnedThoughts, setShowPinnedThoughts,
      betaLifeLog, setBetaLifeLog,
      betaRedesign, setBetaRedesign,
-     autoHideChrome, setAutoHideChrome,
    } = useWritingSettings();
 
   const tabs: { id: Tab; label: string }[] = [
@@ -146,9 +146,6 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
             <Section title={t('settings_zen_mode')}>
               <ToggleRow emoji="🧘" label={t('settings_zen_mode')}    value={zenModeEnabled}  onChange={() => setZenModeEnabled(!zenModeEnabled)} />
               <ToggleRow emoji="🌊" label={t('settings_stream_mode')} value={streamMode}       onChange={toggleStreamMode} />
-              {betaRedesign && (
-                <ToggleRow emoji="👻" label={t('settings_auto_hide_chrome')} value={autoHideChrome} onChange={() => setAutoHideChrome(!autoHideChrome)} />
-              )}
             </Section>
 
             <Section title={t('settings_header')}>

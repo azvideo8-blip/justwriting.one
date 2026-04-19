@@ -4,18 +4,16 @@ import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
-import { useAutoHideChrome } from '../../writing/hooks/useAutoHideChrome';
 
 interface BetaSidebarProps {
   isAdmin: boolean;
-  isZenActive?: boolean;
 }
 
-export function BetaSidebar({ isAdmin, isZenActive }: BetaSidebarProps) {
+export function BetaSidebar({ isAdmin }: BetaSidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useLanguage();
-  const { betaLifeLog, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab } = useWritingSettings();
-  const chromeHidden = useAutoHideChrome();
+  const { betaLifeLog, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isZenActive, zenModeEnabled } = useWritingSettings();
+  const showZen = isZenActive && zenModeEnabled;
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -31,11 +29,6 @@ export function BetaSidebar({ isAdmin, isZenActive }: BetaSidebarProps) {
     <div
       role="navigation"
       aria-label={t('nav_main')}
-      style={{
-        opacity: chromeHidden ? 0 : 1,
-        pointerEvents: chromeHidden ? 'none' : 'auto',
-        transition: 'opacity 0.3s ease',
-      }}
       onFocusCapture={() => setExpanded(true)}
       onBlurCapture={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget)) setExpanded(false);
@@ -46,7 +39,7 @@ export function BetaSidebar({ isAdmin, isZenActive }: BetaSidebarProps) {
         "fixed top-0 left-0 h-full z-50 flex flex-col py-4 transition-all duration-300 ease-in-out",
         "bg-surface-card border-r border-border-subtle backdrop-blur-xl",
         expanded ? "w-[220px]" : "w-16",
-        isZenActive ? "opacity-0 pointer-events-none -translate-x-4" : "opacity-100 translate-x-0"
+        showZen ? "opacity-0 pointer-events-none -translate-x-4" : "opacity-100 translate-x-0"
       )}
     >
       {/* Logo */}

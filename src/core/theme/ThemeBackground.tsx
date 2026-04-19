@@ -60,6 +60,34 @@ export function ThemeBackground() {
     );
   }
 
+  if (themeId === 'amethyst') {
+    if (reducedMotion) {
+      return (
+        <div
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            zIndex: 0,
+            background: 'radial-gradient(ellipse at 35% 55%, #2d1b69 0%, #0d0818 65%)',
+          }}
+        />
+      );
+    }
+    return (
+      <motion.div
+        className="fixed inset-0 pointer-events-none"
+        style={{ zIndex: 0 }}
+        animate={{
+          background: [
+            'radial-gradient(ellipse at 35% 55%, #2d1b69 0%, #0d0818 65%)',
+            'radial-gradient(ellipse at 55% 40%, #341c7a 0%, #0d0818 65%)',
+            'radial-gradient(ellipse at 40% 60%, #271560 0%, #0d0818 65%)',
+          ],
+        }}
+        transition={{ duration: 10, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
+      />
+    );
+  }
+
   // Notion — plain white, no background component needed
   return null;
 }
