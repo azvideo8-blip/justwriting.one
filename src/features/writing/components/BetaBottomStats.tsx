@@ -143,106 +143,108 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
 
   return (
     <div className={cn(
-      "border-t border-border-subtle bg-surface-card/50 backdrop-blur-xl flex items-center flex-nowrap flex-shrink-0 min-h-[52px] overflow-x-auto",
-      compact ? "px-3 py-2 gap-3" : "px-6 py-3 gap-0"
+      "border-t border-border-subtle bg-surface-card/50 backdrop-blur-xl flex items-center flex-nowrap flex-shrink-0 min-h-[52px]",
+      compact ? "px-3 py-2" : "px-6 py-3"
     )}>
 
-      <div className={cn("flex flex-col", compact ? "pr-3 mr-3 border-r border-border-subtle" : "pr-5 mr-5 border-r border-border-subtle")}>
-        <span className="text-lg font-medium text-text-main leading-none tabular-nums whitespace-nowrap">
-          {wordCount.toLocaleString()}
-        </span>
-        {!compact && (
-          <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1 hidden sm:block">
-            {t('header_totalWords')}
+      <div className="flex items-center gap-0 flex-1 min-w-0 overflow-hidden">
+        <div className={cn("flex flex-col", compact ? "pr-3 mr-3 border-r border-border-subtle" : "pr-5 mr-5 border-r border-border-subtle")}>
+          <span className="text-lg font-medium text-text-main leading-none tabular-nums whitespace-nowrap">
+            {wordCount.toLocaleString()}
           </span>
-        )}
-      </div>
-
-      <div
-        ref={wordRef}
-        onClick={openWordPopup}
-        className={cn("flex flex-col cursor-pointer rounded-xl hover:bg-text-main/5 transition-colors",
-          compact ? "pr-3 mr-3 border-r border-border-subtle px-2 py-1" : "pr-5 mr-5 border-r border-border-subtle px-3 py-1.5 -mx-1"
-        )}
-      >
-        <div className="flex items-baseline gap-1.5 leading-none">
-          <span className={cn("text-lg font-medium leading-none tabular-nums whitespace-nowrap", wordDone ? "text-accent-success" : "text-text-main")}>
-            {sessionWords}
-          </span>
-          {wordGoal > 0 && (
-            <span className={cn("text-xs", wordDone ? "text-accent-success/60" : "text-text-main/30")}>
-              / {wordGoal}
+          {!compact && (
+            <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1 hidden sm:block">
+              {t('header_totalWords')}
             </span>
           )}
         </div>
-        {!compact && wordPct !== null && (
-          <div className="w-14 h-[2px] rounded-full bg-border-subtle mt-1.5">
-            <div
-              className={cn("h-[2px] rounded-full transition-all", wordDone ? "bg-accent-success" : "bg-text-main")}
-              style={{ width: `${wordPct}%` }}
-            />
-          </div>
-        )}
-        {!compact && (
-          <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1 hidden sm:block">
-            {t('header_sessionWords')}
-          </span>
-        )}
-      </div>
 
-      <div
-        ref={timeRef}
-        onClick={openTimePopup}
-        className={cn("flex flex-col cursor-pointer rounded-xl hover:bg-text-main/5 transition-colors",
-          compact ? "pr-3 mr-3 border-r border-border-subtle px-2 py-1" : "pr-5 mr-5 border-r border-border-subtle px-3 py-1.5 -mx-1"
-        )}
-      >
-        <div className="flex items-baseline gap-1.5 leading-none">
-          <span className={cn("text-lg font-medium leading-none tabular-nums whitespace-nowrap", timeDone ? "text-accent-success" : "text-text-main")}>
-            {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
-          </span>
-          {timerDuration > 0 && (
-            <span className={cn("text-xs", timeDone ? "text-accent-success/60" : "text-text-main/30")}>
-              {timeDone ? t('goal_time_done') : t('goal_time_remaining')}
+        <div
+          ref={wordRef}
+          onClick={openWordPopup}
+          className={cn("flex flex-col cursor-pointer rounded-xl hover:bg-text-main/5 transition-colors",
+            compact ? "pr-3 mr-3 border-r border-border-subtle px-2 py-1" : "pr-5 mr-5 border-r border-border-subtle px-3 py-1.5 -mx-1"
+          )}
+        >
+          <div className="flex items-baseline gap-1.5 leading-none">
+            <span className={cn("text-lg font-medium leading-none tabular-nums whitespace-nowrap", wordDone ? "text-accent-success" : "text-text-main")}>
+              {sessionWords}
+            </span>
+            {wordGoal > 0 && (
+              <span className={cn("text-xs", wordDone ? "text-accent-success/60" : "text-text-main/30")}>
+                / {wordGoal}
+              </span>
+            )}
+          </div>
+          {!compact && wordPct !== null && (
+            <div className="w-14 h-[2px] rounded-full bg-border-subtle mt-1.5">
+              <div
+                className={cn("h-[2px] rounded-full transition-all", wordDone ? "bg-accent-success" : "bg-text-main")}
+                style={{ width: `${wordPct}%` }}
+              />
+            </div>
+          )}
+          {!compact && (
+            <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1 hidden sm:block">
+              {t('header_sessionWords')}
             </span>
           )}
         </div>
-        {!compact && timePct !== null && (
-          <div className="w-14 h-[2px] rounded-full bg-border-subtle mt-1.5">
-            <div
-              className={cn("h-[2px] rounded-full transition-all", timeDone ? "bg-accent-success" : "bg-text-main")}
-              style={{ width: `${timePct}%` }}
-            />
+
+        <div
+          ref={timeRef}
+          onClick={openTimePopup}
+          className={cn("flex flex-col cursor-pointer rounded-xl hover:bg-text-main/5 transition-colors",
+            compact ? "pr-3 mr-3 border-r border-border-subtle px-2 py-1" : "pr-5 mr-5 border-r border-border-subtle px-3 py-1.5 -mx-1"
+          )}
+        >
+          <div className="flex items-baseline gap-1.5 leading-none">
+            <span className={cn("text-lg font-medium leading-none tabular-nums whitespace-nowrap", timeDone ? "text-accent-success" : "text-text-main")}>
+              {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
+            </span>
+            {timerDuration > 0 && (
+              <span className={cn("text-xs", timeDone ? "text-accent-success/60" : "text-text-main/30")}>
+                {timeDone ? t('goal_time_done') : t('goal_time_remaining')}
+              </span>
+            )}
           </div>
-        )}
-        {!compact && (
-          <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1 hidden sm:block">
-            {timerDuration > 0
-              ? `${t('goal_time_of')} ${Math.round(timerDuration / 60)} ${t('goal_time_min')}`
-              : t('header_time')}
-          </span>
-        )}
-      </div>
-
-      <div className={cn("flex flex-col", compact ? "ml-1" : "ml-2")}>
-        <div className="flex items-center gap-1.5 leading-none whitespace-nowrap">
-          <div className={cn("w-2 h-2 rounded-full transition-colors duration-500 shrink-0", getWpmColor(wpm))} />
-          <span className="text-lg font-medium text-text-main tabular-nums">{wpm}</span>
+          {!compact && timePct !== null && (
+            <div className="w-14 h-[2px] rounded-full bg-border-subtle mt-1.5">
+              <div
+                className={cn("h-[2px] rounded-full transition-all", timeDone ? "bg-accent-success" : "bg-text-main")}
+                style={{ width: `${timePct}%` }}
+              />
+            </div>
+          )}
+          {!compact && (
+            <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1 hidden sm:block">
+              {timerDuration > 0
+                ? `${t('goal_time_of')} ${Math.round(timerDuration / 60)} ${t('goal_time_min')}`
+                : t('header_time')}
+            </span>
+          )}
         </div>
-        {!compact && (
-          <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1 hidden sm:block">
-            {t('header_wpm')}
-          </span>
-        )}
+
+        <div className={cn("flex flex-col", compact ? "ml-1" : "ml-2")}>
+          <div className="flex items-center gap-1.5 leading-none whitespace-nowrap">
+            <div className={cn("w-2 h-2 rounded-full transition-colors duration-500 shrink-0", getWpmColor(wpm))} />
+            <span className="text-lg font-medium text-text-main tabular-nums">{wpm}</span>
+          </div>
+          {!compact && (
+            <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1 hidden sm:block">
+              {t('header_wpm')}
+            </span>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-2 ml-auto shrink-0">
+      <div className="flex items-center gap-2 ml-2 shrink-0 pl-4">
         <button
           onClick={status === 'paused' ? onPlay : status === 'idle' ? onPlay : undefined}
           disabled={status === 'writing'}
           title={t('beta_play')}
           className={cn(
-            "w-8 h-8 rounded-xl border flex items-center justify-center transition-all",
+            "w-8 h-8 rounded-xl border flex items-center justify-center transition-all shrink-0",
             status !== 'writing'
               ? "border-text-main/30 text-text-main hover:bg-text-main/5"
               : "border-border-subtle text-text-main/20 cursor-not-allowed"
@@ -255,7 +257,7 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
           disabled={status !== 'writing'}
           title={t('beta_pause')}
           className={cn(
-            "w-8 h-8 rounded-xl border flex items-center justify-center transition-all",
+            "w-8 h-8 rounded-xl border flex items-center justify-center transition-all shrink-0",
             status === 'writing'
               ? "border-text-main/30 text-text-main hover:bg-text-main/5"
               : "border-border-subtle text-text-main/20 cursor-not-allowed"
@@ -268,7 +270,7 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
           disabled={status === 'idle'}
           title={t('beta_stop')}
           className={cn(
-            "w-8 h-8 rounded-xl border flex items-center justify-center transition-all",
+            "w-8 h-8 rounded-xl border flex items-center justify-center transition-all shrink-0",
             status !== 'idle'
               ? "border-text-main/30 text-text-main hover:bg-text-main/5"
               : "border-border-subtle text-text-main/20 cursor-not-allowed"
