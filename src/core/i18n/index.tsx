@@ -402,6 +402,8 @@ export const translations: Translations = {
 
   beta_save_success: { ru: 'Заметка сохранена', en: 'Note saved' },
   beta_save_error:   { ru: 'Ошибка при сохранении', en: 'Save failed' },
+  save_status_saving: { ru: 'сохраняю…', en: 'saving…' },
+  save_status_saved:  { ru: 'сохранено', en: 'saved' },
 
   // Settings
   settings_font_preview: { ru: 'Aa 123', en: 'Aa 123' },
@@ -424,6 +426,7 @@ export const translations: Translations = {
   nav_notes_short:     { ru: 'Заметки',   en: 'Notes' },
   nav_profile_short:   { ru: 'Профиль',   en: 'Profile' },
   nav_community_short: { ru: 'Лента',     en: 'Feed' },
+  nav_me: { ru: 'Я', en: 'Me' },
   achievements_unlocked:  { ru: 'открыто', en: 'unlocked' },
   achievements_legendary: { ru: 'легендарных', en: 'legendary' },
   archive_empty_title:    { ru: 'Пока нет записей',          en: 'No entries yet' },

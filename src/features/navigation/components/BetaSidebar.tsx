@@ -7,14 +7,15 @@ import { useWritingSettings } from '../../writing/contexts/WritingSettingsContex
 
 interface BetaSidebarProps {
   isAdmin: boolean;
+  inGrid?: boolean;
 }
 
-export function BetaSidebar({ isAdmin }: BetaSidebarProps) {
+export function BetaSidebar({ isAdmin, inGrid: inGridProp }: BetaSidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useLanguage();
   const { betaLifeLog, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isZenActive, zenModeEnabled, betaRedesign } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
-  const inGrid = betaRedesign && betaLifeLog;
+  const inGrid = inGridProp ?? false;
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -38,7 +39,7 @@ export function BetaSidebar({ isAdmin }: BetaSidebarProps) {
       onMouseLeave={() => setExpanded(false)}
       className={cn(
         "h-full z-50 flex flex-col py-4 transition-all duration-300 ease-in-out",
-        "bg-surface-card border-r border-border-subtle backdrop-blur-xl",
+        "bg-surface-card/50 border-r border-border-subtle backdrop-blur-xl",
         inGrid ? "relative w-full" : "fixed top-0 left-0",
         !inGrid && expanded && "w-[220px]",
         !inGrid && !expanded && "w-16",

@@ -130,15 +130,15 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
               <div className="flex items-center gap-3 px-1">
                 <input
                   type="range"
-                  min={600}
-                  max={1400}
+                  min={50}
+                  max={100}
                   step={1}
                   value={editorWidth}
                   onChange={e => setEditorWidth(Number(e.target.value))}
                   className="flex-1 accent-text-main"
                 />
                 <span className="text-sm font-mono text-text-main w-16 text-right">
-                  {editorWidth >= 1400 ? '100%' : `${editorWidth}px`}
+                  {editorWidth}%
                 </span>
               </div>
             </Section>

@@ -46,16 +46,13 @@ export function GoalPopup({
         const POPUP_HEIGHT = 160;
         const GAP = 6;
 
-        let top = rect.bottom + GAP;
+        let top = Math.max(8, rect.top - POPUP_HEIGHT - GAP);
         let left = rect.left;
 
         if (left + POPUP_WIDTH > window.innerWidth - 8) {
           left = window.innerWidth - POPUP_WIDTH - 8;
         }
         if (left < 8) left = 8;
-        if (top + POPUP_HEIGHT > window.innerHeight - 8) {
-          top = rect.top - POPUP_HEIGHT - GAP;
-        }
 
         setCoords({ top, left });
       };
@@ -78,9 +75,9 @@ export function GoalPopup({
     <AnimatePresence>
       {open && (
         <motion.div
-          initial={{ opacity: 0, y: -8, scale: 0.95 }}
+          initial={{ opacity: 0, y: 8, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -8, scale: 0.95 }}
+          exit={{ opacity: 0, y: 8, scale: 0.95 }}
           onMouseDown={e => e.stopPropagation()}
           onClick={e => e.stopPropagation()}
           style={{
@@ -90,6 +87,7 @@ export function GoalPopup({
             zIndex: 9999,
           }}
           className={cn("bg-surface-card border border-border-subtle rounded-2xl p-3 shadow-2xl", width)}
+          data-goal-popup
         >
           <div className="text-[11px] text-text-main/40 mb-2 font-bold uppercase tracking-widest">{title}</div>
           <div className="flex gap-1 flex-wrap mb-2">
@@ -124,13 +122,13 @@ export function GoalPopup({
                 }
                 if (e.key === 'Escape') onClose();
               }}
-              className="flex-1 bg-surface-base border border-border-subtle rounded-xl px-2 py-1.5 text-sm text-text-main outline-none focus:border-text-main/40 w-16"
+              className="flex-1 min-w-0 bg-surface-base border border-border-subtle rounded-xl px-2 py-1.5 text-sm text-text-main outline-none focus:border-text-main/40 w-16"
               autoFocus={true}
             />
             {current > 0 && (
               <button
                 onClick={() => { onClear(); onClose(); }}
-                className="text-xs text-text-main/40 hover:text-text-main/70 p-1"
+                className="text-xs text-text-main/40 hover:text-text-main/70 p-1 shrink-0"
               >{onClearLabel}</button>
             )}
           </div>

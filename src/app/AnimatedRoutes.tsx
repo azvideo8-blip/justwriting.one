@@ -52,11 +52,10 @@ export function AnimatedRoutes() {
         <>
           {!hideSidebar && (
             layoutMode === 'desktop' ? (
-              <BetaSidebar isAdmin={isAdmin} />
+              <BetaSidebar isAdmin={isAdmin} inGrid={false} />
             ) : (
               <BetaBottomNav 
-                isAdmin={isAdmin} 
-                user={user}
+                isAdmin={isAdmin}
                 onOpenLifeLog={() => setLifeLogVisible(true)}
               />
             )
@@ -71,7 +70,7 @@ export function AnimatedRoutes() {
         "w-full relative z-10",
         hideSidebar ? "" : "pt-8",
         !classicNav && layoutMode === 'desktop' && !hideSidebar && "pl-20 pr-4",
-        !classicNav && layoutMode !== 'desktop' && !hideSidebar && "px-4",
+        !classicNav && layoutMode !== 'desktop' && !hideSidebar && "pb-20 px-4",
         classicNav && "pt-24 px-4"
       )}>
         <AnimatePresence mode="wait">
