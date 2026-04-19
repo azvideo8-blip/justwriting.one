@@ -219,7 +219,7 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
         )}
       </div>
 
-      <div className="flex flex-col shrink-0">
+      <div className={cn("flex flex-col shrink-0", compact ? "ml-1" : "ml-2")}>
         <div className="flex items-center gap-1.5 leading-none">
           <div className={cn("w-2 h-2 rounded-full transition-colors duration-500 shrink-0", getWpmColor(wpm))} />
           <span className="text-lg font-medium text-text-main tabular-nums">{wpm}</span>
