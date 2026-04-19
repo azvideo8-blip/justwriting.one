@@ -18,6 +18,7 @@ import { LifeLogPanel } from '../components/LifeLogPanel';
 import { WritingSessionService } from '../services/WritingSessionService';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { FlowPulse } from '../../../core/theme/FlowPulse';
+import { BetaBottomStats } from '../components/BetaBottomStats';
 
 // Modals
 import { PasswordPromptModal } from '../components/modals/PasswordPromptModal';
@@ -476,6 +477,14 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
           />
         )}
       </AnimatePresence>
+
+      {betaRedesign && betaLifeLog && (
+        <BetaBottomStats
+          onPlay={handleBetaPlay}
+          onPause={handleBetaPause}
+          onStop={handleBetaStop}
+        />
+      )}
 
       {betaRedesign && <FlowPulse />}
     </motion.div>
