@@ -35,9 +35,11 @@ export const BetaHeaderStats = React.memo(function BetaHeaderStats({
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-goal-popup]')) return;
       if (
-        wordBlockRef.current && !wordBlockRef.current.contains(e.target as Node) &&
-        timeBlockRef.current && !timeBlockRef.current.contains(e.target as Node)
+        wordBlockRef.current && !wordBlockRef.current.contains(target) &&
+        timeBlockRef.current && !timeBlockRef.current.contains(target)
       ) {
         setWordPopupOpen(false);
         setTimePopupOpen(false);

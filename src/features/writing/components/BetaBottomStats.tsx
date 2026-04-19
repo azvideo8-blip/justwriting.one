@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Play, Pause, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -18,7 +18,7 @@ interface BetaBottomStatsProps {
 
 export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottomStatsProps) {
   const { t } = useLanguage();
-  const { isZenActive, zenModeEnabled } = useWritingSettings();
+  const { isZenActive, zenModeEnabled, headerVisibility } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
   const status = useWritingStore(s => s.status);
   const wordCount = useWritingStore(s => s.wordCount);
@@ -52,7 +52,7 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
   const openWordPopup = () => {
     if (wordRef.current) {
       const r = wordRef.current.getBoundingClientRect();
-      setWordPos({ top: r.top - 8, left: r.left });
+      setWordPos({ top: r.top - 168, left: r.left });
     }
     setWordPopupOpen(true);
     setTimePopupOpen(false);
@@ -61,7 +61,7 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
   const openTimePopup = () => {
     if (timeRef.current) {
       const r = timeRef.current.getBoundingClientRect();
-      setTimePos({ top: r.top - 8, left: r.left });
+      setTimePos({ top: r.top - 168, left: r.left });
     }
     setTimePopupOpen(true);
     setWordPopupOpen(false);
@@ -71,6 +71,19 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
     setWordPopupOpen(false);
     setTimePopupOpen(false);
   };
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-goal-popup]')) return;
+      if (wordRef.current && !wordRef.current.contains(target) &&
+          timeRef.current && !timeRef.current.contains(target)) {
+        closePopups();
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const GoalPopup = ({
     pos, presets, current, onSelect, onClear, title, inputPlaceholder, toSeconds
@@ -85,17 +98,17 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
     toSeconds?: boolean;
   }) => createPortal(
     <motion.div
-      initial={{ opacity: 0, y: 8, scale: 0.95 }}
+      initial={{ opacity: 0, y: -8, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 8, scale: 0.95 }}
+      exit={{ opacity: 0, y: -8, scale: 0.95 }}
       style={{
         position: 'fixed',
         top: pos.top,
         left: Math.min(pos.left, window.innerWidth - 220),
-        transform: 'translateY(-100%)',
         zIndex: 9999,
       }}
       className="bg-surface-card border border-border-subtle rounded-2xl p-3 w-[210px] shadow-lg"
+      data-goal-popup
       onMouseDown={e => e.stopPropagation()}
     >
       <div className="text-[11px] text-text-main/40 mb-2">{title}</div>
@@ -119,7 +132,7 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
           autoFocus
           placeholder={inputPlaceholder}
           defaultValue={current > 0 ? (toSeconds ? Math.round(current / 60) : current) : ''}
-          className="flex-1 bg-surface-base border border-border-subtle rounded-xl px-2 py-1.5 text-sm text-text-main outline-none focus:border-text-main/30"
+          className="flex-1 min-w-0 bg-surface-base border border-border-subtle rounded-xl px-2 py-1.5 text-sm text-text-main outline-none focus:border-text-main/30"
           onKeyDown={e => {
             if (e.key === 'Enter') {
               const v = parseInt((e.target as HTMLInputElement).value);
@@ -131,7 +144,7 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
         {current > 0 && (
           <button
             onMouseDown={onClear}
-            className="text-[11px] text-text-main/40 hover:text-text-main transition-colors whitespace-nowrap"
+            className="text-[11px] text-text-main/40 hover:text-text-main transition-colors whitespace-nowrap shrink-0"
           >{t('goal_popup_clear')}</button>
         )}
       </div>
@@ -148,6 +161,7 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
     )}>
 
       <div className="flex items-center gap-0 flex-1 min-w-0 overflow-hidden">
+        {headerVisibility.totalWords && (
         <div className={cn("flex flex-col", compact ? "pr-3 mr-3 border-r border-border-subtle" : "pr-5 mr-5 border-r border-border-subtle")}>
           <span className="text-lg font-medium text-text-main leading-none tabular-nums whitespace-nowrap">
             {wordCount.toLocaleString()}
@@ -158,7 +172,9 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
             </span>
           )}
         </div>
+        )}
 
+        {headerVisibility.sessionWords && (
         <div
           ref={wordRef}
           onClick={openWordPopup}
@@ -190,7 +206,9 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
             </span>
           )}
         </div>
+        )}
 
+        {headerVisibility.sessionTime && (
         <div
           ref={timeRef}
           onClick={openTimePopup}
@@ -224,7 +242,9 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
             </span>
           )}
         </div>
+        )}
 
+        {headerVisibility.wpm && (
         <div className={cn("flex flex-col", compact ? "ml-1" : "ml-2")}>
           <div className="flex items-center gap-1.5 leading-none whitespace-nowrap">
             <div className={cn("w-2 h-2 rounded-full transition-colors duration-500 shrink-0", getWpmColor(wpm))} />
@@ -236,6 +256,7 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
             </span>
           )}
         </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2 ml-2 shrink-0 pl-4">
