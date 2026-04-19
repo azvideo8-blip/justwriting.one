@@ -5,6 +5,7 @@ import { useWritingStore } from '../store/useWritingStore';
 import { Session, UserProfile, SessionPayload } from '../../../types';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useSettings } from '../../../core/settings/SettingsContext';
+import { cn } from '../../../core/utils/utils';
 import { GoalToast } from '../../../shared/components/GoalToast';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -314,8 +315,119 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="w-full transition-colors duration-1000"
+      className={cn(
+        "w-full transition-colors duration-1000",
+        betaRedesign && betaLifeLog ? "flex h-screen overflow-hidden" : ""
+      )}
     >
+      {betaRedesign && betaLifeLog ? (
+        <>
+          <ConnectionStatusBanner isOnline={isOnline} showZen={showZen} />
+          <GoalToast visible={flow.goalToastVisible} type={flow.goalToastType} />
+
+          <AnimatePresence>
+            {flow.sessionStartFlash && (
+              <motion.div
+                initial={{ opacity: 0.6 }}
+                animate={{ opacity: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.8, ease: 'easeOut' }}
+                className="fixed inset-0 z-[200] bg-text-main pointer-events-none"
+              />
+            )}
+          </AnimatePresence>
+
+          <PasswordPromptModal 
+            isOpen={!!passwordPrompt}
+            onConfirm={handlePromptSubmit}
+            onCancel={handlePromptCancel}
+          />
+
+          <CancelConfirmModal 
+            isOpen={flow.showCancelConfirm}
+            onConfirm={() => { handleCancel(); flow.setShowCancelConfirm(false); }}
+            onCancel={() => flow.setShowCancelConfirm(false)}
+          />
+
+          <WritingFinishModal 
+            isOpen={sessionStatus === 'finished'}
+            onClose={() => setSessionStatus('idle')}
+            onConfirm={() => { handleSave(); setSessionStatus('idle'); }}
+            title={title} setTitle={setTitle}
+            sessionType={sessionType} wordCount={wordCount} duration={seconds}
+            isPublic={isPublic} setIsPublic={setIsPublic}
+            isAnonymous={isAnonymous} setIsAnonymous={setIsAnonymous}
+            handleSave={handleSave}
+            tags={tags} setTags={setTags}
+            labelId={labelId} setLabelId={setLabelId}
+            labels={profile?.labels || []}
+            isLocalOnly={isLocalOnly}
+          />
+
+          <div className={cn("flex flex-1 min-w-0 h-full overflow-hidden", showZen && "ml-0")}>
+            <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
+              <WritingHeader 
+                handleNewSession={handleNewSession}
+                fetchUserSessions={fetchAllSessions}
+                loadingSessions={loadingSessions}
+                hasDraft={hasDraft}
+                onOpenSettings={openSettings}
+                handlePause={handleBetaPause}
+                handleStart={handleBetaPlay}
+                handleFinish={handleFinish}
+                setShowCancelConfirm={flow.setShowCancelConfirm}
+                totalDurationForDeadline={flow.totalDurationForDeadline}
+                onNew={handleBetaNew}
+                onOpenLog={handleBetaOpen}
+                onSave={handleBetaSave}
+                onPlay={handleBetaPlay}
+                onPause={handleBetaPause}
+                onStop={handleBetaStop}
+              />
+
+              <div className="flex-1 overflow-hidden relative">
+                <WritingEditor 
+                  handlePause={() => setSessionStatus('paused')}
+                  handleStart={handleStart}
+                  handleFinish={handleFinish}
+                  setShowCancelConfirm={flow.setShowCancelConfirm}
+                  saveStatus={saveStatus}
+                  lastSavedAt={lastSavedAt}
+                />
+              </div>
+
+              <div className={cn(
+                "transition-all duration-300 shrink-0",
+                showZen ? "opacity-0 pointer-events-none h-0 overflow-hidden" : "opacity-100"
+              )}>
+                <BetaBottomStats
+                  compact={lifeLogVisible}
+                  onPlay={handleBetaPlay}
+                  onPause={handleBetaPause}
+                  onStop={handleBetaStop}
+                />
+              </div>
+            </div>
+
+            <AnimatePresence>
+              {lifeLogVisible && (
+                <LifeLogPanel 
+                  userId={user.uid} 
+                  onContinueSession={handleBetaContinueSession} 
+                  onClose={() => { if (!lifeLogPinned) setLifeLogVisible(false); }} 
+                  activeTab={lifeLogTab}
+                  onTabChange={setLifeLogTab}
+                  pinned={lifeLogPinned}
+                  onTogglePin={() => setLifeLogPinned(!lifeLogPinned)}
+                />
+              )}
+            </AnimatePresence>
+          </div>
+
+          <FlowPulse />
+        </>
+      ) : (
+      <>
       <ConnectionStatusBanner isOnline={isOnline} showZen={showZen} />
 
       <GoalToast visible={flow.goalToastVisible} type={flow.goalToastType} />
@@ -487,6 +599,8 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
       )}
 
       {betaRedesign && <FlowPulse />}
+      </>
+      )}
     </motion.div>
   );
 }

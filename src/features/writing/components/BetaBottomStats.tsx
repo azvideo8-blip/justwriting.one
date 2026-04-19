@@ -12,9 +12,10 @@ interface BetaBottomStatsProps {
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
+  compact?: boolean;
 }
 
-export function BetaBottomStats({ onPlay, onPause, onStop }: BetaBottomStatsProps) {
+export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottomStatsProps) {
   const { t } = useLanguage();
   const status = useWritingStore(s => s.status);
   const wordCount = useWritingStore(s => s.wordCount);
@@ -136,21 +137,28 @@ export function BetaBottomStats({ onPlay, onPause, onStop }: BetaBottomStatsProp
   );
 
   return (
-    <div className="border-t border-border-subtle bg-surface-card/50 backdrop-blur-xl px-6 py-3 flex items-center gap-0">
+    <div className={cn(
+      "border-t border-border-subtle bg-surface-card/50 backdrop-blur-xl flex items-center flex-shrink-0 min-h-[52px]",
+      compact ? "px-3 py-2 gap-3" : "px-6 py-3 gap-0"
+    )}>
 
-      <div className="flex flex-col pr-5 mr-5 border-r border-border-subtle shrink-0">
+      <div className={cn("flex flex-col shrink-0", compact ? "pr-3 mr-3 border-r border-border-subtle" : "pr-5 mr-5 border-r border-border-subtle")}>
         <span className="text-lg font-medium text-text-main leading-none tabular-nums">
           {wordCount.toLocaleString()}
         </span>
-        <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1">
-          {t('header_totalWords')}
-        </span>
+        {!compact && (
+          <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1 hidden sm:block">
+            {t('header_totalWords')}
+          </span>
+        )}
       </div>
 
       <div
         ref={wordRef}
         onClick={openWordPopup}
-        className="flex flex-col pr-5 mr-5 border-r border-border-subtle shrink-0 cursor-pointer rounded-xl px-3 py-1.5 -mx-1 hover:bg-text-main/5 transition-colors"
+        className={cn("flex flex-col shrink-0 cursor-pointer rounded-xl hover:bg-text-main/5 transition-colors",
+          compact ? "pr-3 mr-3 border-r border-border-subtle px-2 py-1" : "pr-5 mr-5 border-r border-border-subtle px-3 py-1.5 -mx-1"
+        )}
       >
         <div className="flex items-baseline gap-1.5 leading-none">
           <span className={cn("text-lg font-medium leading-none tabular-nums", wordDone ? "text-accent-success" : "text-text-main")}>
@@ -162,7 +170,7 @@ export function BetaBottomStats({ onPlay, onPause, onStop }: BetaBottomStatsProp
             </span>
           )}
         </div>
-        {wordPct !== null && (
+        {!compact && wordPct !== null && (
           <div className="w-14 h-[2px] rounded-full bg-border-subtle mt-1.5">
             <div
               className={cn("h-[2px] rounded-full transition-all", wordDone ? "bg-accent-success" : "bg-text-main")}
@@ -170,15 +178,19 @@ export function BetaBottomStats({ onPlay, onPause, onStop }: BetaBottomStatsProp
             />
           </div>
         )}
-        <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1">
-          {t('header_sessionWords')}
-        </span>
+        {!compact && (
+          <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1 hidden sm:block">
+            {t('header_sessionWords')}
+          </span>
+        )}
       </div>
 
       <div
         ref={timeRef}
         onClick={openTimePopup}
-        className="flex flex-col pr-5 mr-5 border-r border-border-subtle shrink-0 cursor-pointer rounded-xl px-3 py-1.5 -mx-1 hover:bg-text-main/5 transition-colors"
+        className={cn("flex flex-col shrink-0 cursor-pointer rounded-xl hover:bg-text-main/5 transition-colors",
+          compact ? "pr-3 mr-3 border-r border-border-subtle px-2 py-1" : "pr-5 mr-5 border-r border-border-subtle px-3 py-1.5 -mx-1"
+        )}
       >
         <div className="flex items-baseline gap-1.5 leading-none">
           <span className={cn("text-lg font-medium leading-none tabular-nums", timeDone ? "text-accent-success" : "text-text-main")}>
@@ -190,7 +202,7 @@ export function BetaBottomStats({ onPlay, onPause, onStop }: BetaBottomStatsProp
             </span>
           )}
         </div>
-        {timePct !== null && (
+        {!compact && timePct !== null && (
           <div className="w-14 h-[2px] rounded-full bg-border-subtle mt-1.5">
             <div
               className={cn("h-[2px] rounded-full transition-all", timeDone ? "bg-accent-success" : "bg-text-main")}
@@ -198,11 +210,13 @@ export function BetaBottomStats({ onPlay, onPause, onStop }: BetaBottomStatsProp
             />
           </div>
         )}
-        <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1">
-          {timerDuration > 0
-            ? `${t('goal_time_of')} ${Math.round(timerDuration / 60)} ${t('goal_time_min')}`
-            : t('header_time')}
-        </span>
+        {!compact && (
+          <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1 hidden sm:block">
+            {timerDuration > 0
+              ? `${t('goal_time_of')} ${Math.round(timerDuration / 60)} ${t('goal_time_min')}`
+              : t('header_time')}
+          </span>
+        )}
       </div>
 
       <div className="flex flex-col shrink-0">
@@ -210,9 +224,11 @@ export function BetaBottomStats({ onPlay, onPause, onStop }: BetaBottomStatsProp
           <div className={cn("w-2 h-2 rounded-full transition-colors duration-500 shrink-0", getWpmColor(wpm))} />
           <span className="text-lg font-medium text-text-main tabular-nums">{wpm}</span>
         </div>
-        <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1">
-          {t('header_wpm')}
-        </span>
+        {!compact && (
+          <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1 hidden sm:block">
+            {t('header_wpm')}
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-2 ml-auto shrink-0">
