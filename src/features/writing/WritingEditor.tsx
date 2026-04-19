@@ -110,15 +110,10 @@ export const WritingEditor = React.memo(function WritingEditor({
 
   return (
     <div className={cn(
-      "transition-all duration-1000 font-serif",
-      betaRedesign && betaLifeLog ? "h-full overflow-y-auto p-0" : "space-y-4 py-4"
+      "transition-all duration-1000",
+      betaRedesign && betaLifeLog ? "h-full overflow-y-auto" : "space-y-4 py-4 font-serif"
     )}>
-      <div className={cn(
-        "flex flex-col gap-4 transition-all duration-1000 z-30 py-2",
-        stickyHeader ? "sticky top-[128px] md:top-[120px]" : "relative",
-        showZen ? "opacity-0 pointer-events-none -translate-y-4" : "opacity-100 translate-y-0"
-      )}>
-        {status !== 'idle' && (
+      {!(betaRedesign && betaLifeLog) && status !== 'idle' && (
           <div className="flex-1 flex flex-col gap-2">
             <div className="relative flex items-center gap-3">
               {!betaLifeLog && showTitle && (
@@ -198,7 +193,6 @@ export const WritingEditor = React.memo(function WritingEditor({
             </AnimatePresence>
           </div>
         )}
-      </div>
 
       <textarea
         ref={textareaRef}
@@ -220,7 +214,7 @@ export const WritingEditor = React.memo(function WritingEditor({
         disabled={!betaLifeLog && (status === 'idle' || status === 'paused')}
         placeholder={betaLifeLog ? t('writing_placeholder_beta') : (status === 'idle' ? t('editor_idle_placeholder') : t('editor_writing_placeholder'))}
         style={{ 
-          paddingBottom: layoutMode === 'mobile' ? '7rem' : '2rem',
+          paddingBottom: (betaRedesign && betaLifeLog) ? '2rem' : (layoutMode === 'mobile' ? '7rem' : '2rem'),
           fontSize: `${fontSize}px`,
           lineHeight: `${fontSize * 1.2}px`,
           fontFamily: fontFamily === 'Inter' ? 'Inter, sans-serif' : 
