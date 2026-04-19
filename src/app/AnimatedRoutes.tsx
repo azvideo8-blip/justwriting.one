@@ -65,8 +65,9 @@ export function AnimatedRoutes() {
       )}
 
       <main id="main-content" className={cn(
-        "w-full relative z-10",
-        !classicNav && layoutMode === 'desktop' ? "pl-20 pt-8 pr-4" : "pt-8 px-4",
+        "w-full relative z-10 pt-8",
+        !classicNav && layoutMode === 'desktop' && "pl-20 pr-4",
+        !classicNav && layoutMode !== 'desktop' && "px-4",
         classicNav && "pt-24 px-4"
       )}>
         <AnimatePresence mode="wait">

@@ -317,7 +317,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
       animate={{ opacity: 1 }}
       className={cn(
         "w-full transition-colors duration-1000",
-        betaRedesign && betaLifeLog ? "flex h-screen overflow-hidden" : ""
+        betaRedesign && betaLifeLog ? "fixed inset-0 flex overflow-hidden z-20" : ""
       )}
     >
       {betaRedesign && betaLifeLog ? (
