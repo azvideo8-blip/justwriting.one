@@ -27,7 +27,7 @@ export function AnimatedRoutes() {
   const location = useLocation();
   const { t } = useLanguage();
   const { user, profile, isConnected } = useAuthStatus();
-  const { isZenActive, zenModeEnabled, setLifeLogVisible } = useWritingSettings();
+  const { isZenActive, zenModeEnabled, setLifeLogVisible, betaRedesign, betaLifeLog } = useWritingSettings();
   const [classicNav] = useLocalStorage('classic-nav', false, z.boolean());
   const { layoutMode } = useLayoutMode();
 
@@ -35,6 +35,7 @@ export function AnimatedRoutes() {
 
   const currentPath = location.pathname;
   const showZen = isZenActive && zenModeEnabled && currentPath === '/';
+  const hideSidebar = betaRedesign && betaLifeLog && currentPath === '/';
   const isAdmin = profile?.role === 'admin';
 
   return (
@@ -49,7 +50,7 @@ export function AnimatedRoutes() {
 
       {!classicNav ? (
         <>
-          {layoutMode === 'desktop' ? (
+          {layoutMode === 'desktop' && !hideSidebar ? (
             <BetaSidebar isAdmin={isAdmin} />
           ) : (
             <BetaBottomNav 
@@ -65,9 +66,10 @@ export function AnimatedRoutes() {
       )}
 
       <main id="main-content" className={cn(
-        "w-full relative z-10 pt-8",
-        !classicNav && layoutMode === 'desktop' && "pl-20 pr-4",
-        !classicNav && layoutMode !== 'desktop' && "px-4",
+        "w-full relative z-10",
+        hideSidebar ? "" : "pt-8",
+        !classicNav && layoutMode === 'desktop' && !hideSidebar && "pl-20 pr-4",
+        !classicNav && layoutMode !== 'desktop' && !hideSidebar && "px-4",
         classicNav && "pt-24 px-4"
       )}>
         <AnimatePresence mode="wait">

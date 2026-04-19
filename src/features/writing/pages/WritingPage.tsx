@@ -20,6 +20,7 @@ import { WritingSessionService } from '../services/WritingSessionService';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { FlowPulse } from '../../../core/theme/FlowPulse';
 import { BetaBottomStats } from '../components/BetaBottomStats';
+import { BetaSidebar } from '../../navigation/components/BetaSidebar';
 
 // Modals
 import { PasswordPromptModal } from '../components/modals/PasswordPromptModal';
@@ -366,7 +367,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: `${showZen ? '0px' : '64px'} 1fr ${lifeLogVisible ? `${LIFE_LOG_WIDTH}px` : '0px'}`,
+              gridTemplateColumns: `${showZen ? '0px' : 'auto'} 1fr ${lifeLogVisible ? `${LIFE_LOG_WIDTH}px` : '0px'}`,
               gridTemplateRows: 'auto 1fr auto',
               height: '100vh',
               width: '100vw',
@@ -377,7 +378,9 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
               overflow: 'hidden',
             }}
           >
-            <div style={{ gridColumn: '1', gridRow: '1 / 4' }} />
+            <div style={{ gridColumn: '1', gridRow: '1 / 4', overflow: 'hidden' }}>
+              <BetaSidebar isAdmin={!!profile?.role && profile.role === 'admin'} />
+            </div>
 
             <div style={{ gridColumn: '2', gridRow: '1', overflow: 'hidden' }}>
               <WritingHeader 
