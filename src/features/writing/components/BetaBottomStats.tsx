@@ -138,12 +138,12 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
 
   return (
     <div className={cn(
-      "border-t border-border-subtle bg-surface-card/50 backdrop-blur-xl flex items-center flex-shrink-0 min-h-[52px]",
+      "border-t border-border-subtle bg-surface-card/50 backdrop-blur-xl flex items-center flex-nowrap flex-shrink-0 min-h-[52px] overflow-x-auto",
       compact ? "px-3 py-2 gap-3" : "px-6 py-3 gap-0"
     )}>
 
-      <div className={cn("flex flex-col shrink-0", compact ? "pr-3 mr-3 border-r border-border-subtle" : "pr-5 mr-5 border-r border-border-subtle")}>
-        <span className="text-lg font-medium text-text-main leading-none tabular-nums">
+      <div className={cn("flex flex-col", compact ? "pr-3 mr-3 border-r border-border-subtle" : "pr-5 mr-5 border-r border-border-subtle")}>
+        <span className="text-lg font-medium text-text-main leading-none tabular-nums whitespace-nowrap">
           {wordCount.toLocaleString()}
         </span>
         {!compact && (
@@ -156,12 +156,12 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
       <div
         ref={wordRef}
         onClick={openWordPopup}
-        className={cn("flex flex-col shrink-0 cursor-pointer rounded-xl hover:bg-text-main/5 transition-colors",
+        className={cn("flex flex-col cursor-pointer rounded-xl hover:bg-text-main/5 transition-colors",
           compact ? "pr-3 mr-3 border-r border-border-subtle px-2 py-1" : "pr-5 mr-5 border-r border-border-subtle px-3 py-1.5 -mx-1"
         )}
       >
         <div className="flex items-baseline gap-1.5 leading-none">
-          <span className={cn("text-lg font-medium leading-none tabular-nums", wordDone ? "text-accent-success" : "text-text-main")}>
+          <span className={cn("text-lg font-medium leading-none tabular-nums whitespace-nowrap", wordDone ? "text-accent-success" : "text-text-main")}>
             {sessionWords}
           </span>
           {wordGoal > 0 && (
@@ -188,12 +188,12 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
       <div
         ref={timeRef}
         onClick={openTimePopup}
-        className={cn("flex flex-col shrink-0 cursor-pointer rounded-xl hover:bg-text-main/5 transition-colors",
+        className={cn("flex flex-col cursor-pointer rounded-xl hover:bg-text-main/5 transition-colors",
           compact ? "pr-3 mr-3 border-r border-border-subtle px-2 py-1" : "pr-5 mr-5 border-r border-border-subtle px-3 py-1.5 -mx-1"
         )}
       >
         <div className="flex items-baseline gap-1.5 leading-none">
-          <span className={cn("text-lg font-medium leading-none tabular-nums", timeDone ? "text-accent-success" : "text-text-main")}>
+          <span className={cn("text-lg font-medium leading-none tabular-nums whitespace-nowrap", timeDone ? "text-accent-success" : "text-text-main")}>
             {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
           </span>
           {timerDuration > 0 && (
@@ -219,8 +219,8 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
         )}
       </div>
 
-      <div className={cn("flex flex-col shrink-0", compact ? "ml-1" : "ml-2")}>
-        <div className="flex items-center gap-1.5 leading-none">
+      <div className={cn("flex flex-col", compact ? "ml-1" : "ml-2")}>
+        <div className="flex items-center gap-1.5 leading-none whitespace-nowrap">
           <div className={cn("w-2 h-2 rounded-full transition-colors duration-500 shrink-0", getWpmColor(wpm))} />
           <span className="text-lg font-medium text-text-main tabular-nums">{wpm}</span>
         </div>
