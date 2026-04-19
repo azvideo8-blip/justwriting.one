@@ -368,7 +368,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
             style={{
               display: 'grid',
               gridTemplateColumns: `${showZen ? '0px' : 'auto'} 1fr ${lifeLogVisible ? `${LIFE_LOG_WIDTH}px` : '0px'}`,
-              gridTemplateRows: 'auto 1fr auto',
+              gridTemplateRows: '48px 1fr 52px',
               height: '100vh',
               width: '100vw',
               position: 'fixed',

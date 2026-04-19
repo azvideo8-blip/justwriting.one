@@ -143,8 +143,8 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
 
   return (
     <div className={cn(
-      "border-t border-border-subtle bg-surface-card/50 backdrop-blur-xl flex items-center flex-nowrap h-full w-full",
-      compact ? "px-3 py-2" : "px-6 py-3"
+      "border-t border-border-subtle bg-surface-card/50 backdrop-blur-xl flex items-center flex-nowrap h-[52px]",
+      compact ? "px-3" : "px-6"
     )}>
 
       <div className="flex items-center gap-0 flex-1 min-w-0 overflow-hidden">

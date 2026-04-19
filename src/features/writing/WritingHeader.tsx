@@ -117,7 +117,7 @@ export const WritingHeader = React.memo(function WritingHeader({
           )}
         >
           {betaLifeLog && betaRedesign ? (
-              <div className="flex items-center gap-2 px-4 py-2 border-b border-border-subtle bg-surface-card/50">
+              <div className="flex items-center gap-2 px-4 h-12 border-b border-border-subtle bg-surface-card/50">
                 <button onClick={onNew} title={t('topbar_new')}
                   className="w-8 h-8 rounded-xl border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-text-main transition-all">
                   <FilePlus size={14} />
