@@ -112,72 +112,69 @@ export const WritingHeader = React.memo(function WritingHeader({
           exit={{ opacity: 0, y: -16, height: 0 }}
           transition={{ duration: 0.4, ease: 'easeInOut' }}
           className={cn(
-            "w-full z-40 px-4 py-3 overflow-visible"
+            "w-full z-40 overflow-visible",
+            betaRedesign && betaLifeLog ? "" : "px-4 py-3"
           )}
         >
-          {betaLifeLog ? (
+          {betaLifeLog && betaRedesign ? (
+              <div className="flex items-center gap-2 px-4 py-2 border-b border-border-subtle bg-surface-card/50">
+                <button onClick={onNew} title={t('topbar_new')}
+                  className="w-8 h-8 rounded-xl border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-text-main transition-all">
+                  <FilePlus size={14} />
+                </button>
+                <button onClick={onOpenLog} title={t('topbar_open')}
+                  className="w-8 h-8 rounded-xl border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-text-main transition-all">
+                  <FolderOpen size={14} />
+                </button>
+                <button onClick={onSave} title={t('topbar_save')}
+                  className="w-8 h-8 rounded-xl border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-text-main transition-all">
+                  <Save size={14} />
+                </button>
+                <div className="w-px h-4 bg-border-subtle mx-1" />
+                <input
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  placeholder={t('topbar_title_placeholder')}
+                  className="flex-1 bg-transparent outline-none text-sm font-medium text-text-main/70 placeholder:text-text-main/25"
+                />
+                <button
+                  onClick={toggleFullscreen}
+                  title={t('header_fullscreen')}
+                  className="w-8 h-8 rounded-xl border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-text-main transition-all ml-auto"
+                >
+                  {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
+                </button>
+              </div>
+          ) : betaLifeLog ? (
             <div className="w-full mx-auto flex flex-col gap-0 bg-surface-card backdrop-blur-2xl border border-border-subtle rounded-3xl shadow-sm overflow-visible p-3 px-4">
-              {betaRedesign ? (
-                <div className="flex items-center gap-2 px-2 py-1">
-                  <button onClick={onNew} title={t('topbar_new')}
-                    className="w-8 h-8 rounded-xl border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-text-main transition-all">
-                    <FilePlus size={14} />
-                  </button>
-                  <button onClick={onOpenLog} title={t('topbar_open')}
-                    className="w-8 h-8 rounded-xl border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-text-main transition-all">
-                    <FolderOpen size={14} />
-                  </button>
-                  <button onClick={onSave} title={t('topbar_save')}
-                    className="w-8 h-8 rounded-xl border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-text-main transition-all">
-                    <Save size={14} />
-                  </button>
-                  <div className="w-px h-4 bg-border-subtle mx-1" />
-                  <input
-                    value={title}
-                    onChange={e => setTitle(e.target.value)}
-                    placeholder={t('topbar_title_placeholder')}
-                    className="flex-1 bg-transparent outline-none text-sm font-medium text-text-main/70 placeholder:text-text-main/25"
-                  />
-                  <button
-                    onClick={toggleFullscreen}
-                    title={t('header_fullscreen')}
-                    className="w-8 h-8 rounded-xl border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-text-main transition-all ml-auto"
-                  >
-                    {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2 pb-2 border-b border-border-subtle mb-2">
-                    <BetaToolbar 
-                      onNew={onNew}
-                      onOpenLog={onOpenLog}
-                      onSave={onSave}
-                      onPlay={onPlay}
-                      onPause={onPause}
-                      onStop={onStop}
-                      status={status}
-                      wordCount={wordCount}
-                      title={title}
-                      setTitle={setTitle}
-                    />
-                  </div>
+              <div className="flex items-center gap-2 pb-2 border-b border-border-subtle mb-2">
+                <BetaToolbar 
+                  onNew={onNew}
+                  onOpenLog={onOpenLog}
+                  onSave={onSave}
+                  onPlay={onPlay}
+                  onPause={onPause}
+                  onStop={onStop}
+                  status={status}
+                  wordCount={wordCount}
+                  title={title}
+                  setTitle={setTitle}
+                />
+              </div>
 
-                  <BetaHeaderStats
-                    wordGoal={wordGoal}
-                    timerDuration={timerDuration}
-                    onSetWordGoal={setWordGoal}
-                    onSetTimerDuration={setTimerDuration}
-                    sessionWords={sessionWords}
-                    sessionSeconds={sessionSeconds}
-                    wordCount={wordCount}
-                    wpm={wpm}
-                    status={status}
-                    currentTime={currentTime}
-                    visibility={headerVisibility}
-                  />
-                </>
-              )}
+              <BetaHeaderStats
+                wordGoal={wordGoal}
+                timerDuration={timerDuration}
+                onSetWordGoal={setWordGoal}
+                onSetTimerDuration={setTimerDuration}
+                sessionWords={sessionWords}
+                sessionSeconds={sessionSeconds}
+                wordCount={wordCount}
+                wpm={wpm}
+                status={status}
+                currentTime={currentTime}
+                visibility={headerVisibility}
+              />
             </div>
           ) : (
             <div className={cn(
