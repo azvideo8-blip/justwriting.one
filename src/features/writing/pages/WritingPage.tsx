@@ -446,6 +446,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
                     onTabChange={setLifeLogTab}
                     pinned={lifeLogPinned}
                     onTogglePin={() => setLifeLogPinned(!lifeLogPinned)}
+                    inGrid
                   />
                 )}
               </AnimatePresence>
