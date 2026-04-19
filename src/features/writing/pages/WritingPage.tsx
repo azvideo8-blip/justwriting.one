@@ -317,12 +317,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className={cn(
-        "w-full transition-colors duration-1000",
-        betaRedesign && betaLifeLog
-          ? "fixed inset-0 flex overflow-hidden z-20 pl-16"
-          : ""
-      )}
+      className="w-full transition-colors duration-1000"
     >
       {betaRedesign && betaLifeLog ? (
         <>
@@ -369,12 +364,22 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
           />
 
           <div
-            className="flex flex-col flex-1 min-w-0 h-screen overflow-hidden"
             style={{
-              paddingRight: lifeLogVisible ? `${LIFE_LOG_WIDTH}px` : '0px',
-              transition: 'padding-right 0.25s cubic-bezier(.4,.2,.2,1)'
+              display: 'grid',
+              gridTemplateColumns: `${showZen ? '0px' : '64px'} 1fr ${lifeLogVisible ? `${LIFE_LOG_WIDTH}px` : '0px'}`,
+              gridTemplateRows: 'auto 1fr auto',
+              height: '100vh',
+              width: '100vw',
+              position: 'fixed',
+              inset: 0,
+              zIndex: 20,
+              transition: 'grid-template-columns 0.25s cubic-bezier(.4,.2,.2,1)',
+              overflow: 'hidden',
             }}
           >
+            <div style={{ gridColumn: '1', gridRow: '1 / 4' }} />
+
+            <div style={{ gridColumn: '2', gridRow: '1', overflow: 'hidden' }}>
               <WritingHeader 
                 handleNewSession={handleNewSession}
                 fetchUserSessions={fetchAllSessions}
@@ -393,18 +398,20 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
                 onPause={handleBetaPause}
                 onStop={handleBetaStop}
               />
+            </div>
 
-              <div className="flex-1 overflow-hidden relative">
-                <WritingEditor 
-                  handlePause={() => setSessionStatus('paused')}
-                  handleStart={handleStart}
-                  handleFinish={handleFinish}
-                  setShowCancelConfirm={flow.setShowCancelConfirm}
-                  saveStatus={saveStatus}
-                  lastSavedAt={lastSavedAt}
-                />
-              </div>
+            <div style={{ gridColumn: '2', gridRow: '2', overflow: 'hidden', position: 'relative' }}>
+              <WritingEditor 
+                handlePause={() => setSessionStatus('paused')}
+                handleStart={handleStart}
+                handleFinish={handleFinish}
+                setShowCancelConfirm={flow.setShowCancelConfirm}
+                saveStatus={saveStatus}
+                lastSavedAt={lastSavedAt}
+              />
+            </div>
 
+            <div style={{ gridColumn: '2', gridRow: '3', overflow: 'hidden' }}>
               <BetaBottomStats
                 compact={lifeLogVisible}
                 onPlay={handleBetaPlay}
@@ -413,19 +420,22 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
               />
             </div>
 
-            <AnimatePresence>
-              {lifeLogVisible && (
-                <LifeLogPanel 
-                  userId={user.uid} 
-                  onContinueSession={handleBetaContinueSession} 
-                  onClose={() => { if (!lifeLogPinned) setLifeLogVisible(false); }} 
-                  activeTab={lifeLogTab}
-                  onTabChange={setLifeLogTab}
-                  pinned={lifeLogPinned}
-                  onTogglePin={() => setLifeLogPinned(!lifeLogPinned)}
-                />
-              )}
-            </AnimatePresence>
+            <div style={{ gridColumn: '3', gridRow: '1 / 4', overflow: 'hidden' }}>
+              <AnimatePresence>
+                {lifeLogVisible && (
+                  <LifeLogPanel 
+                    userId={user.uid} 
+                    onContinueSession={handleBetaContinueSession} 
+                    onClose={() => { if (!lifeLogPinned) setLifeLogVisible(false); }} 
+                    activeTab={lifeLogTab}
+                    onTabChange={setLifeLogTab}
+                    pinned={lifeLogPinned}
+                    onTogglePin={() => setLifeLogPinned(!lifeLogPinned)}
+                  />
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
 
           <FlowPulse />
         </>
