@@ -117,7 +117,7 @@ export function LifeLogPanel({
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 380, opacity: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="fixed top-0 right-0 bottom-0 w-full max-w-[380px] z-50 flex flex-col border-l border-border-subtle bg-surface-card backdrop-blur-xl shadow-2xl"
+      className="h-full w-full flex flex-col border-l border-border-subtle bg-surface-card backdrop-blur-xl"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
