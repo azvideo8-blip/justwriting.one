@@ -107,13 +107,13 @@ export const WritingHeader = React.memo(function WritingHeader({
     <AnimatePresence>
       {!showZen && (
         <motion.div
-          initial={{ opacity: 0, y: -16, height: 0 }}
+          initial={{ opacity: 0 }}
           animate={{ opacity: 1, y: 0, height: 'auto' }}
-          exit={{ opacity: 0, y: -16, height: 0 }}
-          transition={{ duration: 0.4, ease: 'easeInOut' }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.3, ease: 'easeInOut' }}
           className={cn(
-            "w-full z-40 overflow-visible",
-            betaRedesign && betaLifeLog ? "" : "px-4 py-3"
+            "w-full z-40 shrink-0",
+            betaRedesign && betaLifeLog ? "overflow-hidden" : "px-4 py-3 overflow-visible"
           )}
         >
           {betaLifeLog && betaRedesign ? (
