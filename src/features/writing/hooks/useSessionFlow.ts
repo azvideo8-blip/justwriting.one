@@ -24,8 +24,7 @@ export function useSessionFlow(
   targetTime: string | null,
   seconds: number,
   timeGoalReached: boolean,
-  wordGoalReached: boolean,
-  betaLifeLog?: boolean
+  wordGoalReached: boolean
 ): UseSessionFlowReturn {
   const [setupMode, setSetupMode] = useState<SetupMode>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -63,12 +62,8 @@ export function useSessionFlow(
 
   // Session start flash
   useEffect(() => {
-    if (sessionStatus === 'writing' && !betaLifeLog) {
-      setSessionStartFlash(true);
-      const t = setTimeout(() => setSessionStartFlash(false), 800);
-      return () => clearTimeout(t);
-    }
-  }, [sessionStatus, betaLifeLog]);
+    return;
+  }, [sessionStatus]);
 
   // Goal toast + sound
   useEffect(() => {

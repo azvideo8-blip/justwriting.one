@@ -50,7 +50,7 @@ export const translations: Translations = {
   editor_content_placeholder: { ru: 'Начните писать...', en: 'Start writing...' },
   editor_idle_placeholder: { ru: 'Выберите режим и нажмите "Начать", чтобы приступить к письму', en: 'Select a mode and click "Start" to begin writing' },
   editor_writing_placeholder: { ru: 'Начните писать здесь...', en: 'Start writing here...' },
-  writing_placeholder_beta: { ru: 'Просто начни писать...', en: 'Just start writing...' },
+  writing_placeholder: { ru: 'Просто начни писать...', en: 'Just start writing...' },
   editor_pinned_thoughts: { ru: 'Закрепленные мысли', en: 'Pinned Thoughts' },
   editor_pinned_placeholder: { ru: 'Ваша закрепленная мысль...', en: 'Your pinned thought...' },
   editor_add_thought: { ru: 'Добавить мысль...', en: 'Add a thought...' },
@@ -83,12 +83,9 @@ export const translations: Translations = {
   header_cancel_session: { ru: 'Отменить сессию', en: 'Cancel Session' },
   header_fullscreen:      { ru: 'Полный экран', en: 'Fullscreen' },
   header_exit_fullscreen: { ru: 'Выйти из полного экрана', en: 'Exit fullscreen' },
-  beta_fullscreen:        { ru: 'Полный экран', en: 'Fullscreen' },
-  beta_exit_fullscreen:   { ru: 'Выйти из полного экрана', en: 'Exit fullscreen' },
   header_in_flow: { ru: 'В потоке', en: 'In Flow' },
   header_settings: { ru: 'Настройки', en: 'Settings' },
   nav_settings: { ru: 'Настройки', en: 'Settings' },
-  settings_classic_nav: { ru: 'Старый интерфейс', en: 'Classic interface' },
   settings_elements:   { ru: 'Видимость элементов', en: 'Element visibility' },
   layout_desktop:      { ru: 'Широкий',   en: 'Desktop' },
   layout_mobile:       { ru: 'Мобильный', en: 'Mobile' },
@@ -138,15 +135,17 @@ export const translations: Translations = {
 
   // Profile
   profile_title: { ru: 'Мой профиль', en: 'My Profile' },
-  profile_settings_title: { ru: 'Настройки профиля', en: 'Profile settings' },
-  profile_settings_beta: { ru: 'Бета-режим', en: 'Beta mode' },
-  profile_settings_community: { ru: 'Режим сообщества', en: 'Community mode' },
+  profile_settings_title: { ru: 'Настройки профиля', en: 'Profile settings' },  profile_settings_community: { ru: 'Режим сообщества', en: 'Community mode' },
   profile_settings_encryption: { ru: 'Шифрование', en: 'Encryption' },
   profile_settings_ai: { ru: 'Помощь ИИ', en: 'AI assistance' },
   profile_reset_achievements: { ru: 'Сбросить все достижения', en: 'Reset all achievements' },
   profile_reset_achievements_confirm: {
     ru: 'Вы уверены? Все достижения будут сброшены.',
     en: 'Are you sure? All achievements will be reset.'
+  },
+  reset_achievements_confirm: {
+    ru: 'Все достижения будут удалены навсегда. Вы уверены?',
+    en: 'All achievements will be permanently deleted. Are you sure?'
   },
   profile_stats: { ru: 'Статистика', en: 'Statistics' },
   profile_loading: { ru: 'Загружаем профиль...', en: 'Loading profile...' },
@@ -238,8 +237,6 @@ export const translations: Translations = {
   settings_stream_mode_desc: { ru: 'нет возможности удалять, вставлять текст. Только чистый поток сознания', en: 'No ability to delete or paste text. Only pure stream of consciousness.' },
   settings_momentum: { ru: 'Режим "Как есть"', en: 'Momentum Mode' },
   settings_momentum_desc: { ru: 'Отключает функции Backspace и Delete, чтобы писать без исправлений, как есть', en: 'Disables Backspace and Delete to keep you moving forward.' },
-  settings_sticky_header: { ru: 'Закрепленный заголовок', en: 'Sticky Header' },
-  settings_sticky_panel: { ru: 'Закрепленная панель', en: 'Sticky Panel' },
   layout_switch_desktop: { ru: 'Широкий экран', en: 'Desktop view' },
   layout_switch_mobile:  { ru: 'Мобильный вид', en: 'Mobile view' },
   settings_tab_editor:   { ru: 'Редактор',    en: 'Editor' },
@@ -355,9 +352,6 @@ export const translations: Translations = {
   sessions_many: { ru: '{count} сессий',  en: '{count} sessions' },
 
   profile_sessions_found: { ru: 'Найдено {count} сессий', en: '{count} sessions found' },
-  settings_beta_lifelog: { ru: 'Life Log (бета)', en: 'Life Log (beta)' },
-  settings_beta_redesign: { ru: 'Новый дизайн', en: 'New design' },
-  settings_section_beta: { ru: 'Бета', en: 'Beta' },
   topbar_new:  { ru: 'Новая заметка', en: 'New note' },
   topbar_open: { ru: 'Открыть',       en: 'Open' },
   topbar_save: { ru: 'Сохранить',     en: 'Save' },
@@ -365,9 +359,9 @@ export const translations: Translations = {
   stats_words: { ru: 'Слова', en: 'Words' },
   stats_time: { ru: 'Время', en: 'Time' },
 
-  beta_play:            { ru: 'Начать',      en: 'Play' },
-  beta_pause:           { ru: 'Пауза',       en: 'Pause' },
-  beta_stop:            { ru: 'Стоп',        en: 'Stop' },
+  play:            { ru: 'Начать',      en: 'Play' },
+  pause:           { ru: 'Пауза',       en: 'Pause' },
+  stop:            { ru: 'Стоп',        en: 'Stop' },
 
   lifelog_tab_log:       { ru: 'Life Log',     en: 'Life Log' },
   lifelog_tab_settings:  { ru: 'Настройки',    en: 'Settings' },
@@ -400,8 +394,8 @@ export const translations: Translations = {
   goal_time_short:        { ru: 'мин',           en: 'mins' },
   common_ok:              { ru: 'Ок',              en: 'OK' },
 
-  beta_save_success: { ru: 'Заметка сохранена', en: 'Note saved' },
-  beta_save_error:   { ru: 'Ошибка при сохранении', en: 'Save failed' },
+  save_success: { ru: 'Заметка сохранена', en: 'Note saved' },
+  save_error:   { ru: 'Ошибка при сохранении', en: 'Save failed' },
   save_status_saving: { ru: 'сохраняю…', en: 'saving…' },
   save_status_saved:  { ru: 'сохранено', en: 'saved' },
 
@@ -467,6 +461,7 @@ export const translations: Translations = {
   archive_empty_title:    { ru: 'Пока нет записей',          en: 'No entries yet' },
   archive_empty_subtitle: { ru: 'Завершите первую сессию — она появится здесь', en: 'Finish your first session and it will appear here' },
   error_generic: { ru: 'Что-то пошло не так', en: 'Something went wrong' },
+  error_continue_session: { ru: 'Ошибка при продолжении сессии', en: 'Error continuing session' },
   error_reload: { ru: 'Перезагрузить', en: 'Reload' },
   admin_access_denied:      { ru: 'Доступ запрещён',        en: 'Access Denied' },
   admin_security_xss_title: { ru: 'XSS защита',             en: 'XSS Protection' },

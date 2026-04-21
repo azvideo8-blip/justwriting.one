@@ -3,16 +3,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme/ThemeProvider';
-import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
 import { ProfileService } from '../../profile/services/ProfileService';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { cn } from '../../../core/utils/utils';
-import { DataTransfer } from './DataTransfer';
-import { Toggle } from '../../../shared/components/Toggle';
-import { z } from 'zod';
 
 type Tab = 'editor' | 'app' | 'account';
 
@@ -35,10 +31,6 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
   const { t, language, setLanguage } = useLanguage();
   const { themeId, setThemeId, themes } = useTheme();
   const { layoutMode, setLayoutMode } = useLayoutMode();
-  const [classicNav, setClassicNav] = useLocalStorage('classic-nav', false, z.boolean());
-  const [betaMode, setBetaMode] = useLocalStorage('beta-mode', false, z.boolean());
-  const [communityMode, setCommunityMode] = useLocalStorage('community-mode', false, z.boolean());
-  const [aiMode, setAiMode] = useLocalStorage('ai-mode', false, z.boolean());
   const [confirmReset, setConfirmReset] = useState(false);
 
   const {
@@ -47,13 +39,9 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
     editorWidth, setEditorWidth,
     zenModeEnabled, setZenModeEnabled,
     streamMode, toggleStreamMode,
-    stickyHeader, setStickyHeader,
-    stickyPanel, setStickyPanel,
     headerVisibility, toggleVisibility,
     showTitle, setShowTitle,
     showPinnedThoughts, setShowPinnedThoughts,
-     betaLifeLog, setBetaLifeLog,
-     betaRedesign, setBetaRedesign,
    } = useWritingSettings();
 
   const tabs: { id: Tab; label: string }[] = [
@@ -151,55 +139,28 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
             <Section title={t('settings_header')}>
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  onClick={() => setStickyHeader(!stickyHeader)}
+                  onClick={() => setShowTitle(!showTitle)}
                   className={cn(
                     "px-3 py-2.5 rounded-xl border text-sm transition-all",
-                    stickyHeader
+                    showTitle
                       ? "border-text-main bg-text-main text-surface-base"
                       : "border-border-subtle text-text-main/60 hover:text-text-main"
                   )}
                 >
-                  📌 {t('settings_sticky_header')}
+                  ✏️ {t('settings_show_title')}
                 </button>
                 <button
-                  onClick={() => setStickyPanel(!stickyPanel)}
+                  onClick={() => setShowPinnedThoughts(!showPinnedThoughts)}
                   className={cn(
                     "px-3 py-2.5 rounded-xl border text-sm transition-all",
-                    stickyPanel
+                    showPinnedThoughts
                       ? "border-text-main bg-text-main text-surface-base"
                       : "border-border-subtle text-text-main/60 hover:text-text-main"
                   )}
                 >
-                  📊 {t('settings_sticky_panel')}
+                  📎 {t('settings_show_pinned')}
                 </button>
               </div>
-
-              {!betaLifeLog && (
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <button
-                    onClick={() => setShowTitle(!showTitle)}
-                    className={cn(
-                      "px-3 py-2.5 rounded-xl border text-sm transition-all",
-                      showTitle
-                        ? "border-text-main bg-text-main text-surface-base"
-                        : "border-border-subtle text-text-main/60 hover:text-text-main"
-                    )}
-                  >
-                    ✏️ {t('settings_show_title')}
-                  </button>
-                  <button
-                    onClick={() => setShowPinnedThoughts(!showPinnedThoughts)}
-                    className={cn(
-                      "px-3 py-2.5 rounded-xl border text-sm transition-all",
-                      showPinnedThoughts
-                        ? "border-text-main bg-text-main text-surface-base"
-                        : "border-border-subtle text-text-main/60 hover:text-text-main"
-                    )}
-                  >
-                    📎 {t('settings_show_pinned')}
-                  </button>
-                </div>
-              )}
             </Section>
 
             <Section title={t('settings_show_in_panel')}>
@@ -289,7 +250,7 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
 
             {/* Layout */}
             <Section title={t('settings_layout')}>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 opacity-40 pointer-events-none">
                 {(['desktop', 'mobile'] as const).map(mode => (
                   <button
                     key={mode}
@@ -306,57 +267,34 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
                 ))}
               </div>
             </Section>
-
-            {/* Interface toggles */}
-            <Section title={t('settings_section_beta')}>
-              <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-border-subtle hover:bg-text-main/5 transition-all">
-                <span className="text-sm text-text-main/70">{t('settings_beta_lifelog')}</span>
-                <Toggle checked={betaLifeLog} onChange={setBetaLifeLog} />
-              </div>
-              <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-border-subtle hover:bg-text-main/5 transition-all">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-text-main/70">{t('settings_beta_redesign')}</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-text-main/10 text-text-main/40">beta</span>
-                </div>
-                <Toggle checked={betaRedesign} onChange={setBetaRedesign} />
-              </div>
-            </Section>
-
-            <Section title={t('settings_interface')}>
-              <ToggleRow label={t('settings_classic_nav')} value={classicNav} onChange={() => setClassicNav(!classicNav)} />
-              <ToggleRow label={t('profile_settings_beta')} value={betaMode} onChange={() => setBetaMode(!betaMode)} />
-            </Section>
           </div>
         )}
 
         {/* ── TAB 3: ACCOUNT ── */}
         {activeTab === 'account' && (
           <div className="space-y-4 mt-2">
-            <Section title={t('settings_features')}>
-              <ToggleRow label={t('profile_settings_community')} value={communityMode} onChange={() => setCommunityMode(!communityMode)} />
-              <ToggleRow label={t('profile_settings_ai')} value={aiMode} onChange={() => setAiMode(!aiMode)} />
-            </Section>
-
             <Section title={t('profile_achievements')}>
               {!confirmReset ? (
                 <button
                   onClick={() => setConfirmReset(true)}
-                  className="text-sm text-red-400/70 hover:text-red-400 transition-colors underline underline-offset-2"
+                  className="w-full px-4 py-3 rounded-xl border border-red-400/25 text-sm text-red-400/70 hover:text-red-400 hover:border-red-400/40 transition-all text-left"
                 >
                   {t('profile_reset_achievements')}
                 </button>
               ) : (
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-sm text-text-main/50">{t('profile_reset_achievements_confirm')}</span>
-                  <button
-                    onClick={async () => { await ProfileService.resetAchievements(userId); setConfirmReset(false); }}
-                    className="text-sm font-bold text-red-400"
-                  >
-                    {t('finish_discard')}
-                  </button>
-                  <button onClick={() => setConfirmReset(false)} className="text-sm text-text-main/40">
-                    {t('writing_cancel')}
-                  </button>
+                <div className="flex flex-col gap-3 p-4 rounded-xl border border-red-400/20 bg-red-400/5">
+                  <span className="text-sm text-text-main/70">{t('reset_achievements_confirm')}</span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={async () => { await ProfileService.resetAchievements(userId); setConfirmReset(false); }}
+                      className="px-4 py-2 rounded-xl text-sm font-bold text-red-400 border border-red-400/30 hover:bg-red-400/10 transition-all"
+                    >
+                      {t('finish_discard')}
+                    </button>
+                    <button onClick={() => setConfirmReset(false)} className="text-sm text-text-main/40 hover:text-text-main/60 transition-colors">
+                      {t('writing_cancel')}
+                    </button>
+                  </div>
                 </div>
               )}
             </Section>
@@ -369,8 +307,6 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
                 {t('nav_logout')}
               </button>
             </Section>
-
-            <DataTransfer />
           </div>
         )}
       </div>

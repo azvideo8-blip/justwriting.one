@@ -89,9 +89,7 @@ export function MobileMeScreen({ user, profile, onSignOut }: MobileMeScreenProps
     fontFamily, setFontFamily,
     fontSize, setFontSize,
     zenModeEnabled, setZenModeEnabled,
-    betaLifeLog, setBetaLifeLog,
-    betaRedesign, setBetaRedesign,
-  } = useWritingSettings();
+   } = useWritingSettings();
 
   const [activeSection, setActiveSection] = useState<Section>('stats');
 
@@ -324,27 +322,7 @@ export function MobileMeScreen({ user, profile, onSignOut }: MobileMeScreenProps
             <SettingRow label={t('settings_zen_mode')}>
               <Toggle checked={zenModeEnabled} onChange={setZenModeEnabled} />
             </SettingRow>
-
-            <div style={{
-              fontSize: 10,
-              color: 'rgba(74,81,77,1)',
-              textTransform: 'uppercase',
-              letterSpacing: '.08em',
-              fontFamily: 'JetBrains Mono, monospace',
-              marginTop: 20,
-              marginBottom: 8,
-            }}>
-              {t('settings_section_beta')}
-            </div>
-
-            <SettingRow label={t('settings_beta_lifelog')}>
-              <Toggle checked={betaLifeLog} onChange={setBetaLifeLog} />
-            </SettingRow>
-
-            <SettingRow label={t('settings_beta_redesign')}>
-              <Toggle checked={betaRedesign} onChange={setBetaRedesign} />
-            </SettingRow>
-          </div>
+           </div>
         )}
 
         {activeSection === 'account' && (

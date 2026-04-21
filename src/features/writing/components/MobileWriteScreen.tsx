@@ -178,7 +178,7 @@ export function MobileWriteScreen({
           value={content}
           onChange={e => { setContent(e.target.value); handleType(); }}
           onKeyDown={handleKeyDown}
-          placeholder={t('writing_placeholder_beta')}
+          placeholder={t('writing_placeholder')}
           autoFocus
           style={{
             width: '100%',
