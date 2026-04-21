@@ -5,15 +5,15 @@ import { cn } from '../../../core/utils/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
 
-interface BetaSidebarProps {
+interface SidebarProps {
   isAdmin: boolean;
   inGrid?: boolean;
 }
 
-export function BetaSidebar({ isAdmin, inGrid: inGridProp }: BetaSidebarProps) {
+export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useLanguage();
-  const { betaLifeLog, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isZenActive, zenModeEnabled, betaRedesign } = useWritingSettings();
+  const { lifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isZenActive, zenModeEnabled } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
   const inGrid = inGridProp ?? false;
   const location = useLocation();
@@ -104,8 +104,7 @@ export function BetaSidebar({ isAdmin, inGrid: inGridProp }: BetaSidebarProps) {
         ))}
 
         {/* Life Log Toggle */}
-        {betaLifeLog && (
-          <button
+        <button
             onClick={() => {
               if (!lifeLogVisible || lifeLogTab !== 'log') {
                 setLifeLogTab('log');
@@ -133,11 +132,9 @@ export function BetaSidebar({ isAdmin, inGrid: inGridProp }: BetaSidebarProps) {
               {t('lifelog_tab_log')}
             </span>
           </button>
-        )}
 
         {/* Settings Toggle */}
-        {betaLifeLog && (
-          <button
+        <button
             onClick={() => {
               if (!lifeLogVisible || lifeLogTab !== 'settings') {
                 setLifeLogTab('settings');
@@ -165,8 +162,7 @@ export function BetaSidebar({ isAdmin, inGrid: inGridProp }: BetaSidebarProps) {
               {t('lifelog_tab_settings')}
             </span>
           </button>
-        )}
-      </nav>
+       </nav>
     </div>
   );
 }

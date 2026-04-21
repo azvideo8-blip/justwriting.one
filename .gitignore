@@ -8,3 +8,4 @@ coverage/
 !.env.example
 functions/lib/
 firebase-applet-config.json
+_archive/

@@ -17,8 +17,8 @@ interface WritingSettingsContextType {
   setZenModeEnabled: (enabled: boolean) => void;
   editorWidth: number;
   setEditorWidth: (width: number) => void;
-  betaLifeLog: boolean;
-  setBetaLifeLog: (enabled: boolean) => void;
+  lifeLogEnabled: boolean;
+  setLifeLogEnabled: (enabled: boolean) => void;
   lifeLogVisible: boolean;
   setLifeLogVisible: (v: boolean) => void;
   lifeLogTab: 'log' | 'settings';
@@ -30,10 +30,6 @@ interface WritingSettingsContextType {
   setFontFamily: (font: string) => void;
   fontSize: number;
   setFontSize: (size: number) => void;
-  stickyHeader: boolean;
-  setStickyHeader: (enabled: boolean) => void;
-  stickyPanel: boolean;
-  setStickyPanel: (enabled: boolean) => void;
   lifeLogPinned: boolean;
   setLifeLogPinned: (enabled: boolean) => void;
   headerVisibility: HeaderVisibility;
@@ -42,8 +38,6 @@ interface WritingSettingsContextType {
   setShowTitle: (v: boolean) => void;
   showPinnedThoughts: boolean;
   setShowPinnedThoughts: (v: boolean) => void;
-  betaRedesign: boolean;
-  setBetaRedesign: (v: boolean) => void;
 }
 
 const WritingSettingsContext = createContext<WritingSettingsContextType | undefined>(undefined);
@@ -52,17 +46,14 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
   const [streamMode, setStreamMode] = useLocalStorage<boolean>('streamMode', false, z.boolean());
   const [zenModeEnabled, setZenModeEnabled] = useLocalStorage<boolean>('v2_zenModeEnabled', true, z.boolean());
   const [editorWidth, setEditorWidth] = useLocalStorage<number>('v3_editorWidth', 100, z.number());
-  const [betaLifeLog, setBetaLifeLog] = useLocalStorage<boolean>('beta-lifelog', false, z.boolean());
+  const [lifeLogEnabled, setLifeLogEnabled] = useLocalStorage<boolean>('lifeLogEnabled', true, z.boolean());
   const [lifeLogVisible, setLifeLogVisible] = useState(false);
   const [lifeLogTab, setLifeLogTab] = useState<'log' | 'settings'>('log');
   const [fontFamily, setFontFamily] = useLocalStorage<string>('v2_fontFamily', 'Inter', z.string());
   const [fontSize, setFontSize] = useLocalStorage<number>('v2_fontSize', 18, z.number());
-  const [stickyHeader, setStickyHeader] = useLocalStorage<boolean>('v2_stickyHeaderEnabled', true, z.boolean());
-  const [stickyPanel, setStickyPanel] = useLocalStorage<boolean>('stickyPanel', true, z.boolean());
   const [lifeLogPinned, setLifeLogPinned] = useLocalStorage<boolean>('v3_lifeLogPinned', false, z.boolean());
   const [showTitle, setShowTitle] = useLocalStorage<boolean>('editor-show-title', true, z.boolean());
   const [showPinnedThoughts, setShowPinnedThoughts] = useLocalStorage<boolean>('editor-show-pinned', true, z.boolean());
-  const [betaRedesign, setBetaRedesign] = useLocalStorage<boolean>('beta-redesign', false, z.boolean());
   const [headerVisibility, setHeaderVisibility] = useLocalStorage<HeaderVisibility>(
     'v2_headerVisibility',
     { currentTime: true, sessionTime: true, sessionWords: true, totalWords: true, wpm: true },
@@ -120,20 +111,17 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
       streamMode, toggleStreamMode,
       zenModeEnabled, setZenModeEnabled,
       editorWidth, setEditorWidth,
-      betaLifeLog, setBetaLifeLog,
+      lifeLogEnabled, setLifeLogEnabled,
       lifeLogVisible, setLifeLogVisible,
       lifeLogTab, setLifeLogTab,
       isZenActive,
       status, setStatus,
       fontFamily, setFontFamily,
       fontSize, setFontSize,
-      stickyHeader, setStickyHeader,
-      stickyPanel, setStickyPanel,
       lifeLogPinned, setLifeLogPinned,
       headerVisibility, toggleVisibility,
       showTitle, setShowTitle,
       showPinnedThoughts, setShowPinnedThoughts,
-      betaRedesign, setBetaRedesign,
     }}>
       {children}
     </WritingSettingsContext.Provider>

@@ -3,17 +3,16 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { useWritingSettings } from '../features/writing/contexts/WritingSettingsContext';
-import { useLocalStorage } from '../shared/hooks/useLocalStorage';
 import { useLayoutMode } from '../shared/hooks/useLayoutMode';
 import { useLanguage } from '../core/i18n';
 import { cn } from '../core/utils/utils';
-import { z } from 'zod';
 
 import { AppLayout } from '../shared/components/Layout/AppLayout';
 import { PageTransition } from '../shared/components/Layout/PageTransition';
-import { BetaSidebar } from '../features/navigation/components/BetaSidebar';
-import { BetaBottomNav } from '../features/navigation/components/BetaBottomNav';
-import { ClassicNavBar } from '../features/navigation/components/ClassicNavBar';
+import { Sidebar } from '../features/navigation/components/Sidebar';
+import { BottomNav } from '../features/navigation/components/BottomNav';
+// LEGACY: ClassicNavBar — kept for reference
+// import { ClassicNavBar } from '../features/navigation/components/ClassicNavBar';
 import { ConnectionStatusBanner } from '../features/writing/components/ConnectionStatusBanner';
 import { ThemeBackground } from '../core/theme/ThemeBackground';
 
@@ -30,8 +29,7 @@ export function AnimatedRoutes() {
   const location = useLocation();
   const { t } = useLanguage();
   const { user, profile, isConnected } = useAuthStatus();
-  const { isZenActive, zenModeEnabled, setLifeLogVisible, betaRedesign, betaLifeLog } = useWritingSettings();
-  const [classicNav] = useLocalStorage('classic-nav', false, z.boolean());
+  const { isZenActive, zenModeEnabled, setLifeLogVisible, lifeLogEnabled } = useWritingSettings();
   const { layoutMode, setLayoutMode } = useLayoutMode();
   const layoutModeRef = React.useRef(layoutMode);
   React.useEffect(() => { layoutModeRef.current = layoutMode; }, [layoutMode]);
@@ -51,7 +49,7 @@ export function AnimatedRoutes() {
 
   const currentPath = location.pathname;
   const showZen = isZenActive && zenModeEnabled && currentPath === '/';
-  const hideSidebar = betaRedesign && betaLifeLog && currentPath === '/';
+  const hideSidebar = lifeLogEnabled && currentPath === '/';
   const isAdmin = profile?.role === 'admin';
 
   return (
@@ -64,29 +62,24 @@ export function AnimatedRoutes() {
       </a>
       <ThemeBackground />
 
-      {!classicNav ? (
-        <>
-          {!hideSidebar && (
-            layoutMode === 'desktop' ? (
-              <BetaSidebar isAdmin={isAdmin} inGrid={false} />
-            ) : (
-              <BetaBottomNav 
-                isAdmin={isAdmin}
-              />
-            )
-          )}
-          <ConnectionStatusBanner isOnline={isConnected} showZen={showZen} />
-        </>
-      ) : (
-        <ClassicNavBar showZen={showZen} />
-      )}
+      <>
+        {!hideSidebar && (
+          layoutMode === 'desktop' ? (
+            <Sidebar isAdmin={isAdmin} inGrid={false} />
+          ) : (
+            <BottomNav 
+              isAdmin={isAdmin}
+            />
+          )
+        )}
+        <ConnectionStatusBanner isOnline={isConnected} showZen={showZen} />
+      </>
 
       <main id="main-content" className={cn(
         "w-full relative z-10",
         hideSidebar ? "" : "pt-8",
-        !classicNav && layoutMode === 'desktop' && !hideSidebar && "pl-20 pr-4",
-        !classicNav && layoutMode !== 'desktop' && !hideSidebar && "pb-20 px-4",
-        classicNav && "pt-24 px-4"
+        layoutMode === 'desktop' && !hideSidebar && "pl-20 pr-4",
+        layoutMode !== 'desktop' && !hideSidebar && "pb-20 px-4"
       )}>
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
@@ -137,7 +130,7 @@ export function AnimatedRoutes() {
         </AnimatePresence>
       </main>
 
-      {!classicNav && layoutMode === 'mobile' && <div className="h-28" />}
+      {layoutMode === 'mobile' && <div className="h-28" />}
     </AppLayout>
   );
 }
