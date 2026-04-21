@@ -1,3 +1,4 @@
+import React, { useEffect as _ } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
@@ -17,6 +18,8 @@ import { ConnectionStatusBanner } from '../features/writing/components/Connectio
 import { ThemeBackground } from '../core/theme/ThemeBackground';
 
 import { WritingPage } from '../features/writing/pages/WritingPage';
+import { MobileLogPage } from '../features/writing/pages/MobileLogPage';
+import { MobileMePage } from '../features/writing/pages/MobileMePage';
 import { ProfilePage } from '../features/profile/pages/ProfilePage';
 import { ArchivePage } from '../features/archive/pages/ArchivePage';
 import { FeedPage } from '../features/feed/pages/FeedPage';
@@ -29,7 +32,20 @@ export function AnimatedRoutes() {
   const { user, profile, isConnected } = useAuthStatus();
   const { isZenActive, zenModeEnabled, setLifeLogVisible, betaRedesign, betaLifeLog } = useWritingSettings();
   const [classicNav] = useLocalStorage('classic-nav', false, z.boolean());
-  const { layoutMode } = useLayoutMode();
+  const { layoutMode, setLayoutMode } = useLayoutMode();
+  const layoutModeRef = React.useRef(layoutMode);
+  React.useEffect(() => { layoutModeRef.current = layoutMode; }, [layoutMode]);
+
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.code === 'KeyM') {
+        e.preventDefault();
+        setLayoutMode(layoutModeRef.current === 'desktop' ? 'mobile' : 'desktop');
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [setLayoutMode]);
 
   if (!user) return null;
 
@@ -56,7 +72,6 @@ export function AnimatedRoutes() {
             ) : (
               <BetaBottomNav 
                 isAdmin={isAdmin}
-                onOpenLifeLog={() => setLifeLogVisible(true)}
               />
             )
           )}
@@ -81,6 +96,16 @@ export function AnimatedRoutes() {
                   user={user}
                   profile={profile}
                 />
+              </PageTransition>
+            } />
+            <Route path="/log" element={
+              <PageTransition id="/log">
+                <MobileLogPage />
+              </PageTransition>
+            } />
+            <Route path="/me" element={
+              <PageTransition id="/me">
+                <MobileMePage />
               </PageTransition>
             } />
             <Route path="/archive" element={

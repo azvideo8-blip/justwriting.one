@@ -27,7 +27,7 @@ export function ProfileHeader({ user, profile, currentStreak, totalWords }: Prof
     <div className="flex flex-col md:flex-row items-center gap-6">
       <div className="w-24 h-24 rounded-full flex items-center justify-center overflow-hidden border-4 shadow-xl bg-surface-base/10 border-surface-base">
         {user.photoURL ? (
-          <img src={user.photoURL || undefined} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          <img src={user.photoURL || undefined} alt="Profile photo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
         ) : (
           <UserIcon size={40} className="text-text-main/50" />
         )}

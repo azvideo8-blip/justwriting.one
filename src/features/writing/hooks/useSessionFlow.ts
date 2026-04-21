@@ -40,6 +40,7 @@ export function useSessionFlow(
 
   // Countdown logic
   const startCountdown = (type: SessionType) => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
     setSessionType(type);
     setSetupMode('countdown');
     setCountdown(3);
@@ -63,9 +64,9 @@ export function useSessionFlow(
   // Session start flash
   useEffect(() => {
     if (sessionStatus === 'writing' && !betaLifeLog) {
-      // eslint-disable-next-line
       setSessionStartFlash(true);
-      setTimeout(() => setSessionStartFlash(false), 800);
+      const t = setTimeout(() => setSessionStartFlash(false), 800);
+      return () => clearTimeout(t);
     }
   }, [sessionStatus, betaLifeLog]);
 
@@ -77,10 +78,10 @@ export function useSessionFlow(
       goalFiredRef.current = true;
       playGoalSound();
       const type = wordGoalReached ? 'words' : 'time';
-      // eslint-disable-next-line
       setGoalToastType(type);
       setGoalToastVisible(true);
-      setTimeout(() => setGoalToastVisible(false), 4000);
+      const t = setTimeout(() => setGoalToastVisible(false), 4000);
+      return () => clearTimeout(t);
     }
 
     if (sessionStatus === 'idle') {

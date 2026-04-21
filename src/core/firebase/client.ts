@@ -9,17 +9,17 @@ const firebaseConfig = {
   appId:             import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Validate config
-if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes('TODO')) {
-  console.error("Firebase API Key is missing or invalid. Please check environment variables.");
+const missingKeys: string[] = [];
+for (const [key, value] of Object.entries(firebaseConfig)) {
+  if (!value || (typeof value === 'string' && value.includes('TODO'))) {
+    missingKeys.push(key);
+  }
 }
-
-if (!firebaseConfig.authDomain || firebaseConfig.authDomain.includes('TODO')) {
-  console.error("Firebase Auth Domain is missing or invalid. Please check environment variables.");
-}
-
-if (!firebaseConfig.projectId || firebaseConfig.projectId.includes('TODO')) {
-  console.error("Firebase Project ID is missing or invalid. Please check environment variables.");
+if (missingKeys.length > 0) {
+  throw new Error(
+    `Invalid Firebase configuration. Missing/TODO keys: ${missingKeys.join(', ')}. ` +
+    'Check your .env file (VITE_FIREBASE_* variables).'
+  );
 }
 
 export const app = initializeApp(firebaseConfig);

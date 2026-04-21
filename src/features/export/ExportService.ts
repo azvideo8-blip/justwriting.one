@@ -4,7 +4,8 @@ import { format } from 'date-fns';
 import { reportError } from '../../core/errors/reportError';
 
 export class ExportService {
-  static toJson(draft: Record<string, unknown>) {
+  static toJson(data: unknown) {
+    const draft = data as Record<string, unknown>;
     try {
       const json = JSON.stringify(draft);
       const blob = new Blob([json], { type: 'application/json' });

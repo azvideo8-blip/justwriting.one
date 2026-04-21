@@ -28,6 +28,7 @@ export interface Session {
 }
 
 export interface SessionPayload {
+  [key: string]: unknown;
   userId: string;
   authorName: string;
   authorPhoto: string;
@@ -50,6 +51,16 @@ export interface SessionPayload {
   encryption?: { salt: string; iv: string };
 }
 
+export type AchievementTier = 'common' | 'rare' | 'legendary';
+
+export interface Achievement {
+  id: string;
+  title: string;
+  icon: string;
+  threshold: number;
+  tier: AchievementTier;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -58,4 +69,10 @@ export interface UserProfile {
   isAnonymousDefault?: boolean;
   labels?: Label[];
   earnedAchievements?: string[];
+  totalWordCount?: number;
+  sessionsCount?: number;
+  streakDays?: number;
+  totalDuration?: number;
+  avgWpm?: number;
+  avgSessionWords?: number;
 }

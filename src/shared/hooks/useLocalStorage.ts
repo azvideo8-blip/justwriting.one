@@ -1,70 +1,63 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { z } from 'zod';
 
-/**
- * A hook that manages a value in localStorage and synchronizes it across tabs.
- */
 export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodType<T>) {
-  // Get from local storage then
-  // parse stored json or return initialValue
+  const initialValueRef = useRef(initialValue);
+  const schemaRef = useRef(schema);
+
   const readValue = useCallback((): T => {
-    // Prevent build error "window is undefined" but keep keep syntax
     if (typeof window === 'undefined') {
-      return initialValue;
+      return initialValueRef.current;
     }
 
     try {
       const item = window.localStorage.getItem(key);
-      if (!item) return initialValue;
+      if (!item) return initialValueRef.current;
 
       const parsed = JSON.parse(item);
 
-      if (schema) {
-        const result = schema.safeParse(parsed);
+      if (schemaRef.current) {
+        const result = schemaRef.current.safeParse(parsed);
         if (!result.success) {
-          console.warn(`Storage schema mismatch for key “${key}”:`, result.error);
-          return initialValue;
+          if (import.meta.env.DEV) {
+            console.warn(`Storage schema mismatch for key "${key}":`, result.error);
+          }
+          return initialValueRef.current;
         }
         return result.data;
       }
 
       return parsed as T;
     } catch (error) {
-      console.warn(`Error reading localStorage key “${key}”:`, error);
-      return initialValue;
+      if (import.meta.env.DEV) {
+        console.warn(`Error reading localStorage key "${key}":`, error);
+      }
+      return initialValueRef.current;
     }
-  }, [initialValue, key, schema]);
+  }, [key]);
 
-  // State to store our value
-  // Pass initial state function to useState so logic is only executed once
   const [storedValue, setStoredValue] = useState<T>(readValue);
 
-  // Return a wrapped version of useState's setter function that ...
-  // ... persists the new value to localStorage.
   const setValue = useCallback((value: T | ((val: T) => T)) => {
     try {
-      // Allow value to be a function so we have same API as useState
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      
-      // Save state
-      setStoredValue(valueToStore);
-
-      // Save to local storage
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
-        
-        // Dispatch a custom event so other hooks in the same tab can sync
-        window.dispatchEvent(new Event('local-storage'));
-      }
+      setStoredValue(prev => {
+        const valueToStore = value instanceof Function ? value(prev) : value;
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(key, JSON.stringify(valueToStore));
+          window.dispatchEvent(new Event('local-storage'));
+        }
+        return valueToStore;
+      });
     } catch (error) {
-      console.warn(`Error setting localStorage key “${key}”:`, error);
+      if (import.meta.env.DEV) {
+        console.warn(`Error setting localStorage key "${key}":`, error);
+      }
     }
-  }, [key, storedValue]);
+  }, [key]);
 
   useEffect(() => {
     setStoredValue(readValue());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [readValue]);
 
   const handleStorageChange = useCallback(
     (event: StorageEvent | CustomEvent) => {
@@ -76,7 +69,6 @@ export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodT
     [key, readValue],
   );
 
-  // Listen for changes in other tabs
   useEffect(() => {
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('local-storage', handleStorageChange);
