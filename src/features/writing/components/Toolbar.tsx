@@ -3,7 +3,7 @@ import { FilePlus, FolderOpen, Save, Play, Pause, Square, Maximize, Minimize } f
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 
-interface BetaToolbarProps {
+interface ToolbarProps {
   onNew?: () => void;
   onOpenLog?: () => void;
   onSave?: () => void;
@@ -16,7 +16,7 @@ interface BetaToolbarProps {
   setTitle: (t: string) => void;
 }
 
-export function BetaToolbar({
+export function Toolbar({
   onNew,
   onOpenLog,
   onSave,
@@ -27,7 +27,7 @@ export function BetaToolbar({
   wordCount,
   title,
   setTitle
-}: BetaToolbarProps) {
+}: ToolbarProps) {
   const { t } = useLanguage();
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -94,8 +94,8 @@ export function BetaToolbar({
         <button
           onClick={onPlay}
           disabled={status === 'writing'}
-          title={t('beta_play')}
-          aria-label={t('beta_play')}
+          title={t('play')}
+          aria-label={t('play')}
           className={cn(
             "w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl border flex items-center justify-center transition-all",
             status !== 'writing'
@@ -109,8 +109,8 @@ export function BetaToolbar({
         <button
           onClick={onPause}
           disabled={status !== 'writing'}
-          title={t('beta_pause')}
-          aria-label={t('beta_pause')}
+          title={t('pause')}
+          aria-label={t('pause')}
           className={cn(
             "w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl border flex items-center justify-center transition-all",
             status === 'writing'
@@ -124,8 +124,8 @@ export function BetaToolbar({
         <button
           onClick={onStop}
           disabled={status === 'idle'}
-          title={t('beta_stop')}
-          aria-label={t('beta_stop')}
+          title={t('stop')}
+          aria-label={t('stop')}
           className={cn(
             "w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl border flex items-center justify-center transition-all",
             status !== 'idle'
@@ -140,8 +140,8 @@ export function BetaToolbar({
 
         <button
           onClick={toggleFullscreen}
-          title={isFullscreen ? t('beta_exit_fullscreen') : t('beta_fullscreen')}
-          aria-label={isFullscreen ? t('beta_exit_fullscreen') : t('beta_fullscreen')}
+          title={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
+          aria-label={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
           className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl border border-border-subtle/60 bg-surface-base/30 flex items-center justify-center text-text-main/50 hover:text-text-main hover:border-border-subtle hover:bg-surface-base/50 transition-all"
         >
           {isFullscreen ? <Minimize size={14} className="sm:hidden" /> : <Maximize size={14} className="sm:hidden" />}

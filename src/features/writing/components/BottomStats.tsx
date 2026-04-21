@@ -8,14 +8,14 @@ import { getWpmColor } from '../utils/wpmColors';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { GoalPopup } from './GoalPopup';
 
-interface BetaBottomStatsProps {
+interface BottomStatsProps {
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
   compact?: boolean;
 }
 
-export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottomStatsProps) {
+export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsProps) {
   const { t } = useLanguage();
   const { isZenActive, zenModeEnabled, headerVisibility } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
@@ -171,7 +171,7 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
         <button
           onClick={status === 'paused' ? onPlay : status === 'idle' ? onPlay : undefined}
           disabled={status === 'writing'}
-          title={t('beta_play')}
+          title={t('play')}
           className={cn(
             "w-8 h-8 rounded-xl border flex items-center justify-center transition-all shrink-0",
             status !== 'writing'
@@ -184,7 +184,7 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
         <button
           onClick={onPause}
           disabled={status !== 'writing'}
-          title={t('beta_pause')}
+          title={t('pause')}
           className={cn(
             "w-8 h-8 rounded-xl border flex items-center justify-center transition-all shrink-0",
             status === 'writing'
@@ -197,7 +197,7 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
         <button
           onClick={onStop}
           disabled={status === 'idle'}
-          title={t('beta_stop')}
+          title={t('stop')}
           className={cn(
             "w-8 h-8 rounded-xl border flex items-center justify-center transition-all shrink-0",
             status !== 'idle'

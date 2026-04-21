@@ -23,5 +23,5 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "exclude": ["functions"]
+  "exclude": ["functions", "src/LEGACY", "_archive"]
 }

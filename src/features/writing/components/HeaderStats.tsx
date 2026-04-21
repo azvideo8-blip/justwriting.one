@@ -6,7 +6,7 @@ import { GoalPopup } from './GoalPopup';
 import { getWpmColor } from '../utils/wpmColors';
 import { HeaderVisibility } from '../contexts/WritingSettingsContext';
 
-interface BetaHeaderStatsProps {
+interface HeaderStatsProps {
   wordGoal: number;
   timerDuration: number;
   onSetWordGoal: (v: number) => void;
@@ -20,11 +20,11 @@ interface BetaHeaderStatsProps {
   visibility: HeaderVisibility;
 }
 
-export const BetaHeaderStats = React.memo(function BetaHeaderStats({
+export const HeaderStats = React.memo(function HeaderStats({
   wordGoal, timerDuration, onSetWordGoal, onSetTimerDuration,
   sessionWords, sessionSeconds, wordCount, wpm, status,
   currentTime, visibility
-}: BetaHeaderStatsProps) {
+}: HeaderStatsProps) {
   const { t } = useLanguage();
   
   const [wordPopupOpen, setWordPopupOpen] = useState(false);

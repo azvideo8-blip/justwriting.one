@@ -24,11 +24,11 @@ const MeIcon = () => (
   </svg>
 );
 
-interface BetaBottomNavProps {
+interface BottomNavProps {
   isAdmin: boolean;
 }
 
-export function BetaBottomNav(_props: BetaBottomNavProps) {
+export function BottomNav(_props: BottomNavProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
