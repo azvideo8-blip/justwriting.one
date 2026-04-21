@@ -1,13 +1,12 @@
 import { useRef, useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { Play, Pause, Square } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useWritingStore } from '../store/useWritingStore';
 import { formatTime } from '../../../core/utils/formatTime';
 import { useLanguage } from '../../../core/i18n';
 import { getWpmColor } from '../utils/wpmColors';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
+import { GoalPopup } from './GoalPopup';
 
 interface BetaBottomStatsProps {
   onPlay: () => void;
@@ -44,33 +43,8 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
 
   const [wordPopupOpen, setWordPopupOpen] = useState(false);
   const [timePopupOpen, setTimePopupOpen] = useState(false);
-  const [wordPos, setWordPos] = useState({ top: 0, left: 0 });
-  const [timePos, setTimePos] = useState({ top: 0, left: 0 });
   const wordRef = useRef<HTMLDivElement>(null);
   const timeRef = useRef<HTMLDivElement>(null);
-
-  const openWordPopup = () => {
-    if (wordRef.current) {
-      const r = wordRef.current.getBoundingClientRect();
-      setWordPos({ top: r.top - 168, left: r.left });
-    }
-    setWordPopupOpen(true);
-    setTimePopupOpen(false);
-  };
-
-  const openTimePopup = () => {
-    if (timeRef.current) {
-      const r = timeRef.current.getBoundingClientRect();
-      setTimePos({ top: r.top - 168, left: r.left });
-    }
-    setTimePopupOpen(true);
-    setWordPopupOpen(false);
-  };
-
-  const closePopups = () => {
-    setWordPopupOpen(false);
-    setTimePopupOpen(false);
-  };
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -78,79 +52,13 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
       if (target.closest('[data-goal-popup]')) return;
       if (wordRef.current && !wordRef.current.contains(target) &&
           timeRef.current && !timeRef.current.contains(target)) {
-        closePopups();
+        setWordPopupOpen(false);
+        setTimePopupOpen(false);
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
-
-  const GoalPopup = ({
-    pos, presets, current, onSelect, onClear, title, inputPlaceholder, toSeconds
-  }: {
-    pos: { top: number; left: number };
-    presets: { value: number; label: string }[];
-    current: number;
-    onSelect: (v: number) => void;
-    onClear: () => void;
-    title: string;
-    inputPlaceholder: string;
-    toSeconds?: boolean;
-  }) => createPortal(
-    <motion.div
-      initial={{ opacity: 0, y: -8, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -8, scale: 0.95 }}
-      style={{
-        position: 'fixed',
-        top: pos.top,
-        left: Math.min(pos.left, window.innerWidth - 220),
-        zIndex: 9999,
-      }}
-      className="bg-surface-card border border-border-subtle rounded-2xl p-3 w-[210px] shadow-lg"
-      data-goal-popup
-      onMouseDown={e => e.stopPropagation()}
-    >
-      <div className="text-[11px] text-text-main/40 mb-2">{title}</div>
-      <div className="flex gap-1 flex-wrap mb-2">
-        {presets.map(p => (
-          <button
-            key={p.value}
-            onMouseDown={() => { onSelect(p.value); }}
-            className={cn(
-              "px-2 py-1 rounded-lg text-xs border transition-all",
-              current === p.value
-                ? "bg-text-main text-surface-base border-text-main"
-                : "border-border-subtle text-text-main/60 hover:text-text-main"
-            )}
-          >{p.label}</button>
-        ))}
-      </div>
-      <div className="flex gap-2 items-center">
-        <input
-          type="number"
-          autoFocus
-          placeholder={inputPlaceholder}
-          defaultValue={current > 0 ? (toSeconds ? Math.round(current / 60) : current) : ''}
-          className="flex-1 min-w-0 bg-surface-base border border-border-subtle rounded-xl px-2 py-1.5 text-sm text-text-main outline-none focus:border-text-main/30"
-          onKeyDown={e => {
-            if (e.key === 'Enter') {
-              const v = parseInt((e.target as HTMLInputElement).value);
-              if (v > 0) onSelect(toSeconds ? v * 60 : v);
-            }
-            if (e.key === 'Escape') closePopups();
-          }}
-        />
-        {current > 0 && (
-          <button
-            onMouseDown={onClear}
-            className="text-[11px] text-text-main/40 hover:text-text-main transition-colors whitespace-nowrap shrink-0"
-          >{t('goal_popup_clear')}</button>
-        )}
-      </div>
-    </motion.div>,
-    document.body
-  );
 
   if (showZen) return null;
 
@@ -177,7 +85,7 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
         {headerVisibility.sessionWords && (
         <div
           ref={wordRef}
-          onClick={openWordPopup}
+          onClick={() => { setWordPopupOpen(!wordPopupOpen); setTimePopupOpen(false); }}
           className={cn("flex flex-col cursor-pointer rounded-xl hover:bg-text-main/5 transition-colors",
             compact ? "pr-3 mr-3 border-r border-border-subtle px-2 py-1" : "pr-5 mr-5 border-r border-border-subtle px-3 py-1.5 -mx-1"
           )}
@@ -211,7 +119,7 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
         {headerVisibility.sessionTime && (
         <div
           ref={timeRef}
-          onClick={openTimePopup}
+          onClick={() => { setTimePopupOpen(!timePopupOpen); setWordPopupOpen(false); }}
           className={cn("flex flex-col cursor-pointer rounded-xl hover:bg-text-main/5 transition-colors",
             compact ? "pr-3 mr-3 border-r border-border-subtle px-2 py-1" : "pr-5 mr-5 border-r border-border-subtle px-3 py-1.5 -mx-1"
           )}
@@ -301,31 +209,39 @@ export function BetaBottomStats({ onPlay, onPause, onStop, compact }: BetaBottom
         </button>
       </div>
 
-      <AnimatePresence>
         {wordPopupOpen && (
-          <GoalPopup
-            pos={wordPos}
+          <GoalPopup 
+            open={wordPopupOpen}
+            onClose={() => setWordPopupOpen(false)}
             title={t('goal_popup_words_title')}
+            type="words"
             presets={[250, 500, 1000, 1500, 2000].map(p => ({ value: p, label: String(p) }))}
             current={wordGoal}
             onSelect={v => { setWordGoal(v); setWordPopupOpen(false); }}
             onClear={() => { setWordGoal(0); setWordPopupOpen(false); }}
-            inputPlaceholder="1000"
+            onClearLabel={t('goal_popup_clear')}
+            placeholder="1000"
+            triggerRef={wordRef}
+            width="w-[210px]"
           />
         )}
         {timePopupOpen && (
           <GoalPopup
-            pos={timePos}
+            open={timePopupOpen}
+            onClose={() => setTimePopupOpen(false)}
             title={t('goal_popup_time_title')}
+            type="time"
             presets={[15, 25, 30, 60].map(p => ({ value: p * 60, label: `${p}м` }))}
-            current={timerDuration}
+            current={Math.round(timerDuration / 60)}
+            currentGoal={Math.round(timerDuration / 60)}
             onSelect={v => { setTimerDuration(v); setTimePopupOpen(false); }}
             onClear={() => { setTimerDuration(0); setTimePopupOpen(false); }}
-            inputPlaceholder="30"
-            toSeconds
+            onClearLabel={t('goal_popup_clear')}
+            placeholder="30"
+            triggerRef={timeRef}
+            width="w-[210px]"
           />
         )}
-      </AnimatePresence>
-    </div>
+     </div>
   );
 }

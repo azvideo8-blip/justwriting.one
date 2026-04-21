@@ -155,7 +155,7 @@ export function LoginPage() {
             disabled={loading}
             className="w-full flex items-center justify-center gap-3 py-4 rounded-xl shadow-sm hover:shadow-md transition-all group disabled:opacity-50 border bg-surface-base/5 border-border-subtle hover:bg-surface-base/10 text-text-main"
           >
-            <img src="https://www.google.com/favicon.ico" className="w-5 h-5" />
+            <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
             <span className="font-semibold text-text-main">Google</span>
           </button>
 

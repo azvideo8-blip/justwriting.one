@@ -90,7 +90,7 @@ export const DataTransfer: React.FC = () => {
       <button 
         onClick={handleExportAll} 
         disabled={loading}
-        className="bg-blue-500 text-white p-2 rounded mr-2 disabled:opacity-50"
+        className="bg-text-main text-surface-base p-2 rounded-2xl mr-2 disabled:opacity-50"
       >
         {loading ? t('common_loading') : t('data_export_all')}
       </button>

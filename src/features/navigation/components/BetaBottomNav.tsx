@@ -1,6 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../../core/i18n';
-import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
 import { cn } from '../../../core/utils/utils';
 
 const PenIcon = () => (
@@ -27,38 +26,26 @@ const MeIcon = () => (
 
 interface BetaBottomNavProps {
   isAdmin: boolean;
-  onOpenLifeLog?: () => void;
 }
 
-export function BetaBottomNav({ onOpenLifeLog }: BetaBottomNavProps) {
+export function BetaBottomNav(_props: BetaBottomNavProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
-  const { lifeLogVisible, lifeLogTab, setLifeLogVisible, setLifeLogTab } = useWritingSettings();
 
   const tabs = [
-    { id: 'write' as const, path: '/',   label: t('nav_write'), icon: <PenIcon /> },
-    { id: 'log' as const,  path: '/log', label: 'Log',          icon: <LogIcon /> },
-    { id: 'me' as const,   path: '/profile', label: t('nav_me'), icon: <MeIcon /> },
+    { id: 'write' as const, path: '/',       label: t('nav_write'), icon: <PenIcon /> },
+    { id: 'log' as const,  path: '/log',     label: 'Log',          icon: <LogIcon /> },
+    { id: 'me' as const,   path: '/me',     label: t('nav_me'),    icon: <MeIcon /> },
   ];
 
   type Tab = typeof tabs[number];
 
   const handleTabPress = (tab: Tab) => {
-    if (tab.id === 'log') {
-      navigate('/');
-      if (!lifeLogVisible || lifeLogTab !== 'log') {
-        setLifeLogTab('log');
-        setLifeLogVisible(true);
-      }
-      onOpenLifeLog?.();
-    } else {
-      navigate(tab.path);
-    }
+    navigate(tab.path);
   };
 
   const isActive = (tab: Tab) => {
-    if (tab.id === 'log') return lifeLogVisible && lifeLogTab === 'log';
     if (tab.id === 'write') return location.pathname === '/';
     return location.pathname === tab.path;
   };

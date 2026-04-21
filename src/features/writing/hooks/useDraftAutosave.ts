@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { User } from 'firebase/auth';
 import { saveToLocal, saveToFirestore, Draft } from '../../../lib/db';
+import { useWritingStore } from '../store/useWritingStore';
 
 function getLocalStorageUsageKB(): number {
   let total = 0;
@@ -98,7 +99,19 @@ export function useDraftAutosave(
     };
 
     const handleBeforeUnload = () => {
-      forceSaveEverything();
+      const state = useWritingStore.getState();
+      if (user && state.content) {
+        try {
+          const key = `draft-${user.uid}`;
+          localStorage.setItem(key, JSON.stringify({
+            content: state.content,
+            title: state.title,
+            seconds: state.seconds,
+            wordCount: state.wordCount,
+            timestamp: Date.now(),
+          }));
+        } catch {}
+      }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);

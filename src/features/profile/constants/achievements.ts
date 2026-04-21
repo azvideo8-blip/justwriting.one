@@ -1,4 +1,6 @@
-export const ACHIEVEMENTS = {
+import type { Achievement } from '../../../types';
+
+export const ACHIEVEMENTS: Record<string, Achievement[]> = {
   streaks: [
     { id: 'streak_1', threshold: 1, title: 'ach_streak_1', icon: '✏️', tier: 'common' },
     { id: 'streak_3', threshold: 3, title: 'ach_streak_3', icon: '🔥', tier: 'common' },

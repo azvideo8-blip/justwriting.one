@@ -15,7 +15,7 @@ interface BetaHeaderStatsProps {
   sessionSeconds: number;
   wordCount: number;
   wpm: number;
-  status: 'idle' | 'writing' | 'paused';
+  status: 'idle' | 'writing' | 'paused' | 'finished';
   currentTime: Date;
   visibility: HeaderVisibility;
 }

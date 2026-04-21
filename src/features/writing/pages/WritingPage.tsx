@@ -34,6 +34,8 @@ import { useSessionFlow } from '../hooks/useSessionFlow';
 import { useLanguage } from '../../../core/i18n';
 import { ConnectionStatusBanner } from '../components/ConnectionStatusBanner';
 import { MobileWriteScreen } from '../components/MobileWriteScreen';
+import { MobileHomeScreen } from '../components/MobileHomeScreen';
+import { useLifeLog } from '../hooks/useLifeLog';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { useToast } from '../../../shared/components/Toast';
 
@@ -122,18 +124,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
   const savingRef = React.useRef(false);
   const editorColRef = React.useRef<HTMLDivElement>(null);
   const [isCompact, setIsCompact] = useState(false);
-  const { layoutMode, setLayoutMode } = useLayoutMode();
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'm') {
-        e.preventDefault();
-        setLayoutMode(layoutMode === 'desktop' ? 'mobile' : 'desktop');
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [layoutMode, setLayoutMode]);
+  const { layoutMode } = useLayoutMode();
 
   React.useEffect(() => {
     const el = editorColRef.current;
@@ -158,19 +149,23 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
 
   // Edit loaded session immediately in Beta life log
   const handleBetaContinueSession = React.useCallback(async (session: Session) => {
-    await continueSession(session);
-    if (betaLifeLog) {
-      flow.setSetupMode(null);
-      setSessionStatus('writing');
-      useWritingStore.getState().setSessionStart();
-      // Fix 4 — WPM сбрасывать при смене заметки
-      useWritingStore.setState({
-        wpm: 0,
-        wordSnapshots: [],
-        lastWordCount: 0,
-      });
+    try {
+      await continueSession(session);
+      if (betaLifeLog) {
+        flow.setSetupMode(null);
+        setSessionStatus('writing');
+        useWritingStore.getState().setSessionStart();
+        useWritingStore.setState({
+          wpm: 0,
+          wordSnapshots: [],
+          lastWordCount: 0,
+        });
+      }
+    } catch (err) {
+      console.error('Continue session error:', err);
+      showToast(t('error_continue_session'));
     }
-  }, [continueSession, betaLifeLog, setSessionStatus, flow]);
+  }, [continueSession, betaLifeLog, setSessionStatus, flow, showToast, t]);
 
   const [firstVisit, setFirstVisit] = useLocalStorage('first-visit', true, z.boolean());
 
@@ -268,12 +263,12 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
         // Only during active session
         if (sessionStatus === 'writing' || sessionStatus === 'paused') {
-          e.preventDefault(); // block browser print dialog
+          e.preventDefault();
           
           if (sessionStatus === 'writing') {
-            setSessionStatus('paused');
+            handleBetaPauseRef.current();
           } else if (sessionStatus === 'paused') {
-            handleStart();
+            handleBetaPlayRef.current();
           }
         }
       }
@@ -287,7 +282,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sessionStatus, handleStart, setSessionStatus, betaLifeLog, handleBetaSave]);
+  }, [sessionStatus, betaLifeLog, handleBetaSave]);
 
   const handleBetaPlay = React.useCallback(() => {
     if (sessionStatus === 'idle') {
@@ -307,16 +302,22 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
   const handleBetaStop = async () => {
     if (sessionStatus === 'idle') return;
     if (savingRef.current) return;
-    await handleBetaSave();
-    useWritingStore.getState().resetSession();
-    useWritingStore.setState({ title: '', content: '' });
-    await WritingDraftService.deleteDraft(user.uid);
+    savingRef.current = true;
+    try {
+      await handleBetaSave();
+      useWritingStore.getState().finishSession();
+      await WritingDraftService.deleteDraft(user.uid);
+    } finally {
+      savingRef.current = false;
+    }
   };
 
   const handleBetaPlayRef = React.useRef(handleBetaPlay);
+  const handleBetaPauseRef = React.useRef(handleBetaPause);
   useEffect(() => {
     handleBetaPlayRef.current = handleBetaPlay;
-  }, [handleBetaPlay]);
+    handleBetaPauseRef.current = handleBetaPause;
+  }, [handleBetaPlay, handleBetaPause]);
 
   const handleBetaKeyDown = React.useCallback((e: KeyboardEvent) => {
     if (!betaLifeLog) return;
@@ -341,7 +342,85 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
   const LIFE_LOG_WIDTH = 380;
   const isMobile = layoutMode !== 'desktop';
 
+  const { sessionGroups: lifeLogGroups, summary: lifeLogSummary } = useLifeLog(user.uid);
+  const streakDays = React.useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let streak = 0;
+    let checkDate = new Date(today);
+    for (let i = 0; i < 365; i++) {
+      const dateStr = checkDate.toDateString();
+      const hasSession = lifeLogGroups.some(g =>
+        new Date(g.date).toDateString() === dateStr
+      );
+      if (hasSession) {
+        streak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }, [lifeLogGroups]);
+
+  const mobileModals = (
+    <>
+      <GoalToast visible={flow.goalToastVisible} type={flow.goalToastType} />
+      <AnimatePresence>
+        {flow.sessionStartFlash && (
+          <motion.div
+            initial={{ opacity: 0.6 }}
+            animate={{ opacity: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
+            className="fixed inset-0 z-[200] bg-text-main pointer-events-none"
+          />
+        )}
+      </AnimatePresence>
+      <PasswordPromptModal 
+        isOpen={!!passwordPrompt}
+        onConfirm={handlePromptSubmit}
+        onCancel={handlePromptCancel}
+      />
+      <CancelConfirmModal 
+        isOpen={flow.showCancelConfirm}
+        onConfirm={() => { handleCancel(); flow.setShowCancelConfirm(false); }}
+        onCancel={() => flow.setShowCancelConfirm(false)}
+      />
+      <WritingFinishModal 
+        isOpen={sessionStatus === 'finished'}
+        onClose={() => useWritingStore.getState().finishSession()}
+        onConfirm={() => { handleSave(isLocalOnly); }}
+        title={title} setTitle={setTitle}
+        sessionType={sessionType} wordCount={wordCount} duration={seconds}
+        isPublic={isPublic} setIsPublic={setIsPublic}
+        isAnonymous={isAnonymous} setIsAnonymous={setIsAnonymous}
+        handleSave={(localOnly?: boolean) => handleSave(localOnly ?? isLocalOnly)}
+        tags={tags} setTags={setTags}
+        labelId={labelId} setLabelId={setLabelId}
+        labels={profile?.labels || []}
+        isLocalOnly={isLocalOnly}
+      />
+      <FlowPulse />
+    </>
+  );
+
   if (isMobile && betaRedesign) {
+    if (sessionStatus === 'idle') {
+      return (
+        <>
+          <MobileHomeScreen
+            userId={user.uid}
+            streakDays={streakDays}
+            sessionGroups={lifeLogGroups}
+            summary={lifeLogSummary}
+            onStart={handleBetaPlay}
+            onContinue={handleBetaContinueSession}
+          />
+          {mobileModals}
+        </>
+      );
+    }
     return (
       <>
         <MobileWriteScreen
@@ -350,49 +429,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
           onStop={handleBetaStop}
           saveStatus={saveStatus}
         />
-
-        <GoalToast visible={flow.goalToastVisible} type={flow.goalToastType} />
-
-        <AnimatePresence>
-          {flow.sessionStartFlash && (
-            <motion.div
-              initial={{ opacity: 0.6 }}
-              animate={{ opacity: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.8, ease: 'easeOut' }}
-              className="fixed inset-0 z-[200] bg-text-main pointer-events-none"
-            />
-          )}
-        </AnimatePresence>
-
-        <PasswordPromptModal 
-          isOpen={!!passwordPrompt}
-          onConfirm={handlePromptSubmit}
-          onCancel={handlePromptCancel}
-        />
-
-        <CancelConfirmModal 
-          isOpen={flow.showCancelConfirm}
-          onConfirm={() => { handleCancel(); flow.setShowCancelConfirm(false); }}
-          onCancel={() => flow.setShowCancelConfirm(false)}
-        />
-
-        <WritingFinishModal 
-          isOpen={sessionStatus === 'finished'}
-          onClose={() => setSessionStatus('idle')}
-          onConfirm={() => { handleSave(); setSessionStatus('idle'); }}
-          title={title} setTitle={setTitle}
-          sessionType={sessionType} wordCount={wordCount} duration={seconds}
-          isPublic={isPublic} setIsPublic={setIsPublic}
-          isAnonymous={isAnonymous} setIsAnonymous={setIsAnonymous}
-          handleSave={handleSave}
-          tags={tags} setTags={setTags}
-          labelId={labelId} setLabelId={setLabelId}
-          labels={profile?.labels || []}
-          isLocalOnly={isLocalOnly}
-        />
-
-        <FlowPulse />
+        {mobileModals}
       </>
     );
   }
@@ -434,13 +471,13 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
 
           <WritingFinishModal 
             isOpen={sessionStatus === 'finished'}
-            onClose={() => setSessionStatus('idle')}
-            onConfirm={() => { handleSave(); setSessionStatus('idle'); }}
+            onClose={() => useWritingStore.getState().finishSession()}
+            onConfirm={() => { handleSave(isLocalOnly); }}
             title={title} setTitle={setTitle}
             sessionType={sessionType} wordCount={wordCount} duration={seconds}
             isPublic={isPublic} setIsPublic={setIsPublic}
             isAnonymous={isAnonymous} setIsAnonymous={setIsAnonymous}
-            handleSave={handleSave}
+            handleSave={(localOnly?: boolean) => handleSave(localOnly ?? isLocalOnly)}
             tags={tags} setTags={setTags}
             labelId={labelId} setLabelId={setLabelId}
             labels={profile?.labels || []}
@@ -510,6 +547,13 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
                   setShowCancelConfirm={flow.setShowCancelConfirm}
                   saveStatus={saveStatus}
                   lastSavedAt={lastSavedAt}
+                  onKeyDown={(e) => {
+                    if (sessionStatus === 'idle' && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+                      handleBetaPlayRef.current();
+                    } else if (sessionStatus === 'paused' && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+                      handleBetaPlayRef.current();
+                    }
+                  }}
                 />
               </div>
             </div>
@@ -578,10 +622,9 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
 
       <WritingFinishModal 
         isOpen={sessionStatus === 'finished'}
-        onClose={() => setSessionStatus('idle')}
+        onClose={() => useWritingStore.getState().finishSession()}
         onConfirm={() => {
-          handleSave();
-          setSessionStatus('idle');
+          handleSave(isLocalOnly);
         }}
         title={title}
         setTitle={setTitle}
@@ -592,7 +635,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
         setIsPublic={setIsPublic}
         isAnonymous={isAnonymous}
         setIsAnonymous={setIsAnonymous}
-        handleSave={handleSave}
+        handleSave={(localOnly?: boolean) => handleSave(localOnly ?? isLocalOnly)}
         tags={tags}
         setTags={setTags}
         labelId={labelId}

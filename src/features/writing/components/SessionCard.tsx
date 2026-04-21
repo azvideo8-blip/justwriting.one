@@ -167,7 +167,7 @@ export function SessionCard({
             {showAuthor && (
               <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border bg-surface-base border-border-subtle">
                 {session.authorPhoto ? (
-                  <img src={session.authorPhoto || undefined} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img src={session.authorPhoto || undefined} alt={`${session.authorName}'s avatar`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
                   <UserIcon size={14} className="text-text-main/50" />
                 )}

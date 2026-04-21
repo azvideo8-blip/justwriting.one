@@ -46,6 +46,7 @@ interface WritingState {
   setSessionStart: () => void;
   tick: () => void;
   resetSession: () => void;
+  finishSession: () => void;
 
   setSessionType: (type: SessionType) => void;
   setTimerDuration: (duration: number) => void;
@@ -185,6 +186,13 @@ export const useWritingStore = create<WritingState>((set) => ({
     lastWordCount: 0,
     seconds: 0, status: 'idle', timeGoalReached: false, wordGoalReached: false,
     overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0
+  }),
+
+  finishSession: () => set({
+    seconds: 0, status: 'idle', wpm: 0, wordSnapshots: [],
+    lastWordCount: 0, timeGoalReached: false, wordGoalReached: false,
+    overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
+    activeSessionId: null,
   }),
 
   tick: () => set((state) => {

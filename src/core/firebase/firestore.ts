@@ -13,7 +13,9 @@ export const db = initializeFirestore(app, {
   localCache: memoryLocalCache()
 }, import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
 
-console.warn("Firestore initialized with Database ID:", import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
+if (import.meta.env.DEV) {
+  console.warn("Firestore initialized with Database ID:", import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
+}
 
 // Connection status tracking
 export let isFirestoreConnected = true;
@@ -36,7 +38,7 @@ function updateConnectionStatus(status: boolean) {
 }
 
 // Simple connection test
-async function testConnection() {
+async function testConnection(retryCount = 0) {
   try {
     console.warn("Starting Firestore connection test to:", import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
     // Try to get a document. We use getDocFromServer to bypass any local cache.
@@ -65,15 +67,18 @@ async function testConnection() {
         console.error("Firestore connection truly failed or timed out:", errorCode, error.message);
         updateConnectionStatus(false);
         
-        // If it failed, let's try one more time after a short delay
-        setTimeout(testConnection, 5000);
+        if (retryCount < 3) {
+          setTimeout(() => testConnection(retryCount + 1), 5000 * (retryCount + 1));
+        }
       }
     } else {
       console.error("Firestore connection truly failed or timed out:", error);
       updateConnectionStatus(false);
-      setTimeout(testConnection, 5000);
+      if (retryCount < 3) {
+        setTimeout(() => testConnection(retryCount + 1), 5000 * (retryCount + 1));
+      }
     }
   }
 }
 
-testConnection();
+testConnection(0);

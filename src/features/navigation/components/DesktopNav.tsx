@@ -61,7 +61,7 @@ export function DesktopNav({ isAdmin, user }: DesktopNavProps) {
           aria-label={t('nav_logout')}
         >
           <div className="relative">
-            <img src={user.photoURL || undefined} className="w-8 h-8 rounded-full border border-border-subtle group-hover:border-text-main/50 transition-colors" referrerPolicy="no-referrer" />
+            <img src={user.photoURL || undefined} alt="User avatar" className="w-8 h-8 rounded-full border border-border-subtle group-hover:border-text-main/50 transition-colors" referrerPolicy="no-referrer" />
             <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-surface-base rounded-full" />
           </div>
           <LogOut size={18} className="group-hover:translate-x-1 transition-transform" />

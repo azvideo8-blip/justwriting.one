@@ -51,6 +51,7 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
   const setEncryptionPassword = useWritingStore(s => s.setEncryptionPassword);
   const resetSession = useWritingStore(s => s.resetSession);
   const resetSessionMetadata = useWritingStore(s => s.resetSessionMetadata);
+  const finishSession = useWritingStore(s => s.finishSession);
 
   const [hasDraft, setHasDraft] = useState(false);
 
@@ -86,6 +87,7 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
       setActiveSessionId,
       setHasDraft,
       resetSession,
+      finishSession,
       setStatus,
       setInitialWordCount,
       setInitialDuration,
@@ -169,6 +171,7 @@ export function useWritingSession(user: User, profile: UserProfile | null) {
     setActiveSessionId,
     setEncryptionPassword,
     resetSession,
+    finishSession,
     resetSessionMetadata
   };
 }

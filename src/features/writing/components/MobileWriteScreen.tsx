@@ -4,6 +4,9 @@ import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useLanguage } from '../../../core/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
 import { AnimatePresence, motion } from 'motion/react';
+import { MobileFocusScreen } from './MobileFocusScreen';
+import { getFontStack } from '../utils/fontStack';
+import { getWpmHex } from '../utils/wpmColors';
 
 interface MobileWriteScreenProps {
   onPlay: () => void;
@@ -42,7 +45,7 @@ export function MobileWriteScreen({
   const showZen = isZenActive && zenModeEnabled;
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (isIdle && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+    if ((isIdle || isPaused) && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
       onPlay();
     }
   };
@@ -57,11 +60,24 @@ export function MobileWriteScreen({
     if (isRunning) setIntensity(i => Math.min(1, i + 0.2));
   };
 
-  const fontFamilyStr = fontFamily === 'serif'
-    ? 'Lora, Georgia, serif'
-    : fontFamily === 'mono'
-      ? 'JetBrains Mono, monospace'
-      : 'Inter, system-ui, sans-serif';
+  const [focusMode, setFocusMode] = useState(false);
+  const swipeTouchStartY = useRef<number>(0);
+  const swipeTouchStartX = useRef<number>(0);
+
+  const handleEditorTouchStart = (e: React.TouchEvent) => {
+    swipeTouchStartY.current = e.touches[0].clientY;
+    swipeTouchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleEditorTouchEnd = (e: React.TouchEvent) => {
+    const deltaY = e.changedTouches[0].clientY - swipeTouchStartY.current;
+    const deltaX = Math.abs(e.changedTouches[0].clientY - swipeTouchStartX.current);
+    if (deltaY > 60 && deltaX < 40 && isRunning) {
+      setFocusMode(true);
+    }
+  };
+
+  const fontFamilyStr = getFontStack(fontFamily);
 
   return (
     <div style={{
@@ -153,7 +169,11 @@ export function MobileWriteScreen({
         )}
       </AnimatePresence>
 
-      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+      <div
+        style={{ flex: 1, overflow: 'hidden', position: 'relative' }}
+        onTouchStart={handleEditorTouchStart}
+        onTouchEnd={handleEditorTouchEnd}
+      >
         <textarea
           value={content}
           onChange={e => { setContent(e.target.value); handleType(); }}
@@ -264,12 +284,7 @@ export function MobileWriteScreen({
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, lineHeight: 1 }}>
                   <div style={{
                     width: 7, height: 7, borderRadius: '50%',
-                    background: wpm === 0 ? 'rgba(255,255,255,0.15)'
-                      : wpm < 15 ? '#ef4444'
-                      : wpm < 25 ? '#f97316'
-                      : wpm < 35 ? '#eab308'
-                      : wpm < 50 ? '#22c55e'
-                      : '#60a5fa',
+                    background: getWpmHex(wpm),
                     transition: 'background 0.5s',
                     flexShrink: 0,
                   }} />
@@ -329,6 +344,12 @@ export function MobileWriteScreen({
               </button>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {focusMode && (
+          <MobileFocusScreen onExit={() => setFocusMode(false)} />
         )}
       </AnimatePresence>
     </div>
