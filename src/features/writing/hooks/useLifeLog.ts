@@ -4,12 +4,12 @@ import { SessionService } from '../services/SessionService';
 import { parseFirestoreDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 
-interface DailySummary {
+export interface DailySummary {
   totalWords: number;
   totalMinutes: number;
 }
 
-interface SessionGroup {
+export interface SessionGroup {
   label: string;
   date: Date;
   sessions: Session[];
@@ -85,7 +85,10 @@ export function useLifeLog(userId: string): UseLifeLogReturn {
         groups.set(key, { label, date: sessionDay, sessions: [] });
       }
 
-      groups.get(key)!.sessions.push(session);
+      const existing = groups.get(key);
+      if (existing) {
+        existing.sessions.push(session);
+      }
     });
 
     return Array.from(groups.values())

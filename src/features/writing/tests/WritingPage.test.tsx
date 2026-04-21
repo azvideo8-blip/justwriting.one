@@ -66,6 +66,7 @@ describe('WritingPage', () => {
     removePinnedThought: vi.fn(),
     updatePinnedThought: vi.fn(),
     resetSession: vi.fn(),
+    finishSession: vi.fn(),
     resetSessionMetadata: vi.fn()
   };
 

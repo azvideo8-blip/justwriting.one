@@ -12,6 +12,14 @@ import { useWritingStore } from './store/useWritingStore';
 import { useModalEscape } from '../../shared/hooks/useModalEscape';
 
 interface WritingFinishModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  setTitle: (title: string) => void;
+  sessionType: string;
+  wordCount: number;
+  duration: number;
   isPublic: boolean;
   setIsPublic: (val: boolean) => void;
   isAnonymous: boolean;
@@ -26,6 +34,14 @@ interface WritingFinishModalProps {
 }
 
 export function WritingFinishModal({
+  isOpen,
+  onClose: _onClose,
+  onConfirm: _onConfirm,
+  title: _title,
+  setTitle: _setTitle,
+  sessionType: _sessionType,
+  wordCount: _wordCount,
+  duration: _duration,
   isPublic,
   setIsPublic,
   isAnonymous,
@@ -65,7 +81,7 @@ export function WritingFinishModal({
     return Array.from(suggestions);
   }, [title, popularWords]);
 
-  if (status !== 'finished') return null;
+  if (!isOpen || status !== 'finished') return null;
 
   const toggleTag = (tag: string) => {
     if (!tags) return;

@@ -6,6 +6,7 @@ import { useLanguage } from '../../core/i18n';
 import { useWritingSettings } from './contexts/WritingSettingsContext';
 import { useWritingStore } from './store/useWritingStore';
 import { useLayoutMode } from '../../shared/hooks/useLayoutMode';
+import { getFontStack } from './utils/fontStack';
 
 interface WritingEditorProps {
   handlePause: () => void;
@@ -217,10 +218,7 @@ export const WritingEditor = React.memo(function WritingEditor({
           paddingBottom: (betaRedesign && betaLifeLog) ? undefined : (layoutMode === 'mobile' ? '7rem' : '2rem'),
           fontSize: `${fontSize}px`,
           lineHeight: `${fontSize * 1.2}px`,
-          fontFamily: fontFamily === 'Inter' ? 'Inter, sans-serif' : 
-                      fontFamily === 'Playfair Display' ? '"Playfair Display", serif' :
-                      fontFamily === 'JetBrains Mono' ? '"JetBrains Mono", monospace' :
-                      fontFamily === 'Cormorant Garamond' ? '"Cormorant Garamond", serif' : 'inherit',
+          fontFamily: getFontStack(fontFamily),
           caretColor: undefined,
           userSelect: 'text'
         }}

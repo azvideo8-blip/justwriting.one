@@ -40,7 +40,7 @@ export function ClassicNavBar({ showZen }: ClassicNavBarProps) {
 
         {/* Mobile Header Actions */}
         <div className="flex lg:hidden items-center gap-2">
-          <img src={user.photoURL || undefined} className="w-8 h-8 rounded-full border border-border-subtle" referrerPolicy="no-referrer" />
+          <img src={user.photoURL || undefined} alt="User avatar" className="w-8 h-8 rounded-full border border-border-subtle" referrerPolicy="no-referrer" />
         </div>
       </nav>
 

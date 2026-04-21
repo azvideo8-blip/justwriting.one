@@ -62,8 +62,11 @@ export function useAuthStatus() {
           console.warn('Creating initial user profile:', JSON.stringify(initialProfile));
         }
         
-        setDoc(userDoc, initialProfile).catch(err => {
+        setDoc(userDoc, initialProfile).then(() => {
+          creationAttemptedRef.current = false;
+        }).catch(err => {
           console.error('Error creating user profile:', err);
+          creationAttemptedRef.current = false;
         });
         setProfile(initialProfile);
       }

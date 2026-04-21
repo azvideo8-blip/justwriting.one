@@ -18,7 +18,7 @@ export function useSessionPersistence(
     isPublic: boolean;
     isAnonymous: boolean;
     tags: string[];
-    sessionType: 'stopwatch' | 'timer' | 'words' | 'finish-by';
+    sessionType: 'free' | 'stopwatch' | 'timer' | 'words' | 'finish-by';
     activeSessionId: string | null;
     encryptionPassword: string;
     initialDuration: number;
@@ -40,6 +40,7 @@ export function useSessionPersistence(
     setActiveSessionId: (id: string | null) => void;
     setHasDraft: (has: boolean) => void;
     resetSession: () => void;
+    finishSession: () => void;
     setStatus: (status: 'idle' | 'writing' | 'paused' | 'finished') => void;
     setInitialWordCount: (count: number) => void;
     setInitialDuration: (duration: number) => void;
@@ -146,8 +147,7 @@ export function useSessionPersistence(
       localStorage.setItem(sessionKey, JSON.stringify(sessionData));
       await WritingDraftService.deleteDraft(user.uid);
       actions.setHasDraft(false);
-      actions.resetSession();
-      actions.setStatus('idle');
+      actions.finishSession();
       return;
     }
 
@@ -158,8 +158,7 @@ export function useSessionPersistence(
       }
       await WritingDraftService.deleteDraft(user.uid);
       actions.setHasDraft(false);
-      actions.resetSession();
-      actions.setStatus('idle');
+      actions.finishSession();
     } catch {
       // Error is handled in WritingSessionService
     }
