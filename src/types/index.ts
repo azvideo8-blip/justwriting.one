@@ -76,3 +76,36 @@ export interface UserProfile {
   avgWpm?: number;
   avgSessionWords?: number;
 }
+
+export interface Document {
+  id: string;
+  userId: string;
+  title: string;
+  currentVersion: number;
+  totalWords: number;
+  totalDuration: number;
+  sessionsCount: number;
+  firstSessionAt: Timestamp;
+  lastSessionAt: Timestamp;
+  isPublic: boolean;
+  tags: string[];
+  labelId?: string;
+}
+
+export interface Version {
+  id: string;
+  documentId: string;
+  userId: string;
+  version: number;
+  content: string;
+  wordCount: number;
+  wordsAdded: number;
+  charsAdded: number;
+  duration: number;
+  wpm: number;
+  goalWords?: number;
+  goalTime?: number;
+  goalReached?: boolean;
+  savedAt: Timestamp;
+  sessionStartedAt: Timestamp;
+}

@@ -7,8 +7,9 @@ import { formatTime } from '../../../core/utils/formatTime';
 import { SettingsPanelContent } from '../../settings/components/SettingsPanel';
 import { CancelConfirmModal } from './modals/CancelConfirmModal';
 import { SessionService } from '../services/SessionService';
+import { useServiceAction } from '../hooks/useServiceAction';
 import { motion } from 'motion/react';
-import { X, Pin, Trash2 } from 'lucide-react';
+import { X, Pin, Trash2, Cloud, HardDrive } from 'lucide-react';
 
 interface SessionItemProps {
   session: Session;
@@ -61,13 +62,18 @@ const SessionItem: React.FC<SessionItemProps> = ({ session, isActive, onClick, o
         </div>
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="text-xs text-text-muted">
-          {session.wordCount} {t('lifelog_words_short')} · {formatTime(session.duration || 0)}
-        </span>
-        <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", badge.cls)}>
-          {badge.label}
-        </span>
-      </div>
+          <span className="text-xs text-text-muted">
+            {session.wordCount} {t('lifelog_words_short')} · {formatTime(session.duration || 0)}
+          </span>
+          <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", badge.cls)}>
+            {badge.label}
+          </span>
+          {(session as Session & { _isLocal?: boolean })._isLocal ? (
+            <span title={t('storage_local')}><HardDrive size={10} className="text-text-main/30" /></span>
+          ) : (
+            <span title={t('storage_cloud')}><Cloud size={10} className="text-text-main/30" /></span>
+          )}
+        </div>
     </div>
   );
 };
@@ -97,7 +103,8 @@ export function LifeLogPanel({
   const [searchQuery, setSearchQuery] = useState('');
 
   const { t, language } = useLanguage();
-  const { sessionGroups, summary, loading, refresh } = useLifeLog(userId);
+  const { execute } = useServiceAction();
+  const { sessionGroups, documents, summary, loading, refresh } = useLifeLog(userId);
 
   const filteredGroups = useMemo(() => {
     if (!searchQuery.trim()) return sessionGroups;
@@ -208,6 +215,28 @@ export function LifeLogPanel({
             </div>
           </div>
 
+          {/* Documents section */}
+          {documents.length > 0 && (
+            <div className="shrink-0 border-b border-border-subtle pb-2">
+              <div className="px-4 py-2 text-[10px] text-text-subtle font-bold uppercase tracking-wider">
+                {t('lifelog_documents')}
+              </div>
+              {documents.map(doc => (
+                <button
+                  key={doc.id}
+                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-text-main/5 transition-colors text-left"
+                >
+                  <div>
+                    <div className="text-sm font-medium text-text-main/85">{doc.title || t('editor_title_placeholder')}</div>
+                    <div className="text-xs text-text-main/40">
+                      v{doc.currentVersion} · {doc.totalWords.toLocaleString()} {t('home_words_short')} · {doc.sessionsCount} {t('lifelog_sessions_count')}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Sessions list */}
           <div className="flex-1 overflow-y-auto">
             {loading ? (
@@ -258,7 +287,10 @@ export function LifeLogPanel({
         cancelLabel={t('common_cancel')}
         onConfirm={async () => {
           if (deleteTarget?.id) {
-            await SessionService.deleteSession(deleteTarget.id);
+            await execute(
+              () => SessionService.deleteSession(deleteTarget.id),
+              { successMessage: t('save_success'), errorMessage: t('error_delete_failed') }
+            );
             refresh();
           }
           setDeleteTarget(null);

@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { SessionService } from '../services/SessionService';
 import { Session } from '../../../types';
 import { useLanguage } from '../../../core/i18n';
+import { useServiceAction } from '../hooks/useServiceAction';
 
 interface SessionEditorProps {
   session: Session;
@@ -12,22 +13,25 @@ interface SessionEditorProps {
 
 export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps) {
   const { t } = useLanguage();
+  const { execute } = useServiceAction();
   const [editContent, setEditContent] = useState(session.content);
   const [editTitle, setEditTitle] = useState(session.title || '');
   const [editTags, setEditTags] = useState<string[]>(session.tags || []);
   const [editIsPublic, setEditIsPublic] = useState(session.isPublic);
   const [tagInput, setTagInput] = useState('');
 
-  const handleSave = async () => {
-    await SessionService.updateSession(session.id, {
-      content: editContent,
-      title: editTitle,
-      tags: editTags,
-      isPublic: editIsPublic,
-      wordCount: editContent.trim().split(/\s+/).filter(x => x.length > 0).length,
-      charCount: editContent.length
-    });
-    onSave();
+  const handleSave = () => {
+    execute(
+      () => SessionService.updateSession(session.id, {
+        content: editContent,
+        title: editTitle,
+        tags: editTags,
+        isPublic: editIsPublic,
+        wordCount: editContent.trim().split(/\s+/).filter(x => x.length > 0).length,
+        charCount: editContent.length
+      }),
+      { successMessage: t('save_success'), errorMessage: t('error_save_failed'), onSuccess: onSave }
+    );
   };
 
   const addTag = () => {

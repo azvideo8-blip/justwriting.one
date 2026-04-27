@@ -4,6 +4,7 @@ import { SettingsProvider } from '../core/settings/SettingsProvider';
 import { LanguageProvider } from '../core/i18n';
 import { ToastProvider } from '../shared/components/Toast';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
+import { LoginModalProvider } from '../features/auth/contexts/LoginModalContext';
 import { ReactNode } from 'react';
 
 export function AppProviders({ children }: { children: ReactNode }) {
@@ -13,9 +14,11 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <ThemeProvider>
           <WritingSettingsProvider>
             <ToastProvider>
-              <SettingsProvider>
-                {children}
-              </SettingsProvider>
+              <LoginModalProvider>
+                <SettingsProvider>
+                  {children}
+                </SettingsProvider>
+              </LoginModalProvider>
             </ToastProvider>
           </WritingSettingsProvider>
         </ThemeProvider>

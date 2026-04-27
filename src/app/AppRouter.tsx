@@ -1,10 +1,9 @@
 import { motion } from 'motion/react';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
-import { LoginPage } from '../features/auth/pages/LoginPage';
 import { AnimatedRoutes } from './AnimatedRoutes';
 
 export function AppRouter() {
-  const { user, loading } = useAuthStatus();
+  const { loading } = useAuthStatus();
 
   if (loading) return (
     <div className="h-screen w-screen flex items-center justify-center bg-surface-base">
@@ -17,8 +16,6 @@ export function AppRouter() {
       </motion.div>
     </div>
   );
-
-  if (!user) return <LoginPage />;
 
   return <AnimatedRoutes />;
 }

@@ -1,8 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Session } from '../../../types';
+import { Session, Document } from '../../../types';
 import { SessionService } from '../services/SessionService';
+import { UnifiedSessionService, UnifiedDocument } from '../services/UnifiedSessionService';
+import { LocalDocumentService } from '../services/LocalDocumentService';
+import { LocalDocument } from '../../../shared/lib/localDb';
 import { parseFirestoreDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
+import { useSessionSource, SessionSource } from './useSessionSource';
+import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 
 export interface DailySummary {
   totalWords: number;
@@ -17,15 +22,41 @@ export interface SessionGroup {
 
 interface UseLifeLogReturn {
   sessionGroups: SessionGroup[];
+  documents: Document[];
+  unifiedDocuments: UnifiedDocument[];
   summary: DailySummary;
   loading: boolean;
   refresh: () => Promise<void>;
 }
 
-export function useLifeLog(userId: string): UseLifeLogReturn {
+function localDocToSession(doc: LocalDocument): Session & { _isLocal?: boolean } {
+  return {
+    id: doc.id,
+    userId: doc.guestId,
+    authorName: '',
+    authorPhoto: '',
+    content: '',
+    duration: doc.totalDuration,
+    wordCount: doc.totalWords,
+    charCount: 0,
+    wpm: 0,
+    isPublic: false,
+    title: doc.title,
+    tags: doc.tags,
+    createdAt: new Date(doc.lastSessionAt),
+    _isLocal: true,
+  } as Session & { _isLocal?: boolean };
+}
+
+export function useLifeLog(userId: string, isGuest?: boolean): UseLifeLogReturn {
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [unifiedDocuments, setUnifiedDocuments] = useState<UnifiedDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const { t, language } = useLanguage();
+  const source = useSessionSource();
+  const { isGuest: authIsGuest } = useAuthStatus();
+  const effectiveGuest = isGuest ?? authIsGuest;
 
   const startOfToday = useMemo(() => {
     const now = new Date();
@@ -35,14 +66,38 @@ export function useLifeLog(userId: string): UseLifeLogReturn {
   const fetchSessions = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await SessionService.getAllSessions(userId, 100);
-      setSessions(result.sessions);
+      if (effectiveGuest) {
+        const localDocs = await LocalDocumentService.getGuestDocuments(userId);
+        setSessions(localDocs.map(localDocToSession));
+        setDocuments([]);
+        setUnifiedDocuments(localDocs.map(d => ({
+          id: d.id,
+          title: d.title,
+          currentVersion: d.currentVersion,
+          totalWords: d.totalWords,
+          totalDuration: d.totalDuration,
+          sessionsCount: d.sessionsCount,
+          lastSessionAt: d.lastSessionAt,
+          isPublic: false,
+          tags: d.tags,
+          _isLocal: true,
+          _source: 'local' as SessionSource,
+        })));
+      } else {
+        const [sessionResult, { all, cloud }] = await Promise.all([
+          SessionService.getAllSessions(userId, 100),
+          UnifiedSessionService.getAllDocuments(userId, source),
+        ]);
+        setSessions(sessionResult.sessions);
+        setDocuments(cloud);
+        setUnifiedDocuments(all);
+      }
     } catch (e) {
-      console.error('useLifeLog fetch error:', e);
+      if (import.meta.env.DEV) console.error('useLifeLog fetch error:', e);
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, effectiveGuest, source]);
 
   useEffect(() => {
     fetchSessions();
@@ -97,6 +152,8 @@ export function useLifeLog(userId: string): UseLifeLogReturn {
 
   return {
     sessionGroups,
+    documents,
+    unifiedDocuments,
     summary,
     loading,
     refresh: fetchSessions,
