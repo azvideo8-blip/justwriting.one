@@ -13,6 +13,7 @@ import { Session, Label } from '../../../types';
 import { parseFirestoreDate, cn } from '../../../core/utils/utils';
 import { ExportService } from '../../export/ExportService';
 import { useLanguage } from '../../../core/i18n';
+import { useServiceAction } from '../hooks/useServiceAction';
 import { useSessionTags } from '../hooks/useSessionTags';
 
 import { SessionEditor } from './SessionEditor';
@@ -34,6 +35,7 @@ export function SessionCard({
   onDeleteSuccess?: (sessionId: string) => void
 }) {
   const { t } = useLanguage();
+  const { execute } = useServiceAction();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -111,18 +113,18 @@ export function SessionCard({
     );
   };
 
-  const handleDelete = async () => {
-    try {
-      console.warn('SessionCard: Attempting to delete session:', session.id);
-      await SessionService.deleteSession(session.id);
-      console.warn('SessionCard: Session deleted successfully:', session.id);
-      setShowDeleteConfirm(false);
-      if (onDeleteSuccess) {
-        onDeleteSuccess(session.id);
+  const handleDelete = () => {
+    execute(
+      () => SessionService.deleteSession(session.id),
+      {
+        successMessage: t('save_success'),
+        errorMessage: t('error_delete_failed'),
+        onSuccess: () => {
+          setShowDeleteConfirm(false);
+          if (onDeleteSuccess) onDeleteSuccess(session.id);
+        }
       }
-    } catch (e) {
-      console.error('SessionCard: Delete error for session', session.id, ':', e);
-    }
+    );
   };
 
   const exportToTxt = () => {
@@ -140,9 +142,11 @@ export function SessionCard({
     setShowExportMenu(false);
   };
 
-  const exportDocx = async () => {
-    await ExportService.toDocx(session.title || 'Untitled Session', session.content);
-    setShowExportMenu(false);
+  const exportDocx = () => {
+    execute(
+      () => ExportService.toDocx(session.title || 'Untitled Session', session.content),
+      { errorMessage: t('error_export_failed') }
+    );
   };
 
   const sessionDate = parseFirestoreDate(session.createdAt);

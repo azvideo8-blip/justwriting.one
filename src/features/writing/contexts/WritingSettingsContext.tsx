@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { z } from 'zod';
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 
+export type SessionSource = 'local' | 'cloud' | 'both';
+
 export interface HeaderVisibility {
   currentTime: boolean;
   sessionTime: boolean;
@@ -38,6 +40,8 @@ interface WritingSettingsContextType {
   setShowTitle: (v: boolean) => void;
   showPinnedThoughts: boolean;
   setShowPinnedThoughts: (v: boolean) => void;
+  storagePreference: SessionSource;
+  setStoragePreference: (v: SessionSource) => void;
 }
 
 const WritingSettingsContext = createContext<WritingSettingsContextType | undefined>(undefined);
@@ -54,6 +58,11 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
   const [lifeLogPinned, setLifeLogPinned] = useLocalStorage<boolean>('v3_lifeLogPinned', false, z.boolean());
   const [showTitle, setShowTitle] = useLocalStorage<boolean>('editor-show-title', true, z.boolean());
   const [showPinnedThoughts, setShowPinnedThoughts] = useLocalStorage<boolean>('editor-show-pinned', true, z.boolean());
+  const [storagePreference, setStoragePreference] = useLocalStorage<SessionSource>(
+    'storage-preference',
+    'cloud',
+    z.enum(['local', 'cloud', 'both'])
+  );
   const [headerVisibility, setHeaderVisibility] = useLocalStorage<HeaderVisibility>(
     'v2_headerVisibility',
     { currentTime: true, sessionTime: true, sessionWords: true, totalWords: true, wpm: true },
@@ -122,6 +131,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
       headerVisibility, toggleVisibility,
       showTitle, setShowTitle,
       showPinnedThoughts, setShowPinnedThoughts,
+      storagePreference, setStoragePreference,
     }}>
       {children}
     </WritingSettingsContext.Provider>

@@ -1,6 +1,8 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
+import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
+import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 
 const PenIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
@@ -24,6 +26,15 @@ const MeIcon = () => (
   </svg>
 );
 
+const LoginIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
+    strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
+    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+    <polyline points="10 17 15 12 10 7"/>
+    <line x1="15" y1="12" x2="3" y2="12"/>
+  </svg>
+);
+
 interface BottomNavProps {
   isAdmin: boolean;
 }
@@ -32,17 +43,30 @@ export function BottomNav(_props: BottomNavProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
+  const { isGuest } = useAuthStatus();
+  const { openLoginModal } = useLoginModal();
 
-  const tabs = [
+  const authTabs = [
     { id: 'write' as const, path: '/',       label: t('nav_write'), icon: <PenIcon /> },
     { id: 'log' as const,  path: '/log',     label: 'Log',          icon: <LogIcon /> },
     { id: 'me' as const,   path: '/me',     label: t('nav_me'),    icon: <MeIcon /> },
   ];
 
+  const guestTabs = [
+    { id: 'write' as const, path: '/',       label: t('nav_write'), icon: <PenIcon /> },
+    { id: 'login' as const, path: '',        label: t('auth_sign_in'), icon: <LoginIcon />, action: openLoginModal },
+  ];
+
+  const tabs = isGuest ? guestTabs : authTabs;
+
   type Tab = typeof tabs[number];
 
   const handleTabPress = (tab: Tab) => {
-    navigate(tab.path);
+    if ('action' in tab && tab.action) {
+      tab.action();
+    } else {
+      navigate(tab.path);
+    }
   };
 
   const isActive = (tab: Tab) => {

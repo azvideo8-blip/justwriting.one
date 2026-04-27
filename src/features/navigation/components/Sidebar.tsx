@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { PenLine, History, User as UserIcon, Globe, Shield, Settings } from 'lucide-react';
+import { PenLine, History, User as UserIcon, Globe, Shield, Settings, LogIn } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
+import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
+import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 
 interface SidebarProps {
   isAdmin: boolean;
@@ -18,14 +20,20 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
   const inGrid = inGridProp ?? false;
   const location = useLocation();
   const navigate = useNavigate();
+  const { isGuest } = useAuthStatus();
+  const { openLoginModal } = useLoginModal();
 
-  const navItems = [
-    { id: 'write',   path: '/',       icon: <PenLine size={20} />,   label: t('nav_write') },
-    { id: 'archive', path: '/archive', icon: <History size={20} />,   label: t('nav_notes') },
-    { id: 'profile', path: '/profile', icon: <UserIcon size={20} />,  label: t('nav_profile') },
-    { id: 'feed',    path: '/feed',    icon: <Globe size={20} />,     label: t('nav_community') },
-    ...(isAdmin ? [{ id: 'admin', path: '/admin', icon: <Shield size={20} className="text-red-400" />, label: t('nav_admin') }] : []),
-  ];
+  const navItems = isGuest
+    ? [
+        { id: 'write', path: '/', icon: <PenLine size={20} />, label: t('nav_write') },
+      ]
+    : [
+        { id: 'write',   path: '/',       icon: <PenLine size={20} />,   label: t('nav_write') },
+        { id: 'archive', path: '/archive', icon: <History size={20} />,   label: t('nav_notes') },
+        { id: 'profile', path: '/profile', icon: <UserIcon size={20} />,  label: t('nav_profile') },
+        { id: 'feed',    path: '/feed',    icon: <Globe size={20} />,     label: t('nav_community') },
+        ...(isAdmin ? [{ id: 'admin', path: '/admin', icon: <Shield size={20} className="text-red-400" />, label: t('nav_admin') }] : []),
+      ];
 
   return (
     <div
@@ -104,6 +112,7 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
         ))}
 
         {/* Life Log Toggle */}
+        {!isGuest && (
         <button
             onClick={() => {
               if (!lifeLogVisible || lifeLogTab !== 'log') {
@@ -132,8 +141,10 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
               {t('lifelog_tab_log')}
             </span>
           </button>
+        )}
 
         {/* Settings Toggle */}
+        {!isGuest && (
         <button
             onClick={() => {
               if (!lifeLogVisible || lifeLogTab !== 'settings') {
@@ -162,6 +173,28 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
               {t('lifelog_tab_settings')}
             </span>
           </button>
+        )}
+
+        {/* Guest: Sign In button */}
+        {isGuest && (
+          <button
+            onClick={openLoginModal}
+            role="menuitem"
+            tabIndex={0}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden mt-4",
+              "text-text-main/70 hover:text-text-main hover:bg-text-main/15"
+            )}
+          >
+            <span className="shrink-0"><LogIn size={20} /></span>
+            <span className={cn(
+              "text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
+              expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
+            )}>
+              {t('auth_sign_in')}
+            </span>
+          </button>
+        )}
        </nav>
     </div>
   );

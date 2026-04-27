@@ -1,17 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { AlertCircle, Mail, Lock, UserPlus, LogIn } from 'lucide-react';
-import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { AlertCircle, Mail, Lock, UserPlus, LogIn, X } from 'lucide-react';
+import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
 import { auth, googleProvider } from '../../../core/firebase/auth';
 import { useLanguage } from '../../../core/i18n';
 
-export function LoginPage() {
+interface LoginPageProps {
+  isModal?: boolean;
+  onSuccess?: () => void;
+}
+
+export function LoginPage({ isModal, onSuccess }: LoginPageProps) {
   const { t } = useLanguage();
   const [error, setError] = useState<React.ReactNode | null>(null);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  useEffect(() => {
+    if (!onSuccess) return;
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (u) onSuccess();
+    });
+    return unsub;
+  }, [onSuccess]);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -72,18 +85,29 @@ export function LoginPage() {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col items-center justify-center px-6 overflow-y-auto py-10 bg-surface-base">
+    <div className={isModal ? "flex flex-col items-center justify-center px-6 py-8" : "h-screen w-screen flex flex-col items-center justify-center px-6 overflow-y-auto py-10 bg-surface-base"}>
+      {isModal && onSuccess && (
+        <button onClick={onSuccess} className="self-end mb-4 p-2 rounded-lg text-text-main/40 hover:text-text-main transition-colors">
+          <X size={20} />
+        </button>
+      )}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="max-w-md w-full text-center space-y-8"
       >
         <div className="space-y-4">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center font-bold text-4xl mx-auto shadow-2xl bg-text-main text-surface-base border border-border-subtle font-black shadow-[0_0_30px_rgba(255,255,255,0.2)]">J</div>
-          <h1 className="text-5xl font-bold tracking-tight text-text-main">justwriting.one</h1>
-          <p className="text-lg leading-relaxed text-text-main/50">
-            {t('auth_subtitle')}
-          </p>
+          {!isModal && (
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center font-bold text-4xl mx-auto shadow-2xl bg-text-main text-surface-base border border-border-subtle font-black shadow-[0_0_30px_rgba(255,255,255,0.2)]">J</div>
+          )}
+          <h1 className={isModal ? "text-2xl font-bold tracking-tight text-text-main" : "text-5xl font-bold tracking-tight text-text-main"}>
+            {isModal ? t('auth_sign_in') : 'justwriting.one'}
+          </h1>
+          {!isModal && (
+            <p className="text-lg leading-relaxed text-text-main/50">
+              {t('auth_subtitle')}
+            </p>
+          )}
         </div>
 
         {error && (
@@ -167,9 +191,11 @@ export function LoginPage() {
           </button>
         </div>
 
-        <p className="text-sm text-text-main/40">
-          {t('auth_tagline')}
-        </p>
+        {!isModal && (
+          <p className="text-sm text-text-main/40">
+            {t('auth_tagline')}
+          </p>
+        )}
       </motion.div>
     </div>
   );
