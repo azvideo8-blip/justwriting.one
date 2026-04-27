@@ -9,7 +9,7 @@ import { encrypt, decrypt } from '../../../shared/lib/encryption';
 import { UserProfile, SessionPayload } from '../../../types';
 
 export function useSessionPersistence(
-  user: User,
+  user: User | null,
   profile: UserProfile | null,
   sessionState: {
     title: string;
@@ -47,6 +47,7 @@ export function useSessionPersistence(
   }
 ) {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const userId = user?.uid ?? '';
   const { saveStatus, lastSavedAt } = useDraftAutosave(user, {
     title: sessionState.title,
     content: sessionState.content,
@@ -64,7 +65,7 @@ export function useSessionPersistence(
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      WritingSessionService.syncPendingSessions(user.uid);
+      WritingSessionService.syncPendingSessions(userId);
     };
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
@@ -73,7 +74,7 @@ export function useSessionPersistence(
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [user.uid]);
+  }, [userId]);
 
   const sessionStateRef = useRef(sessionState);
   useEffect(() => {
@@ -83,9 +84,9 @@ export function useSessionPersistence(
   // Load draft
   const draftLoadedForRef = useRef<string | null>(null);
   const loadDraft = useCallback(async () => {
-    if (draftLoadedForRef.current === user.uid) return;
+    if (draftLoadedForRef.current === userId) return;
     
-    const draftToLoad = await WritingDraftService.loadDraft(user.uid);
+    const draftToLoad = await WritingDraftService.loadDraft(userId);
     if (draftToLoad) {
       actions.setHasDraft(true);
       // Only auto-load if current content is empty to prevent overwriting active work
@@ -101,16 +102,16 @@ export function useSessionPersistence(
         if (draftToLoad.activeSessionId) actions.setActiveSessionId(draftToLoad.activeSessionId);
       }
     }
-    draftLoadedForRef.current = user.uid;
-  }, [user.uid, actions]);
+    draftLoadedForRef.current = userId;
+  }, [userId, actions]);
 
   const handleSave = async (isLocalOnly: boolean) => {
     const state = useWritingStore.getState();
     
     const sessionData: SessionPayload = {
-      userId: user.uid,
-      authorName: profile?.nickname || user.displayName || user.email?.split('@')[0] || 'Anonymous',
-      authorPhoto: user.photoURL || '',
+      userId: userId,
+      authorName: profile?.nickname || user?.displayName || user?.email?.split('@')[0] || 'Guest',
+      authorPhoto: user?.photoURL || '',
       nickname: profile?.nickname || '',
       isAnonymous: sessionState.isAnonymous,
       title: state.title,
@@ -145,18 +146,18 @@ export function useSessionPersistence(
 
       const sessionKey = `local_session_${Date.now()}_${crypto.randomUUID()}`;
       localStorage.setItem(sessionKey, JSON.stringify(sessionData));
-      await WritingDraftService.deleteDraft(user.uid);
+      await WritingDraftService.deleteDraft(userId);
       actions.setHasDraft(false);
       actions.finishSession();
       return;
     }
 
     try {
-      const savedId = await WritingSessionService.saveSession(sessionData, sessionState.activeSessionId, isOnline, user.uid);
+      const savedId = await WritingSessionService.saveSession(sessionData, sessionState.activeSessionId, isOnline, userId);
       if (savedId && !sessionState.activeSessionId) {
         actions.setActiveSessionId(savedId);
       }
-      await WritingDraftService.deleteDraft(user.uid);
+      await WritingDraftService.deleteDraft(userId);
       actions.setHasDraft(false);
       actions.finishSession();
     } catch {
@@ -165,7 +166,7 @@ export function useSessionPersistence(
   };
 
   const handleCancel = async () => {
-    await WritingDraftService.deleteDraft(user.uid);
+    await WritingDraftService.deleteDraft(userId);
     actions.setHasDraft(false);
     actions.resetSession();
     actions.setStatus('idle');

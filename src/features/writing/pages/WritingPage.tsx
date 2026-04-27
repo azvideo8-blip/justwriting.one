@@ -8,9 +8,7 @@ import { useSettings } from '../../../core/settings/SettingsContext';
 import { cn } from '../../../core/utils/utils';
 import { GoalToast } from '../../../shared/components/GoalToast';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 
-// Components
 import { WritingHeader } from '../WritingHeader';
 import { WritingEditor } from '../WritingEditor';
 import { WritingFinishModal } from '../WritingFinishModal';
@@ -20,13 +18,10 @@ import { WritingDraftService } from '../services/WritingDraftService';
 import { FlowPulse } from '../../../core/theme/FlowPulse';
 import { BottomStats } from '../components/BottomStats';
 import { Sidebar } from '../../navigation/components/Sidebar';
-import { PenLine, LogIn } from 'lucide-react';
 
-// Modals
 import { PasswordPromptModal } from '../components/modals/PasswordPromptModal';
 import { CancelConfirmModal } from '../components/modals/CancelConfirmModal';
 
-// Hooks
 import { useWritingSession } from '../hooks/useWritingSession';
 import { useSessionList } from '../hooks/useSessionList';
 import { useSessionContinue } from '../hooks/useSessionContinue';
@@ -44,10 +39,9 @@ import { useToast } from '../../../shared/components/Toast';
 
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 import { useServiceAction } from '../hooks/useServiceAction';
-import { LocalDocumentService } from '../services/LocalDocumentService';
-import { LocalVersionService } from '../services/LocalVersionService';
 import { UnifiedSessionService } from '../services/UnifiedSessionService';
 import { useSessionSource } from '../hooks/useSessionSource';
+import { LocalDocumentService } from '../services/LocalDocumentService';
 import { z } from 'zod';
 import { SaveData } from '../WritingFinishModal';
 
@@ -56,367 +50,14 @@ interface WritingViewProps {
   profile: UserProfile | null;
 }
 
-function GuestWritingPage() {
-  const { t } = useLanguage();
-  const { openLoginModal } = useLoginModal();
-  const content = useWritingStore(s => s.content);
-  const setContent = useWritingStore(s => s.setContent);
-  const status = useWritingStore(s => s.status);
-  const seconds = useWritingStore(s => s.seconds);
-  const wordCount = useWritingStore(s => s.wordCount);
-  const title = useWritingStore(s => s.title);
-  const setTitle = useWritingStore(s => s.setTitle);
-  const sessionType = useWritingStore(s => s.sessionType);
-  const { editorWidth, isZenActive, zenModeEnabled } = useWritingSettings();
-  const showZen = isZenActive && zenModeEnabled;
-  const { showToast } = useToast();
-  const [localDocuments, setLocalDocuments] = useState<import('../../../shared/lib/localDb').LocalDocument[]>([]);
-  const [savingLocally, setSavingLocally] = useState(false);
-  const [showSaveForm, setShowSaveForm] = useState(false);
-  const [saveTitle, setSaveTitle] = useState('');
-  const [saveChoice, setSaveChoice] = useState<'new' | 'existing' | null>(null);
-  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
-
-  const guestId = React.useMemo(() => {
-    const KEY = 'jw_guest_id';
-    let id = localStorage.getItem(KEY);
-    if (!id) {
-      id = `guest_${crypto.randomUUID()}`;
-      localStorage.setItem(KEY, id);
-    }
-    return id;
-  }, []);
-
-  const loadLocalDocuments = React.useCallback(async () => {
-    const docs = await LocalDocumentService.getGuestDocuments(guestId);
-    setLocalDocuments(docs);
-  }, [guestId]);
-
-  useEffect(() => {
-    loadLocalDocuments();
-  }, [loadLocalDocuments]);
-
-  React.useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (status === 'writing') {
-      interval = setInterval(() => {
-        useWritingStore.getState().tick();
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [status]);
-
-  const handleStart = React.useCallback(() => {
-    useWritingStore.getState().setSessionType('free');
-    useWritingStore.getState().setSessionStart();
-    useWritingStore.getState().setStatus('writing');
-  }, []);
-
-  const handlePause = React.useCallback(() => {
-    if (useWritingStore.getState().status === 'writing') {
-      useWritingStore.getState().setStatus('paused');
-    }
-  }, []);
-
-  const handleFinish = React.useCallback(() => {
-    setShowSaveForm(true);
-    setSaveTitle(title || '');
-    setSaveChoice(null);
-  }, [title]);
-
-  const handleGuestSave = React.useCallback(async () => {
-    if (savingLocally) return;
-    setSavingLocally(true);
-
-    try {
-      const state = useWritingStore.getState();
-      const sessionSeconds = state.accumulatedDuration + (state.seconds - state.sessionStartSeconds);
-
-      if (saveChoice === 'new' || !selectedDocId) {
-        await UnifiedSessionService.saveAsNewDocument(guestId, {
-          title: saveTitle,
-          content: state.content,
-          wordCount: state.wordCount,
-          duration: sessionSeconds,
-          wpm: state.wpm,
-          isPublic: false,
-          tags: [],
-          sessionStartedAt: new Date(Date.now() - sessionSeconds * 1000),
-        }, 'local');
-      } else {
-        await UnifiedSessionService.saveAsVersion(guestId, selectedDocId, {
-          title: saveTitle,
-          content: state.content,
-          wordCount: state.wordCount,
-          duration: sessionSeconds,
-          wpm: state.wpm,
-          isPublic: false,
-          tags: [],
-          sessionStartedAt: new Date(Date.now() - sessionSeconds * 1000),
-        }, 'local');
-      }
-
-      await loadLocalDocuments();
-      useWritingStore.getState().resetSession();
-      useWritingStore.setState({ title: '', content: '' });
-      setShowSaveForm(false);
-      setSaveChoice(null);
-      setSelectedDocId(null);
-      showToast(t('guest_saved_locally'), 'success');
-    } catch (e) {
-      console.error('Local save failed:', e);
-      showToast(t('save_error'), 'error');
-    } finally {
-      setSavingLocally(false);
-    }
-  }, [savingLocally, saveChoice, selectedDocId, saveTitle, guestId, loadLocalDocuments, showToast, t]);
-
-  const handleContinueLocalDoc = React.useCallback(async (docId: string) => {
-    const latestContent = await LocalVersionService.getLatestContent(docId);
-    if (latestContent) {
-      useWritingStore.setState({ content: latestContent });
-    }
-    const doc = localDocuments.find(d => d.id === docId);
-    if (doc) {
-      useWritingStore.setState({ title: doc.title });
-      setSelectedDocId(doc.id);
-    }
-    useWritingStore.getState().setSessionType('free');
-    useWritingStore.getState().setSessionStart();
-    useWritingStore.getState().setStatus('writing');
-  }, [localDocuments]);
-
-  const handleCancelSession = React.useCallback(() => {
-    useWritingStore.getState().resetSession();
-    useWritingStore.setState({ title: '', content: '' });
-    setShowSaveForm(false);
-  }, []);
-
-  return (
-    <div className="w-full min-h-screen flex flex-col items-center bg-surface-base">
-      <div className={cn(
-        "w-full transition-colors duration-1000 flex-1 flex flex-col",
-        editorWidth < 100 ? "max-w-4xl mx-auto" : ""
-      )}>
-        <AnimatePresence>
-          {status !== 'idle' && !showSaveForm && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="flex items-center justify-between px-6 py-3 border-b border-border-subtle"
-            >
-              <div className="flex items-center gap-4 text-sm text-text-main/50">
-                <span>{Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</span>
-                <span>{wordCount} {t('writing_words')}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {status === 'writing' && (
-                  <button onClick={handlePause} className="px-3 py-1.5 rounded-lg text-xs font-medium text-text-main/60 hover:text-text-main bg-text-main/5 hover:bg-text-main/10 transition-colors">
-                    {t('pause')}
-                  </button>
-                )}
-                {status === 'paused' && (
-                  <button onClick={handleStart} className="px-3 py-1.5 rounded-lg text-xs font-medium text-text-main/60 hover:text-text-main bg-text-main/5 hover:bg-text-main/10 transition-colors">
-                    {t('header_continue_btn')}
-                  </button>
-                )}
-                <button onClick={handleFinish} className="px-3 py-1.5 rounded-lg text-xs font-medium text-text-main/60 hover:text-text-main bg-text-main/5 hover:bg-text-main/10 transition-colors">
-                  {t('header_finish')}
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="flex-1 flex flex-col items-center justify-center px-4">
-          {showSaveForm ? (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="w-full max-w-md space-y-6 p-6 rounded-2xl border border-border-subtle bg-surface-card"
-            >
-              <h2 className="text-lg font-bold text-text-main">{t('guest_save_title')}</h2>
-
-              {!saveChoice && (
-                <div className="space-y-3">
-                  <button
-                    onClick={() => setSaveChoice('new')}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all bg-text-main text-surface-base"
-                  >
-                    {t('guest_save_new_document')}
-                  </button>
-                  {localDocuments.length > 0 && (
-                    <button
-                      onClick={() => setSaveChoice('existing')}
-                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all border bg-surface-base/5 border-border-subtle hover:bg-surface-base/10 text-text-main/70"
-                    >
-                      {t('guest_save_existing_document')}
-                    </button>
-                  )}
-                  <button
-                    onClick={handleCancelSession}
-                    className="w-full py-2 text-sm text-text-main/40 hover:text-text-main/70 transition-colors"
-                  >
-                    {t('common_cancel')}
-                  </button>
-                </div>
-              )}
-
-              {saveChoice === 'new' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-widest ml-1 text-text-main/50">{t('editor_title_placeholder')}</label>
-                    <input
-                      type="text"
-                      value={saveTitle}
-                      onChange={e => setSaveTitle(e.target.value)}
-                      placeholder={t('editor_title_placeholder')}
-                      className="w-full mt-1 px-4 py-3 rounded-xl outline-none transition-all bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-text-main/20 placeholder:text-text-main/20"
-                    />
-                  </div>
-                  <button
-                    onClick={handleGuestSave}
-                    disabled={savingLocally}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all bg-text-main text-surface-base disabled:opacity-50"
-                  >
-                    {savingLocally ? <div className="w-4 h-4 border-2 rounded-full animate-spin border-surface-base/20 border-t-surface-base" /> : null}
-                    {t('guest_save_button')}
-                  </button>
-                  <button onClick={() => setSaveChoice(null)} className="w-full py-2 text-sm text-text-main/40 hover:text-text-main/70 transition-colors">
-                    {t('finish_back')}
-                  </button>
-                </div>
-              )}
-
-              {saveChoice === 'existing' && (
-                <div className="space-y-3">
-                  <div className="max-h-48 overflow-y-auto space-y-1">
-                    {localDocuments.map(doc => (
-                      <button
-                        key={doc.id}
-                        onClick={() => setSelectedDocId(selectedDocId === doc.id ? null : doc.id)}
-                        className={cn(
-                          "w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-left transition-all",
-                          selectedDocId === doc.id
-                            ? "bg-text-main text-surface-base"
-                            : "hover:bg-text-main/5 text-text-main/70"
-                        )}
-                      >
-                        <div>
-                          <div className="text-sm font-medium">{doc.title || t('common_untitled')}</div>
-                          <div className={cn("text-xs", selectedDocId === doc.id ? "text-surface-base/60" : "text-text-main/40")}>
-                            v{doc.currentVersion} · {doc.totalWords.toLocaleString()} {t('home_words_short')}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    onClick={handleGuestSave}
-                    disabled={savingLocally || !selectedDocId}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all bg-text-main text-surface-base disabled:opacity-50"
-                  >
-                    {savingLocally ? <div className="w-4 h-4 border-2 rounded-full animate-spin border-surface-base/20 border-t-surface-base" /> : null}
-                    {t('guest_save_button')}
-                  </button>
-                  <button onClick={() => setSaveChoice(null)} className="w-full py-2 text-sm text-text-main/40 hover:text-text-main/70 transition-colors">
-                    {t('finish_back')}
-                  </button>
-                </div>
-              )}
-            </motion.div>
-          ) : status === 'idle' ? (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-center space-y-6 max-w-md"
-            >
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center font-black text-2xl mx-auto bg-text-main text-surface-base">
-                J
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight text-text-main">justwriting.one</h1>
-              <p className="text-text-main/50">{t('guest_welcome_subtitle')}</p>
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={handleStart}
-                  className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold hover:scale-[1.02] active:scale-[0.98] transition-all bg-text-main text-surface-base"
-                >
-                  <PenLine size={18} />
-                  {t('guest_start_writing')}
-                </button>
-                <button
-                  onClick={openLoginModal}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all border bg-surface-base/5 border-border-subtle hover:bg-surface-base/10 text-text-main/70"
-                >
-                  <LogIn size={16} />
-                  {t('auth_sign_in')}
-                </button>
-              </div>
-              <p className="text-xs text-text-main/30">{t('guest_save_hint')}</p>
-
-              {localDocuments.length > 0 && (
-                <div className="mt-8 space-y-2 text-left">
-                  <div className="text-[10px] text-text-subtle font-bold uppercase tracking-wider px-1">
-                    {t('guest_local_documents')} ({localDocuments.length})
-                  </div>
-                  {localDocuments.slice(0, 5).map(doc => (
-                    <button
-                      key={doc.id}
-                      onClick={() => handleContinueLocalDoc(doc.id)}
-                      className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl hover:bg-text-main/5 transition-colors text-left"
-                    >
-                      <div>
-                        <div className="text-sm font-medium text-text-main/85">{doc.title || t('common_untitled')}</div>
-                        <div className="text-xs text-text-main/40">
-                          v{doc.currentVersion} · {doc.totalWords.toLocaleString()} {t('home_words_short')}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                  {localDocuments.length > 5 && (
-                    <p className="text-xs text-text-main/30 px-1">{t('guest_more_documents', { count: localDocuments.length - 5 })}</p>
-                  )}
-                </div>
-              )}
-            </motion.div>
-          ) : (
-            <div className="w-full max-w-3xl mx-auto py-8">
-              <WritingEditor
-                handlePause={handlePause}
-                handleStart={handleStart}
-                handleFinish={handleFinish}
-                setShowCancelConfirm={() => {}}
-                saveStatus="idle"
-                lastSavedAt={null}
-              />
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="mt-6 p-4 rounded-xl border border-border-subtle bg-surface-card/50 text-center"
-              >
-                <p className="text-sm text-text-main/50 mb-3">{t('guest_save_prompt')}</p>
-                <div className="flex items-center justify-center gap-3">
-                  <button
-                    onClick={handleFinish}
-                    className="px-5 py-2 rounded-xl border border-border-subtle text-sm font-medium text-text-main/70 hover:bg-text-main/5 transition-colors"
-                  >
-                    {t('guest_save_local')}
-                  </button>
-                  <button
-                    onClick={openLoginModal}
-                    className="px-6 py-2.5 rounded-xl bg-text-main text-surface-base text-sm font-medium hover:scale-105 transition-transform"
-                  >
-                    {t('auth_sign_in')}
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+function getOrCreateGuestId(): string {
+  const KEY = 'jw_guest_id';
+  let id = localStorage.getItem(KEY);
+  if (!id) {
+    id = `guest_${crypto.randomUUID()}`;
+    localStorage.setItem(KEY, id);
+  }
+  return id;
 }
 
 function WritingPageContent({ user, profile }: WritingViewProps) {
@@ -424,20 +65,35 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const sessionToContinue = (location.state as { sessionToContinue?: Session | null } | null)?.sessionToContinue || null;
+  const isGuest = !user;
+  const userId = user?.uid ?? getOrCreateGuestId();
 
   const timeGoalReached = useWritingStore(s => s.timeGoalReached);
   const wordGoalReached = useWritingStore(s => s.wordGoalReached);
 
+  const sessionStatus = useWritingStore(s => s.status);
+  const setSessionStatus = useWritingStore(s => s.setStatus);
+  const title = useWritingStore(s => s.title);
+  const setTitle = useWritingStore(s => s.setTitle);
+  const seconds = useWritingStore(s => s.seconds);
+  const wordCount = useWritingStore(s => s.wordCount);
+  const wordGoal = useWritingStore(s => s.wordGoal);
+  const timerDuration = useWritingStore(s => s.timerDuration);
+  const isPublic = useWritingStore(s => s.isPublic);
+  const setIsPublic = useWritingStore(s => s.setIsPublic);
+  const isAnonymous = useWritingStore(s => s.isAnonymous);
+  const setIsAnonymous = useWritingStore(s => s.setIsAnonymous);
+  const tags = useWritingStore(s => s.tags);
+  const setTags = useWritingStore(s => s.setTags);
+  const labelId = useWritingStore(s => s.labelId);
+  const setLabelId = useWritingStore(s => s.setLabelId);
+  const sessionType = useWritingStore(s => s.sessionType);
+  const setSessionType = useWritingStore(s => s.setSessionType);
+
   const {
-    sessionType, setSessionType,
     setTimerDuration,
     setWordGoal,
     targetTime, setTargetTime,
-    seconds,
-    isPublic, setIsPublic,
-    isAnonymous, setIsAnonymous,
-    tags, setTags,
-    labelId, setLabelId,
     hasDraft,
     saveStatus, lastSavedAt,
     handleStart: hookHandleStart, handleSave: hookHandleSave, handleCancel, resetSessionMetadata,
@@ -447,7 +103,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
     encryptionPassword, setEncryptionPassword,
     decryptSession,
     setActiveSessionId
-  } = useWritingSession(user, profile);
+  } = useWritingSession(user!, profile);
 
   const { 
     isZenActive, zenModeEnabled, 
@@ -471,14 +127,6 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
   const showZen = isZenActive && zenModeEnabled;
   const { showToast } = useToast();
   const { execute: svcExecute } = useServiceAction();
-  const title = useWritingStore(s => s.title);
-  const setTitle = useWritingStore(s => s.setTitle);
-  
-  const sessionStatus = useWritingStore(s => s.status);
-  const setSessionStatus = useWritingStore(s => s.setStatus);
-  const wordGoal = useWritingStore(s => s.wordGoal);
-  const timerDuration = useWritingStore(s => s.timerDuration);
-  const wordCount = useWritingStore(s => s.wordCount);
 
   const flow = useSessionFlow(
     hookHandleStart, sessionStatus, sessionType, setSessionType,
@@ -534,14 +182,14 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
 
   const [firstVisit, setFirstVisit] = useLocalStorage('first-visit', true, z.boolean());
 
-  const { documents, refresh: refreshDocuments } = useDocuments(user.uid);
+  const { documents, refresh: refreshDocuments } = useDocuments(userId);
 
   useEffect(() => {
     setUIStatus(sessionStatus);
   }, [sessionStatus, setUIStatus]);
 
   const { userSessions, loadingSessions, fetchAllSessions: fetchSessions } = useSessionList(
-    user.uid,
+    userId,
     fetchLocalSessions,
     loadLocalSession
   );
@@ -581,9 +229,9 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
       const state = useWritingStore.getState();
       
       const sessionData: SessionPayload = {
-        userId: user.uid,
-        authorName: profile?.nickname || user.displayName || user.email?.split('@')[0] || 'Anonymous',
-        authorPhoto: user.photoURL || '',
+        userId,
+        authorName: profile?.nickname || user?.displayName || user?.email?.split('@')[0] || 'Guest',
+        authorPhoto: user?.photoURL || '',
         nickname: profile?.nickname || '',
         isAnonymous: isAnonymous,
         title: state.title || '',
@@ -604,7 +252,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
         sessionData, 
         state.activeSessionId, 
         isOnline, 
-        user.uid
+        userId
       );
       
       if (savedId && !state.activeSessionId) {
@@ -619,7 +267,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
     } finally {
       savingRef.current = false;
     }
-  }, [sessionStatus, wordCount, user, isPublic, isAnonymous, tags, profile, isOnline, showToast, t, fetchSessions]);
+  }, [sessionStatus, wordCount, userId, isPublic, isAnonymous, tags, profile, user, isOnline, showToast, t, fetchSessions]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -667,7 +315,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
     try {
       await handleSave();
       useWritingStore.getState().finishSession();
-      await WritingDraftService.deleteDraft(user.uid);
+      if (user) await WritingDraftService.deleteDraft(user.uid);
     } finally {
       savingRef.current = false;
     }
@@ -680,7 +328,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
     const state = useWritingStore.getState();
     const sessionSeconds = state.accumulatedDuration + (state.seconds - state.sessionStartSeconds);
 
-    await UnifiedSessionService.saveAsNewDocument(user.uid, {
+    await UnifiedSessionService.saveAsNewDocument(userId, {
       title: data.title,
       content: state.content,
       wordCount: state.wordCount,
@@ -697,14 +345,14 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
 
     await refreshDocuments();
     useWritingStore.getState().finishSession();
-    await WritingDraftService.deleteDraft(user.uid);
-  }, [user.uid, refreshDocuments, effectiveSource]);
+    if (user) await WritingDraftService.deleteDraft(user.uid);
+  }, [userId, refreshDocuments, effectiveSource, user]);
 
   const handleSaveAsVersion = React.useCallback(async (documentId: string, data: SaveData) => {
     const state = useWritingStore.getState();
     const sessionSeconds = state.accumulatedDuration + (state.seconds - state.sessionStartSeconds);
 
-    await UnifiedSessionService.saveAsVersion(user.uid, documentId, {
+    await UnifiedSessionService.saveAsVersion(userId, documentId, {
       title: data.title,
       content: state.content,
       wordCount: state.wordCount,
@@ -721,8 +369,8 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
 
     await refreshDocuments();
     useWritingStore.getState().finishSession();
-    await WritingDraftService.deleteDraft(user.uid);
-  }, [user.uid, effectiveSource, refreshDocuments]);
+    if (user) await WritingDraftService.deleteDraft(user.uid);
+  }, [userId, effectiveSource, refreshDocuments, user]);
 
   useEffect(() => {
     handlePlayRef.current = handlePlay;
@@ -750,7 +398,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
   const LIFE_LOG_WIDTH = 380;
   const isMobile = layoutMode !== 'desktop';
 
-  const { sessionGroups: lifeLogGroups, summary: lifeLogSummary } = useLifeLog(user.uid, false);
+  const { sessionGroups: lifeLogGroups, summary: lifeLogSummary } = useLifeLog(userId, isGuest);
   const streakDays = React.useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -821,7 +469,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
       return (
         <>
           <MobileHomeScreen
-            userId={user.uid}
+            userId={userId}
             streakDays={streakDays}
             sessionGroups={lifeLogGroups}
             summary={lifeLogSummary}
@@ -988,7 +636,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
             <AnimatePresence>
               {lifeLogVisible && (
                 <LifeLogPanel 
-                  userId={user.uid} 
+                  userId={userId} 
                   onContinueSession={handleContinueSession} 
                   onClose={() => { if (!lifeLogPinned) setLifeLogVisible(false); }} 
                   activeTab={lifeLogTab}
@@ -1009,6 +657,5 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
 }
 
 export function WritingPage({ user, profile }: WritingViewProps) {
-  if (!user) return <GuestWritingPage />;
   return <WritingPageContent user={user} profile={profile} />;
 }
