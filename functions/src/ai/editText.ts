@@ -85,7 +85,7 @@ export const editWithAI = onCall(async (request) => {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.0-flash",
       contents: prompt,
     });
     return { text: response.text };

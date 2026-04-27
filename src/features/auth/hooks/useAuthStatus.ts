@@ -6,10 +6,12 @@ import { onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { UserProfile } from '../../../types';
 import * as Sentry from '@sentry/react';
 
+export type AuthState = 'loading' | 'authenticated' | 'guest';
+
 export function useAuthStatus() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authState, setAuthState] = useState<AuthState>('loading');
   const creationAttemptedRef = useRef(false);
   const [isConnected, setIsConnected] = useState(true);
 
@@ -31,7 +33,7 @@ export function useAuthStatus() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
-      setLoading(false);
+      setAuthState(u ? 'authenticated' : 'guest');
     });
     return unsubscribe;
   }, []);
@@ -77,5 +79,5 @@ export function useAuthStatus() {
     return unsubscribe;
   }, [user]);
 
-  return { user, profile, loading, isConnected };
+  return { user, profile, authState, isAuthenticated: authState === 'authenticated', isGuest: authState === 'guest', loading: authState === 'loading', isConnected };
 }

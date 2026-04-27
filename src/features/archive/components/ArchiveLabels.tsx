@@ -5,14 +5,19 @@ import { Label, UserProfile } from '../../../types';
 import { Plus, X } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
+import { useServiceAction } from '../../writing/hooks/useServiceAction';
 
 export function ArchiveLabels({ user, profile, selectedLabelId, onSelectLabel }: { user: User, profile: UserProfile | null, selectedLabelId: string | null, onSelectLabel: (id: string | null) => void }) {
   const { t } = useLanguage();
+  const { execute } = useServiceAction();
   const labels: Label[] = profile?.labels || [];
   const [newLabel, setNewLabel] = useState({ name: '', color: '#000000' });
 
-  const updateLabels = async (newLabels: Label[]) => {
-    await ProfileService.updateLabels(user.uid, newLabels);
+  const updateLabels = (newLabels: Label[]) => {
+    execute(
+      () => ProfileService.updateLabels(user.uid, newLabels),
+      { errorMessage: t('error_labels_failed') }
+    );
   };
 
   const addLabel = () => {

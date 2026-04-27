@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X } from 'lucide-react';
+import { X, HardDrive, Cloud } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme/ThemeProvider';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
-import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
+import { useWritingSettings, SessionSource } from '../../writing/contexts/WritingSettingsContext';
+import { useServiceAction } from '../../writing/hooks/useServiceAction';
 import { ProfileService } from '../../profile/services/ProfileService';
+import { MigrationService } from '../../writing/services/MigrationService';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { cn } from '../../../core/utils/utils';
@@ -42,7 +44,10 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
     headerVisibility, toggleVisibility,
     showTitle, setShowTitle,
     showPinnedThoughts, setShowPinnedThoughts,
-   } = useWritingSettings();
+    storagePreference, setStoragePreference,
+    } = useWritingSettings();
+
+  const { execute } = useServiceAction();
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'editor',  label: t('settings_tab_editor') },
@@ -202,6 +207,42 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
         {activeTab === 'app' && (
           <div className="space-y-4 mt-2">
 
+            {/* Storage */}
+            <Section title={t('settings_section_storage')}>
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-border-subtle">
+                <span className="text-sm text-text-main/70">{t('settings_storage_default')}</span>
+                <select
+                  value={storagePreference}
+                  onChange={e => setStoragePreference(e.target.value as SessionSource)}
+                  className="bg-surface-base border border-border-subtle rounded-lg px-2 py-1 text-sm text-text-main outline-none"
+                >
+                  <option value="cloud">{t('storage_cloud')}</option>
+                  <option value="local">{t('storage_local')}</option>
+                  <option value="both">{t('storage_both')}</option>
+                </select>
+              </div>
+              <button
+                onClick={() => execute(
+                  () => MigrationService.downloadAllToLocal(userId),
+                  { successMessage: t('save_success'), errorMessage: t('error_generic_action') }
+                )}
+                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-all"
+              >
+                <HardDrive size={14} />
+                {t('settings_download_all_local')}
+              </button>
+              <button
+                onClick={() => execute(
+                  () => MigrationService.migrateAllToCloud(userId, userId),
+                  { successMessage: t('save_success'), errorMessage: t('error_generic_action') }
+                )}
+                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-all"
+              >
+                <Cloud size={14} />
+                {t('settings_upload_all_cloud')}
+              </button>
+            </Section>
+
             {/* Theme */}
             <Section title={t('profile_theme_title')}>
               <div className="grid grid-cols-2 gap-2">
@@ -286,7 +327,10 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
                   <span className="text-sm text-text-main/70">{t('reset_achievements_confirm')}</span>
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={async () => { await ProfileService.resetAchievements(userId); setConfirmReset(false); }}
+                      onClick={() => execute(
+                      () => ProfileService.resetAchievements(userId),
+                      { successMessage: t('save_success'), errorMessage: t('error_generic_action'), onSuccess: () => setConfirmReset(false) }
+                    )}
                       className="px-4 py-2 rounded-xl text-sm font-bold text-red-400 border border-red-400/30 hover:bg-red-400/10 transition-all"
                     >
                       {t('finish_discard')}
@@ -301,7 +345,10 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
 
             <Section title={t('nav_logout')}>
               <button
-                onClick={() => signOut(auth)}
+                onClick={() => execute(
+                  () => signOut(auth),
+                  { errorMessage: t('error_signout_failed') }
+                )}
                 className="w-full px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-red-400 hover:border-red-400/30 transition-all text-left"
               >
                 {t('nav_logout')}

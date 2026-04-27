@@ -7,6 +7,7 @@ import { Users, Database, Shield, AlertTriangle } from 'lucide-react';
 import { AdminUsersTable } from '../components/AdminUsersTable';
 import { AdminSessionsTable } from '../components/AdminSessionsTable';
 import { useLanguage } from '../../../core/i18n';
+import { useServiceAction } from '../../writing/hooks/useServiceAction';
 import { cn } from '../../../core/utils/utils';
 
 import { Session, UserProfile } from '../../../types';
@@ -25,6 +26,7 @@ export function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
   const { t } = useLanguage();
+  const { execute } = useServiceAction();
 
   const fetchData = useCallback(async (isInitial = true) => {
     if (isInitial) {
@@ -52,7 +54,7 @@ export function AdminPage() {
         setHasMoreSessions(result.sessions.length === 20);
       }
     } catch (err) {
-      console.error("Admin fetch error:", err);
+      if (import.meta.env.DEV) console.error("Admin fetch error:", err);
     } finally {
       setLoading(false);
       setLoadingMoreSessions(false);
@@ -77,9 +79,11 @@ export function AdminPage() {
     return <div className="text-center py-20 text-red-500">{t('admin_access_denied')}</div>;
   }
 
-  const handleDeleteSession = async (id: string) => {
-    await AdminSessionService.deleteSession(id);
-    setSessions(prev => prev.filter(s => s.id !== id));
+  const handleDeleteSession = (id: string) => {
+    execute(
+      () => AdminSessionService.deleteSession(id),
+      { successMessage: t('save_success'), errorMessage: t('error_delete_failed'), onSuccess: () => setSessions(prev => prev.filter(s => s.id !== id)) }
+    );
   };
 
   return (

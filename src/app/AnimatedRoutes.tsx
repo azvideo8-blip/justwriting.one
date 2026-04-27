@@ -1,18 +1,17 @@
 import React, { useEffect as _ } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { useWritingSettings } from '../features/writing/contexts/WritingSettingsContext';
 import { useLayoutMode } from '../shared/hooks/useLayoutMode';
 import { useLanguage } from '../core/i18n';
 import { cn } from '../core/utils/utils';
+import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
 
 import { AppLayout } from '../shared/components/Layout/AppLayout';
 import { PageTransition } from '../shared/components/Layout/PageTransition';
 import { Sidebar } from '../features/navigation/components/Sidebar';
 import { BottomNav } from '../features/navigation/components/BottomNav';
-// LEGACY: ClassicNavBar — kept for reference
-// import { ClassicNavBar } from '../features/navigation/components/ClassicNavBar';
 import { ConnectionStatusBanner } from '../features/writing/components/ConnectionStatusBanner';
 import { ThemeBackground } from '../core/theme/ThemeBackground';
 
@@ -23,14 +22,17 @@ import { ProfilePage } from '../features/profile/pages/ProfilePage';
 import { ArchivePage } from '../features/archive/pages/ArchivePage';
 import { FeedPage } from '../features/feed/pages/FeedPage';
 import { AdminPage } from '../features/admin/pages/AdminPage';
-import { ProtectedRoute } from './ProtectedRoute';
+import { LoginPage } from '../features/auth/pages/LoginPage';
+import { ProtectedRoute, GuestRoute } from './ProtectedRoute';
+import { LoginModalOverlay } from '../features/auth/components/LoginModalOverlay';
 
 export function AnimatedRoutes() {
   const location = useLocation();
   const { t } = useLanguage();
-  const { user, profile, isConnected } = useAuthStatus();
+  const { user, profile, isConnected, isGuest } = useAuthStatus();
   const { isZenActive, zenModeEnabled, setLifeLogVisible, lifeLogEnabled } = useWritingSettings();
   const { layoutMode, setLayoutMode } = useLayoutMode();
+  const { loginModalOpen } = useLoginModal();
   const layoutModeRef = React.useRef(layoutMode);
   React.useEffect(() => { layoutModeRef.current = layoutMode; }, [layoutMode]);
 
@@ -44,8 +46,6 @@ export function AnimatedRoutes() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [setLayoutMode]);
-
-  if (!user) return null;
 
   const currentPath = location.pathname;
   const showZen = isZenActive && zenModeEnabled && currentPath === '/';
@@ -65,11 +65,9 @@ export function AnimatedRoutes() {
       <>
         {!hideSidebar && (
           layoutMode === 'desktop' ? (
-            <Sidebar isAdmin={isAdmin} inGrid={false} />
+            <Sidebar isAdmin={isAdmin} />
           ) : (
-            <BottomNav 
-              isAdmin={isAdmin}
-            />
+            <BottomNav isAdmin={isAdmin} />
           )
         )}
         <ConnectionStatusBanner isOnline={isConnected} showZen={showZen} />
@@ -93,44 +91,62 @@ export function AnimatedRoutes() {
             } />
             <Route path="/log" element={
               <PageTransition id="/log">
-                <MobileLogPage />
+                <ProtectedRoute>
+                  <MobileLogPage />
+                </ProtectedRoute>
               </PageTransition>
             } />
             <Route path="/me" element={
               <PageTransition id="/me">
-                <MobileMePage />
+                <ProtectedRoute>
+                  <MobileMePage />
+                </ProtectedRoute>
               </PageTransition>
             } />
             <Route path="/archive" element={
               <PageTransition id="/archive">
-                <ArchivePage
-                  user={user}
-                  profile={profile}
-                />
+                <ProtectedRoute>
+                  <ArchivePage
+                    user={user}
+                    profile={profile}
+                  />
+                </ProtectedRoute>
               </PageTransition>
             } />
             <Route path="/profile" element={
               <PageTransition id="/profile">
-                <ProfilePage user={user} profile={profile} />
+                <ProtectedRoute>
+                  <ProfilePage user={user} profile={profile} />
+                </ProtectedRoute>
               </PageTransition>
             } />
             <Route path="/feed" element={
               <PageTransition id="/feed">
-                <FeedPage />
+                <ProtectedRoute>
+                  <FeedPage />
+                </ProtectedRoute>
               </PageTransition>
             } />
             <Route path="/admin" element={
-              <ProtectedRoute>
+              <ProtectedRoute requireAdmin>
                 <PageTransition id="/admin">
                   <AdminPage />
                 </PageTransition>
               </ProtectedRoute>
             } />
+            <Route path="/login" element={
+              <GuestRoute>
+                <LoginPage />
+              </GuestRoute>
+            } />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AnimatePresence>
       </main>
 
       {layoutMode === 'mobile' && <div className="h-28" />}
+
+      <LoginModalOverlay open={loginModalOpen} />
     </AppLayout>
   );
 }

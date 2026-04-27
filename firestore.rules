@@ -116,5 +116,14 @@ service cloud.firestore {
     match /ai_rate_limits/{uid} {
       allow read, write: if false;
     }
+
+    // Documents (subcollection of users)
+    match /users/{userId}/documents/{documentId} {
+      allow read, write: if isOwner(userId);
+
+      match /versions/{versionId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
   }
 }
