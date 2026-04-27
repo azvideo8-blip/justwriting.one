@@ -4,7 +4,7 @@ import { useWritingStore } from '../store/useWritingStore';
 import { useSessionPersistence } from './useSessionPersistence';
 import { UserProfile } from '../../../types';
 
-export function useWritingSession(user: User, profile: UserProfile | null) {
+export function useWritingSession(user: User | null, profile: UserProfile | null) {
   const title = useWritingStore(s => s.title);
   const content = useWritingStore(s => s.content);
   const pinnedThoughts = useWritingStore(s => s.pinnedThoughts);
