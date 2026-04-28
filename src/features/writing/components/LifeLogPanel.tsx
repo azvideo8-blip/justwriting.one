@@ -1,15 +1,38 @@
 import React, { useState, useMemo } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { cn, parseFirestoreDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
-import { useLifeLog } from '../hooks/useLifeLog';
+import { useLifeLog, LifeLogDocument } from '../hooks/useLifeLog';
 import { Session } from '../../../types';
 import { formatTime } from '../../../core/utils/formatTime';
+import { LocalVersionService } from '../services/LocalVersionService';
 import { SettingsPanelContent } from '../../settings/components/SettingsPanel';
 import { CancelConfirmModal } from './modals/CancelConfirmModal';
 import { SessionService } from '../services/SessionService';
+import { StorageService } from '../services/StorageService';
 import { useServiceAction } from '../hooks/useServiceAction';
-import { motion } from 'motion/react';
+import { useToast } from '../../../shared/components/Toast';
 import { X, Pin, Trash2, Cloud, HardDrive } from 'lucide-react';
+import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
+
+function docToSession(doc: LifeLogDocument): Session & { _isLocal?: boolean } {
+  return {
+    id: doc.localId || doc.cloudId || '',
+    userId: '',
+    authorName: '',
+    authorPhoto: '',
+    content: '',
+    duration: doc.totalDuration,
+    wordCount: doc.totalWords,
+    charCount: 0,
+    wpm: 0,
+    isPublic: false,
+    title: doc.title,
+    tags: doc.tags,
+    createdAt: new Date(doc.lastSessionAt),
+    _isLocal: !!doc.localId,
+  } as Session & { _isLocal?: boolean };
+}
 
 interface SessionItemProps {
   session: Session;
@@ -78,6 +101,136 @@ const SessionItem: React.FC<SessionItemProps> = ({ session, isActive, onClick, o
   );
 };
 
+function StorageIcons({
+  doc,
+  userId,
+  onStorageChange,
+}: {
+  doc: LifeLogDocument;
+  userId: string;
+  onStorageChange: () => void;
+}) {
+  const { t } = useLanguage();
+  const { showToast } = useToast();
+  const [confirmState, setConfirmState] = useState<{
+    type: 'local' | 'cloud' | null;
+    isOnly: boolean;
+  }>({ type: null, isOnly: false });
+
+  const handleLocalClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!doc.storage.local) return;
+    const isOnly = doc.storage.local && !doc.storage.cloud;
+    setConfirmState({ type: 'local', isOnly });
+  };
+
+  const handleCloudClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!doc.storage.cloud) return;
+    const isOnly = doc.storage.cloud && !doc.storage.local;
+    setConfirmState({ type: 'cloud', isOnly });
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      if (confirmState.type === 'local' && confirmState.isOnly) {
+        await StorageService.deleteDocument(userId, doc.localId, doc.cloudId);
+        showToast(t('storage_deleted_completely'), 'success');
+      } else if (confirmState.type === 'local') {
+        await StorageService.removeLocalCopy(doc.localId!);
+        showToast(t('storage_deleted_local'), 'success');
+      } else if (confirmState.type === 'cloud' && confirmState.isOnly) {
+        await StorageService.deleteDocument(userId, doc.localId, doc.cloudId);
+        showToast(t('storage_deleted_completely'), 'success');
+      } else if (confirmState.type === 'cloud') {
+        await StorageService.removeCloudCopy(userId, doc.cloudId!);
+        showToast(t('storage_deleted_cloud'), 'success');
+      }
+      onStorageChange();
+    } catch {
+      showToast(t('error_generic_action'), 'error');
+    } finally {
+      setConfirmState({ type: null, isOnly: false });
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5 shrink-0">
+      <button
+        onClick={handleLocalClick}
+        title={doc.storage.local ? t('storage_remove_local') : t('storage_no_local')}
+        className={cn(
+          "w-6 h-6 rounded-lg flex items-center justify-center transition-all",
+          doc.storage.local
+            ? "text-text-main/70 hover:text-red-400 hover:bg-red-400/10"
+            : "text-text-main/20 cursor-default"
+        )}
+      >
+        <HardDrive size={14} />
+      </button>
+
+      <button
+        onClick={handleCloudClick}
+        title={doc.storage.cloud ? t('storage_remove_cloud') : t('storage_no_cloud')}
+        className={cn(
+          "w-6 h-6 rounded-lg flex items-center justify-center transition-all",
+          doc.storage.cloud
+            ? "text-text-main/70 hover:text-red-400 hover:bg-red-400/10"
+            : "text-text-main/20 cursor-default"
+        )}
+      >
+        <Cloud size={14} />
+      </button>
+
+      <AnimatePresence>
+        {confirmState.type && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="fixed inset-0 z-[300] flex items-center justify-center bg-surface-base/60 backdrop-blur-sm"
+            onClick={() => setConfirmState({ type: null, isOnly: false })}
+          >
+            <motion.div
+              className="bg-surface-card border border-border-subtle rounded-2xl p-5 w-[320px] shadow-lg"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="text-sm font-medium text-text-main mb-2">
+                {confirmState.isOnly
+                  ? t('storage_confirm_delete_only')
+                  : confirmState.type === 'local'
+                    ? t('storage_confirm_delete_local')
+                    : t('storage_confirm_delete_cloud')}
+              </div>
+              <div className="text-xs text-text-main/40 mb-4">
+                {confirmState.isOnly
+                  ? t('storage_confirm_delete_only_hint')
+                  : confirmState.type === 'local'
+                    ? t('storage_confirm_delete_local_hint')
+                    : t('storage_confirm_delete_cloud_hint')}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleConfirmDelete}
+                  className="flex-1 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-all"
+                >
+                  {t('storage_delete_confirm')}
+                </button>
+                <button
+                  onClick={() => setConfirmState({ type: null, isOnly: false })}
+                  className="flex-1 py-2 rounded-xl border border-border-subtle text-text-main/50 text-sm hover:text-text-main transition-all"
+                >
+                  {t('common_cancel')}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 interface LifeLogPanelProps {
   userId: string;
   onContinueSession: (session: Session) => void;
@@ -87,6 +240,7 @@ interface LifeLogPanelProps {
   pinned?: boolean;
   onTogglePin?: () => void;
   inGrid?: boolean;
+  onRefreshDocuments?: () => void;
 }
 
 export function LifeLogPanel({ 
@@ -97,14 +251,15 @@ export function LifeLogPanel({
   onTabChange,
   pinned,
   onTogglePin,
-  inGrid
+  inGrid,
+  onRefreshDocuments,
 }: LifeLogPanelProps) {
   const [deleteTarget, setDeleteTarget] = useState<Session | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   const { t, language } = useLanguage();
   const { execute } = useServiceAction();
-  const { sessionGroups, documents, summary, loading, refresh } = useLifeLog(userId);
+  const { sessionGroups, summary, loading, refresh, unifiedDocuments } = useLifeLog(userId);
 
   const filteredGroups = useMemo(() => {
     if (!searchQuery.trim()) return sessionGroups;
@@ -159,7 +314,6 @@ export function LifeLogPanel({
         </div>
         
         <div className="flex items-center gap-1">
-          {/* Pin Button */}
           <button
             onClick={onTogglePin}
             title={pinned ? t('lifelog_unpin') : t('lifelog_pin')}
@@ -173,7 +327,6 @@ export function LifeLogPanel({
             <Pin size={14} />
           </button>
 
-          {/* Close Button */}
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-xl text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all flex items-center justify-center"
@@ -215,25 +368,41 @@ export function LifeLogPanel({
             </div>
           </div>
 
-          {/* Documents section */}
-          {documents.length > 0 && (
+          {/* Documents section with storage icons */}
+          {unifiedDocuments.length > 0 && (
             <div className="shrink-0 border-b border-border-subtle pb-2">
               <div className="px-4 py-2 text-[10px] text-text-subtle font-bold uppercase tracking-wider">
                 {t('lifelog_documents')}
               </div>
-              {documents.map(doc => (
-                <button
-                  key={doc.id}
-                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-text-main/5 transition-colors text-left"
+              {unifiedDocuments.map(doc => {
+                const docDate = new Date(doc.lastSessionAt);
+                const docTimeStr = docDate.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' });
+                return (
+                <div
+                  key={`${doc.localId ?? ''}-${doc.cloudId ?? ''}`}
+                  onClick={() => onContinueSession(docToSession(doc))}
+                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-text-main/5 transition-colors cursor-pointer"
                 >
-                  <div>
-                    <div className="text-sm font-medium text-text-main/85">{doc.title || t('editor_title_placeholder')}</div>
+                  <div className="flex-1 min-w-0 mr-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-medium text-text-main/85 truncate">{doc.title || t('editor_title_placeholder')}</span>
+                      <span className="shrink-0 flex items-center gap-0.5">
+                        {doc.storage.local && <HardDrive size={10} className="text-text-main/25" />}
+                        {doc.storage.cloud && <Cloud size={10} className="text-text-main/25" />}
+                      </span>
+                    </div>
                     <div className="text-xs text-text-main/40">
-                      v{doc.currentVersion} · {doc.totalWords.toLocaleString()} {t('home_words_short')} · {doc.sessionsCount} {t('lifelog_sessions_count')}
+                      {docTimeStr} · v{doc.currentVersion} · {doc.totalWords.toLocaleString()} {t('home_words_short')} · {doc.totalDuration < 60 ? `<1${t('goal_time_min')}` : `${Math.round(doc.totalDuration / 60)}${t('goal_time_min')}`}
                     </div>
                   </div>
-                </button>
-              ))}
+                  <StorageIcons
+                    doc={doc}
+                    userId={userId}
+                    onStorageChange={() => { refresh(); onRefreshDocuments?.(); }}
+                  />
+                </div>
+                );
+              })}
             </div>
           )}
 

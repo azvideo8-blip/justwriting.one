@@ -34,6 +34,7 @@ interface WritingState {
   labelId?: string;
   initialDuration: number;
   activeSessionId: string | null;
+  savedDocumentId: string | null;
   encryptionPassword?: string;
   sessionStartTime: number | null;
 
@@ -58,6 +59,7 @@ interface WritingState {
   setLabelId: (labelId?: string) => void;
   setInitialDuration: (duration: number) => void;
   setActiveSessionId: (id: string | null) => void;
+  setSavedDocumentId: (id: string | null) => void;
   setEncryptionPassword: (password?: string) => void;
   setSessionStartTime: (time: number | null) => void;
   setTimeGoalReached: (reached: boolean) => void;
@@ -76,7 +78,7 @@ export const useWritingStore = create<WritingState>((set) => ({
   sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
 
   isPublic: false, isAnonymous: false, tags: [], labelId: undefined,
-  initialDuration: 0, activeSessionId: null, encryptionPassword: '', sessionStartTime: null,
+  initialDuration: 0, activeSessionId: null, savedDocumentId: null, encryptionPassword: '', sessionStartTime: null,
 
   setContent: (content) => set((state) => {
     const words = content.trim().split(/\s+/).filter(x => x.length > 0).length;
@@ -162,6 +164,7 @@ export const useWritingStore = create<WritingState>((set) => ({
   setLabelId: (labelId) => set({ labelId }),
   setInitialDuration: (initialDuration) => set({ initialDuration }),
   setActiveSessionId: (activeSessionId) => set({ activeSessionId }),
+  setSavedDocumentId: (savedDocumentId) => set({ savedDocumentId }),
   setEncryptionPassword: (encryptionPassword) => set({ encryptionPassword }),
   setSessionStartTime: (sessionStartTime) => set({ sessionStartTime }),
   setTimeGoalReached: (timeGoalReached) => set({ timeGoalReached }),
@@ -173,6 +176,7 @@ export const useWritingStore = create<WritingState>((set) => ({
     initialDuration: 0,
     sessionStartTime: null,
     activeSessionId: null,
+    savedDocumentId: null,
     tags: [],
     isPublic: false,
     isAnonymous: false,
@@ -192,7 +196,7 @@ export const useWritingStore = create<WritingState>((set) => ({
     seconds: 0, status: 'idle', wpm: 0, wordSnapshots: [],
     lastWordCount: 0, timeGoalReached: false, wordGoalReached: false,
     overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
-    activeSessionId: null,
+    activeSessionId: null, savedDocumentId: null,
   }),
 
   tick: () => set((state) => {

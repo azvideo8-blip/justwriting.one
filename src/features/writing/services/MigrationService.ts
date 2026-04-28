@@ -2,7 +2,7 @@ import { LocalDocumentService } from './LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
 import { DocumentService } from './DocumentService';
 import { VersionService } from './VersionService';
-import { getLocalDb } from '../../../shared/lib/localDb';
+import { getLocalDb, getOrCreateGuestId } from '../../../shared/lib/localDb';
 
 export interface MigrationResult {
   total: number;
@@ -98,20 +98,21 @@ export const MigrationService = {
     documentIds: string[]
   ): Promise<MigrationResult> {
     const result: MigrationResult = { total: documentIds.length, migrated: 0, failed: 0 };
+    const localGuestId = getOrCreateGuestId();
 
     for (const docId of documentIds) {
       try {
         const cloudDoc = await DocumentService.getDocument(userId, docId);
         if (!cloudDoc) { result.failed++; continue; }
 
-        const localId = await LocalDocumentService.createDocument(userId, {
+        const localId = await LocalDocumentService.createDocument(localGuestId, {
           title: cloudDoc.title,
           tags: cloudDoc.tags,
         });
 
         const versions = await VersionService.getVersions(userId, docId);
         for (const ver of versions) {
-          await LocalVersionService.addVersion(userId, localId, {
+          await LocalVersionService.addVersion(localGuestId, localId, {
             content: ver.content,
             previousContent: '',
             wordCount: ver.wordCount,

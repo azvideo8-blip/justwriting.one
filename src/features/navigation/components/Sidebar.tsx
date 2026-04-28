@@ -23,17 +23,13 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
   const { isGuest } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
 
-  const navItems = isGuest
-    ? [
-        { id: 'write', path: '/', icon: <PenLine size={20} />, label: t('nav_write') },
-      ]
-    : [
-        { id: 'write',   path: '/',       icon: <PenLine size={20} />,   label: t('nav_write') },
-        { id: 'archive', path: '/archive', icon: <History size={20} />,   label: t('nav_notes') },
-        { id: 'profile', path: '/profile', icon: <UserIcon size={20} />,  label: t('nav_profile') },
-        { id: 'feed',    path: '/feed',    icon: <Globe size={20} />,     label: t('nav_community') },
-        ...(isAdmin ? [{ id: 'admin', path: '/admin', icon: <Shield size={20} className="text-red-400" />, label: t('nav_admin') }] : []),
-      ];
+  const navItems = [
+    { id: 'write',   path: '/',       icon: <PenLine size={20} />,   label: t('nav_write') },
+    { id: 'archive', path: '/archive', icon: <History size={20} />,   label: t('nav_notes') },
+    { id: 'profile', path: '/profile', icon: <UserIcon size={20} />,  label: t('nav_profile') },
+    { id: 'feed',    path: '/feed',    icon: <Globe size={20} />,     label: t('nav_community') },
+    ...(isAdmin ? [{ id: 'admin', path: '/admin', icon: <Shield size={20} className="text-red-400" />, label: t('nav_admin') }] : []),
+  ];
 
   return (
     <div
@@ -112,7 +108,7 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
         ))}
 
         {/* Life Log Toggle */}
-        {!isGuest && (
+        {location.pathname === '/' && (
         <button
             onClick={() => {
               if (!lifeLogVisible || lifeLogTab !== 'log') {
@@ -144,7 +140,7 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
         )}
 
         {/* Settings Toggle */}
-        {!isGuest && (
+        {location.pathname === '/' && (
         <button
             onClick={() => {
               if (!lifeLogVisible || lifeLogTab !== 'settings') {

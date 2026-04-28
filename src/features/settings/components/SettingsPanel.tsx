@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, HardDrive, Cloud } from 'lucide-react';
+import { X, HardDrive, Cloud, Layers } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme/ThemeProvider';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
@@ -8,6 +8,9 @@ import { useWritingSettings, SessionSource } from '../../writing/contexts/Writin
 import { useServiceAction } from '../../writing/hooks/useServiceAction';
 import { ProfileService } from '../../profile/services/ProfileService';
 import { MigrationService } from '../../writing/services/MigrationService';
+import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
+import { useLoginModal } from '../../auth/contexts/LoginModalContext';
+import { getOrCreateGuestId } from '../../../shared/lib/localDb';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { cn } from '../../../core/utils/utils';
@@ -34,6 +37,8 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
   const { themeId, setThemeId, themes } = useTheme();
   const { layoutMode, setLayoutMode } = useLayoutMode();
   const [confirmReset, setConfirmReset] = useState(false);
+  const { isAuthenticated } = useAuthStatus();
+  const { openLoginModal } = useLoginModal();
 
   const {
     fontFamily, setFontFamily,
@@ -209,38 +214,65 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
 
             {/* Storage */}
             <Section title={t('settings_section_storage')}>
-              <div className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-border-subtle">
-                <span className="text-sm text-text-main/70">{t('settings_storage_default')}</span>
-                <select
-                  value={storagePreference}
-                  onChange={e => setStoragePreference(e.target.value as SessionSource)}
-                  className="bg-surface-base border border-border-subtle rounded-lg px-2 py-1 text-sm text-text-main outline-none"
-                >
-                  <option value="cloud">{t('storage_cloud')}</option>
-                  <option value="local">{t('storage_local')}</option>
-                  <option value="both">{t('storage_both')}</option>
-                </select>
+              <div className="flex flex-col gap-2">
+                {([
+                  { value: 'cloud' as SessionSource, icon: <Cloud size={13} />, label: t('storage_cloud'), needsAuth: true },
+                  { value: 'local' as SessionSource, icon: <HardDrive size={13} />, label: t('storage_local'), needsAuth: false },
+                  { value: 'both' as SessionSource, icon: <Layers size={13} />, label: t('storage_both'), needsAuth: true },
+                ]).map(opt => {
+                  const disabled = opt.needsAuth && !isAuthenticated;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => {
+                        if (disabled) { openLoginModal(); return; }
+                        setStoragePreference(opt.value);
+                      }}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm transition-all text-left",
+                        storagePreference === opt.value && !disabled
+                          ? "border-text-main bg-text-main text-surface-base"
+                          : disabled
+                            ? "border-border-subtle text-text-main/30 cursor-pointer hover:text-text-main/50"
+                            : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
+                      )}
+                    >
+                      {opt.icon}
+                      <span className="flex-1">{opt.label}</span>
+                      {disabled && (
+                        <span className="text-[10px] text-text-main/30 underline">{t('storage_sign_in_for_cloud')}</span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-              <button
-                onClick={() => execute(
-                  () => MigrationService.downloadAllToLocal(userId),
-                  { successMessage: t('save_success'), errorMessage: t('error_generic_action') }
-                )}
-                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-all"
-              >
-                <HardDrive size={14} />
-                {t('settings_download_all_local')}
-              </button>
-              <button
-                onClick={() => execute(
-                  () => MigrationService.migrateAllToCloud(userId, userId),
-                  { successMessage: t('save_success'), errorMessage: t('error_generic_action') }
-                )}
-                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-all"
-              >
-                <Cloud size={14} />
-                {t('settings_upload_all_cloud')}
-              </button>
+              {!isAuthenticated && (
+                <p className="text-[11px] text-text-main/30 px-1">{t('storage_cloud_guest_hint')}</p>
+              )}
+              {isAuthenticated && (
+                <>
+                  <button
+                    onClick={() => execute(
+                      () => MigrationService.downloadAllToLocal(userId),
+                      { successMessage: t('save_success'), errorMessage: t('error_generic_action') }
+                    )}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-all"
+                  >
+                    <HardDrive size={14} />
+                    {t('settings_download_all_local')}
+                  </button>
+                  <button
+                    onClick={() => execute(
+                      () => MigrationService.migrateAllToCloud(getOrCreateGuestId(), userId),
+                      { successMessage: t('save_success'), errorMessage: t('error_generic_action') }
+                    )}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-all"
+                  >
+                    <Cloud size={14} />
+                    {t('settings_upload_all_cloud')}
+                  </button>
+                </>
+              )}
             </Section>
 
             {/* Theme */}

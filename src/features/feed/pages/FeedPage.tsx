@@ -80,7 +80,7 @@ export function FeedPage() {
         ) : (
           <>
             {sessions.map(session => (
-              <SessionCard key={session.id} session={session} />
+              <SessionCard key={session.id} session={session} showAuthor />
             ))}
             
             {hasMore && (

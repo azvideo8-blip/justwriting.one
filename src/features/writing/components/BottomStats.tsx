@@ -231,7 +231,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             onClose={() => setTimePopupOpen(false)}
             title={t('goal_popup_time_title')}
             type="time"
-            presets={[15, 25, 30, 60].map(p => ({ value: p * 60, label: `${p}м` }))}
+            presets={[15, 25, 30, 60].map(p => ({ value: p * 60, label: `${p}${t('goal_time_min')}` }))}
             current={Math.round(timerDuration / 60)}
             currentGoal={Math.round(timerDuration / 60)}
             onSelect={v => { setTimerDuration(v); setTimePopupOpen(false); }}

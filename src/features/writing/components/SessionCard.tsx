@@ -236,7 +236,7 @@ export function SessionCard({
                 document.body
               )}
 
-              {!showAuthor && auth.currentUser?.uid === session.userId && (
+              {!showAuthor && (auth.currentUser?.uid === session.userId || (session as Session & { _isLocal?: boolean })._isLocal) && (
                 <>
                   <button 
                     onClick={() => setIsEditing(!isEditing)}
@@ -340,7 +340,7 @@ export function SessionCard({
               )}
             </div>
             
-            {onContinue && auth.currentUser?.uid === session.userId && (
+            {onContinue && (auth.currentUser?.uid === session.userId || (session as Session & { _isLocal?: boolean })._isLocal) && (
               <button 
                 onClick={onContinue}
                 className="flex items-center gap-2 px-6 py-2 rounded-2xl font-bold transition-opacity text-sm bg-text-main text-surface-base hover:opacity-90"

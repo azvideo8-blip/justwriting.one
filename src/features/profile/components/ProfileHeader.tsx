@@ -7,7 +7,7 @@ import { useServiceAction } from '../../../features/writing/hooks/useServiceActi
 import { UserProfile } from '../../../types';
 
 interface ProfileHeaderProps {
-  user: User;
+  user: User | null;
   profile: UserProfile | null;
   currentStreak: number;
   totalWords: number;
@@ -16,21 +16,25 @@ interface ProfileHeaderProps {
 export function ProfileHeader({ user, profile, currentStreak, totalWords }: ProfileHeaderProps) {
   const [editingNickname, setEditingNickname] = useState(false);
   const [newNickname, setNewNickname] = useState(profile?.nickname || '');
+  const [displayNickname, setDisplayNickname] = useState(profile?.nickname || '');
   const { t } = useLanguage();
   const { execute } = useServiceAction();
 
   const handleUpdateNickname = () => {
-    if (!newNickname.trim()) return;
+    if (!newNickname.trim() || !user) return;
     execute(
       () => ProfileService.updateNickname(user.uid, newNickname),
-      { successMessage: t('save_success'), errorMessage: t('error_nickname_failed'), onSuccess: () => setEditingNickname(false) }
+      { successMessage: t('save_success'), errorMessage: t('error_nickname_failed'), onSuccess: () => {
+        setDisplayNickname(newNickname);
+        setEditingNickname(false);
+      }}
     );
   };
 
   return (
     <div className="flex flex-col md:flex-row items-center gap-6">
       <div className="w-24 h-24 rounded-full flex items-center justify-center overflow-hidden border-4 shadow-xl bg-surface-base/10 border-surface-base">
-        {user.photoURL ? (
+        {user?.photoURL ? (
           <img src={user.photoURL || undefined} alt="Profile photo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
         ) : (
           <UserIcon size={40} className="text-text-main/50" />
@@ -38,7 +42,7 @@ export function ProfileHeader({ user, profile, currentStreak, totalWords }: Prof
       </div>
       <div className="flex-1 text-center md:text-left space-y-2">
         <div className="flex flex-col md:flex-row md:items-center gap-2">
-          {editingNickname ? (
+          {editingNickname && user ? (
             <div className="flex items-center gap-2">
               <input 
                 type="text"
@@ -53,12 +57,14 @@ export function ProfileHeader({ user, profile, currentStreak, totalWords }: Prof
             </div>
           ) : (
             <div className="flex items-center gap-2 justify-center md:justify-start">
-              <h2 className="text-3xl font-bold text-text-main">{profile?.nickname || user.displayName}</h2>
-              <button onClick={() => setEditingNickname(true)} className="p-1 transition-colors text-text-main/50 hover:text-text-main"><PenLine size={16} /></button>
+              <h2 className="text-3xl font-bold text-text-main">{displayNickname || user?.displayName || t('me_anonymous')}</h2>
+              {user && (
+                <button onClick={() => setEditingNickname(true)} className="p-1 transition-colors text-text-main/50 hover:text-text-main"><PenLine size={16} /></button>
+              )}
             </div>
           )}
         </div>
-        <p className="text-text-main/50">{user.email}</p>
+        {user?.email && <p className="text-text-main/50">{user.email}</p>}
         <div className="flex flex-wrap justify-center md:justify-start gap-4 pt-2">
           <div className="flex items-center gap-2 text-sm text-text-main/50">
             <TrendingUp size={16} />

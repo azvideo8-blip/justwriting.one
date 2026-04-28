@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Globe, User as UserIcon, FileText, Download, FileJson, Plus, Layers, Cloud, HardDrive } from 'lucide-react';
+import { Globe, User as UserIcon, FileText, Download, FileJson, Plus, Layers, HardDrive, Cloud } from 'lucide-react';
 import { cn } from '../../core/utils/utils';
 import { ExportService } from '../export/ExportService';
 import { Label, Document } from '../../types';
@@ -8,9 +8,8 @@ import { useLanguage } from '../../core/i18n';
 import { formatTime } from '../../core/utils/formatTime';
 import { Toggle } from '../../shared/components/Toggle';
 import { useServiceAction } from './hooks/useServiceAction';
-import { useWritingSettings } from './contexts/WritingSettingsContext';
-import { useAuthStatus } from '../auth/hooks/useAuthStatus';
 import { SessionSource } from './hooks/useSessionSource';
+import { useSettings } from '../../core/settings/SettingsContext';
 
 import { useWritingStore } from './store/useWritingStore';
 import { useModalEscape } from '../../shared/hooks/useModalEscape';
@@ -48,6 +47,7 @@ interface WritingFinishModalProps {
   existingDocuments: Document[];
   onSaveAsNew: (data: SaveData) => Promise<void>;
   onSaveAsVersion: (documentId: string, data: SaveData) => Promise<void>;
+  effectiveSource: SessionSource;
 }
 
 export function WritingFinishModal({
@@ -73,12 +73,24 @@ export function WritingFinishModal({
   existingDocuments,
   onSaveAsNew,
   onSaveAsVersion,
+  effectiveSource,
 }: WritingFinishModalProps) {
   const { t } = useLanguage();
   const { execute } = useServiceAction();
-  const { storagePreference, setStoragePreference } = useWritingSettings();
-  const { isAuthenticated } = useAuthStatus();
+  const { openSettings } = useSettings();
+
   const [step, setStep] = useState<ModalStep>('choose');
+
+  const renderStorageHint = () => (
+    <div className="flex items-center gap-1.5 text-[11px] text-text-main/30 mt-2">
+      {effectiveSource === 'local' && <><HardDrive size={11} /> {t('finish_saving_to_local')}</>}
+      {effectiveSource === 'cloud' && <><Cloud size={11} /> {t('finish_saving_to_cloud')}</>}
+      {effectiveSource === 'both'  && <><HardDrive size={11} /><Cloud size={11} /> {t('finish_saving_to_both')}</>}
+      <span className="ml-1 underline cursor-pointer" onClick={openSettings}>
+        {t('finish_change_in_settings')}
+      </span>
+    </div>
+  );
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
 
   const status = useWritingStore(s => s.status);
@@ -303,44 +315,6 @@ export function WritingFinishModal({
     );
   };
 
-  const renderStorageSection = () => {
-    if (!isAuthenticated) return null;
-    return (
-      <div className="flex flex-col gap-2">
-        <span className="text-[11px] text-text-main/40 uppercase tracking-wider">
-          {t('finish_storage_label')}
-        </span>
-        <div className="flex gap-2">
-          {([
-            { value: 'cloud' as SessionSource, icon: <Cloud size={13} />, label: t('storage_cloud') },
-            { value: 'local' as SessionSource, icon: <HardDrive size={13} />, label: t('storage_local') },
-            { value: 'both' as SessionSource, icon: <Layers size={13} />, label: t('storage_both') },
-          ]).map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => setStoragePreference(opt.value)}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border text-xs transition-all",
-                storagePreference === opt.value
-                  ? "border-text-main/40 text-text-main bg-text-main/5"
-                  : "border-border-subtle text-text-main/40 hover:text-text-main"
-              )}
-            >
-              {opt.icon}
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        {storagePreference === 'local' && (
-          <p className="text-[11px] text-text-main/30">{t('storage_local_hint')}</p>
-        )}
-        {storagePreference === 'both' && (
-          <p className="text-[11px] text-text-main/30">{t('storage_both_hint')}</p>
-        )}
-      </div>
-    );
-  };
-
   const renderBottomButtons = (onSave: () => void, backAction?: () => void) => (
     <div className="flex gap-3">
       <button
@@ -425,7 +399,7 @@ export function WritingFinishModal({
             {renderLabelSection()}
             {renderTagSection()}
             {renderStatsSection()}
-            {renderStorageSection()}
+            {renderStorageHint()}
             {renderVisibilitySection()}
             {renderExportSection()}
             {renderBottomButtons(handleNewSave, () => setStep('choose'))}
@@ -464,7 +438,7 @@ export function WritingFinishModal({
             {renderLabelSection()}
             {renderTagSection()}
             {renderStatsSection()}
-            {renderStorageSection()}
+            {renderStorageHint()}
             {renderExportSection()}
             <button
               onClick={handleContinueSave}
