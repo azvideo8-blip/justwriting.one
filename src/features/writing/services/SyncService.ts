@@ -2,6 +2,8 @@ import { getLocalDb } from '../../../shared/lib/localDb';
 import { StorageService } from './StorageService';
 import { LocalDocumentService } from './LocalDocumentService';
 
+let _syncInProgress = false;
+
 export const SyncService = {
   async addToQueue(documentId: string): Promise<void> {
     const db = await getLocalDb();
@@ -25,30 +27,37 @@ export const SyncService = {
   },
 
   async syncPending(userId: string): Promise<void> {
-    const db = await getLocalDb();
-    const queue = await db.getAll('syncQueue');
-    const pending = queue.filter(item => !item.id.startsWith('migrated_'));
+    if (_syncInProgress) return;
+    _syncInProgress = true;
 
-    if (pending.length === 0) return;
+    try {
+      const db = await getLocalDb();
+      const queue = await db.getAll('syncQueue');
+      const pending = queue.filter(item => !item.id.startsWith('migrated_'));
 
-    const documentIds = [...new Set(pending.map(p => p.documentId))];
-    const syncedIds: string[] = [];
+      if (pending.length === 0) return;
 
-    for (const localId of documentIds) {
-      try {
-        const cloudId = await StorageService.addCloudCopy(userId, localId);
-        await LocalDocumentService.updateLinkedCloudId(localId, cloudId);
-        const itemsForDoc = pending.filter(p => p.documentId === localId);
-        syncedIds.push(...itemsForDoc.map(p => p.id));
-      } catch (e) {
-        console.error(`Sync failed for ${localId}:`, e);
+      const documentIds = [...new Set(pending.map(p => p.documentId))];
+      const syncedIds: string[] = [];
+
+      for (const localId of documentIds) {
+        try {
+          const cloudId = await StorageService.addCloudCopy(userId, localId);
+          await LocalDocumentService.updateLinkedCloudId(localId, cloudId);
+          const itemsForDoc = pending.filter(p => p.documentId === localId);
+          syncedIds.push(...itemsForDoc.map(p => p.id));
+        } catch (e) {
+          console.error(`Sync failed for ${localId}:`, e);
+        }
       }
-    }
 
-    if (syncedIds.length > 0) {
-      const tx = db.transaction('syncQueue', 'readwrite');
-      await Promise.all(syncedIds.map(id => tx.store.delete(id)));
-      await tx.done;
+      if (syncedIds.length > 0) {
+        const tx = db.transaction('syncQueue', 'readwrite');
+        await Promise.all(syncedIds.map(id => tx.store.delete(id)));
+        await tx.done;
+      }
+    } finally {
+      _syncInProgress = false;
     }
   },
 
