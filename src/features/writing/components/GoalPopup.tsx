@@ -118,7 +118,7 @@ export function GoalPopup({
               onKeyDown={e => {
                 if (e.key === 'Enter') {
                   const val = parseInt((e.target as HTMLInputElement).value);
-                  if (val > 0) { onSelect(val); onClose(); }
+                  if (val > 0) { onSelect(type === 'time' ? val * 60 : val); onClose(); }
                 }
                 if (e.key === 'Escape') onClose();
               }}

@@ -3,7 +3,7 @@ import { VersionService } from './VersionService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
 import { SessionSource } from '../hooks/useSessionSource';
-import { LocalDocument } from '../../../shared/lib/localDb';
+import { LocalDocument, getOrCreateGuestId } from '../../../shared/lib/localDb';
 import { Document } from '../../../types';
 
 export interface SaveSessionData {
@@ -44,11 +44,12 @@ export const UnifiedSessionService = {
     source: SessionSource
   ): Promise<{ documentId: string; source: SessionSource }> {
     if (source === 'local' || source === 'both') {
-      const localId = await LocalDocumentService.createDocument(userId, {
+      const localGuestId = getOrCreateGuestId();
+      const localId = await LocalDocumentService.createDocument(localGuestId, {
         title: data.title,
         tags: data.tags,
       });
-      await LocalVersionService.addVersion(userId, localId, {
+      await LocalVersionService.addVersion(localGuestId, localId, {
         content: data.content,
         previousContent: '',
         wordCount: data.wordCount,
@@ -105,11 +106,12 @@ export const UnifiedSessionService = {
     source: SessionSource
   ): Promise<void> {
     if (source === 'local' || source === 'both') {
+      const localGuestId = getOrCreateGuestId();
       const existing = await LocalDocumentService.getDocument(documentId);
       if (existing) {
         const prevContent = await LocalVersionService.getLatestContent(documentId);
         const newVersion = existing.currentVersion + 1;
-        await LocalVersionService.addVersion(userId, documentId, {
+        await LocalVersionService.addVersion(localGuestId, documentId, {
           content: data.content,
           previousContent: prevContent,
           wordCount: data.wordCount,
@@ -162,7 +164,7 @@ export const UnifiedSessionService = {
   ): Promise<{ local: LocalDocument[]; cloud: Document[]; all: UnifiedDocument[] }> {
     const [localDocs, cloudDocs] = await Promise.all([
       source !== 'cloud'
-        ? LocalDocumentService.getGuestDocuments(userId)
+        ? LocalDocumentService.getGuestDocuments(getOrCreateGuestId())
         : Promise.resolve([] as LocalDocument[]),
       source !== 'local'
         ? DocumentService.getUserDocuments(userId)

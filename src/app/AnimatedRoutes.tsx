@@ -49,7 +49,7 @@ export function AnimatedRoutes() {
 
   const currentPath = location.pathname;
   const showZen = isZenActive && zenModeEnabled && currentPath === '/';
-  const hideSidebar = lifeLogEnabled && currentPath === '/';
+  const hideSidebar = lifeLogEnabled && currentPath === '/' && layoutMode === 'desktop';
   const isAdmin = profile?.role === 'admin';
 
   return (
@@ -91,40 +91,30 @@ export function AnimatedRoutes() {
             } />
             <Route path="/log" element={
               <PageTransition id="/log">
-                <ProtectedRoute>
-                  <MobileLogPage />
-                </ProtectedRoute>
+                <MobileLogPage />
               </PageTransition>
             } />
             <Route path="/me" element={
               <PageTransition id="/me">
-                <ProtectedRoute>
-                  <MobileMePage />
-                </ProtectedRoute>
+                <MobileMePage />
               </PageTransition>
             } />
             <Route path="/archive" element={
               <PageTransition id="/archive">
-                <ProtectedRoute>
-                  <ArchivePage
-                    user={user}
-                    profile={profile}
-                  />
-                </ProtectedRoute>
+                <ArchivePage
+                  user={user}
+                  profile={profile}
+                />
               </PageTransition>
             } />
             <Route path="/profile" element={
               <PageTransition id="/profile">
-                <ProtectedRoute>
-                  <ProfilePage user={user} profile={profile} />
-                </ProtectedRoute>
+                <ProfilePage user={user} profile={profile} />
               </PageTransition>
             } />
             <Route path="/feed" element={
               <PageTransition id="/feed">
-                <ProtectedRoute>
-                  <FeedPage />
-                </ProtectedRoute>
+                <FeedPage />
               </PageTransition>
             } />
             <Route path="/admin" element={

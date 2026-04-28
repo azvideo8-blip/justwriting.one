@@ -64,11 +64,15 @@ export function AdminPage() {
   useEffect(() => {
     const checkAdmin = async () => {
       if (auth.currentUser) {
-        const profile = await AdminUserService.getProfile(auth.currentUser.uid);
-        const adminStatus = profile?.role === 'admin';
-        setIsAdmin(adminStatus);
-        if (adminStatus) {
-          fetchData();
+        try {
+          const profile = await AdminUserService.getProfile(auth.currentUser.uid);
+          const adminStatus = profile?.role === 'admin';
+          setIsAdmin(adminStatus);
+          if (adminStatus) {
+            fetchData();
+          }
+        } catch {
+          setIsAdmin(false);
         }
       }
     };

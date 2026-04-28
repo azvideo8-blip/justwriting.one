@@ -1,15 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../../core/i18n';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { UserProfile } from '../../../types';
 import { User } from 'firebase/auth';
 import { Toggle } from '../../../shared/components/Toggle';
 import { getFontStack } from '../utils/fontStack';
+import { LocalDocumentService } from '../services/LocalDocumentService';
+import { getOrCreateGuestId } from '../../../shared/lib/localDb';
+import { LocalProfile } from '../../../shared/lib/localDb';
 
 interface MobileMeScreenProps {
-  user: User;
+  user: User | null;
   profile: UserProfile | null;
   onSignOut: () => void;
+  onSignIn: () => void;
 }
 
 type Section = 'stats' | 'writing' | 'account';
@@ -83,7 +87,7 @@ function SettingRow({ label, children, hint }: {
   );
 }
 
-export function MobileMeScreen({ user, profile, onSignOut }: MobileMeScreenProps) {
+export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeScreenProps) {
   const { t, language, setLanguage } = useLanguage();
   const {
     fontFamily, setFontFamily,
@@ -92,6 +96,18 @@ export function MobileMeScreen({ user, profile, onSignOut }: MobileMeScreenProps
    } = useWritingSettings();
 
   const [activeSection, setActiveSection] = useState<Section>('stats');
+  const [localProfile, setLocalProfile] = useState<LocalProfile | null>(null);
+  const isGuest = !user;
+
+  useEffect(() => {
+    if (isGuest) {
+      LocalDocumentService.getProfile(getOrCreateGuestId()).then(p => setLocalProfile(p));
+    }
+  }, [isGuest]);
+
+  const statsProfile = isGuest
+    ? { totalWordCount: localProfile?.totalWords ?? 0, sessionsCount: localProfile?.sessionsCount ?? 0, totalDuration: localProfile?.totalDuration ?? 0, streakDays: 0, avgWpm: 0, avgSessionWords: 0 }
+    : profile;
 
   const sections: { id: Section; label: string }[] = [
     { id: 'stats',   label: t('me_tab_stats') },
@@ -99,7 +115,7 @@ export function MobileMeScreen({ user, profile, onSignOut }: MobileMeScreenProps
     { id: 'account', label: t('me_tab_account') },
   ];
 
-  const initials = (profile?.nickname || user.displayName || user.email || 'U')
+  const initials = (profile?.nickname || user?.displayName || user?.email || 'G')
     .slice(0, 2).toUpperCase();
 
   return (
@@ -120,7 +136,7 @@ export function MobileMeScreen({ user, profile, onSignOut }: MobileMeScreenProps
           gap: 14,
           marginBottom: 20,
         }}>
-          {user.photoURL ? (
+          {user?.photoURL ? (
             <img
               src={user.photoURL}
               alt={initials}
@@ -158,18 +174,20 @@ export function MobileMeScreen({ user, profile, onSignOut }: MobileMeScreenProps
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
             }}>
-              {profile?.nickname || user.displayName || t('me_anonymous')}
+              {profile?.nickname || user?.displayName || t('me_anonymous')}
             </div>
-            <div style={{
-              fontSize: 12,
-              color: 'rgba(74,81,77,1)',
-              fontFamily: 'JetBrains Mono, monospace',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}>
-              {user.email}
-            </div>
+            {user?.email && (
+              <div style={{
+                fontSize: 12,
+                color: 'rgba(74,81,77,1)',
+                fontFamily: 'JetBrains Mono, monospace',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {user.email}
+              </div>
+            )}
           </div>
         </div>
 
@@ -221,32 +239,32 @@ export function MobileMeScreen({ user, profile, onSignOut }: MobileMeScreenProps
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', gap: 8 }}>
               <StatCard
-                value={(profile?.totalWordCount || 0).toLocaleString()}
+                value={(statsProfile?.totalWordCount || 0).toLocaleString()}
                 label={t('me_stat_total_words')}
                 accent
               />
               <StatCard
-                value={profile?.sessionsCount || 0}
+                value={statsProfile?.sessionsCount || 0}
                 label={t('me_stat_sessions')}
               />
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <StatCard
-                value={profile?.streakDays || 0}
+                value={statsProfile?.streakDays || 0}
                 label={t('me_stat_streak')}
               />
               <StatCard
-                value={`${Math.round((profile?.totalDuration || 0) / 60)}ч`}
+                value={`${Math.round((statsProfile?.totalDuration || 0) / 60)}ч`}
                 label={t('me_stat_total_time')}
               />
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <StatCard
-                value={profile?.avgWpm || 0}
+                value={statsProfile?.avgWpm || 0}
                 label={t('me_stat_avg_wpm')}
               />
               <StatCard
-                value={profile?.avgSessionWords || 0}
+                value={statsProfile?.avgSessionWords || 0}
                 label={t('me_stat_avg_session')}
               />
             </div>
@@ -360,39 +378,63 @@ export function MobileMeScreen({ user, profile, onSignOut }: MobileMeScreenProps
               </div>
             </SettingRow>
 
-            <SettingRow label={t('me_account_email')}>
-              <span style={{
-                fontSize: 12,
-                color: 'rgba(74,81,77,1)',
-                fontFamily: 'JetBrains Mono, monospace',
-                maxWidth: 180,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}>
-                {user.email}
-              </span>
-            </SettingRow>
+            {user?.email && (
+              <SettingRow label={t('me_account_email')}>
+                <span style={{
+                  fontSize: 12,
+                  color: 'rgba(74,81,77,1)',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  maxWidth: 180,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {user.email}
+                </span>
+              </SettingRow>
+            )}
 
-            <button
-              onClick={onSignOut}
-              style={{
-                marginTop: 24,
-                width: '100%',
-                padding: '14px',
-                borderRadius: 14,
-                border: '1px solid rgba(239,68,68,0.25)',
-                background: 'rgba(239,68,68,0.06)',
-                color: 'rgba(239,68,68,0.8)',
-                fontSize: 14,
-                fontWeight: 500,
-                cursor: 'pointer',
-                fontFamily: 'Inter, system-ui, sans-serif',
-                WebkitTapHighlightColor: 'transparent',
-              }}
-            >
-              {t('me_sign_out')}
-            </button>
+            {isGuest ? (
+              <button
+                onClick={onSignIn}
+                style={{
+                  marginTop: 24,
+                  width: '100%',
+                  padding: '14px',
+                  borderRadius: 14,
+                  border: '1px solid oklch(0.72 0.13 155 / 0.3)',
+                  background: 'oklch(0.72 0.13 155 / 0.08)',
+                  color: 'oklch(0.72 0.13 155)',
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  fontFamily: 'Inter, system-ui, sans-serif',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                {t('auth_sign_in')}
+              </button>
+            ) : (
+              <button
+                onClick={onSignOut}
+                style={{
+                  marginTop: 24,
+                  width: '100%',
+                  padding: '14px',
+                  borderRadius: 14,
+                  border: '1px solid rgba(239,68,68,0.25)',
+                  background: 'rgba(239,68,68,0.06)',
+                  color: 'rgba(239,68,68,0.8)',
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  fontFamily: 'Inter, system-ui, sans-serif',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                {t('me_sign_out')}
+              </button>
+            )}
           </div>
         )}
       </div>

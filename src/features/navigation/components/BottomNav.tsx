@@ -3,6 +3,7 @@ import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
+import { Shield } from 'lucide-react';
 
 const PenIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
@@ -39,25 +40,20 @@ interface BottomNavProps {
   isAdmin: boolean;
 }
 
-export function BottomNav(_props: BottomNavProps) {
+export function BottomNav({ isAdmin }: BottomNavProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
   const { isGuest } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
 
-  const authTabs = [
+  const tabs = [
     { id: 'write' as const, path: '/',       label: t('nav_write'), icon: <PenIcon /> },
-    { id: 'log' as const,  path: '/log',     label: 'Log',          icon: <LogIcon /> },
-    { id: 'me' as const,   path: '/me',     label: t('nav_me'),    icon: <MeIcon /> },
+    { id: 'log' as const,  path: '/log',     label: t('lifelog_tab_log'), icon: <LogIcon /> },
+    { id: 'me' as const,   path: '/me',      label: t('nav_me'),    icon: <MeIcon /> },
+    ...(isAdmin ? [{ id: 'admin' as const, path: '/admin', label: t('nav_admin'), icon: <Shield size={22} strokeWidth={1.6} /> } as const] : []),
+    ...(isGuest ? [{ id: 'login' as const, path: '', label: t('auth_sign_in'), icon: <LoginIcon />, action: openLoginModal } as const] : []),
   ];
-
-  const guestTabs = [
-    { id: 'write' as const, path: '/',       label: t('nav_write'), icon: <PenIcon /> },
-    { id: 'login' as const, path: '',        label: t('auth_sign_in'), icon: <LoginIcon />, action: openLoginModal },
-  ];
-
-  const tabs = isGuest ? guestTabs : authTabs;
 
   type Tab = typeof tabs[number];
 

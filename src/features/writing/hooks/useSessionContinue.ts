@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Session } from '../../../types';
 import { useWritingStore } from '../store/useWritingStore';
 import { SetupMode } from '../WritingSetup';
+import { LocalVersionService } from '../services/LocalVersionService';
 
 interface UseSessionContinueParams {
   setSetupMode: (mode: SetupMode) => void;
@@ -38,9 +39,29 @@ export function useSessionContinue({
   } | null>(null);
 
   const continueSession = async (session: Session) => {
-    if ((session as Session & { isLocal?: boolean }).isLocal) {
+    const isLocal = (session as Session & { _isLocal?: boolean; isLocal?: boolean })._isLocal
+      || (session as Session & { isLocal?: boolean }).isLocal;
+    if (isLocal) {
       let loaded = loadLocalSession(session.id);
-      if (!loaded) return;
+
+      if (!loaded) {
+        const content = await LocalVersionService.getLatestContent(session.id);
+        setActiveSessionId(null);
+        useWritingStore.setState({
+          content,
+          title: session.title || '',
+          initialWordCount: session.wordCount || 0,
+          seconds: 0,
+          wordCount: session.wordCount || 0,
+          accumulatedDuration: session.duration || 0,
+        });
+        setTags(session.tags || []);
+        setIsPublic(false);
+        setIsAnonymous(false);
+        setIsLocalOnly(true);
+        setSetupMode('selection');
+        return;
+      }
 
       if (loaded.isEncrypted) {
         try {
