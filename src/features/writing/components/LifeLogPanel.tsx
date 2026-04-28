@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn, parseFirestoreDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
@@ -36,14 +36,17 @@ function docToSession(doc: LifeLogDocument): Session & { _isLocal?: boolean } {
 
 interface SessionItemProps {
   session: Session;
+  doc?: LifeLogDocument;
   isActive: boolean;
   onClick: () => void;
   onDelete?: (session: Session) => void;
   t: (key: string) => string;
   language: string;
+  userId: string;
+  onStorageChange: () => void;
 }
 
-const SessionItem: React.FC<SessionItemProps> = ({ session, isActive, onClick, onDelete, t, language }) => {
+const SessionItem: React.FC<SessionItemProps> = ({ session, doc, isActive, onClick, onDelete, t, language, userId, onStorageChange }) => {
   const date = parseFirestoreDate(session.createdAt);
   const timeStr = date
     ? date.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })
@@ -94,7 +97,9 @@ const SessionItem: React.FC<SessionItemProps> = ({ session, isActive, onClick, o
           <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", badge.cls)}>
             {badge.label}
           </span>
-          {(session as Session & { _isLocal?: boolean })._isLocal ? (
+          {doc ? (
+            <StorageIcons doc={doc} userId={userId} onStorageChange={onStorageChange} />
+          ) : session._isLocal ? (
             <span title={t('storage_local')}><HardDrive size={10} className="text-text-main/30" /></span>
           ) : (
             <span title={t('storage_cloud')}><Cloud size={10} className="text-text-main/30" /></span>
@@ -267,6 +272,20 @@ export function LifeLogPanel({
   const { execute } = useServiceAction();
   const { sessionGroups, summary, loading, refresh, unifiedDocuments } = useLifeLog(userId);
 
+  const docMap = useMemo(() => {
+    const map = new Map<string, LifeLogDocument>();
+    for (const doc of unifiedDocuments) {
+      const key = doc.localId || doc.cloudId || '';
+      if (key) map.set(key, doc);
+    }
+    return map;
+  }, [unifiedDocuments]);
+
+  const handleStorageChange = useCallback(() => {
+    refresh();
+    onRefreshDocuments?.();
+  }, [refresh, onRefreshDocuments]);
+
   const filteredGroups = useMemo(() => {
     if (!searchQuery.trim()) return sessionGroups;
     const q = searchQuery.toLowerCase();
@@ -374,39 +393,7 @@ export function LifeLogPanel({
             </div>
           </div>
 
-          {/* Documents section with storage icons */}
-          {unifiedDocuments.length > 0 && (
-            <div className="shrink-0 border-b border-border-subtle pb-2">
-              <div className="px-4 py-2 text-[10px] text-text-subtle font-bold uppercase tracking-wider">
-                {t('lifelog_documents')}
-              </div>
-              {unifiedDocuments.map(doc => {
-                const docDate = new Date(doc.lastSessionAt);
-                const docTimeStr = docDate.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' });
-                return (
-                <div
-                  key={`${doc.localId ?? ''}-${doc.cloudId ?? ''}`}
-                  onClick={() => onContinueSession(doc)}
-                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-text-main/5 transition-colors cursor-pointer"
-                >
-                  <div className="flex-1 min-w-0 mr-2">
-                    <div className="text-sm font-medium text-text-main/85 truncate">{doc.title || t('editor_title_placeholder')}</div>
-                    <div className="text-xs text-text-main/40">
-                      {docTimeStr} · v{doc.currentVersion} · {doc.totalWords.toLocaleString()} {t('home_words_short')} · {doc.totalDuration < 60 ? `<1${t('goal_time_min')}` : `${Math.round(doc.totalDuration / 60)}${t('goal_time_min')}`}
-                    </div>
-                  </div>
-                  <StorageIcons
-                    doc={doc}
-                    userId={userId}
-                    onStorageChange={() => { refresh(); onRefreshDocuments?.(); }}
-                  />
-                </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Sessions list */}
+          {/* Sessions list grouped by date */}
           <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="px-3 py-2 text-[11px] text-text-subtle font-medium">{t('lifelog_loading')}</div>
@@ -421,11 +408,14 @@ export function LifeLogPanel({
                       <SessionItem
                         key={session.id}
                         session={session}
+                        doc={docMap.get(session.id)}
                         isActive={false}
                         onClick={() => onContinueSession(session)}
                         onDelete={(s) => setDeleteTarget(s)}
                         t={t}
                         language={language}
+                        userId={userId}
+                        onStorageChange={handleStorageChange}
                       />
                     ))}
                   </div>
