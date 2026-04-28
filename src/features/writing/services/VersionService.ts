@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 import { Version } from '../../../types';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
@@ -51,12 +51,10 @@ export const VersionService = {
 
   async getVersions(userId: string, documentId: string): Promise<Version[]> {
     try {
-      const q = query(
-        versionsRef(userId, documentId),
-        orderBy('version', 'asc')
-      );
-      const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() } as Version));
+      const snap = await getDocs(versionsRef(userId, documentId));
+      const versions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Version));
+      versions.sort((a, b) => (a.version ?? 0) - (b.version ?? 0));
+      return versions;
     } catch (e) {
       handleFirestoreError(e, OperationType.LIST, `users/${userId}/documents/${documentId}/versions`);
       throw e;
