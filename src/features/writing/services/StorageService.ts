@@ -93,32 +93,47 @@ export const StorageService = {
       tags: cloudDoc.tags,
     });
 
-    for (const ver of versions) {
-      const startedAt = (ver.sessionStartedAt as { toDate?: () => Date })?.toDate?.()
-        ?? (ver.sessionStartedAt instanceof Date ? ver.sessionStartedAt : null)
-        ?? new Date(ver.savedAt?.toDate?.() ?? Date.now());
+    try {
+      for (const ver of versions) {
+        let startedAt: Date;
+        if (typeof ver.sessionStartedAt === 'number') {
+          startedAt = new Date(ver.sessionStartedAt);
+        } else if (ver.sessionStartedAt && typeof ver.sessionStartedAt === 'object' && 'toDate' in (ver.sessionStartedAt as object)) {
+          startedAt = (ver.sessionStartedAt as { toDate: () => Date }).toDate();
+        } else if (ver.sessionStartedAt instanceof Date) {
+          startedAt = ver.sessionStartedAt;
+        } else if (ver.savedAt && typeof ver.savedAt === 'object' && 'toDate' in (ver.savedAt as object)) {
+          startedAt = (ver.savedAt as { toDate: () => Date }).toDate();
+        } else {
+          startedAt = new Date();
+        }
+        if (isNaN(startedAt.getTime())) startedAt = new Date();
 
-      await LocalVersionService.addVersion(userId, localId, {
-        content: ver.content,
-        previousContent: '',
-        wordCount: ver.wordCount,
-        duration: ver.duration,
-        wpm: ver.wpm,
-        versionNumber: ver.version,
-        goalWords: ver.goalWords,
-        goalTime: ver.goalTime,
-        goalReached: ver.goalReached,
-        sessionStartedAt: startedAt,
+        await LocalVersionService.addVersion(userId, localId, {
+          content: ver.content,
+          previousContent: '',
+          wordCount: ver.wordCount,
+          duration: ver.duration,
+          wpm: ver.wpm,
+          versionNumber: ver.version ?? 1,
+          goalWords: ver.goalWords,
+          goalTime: ver.goalTime,
+          goalReached: ver.goalReached,
+          sessionStartedAt: startedAt,
+        });
+      }
+
+      await LocalDocumentService.updateAfterSession(localId, {
+        totalWords: cloudDoc.totalWords,
+        totalDuration: cloudDoc.totalDuration,
+        currentVersion: cloudDoc.currentVersion,
       });
+
+      await LocalDocumentService.updateLinkedCloudId(localId, cloudDocumentId);
+    } catch (e) {
+      try { await LocalDocumentService.deleteDocument(localId); } catch {}
+      throw e;
     }
-
-    await LocalDocumentService.updateAfterSession(localId, {
-      totalWords: cloudDoc.totalWords,
-      totalDuration: cloudDoc.totalDuration,
-      currentVersion: cloudDoc.currentVersion,
-    });
-
-    await LocalDocumentService.updateLinkedCloudId(localId, cloudDocumentId);
 
     return localId;
   },

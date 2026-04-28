@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 import { Document } from '../../../types';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
@@ -8,6 +8,14 @@ const documentsRef = (userId: string) =>
 
 const documentRef = (userId: string, documentId: string) =>
   doc(db, 'users', userId, 'documents', documentId);
+
+function toTimestamp(v: unknown): number {
+  if (!v) return 0;
+  if (typeof v === 'number') return v;
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === 'object' && 'toDate' in (v as object)) return (v as { toDate: () => Date }).toDate().getTime();
+  return 0;
+}
 
 export const DocumentService = {
   async createDocument(
@@ -49,12 +57,10 @@ export const DocumentService = {
 
   async getUserDocuments(userId: string): Promise<Document[]> {
     try {
-      const q = query(
-        documentsRef(userId),
-        orderBy('lastSessionAt', 'desc')
-      );
-      const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() } as Document));
+      const snap = await getDocs(documentsRef(userId));
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Document));
+      docs.sort((a, b) => toTimestamp(b.lastSessionAt) - toTimestamp(a.lastSessionAt));
+      return docs;
     } catch (e) {
       handleFirestoreError(e, OperationType.GET, `users/${userId}/documents`);
       throw e;
