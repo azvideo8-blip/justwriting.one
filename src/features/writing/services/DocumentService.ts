@@ -10,10 +10,16 @@ const documentRef = (userId: string, documentId: string) =>
   doc(db, 'users', userId, 'documents', documentId);
 
 function toTimestamp(v: unknown): number {
-  if (!v) return 0;
+  if (v === null || v === undefined) return 0;
   if (typeof v === 'number') return v;
   if (v instanceof Date) return v.getTime();
-  if (typeof v === 'object' && 'toDate' in (v as object)) return (v as { toDate: () => Date }).toDate().getTime();
+  if (typeof v === 'object') {
+    const obj = v as Record<string, unknown>;
+    if (typeof obj['toMillis'] === 'function') return (obj['toMillis'] as () => number)();
+    if (typeof obj['toDate'] === 'function') return (obj['toDate'] as () => Date)().getTime();
+    if (typeof obj['seconds'] === 'number') return obj['seconds'] * 1000;
+  }
+  console.warn('[toTimestamp] Unrecognized format, returning 0:', v);
   return 0;
 }
 

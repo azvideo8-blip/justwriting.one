@@ -33,6 +33,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cloudLoadFailed, setCloudLoadFailed] = useState(false);
   const navigate = useNavigate();
 
   const userId = user?.uid ?? getOrCreateGuestId();
@@ -41,6 +42,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     if (!isInitial) return;
     setLoading(true);
     setError(null);
+    setCloudLoadFailed(false);
 
     try {
       const allSessions: Session[] = [];
@@ -75,11 +77,12 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
           });
         }
 
-        if (user) {
+        if (user && uid === user.uid) {
           let cloudDocs: Document[] = [];
           try {
             cloudDocs = await DocumentService.getUserDocuments(uid);
           } catch (e) {
+            setCloudLoadFailed(true);
             console.error(`Failed to fetch cloud docs for uid=${uid}:`, e);
           }
 
@@ -264,7 +267,19 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 </button>
               </div>
             </div>
-              
+
+              {cloudLoadFailed && (
+                <div className="px-4 py-3 rounded-2xl text-sm bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-between">
+                  <span>{t('archive_cloud_load_error')}</span>
+                  <button
+                    onClick={() => fetchSessions(true)}
+                    className="underline text-red-400/70 hover:text-red-400"
+                  >
+                    {t('retry')}
+                  </button>
+                </div>
+              )}
+
               <div className="space-y-6">
                 {loading ? (
                   <div className="italic text-center py-12 text-text-main/70">{t('archive_loading')}</div>

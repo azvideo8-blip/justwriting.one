@@ -20,6 +20,7 @@ export interface GuestSessionReturn extends BaseSessionReturn {
   hasDraft: boolean;
   setHasDraft: (v: boolean) => void;
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
+  saveErrorKind: 'quota' | 'unknown' | null;
   lastSavedAt: number | null;
   isOnline: boolean;
   handleCancel: () => Promise<void>;
@@ -36,6 +37,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
   const guestId = getOrCreateGuestId();
   const [hasDraft, setHasDraft] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveErrorKind, setSaveErrorKind] = useState<'quota' | 'unknown' | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const saveStatusRef = useRef(saveStatus);
@@ -71,8 +73,11 @@ export function useGuestWritingSession(): GuestSessionReturn {
         setSaveStatus('saved');
         setLastSavedAt(Date.now());
         setTimeout(() => setSaveStatus('idle'), 1000);
-      } catch {
+      } catch (err) {
+        const isQuota = err instanceof DOMException && err.name === 'QuotaExceededError';
         setSaveStatus('error');
+        setSaveErrorKind(isQuota ? 'quota' : 'unknown');
+        console.error('[GuestAutosave] Save failed:', err);
       }
     }, 30_000);
     return () => clearInterval(interval);
@@ -91,7 +96,9 @@ export function useGuestWritingSession(): GuestSessionReturn {
             wordCount: s.wordCount,
             timestamp: Date.now(),
           }));
-        } catch {}
+        } catch (err) {
+          console.error('[GuestDraft] Emergency save on visibility change failed:', err);
+        }
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -101,19 +108,32 @@ export function useGuestWritingSession(): GuestSessionReturn {
   const loadDraft = useCallback(async () => {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return;
+
+    let draft: { content?: string; title?: string; pinnedThoughts?: string[]; seconds?: number; wordCount?: number };
     try {
-      const draft = JSON.parse(raw);
-      if (!useWritingStore.getState().content && draft.content) {
-        useWritingStore.setState({
-          content: draft.content || '',
-          title: draft.title || '',
-          pinnedThoughts: draft.pinnedThoughts || [],
-          seconds: draft.seconds || 0,
-          wordCount: draft.wordCount || 0,
-        });
-        setHasDraft(true);
-      }
-    } catch {}
+      draft = JSON.parse(raw);
+    } catch (err) {
+      console.warn('[GuestDraft] Corrupted draft, removing:', err);
+      localStorage.removeItem(DRAFT_KEY);
+      return;
+    }
+
+    if (!draft?.content) return;
+
+    const currentContent = useWritingStore.getState().content;
+    if (currentContent.length > 0) {
+      setHasDraft(true);
+      return;
+    }
+
+    useWritingStore.setState({
+      content: draft.content,
+      title: draft.title ?? '',
+      pinnedThoughts: draft.pinnedThoughts ?? [],
+      seconds: draft.seconds ?? 0,
+      wordCount: draft.wordCount ?? 0,
+    });
+    setHasDraft(false);
   }, []);
 
   const clearDraft = useCallback(() => {
@@ -163,6 +183,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
     hasDraft,
     setHasDraft,
     saveStatus,
+    saveErrorKind,
     lastSavedAt,
     isOnline,
     handleCancel,
