@@ -178,6 +178,8 @@ export const StorageService = {
       currentVersion: cloudDoc.currentVersion,
     });
 
+    await LocalDocumentService.updateLinkedCloudId(localId, cloudDocumentId);
+
     return localId;
   },
 

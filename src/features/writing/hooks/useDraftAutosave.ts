@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { User } from 'firebase/auth';
-import { saveToLocal, saveToFirestore, Draft } from '../../../lib/db';
+import { WritingDraftService } from '../services/WritingDraftService';
+import { LocalDraft } from '../../../shared/lib/localDb';
 import { useWritingStore } from '../store/useWritingStore';
 
 function getLocalStorageUsageKB(): number {
@@ -46,12 +47,12 @@ export function useDraftAutosave(
 
   const forceSaveEverything = useCallback(async () => {
     if (!user) return;
-    const draft: Draft = {
+    const draft: LocalDraft = {
       userId: user.uid,
       ...draftDataRef.current,
       sessionStartTime: draftDataRef.current.sessionStartTime ?? null,
       updatedAt: Date.now()
-    } as Draft;
+    } as LocalDraft;
     try {
       if (isMountedRef.current) setSaveStatus('saving');
       
@@ -61,8 +62,8 @@ export function useDraftAutosave(
       }
 
       const [localResult, remoteResult] = await Promise.allSettled([
-        saveToLocal(draft),
-        saveToFirestore(draft)
+        WritingDraftService.saveToLocal(draft),
+        WritingDraftService.saveToFirestore(draft)
       ]);
 
       const localOk = localResult.status === 'fulfilled';
@@ -126,18 +127,18 @@ export function useDraftAutosave(
   useEffect(() => {
     if ((draftData.status === 'writing' || draftData.status === 'paused') && user) {
       const timeout = setTimeout(async () => {
-        const draft: Draft = {
+        const draft: LocalDraft = {
           userId: user.uid,
           ...draftData,
           sessionStartTime: draftData.sessionStartTime ?? null,
           updatedAt: Date.now()
-        } as Draft;
+        } as LocalDraft;
         try {
           const usageKB = getLocalStorageUsageKB();
           if (usageKB > 4500) {
             console.warn(`localStorage usage: ${usageKB.toFixed(0)}KB — approaching limit`);
           }
-          await saveToLocal(draft);
+          await WritingDraftService.saveToLocal(draft);
           if (isMountedRef.current) {
             setSaveStatus('saved');
             setLastSavedAt(Date.now());

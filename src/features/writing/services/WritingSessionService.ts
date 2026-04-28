@@ -1,10 +1,25 @@
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
-import { savePendingSession, getAllPendingSessions, deletePendingSession } from '../../../lib/db';
+import { getLocalDb } from '../../../shared/lib/localDb';
 import { reportError } from '../../../core/errors/reportError';
 
 import { SessionPayload } from '../../../types';
+
+async function savePendingSession(session: { sessionId: string | null; data: Record<string, unknown>; userId: string }): Promise<number> {
+  const localDb = await getLocalDb();
+  return localDb.add('pending_sessions', session) as unknown as Promise<number>;
+}
+
+async function getAllPendingSessions(): Promise<{ id?: number; sessionId: string | null; data: Record<string, unknown>; userId: string }[]> {
+  const localDb = await getLocalDb();
+  return localDb.getAll('pending_sessions');
+}
+
+async function deletePendingSession(id: number): Promise<void> {
+  const localDb = await getLocalDb();
+  return localDb.delete('pending_sessions', id);
+}
 
 export const WritingSessionService = {
   saveSession: async (sessionData: SessionPayload, activeSessionId: string | null, isOnline: boolean, userId: string): Promise<string | null> => {

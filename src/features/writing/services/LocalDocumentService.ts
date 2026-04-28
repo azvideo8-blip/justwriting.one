@@ -1,4 +1,4 @@
-import { getLocalDb, LocalDocument } from '../../../shared/lib/localDb';
+import { getLocalDb, LocalDocument, randomUUID } from '../../../shared/lib/localDb';
 import { computeWordDiff } from './DiffService';
 
 export const LocalDocumentService = {
@@ -7,7 +7,7 @@ export const LocalDocumentService = {
     data: { title: string; tags?: string[] }
   ): Promise<string> {
     const db = await getLocalDb();
-    const id = `local_${crypto.randomUUID()}`;
+    const id = `local_${randomUUID()}`;
     const now = Date.now();
 
     await db.put('documents', {
@@ -69,6 +69,13 @@ export const LocalDocumentService = {
       tx.done,
     ]);
     if (doc) await LocalDocumentService._updateProfile(doc.guestId);
+  },
+
+  async updateLinkedCloudId(id: string, cloudId: string): Promise<void> {
+    const db = await getLocalDb();
+    const existing = await db.get('documents', id);
+    if (!existing) return;
+    await db.put('documents', { ...existing, linkedCloudId: cloudId });
   },
 
   async _updateProfile(guestId: string): Promise<void> {

@@ -293,10 +293,17 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       sessionStartedAt: new Date(Date.now() - sessionSeconds * 1000),
     }, effectiveSource);
 
+    try {
+      if (isGuest) {
+        localStorage.removeItem('jw_guest_draft');
+      } else {
+        await WritingDraftService.deleteDraft(userId);
+      }
+    } catch {}
+
     await refreshDocuments();
     refreshLifeLog();
     useWritingStore.getState().finishSession();
-    if (!isGuest) await WritingDraftService.deleteDraft(userId);
   }, [userId, refreshDocuments, effectiveSource, isGuest, refreshLifeLog]);
 
   const handleSaveAsVersion = React.useCallback(async (documentId: string, data: SaveData) => {
@@ -318,10 +325,17 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       sessionStartedAt: new Date(Date.now() - sessionSeconds * 1000),
     }, effectiveSource);
 
+    try {
+      if (isGuest) {
+        localStorage.removeItem('jw_guest_draft');
+      } else {
+        await WritingDraftService.deleteDraft(userId);
+      }
+    } catch {}
+
     await refreshDocuments();
     refreshLifeLog();
     useWritingStore.getState().finishSession();
-    if (!isGuest) await WritingDraftService.deleteDraft(userId);
   }, [userId, effectiveSource, refreshDocuments, isGuest, refreshLifeLog]);
 
   const handlePlay = React.useCallback(() => {
@@ -339,17 +353,9 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     useWritingStore.getState().setStatus('paused');
   };
 
-  const handleStop = async () => {
+  const handleStop = () => {
     if (sessionStatus === 'idle') return;
-    if (savingRef.current) return;
-    savingRef.current = true;
-    try {
-      await handleSave();
-      useWritingStore.getState().finishSession();
-      if (!isGuest) await WritingDraftService.deleteDraft(userId);
-    } finally {
-      savingRef.current = false;
-    }
+    handleFinish();
   };
 
   const handlePlayRef = React.useRef(handlePlay);
@@ -374,7 +380,9 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
-        handleSave();
+        if (sessionStatus === 'writing' || sessionStatus === 'paused') {
+          handleFinish();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -449,13 +457,10 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       />
       <WritingFinishModal 
         isOpen={sessionStatus === 'finished'}
-        onClose={() => useWritingStore.getState().finishSession()}
-        onConfirm={() => { hookHandleSave(isLocalOnly); }}
         title={title} setTitle={setTitle}
         sessionType={sessionType} wordCount={wordCount} duration={seconds}
         isPublic={isPublic} setIsPublic={setIsPublic}
         isAnonymous={isAnonymous} setIsAnonymous={setIsAnonymous}
-        handleSave={(localOnly?: boolean) => hookHandleSave(localOnly ?? isLocalOnly)}
         tags={tags} setTags={setTags}
         labelId={labelId} setLabelId={setLabelId}
         labels={profile?.labels || []}
@@ -534,13 +539,10 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
 
         <WritingFinishModal 
           isOpen={sessionStatus === 'finished'}
-          onClose={() => useWritingStore.getState().finishSession()}
-          onConfirm={() => { hookHandleSave(isLocalOnly); }}
           title={title} setTitle={setTitle}
           sessionType={sessionType} wordCount={wordCount} duration={seconds}
           isPublic={isPublic} setIsPublic={setIsPublic}
           isAnonymous={isAnonymous} setIsAnonymous={setIsAnonymous}
-          handleSave={(localOnly?: boolean) => hookHandleSave(localOnly ?? isLocalOnly)}
           tags={tags} setTags={setTags}
           labelId={labelId} setLabelId={setLabelId}
           labels={profile?.labels || []}
@@ -583,7 +585,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
               totalDurationForDeadline={flow.totalDurationForDeadline}
               onNew={handleNew}
               onOpenLog={handleOpen}
-              onSave={handleSave}
+              onSave={handleFinish}
               onPlay={handlePlay}
               onPause={handlePause}
               onStop={handleFinish}

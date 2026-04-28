@@ -7,6 +7,10 @@ import { useWritingStore } from '../store/useWritingStore';
 import { useDraftAutosave } from './useDraftAutosave';
 import { encrypt, decrypt } from '../../../shared/lib/encryption';
 import { UserProfile, SessionPayload } from '../../../types';
+import { LocalDocumentService } from '../services/LocalDocumentService';
+import { LocalVersionService } from '../services/LocalVersionService';
+import { getOrCreateGuestId } from '../../../shared/lib/localDb';
+import { LocalSessionInfo } from './useGuestWritingSession';
 
 export function useSessionPersistence(
   user: User | null,
@@ -144,7 +148,7 @@ export function useSessionPersistence(
         sessionData.isEncrypted = true;
       }
 
-      const sessionKey = `local_session_${Date.now()}_${crypto.randomUUID()}`;
+      const sessionKey = `local_session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
       localStorage.setItem(sessionKey, JSON.stringify(sessionData));
       await WritingDraftService.deleteDraft(userId);
       actions.setHasDraft(false);
@@ -172,40 +176,30 @@ export function useSessionPersistence(
     actions.setStatus('idle');
   };
 
-  const fetchLocalSessions = useCallback(() => {
-    const sessions = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith('local_session_')) {
-        const raw = localStorage.getItem(key);
-        try {
-          const data = JSON.parse(raw || '{}');
-          const timestamp = key.replace('local_session_', '').split('_')[0];
-          sessions.push({ 
-            id: key, 
-            createdAt: new Date(Number(timestamp)),
-            isEncrypted: data.isEncrypted,
-            title: data.title,
-            wordCount: data.wordCount,
-            duration: data.duration
-          });
-          } catch {
-          const fallbackTimestamp = key.replace('local_session_', '').split('_')[0];
-          sessions.push({ id: key, createdAt: new Date(Number(fallbackTimestamp)) });
-        }
-      }
-    }
-    return sessions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const fetchLocalSessions = useCallback(async () => {
+    const guestId = getOrCreateGuestId();
+    const localDocs = await LocalDocumentService.getGuestDocuments(guestId);
+    return localDocs.map(d => ({
+      id: d.id,
+      createdAt: new Date(d.lastSessionAt),
+      title: d.title,
+      wordCount: d.totalWords,
+      duration: d.totalDuration,
+    })) as LocalSessionInfo[];
   }, []);
 
-  const loadLocalSession = useCallback((key: string) => {
-    const raw = localStorage.getItem(key);
-    try {
-      return JSON.parse(raw || '{}');
-    } catch (e) {
-      console.error('load error:', e);
-      return null;
-    }
+  const loadLocalSession = useCallback(async (docId: string) => {
+    const doc = await LocalDocumentService.getDocument(docId);
+    if (!doc) return null;
+    const content = await LocalVersionService.getLatestContent(docId);
+    return {
+      content,
+      title: doc.title,
+      wordCount: doc.totalWords,
+      duration: doc.totalDuration,
+      tags: doc.tags,
+      isPublic: false,
+    } as Record<string, unknown>;
   }, []);
 
   const decryptSession = useCallback(async (session: SessionPayload, password: string) => {

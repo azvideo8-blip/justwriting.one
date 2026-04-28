@@ -122,13 +122,15 @@ export function useLifeLog(userId: string, isGuest?: boolean): UseLifeLogReturn 
         setSessions(sessionResult.sessions);
         setDocuments(cloudDocs);
 
+        const cloudById = new Map(cloudDocs.map(d => [d.id, d]));
         const cloudByTitle = new Map(cloudDocs.map(d => [d.title, d]));
         const matchedCloudIds = new Set<string>();
 
         const unified: LifeLogDocument[] = [];
 
         for (const local of localDocs) {
-          const cloud = cloudByTitle.get(local.title);
+          const cloud = (local.linkedCloudId && cloudById.get(local.linkedCloudId))
+            || cloudByTitle.get(local.title);
           if (cloud) matchedCloudIds.add(cloud.id);
 
           unified.push({
@@ -180,14 +182,11 @@ export function useLifeLog(userId: string, isGuest?: boolean): UseLifeLogReturn 
     fetchSessions();
   }, [fetchSessions]);
 
-  const todaySessions = sessions.filter(s => {
-    const date = parseFirestoreDate(s.createdAt);
-    return date && date >= startOfToday;
-  });
+  const todayDocuments = unifiedDocuments.filter(d => d.lastSessionAt >= startOfToday.getTime());
 
   const summary: DailySummary = {
-    totalWords: todaySessions.reduce((sum, s) => sum + (s.wordCount || 0), 0),
-    totalMinutes: Math.round(todaySessions.reduce((sum, s) => sum + (s.duration || 0), 0) / 60),
+    totalWords: todayDocuments.reduce((sum, d) => sum + d.totalWords, 0),
+    totalMinutes: Math.round(todayDocuments.reduce((sum, d) => sum + d.totalDuration, 0) / 60),
   };
 
   const sessionGroups = useMemo(() => {
