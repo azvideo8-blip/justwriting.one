@@ -384,13 +384,7 @@ export function LifeLogPanel({
                   className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-text-main/5 transition-colors cursor-pointer"
                 >
                   <div className="flex-1 min-w-0 mr-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium text-text-main/85 truncate">{doc.title || t('editor_title_placeholder')}</span>
-                      <span className="shrink-0 flex items-center gap-0.5">
-                        {doc.storage.local && <HardDrive size={10} className="text-text-main/25" />}
-                        {doc.storage.cloud && <Cloud size={10} className="text-text-main/25" />}
-                      </span>
-                    </div>
+                    <div className="text-sm font-medium text-text-main/85 truncate">{doc.title || t('editor_title_placeholder')}</div>
                     <div className="text-xs text-text-main/40">
                       {docTimeStr} · v{doc.currentVersion} · {doc.totalWords.toLocaleString()} {t('home_words_short')} · {doc.totalDuration < 60 ? `<1${t('goal_time_min')}` : `${Math.round(doc.totalDuration / 60)}${t('goal_time_min')}`}
                     </div>

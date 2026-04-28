@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User } from 'firebase/auth';
 import { ProfileService } from '../../profile/services/ProfileService';
+import { randomUUID } from '../../../shared/lib/localDb';
 import { Label, UserProfile } from '../../../types';
 import { Plus, X } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
@@ -22,7 +23,7 @@ export function ArchiveLabels({ user, profile, selectedLabelId, onSelectLabel }:
 
   const addLabel = () => {
     if (newLabel.name) {
-      updateLabels([...labels, { ...newLabel, id: crypto.randomUUID() }]);
+      updateLabels([...labels, { ...newLabel, id: randomUUID() }]);
       setNewLabel({ name: '', color: '#000000' });
     }
   };

@@ -2,6 +2,7 @@ import { DocumentService } from './DocumentService';
 import { VersionService } from './VersionService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
+import { StorageService, SaveDocumentData } from './StorageService';
 import { SessionSource } from '../hooks/useSessionSource';
 import { LocalDocument, getOrCreateGuestId } from '../../../shared/lib/localDb';
 import { Document } from '../../../types';
@@ -37,66 +38,46 @@ export interface UnifiedDocument {
   _source: SessionSource;
 }
 
+function toSaveData(data: SaveSessionData): SaveDocumentData {
+  return {
+    title: data.title,
+    content: data.content,
+    wordCount: data.wordCount,
+    duration: data.duration,
+    wpm: data.wpm,
+    isPublic: data.isPublic,
+    tags: data.tags,
+    labelId: data.labelId,
+    goalWords: data.goalWords,
+    goalTime: data.goalTime,
+    goalReached: data.goalReached,
+    sessionStartedAt: data.sessionStartedAt,
+  };
+}
+
 export const UnifiedSessionService = {
   async saveAsNewDocument(
     userId: string,
     data: SaveSessionData,
     source: SessionSource
   ): Promise<{ documentId: string; source: SessionSource }> {
-    if (source === 'local' || source === 'both') {
-      const localGuestId = getOrCreateGuestId();
-      const localId = await LocalDocumentService.createDocument(localGuestId, {
-        title: data.title,
-        tags: data.tags,
-      });
-      await LocalVersionService.addVersion(localGuestId, localId, {
-        content: data.content,
-        previousContent: '',
-        wordCount: data.wordCount,
-        duration: data.duration,
-        wpm: data.wpm,
-        versionNumber: 1,
-        goalWords: data.goalWords,
-        goalTime: data.goalTime,
-        goalReached: data.goalReached,
-        sessionStartedAt: data.sessionStartedAt,
-      });
-      await LocalDocumentService.updateAfterSession(localId, {
-        totalWords: data.wordCount,
-        totalDuration: data.duration,
-        currentVersion: 1,
-      });
-      if (source === 'local') return { documentId: localId, source: 'local' };
+    const result = await StorageService.saveNew(userId, toSaveData(data), source);
+
+    if (result.localId && result.cloudId) {
+      await LocalDocumentService.updateLinkedCloudId(result.localId, result.cloudId);
     }
 
-    if (source === 'cloud' || source === 'both') {
-      const cloudId = await DocumentService.createDocument(userId, {
-        title: data.title,
-        isPublic: data.isPublic,
-        tags: data.tags,
-        labelId: data.labelId,
-      });
-      await VersionService.addVersion(userId, cloudId, {
-        content: data.content,
-        previousContent: '',
-        wordCount: data.wordCount,
-        duration: data.duration,
-        wpm: data.wpm,
-        versionNumber: 1,
-        goalWords: data.goalWords,
-        goalTime: data.goalTime,
-        goalReached: data.goalReached,
-        sessionStartedAt: data.sessionStartedAt,
-      });
-      await DocumentService.updateDocumentAfterSession(userId, cloudId, {
-        totalWords: data.wordCount,
-        totalDuration: data.duration,
-        currentVersion: 1,
-      });
-      return { documentId: cloudId, source: 'cloud' };
+    if (source === 'local' && result.localId) {
+      return { documentId: result.localId, source: 'local' };
+    }
+    if (result.cloudId) {
+      return { documentId: result.cloudId, source: 'cloud' };
+    }
+    if (result.localId) {
+      return { documentId: result.localId, source: 'local' };
     }
 
-    throw new Error('Invalid source');
+    throw new Error('Save failed: no document ID returned');
   },
 
   async saveAsVersion(
@@ -105,57 +86,8 @@ export const UnifiedSessionService = {
     data: SaveSessionData,
     source: SessionSource
   ): Promise<void> {
-    if (source === 'local' || source === 'both') {
-      const localGuestId = getOrCreateGuestId();
-      const existing = await LocalDocumentService.getDocument(documentId);
-      if (existing) {
-        const prevContent = await LocalVersionService.getLatestContent(documentId);
-        const newVersion = existing.currentVersion + 1;
-        await LocalVersionService.addVersion(localGuestId, documentId, {
-          content: data.content,
-          previousContent: prevContent,
-          wordCount: data.wordCount,
-          duration: data.duration,
-          wpm: data.wpm,
-          versionNumber: newVersion,
-          goalWords: data.goalWords,
-          goalTime: data.goalTime,
-          goalReached: data.goalReached,
-          sessionStartedAt: data.sessionStartedAt,
-        });
-        await LocalDocumentService.updateAfterSession(documentId, {
-          totalWords: data.wordCount,
-          totalDuration: existing.totalDuration + data.duration,
-          currentVersion: newVersion,
-        });
-      }
-    }
-
-    if (source === 'cloud' || source === 'both') {
-      const existing = await DocumentService.getDocument(userId, documentId);
-      if (existing) {
-        const versions = await VersionService.getVersions(userId, documentId);
-        const prevContent = versions[versions.length - 1]?.content ?? '';
-        const newVersion = existing.currentVersion + 1;
-        await VersionService.addVersion(userId, documentId, {
-          content: data.content,
-          previousContent: prevContent,
-          wordCount: data.wordCount,
-          duration: data.duration,
-          wpm: data.wpm,
-          versionNumber: newVersion,
-          goalWords: data.goalWords,
-          goalTime: data.goalTime,
-          goalReached: data.goalReached,
-          sessionStartedAt: data.sessionStartedAt,
-        });
-        await DocumentService.updateDocumentAfterSession(userId, documentId, {
-          totalWords: data.wordCount,
-          totalDuration: existing.totalDuration + data.duration,
-          currentVersion: newVersion,
-        });
-      }
-    }
+    const isLocal = documentId.startsWith('local_');
+    await StorageService.saveVersion(userId, documentId, toSaveData(data), source, isLocal);
   },
 
   async getAllDocuments(
