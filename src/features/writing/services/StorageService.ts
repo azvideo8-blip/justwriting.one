@@ -60,30 +60,36 @@ export const StorageService = {
     }
 
     if (preference === 'cloud' || preference === 'both') {
-      const cloudId = await DocumentService.createDocument(userId, {
-        title: data.title,
-        isPublic: data.isPublic,
-        tags: data.tags,
-        labelId: data.labelId,
-      });
-      await VersionService.addVersion(userId, cloudId, {
-        content: data.content,
-        previousContent: '',
-        wordCount: data.wordCount,
-        duration: data.duration,
-        wpm: data.wpm,
-        versionNumber: 1,
-        goalWords: data.goalWords,
-        goalTime: data.goalTime,
-        goalReached: data.goalReached,
-        sessionStartedAt: data.sessionStartedAt,
-      });
-      await DocumentService.updateDocumentAfterSession(userId, cloudId, {
-        totalWords: data.wordCount,
-        totalDuration: data.duration,
-        currentVersion: 1,
-      });
-      result.cloudId = cloudId;
+      try {
+        const cloudId = await DocumentService.createDocument(userId, {
+          title: data.title,
+          isPublic: data.isPublic,
+          tags: data.tags,
+          labelId: data.labelId,
+        });
+        await VersionService.addVersion(userId, cloudId, {
+          content: data.content,
+          previousContent: '',
+          wordCount: data.wordCount,
+          duration: data.duration,
+          wpm: data.wpm,
+          versionNumber: 1,
+          goalWords: data.goalWords,
+          goalTime: data.goalTime,
+          goalReached: data.goalReached,
+          sessionStartedAt: data.sessionStartedAt,
+        });
+        await DocumentService.updateDocumentAfterSession(userId, cloudId, {
+          totalWords: data.wordCount,
+          totalDuration: data.duration,
+          currentVersion: 1,
+        });
+        result.cloudId = cloudId;
+      } catch (err) {
+        if (import.meta.env.DEV) console.error('Cloud save failed:', err);
+        // If local was saved, return it; caller can decide what to do
+        if (!result.localId) throw err;
+      }
     }
 
     return result;
