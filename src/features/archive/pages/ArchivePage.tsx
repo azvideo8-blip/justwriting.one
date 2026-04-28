@@ -9,6 +9,9 @@ import { SessionCard } from '../../writing/components/SessionCard';
 import { Calendar } from '../../calendar/components/Calendar';
 import { getSessionDate, cn } from '../../../core/utils/utils';
 import { SessionService } from '../../writing/services/SessionService';
+import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
+import { LocalVersionService } from '../../writing/services/LocalVersionService';
+import { getOrCreateGuestId } from '../../../shared/lib/localDb';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
 import { TagCloud } from '../../writing/components/TagCloud';
 import { useLanguage } from '../../../core/i18n';
@@ -20,7 +23,7 @@ import { EmptyState } from '../../../shared/components/EmptyState';
 import { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 
 interface ArchiveViewProps {
-  user: User;
+  user: User | null;
   profile: UserProfile | null;
 }
 
@@ -33,6 +36,9 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const isGuest = !user;
+
+  const userId = user?.uid ?? getOrCreateGuestId();
 
   const fetchSessions = async (isInitial = false) => {
     if (isInitial) {
@@ -43,16 +49,43 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     setError(null);
 
     try {
-      const result = await SessionService.getAllSessions(user.uid, 20, isInitial ? undefined : lastDoc);
-      
-      if (isInitial) {
-        setSessions(result.sessions);
+      if (isGuest) {
+        const localDocs = await LocalDocumentService.getGuestDocuments(userId);
+        const sessionsWithContent = await Promise.all(
+          localDocs.map(async (doc) => {
+            const content = await LocalVersionService.getLatestContent(doc.id);
+            return {
+              id: doc.id,
+              userId: doc.guestId,
+              authorName: '',
+              authorPhoto: '',
+              content,
+              duration: doc.totalDuration,
+              wordCount: doc.totalWords,
+              charCount: 0,
+              wpm: 0,
+              isPublic: false,
+              title: doc.title,
+              tags: doc.tags,
+              createdAt: new Date(doc.lastSessionAt),
+              _isLocal: true,
+            } as Session & { _isLocal?: boolean };
+          })
+        );
+        setSessions(sessionsWithContent);
+        setHasMore(false);
       } else {
-        setSessions(prev => [...prev, ...result.sessions]);
+        const result = await SessionService.getAllSessions(user.uid, 20, isInitial ? undefined : lastDoc);
+        
+        if (isInitial) {
+          setSessions(result.sessions);
+        } else {
+          setSessions(prev => [...prev, ...result.sessions]);
+        }
+        
+        setLastDoc(result.lastDoc);
+        setHasMore(result.sessions.length === 20);
       }
-      
-      setLastDoc(result.lastDoc);
-      setHasMore(result.sessions.length === 20);
     } catch (err) {
       console.error('Archive load error:', err);
       setError(t('archive_load_error'));
@@ -65,7 +98,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   useEffect(() => {
     fetchSessions(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user.uid]);
+  }, [userId]);
 
   const { 
     selectedDate, setSelectedDate, 
@@ -181,7 +214,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                   <div className="p-12 text-center rounded-3xl border bg-red-500/10 border-red-500/30">
                     <p className="text-red-400">{error}</p>
                   </div>
-                ) : sessions.length === 0 ? (
+                ) : filteredSessions.length === 0 ? (
                   <EmptyState
                     icon={BookOpen}
                     title={t('archive_empty_title')}

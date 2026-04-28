@@ -4,7 +4,7 @@ import { getSessionDate } from '../../../core/utils/utils';
 import { isSameDay } from 'date-fns';
 
 export function useArchiveFilters(sessions: Session[]) {
-  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<Date | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 

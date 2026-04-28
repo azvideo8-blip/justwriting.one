@@ -62,7 +62,11 @@ export function useSessionFlow(
 
   // Session start flash
   useEffect(() => {
-    return;
+    if (sessionStatus === 'writing') {
+      setSessionStartFlash(true);
+      const t = setTimeout(() => setSessionStartFlash(false), 800);
+      return () => clearTimeout(t);
+    }
   }, [sessionStatus]);
 
   // Goal toast + sound

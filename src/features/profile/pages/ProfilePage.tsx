@@ -8,6 +8,9 @@ import { Session, UserProfile } from '../../../types';
 import { calculateStreak } from '../../../core/utils/utils';
 import { Calendar } from '../../calendar/components/Calendar';
 import { SessionService } from '../../writing/services/SessionService';
+import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
+import { LocalVersionService } from '../../writing/services/LocalVersionService';
+import { getOrCreateGuestId } from '../../../shared/lib/localDb';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
 import { ProfileHeader } from '../components/ProfileHeader';
 import { ProfileAchievements } from '../components/ProfileAchievements';
@@ -18,7 +21,7 @@ import { TagCloud } from '../../writing/components/TagCloud';
 import { useLanguage } from '../../../core/i18n';
 
 interface ProfilePageProps {
-  user: User;
+  user: User | null;
   profile: UserProfile | null;
 }
 
@@ -27,6 +30,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const isGuest = !user;
 
   // Date range for activity chart - Default to current week
   const [startDate, setStartDate] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -35,45 +39,70 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const userId = user?.uid ?? getOrCreateGuestId();
+
   useEffect(() => {
     const fetchSessions = async () => {
       setLoading(true);
       setError(null);
       try {
-        const result = await SessionService.getAllSessions(user.uid, 50);
-        setSessions(result.sessions);
+        if (isGuest) {
+          const localDocs = await LocalDocumentService.getGuestDocuments(userId);
+          const guestSessions = await Promise.all(localDocs.map(async doc => {
+            const content = await LocalVersionService.getLatestContent(doc.id);
+            return {
+              id: doc.id,
+              userId: doc.guestId,
+              authorName: '',
+              authorPhoto: '',
+              content,
+              duration: doc.totalDuration,
+              wordCount: doc.totalWords,
+              charCount: 0,
+              wpm: 0,
+              isPublic: false,
+              title: doc.title,
+              tags: doc.tags,
+              createdAt: new Date(doc.lastSessionAt),
+              _isLocal: true,
+            } as Session & { _isLocal?: boolean };
+          }));
+          setSessions(guestSessions);
+        } else {
+          const result = await SessionService.getAllSessions(user.uid, 50);
+          setSessions(result.sessions);
 
-        // Achievement persistence logic
-        const allAchievements = [
-          ...ACHIEVEMENTS.streaks,
-          ...ACHIEVEMENTS.words,
-          ...ACHIEVEMENTS.notes,
-          ...ACHIEVEMENTS.duration,
-        ];
+          const allAchievements = [
+            ...ACHIEVEMENTS.streaks,
+            ...ACHIEVEMENTS.words,
+            ...ACHIEVEMENTS.notes,
+            ...ACHIEVEMENTS.duration,
+          ];
 
-        const currentMetrics: Record<string, number> = {
-          streak: calculateStreak(result.sessions),
-          words: result.sessions.reduce((acc, s) => acc + s.wordCount, 0),
-          notes: result.sessions.length,
-          duration: result.sessions.reduce((acc, s) => Math.max(acc, s.duration / 60), 0),
-        };
+          const currentMetrics: Record<string, number> = {
+            streak: calculateStreak(result.sessions),
+            words: result.sessions.reduce((acc, s) => acc + s.wordCount, 0),
+            notes: result.sessions.length,
+            duration: result.sessions.reduce((acc, s) => Math.max(acc, s.duration / 60), 0),
+          };
 
-        const getMetricForAchievement = (id: string) => {
-          if (id.startsWith('streak_')) return currentMetrics.streak;
-          if (id.startsWith('words_')) return currentMetrics.words;
-          if (id.startsWith('notes_')) return currentMetrics.notes;
-          if (id.startsWith('duration_')) return currentMetrics.duration;
-          return 0;
-        };
+          const getMetricForAchievement = (id: string) => {
+            if (id.startsWith('streak_')) return currentMetrics.streak;
+            if (id.startsWith('words_')) return currentMetrics.words;
+            if (id.startsWith('notes_')) return currentMetrics.notes;
+            if (id.startsWith('duration_')) return currentMetrics.duration;
+            return 0;
+          };
 
-        const alreadyEarned = new Set(profile?.earnedAchievements || []);
-        const newlyEarned = allAchievements
-          .filter(a => !alreadyEarned.has(a.id) && getMetricForAchievement(a.id) >= a.threshold)
-          .map(a => a.id);
+          const alreadyEarned = new Set(profile?.earnedAchievements || []);
+          const newlyEarned = allAchievements
+            .filter(a => !alreadyEarned.has(a.id) && getMetricForAchievement(a.id) >= a.threshold)
+            .map(a => a.id);
 
-        if (newlyEarned.length > 0) {
-          const updated = [...alreadyEarned, ...newlyEarned];
-          await ProfileService.updateEarnedAchievements(user.uid, updated);
+          if (newlyEarned.length > 0) {
+            const updated = [...alreadyEarned, ...newlyEarned];
+            await ProfileService.updateEarnedAchievements(user.uid, updated);
+          }
         }
       } catch (err) {
         console.error('Profile load error:', err);
@@ -85,7 +114,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
 
     fetchSessions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user.uid, t]);
+  }, [userId, t]);
 
   const allTags = Array.from(new Set(sessions.flatMap(s => s.tags || [])));
   const currentStreak = calculateStreak(sessions);

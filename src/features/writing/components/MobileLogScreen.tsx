@@ -11,10 +11,10 @@ interface MobileLogScreenProps {
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
-function formatDuration(minutes: number): string {
+function formatDuration(minutes: number, t: (key: string) => string): string {
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes % 60);
-  return h > 0 ? `${h}ч ${pad(m)}м` : `${pad(m)}м`;
+  return h > 0 ? `${h}${t('unit_hour')} ${pad(m)}${t('unit_min')}` : `${pad(m)}${t('unit_min')}`;
 }
 
 function Sparkline({ groups }: { groups: { date: Date; sessions: Session[] }[] }) {
@@ -179,7 +179,7 @@ export function MobileLogScreen({ userId, onContinue }: MobileLogScreenProps) {
           fontFamily: 'Lora, Georgia, serif',
           marginBottom: 16,
         }}>
-          Life Log
+          {t('lifelog_tab_log')}
         </div>
 
         <div style={{
@@ -228,7 +228,7 @@ export function MobileLogScreen({ userId, onContinue }: MobileLogScreenProps) {
                   color: 'rgba(232,236,233,0.95)',
                   lineHeight: 1,
                 }}>
-                  {formatDuration(weekSummary.minutes)}
+                  {formatDuration(weekSummary.minutes, t)}
                 </div>
                 <div style={{
                   fontSize: 10,
@@ -386,7 +386,7 @@ export function MobileLogScreen({ userId, onContinue }: MobileLogScreenProps) {
                   }}>
                     <span>{session.wordCount} {t('home_words_short')}</span>
                     <span>·</span>
-                    <span>{formatDuration((session.duration || 0) / 60)}</span>
+                    <span>{formatDuration((session.duration || 0) / 60, t)}</span>
                     {session.isPublic && (
                       <>
                         <span>·</span>

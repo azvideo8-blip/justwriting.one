@@ -322,7 +322,7 @@ export const translations: Translations = {
   finish_storage_label: { ru: 'Сохранить в', en: 'Save to' },
   storage_cloud: { ru: 'Облако', en: 'Cloud' },
   storage_local: { ru: 'Устройство', en: 'Device' },
-  storage_both: { ru: 'Оба', en: 'Both' },
+  storage_both: { ru: 'Локально и облако', en: 'Local & Cloud' },
   storage_local_hint: { ru: 'Доступно только на этом устройстве', en: 'Available on this device only' },
   storage_both_hint: { ru: 'Сохранится и локально и в облаке', en: 'Saved both locally and in cloud' },
   settings_section_storage: { ru: 'Хранилище', en: 'Storage' },
@@ -331,6 +331,32 @@ export const translations: Translations = {
   settings_upload_all_cloud: { ru: 'Загрузить всё в облако', en: 'Upload all to cloud' },
   migration_upload_one: { ru: 'Загрузить в облако', en: 'Upload to cloud' },
   migration_download_one: { ru: 'Сохранить на устройство', en: 'Save to device' },
+
+  // Storage icons & delete
+  storage_remove_local: { ru: 'Удалить локальную копию', en: 'Remove local copy' },
+  storage_remove_cloud: { ru: 'Удалить облачную копию', en: 'Remove cloud copy' },
+  storage_no_local: { ru: 'Нет локальной копии', en: 'No local copy' },
+  storage_no_cloud: { ru: 'Нет облачной копии', en: 'No cloud copy' },
+  storage_confirm_delete_local: { ru: 'Удалить локальную копию?', en: 'Remove local copy?' },
+  storage_confirm_delete_cloud: { ru: 'Удалить облачную копию?', en: 'Remove cloud copy?' },
+  storage_confirm_delete_only: { ru: 'Удалить документ полностью?', en: 'Delete document completely?' },
+  storage_confirm_delete_local_hint: { ru: 'Останется только облачная версия', en: 'Only cloud version will remain' },
+  storage_confirm_delete_cloud_hint: { ru: 'Останется только локальная версия', en: 'Only local version will remain' },
+  storage_confirm_delete_only_hint: { ru: 'Документ будет удалён навсегда', en: 'Document will be permanently deleted' },
+  storage_delete_confirm: { ru: 'Удалить', en: 'Delete' },
+  storage_deleted_local: { ru: 'Локальная копия удалена', en: 'Local copy removed' },
+  storage_deleted_cloud: { ru: 'Облачная копия удалена', en: 'Cloud copy removed' },
+  storage_deleted_completely: { ru: 'Документ удалён', en: 'Document deleted' },
+
+  // Finish modal storage hint
+  finish_saving_to_local: { ru: 'Сохраняется на устройство', en: 'Saving to device' },
+  finish_saving_to_cloud: { ru: 'Сохраняется в облако', en: 'Saving to cloud' },
+  finish_saving_to_both: { ru: 'Сохраняется локально и в облако', en: 'Saving locally and to cloud' },
+  finish_change_in_settings: { ru: 'изменить', en: 'change' },
+
+  // Storage guest hints
+  storage_cloud_guest_hint: { ru: 'Войдите, чтобы сохранять в облако', en: 'Sign in to save to cloud' },
+  storage_sign_in_for_cloud: { ru: 'Войти для облака', en: 'Sign in for cloud' },
 
   // Offline
   offline_working_locally: { ru: 'Нет соединения — работаем локально', en: 'Offline — working locally' },

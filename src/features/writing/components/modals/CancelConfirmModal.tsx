@@ -43,7 +43,7 @@ export function CancelConfirmModal({
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="w-full max-w-sm rounded-3xl p-8 shadow-2xl space-y-6 text-center border bg-surface-card backdrop-blur-2xl border-border-subtle shadow-[0_0_40px_rgba(255,255,255,0.05)]"
+        className="w-full max-w-sm rounded-3xl p-8 shadow-2xl space-y-6 text-center border bg-surface-card backdrop-blur-2xl border-border-subtle shadow-[0_0_40px_rgba(255,255,255,0.05)] relative"
       >
         <button 
           onClick={onCancel}

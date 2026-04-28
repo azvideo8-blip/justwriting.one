@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FilePlus, FolderOpen, Save, Play, Pause, Square, Maximize, Minimize } from 'lucide-react';
+import { FilePlus, FolderOpen, Save, Play, Pause, Square, Maximize, Minimize, Flag } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 
@@ -124,8 +124,8 @@ export function Toolbar({
         <button
           onClick={onStop}
           disabled={status === 'idle'}
-          title={t('stop')}
-          aria-label={t('stop')}
+          title={status !== 'idle' ? t('header_finish') : t('stop')}
+          aria-label={status !== 'idle' ? t('header_finish') : t('stop')}
           className={cn(
             "w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl border flex items-center justify-center transition-all",
             status !== 'idle'
@@ -133,7 +133,15 @@ export function Toolbar({
               : "border-border-subtle/40 text-text-main/15 cursor-not-allowed"
           )}
         >
-          <Square size={14} className="sm:hidden" /><Square size={16} className="hidden sm:block" />
+          {status !== 'idle' ? (
+            <>
+              <Flag size={14} className="sm:hidden" /><Flag size={16} className="hidden sm:block" />
+            </>
+          ) : (
+            <>
+              <Square size={14} className="sm:hidden" /><Square size={16} className="hidden sm:block" />
+            </>
+          )}
         </button>
 
         <div className="w-px h-4 sm:h-5 bg-border-subtle mx-0.5" />
