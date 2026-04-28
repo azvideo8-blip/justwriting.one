@@ -4,11 +4,14 @@ import { User } from 'firebase/auth';
 import { format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { History, Search, LayoutGrid, LayoutList, BookOpen } from 'lucide-react';
-import { Session, UserProfile } from '../../../types';
+import { Session, UserProfile, Document } from '../../../types';
 import { SessionCard } from '../../writing/components/SessionCard';
 import { getSessionDate, cn } from '../../../core/utils/utils';
 import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
 import { LocalVersionService } from '../../writing/services/LocalVersionService';
+import { DocumentService } from '../../writing/services/DocumentService';
+import { VersionService } from '../../writing/services/VersionService';
+import { StorageService } from '../../writing/services/StorageService';
 import { getOrCreateGuestId } from '../../../shared/lib/localDb';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
 import { TagCloud } from '../../writing/components/TagCloud';
@@ -40,28 +43,77 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
 
     try {
       const localDocs = await LocalDocumentService.getGuestDocuments(userId);
-      const sessionsWithContent = await Promise.all(
-        localDocs.map(async (doc) => {
-          const content = await LocalVersionService.getLatestContent(doc.id);
-          return {
-            id: doc.id,
-            userId: doc.guestId,
-            authorName: '',
-            authorPhoto: '',
-            content,
-            duration: doc.totalDuration,
-            wordCount: doc.totalWords,
-            charCount: 0,
-            wpm: 0,
-            isPublic: false,
-            title: doc.title,
-            tags: doc.tags,
-            createdAt: new Date(doc.lastSessionAt),
-            _isLocal: true,
-          } as Session & { _isLocal?: boolean };
-        })
-      );
-      setSessions(sessionsWithContent);
+      const localById = new Set(localDocs.map(d => d.id));
+      const localByCloudId = new Set(localDocs.filter(d => d.linkedCloudId).map(d => d.linkedCloudId!));
+
+      const allSessions: Session[] = [];
+
+      for (const doc of localDocs) {
+        const content = await LocalVersionService.getLatestContent(doc.id);
+        allSessions.push({
+          id: doc.id,
+          userId: doc.guestId,
+          authorName: '',
+          authorPhoto: '',
+          content,
+          duration: doc.totalDuration,
+          wordCount: doc.totalWords,
+          charCount: 0,
+          wpm: 0,
+          isPublic: false,
+          title: doc.title,
+          tags: doc.tags,
+          createdAt: new Date(doc.lastSessionAt),
+          _isLocal: true,
+        });
+      }
+
+      if (user) {
+        try {
+          const cloudDocs = await DocumentService.getUserDocuments(userId);
+          for (const cloudDoc of cloudDocs) {
+            if (localByCloudId.has(cloudDoc.id)) continue;
+
+            let localId: string | undefined;
+            try {
+              localId = await StorageService.addLocalCopy(userId, cloudDoc.id);
+            } catch (e) {
+              console.error(`Failed to import cloud doc ${cloudDoc.id}:`, e);
+            }
+
+            const content = localId
+              ? await LocalVersionService.getLatestContent(localId)
+              : '';
+
+            allSessions.push({
+              id: localId || cloudDoc.id,
+              userId: user.uid,
+              authorName: '',
+              authorPhoto: '',
+              content,
+              duration: cloudDoc.totalDuration,
+              wordCount: cloudDoc.totalWords,
+              charCount: 0,
+              wpm: 0,
+              isPublic: cloudDoc.isPublic,
+              title: cloudDoc.title,
+              tags: cloudDoc.tags,
+              createdAt: (cloudDoc.lastSessionAt as { toDate?: () => Date }).toDate?.() ?? new Date(),
+              _isLocal: !!localId,
+            });
+          }
+        } catch (e) {
+          console.error('Failed to fetch cloud docs for archive:', e);
+        }
+      }
+
+      allSessions.sort((a, b) => {
+        const da = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+        const db = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+        return db - da;
+      });
+
+      setSessions(allSessions);
     } catch (err) {
       console.error('Archive load error:', err);
       setError(t('archive_load_error'));

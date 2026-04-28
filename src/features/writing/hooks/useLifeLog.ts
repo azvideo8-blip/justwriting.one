@@ -204,15 +204,34 @@ export function useLifeLog(userId: string, isGuest?: boolean): UseLifeLogReturn 
   };
 
   const sessionGroups = useMemo(() => {
-    const documentTitles = new Set(unifiedDocuments.map(d => d.title).filter(Boolean));
-    const dedupedSessions = sessions.filter(s => !documentTitles.has(s.title || ''));
-
     const groups = new Map<string, SessionGroup>();
     const yesterday = new Date(startOfToday);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    dedupedSessions.forEach(session => {
-      const date = parseFirestoreDate(session.createdAt);
+    const docSessions = unifiedDocuments.map(d => ({
+      id: d.localId || d.cloudId || '',
+      userId: '',
+      authorName: '',
+      authorPhoto: '',
+      content: '',
+      duration: d.totalDuration,
+      wordCount: d.totalWords,
+      charCount: 0,
+      wpm: 0,
+      isPublic: false,
+      title: d.title,
+      tags: d.tags,
+      createdAt: new Date(d.lastSessionAt),
+      _isLocal: !!d.localId,
+    } as Session));
+
+    const documentTitles = new Set(unifiedDocuments.map(d => d.title).filter(Boolean));
+    const dedupedSessions = sessions.filter(s => !documentTitles.has(s.title || ''));
+
+    const allEntries = [...docSessions, ...dedupedSessions];
+
+    allEntries.forEach(entry => {
+      const date = parseFirestoreDate(entry.createdAt);
       if (!date) return;
 
       const sessionDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -235,13 +254,13 @@ export function useLifeLog(userId: string, isGuest?: boolean): UseLifeLogReturn 
 
       const existing = groups.get(key);
       if (existing) {
-        existing.sessions.push(session);
+        existing.sessions.push(entry);
       }
     });
 
     return Array.from(groups.values())
       .sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [sessions, startOfToday, t, language]);
+  }, [sessions, unifiedDocuments, startOfToday, t, language]);
 
   return {
     sessionGroups,
