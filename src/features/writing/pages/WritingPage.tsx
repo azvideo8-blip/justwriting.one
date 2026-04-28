@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { useWritingStore } from '../store/useWritingStore';
-import { Session, UserProfile, SessionPayload } from '../../../types';
+import { Session, UserProfile } from '../../../types';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useSettings } from '../../../core/settings/SettingsContext';
 import { cn } from '../../../core/utils/utils';
@@ -37,13 +37,11 @@ import { SyncService } from '../services/SyncService';
 import { useToast } from '../../../shared/components/Toast';
 
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
-import { useServiceAction } from '../hooks/useServiceAction';
-import { UnifiedSessionService } from '../services/UnifiedSessionService';
-import { useSessionSource } from '../hooks/useSessionSource';
-import { LocalDocumentService } from '../services/LocalDocumentService';
+import { StorageService } from '../services/StorageService';
+import { LocalVersionService } from '../services/LocalVersionService';
 import { z } from 'zod';
 import { SaveData } from '../WritingFinishModal';
-import { getOrCreateGuestId } from '../../../shared/lib/localDb';
+import { LifeLogDocument } from '../hooks/useLifeLog';
 
 import { useGuestWritingSession, GuestSessionReturn } from '../hooks/useGuestWritingSession';
 import { useCloudWritingSession, CloudSessionReturn } from '../hooks/useCloudWritingSession';
@@ -83,6 +81,14 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
 
   const timeGoalReached = useWritingStore(s => s.timeGoalReached);
   const wordGoalReached = useWritingStore(s => s.wordGoalReached);
+  const timerDurationVal = useWritingStore(s => s.timerDuration);
+  const setTimerDurationVal = useWritingStore(s => s.setTimerDuration);
+  const wordGoalVal = useWritingStore(s => s.wordGoal);
+  const setWordGoalVal = useWritingStore(s => s.setWordGoal);
+  const targetTimeVal = useWritingStore(s => s.targetTime);
+  const setTargetTimeVal = useWritingStore(s => s.setTargetTime);
+  const encryptionPasswordVal = useWritingStore(s => s.encryptionPassword);
+  const setEncryptionPasswordVal = useWritingStore(s => s.setEncryptionPassword);
 
   const sessionStatus = session.status;
   const setSessionStatus = session.setStatus;
@@ -109,7 +115,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     targetTime, setTargetTime,
     hasDraft,
     saveStatus, lastSavedAt,
-    handleStart: hookHandleStart, handleSave: hookHandleSave, handleCancel, resetSessionMetadata,
+    handleStart: hookHandleStart, handleCancel, resetSessionMetadata,
     isOnline,
     fetchLocalSessions,
     loadLocalSession,
@@ -125,9 +131,9 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     lifeLogEnabled,
     lifeLogVisible, setLifeLogVisible,
     lifeLogTab, setLifeLogTab,
-    lifeLogPinned, setLifeLogPinned
+    lifeLogPinned, setLifeLogPinned,
+    autoSync,
   } = useWritingSettings();
-  const source = useSessionSource();
   const isBrowserOnline = useOnlineStatus();
 
   useEffect(() => {
@@ -136,10 +142,8 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     }
   }, [isBrowserOnline, isGuest, userId]);
 
-  const effectiveSource = !isBrowserOnline && source !== 'local' ? 'local' : source;
   const showZen = isZenActive && zenModeEnabled;
   const { showToast } = useToast();
-  const { execute: svcExecute } = useServiceAction();
 
   const flow = useSessionFlow(
     hookHandleStart, sessionStatus, sessionType, setSessionType,
@@ -174,6 +178,30 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     decryptSession
   });
 
+  const handleContinueDocument = React.useCallback(async (doc: LifeLogDocument) => {
+    try {
+      const docId = doc.localId || doc.cloudId || '';
+      const content = docId ? await LocalVersionService.getLatestContent(docId) : '';
+
+      useWritingStore.setState({
+        content,
+        title: doc.title,
+        wordCount: doc.totalWords,
+        savedDocumentId: docId,
+        wpm: 0,
+        wordSnapshots: [],
+        lastWordCount: 0,
+      });
+
+      useWritingStore.getState().setSessionStart();
+      setSessionStatus('writing');
+      setLifeLogVisible(false);
+    } catch (err) {
+      console.error('Failed to load document:', err);
+      showToast(t('error_load_failed'), 'error');
+    }
+  }, [setSessionStatus, setLifeLogVisible, showToast, t]);
+
   const handleContinueSession = React.useCallback(async (session: Session) => {
     try {
       await continueSession(session);
@@ -190,6 +218,14 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       showToast(t('error_continue_session'));
     }
   }, [continueSession, setSessionStatus, flow, showToast, t]);
+
+  const handleContinueSessionOrDoc = React.useCallback(async (sessionOrDoc: Session | LifeLogDocument) => {
+    if ('totalWords' in sessionOrDoc && 'localId' in sessionOrDoc) {
+      await handleContinueDocument(sessionOrDoc as LifeLogDocument);
+    } else {
+      await handleContinueSession(sessionOrDoc as Session);
+    }
+  }, [handleContinueDocument, handleContinueSession]);
 
   const [firstVisit, setFirstVisit] = useLocalStorage('first-visit', true, z.boolean());
 
@@ -233,22 +269,24 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     return streak;
   }, [lifeLogGroups]);
 
-  const handleSave = React.useCallback(async () => {
-    if (sessionStatus === 'idle' || wordCount === 0) return;
+  const handleSave = React.useCallback(async (data: SaveData) => {
     if (savingRef.current) return;
     savingRef.current = true;
+
     try {
       const state = useWritingStore.getState();
-      const sessionSeconds = state.accumulatedDuration + (state.seconds - state.sessionStartSeconds);
+      const sessionSeconds = state.accumulatedDuration +
+        Math.max(0, state.seconds - state.sessionStartSeconds);
+
       const saveData = {
-        title: state.title || '',
+        title: data.title || state.title || '',
         content: state.content,
         wordCount: state.wordCount,
         duration: sessionSeconds,
         wpm: state.wpm,
-        isPublic: isPublic,
-        tags: tags,
-        labelId: state.labelId,
+        isPublic: data.isPublic,
+        tags: data.tags,
+        labelId: data.labelId,
         goalWords: state.wordGoal > 0 ? state.wordGoal : undefined,
         goalTime: state.timerDuration > 0 ? state.timerDuration : undefined,
         goalReached: state.wordGoal > 0 && state.wordCount >= state.wordGoal,
@@ -256,89 +294,41 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       };
 
       const existingDocId = state.savedDocumentId;
+
       if (existingDocId) {
-        await UnifiedSessionService.saveAsVersion(userId, existingDocId, saveData, effectiveSource);
+        await StorageService.saveVersion(userId, existingDocId, saveData);
       } else {
-        const result = await UnifiedSessionService.saveAsNewDocument(userId, saveData, effectiveSource);
-        useWritingStore.getState().setSavedDocumentId(result.documentId);
+        const result = await StorageService.saveNew(userId, saveData);
+        useWritingStore.getState().setSavedDocumentId(result.localId);
       }
 
+      try {
+        if (isGuest) {
+          localStorage.removeItem('jw_guest_draft');
+        } else {
+          await WritingDraftService.deleteDraft(userId);
+        }
+      } catch {}
+
       await refreshDocuments();
-      refreshLifeLog();
-      showToast(t('save_success'), 'success');
+      await refreshLifeLog();
+      useWritingStore.getState().finishSession();
+
+      if (!isGuest && autoSync) {
+        const docId = existingDocId || useWritingStore.getState().savedDocumentId;
+        if (docId) {
+          SyncService.maybeSyncAfterSave(userId, docId, autoSync)
+            .then(() => refreshLifeLog())
+            .catch(console.error);
+        }
+      }
     } catch (e) {
       console.error('Save failed:', e);
-      showToast(t('save_error'), 'error');
+      showToast(t('error_save_failed'), 'error');
     } finally {
       savingRef.current = false;
     }
-  }, [sessionStatus, wordCount, userId, isPublic, tags, isGuest, effectiveSource, showToast, t, refreshDocuments, refreshLifeLog]);
-
-  const handleSaveAsNewDocument = React.useCallback(async (data: SaveData) => {
-    const state = useWritingStore.getState();
-    const sessionSeconds = state.accumulatedDuration + (state.seconds - state.sessionStartSeconds);
-
-    const result = await UnifiedSessionService.saveAsNewDocument(userId, {
-      title: data.title,
-      content: state.content,
-      wordCount: state.wordCount,
-      duration: sessionSeconds,
-      wpm: state.wpm,
-      isPublic: data.isPublic,
-      tags: data.tags,
-      labelId: data.labelId,
-      goalWords: state.wordGoal > 0 ? state.wordGoal : undefined,
-      goalTime: state.timerDuration > 0 ? state.timerDuration : undefined,
-      goalReached: state.wordGoal > 0 && state.wordCount >= state.wordGoal,
-      sessionStartedAt: new Date(Date.now() - sessionSeconds * 1000),
-    }, effectiveSource);
-
-    useWritingStore.getState().setSavedDocumentId(result.documentId);
-
-    try {
-      if (isGuest) {
-        localStorage.removeItem('jw_guest_draft');
-      } else {
-        await WritingDraftService.deleteDraft(userId);
-      }
-    } catch {}
-
-    await refreshDocuments();
-    refreshLifeLog();
-    useWritingStore.getState().finishSession();
-  }, [userId, refreshDocuments, effectiveSource, isGuest, refreshLifeLog]);
-
-  const handleSaveAsVersion = React.useCallback(async (documentId: string, data: SaveData) => {
-    const state = useWritingStore.getState();
-    const sessionSeconds = state.accumulatedDuration + (state.seconds - state.sessionStartSeconds);
-
-    await UnifiedSessionService.saveAsVersion(userId, documentId, {
-      title: data.title,
-      content: state.content,
-      wordCount: state.wordCount,
-      duration: sessionSeconds,
-      wpm: state.wpm,
-      isPublic: data.isPublic,
-      tags: data.tags,
-      labelId: data.labelId,
-      goalWords: state.wordGoal > 0 ? state.wordGoal : undefined,
-      goalTime: state.timerDuration > 0 ? state.timerDuration : undefined,
-      goalReached: state.wordGoal > 0 && state.wordCount >= state.wordGoal,
-      sessionStartedAt: new Date(Date.now() - sessionSeconds * 1000),
-    }, effectiveSource);
-
-    try {
-      if (isGuest) {
-        localStorage.removeItem('jw_guest_draft');
-      } else {
-        await WritingDraftService.deleteDraft(userId);
-      }
-    } catch {}
-
-    await refreshDocuments();
-    refreshLifeLog();
-    useWritingStore.getState().finishSession();
-  }, [userId, effectiveSource, refreshDocuments, isGuest, refreshLifeLog]);
+  }, [userId, isGuest, refreshDocuments, refreshLifeLog, showToast, t, autoSync]);
 
   const handlePlay = React.useCallback(() => {
     if (sessionStatus === 'idle') {
@@ -350,15 +340,15 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     }
   }, [sessionStatus, hookHandleStart]);
 
-  const handlePause = () => {
+  const handlePause = React.useCallback(() => {
     if (sessionStatus !== 'writing') return;
     useWritingStore.getState().setStatus('paused');
-  };
+  }, [sessionStatus]);
 
-  const handleStop = () => {
+  const handleStop = React.useCallback(() => {
     if (sessionStatus === 'idle') return;
-    handleFinish();
-  };
+    setSessionStatus('finished');
+  }, [sessionStatus, setSessionStatus]);
 
   const handlePlayRef = React.useRef(handlePlay);
   const handlePauseRef = React.useRef(handlePause);
@@ -389,7 +379,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sessionStatus, handleSave]);
+  }, [sessionStatus]);
 
   const handleAutoStartKey = React.useCallback((e: KeyboardEvent) => {
     if (sessionStatus !== 'idle') return;
@@ -403,32 +393,31 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     return () => window.removeEventListener('keydown', handleAutoStartKey);
   }, [handleAutoStartKey]);
 
-  const fetchAllSessions = async () => {
+  const fetchAllSessions = React.useCallback(async () => {
     await fetchSessions();
     flow.setSetupMode('session-selection');
-  };
+  }, [fetchSessions, flow]);
 
-  const handleNewSession = () => {
+  const handleNewSession = React.useCallback(() => {
     resetSessionMetadata();
     flow.setSetupMode('selection');
-  };
+  }, [resetSessionMetadata, flow]);
 
-  const handleNew = () => {
-    const state = useWritingStore.getState();
-    if (state.wordCount > 0 && state.status !== 'idle') {
+  const handleNew = React.useCallback(() => {
+    if (wordCount > 0 && sessionStatus !== 'idle') {
       flow.setShowCancelConfirm(true);
       return;
     }
     useWritingStore.getState().resetSession();
     useWritingStore.setState({ title: '', content: '' });
-  };
+  }, [wordCount, sessionStatus, flow]);
 
-  const handleOpen = async () => {
+  const handleOpen = React.useCallback(async () => {
     await fetchSessions();
     setLifeLogVisible(true);
-  };
+  }, [fetchSessions, setLifeLogVisible]);
 
-  const handleFinish = () => setSessionStatus('finished');
+  const handleFinish = React.useCallback(() => setSessionStatus('finished'), [setSessionStatus]);
 
   const LIFE_LOG_WIDTH = 380;
   const isMobile = layoutMode !== 'desktop';
@@ -459,18 +448,13 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       />
       <WritingFinishModal 
         isOpen={sessionStatus === 'finished'}
-        title={title} setTitle={setTitle}
-        sessionType={sessionType} wordCount={wordCount} duration={seconds}
         isPublic={isPublic} setIsPublic={setIsPublic}
         isAnonymous={isAnonymous} setIsAnonymous={setIsAnonymous}
         tags={tags} setTags={setTags}
         labelId={labelId} setLabelId={setLabelId}
         labels={profile?.labels || []}
-        isLocalOnly={isLocalOnly}
-        existingDocuments={documents}
-        onSaveAsNew={handleSaveAsNewDocument}
-        onSaveAsVersion={handleSaveAsVersion}
-        effectiveSource={effectiveSource}
+        isGuest={isGuest}
+        onSave={handleSave}
       />
       <FlowPulse />
     </>
@@ -486,7 +470,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
             sessionGroups={lifeLogGroups}
             summary={lifeLogSummary}
             onStart={handlePlay}
-            onContinue={handleContinueSession}
+            onContinue={handleContinueSessionOrDoc}
           />
           {sharedOverlays}
         </>
@@ -512,7 +496,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       className="w-full transition-colors duration-1000"
     >
       <>
-        <ConnectionStatusBanner isOnline={isOnline} showZen={showZen} />
+        <ConnectionStatusBanner showZen={showZen} userId={userId} />
         {sharedOverlays}
 
         <div
@@ -576,19 +560,19 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
                   setupMode={flow.setupMode}
                   setSetupMode={flow.setSetupMode}
                   startCountdown={flow.startCountdown}
-                  timerDuration={useWritingStore.getState().timerDuration}
-                  setTimerDuration={v => useWritingStore.getState().setTimerDuration(v)}
-                  wordGoal={useWritingStore.getState().wordGoal}
-                  setWordGoal={v => useWritingStore.getState().setWordGoal(v)}
-                  targetTime={useWritingStore.getState().targetTime}
-                  setTargetTime={v => useWritingStore.getState().setTargetTime(v)}
+                  timerDuration={timerDurationVal}
+                  setTimerDuration={setTimerDurationVal}
+                  wordGoal={wordGoalVal}
+                  setWordGoal={setWordGoalVal}
+                  targetTime={targetTimeVal}
+                  setTargetTime={setTargetTimeVal}
                   countdown={flow.countdown}
                   userSessions={userSessions}
                   continueSession={handleContinueSession}
                   isLocalOnly={isLocalOnly}
                   setIsLocalOnly={setIsLocalOnly}
-                  encryptionPassword={useWritingStore.getState().encryptionPassword || ''}
-                  setEncryptionPassword={v => useWritingStore.getState().setEncryptionPassword(v)}
+                  encryptionPassword={encryptionPasswordVal || ''}
+                  setEncryptionPassword={setEncryptionPasswordVal}
                 />
               ) : (
               <WritingEditor 
@@ -628,7 +612,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
               {lifeLogVisible && (
                 <LifeLogPanel 
                   userId={userId} 
-                  onContinueSession={handleContinueSession} 
+                  onContinueSession={handleContinueSessionOrDoc} 
                   onClose={() => { if (!lifeLogPinned) setLifeLogVisible(false); }} 
                   activeTab={lifeLogTab}
                   onTabChange={setLifeLogTab}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Session } from '../../../types';
 import { useWritingStore } from '../store/useWritingStore';
 import { SetupMode } from '../WritingSetup';
@@ -38,9 +38,19 @@ export function useSessionContinue({
     reject: () => void;
   } | null>(null);
 
-  const continueSession = async (session: Session) => {
-    const isLocal = (session as Session & { _isLocal?: boolean; isLocal?: boolean })._isLocal
-      || (session as Session & { isLocal?: boolean }).isLocal;
+  const passwordPromptRef = useRef(passwordPrompt);
+  passwordPromptRef.current = passwordPrompt;
+
+  useEffect(() => {
+    return () => {
+      if (passwordPromptRef.current) {
+        passwordPromptRef.current.reject();
+      }
+    };
+  }, []);
+
+  const continueSession = useCallback(async (session: Session) => {
+    const isLocal = session._isLocal;
     if (isLocal) {
       let loaded = await loadLocalSession(session.id);
 
@@ -106,21 +116,21 @@ export function useSessionContinue({
     setIsAnonymous(session.isAnonymous || false);
     setIsLocalOnly(false);
     setSetupMode('selection');
-  };
+  }, [setSetupMode, setIsLocalOnly, setActiveSessionId, setTags, setIsPublic, setIsAnonymous, loadLocalSession, decryptSession]);
 
-  const handlePromptSubmit = (password: string) => {
+  const handlePromptSubmit = useCallback((password: string) => {
     if (passwordPrompt) {
       passwordPrompt.resolve(password);
       setPasswordPrompt(null);
     }
-  };
+  }, [passwordPrompt]);
 
-  const handlePromptCancel = () => {
+  const handlePromptCancel = useCallback(() => {
     if (passwordPrompt) {
       passwordPrompt.reject();
       setPasswordPrompt(null);
     }
-  };
+  }, [passwordPrompt]);
 
   return { continueSession, passwordPrompt, handlePromptSubmit, handlePromptCancel };
 }

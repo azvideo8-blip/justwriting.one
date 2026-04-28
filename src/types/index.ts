@@ -25,6 +25,7 @@ export interface Session {
   inkblots?: { id: string; index: number; color: string; timestamp: number }[];
   sessionStartTime?: number;
   createdAt: Timestamp | Date;
+  _isLocal?: boolean;
 }
 
 export interface SessionPayload {

@@ -6,21 +6,18 @@ import { ru, enUS } from 'date-fns/locale';
 import { History, Search, LayoutGrid, LayoutList, BookOpen } from 'lucide-react';
 import { Session, UserProfile } from '../../../types';
 import { SessionCard } from '../../writing/components/SessionCard';
-import { Calendar } from '../../calendar/components/Calendar';
 import { getSessionDate, cn } from '../../../core/utils/utils';
-import { SessionService } from '../../writing/services/SessionService';
 import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
 import { LocalVersionService } from '../../writing/services/LocalVersionService';
 import { getOrCreateGuestId } from '../../../shared/lib/localDb';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
 import { TagCloud } from '../../writing/components/TagCloud';
+import { Calendar } from '../../calendar/components/Calendar';
 import { useLanguage } from '../../../core/i18n';
 import { useArchiveFilters } from '../hooks/useArchiveFilters';
 import { useArchiveSearch } from '../hooks/useArchiveSearch';
 import { useNavigate } from 'react-router-dom';
 import { EmptyState } from '../../../shared/components/EmptyState';
-
-import { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 
 interface ArchiveViewProps {
   user: User | null;
@@ -30,68 +27,46 @@ interface ArchiveViewProps {
 export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const { t, language } = useLanguage();
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData, DocumentData> | null>(null);
-  const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const isGuest = !user;
 
   const userId = user?.uid ?? getOrCreateGuestId();
 
   const fetchSessions = async (isInitial = false) => {
-    if (isInitial) {
-      setLoading(true);
-    } else {
-      setLoadingMore(true);
-    }
+    if (!isInitial) return;
+    setLoading(true);
     setError(null);
 
     try {
-      if (isGuest) {
-        const localDocs = await LocalDocumentService.getGuestDocuments(userId);
-        const sessionsWithContent = await Promise.all(
-          localDocs.map(async (doc) => {
-            const content = await LocalVersionService.getLatestContent(doc.id);
-            return {
-              id: doc.id,
-              userId: doc.guestId,
-              authorName: '',
-              authorPhoto: '',
-              content,
-              duration: doc.totalDuration,
-              wordCount: doc.totalWords,
-              charCount: 0,
-              wpm: 0,
-              isPublic: false,
-              title: doc.title,
-              tags: doc.tags,
-              createdAt: new Date(doc.lastSessionAt),
-              _isLocal: true,
-            } as Session & { _isLocal?: boolean };
-          })
-        );
-        setSessions(sessionsWithContent);
-        setHasMore(false);
-      } else {
-        const result = await SessionService.getAllSessions(user.uid, 20, isInitial ? undefined : lastDoc);
-        
-        if (isInitial) {
-          setSessions(result.sessions);
-        } else {
-          setSessions(prev => [...prev, ...result.sessions]);
-        }
-        
-        setLastDoc(result.lastDoc);
-        setHasMore(result.sessions.length === 20);
-      }
+      const localDocs = await LocalDocumentService.getGuestDocuments(userId);
+      const sessionsWithContent = await Promise.all(
+        localDocs.map(async (doc) => {
+          const content = await LocalVersionService.getLatestContent(doc.id);
+          return {
+            id: doc.id,
+            userId: doc.guestId,
+            authorName: '',
+            authorPhoto: '',
+            content,
+            duration: doc.totalDuration,
+            wordCount: doc.totalWords,
+            charCount: 0,
+            wpm: 0,
+            isPublic: false,
+            title: doc.title,
+            tags: doc.tags,
+            createdAt: new Date(doc.lastSessionAt),
+            _isLocal: true,
+          } as Session & { _isLocal?: boolean };
+        })
+      );
+      setSessions(sessionsWithContent);
     } catch (err) {
       console.error('Archive load error:', err);
       setError(t('archive_load_error'));
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
   };
 
@@ -142,13 +117,13 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
         <div className="flex flex-col md:flex-row gap-8 items-start">
           {/* Sidebar — appears first on mobile via order-first, second on desktop */}
           <div className="w-full md:w-80 shrink-0 space-y-8 order-first md:order-last">
-            <Calendar 
-              sessions={sessions} 
-              selectedDate={selectedDate || new Date()} 
-              onSelectDate={(d) => { setSelectedDate(d); setSelectedMonth(null); }} 
-              onSelectMonth={(m) => { setSelectedMonth(m); setSelectedDate(null); }}
+            <Calendar
+              sessions={sessions}
+              selectedDate={selectedDate ?? new Date()}
+              onSelectDate={setSelectedDate}
+              onSelectMonth={setSelectedMonth}
             />
-            
+
             <div className="p-6 rounded-3xl space-y-4 transition-all bg-surface-card backdrop-blur-xl border border-border-subtle">
               <div className="flex items-center gap-2 border-b pb-2 border-border-subtle">
                 <Search size={18} className="text-text-main/50" />
@@ -241,20 +216,8 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                       </div>
                     </div>
                   ))
-                )}
-
-                {hasMore && !loading && !error && (
-                  <div className="flex justify-center pt-8">
-                    <button
-                      onClick={() => fetchSessions(false)}
-                      disabled={loadingMore}
-                      className="px-8 py-3 rounded-2xl font-bold transition-all disabled:opacity-50 bg-text-main text-surface-base shadow-lg"
-                    >
-                      {loadingMore ? t('archive_loading_more') : t('archive_load_more')}
-                    </button>
-                  </div>
-                )}
-              </div>
+                 )}
+               </div>
             </div>
         </div>
       </motion.div>

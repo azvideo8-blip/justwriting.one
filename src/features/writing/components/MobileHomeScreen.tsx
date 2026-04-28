@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLanguage } from '../../../core/i18n';
 import { Session } from '../../../types';
-import type { SessionGroup, DailySummary } from '../hooks/useLifeLog';
+import type { SessionGroup, DailySummary, LifeLogDocument } from '../hooks/useLifeLog';
 
 interface MobileHomeScreenProps {
   userId: string;
@@ -9,7 +9,7 @@ interface MobileHomeScreenProps {
   sessionGroups: SessionGroup[];
   summary: DailySummary;
   onStart: () => void;
-  onContinue: (session: Session) => void;
+  onContinue: (session: Session | LifeLogDocument) => void;
 }
 
 function getGreeting(t: (key: string) => string): { top: string; bottom: string } {

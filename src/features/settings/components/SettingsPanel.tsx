@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, HardDrive, Cloud, Layers } from 'lucide-react';
+import { X, Cloud, LogIn } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme/ThemeProvider';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
-import { useWritingSettings, SessionSource } from '../../writing/contexts/WritingSettingsContext';
+import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
 import { useServiceAction } from '../../writing/hooks/useServiceAction';
+import { useToast } from '../../../shared/components/Toast';
 import { ProfileService } from '../../profile/services/ProfileService';
-import { MigrationService } from '../../writing/services/MigrationService';
+import { SyncService } from '../../writing/services/SyncService';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
-import { getOrCreateGuestId } from '../../../shared/lib/localDb';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { cn } from '../../../core/utils/utils';
@@ -29,16 +29,18 @@ interface SettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
   userId: string;
+  onRefreshLifeLog?: () => void;
 }
 
-export function SettingsPanelContent({ userId }: { userId: string }) {
+export function SettingsPanelContent({ userId, onRefreshLifeLog }: { userId: string; onRefreshLifeLog?: () => void }) {
   const [activeTab, setActiveTab] = useState<Tab>('editor');
   const { t, language, setLanguage } = useLanguage();
   const { themeId, setThemeId, themes } = useTheme();
   const { layoutMode, setLayoutMode } = useLayoutMode();
   const [confirmReset, setConfirmReset] = useState(false);
-  const { isAuthenticated } = useAuthStatus();
+  const { isAuthenticated, isGuest } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
+  const { showToast } = useToast();
 
   const {
     fontFamily, setFontFamily,
@@ -49,7 +51,7 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
     headerVisibility, toggleVisibility,
     showTitle, setShowTitle,
     showPinnedThoughts, setShowPinnedThoughts,
-    storagePreference, setStoragePreference,
+    autoSync, setAutoSync,
     } = useWritingSettings();
 
   const { execute } = useServiceAction();
@@ -61,6 +63,20 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
   ];
 
   const fonts = ['Inter', 'Playfair Display', 'JetBrains Mono', 'Cormorant Garamond'];
+
+  const handleSyncNow = async () => {
+    try {
+      const result = await SyncService.syncAllUnlinked(userId);
+      if (result.failed > 0) {
+        showToast(t('admin_import_failed', { count: result.failed }), 'error');
+      } else {
+        showToast(t('offline_synced'), 'success');
+      }
+      onRefreshLifeLog?.();
+    } catch {
+      showToast(t('error_generic_action'), 'error');
+    }
+  };
 
   return (
     <div className="flex flex-col h-full w-full">
@@ -214,64 +230,38 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
 
             {/* Storage */}
             <Section title={t('settings_section_storage')}>
-              <div className="flex flex-col gap-2">
-                {([
-                  { value: 'cloud' as SessionSource, icon: <Cloud size={13} />, label: t('storage_cloud'), needsAuth: true },
-                  { value: 'local' as SessionSource, icon: <HardDrive size={13} />, label: t('storage_local'), needsAuth: false },
-                  { value: 'both' as SessionSource, icon: <Layers size={13} />, label: t('storage_both'), needsAuth: true },
-                ]).map(opt => {
-                  const disabled = opt.needsAuth && !isAuthenticated;
-                  return (
-                    <button
-                      key={opt.value}
-                      onClick={() => {
-                        if (disabled) { openLoginModal(); return; }
-                        setStoragePreference(opt.value);
-                      }}
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm transition-all text-left",
-                        storagePreference === opt.value && !disabled
-                          ? "border-text-main bg-text-main text-surface-base"
-                          : disabled
-                            ? "border-border-subtle text-text-main/30 cursor-pointer hover:text-text-main/50"
-                            : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
-                      )}
-                    >
-                      {opt.icon}
-                      <span className="flex-1">{opt.label}</span>
-                      {disabled && (
-                        <span className="text-[10px] text-text-main/30 underline">{t('storage_sign_in_for_cloud')}</span>
-                      )}
-                    </button>
-                  );
-                })}
+              <div className="text-[11px] text-text-main/40 mb-3 px-1">
+                {t('settings_storage_hint')}
               </div>
-              {!isAuthenticated && (
-                <p className="text-[11px] text-text-main/30 px-1">{t('storage_cloud_guest_hint')}</p>
-              )}
+
               {isAuthenticated && (
                 <>
+                  <ToggleRow
+                    emoji="☁️"
+                    label={t('settings_auto_sync')}
+                    value={autoSync}
+                    onChange={() => setAutoSync(!autoSync)}
+                  />
+                  <p className="text-[11px] text-text-main/40 px-1">{t('settings_auto_sync_hint')}</p>
+
                   <button
-                    onClick={() => execute(
-                      () => MigrationService.downloadAllToLocal(userId),
-                      { successMessage: t('save_success'), errorMessage: t('error_generic_action') }
-                    )}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-all"
-                  >
-                    <HardDrive size={14} />
-                    {t('settings_download_all_local')}
-                  </button>
-                  <button
-                    onClick={() => execute(
-                      () => MigrationService.migrateAllToCloud(getOrCreateGuestId(), userId),
-                      { successMessage: t('save_success'), errorMessage: t('error_generic_action') }
-                    )}
+                    onClick={handleSyncNow}
                     className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-all"
                   >
                     <Cloud size={14} />
-                    {t('settings_upload_all_cloud')}
+                    {t('settings_sync_now')}
                   </button>
                 </>
+              )}
+
+              {isGuest && (
+                <button
+                  onClick={openLoginModal}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-border-subtle text-sm text-text-main/40 hover:text-text-main transition-all"
+                >
+                  <LogIn size={14} />
+                  {t('storage_sign_in_for_cloud')}
+                </button>
               )}
             </Section>
 
@@ -393,7 +383,7 @@ export function SettingsPanelContent({ userId }: { userId: string }) {
   );
 }
 
-export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
+export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog }: SettingsPanelProps) {
   const { t } = useLanguage();
 
   return (
@@ -428,7 +418,7 @@ export function SettingsPanel({ isOpen, onClose, userId }: SettingsPanelProps) {
               </button>
             </div>
 
-            <SettingsPanelContent userId={userId} />
+            <SettingsPanelContent userId={userId} onRefreshLifeLog={onRefreshLifeLog} />
           </motion.div>
         </>
       )}

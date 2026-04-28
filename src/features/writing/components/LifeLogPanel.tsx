@@ -4,12 +4,12 @@ import { cn, parseFirestoreDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 import { useLifeLog, LifeLogDocument } from '../hooks/useLifeLog';
 import { Session } from '../../../types';
-import { formatTime } from '../../../core/utils/formatTime';
 import { LocalVersionService } from '../services/LocalVersionService';
 import { SettingsPanelContent } from '../../settings/components/SettingsPanel';
 import { CancelConfirmModal } from './modals/CancelConfirmModal';
 import { SessionService } from '../services/SessionService';
 import { StorageService } from '../services/StorageService';
+import { LocalDocumentService } from '../services/LocalDocumentService';
 import { useServiceAction } from '../hooks/useServiceAction';
 import { useToast } from '../../../shared/components/Toast';
 import { X, Pin, Trash2, Cloud, HardDrive } from 'lucide-react';
@@ -86,7 +86,10 @@ const SessionItem: React.FC<SessionItemProps> = ({ session, isActive, onClick, o
       </div>
       <div className="flex items-center gap-1.5">
           <span className="text-xs text-text-muted">
-            {session.wordCount} {t('lifelog_words_short')} · {formatTime(session.duration || 0)}
+            {session.wordCount} {t('lifelog_words_short')} · {(() => {
+              const mins = Math.round((session.duration || 0) / 60);
+              return mins < 1 ? `<1${t('goal_time_min')}` : `${mins}${t('goal_time_min')}`;
+            })()}
           </span>
           <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", badge.cls)}>
             {badge.label}
@@ -144,6 +147,9 @@ function StorageIcons({
         showToast(t('storage_deleted_completely'), 'success');
       } else if (confirmState.type === 'cloud') {
         await StorageService.removeCloudCopy(userId, doc.cloudId!);
+        if (doc.localId) {
+          await LocalDocumentService.updateLinkedCloudId(doc.localId, '');
+        }
         showToast(t('storage_deleted_cloud'), 'success');
       }
       onStorageChange();
@@ -175,7 +181,7 @@ function StorageIcons({
         className={cn(
           "w-6 h-6 rounded-lg flex items-center justify-center transition-all",
           doc.storage.cloud
-            ? "text-text-main/70 hover:text-red-400 hover:bg-red-400/10"
+            ? "text-blue-400 hover:text-red-400 hover:bg-red-400/10"
             : "text-text-main/20 cursor-default"
         )}
       >
@@ -233,7 +239,7 @@ function StorageIcons({
 
 interface LifeLogPanelProps {
   userId: string;
-  onContinueSession: (session: Session) => void;
+  onContinueSession: (session: Session | LifeLogDocument) => void;
   onClose: () => void;
   activeTab: 'log' | 'settings';
   onTabChange: (tab: 'log' | 'settings') => void;
@@ -380,7 +386,7 @@ export function LifeLogPanel({
                 return (
                 <div
                   key={`${doc.localId ?? ''}-${doc.cloudId ?? ''}`}
-                  onClick={() => onContinueSession(docToSession(doc))}
+                  onClick={() => onContinueSession(doc)}
                   className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-text-main/5 transition-colors cursor-pointer"
                 >
                   <div className="flex-1 min-w-0 mr-2">
@@ -437,7 +443,7 @@ export function LifeLogPanel({
 
       {activeTab === 'settings' && (
         <div className="flex-1 overflow-hidden w-[380px]">
-          <SettingsPanelContent userId={userId} />
+          <SettingsPanelContent userId={userId} onRefreshLifeLog={refresh} />
         </div>
       )}
 

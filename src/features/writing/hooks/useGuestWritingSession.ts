@@ -2,8 +2,6 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import { useBaseWritingSession, BaseSessionReturn } from './useBaseWritingSession';
 import { useWritingStore } from '../store/useWritingStore';
 import { getOrCreateGuestId } from '../../../shared/lib/localDb';
-import { SaveData } from '../WritingFinishModal';
-import { UnifiedSessionService } from '../services/UnifiedSessionService';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { LocalVersionService } from '../services/LocalVersionService';
 
@@ -24,13 +22,11 @@ export interface GuestSessionReturn extends BaseSessionReturn {
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt: number | null;
   isOnline: boolean;
-  handleSave: (isLocalOnly: boolean) => Promise<void>;
   handleCancel: () => Promise<void>;
   fetchLocalSessions: () => Promise<LocalSessionInfo[]>;
   loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
   decryptSession: (session: Record<string, unknown>, password: string) => Promise<Record<string, unknown>>;
   loadDraft: () => Promise<void>;
-  onSaveComplete: (() => void) | null;
 }
 
 const DRAFT_KEY = 'jw_guest_draft';
@@ -42,9 +38,11 @@ export function useGuestWritingSession(): GuestSessionReturn {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [onSaveComplete, setOnSaveComplete] = useState<(() => void) | null>(null);
   const saveStatusRef = useRef(saveStatus);
   saveStatusRef.current = saveStatus;
+
+  const stateRef = useRef({ content: base.content, title: base.title, pinnedThoughts: base.pinnedThoughts, seconds: base.seconds, wordCount: base.wordCount });
+  stateRef.current = { content: base.content, title: base.title, pinnedThoughts: base.pinnedThoughts, seconds: base.seconds, wordCount: base.wordCount };
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -61,12 +59,13 @@ export function useGuestWritingSession(): GuestSessionReturn {
     if (base.status !== 'writing' && base.status !== 'paused') return;
     const interval = setInterval(() => {
       try {
+        const s = stateRef.current;
         localStorage.setItem(DRAFT_KEY, JSON.stringify({
-          content: base.content,
-          title: base.title,
-          pinnedThoughts: base.pinnedThoughts,
-          seconds: base.seconds,
-          wordCount: base.wordCount,
+          content: s.content,
+          title: s.title,
+          pinnedThoughts: s.pinnedThoughts,
+          seconds: s.seconds,
+          wordCount: s.wordCount,
           timestamp: Date.now(),
         }));
         setSaveStatus('saved');
@@ -77,18 +76,19 @@ export function useGuestWritingSession(): GuestSessionReturn {
       }
     }, 30_000);
     return () => clearInterval(interval);
-  }, [base.status, base.content, base.title, base.pinnedThoughts, base.seconds, base.wordCount]);
+  }, [base.status]);
 
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.visibilityState === 'hidden' && base.content) {
+      if (document.visibilityState === 'hidden' && stateRef.current.content) {
         try {
+          const s = stateRef.current;
           localStorage.setItem(DRAFT_KEY, JSON.stringify({
-            content: base.content,
-            title: base.title,
-            pinnedThoughts: base.pinnedThoughts,
-            seconds: base.seconds,
-            wordCount: base.wordCount,
+            content: s.content,
+            title: s.title,
+            pinnedThoughts: s.pinnedThoughts,
+            seconds: s.seconds,
+            wordCount: s.wordCount,
             timestamp: Date.now(),
           }));
         } catch {}
@@ -96,7 +96,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
     };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [base.content, base.title, base.pinnedThoughts, base.seconds, base.wordCount]);
+  }, []);
 
   const loadDraft = useCallback(async () => {
     const raw = localStorage.getItem(DRAFT_KEY);
@@ -120,30 +120,6 @@ export function useGuestWritingSession(): GuestSessionReturn {
     localStorage.removeItem(DRAFT_KEY);
     setHasDraft(false);
   }, []);
-
-  const handleSave = useCallback(async (_isLocalOnly: boolean) => {
-    const state = useWritingStore.getState();
-    const sessionSeconds = state.accumulatedDuration + (state.seconds - state.sessionStartSeconds);
-
-    await UnifiedSessionService.saveAsNewDocument(guestId, {
-      title: state.title || '',
-      content: state.content,
-      wordCount: state.wordCount,
-      duration: sessionSeconds,
-      wpm: state.wpm,
-      isPublic: false,
-      tags: state.tags,
-      labelId: state.labelId,
-      goalWords: state.wordGoal > 0 ? state.wordGoal : undefined,
-      goalTime: state.timerDuration > 0 ? state.timerDuration : undefined,
-      goalReached: state.wordGoal > 0 && state.wordCount >= state.wordGoal,
-      sessionStartedAt: new Date(Date.now() - sessionSeconds * 1000),
-    }, 'local');
-
-    clearDraft();
-    base.finishSession();
-    if (onSaveComplete) onSaveComplete();
-  }, [guestId, base, clearDraft, onSaveComplete]);
 
   const handleCancel = useCallback(async () => {
     clearDraft();
@@ -189,12 +165,10 @@ export function useGuestWritingSession(): GuestSessionReturn {
     saveStatus,
     lastSavedAt,
     isOnline,
-    handleSave,
     handleCancel,
     fetchLocalSessions,
     loadLocalSession,
     decryptSession,
     loadDraft,
-    onSaveComplete,
   };
 }

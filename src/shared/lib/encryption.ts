@@ -35,7 +35,11 @@ export async function encrypt(text: string, password: string): Promise<{ encrypt
   
   const toBase64 = (buffer: ArrayBuffer | Uint8Array): string => {
     const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
-    return btoa(Array.from(bytes, b => String.fromCharCode(b)).join(''));
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
   };
 
   return {
@@ -47,12 +51,20 @@ export async function encrypt(text: string, password: string): Promise<{ encrypt
 
 export async function decrypt(encrypted: string, password: string, salt: string, iv: string): Promise<string> {
   const dec = new TextDecoder();
-  const key = await deriveKey(password, Uint8Array.from(atob(salt), c => c.charCodeAt(0)));
+  const fromBase64 = (b64: string): Uint8Array => {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  };
+  const key = await deriveKey(password, fromBase64(salt));
   
   const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: Uint8Array.from(atob(iv), c => c.charCodeAt(0)) },
+    { name: 'AES-GCM', iv: fromBase64(iv) },
     key,
-    Uint8Array.from(atob(encrypted), c => c.charCodeAt(0))
+    fromBase64(encrypted)
   );
   
   return dec.decode(decrypted);

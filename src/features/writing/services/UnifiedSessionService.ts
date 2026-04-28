@@ -3,8 +3,7 @@ import { VersionService } from './VersionService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
 import { StorageService, SaveDocumentData } from './StorageService';
-import { SessionSource } from '../hooks/useSessionSource';
-import { LocalDocument, getOrCreateGuestId } from '../../../shared/lib/localDb';
+import { LocalDocument } from '../../../shared/lib/localDb';
 import { Document } from '../../../types';
 
 export interface SaveSessionData {
@@ -35,7 +34,6 @@ export interface UnifiedDocument {
   tags: string[];
   labelId?: string;
   _isLocal: boolean;
-  _source: SessionSource;
 }
 
 function toSaveData(data: SaveSessionData): SaveDocumentData {
@@ -58,49 +56,26 @@ function toSaveData(data: SaveSessionData): SaveDocumentData {
 export const UnifiedSessionService = {
   async saveAsNewDocument(
     userId: string,
-    data: SaveSessionData,
-    source: SessionSource
-  ): Promise<{ documentId: string; source: SessionSource }> {
-    const result = await StorageService.saveNew(userId, toSaveData(data), source);
-
-    if (result.localId && result.cloudId) {
-      await LocalDocumentService.updateLinkedCloudId(result.localId, result.cloudId);
-    }
-
-    if (source === 'local' && result.localId) {
-      return { documentId: result.localId, source: 'local' };
-    }
-    if (result.cloudId) {
-      return { documentId: result.cloudId, source: 'cloud' };
-    }
-    if (result.localId) {
-      return { documentId: result.localId, source: 'local' };
-    }
-
-    throw new Error('Save failed: no document ID returned');
+    data: SaveSessionData
+  ): Promise<{ documentId: string }> {
+    const result = await StorageService.saveNew(userId, toSaveData(data));
+    return { documentId: result.localId };
   },
 
   async saveAsVersion(
     userId: string,
     documentId: string,
-    data: SaveSessionData,
-    source: SessionSource
+    data: SaveSessionData
   ): Promise<void> {
-    const isLocal = documentId.startsWith('local_');
-    await StorageService.saveVersion(userId, documentId, toSaveData(data), source, isLocal);
+    await StorageService.saveVersion(userId, documentId, toSaveData(data));
   },
 
   async getAllDocuments(
-    userId: string,
-    source: SessionSource
+    userId: string
   ): Promise<{ local: LocalDocument[]; cloud: Document[]; all: UnifiedDocument[] }> {
     const [localDocs, cloudDocs] = await Promise.all([
-      source !== 'cloud'
-        ? LocalDocumentService.getGuestDocuments(getOrCreateGuestId())
-        : Promise.resolve([] as LocalDocument[]),
-      source !== 'local'
-        ? DocumentService.getUserDocuments(userId)
-        : Promise.resolve([] as Document[]),
+      LocalDocumentService.getGuestDocuments(userId),
+      DocumentService.getUserDocuments(userId).catch(() => [] as Document[]),
     ]);
 
     const cloudIds = new Set(cloudDocs.map(d => d.id));
@@ -119,7 +94,6 @@ export const UnifiedSessionService = {
         tags: d.tags,
         labelId: d.labelId,
         _isLocal: false,
-        _source: 'cloud' as SessionSource,
       })),
       ...uniqueLocal.map(d => ({
         id: d.id,
@@ -132,7 +106,6 @@ export const UnifiedSessionService = {
         isPublic: false as const,
         tags: d.tags,
         _isLocal: true,
-        _source: 'local' as SessionSource,
       })),
     ];
 

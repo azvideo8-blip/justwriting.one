@@ -306,18 +306,6 @@ export const translations: Translations = {
   guest_save_local: { ru: 'Сохранить локально', en: 'Save locally' },
   guest_more_documents: { ru: 'Ещё {count} документов', en: '{count} more documents' },
 
-  // Migration
-  migration_prompt_title: { ru: 'Загрузить заметки в облако?', en: 'Upload notes to cloud?' },
-  migration_prompt_hint: { ru: 'У вас {count} локальных документов. Загрузить их в аккаунт?', en: 'You have {count} local document(s). Upload them to your account?' },
-  migration_upload: { ru: 'Загрузить в облако', en: 'Upload to cloud' },
-  migration_skip: { ru: 'Оставить локально', en: 'Keep local' },
-  migration_in_progress: { ru: 'Загружаю документы...', en: 'Uploading documents...' },
-  migration_success_title: { ru: 'Готово!', en: 'Done!' },
-  migration_success_count: { ru: 'Загружено документов: {count}', en: '{count} document(s) uploaded' },
-  migration_failed_count: { ru: 'Не удалось загрузить: {count}', en: 'Failed to upload: {count}' },
-  migration_done: { ru: 'Отлично', en: 'Great' },
-  migration_skipped: { ru: 'Документы остались на устройстве', en: 'Documents kept on device' },
-
   // Storage
   finish_storage_label: { ru: 'Сохранить в', en: 'Save to' },
   storage_cloud: { ru: 'Облако', en: 'Cloud' },
@@ -327,10 +315,10 @@ export const translations: Translations = {
   storage_both_hint: { ru: 'Сохранится и локально и в облаке', en: 'Saved both locally and in cloud' },
   settings_section_storage: { ru: 'Хранилище', en: 'Storage' },
   settings_storage_default: { ru: 'По умолчанию', en: 'Default' },
-  settings_download_all_local: { ru: 'Скачать всё на устройство', en: 'Download all to device' },
-  settings_upload_all_cloud: { ru: 'Загрузить всё в облако', en: 'Upload all to cloud' },
-  migration_upload_one: { ru: 'Загрузить в облако', en: 'Upload to cloud' },
-  migration_download_one: { ru: 'Сохранить на устройство', en: 'Save to device' },
+  settings_auto_sync: { ru: 'Автосинхронизация с облаком', en: 'Auto-sync to cloud' },
+  settings_auto_sync_hint: { ru: 'Заметки автоматически загружаются в облако после сохранения', en: 'Notes are automatically uploaded to cloud after saving' },
+  settings_sync_now: { ru: 'Синхронизировать сейчас', en: 'Sync now' },
+  settings_storage_hint: { ru: 'Все заметки хранятся на устройстве. Облако — резервная копия.', en: 'All notes are stored on device. Cloud is a backup.' },
 
   // Storage icons & delete
   storage_remove_local: { ru: 'Удалить локальную копию', en: 'Remove local copy' },
@@ -561,6 +549,12 @@ export const translations: Translations = {
   error_continue_session: { ru: 'Ошибка при продолжении сессии', en: 'Error continuing session' },
   error_reload: { ru: 'Перезагрузить', en: 'Reload' },
   admin_access_denied:      { ru: 'Доступ запрещён',        en: 'Access Denied' },
+  admin_import_title:       { ru: 'Импорт из облака в локальное хранилище', en: 'Import from cloud to local storage' },
+  admin_import_hint:        { ru: 'Скачивает все облачные документы в IndexedDB этого устройства.', en: 'Downloads all cloud documents to this device\'s IndexedDB.' },
+  admin_import_button:      { ru: 'Импортировать из облака', en: 'Import from cloud' },
+  admin_importing:          { ru: 'Импортирую...', en: 'Importing...' },
+  admin_import_done:        { ru: 'Импортировано {imported} из {total} документов', en: 'Imported {imported} of {total} documents' },
+  admin_import_failed:      { ru: 'Ошибок: {count}', en: 'Failed: {count}' },
   admin_security_xss_title: { ru: 'XSS защита',             en: 'XSS Protection' },
   admin_security_csrf_title:{ ru: 'CSRF защита',            en: 'CSRF Protection' },
   profile_activity_title:   { ru: 'Активность',             en: 'Activity' },
