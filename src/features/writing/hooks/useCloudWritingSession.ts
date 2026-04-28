@@ -9,6 +9,8 @@ import { WritingDraftService } from '../services/WritingDraftService';
 import { useSessionSource } from './useSessionSource';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 
+import { LocalSessionInfo } from './useGuestWritingSession';
+
 export interface CloudSessionReturn extends BaseSessionReturn {
   userId: string;
   isGuest: false;
@@ -19,8 +21,8 @@ export interface CloudSessionReturn extends BaseSessionReturn {
   isOnline: boolean;
   handleSave: (isLocalOnly: boolean) => Promise<void>;
   handleCancel: () => Promise<void>;
-  fetchLocalSessions: () => { id: string; createdAt: Date; isEncrypted?: boolean; title?: string; wordCount?: number; duration?: number }[];
-  loadLocalSession: (id: string) => Record<string, unknown> | null;
+  fetchLocalSessions: () => Promise<LocalSessionInfo[]>;
+  loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
   decryptSession: (session: Record<string, unknown>, password: string) => Promise<Record<string, unknown>>;
   loadDraft: () => Promise<void>;
   onSaveComplete: (() => void) | null;

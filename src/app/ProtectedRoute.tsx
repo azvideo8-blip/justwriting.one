@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
 import { useLanguage } from '../core/i18n';
-import { LogIn } from 'lucide-react';
+import { LogIn, Loader2 } from 'lucide-react';
 
 export function ProtectedRoute({ children, requireAdmin }: { children: React.ReactNode; requireAdmin?: boolean }) {
   const { isAuthenticated, profile, loading } = useAuthStatus();
@@ -30,6 +30,14 @@ export function ProtectedRoute({ children, requireAdmin }: { children: React.Rea
         >
           {t('auth_sign_in')}
         </button>
+      </div>
+    );
+  }
+
+  if (requireAdmin && !profile) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 size={24} className="animate-spin text-text-main/30" />
       </div>
     );
   }

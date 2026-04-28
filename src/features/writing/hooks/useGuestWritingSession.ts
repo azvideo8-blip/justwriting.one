@@ -4,6 +4,17 @@ import { useWritingStore } from '../store/useWritingStore';
 import { getOrCreateGuestId } from '../../../shared/lib/localDb';
 import { SaveData } from '../WritingFinishModal';
 import { UnifiedSessionService } from '../services/UnifiedSessionService';
+import { LocalDocumentService } from '../services/LocalDocumentService';
+import { LocalVersionService } from '../services/LocalVersionService';
+
+export interface LocalSessionInfo {
+  id: string;
+  createdAt: Date;
+  isEncrypted?: boolean;
+  title?: string;
+  wordCount?: number;
+  duration?: number;
+}
 
 export interface GuestSessionReturn extends BaseSessionReturn {
   userId: string;
@@ -15,8 +26,8 @@ export interface GuestSessionReturn extends BaseSessionReturn {
   isOnline: boolean;
   handleSave: (isLocalOnly: boolean) => Promise<void>;
   handleCancel: () => Promise<void>;
-  fetchLocalSessions: () => { id: string; createdAt: Date; isEncrypted?: boolean; title?: string; wordCount?: number; duration?: number }[];
-  loadLocalSession: (id: string) => Record<string, unknown> | null;
+  fetchLocalSessions: () => Promise<LocalSessionInfo[]>;
+  loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
   decryptSession: (session: Record<string, unknown>, password: string) => Promise<Record<string, unknown>>;
   loadDraft: () => Promise<void>;
   onSaveComplete: (() => void) | null;
@@ -140,39 +151,29 @@ export function useGuestWritingSession(): GuestSessionReturn {
     base.setStatus('idle');
   }, [base, clearDraft]);
 
-  const fetchLocalSessions = useCallback(() => {
-    const sessions: { id: string; createdAt: Date; isEncrypted?: boolean; title?: string; wordCount?: number; duration?: number }[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith('local_session_')) {
-        const raw = localStorage.getItem(key);
-        try {
-          const data = JSON.parse(raw || '{}');
-          const timestamp = key.replace('local_session_', '').split('_')[0];
-          sessions.push({
-            id: key,
-            createdAt: new Date(Number(timestamp)),
-            isEncrypted: data.isEncrypted,
-            title: data.title,
-            wordCount: data.wordCount,
-            duration: data.duration,
-          });
-        } catch {
-          const fallbackTimestamp = key.replace('local_session_', '').split('_')[0];
-          sessions.push({ id: key, createdAt: new Date(Number(fallbackTimestamp)) });
-        }
-      }
-    }
-    return sessions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  }, []);
+  const fetchLocalSessions = useCallback(async () => {
+    const localDocs = await LocalDocumentService.getGuestDocuments(guestId);
+    return localDocs.map(d => ({
+      id: d.id,
+      createdAt: new Date(d.lastSessionAt),
+      title: d.title,
+      wordCount: d.totalWords,
+      duration: d.totalDuration,
+    }));
+  }, [guestId]);
 
-  const loadLocalSession = useCallback((key: string) => {
-    const raw = localStorage.getItem(key);
-    try {
-      return JSON.parse(raw || '{}');
-    } catch {
-      return null;
-    }
+  const loadLocalSession = useCallback(async (docId: string) => {
+    const doc = await LocalDocumentService.getDocument(docId);
+    if (!doc) return null;
+    const content = await LocalVersionService.getLatestContent(docId);
+    return {
+      content,
+      title: doc.title,
+      wordCount: doc.totalWords,
+      duration: doc.totalDuration,
+      tags: doc.tags,
+      isPublic: false,
+    } as Record<string, unknown>;
   }, []);
 
   const decryptSession = useCallback(async (_session: Record<string, unknown>, _password: string) => {

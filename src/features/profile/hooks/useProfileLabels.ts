@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ProfileService } from '../services/ProfileService';
+import { randomUUID } from '../../../shared/lib/localDb';
 import { Label } from '../../../types';
 
 export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
@@ -19,7 +20,7 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
   };
 
   const addLabel = (label: Omit<Label, 'id'>) => {
-    const newLabel: Label = { ...label, id: crypto.randomUUID() };
+    const newLabel: Label = { ...label, id: randomUUID() };
     updateLabels([...labels, newLabel]);
   };
 

@@ -11,7 +11,7 @@ interface UseSessionContinueParams {
   setTags: (tags: string[]) => void;
   setIsPublic: (v: boolean) => void;
   setIsAnonymous: (v: boolean) => void;
-  loadLocalSession: (id: string) => Record<string, unknown> | null;
+  loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
   decryptSession: (session: Record<string, unknown>, password: string) => Promise<Record<string, unknown>>;
 }
 
@@ -42,7 +42,7 @@ export function useSessionContinue({
     const isLocal = (session as Session & { _isLocal?: boolean; isLocal?: boolean })._isLocal
       || (session as Session & { isLocal?: boolean }).isLocal;
     if (isLocal) {
-      let loaded = loadLocalSession(session.id);
+      let loaded = await loadLocalSession(session.id);
 
       if (!loaded) {
         const content = await LocalVersionService.getLatestContent(session.id);

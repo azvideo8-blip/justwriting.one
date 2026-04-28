@@ -1,4 +1,4 @@
-import { getLocalDb, LocalVersion } from '../../../shared/lib/localDb';
+import { getLocalDb, LocalVersion, randomUUID } from '../../../shared/lib/localDb';
 import { computeWordDiff } from './DiffService';
 
 export const LocalVersionService = {
@@ -19,7 +19,7 @@ export const LocalVersionService = {
     }
   ): Promise<string> {
     const db = await getLocalDb();
-    const id = `ver_${crypto.randomUUID()}`;
+    const id = `ver_${randomUUID()}`;
     const diff = computeWordDiff(data.previousContent, data.content);
 
     await db.put('versions', {

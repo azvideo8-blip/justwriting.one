@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Session } from '../../../types';
 import { SessionService } from '../services/SessionService';
 import { useLanguage } from '../../../core/i18n';
+import { LocalSessionInfo } from './useGuestWritingSession';
 
 interface UseSessionListReturn {
   userSessions: Session[];
@@ -11,8 +12,8 @@ interface UseSessionListReturn {
 
 export function useSessionList(
   userId: string,
-  fetchLocalSessions: () => { id: string }[],
-  loadLocalSession: (id: string) => Record<string, unknown> | null,
+  fetchLocalSessions: () => Promise<LocalSessionInfo[]>,
+  loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>,
 ): UseSessionListReturn {
   const [userSessions, setUserSessions] = useState<Session[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
@@ -24,17 +25,20 @@ export function useSessionList(
       const result = await SessionService.getAllSessions(userId, 50);
       const firestoreSessions = result.sessions;
 
-      const localSessions = fetchLocalSessions().map(s => {
-        const data = loadLocalSession(s.id);
-        return {
-          ...s,
-          title: data?.title || t('writing_local_session'),
-          content: data?.content || '',
-          wordCount: data?.wordCount || 0,
-          duration: data?.duration || 0,
-          isLocal: true,
-        };
-      });
+      const localSessionsList = await fetchLocalSessions();
+      const localSessions = await Promise.all(
+        localSessionsList.map(async s => {
+          const data = await loadLocalSession(s.id);
+          return {
+            ...s,
+            title: data?.title || t('writing_local_session'),
+            content: data?.content || '',
+            wordCount: data?.wordCount || 0,
+            duration: data?.duration || 0,
+            isLocal: true,
+          };
+        })
+      );
 
       setUserSessions([...firestoreSessions, ...localSessions] as Session[]);
     } catch (e) {
