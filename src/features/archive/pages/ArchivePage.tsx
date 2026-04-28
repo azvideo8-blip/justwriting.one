@@ -69,41 +69,43 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
       }
 
       if (user) {
+        let cloudDocs: Document[] = [];
         try {
-          const cloudDocs = await DocumentService.getUserDocuments(userId);
-          for (const cloudDoc of cloudDocs) {
-            if (localByCloudId.has(cloudDoc.id)) continue;
-
-            let localId: string | undefined;
-            try {
-              localId = await StorageService.addLocalCopy(userId, cloudDoc.id);
-            } catch (e) {
-              console.error(`Failed to import cloud doc ${cloudDoc.id}:`, e);
-            }
-
-            const content = localId
-              ? await LocalVersionService.getLatestContent(localId)
-              : '';
-
-            allSessions.push({
-              id: localId || cloudDoc.id,
-              userId: user.uid,
-              authorName: '',
-              authorPhoto: '',
-              content,
-              duration: cloudDoc.totalDuration,
-              wordCount: cloudDoc.totalWords,
-              charCount: 0,
-              wpm: 0,
-              isPublic: cloudDoc.isPublic,
-              title: cloudDoc.title,
-              tags: cloudDoc.tags,
-              createdAt: (cloudDoc.lastSessionAt as { toDate?: () => Date }).toDate?.() ?? new Date(),
-              _isLocal: !!localId,
-            });
-          }
+          cloudDocs = await DocumentService.getUserDocuments(userId);
         } catch (e) {
           console.error('Failed to fetch cloud docs for archive:', e);
+        }
+
+        for (const cloudDoc of cloudDocs) {
+          if (localByCloudId.has(cloudDoc.id) || localById.has(cloudDoc.id)) continue;
+
+          let localId: string | undefined;
+          try {
+            localId = await StorageService.addLocalCopy(userId, cloudDoc.id);
+          } catch (e) {
+            console.error(`Failed to import cloud doc ${cloudDoc.id}:`, e);
+          }
+
+          const content = localId
+            ? await LocalVersionService.getLatestContent(localId)
+            : '';
+
+          allSessions.push({
+            id: localId || cloudDoc.id,
+            userId: user.uid,
+            authorName: '',
+            authorPhoto: '',
+            content,
+            duration: cloudDoc.totalDuration,
+            wordCount: cloudDoc.totalWords,
+            charCount: 0,
+            wpm: 0,
+            isPublic: cloudDoc.isPublic,
+            title: cloudDoc.title,
+            tags: cloudDoc.tags,
+            createdAt: (cloudDoc.lastSessionAt as { toDate?: () => Date })?.toDate?.() ?? new Date(),
+            _isLocal: !!localId,
+          });
         }
       }
 
