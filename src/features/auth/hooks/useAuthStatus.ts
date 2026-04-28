@@ -68,6 +68,10 @@ export function useAuthStatus() {
           creationAttemptedRef.current = false;
         }).catch(err => {
           console.error('Error creating user profile:', err);
+          Sentry.captureException(err, {
+            tags: { context: 'profile_creation' },
+            extra: { uid: user.uid },
+          });
           creationAttemptedRef.current = false;
         });
         if (!cancelled) setProfile(initialProfile);

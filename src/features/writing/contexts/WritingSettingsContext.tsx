@@ -71,12 +71,14 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (status !== 'writing' || !zenModeEnabled) {
+      guardRef.current = false;
       const timer = setTimeout(() => {
         setIsZenActive(false);
       }, 0);
       return () => clearTimeout(timer);
     }
 
+    guardRef.current = false;
     const showUI = (e: MouseEvent) => {
       if (guardRef.current) return;
       if (e.clientX === lastMousePos.current.x && e.clientY === lastMousePos.current.y) return;
