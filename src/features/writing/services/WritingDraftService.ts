@@ -51,10 +51,8 @@ export const WritingDraftService = {
   },
 
   saveToFirestore: async (draft: LocalDraft) => {
-    try {
-      const docRef = doc(db, 'drafts', draft.userId);
-      await setDoc(docRef, draft, { merge: true });
-    } catch {}
+    const docRef = doc(db, 'drafts', draft.userId);
+    await setDoc(docRef, draft, { merge: true });
   },
 
   deleteDraft: async (userId: string) => {

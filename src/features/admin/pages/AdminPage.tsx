@@ -3,17 +3,22 @@ import { motion } from 'motion/react';
 import { AdminUserService } from '../services/AdminUserService';
 import { AdminSessionService } from '../services/AdminSessionService';
 import { auth } from '../../../core/firebase/auth';
-import { Users, Database, Shield, AlertTriangle } from 'lucide-react';
+import { Users, Database, Shield, AlertTriangle, Download, Loader } from 'lucide-react';
 import { AdminUsersTable } from '../components/AdminUsersTable';
 import { AdminSessionsTable } from '../components/AdminSessionsTable';
 import { useLanguage } from '../../../core/i18n';
 import { useServiceAction } from '../../writing/hooks/useServiceAction';
+import { useToast } from '../../../shared/components/Toast';
 import { cn } from '../../../core/utils/utils';
 
 import { Session, UserProfile } from '../../../types';
 import { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 import { CancelConfirmModal } from '../../writing/components/modals/CancelConfirmModal';
 import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
+import { DocumentService } from '../../writing/services/DocumentService';
+import { VersionService } from '../../writing/services/VersionService';
+import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
+import { LocalVersionService } from '../../writing/services/LocalVersionService';
 
 export function AdminPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -25,8 +30,11 @@ export function AdminPage() {
   const [activeTab, setActiveTab] = useState<'users' | 'sessions' | 'security'>('users');
   const [isAdmin, setIsAdmin] = useState(false);
   const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ total: number; imported: number; failed: number } | null>(null);
   const { t } = useLanguage();
   const { execute } = useServiceAction();
+  const { showToast } = useToast();
 
   const fetchData = useCallback(async (isInitial = true) => {
     if (isInitial) {
@@ -79,6 +87,82 @@ export function AdminPage() {
     checkAdmin();
   }, [activeTab, fetchData]);
 
+  const handleImportFromCloud = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    setImporting(true);
+    setImportResult(null);
+
+    const userId = user.uid;
+    const result = { total: 0, imported: 0, failed: 0 };
+
+    try {
+      const cloudDocs = await DocumentService.getUserDocuments(userId);
+      result.total = cloudDocs.length;
+
+      for (const cloudDoc of cloudDocs) {
+        try {
+          const localDocs = await LocalDocumentService.getGuestDocuments(userId);
+          const alreadyExists = localDocs.some(
+            d => d.linkedCloudId === cloudDoc.id
+          );
+
+          if (alreadyExists) {
+            result.imported++;
+            continue;
+          }
+
+          const newLocalId = await LocalDocumentService.createDocument(userId, {
+            title: cloudDoc.title,
+            tags: cloudDoc.tags,
+          });
+
+          const versions = await VersionService.getVersions(userId, cloudDoc.id);
+          let prevContent = '';
+          for (const ver of versions) {
+            const startedAt = ver.sessionStartedAt?.toDate?.()
+              ?? (ver.sessionStartedAt instanceof Date ? ver.sessionStartedAt : null)
+              ?? new Date();
+
+            await LocalVersionService.addVersion(userId, newLocalId, {
+              content: ver.content,
+              previousContent: prevContent,
+              wordCount: ver.wordCount,
+              duration: ver.duration,
+              wpm: ver.wpm,
+              versionNumber: ver.version,
+              goalWords: ver.goalWords,
+              goalTime: ver.goalTime,
+              goalReached: ver.goalReached,
+              sessionStartedAt: startedAt,
+            });
+            prevContent = ver.content;
+          }
+
+          await LocalDocumentService.updateAfterSession(newLocalId, {
+            totalWords: cloudDoc.totalWords,
+            totalDuration: cloudDoc.totalDuration,
+            currentVersion: cloudDoc.currentVersion,
+          });
+          await LocalDocumentService.updateLinkedCloudId(newLocalId, cloudDoc.id);
+
+          result.imported++;
+        } catch (e) {
+          console.error(`Failed to import doc ${cloudDoc.id}:`, e);
+          result.failed++;
+        }
+      }
+
+      setImportResult(result);
+      showToast(t('admin_import_result', { imported: result.imported, total: result.total }), 'success');
+    } catch (e) {
+      console.error('Import failed:', e);
+      showToast(t('error_generic_action'), 'error');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   if (!isAdmin) {
     return <div className="text-center py-20 text-red-500">{t('admin_access_denied')}</div>;
   }
@@ -101,6 +185,34 @@ export function AdminPage() {
           <Shield className="text-red-500" />
           {t('admin_title')}
         </h2>
+      </div>
+
+      {/* Import from cloud */}
+      <div className="bg-surface-card border border-border-subtle rounded-2xl p-6">
+        <h3 className="text-base font-medium text-text-main mb-2">
+          {t('admin_import_title')}
+        </h3>
+        <p className="text-sm text-text-main/50 mb-4">
+          {t('admin_import_hint')}
+        </p>
+
+        <button
+          onClick={handleImportFromCloud}
+          disabled={importing}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-text-main text-surface-base text-sm font-medium disabled:opacity-50 transition-all"
+        >
+          {importing
+            ? <><Loader size={14} className="animate-spin" /> {t('admin_importing')}</>
+            : <><Download size={14} /> {t('admin_import_button')}</>
+          }
+        </button>
+
+        {importResult && (
+          <div className="mt-3 text-sm text-text-main/60">
+            {t('admin_import_done', { imported: importResult.imported, total: importResult.total })}
+            {importResult.failed > 0 && ` · ${t('admin_import_failed', { count: importResult.failed })}`}
+          </div>
+        )}
       </div>
 
       {/* Tabs */}

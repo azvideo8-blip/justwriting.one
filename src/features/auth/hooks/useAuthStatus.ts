@@ -40,15 +40,15 @@ export function useAuthStatus() {
 
   useEffect(() => {
     if (!user) {
-      const timer = setTimeout(() => {
-        setProfile(null);
-      }, 0);
+      setProfile(null);
       creationAttemptedRef.current = false;
-      return () => clearTimeout(timer);
+      return;
     }
 
+    let cancelled = false;
     const userDoc = doc(db, 'users', user.uid);
     const unsubscribe = onSnapshot(userDoc, (snap) => {
+      if (cancelled) return;
       if (snap.exists()) {
         setProfile(snap.data() as UserProfile);
       } else {
@@ -70,13 +70,16 @@ export function useAuthStatus() {
           console.error('Error creating user profile:', err);
           creationAttemptedRef.current = false;
         });
-        setProfile(initialProfile);
+        if (!cancelled) setProfile(initialProfile);
       }
     }, (err) => {
       console.error('Firestore snapshot error:', err);
     });
 
-    return unsubscribe;
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [user]);
 
   return { user, profile, authState, isAuthenticated: authState === 'authenticated', isGuest: authState === 'guest', loading: authState === 'loading', isConnected };

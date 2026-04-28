@@ -4,10 +4,9 @@ import { LocalDocumentService } from '../services/LocalDocumentService';
 import { StorageState } from '../services/StorageService';
 import { Session, Document } from '../../../types';
 import { SessionService } from '../services/SessionService';
-import { LocalDocument, LocalVersion, getOrCreateGuestId, getLocalDb } from '../../../shared/lib/localDb';
+import { LocalDocument, LocalVersion, getLocalDb } from '../../../shared/lib/localDb';
 import { parseFirestoreDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
-import { useSessionSource, SessionSource } from './useSessionSource';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 
 export interface LifeLogDocument {
@@ -43,7 +42,7 @@ interface UseLifeLogReturn {
   refresh: () => Promise<void>;
 }
 
-function localDocToSession(doc: LocalDocument, content: string): Session & { _isLocal?: boolean } {
+function localDocToSession(doc: LocalDocument, content: string): Session {
   return {
     id: doc.id,
     userId: doc.guestId,
@@ -59,7 +58,7 @@ function localDocToSession(doc: LocalDocument, content: string): Session & { _is
     tags: doc.tags,
     createdAt: new Date(doc.lastSessionAt),
     _isLocal: true,
-  } as Session & { _isLocal?: boolean };
+  };
 }
 
 async function getLatestContentForDoc(docId: string): Promise<string> {
@@ -79,13 +78,25 @@ export function useLifeLog(userId: string, isGuest?: boolean): UseLifeLogReturn 
   const [unifiedDocuments, setUnifiedDocuments] = useState<LifeLogDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const { t, language } = useLanguage();
-  const source = useSessionSource();
   const { isGuest: authIsGuest } = useAuthStatus();
   const effectiveGuest = isGuest ?? authIsGuest;
 
-  const startOfToday = useMemo(() => {
+  const [startOfToday, setStartOfToday] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  });
+
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      setStartOfToday(prev => {
+        if (prev.getTime() === today.getTime()) return prev;
+        return today;
+      });
+    };
+    const interval = setInterval(update, 60_000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchSessions = useCallback(async () => {
@@ -103,6 +114,7 @@ export function useLifeLog(userId: string, isGuest?: boolean): UseLifeLogReturn 
         setDocuments([]);
         setUnifiedDocuments(localDocs.map(d => ({
           localId: d.id,
+          cloudId: d.linkedCloudId || undefined,
           title: d.title,
           totalWords: d.totalWords,
           totalDuration: d.totalDuration,
@@ -110,13 +122,13 @@ export function useLifeLog(userId: string, isGuest?: boolean): UseLifeLogReturn 
           sessionsCount: d.sessionsCount,
           lastSessionAt: d.lastSessionAt,
           tags: d.tags,
-          storage: { local: true, cloud: false },
+          storage: { local: true, cloud: !!d.linkedCloudId },
         })));
       } else {
         const [sessionResult, cloudDocs, localDocs] = await Promise.all([
           SessionService.getAllSessions(userId, 100),
           DocumentService.getUserDocuments(userId).catch(() => [] as Document[]),
-          LocalDocumentService.getGuestDocuments(getOrCreateGuestId()).catch(() => []),
+          LocalDocumentService.getGuestDocuments(userId).catch(() => []),
         ]);
 
         setSessions(sessionResult.sessions);
@@ -133,9 +145,11 @@ export function useLifeLog(userId: string, isGuest?: boolean): UseLifeLogReturn 
             || cloudByTitle.get(local.title);
           if (cloud) matchedCloudIds.add(cloud.id);
 
+          const hasCloud = !!(local.linkedCloudId || cloud);
+
           unified.push({
             localId: local.id,
-            cloudId: cloud?.id,
+            cloudId: local.linkedCloudId || cloud?.id,
             title: local.title,
             totalWords: local.totalWords,
             totalDuration: local.totalDuration,
@@ -145,7 +159,7 @@ export function useLifeLog(userId: string, isGuest?: boolean): UseLifeLogReturn 
             tags: local.tags,
             storage: {
               local: true,
-              cloud: !!cloud,
+              cloud: hasCloud,
             },
           });
         }
@@ -176,7 +190,7 @@ export function useLifeLog(userId: string, isGuest?: boolean): UseLifeLogReturn 
     } finally {
       setLoading(false);
     }
-  }, [userId, effectiveGuest, source]);
+  }, [userId, effectiveGuest]);
 
   useEffect(() => {
     fetchSessions();

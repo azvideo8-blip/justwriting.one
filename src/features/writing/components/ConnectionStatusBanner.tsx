@@ -4,16 +4,20 @@ import { WifiOff, Cloud, HardDrive, Check } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
+import { useWritingSettings } from '../contexts/WritingSettingsContext';
+import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { SyncService } from '../services/SyncService';
 
 interface ConnectionStatusBannerProps {
-  isOnline: boolean;
   showZen?: boolean;
+  userId?: string;
 }
 
-export function ConnectionStatusBanner({ isOnline: _isOnlineProp, showZen }: ConnectionStatusBannerProps) {
+export function ConnectionStatusBanner({ showZen, userId }: ConnectionStatusBannerProps) {
   const { t } = useLanguage();
   const isOnline = useOnlineStatus();
+  const { autoSync } = useWritingSettings();
+  const { isAuthenticated } = useAuthStatus();
   const [pendingCount, setPendingCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [wasOffline, setWasOffline] = useState(false);
@@ -27,29 +31,35 @@ export function ConnectionStatusBanner({ isOnline: _isOnlineProp, showZen }: Con
   }, [isOnline]);
 
   useEffect(() => {
-    if (isOnline && wasOffline && pendingCount === 0) {
+    if (isOnline && userId) {
+      Promise.all([
+        SyncService.getPendingCount(),
+        SyncService.getUnsyncedCount(userId),
+      ]).then(([queueCount, unsyncedCount]) => {
+        setPendingCount(queueCount + unsyncedCount);
+      });
+    }
+  }, [isOnline, userId]);
+
+  useEffect(() => {
+    if (isOnline && pendingCount > 0 && !syncing && userId && autoSync && isAuthenticated) {
+      setSyncing(true);
+      SyncService.syncAllUnlinked(userId).finally(() => {
+        setSyncing(false);
+        setPendingCount(0);
+        setShowSynced(true);
+        setTimeout(() => setShowSynced(false), 3000);
+      });
+    }
+  }, [isOnline, pendingCount, syncing, userId, autoSync, isAuthenticated]);
+
+  useEffect(() => {
+    if (isOnline && wasOffline && pendingCount === 0 && !syncing) {
       setShowSynced(true);
       const timer = setTimeout(() => setShowSynced(false), 3000);
       return () => clearTimeout(timer);
     }
-  }, [isOnline, wasOffline, pendingCount]);
-
-  useEffect(() => {
-    if (isOnline) {
-      SyncService.getPendingCount().then(setPendingCount);
-    }
-  }, [isOnline]);
-
-  useEffect(() => {
-    if (isOnline && pendingCount > 0 && !syncing) {
-      setSyncing(true);
-      const userId = localStorage.getItem('jw_guest_id') ?? '';
-      SyncService.syncPending(userId).finally(() => {
-        setSyncing(false);
-        setPendingCount(0);
-      });
-    }
-  }, [isOnline, pendingCount, syncing]);
+  }, [isOnline, wasOffline, pendingCount, syncing]);
 
   if (showZen) return null;
 
@@ -74,7 +84,25 @@ export function ConnectionStatusBanner({ isOnline: _isOnlineProp, showZen }: Con
         </motion.div>
       )}
 
-      {isOnline && pendingCount > 0 && (
+      {isOnline && syncing && (
+        <motion.div
+          key="syncing"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          className={cn(
+            "fixed top-4 left-1/2 -translate-x-1/2 z-[60]",
+            "flex items-center gap-2 px-4 py-2 rounded-2xl",
+            "bg-blue-500/10 border border-blue-500/30 backdrop-blur-xl",
+            "text-blue-400 text-sm font-medium whitespace-nowrap"
+          )}
+        >
+          <HardDrive size={16} className="shrink-0 animate-pulse" />
+          <span>{t('offline_syncing')}</span>
+        </motion.div>
+      )}
+
+      {isOnline && !syncing && pendingCount > 0 && autoSync && isAuthenticated && (
         <motion.div
           key="pending"
           initial={{ opacity: 0, y: -20 }}
@@ -87,21 +115,12 @@ export function ConnectionStatusBanner({ isOnline: _isOnlineProp, showZen }: Con
             "text-blue-400 text-sm font-medium whitespace-nowrap"
           )}
         >
-          {syncing ? (
-            <>
-              <HardDrive size={16} className="shrink-0 animate-pulse" />
-              <span>{t('offline_syncing')}</span>
-            </>
-          ) : (
-            <>
-              <Cloud size={16} className="shrink-0" />
-              <span>{t('offline_pending', { count: pendingCount })}</span>
-            </>
-          )}
+          <Cloud size={16} className="shrink-0" />
+          <span>{t('offline_pending', { count: pendingCount })}</span>
         </motion.div>
       )}
 
-      {isOnline && showSynced && pendingCount === 0 && (
+      {isOnline && showSynced && pendingCount === 0 && !syncing && (
         <motion.div
           key="synced"
           initial={{ opacity: 0, y: -20 }}

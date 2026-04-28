@@ -70,7 +70,7 @@ export function AnimatedRoutes() {
             <BottomNav isAdmin={isAdmin} />
           )
         )}
-        <ConnectionStatusBanner isOnline={isConnected} showZen={showZen} />
+        <ConnectionStatusBanner showZen={showZen} />
       </>
 
       <main id="main-content" className={cn(

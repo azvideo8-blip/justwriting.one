@@ -22,13 +22,14 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     uid: auth.currentUser?.uid
   });
 
-  // Throw generic error to user
-  const safeMessage = 'An error occurred while accessing the database. Please try again.';
-  
+  const errorCode = error instanceof Error && 'code' in error ? (error as { code: string }).code : 'unknown';
+
   console.error('Firestore Error: ', {
     operationType,
-    errorCode: error instanceof Error && 'code' in error ? (error as { code: string }).code : 'unknown',
+    errorCode,
     path: path || null,
   });
+
+  const safeMessage = `Firestore ${operationType} failed (${errorCode}): ${path || 'unknown path'}`;
   throw new Error(safeMessage);
 }

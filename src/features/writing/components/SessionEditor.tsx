@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { SessionService } from '../services/SessionService';
+import { LocalVersionService } from '../services/LocalVersionService';
+import { LocalDocumentService } from '../services/LocalDocumentService';
 import { Session } from '../../../types';
 import { useLanguage } from '../../../core/i18n';
 import { useServiceAction } from '../hooks/useServiceAction';
@@ -21,17 +23,42 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
   const [tagInput, setTagInput] = useState('');
 
   const handleSave = () => {
-    execute(
-      () => SessionService.updateSession(session.id, {
-        content: editContent,
-        title: editTitle,
-        tags: editTags,
-        isPublic: editIsPublic,
-        wordCount: editContent.trim().split(/\s+/).filter(x => x.length > 0).length,
-        charCount: editContent.length
-      }),
-      { successMessage: t('save_success'), errorMessage: t('error_save_failed'), onSuccess: onSave }
-    );
+    const wordCount = editContent.trim().split(/\s+/).filter(x => x.length > 0).length;
+
+    if (session._isLocal) {
+      execute(
+        async () => {
+          const docId = session.id;
+          await LocalVersionService.addVersion(session.userId, docId, {
+            content: editContent,
+            previousContent: session.content,
+            wordCount,
+            duration: session.duration,
+            wpm: session.wpm,
+            versionNumber: (await LocalDocumentService.getDocument(docId))?.currentVersion ?? 1,
+            sessionStartedAt: new Date(),
+          });
+          await LocalDocumentService.updateAfterSession(docId, {
+            totalWords: wordCount,
+            totalDuration: session.duration,
+            currentVersion: (await LocalDocumentService.getDocument(docId))?.currentVersion ?? 1,
+          });
+        },
+        { successMessage: t('save_success'), errorMessage: t('error_save_failed'), onSuccess: onSave }
+      );
+    } else {
+      execute(
+        () => SessionService.updateSession(session.id, {
+          content: editContent,
+          title: editTitle,
+          tags: editTags,
+          isPublic: editIsPublic,
+          wordCount,
+          charCount: editContent.length
+        }),
+        { successMessage: t('save_success'), errorMessage: t('error_save_failed'), onSuccess: onSave }
+      );
+    }
   };
 
   const addTag = () => {
