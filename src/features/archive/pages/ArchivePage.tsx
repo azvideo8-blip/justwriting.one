@@ -12,6 +12,7 @@ import { LocalVersionService } from '../../writing/services/LocalVersionService'
 import { DocumentService } from '../../writing/services/DocumentService';
 import { VersionService } from '../../writing/services/VersionService';
 import { StorageService } from '../../writing/services/StorageService';
+import { SessionService } from '../../writing/services/SessionService';
 import { getOrCreateGuestId } from '../../../shared/lib/localDb';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
 import { TagCloud } from '../../writing/components/TagCloud';
@@ -42,77 +43,105 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     setError(null);
 
     try {
-      const localDocs = await LocalDocumentService.getGuestDocuments(userId);
-      const localById = new Set(localDocs.map(d => d.id));
-      const localByCloudId = new Set(localDocs.filter(d => d.linkedCloudId).map(d => d.linkedCloudId!));
-
       const allSessions: Session[] = [];
+      const seenIds = new Set<string>();
 
-      for (const doc of localDocs) {
-        const content = await LocalVersionService.getLatestContent(doc.id);
-        allSessions.push({
-          id: doc.id,
-          userId: doc.guestId,
-          authorName: '',
-          authorPhoto: '',
-          content,
-          duration: doc.totalDuration,
-          wordCount: doc.totalWords,
-          charCount: 0,
-          wpm: 0,
-          isPublic: false,
-          title: doc.title,
-          tags: doc.tags,
-          createdAt: new Date(doc.lastSessionAt),
-          _isLocal: true,
-        });
-      }
+      const guestId = getOrCreateGuestId();
+      const idsToQuery = user ? [user.uid, guestId] : [guestId];
 
-      if (user) {
-        let cloudDocs: Document[] = [];
-        try {
-          cloudDocs = await DocumentService.getUserDocuments(userId);
-        } catch (e) {
-          console.error('Failed to fetch cloud docs for archive:', e);
-        }
+      for (const uid of idsToQuery) {
+        const localDocs = await LocalDocumentService.getGuestDocuments(uid);
+        const localByCloudId = new Set(localDocs.filter(d => d.linkedCloudId).map(d => d.linkedCloudId!));
 
-        for (const cloudDoc of cloudDocs) {
-          if (localByCloudId.has(cloudDoc.id) || localById.has(cloudDoc.id)) continue;
-
-          let localId: string | undefined;
-          try {
-            localId = await StorageService.addLocalCopy(userId, cloudDoc.id);
-          } catch (e) {
-            console.error(`Failed to import cloud doc ${cloudDoc.id}:`, e);
-          }
-
-          const content = localId
-            ? await LocalVersionService.getLatestContent(localId)
-            : '';
-
+        for (const doc of localDocs) {
+          if (seenIds.has(doc.id)) continue;
+          seenIds.add(doc.id);
+          const content = await LocalVersionService.getLatestContent(doc.id);
           allSessions.push({
-            id: localId || cloudDoc.id,
-            userId: user.uid,
+            id: doc.id,
+            userId: doc.guestId,
             authorName: '',
             authorPhoto: '',
             content,
-            duration: cloudDoc.totalDuration,
-            wordCount: cloudDoc.totalWords,
+            duration: doc.totalDuration,
+            wordCount: doc.totalWords,
             charCount: 0,
             wpm: 0,
-            isPublic: cloudDoc.isPublic,
-            title: cloudDoc.title,
-            tags: cloudDoc.tags,
-            createdAt: (cloudDoc.lastSessionAt as { toDate?: () => Date })?.toDate?.() ?? new Date(),
-            _isLocal: !!localId,
+            isPublic: false,
+            title: doc.title,
+            tags: doc.tags,
+            createdAt: new Date(doc.lastSessionAt),
+            _isLocal: true,
           });
+        }
+
+        if (user) {
+          let cloudDocs: Document[] = [];
+          try {
+            cloudDocs = await DocumentService.getUserDocuments(uid);
+          } catch (e) {
+            console.error(`Failed to fetch cloud docs for uid=${uid}:`, e);
+          }
+
+          for (const cloudDoc of cloudDocs) {
+            if (localByCloudId.has(cloudDoc.id) || seenIds.has(cloudDoc.id)) continue;
+            seenIds.add(cloudDoc.id);
+
+            let localId: string | undefined;
+            try {
+              localId = await StorageService.addLocalCopy(uid, cloudDoc.id);
+            } catch (e) {
+              console.error(`Failed to import cloud doc ${cloudDoc.id}:`, e);
+            }
+
+            const content = localId
+              ? await LocalVersionService.getLatestContent(localId)
+              : '';
+
+            const sid = localId || cloudDoc.id;
+            if (seenIds.has(sid) && sid !== cloudDoc.id) continue;
+            seenIds.add(sid);
+
+            allSessions.push({
+              id: sid,
+              userId: user.uid,
+              authorName: '',
+              authorPhoto: '',
+              content,
+              duration: cloudDoc.totalDuration,
+              wordCount: cloudDoc.totalWords,
+              charCount: 0,
+              wpm: 0,
+              isPublic: cloudDoc.isPublic,
+              title: cloudDoc.title,
+              tags: cloudDoc.tags,
+              createdAt: (cloudDoc.lastSessionAt as { toDate?: () => Date })?.toDate?.() ?? new Date(),
+              _isLocal: !!localId,
+            });
+          }
+        }
+      }
+
+      if (user) {
+        try {
+          const { sessions: legacySessions } = await SessionService.getAllSessions(user.uid, 500);
+          for (const s of legacySessions) {
+            if (seenIds.has(s.id)) continue;
+            seenIds.add(s.id);
+            allSessions.push({ ...s, _isLocal: false });
+          }
+        } catch (e) {
+          console.error('Failed to fetch legacy sessions:', e);
         }
       }
 
       allSessions.sort((a, b) => {
-        const da = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
-        const db = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
-        return db - da;
+        const toMs = (d: Date | { toDate?: () => Date } | undefined): number => {
+          if (d instanceof Date) return d.getTime();
+          if (d && typeof d === 'object' && 'toDate' in d) return (d as { toDate: () => Date }).toDate().getTime();
+          return 0;
+        };
+        return toMs(b.createdAt) - toMs(a.createdAt);
       });
 
       setSessions(allSessions);
