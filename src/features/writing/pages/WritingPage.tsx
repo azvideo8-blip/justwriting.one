@@ -278,7 +278,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     const state = useWritingStore.getState();
     const sessionSeconds = state.accumulatedDuration + (state.seconds - state.sessionStartSeconds);
 
-    await UnifiedSessionService.saveAsNewDocument(userId, {
+    const result = await UnifiedSessionService.saveAsNewDocument(userId, {
       title: data.title,
       content: state.content,
       wordCount: state.wordCount,
@@ -292,6 +292,8 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       goalReached: state.wordGoal > 0 && state.wordCount >= state.wordGoal,
       sessionStartedAt: new Date(Date.now() - sessionSeconds * 1000),
     }, effectiveSource);
+
+    useWritingStore.getState().setSavedDocumentId(result.documentId);
 
     try {
       if (isGuest) {
@@ -431,7 +433,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
   const LIFE_LOG_WIDTH = 380;
   const isMobile = layoutMode !== 'desktop';
 
-  const mobileModals = (
+  const sharedOverlays = (
     <>
       <GoalToast visible={flow.goalToastVisible} type={flow.goalToastType} />
       <AnimatePresence>
@@ -486,7 +488,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
             onStart={handlePlay}
             onContinue={handleContinueSession}
           />
-          {mobileModals}
+          {sharedOverlays}
         </>
       );
     }
@@ -498,7 +500,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
           onStop={handleFinish}
           saveStatus={saveStatus}
         />
-        {mobileModals}
+        {sharedOverlays}
       </>
     );
   }
@@ -511,47 +513,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     >
       <>
         <ConnectionStatusBanner isOnline={isOnline} showZen={showZen} />
-        <GoalToast visible={flow.goalToastVisible} type={flow.goalToastType} />
-
-        <AnimatePresence>
-          {flow.sessionStartFlash && (
-            <motion.div
-              initial={{ opacity: 0.6 }}
-              animate={{ opacity: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.8, ease: 'easeOut' }}
-              className="fixed inset-0 z-[200] bg-text-main pointer-events-none"
-            />
-          )}
-        </AnimatePresence>
-
-        <PasswordPromptModal 
-          isOpen={!!passwordPrompt}
-          onConfirm={handlePromptSubmit}
-          onCancel={handlePromptCancel}
-        />
-
-        <CancelConfirmModal 
-          isOpen={flow.showCancelConfirm}
-          onConfirm={() => { handleCancel(); flow.setShowCancelConfirm(false); }}
-          onCancel={() => flow.setShowCancelConfirm(false)}
-        />
-
-        <WritingFinishModal 
-          isOpen={sessionStatus === 'finished'}
-          title={title} setTitle={setTitle}
-          sessionType={sessionType} wordCount={wordCount} duration={seconds}
-          isPublic={isPublic} setIsPublic={setIsPublic}
-          isAnonymous={isAnonymous} setIsAnonymous={setIsAnonymous}
-          tags={tags} setTags={setTags}
-          labelId={labelId} setLabelId={setLabelId}
-          labels={profile?.labels || []}
-          isLocalOnly={isLocalOnly}
-          existingDocuments={documents}
-          onSaveAsNew={handleSaveAsNewDocument}
-          onSaveAsVersion={handleSaveAsVersion}
-          effectiveSource={effectiveSource}
-        />
+        {sharedOverlays}
 
         <div
           style={{
@@ -679,8 +641,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
             </AnimatePresence>
           </div>
         </div>
-
-        <FlowPulse />
       </>
     </motion.div>
   );
