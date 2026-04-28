@@ -99,7 +99,8 @@ export function SessionCard({
 
   const highlightText = (text: string, query: string) => {
     if (!query) return text;
-    const parts = text.split(new RegExp(`(${query})`, 'gi'));
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
     return (
       <>
         {parts.map((part, i) => 
@@ -236,7 +237,7 @@ export function SessionCard({
                 document.body
               )}
 
-              {!showAuthor && (auth.currentUser?.uid === session.userId || (session as Session & { _isLocal?: boolean })._isLocal) && (
+              {!showAuthor && (auth.currentUser?.uid === session.userId || session._isLocal) && (
                 <>
                   <button 
                     onClick={() => setIsEditing(!isEditing)}
@@ -340,7 +341,7 @@ export function SessionCard({
               )}
             </div>
             
-            {onContinue && (auth.currentUser?.uid === session.userId || (session as Session & { _isLocal?: boolean })._isLocal) && (
+            {onContinue && (auth.currentUser?.uid === session.userId || session._isLocal) && (
               <button 
                 onClick={onContinue}
                 className="flex items-center gap-2 px-6 py-2 rounded-2xl font-bold transition-opacity text-sm bg-text-main text-surface-base hover:opacity-90"

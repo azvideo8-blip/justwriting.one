@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Session } from '../../../types';
 import { SessionService } from '../services/SessionService';
 import { useLanguage } from '../../../core/i18n';
@@ -19,7 +19,7 @@ export function useSessionList(
   const [loadingSessions, setLoadingSessions] = useState(false);
   const { t } = useLanguage();
 
-  const fetchAllSessions = async () => {
+  const fetchAllSessions = useCallback(async () => {
     setLoadingSessions(true);
     try {
       const result = await SessionService.getAllSessions(userId, 50);
@@ -35,7 +35,7 @@ export function useSessionList(
             content: data?.content || '',
             wordCount: data?.wordCount || 0,
             duration: data?.duration || 0,
-            isLocal: true,
+            _isLocal: true,
           };
         })
       );
@@ -46,7 +46,7 @@ export function useSessionList(
     } finally {
       setLoadingSessions(false);
     }
-  };
+  }, [userId, fetchLocalSessions, loadLocalSession, t]);
 
   return { userSessions, loadingSessions, fetchAllSessions };
 }

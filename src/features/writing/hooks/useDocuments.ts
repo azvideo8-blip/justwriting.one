@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { DocumentService } from '../services/DocumentService';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { Document } from '../../../types';
-import { getOrCreateGuestId } from '../../../shared/lib/localDb';
 
 function localDocToDocument(doc: { id: string; title: string; currentVersion: number; totalWords: number; totalDuration: number; sessionsCount: number; firstSessionAt: number; lastSessionAt: number; isPublic: false; tags: string[] }): Document {
   return {
@@ -25,21 +24,15 @@ export function useDocuments(userId: string, isGuest?: boolean) {
   const [loading, setLoading] = useState(true);
 
   const fetchDocs = useCallback(async () => {
+    if (!userId) return;
     setLoading(true);
     try {
       if (isGuest) {
         const localDocs = await LocalDocumentService.getGuestDocuments(userId);
         setDocuments(localDocs.map(localDocToDocument));
       } else {
-        const [cloudDocs, localDocs] = await Promise.all([
-          DocumentService.getUserDocuments(userId).catch(() => [] as Document[]),
-          LocalDocumentService.getGuestDocuments(getOrCreateGuestId()).catch(() => []),
-        ]);
-        const cloudIds = new Set(cloudDocs.map(d => d.id));
-        const localAsDocs = localDocs
-          .filter(d => !cloudIds.has(d.id))
-          .map(localDocToDocument);
-        setDocuments([...cloudDocs, ...localAsDocs]);
+        const cloudDocs = await DocumentService.getUserDocuments(userId);
+        setDocuments(cloudDocs);
       }
     } catch {
     } finally {
@@ -48,7 +41,6 @@ export function useDocuments(userId: string, isGuest?: boolean) {
   }, [userId, isGuest]);
 
   useEffect(() => {
-    if (!userId) return;
     fetchDocs();
   }, [userId, fetchDocs]);
 

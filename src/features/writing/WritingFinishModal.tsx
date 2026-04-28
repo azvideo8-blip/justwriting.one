@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Globe, User as UserIcon, Download, FileJson, FileText, HardDrive, Cloud } from 'lucide-react';
+import { Globe, User as UserIcon, Download, FileText } from 'lucide-react';
 import { cn } from '../../core/utils/utils';
 import { ExportService } from '../export/ExportService';
-import { Label, Document } from '../../types';
+import { Label } from '../../types';
 import { useLanguage } from '../../core/i18n';
 import { formatTime } from '../../core/utils/formatTime';
 import { Toggle } from '../../shared/components/Toggle';
 import { useServiceAction } from './hooks/useServiceAction';
-import { SessionSource } from './hooks/useSessionSource';
-import { useSettings } from '../../core/settings/SettingsContext';
 
 import { useWritingStore } from './store/useWritingStore';
 import { useModalEscape } from '../../shared/hooks/useModalEscape';
@@ -24,11 +22,6 @@ export interface SaveData {
 
 interface WritingFinishModalProps {
   isOpen: boolean;
-  title: string;
-  setTitle: (title: string) => void;
-  sessionType: string;
-  wordCount: number;
-  duration: number;
   isPublic: boolean;
   setIsPublic: (val: boolean) => void;
   isAnonymous: boolean;
@@ -38,20 +31,12 @@ interface WritingFinishModalProps {
   labelId?: string;
   setLabelId: (labelId?: string) => void;
   labels: Label[];
-  isLocalOnly: boolean;
-  existingDocuments: Document[];
-  onSaveAsNew: (data: SaveData) => Promise<void>;
-  onSaveAsVersion: (documentId: string, data: SaveData) => Promise<void>;
-  effectiveSource: SessionSource;
+  isGuest: boolean;
+  onSave: (data: SaveData) => Promise<void>;
 }
 
 export function WritingFinishModal({
   isOpen,
-  title: _title,
-  setTitle: _setTitle,
-  sessionType: _sessionType,
-  wordCount: _wordCount,
-  duration: _duration,
   isPublic,
   setIsPublic,
   isAnonymous,
@@ -61,15 +46,11 @@ export function WritingFinishModal({
   labelId,
   setLabelId,
   labels,
-  isLocalOnly,
-  existingDocuments: _existingDocuments,
-  onSaveAsNew,
-  onSaveAsVersion: _onSaveAsVersion,
-  effectiveSource,
+  isGuest,
+  onSave,
 }: WritingFinishModalProps) {
   const { t } = useLanguage();
   const { execute } = useServiceAction();
-  const { openSettings } = useSettings();
 
   const status = useWritingStore(s => s.status);
   const setStatus = useWritingStore(s => s.setStatus);
@@ -131,7 +112,7 @@ export function WritingFinishModal({
       useWritingStore.getState().setTitle(finalTitle);
     }
     execute(
-      () => onSaveAsNew({ ...saveData, title: finalTitle }),
+      () => onSave({ ...saveData, title: finalTitle }),
       { successMessage: t('save_success'), errorMessage: t('error_save_failed') }
     );
   };
@@ -230,16 +211,7 @@ export function WritingFinishModal({
           />
         </div>
 
-        <div className="flex items-center gap-1.5 text-[11px] text-text-main/30">
-          {effectiveSource === 'local' && <><HardDrive size={11} /> {t('finish_saving_to_local')}</>}
-          {effectiveSource === 'cloud' && <><Cloud size={11} /> {t('finish_saving_to_cloud')}</>}
-          {effectiveSource === 'both' && <><HardDrive size={11} /><Cloud size={11} /> {t('finish_saving_to_both')}</>}
-          <span className="ml-1 underline cursor-pointer" onClick={openSettings}>
-            {t('finish_change_in_settings')}
-          </span>
-        </div>
-
-        {!isLocalOnly && (
+        {!isGuest && (
           <>
             <div className="flex items-center justify-between p-4 rounded-2xl bg-surface-base border border-border-subtle">
               <div className="flex items-center gap-3">
@@ -276,7 +248,7 @@ export function WritingFinishModal({
               <span className="text-[10px] font-bold text-text-main/70">PDF</span>
             </button>
             <button onClick={exportMarkdown} className="flex flex-col items-center gap-2 p-3 transition-all rounded-2xl bg-surface-base hover:bg-white/10 border border-border-subtle">
-              <FileJson size={18} className="text-text-main/70" />
+              <FileText size={18} className="text-text-main/70" />
               <span className="text-[10px] font-bold text-text-main/70">MD</span>
             </button>
             <button onClick={exportDocx} className="flex flex-col items-center gap-2 p-3 transition-all rounded-2xl bg-surface-base hover:bg-white/10 border border-border-subtle">

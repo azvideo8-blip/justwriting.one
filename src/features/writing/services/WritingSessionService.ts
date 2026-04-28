@@ -6,9 +6,9 @@ import { reportError } from '../../../core/errors/reportError';
 
 import { SessionPayload } from '../../../types';
 
-async function savePendingSession(session: { sessionId: string | null; data: Record<string, unknown>; userId: string }): Promise<number> {
+async function savePendingSession(session: { sessionId: string | null; data: Record<string, unknown>; userId: string }): Promise<void> {
   const localDb = await getLocalDb();
-  return localDb.add('pending_sessions', session) as unknown as Promise<number>;
+  await localDb.add('pending_sessions', session);
 }
 
 async function getAllPendingSessions(): Promise<{ id?: number; sessionId: string | null; data: Record<string, unknown>; userId: string }[]> {

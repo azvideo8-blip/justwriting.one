@@ -69,8 +69,33 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           }));
           setSessions(guestSessions);
         } else {
-          const result = await SessionService.getAllSessions(user.uid, 50);
-          setSessions(result.sessions);
+          const [result, localDocs] = await Promise.all([
+            SessionService.getAllSessions(user.uid, 50),
+            LocalDocumentService.getGuestDocuments(user.uid).catch(() => []),
+          ]);
+
+          const localSessions = await Promise.all(localDocs.map(async doc => {
+            const content = await LocalVersionService.getLatestContent(doc.id);
+            return {
+              id: doc.id,
+              userId: doc.guestId,
+              authorName: '',
+              authorPhoto: '',
+              content,
+              duration: doc.totalDuration,
+              wordCount: doc.totalWords,
+              charCount: 0,
+              wpm: 0,
+              isPublic: false,
+              title: doc.title,
+              tags: doc.tags,
+              createdAt: new Date(doc.lastSessionAt),
+              _isLocal: true,
+            } as Session;
+          }));
+
+          const allSessions = [...result.sessions, ...localSessions];
+          setSessions(allSessions);
 
           const allAchievements = [
             ...ACHIEVEMENTS.streaks,
@@ -80,10 +105,10 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           ];
 
           const currentMetrics: Record<string, number> = {
-            streak: calculateStreak(result.sessions),
-            words: result.sessions.reduce((acc, s) => acc + s.wordCount, 0),
-            notes: result.sessions.length,
-            duration: result.sessions.reduce((acc, s) => Math.max(acc, s.duration / 60), 0),
+            streak: calculateStreak(allSessions),
+            words: allSessions.reduce((acc, s) => acc + s.wordCount, 0),
+            notes: allSessions.length,
+            duration: allSessions.reduce((acc, s) => Math.max(acc, s.duration / 60), 0),
           };
 
           const getMetricForAchievement = (id: string) => {
