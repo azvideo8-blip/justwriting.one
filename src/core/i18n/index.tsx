@@ -14,7 +14,6 @@ export const translations: Translations = {
   nav_write: { ru: 'Писать', en: 'Write' },
   nav_notes: { ru: 'Мои заметки', en: 'My Notes' },
   nav_profile: { ru: 'Мой профиль', en: 'My Profile' },
-  nav_community: { ru: 'Сообщество', en: 'Community' },
   nav_stream_mode: { ru: 'Режим потока сознания', en: 'Stream Mode' },
   nav_admin: { ru: 'Админ', en: 'Admin' },
   nav_logout: { ru: 'Выйти', en: 'Logout' },
@@ -113,8 +112,6 @@ export const translations: Translations = {
   finish_stats: { ru: 'Статистика сессии', en: 'Session Stats' },
   finish_save: { ru: 'Сохранить', en: 'Save' },
   finish_discard: { ru: 'Удалить', en: 'Discard' },
-  finish_public: { ru: 'Публичный доступ', en: 'Public Access' },
-  finish_anonymous: { ru: 'Анонимно', en: 'Anonymous' },
   finish_tags: { ru: 'Теги', en: 'Tags' },
   finish_labels: { ru: 'Бирки', en: 'Labels' },
   finish_add_tag: { ru: 'Добавить тег...', en: 'Add tag...' },
@@ -138,9 +135,7 @@ export const translations: Translations = {
 
   // Profile
   profile_title: { ru: 'Мой профиль', en: 'My Profile' },
-  profile_settings_title: { ru: 'Настройки профиля', en: 'Profile settings' },  profile_settings_community: { ru: 'Режим сообщества', en: 'Community mode' },
-  profile_settings_encryption: { ru: 'Шифрование', en: 'Encryption' },
-  profile_settings_ai: { ru: 'Помощь ИИ', en: 'AI assistance' },
+  profile_settings_title: { ru: 'Настройки профиля', en: 'Profile settings' },
   profile_reset_achievements: { ru: 'Сбросить все достижения', en: 'Reset all achievements' },
   profile_reset_achievements_confirm: {
     ru: 'Вы уверены? Все достижения будут сброшены.',
@@ -212,16 +207,6 @@ export const translations: Translations = {
   ach_section_notes: { ru: 'Всего заметок', en: 'Total notes' },
   ach_section_duration: { ru: 'Длительность сессии (макс)', en: 'Session duration (max)' },
   ach_earned: { ru: 'Получено', en: 'Earned' },
-
-  // Community
-  community_title: { ru: 'Сообщество', en: 'Community' },
-  community_subtitle: { ru: 'Публичные заметки участников', en: 'Public notes from members' },
-  community_search: { ru: 'Поиск в сообществе...', en: 'Search community...' },
-  community_loading: { ru: 'Загрузка ленты...', en: 'Loading feed...' },
-  community_empty: { ru: 'В сообществе пока нет публичных заметок', en: 'No public notes in the community yet' },
-  community_load_error: { ru: 'Ошибка при загрузке ленты', en: 'Error loading feed' },
-  feed_empty_title: { ru: 'Лента пуста', en: 'Feed is empty' },
-  feed_empty_desc: { ru: 'Опубликованные заметки появятся здесь', en: 'Published notes will appear here' },
 
   // Settings
   settings_title: { ru: 'Настройки', en: 'Settings' },
@@ -356,8 +341,6 @@ export const translations: Translations = {
   offline_synced: { ru: 'Все данные синхронизированы', en: 'All data synced' },
 
   // Finish Modal
-  finish_public_desc: { ru: 'Ваш текст увидят другие авторы', en: 'Other authors will see your text' },
-  finish_anonymous_desc: { ru: 'Скрыть ваше имя в ленте', en: 'Hide your name in the feed' },
   finish_back: { ru: 'Вернуться', en: 'Go Back' },
 
   // Offline
@@ -376,7 +359,6 @@ export const translations: Translations = {
   error_unavailable: { ru: 'Сервис временно недоступен. Попробуйте позже.', en: 'Service temporarily unavailable. Please try again later.' },
   error_invalid_credentials: { ru: 'Неверный email или пароль.', en: 'Invalid email or password.' },
   error_too_many_requests: { ru: 'Слишком много попыток. Попробуйте позже.', en: 'Too many attempts. Please try again later.' },
-  error_ai_resting: { ru: 'ИИ сейчас отдыхает. Попробуйте позже.', en: 'AI is resting. Please try again later.' },
 
   // Admin
   admin_col_title: { ru: 'Заголовок', en: 'Title' },
@@ -517,8 +499,6 @@ export const translations: Translations = {
   me_sign_out:       { ru: 'Выйти',                en: 'Sign out' },
   settings_section_font: { ru: 'Шрифт', en: 'Font' },
 
-  writing_encryption_password: { ru: 'Пароль шифрования', en: 'Encryption password' },
-  writing_encryption_desc:     { ru: 'Заметка будет зашифрована', en: 'Note will be encrypted' },
   profile_load_error:          { ru: 'Ошибка загрузки профиля', en: 'Failed to load profile' },
   session_delete_confirm_desc: { ru: 'Это действие нельзя отменить', en: 'This action cannot be undone' },
 
@@ -529,20 +509,17 @@ export const translations: Translations = {
   skip_to_content: { ru: 'Перейти к содержимому', en: 'Skip to content' },
   goal_reached_time:  { ru: 'Время вышло — цель достигнута', en: 'Time is up — goal reached' },
   goal_reached_words: { ru: 'Цель по словам достигнута',     en: 'Word goal reached' },
-  ai_resting_error: { ru: 'ИИ сейчас отдыхает. Пожалуйста, попробуйте позже.', en: 'AI is currently resting. Please try again later.' },
   
   // Extra
   writing_timer: { ru: 'Таймер', en: 'Timer' },
   writing_total: { ru: 'Всего', en: 'Total' },
   writing_wpm: { ru: 'Слов/мин', en: 'WPM' },
-  setup_public: { ru: 'Сделать публичной', en: 'Make public' },
   onboarding_title:    { ru: 'Просто начните писать', en: 'Just start writing' },
   onboarding_subtitle: { ru: 'Выберите режим и нажмите +. Остальное не важно.', en: 'Pick a mode and press +. Nothing else matters.' },
   onboarding_cta:      { ru: 'Начать первую сессию', en: 'Start first session' },
   nav_write_short:     { ru: 'Писать',    en: 'Write' },
   nav_notes_short:     { ru: 'Заметки',   en: 'Notes' },
   nav_profile_short:   { ru: 'Профиль',   en: 'Profile' },
-  nav_community_short: { ru: 'Лента',     en: 'Feed' },
   nav_me: { ru: 'Я', en: 'Me' },
   achievements_unlocked:  { ru: 'открыто', en: 'unlocked' },
   achievements_legendary: { ru: 'легендарных', en: 'legendary' },

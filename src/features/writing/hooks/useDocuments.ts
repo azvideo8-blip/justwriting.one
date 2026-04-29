@@ -3,7 +3,7 @@ import { DocumentService } from '../services/DocumentService';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { Document } from '../../../types';
 
-function localDocToDocument(doc: { id: string; title: string; currentVersion: number; totalWords: number; totalDuration: number; sessionsCount: number; firstSessionAt: number; lastSessionAt: number; isPublic: boolean; tags: string[]; linkedCloudId?: string }): Document {
+function localDocToDocument(doc: { id: string; title: string; currentVersion: number; totalWords: number; totalDuration: number; sessionsCount: number; firstSessionAt: number; lastSessionAt: number; tags: string[]; linkedCloudId?: string }): Document {
   return {
     id: doc.id,
     userId: '',
@@ -14,7 +14,6 @@ function localDocToDocument(doc: { id: string; title: string; currentVersion: nu
     sessionsCount: doc.sessionsCount,
     firstSessionAt: { seconds: Math.floor(doc.firstSessionAt / 1000), nanoseconds: 0 } as any,
     lastSessionAt: { seconds: Math.floor(doc.lastSessionAt / 1000), nanoseconds: 0 } as any,
-    isPublic: doc.isPublic,
     tags: doc.tags,
   };
 }

@@ -20,12 +20,10 @@ service cloud.firestore {
     //   - content: string (required, 1-50000 chars)
     //   - duration: number (required, >= 0)
     //   - createdAt: timestamp (required)
-    //   - isPublic: bool (optional)
     //   - title: string (optional, 0-200 chars)
     //   - wordCount: number (optional)
     //   - charCount: number (optional)
     //   - wpm: number (optional)
-    //   - isAnonymous: bool (optional)
     //   - tags: list (optional, max 10 items, each 1-30 chars)
     //
     // ===============================================================
@@ -99,7 +97,7 @@ service cloud.firestore {
 
     // Sessions
     match /sessions/{sessionId} {
-      allow read: if resource.data.isPublic == true || (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
       
       allow create: if isAuthenticated() && isValidSession(request.resource.data);
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && isValidSession(request.resource.data);
@@ -110,11 +108,6 @@ service cloud.firestore {
     match /drafts/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow write: if isOwner(userId) && isValidDraft(request.resource.data);
-    }
-
-    // AI Rate Limits
-    match /ai_rate_limits/{uid} {
-      allow read, write: if false;
     }
 
     // Documents (subcollection of users)

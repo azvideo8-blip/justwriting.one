@@ -7,16 +7,12 @@ import { LocalVersionService } from '../services/LocalVersionService';
 interface UseSessionContinueParams {
   setSetupMode: (mode: SetupMode) => void;
   setTags: (tags: string[]) => void;
-  setIsPublic: (v: boolean) => void;
-  setIsAnonymous: (v: boolean) => void;
   loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
 }
 
 export function useSessionContinue({
   setSetupMode,
   setTags,
-  setIsPublic,
-  setIsAnonymous,
   loadLocalSession,
 }: UseSessionContinueParams) {
   const continueSession = useCallback(async (session: Session) => {
@@ -35,8 +31,6 @@ export function useSessionContinue({
           accumulatedDuration: session.duration || 0,
         });
         setTags(session.tags || []);
-        setIsPublic(false);
-        setIsAnonymous(false);
         setSetupMode('selection');
         return;
       }
@@ -50,8 +44,6 @@ export function useSessionContinue({
         accumulatedDuration: (loaded.duration as number) || 0,
       });
       setTags((loaded.tags as string[]) || []);
-      setIsPublic((loaded.isPublic as boolean) || false);
-      setIsAnonymous((loaded.isAnonymous as boolean) || false);
       setSetupMode('selection');
       return;
     }
@@ -65,10 +57,8 @@ export function useSessionContinue({
       accumulatedDuration: session.duration || 0,
     });
     setTags(session.tags || []);
-    setIsPublic(session.isPublic);
-    setIsAnonymous(session.isAnonymous || false);
     setSetupMode('selection');
-  }, [setSetupMode, setTags, setIsPublic, setIsAnonymous, loadLocalSession]);
+  }, [setSetupMode, setTags, loadLocalSession]);
 
   return { continueSession };
 }

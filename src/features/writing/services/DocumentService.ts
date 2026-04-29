@@ -26,7 +26,7 @@ function toTimestamp(v: unknown): number {
 export const DocumentService = {
   async createDocument(
     userId: string,
-    data: Pick<Document, 'title' | 'isPublic' | 'tags' | 'labelId'>
+    data: Pick<Document, 'title' | 'tags' | 'labelId'>
   ): Promise<string> {
     try {
       const now = Timestamp.now();
@@ -39,7 +39,6 @@ export const DocumentService = {
         sessionsCount: 0,
         firstSessionAt: now,
         lastSessionAt: now,
-        isPublic: data.isPublic ?? false,
         tags: data.tags ?? [],
         labelId: data.labelId ?? null,
       });

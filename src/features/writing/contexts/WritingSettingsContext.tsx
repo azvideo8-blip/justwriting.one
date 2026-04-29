@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 
 export interface HeaderVisibility {
-  currentTime: boolean;
   sessionTime: boolean;
   sessionWords: boolean;
   totalWords: boolean;
@@ -34,10 +33,6 @@ interface WritingSettingsContextType {
   setLifeLogPinned: (enabled: boolean) => void;
   headerVisibility: HeaderVisibility;
   toggleVisibility: (key: keyof HeaderVisibility) => void;
-  showTitle: boolean;
-  setShowTitle: (v: boolean) => void;
-  showPinnedThoughts: boolean;
-  setShowPinnedThoughts: (v: boolean) => void;
   autoSync: boolean;
   setAutoSync: (v: boolean) => void;
 }
@@ -54,13 +49,11 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
   const [fontFamily, setFontFamily] = useLocalStorage<string>('v2_fontFamily', 'Inter', z.string());
   const [fontSize, setFontSize] = useLocalStorage<number>('v2_fontSize', 18, z.number());
   const [lifeLogPinned, setLifeLogPinned] = useLocalStorage<boolean>('v3_lifeLogPinned', false, z.boolean());
-  const [showTitle, setShowTitle] = useLocalStorage<boolean>('editor-show-title', true, z.boolean());
-  const [showPinnedThoughts, setShowPinnedThoughts] = useLocalStorage<boolean>('editor-show-pinned', true, z.boolean());
   const [autoSync, setAutoSync] = useLocalStorage<boolean>('auto-sync', false, z.boolean());
   const [headerVisibility, setHeaderVisibility] = useLocalStorage<HeaderVisibility>(
     'v2_headerVisibility',
-    { currentTime: true, sessionTime: true, sessionWords: true, totalWords: true, wpm: true },
-    z.object({ currentTime: z.boolean(), sessionTime: z.boolean(), sessionWords: z.boolean(), totalWords: z.boolean(), wpm: z.boolean() })
+    { sessionTime: true, sessionWords: true, totalWords: true, wpm: true },
+    z.object({ sessionTime: z.boolean(), sessionWords: z.boolean(), totalWords: z.boolean(), wpm: z.boolean() })
   );
 
   const [status, setStatus] = useState<'idle' | 'writing' | 'paused' | 'finished'>('idle');
@@ -129,8 +122,6 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
       fontSize, setFontSize,
       lifeLogPinned, setLifeLogPinned,
       headerVisibility, toggleVisibility,
-      showTitle, setShowTitle,
-      showPinnedThoughts, setShowPinnedThoughts,
       autoSync, setAutoSync,
     }}>
       {children}

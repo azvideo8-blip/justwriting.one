@@ -19,7 +19,6 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
   const [editContent, setEditContent] = useState(session.content);
   const [editTitle, setEditTitle] = useState(session.title || '');
   const [editTags, setEditTags] = useState<string[]>(session.tags || []);
-  const [editIsPublic, setEditIsPublic] = useState(session.isPublic);
   const [tagInput, setTagInput] = useState('');
 
   const handleSave = () => {
@@ -52,7 +51,6 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
           content: editContent,
           title: editTitle,
           tags: editTags,
-          isPublic: editIsPublic,
           wordCount,
           charCount: editContent.length
         }),
@@ -104,11 +102,7 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
           className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm text-text-main"
         />
       </div>
-      <div className="flex items-center justify-between">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" checked={editIsPublic} onChange={(e) => setEditIsPublic(e.target.checked)} className="rounded border-border-subtle accent-text-main" />
-          <span className="text-sm text-text-main/50">{t('setup_public')}</span>
-        </label>
+      <div className="flex items-center justify-end">
         <div className="flex gap-2">
           <button onClick={onCancel} className="px-4 py-2 text-text-main/50 hover:text-text-main font-medium">{t('common_cancel')}</button>
           <button onClick={handleSave} className="px-6 py-2 bg-text-main text-surface-base rounded-2xl font-bold">{t('common_save')}</button>

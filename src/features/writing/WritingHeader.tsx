@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Maximize, Minimize, FilePlus, FolderOpen, Save
+  Maximize, Minimize, FilePlus, FolderOpen, Save, BookOpen, Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../core/utils/utils';
@@ -47,13 +47,12 @@ export const WritingHeader = React.memo(function WritingHeader({
   onPlay,
   onPause
 }: WritingHeaderProps) {
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { t } = useLanguage();
   const { 
     isZenActive, zenModeEnabled, 
     headerVisibility, streamMode,
-    lifeLogEnabled
+    lifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab
   } = useWritingSettings();
 
   const status = useWritingStore(s => s.status);
@@ -75,11 +74,6 @@ export const WritingHeader = React.memo(function WritingHeader({
   const sessionSeconds = Math.max(0, seconds - sessionStartSeconds);
 
   const showZen = isZenActive && zenModeEnabled;
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     const handleChange = () => setIsFullscreen(!!document.fullscreenElement);
@@ -129,14 +123,54 @@ export const WritingHeader = React.memo(function WritingHeader({
                   placeholder={t('topbar_title_placeholder')}
                   className="flex-1 bg-transparent outline-none text-sm font-medium text-text-main/70 placeholder:text-text-main/25"
                 />
-                <button
-                  onClick={toggleFullscreen}
-                  title={t('header_fullscreen')}
-                  className="w-8 h-8 rounded-xl border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-text-main transition-all ml-auto"
-                >
-                  {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
-                </button>
-              </div>
+                <div className="flex items-center gap-1 ml-auto">
+                  <button
+                    onClick={() => {
+                      if (!lifeLogVisible || lifeLogTab !== 'log') {
+                        setLifeLogTab('log');
+                        setLifeLogVisible(true);
+                      } else {
+                        setLifeLogVisible(false);
+                      }
+                    }}
+                    title={t('lifelog_tab_log')}
+                    className={cn(
+                      "w-8 h-8 rounded-xl flex items-center justify-center transition-all",
+                      lifeLogVisible && lifeLogTab === 'log'
+                        ? "bg-text-main/10 text-text-main"
+                        : "text-text-main/40 hover:text-text-main hover:bg-text-main/5"
+                    )}
+                  >
+                    <BookOpen size={14} />
+                  </button>
+                   <button
+                     onClick={() => {
+                       if (!lifeLogVisible || lifeLogTab !== 'settings') {
+                         setLifeLogTab('settings');
+                         setLifeLogVisible(true);
+                       } else {
+                         setLifeLogVisible(false);
+                       }
+                     }}
+                     title={t('lifelog_tab_settings')}
+                     className={cn(
+                       "w-8 h-8 rounded-xl flex items-center justify-center transition-all",
+                       lifeLogVisible && lifeLogTab === 'settings'
+                         ? "bg-text-main/10 text-text-main"
+                         : "text-text-main/40 hover:text-text-main hover:bg-text-main/5"
+                     )}
+                   >
+                     <Settings size={14} />
+                   </button>
+                   <button
+                     onClick={toggleFullscreen}
+                     title={t('header_fullscreen')}
+                     className="w-8 h-8 rounded-xl border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-text-main transition-all"
+                   >
+                     {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
+                   </button>
+                 </div>
+               </div>
           ) : (
             <div className="w-full mx-auto flex flex-col gap-0 bg-surface-card backdrop-blur-2xl border border-border-subtle rounded-3xl shadow-sm overflow-visible p-3 px-4">
               <div className="flex items-center gap-2 pb-2 border-b border-border-subtle mb-2">
@@ -152,6 +186,53 @@ export const WritingHeader = React.memo(function WritingHeader({
                   title={title}
                   setTitle={setTitle}
                 />
+                <div className="flex items-center gap-1 ml-auto">
+                  <button
+                    onClick={() => {
+                      if (!lifeLogVisible || lifeLogTab !== 'log') {
+                        setLifeLogTab('log');
+                        setLifeLogVisible(true);
+                      } else {
+                        setLifeLogVisible(false);
+                      }
+                    }}
+                    title={t('lifelog_tab_log')}
+                    className={cn(
+                      "w-8 h-8 rounded-xl flex items-center justify-center transition-all",
+                      lifeLogVisible && lifeLogTab === 'log'
+                        ? "bg-text-main/10 text-text-main"
+                        : "text-text-main/40 hover:text-text-main hover:bg-text-main/5"
+                    )}
+                  >
+                    <BookOpen size={16} />
+                  </button>
+                   <button
+                     onClick={() => {
+                       if (!lifeLogVisible || lifeLogTab !== 'settings') {
+                         setLifeLogTab('settings');
+                         setLifeLogVisible(true);
+                       } else {
+                         setLifeLogVisible(false);
+                       }
+                     }}
+                     title={t('lifelog_tab_settings')}
+                     className={cn(
+                       "w-8 h-8 rounded-xl flex items-center justify-center transition-all",
+                       lifeLogVisible && lifeLogTab === 'settings'
+                         ? "bg-text-main/10 text-text-main"
+                         : "text-text-main/40 hover:text-text-main hover:bg-text-main/5"
+                     )}
+                   >
+                     <Settings size={16} />
+                   </button>
+                   <button
+                    onClick={toggleFullscreen}
+                    title={t('header_fullscreen')}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all"
+                  >
+                    {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+                  </button>
+                </div>
               </div>
 
               <HeaderStats
@@ -164,7 +245,6 @@ export const WritingHeader = React.memo(function WritingHeader({
                 wordCount={wordCount}
                 wpm={wpm}
                 status={status}
-                currentTime={currentTime}
                 visibility={headerVisibility}
               />
             </div>

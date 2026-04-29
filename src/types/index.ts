@@ -12,14 +12,13 @@ export interface Session {
   authorName: string;
   authorPhoto: string;
   nickname?: string;
-  isAnonymous?: boolean;
   title?: string;
   content: string;
   duration: number;
   wordCount: number;
   charCount: number;
   wpm: number;
-  isPublic: boolean;
+  isPublic?: boolean;
   tags?: string[];
   labelId?: string;
   inkblots?: { id: string; index: number; color: string; timestamp: number }[];
@@ -34,7 +33,6 @@ export interface SessionPayload {
   authorName: string;
   authorPhoto: string;
   nickname?: string;
-  isAnonymous?: boolean;
   title?: string;
   content: string;
   pinnedThoughts?: string[];
@@ -42,14 +40,12 @@ export interface SessionPayload {
   wordCount: number;
   charCount: number;
   wpm: number;
-  isPublic: boolean;
+  isPublic?: boolean;
   tags?: string[];
   sessionType?: 'free' | 'stopwatch' | 'timer' | 'words' | 'finish-by';
   sessionStartTime?: number | null;
   goalReached?: boolean;
   updatedAt?: Timestamp;
-  isEncrypted?: boolean;
-  encryption?: { salt: string; iv: string };
 }
 
 export type AchievementTier = 'common' | 'rare' | 'legendary';
@@ -67,7 +63,6 @@ export interface UserProfile {
   email: string;
   nickname: string;
   role?: string;
-  isAnonymousDefault?: boolean;
   labels?: Label[];
   earnedAchievements?: string[];
   totalWordCount?: number;
@@ -88,7 +83,7 @@ export interface Document {
   sessionsCount: number;
   firstSessionAt: Timestamp;
   lastSessionAt: Timestamp;
-  isPublic: boolean;
+  isPublic?: boolean;
   tags: string[];
   labelId?: string;
 }

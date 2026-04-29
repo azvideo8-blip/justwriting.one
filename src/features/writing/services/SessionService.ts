@@ -35,14 +35,6 @@ export const SessionService = {
     }, onError);
   },
 
-  subscribeToPublicSessions(callback: (sessions: Session[]) => void, onError: (err: Error) => void) {
-    const q = query(collection(db, 'sessions'), where('isPublic', '==', true), limit(100));
-    return onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Session));
-      callback(docs);
-    }, onError);
-  },
-
   async updateSessionTags(sessionId: string, tags: string[]) {
     try {
       await updateDoc(doc(db, 'sessions', sessionId), { tags });
@@ -64,31 +56,6 @@ export const SessionService = {
       let q = query(
         collection(db, 'sessions'), 
         where('userId', '==', userId), 
-        orderBy('createdAt', 'desc'), 
-        limit(limitCount)
-      );
-      
-      if (lastDoc) {
-        q = query(q, startAfter(lastDoc));
-      }
-
-      const snap = await getDocs(q);
-      const sessions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Session));
-      return {
-        sessions,
-        lastDoc: snap.docs[snap.docs.length - 1] || null
-      };
-    } catch (err) {
-      handleFirestoreError(err, OperationType.LIST, 'sessions');
-      return { sessions: [], lastDoc: null };
-    }
-  },
-
-  async getPublicSessions(limitCount: number = 20, lastDoc?: QueryDocumentSnapshot<DocumentData>) {
-    try {
-      let q = query(
-        collection(db, 'sessions'), 
-        where('isPublic', '==', true), 
         orderBy('createdAt', 'desc'), 
         limit(limitCount)
       );

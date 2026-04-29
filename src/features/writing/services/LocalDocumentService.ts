@@ -20,7 +20,6 @@ export const LocalDocumentService = {
       sessionsCount: 0,
       firstSessionAt: now,
       lastSessionAt: now,
-      isPublic: false,
       tags: data.tags ?? [],
     });
 

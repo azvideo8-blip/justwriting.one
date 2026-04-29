@@ -10,7 +10,7 @@ export interface LocalDocument {
   sessionsCount: number;
   firstSessionAt: number;
   lastSessionAt: number;
-  isPublic: boolean;
+  isPublic?: boolean;
   tags: string[];
   linkedCloudId?: string;
 }
