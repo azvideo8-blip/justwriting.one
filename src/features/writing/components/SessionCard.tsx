@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { 
   Clock, Type, PenLine, Share2, 
   ChevronDown, ChevronUp, X,
-  FileText, Download, FileJson, Plus, Trash2
+  FileText, Download, FileJson, Plus, Trash2, Cloud, HardDrive
 } from 'lucide-react';
 import { auth } from '../../../core/firebase/auth';
 import { SessionService } from '../services/SessionService';
@@ -26,13 +26,19 @@ export function SessionCard({
   onContinue, 
   labels,
   searchQuery = '',
-  onDeleteSuccess
+  onDeleteSuccess,
+  userId,
+  linkedCloudId,
+  hasCloudCopy,
 }: { 
   session: Session, 
   onContinue?: () => void, 
   labels?: Label[],
   searchQuery?: string,
   onDeleteSuccess?: (sessionId: string) => void
+  userId?: string,
+  linkedCloudId?: string,
+  hasCloudCopy?: boolean,
 }) {
   const { t } = useLanguage();
   const { execute } = useServiceAction();
@@ -119,13 +125,14 @@ export function SessionCard({
       async () => {
         if (session._isLocal) {
           const doc = await LocalDocumentService.getDocument(session.id);
-          await StorageService.deleteDocument('', session.id, doc?.linkedCloudId || undefined);
+          const cloudId = doc?.linkedCloudId || linkedCloudId;
+          await StorageService.deleteDocument(userId || '', session.id, cloudId || undefined);
         } else {
           await SessionService.deleteSession(session.id);
         }
       },
       {
-        successMessage: t('save_success'),
+        successMessage: t('session_deleted'),
         errorMessage: t('error_delete_failed'),
         onSuccess: () => {
           setShowDeleteConfirm(false);
@@ -187,6 +194,13 @@ export function SessionCard({
             <span className="flex items-center gap-1" title={t('writing_time')}><Clock size={14} /> {Math.floor(session.duration / 60)}{t('unit_min')}</span>
             <span className="flex items-center gap-1" title={t('writing_words')}><Type size={14} /> {session.wordCount}{t('unit_words')}</span>
             <span className="flex items-center gap-1" title={t('writing_chars')}><PenLine size={14} /> {session.charCount || 0}</span>
+
+            {session._isLocal && (
+              <span title={t('storage_local')} className="flex items-center gap-1"><HardDrive size={14} className="text-text-main/30" /></span>
+            )}
+            {(hasCloudCopy || (!session._isLocal && session.id && !session.id.startsWith('local_'))) && (
+              <span title={t('storage_cloud')} className="flex items-center gap-1"><Cloud size={14} className="text-blue-400/50" /></span>
+            )}
 
             <div className="flex items-center flex-wrap gap-2 relative">
               <button 
