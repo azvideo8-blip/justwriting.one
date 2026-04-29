@@ -23,6 +23,11 @@ import { useArchiveSearch } from '../hooks/useArchiveSearch';
 import { useNavigate } from 'react-router-dom';
 import { EmptyState } from '../../../shared/components/EmptyState';
 
+interface ArchiveSession extends Session {
+  _linkedCloudId?: string;
+  _hasCloudCopy?: boolean;
+}
+
 interface ArchiveViewProps {
   user: User | null;
   profile: UserProfile | null;
@@ -30,7 +35,7 @@ interface ArchiveViewProps {
 
 export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const { t, language } = useLanguage();
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessions, setSessions] = useState<ArchiveSession[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cloudLoadFailed, setCloudLoadFailed] = useState(false);
@@ -45,7 +50,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     const controller = new AbortController();
 
     try {
-      const allSessions: Session[] = [];
+      const allSessions: ArchiveSession[] = [];
       const seenIds = new Set<string>();
 
       const guestId = getOrCreateGuestId();
@@ -73,6 +78,8 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
             tags: doc.tags,
             createdAt: new Date(doc.lastSessionAt),
             _isLocal: true,
+            _linkedCloudId: doc.linkedCloudId || undefined,
+            _hasCloudCopy: !!doc.linkedCloudId,
           });
         }
 
@@ -118,6 +125,8 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               tags: cloudDoc.tags,
               createdAt: (cloudDoc.lastSessionAt as { toDate?: () => Date })?.toDate?.() ?? new Date(),
               _isLocal: !!localId,
+              _linkedCloudId: cloudDoc.id,
+              _hasCloudCopy: true,
             });
           }
         }
@@ -185,7 +194,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
       if (!acc[dateKey]) acc[dateKey] = [];
       acc[dateKey].push(session);
       return acc;
-    }, {} as Record<string, Session[]>);
+    }, {} as Record<string, ArchiveSession[]>);
   }, [filteredSessions]);
 
   const sortedDates = useMemo(() => Object.keys(groupedSessions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [groupedSessions]);
@@ -308,6 +317,9 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                             onContinue={() => navigate('/', { state: { sessionToContinue: session } })}
                             searchQuery={searchQuery}
                             onDeleteSuccess={(id) => setSessions(prev => prev.filter(s => s.id !== id))}
+                            userId={user?.uid}
+                            linkedCloudId={session._linkedCloudId}
+                            hasCloudCopy={session._hasCloudCopy}
                           />
                         ))}
                       </div>

@@ -391,6 +391,10 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     if (sessionStatus !== 'idle') return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key.length !== 1) return;
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+    if (target.closest('[data-modal]')) return;
+    if (target.isContentEditable && target.closest('[data-modal]')) return;
     handlePlayRef.current();
   }, [sessionStatus]);
 

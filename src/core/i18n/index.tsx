@@ -16,6 +16,12 @@ export const translations: Translations = {
   nav_profile: { ru: 'Мой профиль', en: 'My Profile' },
   nav_stream_mode: { ru: 'Режим потока сознания', en: 'Stream Mode' },
   nav_admin: { ru: 'Админ', en: 'Admin' },
+  nav_about: { ru: 'О приложении', en: 'About' },
+
+  about_subtitle:       { ru: 'Место для текста', en: 'A place for writing' },
+  about_description:    { ru: 'justwriting — минималистичный редактор для фрирайтинга и потокового письма. Всё сохраняется локально, облако — опционально.', en: 'justwriting is a minimalist editor for freewriting and stream-of-consciousness writing. Everything saves locally, cloud is optional.' },
+  about_made_with_love: { ru: 'Сделано с любовью к процессу письма', en: 'Made with love for the writing process' },
+
   nav_logout: { ru: 'Выйти', en: 'Logout' },
 
   // Writing View & Setup
@@ -444,6 +450,7 @@ export const translations: Translations = {
   common_ok:              { ru: 'Ок',              en: 'OK' },
 
   save_success: { ru: 'Заметка сохранена', en: 'Note saved' },
+  session_deleted: { ru: 'Заметка удалена', en: 'Note deleted' },
   save_error:   { ru: 'Ошибка при сохранении', en: 'Save failed' },
   save_status_saving: { ru: 'сохраняю…', en: 'saving…' },
 
@@ -455,6 +462,12 @@ export const translations: Translations = {
   error_export_failed:  { ru: 'Не удалось экспортировать.',                 en: 'Failed to export.' },
   error_signout_failed: { ru: 'Не удалось выйти из аккаунта.',             en: 'Failed to sign out.' },
   error_labels_failed:  { ru: 'Не удалось обновить ярлыки.',               en: 'Failed to update labels.' },
+
+  migration_found_title:        { ru: 'Локальные записи найдены',             en: 'Local records found' },
+  migration_found_hint:         { ru: 'У вас {count} локальных записей. Переместить их в аккаунт?', en: 'You have {count} local records. Move them to your account?' },
+  migration_move_to_account:    { ru: 'Переместить в аккаунт',               en: 'Move to account' },
+  migration_keep_local:         { ru: 'Оставить локальными',                 en: 'Keep local' },
+  migration_success_local:      { ru: 'Перемещено записей: {count}',         en: 'Records moved: {count}' },
 
   finish_modal_choose_title:      { ru: 'Сохранить сессию',           en: 'Save session' },
   finish_modal_new_doc:           { ru: 'Новый документ',              en: 'New document' },

@@ -22,6 +22,7 @@ import { ProfilePage } from '../features/profile/pages/ProfilePage';
 import { ArchivePage } from '../features/archive/pages/ArchivePage';
 import { AdminPage } from '../features/admin/pages/AdminPage';
 import { LoginPage } from '../features/auth/pages/LoginPage';
+import { AboutPage } from '../features/navigation/pages/AboutPage';
 import { ProtectedRoute, GuestRoute } from './ProtectedRoute';
 import { LoginModalOverlay } from '../features/auth/components/LoginModalOverlay';
 
@@ -121,8 +122,15 @@ export function AnimatedRoutes() {
             } />
             <Route path="/login" element={
               <GuestRoute>
-                <LoginPage />
+                <PageTransition id="/login">
+                  <LoginPage />
+                </PageTransition>
               </GuestRoute>
+            } />
+            <Route path="/about" element={
+              <PageTransition id="/about">
+                <AboutPage />
+              </PageTransition>
             } />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
