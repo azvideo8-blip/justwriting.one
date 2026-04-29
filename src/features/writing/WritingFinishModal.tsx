@@ -50,7 +50,7 @@ export function WritingFinishModal({
   onSave,
 }: WritingFinishModalProps) {
   const { t } = useLanguage();
-  const { execute } = useServiceAction();
+  const { execute, isLoading: isSaving } = useServiceAction();
 
   const status = useWritingStore(s => s.status);
   const setStatus = useWritingStore(s => s.setStatus);
@@ -267,9 +267,13 @@ export function WritingFinishModal({
           </button>
           <button
             onClick={handleSaveClick}
-            className="flex-1 px-6 py-4 font-bold transition-all bg-text-main text-surface-base rounded-2xl shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:scale-105"
+            disabled={isSaving}
+            className={cn(
+              "flex-1 px-6 py-4 font-bold transition-all bg-text-main text-surface-base rounded-2xl shadow-[0_0_20px_rgba(255,255,255,0.2)]",
+              isSaving ? "opacity-60 cursor-not-allowed" : "hover:scale-105"
+            )}
           >
-            {t('common_save')}
+            {isSaving ? t('archive_loading') : t('common_save')}
           </button>
         </div>
       </motion.div>

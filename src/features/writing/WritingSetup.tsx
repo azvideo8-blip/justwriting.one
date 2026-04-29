@@ -7,7 +7,6 @@ import { Session } from '../../types';
 import { cn } from '../../core/utils/utils';
 import { useLanguage } from '../../core/i18n';
 import { formatTime } from '../../core/utils/formatTime';
-import { Toggle } from '../../shared/components/Toggle';
 
 export type SetupMode = 'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | 'finish-by-config' | null;
 
@@ -24,10 +23,6 @@ interface WritingSetupProps {
   countdown: number | null;
   userSessions: Session[];
   continueSession: (session: Session) => void;
-  isLocalOnly: boolean;
-  setIsLocalOnly: (enabled: boolean) => void;
-  encryptionPassword: string;
-  setEncryptionPassword: (password: string) => void;
 }
 
 export function WritingSetup({
@@ -43,10 +38,6 @@ export function WritingSetup({
   countdown,
   userSessions,
   continueSession,
-  isLocalOnly,
-  setIsLocalOnly,
-  encryptionPassword,
-  setEncryptionPassword
 }: WritingSetupProps) {
   const { t, language } = useLanguage();
   if (!setupMode) return null;
@@ -125,36 +116,6 @@ export function WritingSetup({
                       </button>
                     ))}
                   </div>
-
-                  <div className="p-4 md:p-5 rounded-2xl md:rounded-3xl border flex items-center gap-3 md:gap-4 transition-colors group bg-white/5 border-border-subtle hover:bg-white/10">
-                    <Toggle checked={isLocalOnly} onChange={setIsLocalOnly} />
-                    <div className="flex-1">
-                      <div className="font-bold text-xs md:text-sm text-text-main">{t('writing_local_session')}</div>
-                      <div className="text-[11px] leading-tight text-text-main/50">{t('writing_local_desc')}</div>
-                    </div>
-                  </div>
-
-                  {isLocalOnly && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="space-y-2"
-                    >
-                      <div className="text-[11px] font-black uppercase tracking-widest ml-1 text-text-main/40">
-                        {t('writing_encryption_password')}
-                      </div>
-                      <input 
-                        type="password"
-                        value={encryptionPassword}
-                        onChange={(e) => setEncryptionPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full p-4 rounded-2xl border transition-all outline-none text-sm font-mono bg-white/5 border-border-subtle text-text-main focus:bg-white/10 focus:border-white/20"
-                      />
-                      <p className="text-[11px] leading-tight ml-1 text-text-main/40">
-                        {t('writing_encryption_desc')}
-                      </p>
-                    </motion.div>
-                  )}
                 </>
               )}
 

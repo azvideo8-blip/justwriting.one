@@ -1,7 +1,7 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useBaseWritingSession, BaseSessionReturn } from './useBaseWritingSession';
 import { useWritingStore } from '../store/useWritingStore';
-import { getOrCreateGuestId } from '../../../shared/lib/localDb';
+import { getOrCreateGuestId, getLocalDb } from '../../../shared/lib/localDb';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { LocalVersionService } from '../services/LocalVersionService';
 
@@ -26,11 +26,39 @@ export interface GuestSessionReturn extends BaseSessionReturn {
   handleCancel: () => Promise<void>;
   fetchLocalSessions: () => Promise<LocalSessionInfo[]>;
   loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
-  decryptSession: (session: Record<string, unknown>, password: string) => Promise<Record<string, unknown>>;
   loadDraft: () => Promise<void>;
 }
 
 const DRAFT_KEY = 'jw_guest_draft';
+
+async function saveDraftToIdb(draft: Record<string, unknown>) {
+  try {
+    const db = await getLocalDb();
+    if (db.objectStoreNames.contains('drafts')) {
+      await db.put('drafts', { ...draft, userId: 'guest_draft' } as import('../../../shared/lib/localDb').LocalDraft);
+    }
+  } catch {}
+}
+
+async function loadDraftFromIdb(): Promise<Record<string, unknown> | null> {
+  try {
+    const db = await getLocalDb();
+    if (db.objectStoreNames.contains('drafts')) {
+      const d = await db.get('drafts', 'guest_draft');
+      return d ? { ...d } as Record<string, unknown> : null;
+    }
+  } catch {}
+  return null;
+}
+
+async function deleteDraftFromIdb() {
+  try {
+    const db = await getLocalDb();
+    if (db.objectStoreNames.contains('drafts')) {
+      await db.delete('drafts', 'guest_draft');
+    }
+  } catch {}
+}
 
 export function useGuestWritingSession(): GuestSessionReturn {
   const base = useBaseWritingSession();
@@ -42,6 +70,13 @@ export function useGuestWritingSession(): GuestSessionReturn {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const saveStatusRef = useRef(saveStatus);
   saveStatusRef.current = saveStatus;
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    };
+  }, []);
 
   const stateRef = useRef({ content: base.content, title: base.title, pinnedThoughts: base.pinnedThoughts, seconds: base.seconds, wordCount: base.wordCount });
   stateRef.current = { content: base.content, title: base.title, pinnedThoughts: base.pinnedThoughts, seconds: base.seconds, wordCount: base.wordCount };
@@ -62,17 +97,19 @@ export function useGuestWritingSession(): GuestSessionReturn {
     const interval = setInterval(() => {
       try {
         const s = stateRef.current;
-        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        const draftData = {
           content: s.content,
           title: s.title,
           pinnedThoughts: s.pinnedThoughts,
           seconds: s.seconds,
           wordCount: s.wordCount,
           timestamp: Date.now(),
-        }));
+        };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
+        saveDraftToIdb(draftData);
         setSaveStatus('saved');
         setLastSavedAt(Date.now());
-        setTimeout(() => setSaveStatus('idle'), 1000);
+        statusTimerRef.current = setTimeout(() => setSaveStatus('idle'), 1000);
       } catch (err) {
         const isQuota = err instanceof DOMException && err.name === 'QuotaExceededError';
         setSaveStatus('error');
@@ -88,14 +125,16 @@ export function useGuestWritingSession(): GuestSessionReturn {
       if (document.visibilityState === 'hidden' && stateRef.current.content) {
         try {
           const s = stateRef.current;
-          localStorage.setItem(DRAFT_KEY, JSON.stringify({
+          const draftData = {
             content: s.content,
             title: s.title,
             pinnedThoughts: s.pinnedThoughts,
             seconds: s.seconds,
             wordCount: s.wordCount,
             timestamp: Date.now(),
-          }));
+          };
+          localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
+          saveDraftToIdb(draftData);
         } catch (err) {
           console.error('[GuestDraft] Emergency save on visibility change failed:', err);
         }
@@ -107,15 +146,22 @@ export function useGuestWritingSession(): GuestSessionReturn {
 
   const loadDraft = useCallback(async () => {
     const raw = localStorage.getItem(DRAFT_KEY);
-    if (!raw) return;
+    let draft: { content?: string; title?: string; pinnedThoughts?: string[]; seconds?: number; wordCount?: number } | null = null;
 
-    let draft: { content?: string; title?: string; pinnedThoughts?: string[]; seconds?: number; wordCount?: number };
-    try {
-      draft = JSON.parse(raw);
-    } catch (err) {
-      console.warn('[GuestDraft] Corrupted draft, removing:', err);
-      localStorage.removeItem(DRAFT_KEY);
-      return;
+    if (raw) {
+      try {
+        draft = JSON.parse(raw);
+      } catch (err) {
+        console.warn('[GuestDraft] Corrupted localStorage draft, removing:', err);
+        localStorage.removeItem(DRAFT_KEY);
+      }
+    }
+
+    if (!draft) {
+      const idbDraft = await loadDraftFromIdb();
+      if (idbDraft) {
+        draft = idbDraft as { content?: string; title?: string; pinnedThoughts?: string[]; seconds?: number; wordCount?: number };
+      }
     }
 
     if (!draft?.content) return;
@@ -138,6 +184,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
 
   const clearDraft = useCallback(() => {
     localStorage.removeItem(DRAFT_KEY);
+    deleteDraftFromIdb();
     setHasDraft(false);
   }, []);
 
@@ -172,10 +219,6 @@ export function useGuestWritingSession(): GuestSessionReturn {
     } as Record<string, unknown>;
   }, []);
 
-  const decryptSession = useCallback(async (_session: Record<string, unknown>, _password: string) => {
-    throw new Error('Decryption not supported for guest sessions');
-  }, []);
-
   return {
     ...base,
     userId: guestId,
@@ -189,7 +232,6 @@ export function useGuestWritingSession(): GuestSessionReturn {
     handleCancel,
     fetchLocalSessions,
     loadLocalSession,
-    decryptSession,
     loadDraft,
   };
 }

@@ -173,7 +173,7 @@ export function useLifeLog(userId: string, isGuest?: boolean): UseLifeLogReturn 
             totalDuration: cloud.totalDuration,
             currentVersion: cloud.currentVersion,
             sessionsCount: cloud.sessionsCount,
-            lastSessionAt: (cloud.lastSessionAt as { toDate?: () => Date }).toDate?.().getTime() ?? Date.now(),
+            lastSessionAt: (cloud.lastSessionAt as { toDate?: () => Date })?.toDate?.().getTime() ?? 0,
             tags: cloud.tags,
             storage: {
               local: false,
@@ -225,8 +225,8 @@ export function useLifeLog(userId: string, isGuest?: boolean): UseLifeLogReturn 
       _isLocal: !!d.localId,
     } as Session));
 
-    const documentTitles = new Set(unifiedDocuments.map(d => d.title).filter(Boolean));
-    const dedupedSessions = sessions.filter(s => !documentTitles.has(s.title || ''));
+    const docSessionIds = new Set(unifiedDocuments.map(d => d.localId || d.cloudId).filter(Boolean));
+    const dedupedSessions = sessions.filter(s => !docSessionIds.has(s.id));
 
     const allEntries = [...docSessions, ...dedupedSessions];
 

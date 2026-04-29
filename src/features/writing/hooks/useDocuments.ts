@@ -3,7 +3,7 @@ import { DocumentService } from '../services/DocumentService';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { Document } from '../../../types';
 
-function localDocToDocument(doc: { id: string; title: string; currentVersion: number; totalWords: number; totalDuration: number; sessionsCount: number; firstSessionAt: number; lastSessionAt: number; isPublic: false; tags: string[] }): Document {
+function localDocToDocument(doc: { id: string; title: string; currentVersion: number; totalWords: number; totalDuration: number; sessionsCount: number; firstSessionAt: number; lastSessionAt: number; isPublic: boolean; tags: string[]; linkedCloudId?: string }): Document {
   return {
     id: doc.id,
     userId: '',

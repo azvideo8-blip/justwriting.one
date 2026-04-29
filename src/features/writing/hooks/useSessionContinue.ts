@@ -6,57 +6,26 @@ import { LocalVersionService } from '../services/LocalVersionService';
 
 interface UseSessionContinueParams {
   setSetupMode: (mode: SetupMode) => void;
-  setIsLocalOnly: (v: boolean) => void;
-  setActiveSessionId: (id: string | null) => void;
   setTags: (tags: string[]) => void;
   setIsPublic: (v: boolean) => void;
   setIsAnonymous: (v: boolean) => void;
   loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
-  decryptSession: (session: Record<string, unknown>, password: string) => Promise<Record<string, unknown>>;
-}
-
-interface UseSessionContinueReturn {
-  continueSession: (session: Session) => Promise<void>;
-  passwordPrompt: { session: Session; resolve: (p: string) => void; reject: () => void } | null;
-  handlePromptSubmit: (password: string) => void;
-  handlePromptCancel: () => void;
 }
 
 export function useSessionContinue({
   setSetupMode,
-  setIsLocalOnly,
-  setActiveSessionId,
   setTags,
   setIsPublic,
   setIsAnonymous,
   loadLocalSession,
-  decryptSession,
-}: UseSessionContinueParams): UseSessionContinueReturn {
-  const [passwordPrompt, setPasswordPrompt] = useState<{
-    session: Session;
-    resolve: (p: string) => void;
-    reject: () => void;
-  } | null>(null);
-
-  const passwordPromptRef = useRef(passwordPrompt);
-  passwordPromptRef.current = passwordPrompt;
-
-  useEffect(() => {
-    return () => {
-      if (passwordPromptRef.current) {
-        passwordPromptRef.current.reject();
-      }
-    };
-  }, []);
-
+}: UseSessionContinueParams) {
   const continueSession = useCallback(async (session: Session) => {
     const isLocal = session._isLocal;
     if (isLocal) {
-      let loaded = await loadLocalSession(session.id);
+      const loaded = await loadLocalSession(session.id);
 
       if (!loaded) {
         const content = await LocalVersionService.getLatestContent(session.id);
-        setActiveSessionId(null);
         useWritingStore.setState({
           content,
           title: session.title || '',
@@ -68,24 +37,10 @@ export function useSessionContinue({
         setTags(session.tags || []);
         setIsPublic(false);
         setIsAnonymous(false);
-        setIsLocalOnly(true);
         setSetupMode('selection');
         return;
       }
 
-      if (loaded.isEncrypted) {
-        try {
-          const password = await new Promise<string>((resolve, reject) => {
-            setPasswordPrompt({ session, resolve, reject });
-          });
-          loaded = await decryptSession(loaded, password);
-        } catch {
-          console.error('Decryption failed or cancelled');
-          return;
-        }
-      }
-
-      setActiveSessionId(null);
       useWritingStore.setState({
         content: (loaded.content as string) || '',
         title: (loaded.title as string) || '',
@@ -97,12 +52,10 @@ export function useSessionContinue({
       setTags((loaded.tags as string[]) || []);
       setIsPublic((loaded.isPublic as boolean) || false);
       setIsAnonymous((loaded.isAnonymous as boolean) || false);
-      setIsLocalOnly(true);
       setSetupMode('selection');
       return;
     }
 
-    setActiveSessionId(session.id);
     useWritingStore.setState({
       content: session.content,
       title: session.title || '',
@@ -114,23 +67,8 @@ export function useSessionContinue({
     setTags(session.tags || []);
     setIsPublic(session.isPublic);
     setIsAnonymous(session.isAnonymous || false);
-    setIsLocalOnly(false);
     setSetupMode('selection');
-  }, [setSetupMode, setIsLocalOnly, setActiveSessionId, setTags, setIsPublic, setIsAnonymous, loadLocalSession, decryptSession]);
+  }, [setSetupMode, setTags, setIsPublic, setIsAnonymous, loadLocalSession]);
 
-  const handlePromptSubmit = useCallback((password: string) => {
-    if (passwordPrompt) {
-      passwordPrompt.resolve(password);
-      setPasswordPrompt(null);
-    }
-  }, [passwordPrompt]);
-
-  const handlePromptCancel = useCallback(() => {
-    if (passwordPrompt) {
-      passwordPrompt.reject();
-      setPasswordPrompt(null);
-    }
-  }, [passwordPrompt]);
-
-  return { continueSession, passwordPrompt, handlePromptSubmit, handlePromptCancel };
+  return { continueSession };
 }

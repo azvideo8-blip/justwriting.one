@@ -24,6 +24,10 @@ export const VersionService = {
       sessionStartedAt: Date;
     }
   ): Promise<string> {
+    const payloadSize = new Blob([data.content]).size;
+    if (payloadSize > 900_000) {
+      throw new Error(`Content too large (${(payloadSize / 1024).toFixed(0)}KB). Firestore limit is 1MB per document.`);
+    }
     try {
       const diff = computeWordDiff(data.previousContent, data.content);
       const ref = await addDoc(versionsRef(userId, documentId), {

@@ -129,8 +129,8 @@ export function useDraftAutosave(
       const timeout = setTimeout(async () => {
         const draft: LocalDraft = {
           userId: user.uid,
-          ...draftData,
-          sessionStartTime: draftData.sessionStartTime ?? null,
+          ...draftDataRef.current,
+          sessionStartTime: draftDataRef.current.sessionStartTime ?? null,
           updatedAt: Date.now()
         } as LocalDraft;
         try {
@@ -149,11 +149,11 @@ export function useDraftAutosave(
           console.error(isQuotaError ? 'localStorage full' : 'Local autosave error:', err);
           if (isMountedRef.current) setSaveStatus('error');
         }
-      }, 500); // Save 500ms after last change
+      }, 500);
       
       return () => clearTimeout(timeout);
     }
-  }, [draftData, user]);
+  }, [draftData.status, draftData.content, draftData.title, draftData.wordCount, draftData.seconds, user]);
 
   return { saveStatus, lastSavedAt };
 }

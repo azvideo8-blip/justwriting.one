@@ -49,7 +49,9 @@ export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodT
         return valueToStore;
       });
     } catch (error) {
-      if (import.meta.env.DEV) {
+      if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+        console.error(`localStorage quota exceeded for key "${key}"`);
+      } else if (import.meta.env.DEV) {
         console.warn(`Error setting localStorage key "${key}":`, error);
       }
     }

@@ -79,8 +79,12 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     }
 
     guardRef.current = false;
+    let lastMoveTime = 0;
     const showUI = (e: MouseEvent) => {
       if (guardRef.current) return;
+      const now = Date.now();
+      if (now - lastMoveTime < 200) return;
+      lastMoveTime = now;
       if (e.clientX === lastMousePos.current.x && e.clientY === lastMousePos.current.y) return;
       lastMousePos.current = { x: e.clientX, y: e.clientY };
       setIsZenActive(false);
