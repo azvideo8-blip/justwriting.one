@@ -3,7 +3,7 @@ import { Session } from '../../../types';
 import { getSessionDate } from '../../../core/utils/utils';
 import { isSameDay } from 'date-fns';
 
-export function useArchiveFilters(sessions: Session[]) {
+export function useArchiveFilters<T extends Session>(sessions: T[]) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<Date | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);

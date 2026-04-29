@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PenLine, History, User as UserIcon, Shield, LogIn } from 'lucide-react';
+import { PenLine, History, User as UserIcon, Shield, LogIn, Info } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -105,17 +105,35 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
             </span>
           </button>
         ))}
+        </nav>
 
-        {/* Guest: Sign In button */}
+      {/* Bottom section */}
+      <div className="flex flex-col gap-1 px-2 mt-auto">
+        <button
+          onClick={() => navigate('/about')}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
+            "text-text-main/40 hover:text-text-main/60 hover:bg-text-main/8"
+          )}
+          title={t('nav_about')}
+        >
+          <span className="shrink-0"><Info size={20} /></span>
+          <span className={cn(
+            "text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
+            expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
+          )}>
+            {t('nav_about')}
+          </span>
+        </button>
+
         {isGuest && (
           <button
             onClick={openLoginModal}
-            role="menuitem"
-            tabIndex={0}
             className={cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden mt-4",
+              "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
               "text-text-main/70 hover:text-text-main hover:bg-text-main/15"
             )}
+            title={t('auth_sign_in')}
           >
             <span className="shrink-0"><LogIn size={20} /></span>
             <span className={cn(
@@ -126,7 +144,7 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
             </span>
           </button>
         )}
-       </nav>
+      </div>
     </div>
   );
 }

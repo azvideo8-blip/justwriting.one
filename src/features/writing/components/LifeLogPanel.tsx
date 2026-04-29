@@ -448,12 +448,12 @@ export function LifeLogPanel({
               async () => {
                 if (deleteTarget._isLocal) {
                   const doc = await LocalDocumentService.getDocument(deleteTarget.id);
-                  await StorageService.deleteDocument('', deleteTarget.id, doc?.linkedCloudId || undefined);
+                  await StorageService.deleteDocument(userId, deleteTarget.id, doc?.linkedCloudId || undefined);
                 } else {
                   await SessionService.deleteSession(deleteTarget.id);
                 }
               },
-              { successMessage: t('save_success'), errorMessage: t('error_delete_failed') }
+              { successMessage: t('session_deleted'), errorMessage: t('error_delete_failed') }
             );
             refresh();
           }

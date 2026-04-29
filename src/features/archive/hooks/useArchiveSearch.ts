@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Session } from '../../../types';
 import { useDebounce } from '../../../shared/hooks/useDebounce';
 
-export function useArchiveSearch(sessions: Session[]) {
+export function useArchiveSearch<T extends Session>(sessions: T[]) {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
