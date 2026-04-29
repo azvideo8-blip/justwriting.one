@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect } from 'react';
 import { z } from 'zod';
 import { useLocalStorage } from '../../shared/hooks/useLocalStorage';
 
-export type ThemeId = 'modern' | 'stripe' | 'notion' | 'spotify' | 'amethyst';
+export type ThemeId = 'modern' | 'notion' | 'spotify' | 'amethyst';
 
 export interface ThemeConfig {
   id: ThemeId;
@@ -17,12 +17,6 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
     nameRu: 'Современный',
     nameEn: 'Modern',
     cssClass: 'theme-modern',
-  },
-  stripe: {
-    id: 'stripe',
-    nameRu: 'Элегантный',
-    nameEn: 'Elegant',
-    cssClass: 'theme-stripe',
   },
   notion: {
     id: 'notion',
@@ -55,8 +49,8 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [themeId, setThemeId] = useLocalStorage<ThemeId>(
     'app-theme',
-    'stripe',
-    z.enum(['modern', 'stripe', 'notion', 'spotify', 'amethyst'])
+    'modern',
+    z.enum(['modern', 'notion', 'spotify', 'amethyst'])
   );
 
   useEffect(() => {

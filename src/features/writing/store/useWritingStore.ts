@@ -28,14 +28,11 @@ interface WritingState {
   sessionStartSeconds: number;
   accumulatedDuration: number;
 
-  isPublic: boolean;
-  isAnonymous: boolean;
   tags: string[];
   labelId?: string;
   initialDuration: number;
   activeSessionId: string | null;
   savedDocumentId: string | null;
-  encryptionPassword?: string;
   sessionStartTime: number | null;
 
   setContent: (content: string) => void;
@@ -53,14 +50,11 @@ interface WritingState {
   setTimerDuration: (duration: number) => void;
   setWordGoal: (goal: number) => void;
   setTargetTime: (time: string | null) => void;
-  setIsPublic: (isPublic: boolean) => void;
-  setIsAnonymous: (isAnonymous: boolean) => void;
   setTags: (tags: string[]) => void;
   setLabelId: (labelId?: string) => void;
   setInitialDuration: (duration: number) => void;
   setActiveSessionId: (id: string | null) => void;
   setSavedDocumentId: (id: string | null) => void;
-  setEncryptionPassword: (password?: string) => void;
   setSessionStartTime: (time: number | null) => void;
   setTimeGoalReached: (reached: boolean) => void;
   setWordGoalReached: (reached: boolean) => void;
@@ -77,8 +71,8 @@ export const useWritingStore = create<WritingState>((set) => ({
   timeGoalReached: false, wordGoalReached: false, overtimeSeconds: 0,
   sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
 
-  isPublic: false, isAnonymous: false, tags: [], labelId: undefined,
-  initialDuration: 0, activeSessionId: null, savedDocumentId: null, encryptionPassword: '', sessionStartTime: null,
+  tags: [], labelId: undefined,
+  initialDuration: 0, activeSessionId: null, savedDocumentId: null, sessionStartTime: null,
 
   setContent: (content) => set((state) => {
     const words = content.trim().split(/\s+/).filter(x => x.length > 0).length;
@@ -158,14 +152,11 @@ export const useWritingStore = create<WritingState>((set) => ({
     return { wordGoal };
   }),
   setTargetTime: (targetTime) => set({ targetTime }),
-  setIsPublic: (isPublic) => set({ isPublic }),
-  setIsAnonymous: (isAnonymous) => set({ isAnonymous }),
   setTags: (tags) => set({ tags }),
   setLabelId: (labelId) => set({ labelId }),
   setInitialDuration: (initialDuration) => set({ initialDuration }),
   setActiveSessionId: (activeSessionId) => set({ activeSessionId }),
   setSavedDocumentId: (savedDocumentId) => set({ savedDocumentId }),
-  setEncryptionPassword: (encryptionPassword) => set({ encryptionPassword }),
   setSessionStartTime: (sessionStartTime) => set({ sessionStartTime }),
   setTimeGoalReached: (timeGoalReached) => set({ timeGoalReached }),
   setWordGoalReached: (wordGoalReached) => set({ wordGoalReached }),
@@ -178,10 +169,7 @@ export const useWritingStore = create<WritingState>((set) => ({
     activeSessionId: null,
     savedDocumentId: null,
     tags: [],
-    isPublic: false,
-    isAnonymous: false,
     labelId: undefined,
-    encryptionPassword: ''
   }),
 
   resetSession: () => set({

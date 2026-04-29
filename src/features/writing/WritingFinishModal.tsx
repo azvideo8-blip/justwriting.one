@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Globe, User as UserIcon, Download, FileText } from 'lucide-react';
+import { Download, FileText } from 'lucide-react';
 import { cn } from '../../core/utils/utils';
 import { ExportService } from '../export/ExportService';
 import { Label } from '../../types';
 import { useLanguage } from '../../core/i18n';
 import { formatTime } from '../../core/utils/formatTime';
-import { Toggle } from '../../shared/components/Toggle';
 import { useServiceAction } from './hooks/useServiceAction';
 
 import { useWritingStore } from './store/useWritingStore';
@@ -14,18 +13,12 @@ import { useModalEscape } from '../../shared/hooks/useModalEscape';
 
 export interface SaveData {
   title: string;
-  isPublic: boolean;
-  isAnonymous: boolean;
   tags: string[];
   labelId?: string;
 }
 
 interface WritingFinishModalProps {
   isOpen: boolean;
-  isPublic: boolean;
-  setIsPublic: (val: boolean) => void;
-  isAnonymous: boolean;
-  setIsAnonymous: (val: boolean) => void;
   tags: string[];
   setTags: (tags: string[]) => void;
   labelId?: string;
@@ -37,10 +30,6 @@ interface WritingFinishModalProps {
 
 export function WritingFinishModal({
   isOpen,
-  isPublic,
-  setIsPublic,
-  isAnonymous,
-  setIsAnonymous,
   tags,
   setTags,
   labelId,
@@ -101,8 +90,6 @@ export function WritingFinishModal({
 
   const saveData: SaveData = {
     title: finalTitle,
-    isPublic,
-    isAnonymous,
     tags: tags || [],
     labelId,
   };
@@ -210,35 +197,6 @@ export function WritingFinishModal({
             }}
           />
         </div>
-
-        {!isGuest && (
-          <>
-            <div className="flex items-center justify-between p-4 rounded-2xl bg-surface-base border border-border-subtle">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 text-text-main/70">
-                  <Globe size={20} />
-                </div>
-                <div>
-                  <div className="font-bold text-sm text-text-main">{t('finish_public')}</div>
-                  <div className="text-xs text-text-main/50">{t('finish_public_desc')}</div>
-                </div>
-              </div>
-              <Toggle checked={isPublic} onChange={setIsPublic} />
-            </div>
-            <div className="flex items-center justify-between p-4 rounded-2xl bg-surface-base border border-border-subtle">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 text-text-main/70">
-                  <UserIcon size={20} />
-                </div>
-                <div>
-                  <div className="font-bold text-sm text-text-main">{t('finish_anonymous')}</div>
-                  <div className="text-xs text-text-main/50">{t('finish_anonymous_desc')}</div>
-                </div>
-              </div>
-              <Toggle checked={isAnonymous} onChange={setIsAnonymous} />
-            </div>
-          </>
-        )}
 
         <div className="space-y-3">
           <div className="text-[11px] font-bold uppercase tracking-widest text-text-main/50">{t('session_export')}</div>

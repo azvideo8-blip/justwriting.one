@@ -26,7 +26,6 @@ function docToSession(doc: LifeLogDocument): Session & { _isLocal?: boolean } {
     wordCount: doc.totalWords,
     charCount: 0,
     wpm: 0,
-    isPublic: false,
     title: doc.title,
     tags: doc.tags,
     createdAt: new Date(doc.lastSessionAt),
@@ -54,7 +53,6 @@ const SessionItem: React.FC<SessionItemProps> = ({ session, doc, isActive, onCli
 
   const getStatusBadge = () => {
     if (!session.id) return { label: t('lifelog_status_unsaved'), cls: 'bg-text-main/10 text-text-main' };
-    if (session.isPublic) return { label: t('lifelog_status_published'), cls: 'bg-accent-success/10 text-accent-success' };
     return { label: t('lifelog_status_saved'), cls: 'bg-accent-info/10 text-accent-info' };
   };
 

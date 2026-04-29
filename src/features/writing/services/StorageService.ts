@@ -14,8 +14,6 @@ export interface SaveDocumentData {
   wordCount: number;
   duration: number;
   wpm: number;
-  isPublic: boolean;
-  isAnonymous: boolean;
   tags: string[];
   labelId?: string;
   goalWords?: number;
@@ -205,7 +203,6 @@ export const StorageService = {
       try {
         cloudId = await DocumentService.createDocument(userId, {
           title: localDoc.title,
-          isPublic: false,
           tags: localDoc.tags,
         });
 

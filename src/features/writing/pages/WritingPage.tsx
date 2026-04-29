@@ -95,10 +95,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
   const wordCount = session.wordCount;
   const wordGoal = session.wordGoal;
   const timerDuration = session.timerDuration;
-  const isPublic = session.isPublic;
-  const setIsPublic = session.setIsPublic;
-  const isAnonymous = session.isAnonymous;
-  const setIsAnonymous = session.setIsAnonymous;
   const tags = session.tags;
   const setTags = session.setTags;
   const labelId = session.labelId;
@@ -164,8 +160,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
   const { continueSession } = useSessionContinue({
     setSetupMode: flow.setSetupMode,
     setTags,
-    setIsPublic,
-    setIsAnonymous,
     loadLocalSession,
   });
 
@@ -286,8 +280,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
         wordCount: state.wordCount,
         duration: sessionSeconds,
         wpm: state.wpm,
-        isPublic: data.isPublic,
-        isAnonymous: data.isAnonymous,
+        isPublic: false,
         tags: data.tags,
         labelId: data.labelId,
         goalWords: state.wordGoal > 0 ? state.wordGoal : undefined,
@@ -456,8 +449,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       />
       <WritingFinishModal 
         isOpen={sessionStatus === 'finished'}
-        isPublic={isPublic} setIsPublic={setIsPublic}
-        isAnonymous={isAnonymous} setIsAnonymous={setIsAnonymous}
         tags={tags} setTags={setTags}
         labelId={labelId} setLabelId={setLabelId}
         labels={profile?.labels || []}

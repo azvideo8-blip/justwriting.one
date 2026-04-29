@@ -39,8 +39,6 @@ export function useSessionList(
             wordCount: (data?.wordCount as number) || s.wordCount || 0,
             charCount: 0,
             wpm: 0,
-            isPublic: false,
-            isAnonymous: false,
             title: (data?.title as string) || t('writing_local_session'),
             tags: (data?.tags as string[]) || [],
             createdAt: s.createdAt,

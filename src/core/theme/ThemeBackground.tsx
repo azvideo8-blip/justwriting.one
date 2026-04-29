@@ -6,24 +6,6 @@ export function ThemeBackground() {
   const { themeId } = useTheme();
   const reducedMotion = useReducedMotion();
 
-  // Stripe — deep purple gradient shifting slowly
-  if (themeId === 'stripe') {
-    return (
-      <motion.div
-        className="fixed inset-0 pointer-events-none"
-        style={{ zIndex: 0 }}
-        animate={reducedMotion ? {} : {
-          background: [
-            'radial-gradient(ellipse at 20% 50%, #1a0533 0%, #0a0514 60%)',
-            'radial-gradient(ellipse at 80% 30%, #170a38 0%, #0a0514 60%)',
-            'radial-gradient(ellipse at 50% 80%, #130326 0%, #0a0514 60%)',
-          ],
-        }}
-        transition={{ duration: 10, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
-      />
-    );
-  }
-
   // Spotify — subtle dark green pulse
   if (themeId === 'spotify') {
     return (
