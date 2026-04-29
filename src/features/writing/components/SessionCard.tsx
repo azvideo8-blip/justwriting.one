@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
 import { 
-  Clock, Type, PenLine, Globe, Lock, Share2, 
-  ChevronDown, ChevronUp, X, User as UserIcon,
+  Clock, Type, PenLine, Share2, 
+  ChevronDown, ChevronUp, X,
   FileText, Download, FileJson, Plus, Trash2
 } from 'lucide-react';
 import { auth } from '../../../core/firebase/auth';
@@ -23,14 +23,12 @@ import { CancelConfirmModal } from './modals/CancelConfirmModal';
 
 export function SessionCard({ 
   session, 
-  showAuthor, 
   onContinue, 
   labels,
   searchQuery = '',
   onDeleteSuccess
 }: { 
   session: Session, 
-  showAuthor?: boolean, 
   onContinue?: () => void, 
   labels?: Label[],
   searchQuery?: string,
@@ -178,28 +176,18 @@ export function SessionCard({
         )}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
           <div className="flex items-center gap-3">
-            {showAuthor && (
-              <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border bg-surface-base border-border-subtle">
-                {session.authorPhoto ? (
-                  <img src={session.authorPhoto || undefined} alt={`${session.authorName}'s avatar`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                ) : (
-                  <UserIcon size={14} className="text-text-main/50" />
-                )}
-              </div>
-            )}
             <div className="flex flex-col">
               <span className="text-[11px] md:text-xs font-bold uppercase tracking-widest text-text-main/40">
                 {format(new Date(session.sessionStartTime || (sessionDate.getTime() - session.duration * 1000)), 'd MMM yyyy • HH:mm')}
               </span>
-              {showAuthor && <span className="font-medium text-text-main">{session.isAnonymous ? t('session_anonymous') : (session.nickname || session.authorName)}</span>}
+
             </div>
           </div>
           <div className="flex items-center flex-wrap gap-3 text-xs md:text-sm font-mono text-text-main/50">
             <span className="flex items-center gap-1" title={t('writing_time')}><Clock size={14} /> {Math.floor(session.duration / 60)}{t('unit_min')}</span>
             <span className="flex items-center gap-1" title={t('writing_words')}><Type size={14} /> {session.wordCount}{t('unit_words')}</span>
             <span className="flex items-center gap-1" title={t('writing_chars')}><PenLine size={14} /> {session.charCount || 0}</span>
-            {session.isPublic ? <Globe size={14} /> : <Lock size={14} />}
-            
+
             <div className="flex items-center flex-wrap gap-2 relative">
               <button 
                 ref={exportButtonRef}
@@ -246,7 +234,7 @@ export function SessionCard({
                 document.body
               )}
 
-              {!showAuthor && (auth.currentUser?.uid === session.userId || session._isLocal) && (
+              {(auth.currentUser?.uid === session.userId || session._isLocal) && (
                 <>
                   <button 
                     onClick={() => setIsEditing(!isEditing)}

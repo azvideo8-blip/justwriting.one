@@ -14,9 +14,6 @@ export const mapFirebaseError = (error: unknown, language: 'ru' | 'en' = 'ru'): 
     case 'auth/too-many-requests':
       return translations['error_too_many_requests'][language];
     default:
-      if (code.includes('AI Error')) {
-        return translations['error_ai_resting'][language];
-      }
       return translations['error_generic'][language];
   }
 };

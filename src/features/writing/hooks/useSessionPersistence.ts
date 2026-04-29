@@ -5,7 +5,6 @@ import { WritingSessionService } from '../services/WritingSessionService';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { useWritingStore } from '../store/useWritingStore';
 import { useDraftAutosave } from './useDraftAutosave';
-import { encrypt, decrypt } from '../../../shared/lib/encryption';
 import { UserProfile, SessionPayload } from '../../../types';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { LocalVersionService } from '../services/LocalVersionService';
@@ -19,12 +18,9 @@ export function useSessionPersistence(
     title: string;
     content: string;
     pinnedThoughts: string[];
-    isPublic: boolean;
-    isAnonymous: boolean;
     tags: string[];
     sessionType: 'free' | 'stopwatch' | 'timer' | 'words' | 'finish-by';
     activeSessionId: string | null;
-    encryptionPassword: string;
     initialDuration: number;
     initialWordCount: number;
     sessionStartTime: number | null;
@@ -117,7 +113,6 @@ export function useSessionPersistence(
       authorName: profile?.nickname || user?.displayName || user?.email?.split('@')[0] || 'Guest',
       authorPhoto: user?.photoURL || '',
       nickname: profile?.nickname || '',
-      isAnonymous: sessionState.isAnonymous,
       title: state.title,
       content: state.content,
       pinnedThoughts: state.pinnedThoughts,
@@ -125,7 +120,6 @@ export function useSessionPersistence(
       wordCount: state.wordCount,
       charCount: state.content.length,
       wpm: state.wpm,
-      isPublic: sessionState.isPublic,
       tags: sessionState.tags,
       updatedAt: Timestamp.now(),
       sessionType: state.sessionType,
@@ -134,20 +128,6 @@ export function useSessionPersistence(
     };
 
     if (isLocalOnly) {
-      if (sessionState.encryptionPassword) {
-        const dataToEncrypt = JSON.stringify({
-          content: sessionData.content,
-          title: sessionData.title,
-          pinnedThoughts: sessionData.pinnedThoughts
-        });
-        const { encrypted, salt, iv } = await encrypt(dataToEncrypt, sessionState.encryptionPassword);
-        sessionData.content = encrypted;
-        sessionData.title = 'Encrypted Session';
-        sessionData.pinnedThoughts = [];
-        sessionData.encryption = { salt, iv };
-        sessionData.isEncrypted = true;
-      }
-
       const sessionKey = `local_session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
       localStorage.setItem(sessionKey, JSON.stringify(sessionData));
       await WritingDraftService.deleteDraft(userId);
@@ -198,31 +178,7 @@ export function useSessionPersistence(
       wordCount: doc.totalWords,
       duration: doc.totalDuration,
       tags: doc.tags,
-      isPublic: false,
     } as Record<string, unknown>;
-  }, []);
-
-  const decryptSession = useCallback(async (session: SessionPayload, password: string) => {
-    if (!session.isEncrypted || !session.encryption) return session;
-    
-    try {
-      const decryptedStr = await decrypt(
-        session.content, 
-        password, 
-        session.encryption.salt, 
-        session.encryption.iv
-      );
-      const decryptedData = JSON.parse(decryptedStr);
-      return {
-        ...session,
-        content: decryptedData.content,
-        title: decryptedData.title,
-        pinnedThoughts: decryptedData.pinnedThoughts,
-        isEncrypted: false
-      };
-    } catch {
-      throw new Error('Invalid password');
-    }
   }, []);
 
   return {
@@ -233,7 +189,6 @@ export function useSessionPersistence(
     handleCancel,
     fetchLocalSessions,
     loadLocalSession,
-    decryptSession,
     loadDraft
   };
 }

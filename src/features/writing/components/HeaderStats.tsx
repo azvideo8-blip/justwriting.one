@@ -16,14 +16,13 @@ interface HeaderStatsProps {
   wordCount: number;
   wpm: number;
   status: 'idle' | 'writing' | 'paused' | 'finished';
-  currentTime: Date;
   visibility: HeaderVisibility;
 }
 
 export const HeaderStats = React.memo(function HeaderStats({
   wordGoal, timerDuration, onSetWordGoal, onSetTimerDuration,
   sessionWords, sessionSeconds, wordCount, wpm, status,
-  currentTime, visibility
+  visibility
 }: HeaderStatsProps) {
   const { t } = useLanguage();
   

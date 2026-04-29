@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Cloud, LogIn } from 'lucide-react';
+import { X, Cloud, LogIn, HardDrive, User as UserIcon } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme/ThemeProvider';
-import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
 import { useServiceAction } from '../../writing/hooks/useServiceAction';
 import { useToast } from '../../../shared/components/Toast';
@@ -19,7 +18,6 @@ type Tab = 'editor' | 'app' | 'account';
 
 const THEME_ACCENT: Record<string, string> = {
   modern:    '#1e1e22',
-  stripe:    '#7c3aed',
   notion:    '#e8dfc0',
   spotify:   '#1ed760',
   amethyst:  '#7c3aed',
@@ -36,7 +34,6 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog }: { userId: str
   const [activeTab, setActiveTab] = useState<Tab>('editor');
   const { t, language, setLanguage } = useLanguage();
   const { themeId, setThemeId, themes } = useTheme();
-  const { layoutMode, setLayoutMode } = useLayoutMode();
   const [confirmReset, setConfirmReset] = useState(false);
   const { isAuthenticated, isGuest } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
@@ -49,8 +46,6 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog }: { userId: str
     zenModeEnabled, setZenModeEnabled,
     streamMode, toggleStreamMode,
     headerVisibility, toggleVisibility,
-    showTitle, setShowTitle,
-    showPinnedThoughts, setShowPinnedThoughts,
     autoSync, setAutoSync,
     } = useWritingSettings();
 
@@ -158,41 +153,13 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog }: { userId: str
             </Section>
 
             <Section title={t('settings_zen_mode')}>
-              <ToggleRow emoji="🧘" label={t('settings_zen_mode')}    value={zenModeEnabled}  onChange={() => setZenModeEnabled(!zenModeEnabled)} />
-              <ToggleRow emoji="🌊" label={t('settings_stream_mode')} value={streamMode}       onChange={toggleStreamMode} />
-            </Section>
-
-            <Section title={t('settings_header')}>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setShowTitle(!showTitle)}
-                  className={cn(
-                    "px-3 py-2.5 rounded-xl border text-sm transition-all",
-                    showTitle
-                      ? "border-text-main bg-text-main text-surface-base"
-                      : "border-border-subtle text-text-main/60 hover:text-text-main"
-                  )}
-                >
-                  ✏️ {t('settings_show_title')}
-                </button>
-                <button
-                  onClick={() => setShowPinnedThoughts(!showPinnedThoughts)}
-                  className={cn(
-                    "px-3 py-2.5 rounded-xl border text-sm transition-all",
-                    showPinnedThoughts
-                      ? "border-text-main bg-text-main text-surface-base"
-                      : "border-border-subtle text-text-main/60 hover:text-text-main"
-                  )}
-                >
-                  📎 {t('settings_show_pinned')}
-                </button>
-              </div>
+              <ToggleRow emoji="🧘" label={t('settings_zen_mode')} hint={t('settings_zen_desc')}    value={zenModeEnabled}  onChange={() => setZenModeEnabled(!zenModeEnabled)} />
+              <ToggleRow emoji="🌊" label={t('settings_stream_mode')} hint={t('settings_stream_mode_desc')} value={streamMode}       onChange={toggleStreamMode} />
             </Section>
 
             <Section title={t('settings_show_in_panel')}>
               <div className="grid grid-cols-2 gap-2">
                 {([
-                  { key: 'currentTime',  label: t('header_currentTime'),  emoji: '🕐' },
                   { key: 'sessionTime',  label: t('header_sessionTime'),  emoji: '⏱' },
                   { key: 'sessionWords', label: t('header_sessionWords'), emoji: '📝' },
                   { key: 'totalWords',   label: t('header_totalWords'),   emoji: '📊' },
@@ -310,32 +277,75 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog }: { userId: str
                 ))}
               </div>
             </Section>
-
-            {/* Layout */}
-            <Section title={t('settings_layout')}>
-              <div className="grid grid-cols-2 gap-2 opacity-40 pointer-events-none">
-                {(['desktop', 'mobile'] as const).map(mode => (
-                  <button
-                    key={mode}
-                    onClick={() => setLayoutMode(mode)}
-                    className={cn(
-                      "px-4 py-2.5 rounded-xl border text-sm font-medium transition-all",
-                      layoutMode === mode
-                        ? "border-text-main bg-text-main text-surface-base"
-                        : "border-border-subtle text-text-main/60 hover:text-text-main"
-                    )}
-                  >
-                    {mode === 'desktop' ? `🖥 ${t('layout_desktop')}` : `📱 ${t('layout_mobile')}`}
-                  </button>
-                ))}
-              </div>
-            </Section>
           </div>
         )}
 
         {/* ── TAB 3: ACCOUNT ── */}
         {activeTab === 'account' && (
           <div className="space-y-4 mt-2">
+            {isAuthenticated ? (
+              <Section title={t('me_tab_account')}>
+                <div className="flex items-center gap-4 p-4 rounded-xl border border-border-subtle">
+                  {auth.currentUser?.photoURL ? (
+                    <img
+                      src={auth.currentUser.photoURL}
+                      alt=""
+                      className="w-12 h-12 rounded-full object-cover border border-border-subtle"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center bg-text-main/10 border border-border-subtle">
+                      <UserIcon size={24} className="text-text-main/40" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-text-main truncate">
+                      {auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || t('common_untitled')}
+                    </div>
+                    <div className="text-xs text-text-main/40 truncate">
+                      {auth.currentUser?.email}
+                    </div>
+                  </div>
+                </div>
+              </Section>
+            ) : (
+              <Section title={t('me_tab_account')}>
+                <div className="flex items-center gap-4 p-4 rounded-xl border border-dashed border-border-subtle">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center bg-text-main/10">
+                    <HardDrive size={24} className="text-text-main/40" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-text-main/60">
+                      {t('guest_saved_locally')}
+                    </div>
+                    <div className="text-xs text-text-main/30 mt-0.5">
+                      {t('guest_sync_hint')}
+                    </div>
+                  </div>
+                </div>
+              </Section>
+            )}
+
+            {isAuthenticated ? (
+              <button
+                onClick={() => execute(
+                  () => signOut(auth),
+                  { errorMessage: t('error_signout_failed') }
+                )}
+                className="w-full px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-red-400 hover:border-red-400/30 transition-all text-left"
+              >
+                {t('me_sign_out')}
+              </button>
+            ) : (
+              <button
+                onClick={openLoginModal}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-text-main bg-text-main text-surface-base text-sm font-bold hover:opacity-90 transition-all"
+              >
+                <LogIn size={16} />
+                {t('auth_sign_in')}
+              </button>
+            )}
+
             <Section title={t('profile_achievements')}>
               {!confirmReset ? (
                 <button
@@ -363,18 +373,6 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog }: { userId: str
                   </div>
                 </div>
               )}
-            </Section>
-
-            <Section title={t('nav_logout')}>
-              <button
-                onClick={() => execute(
-                  () => signOut(auth),
-                  { errorMessage: t('error_signout_failed') }
-                )}
-                className="w-full px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-red-400 hover:border-red-400/30 transition-all text-left"
-              >
-                {t('nav_logout')}
-              </button>
             </Section>
           </div>
         )}
@@ -436,9 +434,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function ToggleRow({ emoji, label, value, onChange }: {
+function ToggleRow({ emoji, label, hint, value, onChange }: {
   emoji?: string;
   label: string;
+  hint?: string;
   value: boolean;
   onChange: () => void;
 }) {
@@ -448,7 +447,10 @@ function ToggleRow({ emoji, label, value, onChange }: {
       className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle hover:bg-text-main/5 transition-all w-full"
     >
       {emoji && <span className="text-base shrink-0">{emoji}</span>}
-      <span className="text-sm text-text-main/70 flex-1 text-left">{label}</span>
+      <div className="flex-1 text-left">
+        <span className="text-sm text-text-main/70">{label}</span>
+        {hint && <p className="text-[10px] text-text-main/40 mt-0.5">{hint}</p>}
+      </div>
       <div className={cn(
         "w-8 h-4 rounded-full relative transition-colors duration-200 shrink-0",
         value ? "bg-text-main" : "bg-text-main/20"

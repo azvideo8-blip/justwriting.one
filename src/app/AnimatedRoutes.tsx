@@ -20,7 +20,6 @@ import { MobileLogPage } from '../features/writing/pages/MobileLogPage';
 import { MobileMePage } from '../features/writing/pages/MobileMePage';
 import { ProfilePage } from '../features/profile/pages/ProfilePage';
 import { ArchivePage } from '../features/archive/pages/ArchivePage';
-import { FeedPage } from '../features/feed/pages/FeedPage';
 import { AdminPage } from '../features/admin/pages/AdminPage';
 import { LoginPage } from '../features/auth/pages/LoginPage';
 import { ProtectedRoute, GuestRoute } from './ProtectedRoute';
@@ -112,11 +111,7 @@ export function AnimatedRoutes() {
                 <ProfilePage user={user} profile={profile} />
               </PageTransition>
             } />
-            <Route path="/feed" element={
-              <PageTransition id="/feed">
-                <FeedPage />
-              </PageTransition>
-            } />
+
             <Route path="/admin" element={
               <ProtectedRoute requireAdmin>
                 <PageTransition id="/admin">

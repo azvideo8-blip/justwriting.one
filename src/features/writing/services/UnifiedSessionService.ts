@@ -12,7 +12,6 @@ export interface SaveSessionData {
   wordCount: number;
   duration: number;
   wpm: number;
-  isPublic: boolean;
   tags: string[];
   labelId?: string;
   goalWords?: number;
@@ -30,7 +29,6 @@ export interface UnifiedDocument {
   totalDuration: number;
   sessionsCount: number;
   lastSessionAt: number;
-  isPublic: boolean;
   tags: string[];
   labelId?: string;
   _isLocal: boolean;
@@ -43,8 +41,6 @@ function toSaveData(data: SaveSessionData): SaveDocumentData {
     wordCount: data.wordCount,
     duration: data.duration,
     wpm: data.wpm,
-    isPublic: data.isPublic,
-    isAnonymous: false,
     tags: data.tags,
     labelId: data.labelId,
     goalWords: data.goalWords,
@@ -91,7 +87,6 @@ export const UnifiedSessionService = {
         totalDuration: d.totalDuration,
         sessionsCount: d.sessionsCount,
         lastSessionAt: (d.lastSessionAt as { toDate?: () => Date }).toDate?.().getTime() ?? Date.now(),
-        isPublic: d.isPublic,
         tags: d.tags,
         labelId: d.labelId,
         _isLocal: false,
@@ -104,7 +99,6 @@ export const UnifiedSessionService = {
         totalDuration: d.totalDuration,
         sessionsCount: d.sessionsCount,
         lastSessionAt: d.lastSessionAt,
-        isPublic: false as const,
         tags: d.tags,
         _isLocal: true,
       })),

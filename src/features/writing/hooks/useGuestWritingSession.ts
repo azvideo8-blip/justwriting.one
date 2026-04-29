@@ -8,7 +8,6 @@ import { LocalVersionService } from '../services/LocalVersionService';
 export interface LocalSessionInfo {
   id: string;
   createdAt: Date;
-  isEncrypted?: boolean;
   title?: string;
   wordCount?: number;
   duration?: number;
@@ -215,7 +214,6 @@ export function useGuestWritingSession(): GuestSessionReturn {
       wordCount: doc.totalWords,
       duration: doc.totalDuration,
       tags: doc.tags,
-      isPublic: false,
     } as Record<string, unknown>;
   }, []);
 

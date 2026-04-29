@@ -387,14 +387,6 @@ export function MobileLogScreen({ userId, onContinue }: MobileLogScreenProps) {
                     <span>{session.wordCount} {t('home_words_short')}</span>
                     <span>·</span>
                     <span>{formatDuration((session.duration || 0) / 60, t)}</span>
-                    {session.isPublic && (
-                      <>
-                        <span>·</span>
-                        <span style={{ color: 'oklch(0.72 0.13 155)' }}>
-                          {t('lifelog_status_published')}
-                        </span>
-                      </>
-                    )}
                   </div>
                 </button>
               ))}

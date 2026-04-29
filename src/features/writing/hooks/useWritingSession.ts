@@ -8,12 +8,9 @@ export function useWritingSession(user: User | null, profile: UserProfile | null
   const title = useWritingStore(s => s.title);
   const content = useWritingStore(s => s.content);
   const pinnedThoughts = useWritingStore(s => s.pinnedThoughts);
-  const isPublic = useWritingStore(s => s.isPublic);
-  const isAnonymous = useWritingStore(s => s.isAnonymous);
   const tags = useWritingStore(s => s.tags);
   const sessionType = useWritingStore(s => s.sessionType);
   const activeSessionId = useWritingStore(s => s.activeSessionId);
-  const encryptionPassword = useWritingStore(s => s.encryptionPassword);
   const initialDuration = useWritingStore(s => s.initialDuration);
   const initialWordCount = useWritingStore(s => s.initialWordCount);
   const sessionStartTime = useWritingStore(s => s.sessionStartTime);
@@ -44,11 +41,8 @@ export function useWritingSession(user: User | null, profile: UserProfile | null
   const setTimerDuration = useWritingStore(s => s.setTimerDuration);
   const setWordGoal = useWritingStore(s => s.setWordGoal);
   const setTargetTime = useWritingStore(s => s.setTargetTime);
-  const setIsPublic = useWritingStore(s => s.setIsPublic);
-  const setIsAnonymous = useWritingStore(s => s.setIsAnonymous);
   const setTags = useWritingStore(s => s.setTags);
   const setLabelId = useWritingStore(s => s.setLabelId);
-  const setEncryptionPassword = useWritingStore(s => s.setEncryptionPassword);
   const resetSession = useWritingStore(s => s.resetSession);
   const resetSessionMetadata = useWritingStore(s => s.resetSessionMetadata);
   const finishSession = useWritingStore(s => s.finishSession);
@@ -62,12 +56,9 @@ export function useWritingSession(user: User | null, profile: UserProfile | null
       title,
       content,
       pinnedThoughts,
-      isPublic,
-      isAnonymous,
       tags,
       sessionType,
       activeSessionId,
-      encryptionPassword: encryptionPassword || '',
       initialDuration,
       initialWordCount,
       sessionStartTime,
@@ -124,7 +115,6 @@ export function useWritingSession(user: User | null, profile: UserProfile | null
     handleCancel: persistence.handleCancel,
     fetchLocalSessions: persistence.fetchLocalSessions,
     loadLocalSession: persistence.loadLocalSession,
-    decryptSession: persistence.decryptSession,
     loadDraft: persistence.loadDraft,
     // State values
     status,
@@ -138,8 +128,6 @@ export function useWritingSession(user: User | null, profile: UserProfile | null
     seconds,
     wpm,
     wordCount,
-    isPublic,
-    isAnonymous,
     tags,
     labelId,
     timeGoalReached,
@@ -147,7 +135,6 @@ export function useWritingSession(user: User | null, profile: UserProfile | null
     initialWordCount,
     initialDuration,
     activeSessionId,
-    encryptionPassword,
     saveStatus: persistence.saveStatus,
     lastSavedAt: persistence.lastSavedAt,
     isOnline: persistence.isOnline,
@@ -162,14 +149,11 @@ export function useWritingSession(user: User | null, profile: UserProfile | null
     setContent,
     setTitle,
     setPinnedThoughts,
-    setIsPublic,
-    setIsAnonymous,
     setTags,
     setLabelId,
     setInitialWordCount,
     setInitialDuration,
     setActiveSessionId,
-    setEncryptionPassword,
     resetSession,
     finishSession,
     resetSessionMetadata

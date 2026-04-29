@@ -13,8 +13,6 @@ export interface BaseSessionReturn {
   seconds: number;
   wpm: number;
   wordCount: number;
-  isPublic: boolean;
-  isAnonymous: boolean;
   tags: string[];
   labelId: string | undefined;
   timeGoalReached: boolean;
@@ -22,7 +20,6 @@ export interface BaseSessionReturn {
   initialWordCount: number;
   initialDuration: number;
   activeSessionId: string | null;
-  encryptionPassword: string | undefined;
   sessionStartTime: number | null;
   handleStart: () => void;
   setStatus: (status: TimerStatus) => void;
@@ -33,14 +30,11 @@ export interface BaseSessionReturn {
   setContent: (content: string) => void;
   setTitle: (title: string) => void;
   setPinnedThoughts: (thoughts: string[]) => void;
-  setIsPublic: (v: boolean) => void;
-  setIsAnonymous: (v: boolean) => void;
   setTags: (tags: string[]) => void;
   setLabelId: (labelId?: string) => void;
   setInitialWordCount: (count: number) => void;
   setInitialDuration: (duration: number) => void;
   setActiveSessionId: (id: string | null) => void;
-  setEncryptionPassword: (password?: string) => void;
   resetSession: () => void;
   finishSession: () => void;
   resetSessionMetadata: () => void;
@@ -52,12 +46,9 @@ export function useBaseWritingSession(): BaseSessionReturn {
   const title = useWritingStore(s => s.title);
   const content = useWritingStore(s => s.content);
   const pinnedThoughts = useWritingStore(s => s.pinnedThoughts);
-  const isPublic = useWritingStore(s => s.isPublic);
-  const isAnonymous = useWritingStore(s => s.isAnonymous);
   const tags = useWritingStore(s => s.tags);
   const sessionType = useWritingStore(s => s.sessionType);
   const activeSessionId = useWritingStore(s => s.activeSessionId);
-  const encryptionPassword = useWritingStore(s => s.encryptionPassword);
   const initialDuration = useWritingStore(s => s.initialDuration);
   const initialWordCount = useWritingStore(s => s.initialWordCount);
   const sessionStartTime = useWritingStore(s => s.sessionStartTime);
@@ -88,11 +79,8 @@ export function useBaseWritingSession(): BaseSessionReturn {
   const setTimerDuration = useWritingStore(s => s.setTimerDuration);
   const setWordGoal = useWritingStore(s => s.setWordGoal);
   const setTargetTime = useWritingStore(s => s.setTargetTime);
-  const setIsPublic = useWritingStore(s => s.setIsPublic);
-  const setIsAnonymous = useWritingStore(s => s.setIsAnonymous);
   const setTags = useWritingStore(s => s.setTags);
   const setLabelId = useWritingStore(s => s.setLabelId);
-  const setEncryptionPassword = useWritingStore(s => s.setEncryptionPassword);
   const resetSession = useWritingStore(s => s.resetSession);
   const resetSessionMetadata = useWritingStore(s => s.resetSessionMetadata);
   const finishSession = useWritingStore(s => s.finishSession);
@@ -124,15 +112,15 @@ export function useBaseWritingSession(): BaseSessionReturn {
   return {
     status, sessionType, timerDuration, wordGoal, targetTime,
     content, title, pinnedThoughts, seconds, wpm, wordCount,
-    isPublic, isAnonymous, tags, labelId,
+    tags, labelId,
     timeGoalReached, wordGoalReached, initialWordCount, initialDuration,
-    activeSessionId, encryptionPassword, sessionStartTime,
+    activeSessionId, sessionStartTime,
     handleStart,
     setStatus, setSessionType, setTimerDuration, setWordGoal, setTargetTime,
     setContent, setTitle, setPinnedThoughts,
-    setIsPublic, setIsAnonymous, setTags, setLabelId,
+    setTags, setLabelId,
     setInitialWordCount, setInitialDuration,
-    setActiveSessionId, setEncryptionPassword,
+    setActiveSessionId,
     resetSession, finishSession, resetSessionMetadata,
     setTimeGoalReached, setWordGoalReached,
   };
