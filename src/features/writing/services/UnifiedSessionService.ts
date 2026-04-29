@@ -44,6 +44,7 @@ function toSaveData(data: SaveSessionData): SaveDocumentData {
     duration: data.duration,
     wpm: data.wpm,
     isPublic: data.isPublic,
+    isAnonymous: false,
     tags: data.tags,
     labelId: data.labelId,
     goalWords: data.goalWords,

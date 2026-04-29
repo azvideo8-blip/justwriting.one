@@ -5,7 +5,7 @@ export function computeWordDiff(oldContent: string, newContent: string): {
   const oldWords = oldContent.trim().split(/\s+/).filter(Boolean).length;
   const newWords = newContent.trim().split(/\s+/).filter(Boolean).length;
   return {
-    wordsAdded: newWords - oldWords,
-    charsAdded: newContent.length - oldContent.length,
+    wordsAdded: Math.max(0, newWords - oldWords),
+    charsAdded: Math.max(0, newContent.length - oldContent.length),
   };
 }

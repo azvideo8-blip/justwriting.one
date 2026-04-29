@@ -95,7 +95,13 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           }));
 
           const allSessions = [...result.sessions, ...localSessions];
-          setSessions(allSessions);
+          const seenIds = new Set<string>();
+          const deduped = allSessions.filter(s => {
+            if (seenIds.has(s.id)) return false;
+            seenIds.add(s.id);
+            return true;
+          });
+          setSessions(deduped);
 
           const allAchievements = [
             ...ACHIEVEMENTS.streaks,

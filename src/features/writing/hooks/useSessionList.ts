@@ -30,17 +30,26 @@ export function useSessionList(
         localSessionsList.map(async s => {
           const data = await loadLocalSession(s.id);
           return {
-            ...s,
-            title: data?.title || t('writing_local_session'),
-            content: data?.content || '',
-            wordCount: data?.wordCount || 0,
-            duration: data?.duration || 0,
+            id: s.id,
+            userId: '',
+            authorName: '',
+            authorPhoto: '',
+            content: (data?.content as string) || '',
+            duration: (data?.duration as number) || s.duration || 0,
+            wordCount: (data?.wordCount as number) || s.wordCount || 0,
+            charCount: 0,
+            wpm: 0,
+            isPublic: false,
+            isAnonymous: false,
+            title: (data?.title as string) || t('writing_local_session'),
+            tags: (data?.tags as string[]) || [],
+            createdAt: s.createdAt,
             _isLocal: true,
-          };
+          } as Session;
         })
       );
 
-      setUserSessions([...firestoreSessions, ...localSessions] as Session[]);
+      setUserSessions([...firestoreSessions, ...localSessions]);
     } catch (e) {
       console.error('Error fetching sessions:', e);
     } finally {

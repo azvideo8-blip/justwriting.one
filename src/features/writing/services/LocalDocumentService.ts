@@ -51,7 +51,7 @@ export const LocalDocumentService = {
       totalWords: data.totalWords,
       totalDuration: data.totalDuration,
       currentVersion: data.currentVersion,
-      sessionsCount: data.currentVersion,
+      sessionsCount: (existing.sessionsCount || 0) + 1,
       lastSessionAt: Date.now(),
     });
 

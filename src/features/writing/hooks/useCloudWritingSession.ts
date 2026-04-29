@@ -17,7 +17,6 @@ export interface CloudSessionReturn extends BaseSessionReturn {
   handleCancel: () => Promise<void>;
   fetchLocalSessions: () => Promise<LocalSessionInfo[]>;
   loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
-  decryptSession: (session: Record<string, unknown>, password: string) => Promise<Record<string, unknown>>;
   loadDraft: () => Promise<void>;
 }
 
@@ -76,7 +75,6 @@ export function useCloudWritingSession(user: User, profile: UserProfile | null):
     handleCancel: persistence.handleCancel,
     fetchLocalSessions: persistence.fetchLocalSessions,
     loadLocalSession: persistence.loadLocalSession,
-    decryptSession: persistence.decryptSession,
     loadDraft: persistence.loadDraft,
   };
 }

@@ -5,6 +5,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { UserProfile } from '../../../types';
 import * as Sentry from '@sentry/react';
+import { getOrCreateGuestId, getLocalDb } from '../../../shared/lib/localDb';
 
 export type AuthState = 'loading' | 'authenticated' | 'guest';
 
@@ -31,9 +32,33 @@ export function useAuthStatus() {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       setAuthState(u ? 'authenticated' : 'guest');
+      if (u) {
+        const guestId = getOrCreateGuestId();
+        if (guestId !== u.uid) {
+          try {
+            const localDb = await getLocalDb();
+            const guestDocs = await localDb.getAllFromIndex('documents', 'by-guest', guestId);
+            const tx = localDb.transaction('documents', 'readwrite');
+            for (const doc of guestDocs) {
+              await tx.store.put({ ...doc, guestId: u.uid });
+            }
+            await tx.done;
+          } catch (e) {
+            console.error('Failed to migrate guest data to auth UID:', e);
+          }
+          try {
+            const keysToRemove: string[] = [];
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (key?.startsWith('local_session_')) keysToRemove.push(key);
+            }
+            keysToRemove.forEach(k => localStorage.removeItem(k));
+          } catch {}
+        }
+      }
     });
     return unsubscribe;
   }, []);
