@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { auth } from '../../../core/firebase/auth';
 import { SessionService } from '../services/SessionService';
+import { StorageService } from '../services/StorageService';
+import { LocalDocumentService } from '../services/LocalDocumentService';
 import { Session, Label } from '../../../types';
 import { parseFirestoreDate, cn } from '../../../core/utils/utils';
 import { ExportService } from '../../export/ExportService';
@@ -116,7 +118,14 @@ export function SessionCard({
 
   const handleDelete = () => {
     execute(
-      () => SessionService.deleteSession(session.id),
+      async () => {
+        if (session._isLocal) {
+          const doc = await LocalDocumentService.getDocument(session.id);
+          await StorageService.deleteDocument('', session.id, doc?.linkedCloudId || undefined);
+        } else {
+          await SessionService.deleteSession(session.id);
+        }
+      },
       {
         successMessage: t('save_success'),
         errorMessage: t('error_delete_failed'),

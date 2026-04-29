@@ -1,27 +1,34 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { WifiOff, Cloud, HardDrive, Check } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
-import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { SyncService } from '../services/SyncService';
 
 interface ConnectionStatusBannerProps {
   showZen?: boolean;
   userId?: string;
+  isAuthenticated?: boolean;
 }
 
-export function ConnectionStatusBanner({ showZen, userId }: ConnectionStatusBannerProps) {
+export function ConnectionStatusBanner({ showZen, userId, isAuthenticated }: ConnectionStatusBannerProps) {
   const { t } = useLanguage();
   const isOnline = useOnlineStatus();
   const { autoSync } = useWritingSettings();
-  const { isAuthenticated } = useAuthStatus();
   const [pendingCount, setPendingCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [wasOffline, setWasOffline] = useState(false);
   const [showSynced, setShowSynced] = useState(false);
+
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOnline) {
@@ -48,7 +55,7 @@ export function ConnectionStatusBanner({ showZen, userId }: ConnectionStatusBann
         setSyncing(false);
         setPendingCount(0);
         setShowSynced(true);
-        setTimeout(() => setShowSynced(false), 3000);
+        syncTimerRef.current = setTimeout(() => setShowSynced(false), 3000);
       });
     }
   }, [isOnline, pendingCount, syncing, userId, autoSync, isAuthenticated]);
@@ -57,6 +64,7 @@ export function ConnectionStatusBanner({ showZen, userId }: ConnectionStatusBann
     if (isOnline && wasOffline && pendingCount === 0 && !syncing) {
       setShowSynced(true);
       const timer = setTimeout(() => setShowSynced(false), 3000);
+      syncTimerRef.current = timer;
       return () => clearTimeout(timer);
     }
   }, [isOnline, wasOffline, pendingCount, syncing]);

@@ -38,11 +38,11 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
 
   const userId = user?.uid ?? getOrCreateGuestId();
 
-  const fetchSessions = async (isInitial = false) => {
-    if (!isInitial) return;
+  const fetchSessions = async (isRefresh = false) => {
     setLoading(true);
     setError(null);
     setCloudLoadFailed(false);
+    const controller = new AbortController();
 
     try {
       const allSessions: Session[] = [];
@@ -149,6 +149,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
 
       setSessions(allSessions);
     } catch (err) {
+      if (controller.signal.aborted) return;
       console.error('Archive load error:', err);
       setError(t('archive_load_error'));
     } finally {
@@ -157,7 +158,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   };
 
   useEffect(() => {
-    fetchSessions(true);
+    fetchSessions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 

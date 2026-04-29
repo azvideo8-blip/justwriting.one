@@ -2,6 +2,16 @@ import { getLocalDb, LocalDraft } from '../../../shared/lib/localDb';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 
+function toMs(v: unknown): number {
+  if (!v) return 0;
+  if (typeof v === 'number') return v;
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === 'object' && 'toDate' in (v as object)) return (v as { toDate: () => Date }).toDate().getTime();
+  if (typeof v === 'object' && 'toMillis' in (v as object)) return (v as { toMillis: () => number }).toMillis();
+  if (typeof v === 'object' && 'seconds' in (v as object)) return (v as { seconds: number }).seconds * 1000;
+  return 0;
+}
+
 function hasDraftsStore(localDb: IDBDatabase): boolean {
   return localDb.objectStoreNames.contains('drafts');
 }
@@ -14,7 +24,24 @@ export const WritingDraftService = {
       if (hasDraftsStore(localDb as unknown as IDBDatabase)) {
         localDraft = await localDb.get('drafts', userId) ?? null;
       }
-    } catch {}
+    } catch (err) {
+      console.error('[DraftService] Failed to load local draft:', err);
+    }
+
+    if (!localDraft) {
+      try {
+        const raw = localStorage.getItem(`draft-${userId}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.content) {
+            localDraft = { ...parsed, userId } as LocalDraft;
+            localStorage.removeItem(`draft-${userId}`);
+          }
+        }
+      } catch (err) {
+        console.warn('[DraftService] Failed to parse localStorage draft:', err);
+      }
+    }
 
     let cloudDraft: LocalDraft | null = null;
     try {
@@ -23,10 +50,12 @@ export const WritingDraftService = {
       if (docSnap.exists()) {
         cloudDraft = docSnap.data() as LocalDraft;
       }
-    } catch {}
+    } catch (err) {
+      console.error('[DraftService] Failed to load cloud draft:', err);
+    }
 
     if (localDraft && cloudDraft) {
-      return localDraft.updatedAt > cloudDraft.updatedAt ? localDraft : cloudDraft;
+      return toMs(localDraft.updatedAt) > toMs(cloudDraft.updatedAt) ? localDraft : cloudDraft;
     }
     return localDraft || cloudDraft;
   },
@@ -36,18 +65,24 @@ export const WritingDraftService = {
       const localDb = await getLocalDb();
       const newDraft = { ...draft, userId };
       await localDb.put('drafts', newDraft);
-    } catch {}
+    } catch (err) {
+      console.error('[DraftService] Failed to import draft to local:', err);
+    }
     try {
       const docRef = doc(db, 'drafts', userId);
       await setDoc(docRef, { ...draft, userId }, { merge: true });
-    } catch {}
+    } catch (err) {
+      console.error('[DraftService] Failed to import draft to Firestore:', err);
+    }
   },
 
   saveToLocal: async (draft: LocalDraft) => {
     try {
       const localDb = await getLocalDb();
       await localDb.put('drafts', draft);
-    } catch {}
+    } catch (err) {
+      console.error('[DraftService] Failed to save draft locally:', err);
+    }
   },
 
   saveToFirestore: async (draft: LocalDraft) => {
@@ -61,6 +96,8 @@ export const WritingDraftService = {
       if (hasDraftsStore(localDb as unknown as IDBDatabase)) {
         await localDb.delete('drafts', userId);
       }
-    } catch {}
+    } catch (err) {
+      console.error('[DraftService] Failed to delete draft:', err);
+    }
   }
 };

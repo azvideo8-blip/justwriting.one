@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
@@ -6,11 +6,27 @@ import { useLanguage } from '../core/i18n';
 import { LogIn, Loader2 } from 'lucide-react';
 
 export function ProtectedRoute({ children, requireAdmin }: { children: React.ReactNode; requireAdmin?: boolean }) {
-  const { isAuthenticated, profile, loading } = useAuthStatus();
+  const { isAuthenticated, user, profile, loading } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
   const { t } = useLanguage();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingAdmin, setCheckingAdmin] = useState(requireAdmin);
 
-  if (loading) return null;
+  useEffect(() => {
+    if (!requireAdmin || !user) {
+      setCheckingAdmin(false);
+      return;
+    }
+    user.getIdTokenResult().then(token => {
+      setIsAdmin(token.claims.admin === true || profile?.role === 'admin');
+      setCheckingAdmin(false);
+    }).catch(() => {
+      setIsAdmin(profile?.role === 'admin');
+      setCheckingAdmin(false);
+    });
+  }, [requireAdmin, user, profile]);
+
+  if (loading || checkingAdmin) return null;
 
   if (!isAuthenticated) {
     return (
@@ -42,7 +58,7 @@ export function ProtectedRoute({ children, requireAdmin }: { children: React.Rea
     );
   }
 
-  if (requireAdmin && profile?.role !== 'admin') {
+  if (requireAdmin && !isAdmin) {
     return <Navigate to="/" replace />;
   }
 

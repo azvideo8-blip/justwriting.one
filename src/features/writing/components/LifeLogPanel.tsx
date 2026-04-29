@@ -447,7 +447,14 @@ export function LifeLogPanel({
         onConfirm={async () => {
           if (deleteTarget?.id) {
             await execute(
-              () => SessionService.deleteSession(deleteTarget.id),
+              async () => {
+                if (deleteTarget._isLocal) {
+                  const doc = await LocalDocumentService.getDocument(deleteTarget.id);
+                  await StorageService.deleteDocument('', deleteTarget.id, doc?.linkedCloudId || undefined);
+                } else {
+                  await SessionService.deleteSession(deleteTarget.id);
+                }
+              },
               { successMessage: t('save_success'), errorMessage: t('error_delete_failed') }
             );
             refresh();

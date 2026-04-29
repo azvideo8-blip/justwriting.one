@@ -19,7 +19,6 @@ import { FlowPulse } from '../../../core/theme/FlowPulse';
 import { BottomStats } from '../components/BottomStats';
 import { Sidebar } from '../../navigation/components/Sidebar';
 
-import { PasswordPromptModal } from '../components/modals/PasswordPromptModal';
 import { CancelConfirmModal } from '../components/modals/CancelConfirmModal';
 
 import { useSessionList } from '../hooks/useSessionList';
@@ -87,8 +86,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
   const setWordGoalVal = useWritingStore(s => s.setWordGoal);
   const targetTimeVal = useWritingStore(s => s.targetTime);
   const setTargetTimeVal = useWritingStore(s => s.setTargetTime);
-  const encryptionPasswordVal = useWritingStore(s => s.encryptionPassword);
-  const setEncryptionPasswordVal = useWritingStore(s => s.setEncryptionPassword);
 
   const sessionStatus = session.status;
   const setSessionStatus = session.setStatus;
@@ -119,8 +116,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     isOnline,
     fetchLocalSessions,
     loadLocalSession,
-    encryptionPassword, setEncryptionPassword,
-    decryptSession,
     setActiveSessionId
   } = session;
 
@@ -150,7 +145,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     targetTime, seconds, timeGoalReached, wordGoalReached
   );
 
-  const [isLocalOnly, setIsLocalOnly] = useState(false);
   const { openSettings } = useSettings();
   const savingRef = React.useRef(false);
   const editorColRef = React.useRef<HTMLDivElement>(null);
@@ -167,27 +161,35 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     return () => observer.disconnect();
   }, []);
 
-  const { continueSession, passwordPrompt, handlePromptSubmit, handlePromptCancel } = useSessionContinue({
+  const { continueSession } = useSessionContinue({
     setSetupMode: flow.setSetupMode,
-    setIsLocalOnly,
-    setActiveSessionId,
     setTags,
     setIsPublic,
     setIsAnonymous,
     loadLocalSession,
-    decryptSession
   });
 
   const handleContinueDocument = React.useCallback(async (doc: LifeLogDocument) => {
     try {
-      const docId = doc.localId || doc.cloudId || '';
-      const content = docId ? await LocalVersionService.getLatestContent(docId) : '';
+      let localId = doc.localId || '';
+      let content = '';
+
+      if (localId) {
+        content = await LocalVersionService.getLatestContent(localId);
+      } else if (doc.cloudId) {
+        try {
+          localId = await StorageService.addLocalCopy(userId, doc.cloudId);
+          content = await LocalVersionService.getLatestContent(localId);
+        } catch (e) {
+          console.error('Failed to import cloud doc for continue:', e);
+        }
+      }
 
       useWritingStore.setState({
         content,
         title: doc.title,
         wordCount: doc.totalWords,
-        savedDocumentId: docId,
+        savedDocumentId: localId,
         wpm: 0,
         wordSnapshots: [],
         lastWordCount: 0,
@@ -285,6 +287,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
         duration: sessionSeconds,
         wpm: state.wpm,
         isPublic: data.isPublic,
+        isAnonymous: data.isAnonymous,
         tags: data.tags,
         labelId: data.labelId,
         goalWords: state.wordGoal > 0 ? state.wordGoal : undefined,
@@ -312,19 +315,21 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
 
       await refreshDocuments();
       await refreshLifeLog();
+
+      const docIdForSync = existingDocId || useWritingStore.getState().savedDocumentId;
       useWritingStore.getState().finishSession();
 
-      if (!isGuest && autoSync) {
-        const docId = existingDocId || useWritingStore.getState().savedDocumentId;
-        if (docId) {
-          SyncService.maybeSyncAfterSave(userId, docId, autoSync)
-            .then(() => refreshLifeLog())
-            .catch(console.error);
+      if (!isGuest && autoSync && docIdForSync) {
+        try {
+          await SyncService.maybeSyncAfterSave(userId, docIdForSync, autoSync);
+          await refreshLifeLog();
+        } catch (e) {
+          console.error('Post-save sync failed:', e);
         }
       }
     } catch (e) {
       console.error('Save failed:', e);
-      showToast(t('error_save_failed'), 'error');
+      throw e;
     } finally {
       savingRef.current = false;
     }
@@ -372,14 +377,22 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
-        if (sessionStatus === 'writing' || sessionStatus === 'paused') {
-          handleFinish();
-        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [sessionStatus]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const state = useWritingStore.getState();
+      if (state.status === 'writing' || state.status === 'paused') {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   const handleAutoStartKey = React.useCallback((e: KeyboardEvent) => {
     if (sessionStatus !== 'idle') return;
@@ -436,11 +449,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
           />
         )}
       </AnimatePresence>
-      <PasswordPromptModal 
-        isOpen={!!passwordPrompt}
-        onConfirm={handlePromptSubmit}
-        onCancel={handlePromptCancel}
-      />
       <CancelConfirmModal 
         isOpen={flow.showCancelConfirm}
         onConfirm={() => { handleCancel(); flow.setShowCancelConfirm(false); }}
@@ -496,7 +504,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       className="w-full transition-colors duration-1000"
     >
       <>
-        <ConnectionStatusBanner showZen={showZen} userId={userId} />
+        <ConnectionStatusBanner showZen={showZen} userId={userId} isAuthenticated={!isGuest} />
         {sharedOverlays}
 
         <div
@@ -569,10 +577,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
                   countdown={flow.countdown}
                   userSessions={userSessions}
                   continueSession={handleContinueSession}
-                  isLocalOnly={isLocalOnly}
-                  setIsLocalOnly={setIsLocalOnly}
-                  encryptionPassword={encryptionPasswordVal || ''}
-                  setEncryptionPassword={setEncryptionPasswordVal}
                 />
               ) : (
               <WritingEditor 
