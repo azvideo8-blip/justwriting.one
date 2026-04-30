@@ -18,6 +18,7 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
     const wordsByDate: Record<string, number> = {};
     sessions.forEach(s => {
       const d = getSessionDate(s);
+      if (!d) return;
       const key = d.toDateString();
       wordsByDate[key] = (wordsByDate[key] || 0) + (s.wordCount || 0);
     });

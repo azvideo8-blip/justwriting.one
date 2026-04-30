@@ -11,7 +11,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { WritingHeader } from '../WritingHeader';
 import { WritingEditor } from '../WritingEditor';
-import { WritingFinishModal } from '../WritingFinishModal';
+import { WritingFinishModal, SaveData } from '../WritingFinishModal';
 import { LifeLogPanel } from '../components/LifeLogPanel';
 import { WritingSetup } from '../WritingSetup';
 import { WritingDraftService } from '../services/WritingDraftService';
@@ -28,7 +28,7 @@ import { useLanguage } from '../../../core/i18n';
 import { ConnectionStatusBanner } from '../components/ConnectionStatusBanner';
 import { MobileWriteScreen } from '../components/MobileWriteScreen';
 import { MobileHomeScreen } from '../components/MobileHomeScreen';
-import { useLifeLog } from '../hooks/useLifeLog';
+import { useLifeLog, LifeLogDocument } from '../hooks/useLifeLog';
 import { useDocuments } from '../hooks/useDocuments';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
@@ -39,12 +39,9 @@ import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 import { StorageService } from '../services/StorageService';
 import { LocalVersionService } from '../services/LocalVersionService';
 import { z } from 'zod';
-import { SaveData } from '../WritingFinishModal';
-import { LifeLogDocument } from '../hooks/useLifeLog';
 
 import { useGuestWritingSession, GuestSessionReturn } from '../hooks/useGuestWritingSession';
 import { useCloudWritingSession, CloudSessionReturn } from '../hooks/useCloudWritingSession';
-import { BaseSessionReturn } from '../hooks/useBaseWritingSession';
 
 type AnySessionReturn = GuestSessionReturn | CloudSessionReturn;
 
@@ -89,12 +86,8 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
 
   const sessionStatus = session.status;
   const setSessionStatus = session.setStatus;
-  const title = session.title;
-  const setTitle = session.setTitle;
   const seconds = session.seconds;
   const wordCount = session.wordCount;
-  const wordGoal = session.wordGoal;
-  const timerDuration = session.timerDuration;
   const tags = session.tags;
   const setTags = session.setTags;
   const labelId = session.labelId;
@@ -103,23 +96,20 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
   const setSessionType = session.setSessionType;
 
   const {
-    setTimerDuration,
-    setWordGoal,
-    targetTime, setTargetTime,
+    setTimerDuration: _setTimerDuration,
+    setWordGoal: _setWordGoal,
+    targetTime, setTargetTime: _setTargetTime,
     hasDraft,
     saveStatus, lastSavedAt,
     handleStart: hookHandleStart, handleCancel, resetSessionMetadata,
-    isOnline,
     fetchLocalSessions,
     loadLocalSession,
-    setActiveSessionId
   } = session;
 
   const { 
     isZenActive, zenModeEnabled, 
     editorWidth, 
     setStatus: setUIStatus,
-    lifeLogEnabled,
     lifeLogVisible, setLifeLogVisible,
     lifeLogTab, setLifeLogTab,
     lifeLogPinned, setLifeLogPinned,
@@ -195,7 +185,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       console.error('Failed to load document:', err);
       showToast(t('error_load_failed'), 'error');
     }
-  }, [setSessionStatus, setLifeLogVisible, showToast, t]);
+  }, [userId, setSessionStatus, setLifeLogVisible, showToast, t]);
 
   const handleContinueSession = React.useCallback(async (session: Session) => {
     try {
@@ -222,9 +212,9 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     }
   }, [handleContinueDocument, handleContinueSession]);
 
-  const [firstVisit, setFirstVisit] = useLocalStorage('first-visit', true, z.boolean());
+  const [_firstVisit, _setFirstVisit] = useLocalStorage('first-visit', true, z.boolean());
 
-  const { documents, refresh: refreshDocuments } = useDocuments(userId, isGuest);
+  const { documents: _documents, refresh: refreshDocuments } = useDocuments(userId, isGuest);
 
   const { sessionGroups: lifeLogGroups, summary: lifeLogSummary, refresh: refreshLifeLog } = useLifeLog(userId, isGuest);
 
@@ -303,7 +293,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
         } else {
           await WritingDraftService.deleteDraft(userId);
         }
-      } catch {}
+      } catch { /* ignore */ }
 
       await refreshDocuments();
       await refreshLifeLog();
@@ -315,7 +305,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     } finally {
       savingRef.current = false;
     }
-  }, [userId, isGuest, refreshDocuments, refreshLifeLog, showToast, t]);
+  }, [userId, isGuest, refreshDocuments, refreshLifeLog]);
 
   const handlePlay = React.useCallback(() => {
     if (sessionStatus === 'idle') {
@@ -331,11 +321,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     if (sessionStatus !== 'writing') return;
     useWritingStore.getState().setStatus('paused');
   }, [sessionStatus]);
-
-  const handleStop = React.useCallback(() => {
-    if (sessionStatus === 'idle') return;
-    setSessionStatus('finished');
-  }, [sessionStatus, setSessionStatus]);
 
   const handlePlayRef = React.useRef(handlePlay);
   const handlePauseRef = React.useRef(handlePause);

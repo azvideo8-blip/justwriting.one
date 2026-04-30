@@ -159,25 +159,27 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
     if (statsKeyRef.current === key) return;
     statsKeyRef.current = key;
 
-    setUnlockedIds(prev => {
-      const updated = new Set(prev);
-      let changed = false;
-      GROUPS.forEach(g => {
-        g.achievements.forEach(ach => {
-          if (updated.has(ach.id)) return;
-          if (checkAchievement(ach, stats, sessions)) {
-            updated.add(ach.id);
-            changed = true;
-          }
+    setTimeout(() => {
+      setUnlockedIds(prev => {
+        const updated = new Set(prev);
+        let changed = false;
+        GROUPS.forEach(g => {
+          g.achievements.forEach(ach => {
+            if (updated.has(ach.id)) return;
+            if (checkAchievement(ach, stats, sessions)) {
+              updated.add(ach.id);
+              changed = true;
+            }
+          });
         });
+        if (!changed) return prev;
+        if (import.meta.env.DEV) {
+          console.warn('[Achievements] newly unlocked:', [...updated].filter(id => !prev.has(id)));
+        }
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...updated])); } catch { /* ignore */ }
+        return updated;
       });
-      if (!changed) return prev;
-      if (import.meta.env.DEV) {
-        console.log('[Achievements] newly unlocked:', [...updated].filter(id => !prev.has(id)));
-      }
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...updated])); } catch {}
-      return updated;
-    });
+    }, 0);
   }, [stats, sessions]);
 
   const totalAchievements = GROUPS.reduce((s, g) => s + g.achievements.length, 0);

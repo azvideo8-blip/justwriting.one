@@ -14,15 +14,15 @@ export function ProtectedRoute({ children, requireAdmin }: { children: React.Rea
 
   useEffect(() => {
     if (!requireAdmin || !user) {
-      setCheckingAdmin(false);
+      setTimeout(() => setCheckingAdmin(false), 0);
       return;
     }
     user.getIdTokenResult().then(token => {
       setIsAdmin(token.claims.admin === true || profile?.role === 'admin');
-      setCheckingAdmin(false);
+      setTimeout(() => setCheckingAdmin(false), 0);
     }).catch(() => {
       setIsAdmin(profile?.role === 'admin');
-      setCheckingAdmin(false);
+      setTimeout(() => setCheckingAdmin(false), 0);
     });
   }, [requireAdmin, user, profile]);
 

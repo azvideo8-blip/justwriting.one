@@ -43,6 +43,7 @@ export const SyncService = {
       for (const localId of documentIds) {
         try {
           const cloudId = await StorageService.addCloudCopy(userId, localId);
+          if (!cloudId) continue;
           await LocalDocumentService.updateLinkedCloudId(localId, cloudId);
           const itemsForDoc = pending.filter(p => p.documentId === localId);
           syncedIds.push(...itemsForDoc.map(p => p.id));
@@ -73,6 +74,7 @@ export const SyncService = {
     for (const doc of unlinked) {
       try {
         const cloudId = await StorageService.addCloudCopy(userId, doc.id);
+        if (!cloudId) { failed++; continue; }
         await LocalDocumentService.updateLinkedCloudId(doc.id, cloudId);
         synced++;
       } catch (e) {
@@ -86,6 +88,7 @@ export const SyncService = {
 
   async syncOne(userId: string, localId: string): Promise<string> {
     const cloudId = await StorageService.addCloudCopy(userId, localId);
+    if (!cloudId) return '';
     await LocalDocumentService.updateLinkedCloudId(localId, cloudId);
     return cloudId;
   },

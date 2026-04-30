@@ -1,7 +1,5 @@
 import { DocumentService } from './DocumentService';
-import { VersionService } from './VersionService';
 import { LocalDocumentService } from './LocalDocumentService';
-import { LocalVersionService } from './LocalVersionService';
 import { StorageService, SaveDocumentData } from './StorageService';
 import { LocalDocument } from '../../../shared/lib/localDb';
 import { Document } from '../../../types';

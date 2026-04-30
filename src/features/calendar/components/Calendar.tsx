@@ -25,7 +25,7 @@ export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate,
   // Adjust for Monday start (0=Mon, ..., 6=Sun)
   const offset = (startDay === 0 ? 6 : startDay - 1);
 
-  const activeDays = sessions.map(s => getSessionDate(s));
+  const activeDays = sessions.map(s => getSessionDate(s)).filter((d): d is Date => d !== null);
 
   return (
     <div className="space-y-4">

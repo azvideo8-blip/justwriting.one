@@ -107,7 +107,11 @@ let dbInstance: IDBPDatabase<JustWritingDB> | null = null;
 let dbOpenPromise: Promise<IDBPDatabase<JustWritingDB>> | null = null;
 
 export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
-  if (dbInstance) return dbInstance;
+  if (dbInstance) {
+    try {
+      if (!(dbInstance as unknown as { closed?: boolean }).closed) return dbInstance;
+    } catch { /* ignore */ }
+  }
   if (dbOpenPromise) return dbOpenPromise;
 
   dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 2, {
@@ -133,17 +137,18 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
         }
       }
     },
-  }).catch(err => {
-    console.error('[localDb] Failed to open IndexedDB:', err);
-    dbOpenPromise = null;
-    throw err;
   });
 
   try {
     dbInstance = await dbOpenPromise;
+    dbInstance.addEventListener('close', () => {
+      dbInstance = null;
+      dbOpenPromise = null;
+    });
     return dbInstance;
   } catch (e) {
     dbOpenPromise = null;
+    console.error('[localDb] Failed to open IndexedDB:', e);
     throw e;
   }
 }

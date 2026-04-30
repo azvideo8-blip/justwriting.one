@@ -6,8 +6,7 @@ import { User } from 'firebase/auth';
 import { Toggle } from '../../../shared/components/Toggle';
 import { getFontStack } from '../utils/fontStack';
 import { LocalDocumentService } from '../services/LocalDocumentService';
-import { getOrCreateGuestId } from '../../../shared/lib/localDb';
-import { LocalProfile } from '../../../shared/lib/localDb';
+import { getOrCreateGuestId, LocalProfile } from '../../../shared/lib/localDb';
 
 interface MobileMeScreenProps {
   user: User | null;

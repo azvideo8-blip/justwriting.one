@@ -44,6 +44,9 @@ function NoteRow({ session, onOpen, t, onToggleLocal, onToggleCloud, onDelete, o
   onTagsChange?: (session: ArchiveSession, tags: string[]) => void;
 }) {
   const date = getSessionDate(session);
+  const dateLabel = date
+    ? `${date.getDate()} ${['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'][date.getMonth()]} ${String(date.getFullYear()).slice(2)}`
+    : '—';
 
   const timeStr = (() => {
     if (session.sessionStartTime) return new Date(session.sessionStartTime).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
@@ -62,7 +65,7 @@ function NoteRow({ session, onOpen, t, onToggleLocal, onToggleCloud, onDelete, o
     >
       <div className="shrink-0">
         <div className="font-mono text-[11px] text-text-main/50 uppercase tracking-wide leading-tight">
-          {date.getDate()} {['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'][date.getMonth()]} {String(date.getFullYear()).slice(2)}
+          {dateLabel}
         </div>
         <div className="font-mono text-[11px] text-text-main/30 mt-0.5">
           {timeStr}
@@ -90,7 +93,7 @@ function NoteRow({ session, onOpen, t, onToggleLocal, onToggleCloud, onDelete, o
           title={t('archive_preview')}>
           <ExternalLink size={13} />
         </button>
-        <button onClick={e => { e.stopPropagation(); session._hasCloudCopy && onToggleCloud?.(session); }}
+        <button onClick={e => { e.stopPropagation(); if (session._hasCloudCopy) onToggleCloud?.(session); }}
           className={cn("w-7 h-7 flex items-center justify-center rounded-lg transition-all",
             session._hasCloudCopy
               ? "text-blue-400/60 hover:text-red-400 hover:bg-red-400/5"
@@ -135,14 +138,15 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const sessionsByDate = useMemo(() => {
     const map: Record<string, number> = {};
     sessions.forEach(s => {
-      const date = getSessionDate(s);
-      const key = format(date, 'yyyy-MM-dd');
+      const d = getSessionDate(s);
+      if (!d) return;
+      const key = format(d, 'yyyy-MM-dd');
       map[key] = (map[key] || 0) + 1;
     });
     return map;
   }, [sessions]);
 
-  const fetchSessions = async (isRefresh = false) => {
+  const fetchSessions = async (_isRefresh = false) => {
     setLoading(true);
     setError(null);
     setCloudLoadFailed(false);
@@ -335,8 +339,9 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   
   const groupedSessions = useMemo(() => {
     return filteredSessions.reduce((acc, session) => {
-      const date = getSessionDate(session);
-      const dateKey = format(date, 'yyyy-MM-dd');
+      const d = getSessionDate(session);
+      if (!d) return acc;
+      const dateKey = format(d, 'yyyy-MM-dd');
       if (!acc[dateKey]) acc[dateKey] = [];
       acc[dateKey].push(session);
       return acc;

@@ -1,4 +1,4 @@
-import React, { useEffect as _ } from 'react';
+import React from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
@@ -29,8 +29,8 @@ import { LoginModalOverlay } from '../features/auth/components/LoginModalOverlay
 export function AnimatedRoutes() {
   const location = useLocation();
   const { t } = useLanguage();
-  const { user, profile, isConnected, isGuest } = useAuthStatus();
-  const { isZenActive, zenModeEnabled, setLifeLogVisible, lifeLogEnabled } = useWritingSettings();
+  const { user, profile } = useAuthStatus();
+  const { isZenActive, zenModeEnabled, lifeLogEnabled } = useWritingSettings();
   const { layoutMode, setLayoutMode } = useLayoutMode();
   const { loginModalOpen } = useLoginModal();
   const layoutModeRef = React.useRef(layoutMode);

@@ -7,33 +7,40 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function parseFirestoreDate(date: unknown): Date {
-  if (!date) return new Date();
+export function parseFirestoreDate(date: unknown): Date | null {
+  if (!date) return null;
   if (date instanceof Date) return date;
   if (typeof date === 'object' && date !== null) {
     const d = date as { toDate?: () => Date; seconds?: number };
     if (typeof d.toDate === 'function') return d.toDate();
     if (typeof d.seconds === 'number') return new Date(d.seconds * 1000);
   }
-  return new Date(date as string | number);
+  try {
+    const parsed = new Date(date as string | number);
+    if (!isNaN(parsed.getTime())) return parsed;
+  } catch { /* ignore */ }
+  return null;
 }
 
-export function getSessionDate(session: Session): Date {
-  let date: Date;
+export function getSessionDate(session: Session): Date | null {
+  let date: Date | null;
   if (session.sessionStartTime) {
     date = new Date(session.sessionStartTime);
   } else {
     date = parseFirestoreDate(session.createdAt);
   }
+  if (!date || isNaN(date.getTime())) return null;
   return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 }
 
 export function calculateStreak(sessions: Session[]) {
   if (sessions.length === 0) return 0;
   
-  const dates = sessions.map(s => {
-    return format(getSessionDate(s), 'yyyy-MM-dd');
-  });
+  const dates = sessions
+    .map(s => getSessionDate(s))
+    .filter((d): d is Date => d !== null)
+    .map(d => format(d, 'yyyy-MM-dd'));
+  if (dates.length === 0) return 0;
   const uniqueDates = Array.from(new Set(dates)).sort((a, b) => b.localeCompare(a));
   
   const today = format(new Date(), 'yyyy-MM-dd');

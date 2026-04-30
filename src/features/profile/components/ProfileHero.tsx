@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { User } from 'firebase/auth';
 import { Pencil, PenLine } from 'lucide-react';
 import { UserProfile } from '../../../types';
@@ -55,10 +55,16 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
   };
 
   const initials = (name || 'А').slice(0, 1).toUpperCase();
-  const memberSince = user?.metadata?.creationTime
-    ? new Date(user.metadata.creationTime)
-    : new Date();
-  const daysSince = Math.floor((Date.now() - memberSince.getTime()) / 86400000);
+  const memberSince = useMemo(() =>
+    user?.metadata?.creationTime
+      ? new Date(user.metadata.creationTime)
+      : new Date()
+  , [user]);
+  const [now] = useState(() => Date.now());
+  const daysSince = useMemo(
+    () => Math.floor((now - memberSince.getTime()) / 86400000),
+    [now, memberSince]
+  );
 
   return (
     <div style={{
