@@ -1,6 +1,5 @@
 import React from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
-import { AnimatePresence } from 'motion/react';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { useWritingSettings } from '../features/writing/contexts/WritingSettingsContext';
 import { useLayoutMode } from '../shared/hooks/useLayoutMode';
@@ -79,8 +78,7 @@ export function AnimatedRoutes() {
         layoutMode === 'desktop' && !hideSidebar && "pl-20 pr-4",
         layoutMode !== 'desktop' && !hideSidebar && "pb-20 px-4"
       )}>
-        <AnimatePresence mode="wait">
-          <Routes location={location} key={location.pathname}>
+        <Routes location={location} key={location.pathname}>
             <Route path="/" element={
               <PageTransition id="/">
                 <WritingPage
@@ -134,7 +132,6 @@ export function AnimatedRoutes() {
             } />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-        </AnimatePresence>
       </main>
 
       {layoutMode === 'mobile' && <div className="h-28" />}
