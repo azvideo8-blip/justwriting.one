@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { z } from 'zod';
 
 export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodType<T>) {
+  const initialValueRef = useRef(initialValue);
+  const schemaRef = useRef(schema);
 
-  const readValue = useCallback((): T => {
+  function loadFromStorage(): T {
     if (typeof window === 'undefined') {
       return initialValue;
     }
@@ -32,9 +34,40 @@ export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodT
       }
       return initialValue;
     }
-  }, [key, initialValue, schema]);
+  }
 
-  const [storedValue, setStoredValue] = useState<T>(readValue);
+  const [storedValue, setStoredValue] = useState<T>(loadFromStorage);
+
+  const readValue = useCallback((): T => {
+    if (typeof window === 'undefined') {
+      return initialValueRef.current;
+    }
+
+    try {
+      const item = window.localStorage.getItem(key);
+      if (!item) return initialValueRef.current;
+
+      const parsed = JSON.parse(item);
+
+      if (schemaRef.current) {
+        const result = schemaRef.current.safeParse(parsed);
+        if (!result.success) {
+          if (import.meta.env.DEV) {
+            console.warn(`Storage schema mismatch for key "${key}":`, result.error);
+          }
+          return initialValueRef.current;
+        }
+        return result.data;
+      }
+
+      return parsed as T;
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn(`Error reading localStorage key "${key}":`, error);
+      }
+      return initialValueRef.current;
+    }
+  }, [key]);
 
   const setValue = useCallback((value: T | ((val: T) => T)) => {
     try {
@@ -56,8 +89,8 @@ export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodT
   }, [key]);
 
   useEffect(() => {
-    setStoredValue(readValue());
-  }, [readValue]);
+    setTimeout(() => setStoredValue(readValue()), 0);
+  }, [key, readValue]);
 
   const handleStorageChange = useCallback(
     (event: StorageEvent | CustomEvent) => {
