@@ -27,13 +27,13 @@ export const WritingEditor = React.memo(function WritingEditor({
   const { t } = useLanguage();
   const content = useWritingStore(s => s.content);
   const setContent = useWritingStore(s => s.setContent);
-  const status = useWritingStore(s => s.status);
+  const _status = useWritingStore(s => s.status);
   const { 
     streamMode, isZenActive, zenModeEnabled, 
     fontSize, fontFamily,
     lifeLogEnabled
   } = useWritingSettings();
-  const showZen = isZenActive && zenModeEnabled;
+  const _showZen = isZenActive && zenModeEnabled;
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

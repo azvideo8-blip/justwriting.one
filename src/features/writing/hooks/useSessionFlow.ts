@@ -63,7 +63,7 @@ export function useSessionFlow(
   // Session start flash
   useEffect(() => {
     if (sessionStatus === 'writing') {
-      setSessionStartFlash(true);
+      setTimeout(() => setSessionStartFlash(true), 0);
       const t = setTimeout(() => setSessionStartFlash(false), 800);
       return () => clearTimeout(t);
     }
@@ -77,15 +77,14 @@ export function useSessionFlow(
       goalFiredRef.current = true;
       playGoalSound();
       const type = wordGoalReached ? 'words' : 'time';
-      setGoalToastType(type);
-      setGoalToastVisible(true);
+      setTimeout(() => { setGoalToastType(type); setGoalToastVisible(true); }, 0);
       const t = setTimeout(() => setGoalToastVisible(false), 4000);
       return () => clearTimeout(t);
     }
 
     if (sessionStatus === 'idle') {
       goalFiredRef.current = false;
-      setGoalToastVisible(false);
+      setTimeout(() => setGoalToastVisible(false), 0);
     }
   }, [timeGoalReached, wordGoalReached, sessionStatus]);
 

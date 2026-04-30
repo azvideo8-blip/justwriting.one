@@ -44,7 +44,7 @@ export function useAuthStatus() {
             if (key?.startsWith('local_session_')) keysToRemove.push(key);
           }
           keysToRemove.forEach(k => localStorage.removeItem(k));
-        } catch {}
+        } catch { /* ignore */ }
       }
     });
     return unsubscribe;
@@ -52,7 +52,7 @@ export function useAuthStatus() {
 
   useEffect(() => {
     if (!user) {
-      setProfile(null);
+      setTimeout(() => setProfile(null), 0);
       creationAttemptedRef.current = false;
       return;
     }

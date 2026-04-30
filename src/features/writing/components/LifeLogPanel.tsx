@@ -1,10 +1,9 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { cn, parseFirestoreDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 import { useLifeLog, LifeLogDocument } from '../hooks/useLifeLog';
 import { Session } from '../../../types';
-import { LocalVersionService } from '../services/LocalVersionService';
 import { SettingsPanelContent } from '../../settings/components/SettingsPanel';
 import { CancelConfirmModal } from './modals/CancelConfirmModal';
 import { SessionService } from '../services/SessionService';
@@ -12,26 +11,7 @@ import { StorageService } from '../services/StorageService';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { useServiceAction } from '../hooks/useServiceAction';
 import { X, Pin, Trash2, Cloud, HardDrive } from 'lucide-react';
-import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { StorageIcons } from './StorageIcons';
-
-function docToSession(doc: LifeLogDocument): Session & { _isLocal?: boolean } {
-  return {
-    id: doc.localId || doc.cloudId || '',
-    userId: '',
-    authorName: '',
-    authorPhoto: '',
-    content: '',
-    duration: doc.totalDuration,
-    wordCount: doc.totalWords,
-    charCount: 0,
-    wpm: 0,
-    title: doc.title,
-    tags: doc.tags,
-    createdAt: new Date(doc.lastSessionAt),
-    _isLocal: !!doc.localId,
-  } as Session & { _isLocal?: boolean };
-}
 
 interface SessionItemProps {
   session: Session;

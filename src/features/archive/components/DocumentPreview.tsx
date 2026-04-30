@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { X, ArrowRight, Download, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
@@ -39,7 +39,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange }: 
 
   useEffect(() => {
     const saved = localStorage.getItem('preview_width');
-    if (saved) setWidth(Math.max(380, Math.min(window.innerWidth * 0.8, Number(saved))));
+    if (saved) setTimeout(() => setWidth(Math.max(380, Math.min(window.innerWidth * 0.8, Number(saved)))), 0);
   }, []);
 
   useEffect(() => {

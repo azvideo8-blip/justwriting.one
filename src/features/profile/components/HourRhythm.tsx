@@ -2,14 +2,21 @@ import { useMemo } from 'react';
 import { useLanguage } from '../../../core/i18n';
 import { Session } from '../../../types';
 
-function getSessionHour(s: Session): number {
-  if (s.sessionStartTime) return new Date(s.sessionStartTime).getHours();
-  const d = s.createdAt;
-  if (d instanceof Date) return d.getHours();
-  if (typeof d === 'object' && d !== null && typeof (d as { toDate?: () => Date }).toDate === 'function') {
-    return (d as { toDate: () => Date }).toDate().getHours();
+function getSessionHour(s: Session): number | null {
+  if (s.sessionStartTime) {
+    const h = new Date(s.sessionStartTime).getHours();
+    return isNaN(h) ? null : h;
   }
-  return new Date(d as unknown as number).getHours();
+  const d = s.createdAt;
+  if (d instanceof Date) {
+    const h = d.getHours();
+    return isNaN(h) ? null : h;
+  }
+  if (typeof d === 'object' && d !== null && typeof (d as { toDate?: () => Date }).toDate === 'function') {
+    const h = (d as { toDate: () => Date }).toDate().getHours();
+    return isNaN(h) ? null : h;
+  }
+  return null;
 }
 
 export function HourRhythm({ sessions }: { sessions: Session[] }) {
@@ -18,7 +25,8 @@ export function HourRhythm({ sessions }: { sessions: Session[] }) {
   const { data, peakHour } = useMemo(() => {
     const counts = new Array(24).fill(0);
     sessions.forEach(s => {
-      counts[getSessionHour(s)]++;
+      const h = getSessionHour(s);
+      if (h !== null && h >= 0 && h < 24) counts[h]++;
     });
     const max = Math.max(...counts, 1);
     const normalized = counts.map(c => c / max);

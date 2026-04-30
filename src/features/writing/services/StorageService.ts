@@ -241,7 +241,7 @@ export const StorageService = {
         });
       } catch (e) {
         if (cloudId) {
-          try { await DocumentService.deleteDocument(userId, cloudId); } catch {}
+          try { await DocumentService.deleteDocument(userId, cloudId); } catch { /* ignore */ }
         }
         throw e;
       }

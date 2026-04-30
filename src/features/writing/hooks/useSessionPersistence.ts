@@ -8,7 +8,6 @@ import { useDraftAutosave } from './useDraftAutosave';
 import { UserProfile, SessionPayload } from '../../../types';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { LocalVersionService } from '../services/LocalVersionService';
-import { getOrCreateGuestId } from '../../../shared/lib/localDb';
 import { LocalSessionInfo } from './useGuestWritingSession';
 
 export function useSessionPersistence(
@@ -157,8 +156,7 @@ export function useSessionPersistence(
   };
 
   const fetchLocalSessions = useCallback(async () => {
-    const guestId = getOrCreateGuestId();
-    const localDocs = await LocalDocumentService.getGuestDocuments(guestId);
+    const localDocs = await LocalDocumentService.getGuestDocuments(userId);
     return localDocs.map(d => ({
       id: d.id,
       createdAt: new Date(d.lastSessionAt),
@@ -166,7 +164,7 @@ export function useSessionPersistence(
       wordCount: d.totalWords,
       duration: d.totalDuration,
     })) as LocalSessionInfo[];
-  }, []);
+  }, [userId]);
 
   const loadLocalSession = useCallback(async (docId: string) => {
     const doc = await LocalDocumentService.getDocument(docId);

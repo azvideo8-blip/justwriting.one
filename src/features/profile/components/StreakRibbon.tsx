@@ -23,6 +23,7 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
     const wordsByDate: Record<string, number> = {};
     sessions.forEach(s => {
       const d = getSessionDate(s);
+      if (!d) return;
       const key = d.toDateString();
       wordsByDate[key] = (wordsByDate[key] || 0) + (s.wordCount || 0);
     });
@@ -42,7 +43,9 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
     let streak = 0;
     const check = new Date();
     check.setHours(0, 0, 0, 0);
-    const dateSet = new Set(sessions.map(s => getSessionDate(s).toDateString()));
+    const dateSet = new Set(
+      sessions.map(s => getSessionDate(s)).filter((d): d is Date => d !== null).map(d => d.toDateString())
+    );
     while (dateSet.has(check.toDateString())) {
       streak++;
       check.setDate(check.getDate() - 1);
@@ -51,12 +54,12 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
   }, [sessions]);
 
   const bestStreak = useMemo(() => {
-    const sorted = [...sessions].sort((a, b) =>
-      getSessionDate(a).getTime() - getSessionDate(b).getTime()
-    );
+    const sorted = [...sessions]
+      .map(s => ({ s, d: getSessionDate(s) }))
+      .filter((item): item is { s: Session; d: Date } => item.d !== null)
+      .sort((a, b) => a.d.getTime() - b.d.getTime());
     let best = 0, cur = 0, prev: Date | null = null;
-    sorted.forEach(s => {
-      const d = getSessionDate(s);
+    sorted.forEach(({ d }) => {
       if (prev) {
         const diff = (d.getTime() - prev.getTime()) / 86400000;
         cur = diff <= 1.5 ? cur + 1 : 1;

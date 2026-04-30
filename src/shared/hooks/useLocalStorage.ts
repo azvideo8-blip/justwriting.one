@@ -1,28 +1,26 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { z } from 'zod';
 
 export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodType<T>) {
-  const initialValueRef = useRef(initialValue);
-  const schemaRef = useRef(schema);
 
   const readValue = useCallback((): T => {
     if (typeof window === 'undefined') {
-      return initialValueRef.current;
+      return initialValue;
     }
 
     try {
       const item = window.localStorage.getItem(key);
-      if (!item) return initialValueRef.current;
+      if (!item) return initialValue;
 
       const parsed = JSON.parse(item);
 
-      if (schemaRef.current) {
-        const result = schemaRef.current.safeParse(parsed);
+      if (schema) {
+        const result = schema.safeParse(parsed);
         if (!result.success) {
           if (import.meta.env.DEV) {
             console.warn(`Storage schema mismatch for key "${key}":`, result.error);
           }
-          return initialValueRef.current;
+          return initialValue;
         }
         return result.data;
       }
@@ -32,9 +30,9 @@ export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodT
       if (import.meta.env.DEV) {
         console.warn(`Error reading localStorage key "${key}":`, error);
       }
-      return initialValueRef.current;
+      return initialValue;
     }
-  }, [key]);
+  }, [key, initialValue, schema]);
 
   const [storedValue, setStoredValue] = useState<T>(readValue);
 

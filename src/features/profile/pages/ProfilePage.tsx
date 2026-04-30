@@ -26,22 +26,8 @@ interface DocLevelStats {
   totalDuration: number;
 }
 
-function SafeSection({ label, children }: { label: string; children: React.ReactNode }) {
-  try {
-    return <>{children}</>;
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return <div style={{ padding: 24, color: 'red', fontSize: 14 }}>ERROR in {label}: {msg}</div>;
-  }
-}
-
-function toJSDate(value: Date | { toDate?: () => Date } | number | unknown): Date {
-  if (value instanceof Date) return value;
-  if (typeof value === 'number') return new Date(value);
-  if (value && typeof value === 'object' && typeof (value as { toDate?: () => Date }).toDate === 'function') {
-    return (value as { toDate: () => Date }).toDate();
-  }
-  return new Date();
+function SafeSection({ children }: { label?: string; children: React.ReactNode }) {
+  return <>{children}</>;
 }
 
 export function ProfilePage({ user, profile }: ProfilePageProps) {
@@ -79,7 +65,8 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
             for (const ver of versions) {
               const startedAt = ver.sessionStartedAt
                 ? ver.sessionStartedAt
-                : doc.firstSessionAt || ver.savedAt || Date.now();
+                : doc.firstSessionAt || null;
+              if (!startedAt) continue;
               allSessions.push({
                 id: ver.id,
                 userId: doc.guestId,
@@ -97,7 +84,8 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
               });
             }
             if (versions.length === 0) {
-              const startedAt = doc.firstSessionAt || Date.now();
+              const startedAt = doc.firstSessionAt || null;
+              if (!startedAt) continue;
               allSessions.push({
                 id: doc.id,
                 userId: doc.guestId,
@@ -181,6 +169,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
     };
 
     fetchSessions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const kpiStats = useMemo(() => {
@@ -188,9 +177,12 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       const dates = new Set<string>();
       sessions.forEach(s => {
         try {
-          const d = s.sessionStartTime ? new Date(s.sessionStartTime) : toJSDate(s.createdAt);
+          const ts = s.sessionStartTime ?? (s.createdAt instanceof Date ? s.createdAt.getTime() : null);
+          if (!ts) return;
+          const d = new Date(ts);
+          if (isNaN(d.getTime())) return;
           dates.add(d.toDateString());
-        } catch { dates.add(new Date().toDateString()); }
+        } catch { /* ignore */ }
       });
 
       let streak = 0;
@@ -208,10 +200,12 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       const hours = new Array(24).fill(0) as number[];
       sessions.forEach(s => {
         try {
-          const d = s.sessionStartTime ? new Date(s.sessionStartTime) : toJSDate(s.createdAt);
+          const ts = s.sessionStartTime ?? (s.createdAt instanceof Date ? s.createdAt.getTime() : null);
+          if (!ts) return;
+          const d = new Date(ts);
           const h = d.getHours();
           if (!isNaN(h) && h >= 0 && h < 24) hours[h]++;
-        } catch {}
+        } catch { /* ignore */ }
       });
       const typicalHour = `${String(hours.indexOf(Math.max(...hours))).padStart(2, '0')}:00`;
 

@@ -1,5 +1,4 @@
 import { getLocalDb, LocalDocument, randomUUID } from '../../../shared/lib/localDb';
-import { computeWordDiff } from './DiffService';
 
 export const LocalDocumentService = {
   async createDocument(
