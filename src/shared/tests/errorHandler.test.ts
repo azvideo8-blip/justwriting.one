@@ -11,6 +11,6 @@ describe('errorHandler', () => {
   });
 
   it('maps unknown errors to default', () => {
-    expect(mapFirebaseError({ code: 'unknown' })).toBe('Произошла ошибка. Попробуйте позже.');
+    expect(mapFirebaseError({ code: 'unknown' })).toBe('Что-то пошло не так');
   });
 });

@@ -1,7 +1,12 @@
 import { translations } from '../i18n';
 
 export const mapFirebaseError = (error: unknown, language: 'ru' | 'en' = 'ru'): string => {
-  const code = error instanceof Error && 'code' in error ? (error as { code: string }).code : (error instanceof Error ? error.message : 'unknown');
+  const code =
+    (error !== null && typeof error === 'object' && 'code' in (error as object))
+      ? (error as { code: string }).code
+      : error instanceof Error
+        ? error.message
+        : 'unknown';
   
   switch (code) {
     case 'permission-denied':
