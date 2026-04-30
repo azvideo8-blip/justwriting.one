@@ -35,7 +35,7 @@ export function WritingFinishModal({
   labelId,
   setLabelId,
   labels,
-  isGuest,
+  isGuest: _isGuest,
   onSave,
 }: WritingFinishModalProps) {
   const { t } = useLanguage();

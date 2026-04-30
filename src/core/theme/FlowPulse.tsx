@@ -23,7 +23,7 @@ export function FlowPulse() {
   }, []);
 
   useEffect(() => {
-    if (!active) setIntensity(0);
+    if (!active) setTimeout(() => setIntensity(0), 0);
   }, [active]);
 
   return (

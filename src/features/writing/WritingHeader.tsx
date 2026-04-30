@@ -31,15 +31,15 @@ interface WritingHeaderProps {
 }
 
 export const WritingHeader = React.memo(function WritingHeader({
-  handleNewSession,
-  fetchUserSessions,
-  loadingSessions,
-  hasDraft,
-  handlePause,
-  handleStart,
-  handleFinish,
-  setShowCancelConfirm,
-  onOpenSettings,
+  handleNewSession: _handleNewSession,
+  fetchUserSessions: _fetchUserSessions,
+  loadingSessions: _loadingSessions,
+  hasDraft: _hasDraft,
+  handlePause: _handlePause,
+  handleStart: _handleStart,
+  handleFinish: _handleFinish,
+  setShowCancelConfirm: _setShowCancelConfirm,
+  onOpenSettings: _onOpenSettings,
   onNew,
   onOpenLog,
   onSave,
@@ -51,7 +51,7 @@ export const WritingHeader = React.memo(function WritingHeader({
   const { t } = useLanguage();
   const { 
     isZenActive, zenModeEnabled, 
-    headerVisibility, streamMode,
+    headerVisibility,
     lifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab
   } = useWritingSettings();
 
@@ -63,7 +63,6 @@ export const WritingHeader = React.memo(function WritingHeader({
   const wordCount = useWritingStore(s => s.wordCount);
   const sessionStartWords = useWritingStore(s => s.sessionStartWords);
   const sessionStartSeconds = useWritingStore(s => s.sessionStartSeconds);
-  const sessionType = useWritingStore(s => s.sessionType);
   const wordGoal = useWritingStore(s => s.wordGoal);
   const timerDuration = useWritingStore(s => s.timerDuration);
   

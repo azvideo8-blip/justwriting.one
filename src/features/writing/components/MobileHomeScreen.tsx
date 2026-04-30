@@ -29,7 +29,7 @@ function formatDate(lang: string): string {
 }
 
 export function MobileHomeScreen({
-  userId, streakDays, sessionGroups, summary, onStart, onContinue
+  userId: _userId, streakDays, sessionGroups, summary, onStart, onContinue
 }: MobileHomeScreenProps) {
   const { t, language } = useLanguage();
   const greeting = getGreeting(t);

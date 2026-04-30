@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { X } from 'lucide-react';
 
 interface InlineTagsProps {

@@ -36,7 +36,7 @@ async function saveDraftToIdb(draft: Record<string, unknown>) {
     if (db.objectStoreNames.contains('drafts')) {
       await db.put('drafts', { ...draft, userId: 'guest_draft' } as import('../../../shared/lib/localDb').LocalDraft);
     }
-  } catch {}
+  } catch { /* ignore */ }
 }
 
 async function loadDraftFromIdb(): Promise<Record<string, unknown> | null> {
@@ -46,7 +46,7 @@ async function loadDraftFromIdb(): Promise<Record<string, unknown> | null> {
       const d = await db.get('drafts', 'guest_draft');
       return d ? { ...d } as Record<string, unknown> : null;
     }
-  } catch {}
+  } catch { /* ignore */ }
   return null;
 }
 
@@ -56,7 +56,7 @@ async function deleteDraftFromIdb() {
     if (db.objectStoreNames.contains('drafts')) {
       await db.delete('drafts', 'guest_draft');
     }
-  } catch {}
+  } catch { /* ignore */ }
 }
 
 export function useGuestWritingSession(): GuestSessionReturn {
@@ -68,16 +68,21 @@ export function useGuestWritingSession(): GuestSessionReturn {
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const saveStatusRef = useRef(saveStatus);
+  // eslint-disable-next-line react-hooks/refs
   saveStatusRef.current = saveStatus;
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
     };
   }, []);
 
   const stateRef = useRef({ content: base.content, title: base.title, pinnedThoughts: base.pinnedThoughts, seconds: base.seconds, wordCount: base.wordCount });
+  // eslint-disable-next-line react-hooks/refs
   stateRef.current = { content: base.content, title: base.title, pinnedThoughts: base.pinnedThoughts, seconds: base.seconds, wordCount: base.wordCount };
 
   useEffect(() => {
@@ -106,9 +111,13 @@ export function useGuestWritingSession(): GuestSessionReturn {
         };
         localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
         saveDraftToIdb(draftData);
-        setSaveStatus('saved');
-        setLastSavedAt(Date.now());
-        statusTimerRef.current = setTimeout(() => setSaveStatus('idle'), 1000);
+        if (isMountedRef.current) {
+          setSaveStatus('saved');
+          setLastSavedAt(Date.now());
+          statusTimerRef.current = setTimeout(() => {
+            if (isMountedRef.current) setSaveStatus('idle');
+          }, 1000);
+        }
       } catch (err) {
         const isQuota = err instanceof DOMException && err.name === 'QuotaExceededError';
         setSaveStatus('error');

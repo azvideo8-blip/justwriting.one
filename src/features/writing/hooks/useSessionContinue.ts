@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useCallback } from 'react';
 import { Session } from '../../../types';
 import { useWritingStore } from '../store/useWritingStore';
 import { SetupMode } from '../WritingSetup';

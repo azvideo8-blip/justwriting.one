@@ -111,7 +111,7 @@ export function useDraftAutosave(
             wordCount: state.wordCount,
             timestamp: Date.now(),
           }));
-        } catch {}
+        } catch { /* ignore */ }
       }
     };
 
@@ -122,7 +122,7 @@ export function useDraftAutosave(
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [forceSaveEverything]);
+  }, [forceSaveEverything, user]);
 
   useEffect(() => {
     if ((draftData.status === 'writing' || draftData.status === 'paused') && user) {

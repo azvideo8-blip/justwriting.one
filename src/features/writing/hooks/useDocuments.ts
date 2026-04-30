@@ -12,8 +12,8 @@ function localDocToDocument(doc: { id: string; title: string; currentVersion: nu
     totalWords: doc.totalWords,
     totalDuration: doc.totalDuration,
     sessionsCount: doc.sessionsCount,
-    firstSessionAt: { seconds: Math.floor(doc.firstSessionAt / 1000), nanoseconds: 0 } as any,
-    lastSessionAt: { seconds: Math.floor(doc.lastSessionAt / 1000), nanoseconds: 0 } as any,
+    firstSessionAt: { seconds: Math.floor(doc.firstSessionAt / 1000), nanoseconds: 0 } as unknown as Document['firstSessionAt'],
+    lastSessionAt: { seconds: Math.floor(doc.lastSessionAt / 1000), nanoseconds: 0 } as unknown as Document['lastSessionAt'],
     tags: doc.tags,
   };
 }
@@ -33,8 +33,8 @@ export function useDocuments(userId: string, isGuest?: boolean) {
         const cloudDocs = await DocumentService.getUserDocuments(userId);
         setDocuments(cloudDocs);
       }
-    } catch {
-    } finally {
+    } catch { /* ignore */ }
+ finally {
       setLoading(false);
     }
   }, [userId, isGuest]);

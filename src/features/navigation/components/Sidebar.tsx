@@ -15,7 +15,7 @@ interface SidebarProps {
 export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useLanguage();
-  const { lifeLogEnabled, isZenActive, zenModeEnabled } = useWritingSettings();
+  const { lifeLogEnabled: _lifeLogEnabled, isZenActive, zenModeEnabled } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
   const inGrid = inGridProp ?? false;
   const location = useLocation();

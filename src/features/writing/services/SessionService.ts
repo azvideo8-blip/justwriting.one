@@ -1,4 +1,4 @@
-import { doc, updateDoc, deleteDoc, setDoc, onSnapshot, query, where, collection, orderBy, limit, getDocs, startAfter, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, setDoc, onSnapshot, query, where, collection, limit, getDocs, orderBy, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { Session } from '../../../types';

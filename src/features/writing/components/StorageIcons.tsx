@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Cloud, HardDrive } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';

@@ -11,6 +11,7 @@ export function useArchiveFilters<T extends Session>(sessions: T[]) {
   const filteredSessions = useMemo(() => {
     return sessions.filter(s => {
       const sDate = getSessionDate(s);
+      if (!sDate) return false;
       const matchesDate = !selectedDate || isSameDay(sDate, selectedDate);
       const matchesMonth = !selectedMonth || (sDate.getMonth() === selectedMonth.getMonth() && sDate.getFullYear() === selectedMonth.getFullYear());
       const matchesTags = selectedTags.length === 0 || selectedTags.every(t => s.tags?.includes(t));
