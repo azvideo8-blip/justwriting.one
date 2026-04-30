@@ -1,4 +1,4 @@
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 
@@ -7,9 +7,21 @@ import { Label } from '../../../types';
 export const ProfileService = {
   async updateNickname(userId: string, nickname: string) {
     try {
-      await updateDoc(doc(db, 'users', userId), { nickname });
+      const userDoc = doc(db, 'users', userId);
+      const snap = await getDoc(userDoc);
+      if (snap.exists()) {
+        await updateDoc(userDoc, { nickname });
+      } else {
+        await setDoc(userDoc, { nickname }, { merge: true });
+      }
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+      console.error('Failed to update nickname in Firestore:', err);
+      try {
+        await setDoc(doc(db, 'users', userId), { nickname }, { merge: true });
+      } catch (retryErr) {
+        console.error('Retry with setDoc also failed:', retryErr);
+        handleFirestoreError(retryErr, OperationType.UPDATE, `users/${userId}`);
+      }
     }
   },
 

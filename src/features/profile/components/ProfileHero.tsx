@@ -64,7 +64,7 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
     <div style={{
       padding: '32px 36px',
       background: 'radial-gradient(ellipse 60% 80% at 20% 30%, color-mix(in srgb, var(--flow-pulse-color) 12%, transparent), transparent 60%)',
-      borderBottom: '1px solid rgba(255,255,255,0.06)',
+      borderBottom: '1px solid var(--border-light)',
     }}>
       <div className="flex items-start gap-6">
         <div className="relative shrink-0">
@@ -75,10 +75,10 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
             <div style={{
               width: 96, height: 96, borderRadius: '50%',
               background: 'linear-gradient(135deg, color-mix(in srgb, var(--flow-pulse-color) 60%, #000), color-mix(in srgb, var(--flow-pulse-color) 20%, #000))',
-              border: '1px solid rgba(255,255,255,0.1)',
-              boxShadow: '0 0 60px color-mix(in srgb, var(--flow-pulse-color) 20%, transparent)',
+              border: '1px solid var(--border-light)',
+              boxShadow: '0 0 60px color-mix(in srgb, var(--flow-pulse-color) 15%, transparent)',
               display: 'grid', placeItems: 'center',
-              fontSize: 42, fontFamily: 'Inter, sans-serif', fontWeight: 500, color: 'rgba(232,236,233,0.9)',
+              fontSize: 42, fontFamily: 'Inter, sans-serif', fontWeight: 500, color: 'var(--text-main)',
             }}>
               {initials}
             </div>
@@ -97,7 +97,7 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
                 className="text-3xl font-medium text-text-main bg-transparent border-b border-text-main/20 outline-none"
               />
             ) : (
-              <h1 className="text-3xl font-serif font-medium text-text-main tracking-tight">
+              <h1 className="text-3xl font-medium text-text-main tracking-tight">
                 {isGuest ? t('account_local_title') : name || t('me_anonymous')}
               </h1>
             )}
@@ -131,11 +131,11 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
           </div>
         </div>
 
-        <div className="text-right shrink-0 border border-white/6 rounded-xl p-3 bg-white/[0.02]">
+        <div className="text-right shrink-0 border border-border-subtle rounded-xl p-3 bg-surface-card">
           <div className="font-mono text-[10px] text-text-main/30 uppercase tracking-widest mb-1">
             {t('profile_member_since')}
           </div>
-          <div className="font-serif text-[18px] font-medium text-text-main">
+          <div className="text-[18px] font-medium text-text-main">
             {memberSince.toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' })}
           </div>
           <div className="font-mono text-[11px] text-text-main/40 mt-1">

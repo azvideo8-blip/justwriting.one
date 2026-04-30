@@ -51,47 +51,44 @@ export const SessionService = {
     }
   },
 
-  async getAllSessions(userId: string, limitCount: number = 20, lastDoc?: QueryDocumentSnapshot<DocumentData>) {
+  async getAllSessions(userId: string, limitCount: number = 20, _lastDoc?: QueryDocumentSnapshot<DocumentData>) {
     try {
-      let q = query(
+      const q = query(
         collection(db, 'sessions'), 
         where('userId', '==', userId), 
-        orderBy('createdAt', 'desc'), 
         limit(limitCount)
       );
-      
-      if (lastDoc) {
-        q = query(q, startAfter(lastDoc));
-      }
 
       const snap = await getDocs(q);
-      const sessions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Session));
-      return {
-        sessions,
-        lastDoc: snap.docs[snap.docs.length - 1] || null
-      };
+      const sessions = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as Session))
+        .sort((a, b) => {
+          const ta = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+          const tb = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+          return tb - ta;
+        });
+      return { sessions, lastDoc: null };
     } catch (err) {
-      handleFirestoreError(err, OperationType.LIST, 'sessions');
+      console.error('SessionService.getAllSessions failed:', err);
       return { sessions: [], lastDoc: null };
     }
   },
 
-  async getAllSessionsAdmin(limitCount: number = 50, lastDoc?: QueryDocumentSnapshot<DocumentData>) {
+  async getAllSessionsAdmin(limitCount: number = 50, _lastDoc?: QueryDocumentSnapshot<DocumentData>) {
     try {
-      let q = query(collection(db, 'sessions'), orderBy('createdAt', 'desc'), limit(limitCount));
+      const q = query(collection(db, 'sessions'), limit(limitCount));
       
-      if (lastDoc) {
-        q = query(q, startAfter(lastDoc));
-      }
-
       const snap = await getDocs(q);
-      const sessions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Session));
-      return {
-        sessions,
-        lastDoc: snap.docs[snap.docs.length - 1] || null
-      };
+      const sessions = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as Session))
+        .sort((a, b) => {
+          const ta = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+          const tb = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+          return tb - ta;
+        });
+      return { sessions, lastDoc: null };
     } catch (err) {
-      handleFirestoreError(err, OperationType.LIST, 'sessions');
+      console.error('SessionService.getAllSessionsAdmin failed:', err);
       return { sessions: [], lastDoc: null };
     }
   },
