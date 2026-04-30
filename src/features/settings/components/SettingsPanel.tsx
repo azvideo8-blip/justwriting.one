@@ -46,7 +46,6 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog }: { userId: str
     zenModeEnabled, setZenModeEnabled,
     streamMode, toggleStreamMode,
     headerVisibility, toggleVisibility,
-    autoSync, setAutoSync,
     } = useWritingSettings();
 
   const { execute } = useServiceAction();
@@ -202,23 +201,13 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog }: { userId: str
               </div>
 
               {isAuthenticated && (
-                <>
-                  <ToggleRow
-                    emoji="☁️"
-                    label={t('settings_auto_sync')}
-                    value={autoSync}
-                    onChange={() => setAutoSync(!autoSync)}
-                  />
-                  <p className="text-[11px] text-text-main/40 px-1">{t('settings_auto_sync_hint')}</p>
-
-                  <button
-                    onClick={handleSyncNow}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-all"
-                  >
-                    <Cloud size={14} />
-                    {t('settings_sync_now')}
-                  </button>
-                </>
+                <button
+                  onClick={handleSyncNow}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-all"
+                >
+                  <Cloud size={14} />
+                  {t('settings_upload_to_cloud')}
+                </button>
               )}
 
               {isGuest && (

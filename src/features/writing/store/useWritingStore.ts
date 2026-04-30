@@ -184,7 +184,7 @@ export const useWritingStore = create<WritingState>((set) => ({
     seconds: 0, status: 'idle', wpm: 0, wordSnapshots: [],
     lastWordCount: 0, timeGoalReached: false, wordGoalReached: false,
     overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
-    activeSessionId: null, savedDocumentId: null,
+    activeSessionId: null,
   }),
 
   tick: () => set((state) => {

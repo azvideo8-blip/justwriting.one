@@ -123,7 +123,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     lifeLogVisible, setLifeLogVisible,
     lifeLogTab, setLifeLogTab,
     lifeLogPinned, setLifeLogPinned,
-    autoSync,
   } = useWritingSettings();
   const isBrowserOnline = useOnlineStatus();
 
@@ -309,24 +308,14 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       await refreshDocuments();
       await refreshLifeLog();
 
-      const docIdForSync = existingDocId || useWritingStore.getState().savedDocumentId;
       useWritingStore.getState().finishSession();
-
-      if (!isGuest && autoSync && docIdForSync) {
-        try {
-          await SyncService.maybeSyncAfterSave(userId, docIdForSync, autoSync);
-          await refreshLifeLog();
-        } catch (e) {
-          console.error('Post-save sync failed:', e);
-        }
-      }
     } catch (e) {
       console.error('Save failed:', e);
       throw e;
     } finally {
       savingRef.current = false;
     }
-  }, [userId, isGuest, refreshDocuments, refreshLifeLog, showToast, t, autoSync]);
+  }, [userId, isGuest, refreshDocuments, refreshLifeLog, showToast, t]);
 
   const handlePlay = React.useCallback(() => {
     if (sessionStatus === 'idle') {
@@ -499,7 +488,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       className="w-full transition-colors duration-1000"
     >
       <>
-        <ConnectionStatusBanner showZen={showZen} userId={userId} isAuthenticated={!isGuest} />
+        <ConnectionStatusBanner showZen={showZen} />
         {sharedOverlays}
 
         <div

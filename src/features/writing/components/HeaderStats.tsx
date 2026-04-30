@@ -55,20 +55,22 @@ export const HeaderStats = React.memo(function HeaderStats({
   const timeDone = timerDuration > 0 && sessionSeconds >= timerDuration;
 
   return (
-    <div className="flex items-center gap-0">
-      {/* Всего слов */}
+    <div className="flex items-center border-t border-border-subtle" style={{ borderRadius: 0 }}>
       {visibility.totalWords && (
-        <div className="hidden sm:flex flex-col pr-4 mr-4 border-r border-border-subtle shrink-0">
+        <div className="hidden sm:flex flex-col px-4 py-3 shrink-0">
           <span className="text-2xl font-medium text-text-main leading-none">{wordCount}</span>
           <span className="text-[11px] text-text-muted mt-1">{t('header_totalWords')}</span>
         </div>
       )}
 
-      {/* Слов в сессии — кликабельный */}
+      {visibility.totalWords && visibility.sessionWords && (
+        <div className="hidden sm:block w-px self-stretch bg-border-subtle" />
+      )}
+
       {visibility.sessionWords && (
         <div
         ref={wordBlockRef}
-        className="relative flex flex-col pr-2 mr-2 sm:pr-4 sm:mr-4 border-r border-border-subtle cursor-pointer rounded-xl px-2 py-1.5 sm:px-3 -mx-1 transition-colors hover:bg-text-main/5"
+        className="relative flex flex-col cursor-pointer px-4 py-3 transition-colors hover:bg-text-main/5"
         onClick={() => { setWordPopupOpen(!wordPopupOpen); setTimePopupOpen(false); }}
       >
         <div className="flex items-baseline gap-1.5 leading-none">
@@ -112,11 +114,14 @@ export const HeaderStats = React.memo(function HeaderStats({
       </div>
       )}
 
-      {/* Время — кликабельный */}
+      {visibility.sessionWords && visibility.sessionTime && (
+        <div className="w-px self-stretch bg-border-subtle" />
+      )}
+
       {visibility.sessionTime && (
       <div
         ref={timeBlockRef}
-        className="relative flex flex-col pr-2 mr-2 sm:pr-4 sm:mr-4 border-r border-border-subtle cursor-pointer rounded-xl px-2 py-1.5 sm:px-3 -mx-1 transition-colors hover:bg-text-main/5"
+        className="relative flex flex-col cursor-pointer px-4 py-3 transition-colors hover:bg-text-main/5"
         onClick={() => { setTimePopupOpen(!timePopupOpen); setWordPopupOpen(false); }}
       >
         <div className="flex items-baseline gap-1.5 leading-none">
@@ -163,9 +168,12 @@ export const HeaderStats = React.memo(function HeaderStats({
       </div>
       )}
 
-      {/* WPM — некликабельный */}
+      {visibility.sessionTime && visibility.wpm && (
+        <div className="w-px self-stretch bg-border-subtle" />
+      )}
+
       {visibility.wpm && (
-      <div className="flex flex-col shrink-0 px-2 py-1.5 sm:px-3">
+      <div className="flex flex-col shrink-0 px-4 py-3">
         <div className="flex items-center gap-1.5 leading-none">
           <div className={cn("w-2 h-2 rounded-full transition-colors duration-500", getWpmColor(wpm), status === 'writing' && "animate-pulse")} />
           <span className="text-xl sm:text-2xl font-medium text-text-main leading-none">{wpm}</span>
@@ -174,9 +182,8 @@ export const HeaderStats = React.memo(function HeaderStats({
       </div>
       )}
           
-      {/* Индикатор записи */}
       {status === 'writing' && (
-        <div className="flex items-center gap-1.5 ml-auto">
+        <div className="flex items-center gap-1.5 ml-auto px-4">
           <div className="w-2 h-2 rounded-full bg-accent-success animate-pulse" />
           <span className="text-[11px] text-text-subtle font-medium">{t('stats_writing')}</span>
         </div>
