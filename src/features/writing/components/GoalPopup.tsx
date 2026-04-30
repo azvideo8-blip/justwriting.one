@@ -87,7 +87,7 @@ export function GoalPopup({
             zIndex: 9999,
             background: '#111413',
           }}
-          className={cn("border border-border-subtle rounded-2xl p-3 shadow-xl", width)}
+          className={cn("border border-border-subtle rounded-lg p-3 shadow-xl", width)}
           data-goal-popup
         >
           <div className="text-[11px] text-text-main/40 mb-2 font-bold uppercase tracking-widest">{title}</div>

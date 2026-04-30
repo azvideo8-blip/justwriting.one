@@ -35,6 +35,15 @@ function SafeSection({ label, children }: { label: string; children: React.React
   }
 }
 
+function toJSDate(value: Date | { toDate?: () => Date } | number | unknown): Date {
+  if (value instanceof Date) return value;
+  if (typeof value === 'number') return new Date(value);
+  if (value && typeof value === 'object' && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  return new Date();
+}
+
 export function ProfilePage({ user, profile }: ProfilePageProps) {
   const { t } = useLanguage();
   const isGuest = !user;
@@ -68,7 +77,9 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           try {
             const versions = await LocalVersionService.getVersions(doc.id);
             for (const ver of versions) {
-              const startedAt = ver.sessionStartedAt || ver.savedAt || doc.firstSessionAt || Date.now();
+              const startedAt = ver.sessionStartedAt
+                ? ver.sessionStartedAt
+                : doc.firstSessionAt || ver.savedAt || Date.now();
               allSessions.push({
                 id: ver.id,
                 userId: doc.guestId,
@@ -177,7 +188,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       const dates = new Set<string>();
       sessions.forEach(s => {
         try {
-          const d = s.sessionStartTime ? new Date(s.sessionStartTime) : (s.createdAt instanceof Date ? s.createdAt : new Date());
+          const d = s.sessionStartTime ? new Date(s.sessionStartTime) : toJSDate(s.createdAt);
           dates.add(d.toDateString());
         } catch { dates.add(new Date().toDateString()); }
       });
@@ -197,7 +208,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       const hours = new Array(24).fill(0) as number[];
       sessions.forEach(s => {
         try {
-          const d = s.sessionStartTime ? new Date(s.sessionStartTime) : (s.createdAt instanceof Date ? s.createdAt : new Date());
+          const d = s.sessionStartTime ? new Date(s.sessionStartTime) : toJSDate(s.createdAt);
           const h = d.getHours();
           if (!isNaN(h) && h >= 0 && h < 24) hours[h]++;
         } catch {}

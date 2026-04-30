@@ -70,7 +70,7 @@ export const HeaderStats = React.memo(function HeaderStats({
       {visibility.sessionWords && (
         <div
         ref={wordBlockRef}
-        className="relative flex flex-col cursor-pointer px-4 py-3 transition-colors hover:bg-text-main/5"
+        className="relative flex flex-col cursor-pointer px-4 py-3"
         onClick={() => { setWordPopupOpen(!wordPopupOpen); setTimePopupOpen(false); }}
       >
         <div className="flex items-baseline gap-1.5 leading-none">
@@ -84,9 +84,9 @@ export const HeaderStats = React.memo(function HeaderStats({
           )}
         </div>
         {wordProgress !== null && wordGoal > 0 && (
-          <div className="w-full h-1 rounded-full bg-border-subtle mt-1.5">
+          <div className="w-full h-px bg-border-subtle mt-1.5">
             <div
-              className={cn("h-1 rounded-full transition-all", wordDone ? "bg-accent-success" : "bg-text-main")}
+              className={cn("h-px transition-all", wordDone ? "bg-accent-success" : "bg-text-main")}
               style={{ width: `${wordProgress}%` }}
             />
           </div>
@@ -121,7 +121,7 @@ export const HeaderStats = React.memo(function HeaderStats({
       {visibility.sessionTime && (
       <div
         ref={timeBlockRef}
-        className="relative flex flex-col cursor-pointer px-4 py-3 transition-colors hover:bg-text-main/5"
+        className="relative flex flex-col cursor-pointer px-4 py-3"
         onClick={() => { setTimePopupOpen(!timePopupOpen); setWordPopupOpen(false); }}
       >
         <div className="flex items-baseline gap-1.5 leading-none">
@@ -135,9 +135,9 @@ export const HeaderStats = React.memo(function HeaderStats({
           )}
         </div>
         {timeProgress !== null && timerDuration > 0 && (
-          <div className="w-full h-1 rounded-full bg-border-subtle mt-1.5">
+          <div className="w-full h-px bg-border-subtle mt-1.5">
             <div
-              className={cn("h-1 rounded-full transition-all", timeDone ? "bg-accent-success" : "bg-text-main")}
+              className={cn("h-px transition-all", timeDone ? "bg-accent-success" : "bg-text-main")}
               style={{ width: `${timeProgress}%` }}
             />
           </div>

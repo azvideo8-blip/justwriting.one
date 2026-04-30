@@ -70,7 +70,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
 
       <div className="flex items-center gap-0 flex-1 min-w-0 overflow-hidden">
         {headerVisibility.totalWords && (
-        <div className={cn("flex flex-col", compact ? "pr-3 mr-3 border-r border-border-subtle" : "pr-5 mr-5 border-r border-border-subtle")}>
+        <div className={cn("flex flex-col", compact ? "pr-3 mr-3" : "pr-5 mr-5")}>
           <span className="text-lg font-medium text-text-main leading-none tabular-nums whitespace-nowrap">
             {wordCount.toLocaleString()}
           </span>
@@ -82,12 +82,16 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         </div>
         )}
 
+        {headerVisibility.totalWords && headerVisibility.sessionWords && (
+          <div className="w-px self-stretch bg-border-subtle" />
+        )}
+
         {headerVisibility.sessionWords && (
         <div
           ref={wordRef}
           onClick={() => { setWordPopupOpen(!wordPopupOpen); setTimePopupOpen(false); }}
-          className={cn("flex flex-col cursor-pointer rounded-xl hover:bg-text-main/5 transition-colors",
-            compact ? "pr-3 mr-3 border-r border-border-subtle px-2 py-1" : "pr-5 mr-5 border-r border-border-subtle px-3 py-1.5 -mx-1"
+          className={cn("flex flex-col cursor-pointer",
+            compact ? "pr-3 mr-3 px-2 py-1" : "pr-5 mr-5 px-3 py-1.5"
           )}
         >
           <div className="flex items-baseline gap-1.5 leading-none">
@@ -101,9 +105,9 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             )}
           </div>
           {!compact && wordPct !== null && (
-            <div className="w-14 h-[2px] rounded-full bg-border-subtle mt-1.5">
+            <div className="w-14 h-px bg-border-subtle mt-1.5">
               <div
-                className={cn("h-[2px] rounded-full transition-all", wordDone ? "bg-accent-success" : "bg-text-main")}
+                className={cn("h-px transition-all", wordDone ? "bg-accent-success" : "bg-text-main")}
                 style={{ width: `${wordPct}%` }}
               />
             </div>
@@ -116,12 +120,16 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         </div>
         )}
 
+        {headerVisibility.sessionWords && headerVisibility.sessionTime && (
+          <div className="w-px self-stretch bg-border-subtle" />
+        )}
+
         {headerVisibility.sessionTime && (
         <div
           ref={timeRef}
           onClick={() => { setTimePopupOpen(!timePopupOpen); setWordPopupOpen(false); }}
-          className={cn("flex flex-col cursor-pointer rounded-xl hover:bg-text-main/5 transition-colors",
-            compact ? "pr-3 mr-3 border-r border-border-subtle px-2 py-1" : "pr-5 mr-5 border-r border-border-subtle px-3 py-1.5 -mx-1"
+          className={cn("flex flex-col cursor-pointer",
+            compact ? "pr-3 mr-3 px-2 py-1" : "pr-5 mr-5 px-3 py-1.5"
           )}
         >
           <div className="flex items-baseline gap-1.5 leading-none">
@@ -135,9 +143,9 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             )}
           </div>
           {!compact && timePct !== null && (
-            <div className="w-14 h-[2px] rounded-full bg-border-subtle mt-1.5">
+            <div className="w-14 h-px bg-border-subtle mt-1.5">
               <div
-                className={cn("h-[2px] rounded-full transition-all", timeDone ? "bg-accent-success" : "bg-text-main")}
+                className={cn("h-px transition-all", timeDone ? "bg-accent-success" : "bg-text-main")}
                 style={{ width: `${timePct}%` }}
               />
             </div>
@@ -150,6 +158,10 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             </span>
           )}
         </div>
+        )}
+
+        {headerVisibility.sessionTime && headerVisibility.wpm && (
+          <div className="w-px self-stretch bg-border-subtle" />
         )}
 
         {headerVisibility.wpm && (
@@ -167,45 +179,46 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         )}
       </div>
 
-      <div className="flex items-center gap-2 ml-2 shrink-0 pl-4">
+      <div className="flex items-center gap-2 ml-2 shrink-0">
+        <div className="w-px h-6 bg-border-subtle" />
         <button
           onClick={status === 'paused' ? onPlay : status === 'idle' ? onPlay : undefined}
           disabled={status === 'writing'}
           title={t('play')}
           className={cn(
-            "w-8 h-8 rounded-xl border flex items-center justify-center transition-all shrink-0",
+            "w-8 h-8 flex items-center justify-center transition-all shrink-0",
             status !== 'writing'
-              ? "border-text-main/30 text-text-main hover:bg-text-main/5"
-              : "border-border-subtle text-text-main/20 cursor-not-allowed"
+              ? "text-text-main hover:bg-text-main/5"
+              : "text-text-main/20 cursor-not-allowed"
           )}
         >
-          <Play size={13} fill="currentColor" />
+          <Play size={14} />
         </button>
         <button
           onClick={onPause}
           disabled={status !== 'writing'}
           title={t('pause')}
           className={cn(
-            "w-8 h-8 rounded-xl border flex items-center justify-center transition-all shrink-0",
+            "w-8 h-8 flex items-center justify-center transition-all shrink-0",
             status === 'writing'
-              ? "border-text-main/30 text-text-main hover:bg-text-main/5"
-              : "border-border-subtle text-text-main/20 cursor-not-allowed"
+              ? "text-accent-warning hover:bg-accent-warning/10"
+              : "text-text-main/20 cursor-not-allowed"
           )}
         >
-          <Pause size={13} fill="currentColor" />
+          <Pause size={14} />
         </button>
         <button
           onClick={onStop}
           disabled={status === 'idle'}
           title={t('stop')}
           className={cn(
-            "w-8 h-8 rounded-xl border flex items-center justify-center transition-all shrink-0",
+            "w-8 h-8 flex items-center justify-center transition-all shrink-0",
             status !== 'idle'
-              ? "border-text-main/30 text-text-main hover:bg-text-main/5"
-              : "border-border-subtle text-text-main/20 cursor-not-allowed"
+              ? "text-accent-danger hover:bg-accent-danger/10"
+              : "text-text-main/20 cursor-not-allowed"
           )}
         >
-          <Square size={13} fill="currentColor" />
+          <Square size={14} />
         </button>
       </div>
 
