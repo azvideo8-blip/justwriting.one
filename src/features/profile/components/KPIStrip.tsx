@@ -28,22 +28,22 @@ export function KPIStrip({ stats }: { stats: KPIStats }) {
       display: 'grid',
       gridTemplateColumns: 'repeat(6, 1fr)',
       gap: 1,
-      background: 'rgba(255,255,255,0.06)',
-      borderBottom: '1px solid rgba(255,255,255,0.06)',
+      background: 'var(--border-light)',
+      borderBottom: '1px solid var(--border-light)',
     }}>
       {items.map((item, i) => (
-        <div key={i} style={{ padding: '18px 22px', background: '#0b0d0c' }}>
+        <div key={i} style={{ padding: '18px 22px', background: 'var(--surface-card)' }}>
           <div className="flex items-center gap-2 mb-2">
-            <span style={{ color: item.accent ? 'var(--flow-pulse-color)' : 'rgba(74,81,77,1)' }}>
+            <span style={{ color: item.accent ? 'var(--flow-pulse-color)' : 'var(--text-muted)' }}>
               {item.icon}
             </span>
-            <span className="font-mono text-[10px] text-text-main/30 uppercase tracking-widest">
+            <span className="font-mono text-[10px] text-text-muted uppercase tracking-widest">
               {item.label}
             </span>
           </div>
           <div
             className="text-[24px] font-medium tracking-tight"
-            style={{ color: item.accent ? 'var(--flow-pulse-color)' : item.dim ? 'rgba(138,145,141,1)' : 'rgba(232,236,233,0.95)' }}
+            style={{ color: item.accent ? 'var(--flow-pulse-color)' : item.dim ? 'var(--text-muted)' : 'var(--text-main)' }}
           >
             {item.value}
           </div>

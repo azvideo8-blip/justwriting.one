@@ -74,10 +74,10 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
     : days[0]?.date.toLocaleDateString('ru', { month: 'long', year: 'numeric' });
 
   return (
-    <div style={{ padding: '24px 36px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+    <div style={{ padding: '24px 36px', borderBottom: '1px solid var(--border-light)' }}>
       <div className="flex items-baseline justify-between mb-4">
         <div className="flex items-baseline gap-3">
-          <h2 className="font-serif text-[18px] font-medium text-text-main">
+          <h2 className="text-[18px] font-medium text-text-main">
             {t('profile_streak_title')}
           </h2>
           <span className="font-mono text-[11px] text-text-main/30 uppercase tracking-widest">
@@ -122,9 +122,9 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
                 background: isCurrentStreak
                   ? 'var(--flow-pulse-color)'
                   : day.hasSession
-                    ? 'rgba(255,255,255,0.18)'
-                    : 'rgba(255,255,255,0.04)',
-                outline: day.isToday ? '1px solid rgba(255,255,255,0.4)' : 'none',
+                    ? 'var(--text-subtle)'
+                    : 'var(--surface-elevated)',
+                outline: day.isToday ? '1px solid var(--text-subtle)' : 'none',
                 outlineOffset: 1,
                 transition: 'height 0.3s',
               }}

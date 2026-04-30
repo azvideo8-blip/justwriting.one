@@ -91,8 +91,41 @@ const GROUPS: AchGroup[] = [
   },
 ];
 
+function toJSDate(value: Date | { toDate?: () => Date } | number | unknown): Date {
+  if (value instanceof Date) return value;
+  if (typeof value === 'number') return new Date(value);
+  if (value && typeof value === 'object' && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  return new Date(0);
+}
+
+function calcMaxHistoricalStreak(sessions: Session[]): number {
+  if (sessions.length === 0) return 0;
+  const dates = new Set(
+    sessions.map(s => {
+      const d = s.sessionStartTime ? new Date(s.sessionStartTime) : toJSDate(s.createdAt);
+      return d.toDateString();
+    })
+  );
+  const sorted = [...dates]
+    .map(d => new Date(d).getTime())
+    .sort((a, b) => a - b);
+  if (sorted.length === 0) return 0;
+  let max = 1, cur = 1;
+  for (let i = 1; i < sorted.length; i++) {
+    const diffDays = Math.round((sorted[i] - sorted[i - 1]) / 86400000);
+    if (diffDays === 1) { cur++; max = Math.max(max, cur); }
+    else if (diffDays > 1) { cur = 1; }
+  }
+  return max;
+}
+
 function checkAchievement(ach: Achievement, stats: Stats, sessions: Session[]): boolean {
-  if (ach.id.startsWith('streak_')) return stats.streakDays >= ach.threshold;
+  if (ach.id.startsWith('streak_')) {
+    const maxEver = Math.max(stats.streakDays, calcMaxHistoricalStreak(sessions));
+    return maxEver >= ach.threshold;
+  }
   if (ach.id.startsWith('words_')) return stats.totalWords >= ach.threshold;
   if (ach.id.startsWith('notes_')) return stats.sessionsCount >= ach.threshold;
   if (ach.id.startsWith('duration_')) {
@@ -139,6 +172,9 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
         });
       });
       if (!changed) return prev;
+      if (import.meta.env.DEV) {
+        console.log('[Achievements] newly unlocked:', [...updated].filter(id => !prev.has(id)));
+      }
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...updated])); } catch {}
       return updated;
     });
@@ -154,10 +190,10 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
 
   return (
     <div style={{ padding: '24px 36px' }}>
-      <h2 className="font-serif text-[18px] font-medium text-text-main mb-1">
+      <h2 className="text-[18px] font-medium text-text-main mb-1">
         {t('profile_achievements_title')}
       </h2>
-      <div className="flex gap-4 mb-6 font-mono text-[11px] text-text-main/35 uppercase tracking-widest">
+      <div className="flex gap-4 mb-6 font-mono text-[11px] text-text-muted uppercase tracking-widest">
         <span>{unlockedCount} / {totalAchievements} {t('profile_ach_opened')}</span>
         {legendaryCount > 0 && (
           <span style={{ color: RARITY_COLORS.legendary }}>
@@ -172,10 +208,10 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
         return (
           <div key={group.id} className="mb-8">
             <div className="flex items-center justify-between mb-3">
-              <div className="font-mono text-[11px] text-text-main/35 uppercase tracking-widest">
+              <div className="font-mono text-[11px] text-text-muted uppercase tracking-widest">
                 {t(group.labelKey)}
               </div>
-              <div className="font-mono text-[11px] text-text-main/25">
+              <div className="font-mono text-[11px] text-text-subtle">
                 {groupUnlocked} / {group.achievements.length}
               </div>
             </div>
@@ -184,7 +220,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(6, 1fr)',
-                border: '1px solid rgba(255,255,255,0.06)',
+                border: '1px solid var(--border-light)',
                 borderRadius: 12,
                 overflow: 'hidden',
               }}
@@ -204,10 +240,10 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
                     title={t(ach.title)}
                     style={{
                       padding: '16px 12px',
-                      borderRight: isLastCol ? 'none' : '1px solid rgba(255,255,255,0.06)',
-                      borderBottom: isLastRow ? 'none' : '1px solid rgba(255,255,255,0.06)',
+                      borderRight: isLastCol ? 'none' : '1px solid var(--border-light)',
+                      borderBottom: isLastRow ? 'none' : '1px solid var(--border-light)',
                       background: unlocked
-                        ? 'rgba(255,255,255,0.02)'
+                        ? 'var(--surface-elevated)'
                         : 'transparent',
                       display: 'flex',
                       flexDirection: 'column',
@@ -218,7 +254,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
                   >
                     <div style={{
                       fontSize: 24,
-                      filter: unlocked ? 'none' : 'grayscale(1) opacity(0.2)',
+                      filter: unlocked ? 'none' : 'grayscale(1) opacity(0.3)',
                       lineHeight: 1,
                     }}>
                       {ach.icon}
@@ -227,7 +263,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
                     <div style={{
                       fontSize: 11,
                       fontWeight: 500,
-                      color: unlocked ? 'rgba(232,236,233,0.85)' : 'rgba(255,255,255,0.2)',
+                      color: unlocked ? 'var(--text-main)' : 'var(--text-subtle)',
                       lineHeight: 1.3,
                       minHeight: 28,
                     }}>
@@ -239,7 +275,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
                       fontSize: 9,
                       letterSpacing: '.08em',
                       textTransform: 'uppercase',
-                      color: unlocked ? RARITY_COLORS[rarity] : 'rgba(255,255,255,0.15)',
+                      color: unlocked ? RARITY_COLORS[rarity] : 'var(--text-subtle)',
                     }}>
                       {RARITY_LABELS[rarity]}
                     </div>

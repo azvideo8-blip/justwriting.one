@@ -27,9 +27,9 @@ export function HourRhythm({ sessions }: { sessions: Session[] }) {
   }, [sessions]);
 
   return (
-    <div style={{ padding: '24px 36px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+    <div style={{ padding: '24px 36px', borderBottom: '1px solid var(--border-light)' }}>
       <div className="flex items-baseline justify-between mb-4">
-        <h2 className="font-serif text-[18px] font-medium text-text-main">
+        <h2 className="text-[18px] font-medium text-text-main">
           {t('profile_rhythm_title')}
         </h2>
         <div className="font-mono text-[11px] text-text-main/35">
@@ -54,8 +54,8 @@ export function HourRhythm({ sessions }: { sessions: Session[] }) {
                 background: isPeak
                   ? 'var(--flow-pulse-color)'
                   : v > 0.1
-                    ? 'rgba(255,255,255,0.15)'
-                    : 'rgba(255,255,255,0.04)',
+                    ? 'var(--text-subtle)'
+                    : 'var(--surface-elevated)',
               }}
             />
           );

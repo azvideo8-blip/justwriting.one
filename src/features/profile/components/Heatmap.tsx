@@ -67,7 +67,7 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
   }, [offset, sessions]);
 
   const colors = [
-    'rgba(255,255,255,0.04)',
+    'var(--surface-elevated)',
     'color-mix(in srgb, var(--flow-pulse-color) 20%, transparent)',
     'color-mix(in srgb, var(--flow-pulse-color) 40%, transparent)',
     'color-mix(in srgb, var(--flow-pulse-color) 65%, transparent)',
@@ -75,10 +75,10 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
   ];
 
   return (
-    <div style={{ padding: '24px 36px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+    <div style={{ padding: '24px 36px', borderBottom: '1px solid var(--border-light)' }}>
       <div className="flex items-baseline justify-between mb-4">
         <div className="flex items-baseline gap-3">
-          <h2 className="font-serif text-[18px] font-medium text-text-main">
+          <h2 className="text-[18px] font-medium text-text-main">
             {t('profile_heatmap_title')}
           </h2>
           <span className="font-mono text-[11px] text-text-main/30 uppercase tracking-widest">
