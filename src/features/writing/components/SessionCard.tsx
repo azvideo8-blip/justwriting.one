@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { 
   Clock, Type, PenLine, Share2, 
   ChevronDown, ChevronUp, X,
-  FileText, Download, FileJson, Plus, Trash2, Cloud, HardDrive
+  FileText, Download, FileJson, Plus, Trash2
 } from 'lucide-react';
 import { auth } from '../../../core/firebase/auth';
 import { SessionService } from '../services/SessionService';
@@ -17,6 +17,7 @@ import { ExportService } from '../../export/ExportService';
 import { useLanguage } from '../../../core/i18n';
 import { useServiceAction } from '../hooks/useServiceAction';
 import { useSessionTags } from '../hooks/useSessionTags';
+import { StorageIcons } from './StorageIcons';
 
 import { SessionEditor } from './SessionEditor';
 import { CancelConfirmModal } from './modals/CancelConfirmModal';
@@ -195,12 +196,16 @@ export function SessionCard({
             <span className="flex items-center gap-1" title={t('writing_words')}><Type size={14} /> {session.wordCount}{t('unit_words')}</span>
             <span className="flex items-center gap-1" title={t('writing_chars')}><PenLine size={14} /> {session.charCount || 0}</span>
 
-            {session._isLocal && (
-              <span title={t('storage_local')} className="flex items-center gap-1"><HardDrive size={14} className="text-text-main/30" /></span>
-            )}
-            {(hasCloudCopy || (!session._isLocal && session.id && !session.id.startsWith('local_'))) && (
-              <span title={t('storage_cloud')} className="flex items-center gap-1"><Cloud size={14} className="text-blue-400/50" /></span>
-            )}
+            <StorageIcons
+              doc={{
+                localId: session._isLocal ? session.id : undefined,
+                cloudId: linkedCloudId,
+                hasLocal: !!session._isLocal,
+                hasCloud: !!hasCloudCopy,
+              }}
+              userId={userId || ''}
+              onStorageChange={() => { if (onDeleteSuccess) onDeleteSuccess(session.id); }}
+            />
 
             <div className="flex items-center flex-wrap gap-2 relative">
               <button 

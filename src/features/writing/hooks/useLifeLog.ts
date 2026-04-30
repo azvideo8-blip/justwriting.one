@@ -134,21 +134,19 @@ export function useLifeLog(userId: string, isGuest?: boolean): UseLifeLogReturn 
         setDocuments(cloudDocs);
 
         const cloudById = new Map(cloudDocs.map(d => [d.id, d]));
-        const cloudByTitle = new Map(cloudDocs.map(d => [d.title, d]));
         const matchedCloudIds = new Set<string>();
 
         const unified: LifeLogDocument[] = [];
 
         for (const local of localDocs) {
-          const cloud = (local.linkedCloudId && cloudById.get(local.linkedCloudId))
-            || cloudByTitle.get(local.title);
+          const cloud = local.linkedCloudId ? cloudById.get(local.linkedCloudId) : undefined;
           if (cloud) matchedCloudIds.add(cloud.id);
 
-          const hasCloud = !!(local.linkedCloudId || cloud);
+          const hasCloud = !!local.linkedCloudId;
 
           unified.push({
             localId: local.id,
-            cloudId: local.linkedCloudId || cloud?.id,
+            cloudId: local.linkedCloudId || undefined,
             title: local.title,
             totalWords: local.totalWords,
             totalDuration: local.totalDuration,

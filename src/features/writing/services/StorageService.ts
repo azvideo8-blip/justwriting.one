@@ -125,6 +125,10 @@ export const StorageService = {
   },
 
   async addLocalCopy(userId: string, cloudDocumentId: string): Promise<string> {
+    const allLocal = await LocalDocumentService.getGuestDocuments(userId);
+    const existing = allLocal.find(d => d.linkedCloudId === cloudDocumentId);
+    if (existing) return existing.id;
+
     const cloudDoc = await DocumentService.getDocument(userId, cloudDocumentId);
     if (!cloudDoc) throw new Error('Cloud document not found');
 

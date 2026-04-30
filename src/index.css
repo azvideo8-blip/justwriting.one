@@ -222,6 +222,10 @@
   .gap-s-sm { gap: var(--sp-sm); }
   .gap-s-md { gap: var(--sp-md); }
   .gap-s-lg { gap: var(--sp-lg); }
+
+textarea {
+  caret-color: var(--flow-pulse-color, rgba(255,255,255,0.9));
+}
   .gap-s-xl { gap: var(--sp-xl); }
   .space-y-s-xl > * + * { margin-top: var(--sp-xl); }
   .space-y-s-lg > * + * { margin-top: var(--sp-lg); }
