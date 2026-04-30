@@ -33,8 +33,6 @@ interface WritingSettingsContextType {
   setLifeLogPinned: (enabled: boolean) => void;
   headerVisibility: HeaderVisibility;
   toggleVisibility: (key: keyof HeaderVisibility) => void;
-  autoSync: boolean;
-  setAutoSync: (v: boolean) => void;
 }
 
 const WritingSettingsContext = createContext<WritingSettingsContextType | undefined>(undefined);
@@ -49,7 +47,6 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
   const [fontFamily, setFontFamily] = useLocalStorage<string>('v2_fontFamily', 'Inter', z.string());
   const [fontSize, setFontSize] = useLocalStorage<number>('v2_fontSize', 18, z.number());
   const [lifeLogPinned, setLifeLogPinned] = useLocalStorage<boolean>('v3_lifeLogPinned', false, z.boolean());
-  const [autoSync, setAutoSync] = useLocalStorage<boolean>('auto-sync', false, z.boolean());
   const [headerVisibility, setHeaderVisibility] = useLocalStorage<HeaderVisibility>(
     'v2_headerVisibility',
     { sessionTime: true, sessionWords: true, totalWords: true, wpm: true },
@@ -122,7 +119,6 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
       fontSize, setFontSize,
       lifeLogPinned, setLifeLogPinned,
       headerVisibility, toggleVisibility,
-      autoSync, setAutoSync,
     }}>
       {children}
     </WritingSettingsContext.Provider>

@@ -9,20 +9,30 @@ interface Props {
 interface State {
   hasError: boolean;
   errorKey: number;
+  errorMessage: string;
+  errorStack: string;
+  showStack: boolean;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
-    errorKey: 0
+    errorKey: 0,
+    errorMessage: '',
+    errorStack: '',
+    showStack: false,
   };
 
-  public static getDerivedStateFromError(_: Error, prevState: State): State {
-    return { hasError: true, errorKey: prevState.errorKey + 1 };
+  public static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, errorKey: Date.now(), errorMessage: error.message, errorStack: error.stack || '', showStack: false };
   }
 
   private handleRetry = () => {
-    this.setState({ hasError: false, errorKey: this.state.errorKey + 1 });
+    this.setState({ hasError: false, errorKey: Date.now(), showStack: false });
+  };
+
+  private toggleStack = () => {
+    this.setState(prev => ({ showStack: !prev.showStack }));
   };
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
@@ -40,6 +50,8 @@ export class ErrorBoundary extends Component<Props, State> {
               <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             </div>
             <h2 className="text-2xl font-bold text-text-main">{translations['error_generic'][lang]}</h2>
+            <button onClick={this.toggleStack} className="text-[11px] text-text-main/30 hover:text-text-main/60 transition-colors">{this.state.showStack ? (lang === 'ru' ? 'Скрыть детали' : 'Hide details') : (lang === 'ru' ? 'Показать детали' : 'Show details')}</button>
+            {this.state.showStack && <pre className="text-left text-red-400 text-[12px] whitespace-pre-wrap break-all max-h-40 overflow-auto bg-black/30 p-3 rounded-lg">{this.state.errorMessage}\n\n{this.state.errorStack?.slice(0, 500)}</pre>}
             <div className="space-y-3">
               <button
                 onClick={this.handleRetry}

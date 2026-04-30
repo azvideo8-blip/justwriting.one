@@ -29,6 +29,7 @@ export function useSessionContinue({
           seconds: 0,
           wordCount: session.wordCount || 0,
           accumulatedDuration: session.duration || 0,
+          savedDocumentId: session.id,
         });
         setTags(session.tags || []);
         setSetupMode('selection');
@@ -42,6 +43,7 @@ export function useSessionContinue({
         seconds: (loaded.duration as number) || 0,
         wordCount: (loaded.wordCount as number) || 0,
         accumulatedDuration: (loaded.duration as number) || 0,
+        savedDocumentId: session.id,
       });
       setTags((loaded.tags as string[]) || []);
       setSetupMode('selection');

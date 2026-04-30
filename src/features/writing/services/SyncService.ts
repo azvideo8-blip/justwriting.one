@@ -89,10 +89,4 @@ export const SyncService = {
     await LocalDocumentService.updateLinkedCloudId(localId, cloudId);
     return cloudId;
   },
-
-  async maybeSyncAfterSave(userId: string, localId: string, autoSync: boolean): Promise<void> {
-    if (!autoSync) return;
-    await SyncService.addToQueue(localId);
-    await SyncService.syncPending(userId);
-  },
 };
