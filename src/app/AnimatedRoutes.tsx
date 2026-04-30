@@ -8,7 +8,6 @@ import { cn } from '../core/utils/utils';
 import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
 
 import { AppLayout } from '../shared/components/Layout/AppLayout';
-import { PageTransition } from '../shared/components/Layout/PageTransition';
 import { Sidebar } from '../features/navigation/components/Sidebar';
 import { BottomNav } from '../features/navigation/components/BottomNav';
 import { ConnectionStatusBanner } from '../features/writing/components/ConnectionStatusBanner';
@@ -78,58 +77,15 @@ export function AnimatedRoutes() {
         layoutMode === 'desktop' && !hideSidebar && "pl-20 pr-4",
         layoutMode !== 'desktop' && !hideSidebar && "pb-20 px-4"
       )}>
-        <Routes location={location} key={location.pathname}>
-            <Route path="/" element={
-              <PageTransition id="/">
-                <WritingPage
-                  user={user}
-                  profile={profile}
-                />
-              </PageTransition>
-            } />
-            <Route path="/log" element={
-              <PageTransition id="/log">
-                <MobileLogPage />
-              </PageTransition>
-            } />
-            <Route path="/me" element={
-              <PageTransition id="/me">
-                <MobileMePage />
-              </PageTransition>
-            } />
-            <Route path="/archive" element={
-              <PageTransition id="/archive">
-                <ArchivePage
-                  user={user}
-                  profile={profile}
-                />
-              </PageTransition>
-            } />
-            <Route path="/profile" element={
-              <PageTransition id="/profile">
-                <ProfilePage user={user} profile={profile} />
-              </PageTransition>
-            } />
-
-            <Route path="/admin" element={
-              <ProtectedRoute requireAdmin>
-                <PageTransition id="/admin">
-                  <AdminPage />
-                </PageTransition>
-              </ProtectedRoute>
-            } />
-            <Route path="/login" element={
-              <GuestRoute>
-                <PageTransition id="/login">
-                  <LoginPage />
-                </PageTransition>
-              </GuestRoute>
-            } />
-            <Route path="/about" element={
-              <PageTransition id="/about">
-                <AboutPage />
-              </PageTransition>
-            } />
+        <Routes location={location}>
+            <Route path="/" element={<WritingPage user={user} profile={profile} />} />
+            <Route path="/log" element={<MobileLogPage />} />
+            <Route path="/me" element={<MobileMePage />} />
+            <Route path="/archive" element={<ArchivePage user={user} profile={profile} />} />
+            <Route path="/profile" element={<ProfilePage user={user} profile={profile} />} />
+            <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminPage /></ProtectedRoute>} />
+            <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
+            <Route path="/about" element={<AboutPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
       </main>
