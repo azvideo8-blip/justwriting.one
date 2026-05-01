@@ -137,6 +137,17 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
         }
       }
     },
+    blocked() {
+      console.warn('[localDb] Database upgrade blocked — close other tabs and reload.');
+    },
+    blocking() {
+      console.warn('[localDb] Another tab is trying to upgrade — closing this connection.');
+      if (dbInstance) {
+        dbInstance.close();
+        dbInstance = null;
+        dbOpenPromise = null;
+      }
+    },
   });
 
   try {
