@@ -2,6 +2,13 @@ import { getLocalDb, LocalDraft } from '../../../shared/lib/localDb';
 import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 
+const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+function isDraftExpired(draft: LocalDraft): boolean {
+  const updated = toMs(draft.updatedAt);
+  return updated > 0 && Date.now() - updated > DRAFT_MAX_AGE_MS;
+}
+
 function toMs(v: unknown): number {
   if (!v) return 0;
   if (typeof v === 'number') return v;
@@ -54,9 +61,19 @@ export const WritingDraftService = {
     }
 
     if (localDraft && cloudDraft) {
-      return toMs(localDraft.updatedAt) > toMs(cloudDraft.updatedAt) ? localDraft : cloudDraft;
+      const winner = toMs(localDraft.updatedAt) > toMs(cloudDraft.updatedAt) ? localDraft : cloudDraft;
+      if (isDraftExpired(winner)) {
+        await WritingDraftService.deleteDraft(userId);
+        return null;
+      }
+      return winner;
     }
-    return localDraft || cloudDraft;
+    const resolved = localDraft || cloudDraft;
+    if (resolved && isDraftExpired(resolved)) {
+      await WritingDraftService.deleteDraft(userId);
+      return null;
+    }
+    return resolved;
   },
 
   clearLegacyDraft: async (userId: string) => {
