@@ -211,10 +211,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
             const created = (cloudDoc.firstSessionAt as { toDate?: () => Date })?.toDate?.() ?? new Date();
             let cloudContent = '';
             try {
-              const versions = await VersionService.getVersions(user.uid, cloudDoc.id);
-              if (versions.length > 0) {
-                cloudContent = versions[versions.length - 1].content || '';
-              }
+              cloudContent = await VersionService.getLatestContent(user.uid, cloudDoc.id);
             } catch { /* ignore */ }
             allSessions.push({
               id: cloudDoc.id,

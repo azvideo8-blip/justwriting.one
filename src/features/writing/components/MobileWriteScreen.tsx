@@ -113,7 +113,7 @@ export function MobileWriteScreen({
               background: isRunning
                 ? 'var(--surface-elevated)'
                 : 'var(--surface-card)',
-              border: `1px solid ${isRunning ? 'var(--border-light)' : 'var(--border-subtle)'}`,
+              border: `1px solid ${isRunning ? 'var(--border-light)' : 'var(--border-light)'}`,
             }}>
               <div style={{
                 width: 6, height: 6,
@@ -146,7 +146,7 @@ export function MobileWriteScreen({
                 outline: 'none',
                 fontSize: 14,
                 fontWeight: 500,
-                color: 'var(--text-main/60)',
+                color: 'var(--text-muted)',
                 textAlign: 'center',
                 fontFamily: 'Inter, system-ui, sans-serif',
               }}
@@ -248,7 +248,7 @@ export function MobileWriteScreen({
                   )}
                 </span>
                 {wordGoal > 0 && (
-                  <div style={{ width: '80%', height: 2, borderRadius: 2, background: 'var(--border-subtle)', marginTop: 3 }}>
+                  <div style={{ width: '80%', height: 2, borderRadius: 2, background: 'var(--border-light)', marginTop: 3 }}>
                     <div style={{
                       height: '100%',
                       borderRadius: 2,
@@ -298,7 +298,7 @@ export function MobileWriteScreen({
               </div>
             </div>
 
-            <div style={{ width: 1, height: 36, background: 'var(--border-subtle)', margin: '0 12px' }} />
+            <div style={{ width: 1, height: 36, background: 'var(--border-light)', margin: '0 12px' }} />
 
             <div style={{ display: 'flex', gap: 6 }}>
               <button
@@ -308,9 +308,10 @@ export function MobileWriteScreen({
                   borderRadius: 12,
                   border: `1px solid ${isRunning ? 'var(--border-light)' : 'var(--flow-pulse-color, oklch(0.72 0.13 155) / 0.4)'}`,
                   background: isRunning ? 'var(--surface-card)' : 'var(--flow-pulse-color, oklch(0.72 0.13 155) / 0.12)',
-                  color: isRunning ? 'var(--text-main/70)' : 'var(--flow-pulse-color, oklch(0.72 0.13 155))',
+                  color: isRunning ? 'var(--text-main)' : 'var(--flow-pulse-color, oklch(0.72 0.13 155))',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer',
+                  opacity: isRunning ? 0.7 : 1,
                 }}
               >
                 {isRunning ? (
@@ -331,7 +332,7 @@ export function MobileWriteScreen({
                 style={{
                   width: 40, height: 40,
                   borderRadius: 12,
-                  border: '1px solid var(--border-subtle)',
+                  border: '1px solid var(--border-light)',
                   background: 'transparent',
                   color: isIdle ? 'var(--text-subtle)' : 'var(--text-muted)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
