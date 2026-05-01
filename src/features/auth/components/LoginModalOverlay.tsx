@@ -25,7 +25,6 @@ export function LoginModalOverlay({ open }: { open: boolean }) {
     if (!u) return;
 
     const guestId = getOrCreateGuestId();
-    if (guestId === u.uid) return;
 
     try {
       const localDocs = await LocalDocumentService.getGuestDocuments(guestId);
@@ -87,7 +86,7 @@ export function LoginModalOverlay({ open }: { open: boolean }) {
               className="w-full max-w-sm"
               onClick={e => e.stopPropagation()}
             >
-              <LoginPage isModal onSuccess={handleAuthSuccess} />
+              <LoginPage isModal onSuccess={handleAuthSuccess} onClose={closeLoginModal} />
             </motion.div>
           </motion.div>
         )}

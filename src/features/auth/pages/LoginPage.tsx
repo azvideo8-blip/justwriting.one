@@ -8,9 +8,10 @@ import { useLanguage } from '../../../core/i18n';
 interface LoginPageProps {
   isModal?: boolean;
   onSuccess?: () => void;
+  onClose?: () => void;
 }
 
-export function LoginPage({ isModal, onSuccess }: LoginPageProps) {
+export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
   const { t } = useLanguage();
   const [error, setError] = useState<React.ReactNode | null>(null);
   const [loading, setLoading] = useState(false);
@@ -86,8 +87,8 @@ export function LoginPage({ isModal, onSuccess }: LoginPageProps) {
 
   return (
     <div className={isModal ? "flex flex-col items-center justify-center px-6 py-8" : "h-screen w-screen flex flex-col items-center justify-center px-6 overflow-y-auto py-10 bg-surface-base"}>
-      {isModal && onSuccess && (
-        <button onClick={onSuccess} className="self-end mb-4 p-2 rounded-lg text-text-main/40 hover:text-text-main transition-colors">
+      {isModal && (onClose || onSuccess) && (
+        <button onClick={onClose || onSuccess} className="self-end mb-4 p-2 rounded-lg text-text-main/40 hover:text-text-main transition-colors">
           <X size={20} />
         </button>
       )}

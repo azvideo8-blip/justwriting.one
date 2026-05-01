@@ -4,6 +4,8 @@ import { LocalDocumentService } from '../services/LocalDocumentService';
 import { Document } from '../../../types';
 
 function localDocToDocument(doc: { id: string; title: string; currentVersion: number; totalWords: number; totalDuration: number; sessionsCount: number; firstSessionAt: number; lastSessionAt: number; tags: string[]; linkedCloudId?: string }): Document {
+  const firstMs = doc.firstSessionAt || doc.lastSessionAt || Date.now();
+  const lastMs = doc.lastSessionAt || doc.firstSessionAt || Date.now();
   return {
     id: doc.id,
     userId: '',
@@ -12,8 +14,8 @@ function localDocToDocument(doc: { id: string; title: string; currentVersion: nu
     totalWords: doc.totalWords,
     totalDuration: doc.totalDuration,
     sessionsCount: doc.sessionsCount,
-    firstSessionAt: { seconds: Math.floor(doc.firstSessionAt / 1000), nanoseconds: 0 } as unknown as Document['firstSessionAt'],
-    lastSessionAt: { seconds: Math.floor(doc.lastSessionAt / 1000), nanoseconds: 0 } as unknown as Document['lastSessionAt'],
+    firstSessionAt: new Date(firstMs) as unknown as Document['firstSessionAt'],
+    lastSessionAt: new Date(lastMs) as unknown as Document['lastSessionAt'],
     tags: doc.tags,
   };
 }
@@ -30,11 +32,17 @@ export function useDocuments(userId: string, isGuest?: boolean) {
         const localDocs = await LocalDocumentService.getGuestDocuments(userId);
         setDocuments(localDocs.map(localDocToDocument));
       } else {
-        const cloudDocs = await DocumentService.getUserDocuments(userId);
-        setDocuments(cloudDocs);
+        const [cloudDocs, localDocs] = await Promise.all([
+          DocumentService.getUserDocuments(userId).catch(() => [] as Document[]),
+          LocalDocumentService.getGuestDocuments(userId),
+        ]);
+        const localMapped = localDocs.map(localDocToDocument);
+        const seenIds = new Set(localMapped.map(d => d.id));
+        const dedupedCloud = cloudDocs.filter(d => !seenIds.has(d.id));
+        setDocuments([...localMapped, ...dedupedCloud]);
       }
     } catch { /* ignore */ }
- finally {
+    finally {
       setLoading(false);
     }
   }, [userId, isGuest]);

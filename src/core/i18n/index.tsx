@@ -97,6 +97,7 @@ export const translations: Translations = {
 
   // Session Card
   session_anonymous: { ru: 'Аноним', en: 'Anonymous' },
+  session_untitled: { ru: 'Без названия', en: 'Untitled' },
   session_export: { ru: 'Экспорт', en: 'Export' },
   session_edit: { ru: 'Редактировать', en: 'Edit' },
   session_delete: { ru: 'Удалить', en: 'Delete' },
@@ -635,7 +636,8 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>(() => {
     const saved = localStorage.getItem('app_language');
-    return (saved as Language) || 'ru';
+    if (saved === 'ru' || saved === 'en') return saved as Language;
+    return 'ru';
   });
 
   const setLanguage = (lang: Language) => {
@@ -668,7 +670,11 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
     const suffix = getPluralSuffix(count, language);
     const fullKey = `${key}${suffix}`;
-    let str = translations[fullKey]?.[language] ?? translations[key]?.[language] ?? key;
+    const fallbackKey = language === 'en' && suffix === '_other' ? `${key}_many` : null;
+    let str = translations[fullKey]?.[language] 
+      ?? (fallbackKey ? translations[fallbackKey]?.[language] : undefined)
+      ?? translations[key]?.[language] 
+      ?? key;
     return str.replace('{count}', String(count));
   }, [language]);
 

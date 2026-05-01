@@ -59,10 +59,8 @@ export const StorageService = {
     documentId: string,
     data: SaveDocumentData
   ): Promise<void> {
-    while (_saveVersionLocks.has(documentId)) {
-      await _saveVersionLocks.get(documentId);
-    }
-    const promise = (async () => {
+    const prevPromise = _saveVersionLocks.get(documentId) ?? Promise.resolve();
+    const promise = prevPromise.then(async () => {
       const existing = await LocalDocumentService.getDocument(documentId);
       if (!existing) throw new Error('Document not found');
 
@@ -115,12 +113,14 @@ export const StorageService = {
           console.error(`Cloud version sync failed for ${existing.linkedCloudId}:`, e);
         }
       }
-    })();
+    });
     _saveVersionLocks.set(documentId, promise);
     try {
       await promise;
     } finally {
-      _saveVersionLocks.delete(documentId);
+      if (_saveVersionLocks.get(documentId) === promise) {
+        _saveVersionLocks.delete(documentId);
+      }
     }
   },
 

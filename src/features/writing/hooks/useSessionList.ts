@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Session } from '../../../types';
 import { SessionService } from '../services/SessionService';
 import { useLanguage } from '../../../core/i18n';
@@ -18,14 +18,27 @@ export function useSessionList(
   const [userSessions, setUserSessions] = useState<Session[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const { t } = useLanguage();
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   const fetchAllSessions = useCallback(async () => {
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+
     setLoadingSessions(true);
     try {
       const result = await SessionService.getAllSessions(userId, 50);
+      if (ac.signal.aborted) return;
       const firestoreSessions = result.sessions;
 
       const localSessionsList = await fetchLocalSessions();
+      if (ac.signal.aborted) return;
       const localSessions = await Promise.all(
         localSessionsList.map(async s => {
           const data = await loadLocalSession(s.id);
@@ -47,11 +60,13 @@ export function useSessionList(
         })
       );
 
+      if (ac.signal.aborted) return;
       setUserSessions([...firestoreSessions, ...localSessions]);
     } catch (e) {
+      if (ac.signal.aborted) return;
       console.error('Error fetching sessions:', e);
     } finally {
-      setLoadingSessions(false);
+      if (!ac.signal.aborted) setLoadingSessions(false);
     }
   }, [userId, fetchLocalSessions, loadLocalSession, t]);
 

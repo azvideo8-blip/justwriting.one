@@ -67,8 +67,8 @@ export function MobileHomeScreen({
           alignItems: 'center',
           gap: 6,
           padding: '5px 10px 5px 8px',
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          background: 'var(--surface-card)',
+          border: '1px solid var(--border-light)',
           borderRadius: 999,
         }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -79,7 +79,7 @@ export function MobileHomeScreen({
           <span style={{
             fontSize: 12, fontWeight: 500,
             fontFamily: 'JetBrains Mono, monospace',
-            color: 'rgba(232,236,233,0.9)',
+            color: 'var(--text-main)',
           }}>
             {streakDays} {t('home_streak_days')}
           </span>
@@ -88,10 +88,10 @@ export function MobileHomeScreen({
         <div style={{
           width: 30, height: 30,
           borderRadius: '50%',
-          background: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          background: 'var(--surface-elevated)',
+          border: '1px solid var(--border-light)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: 'rgba(138,145,141,1)',
+          color: 'var(--text-muted)',
         }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="1.6"
@@ -105,7 +105,7 @@ export function MobileHomeScreen({
       <div style={{ padding: '24px 24px 0' }}>
         <div style={{
           fontSize: 11,
-          color: 'rgba(74,81,77,1)',
+          color: 'var(--text-subtle)',
           fontFamily: 'JetBrains Mono, monospace',
           letterSpacing: '.08em',
           textTransform: 'uppercase',
@@ -119,10 +119,10 @@ export function MobileHomeScreen({
           fontWeight: 500,
           letterSpacing: '-.01em',
           lineHeight: 1.25,
-          color: 'rgba(232,236,233,0.95)',
+          color: 'var(--text-main)',
         }}>
           {greeting.top},<br/>
-          <span style={{ color: 'rgba(138,145,141,1)' }}>{greeting.bottom}</span>
+          <span style={{ color: 'var(--text-muted)' }}>{greeting.bottom}</span>
         </div>
       </div>
 
@@ -172,7 +172,7 @@ export function MobileHomeScreen({
 
         <div style={{
           fontSize: 11,
-          color: 'rgba(74,81,77,1)',
+          color: 'var(--text-subtle)',
           fontFamily: 'JetBrains Mono, monospace',
           letterSpacing: '.04em',
         }}>
@@ -193,14 +193,14 @@ export function MobileHomeScreen({
               <div style={{
                 fontSize: 20,
                 fontWeight: 500,
-                color: 'rgba(232,236,233,0.9)',
+                color: 'var(--text-main)',
                 lineHeight: 1,
               }}>
                 {summary.totalWords.toLocaleString()}
               </div>
               <div style={{
                 fontSize: 10,
-                color: 'rgba(74,81,77,1)',
+                color: 'var(--text-subtle)',
                 textTransform: 'uppercase',
                 letterSpacing: '.06em',
                 marginTop: 3,
@@ -212,17 +212,17 @@ export function MobileHomeScreen({
               <div style={{
                 fontSize: 20,
                 fontWeight: 500,
-                color: 'rgba(232,236,233,0.9)',
+                color: 'var(--text-main)',
                 lineHeight: 1,
               }}>
                 {Math.round(summary.totalMinutes)}
-                <span style={{ fontSize: 13, color: 'rgba(138,145,141,1)', marginLeft: 2 }}>
+                <span style={{ fontSize: 13, color: 'var(--text-muted)', marginLeft: 2 }}>
                   {t('goal_time_min')}
                 </span>
               </div>
               <div style={{
                 fontSize: 10,
-                color: 'rgba(74,81,77,1)',
+                color: 'var(--text-subtle)',
                 textTransform: 'uppercase',
                 letterSpacing: '.06em',
                 marginTop: 3,
@@ -237,7 +237,7 @@ export function MobileHomeScreen({
           <div style={{ overflow: 'hidden' }}>
             <div style={{
               fontSize: 10,
-              color: 'rgba(74,81,77,1)',
+              color: 'var(--text-subtle)',
               textTransform: 'uppercase',
               letterSpacing: '.08em',
               fontFamily: 'JetBrains Mono, monospace',
@@ -261,8 +261,8 @@ export function MobileHomeScreen({
                     flexShrink: 0,
                     padding: '10px 14px',
                     borderRadius: 12,
-                    border: '1px solid rgba(255,255,255,0.07)',
-                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid var(--border-light)',
+                    background: 'var(--surface-card)',
                     textAlign: 'left',
                     cursor: 'pointer',
                     maxWidth: 180,
@@ -272,7 +272,7 @@ export function MobileHomeScreen({
                   <div style={{
                     fontSize: 13,
                     fontWeight: 500,
-                    color: 'rgba(232,236,233,0.85)',
+                    color: 'var(--text-main)',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -282,7 +282,7 @@ export function MobileHomeScreen({
                   </div>
                   <div style={{
                     fontSize: 11,
-                    color: 'rgba(74,81,77,1)',
+                    color: 'var(--text-subtle)',
                     fontFamily: 'JetBrains Mono, monospace',
                   }}>
                     {session.wordCount} {t('home_words_short')} ·{' '}

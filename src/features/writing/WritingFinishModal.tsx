@@ -45,6 +45,9 @@ export function WritingFinishModal({
   const setStatus = useWritingStore(s => s.setStatus);
   const wordCount = useWritingStore(s => s.wordCount);
   const seconds = useWritingStore(s => s.seconds);
+  const sessionStartSeconds = useWritingStore(s => s.sessionStartSeconds);
+  const accumulatedDuration = useWritingStore(s => s.accumulatedDuration);
+  const sessionSeconds = accumulatedDuration + Math.max(0, seconds - sessionStartSeconds);
   const wpm = useWritingStore(s => s.wpm);
   const content = useWritingStore(s => s.content);
   const title = useWritingStore(s => s.title);
@@ -122,7 +125,7 @@ export function WritingFinishModal({
           </div>
           <div className="p-2">
             <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_time')}</div>
-            <div className="text-xl font-mono font-bold text-text-main">{formatTime(seconds)}</div>
+            <div className="text-xl font-mono font-bold text-text-main">{formatTime(sessionSeconds)}</div>
           </div>
           <div className="p-2">
             <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_wpm')}</div>

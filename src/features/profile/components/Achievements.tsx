@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../../../core/i18n';
 import { Session, Achievement } from '../../../types';
 import { ACHIEVEMENTS as ACH_DATA } from '../constants/achievements';
+import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
+import { ProfileService } from '../services/ProfileService';
 
 type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 
@@ -143,6 +145,7 @@ interface AchievementsProps {
 
 export function Achievements({ stats, sessions }: AchievementsProps) {
   const { t } = useLanguage();
+  const { user } = useAuthStatus();
 
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(() => {
     try {
@@ -177,10 +180,15 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
           console.warn('[Achievements] newly unlocked:', [...updated].filter(id => !prev.has(id)));
         }
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...updated])); } catch { /* ignore */ }
+        if (user) {
+          ProfileService.updateEarnedAchievements(user.uid, [...updated]).catch(e => {
+            console.error('Failed to sync achievements to cloud:', e);
+          });
+        }
         return updated;
       });
     }, 0);
-  }, [stats, sessions]);
+  }, [stats, sessions, user]);
 
   const totalAchievements = GROUPS.reduce((s, g) => s + g.achievements.length, 0);
   const unlockedCount = GROUPS.reduce((s, g) =>

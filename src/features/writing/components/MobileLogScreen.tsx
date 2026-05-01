@@ -6,6 +6,7 @@ import { parseFirestoreDate } from '../../../core/utils/utils';
 
 interface MobileLogScreenProps {
   userId: string;
+  isGuest: boolean;
   onContinue: (session: Session) => void;
 }
 
@@ -126,9 +127,9 @@ function StreakRow({ groups }: { groups: { date: Date; sessions: Session[] }[] }
   );
 }
 
-export function MobileLogScreen({ userId, onContinue }: MobileLogScreenProps) {
+export function MobileLogScreen({ userId, isGuest, onContinue }: MobileLogScreenProps) {
   const { t, language } = useLanguage();
-  const { sessionGroups, loading } = useLifeLog(userId);
+  const { sessionGroups, loading } = useLifeLog(userId, isGuest);
   const [query, setQuery] = useState('');
 
   const filteredGroups = useMemo(() => {

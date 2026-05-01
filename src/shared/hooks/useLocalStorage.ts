@@ -22,6 +22,7 @@ export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodT
           if (import.meta.env.DEV) {
             console.warn(`Storage schema mismatch for key "${key}":`, result.error);
           }
+          try { window.localStorage.removeItem(key); } catch { /* ignore */ }
           return initialValue;
         }
         return result.data;
@@ -55,6 +56,7 @@ export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodT
           if (import.meta.env.DEV) {
             console.warn(`Storage schema mismatch for key "${key}":`, result.error);
           }
+          try { window.localStorage.removeItem(key); } catch { /* ignore */ }
           return initialValueRef.current;
         }
         return result.data;
