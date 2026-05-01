@@ -62,6 +62,42 @@ interface WritingState {
   resetSessionMetadata: () => void;
 }
 
+let _wordCalcTimer: ReturnType<typeof setTimeout> | null = null;
+
+function computeWordStats(content: string) {
+  const state = useWritingStore.getState();
+  const words = content.trim().split(/\s+/).filter(x => x.length > 0).length;
+  const now = Date.now();
+  const wordsAdded = Math.max(0, words - state.lastWordCount);
+
+  const newSnapshots = [...state.wordSnapshots, { timestamp: now, wordCount: words }]
+    .filter(snap => now - snap.timestamp <= 60000);
+
+  let currentWpm = state.wpm;
+  if (state.status === 'writing' && newSnapshots.length > 1) {
+    const oldest = newSnapshots[0];
+    const newest = newSnapshots[newSnapshots.length - 1];
+    const timeDiffMins = (newest.timestamp - oldest.timestamp) / 60000;
+
+    if (timeDiffMins > 0 && wordsAdded > 0) {
+      const rawWpm = Math.max(0, (newest.wordCount - oldest.wordCount) / timeDiffMins);
+      const alpha = 0.3;
+      currentWpm = Math.round(alpha * rawWpm + (1 - alpha) * state.wpm);
+    }
+  }
+
+  const sessionWords = words - state.sessionStartWords;
+  const wordGoalReached = state.wordGoal > 0 && sessionWords >= state.wordGoal;
+
+  useWritingStore.setState({
+    wordCount: words,
+    lastWordCount: words,
+    wordSnapshots: newSnapshots,
+    wpm: currentWpm,
+    wordGoalReached,
+  });
+}
+
 export const useWritingStore = create<WritingState>((set) => ({
   content: '', title: '', pinnedThoughts: [],
   wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
@@ -74,49 +110,11 @@ export const useWritingStore = create<WritingState>((set) => ({
   tags: [], labelId: undefined,
   initialDuration: 0, activeSessionId: null, savedDocumentId: null, sessionStartTime: null,
 
-  setContent: (content) => set((state) => {
-    const words = content.trim().split(/\s+/).filter(x => x.length > 0).length;
-    const now = Date.now();
-    
-    // Only track additions — ignore deletions for WPM
-    const wordsAdded = Math.max(0, words - state.lastWordCount);
-
-    // Sliding Window WPM (Last 60s)
-    const newSnapshots = [...state.wordSnapshots, { timestamp: now, wordCount: words }]
-      .filter(snap => now - snap.timestamp <= 60000);
-    
-    let currentWpm = state.wpm;
-    if (state.status === 'writing' && newSnapshots.length > 1) {
-      const oldest = newSnapshots[0];
-      const newest = newSnapshots[newSnapshots.length - 1];
-      const timeDiffMins = (newest.timestamp - oldest.timestamp) / 60000;
-      
-      if (timeDiffMins > 0 && wordsAdded > 0) {
-        // Raw WPM from sliding window — only positive
-        const rawWpm = Math.max(0, (newest.wordCount - oldest.wordCount) / timeDiffMins);
-
-        // EMA smoothing — alpha 0.3 feels natural
-        // Higher alpha = more reactive, lower = smoother
-        const alpha = 0.3;
-        currentWpm = Math.round(alpha * rawWpm + (1 - alpha) * state.wpm);
-      }
-      // If no words added (typing pause or deletion) — don't update WPM here
-      // Decay is handled in tick()
-    }
-
-    // Word goal: compare session delta, not total
-    const sessionWords = words - state.sessionStartWords;
-    const wordGoalReached = state.wordGoal > 0 && sessionWords >= state.wordGoal;
-
-    return { 
-      content, 
-      wordCount: words, 
-      lastWordCount: words,
-      wordSnapshots: newSnapshots, 
-      wpm: currentWpm, 
-      wordGoalReached 
-    };
-  }),
+  setContent: (content) => {
+    set({ content });
+    if (_wordCalcTimer) clearTimeout(_wordCalcTimer);
+    _wordCalcTimer = setTimeout(() => computeWordStats(content), 100);
+  },
 
   setTitle: (title) => set({ title }),
   setPinnedThoughts: (pinnedThoughts) => set({ pinnedThoughts }),
