@@ -23,12 +23,9 @@ const RARITY_COLORS: Record<Rarity, string> = {
   legendary: 'oklch(0.75 0.18 55)',
 };
 
-const RARITY_LABELS: Record<Rarity, string> = {
-  common: 'обычное',
-  rare: 'редкое',
-  epic: 'эпическое',
-  legendary: 'легендарное',
-};
+function getRarityLabel(rarity: Rarity, t: (key: string) => string): string {
+  return t(`ach_rarity_${rarity}`);
+}
 
 const STORAGE_KEY = 'unlocked_achievements';
 
@@ -287,7 +284,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
                       textTransform: 'uppercase',
                       color: unlocked ? RARITY_COLORS[rarity] : 'var(--text-subtle)',
                     }}>
-                      {RARITY_LABELS[rarity]}
+                      {getRarityLabel(rarity, t)}
                     </div>
                   </div>
                 );
