@@ -214,6 +214,10 @@ export const translations: Translations = {
   ach_section_notes: { ru: 'Всего заметок', en: 'Total notes' },
   ach_section_duration: { ru: 'Длительность сессии (макс)', en: 'Session duration (max)' },
   ach_earned: { ru: 'Получено', en: 'Earned' },
+  ach_rarity_common: { ru: 'обычное', en: 'common' },
+  ach_rarity_rare: { ru: 'редкое', en: 'rare' },
+  ach_rarity_epic: { ru: 'эпическое', en: 'epic' },
+  ach_rarity_legendary: { ru: 'легендарное', en: 'legendary' },
 
   // Settings
   settings_title: { ru: 'Настройки', en: 'Settings' },

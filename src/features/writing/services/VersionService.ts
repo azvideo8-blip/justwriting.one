@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 import { Version } from '../../../types';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
@@ -62,6 +62,18 @@ export const VersionService = {
     } catch (e) {
       handleFirestoreError(e, OperationType.LIST, `users/${userId}/documents/${documentId}/versions`);
       throw e;
+    }
+  },
+
+  async getLatestContent(userId: string, documentId: string): Promise<string> {
+    try {
+      const q = query(versionsRef(userId, documentId), orderBy('version', 'desc'), limit(1));
+      const snap = await getDocs(q);
+      if (snap.docs.length === 0) return '';
+      return (snap.docs[0].data() as Version).content || '';
+    } catch (e) {
+      handleFirestoreError(e, OperationType.LIST, `users/${userId}/documents/${documentId}/versions`);
+      return '';
     }
   },
 };
