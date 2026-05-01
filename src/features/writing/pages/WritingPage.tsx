@@ -389,14 +389,17 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     setSetupMode('selection');
   }, [resetSessionMetadata, setSetupMode]);
 
-  const handleNew = React.useCallback(() => {
+  const handleNew = React.useCallback(async () => {
     if (wordCount > 0 && sessionStatus !== 'idle') {
       setShowCancelConfirm(true);
       return;
     }
+    if (!isGuest) {
+      await WritingDraftService.deleteDraft(userId);
+    }
     useWritingStore.getState().resetSession();
     useWritingStore.setState({ title: '', content: '' });
-  }, [wordCount, sessionStatus, setShowCancelConfirm]);
+  }, [wordCount, sessionStatus, setShowCancelConfirm, isGuest, userId]);
 
   const handleOpen = React.useCallback(async () => {
     await fetchSessions();
