@@ -71,7 +71,7 @@ export function MobileWriteScreen({
 
   const handleEditorTouchEnd = (e: React.TouchEvent) => {
     const deltaY = e.changedTouches[0].clientY - swipeTouchStartY.current;
-    const deltaX = Math.abs(e.changedTouches[0].clientY - swipeTouchStartX.current);
+    const deltaX = Math.abs(e.changedTouches[0].clientX - swipeTouchStartX.current);
     if (deltaY > 60 && deltaX < 40 && isRunning) {
       setFocusMode(true);
     }
@@ -111,23 +111,23 @@ export function MobileWriteScreen({
               padding: '5px 12px',
               borderRadius: 999,
               background: isRunning
-                ? 'rgba(255,255,255,0.06)'
-                : 'rgba(255,255,255,0.03)',
-              border: `1px solid ${isRunning ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)'}`,
+                ? 'var(--surface-elevated)'
+                : 'var(--surface-card)',
+              border: `1px solid ${isRunning ? 'var(--border-light)' : 'var(--border-subtle)'}`,
             }}>
               <div style={{
                 width: 6, height: 6,
                 borderRadius: '50%',
                 background: isRunning
                   ? 'oklch(0.72 0.13 155)'
-                  : isPaused ? '#f59e0b' : 'rgba(255,255,255,0.2)',
+                   : isPaused ? '#f59e0b' : 'var(--text-subtle)',
                 boxShadow: isRunning ? '0 0 6px oklch(0.72 0.13 155 / 0.6)' : 'none',
               }} />
               <span style={{
                 fontFamily: 'JetBrains Mono, ui-monospace, monospace',
                 fontSize: 13,
                 fontWeight: 500,
-                color: 'rgba(232,236,233,0.9)',
+                color: 'var(--text-main)',
                 letterSpacing: '.02em',
                 fontVariantNumeric: 'tabular-nums',
               }}>
@@ -146,7 +146,7 @@ export function MobileWriteScreen({
                 outline: 'none',
                 fontSize: 14,
                 fontWeight: 500,
-                color: 'rgba(232,236,233,0.6)',
+                color: 'var(--text-main/60)',
                 textAlign: 'center',
                 fontFamily: 'Inter, system-ui, sans-serif',
               }}
@@ -155,7 +155,7 @@ export function MobileWriteScreen({
             <div style={{
               fontSize: 10,
               fontFamily: 'JetBrains Mono, monospace',
-              color: 'rgba(74,81,77,1)',
+              color: 'var(--text-subtle)',
               letterSpacing: '.06em',
               textTransform: 'uppercase',
               minWidth: 60,
@@ -191,7 +191,7 @@ export function MobileWriteScreen({
             fontFamily: fontFamilyStr,
             fontSize: fontSize || 18,
             lineHeight: 1.7,
-            color: 'rgba(232,236,233,0.9)',
+            color: 'var(--text-main)',
             caretColor: 'oklch(0.72 0.13 155)',
             WebkitOverflowScrolling: 'touch',
           }}
@@ -226,11 +226,11 @@ export function MobileWriteScreen({
               position: 'absolute',
               left: 16, right: 16,
               bottom: 'calc(env(safe-area-inset-bottom, 16px) + 72px)',
-              background: 'rgba(17,20,19,0.92)',
+              background: 'var(--surface-card)',
               backdropFilter: 'blur(16px)',
               WebkitBackdropFilter: 'blur(16px)',
               borderRadius: 20,
-              border: '1px solid rgba(255,255,255,0.08)',
+              border: '1px solid var(--border-light)',
               padding: '12px 16px',
               display: 'flex',
               alignItems: 'center',
@@ -239,16 +239,16 @@ export function MobileWriteScreen({
           >
             <div style={{ flex: 1, display: 'flex', gap: 0 }}>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <span style={{ fontSize: 17, fontWeight: 500, color: 'rgba(232,236,233,0.9)', lineHeight: 1 }}>
+                <span style={{ fontSize: 17, fontWeight: 500, color: 'var(--text-main)', lineHeight: 1 }}>
                   {sessionWords}
                   {wordGoal > 0 && (
-                    <span style={{ fontSize: 11, color: 'rgba(138,145,141,1)', marginLeft: 3 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 3 }}>
                       /{wordGoal}
                     </span>
                   )}
                 </span>
                 {wordGoal > 0 && (
-                  <div style={{ width: '80%', height: 2, borderRadius: 2, background: 'rgba(255,255,255,0.06)', marginTop: 3 }}>
+                  <div style={{ width: '80%', height: 2, borderRadius: 2, background: 'var(--border-subtle)', marginTop: 3 }}>
                     <div style={{
                       height: '100%',
                       borderRadius: 2,
@@ -258,7 +258,7 @@ export function MobileWriteScreen({
                     }} />
                   </div>
                 )}
-                <span style={{ fontSize: 9, color: 'rgba(74,81,77,1)', textTransform: 'uppercase', letterSpacing: '.06em', marginTop: wordGoal > 0 ? 1 : 3 }}>
+                <span style={{ fontSize: 9, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '.06em', marginTop: wordGoal > 0 ? 1 : 3 }}>
                   {t('header_sessionWords')}
                 </span>
               </div>
@@ -266,14 +266,14 @@ export function MobileWriteScreen({
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <span style={{
                   fontSize: 17, fontWeight: 500,
-                  color: 'rgba(232,236,233,0.9)',
+                  color: 'var(--text-main)',
                   lineHeight: 1,
                   fontFamily: 'JetBrains Mono, monospace',
                   fontVariantNumeric: 'tabular-nums',
                 }}>
                   {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
                 </span>
-                <span style={{ fontSize: 9, color: 'rgba(74,81,77,1)', textTransform: 'uppercase', letterSpacing: '.06em', marginTop: 3 }}>
+                <span style={{ fontSize: 9, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '.06em', marginTop: 3 }}>
                   {timerDuration > 0
                     ? `${t('goal_time_of')} ${Math.round(timerDuration / 60)}${t('goal_time_min')}`
                     : t('header_time')}
@@ -288,17 +288,17 @@ export function MobileWriteScreen({
                     transition: 'background 0.5s',
                     flexShrink: 0,
                   }} />
-                  <span style={{ fontSize: 17, fontWeight: 500, color: 'rgba(232,236,233,0.9)' }}>
+                  <span style={{ fontSize: 17, fontWeight: 500, color: 'var(--text-main)' }}>
                     {wpm}
                   </span>
                 </div>
-                <span style={{ fontSize: 9, color: 'rgba(74,81,77,1)', textTransform: 'uppercase', letterSpacing: '.06em', marginTop: 3 }}>
+                <span style={{ fontSize: 9, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '.06em', marginTop: 3 }}>
                   {t('header_wpm')}
                 </span>
               </div>
             </div>
 
-            <div style={{ width: 1, height: 36, background: 'rgba(255,255,255,0.06)', margin: '0 12px' }} />
+            <div style={{ width: 1, height: 36, background: 'var(--border-subtle)', margin: '0 12px' }} />
 
             <div style={{ display: 'flex', gap: 6 }}>
               <button
@@ -306,9 +306,9 @@ export function MobileWriteScreen({
                 style={{
                   width: 40, height: 40,
                   borderRadius: 12,
-                  border: `1px solid ${isRunning ? 'rgba(255,255,255,0.15)' : 'oklch(0.72 0.13 155 / 0.4)'}`,
-                  background: isRunning ? 'rgba(255,255,255,0.05)' : 'oklch(0.72 0.13 155 / 0.12)',
-                  color: isRunning ? 'rgba(232,236,233,0.7)' : 'oklch(0.72 0.13 155)',
+                  border: `1px solid ${isRunning ? 'var(--border-light)' : 'var(--flow-pulse-color, oklch(0.72 0.13 155) / 0.4)'}`,
+                  background: isRunning ? 'var(--surface-card)' : 'var(--flow-pulse-color, oklch(0.72 0.13 155) / 0.12)',
+                  color: isRunning ? 'var(--text-main/70)' : 'var(--flow-pulse-color, oklch(0.72 0.13 155))',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer',
                 }}
@@ -331,9 +331,9 @@ export function MobileWriteScreen({
                 style={{
                   width: 40, height: 40,
                   borderRadius: 12,
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  border: '1px solid var(--border-subtle)',
                   background: 'transparent',
-                  color: isIdle ? 'rgba(74,81,77,1)' : 'rgba(232,236,233,0.5)',
+                  color: isIdle ? 'var(--text-subtle)' : 'var(--text-muted)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: isIdle ? 'default' : 'pointer',
                 }}

@@ -1,7 +1,8 @@
-import { doc, updateDoc, deleteDoc, setDoc, onSnapshot, query, where, collection, limit, getDocs, orderBy, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, setDoc, onSnapshot, query, where, collection, limit, getDocs, orderBy, startAfter, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { Session } from '../../../types';
+import { parseFirestoreDate } from '../../../core/utils/utils';
 
 export const SessionService = {
   async saveSession(session: Session) {
@@ -51,42 +52,46 @@ export const SessionService = {
     }
   },
 
-  async getAllSessions(userId: string, limitCount: number = 20, _lastDoc?: QueryDocumentSnapshot<DocumentData>) {
+  async getAllSessions(userId: string, limitCount: number = 20, lastDoc?: QueryDocumentSnapshot<DocumentData>) {
     try {
-      const q = query(
+      let q = query(
         collection(db, 'sessions'), 
         where('userId', '==', userId), 
         limit(limitCount)
       );
+      if (lastDoc) q = query(q, startAfter(lastDoc));
 
       const snap = await getDocs(q);
       const sessions = snap.docs
         .map(d => ({ id: d.id, ...d.data() } as Session))
         .sort((a, b) => {
-          const ta = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
-          const tb = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+          const ta = parseFirestoreDate(a.createdAt)?.getTime() ?? 0;
+          const tb = parseFirestoreDate(b.createdAt)?.getTime() ?? 0;
           return tb - ta;
         });
-      return { sessions, lastDoc: null };
+      const newLastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData> : null;
+      return { sessions, lastDoc: newLastDoc };
     } catch (err) {
       console.error('SessionService.getAllSessions failed:', err);
       return { sessions: [], lastDoc: null };
     }
   },
 
-  async getAllSessionsAdmin(limitCount: number = 50, _lastDoc?: QueryDocumentSnapshot<DocumentData>) {
+  async getAllSessionsAdmin(limitCount: number = 50, lastDoc?: QueryDocumentSnapshot<DocumentData>) {
     try {
-      const q = query(collection(db, 'sessions'), limit(limitCount));
+      let q = query(collection(db, 'sessions'), limit(limitCount));
+      if (lastDoc) q = query(q, startAfter(lastDoc));
       
       const snap = await getDocs(q);
       const sessions = snap.docs
         .map(d => ({ id: d.id, ...d.data() } as Session))
         .sort((a, b) => {
-          const ta = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
-          const tb = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+          const ta = parseFirestoreDate(a.createdAt)?.getTime() ?? 0;
+          const tb = parseFirestoreDate(b.createdAt)?.getTime() ?? 0;
           return tb - ta;
         });
-      return { sessions, lastDoc: null };
+      const newLastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData> : null;
+      return { sessions, lastDoc: newLastDoc };
     } catch (err) {
       console.error('SessionService.getAllSessionsAdmin failed:', err);
       return { sessions: [], lastDoc: null };

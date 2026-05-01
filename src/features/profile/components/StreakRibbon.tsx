@@ -61,8 +61,8 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
     let best = 0, cur = 0, prev: Date | null = null;
     sorted.forEach(({ d }) => {
       if (prev) {
-        const diff = (d.getTime() - prev.getTime()) / 86400000;
-        cur = diff <= 1.5 ? cur + 1 : 1;
+        const diffDays = Math.round((d.getTime() - prev.getTime()) / 86400000);
+        cur = diffDays === 1 ? cur + 1 : diffDays === 0 ? cur : 1;
       } else cur = 1;
       if (cur > best) best = cur;
       prev = d;

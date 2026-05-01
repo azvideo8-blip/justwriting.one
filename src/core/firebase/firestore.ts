@@ -2,15 +2,14 @@ import {
   initializeFirestore,
   doc, 
   getDocFromServer, 
-  memoryLocalCache
+  persistentLocalCache,
+  persistentMultipleTabManager
 } from 'firebase/firestore';
 import { app } from './client';
 
-// Use initializeFirestore with forced long polling and memory cache.
-// This is the most robust configuration for restricted environments.
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
-  localCache: memoryLocalCache()
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 }, import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
 
 if (import.meta.env.DEV) {

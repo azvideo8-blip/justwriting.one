@@ -1,5 +1,5 @@
 import { getLocalDb, LocalDraft } from '../../../shared/lib/localDb';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 
 function toMs(v: unknown): number {
@@ -35,7 +35,6 @@ export const WritingDraftService = {
           const parsed = JSON.parse(raw);
           if (parsed.content) {
             localDraft = { ...parsed, userId } as LocalDraft;
-            localStorage.removeItem(`draft-${userId}`);
           }
         }
       } catch (err) {
@@ -58,6 +57,12 @@ export const WritingDraftService = {
       return toMs(localDraft.updatedAt) > toMs(cloudDraft.updatedAt) ? localDraft : cloudDraft;
     }
     return localDraft || cloudDraft;
+  },
+
+  clearLegacyDraft: async (userId: string) => {
+    try {
+      localStorage.removeItem(`draft-${userId}`);
+    } catch { /* ignore */ }
   },
 
   importDraft: async (userId: string, draft: LocalDraft) => {
@@ -97,7 +102,12 @@ export const WritingDraftService = {
         await localDb.delete('drafts', userId);
       }
     } catch (err) {
-      console.error('[DraftService] Failed to delete draft:', err);
+      console.error('[DraftService] Failed to delete local draft:', err);
+    }
+    try {
+      await deleteDoc(doc(db, 'drafts', userId));
+    } catch (err) {
+      console.error('[DraftService] Failed to delete cloud draft:', err);
     }
   }
 };

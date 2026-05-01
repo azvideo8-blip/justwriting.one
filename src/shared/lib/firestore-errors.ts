@@ -5,7 +5,7 @@ import { reportError } from '../../core/errors/reportError';
 export { OperationType };
 export type { FirestoreErrorInfo };
 
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): FirestoreErrorInfo {
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
@@ -15,7 +15,6 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   };
   
-  // Report full error to Sentry
   reportError(errInfo.error, { 
     operationType, 
     path: path || 'unknown',
@@ -30,6 +29,5 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path: path || null,
   });
 
-  const safeMessage = `Firestore ${operationType} failed (${errorCode}): ${path || 'unknown path'}`;
-  throw new Error(safeMessage);
+  return errInfo;
 }

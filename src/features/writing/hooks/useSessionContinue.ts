@@ -40,7 +40,7 @@ export function useSessionContinue({
         content: (loaded.content as string) || '',
         title: (loaded.title as string) || '',
         initialWordCount: (loaded.wordCount as number) || 0,
-        seconds: (loaded.duration as number) || 0,
+        seconds: 0,
         wordCount: (loaded.wordCount as number) || 0,
         accumulatedDuration: (loaded.duration as number) || 0,
         savedDocumentId: session.id,
@@ -54,7 +54,7 @@ export function useSessionContinue({
       content: session.content,
       title: session.title || '',
       initialWordCount: session.wordCount || 0,
-      seconds: session.duration || 0,
+      seconds: 0,
       wordCount: session.wordCount || 0,
       accumulatedDuration: session.duration || 0,
     });
