@@ -81,11 +81,12 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange }: 
   const dateLocale = language === 'ru' ? ru : enUS;
   const date = toJsDate(session.createdAt);
 
+  const lang = (language === 'ru' ? 'ru' : 'en') as 'ru' | 'en';
   const exportFormats = [
-    { label: 'TXT', action: () => exportAsTxt(session) },
-    { label: 'Markdown (.md)', action: () => exportAsMd(session) },
-    { label: 'PDF', action: () => exportAsPdf(session) },
-    { label: 'DOCX — Word', action: () => exportAsDocx(session) },
+    { label: 'TXT', action: () => exportAsTxt(session, lang) },
+    { label: 'Markdown (.md)', action: () => exportAsMd(session, lang) },
+    { label: 'PDF', action: () => exportAsPdf(session, lang) },
+    { label: 'DOCX — Word', action: () => exportAsDocx(session, lang) },
   ];
 
   return (

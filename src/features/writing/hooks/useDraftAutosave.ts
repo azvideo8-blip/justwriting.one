@@ -139,6 +139,9 @@ export function useDraftAutosave(
             console.warn(`localStorage usage: ${usageKB.toFixed(0)}KB — approaching limit`);
           }
           await WritingDraftService.saveToLocal(draft);
+          WritingDraftService.saveToFirestore(draft).catch(e => {
+            console.warn('[DraftAutosave] Firestore save failed (will retry):', e);
+          });
           if (isMountedRef.current) {
             setSaveStatus('saved');
             setLastSavedAt(Date.now());

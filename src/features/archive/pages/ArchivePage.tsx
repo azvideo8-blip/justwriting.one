@@ -10,9 +10,12 @@ import { getSessionDate, cn } from '../../../core/utils/utils';
 import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
 import { LocalVersionService } from '../../writing/services/LocalVersionService';
 import { DocumentService } from '../../writing/services/DocumentService';
+import { VersionService } from '../../writing/services/VersionService';
 import { SessionService } from '../../writing/services/SessionService';
 import { StorageService } from '../../writing/services/StorageService';
 import { getOrCreateGuestId } from '../../../shared/lib/localDb';
+import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
+import { z } from 'zod';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
 import { Calendar } from '../../calendar/components/Calendar';
 import { useLanguage } from '../../../core/i18n';
@@ -206,12 +209,19 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
             seenIds.add(cloudDoc.id);
 
             const created = (cloudDoc.firstSessionAt as { toDate?: () => Date })?.toDate?.() ?? new Date();
+            let cloudContent = '';
+            try {
+              const versions = await VersionService.getVersions(user.uid, cloudDoc.id);
+              if (versions.length > 0) {
+                cloudContent = versions[versions.length - 1].content || '';
+              }
+            } catch { /* ignore */ }
             allSessions.push({
               id: cloudDoc.id,
               userId: user.uid,
               authorName: '',
               authorPhoto: '',
-              content: '',
+              content: cloudContent,
               duration: cloudDoc.totalDuration,
               wordCount: cloudDoc.totalWords,
               charCount: 0,
@@ -329,11 +339,11 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     searchQuery, setSearchQuery, 
     searchedSessions: filteredSessions 
   } = useArchiveSearch(filteredByFilters);
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => (localStorage.getItem('archive_viewMode') as 'list' | 'grid') || 'list');
-  
-  useEffect(() => {
-    localStorage.setItem('archive_viewMode', viewMode);
-  }, [viewMode]);
+  const [viewMode, setViewMode] = useLocalStorage<'list' | 'grid'>(
+    'archive_viewMode',
+    'list',
+    z.enum(['list', 'grid'])
+  );
 
   const allTags = useMemo(() => Array.from(new Set(sessions.flatMap(s => s.tags || []))), [sessions]);
   

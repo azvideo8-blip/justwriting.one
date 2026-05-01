@@ -84,11 +84,11 @@ export function useSessionPersistence(
   const draftLoadedForRef = useRef<string | null>(null);
   const loadDraft = useCallback(async () => {
     if (draftLoadedForRef.current === userId) return;
+    if (!userId) return;
     
     const draftToLoad = await WritingDraftService.loadDraft(userId);
     if (draftToLoad) {
       actions.setHasDraft(true);
-      // Only auto-load if current content is empty to prevent overwriting active work
       if (!useWritingStore.getState().content) {
         useWritingStore.setState({
           content: draftToLoad.content || '',
@@ -100,9 +100,14 @@ export function useSessionPersistence(
         });
         if (draftToLoad.activeSessionId) actions.setActiveSessionId(draftToLoad.activeSessionId);
       }
+      await WritingDraftService.clearLegacyDraft(userId);
     }
     draftLoadedForRef.current = userId;
   }, [userId, actions]);
+
+  useEffect(() => {
+    loadDraft();
+  }, [loadDraft]);
 
   const handleSave = async (isLocalOnly: boolean) => {
     const state = useWritingStore.getState();

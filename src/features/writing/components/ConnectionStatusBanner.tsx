@@ -7,8 +7,6 @@ import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 
 interface ConnectionStatusBannerProps {
   showZen?: boolean;
-  userId?: string;
-  isAuthenticated?: boolean;
 }
 
 export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps) {

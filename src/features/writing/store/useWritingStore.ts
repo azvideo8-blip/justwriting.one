@@ -177,14 +177,17 @@ export const useWritingStore = create<WritingState>((set) => ({
     wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
     lastWordCount: 0,
     seconds: 0, status: 'idle', timeGoalReached: false, wordGoalReached: false,
-    overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0
+    overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
+    savedDocumentId: null, sessionStartTime: null,
+    tags: [], labelId: undefined, initialDuration: 0, activeSessionId: null,
   }),
 
   finishSession: () => set({
     seconds: 0, status: 'idle', wpm: 0, wordSnapshots: [],
     lastWordCount: 0, timeGoalReached: false, wordGoalReached: false,
     overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
-    activeSessionId: null,
+    activeSessionId: null, savedDocumentId: null, sessionStartTime: null,
+    tags: [], labelId: undefined, initialDuration: 0, initialWordCount: 0,
   }),
 
   tick: () => set((state) => {
@@ -197,7 +200,7 @@ export const useWritingStore = create<WritingState>((set) => ({
     let timeGoalReached = state.timeGoalReached;
     let overtimeSeconds = state.overtimeSeconds;
 
-    if (state.timerDuration > 0 && sessionSeconds >= state.timerDuration) {
+    if (state.sessionType === 'timer' && state.timerDuration > 0 && sessionSeconds >= state.timerDuration) {
       timeGoalReached = true;
     }
     if (state.targetTime) {
@@ -207,7 +210,7 @@ export const useWritingStore = create<WritingState>((set) => ({
     }
 
     // Count overtime seconds after goal reached
-    if (timeGoalReached && state.timerDuration > 0) {
+    if (timeGoalReached && state.sessionType === 'timer' && state.timerDuration > 0) {
       overtimeSeconds = sessionSeconds - state.timerDuration;
     }
 

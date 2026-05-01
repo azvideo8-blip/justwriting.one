@@ -7,7 +7,6 @@ import { SessionService } from '../services/SessionService';
 import { LocalDocument, LocalVersion, getLocalDb } from '../../../shared/lib/localDb';
 import { parseFirestoreDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
-import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 
 export interface LifeLogDocument {
   localId?: string;
@@ -71,14 +70,12 @@ async function getLatestContentForDoc(docId: string): Promise<string> {
   }
 }
 
-export function useLifeLog(userId: string, isGuest?: boolean): UseLifeLogReturn {
+export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [unifiedDocuments, setUnifiedDocuments] = useState<LifeLogDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const { t, language } = useLanguage();
-  const { isGuest: authIsGuest } = useAuthStatus();
-  const effectiveGuest = isGuest ?? authIsGuest;
 
   const [startOfToday, setStartOfToday] = useState(() => {
     const now = new Date();
@@ -101,7 +98,7 @@ export function useLifeLog(userId: string, isGuest?: boolean): UseLifeLogReturn 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
     try {
-      if (effectiveGuest) {
+      if (isGuest) {
         const localDocs = await LocalDocumentService.getGuestDocuments(userId);
         const sessionsWithContent = await Promise.all(
           localDocs.map(async d => {
@@ -187,7 +184,7 @@ export function useLifeLog(userId: string, isGuest?: boolean): UseLifeLogReturn 
     } finally {
       setLoading(false);
     }
-  }, [userId, effectiveGuest]);
+  }, [userId, isGuest]);
 
   useEffect(() => {
     fetchSessions();

@@ -14,6 +14,7 @@ import { StreakRibbon } from '../components/StreakRibbon';
 import { Heatmap } from '../components/Heatmap';
 import { HourRhythm } from '../components/HourRhythm';
 import { Achievements } from '../components/Achievements';
+import { ProfileService } from '../services/ProfileService';
 
 interface ProfilePageProps {
   user: User | null;
@@ -226,12 +227,18 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
     }
   }, [sessions, docStats]);
 
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
   const handleResetAchievements = useCallback(() => {
-    if (confirm(t('profile_ach_reset_confirm'))) {
-      localStorage.removeItem('unlocked_achievements');
-      setAchResetKey(k => k + 1);
+    localStorage.removeItem('unlocked_achievements');
+    setAchResetKey(k => k + 1);
+    setShowResetConfirm(false);
+    if (user) {
+      ProfileService.resetAchievements(user.uid).catch(e => {
+        console.error('Failed to reset cloud achievements:', e);
+      });
     }
-  }, [t]);
+  }, [user]);
 
   if (loading) {
     return <div className="italic text-center py-24 text-text-main/50">{t('profile_loading')}</div>;
@@ -262,9 +269,21 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
         <Achievements key={achResetKey} stats={kpiStats} sessions={sessions} />
       </SafeSection>
       <div style={{ padding: '12px 36px 48px', textAlign: 'center' }}>
-        <button onClick={handleResetAchievements} className="font-mono text-[11px] text-text-main/20 hover:text-red-400/50 transition-colors uppercase tracking-widest">
-          {t('profile_ach_reset')}
-        </button>
+        {showResetConfirm ? (
+          <div className="inline-flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
+            <span className="text-[12px] text-red-400">{t('profile_ach_reset_confirm')}</span>
+            <button onClick={handleResetAchievements} className="text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors uppercase tracking-widest">
+              {t('profile_ach_reset')}
+            </button>
+            <button onClick={() => setShowResetConfirm(false)} className="text-[11px] font-medium text-text-main/40 hover:text-text-main/60 transition-colors uppercase tracking-widest">
+              ✕
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => setShowResetConfirm(true)} className="font-mono text-[11px] text-text-main/20 hover:text-red-400/50 transition-colors uppercase tracking-widest">
+            {t('profile_ach_reset')}
+          </button>
+        )}
       </div>
     </div>
   );

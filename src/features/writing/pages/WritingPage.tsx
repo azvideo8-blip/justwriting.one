@@ -129,6 +129,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     hookHandleStart, sessionStatus, sessionType, setSessionType,
     targetTime, seconds, timeGoalReached, wordGoalReached
   );
+  const { setSetupMode, setShowCancelConfirm, startCountdown } = flow;
 
   const { openSettings } = useSettings();
   const savingRef = React.useRef(false);
@@ -147,7 +148,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
   }, []);
 
   const { continueSession } = useSessionContinue({
-    setSetupMode: flow.setSetupMode,
+    setSetupMode,
     setTags,
     loadLocalSession,
   });
@@ -173,6 +174,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
         title: doc.title,
         wordCount: doc.totalWords,
         savedDocumentId: localId,
+        accumulatedDuration: doc.totalDuration,
         wpm: 0,
         wordSnapshots: [],
         lastWordCount: 0,
@@ -190,7 +192,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
   const handleContinueSession = React.useCallback(async (session: Session) => {
     try {
       await continueSession(session);
-      flow.setSetupMode(null);
+      setSetupMode(null);
       setSessionStatus('writing');
       useWritingStore.getState().setSessionStart();
       useWritingStore.setState({
@@ -202,7 +204,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       console.error('Continue session error:', err);
       showToast(t('error_continue_session'));
     }
-  }, [continueSession, setSessionStatus, flow, showToast, t]);
+  }, [continueSession, setSessionStatus, setSetupMode, showToast, t]);
 
   const handleContinueSessionOrDoc = React.useCallback(async (sessionOrDoc: Session | LifeLogDocument) => {
     if ('totalWords' in sessionOrDoc && 'localId' in sessionOrDoc) {
@@ -379,22 +381,22 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
 
   const fetchAllSessions = React.useCallback(async () => {
     await fetchSessions();
-    flow.setSetupMode('session-selection');
-  }, [fetchSessions, flow]);
+    setSetupMode('session-selection');
+  }, [fetchSessions, setSetupMode]);
 
   const handleNewSession = React.useCallback(() => {
     resetSessionMetadata();
-    flow.setSetupMode('selection');
-  }, [resetSessionMetadata, flow]);
+    setSetupMode('selection');
+  }, [resetSessionMetadata, setSetupMode]);
 
   const handleNew = React.useCallback(() => {
     if (wordCount > 0 && sessionStatus !== 'idle') {
-      flow.setShowCancelConfirm(true);
+      setShowCancelConfirm(true);
       return;
     }
     useWritingStore.getState().resetSession();
     useWritingStore.setState({ title: '', content: '' });
-  }, [wordCount, sessionStatus, flow]);
+  }, [wordCount, sessionStatus, setShowCancelConfirm]);
 
   const handleOpen = React.useCallback(async () => {
     await fetchSessions();
@@ -422,8 +424,8 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       </AnimatePresence>
       <CancelConfirmModal 
         isOpen={flow.showCancelConfirm}
-        onConfirm={() => { handleCancel(); flow.setShowCancelConfirm(false); }}
-        onCancel={() => flow.setShowCancelConfirm(false)}
+        onConfirm={() => { handleCancel(); setShowCancelConfirm(false); }}
+        onCancel={() => setShowCancelConfirm(false)}
       />
       <WritingFinishModal 
         isOpen={sessionStatus === 'finished'}
@@ -504,7 +506,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
               handlePause={handlePause}
               handleStart={handlePlay}
               handleFinish={handleFinish}
-              setShowCancelConfirm={flow.setShowCancelConfirm}
+              setShowCancelConfirm={setShowCancelConfirm}
               totalDurationForDeadline={flow.totalDurationForDeadline}
               onNew={handleNew}
               onOpenLog={handleOpen}
@@ -535,8 +537,8 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
               {flow.setupMode ? (
                 <WritingSetup
                   setupMode={flow.setupMode}
-                  setSetupMode={flow.setSetupMode}
-                  startCountdown={flow.startCountdown}
+                  setSetupMode={setSetupMode}
+                  startCountdown={startCountdown}
                   timerDuration={timerDurationVal}
                   setTimerDuration={setTimerDurationVal}
                   wordGoal={wordGoalVal}
@@ -556,7 +558,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
                   hookHandleStart();
                 }}
                 handleFinish={handleFinish}
-                setShowCancelConfirm={flow.setShowCancelConfirm}
+                setShowCancelConfirm={setShowCancelConfirm}
                 saveStatus={saveStatus}
                 lastSavedAt={lastSavedAt}
                 onKeyDown={(e) => {

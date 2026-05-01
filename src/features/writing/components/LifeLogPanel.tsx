@@ -10,6 +10,7 @@ import { SessionService } from '../services/SessionService';
 import { StorageService } from '../services/StorageService';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { useServiceAction } from '../hooks/useServiceAction';
+import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { X, Pin, Trash2, Cloud, HardDrive } from 'lucide-react';
 import { StorageIcons } from './StorageIcons';
 
@@ -115,7 +116,8 @@ export function LifeLogPanel({
 
   const { t, language } = useLanguage();
   const { execute } = useServiceAction();
-  const { sessionGroups, summary, loading, refresh, unifiedDocuments } = useLifeLog(userId);
+  const { isGuest } = useAuthStatus();
+  const { sessionGroups, summary, loading, refresh, unifiedDocuments } = useLifeLog(userId, isGuest);
 
   const docMap = useMemo(() => {
     const map = new Map<string, LifeLogDocument>();
