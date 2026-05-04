@@ -14,10 +14,21 @@ export function useLayoutMode() {
 
   // On first launch (no saved preference), detect and save
   useEffect(() => {
-    const saved = localStorage.getItem('layout-mode');
-    if (!saved) {
-      setLayoutMode(window.innerWidth < 1024 ? 'mobile' : 'desktop');
-    }
+    let resizeTimer: ReturnType<typeof setTimeout>;
+
+    const handleResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        const newMode = window.innerWidth < 1024 ? 'mobile' : 'desktop';
+        setLayoutMode(prev => prev === newMode ? prev : newMode);
+      }, 300);
+    };
+
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(resizeTimer);
+    };
   }, [setLayoutMode]);
 
   return { layoutMode, setLayoutMode };

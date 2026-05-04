@@ -15,7 +15,7 @@ interface HeaderStatsProps {
   sessionSeconds: number;
   wordCount: number;
   wpm: number;
-  status: 'idle' | 'writing' | 'paused' | 'finished';
+  status: 'idle' | 'writing' | 'paused';
   visibility: HeaderVisibility;
 }
 

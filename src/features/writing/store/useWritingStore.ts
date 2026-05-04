@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type TimerStatus = 'idle' | 'writing' | 'paused' | 'finished';
+export type TimerStatus = 'idle' | 'writing' | 'paused';
 export type SessionType = 'free' | 'stopwatch' | 'timer' | 'words' | 'finish-by';
 
 interface WordSnapshot { timestamp: number; wordCount: number; }

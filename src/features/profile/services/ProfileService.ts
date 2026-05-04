@@ -37,6 +37,18 @@ export const ProfileService = {
     }
   },
 
+  async loadEarnedAchievements(userId: string): Promise<string[]> {
+    try {
+      const snap = await getDoc(doc(db, 'users', userId));
+      if (snap.exists()) {
+        return (snap.data().earnedAchievements as string[]) ?? [];
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, `users/${userId}`);
+    }
+    return [];
+  },
+
   async getProfile(userId: string) {
     try {
       const docRef = doc(db, 'users', userId);

@@ -6,7 +6,7 @@ import { ru, enUS } from 'date-fns/locale';
 import { ArchiveSession } from '../types';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
-import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx } from '../services/ArchiveExportService';
+import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx, ExportStrings } from '../services/ArchiveExportService';
 import { InlineTags } from './InlineTags';
 
 function toJsDate(d: Date | { toDate?: () => Date }): Date {
@@ -28,11 +28,14 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange }: 
   const isDragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
+  const currentWidthRef = useRef(width);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     isDragging.current = true;
     startX.current = e.clientX;
     startWidth.current = width;
+    currentWidthRef.current = width;
     document.body.style.cursor = 'ew-resize';
     document.body.style.userSelect = 'none';
   };
@@ -47,7 +50,8 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange }: 
       if (!isDragging.current) return;
       const delta = startX.current - e.clientX;
       const newWidth = Math.max(380, Math.min(window.innerWidth * 0.8, startWidth.current + delta));
-      setWidth(newWidth);
+      currentWidthRef.current = newWidth;
+      if (panelRef.current) panelRef.current.style.width = `${newWidth}px`;
     };
 
     const handleMouseUp = () => {
@@ -55,7 +59,9 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange }: 
       isDragging.current = false;
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
-      localStorage.setItem('preview_width', String(Math.round(width)));
+      const finalWidth = currentWidthRef.current;
+      setWidth(finalWidth);
+      localStorage.setItem('preview_width', String(Math.round(finalWidth)));
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -64,7 +70,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange }: 
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [width]);
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -81,16 +87,24 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange }: 
   const dateLocale = language === 'ru' ? ru : enUS;
   const date = toJsDate(session.createdAt);
 
-  const lang = (language === 'ru' ? 'ru' : 'en') as 'ru' | 'en';
+  const exportStrings: ExportStrings = {
+    date: t('export_header_date'),
+    words: t('export_header_words'),
+    time: t('export_header_time'),
+    tags: t('export_header_tags'),
+    untitled: t('export_untitled'),
+    untitledFilename: t('export_filename_default'),
+  };
   const exportFormats = [
-    { label: 'TXT', action: () => exportAsTxt(session, lang) },
-    { label: 'Markdown (.md)', action: () => exportAsMd(session, lang) },
-    { label: 'PDF', action: () => exportAsPdf(session, lang) },
-    { label: 'DOCX — Word', action: () => exportAsDocx(session, lang) },
+    { label: 'TXT', action: () => exportAsTxt(session, exportStrings) },
+    { label: 'Markdown (.md)', action: () => exportAsMd(session, exportStrings) },
+    { label: 'PDF', action: () => exportAsPdf(session, exportStrings) },
+    { label: 'DOCX — Word', action: () => exportAsDocx(session, exportStrings) },
   ];
 
   return (
     <motion.div
+      ref={panelRef}
       initial={{ opacity: 0, x: '100%' }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: '100%' }}
