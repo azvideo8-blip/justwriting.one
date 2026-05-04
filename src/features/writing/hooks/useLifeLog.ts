@@ -104,12 +104,15 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
     try {
       if (isGuest) {
         const localDocs = await LocalDocumentService.getGuestDocuments(userId);
-        const sessionsWithContent = await Promise.all(
+        const sessionResults = await Promise.allSettled(
           localDocs.map(async d => {
             const content = await getLatestContentForDoc(d.id);
             return localDocToSession(d, content);
           })
         );
+        const sessionsWithContent = sessionResults
+          .filter((r): r is PromiseFulfilledResult<Session> => r.status === 'fulfilled')
+          .map(r => r.value);
         if (!mountedRef.current) return;
         setSessions(sessionsWithContent);
         setDocuments([]);

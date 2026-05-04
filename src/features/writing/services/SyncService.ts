@@ -2,7 +2,7 @@ import { getLocalDb } from '../../../shared/lib/localDb';
 import { StorageService } from './StorageService';
 import { LocalDocumentService } from './LocalDocumentService';
 
-let _syncInProgress = false;
+const _syncInProgress = new Map<string, boolean>();
 
 export const SyncService = {
   async addToQueue(documentId: string): Promise<void> {
@@ -27,8 +27,8 @@ export const SyncService = {
   },
 
   async syncPending(userId: string): Promise<void> {
-    if (_syncInProgress) return;
-    _syncInProgress = true;
+    if (_syncInProgress.get(userId)) return;
+    _syncInProgress.set(userId, true);
 
     try {
       const db = await getLocalDb();
@@ -58,7 +58,7 @@ export const SyncService = {
         await tx.done;
       }
     } finally {
-      _syncInProgress = false;
+      _syncInProgress.set(userId, false);
     }
   },
 

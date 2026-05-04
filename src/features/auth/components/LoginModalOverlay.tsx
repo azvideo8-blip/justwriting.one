@@ -1,7 +1,6 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { HardDrive } from 'lucide-react';
-import React from 'react';
 const LoginPage = React.lazy(() => import('../pages/LoginPage').then(m => ({ default: m.LoginPage })));
 import { useLoginModal } from '../contexts/LoginModalContext';
 import { useLanguage } from '../../../core/i18n';
