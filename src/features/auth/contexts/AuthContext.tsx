@@ -64,10 +64,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (u) {
         try {
+          const guestId = localStorage.getItem('jw_guest_id');
           const keysToRemove: string[] = [];
           for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key?.startsWith('local_session_')) keysToRemove.push(key);
+            if (key?.startsWith('local_session_')) {
+              if (!guestId || !key.includes(guestId)) keysToRemove.push(key);
+            }
           }
           keysToRemove.forEach(k => localStorage.removeItem(k));
         } catch { /* ignore */ }

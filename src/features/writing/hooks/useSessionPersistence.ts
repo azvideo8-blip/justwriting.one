@@ -132,6 +132,23 @@ export function useSessionPersistence(
     };
 
     if (isLocalOnly) {
+      try {
+        const keysToRemove: string[] = [];
+        const sessionKeys: { key: string; ts: number }[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key?.startsWith('local_session_')) {
+            const ts = parseInt(key.split('_')[2] || '0', 10);
+            sessionKeys.push({ key, ts });
+          }
+        }
+        sessionKeys.sort((a, b) => a.ts - b.ts);
+        while (sessionKeys.length >= 20) {
+          const oldest = sessionKeys.shift();
+          if (oldest) keysToRemove.push(oldest.key);
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+      } catch { /* ignore */ }
       const sessionKey = `local_session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
       try {
         localStorage.setItem(sessionKey, JSON.stringify(sessionData));
@@ -153,8 +170,9 @@ export function useSessionPersistence(
       await WritingDraftService.deleteDraft(userId);
       actions.setHasDraft(false);
       actions.finishSession();
-    } catch {
-      // Error is handled in WritingSessionService
+    } catch (e) {
+      console.error('[SessionPersistence] Save failed:', e);
+      throw e;
     }
   };
 

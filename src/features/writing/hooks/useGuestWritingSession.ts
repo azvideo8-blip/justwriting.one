@@ -131,6 +131,8 @@ export function useGuestWritingSession(): GuestSessionReturn {
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === 'hidden' && stateRef.current.content) {
+        const currentStatus = useWritingStore.getState().status;
+        if (currentStatus === 'idle' || currentStatus === 'finished') return;
         try {
           const s = stateRef.current;
           const draftData = {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { SessionType } from '../store/useWritingStore';
+import { useWritingStore, SessionType } from '../store/useWritingStore';
 import { SetupMode } from '../WritingSetup';
 import { playGoalSound } from '../../../core/utils/sound';
 
@@ -89,21 +89,25 @@ export function useSessionFlow(
   }, [timeGoalReached, wordGoalReached, sessionStatus]);
 
   // Deadline duration for finish-by progress bar
+  const totalDurationRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (sessionStatus === 'writing' && sessionType === 'finish-by' && targetTime) {
-      if (totalDurationForDeadline === null) {
+      if (totalDurationRef.current === null) {
         const [hours, minutes] = targetTime.split(':').map(Number);
         const target = new Date();
         target.setHours(hours, minutes, 0, 0);
         const now = new Date();
         const remaining = Math.max(0, (target.getTime() - now.getTime()) / 1000);
-        // eslint-disable-next-line
-        setTotalDurationForDeadline(remaining + seconds);
+        const dur = remaining + useWritingStore.getState().seconds;
+        totalDurationRef.current = dur;
+        setTimeout(() => setTotalDurationForDeadline(dur), 0);
       }
     } else if (sessionStatus === 'idle') {
-      setTotalDurationForDeadline(null);
+      totalDurationRef.current = null;
+      setTimeout(() => setTotalDurationForDeadline(null), 0);
     }
-  }, [sessionStatus, sessionType, targetTime, seconds, totalDurationForDeadline]);
+  }, [sessionStatus, sessionType, targetTime]);
 
   // Cleanup countdown on unmount
   useEffect(() => {
