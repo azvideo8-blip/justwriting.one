@@ -25,7 +25,7 @@ export const WritingSessionService = {
   saveSession: async (sessionData: SessionPayload, activeSessionId: string | null, isOnline: boolean, userId: string): Promise<string | null> => {
     try {
       if (!isOnline) {
-        await savePendingSession({ sessionId: activeSessionId, data: sessionData, userId });
+        await savePendingSession({ sessionId: activeSessionId, data: sessionData as unknown as Record<string, unknown>, userId });
         return activeSessionId;
       }
 
