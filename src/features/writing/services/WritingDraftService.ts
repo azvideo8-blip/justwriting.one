@@ -25,6 +25,12 @@ function hasDraftsStore(localDb: IDBDatabase): boolean {
 
 export const WritingDraftService = {
   loadDraft: async (userId: string): Promise<LocalDraft | null> => {
+    let deletedAt = 0;
+    try {
+      const s = sessionStorage.getItem(`draft-deleted-${userId}`);
+      if (s) { deletedAt = parseInt(s, 10); sessionStorage.removeItem(`draft-deleted-${userId}`); }
+    } catch { /* ignore */ }
+
     let localDraft: LocalDraft | null = null;
     try {
       const localDb = await getLocalDb();
@@ -62,6 +68,10 @@ export const WritingDraftService = {
 
     if (localDraft && cloudDraft) {
       const winner = toMs(localDraft.updatedAt) > toMs(cloudDraft.updatedAt) ? localDraft : cloudDraft;
+      if (deletedAt && toMs(winner.updatedAt) <= deletedAt) {
+        await WritingDraftService.deleteDraft(userId);
+        return null;
+      }
       if (isDraftExpired(winner)) {
         await WritingDraftService.deleteDraft(userId);
         return null;
@@ -69,9 +79,15 @@ export const WritingDraftService = {
       return winner;
     }
     const resolved = localDraft || cloudDraft;
-    if (resolved && isDraftExpired(resolved)) {
-      await WritingDraftService.deleteDraft(userId);
-      return null;
+    if (resolved) {
+      if (deletedAt && toMs(resolved.updatedAt) <= deletedAt) {
+        await WritingDraftService.deleteDraft(userId);
+        return null;
+      }
+      if (isDraftExpired(resolved)) {
+        await WritingDraftService.deleteDraft(userId);
+        return null;
+      }
     }
     return resolved;
   },
@@ -113,6 +129,7 @@ export const WritingDraftService = {
   },
 
   deleteDraft: async (userId: string) => {
+    try { sessionStorage.setItem(`draft-deleted-${userId}`, Date.now().toString()); } catch { /* ignore */ }
     try {
       const localDb = await getLocalDb();
       if (hasDraftsStore(localDb as unknown as IDBDatabase)) {
