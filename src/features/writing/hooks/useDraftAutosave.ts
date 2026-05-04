@@ -48,7 +48,7 @@ export function useDraftAutosave(
   const forceSaveEverything = useCallback(async () => {
     if (!user) return;
     const current = draftDataRef.current;
-    if (current.status === 'idle' && !current.content.trim()) return;
+    if (current.status === 'idle') return;
     const draft: LocalDraft = {
       userId: user.uid,
       ...current,
