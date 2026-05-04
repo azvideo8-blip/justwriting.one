@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from 'react';
 import { Play, Pause, Square } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { useWritingStore } from '../store/useWritingStore';
+import { useShallow } from 'zustand/react/shallow';
 import { formatTime } from '../../../core/utils/formatTime';
 import { useLanguage } from '../../../core/i18n';
 import { getWpmColor } from '../utils/wpmColors';
@@ -19,16 +20,20 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
   const { t } = useLanguage();
   const { isZenActive, zenModeEnabled, headerVisibility } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
-  const status = useWritingStore(s => s.status);
-  const wordCount = useWritingStore(s => s.wordCount);
-  const seconds = useWritingStore(s => s.seconds);
-  const wpm = useWritingStore(s => s.wpm);
-  const wordGoal = useWritingStore(s => s.wordGoal);
-  const timerDuration = useWritingStore(s => s.timerDuration);
-  const sessionStartWords = useWritingStore(s => s.sessionStartWords);
-  const sessionStartSeconds = useWritingStore(s => s.sessionStartSeconds);
-  const setWordGoal = useWritingStore(s => s.setWordGoal);
-  const setTimerDuration = useWritingStore(s => s.setTimerDuration);
+  const { status, wordCount, seconds, wpm, wordGoal, timerDuration, sessionStartWords, sessionStartSeconds, setWordGoal, setTimerDuration } = useWritingStore(
+    useShallow(s => ({
+      status: s.status,
+      wordCount: s.wordCount,
+      seconds: s.seconds,
+      wpm: s.wpm,
+      wordGoal: s.wordGoal,
+      timerDuration: s.timerDuration,
+      sessionStartWords: s.sessionStartWords,
+      sessionStartSeconds: s.sessionStartSeconds,
+      setWordGoal: s.setWordGoal,
+      setTimerDuration: s.setTimerDuration,
+    }))
+  );
 
   const sessionWords = wordCount - sessionStartWords;
   const sessionSeconds = seconds - sessionStartSeconds;
