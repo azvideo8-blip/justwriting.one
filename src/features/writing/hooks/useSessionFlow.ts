@@ -63,9 +63,9 @@ export function useSessionFlow(
   // Session start flash
   useEffect(() => {
     if (sessionStatus === 'writing') {
-      setTimeout(() => setSessionStartFlash(true), 0);
-      const t = setTimeout(() => setSessionStartFlash(false), 800);
-      return () => clearTimeout(t);
+      const showTimer = setTimeout(() => setSessionStartFlash(true), 0);
+      const hideTimer = setTimeout(() => setSessionStartFlash(false), 800);
+      return () => { clearTimeout(showTimer); clearTimeout(hideTimer); };
     }
   }, [sessionStatus]);
 
@@ -77,9 +77,9 @@ export function useSessionFlow(
       goalFiredRef.current = true;
       playGoalSound();
       const type = wordGoalReached ? 'words' : 'time';
-      setTimeout(() => { setGoalToastType(type); setGoalToastVisible(true); }, 0);
-      const t = setTimeout(() => setGoalToastVisible(false), 4000);
-      return () => clearTimeout(t);
+      const showTimer = setTimeout(() => { setGoalToastType(type); setGoalToastVisible(true); }, 0);
+      const hideTimer = setTimeout(() => setGoalToastVisible(false), 4000);
+      return () => { clearTimeout(showTimer); clearTimeout(hideTimer); };
     }
 
     if (sessionStatus === 'idle') {

@@ -28,7 +28,6 @@ export interface Session {
 }
 
 export interface SessionPayload {
-  [key: string]: unknown;
   userId: string;
   authorName: string;
   authorPhoto: string;

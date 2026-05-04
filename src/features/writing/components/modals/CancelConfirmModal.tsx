@@ -41,6 +41,9 @@ export function CancelConfirmModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-surface-base/80 backdrop-blur-xl">
       <motion.div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cancel-modal-title"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         className="w-full max-w-sm rounded-3xl p-8 shadow-2xl space-y-6 text-center border bg-surface-card backdrop-blur-2xl border-border-subtle shadow-[0_0_40px_rgba(255,255,255,0.05)] relative"
@@ -56,7 +59,7 @@ export function CancelConfirmModal({
           {v.icon}
         </div>
         <div className="space-y-2">
-          <h3 className="text-xl font-bold text-text-main">
+          <h3 id="cancel-modal-title" className="text-xl font-bold text-text-main">
             {title || t('writing_cancel_confirm')}
           </h3>
           <p className="text-sm text-text-muted">
