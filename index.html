@@ -7,12 +7,15 @@
     <meta property="og:title" content="justwriting.one">
     <meta property="og:description" content="Write. Just write.">
     <meta property="og:image" content="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0a0a0a">
     <title>justwriting.one</title>
   </head>
   <body>
     <noscript><div style="padding:48px;font-family:sans-serif;text-align:center;color:#888">This app requires JavaScript. Please enable it in your browser settings.</div></noscript>
     <script>try{var l=localStorage.getItem('app_language')||'en';document.documentElement.lang=l;var t=localStorage.getItem('app-theme')||'modern';var c={modern:'theme-modern',notion:'theme-notion',spotify:'theme-spotify',amethyst:'theme-amethyst'};if(c[t])document.documentElement.classList.add(c[t])}catch(e){}</script>
     <div id="root"></div>
+    <script>'serviceWorker' in navigator && navigator.serviceWorker.register('/sw.js')</script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

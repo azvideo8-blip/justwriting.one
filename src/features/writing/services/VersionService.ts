@@ -2,7 +2,7 @@ import { collection, addDoc, getDocs, query, orderBy, limit, Timestamp } from 'f
 import { db } from '../../../core/firebase/firestore';
 import { Version } from '../../../types';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
-import { computeWordDiff } from './DiffService';
+import { computeWordDelta } from './DiffService';
 
 const versionsRef = (userId: string, documentId: string) =>
   collection(db, 'users', userId, 'documents', documentId, 'versions');
@@ -29,7 +29,7 @@ export const VersionService = {
       throw new Error(`Content too large (${(payloadSize / 1024).toFixed(0)}KB). Firestore limit is 1MB per document.`);
     }
     try {
-      const diff = computeWordDiff(data.previousContent, data.content);
+      const diff = computeWordDelta(data.previousContent, data.content);
       const ref = await addDoc(versionsRef(userId, documentId), {
         documentId,
         userId,

@@ -1,5 +1,5 @@
 import { getLocalDb, LocalVersion, randomUUID } from '../../../shared/lib/localDb';
-import { computeWordDiff } from './DiffService';
+import { computeWordDelta } from './DiffService';
 
 export const LocalVersionService = {
   async addVersion(
@@ -20,7 +20,7 @@ export const LocalVersionService = {
   ): Promise<string> {
     const db = await getLocalDb();
     const id = `ver_${randomUUID()}`;
-    const diff = computeWordDiff(data.previousContent, data.content);
+    const diff = computeWordDelta(data.previousContent, data.content);
 
     await db.put('versions', {
       id,
