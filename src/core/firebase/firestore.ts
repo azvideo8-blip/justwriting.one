@@ -39,14 +39,13 @@ function updateConnectionStatus(status: boolean) {
 // Simple connection test
 async function testConnection(retryCount = 0) {
   try {
-    console.warn("Starting Firestore connection test to:", import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
-    // Try to get a document. We use getDocFromServer to bypass any local cache.
+    if (import.meta.env.DEV) console.warn("Starting Firestore connection test to:", import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
     await getDocFromServer(doc(db, '_connection_test_', 'ping'));
-    console.warn("Firestore connection test: SUCCESS (Document exists or reached server)");
+    if (import.meta.env.DEV) console.warn("Firestore connection test: SUCCESS (Document exists or reached server)");
     updateConnectionStatus(true);
   } catch (error: unknown) {
     if (error instanceof Error) {
-      console.warn("Firestore connection test result details:", {
+      if (import.meta.env.DEV) console.warn("Firestore connection test result details:", {
         code: 'code' in error ? (error as { code: string }).code : undefined,
         message: error.message,
         name: error.name
@@ -60,7 +59,7 @@ async function testConnection(retryCount = 0) {
       const errorCode = 'code' in error ? (error as { code: string }).code : '';
       
       if (reachedServerCodes.includes(errorCode)) {
-        console.warn("Firestore reached the backend successfully (received code: " + errorCode + ")");
+        if (import.meta.env.DEV) console.warn("Firestore reached the backend successfully (received code: " + errorCode + ")");
         updateConnectionStatus(true);
       } else {
         console.error("Firestore connection truly failed or timed out:", errorCode, error.message);

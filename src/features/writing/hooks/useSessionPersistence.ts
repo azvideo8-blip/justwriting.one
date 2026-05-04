@@ -133,7 +133,12 @@ export function useSessionPersistence(
 
     if (isLocalOnly) {
       const sessionKey = `local_session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-      localStorage.setItem(sessionKey, JSON.stringify(sessionData));
+      try {
+        localStorage.setItem(sessionKey, JSON.stringify(sessionData));
+      } catch (e) {
+        console.error('[SessionPersistence] localStorage write failed:', e);
+        return;
+      }
       await WritingDraftService.deleteDraft(userId);
       actions.setHasDraft(false);
       actions.finishSession();
