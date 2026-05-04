@@ -91,7 +91,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onSnapshot(userDoc, (snap) => {
       if (cancelled) return;
       if (snap.exists()) {
-        setProfile(snap.data() as UserProfile);
+        const data = snap.data();
+        if (data && typeof data === 'object' && 'uid' in data) {
+          setProfile(data as UserProfile);
+        } else {
+          if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, data);
+          setProfile(null);
+        }
       } else {
         if (creationAttemptedRef.current) return;
         creationAttemptedRef.current = true;

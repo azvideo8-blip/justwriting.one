@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { getSessionDate } from '../../../core/utils/utils';
+import { getSessionDate, calculateStreak } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 import { Session } from '../../../types';
 
@@ -12,7 +12,7 @@ interface StreakDay {
 }
 
 export function StreakRibbon({ sessions }: { sessions: Session[] }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [offset, setOffset] = useState(0);
 
   const days: StreakDay[] = useMemo(() => {
@@ -39,19 +39,7 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
     return result;
   }, [offset, sessions]);
 
-  const currentStreak = useMemo(() => {
-    let streak = 0;
-    const check = new Date();
-    check.setHours(0, 0, 0, 0);
-    const dateSet = new Set(
-      sessions.map(s => getSessionDate(s)).filter((d): d is Date => d !== null).map(d => d.toDateString())
-    );
-    while (dateSet.has(check.toDateString())) {
-      streak++;
-      check.setDate(check.getDate() - 1);
-    }
-    return streak;
-  }, [sessions]);
+  const currentStreak = useMemo(() => calculateStreak(sessions), [sessions]);
 
   const bestStreak = useMemo(() => {
     const sorted = [...sessions]
@@ -74,7 +62,7 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
 
   const periodLabel = offset === 0
     ? t('profile_streak_current_month')
-    : days[0]?.date.toLocaleDateString('ru', { month: 'long', year: 'numeric' });
+    : days[0]?.date.toLocaleDateString(language, { month: 'long', year: 'numeric' });
 
   return (
     <div style={{ padding: '24px 36px', borderBottom: '1px solid var(--border-light)' }}>
@@ -116,7 +104,7 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
           return (
             <div
               key={i}
-              title={`${day.date.toLocaleDateString('ru')} — ${day.words} слов`}
+              title={`${day.date.toLocaleDateString(language)} — ${day.words} ${t('writing_words')}`}
               style={{
                 flex: 1,
                 height: `${day.hasSession ? heightPct : 20}%`,
@@ -137,8 +125,8 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
       </div>
 
       <div className="flex justify-between mt-2 font-mono text-[10px] text-text-main/25">
-        <span>{days[0]?.date.toLocaleDateString('ru', { day: 'numeric', month: 'short' })}</span>
-        <span>{days[14]?.date.toLocaleDateString('ru', { day: 'numeric', month: 'short' })}</span>
+        <span>{days[0]?.date.toLocaleDateString(language, { day: 'numeric', month: 'short' })}</span>
+        <span>{days[14]?.date.toLocaleDateString(language, { day: 'numeric', month: 'short' })}</span>
         <span>{t('profile_streak_today')}</span>
       </div>
     </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { User } from 'firebase/auth';
 import { Session, UserProfile } from '../../../types';
 import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
+import { calculateStreak } from '../../../core/utils/utils';
 import { LocalVersionService } from '../../writing/services/LocalVersionService';
 import { DocumentService } from '../../writing/services/DocumentService';
 import { SessionService } from '../../writing/services/SessionService';
@@ -190,13 +191,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
         } catch { /* ignore */ }
       });
 
-      let streak = 0;
-      const check = new Date();
-      check.setHours(0, 0, 0, 0);
-      while (dates.has(check.toDateString())) {
-        streak++;
-        check.setDate(check.getDate() - 1);
-      }
+      const streak = calculateStreak(sessions);
 
       const avgMins = docStats.sessionsCount
         ? Math.round(docStats.totalDuration / docStats.sessionsCount / 60)
@@ -249,7 +244,14 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   }
 
   if (error) {
-    return <div style={{ padding: 24, color: 'red' }}>Profile error: {error}</div>;
+    return (
+      <div style={{ padding: 24 }} className="text-center">
+        <p className="text-text-main/50 italic">{t('profile_load_error')}</p>
+        <button onClick={() => window.location.reload()} className="mt-4 text-sm text-text-main/40 hover:text-text-main/70 underline">
+          {t('retry')}
+        </button>
+      </div>
+    );
   }
 
   return (

@@ -113,7 +113,7 @@ export function useDraftAutosave(
             title: state.title,
             seconds: state.seconds,
             wordCount: state.wordCount,
-            timestamp: Date.now(),
+            updatedAt: Date.now(),
           }));
         } catch { /* ignore */ }
       }

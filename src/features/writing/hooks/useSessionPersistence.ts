@@ -98,6 +98,7 @@ export function useSessionPersistence(
           seconds: draftToLoad.seconds || 0,
           wordCount: draftToLoad.wordCount || 0
         });
+        useWritingStore.getState().setSessionStart();
         if (draftToLoad.activeSessionId) actions.setActiveSessionId(draftToLoad.activeSessionId);
       }
       await WritingDraftService.clearLegacyDraft(userId);

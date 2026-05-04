@@ -4,6 +4,7 @@ import { X, Cloud, LogIn, HardDrive, User as UserIcon } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme/ThemeProvider';
 import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
+import { useWritingStore } from '../../writing/store/useWritingStore';
 import { useServiceAction } from '../../writing/hooks/useServiceAction';
 import { useToast } from '../../../shared/components/Toast';
 import { ProfileService } from '../../profile/services/ProfileService';
@@ -317,10 +318,17 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog }: { userId: str
 
             {isAuthenticated ? (
               <button
-                onClick={() => execute(
-                  () => signOut(auth),
-                  { errorMessage: t('error_signout_failed') }
-                )}
+                onClick={() => {
+                  const s = useWritingStore.getState();
+                  if (s.status === 'writing' || s.status === 'paused') {
+                    if (!window.confirm(t('writing_cancel_confirm'))) return;
+                    useWritingStore.getState().resetSession();
+                  }
+                  execute(
+                    () => signOut(auth),
+                    { errorMessage: t('error_signout_failed') }
+                  );
+                }}
                 className="w-full px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-red-400 hover:border-red-400/30 transition-all text-left"
               >
                 {t('me_sign_out')}

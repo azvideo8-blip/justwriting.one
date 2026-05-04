@@ -68,7 +68,6 @@ function computeWordStats(content: string) {
   const state = useWritingStore.getState();
   const words = content.trim().split(/\s+/).filter(x => x.length > 0).length;
   const now = Date.now();
-  const wordsAdded = Math.max(0, words - state.lastWordCount);
 
   const newSnapshots = [...state.wordSnapshots, { timestamp: now, wordCount: words }]
     .filter(snap => now - snap.timestamp <= 60000);
@@ -79,7 +78,7 @@ function computeWordStats(content: string) {
     const newest = newSnapshots[newSnapshots.length - 1];
     const timeDiffMins = (newest.timestamp - oldest.timestamp) / 60000;
 
-    if (timeDiffMins > 0 && wordsAdded > 0) {
+    if (timeDiffMins > 0) {
       const rawWpm = Math.max(0, (newest.wordCount - oldest.wordCount) / timeDiffMins);
       const alpha = 0.3;
       currentWpm = Math.round(alpha * rawWpm + (1 - alpha) * state.wpm);
@@ -191,9 +190,9 @@ export const useWritingStore = create<WritingState>((set) => ({
   }),
 
   tick: () => set((state) => {
-    if (state.status !== 'writing') return state;
+    if (state.status !== 'writing' && state.status !== 'paused') return state;
 
-    const newSeconds = state.seconds + 1;
+    const newSeconds = state.status === 'writing' ? state.seconds + 1 : state.seconds;
 
     // Session delta — how long THIS session has been running:
     const sessionSeconds = newSeconds - state.sessionStartSeconds;

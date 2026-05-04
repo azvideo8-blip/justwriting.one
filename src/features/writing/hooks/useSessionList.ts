@@ -39,7 +39,7 @@ export function useSessionList(
 
       const localSessionsList = await fetchLocalSessions();
       if (ac.signal.aborted) return;
-      const localSessions = await Promise.all(
+      const localResults = await Promise.allSettled(
         localSessionsList.map(async s => {
           const data = await loadLocalSession(s.id);
           return {
@@ -59,6 +59,10 @@ export function useSessionList(
           } as Session;
         })
       );
+
+      const localSessions = localResults
+        .filter((r): r is PromiseFulfilledResult<Session> => r.status === 'fulfilled')
+        .map(r => r.value);
 
       if (ac.signal.aborted) return;
       setUserSessions([...firestoreSessions, ...localSessions]);

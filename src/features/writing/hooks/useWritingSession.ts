@@ -101,7 +101,7 @@ export function useWritingSession(user: User | null, profile: UserProfile | null
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
-    if (status === 'writing') {
+    if (status === 'writing' || status === 'paused') {
       interval = setInterval(() => {
         tick();
       }, 1000);
