@@ -49,6 +49,7 @@ export function useDraftAutosave(
     if (!user) return;
     const current = draftDataRef.current;
     if (current.status === 'idle') return;
+    if (useWritingStore.getState().status === 'idle') return;
     const draft: LocalDraft = {
       userId: user.uid,
       ...current,
@@ -129,6 +130,8 @@ export function useDraftAutosave(
   useEffect(() => {
     if ((draftData.status === 'writing' || draftData.status === 'paused') && user) {
       const timeout = setTimeout(async () => {
+        if (useWritingStore.getState().status !== 'writing' &&
+            useWritingStore.getState().status !== 'paused') return;
         const draft: LocalDraft = {
           userId: user.uid,
           ...draftDataRef.current,
