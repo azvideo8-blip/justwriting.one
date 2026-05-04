@@ -99,6 +99,8 @@ export function useGuestWritingSession(): GuestSessionReturn {
   useEffect(() => {
     if (base.status !== 'writing' && base.status !== 'paused') return;
     const interval = setInterval(() => {
+      const currentStatus = useWritingStore.getState().status;
+      if (currentStatus !== 'writing' && currentStatus !== 'paused') return;
       try {
         const s = stateRef.current;
         const draftData = {
@@ -154,6 +156,12 @@ export function useGuestWritingSession(): GuestSessionReturn {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
+  const clearDraft = useCallback(() => {
+    localStorage.removeItem(DRAFT_KEY);
+    deleteDraftFromIdb();
+    setHasDraft(false);
+  }, []);
+
   const loadDraft = useCallback(async () => {
     const raw = localStorage.getItem(DRAFT_KEY);
     let draft: { content?: string; title?: string; pinnedThoughts?: string[]; seconds?: number; wordCount?: number } | null = null;
@@ -182,6 +190,12 @@ export function useGuestWritingSession(): GuestSessionReturn {
       return;
     }
 
+    const currentStatus = useWritingStore.getState().status;
+    if (currentStatus === 'idle' || currentStatus === 'finished') {
+      clearDraft();
+      return;
+    }
+
     useWritingStore.setState({
       content: draft.content,
       title: draft.title ?? '',
@@ -190,13 +204,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
       wordCount: draft.wordCount ?? 0,
     });
     setHasDraft(false);
-  }, []);
-
-  const clearDraft = useCallback(() => {
-    localStorage.removeItem(DRAFT_KEY);
-    deleteDraftFromIdb();
-    setHasDraft(false);
-  }, []);
+  }, [clearDraft]);
 
   const handleCancel = useCallback(async () => {
     clearDraft();

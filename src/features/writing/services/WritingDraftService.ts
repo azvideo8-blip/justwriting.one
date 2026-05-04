@@ -3,6 +3,7 @@ import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const _saveGeneration = new Map<string, number>();
 
 function isDraftExpired(draft: LocalDraft): boolean {
   const updated = toMs(draft.updatedAt);
@@ -125,12 +126,17 @@ export const WritingDraftService = {
 
   saveToFirestore: async (draft: LocalDraft) => {
     if (!draft.userId) return;
+    const genAtStart = _saveGeneration.get(draft.userId) ?? 0;
     const docRef = doc(db, 'drafts', draft.userId);
     await setDoc(docRef, draft, { merge: true });
+    if (_saveGeneration.get(draft.userId) !== genAtStart) {
+      try { await deleteDoc(docRef); } catch { /* ignore */ }
+    }
   },
 
   deleteDraft: async (userId: string) => {
     if (!userId) return;
+    _saveGeneration.set(userId, (_saveGeneration.get(userId) ?? 0) + 1);
     try { sessionStorage.setItem(`draft-deleted-${userId}`, Date.now().toString()); } catch { /* ignore */ }
     try {
       const localDb = await getLocalDb();
