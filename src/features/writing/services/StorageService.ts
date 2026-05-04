@@ -102,6 +102,8 @@ export const StorageService = {
 
       if (existing.linkedCloudId) {
         try {
+          const cloudDoc = await DocumentService.getDocument(userId, existing.linkedCloudId);
+          const cloudBaseDuration = cloudDoc?.totalDuration ?? 0;
           const startedAt = data.sessionStartedAt;
           if (isNaN(startedAt.getTime())) {
             throw new Error('Invalid sessionStartedAt');
@@ -120,7 +122,7 @@ export const StorageService = {
           });
           await DocumentService.updateDocumentAfterSession(userId, existing.linkedCloudId, {
             totalWords: data.wordCount,
-            totalDuration: existing.totalDuration + data.duration,
+            totalDuration: cloudBaseDuration + data.duration,
             currentVersion: newVersion,
           });
         } catch (e) {
