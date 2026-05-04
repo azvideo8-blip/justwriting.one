@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, Timestamp, increment } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 import { Document } from '../../../types';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
@@ -84,7 +84,7 @@ export const DocumentService = {
     try {
       await updateDoc(documentRef(userId, documentId), {
         ...data,
-        sessionsCount: data.currentVersion,
+        sessionsCount: increment(1),
         lastSessionAt: Timestamp.now(),
       });
     } catch (e) {

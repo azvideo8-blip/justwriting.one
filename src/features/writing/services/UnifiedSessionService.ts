@@ -70,7 +70,10 @@ export const UnifiedSessionService = {
   ): Promise<{ local: LocalDocument[]; cloud: Document[]; all: UnifiedDocument[] }> {
     const [localDocs, cloudDocs] = await Promise.all([
       LocalDocumentService.getGuestDocuments(userId),
-      DocumentService.getUserDocuments(userId).catch(() => [] as Document[]),
+      DocumentService.getUserDocuments(userId).catch((e) => {
+        console.warn('[UnifiedSessionService] Cloud fetch failed:', e);
+        return [] as Document[];
+      }),
     ]);
 
     const cloudIds = new Set(cloudDocs.map(d => d.id));
