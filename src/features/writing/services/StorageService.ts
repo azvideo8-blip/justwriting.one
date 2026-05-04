@@ -23,13 +23,6 @@ export interface SaveDocumentData {
   sessionStartedAt: Date;
 }
 
-const _cloudSyncInProgress = new Map<string, boolean>();
-
-// Per-tab lock: serializes saveVersion calls for the same document within one tab.
-// Cross-tab safety: IDB serializes transactions across tabs, so read-before-write
-// always sees the latest version. Firestore persistentMultipleTabManager keeps
-// the cache in sync across tabs. The risk of two tabs writing the same version
-// number is negligible for a single-user writing app.
 const _saveVersionLocks = new Map<string, Promise<void>>();
 
 export const StorageService = {
@@ -213,8 +206,18 @@ export const StorageService = {
   },
 
   async addCloudCopy(userId: string, localDocumentId: string): Promise<string> {
-    if (_cloudSyncInProgress.get(localDocumentId)) return '';
-    _cloudSyncInProgress.set(localDocumentId, true);
+    const db = await getLocalDb();
+    const lockKey = `lock_cloud_${localDocumentId}`;
+
+    // Cross-tab mutex via IDB (serialized across tabs)
+    try {
+      const existing = await db.get('syncQueue', lockKey);
+      if (existing) return ''; // another tab is already syncing this document
+    } catch { /* ignore */ }
+
+    try {
+      await db.put('syncQueue', { id: lockKey, documentId: localDocumentId, type: 'document' as const, createdAt: Date.now() });
+    } catch { /* ignore */ }
 
     try {
       const localDoc = await LocalDocumentService.getDocument(localDocumentId);
@@ -274,7 +277,10 @@ export const StorageService = {
       if (!cloudId) throw new Error('Failed to create cloud document');
       return cloudId;
     } finally {
-      _cloudSyncInProgress.delete(localDocumentId);
+      try {
+        const cleanupDb = await getLocalDb();
+        await cleanupDb.delete('syncQueue', lockKey);
+      } catch { /* ignore */ }
     }
   },
 

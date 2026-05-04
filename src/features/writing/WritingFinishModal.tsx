@@ -26,6 +26,7 @@ interface WritingFinishModalProps {
   labels: Label[];
   isGuest: boolean;
   onSave: (data: SaveData) => Promise<void>;
+  onCancel: () => void;
 }
 
 export function WritingFinishModal({
@@ -37,12 +38,11 @@ export function WritingFinishModal({
   labels,
   isGuest: _isGuest,
   onSave,
+  onCancel,
 }: WritingFinishModalProps) {
   const { t } = useLanguage();
   const { execute, isLoading: isSaving } = useServiceAction();
 
-  const status = useWritingStore(s => s.status);
-  const setStatus = useWritingStore(s => s.setStatus);
   const wordCount = useWritingStore(s => s.wordCount);
   const seconds = useWritingStore(s => s.seconds);
   const sessionStartSeconds = useWritingStore(s => s.sessionStartSeconds);
@@ -52,7 +52,7 @@ export function WritingFinishModal({
   const content = useWritingStore(s => s.content);
   const title = useWritingStore(s => s.title);
 
-  useModalEscape(status === 'finished', () => setStatus('writing'));
+  useModalEscape(isOpen, onCancel);
 
   const [editTitle, setEditTitle] = useState('');
   const titleInputValue = editTitle || title || '';
@@ -72,7 +72,7 @@ export function WritingFinishModal({
     return Array.from(suggestions);
   }, [title, popularWords]);
 
-  if (!isOpen || status !== 'finished') return null;
+  if (!isOpen) return null;
 
   const toggleTag = (tag: string) => {
     if (!tags) return;
@@ -221,7 +221,7 @@ export function WritingFinishModal({
 
         <div className="flex gap-3">
           <button
-            onClick={() => setStatus('writing')}
+            onClick={onCancel}
             className="flex-1 px-6 py-4 font-bold transition-all rounded-2xl border border-border-subtle text-text-main hover:bg-white/5"
           >
             {t('finish_back')}

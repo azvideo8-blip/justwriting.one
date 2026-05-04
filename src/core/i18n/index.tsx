@@ -301,6 +301,15 @@ export const translations: Translations = {
   guest_save_title: { ru: 'Сохранить сессию', en: 'Save session' },
   guest_save_new_document: { ru: 'Новый документ', en: 'New document' },
   guest_save_existing_document: { ru: 'Добавить версию к документу', en: 'Add version to document' },
+  guest_draft_restore_prompt: { ru: 'Найден несохранённый черновик.', en: 'An unsaved draft was found.' },
+  guest_draft_restore:        { ru: 'Восстановить',                   en: 'Restore' },
+  guest_draft_discard:        { ru: 'Удалить',                        en: 'Discard' },
+  export_header_date:  { ru: 'Дата',          en: 'Date' },
+  export_header_words: { ru: 'Слов',          en: 'Words' },
+  export_header_time:  { ru: 'Время',         en: 'Time' },
+  export_header_tags:  { ru: 'Теги',          en: 'Tags' },
+  export_untitled:     { ru: 'Без названия',   en: 'Untitled' },
+  export_filename_default: { ru: 'заметка',    en: 'note' },
   guest_save_button: { ru: 'Сохранить', en: 'Save' },
   guest_save_local: { ru: 'Сохранить локально', en: 'Save locally' },
   guest_more_documents: { ru: 'Ещё {count} документов', en: '{count} more documents' },
@@ -636,6 +645,8 @@ interface LanguageContextType {
   tp: (key: string, count: number) => string;
 }
 
+const _missingKeyWarned = new Set<string>();
+
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
@@ -651,6 +662,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   };
 
   const t = (key: string, params?: Record<string, string | number>): string => {
+    if (import.meta.env.DEV && !translations[key] && !_missingKeyWarned.has(key)) {
+      _missingKeyWarned.add(key);
+      console.warn(`[i18n] Missing translation key: "${key}"`);
+    }
     let str = translations[key]?.[language] ?? key;
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
