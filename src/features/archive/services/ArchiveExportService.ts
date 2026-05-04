@@ -1,13 +1,20 @@
 import { ArchiveSession } from '../types';
 
-type Lang = 'ru' | 'en';
+export interface ExportStrings {
+  date: string;
+  words: string;
+  time: string;
+  tags: string;
+  untitled: string;
+  untitledFilename: string;
+}
 
-function buildHeader(session: ArchiveSession, lang: Lang): string {
+function buildHeader(session: ArchiveSession, s: ExportStrings): string {
   const date = toJsDate(session.createdAt);
   return [
-    session.title || (lang === 'ru' ? 'Без названия' : 'Untitled'),
-    date.toLocaleDateString(lang === 'ru' ? 'ru' : 'en', { day: 'numeric', month: 'long', year: 'numeric' }),
-    `${session.wordCount} ${lang === 'ru' ? 'слов' : 'words'} · ${Math.round((session.duration || 0) / 60)} ${lang === 'ru' ? 'мин' : 'min'}`,
+    session.title || s.untitled,
+    date.toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' }),
+    `${session.wordCount} ${s.words} · ${Math.round((session.duration || 0) / 60)} ${s.time}`,
     session.tags?.length ? session.tags.map(t => '#' + t).join(' ') : '',
   ].filter(Boolean).join('\n');
 }
@@ -18,8 +25,8 @@ function toJsDate(d: Date | { toDate?: () => Date }): Date {
   return new Date();
 }
 
-function getFilename(session: ArchiveSession, ext: string, lang: Lang): string {
-  const title = (session.title || (lang === 'ru' ? 'заметка' : 'note'))
+function getFilename(session: ArchiveSession, ext: string, s: ExportStrings): string {
+  const title = (session.title || s.untitledFilename)
     .replace(/[^\w\sа-яёА-ЯЁ-]/gi, '')
     .trim()
     .slice(0, 50);
@@ -46,39 +53,39 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
-export function exportAsTxt(session: ArchiveSession, lang: Lang = 'ru'): void {
+export function exportAsTxt(session: ArchiveSession, s: ExportStrings): void {
   const content = [
-    buildHeader(session, lang),
+    buildHeader(session, s),
     '',
     '─'.repeat(40),
     '',
     session.content || '',
   ].join('\n');
-  downloadBlob(content, 'text/plain;charset=utf-8', getFilename(session, 'txt', lang));
+  downloadBlob(content, 'text/plain;charset=utf-8', getFilename(session, 'txt', s));
 }
 
-export function exportAsMd(session: ArchiveSession, lang: Lang = 'ru'): void {
+export function exportAsMd(session: ArchiveSession, s: ExportStrings): void {
   const date = toJsDate(session.createdAt);
-  const locOpts = lang === 'ru' ? 'ru' : 'en';
+  const locOpts = 'ru';
   const content = [
-    `# ${session.title || (lang === 'ru' ? 'Без названия' : 'Untitled')}`,
+    `# ${session.title || s.untitled}`,
     '',
-    `**${lang === 'ru' ? 'Дата' : 'Date'}:** ${date.toLocaleDateString(locOpts, { day: 'numeric', month: 'long', year: 'numeric' })}  `,
-    `**${lang === 'ru' ? 'Слов' : 'Words'}:** ${session.wordCount}  `,
-    `**${lang === 'ru' ? 'Время' : 'Time'}:** ${Math.round((session.duration || 0) / 60)} ${lang === 'ru' ? 'мин' : 'min'}  `,
-    session.tags?.length ? `**${lang === 'ru' ? 'Теги' : 'Tags'}:** ${session.tags.map(t => '#' + t).join(' ')}` : '',
+    `**${s.date}:** ${date.toLocaleDateString(locOpts, { day: 'numeric', month: 'long', year: 'numeric' })}  `,
+    `**${s.words}:** ${session.wordCount}  `,
+    `**${s.time}:** ${Math.round((session.duration || 0) / 60)} ${s.time}  `,
+    session.tags?.length ? `**${s.tags}:** ${session.tags.map(t => '#' + t).join(' ')}` : '',
     '',
     '---',
     '',
     session.content || '',
   ].filter(line => line !== undefined).join('\n');
-  downloadBlob(content, 'text/markdown;charset=utf-8', getFilename(session, 'md', lang));
+  downloadBlob(content, 'text/markdown;charset=utf-8', getFilename(session, 'md', s));
 }
 
-export function exportAsPdf(session: ArchiveSession, lang: Lang = 'ru'): void {
+export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
   const date = toJsDate(session.createdAt);
-  const locOpts = lang === 'ru' ? 'ru' : 'en';
-  const untitled = lang === 'ru' ? 'Без названия' : 'Untitled';
+  const locOpts = 'ru';
+  const untitled = s.untitled;
   const html = `<!DOCTYPE html>
 <html lang="${locOpts}">
 <head>
@@ -108,8 +115,8 @@ export function exportAsPdf(session: ArchiveSession, lang: Lang = 'ru'): void {
   <h1>${escapeHtml(session.title || untitled)}</h1>
   <div class="meta">
     ${date.toLocaleDateString(locOpts, { day: 'numeric', month: 'long', year: 'numeric' })} &nbsp;·&nbsp;
-    ${session.wordCount} ${lang === 'ru' ? 'слов' : 'words'} &nbsp;·&nbsp;
-    ${Math.round((session.duration || 0) / 60)} ${lang === 'ru' ? 'мин' : 'min'}
+    ${session.wordCount} ${s.words} &nbsp;·&nbsp;
+    ${Math.round((session.duration || 0) / 60)} ${s.time}
   </div>
   <hr class="divider">
   <div class="content">${escapeHtml(session.content || '')}</div>
@@ -125,14 +132,14 @@ export function exportAsPdf(session: ArchiveSession, lang: Lang = 'ru'): void {
   setTimeout(() => { win.print(); }, 500);
 }
 
-export async function exportAsDocx(session: ArchiveSession, lang: Lang = 'ru'): Promise<void> {
+export async function exportAsDocx(session: ArchiveSession, s: ExportStrings): Promise<void> {
   const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import('docx');
   const date = toJsDate(session.createdAt);
-  const locOpts = lang === 'ru' ? 'ru' : 'en';
+  const locOpts = 'ru';
   const metaText = [
     date.toLocaleDateString(locOpts, { day: 'numeric', month: 'long', year: 'numeric' }),
-    `${session.wordCount} ${lang === 'ru' ? 'слов' : 'words'}`,
-    `${Math.round((session.duration || 0) / 60)} ${lang === 'ru' ? 'мин' : 'min'}`,
+    `${session.wordCount} ${s.words}`,
+    `${Math.round((session.duration || 0) / 60)} ${s.time}`,
     session.tags?.length ? session.tags.map(t => '#' + t).join(' ') : '',
   ].filter(Boolean).join('  ·  ');
 
@@ -147,7 +154,7 @@ export async function exportAsDocx(session: ArchiveSession, lang: Lang = 'ru'): 
     sections: [{
       children: [
         new Paragraph({
-          text: session.title || (lang === 'ru' ? 'Без названия' : 'Untitled'),
+          text: session.title || s.untitled,
           heading: HeadingLevel.HEADING_1,
           spacing: { after: 120 },
         }),
@@ -169,5 +176,5 @@ export async function exportAsDocx(session: ArchiveSession, lang: Lang = 'ru'): 
   });
 
   const buffer = await Packer.toBlob(doc);
-  downloadBlob(buffer, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', getFilename(session, 'docx', lang));
+  downloadBlob(buffer, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', getFilename(session, 'docx', s));
 }

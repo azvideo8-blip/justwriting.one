@@ -23,8 +23,8 @@ interface WritingSettingsContextType {
   lifeLogTab: 'log' | 'settings';
   setLifeLogTab: (tab: 'log' | 'settings') => void;
   isZenActive: boolean;
-  status: 'idle' | 'writing' | 'paused' | 'finished';
-  setStatus: (status: 'idle' | 'writing' | 'paused' | 'finished') => void;
+  status: 'idle' | 'writing' | 'paused';
+  setStatus: (status: 'idle' | 'writing' | 'paused') => void;
   fontFamily: string;
   setFontFamily: (font: string) => void;
   fontSize: number;
@@ -53,7 +53,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     z.object({ sessionTime: z.boolean(), sessionWords: z.boolean(), totalWords: z.boolean(), wpm: z.boolean() })
   );
 
-  const [status, setStatus] = useState<'idle' | 'writing' | 'paused' | 'finished'>('idle');
+  const [status, setStatus] = useState<'idle' | 'writing' | 'paused'>('idle');
   const [isZenActive, setIsZenActive] = useState<boolean>(false);
   const zenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const guardRef = useRef<boolean>(false);

@@ -26,7 +26,7 @@ export function useDraftAutosave(
     initialWordCount?: number;
     sessionStartTime?: number;
     activeSessionId: string | null;
-    status: 'idle' | 'writing' | 'paused' | 'finished';
+    status: 'idle' | 'writing' | 'paused';
   }
 ) {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -48,9 +48,9 @@ export function useDraftAutosave(
   const forceSaveEverything = useCallback(async () => {
     if (!user) return;
     const current = draftDataRef.current;
-    if (current.status === 'idle' || current.status === 'finished') return;
+    if (current.status === 'idle') return;
     const storeStatus = useWritingStore.getState().status;
-    if (storeStatus === 'idle' || storeStatus === 'finished') return;
+    if (storeStatus === 'idle') return;
     const draft: LocalDraft = {
       userId: user.uid,
       ...current,

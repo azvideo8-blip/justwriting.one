@@ -28,7 +28,7 @@ export function useSessionPersistence(
     seconds: number;
     wpm: number;
     wordCount: number;
-    status: 'idle' | 'writing' | 'paused' | 'finished';
+    status: 'idle' | 'writing' | 'paused';
     timeGoalReached: boolean;
     wordGoalReached: boolean;
   },
@@ -40,7 +40,7 @@ export function useSessionPersistence(
     setHasDraft: (has: boolean) => void;
     resetSession: () => void;
     finishSession: () => void;
-    setStatus: (status: 'idle' | 'writing' | 'paused' | 'finished') => void;
+    setStatus: (status: 'idle' | 'writing' | 'paused') => void;
     setInitialWordCount: (count: number) => void;
     setInitialDuration: (duration: number) => void;
   }
@@ -91,7 +91,7 @@ export function useSessionPersistence(
       actions.setHasDraft(true);
       if (!useWritingStore.getState().content) {
         const currentStatus = useWritingStore.getState().status;
-        if (currentStatus === 'idle' || currentStatus === 'finished') {
+        if (currentStatus === 'idle') {
           await WritingDraftService.deleteDraft(userId);
           draftLoadedForRef.current = userId;
           return;

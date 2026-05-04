@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { User } from 'firebase/auth';
+import { AlertCircle } from 'lucide-react';
 import { Session, UserProfile } from '../../../types';
 import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
 import { calculateStreak } from '../../../core/utils/utils';
@@ -9,6 +10,7 @@ import { SessionService } from '../../writing/services/SessionService';
 import { getOrCreateGuestId } from '../../../shared/lib/localDb';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../core/i18n';
+import { reportError } from '../../../core/errors/reportError';
 import { ProfileHero } from '../components/ProfileHero';
 import { KPIStrip } from '../components/KPIStrip';
 import { StreakRibbon } from '../components/StreakRibbon';
@@ -43,6 +45,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   const [loading, setLoading] = useState(true);
   const [achResetKey, setAchResetKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [fetchKey, setFetchKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,14 +60,26 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
         let totalDuration = 0;
 
         const localDocs = await LocalDocumentService.getGuestDocuments(userId);
-        for (const doc of localDocs) {
+
+        const allVersions = await Promise.allSettled(
+          localDocs.map(doc => LocalVersionService.getVersions(doc.id))
+        );
+
+        for (let idx = 0; idx < localDocs.length; idx++) {
+          const doc = localDocs[idx];
           if (seenIds.has(doc.id)) continue;
           seenIds.add(doc.id);
           totalWords += doc.totalWords || 0;
           sessionsCount += doc.sessionsCount || 1;
           totalDuration += doc.totalDuration || 0;
-          try {
-            const versions = await LocalVersionService.getVersions(doc.id);
+
+          const result = allVersions[idx];
+          if (result.status === 'rejected') {
+            console.error('Error loading versions for doc', doc.id, result.reason);
+            continue;
+          }
+
+          const versions = result.value;
             for (const ver of versions) {
               const startedAt = ver.sessionStartedAt
                 ? ver.sessionStartedAt
@@ -105,10 +120,8 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
                 createdAt: new Date(startedAt),
               });
             }
-          } catch (verErr) {
-            console.error('Error loading versions for doc', doc.id, verErr);
-          }
-        }
+
+}
 
         if (user) {
           try {
@@ -165,9 +178,8 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
         setDocStats({ totalWords, sessionsCount, totalDuration });
       } catch (err) {
         if (cancelled) return;
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error('Profile load error:', err);
-        setError(msg);
+        reportError(err, { page: 'profile', userId: user?.uid ?? 'guest' });
+        setError(t('profile_load_error'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -176,7 +188,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
     fetchSessions();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, fetchKey]);
 
   const kpiStats = useMemo(() => {
     try {
@@ -245,9 +257,9 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
 
   if (error) {
     return (
-      <div style={{ padding: 24 }} className="text-center">
-        <p className="text-text-main/50 italic">{t('profile_load_error')}</p>
-        <button onClick={() => window.location.reload()} className="mt-4 text-sm text-text-main/40 hover:text-text-main/70 underline">
+      <div className="p-12 text-center rounded-2xl border bg-red-500/10 border-red-500/20">
+        <AlertCircle size={24} className="mx-auto mb-3 text-red-400/70" /><p className="text-red-400 text-sm mb-4">{t('profile_load_error')}</p>
+        <button onClick={() => { setError(null); setFetchKey(k => k + 1); }} className="px-4 py-2 rounded-xl text-sm font-medium text-red-400 border border-red-400/30 hover:bg-red-400/10 transition-all">
           {t('retry')}
         </button>
       </div>

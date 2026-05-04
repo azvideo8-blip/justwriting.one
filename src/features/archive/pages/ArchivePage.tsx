@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { Search, LayoutGrid, LayoutList, BookOpen, HardDrive, Cloud, Trash2, ExternalLink } from 'lucide-react';
 import { UserProfile, Document } from '../../../types';
-import { SessionCard } from '../../writing/components/SessionCard';
+import { GridNoteCard } from '../components/GridNoteCard';
 import { getSessionDate, cn } from '../../../core/utils/utils';
 import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
 import { LocalVersionService } from '../../writing/services/LocalVersionService';
@@ -118,7 +118,7 @@ function NoteRow({ session, onOpen, t, onToggleLocal, onToggleCloud, onDelete, o
   );
 }
 
-export function ArchivePage({ user, profile }: ArchiveViewProps) {
+export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
   const { t, language } = useLanguage();
   const [sessions, setSessions] = useState<ArchiveSession[]>([]);
   const [loading, setLoading] = useState(false);
@@ -364,23 +364,28 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     n >= 2 && n <= 4 ? t('archive_entry_2') :
     t('archive_entry_5');
 
+  const wordCloudSessions = useMemo(
+    () => sessions.slice(0, 50),
+    [sessions]
+  );
+
   const wordCloud = useMemo(() => {
     const stopWords = new Set(['и','в','на','с','по','что','это','как','из','он','она','они','мы','вы','я','не','но','а','то','же','бы','за','от','до','так','все','при','уже','или','об','для','его','её','их','мне','мой','моя','мои','нет','да','там','тут','где','когда','если','чтобы','который','которая','которые','которых','был','была','были','есть','быть','было']);
 
     const freq: Record<string, number> = {};
-    sessions.forEach(s => {
-      const words = (s.content || '').toLowerCase()
+    wordCloudSessions.forEach(s => {
+      const snippet = (s.content || '').slice(0, 500).toLowerCase()
         .replace(/[^а-яёa-z\s]/gi, ' ')
         .split(/\s+/)
         .filter(w => w.length > 3 && !stopWords.has(w));
-      words.forEach(w => { freq[w] = (freq[w] || 0) + 1; });
+      snippet.forEach(w => { freq[w] = (freq[w] || 0) + 1; });
     });
 
     return Object.entries(freq)
       .sort(([,a],[,b]) => b - a)
       .slice(0, 30)
       .map(([word, count]) => ({ word, count }));
-  }, [sessions]);
+  }, [wordCloudSessions]);
 
   const maxCount = Math.max(...wordCloud.map(w => w.count), 1);
 
@@ -506,6 +511,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               ) : (
                 sortedDates.map(dateKey => (
                   <div key={dateKey}>
+                    {viewMode !== 'grid' && (
                     <div className="flex items-center gap-4 py-4">
                       <h4 className="text-[15px] font-medium text-text-main whitespace-nowrap">
                         {format(new Date(dateKey), 'd MMMM yyyy', { locale: dateLocale })}
@@ -518,7 +524,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                           .toLocaleString()} {t('home_words_short')}
                       </span>
                     </div>
-
+                    )}
                     {viewMode === 'list' ? (
                       <div className="flex flex-col">
                         {groupedSessions[dateKey].map(session => (
@@ -537,19 +543,11 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                         {groupedSessions[dateKey].map(session => (
-                          <SessionCard 
+                          <GridNoteCard 
                             key={session.id} 
                             session={session} 
-                            labels={profile?.labels || []}
-                            onContinue={() => navigate('/', { state: { sessionToContinue: session } })}
+                            onClick={() => setPreviewSession(session)}
                             searchQuery={searchQuery}
-                            onDeleteSuccess={(id) => {
-                              setSessions(prev => prev.filter(s => s.id !== id));
-                              if (previewSession?.id === id) setPreviewSession(null);
-                            }}
-                            userId={user?.uid}
-                            linkedCloudId={session._linkedCloudId}
-                            hasCloudCopy={session._hasCloudCopy}
                           />
                         ))}
                       </div>

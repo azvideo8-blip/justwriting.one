@@ -104,6 +104,7 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
           return (
             <div
               key={i}
+              role="img" aria-label={`${day.date.toLocaleDateString(language)} — ${day.words} ${t('writing_words')}`}
               title={`${day.date.toLocaleDateString(language)} — ${day.words} ${t('writing_words')}`}
               style={{
                 flex: 1,

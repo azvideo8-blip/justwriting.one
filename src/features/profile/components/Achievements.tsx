@@ -153,6 +153,19 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
     }
   });
 
+  useEffect(() => {
+    if (!user) return;
+    ProfileService.loadEarnedAchievements(user.uid).then(cloudIds => {
+      if (cloudIds.length > 0) {
+        setUnlockedIds(prev => {
+          const merged = new Set([...prev, ...cloudIds]);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify([...merged]));
+          return merged;
+        });
+      }
+    }).catch(() => { /* localStorage as fallback */ });
+  }, [user]);
+
   const statsKeyRef = useRef('');
   useEffect(() => {
     const key = `${stats.totalWords}-${stats.streakDays}-${stats.sessionsCount}`;

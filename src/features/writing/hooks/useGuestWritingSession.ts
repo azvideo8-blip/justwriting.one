@@ -138,7 +138,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
     const handleVisibility = () => {
       if (document.visibilityState !== 'hidden' || !stateRef.current.content) return;
       const currentStatus = useWritingStore.getState().status;
-      if (currentStatus === 'idle' || currentStatus === 'finished') return;
+      if (currentStatus === 'idle') return;
       if (_savingRef.current) return;
       _savingRef.current = true;
       try {
@@ -197,12 +197,6 @@ export function useGuestWritingSession(): GuestSessionReturn {
       return;
     }
 
-    const currentStatus = useWritingStore.getState().status;
-    if (currentStatus === 'idle' || currentStatus === 'finished') {
-      clearDraft();
-      return;
-    }
-
     useWritingStore.setState({
       content: draft.content,
       title: draft.title ?? '',
@@ -211,7 +205,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
       wordCount: draft.wordCount ?? 0,
     });
     setHasDraft(false);
-  }, [clearDraft]);
+  }, []);
 
   const handleCancel = useCallback(async () => {
     clearDraft();

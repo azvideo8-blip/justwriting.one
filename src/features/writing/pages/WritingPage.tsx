@@ -133,6 +133,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
 
   const { openSettings } = useSettings();
   const savingRef = React.useRef(false);
+  const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
   const editorColRef = React.useRef<HTMLDivElement>(null);
   const [isCompact, setIsCompact] = useState(false);
   const { layoutMode } = useLayoutMode();
@@ -294,6 +295,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       }
 
       useWritingStore.getState().finishSession();
+      setIsFinishModalOpen(false);
 
       if (isGuest) {
         localStorage.removeItem('jw_guest_draft');
@@ -431,7 +433,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     setLifeLogVisible(true);
   }, [fetchSessions, setLifeLogVisible]);
 
-  const handleFinish = React.useCallback(() => setSessionStatus('finished'), [setSessionStatus]);
+  const handleFinish = React.useCallback(() => setIsFinishModalOpen(true), []);
 
   const LIFE_LOG_WIDTH = 380;
   const isMobile = layoutMode !== 'desktop';
@@ -456,12 +458,13 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
         onCancel={() => setShowCancelConfirm(false)}
       />
       <WritingFinishModal 
-        isOpen={sessionStatus === 'finished'}
+        isOpen={isFinishModalOpen}
         tags={tags} setTags={setTags}
         labelId={labelId} setLabelId={setLabelId}
         labels={profile?.labels || []}
         isGuest={isGuest}
         onSave={handleSave}
+        onCancel={() => setIsFinishModalOpen(false)}
       />
       <FlowPulse />
     </>
@@ -544,6 +547,21 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
               onStop={handleFinish}
             />
           </div>
+
+          {isGuest && hasDraft && sessionStatus === 'idle' && !flow.setupMode && (
+            <div className="flex items-center justify-between px-4 py-2.5 mx-4 mt-2 rounded-xl border border-text-main/10 bg-text-main/[0.04] text-sm text-text-main/60">
+              <span>{t('guest_draft_restore_prompt')}</span>
+              <div className="flex gap-2">
+                <button onClick={session.loadDraft} className="text-text-main font-medium hover:opacity-70 transition-opacity">
+                  {t('guest_draft_restore')}
+                </button>
+                <button onClick={() => { session.setHasDraft(false); localStorage.removeItem('jw_guest_draft'); }}
+                  className="text-text-main/40 hover:text-text-main/60 transition-colors">
+                  {t('guest_draft_discard')}
+                </button>
+              </div>
+            </div>
+          )}
 
           <div ref={editorColRef} style={{
             gridColumn: '2',
