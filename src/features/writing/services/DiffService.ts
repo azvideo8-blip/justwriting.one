@@ -1,4 +1,4 @@
-export function computeWordDiff(oldContent: string, newContent: string): {
+export function computeWordDelta(oldContent: string, newContent: string): {
   wordsAdded: number;
   charsAdded: number;
 } {

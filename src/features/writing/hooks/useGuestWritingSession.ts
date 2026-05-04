@@ -68,7 +68,6 @@ export function useGuestWritingSession(): GuestSessionReturn {
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const saveStatusRef = useRef(saveStatus);
-  // eslint-disable-next-line react-hooks/refs
   saveStatusRef.current = saveStatus;
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
@@ -82,8 +81,9 @@ export function useGuestWritingSession(): GuestSessionReturn {
   }, []);
 
   const stateRef = useRef({ content: base.content, title: base.title, pinnedThoughts: base.pinnedThoughts, seconds: base.seconds, wordCount: base.wordCount });
-  // eslint-disable-next-line react-hooks/refs
   stateRef.current = { content: base.content, title: base.title, pinnedThoughts: base.pinnedThoughts, seconds: base.seconds, wordCount: base.wordCount };
+
+  const _savingRef = useRef(false);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -101,6 +101,8 @@ export function useGuestWritingSession(): GuestSessionReturn {
     const interval = setInterval(() => {
       const currentStatus = useWritingStore.getState().status;
       if (currentStatus !== 'writing' && currentStatus !== 'paused') return;
+      if (_savingRef.current) return;
+      _savingRef.current = true;
       try {
         const s = stateRef.current;
         const draftData = {
@@ -125,6 +127,8 @@ export function useGuestWritingSession(): GuestSessionReturn {
         setSaveStatus('error');
         setSaveErrorKind(isQuota ? 'quota' : 'unknown');
         console.error('[GuestAutosave] Save failed:', err);
+      } finally {
+        _savingRef.current = false;
       }
     }, 30_000);
     return () => clearInterval(interval);
@@ -132,10 +136,12 @@ export function useGuestWritingSession(): GuestSessionReturn {
 
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.visibilityState === 'hidden' && stateRef.current.content) {
-        const currentStatus = useWritingStore.getState().status;
-        if (currentStatus === 'idle' || currentStatus === 'finished') return;
-        try {
+      if (document.visibilityState !== 'hidden' || !stateRef.current.content) return;
+      const currentStatus = useWritingStore.getState().status;
+      if (currentStatus === 'idle' || currentStatus === 'finished') return;
+      if (_savingRef.current) return;
+      _savingRef.current = true;
+      try {
           const s = stateRef.current;
           const draftData = {
             content: s.content,
@@ -149,8 +155,9 @@ export function useGuestWritingSession(): GuestSessionReturn {
           saveDraftToIdb(draftData);
         } catch (err) {
           console.error('[GuestDraft] Emergency save on visibility change failed:', err);
+        } finally {
+          _savingRef.current = false;
         }
-      }
     };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);

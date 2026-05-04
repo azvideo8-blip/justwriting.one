@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useRef, ReactNode } fro
 import { auth } from '../../../core/firebase/auth';
 import { db, onConnectionChange } from '../../../core/firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { onSnapshot, doc, setDoc, getDoc } from 'firebase/firestore';
 import { UserProfile } from '../../../types';
 import * as Sentry from '@sentry/react';
 
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false;
     const userDoc = doc(db, 'users', user.uid);
-    const unsubscribe = onSnapshot(userDoc, (snap) => {
+    const unsubscribe = onSnapshot(userDoc, async (snap) => {
       if (cancelled) return;
       if (snap.exists()) {
         const data = snap.data();
@@ -101,6 +101,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         if (creationAttemptedRef.current) return;
         creationAttemptedRef.current = true;
+
+        try {
+          const existingSnap = await getDoc(userDoc);
+          if (existingSnap.exists()) {
+            creationAttemptedRef.current = false;
+            return;
+          }
+        } catch {
+          creationAttemptedRef.current = false;
+          return;
+        }
+
         const initialProfile: UserProfile = {
           uid: user.uid,
           email: user.email || '',
