@@ -50,7 +50,10 @@ export const LocalVersionService = {
   },
 
   async getLatestContent(documentId: string): Promise<string> {
-    const versions = await LocalVersionService.getVersions(documentId);
-    return versions[versions.length - 1]?.content ?? '';
+    const db = await getLocalDb();
+    const all = await db.getAllFromIndex('versions', 'by-document', documentId);
+    if (all.length === 0) return '';
+    const latest = all.reduce((a, b) => a.version > b.version ? a : b);
+    return latest.content ?? '';
   },
 };
