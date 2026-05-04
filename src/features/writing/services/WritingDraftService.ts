@@ -122,6 +122,9 @@ export const WritingDraftService = {
       console.error('[DraftService] Failed to delete local draft:', err);
     }
     try {
+      localStorage.removeItem(`draft-${userId}`);
+    } catch { /* ignore */ }
+    try {
       await deleteDoc(doc(db, 'drafts', userId));
     } catch (err) {
       console.error('[DraftService] Failed to delete cloud draft:', err);
