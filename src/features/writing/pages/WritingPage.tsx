@@ -154,6 +154,10 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
   });
 
   const handleContinueDocument = React.useCallback(async (doc: LifeLogDocument) => {
+    if (sessionStatus === 'writing' || sessionStatus === 'paused') {
+      setShowCancelConfirm(true);
+      return;
+    }
     try {
       let localId = doc.localId || '';
       let content = '';
@@ -187,7 +191,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       console.error('Failed to load document:', err);
       showToast(t('error_load_failed'), 'error');
     }
-  }, [userId, setSessionStatus, setLifeLogVisible, showToast, t]);
+  }, [userId, setSessionStatus, setLifeLogVisible, showToast, t, sessionStatus, setShowCancelConfirm]);
 
   const handleContinueSession = React.useCallback(async (session: Session) => {
     try {

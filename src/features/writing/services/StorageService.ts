@@ -2,6 +2,7 @@ import { DocumentService } from './DocumentService';
 import { VersionService } from './VersionService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
+import { getLocalDb } from '../../../shared/lib/localDb';
 
 export interface StorageState {
   local: boolean;
@@ -124,6 +125,15 @@ export const StorageService = {
           });
         } catch (e) {
           console.error(`Cloud version sync failed for ${existing.linkedCloudId}:`, e);
+          try {
+            const db = await getLocalDb();
+            await db.put('syncQueue', {
+              id: `sync_${documentId}_${Date.now()}`,
+              documentId,
+              type: 'document' as const,
+              createdAt: Date.now(),
+            });
+          } catch { /* ignore */ }
         }
       }
     });

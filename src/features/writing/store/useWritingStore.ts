@@ -204,8 +204,10 @@ export const useWritingStore = create<WritingState>((set) => ({
     }
     if (state.targetTime) {
       const [hours, minutes] = state.targetTime.split(':').map(Number);
-      const target = new Date(); target.setHours(hours, minutes, 0, 0);
-      if (new Date() >= target) timeGoalReached = true;
+      const now = new Date();
+      const target = new Date(now);
+      target.setHours(hours, minutes, 0, 0);
+      if (now >= target) timeGoalReached = true;
     }
 
     // Count overtime seconds after goal reached

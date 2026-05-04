@@ -1,6 +1,21 @@
 import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getSessionDate } from '../../../core/utils/utils';
+
+function getDayLabels(locale: string): string[] {
+  const mon = new Date(2024, 0, 1);
+  const wed = new Date(2024, 0, 3);
+  const fri = new Date(2024, 0, 5);
+  return [
+    mon.toLocaleDateString(locale, { weekday: 'narrow' }),
+    '',
+    wed.toLocaleDateString(locale, { weekday: 'narrow' }),
+    '',
+    fri.toLocaleDateString(locale, { weekday: 'narrow' }),
+    '',
+    '',
+  ];
+}
 import { useLanguage } from '../../../core/i18n';
 import { Session } from '../../../types';
 
@@ -11,7 +26,7 @@ interface HeatCell {
 }
 
 export function Heatmap({ sessions }: { sessions: Session[] }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [offset, setOffset] = useState(0);
 
   const { cells, monthLabels } = useMemo(() => {
@@ -111,7 +126,7 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
 
       <div className="flex gap-4">
         <div className="flex flex-col gap-[3px] pt-5">
-          {['пн', '', 'ср', '', 'пт', '', ''].map((d, i) => (
+          {getDayLabels(language).map((d, i) => (
             <div key={i} style={{ height: 11, lineHeight: '11px' }}
               className="font-mono text-[9px] text-text-main/25">{d}</div>
           ))}
