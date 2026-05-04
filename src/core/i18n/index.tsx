@@ -384,6 +384,7 @@ export const translations: Translations = {
   profile_activity: { ru: 'Активность', en: 'Activity' },
   profile_labels: { ru: 'Бирки', en: 'Labels' },
   profile_label_name: { ru: 'Название бирки', en: 'Label Name' },
+  profile_label_remove: { ru: 'Удалить бирку', en: 'Remove label' },
   profile_back: { ru: 'Назад к профилю', en: 'Back to Profile' },
   profile_notes_with_word: { ru: 'Заметки со словом', en: 'Notes with Word' },
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, startTransition } from 'react';
 import { useLanguage } from '../../../core/i18n';
 import { Session, Achievement } from '../../../types';
 import { ACHIEVEMENTS as ACH_DATA } from '../constants/achievements';
@@ -159,7 +159,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
     if (statsKeyRef.current === key) return;
     statsKeyRef.current = key;
 
-    setTimeout(() => {
+    startTransition(() => {
       setUnlockedIds(prev => {
         const updated = new Set(prev);
         let changed = false;
@@ -184,7 +184,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
         }
         return updated;
       });
-    }, 0);
+    });
   }, [stats, sessions, user]);
 
   const totalAchievements = GROUPS.reduce((s, g) => s + g.achievements.length, 0);

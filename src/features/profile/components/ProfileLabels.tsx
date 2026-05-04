@@ -24,7 +24,7 @@ export function ProfileLabels({ user, profile }: { user: User, profile: UserProf
         {labels.map(label => (
           <div key={label.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-white" style={{ backgroundColor: label.color }}>
             {label.name}
-            <button onClick={() => removeLabel(label.id)} className="hover:opacity-70 transition-opacity"><X size={14} /></button>
+            <button onClick={() => removeLabel(label.id)} aria-label={t('profile_label_remove')} className="hover:opacity-70 transition-opacity"><X size={14} /></button>
           </div>
         ))}
       </div>
