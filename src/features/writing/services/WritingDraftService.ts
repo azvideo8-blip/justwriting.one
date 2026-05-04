@@ -28,7 +28,7 @@ export const WritingDraftService = {
     let deletedAt = 0;
     try {
       const s = sessionStorage.getItem(`draft-deleted-${userId}`);
-      if (s) { deletedAt = parseInt(s, 10); sessionStorage.removeItem(`draft-deleted-${userId}`); }
+      if (s) deletedAt = parseInt(s, 10);
     } catch { /* ignore */ }
 
     let localDraft: LocalDraft | null = null;
@@ -124,11 +124,13 @@ export const WritingDraftService = {
   },
 
   saveToFirestore: async (draft: LocalDraft) => {
+    if (!draft.userId) return;
     const docRef = doc(db, 'drafts', draft.userId);
     await setDoc(docRef, draft, { merge: true });
   },
 
   deleteDraft: async (userId: string) => {
+    if (!userId) return;
     try { sessionStorage.setItem(`draft-deleted-${userId}`, Date.now().toString()); } catch { /* ignore */ }
     try {
       const localDb = await getLocalDb();

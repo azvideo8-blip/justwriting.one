@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { DocumentService } from '../services/DocumentService';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { StorageState } from '../services/StorageService';
@@ -78,6 +78,8 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
   const [unifiedDocuments, setUnifiedDocuments] = useState<LifeLogDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const { t, language } = useLanguage();
+  const mountedRef = useRef(true);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
   const [startOfToday, setStartOfToday] = useState(() => {
     const now = new Date();
@@ -108,6 +110,7 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
             return localDocToSession(d, content);
           })
         );
+        if (!mountedRef.current) return;
         setSessions(sessionsWithContent);
         setDocuments([]);
         setUnifiedDocuments(localDocs.map(d => ({
@@ -129,6 +132,7 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
           LocalDocumentService.getGuestDocuments(userId).catch(() => []),
         ]);
 
+        if (!mountedRef.current) return;
         setSessions(sessionResult.sessions);
         setDocuments(cloudDocs);
 
@@ -178,13 +182,14 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
           });
         }
 
+        if (!mountedRef.current) return;
         unified.sort((a, b) => b.lastSessionAt - a.lastSessionAt);
         setUnifiedDocuments(unified);
       }
     } catch (e) {
       if (import.meta.env.DEV) console.error('useLifeLog fetch error:', e);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [userId, isGuest]);
 

@@ -44,6 +44,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchSessions = async () => {
       setLoading(true);
       setError(null);
@@ -158,18 +159,21 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           }
         }
 
+        if (cancelled) return;
         setSessions(allSessions);
         setDocStats({ totalWords, sessionsCount, totalDuration });
       } catch (err) {
+        if (cancelled) return;
         const msg = err instanceof Error ? err.message : String(err);
         console.error('Profile load error:', err);
         setError(msg);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchSessions();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 

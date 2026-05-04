@@ -181,7 +181,8 @@ export const useWritingStore = create<WritingState>((set) => ({
   }),
 
   finishSession: () => set({
-    content: '', title: '',
+    content: '', title: '', pinnedThoughts: [],
+    wordCount: 0,
     seconds: 0, status: 'idle', wpm: 0, wordSnapshots: [],
     lastWordCount: 0, timeGoalReached: false, wordGoalReached: false,
     overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,

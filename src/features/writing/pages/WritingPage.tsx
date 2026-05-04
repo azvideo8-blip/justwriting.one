@@ -277,7 +277,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
         goalWords: state.wordGoal > 0 ? state.wordGoal : undefined,
         goalTime: state.timerDuration > 0 ? state.timerDuration : undefined,
         goalReached: state.wordGoal > 0 && state.wordCount >= state.wordGoal,
-        sessionStartedAt: new Date(Date.now() - sessionSeconds * 1000),
+        sessionStartedAt: new Date(state.sessionStartTime ?? Date.now()),
       };
 
       const existingDocId = state.savedDocumentId;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { format } from 'date-fns';
@@ -127,6 +127,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const navigate = useNavigate();
   const [previewSession, setPreviewSession] = useState<ArchiveSession | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<ArchiveSession | null>(null);
+  const mountedRef = useRef(true);
 
   const userId = user?.uid ?? getOrCreateGuestId();
 
@@ -147,7 +148,6 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     setLoading(true);
     setError(null);
     setCloudLoadFailed(false);
-    const controller = new AbortController();
 
     try {
       const allSessions: ArchiveSession[] = [];
@@ -251,15 +251,21 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
         return toMs(b.createdAt) - toMs(a.createdAt);
       });
 
+      if (!mountedRef.current) return;
       setSessions(allSessions);
     } catch (err) {
-      if (controller.signal.aborted) return;
+      if (!mountedRef.current) return;
       console.error('Archive load error:', err);
       setError(t('archive_load_error'));
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   };
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     fetchSessions();

@@ -51,7 +51,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
             <h2 className="text-2xl font-bold text-text-main">{translations['error_generic'][lang]}</h2>
             <button onClick={this.toggleStack} className="text-[11px] text-text-main/30 hover:text-text-main/60 transition-colors">{this.state.showStack ? (lang === 'ru' ? 'Скрыть детали' : 'Hide details') : (lang === 'ru' ? 'Показать детали' : 'Show details')}</button>
-            {this.state.showStack && <pre className="text-left text-red-400 text-[12px] whitespace-pre-wrap break-all max-h-40 overflow-auto bg-black/30 p-3 rounded-lg">{this.state.errorMessage}\n\n{this.state.errorStack?.slice(0, 500)}</pre>}
+            {this.state.showStack && import.meta.env.DEV && <pre className="text-left text-red-400 text-[12px] whitespace-pre-wrap break-all max-h-40 overflow-auto bg-black/30 p-3 rounded-lg">{this.state.errorMessage}\n\n{this.state.errorStack?.slice(0, 500)}</pre>}
             <div className="space-y-3">
               <button
                 onClick={this.handleRetry}

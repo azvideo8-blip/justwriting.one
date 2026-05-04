@@ -21,7 +21,7 @@ export function ProtectedRoute({ children, requireAdmin }: { children: React.Rea
       setIsAdmin(token.claims.admin === true || profile?.role === 'admin');
       setTimeout(() => setCheckingAdmin(false), 0);
     }).catch(() => {
-      setIsAdmin(profile?.role === 'admin');
+      setIsAdmin(false);
       setTimeout(() => setCheckingAdmin(false), 0);
     });
   }, [requireAdmin, user, profile]);

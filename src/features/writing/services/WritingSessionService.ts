@@ -50,6 +50,7 @@ export const WritingSessionService = {
   },
   
   syncPendingSessions: async (userId: string) => {
+    if (!userId) return;
     // Migration: Move legacy localStorage sessions to IndexedDB
     const legacyPending = localStorage.getItem(`pending_sessions_${userId}`);
     if (legacyPending) {
