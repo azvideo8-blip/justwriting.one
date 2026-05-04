@@ -259,7 +259,8 @@ export const StorageService = {
         throw e;
       }
 
-      return cloudId!;
+      if (!cloudId) throw new Error('Failed to create cloud document');
+      return cloudId;
     } finally {
       _cloudSyncInProgress.delete(localDocumentId);
     }

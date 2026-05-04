@@ -177,7 +177,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
         accumulatedDuration: doc.totalDuration,
         wpm: 0,
         wordSnapshots: [],
-        lastWordCount: 0,
+        lastWordCount: doc.totalWords,
       });
 
       useWritingStore.getState().setSessionStart();
