@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { X, ArrowRight, Download, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
-import { ArchiveSession } from '../pages/ArchivePage';
+import { ArchiveSession } from '../types';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx } from '../services/ArchiveExportService';

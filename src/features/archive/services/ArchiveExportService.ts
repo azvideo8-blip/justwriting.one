@@ -1,5 +1,5 @@
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
-import { ArchiveSession } from '../pages/ArchivePage';
+import { ArchiveSession } from '../types';
 
 type Lang = 'ru' | 'en';
 

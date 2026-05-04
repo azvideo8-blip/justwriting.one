@@ -4,7 +4,7 @@ import { User } from 'firebase/auth';
 import { format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { Search, LayoutGrid, LayoutList, BookOpen, HardDrive, Cloud, Trash2, ExternalLink } from 'lucide-react';
-import { Session, UserProfile, Document } from '../../../types';
+import { UserProfile, Document } from '../../../types';
 import { SessionCard } from '../../writing/components/SessionCard';
 import { getSessionDate, cn } from '../../../core/utils/utils';
 import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
@@ -26,11 +26,7 @@ import { EmptyState } from '../../../shared/components/EmptyState';
 import { DocumentPreview } from '../components/DocumentPreview';
 import { ArchiveStats, calculateStreak } from '../components/ArchiveStats';
 import { InlineTags } from '../components/InlineTags';
-
-interface ArchiveSession extends Session {
-  _linkedCloudId?: string;
-  _hasCloudCopy?: boolean;
-}
+import { ArchiveSession } from '../types';
 
 interface ArchiveViewProps {
   user: User | null;
@@ -121,8 +117,6 @@ function NoteRow({ session, onOpen, t, onToggleLocal, onToggleCloud, onDelete, o
     </div>
   );
 }
-
-export type { ArchiveSession };
 
 export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const { t, language } = useLanguage();

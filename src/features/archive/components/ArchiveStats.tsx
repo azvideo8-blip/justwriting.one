@@ -1,6 +1,6 @@
 import { useLanguage } from '../../../core/i18n';
 import { cn, calculateStreak as calculateStreakFromUtils } from '../../../core/utils/utils';
-import { ArchiveSession } from '../pages/ArchivePage';
+import { ArchiveSession } from '../types';
 
 export function ArchiveStats({ sessions, streakDays }: { sessions: ArchiveSession[]; streakDays: number }) {
   const { t } = useLanguage();

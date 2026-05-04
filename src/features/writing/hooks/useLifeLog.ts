@@ -4,7 +4,7 @@ import { LocalDocumentService } from '../services/LocalDocumentService';
 import { StorageState } from '../services/StorageService';
 import { Session, Document } from '../../../types';
 import { SessionService } from '../services/SessionService';
-import { LocalDocument, LocalVersion, getLocalDb } from '../../../shared/lib/localDb';
+import { LocalDocument, getLocalDb } from '../../../shared/lib/localDb';
 import { parseFirestoreDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 
@@ -62,9 +62,11 @@ function localDocToSession(doc: LocalDocument, content: string): Session {
 async function getLatestContentForDoc(docId: string): Promise<string> {
   try {
     const db = await getLocalDb();
-    const versions = await db.getAllFromIndex('versions', 'by-document', docId);
-    versions.sort((a: LocalVersion, b: LocalVersion) => a.version - b.version);
-    return versions[versions.length - 1]?.content ?? '';
+    const tx = db.transaction('versions', 'readonly');
+    const index = tx.store.index('by-document');
+    let cursor = await index.openCursor(docId, 'prev');
+    if (cursor) return cursor.value.content;
+    return '';
   } catch {
     return '';
   }

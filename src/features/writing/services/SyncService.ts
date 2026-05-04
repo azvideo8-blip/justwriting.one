@@ -38,18 +38,18 @@ export const SyncService = {
       if (pending.length === 0) return;
 
       const documentIds = [...new Set(pending.map(p => p.documentId))];
-      const syncedIds: string[] = [];
 
-      for (const localId of documentIds) {
-        try {
-          const cloudId = await StorageService.addCloudCopy(userId, localId);
-          if (!cloudId) continue;
-          await LocalDocumentService.updateLinkedCloudId(localId, cloudId);
-          const itemsForDoc = pending.filter(p => p.documentId === localId);
-          syncedIds.push(...itemsForDoc.map(p => p.id));
-        } catch (e) {
-          console.error(`Sync failed for ${localId}:`, e);
-        }
+      const results = await Promise.allSettled(documentIds.map(async (localId) => {
+        const cloudId = await StorageService.addCloudCopy(userId, localId);
+        if (!cloudId) return [];
+        await LocalDocumentService.updateLinkedCloudId(localId, cloudId);
+        return pending.filter(p => p.documentId === localId).map(p => p.id);
+      }));
+
+      const syncedIds: string[] = [];
+      for (const r of results) {
+        if (r.status === 'fulfilled') syncedIds.push(...r.value);
+        else console.error(`Sync failed:`, r.reason);
       }
 
       if (syncedIds.length > 0) {
@@ -68,19 +68,17 @@ export const SyncService = {
     const localDocs = await LocalDocumentService.getGuestDocuments(userId);
     const unlinked = localDocs.filter(d => !d.linkedCloudId);
 
+    const results = await Promise.allSettled(unlinked.map(async (doc) => {
+      const cloudId = await StorageService.addCloudCopy(userId, doc.id);
+      if (!cloudId) throw new Error('no cloudId');
+      await LocalDocumentService.updateLinkedCloudId(doc.id, cloudId);
+    }));
+
     let synced = 0;
     let failed = 0;
-
-    for (const doc of unlinked) {
-      try {
-        const cloudId = await StorageService.addCloudCopy(userId, doc.id);
-        if (!cloudId) { failed++; continue; }
-        await LocalDocumentService.updateLinkedCloudId(doc.id, cloudId);
-        synced++;
-      } catch (e) {
-        console.error(`Sync failed for ${doc.id}:`, e);
-        failed++;
-      }
+    for (const r of results) {
+      if (r.status === 'fulfilled') synced++;
+      else failed++;
     }
 
     return { synced, failed };
