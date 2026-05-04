@@ -289,18 +289,29 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
         useWritingStore.getState().setSavedDocumentId(result.localId);
       }
 
-      try {
-        if (isGuest) {
-          localStorage.removeItem('jw_guest_draft');
-        } else {
-          await WritingDraftService.deleteDraft(userId);
+      useWritingStore.getState().finishSession();
+
+      if (isGuest) {
+        localStorage.removeItem('jw_guest_draft');
+        try {
+          const { getLocalDb } = await import('../../../shared/lib/localDb');
+          const db = await getLocalDb();
+          if (db.objectStoreNames.contains('drafts')) {
+            await db.delete('drafts', 'guest_draft');
+          }
+        } catch (idbErr) {
+          console.warn('[handleSave] Failed to delete guest IDB draft:', idbErr);
         }
-      } catch { /* ignore */ }
+      } else {
+        try {
+          await WritingDraftService.deleteDraft(userId);
+        } catch (delErr) {
+          console.warn('[handleSave] Failed to delete draft:', delErr);
+        }
+      }
 
       await refreshDocuments();
       await refreshLifeLog();
-
-      useWritingStore.getState().finishSession();
     } catch (e) {
       console.error('Save failed:', e);
       throw e;
@@ -394,11 +405,21 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
       setShowCancelConfirm(true);
       return;
     }
-    if (!isGuest) {
-      await WritingDraftService.deleteDraft(userId);
-    }
     useWritingStore.getState().resetSession();
     useWritingStore.setState({ title: '', content: '' });
+
+    if (isGuest) {
+      localStorage.removeItem('jw_guest_draft');
+      try {
+        const { getLocalDb } = await import('../../../shared/lib/localDb');
+        const db = await getLocalDb();
+        if (db.objectStoreNames.contains('drafts')) {
+          await db.delete('drafts', 'guest_draft');
+        }
+      } catch { /* ignore */ }
+    } else {
+      await WritingDraftService.deleteDraft(userId);
+    }
   }, [wordCount, sessionStatus, setShowCancelConfirm, isGuest, userId]);
 
   const handleOpen = React.useCallback(async () => {
