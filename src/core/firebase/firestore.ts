@@ -8,7 +8,7 @@ import {
 import { app } from './client';
 
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
+  ...(import.meta.env.DEV && { experimentalForceLongPolling: true }),
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 }, import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
 

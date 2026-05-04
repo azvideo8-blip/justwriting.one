@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { HardDrive } from 'lucide-react';
-import { LoginPage } from '../pages/LoginPage';
+import React from 'react';
+const LoginPage = React.lazy(() => import('../pages/LoginPage').then(m => ({ default: m.LoginPage })));
 import { useLoginModal } from '../contexts/LoginModalContext';
 import { useLanguage } from '../../../core/i18n';
 import { useToast } from '../../../shared/components/Toast';
@@ -86,7 +87,9 @@ export function LoginModalOverlay({ open }: { open: boolean }) {
               className="w-full max-w-sm"
               onClick={e => e.stopPropagation()}
             >
-              <LoginPage isModal onSuccess={handleAuthSuccess} onClose={closeLoginModal} />
+              <React.Suspense fallback={<div className="h-48" />}>
+                <LoginPage isModal onSuccess={handleAuthSuccess} onClose={closeLoginModal} />
+              </React.Suspense>
             </motion.div>
           </motion.div>
         )}

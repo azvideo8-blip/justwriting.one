@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useWritingStore } from '../store/useWritingStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useLanguage } from '../../../core/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
@@ -19,18 +20,22 @@ export function MobileWriteScreen({
   onPlay, onPause, onStop, saveStatus
 }: MobileWriteScreenProps) {
   const { t } = useLanguage();
-  const status = useWritingStore(s => s.status);
-  const content = useWritingStore(s => s.content);
-  const setContent = useWritingStore(s => s.setContent);
-  const title = useWritingStore(s => s.title);
-  const setTitle = useWritingStore(s => s.setTitle);
-  const wordCount = useWritingStore(s => s.wordCount);
-  const seconds = useWritingStore(s => s.seconds);
-  const wpm = useWritingStore(s => s.wpm);
-  const wordGoal = useWritingStore(s => s.wordGoal);
-  const timerDuration = useWritingStore(s => s.timerDuration);
-  const sessionStartWords = useWritingStore(s => s.sessionStartWords);
-  const sessionStartSeconds = useWritingStore(s => s.sessionStartSeconds);
+  const { status, content, setContent, title, setTitle, wordCount, seconds, wpm, wordGoal, timerDuration, sessionStartWords, sessionStartSeconds } = useWritingStore(
+    useShallow(s => ({
+      status: s.status,
+      content: s.content,
+      setContent: s.setContent,
+      title: s.title,
+      setTitle: s.setTitle,
+      wordCount: s.wordCount,
+      seconds: s.seconds,
+      wpm: s.wpm,
+      wordGoal: s.wordGoal,
+      timerDuration: s.timerDuration,
+      sessionStartWords: s.sessionStartWords,
+      sessionStartSeconds: s.sessionStartSeconds,
+    }))
+  );
   const { fontFamily, fontSize, isZenActive, zenModeEnabled } = useWritingSettings();
 
   const sessionWords = wordCount - sessionStartWords;
@@ -50,14 +55,25 @@ export function MobileWriteScreen({
     }
   };
 
-  const [intensity, setIntensity] = useState(0);
+  const intensityRef = useRef(0);
+  const glowBarRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    const decay = setInterval(() => setIntensity(i => Math.max(0, i - 0.05)), 200);
+    const decay = setInterval(() => {
+      intensityRef.current = Math.max(0, intensityRef.current - 0.05);
+      const node = glowBarRef.current;
+      if (node) {
+        node.style.opacity = String(status === 'writing' ? 0.3 + intensityRef.current * 0.55 : 0);
+        node.style.marginLeft = `${20 + intensityRef.current * 20}%`;
+      }
+    }, 200);
     return () => clearInterval(decay);
-  }, []);
+  }, [status]);
 
   const handleType = () => {
-    if (isRunning) setIntensity(i => Math.min(1, i + 0.2));
+    if (status === 'writing') {
+      intensityRef.current = Math.min(1, intensityRef.current + 0.2);
+    }
   };
 
   const [focusMode, setFocusMode] = useState(false);
@@ -204,15 +220,18 @@ export function MobileWriteScreen({
           pointerEvents: 'none',
           overflow: 'hidden',
         }}>
-          <div style={{
-            height: '100%',
-            background: 'linear-gradient(90deg, transparent, var(--flow-pulse-color, oklch(0.72 0.13 155)) 50%, transparent)',
-            width: '60%',
-            marginLeft: `${20 + intensity * 20}%`,
-            opacity: isRunning ? 0.3 + intensity * 0.55 : 0,
-            transition: 'opacity 0.6s, margin-left 0.6s cubic-bezier(.4,.2,.2,1)',
-            filter: 'blur(1px)',
-          }} />
+          <div
+            ref={glowBarRef}
+            style={{
+              height: '100%',
+              background: 'linear-gradient(90deg, transparent, var(--flow-pulse-color, oklch(0.72 0.13 155)) 50%, transparent)',
+              width: '60%',
+              marginLeft: '20%',
+              opacity: isRunning ? 0.3 : 0,
+              transition: 'opacity 0.6s, margin-left 0.6s cubic-bezier(.4,.2,.2,1)',
+              filter: 'blur(1px)',
+            }}
+          />
         </div>
       </div>
 
