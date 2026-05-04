@@ -42,7 +42,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
-      const lang = (localStorage.getItem('app_language') as 'ru' | 'en') || 'ru';
+      const lang = (() => { try { return (localStorage.getItem('app_language') as 'ru' | 'en') || 'ru'; } catch { return 'ru'; } })();
       return (
         <div key={this.state.errorKey} className="min-h-screen flex items-center justify-center bg-surface-base p-6">
           <div className="max-w-md w-full bg-surface-card p-8 rounded-3xl border border-border-subtle shadow-xl text-center space-y-6">
