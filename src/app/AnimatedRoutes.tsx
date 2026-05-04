@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { useWritingSettings } from '../features/writing/contexts/WritingSettingsContext';
@@ -13,16 +13,21 @@ import { BottomNav } from '../features/navigation/components/BottomNav';
 import { ConnectionStatusBanner } from '../features/writing/components/ConnectionStatusBanner';
 import { ThemeBackground } from '../core/theme/ThemeBackground';
 
-import { WritingPage } from '../features/writing/pages/WritingPage';
-import { MobileLogPage } from '../features/writing/pages/MobileLogPage';
-import { MobileMePage } from '../features/writing/pages/MobileMePage';
-import { ProfilePage } from '../features/profile/pages/ProfilePage';
-import { ArchivePage } from '../features/archive/pages/ArchivePage';
-import { AdminPage } from '../features/admin/pages/AdminPage';
-import { LoginPage } from '../features/auth/pages/LoginPage';
-import { AboutPage } from '../features/navigation/pages/AboutPage';
 import { ProtectedRoute, GuestRoute } from './ProtectedRoute';
 import { LoginModalOverlay } from '../features/auth/components/LoginModalOverlay';
+
+const WritingPage = React.lazy(() => import('../features/writing/pages/WritingPage').then(m => ({ default: m.WritingPage })));
+const MobileLogPage = React.lazy(() => import('../features/writing/pages/MobileLogPage').then(m => ({ default: m.MobileLogPage })));
+const MobileMePage = React.lazy(() => import('../features/writing/pages/MobileMePage').then(m => ({ default: m.MobileMePage })));
+const ArchivePage = React.lazy(() => import('../features/archive/pages/ArchivePage').then(m => ({ default: m.ArchivePage })));
+const ProfilePage = React.lazy(() => import('../features/profile/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const AdminPage = React.lazy(() => import('../features/admin/pages/AdminPage').then(m => ({ default: m.AdminPage })));
+const LoginPage = React.lazy(() => import('../features/auth/pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const AboutPage = React.lazy(() => import('../features/navigation/pages/AboutPage').then(m => ({ default: m.AboutPage })));
+
+function PageLoader() {
+  return <div className="flex items-center justify-center h-full"><div className="text-text-main/30 text-sm">...</div></div>;
+}
 
 export function AnimatedRoutes() {
   const location = useLocation();
@@ -77,7 +82,8 @@ export function AnimatedRoutes() {
         layoutMode === 'desktop' && !hideSidebar && "pl-20 pr-4",
         layoutMode !== 'desktop' && !hideSidebar && "pb-20 px-4"
       )}>
-        <Routes location={location}>
+        <Suspense fallback={<PageLoader />}>
+          <Routes location={location}>
             <Route path="/" element={<WritingPage user={user} profile={profile} />} />
             <Route path="/log" element={<MobileLogPage />} />
             <Route path="/me" element={<MobileMePage />} />
@@ -88,6 +94,7 @@ export function AnimatedRoutes() {
             <Route path="/about" element={<AboutPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+        </Suspense>
       </main>
 
       {layoutMode === 'mobile' && <div className="h-28" />}

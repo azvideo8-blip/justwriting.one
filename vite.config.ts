@@ -8,13 +8,6 @@ export default defineConfig(() => {
     plugins: [
       react(),
       tailwindcss(),
-      // VitePWA disabled temporarily to fix connection issues in iframe
-      /*
-      VitePWA({
-        registerType: 'autoUpdate',
-        ...
-      })
-      */
     ],
     define: {
     },
@@ -23,6 +16,9 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, './src'),
       },
     },
+    optimizeDeps: {
+      include: ['lucide-react'],
+    },
     server: {
       hmr: process.env.DISABLE_HMR !== 'true'
         ? { clientPort: 443, protocol: 'wss' }
@@ -30,6 +26,17 @@ export default defineConfig(() => {
     },
     build: {
       sourcemap: false,
+      chunkSizeWarningLimit: 600,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+            'vendor-motion': ['motion/react'],
+            'vendor-charts': ['recharts'],
+            'vendor-docx': ['docx'],
+          },
+        },
+      },
     },
     test: {
       globals: true,

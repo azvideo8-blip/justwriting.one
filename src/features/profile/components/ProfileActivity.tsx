@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { SessionChart } from '../../writing/components/SessionChart';
 import { Session } from '../../../types';
 import { useLanguage } from '../../../core/i18n';
+
+const SessionChart = React.lazy(() => import('../../writing/components/SessionChart').then(m => ({ default: m.SessionChart })));
 
 interface ProfileActivityProps {
   sessions: Session[];
@@ -47,7 +48,9 @@ export function ProfileActivity({ sessions, startDate, endDate, onStartDateChang
           </div>
         </div>
       </div>
-      <SessionChart sessions={sessions} startDate={startDate} endDate={endDate} />
+      <Suspense fallback={<div className="h-40" />}>
+        <SessionChart sessions={sessions} startDate={startDate} endDate={endDate} />
+      </Suspense>
     </div>
   );
 }

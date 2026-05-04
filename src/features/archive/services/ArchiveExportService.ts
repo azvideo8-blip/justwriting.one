@@ -1,4 +1,3 @@
-import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
 import { ArchiveSession } from '../types';
 
 type Lang = 'ru' | 'en';
@@ -127,6 +126,7 @@ export function exportAsPdf(session: ArchiveSession, lang: Lang = 'ru'): void {
 }
 
 export async function exportAsDocx(session: ArchiveSession, lang: Lang = 'ru'): Promise<void> {
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import('docx');
   const date = toJsDate(session.createdAt);
   const locOpts = lang === 'ru' ? 'ru' : 'en';
   const metaText = [
