@@ -131,10 +131,10 @@ export function useSessionPersistence(
       wordCount: state.wordCount,
       charCount: state.content.length,
       wpm: state.wpm,
-      tags: sessionState.tags,
+      tags: state.tags,
       updatedAt: Timestamp.now(),
       sessionType: state.sessionType,
-      sessionStartTime: sessionState.sessionStartTime,
+sessionStartTime: state.sessionStartTime,
       goalReached: state.sessionType === 'timer' ? state.timeGoalReached : (state.sessionType === 'words' ? state.wordGoalReached : true)
     };
 

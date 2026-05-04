@@ -1,6 +1,5 @@
 import { Type, Flame, BookOpen, Clock } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
-import React from 'react';
 
 interface KPIStats {
   totalWords: number;
@@ -18,7 +17,7 @@ export function KPIStrip({ stats }: { stats: KPIStats }) {
     { value: stats.totalWords.toLocaleString(), label: t('archive_stat_words'), icon: <Type size={13} /> },
     { value: stats.streakDays, label: t('archive_stat_streak'), icon: <Flame size={13} />, accent: true },
     { value: stats.sessionsCount, label: t('archive_stat_docs'), icon: <BookOpen size={13} /> },
-    { value: `${stats.avgSessionMins} мин`, label: t('profile_avg_session'), icon: <Clock size={13} /> },
+    { value: `${stats.avgSessionMins} ${t('goal_time_short')}`, label: t('profile_avg_session'), icon: <Clock size={13} /> },
     { value: stats.typicalHour, label: t('profile_typical_hour'), icon: <Clock size={13} />, dim: true },
     { value: stats.wordsPerDay, label: t('profile_words_per_day'), icon: <Type size={13} /> },
   ];
