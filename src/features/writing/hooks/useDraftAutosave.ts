@@ -48,8 +48,9 @@ export function useDraftAutosave(
   const forceSaveEverything = useCallback(async () => {
     if (!user) return;
     const current = draftDataRef.current;
-    if (current.status === 'idle') return;
-    if (useWritingStore.getState().status === 'idle') return;
+    if (current.status === 'idle' || current.status === 'finished') return;
+    const storeStatus = useWritingStore.getState().status;
+    if (storeStatus === 'idle' || storeStatus === 'finished') return;
     const draft: LocalDraft = {
       userId: user.uid,
       ...current,
@@ -131,8 +132,7 @@ export function useDraftAutosave(
     if ((draftData.status === 'writing' || draftData.status === 'paused') && user) {
       const timeout = setTimeout(async () => {
         if (useWritingStore.getState().status !== 'writing' &&
-            useWritingStore.getState().status !== 'paused') return;
-        const draft: LocalDraft = {
+            useWritingStore.getState().status !== 'paused') return;        const draft: LocalDraft = {
           userId: user.uid,
           ...draftDataRef.current,
           sessionStartTime: draftDataRef.current.sessionStartTime ?? null,
