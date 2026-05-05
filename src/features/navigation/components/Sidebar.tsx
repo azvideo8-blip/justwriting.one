@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
+import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 
 interface SidebarProps {
   isAdmin: boolean;
@@ -51,9 +52,7 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 mb-8 h-10 overflow-hidden">
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-lg bg-text-main text-surface-base shrink-0">
-          J
-        </div>
+        <JustWritingLogo size={32} variant="dark" />
         <span className={cn(
           "font-bold text-lg text-text-main whitespace-nowrap overflow-hidden transition-all duration-300",
           expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
