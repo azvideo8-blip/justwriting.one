@@ -54,7 +54,7 @@ function Sparkline({ groups }: { groups: { date: Date; sessions: Session[] }[] }
             height: Math.max(3, bar.pct * 32),
             borderRadius: 3,
             background: bar.date.toDateString() === today
-              ? 'oklch(0.72 0.13 155)'
+              ? 'var(--brand-primary)'
               : bar.words > 0
                 ? 'rgba(255,255,255,0.15)'
                 : 'rgba(255,255,255,0.04)',
@@ -104,7 +104,7 @@ function StreakRow({ groups }: { groups: { date: Date; sessions: Session[] }[] }
             borderRadius: 8,
             background: day.hasSession
               ? day.isToday
-                ? 'oklch(0.72 0.13 155)'
+                ? 'var(--brand-primary)'
                 : 'rgba(255,255,255,0.10)'
               : 'rgba(255,255,255,0.03)',
             border: day.isToday && !day.hasSession

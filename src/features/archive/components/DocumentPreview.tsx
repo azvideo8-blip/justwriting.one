@@ -118,7 +118,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange }: 
         zIndex: 50,
         display: 'flex',
         flexDirection: 'column',
-        background: '#0b0d0c',
+        background: 'var(--bg-base)',
         borderLeft: '1px solid rgba(255,255,255,0.08)',
       }}
     >
@@ -203,7 +203,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange }: 
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -4, scale: 0.97 }}
                 className="absolute bottom-full mb-2 right-0 border border-border-subtle rounded-xl shadow-xl overflow-hidden w-48 z-50"
-                style={{ background: '#111413' }}
+                style={{ background: 'var(--bg-elevated)' }}
               >
                 {exportFormats.map(fmt => (
                   <button
