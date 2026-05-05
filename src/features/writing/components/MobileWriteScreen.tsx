@@ -135,7 +135,7 @@ export function MobileWriteScreen({
                 width: 6, height: 6,
                 borderRadius: '50%',
                 background: isRunning
-                  ? 'oklch(0.72 0.13 155)'
+                  ? 'var(--brand-primary)'
                    : isPaused ? '#f59e0b' : 'var(--text-subtle)',
                 boxShadow: isRunning ? '0 0 6px oklch(0.72 0.13 155 / 0.6)' : 'none',
               }} />
@@ -208,7 +208,7 @@ export function MobileWriteScreen({
             fontSize: fontSize || 18,
             lineHeight: 1.7,
             color: 'var(--text-main)',
-            caretColor: 'oklch(0.72 0.13 155)',
+            caretColor: 'var(--brand-primary)',
             WebkitOverflowScrolling: 'touch',
           }}
         />
@@ -224,7 +224,7 @@ export function MobileWriteScreen({
             ref={glowBarRef}
             style={{
               height: '100%',
-              background: 'linear-gradient(90deg, transparent, var(--flow-pulse-color, oklch(0.72 0.13 155)) 50%, transparent)',
+              background: 'linear-gradient(90deg, transparent, var(--flow-pulse-color, var(--brand-primary)) 50%, transparent)',
               width: '60%',
               marginLeft: '20%',
               opacity: isRunning ? 0.3 : 0,
@@ -271,7 +271,7 @@ export function MobileWriteScreen({
                     <div style={{
                       height: '100%',
                       borderRadius: 2,
-                      background: 'oklch(0.72 0.13 155)',
+                      background: 'var(--brand-primary)',
                       width: `${Math.min(100, Math.round(sessionWords / wordGoal * 100))}%`,
                       transition: 'width 0.3s',
                     }} />
@@ -325,9 +325,9 @@ export function MobileWriteScreen({
                 style={{
                   width: 40, height: 40,
                   borderRadius: 12,
-                  border: `1px solid ${isRunning ? 'var(--border-light)' : 'var(--flow-pulse-color, oklch(0.72 0.13 155) / 0.4)'}`,
-                  background: isRunning ? 'var(--surface-card)' : 'var(--flow-pulse-color, oklch(0.72 0.13 155) / 0.12)',
-                  color: isRunning ? 'var(--text-main)' : 'var(--flow-pulse-color, oklch(0.72 0.13 155))',
+                  border: `1px solid ${isRunning ? 'var(--border-light)' : 'var(--flow-pulse-color, var(--brand-primary) / 0.4)'}`,
+                  background: isRunning ? 'var(--surface-card)' : 'var(--flow-pulse-color, var(--brand-primary) / 0.12)',
+                  color: isRunning ? 'var(--text-main)' : 'var(--flow-pulse-color, var(--brand-primary))',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer',
                   opacity: isRunning ? 0.7 : 1,

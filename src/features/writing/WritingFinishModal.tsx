@@ -178,7 +178,7 @@ export function WritingFinishModal({
                   "px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
                   tags && tags.includes(tag)
                     ? "bg-text-main text-surface-base"
-                    : "bg-surface-base text-text-main/70 hover:bg-white/10"
+                    : "bg-surface-base text-text-main/70 hover:bg-text-main/10"
                 )}
               >
                 #{tag}
@@ -204,15 +204,15 @@ export function WritingFinishModal({
         <div className="space-y-3">
           <div className="text-[11px] font-bold uppercase tracking-widest text-text-main/50">{t('session_export')}</div>
           <div className="grid grid-cols-3 gap-3">
-            <button onClick={exportPDF} className="flex flex-col items-center gap-2 p-3 transition-all rounded-2xl bg-surface-base hover:bg-white/10 border border-border-subtle">
+            <button onClick={exportPDF} className="flex flex-col items-center gap-2 p-3 transition-all rounded-2xl bg-surface-base hover:bg-text-main/10 border border-border-subtle">
               <FileText size={18} className="text-text-main/70" />
               <span className="text-[10px] font-bold text-text-main/70">PDF</span>
             </button>
-            <button onClick={exportMarkdown} className="flex flex-col items-center gap-2 p-3 transition-all rounded-2xl bg-surface-base hover:bg-white/10 border border-border-subtle">
+            <button onClick={exportMarkdown} className="flex flex-col items-center gap-2 p-3 transition-all rounded-2xl bg-surface-base hover:bg-text-main/10 border border-border-subtle">
               <FileText size={18} className="text-text-main/70" />
               <span className="text-[10px] font-bold text-text-main/70">MD</span>
             </button>
-            <button onClick={exportDocx} className="flex flex-col items-center gap-2 p-3 transition-all rounded-2xl bg-surface-base hover:bg-white/10 border border-border-subtle">
+            <button onClick={exportDocx} className="flex flex-col items-center gap-2 p-3 transition-all rounded-2xl bg-surface-base hover:bg-text-main/10 border border-border-subtle">
               <Download size={18} className="text-text-main/70" />
               <span className="text-[10px] font-bold text-text-main/70">DOCX</span>
             </button>
@@ -230,7 +230,7 @@ export function WritingFinishModal({
             onClick={handleSaveClick}
             disabled={isSaving}
             className={cn(
-              "flex-1 px-6 py-4 font-bold transition-all bg-text-main text-surface-base rounded-2xl shadow-[0_0_20px_rgba(255,255,255,0.2)]",
+              "flex-1 px-6 py-4 font-bold transition-all bg-text-main text-surface-base rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30",
               isSaving ? "opacity-60 cursor-not-allowed" : "hover:brightness-110 will-change-transform"
             )}
           >
