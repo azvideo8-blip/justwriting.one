@@ -54,7 +54,7 @@ export const GridNoteCard: React.FC<GridNoteCardProps> = React.memo(({
   return (
     <motion.div
       onClick={onClick}
-      className="cursor-pointer rounded-2xl p-5 bg-surface-card border border-border-subtle
+      className="cursor-pointer rounded-2xl p-5 bg-surface-card border border-border-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text-main/30
                  hover:border-text-main/20 hover:bg-white/[0.07] transition-colors
                  flex flex-col"
     >
