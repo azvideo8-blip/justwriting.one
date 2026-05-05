@@ -45,14 +45,19 @@ export function WritingFinishModal({
   const { execute, isLoading: isSaving } = useServiceAction();
 
   const wordCount = useWritingStore(s => s.wordCount);
+  const initialWordCount = useWritingStore(s => s.initialWordCount);
   const seconds = useWritingStore(s => s.seconds);
   const sessionStartSeconds = useWritingStore(s => s.sessionStartSeconds);
   const accumulatedDuration = useWritingStore(s => s.accumulatedDuration);
   const sessionSeconds = accumulatedDuration + Math.max(0, seconds - sessionStartSeconds);
-  const wpm = useWritingStore(s => s.wpm);
   const content = useWritingStore(s => s.content);
   const title = useWritingStore(s => s.title);
   const wpmHistory = useWritingStore(s => s.wpmHistory);
+
+  const sessionWords = Math.max(0, wordCount - initialWordCount);
+  const avgWpm = sessionSeconds > 0
+    ? Math.round((sessionWords / sessionSeconds) * 60)
+    : 0;
 
   useModalEscape(isOpen, onCancel);
 
@@ -131,16 +136,16 @@ export function WritingFinishModal({
           </div>
           <div className="p-2">
             <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_wpm')}</div>
-            <div className="text-xl font-mono font-bold text-text-main">{wpm}</div>
+            <div className="text-xl font-mono font-bold text-text-main">{avgWpm}</div>
           </div>
         </div>
 
-        {wpmHistory.length >= 2 && (
+        {wpmHistory.length >= 3 && (
           <div className="rounded-2xl bg-surface-base border border-border-subtle px-4 py-3">
             <div className="text-[10px] font-bold uppercase tracking-widest text-text-main/40 mb-3">
               {t('finish_wpm_chart')}
             </div>
-            <WpmChart data={wpmHistory} height={72} />
+            <WpmChart data={wpmHistory} avgWpm={avgWpm} height={72} />
           </div>
         )}
 

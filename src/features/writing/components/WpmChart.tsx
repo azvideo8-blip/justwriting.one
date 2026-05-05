@@ -2,10 +2,11 @@ import React from "react";
 
 interface WpmChartProps {
   data: { timestamp: number; wpm: number }[];
+  avgWpm?: number;
   height?: number;
 }
 
-export function WpmChart({ data, height = 72 }: WpmChartProps) {
+export function WpmChart({ data, avgWpm, height = 72 }: WpmChartProps) {
   if (data.length < 2) return null;
 
   const width = 400;
@@ -31,14 +32,14 @@ export function WpmChart({ data, height = 72 }: WpmChartProps) {
   const fillD = pathD + " L " + points[points.length - 1].x + "," + height + " L " + points[0].x + "," + height + " Z";
 
   const peakWpm = Math.max(...data.map(d => d.wpm));
-  const avgWpm = Math.round(data.reduce((s, d) => s + d.wpm, 0) / data.length);
+  const displayAvg = avgWpm ?? Math.round(data.reduce((s, d) => s + d.wpm, 0) / data.length);
   const peakIdx = data.findIndex(d => d.wpm === peakWpm);
   const peakPoint = points[peakIdx];
 
   return React.createElement("div", { className: "w-full space-y-2" },
     React.createElement("div", { className: "flex justify-between text-[10px] font-mono text-text-main/35 uppercase tracking-wider" },
       React.createElement("span", null, "пик " + peakWpm + " сл/мин"),
-      React.createElement("span", null, "средн. " + avgWpm + " сл/мин")
+      React.createElement("span", null, "средн. " + displayAvg + " сл/мин")
     ),
     React.createElement("svg", { viewBox: "0 0 " + width + " " + height, preserveAspectRatio: "none", className: "w-full", style: { height }, "aria-hidden": true },
       React.createElement("defs", null,
