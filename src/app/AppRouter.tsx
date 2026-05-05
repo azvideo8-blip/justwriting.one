@@ -12,24 +12,20 @@ export function AppRouter() {
   if (loading) return (
     <div className="h-screen w-screen flex flex-col items-center justify-center gap-8 bg-surface-base">
       <motion.div
-        animate={reducedMotion ? {} : { scale: [1, 1.04, 1], opacity: [0.85, 1, 0.85] }}
-        transition={reducedMotion ? undefined : { repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
+        animate={reducedMotion ? {} : { opacity: [0.7, 1, 0.7] }}
+        transition={reducedMotion ? undefined : { repeat: Infinity, duration: 3, ease: "easeInOut" }}
+        style={{ filter: "drop-shadow(0 0 24px color-mix(in srgb, var(--brand-soft) 40%, transparent))" }}
       >
-        <div
-          className="w-24 h-24 rounded-3xl flex items-center justify-center"
-          style={{ background: 'linear-gradient(135deg, var(--brand-soft), var(--brand-deep))' }}
-        >
-          <JustWritingLogo size={72} variant="white" showRailway={false} showRoman={false} showCrown={false} />
-        </div>
+        <JustWritingLogo size={160} variant="dark" showRailway={true} showRoman={true} showCrown={true} />
       </motion.div>
 
       <motion.p
         initial={reducedMotion ? {} : { opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={reducedMotion ? undefined : { delay: 0.3, duration: 0.6 }}
+        transition={reducedMotion ? undefined : { delay: 0.4, duration: 0.8 }}
         className="text-sm text-text-main/35 tracking-widest uppercase font-sans"
       >
-        {t('common_loading')}
+        {t("common_loading")}
       </motion.p>
     </div>
   );

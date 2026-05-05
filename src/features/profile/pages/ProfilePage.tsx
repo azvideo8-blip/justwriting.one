@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
 import { AlertCircle } from 'lucide-react';
 import { Session, UserProfile } from '../../../types';
@@ -11,6 +12,7 @@ import { getOrCreateGuestId } from '../../../shared/lib/localDb';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../core/i18n';
 import { reportError } from '../../../core/errors/reportError';
+import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { ProfileHero } from '../components/ProfileHero';
 import { KPIStrip } from '../components/KPIStrip';
 import { StreakRibbon } from '../components/StreakRibbon';
@@ -252,7 +254,20 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   }, [user]);
 
   if (loading) {
-    return <div className="italic text-center py-24 text-text-main/50">{t('profile_loading')}</div>;
+    return (
+      <div className="flex flex-col items-center justify-center gap-6 py-24">
+        <motion.div
+          animate={{ opacity: [0.7, 1, 0.7] }}
+          transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+          style={{ filter: "drop-shadow(0 0 24px color-mix(in srgb, var(--brand-soft) 40%, transparent))" }}
+        >
+          <JustWritingLogo size={120} variant="dark" showRailway={true} showRoman={true} showCrown={true} />
+        </motion.div>
+        <p className="text-sm text-text-main/35 tracking-widest uppercase font-sans">
+          {t("profile_loading")}
+        </p>
+      </div>
+    );
   }
 
   if (error) {
