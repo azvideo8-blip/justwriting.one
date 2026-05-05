@@ -42,7 +42,7 @@ export function KPIStrip({ stats }: { stats: KPIStats }) {
           </div>
           <div
             className="text-[24px] font-medium tracking-tight"
-            style={{ color: item.accent ? 'var(--flow-pulse-color)' : item.dim ? 'var(--text-muted)' : 'var(--text-main)' }}
+            style={{ fontFamily: 'var(--font-mono)', color: item.accent ? 'var(--flow-pulse-color)' : item.dim ? 'var(--text-muted)' : 'var(--text-main)' }}
           >
             {item.value}
           </div>

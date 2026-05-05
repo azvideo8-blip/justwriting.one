@@ -102,7 +102,7 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
           fontSize: fontSize || 18,
           lineHeight: 1.75,
           color: 'rgba(232,236,233,0.92)',
-          caretColor: 'oklch(0.72 0.13 155)',
+          caretColor: 'var(--brand-primary)',
           WebkitOverflowScrolling: 'touch',
         }}
       />
@@ -172,7 +172,7 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
       }}>
         <div style={{
           height: '100%',
-          background: 'linear-gradient(90deg, transparent, var(--flow-pulse-color, oklch(0.72 0.13 155)) 50%, transparent)',
+          background: 'linear-gradient(90deg, transparent, var(--flow-pulse-color, var(--brand-primary)) 50%, transparent)',
           width: '60%',
           marginLeft: `${20 + intensity * 20}%`,
           opacity: intensity > 0 ? 0.3 + intensity * 0.5 : 0,

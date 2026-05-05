@@ -137,7 +137,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t('auth_email_placeholder')}
-                  className="w-full pl-12 pr-4 py-3 rounded-xl outline-none transition-all bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-text-main/20 placeholder:text-text-main/20"
+                  className="w-full pl-12 pr-4 py-3 rounded-xl outline-none transition-all bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
                 />
               </div>
             </div>
@@ -152,7 +152,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-12 pr-4 py-3 rounded-xl outline-none transition-all bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-text-main/20 placeholder:text-text-main/20"
+                  className="w-full pl-12 pr-4 py-3 rounded-xl outline-none transition-all bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
                 />
               </div>
             </div>
@@ -160,10 +160,10 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
             <button 
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 bg-text-main text-surface-base"
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 text-white" style={{ background: 'var(--brand-primary)' }}
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 rounded-full animate-spin border-surface-base/20 border-t-surface-base" />
+                <div className="w-5 h-5 border-2 rounded-full animate-spin border-white/20 border-t-white" />
               ) : (
                 mode === 'login' ? <LogIn size={18} /> : <UserPlus size={18} />
               )}

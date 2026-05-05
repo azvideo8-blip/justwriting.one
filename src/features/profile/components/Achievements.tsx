@@ -18,9 +18,9 @@ interface Stats {
 
 const RARITY_COLORS: Record<Rarity, string> = {
   common: 'rgba(255,255,255,0.5)',
-  rare: 'oklch(0.65 0.15 260)',
+  rare: 'var(--brand-soft)',
   epic: 'var(--flow-pulse-color)',
-  legendary: 'oklch(0.75 0.18 55)',
+  legendary: '#f5c518',
 };
 
 function getRarityLabel(rarity: Rarity, t: (key: string) => string): string {

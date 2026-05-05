@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
+import { ru, enUS } from 'date-fns/locale';
 import { Session } from '../../../types';
 import { parseFirestoreDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
@@ -45,17 +46,19 @@ export const GridNoteCard: React.FC<GridNoteCardProps> = React.memo(({
   onClick,
   searchQuery = '',
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { tags } = useSessionTags(session.id, session.tags || []);
   const sessionDate = getSessionDate(session);
 
-  const formattedDate = format(sessionDate, 'd MMM yy • HH:mm').toUpperCase();
+  const formattedDate = format(sessionDate, 'd MMM yy • HH:mm', {
+    locale: language === 'ru' ? ru : enUS,
+  }).toUpperCase();
 
   return (
     <motion.div
       onClick={onClick}
       className="cursor-pointer rounded-2xl p-5 bg-surface-card border border-border-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text-main/30
-                 hover:border-text-main/20 hover:bg-white/[0.07] transition-colors
+                 hover:border-text-main/20 hover:bg-text-main/[0.07] transition-colors
                  flex flex-col"
     >
       <div className="text-[11px] font-medium tracking-wider text-text-main/40 font-mono mb-3">

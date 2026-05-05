@@ -57,7 +57,7 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog }: { userId: str
     { id: 'account', label: t('settings_tab_account') },
   ];
 
-  const fonts = ['Inter', 'Playfair Display', 'JetBrains Mono', 'Cormorant Garamond'];
+  const fonts = ['Inter', 'Lora', 'JetBrains Mono'];
 
   const handleSyncNow = async () => {
     try {

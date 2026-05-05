@@ -36,7 +36,7 @@ function StatCard({ value, label, accent }: {
       <div style={{
         fontSize: 24,
         fontWeight: 500,
-        color: accent ? 'oklch(0.72 0.13 155)' : 'rgba(232,236,233,0.95)',
+        color: accent ? 'var(--brand-primary)' : 'rgba(232,236,233,0.95)',
         lineHeight: 1,
         fontVariantNumeric: 'tabular-nums',
       }}>
@@ -157,7 +157,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
               justifyContent: 'center',
               fontSize: 18,
               fontWeight: 600,
-              color: 'oklch(0.72 0.13 155)',
+              color: 'var(--brand-primary)',
               fontFamily: 'Inter, system-ui, sans-serif',
             }}>
               {initials}
@@ -291,7 +291,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
             }}>
               {[
                 { id: 'sans',  label: 'Inter',         sample: 'Aa 123' },
-                { id: 'serif', label: 'Playfair',       sample: 'Aa 123' },
+                { id: 'serif', label: 'Lora',       sample: 'Aa 123' },
                 { id: 'mono',  label: 'JetBrains Mono', sample: 'Aa 123' },
               ].map(f => (
                 <button
@@ -403,7 +403,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
                   borderRadius: 14,
                   border: '1px solid oklch(0.72 0.13 155 / 0.3)',
                   background: 'oklch(0.72 0.13 155 / 0.08)',
-                  color: 'oklch(0.72 0.13 155)',
+                  color: 'var(--brand-primary)',
                   fontSize: 14,
                   fontWeight: 500,
                   cursor: 'pointer',

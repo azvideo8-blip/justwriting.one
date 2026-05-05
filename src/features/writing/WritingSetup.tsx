@@ -174,7 +174,7 @@ export function WritingSetup({
                     <div className="w-full flex flex-col gap-2 md:gap-3">
                       <button 
                         onClick={() => startCountdown(setupMode === 'timer-config' ? 'timer' : setupMode === 'words-config' ? 'words' : 'finish-by')}
-                        className="w-full py-4 md:py-5 rounded-2xl md:rounded-[1.5rem] font-black text-base md:text-lg hover:scale-[1.02] active:scale-[0.98] transition-all bg-text-main text-surface-base shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+                        className="w-full py-4 md:py-5 rounded-2xl md:rounded-[1.5rem] font-black text-base md:text-lg hover:scale-[1.02] active:scale-[0.98] transition-all bg-text-main text-surface-base shadow-[0_0_20px_var(--brand-soft)]/30"
                       >
                         {t('writing_start')}
                       </button>

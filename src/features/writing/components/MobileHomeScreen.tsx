@@ -72,7 +72,7 @@ export function MobileHomeScreen({
           borderRadius: 999,
         }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-            stroke="oklch(0.72 0.13 155)" strokeWidth="1.6"
+            stroke="var(--brand-primary)" strokeWidth="1.6"
             strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 3c1 4 5 5 5 10a5 5 0 1 1-10 0c0-2 1-3 2-4-1 3 1 4 2 4s2-1 1-4c-1-3 0-5 0-6z"/>
           </svg>
@@ -139,7 +139,7 @@ export function MobileHomeScreen({
           style={{
             width: 140, height: 140,
             borderRadius: '50%',
-            background: 'oklch(0.72 0.13 155)',
+            background: 'var(--brand-primary)',
             border: 'none',
             cursor: 'pointer',
             display: 'flex',
