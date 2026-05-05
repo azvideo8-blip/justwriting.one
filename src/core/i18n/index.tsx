@@ -310,6 +310,7 @@ export const translations: Translations = {
   export_header_tags:  { ru: 'Теги',          en: 'Tags' },
   export_untitled:     { ru: 'Без названия',   en: 'Untitled' },
   export_filename_default: { ru: 'заметка',    en: 'note' },
+  profile_theme_hint: { ru: 'Меняет цвет фона. Логотип и акценты бренда остаются фиолетовыми.', en: 'Changes background color. Logo and brand accents stay purple.' },
   guest_save_button: { ru: 'Сохранить', en: 'Save' },
   guest_save_local: { ru: 'Сохранить локально', en: 'Save locally' },
   guest_more_documents: { ru: 'Ещё {count} документов', en: '{count} more documents' },

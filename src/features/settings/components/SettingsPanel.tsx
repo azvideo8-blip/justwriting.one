@@ -224,6 +224,9 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog }: { userId: str
 
             {/* Theme */}
             <Section title={t('profile_theme_title')}>
+              <p className="text-xs text-text-muted -mt-1 mb-2">
+                {t('profile_theme_hint')}
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 {Object.values(themes).map(theme => (
                   <button

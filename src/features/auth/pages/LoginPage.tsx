@@ -4,6 +4,7 @@ import { AlertCircle, Mail, Lock, UserPlus, LogIn, X } from 'lucide-react';
 import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
 import { auth, googleProvider } from '../../../core/firebase/auth';
 import { useLanguage } from '../../../core/i18n';
+import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 
 interface LoginPageProps {
   isModal?: boolean;
@@ -99,7 +100,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
       >
         <div className="space-y-4">
           {!isModal && (
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center font-bold text-4xl mx-auto shadow-2xl bg-text-main text-surface-base border border-border-subtle font-black shadow-[0_0_30px_rgba(255,255,255,0.2)]">J</div>
+            <JustWritingLogo size={64} variant="dark" className="mx-auto shadow-[0_0_30px_rgba(165,131,232,0.3)] rounded-2xl" />
           )}
           <h1 className={isModal ? "text-2xl font-bold tracking-tight text-text-main" : "text-5xl font-bold tracking-tight text-text-main"}>
             {isModal ? t('auth_sign_in') : 'justwriting.one'}
