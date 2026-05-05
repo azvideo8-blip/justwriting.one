@@ -31,7 +31,7 @@ export function KPIStrip({ stats }: { stats: KPIStats }) {
       borderBottom: '1px solid var(--border-light)',
     }}>
       {items.map((item, i) => (
-        <div key={i} style={{ padding: '18px 22px', background: 'var(--surface-card)' }}>
+        <div key={i} style={{ padding: '20px 24px', background: 'var(--surface-card)' }}>
           <div className="flex items-center gap-2 mb-2">
             <span style={{ color: item.accent ? 'var(--flow-pulse-color)' : 'var(--text-muted)' }}>
               {item.icon}

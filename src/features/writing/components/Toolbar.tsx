@@ -45,7 +45,7 @@ export function Toolbar({
           onClick={onNew}
           title={t('topbar_new')}
           aria-label={t('topbar_new')}
-          className="w-9 h-9 flex items-center justify-center text-text-main/50 hover:text-text-main hover:bg-text-main/5 transition-all"
+          className="w-9 h-9 flex items-center justify-center rounded-lg text-text-main/50 hover:text-text-main hover:bg-text-main/5 transition-all"
         >
           <FilePlus size={16} />
         </button>
@@ -54,7 +54,7 @@ export function Toolbar({
           onClick={onOpenLog}
           title={t('topbar_open')}
           aria-label={t('topbar_open')}
-          className="w-9 h-9 flex items-center justify-center text-text-main/50 hover:text-text-main hover:bg-text-main/5 transition-all"
+          className="w-9 h-9 flex items-center justify-center rounded-lg text-text-main/50 hover:text-text-main hover:bg-text-main/5 transition-all"
         >
           <FolderOpen size={16} />
         </button>
@@ -85,7 +85,7 @@ export function Toolbar({
             "w-9 h-9 flex items-center justify-center transition-all",
             status !== 'writing'
               ? "text-text-main hover:bg-text-main/5"
-              : "text-text-main/15 cursor-not-allowed"
+              : "text-text-main/25 cursor-not-allowed"
           )}
         >
           <Play size={16} />
@@ -100,7 +100,7 @@ export function Toolbar({
             "w-9 h-9 flex items-center justify-center transition-all",
             status === 'writing'
               ? "text-accent-warning hover:bg-accent-warning/10"
-              : "text-text-main/15 cursor-not-allowed"
+              : "text-text-main/25 cursor-not-allowed"
           )}
         >
           <Pause size={16} />
@@ -115,7 +115,7 @@ export function Toolbar({
             "w-9 h-9 flex items-center justify-center transition-all",
             status !== 'idle'
               ? "text-accent-danger hover:bg-accent-danger/10"
-              : "text-text-main/15 cursor-not-allowed"
+              : "text-text-main/25 cursor-not-allowed"
           )}
         >
           {status !== 'idle' ? <Flag size={16} /> : <Square size={16} />}

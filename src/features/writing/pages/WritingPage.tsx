@@ -225,7 +225,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
 
   const { sessionGroups: lifeLogGroups, summary: lifeLogSummary, refresh: refreshLifeLog } = useLifeLog(userId, isGuest);
 
-  const { userSessions, loadingSessions, fetchAllSessions: fetchSessions } = useSessionList(
+  const { userSessions, loadingSessions: _loadingSessions, fetchAllSessions: fetchSessions } = useSessionList(
     userId,
     fetchLocalSessions,
     loadLocalSession
@@ -396,12 +396,12 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     return () => window.removeEventListener('keydown', handleAutoStartKey);
   }, [handleAutoStartKey]);
 
-  const fetchAllSessions = React.useCallback(async () => {
+  const _fetchAllSessions = React.useCallback(async () => {
     await fetchSessions();
     setSetupMode('session-selection');
   }, [fetchSessions, setSetupMode]);
 
-  const handleNewSession = React.useCallback(() => {
+  const _handleNewSession = React.useCallback(() => {
     resetSessionMetadata();
     setSetupMode('selection');
   }, [resetSessionMetadata, setSetupMode]);
@@ -529,16 +529,8 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
 
           <div style={{ gridColumn: '2', gridRow: '1', overflow: 'hidden' }}>
             <WritingHeader 
-              handleNewSession={handleNewSession}
-              fetchUserSessions={fetchAllSessions}
-              loadingSessions={loadingSessions}
-              hasDraft={hasDraft}
-              onOpenSettings={openSettings}
-              handlePause={handlePause}
-              handleStart={handlePlay}
-              handleFinish={handleFinish}
-              setShowCancelConfirm={setShowCancelConfirm}
               totalDurationForDeadline={flow.totalDurationForDeadline}
+              onOpenSettings={openSettings}
               onNew={handleNew}
               onOpenLog={handleOpen}
               onSave={handleFinish}

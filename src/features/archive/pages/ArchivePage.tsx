@@ -423,7 +423,7 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
                     placeholder={t('archive_search_placeholder')}
                     className="w-full pl-8 pr-10 py-2 bg-text-main/[0.03] border border-border-subtle rounded-lg text-sm text-text-main placeholder:text-text-main/25 outline-none focus:border-border-subtle/60 transition-colors"
                   />
-                  <kbd className="absolute right-3 top-2 text-[10px] text-text-main/25 font-mono border border-border-subtle rounded px-1">&#8984;K</kbd>
+                  <kbd className="absolute right-3 top-2 text-[10px] text-text-main/25 font-mono border border-border-subtle rounded px-1.5 py-0.5">&#8984;K</kbd>
                 </div>
 
                 <div className="flex bg-text-main/[0.03] border border-border-subtle rounded-lg p-0.5">

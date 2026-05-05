@@ -231,7 +231,7 @@ export function WritingFinishModal({
             disabled={isSaving}
             className={cn(
               "flex-1 px-6 py-4 font-bold transition-all bg-text-main text-surface-base rounded-2xl shadow-[0_0_20px_rgba(255,255,255,0.2)]",
-              isSaving ? "opacity-60 cursor-not-allowed" : "hover:scale-105"
+              isSaving ? "opacity-60 cursor-not-allowed" : "hover:brightness-110 will-change-transform"
             )}
           >
             {isSaving ? t('archive_loading') : t('common_save')}

@@ -12,14 +12,6 @@ import { Toolbar } from './components/Toolbar';
 import { HeaderStats } from './components/HeaderStats';
 
 interface WritingHeaderProps {
-  handleNewSession: () => void;
-  fetchUserSessions: () => void;
-  loadingSessions: boolean;
-  hasDraft: boolean;
-  handlePause: () => void;
-  handleStart: () => void;
-  handleFinish: () => void;
-  setShowCancelConfirm: (show: boolean) => void;
   totalDurationForDeadline?: number | null;
   onOpenSettings: () => void;
   onNew?: () => void;
@@ -31,14 +23,6 @@ interface WritingHeaderProps {
 }
 
 export const WritingHeader = React.memo(function WritingHeader({
-  handleNewSession: _handleNewSession,
-  fetchUserSessions: _fetchUserSessions,
-  loadingSessions: _loadingSessions,
-  hasDraft: _hasDraft,
-  handlePause: _handlePause,
-  handleStart: _handleStart,
-  handleFinish: _handleFinish,
-  setShowCancelConfirm: _setShowCancelConfirm,
   onOpenSettings: _onOpenSettings,
   onNew,
   onOpenLog,
