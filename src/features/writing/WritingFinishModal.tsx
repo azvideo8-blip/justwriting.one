@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Download, FileText } from 'lucide-react';
 import { cn } from '../../core/utils/utils';
 import { ExportService } from '../export/ExportService';
+import { WpmChart } from './components/WpmChart';
 import { Label } from '../../types';
 import { useLanguage } from '../../core/i18n';
 import { formatTime } from '../../core/utils/formatTime';
@@ -51,6 +52,7 @@ export function WritingFinishModal({
   const wpm = useWritingStore(s => s.wpm);
   const content = useWritingStore(s => s.content);
   const title = useWritingStore(s => s.title);
+  const wpmHistory = useWritingStore(s => s.wpmHistory);
 
   useModalEscape(isOpen, onCancel);
 
@@ -132,6 +134,15 @@ export function WritingFinishModal({
             <div className="text-xl font-mono font-bold text-text-main">{wpm}</div>
           </div>
         </div>
+
+        {wpmHistory.length >= 2 && (
+          <div className="rounded-2xl bg-surface-base border border-border-subtle px-4 py-3">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-text-main/40 mb-3">
+              {t('finish_wpm_chart')}
+            </div>
+            <WpmChart data={wpmHistory} height={72} />
+          </div>
+        )}
 
         <div className="space-y-2">
           <input
@@ -234,7 +245,7 @@ export function WritingFinishModal({
               isSaving ? "opacity-60 cursor-not-allowed" : "hover:brightness-110 will-change-transform"
             )}
           >
-            {isSaving ? t('archive_loading') : t('common_save')}
+            {isSaving ? t('finish_saving') : t('common_save')}
           </button>
         </div>
       </motion.div>

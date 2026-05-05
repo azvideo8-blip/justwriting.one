@@ -7,6 +7,7 @@ import { Search, LayoutGrid, LayoutList, BookOpen, HardDrive, Cloud, Trash2, Ext
 import { UserProfile, Document } from '../../../types';
 import { GridNoteCard } from '../components/GridNoteCard';
 import { getSessionDate, cn } from '../../../core/utils/utils';
+import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
 import { LocalVersionService } from '../../writing/services/LocalVersionService';
 import { DocumentService } from '../../writing/services/DocumentService';
@@ -497,7 +498,18 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
             {/* Sessions */}
             <div className="mt-4 space-y-1">
               {loading ? (
-                <div className="italic text-center py-12 text-text-main/70">{t('archive_loading')}</div>
+                <div className="flex flex-col items-center justify-center gap-6 py-16">
+                  <motion.div
+                    animate={{ opacity: [0.7, 1, 0.7] }}
+                    transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+                    style={{ filter: "drop-shadow(0 0 24px color-mix(in srgb, var(--brand-soft) 40%, transparent))" }}
+                  >
+                    <JustWritingLogo size={120} variant="dark" showRailway={true} showRoman={true} showCrown={true} />
+                  </motion.div>
+                  <p className="text-sm text-text-main/35 tracking-widest uppercase font-sans">
+                    {t('archive_loading')}
+                  </p>
+                </div>
               ) : error ? (
                 <div className="p-12 text-center rounded-3xl border bg-red-500/10 border-red-500/30">
                   <p className="text-red-400">{error}</p>

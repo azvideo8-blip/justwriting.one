@@ -14,6 +14,7 @@ interface WritingState {
   wpm: number;
   wordSnapshots: WordSnapshot[];
   lastWordCount: number;
+  wpmHistory: { timestamp: number; wpm: number }[];
   
   seconds: number;
   status: TimerStatus;
@@ -59,6 +60,7 @@ interface WritingState {
   setTimeGoalReached: (reached: boolean) => void;
   setWordGoalReached: (reached: boolean) => void;
   setAccumulatedDuration: (d: number) => void;
+  pushWpmHistory: (entry: { timestamp: number; wpm: number }) => void;
   resetSessionMetadata: () => void;
 }
 
@@ -88,6 +90,13 @@ function computeWordStats(content: string) {
   const sessionWords = words - state.sessionStartWords;
   const wordGoalReached = state.wordGoal > 0 && sessionWords >= state.wordGoal;
 
+  // Record WPM history: at most once every 30 seconds
+  const history = state.wpmHistory;
+  const lastHistoryEntry = history[history.length - 1];
+  if (currentWpm > 0 && (!lastHistoryEntry || now - lastHistoryEntry.timestamp >= 30_000)) {
+    useWritingStore.getState().pushWpmHistory({ timestamp: now, wpm: currentWpm });
+  }
+
   useWritingStore.setState({
     wordCount: words,
     lastWordCount: words,
@@ -100,7 +109,7 @@ function computeWordStats(content: string) {
 export const useWritingStore = create<WritingState>((set) => ({
   content: '', title: '', pinnedThoughts: [],
   wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
-  lastWordCount: 0,
+  lastWordCount: 0, wpmHistory: [],
   seconds: 0, status: 'idle', sessionType: 'free',
   timerDuration: 30 * 60, targetTime: null, wordGoal: 1000,
   timeGoalReached: false, wordGoalReached: false, overtimeSeconds: 0,
@@ -158,6 +167,7 @@ export const useWritingStore = create<WritingState>((set) => ({
   setTimeGoalReached: (timeGoalReached) => set({ timeGoalReached }),
   setWordGoalReached: (wordGoalReached) => set({ wordGoalReached }),
   setAccumulatedDuration: (accumulatedDuration) => set({ accumulatedDuration }),
+  pushWpmHistory: (entry) => set(state => ({ wpmHistory: [...state.wpmHistory, entry] })),
   
   resetSessionMetadata: () => set({
     initialWordCount: 0,
@@ -172,7 +182,7 @@ export const useWritingStore = create<WritingState>((set) => ({
   resetSession: () => set({
     content: '', title: '', pinnedThoughts: [],
     wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
-    lastWordCount: 0,
+    lastWordCount: 0, wpmHistory: [],
     seconds: 0, status: 'idle', timeGoalReached: false, wordGoalReached: false,
     overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
     savedDocumentId: null, sessionStartTime: null,
@@ -183,7 +193,7 @@ export const useWritingStore = create<WritingState>((set) => ({
     content: '', title: '', pinnedThoughts: [],
     wordCount: 0,
     seconds: 0, status: 'idle', wpm: 0, wordSnapshots: [],
-    lastWordCount: 0, timeGoalReached: false, wordGoalReached: false,
+    lastWordCount: 0, wpmHistory: [], timeGoalReached: false, wordGoalReached: false,
     overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
     activeSessionId: null, savedDocumentId: null, sessionStartTime: null,
     tags: [], labelId: undefined, initialDuration: 0, initialWordCount: 0,

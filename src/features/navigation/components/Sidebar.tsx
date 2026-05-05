@@ -52,7 +52,7 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 mb-8 h-10 overflow-hidden">
-        <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--brand-soft), var(--brand-deep))" }}><JustWritingLogo size={28} variant="white" showRailway={false} showRoman={false} showCrown={false} /></div>
+        <JustWritingLogo size={36} variant="dark" showRailway={true} showRoman={false} showCrown={true} className="shrink-0" />
         <span className={cn(
           "font-bold text-lg text-text-main whitespace-nowrap overflow-hidden transition-all duration-300",
           expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"

@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
+import { useLocation } from 'react-router-dom';
 import { useTheme } from './ThemeProvider';
 
 export function ThemeBackground() {
   const { themeId } = useTheme();
   const reducedMotion = useReducedMotion();
   const [isVisible, setIsVisible] = useState(!document.hidden);
+  const location = useLocation();
+  const isWritingPage = location.pathname === '/';
 
   useEffect(() => {
     const handleVisibility = () => setIsVisible(!document.hidden);
@@ -13,7 +16,7 @@ export function ThemeBackground() {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
-  const shouldAnimate = !reducedMotion && isVisible;
+  const shouldAnimate = !reducedMotion && isVisible && isWritingPage;
 
   // Spotify — subtle dark green pulse
   if (themeId === 'spotify') {
@@ -58,7 +61,7 @@ export function ThemeBackground() {
           className="fixed inset-0 pointer-events-none"
           style={{
             zIndex: 0,
-            background: 'radial-gradient(ellipse at 35% 55%, var(--brand-primary) 0%, var(--brand-bg) 65%)',
+            background: 'radial-gradient(ellipse at 35% 55%, color-mix(in srgb, var(--brand-primary) 30%, transparent) 0%, var(--brand-bg) 65%)',
           }}
         />
       );
@@ -69,9 +72,9 @@ export function ThemeBackground() {
         style={{ zIndex: 0 }}
         animate={{
           background: [
-            'radial-gradient(ellipse at 35% 55%, var(--brand-primary) 0%, var(--brand-bg) 65%)',
-            'radial-gradient(ellipse at 55% 40%, var(--brand-primary) 0%, var(--brand-bg) 65%)',
-            'radial-gradient(ellipse at 40% 60%, var(--brand-primary) 0%, var(--brand-bg) 65%)',
+            'radial-gradient(ellipse at 35% 55%, color-mix(in srgb, var(--brand-primary) 30%, transparent) 0%, var(--brand-bg) 65%)',
+            'radial-gradient(ellipse at 55% 40%, color-mix(in srgb, var(--brand-primary) 30%, transparent) 0%, var(--brand-bg) 65%)',
+            'radial-gradient(ellipse at 40% 60%, color-mix(in srgb, var(--brand-primary) 30%, transparent) 0%, var(--brand-bg) 65%)',
           ],
         }}
         transition={{ duration: 10, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
