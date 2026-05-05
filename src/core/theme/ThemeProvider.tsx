@@ -49,7 +49,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [themeId, setThemeId] = useLocalStorage<ThemeId>(
     'app-theme',
-    'modern',
+    'amethyst',
     z.enum(['modern', 'notion', 'spotify', 'amethyst'])
   );
 
