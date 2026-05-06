@@ -5,6 +5,7 @@ import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPass
 import { auth, googleProvider } from '../../../core/firebase/auth';
 import { useLanguage } from '../../../core/i18n';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
+import { useToast } from '../../../shared/components/Toast';
 import { MigrationPrompt, checkGuestDocuments } from '../components/MigrationPrompt';
 
 interface LoginPageProps {
@@ -15,6 +16,7 @@ interface LoginPageProps {
 
 export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
   const { t } = useLanguage();
+  const { showToast } = useToast();
   const [error, setError] = useState<React.ReactNode | null>(null);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -217,6 +219,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
           userId={migrationUserId}
           docCount={migrationDocCount}
           onDone={() => { setMigrationUserId(null); setMigrationDocCount(0); }}
+          onCloudSynced={(synced) => showToast(t('migration_synced_cloud', { count: synced }), 'success')}
         />
       )}
     </div>

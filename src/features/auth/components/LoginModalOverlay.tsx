@@ -65,6 +65,7 @@ export function LoginModalOverlay({ open }: { open: boolean }) {
             setShowMigrationPrompt(false);
             showToast(t('migration_success_local', { count: localDocCount }), 'success');
           }}
+          onCloudSynced={(synced) => showToast(t('migration_synced_cloud', { count: synced }), 'success')}
         />
       )}
     </>

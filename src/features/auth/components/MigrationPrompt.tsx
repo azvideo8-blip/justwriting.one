@@ -31,9 +31,10 @@ interface MigrationPromptProps {
   userId: string;
   docCount: number;
   onDone: () => void;
+  onCloudSynced?: (count: number) => void;
 }
 
-export function MigrationPrompt({ userId, docCount, onDone }: MigrationPromptProps) {
+export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: MigrationPromptProps) {
   const { t } = useLanguage();
 
   const handleMigrate = async () => {
@@ -43,12 +44,7 @@ export function MigrationPrompt({ userId, docCount, onDone }: MigrationPromptPro
       if (count > 0) {
         SyncService.syncAllUnlinked(userId)
           .then(({ synced }) => {
-            if (synced > 0) {
-              const event = new CustomEvent('jw-toast', {
-                detail: { message: t('migration_synced_cloud', { count: synced }), type: 'success' },
-              });
-              window.dispatchEvent(event);
-            }
+            if (synced > 0) onCloudSynced?.(synced);
           })
           .catch(() => {});
       }
