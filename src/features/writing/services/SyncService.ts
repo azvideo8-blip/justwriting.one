@@ -63,25 +63,32 @@ export const SyncService = {
   },
 
   async syncAllUnlinked(userId: string): Promise<{ synced: number; failed: number }> {
-    await SyncService.syncPending(userId);
+    if (_syncInProgress.get(userId)) return { synced: 0, failed: 0 };
+    _syncInProgress.set(userId, true);
 
-    const localDocs = await LocalDocumentService.getGuestDocuments(userId);
-    const unlinked = localDocs.filter(d => !d.linkedCloudId);
+    try {
+      await SyncService.syncPending(userId);
 
-    const results = await Promise.allSettled(unlinked.map(async (doc) => {
-      const cloudId = await StorageService.addCloudCopy(userId, doc.id);
-      if (!cloudId) throw new Error('no cloudId');
-      await LocalDocumentService.updateLinkedCloudId(doc.id, cloudId);
-    }));
+      const localDocs = await LocalDocumentService.getGuestDocuments(userId);
+      const unlinked = localDocs.filter(d => !d.linkedCloudId);
 
-    let synced = 0;
-    let failed = 0;
-    for (const r of results) {
-      if (r.status === 'fulfilled') synced++;
-      else failed++;
+      const results = await Promise.allSettled(unlinked.map(async (doc) => {
+        const cloudId = await StorageService.addCloudCopy(userId, doc.id);
+        if (!cloudId) throw new Error('no cloudId');
+        await LocalDocumentService.updateLinkedCloudId(doc.id, cloudId);
+      }));
+
+      let synced = 0;
+      let failed = 0;
+      for (const r of results) {
+        if (r.status === 'fulfilled') synced++;
+        else failed++;
+      }
+
+      return { synced, failed };
+    } finally {
+      _syncInProgress.set(userId, false);
     }
-
-    return { synced, failed };
   },
 
   async syncOne(userId: string, localId: string): Promise<string> {
