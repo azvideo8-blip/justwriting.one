@@ -5,6 +5,7 @@ import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPass
 import { auth, googleProvider } from '../../../core/firebase/auth';
 import { useLanguage } from '../../../core/i18n';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
+import { MigrationPrompt, checkGuestDocuments } from '../components/MigrationPrompt';
 
 interface LoginPageProps {
   isModal?: boolean;
@@ -20,10 +21,21 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  const [migrationUserId, setMigrationUserId] = useState<string | null>(null);
+  const [migrationDocCount, setMigrationDocCount] = useState(0);
+
   useEffect(() => {
-    if (!onSuccess) return;
-    const unsub = onAuthStateChanged(auth, (u) => {
-      if (u) onSuccess();
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (!u) return;
+      if (onSuccess) {
+        onSuccess();
+        return;
+      }
+      const result = await checkGuestDocuments();
+      if (result) {
+        setMigrationDocCount(result.docs.length);
+        setMigrationUserId(u.uid);
+      }
     });
     return unsub;
   }, [onSuccess]);
@@ -199,6 +211,14 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
           </p>
         )}
       </motion.div>
+
+      {migrationUserId && migrationDocCount > 0 && (
+        <MigrationPrompt
+          userId={migrationUserId}
+          docCount={migrationDocCount}
+          onDone={() => { setMigrationUserId(null); setMigrationDocCount(0); }}
+        />
+      )}
     </div>
   );
 }

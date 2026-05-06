@@ -23,6 +23,15 @@ export interface SaveDocumentData {
   sessionStartedAt: Date;
 }
 
+const CLOUD_SYNC_TIMEOUT = 30_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Sync timeout')), ms)),
+  ]);
+}
+
 const _saveVersionLocks = new Map<string, Promise<void>>();
 
 export const StorageService = {
@@ -224,7 +233,7 @@ export const StorageService = {
       if (!localDoc) throw new Error('Local document not found');
 
       if (localDoc.linkedCloudId) {
-        const existing = await DocumentService.getDocument(userId, localDoc.linkedCloudId);
+        const existing = await withTimeout(DocumentService.getDocument(userId, localDoc.linkedCloudId));
         if (existing) return localDoc.linkedCloudId;
         await LocalDocumentService.updateLinkedCloudId(localDocumentId, '');
       }
@@ -233,10 +242,10 @@ export const StorageService = {
       let cloudId: string | null = null;
 
       try {
-        cloudId = await DocumentService.createDocument(userId, {
+        cloudId = await withTimeout(DocumentService.createDocument(userId, {
           title: localDoc.title,
           tags: localDoc.tags,
-        });
+        }));
 
         let prevContent = '';
         for (const ver of versions) {
@@ -247,7 +256,7 @@ export const StorageService = {
             throw new Error(`Invalid sessionStartedAt for version ${ver.id}`);
           }
 
-          await VersionService.addVersion(userId, cloudId, {
+          await withTimeout(VersionService.addVersion(userId, cloudId, {
             content: ver.content,
             previousContent: prevContent,
             wordCount: ver.wordCount,
@@ -258,15 +267,15 @@ export const StorageService = {
             goalTime: ver.goalTime,
             goalReached: ver.goalReached,
             sessionStartedAt: startedAt,
-          });
+          }));
           prevContent = ver.content;
         }
 
-        await DocumentService.updateDocumentAfterSession(userId, cloudId, {
+        await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
           totalWords: localDoc.totalWords,
           totalDuration: localDoc.totalDuration,
           currentVersion: localDoc.currentVersion,
-        });
+        }));
       } catch (e) {
         if (cloudId) {
           try { await DocumentService.deleteDocument(userId, cloudId); } catch { /* ignore */ }
