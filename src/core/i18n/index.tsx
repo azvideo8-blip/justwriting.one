@@ -487,6 +487,7 @@ export const translations: Translations = {
   migration_move_to_account:    { ru: 'Переместить в аккаунт',               en: 'Move to account' },
   migration_keep_local:         { ru: 'Оставить локальными',                 en: 'Keep local' },
   migration_success_local:      { ru: 'Перемещено записей: {count}',         en: 'Records moved: {count}' },
+  migration_synced_cloud:       { ru: 'Синхронизировано с облаком: {count}', en: 'Synced to cloud: {count}' },
 
   finish_modal_choose_title:      { ru: 'Сохранить сессию',           en: 'Save session' },
   finish_modal_new_doc:           { ru: 'Новый документ',              en: 'New document' },

@@ -18,6 +18,8 @@ import { WritingDraftService } from '../services/WritingDraftService';
 import { FlowPulse } from '../../../core/theme/FlowPulse';
 import { BottomStats } from '../components/BottomStats';
 import { Sidebar } from '../../navigation/components/Sidebar';
+import { KeystrokeTracker, KeystrokeStats } from '../utils/keystrokeTracker';
+import * as Sentry from '@sentry/react';
 
 import { CancelConfirmModal } from '../components/modals/CancelConfirmModal';
 
@@ -133,6 +135,8 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
 
   const { openSettings } = useSettings();
   const savingRef = React.useRef(false);
+  const keystrokeTrackerRef = React.useRef(new KeystrokeTracker());
+  const [devKpmStats, setDevKpmStats] = React.useState<KeystrokeStats | null>(null);
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
   const editorColRef = React.useRef<HTMLDivElement>(null);
   const [isCompact, setIsCompact] = useState(false);
@@ -146,6 +150,14 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     });
     observer.observe(el);
     return () => observer.disconnect();
+  }, []);
+
+  React.useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const interval = setInterval(() => {
+      setDevKpmStats(keystrokeTrackerRef.current.getStats());
+    }, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const { continueSession } = useSessionContinue({
@@ -433,7 +445,26 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     setLifeLogVisible(true);
   }, [fetchSessions, setLifeLogVisible]);
 
-  const handleFinish = React.useCallback(() => setIsFinishModalOpen(true), []);
+  const handleFinish = React.useCallback(() => {
+    const stats = keystrokeTrackerRef.current.getStats();
+    if (stats) {
+      const state = useWritingStore.getState();
+      const wpm = state.wpm;
+      const kpmWpmRatio = wpm > 0 ? stats.kpm / wpm : 0;
+      Sentry.withScope((scope) => {
+        scope.setExtra('iki_stats', { ...stats, wpm, kpmWpmRatio, sessionSeconds: state.seconds });
+        if (stats.ikiCv > 1.2 && stats.sampleSize > 30) {
+          scope.setLevel('warning');
+          Sentry.captureMessage('High IKI variance detected — possible editor lag');
+        } else {
+          scope.setLevel('info');
+          Sentry.captureMessage('editor.keystroke_stats');
+        }
+      });
+    }
+    keystrokeTrackerRef.current.reset();
+    setIsFinishModalOpen(true);
+  }, []);
 
   const LIFE_LOG_WIDTH = 380;
   const isMobile = layoutMode !== 'desktop';
@@ -467,6 +498,11 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
         onCancel={() => setIsFinishModalOpen(false)}
       />
       <FlowPulse />
+      {import.meta.env.DEV && devKpmStats && (
+        <div className="fixed bottom-2 left-2 text-[10px] font-mono text-text-main/30 z-50 pointer-events-none">
+          KPM {devKpmStats.kpm} · IKI {devKpmStats.ikiMedian}ms · CV {devKpmStats.ikiCv}
+        </div>
+      )}
     </>
   );
 
@@ -600,6 +636,9 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
                 saveStatus={saveStatus}
                 lastSavedAt={lastSavedAt}
                 onKeyDown={(e) => {
+                  if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+                    keystrokeTrackerRef.current.record();
+                  }
                   if (sessionStatus === 'idle' && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
                     handlePlayRef.current();
                   } else if (sessionStatus === 'paused' && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
