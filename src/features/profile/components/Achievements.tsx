@@ -129,6 +129,7 @@ export function checkAchievement(ach: Achievement, stats: Stats, sessions: Sessi
   if (ach.id.startsWith('notes_')) return stats.sessionsCount >= ach.threshold;
   if (ach.id.startsWith('duration_')) {
     if (sessions.length === 0) return false;
+    // Math.floor — strict: 89m59s does NOT count as 90 minutes
     const maxMins = Math.floor(Math.max(...sessions.map(s => s.duration || 0)) / 60);
     return maxMins >= ach.threshold;
   }
