@@ -284,6 +284,7 @@ export const StorageService = {
       }
 
       if (!cloudId) throw new Error('Failed to create cloud document');
+      await LocalDocumentService.updateLinkedCloudId(localDocumentId, cloudId);
       return cloudId;
     } finally {
       try {
