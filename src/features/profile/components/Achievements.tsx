@@ -99,7 +99,7 @@ function toJSDate(value: Date | { toDate?: () => Date } | number | unknown): Dat
   return new Date(0);
 }
 
-function calcMaxHistoricalStreak(sessions: Session[]): number {
+export function calcMaxHistoricalStreak(sessions: Session[]): number {
   if (sessions.length === 0) return 0;
   const dates = new Set(
     sessions.map(s => {
@@ -120,7 +120,7 @@ function calcMaxHistoricalStreak(sessions: Session[]): number {
   return max;
 }
 
-function checkAchievement(ach: Achievement, stats: Stats, sessions: Session[]): boolean {
+export function checkAchievement(ach: Achievement, stats: Stats, sessions: Session[]): boolean {
   if (ach.id.startsWith('streak_')) {
     const maxEver = Math.max(stats.streakDays, calcMaxHistoricalStreak(sessions));
     return maxEver >= ach.threshold;
@@ -129,7 +129,7 @@ function checkAchievement(ach: Achievement, stats: Stats, sessions: Session[]): 
   if (ach.id.startsWith('notes_')) return stats.sessionsCount >= ach.threshold;
   if (ach.id.startsWith('duration_')) {
     if (sessions.length === 0) return false;
-    const maxMins = Math.round(Math.max(...sessions.map(s => s.duration || 0)) / 60);
+    const maxMins = Math.floor(Math.max(...sessions.map(s => s.duration || 0)) / 60);
     return maxMins >= ach.threshold;
   }
   return false;
