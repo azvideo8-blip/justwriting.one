@@ -249,7 +249,7 @@ export const StorageService = {
 
         let prevContent = '';
         for (const ver of versions) {
-          const startedAt = ver.sessionStartedAt
+          const startedAt = ver.sessionStartedAt != null
             ? new Date(ver.sessionStartedAt)
             : new Date(ver.savedAt || Date.now());
           if (isNaN(startedAt.getTime())) {
