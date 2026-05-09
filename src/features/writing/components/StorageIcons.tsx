@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Cloud, HardDrive } from 'lucide-react';
+import { Cloud, HardDrive, Loader2 } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 import { useToast } from '../../../shared/components/Toast';
@@ -29,6 +29,7 @@ export function StorageIcons({
     type: 'local' | 'cloud' | null;
     isOnly: boolean;
   }>({ type: null, isOnly: false });
+  const [uploading, setUploading] = useState(false);
 
   const handleLocalClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -37,11 +38,28 @@ export function StorageIcons({
     setConfirmState({ type: 'local', isOnly });
   };
 
-  const handleCloudClick = (e: React.MouseEvent) => {
+  const handleCloudClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!doc.hasCloud) return;
-    const isOnly = doc.hasCloud && !doc.hasLocal;
-    setConfirmState({ type: 'cloud', isOnly });
+    if (doc.hasCloud) {
+      const isOnly = doc.hasCloud && !doc.hasLocal;
+      setConfirmState({ type: 'cloud', isOnly });
+      return;
+    }
+    if (!doc.localId || !userId || userId.startsWith('guest_')) return;
+    setUploading(true);
+    try {
+      const cloudId = await StorageService.addCloudCopy(userId, doc.localId);
+      if (cloudId) {
+        showToast(t('storage_uploaded_cloud'), 'success');
+        onStorageChange();
+      } else {
+        showToast(t('error_generic_action'), 'error');
+      }
+    } catch {
+      showToast(t('error_generic_action'), 'error');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -70,6 +88,8 @@ export function StorageIcons({
     }
   };
 
+  const canUpload = !doc.hasCloud && !!doc.localId && !!userId && !userId.startsWith('guest_');
+
   return (
     <div className="flex items-center gap-1.5 shrink-0">
       <button
@@ -87,15 +107,19 @@ export function StorageIcons({
 
       <button
         onClick={handleCloudClick}
-        title={doc.hasCloud ? t('storage_remove_cloud') : t('storage_no_cloud')}
+        disabled={uploading}
+        title={doc.hasCloud ? t('storage_remove_cloud') : canUpload ? t('storage_upload_to_cloud') : t('storage_no_cloud')}
         className={cn(
           "w-6 h-6 rounded-lg flex items-center justify-center transition-all",
+          uploading && "animate-pulse text-blue-400",
           doc.hasCloud
             ? "text-blue-400 hover:text-red-400 hover:bg-red-400/10"
-            : "text-text-main/20 cursor-default"
+            : canUpload
+              ? "text-text-main/30 hover:text-blue-400 hover:bg-blue-400/10 cursor-pointer"
+              : "text-text-main/20 cursor-default"
         )}
       >
-        <Cloud size={14} />
+        {uploading ? <Loader2 size={14} className="animate-spin" /> : <Cloud size={14} />}
       </button>
 
       <AnimatePresence>
