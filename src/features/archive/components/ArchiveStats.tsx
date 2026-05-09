@@ -1,8 +1,16 @@
 import { useLanguage } from '../../../core/i18n';
 import { cn, calculateStreak as calculateStreakFromUtils } from '../../../core/utils/utils';
 import { ArchiveSession } from '../types';
+import { X } from 'lucide-react';
 
-export function ArchiveStats({ sessions, streakDays }: { sessions: ArchiveSession[]; streakDays: number }) {
+interface ArchiveStatsProps {
+  sessions: ArchiveSession[];
+  streakDays: number;
+  title: string;
+  onReset?: () => void;
+}
+
+export function ArchiveStats({ sessions, streakDays, title, onReset }: ArchiveStatsProps) {
   const { t } = useLanguage();
 
   const totalWords = sessions.reduce((s, n) => s + (n.wordCount || 0), 0);
@@ -17,32 +25,48 @@ export function ArchiveStats({ sessions, streakDays }: { sessions: ArchiveSessio
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {stats.map(stat => (
-        <div
-          key={stat.label}
-          className={cn(
-            "border rounded-xl p-2.5 lg:p-3 flex flex-col gap-1",
-            stat.isStreak
-              ? "bg-text-main/5 border-transparent"
-              : "bg-surface-card border-border-subtle"
-          )}
-          style={stat.isStreak ? {
-            background: 'color-mix(in srgb, var(--flow-pulse-color) 8%, transparent)',
-            borderColor: 'color-mix(in srgb, var(--flow-pulse-color) 25%, transparent)',
-          } : {}}
-        >
-          <div
-            className="text-lg lg:text-xl font-medium tabular-nums leading-none"
-            style={stat.isStreak ? { color: 'var(--flow-pulse-color)' } : {}}
-          >
-            {stat.value}{stat.suffix ? ' ' + stat.suffix : ''}
-          </div>
-          <div className="text-[10px] text-text-main/35 uppercase tracking-widest">
-            {stat.label}
-          </div>
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-[11px] font-mono text-text-main/40 uppercase tracking-widest truncate">
+          {title}
         </div>
-      ))}
+        {onReset && (
+          <button
+            onClick={onReset}
+            className="w-5 h-5 flex items-center justify-center rounded text-text-main/25 hover:text-text-main/60 hover:bg-text-main/5 transition-all shrink-0 ml-2"
+            title={t('archive_stats_reset')}
+          >
+            <X size={12} />
+          </button>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {stats.map(stat => (
+          <div
+            key={stat.label}
+            className={cn(
+              "border rounded-xl p-2.5 lg:p-3 flex flex-col gap-1",
+              stat.isStreak
+                ? "bg-text-main/5 border-transparent"
+                : "bg-surface-card border-border-subtle"
+            )}
+            style={stat.isStreak ? {
+              background: 'color-mix(in srgb, var(--flow-pulse-color) 8%, transparent)',
+              borderColor: 'color-mix(in srgb, var(--flow-pulse-color) 25%, transparent)',
+            } : {}}
+          >
+            <div
+              className="text-lg lg:text-xl font-medium tabular-nums leading-none"
+              style={stat.isStreak ? { color: 'var(--flow-pulse-color)' } : {}}
+            >
+              {stat.value}{stat.suffix ? ' ' + stat.suffix : ''}
+            </div>
+            <div className="text-[10px] text-text-main/35 uppercase tracking-widest">
+              {stat.label}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

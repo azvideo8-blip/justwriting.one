@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
-import { Search, LayoutGrid, LayoutList, BookOpen, HardDrive, Cloud, Trash2, ExternalLink } from 'lucide-react';
+import { Search, LayoutGrid, LayoutList, BookOpen, Trash2, ExternalLink } from 'lucide-react';
 import { UserProfile, Document } from '../../../types';
 import { GridNoteCard } from '../components/GridNoteCard';
 import { getSessionDate, cn } from '../../../core/utils/utils';
@@ -27,6 +27,7 @@ import { EmptyState } from '../../../shared/components/EmptyState';
 import { DocumentPreview } from '../components/DocumentPreview';
 import { ArchiveStats, calculateStreak } from '../components/ArchiveStats';
 import { InlineTags } from '../components/InlineTags';
+import { StorageIcons } from '../../writing/components/StorageIcons';
 import { ArchiveSession } from '../types';
 
 interface ArchiveViewProps {
@@ -34,14 +35,14 @@ interface ArchiveViewProps {
   profile: UserProfile | null;
 }
 
-function NoteRow({ session, onOpen, t, onToggleLocal, onToggleCloud, onDelete, onTagsChange }: {
+function NoteRow({ session, onOpen, t, onDelete, onTagsChange, onStorageChange, userId }: {
   session: ArchiveSession;
   onOpen: () => void;
   t: (key: string) => string;
-  onToggleLocal?: (session: ArchiveSession) => void;
-  onToggleCloud?: (session: ArchiveSession) => void;
   onDelete?: (session: ArchiveSession) => void;
   onTagsChange?: (session: ArchiveSession, tags: string[]) => void;
+  onStorageChange?: () => void;
+  userId: string;
 }) {
   const date = getSessionDate(session);
   const dateLabel = date
@@ -93,22 +94,16 @@ function NoteRow({ session, onOpen, t, onToggleLocal, onToggleCloud, onDelete, o
           title={t('archive_preview')}>
           <ExternalLink size={13} />
         </button>
-        <button onClick={e => { e.stopPropagation(); if (session._hasCloudCopy) onToggleCloud?.(session); }}
-          className={cn("w-7 h-7 flex items-center justify-center rounded-lg transition-all",
-            session._hasCloudCopy
-              ? "text-blue-400/60 hover:text-red-400 hover:bg-red-400/5"
-              : "text-text-main/15 cursor-default")}
-          title={session._hasCloudCopy ? t('storage_remove_cloud') : t('storage_no_cloud')}>
-          <Cloud size={13} />
-        </button>
-        <button onClick={e => { e.stopPropagation(); onToggleLocal?.(session); }}
-          className={cn("w-7 h-7 flex items-center justify-center rounded-lg transition-all",
-            session._isLocal
-              ? "text-text-main/40 hover:text-red-400 hover:bg-red-400/5"
-              : "text-text-main/15 cursor-default")}
-          title={session._isLocal ? t('storage_remove_local') : t('storage_no_local')}>
-          <HardDrive size={13} />
-        </button>
+        <StorageIcons
+          doc={{
+            localId: session._isLocal ? session.id : undefined,
+            cloudId: session._linkedCloudId,
+            hasLocal: !!session._isLocal,
+            hasCloud: !!session._hasCloudCopy,
+          }}
+          userId={userId}
+          onStorageChange={() => onStorageChange?.()}
+        />
         <button onClick={e => { e.stopPropagation(); onDelete?.(session); }}
           className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/15 hover:text-red-400 hover:bg-red-400/5 transition-all opacity-0 group-hover:opacity-100"
           title={t('archive_delete')}>
@@ -132,7 +127,7 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
 
   const userId = user?.uid ?? getOrCreateGuestId();
 
-  const streakDays = useMemo(() => calculateStreak(sessions), [sessions]);
+  const _streakDays = useMemo(() => calculateStreak(sessions), [sessions]);
 
   const sessionsByDate = useMemo(() => {
     const map: Record<string, number> = {};
@@ -273,7 +268,7 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  const handleToggleLocal = async (s: ArchiveSession) => {
+  const _handleToggleLocal = async (s: ArchiveSession) => {
     if (!s._isLocal) return;
     try {
       await StorageService.removeLocalCopy(s.id);
@@ -284,7 +279,7 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
     }
   };
 
-  const handleToggleCloud = async (s: ArchiveSession) => {
+  const _handleToggleCloud = async (s: ArchiveSession) => {
     if (!s._hasCloudCopy || !user) return;
     try {
       const cloudId = s._linkedCloudId || s.id;
@@ -329,7 +324,7 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
 
   const { 
     selectedDate, setSelectedDate, 
-    setSelectedMonth, 
+    selectedMonth, setSelectedMonth,
     selectedTags, setSelectedTags,
     filteredSessions: filteredByFilters
   } = useArchiveFilters(sessions);
@@ -344,7 +339,26 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
   );
 
   const allTags = useMemo(() => Array.from(new Set(sessions.flatMap(s => s.tags || []))), [sessions]);
-  
+
+  const filteredStreakDays = useMemo(() => calculateStreak(filteredByFilters), [filteredByFilters]);
+
+  const statsTitle = useMemo(() => {
+    if (selectedTags.length > 0) {
+      return t('archive_stats_by_tag') + ' ' + selectedTags.map(t => '#' + t).join(', ');
+    }
+    if (selectedMonth) {
+      return t('archive_stats_by_month') + ' ' + format(selectedMonth, 'LLLL yyyy', { locale: language === 'ru' ? ru : enUS });
+    }
+    return t('archive_stats_title');
+  }, [selectedTags, selectedMonth, t, language]);
+
+  const hasActiveFilter = selectedTags.length > 0 || !!selectedMonth;
+
+  const resetStatsFilter = () => {
+    setSelectedTags([]);
+    setSelectedMonth(null);
+  };
+
   const groupedSessions = useMemo(() => {
     return filteredSessions.reduce((acc, session) => {
       const d = getSessionDate(session);
@@ -545,10 +559,10 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
                             session={session}
                             onOpen={() => setPreviewSession(session)}
                             t={t}
-                            onToggleLocal={(s) => handleToggleLocal(s)}
-                            onToggleCloud={(s) => handleToggleCloud(s)}
                             onDelete={(s) => setDeleteConfirm(s)}
                             onTagsChange={handleTagsChange}
+                            onStorageChange={() => fetchSessions()}
+                            userId={userId}
                           />
                         ))}
                       </div>
@@ -572,12 +586,13 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
 
           {/* Right bar */}
           <div className="hidden lg:flex w-64 shrink-0 border-l border-border-subtle pl-6 flex-col gap-6">
-            <div className="text-[11px] font-mono text-text-main/30 uppercase tracking-widest pt-1">
-              {t('archive_sidebar_title')}
-            </div>
-
             <div>
-              <ArchiveStats sessions={sessions} streakDays={streakDays} />
+              <ArchiveStats
+                sessions={filteredByFilters}
+                streakDays={filteredStreakDays}
+                title={statsTitle}
+                onReset={hasActiveFilter ? resetStatsFilter : undefined}
+              />
             </div>
 
             <div className="h-px bg-border-subtle" />
