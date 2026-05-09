@@ -346,6 +346,7 @@ export const translations: Translations = {
   storage_delete_confirm: { ru: 'Удалить', en: 'Delete' },
   storage_deleted_local: { ru: 'Локальная копия удалена', en: 'Local copy removed' },
   storage_deleted_cloud: { ru: 'Облачная копия удалена', en: 'Cloud copy removed' },
+  storage_uploaded_cloud: { ru: 'Загружено в облако', en: 'Uploaded to cloud' },
   storage_deleted_completely: { ru: 'Документ удалён', en: 'Document deleted' },
 
   // Finish modal storage hint
@@ -620,7 +621,11 @@ export const translations: Translations = {
   archive_entry_1: { ru: 'запись', en: 'entry' },
   archive_entry_2: { ru: 'записи', en: 'entries' },
   archive_entry_5: { ru: 'записей', en: 'entries' },
-  archive_sidebar_title: { ru: 'Архив', en: 'Archive' },
+  archive_sidebar_title:     { ru: 'Архив',  en: 'Archive' },
+  archive_stats_title:       { ru: 'Статистика', en: 'Statistics' },
+  archive_stats_by_tag:      { ru: 'Статистика по тегу', en: 'Stats by tag' },
+  archive_stats_by_month:    { ru: 'Статистика по месяцу', en: 'Stats by month' },
+  archive_stats_reset:       { ru: 'Сбросить фильтр', en: 'Reset filter' },
   archive_calendar_title: { ru: 'Календарь', en: 'Calendar' },
   archive_preview: { ru: 'Предпросмотр', en: 'Preview' },
   error_generic: { ru: 'Что-то пошло не так', en: 'Something went wrong' },

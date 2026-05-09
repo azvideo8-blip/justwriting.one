@@ -106,6 +106,15 @@ interface JustWritingDB extends DBSchema {
 let dbInstance: IDBPDatabase<JustWritingDB> | null = null;
 let dbOpenPromise: Promise<IDBPDatabase<JustWritingDB>> | null = null;
 
+/** Reset the module-level singleton — for use in tests only. */
+export function resetDbInstance(): void {
+  if (dbInstance) {
+    try { dbInstance.close(); } catch { /* ignore */ }
+    dbInstance = null;
+  }
+  dbOpenPromise = null;
+}
+
 export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   if (dbInstance) {
     try {
