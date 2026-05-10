@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { Session, UserProfile } from '../../../types';
 import { calculateStreak } from '../../../core/utils/utils';
 import { SyncService } from '../../writing/services/SyncService';
@@ -197,36 +197,35 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   return (
     <div className="min-h-screen bg-surface-base">
       <SafeSection label="ProfileHero">
-        <ProfileHero user={user} profile={profile} isGuest={isGuest} onStartSession={() => navigate('/')} />
+        <ProfileHero
+          user={user} profile={profile} isGuest={isGuest}
+          onStartSession={() => navigate('/')}
+          onSync={user ? handleSyncBoth : undefined}
+          syncing={syncing}
+        />
       </SafeSection>
-      <SafeSection label="KPIStrip">
-        <KPIStrip stats={kpiStats} />
-      </SafeSection>
-      <SafeSection label="StreakRibbon">
-        <StreakRibbon sessions={sessions} />
-      </SafeSection>
-      <SafeSection label="Heatmap">
-        <Heatmap sessions={sessions} />
-      </SafeSection>
-      <SafeSection label="HourRhythm">
-        <HourRhythm sessions={sessions} />
-      </SafeSection>
-      <SafeSection label="Achievements">
-        <Achievements key={achResetKey} stats={kpiStats} sessions={sessions} />
-      </SafeSection>
+      <div className="lg:grid lg:grid-cols-[1fr_340px] lg:gap-10 lg:px-9 lg:pt-6">
+        <div>
+          <SafeSection label="KPIStrip">
+            <KPIStrip stats={kpiStats} />
+          </SafeSection>
+          <SafeSection label="Heatmap">
+            <Heatmap sessions={sessions} />
+          </SafeSection>
+          <SafeSection label="HourRhythm">
+            <HourRhythm sessions={sessions} />
+          </SafeSection>
+        </div>
+        <div className="lg:sticky lg:top-0 lg:self-start">
+          <SafeSection label="StreakRibbon">
+            <StreakRibbon sessions={sessions} />
+          </SafeSection>
+          <SafeSection label="Achievements">
+            <Achievements key={achResetKey} stats={kpiStats} sessions={sessions} />
+          </SafeSection>
+        </div>
+      </div>
       <div style={{ padding: '12px 36px 48px', textAlign: 'center' }}>
-        {user && (
-          <div className="mb-4">
-            <button
-              onClick={handleSyncBoth}
-              disabled={syncing}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border border-brand-soft/30 text-brand-soft hover:bg-brand-soft/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-              {syncing ? t('profile_syncing') : t('profile_sync_button')}
-            </button>
-          </div>
-        )}
         {showResetConfirm ? (
           <div className="inline-flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
             <span className="text-[12px] text-red-400">{t('profile_ach_reset_confirm')}</span>
