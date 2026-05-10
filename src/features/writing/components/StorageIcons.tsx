@@ -7,12 +7,21 @@ import { useToast } from '../../../shared/components/Toast';
 import { StorageService } from '../services/StorageService';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 
-export interface StorageDoc {
+interface StorageDoc {
   localId?: string;
   cloudId?: string;
   hasLocal: boolean;
   hasCloud: boolean;
 }
+
+type ConfirmState =
+  | { kind: 'idle' }
+  | { kind: 'delete-local-only' }
+  | { kind: 'delete-local' }
+  | { kind: 'delete-cloud-only' }
+  | { kind: 'delete-cloud' };
+
+const IDLE: ConfirmState = { kind: 'idle' };
 
 export function StorageIcons({
   doc,
@@ -25,24 +34,19 @@ export function StorageIcons({
 }) {
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const [confirmState, setConfirmState] = useState<{
-    type: 'local' | 'cloud' | null;
-    isOnly: boolean;
-  }>({ type: null, isOnly: false });
+  const [confirmState, setConfirmState] = useState<ConfirmState>(IDLE);
   const [uploading, setUploading] = useState(false);
 
   const handleLocalClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!doc.hasLocal) return;
-    const isOnly = doc.hasLocal && !doc.hasCloud;
-    setConfirmState({ type: 'local', isOnly });
+    setConfirmState(doc.hasLocal && !doc.hasCloud ? { kind: 'delete-local-only' } : { kind: 'delete-local' });
   };
 
   const handleCloudClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (doc.hasCloud) {
-      const isOnly = doc.hasCloud && !doc.hasLocal;
-      setConfirmState({ type: 'cloud', isOnly });
+      setConfirmState(doc.hasCloud && !doc.hasLocal ? { kind: 'delete-cloud-only' } : { kind: 'delete-cloud' });
       return;
     }
     if (!doc.localId || !userId || userId.startsWith('guest_')) return;
@@ -64,29 +68,58 @@ export function StorageIcons({
 
   const handleConfirmDelete = async () => {
     try {
-      if (confirmState.type === 'local' && confirmState.isOnly) {
-        await StorageService.deleteDocument(userId, doc.localId, doc.cloudId);
-        showToast(t('storage_deleted_completely'), 'success');
-      } else if (confirmState.type === 'local') {
-        await StorageService.removeLocalCopy(doc.localId!);
-        showToast(t('storage_deleted_local'), 'success');
-      } else if (confirmState.type === 'cloud' && confirmState.isOnly) {
-        await StorageService.deleteDocument(userId, doc.localId, doc.cloudId);
-        showToast(t('storage_deleted_completely'), 'success');
-      } else if (confirmState.type === 'cloud') {
-        await StorageService.removeCloudCopy(userId, doc.cloudId!);
-        if (doc.localId) {
-          await LocalDocumentService.updateLinkedCloudId(doc.localId, '');
-        }
-        showToast(t('storage_deleted_cloud'), 'success');
+      switch (confirmState.kind) {
+        case 'delete-local-only':
+          await StorageService.deleteDocument(userId, doc.localId, doc.cloudId);
+          showToast(t('storage_deleted_completely'), 'success');
+          break;
+        case 'delete-local':
+          await StorageService.removeLocalCopy(doc.localId!);
+          showToast(t('storage_deleted_local'), 'success');
+          break;
+        case 'delete-cloud-only':
+          await StorageService.deleteDocument(userId, doc.localId, doc.cloudId);
+          showToast(t('storage_deleted_completely'), 'success');
+          break;
+        case 'delete-cloud':
+          await StorageService.removeCloudCopy(userId, doc.cloudId!);
+          if (doc.localId) {
+            await LocalDocumentService.updateLinkedCloudId(doc.localId, '');
+          }
+          showToast(t('storage_deleted_cloud'), 'success');
+          break;
       }
       onStorageChange();
     } catch {
       showToast(t('error_generic_action'), 'error');
     } finally {
-      setConfirmState({ type: null, isOnly: false });
+      setConfirmState(IDLE);
     }
   };
+
+  const confirmTitle = confirmState.kind === 'idle' ? '' : (() => {
+    switch (confirmState.kind) {
+      case 'delete-local-only':
+      case 'delete-cloud-only':
+        return t('storage_confirm_delete_only');
+      case 'delete-local':
+        return t('storage_confirm_delete_local');
+      case 'delete-cloud':
+        return t('storage_confirm_delete_cloud');
+    }
+  })();
+
+  const confirmHint = confirmState.kind === 'idle' ? '' : (() => {
+    switch (confirmState.kind) {
+      case 'delete-local-only':
+      case 'delete-cloud-only':
+        return t('storage_confirm_delete_only_hint');
+      case 'delete-local':
+        return t('storage_confirm_delete_local_hint');
+      case 'delete-cloud':
+        return t('storage_confirm_delete_cloud_hint');
+    }
+  })();
 
   const canUpload = !doc.hasCloud && !!doc.localId && !!userId && !userId.startsWith('guest_');
 
@@ -123,31 +156,23 @@ export function StorageIcons({
       </button>
 
       <AnimatePresence>
-        {confirmState.type && (
+        {confirmState.kind !== 'idle' && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             className="fixed inset-0 z-[300] flex items-center justify-center bg-surface-base/60 backdrop-blur-sm"
-            onClick={() => setConfirmState({ type: null, isOnly: false })}
+            onClick={() => setConfirmState(IDLE)}
           >
             <motion.div
               className="bg-surface-card border border-border-subtle rounded-2xl p-5 w-[320px] shadow-lg"
               onClick={e => e.stopPropagation()}
             >
               <div className="text-sm font-medium text-text-main mb-2">
-                {confirmState.isOnly
-                  ? t('storage_confirm_delete_only')
-                  : confirmState.type === 'local'
-                    ? t('storage_confirm_delete_local')
-                    : t('storage_confirm_delete_cloud')}
+                {confirmTitle}
               </div>
               <div className="text-xs text-text-main/40 mb-4">
-                {confirmState.isOnly
-                  ? t('storage_confirm_delete_only_hint')
-                  : confirmState.type === 'local'
-                    ? t('storage_confirm_delete_local_hint')
-                    : t('storage_confirm_delete_cloud_hint')}
+                {confirmHint}
               </div>
               <div className="flex gap-2">
                 <button
@@ -157,7 +182,7 @@ export function StorageIcons({
                   {t('storage_delete_confirm')}
                 </button>
                 <button
-                  onClick={() => setConfirmState({ type: null, isOnly: false })}
+                  onClick={() => setConfirmState(IDLE)}
                   className="flex-1 py-2 rounded-xl border border-border-subtle text-text-main/50 text-sm hover:text-text-main transition-all"
                 >
                   {t('common_cancel')}

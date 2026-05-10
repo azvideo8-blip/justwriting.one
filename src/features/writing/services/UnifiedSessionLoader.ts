@@ -7,7 +7,7 @@ import { SessionService } from './SessionService';
 import { LocalVersionService } from './LocalVersionService';
 import { toDate } from '../../../core/utils/dateUtils';
 
-export interface LoadedSession extends Session {
+interface LoadedSession extends Session {
   _linkedCloudId?: string;
   _hasCloudCopy?: boolean;
   _totalWords?: number;
@@ -15,7 +15,7 @@ export interface LoadedSession extends Session {
   _sessionsCount?: number;
 }
 
-export interface LoadResult {
+interface LoadResult {
   sessions: LoadedSession[];
   cloudLoadFailed: boolean;
 }
