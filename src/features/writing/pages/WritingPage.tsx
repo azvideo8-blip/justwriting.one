@@ -14,7 +14,6 @@ import { FlowPulse } from '../../../core/theme/FlowPulse';
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
 
 import { useSessionFlow } from '../hooks/useSessionFlow';
-import { useLanguage } from '../../../core/i18n';
 import { MobileWriteScreen } from '../components/MobileWriteScreen';
 import { MobileHomeScreen } from '../components/MobileHomeScreen';
 import { useLifeLog } from '../hooks/useLifeLog';
@@ -55,7 +54,6 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
 }
 
 function WritingPageUI({ session, profile }: { session: AnySessionReturn; profile: UserProfile | null }) {
-  const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const sessionToContinue = (location.state as { sessionToContinue?: Session | null } | null)?.sessionToContinue || null;
@@ -285,7 +283,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
         onContinueSessionOrDoc={handleContinueSessionOrDoc}
         loadDraft={session.loadDraft}
         setHasDraft={session.setHasDraft}
-        setTitle={setTitle}
         onSetPromptTitle={(title) => setTitle(title)}
         showZen={showZen}
         lifeLogVisible={lifeLogVisible}
