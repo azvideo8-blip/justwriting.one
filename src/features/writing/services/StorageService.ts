@@ -43,6 +43,7 @@ export const StorageService = {
     const localId = await LocalDocumentService.createDocument(userId, {
       title: data.title,
       tags: data.tags,
+      labelId: data.labelId,
     });
     await LocalVersionService.addVersion(userId, localId, {
       content: data.content,
@@ -166,6 +167,7 @@ export const StorageService = {
     const localId = await LocalDocumentService.createDocument(userId, {
       title: cloudDoc.title,
       tags: cloudDoc.tags,
+      labelId: cloudDoc.labelId ?? undefined,
       firstSessionAt: firstSessionMs || undefined,
       lastSessionAt: lastSessionMs || undefined,
     });
@@ -239,6 +241,7 @@ export const StorageService = {
         cloudId = await withTimeout(DocumentService.createDocument(userId, {
           title: localDoc.title,
           tags: localDoc.tags,
+          labelId: localDoc.labelId ?? undefined,
           firstSessionAt: localDoc.firstSessionAt ? new Date(localDoc.firstSessionAt) : undefined,
           lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
         }));

@@ -3,7 +3,7 @@ import { getLocalDb, LocalDocument, randomUUID } from '../../../shared/lib/local
 export const LocalDocumentService = {
   async createDocument(
     guestId: string,
-    data: { title: string; tags?: string[]; firstSessionAt?: number; lastSessionAt?: number }
+    data: { title: string; tags?: string[]; labelId?: string; firstSessionAt?: number; lastSessionAt?: number }
   ): Promise<string> {
     const db = await getLocalDb();
     const id = `local_${randomUUID()}`;
@@ -20,6 +20,7 @@ export const LocalDocumentService = {
       firstSessionAt: data.firstSessionAt ?? now,
       lastSessionAt: data.lastSessionAt ?? now,
       tags: data.tags ?? [],
+      labelId: data.labelId ?? null,
     });
 
     return id;
