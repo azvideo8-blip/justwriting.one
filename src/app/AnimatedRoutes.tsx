@@ -6,6 +6,7 @@ import { useLayoutMode } from '../shared/hooks/useLayoutMode';
 import { useLanguage } from '../core/i18n';
 import { cn } from '../core/utils/utils';
 import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
+import { useSettings } from '../core/settings/SettingsContext';
 
 import { AppLayout } from '../shared/components/Layout/AppLayout';
 import { Sidebar } from '../features/navigation/components/Sidebar';
@@ -36,6 +37,7 @@ export function AnimatedRoutes() {
   const { isZenActive, zenModeEnabled, lifeLogEnabled } = useWritingSettings();
   const { layoutMode, setLayoutMode } = useLayoutMode();
   const { loginModalOpen } = useLoginModal();
+  const { openSettings } = useSettings();
   const layoutModeRef = React.useRef(layoutMode);
   React.useEffect(() => { layoutModeRef.current = layoutMode; }, [layoutMode]);
 
@@ -68,7 +70,7 @@ export function AnimatedRoutes() {
       <>
         {!hideSidebar && (
           layoutMode === 'desktop' ? (
-            <Sidebar isAdmin={isAdmin} />
+            <Sidebar isAdmin={isAdmin} onOpenSettings={openSettings} />
           ) : (
             <BottomNav isAdmin={isAdmin} />
           )

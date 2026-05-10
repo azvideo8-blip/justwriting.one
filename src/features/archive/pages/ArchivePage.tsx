@@ -24,10 +24,23 @@ interface ArchiveViewProps {
   profile: UserProfile | null;
 }
 
-export function ArchivePage({ user }: ArchiveViewProps) {
+export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
   const userId = useUserId(user);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
 
   const data = useArchiveData(user, userId, t, language);
   const {
@@ -78,6 +91,7 @@ export function ArchivePage({ user }: ArchiveViewProps) {
                 <div className="relative flex-1 max-w-[440px]">
                   <Search size={14} className="absolute left-3 top-2.5 text-text-main/30" />
                   <input
+                    ref={searchInputRef}
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder={t('archive_search_placeholder')}
@@ -202,6 +216,7 @@ export function ArchivePage({ user }: ArchiveViewProps) {
                             onOpen={() => setPreviewSession(session)}
                             t={t}
                             language={language}
+                            labels={profile?.labels}
                             onDelete={(s) => setDeleteConfirm(s)}
                             onTagsChange={handleTagsChange}
                             onStorageChange={() => fetchSessions()}

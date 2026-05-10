@@ -23,7 +23,7 @@ interface WritingHeaderProps {
 }
 
 export const WritingHeader = React.memo(function WritingHeader({
-  onOpenSettings: _onOpenSettings,
+  onOpenSettings,
   onNew,
   onOpenLog,
   onSave,
@@ -127,24 +127,12 @@ export const WritingHeader = React.memo(function WritingHeader({
                     <BookOpen size={16} />
                   </button>
                    <button
-                     onClick={() => {
-                       if (!lifeLogVisible || lifeLogTab !== 'settings') {
-                         setLifeLogTab('settings');
-                         setLifeLogVisible(true);
-                       } else {
-                         setLifeLogVisible(false);
-                       }
-                     }}
-                     title={t('lifelog_tab_settings')}
-                     className={cn(
-                       "w-9 h-9 rounded-lg flex items-center justify-center transition-all",
-                       lifeLogVisible && lifeLogTab === 'settings'
-                         ? "bg-text-main/10 text-text-main"
-                         : "text-text-main/40 hover:text-text-main hover:bg-text-main/5"
-                     )}
-                   >
-                     <Settings size={16} />
-                   </button>
+                      onClick={onOpenSettings}
+                      title={t('nav_settings')}
+                      className="w-9 h-9 rounded-lg flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all"
+                    >
+                      <Settings size={16} />
+                    </button>
                    <button
                      onClick={toggleFullscreen}
                      title={t('header_fullscreen')}
@@ -189,25 +177,13 @@ export const WritingHeader = React.memo(function WritingHeader({
                    >
                      <BookOpen size={16} />
                    </button>
-                    <button
-                      onClick={() => {
-                        if (!lifeLogVisible || lifeLogTab !== 'settings') {
-                          setLifeLogTab('settings');
-                          setLifeLogVisible(true);
-                        } else {
-                          setLifeLogVisible(false);
-                        }
-                      }}
-                      title={t('lifelog_tab_settings')}
-                      className={cn(
-                        "w-9 h-9 rounded-xl flex items-center justify-center transition-all",
-                        lifeLogVisible && lifeLogTab === 'settings'
-                          ? "bg-text-main/10 text-text-main"
-                          : "text-text-main/40 hover:text-text-main hover:bg-text-main/5"
-                      )}
-                    >
-                      <Settings size={16} />
-                    </button>
+                     <button
+                       onClick={onOpenSettings}
+                       title={t('nav_settings')}
+                       className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all"
+                     >
+                       <Settings size={16} />
+                     </button>
                     <button
                       onClick={toggleFullscreen}
                       title={t('header_fullscreen')}

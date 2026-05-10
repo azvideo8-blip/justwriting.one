@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { ExternalLink, Trash2 } from 'lucide-react';
-import { getSessionDate } from '../../../core/utils/utils';
+import { getSessionDate, cn } from '../../../core/utils/utils';
 import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { InlineTags } from './InlineTags';
 import { StorageIcons } from '../../writing/components/StorageIcons';
 import { ArchiveSession } from '../types';
+import { Label } from '../../../types';
 
 interface NoteRowProps {
   session: ArchiveSession;
@@ -18,9 +19,10 @@ interface NoteRowProps {
   onTitleChange?: (session: ArchiveSession, title: string) => void;
   onDateChange?: (session: ArchiveSession, date: Date) => void;
   userId: string;
+  labels?: Label[];
 }
 
-export function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, userId }: NoteRowProps) {
+export function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, userId, labels }: NoteRowProps) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(session.title || '');
   const [editingDateTime, setEditingDateTime] = useState(false);
@@ -82,10 +84,12 @@ export function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, 
     }
   };
 
+  const label = labels?.find(l => l.id === session.labelId);
+
   return (
     <div
-      className="grid items-start gap-3 px-3 py-4 rounded-xl hover:bg-text-main/[0.025] transition-colors group border border-transparent hover:border-border-subtle"
-      style={{ gridTemplateColumns: '72px 1fr auto' }}
+      className={cn("grid items-start gap-3 px-3 py-4 rounded-xl hover:bg-text-main/[0.025] transition-colors group border border-transparent hover:border-border-subtle border-l-2", label ? "" : "border-l-transparent")}
+      style={{ gridTemplateColumns: '72px 1fr auto', ...(label ? { borderLeftColor: label.color } : {}) }}
     >
       <div className="shrink-0 relative">
         <div
