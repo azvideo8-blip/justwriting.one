@@ -18,7 +18,7 @@ export function getSessionDate(session: Session): Date | null {
     date = parseFirestoreDate(session.createdAt);
   }
   if (!date || isNaN(date.getTime())) return null;
-  return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 export function calculateStreak(sessions: Session[]) {

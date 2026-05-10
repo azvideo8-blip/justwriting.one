@@ -18,7 +18,7 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
       const hasSession = sessionGroups.some(g =>
         new Date(g.date).toDateString() === d.toDateString()
       );
-      const isToday = i === 6;
+      const isToday = i === 0;
       result.push({ date: d, hasSession, isToday });
     }
     return result;
