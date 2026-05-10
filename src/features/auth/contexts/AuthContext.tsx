@@ -6,7 +6,7 @@ import { onSnapshot, doc, setDoc, getDoc } from 'firebase/firestore';
 import { UserProfile } from '../../../types';
 import * as Sentry from '@sentry/react';
 
-export type AuthState = 'loading' | 'authenticated' | 'guest';
+type AuthState = 'loading' | 'authenticated' | 'guest';
 
 interface AuthContextValue {
   user: User | null;

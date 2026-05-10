@@ -62,12 +62,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
 
   const timeGoalReached = useWritingStore(s => s.timeGoalReached);
   const wordGoalReached = useWritingStore(s => s.wordGoalReached);
-  const timerDurationVal = useWritingStore(s => s.timerDuration);
-  const setTimerDurationVal = useWritingStore(s => s.setTimerDuration);
-  const wordGoalVal = useWritingStore(s => s.wordGoal);
   const setWordGoalVal = useWritingStore(s => s.setWordGoal);
-  const targetTimeVal = useWritingStore(s => s.targetTime);
-  const setTargetTimeVal = useWritingStore(s => s.setTargetTime);
 
   const sessionStatus = session.status;
   const tags = session.tags;
@@ -258,12 +253,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
         setupMode={flow.setupMode}
         setSetupMode={setSetupMode}
         startCountdown={startCountdown}
-        timerDuration={timerDurationVal}
-        setTimerDuration={setTimerDurationVal}
-        wordGoal={wordGoalVal}
-        setWordGoal={setWordGoalVal}
-        targetTime={targetTimeVal}
-        setTargetTime={setTargetTimeVal}
         countdown={flow.countdown}
         totalDurationForDeadline={flow.totalDurationForDeadline}
         onOpenSettings={openSettings}

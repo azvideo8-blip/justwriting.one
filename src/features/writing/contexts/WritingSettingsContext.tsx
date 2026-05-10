@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { z } from 'zod';
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
+import { TimerStatus } from '../store/useWritingStore';
 
 export interface HeaderVisibility {
   sessionTime: boolean;
@@ -23,8 +24,8 @@ interface WritingSettingsContextType {
   lifeLogTab: 'log' | 'settings';
   setLifeLogTab: (tab: 'log' | 'settings') => void;
   isZenActive: boolean;
-  status: 'idle' | 'writing' | 'paused';
-  setStatus: (status: 'idle' | 'writing' | 'paused') => void;
+  status: TimerStatus;
+  setStatus: (status: TimerStatus) => void;
   fontFamily: string;
   setFontFamily: (font: string) => void;
   fontSize: number;
@@ -53,7 +54,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     z.object({ sessionTime: z.boolean(), sessionWords: z.boolean(), totalWords: z.boolean(), wpm: z.boolean() })
   );
 
-  const [status, setStatus] = useState<'idle' | 'writing' | 'paused'>('idle');
+  const [status, setStatus] = useState<TimerStatus>('idle');
   const [isZenActive, setIsZenActive] = useState<boolean>(false);
   const zenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const guardRef = useRef<boolean>(false);
