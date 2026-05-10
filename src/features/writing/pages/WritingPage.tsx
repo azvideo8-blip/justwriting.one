@@ -85,6 +85,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
   const setLabelId = session.setLabelId;
   const sessionType = session.sessionType;
   const setSessionType = session.setSessionType;
+  const setTitle = useWritingStore(s => s.setTitle);
 
   const {
     targetTime,
@@ -174,10 +175,10 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
   );
 
   const handleOnboardingComplete = React.useCallback((goal: number) => {
-    useWritingStore.getState().setWordGoal(goal);
+    setWordGoalVal(goal);
     localStorage.setItem('onboarding_done', '1');
     setShowOnboarding(false);
-  }, []);
+  }, [setWordGoalVal]);
 
   const streakDays = React.useMemo(() => {
     const allSessions = lifeLogGroups.flatMap(g => g.sessions);
@@ -219,9 +220,8 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
         isGuest={isGuest}
         onSave={handleSave}
         onCancel={() => {
-          const state = useWritingStore.getState();
-          if (state.status === 'paused' && state.content) {
-            useWritingStore.getState().setStatus('writing');
+          if (sessionStatus === 'paused' && session.content) {
+            useWritingStore.getState().resumeSession();
           }
           setIsFinishModalOpen(false);
         }}
@@ -240,7 +240,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
   if (showOnboarding && sessionStatus === 'idle') {
     return (
       <div className="min-h-screen flex flex-col">
-        <OnboardingGoalScreen onComplete={handleOnboardingComplete} />
+        <OnboardingGoalScreen onComplete={handleOnboardingComplete} setWordGoal={setWordGoalVal} />
         {sharedOverlays}
       </div>
     );
@@ -362,7 +362,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
                   countdown={flow.countdown}
                   userSessions={[]}
                   continueSession={handleContinueSession}
-                  onSetPromptTitle={(title) => useWritingStore.getState().setTitle(title)}
+                  onSetPromptTitle={(title) => setTitle(title)}
                 />
               ) : (
               <WritingEditor

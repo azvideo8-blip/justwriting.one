@@ -72,7 +72,7 @@ export function AccountTab({ userId }: AccountTabProps) {
             const s = useWritingStore.getState();
             if (s.status === 'writing' || s.status === 'paused') {
               if (!window.confirm(t('writing_cancel_confirm'))) return;
-              useWritingStore.getState().resetSession();
+              useWritingStore.getState().resetAndClear();
             }
             execute(
               () => signOut(auth),

@@ -1,4 +1,4 @@
-import { Translations } from '../index';
+import { Translations } from '../types';
 
 export const writingTranslations: Translations = {
   writing_select_mode: { ru: 'Выберите режим', en: 'Select Mode' },

@@ -62,6 +62,12 @@ interface WritingState {
   setAccumulatedDuration: (d: number) => void;
   pushWpmHistory: (entry: { timestamp: number; wpm: number }) => void;
   resetSessionMetadata: () => void;
+
+  startFreeSession: () => void;
+  loadDraftIntoStore: (draft: { content: string; title: string; wordCount: number; savedDocumentId?: string; accumulatedDuration?: number }) => void;
+  resetAndClear: () => void;
+  pauseSession: () => void;
+  resumeSession: () => void;
 }
 
 let _wordCalcTimer: ReturnType<typeof setTimeout> | null = null;
@@ -178,6 +184,62 @@ export const useWritingStore = create<WritingState>((set) => ({
     tags: [],
     labelId: undefined,
   }),
+
+  startFreeSession: () => {
+    set((state) => ({
+      sessionType: 'free' as SessionType,
+      sessionStartWords: state.wordCount,
+      sessionStartSeconds: state.seconds,
+    }));
+  },
+
+  loadDraftIntoStore: (draft) => {
+    set({
+      content: draft.content,
+      title: draft.title,
+      wordCount: draft.wordCount,
+      savedDocumentId: draft.savedDocumentId ?? null,
+      accumulatedDuration: draft.accumulatedDuration ?? 0,
+      wpm: 0,
+      wordSnapshots: [],
+      lastWordCount: draft.wordCount,
+    });
+  },
+
+  resetAndClear: () => {
+    set({
+      content: '',
+      title: '',
+      wordCount: 0,
+      initialWordCount: 0,
+      wpm: 0,
+      wordSnapshots: [],
+      lastWordCount: 0,
+      wpmHistory: [],
+      seconds: 0,
+      status: 'idle' as TimerStatus,
+      timeGoalReached: false,
+      wordGoalReached: false,
+      overtimeSeconds: 0,
+      sessionStartWords: 0,
+      sessionStartSeconds: 0,
+      accumulatedDuration: 0,
+      savedDocumentId: null,
+      sessionStartTime: null,
+      tags: [],
+      labelId: undefined,
+      initialDuration: 0,
+      activeSessionId: null,
+    });
+  },
+
+  pauseSession: () => {
+    set((state) => state.status === 'writing' ? { status: 'paused' as TimerStatus } : state);
+  },
+
+  resumeSession: () => {
+    set((state) => state.status === 'paused' ? { status: 'writing' as TimerStatus } : state);
+  },
 
   resetSession: () => set({
     content: '', title: '', pinnedThoughts: [],

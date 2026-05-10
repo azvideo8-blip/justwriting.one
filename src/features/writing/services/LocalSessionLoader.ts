@@ -1,6 +1,6 @@
 import { LocalDocumentService } from './LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
-import { LocalSessionInfo } from '../hooks/useGuestWritingSession';
+import { LocalSessionInfo } from '../types/session';
 
 export async function fetchLocalSessions(userId: string): Promise<LocalSessionInfo[]> {
   const localDocs = await LocalDocumentService.getGuestDocuments(userId);

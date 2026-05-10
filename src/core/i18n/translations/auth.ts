@@ -1,4 +1,4 @@
-import { Translations } from '../index';
+import { Translations } from '../types';
 
 export const authTranslations: Translations = {
   auth_error_google_network: { ru: 'Ошибка сети при авторизации через Google. Проверьте интернет-соединение или настройки Authorized Domains в консоли Firebase.', en: 'Network error during Google sign-in. Check your internet connection or Authorized Domains settings in Firebase Console.' },

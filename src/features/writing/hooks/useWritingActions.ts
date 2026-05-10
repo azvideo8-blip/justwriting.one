@@ -69,15 +69,12 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         }
       }
 
-      useWritingStore.setState({
+      useWritingStore.getState().loadDraftIntoStore({
         content,
         title: doc.title,
         wordCount: doc.totalWords,
         savedDocumentId: localId,
         accumulatedDuration: doc.totalDuration,
-        wpm: 0,
-        wordSnapshots: [],
-        lastWordCount: doc.totalWords,
       });
 
       useWritingStore.getState().setSessionStart();
@@ -95,10 +92,10 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       flow.setSetupMode(null);
       setSessionStatus('writing');
       useWritingStore.getState().setSessionStart();
-      useWritingStore.setState({
-        wpm: 0,
-        wordSnapshots: [],
-        lastWordCount: 0,
+      useWritingStore.getState().loadDraftIntoStore({
+        content: '',
+        title: '',
+        wordCount: 0,
       });
     } catch (err) {
       console.error('Continue session error:', err);
@@ -186,18 +183,16 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
 
   const handlePlay = React.useCallback(() => {
     if (sessionStatus === 'idle') {
-      useWritingStore.getState().setSessionType('free');
-      useWritingStore.getState().setSessionStart();
+      useWritingStore.getState().startFreeSession();
       hookHandleStart();
     } else if (sessionStatus === 'paused') {
-      useWritingStore.getState().setStatus('writing');
+      useWritingStore.getState().resumeSession();
     }
   }, [sessionStatus, hookHandleStart]);
 
   const handlePause = React.useCallback(() => {
-    if (sessionStatus !== 'writing') return;
-    useWritingStore.getState().setStatus('paused');
-  }, [sessionStatus]);
+    useWritingStore.getState().pauseSession();
+  }, []);
 
   const handleNew = React.useCallback(async () => {
     const { wordCount, status } = useWritingStore.getState();
@@ -205,8 +200,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       flow.setShowCancelConfirm(true);
       return;
     }
-    useWritingStore.getState().resetSession();
-    useWritingStore.setState({ title: '', content: '' });
+    useWritingStore.getState().resetAndClear();
 
     if (isGuest) {
       localStorage.removeItem('jw_guest_draft');
@@ -225,7 +219,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
   const handleFinish = React.useCallback((keystrokeTrackerRef: React.RefObject<{ getStats: () => { kpm: number; ikiMedian: number; ikiCv: number; sampleSize: number; kpmWpmRatio?: number }; reset: () => void }>) => {
     const state = useWritingStore.getState();
     if (state.status === 'writing') {
-      useWritingStore.getState().setStatus('paused');
+      useWritingStore.getState().pauseSession();
     }
     const stats = keystrokeTrackerRef.current?.getStats();
     if (stats) {

@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
-import { useWritingStore } from '../store/useWritingStore';
 
 interface OnboardingGoalScreenProps {
   onComplete: (wordGoal: number) => void;
+  setWordGoal: (goal: number) => void;
 }
 
 const PRESETS = [
@@ -14,7 +14,7 @@ const PRESETS = [
   { key: 'serious', words: 750, mins: 15 },
 ] as const;
 
-export function OnboardingGoalScreen({ onComplete }: OnboardingGoalScreenProps) {
+export function OnboardingGoalScreen({ onComplete, setWordGoal }: OnboardingGoalScreenProps) {
   const { t } = useLanguage();
   const [selected, setSelected] = useState<number | null>(null);
   const [customWords, setCustomWords] = useState('');
@@ -34,7 +34,7 @@ export function OnboardingGoalScreen({ onComplete }: OnboardingGoalScreenProps) 
 
   const handleStart = () => {
     const finalGoal = isCustom ? (parseInt(customWords) || 300) : (selected || 300);
-    useWritingStore.getState().setWordGoal(finalGoal);
+    setWordGoal(finalGoal);
     localStorage.setItem('onboarding_done', '1');
     onComplete(finalGoal);
   };

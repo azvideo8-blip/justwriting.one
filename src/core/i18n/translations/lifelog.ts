@@ -1,4 +1,4 @@
-import { Translations } from '../index';
+import { Translations } from '../types';
 
 export const lifelogTranslations: Translations = {
   lifelog_tab_log:       { ru: 'Life Log',     en: 'Life Log' },

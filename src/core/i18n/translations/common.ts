@@ -1,4 +1,4 @@
-import { Translations } from '../index';
+import { Translations } from '../types';
 
 export const commonTranslations: Translations = {
   nav_write: { ru: 'Писать', en: 'Write' },

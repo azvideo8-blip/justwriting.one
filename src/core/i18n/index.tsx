@@ -6,15 +6,7 @@ import { profileTranslations } from './translations/profile';
 import { settingsTranslations } from './translations/settings';
 import { authTranslations } from './translations/auth';
 import { lifelogTranslations } from './translations/lifelog';
-
-type Language = 'ru' | 'en';
-
-interface Translations {
-  [key: string]: {
-    ru: string;
-    en: string;
-  };
-}
+import { Language, Translations } from './types';
 
 export type { Language, Translations };
 
