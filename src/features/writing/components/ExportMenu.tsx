@@ -1,9 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
-import { Share2, FileText, Download, FileJson } from 'lucide-react';
+import { FileText, Download, FileJson } from 'lucide-react';
 import { Session } from '../../../types';
-import { cn } from '../../../core/utils/utils';
 import { ExportService } from '../../export/ExportService';
 import { useLanguage } from '../../../core/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';

@@ -2,7 +2,7 @@
 import 'fake-indexeddb/auto';
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { getLocalDb, resetDbInstance } from '../../../shared/lib/localDb';
+import { resetDbInstance } from '../../../shared/lib/localDb';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { LocalVersionService } from '../services/LocalVersionService';
 
