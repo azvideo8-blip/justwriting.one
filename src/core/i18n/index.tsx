@@ -119,6 +119,23 @@ export const translations: Translations = {
   finish_stats: { ru: 'Статистика сессии', en: 'Session Stats' },
   finish_streak_days: { ru: 'дней подряд', en: 'days in a row' },
   finish_streak_zero: { ru: 'Начни сегодня!', en: 'Start today!' },
+
+  mood_checkin_title: { ru: 'Как ты себя чувствуешь?', en: 'How do you feel?' },
+  mood_checkin_subtitle: { ru: 'Это займёт секунду', en: 'This takes a second' },
+  mood_checkin_skip: { ru: 'Пропустить', en: 'Skip' },
+
+  onboarding_goal_title: { ru: 'Сколько хочешь писать?', en: 'How much do you want to write?' },
+  onboarding_goal_easy: { ru: 'Лёгкий старт', en: 'Easy start' },
+  onboarding_goal_normal: { ru: 'Обычный', en: 'Regular' },
+  onboarding_goal_serious: { ru: 'Серьёзно', en: 'Serious' },
+  onboarding_goal_custom: { ru: 'Свой', en: 'Custom' },
+  onboarding_goal_cta: { ru: 'Начать', en: "Let's go" },
+
+  writing_mode_prompts: { ru: 'С подсказкой', en: 'With a prompt' },
+  writing_mode_prompts_desc: { ru: 'Выберите тему и пишите', en: 'Pick a topic and write' },
+  prompts_category_morning: { ru: 'Утро', en: 'Morning' },
+  prompts_category_reflect: { ru: 'Рефлексия', en: 'Reflection' },
+  prompts_category_creative: { ru: 'Творчество', en: 'Creativity' },
   finish_save: { ru: 'Сохранить', en: 'Save' },
   finish_discard: { ru: 'Удалить', en: 'Discard' },
   finish_tags: { ru: 'Теги', en: 'Tags' },

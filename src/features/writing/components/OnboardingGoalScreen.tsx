@@ -1,0 +1,115 @@
+import React, { useState } from 'react';
+import { motion } from 'motion/react';
+import { cn } from '../../../core/utils/utils';
+import { useLanguage } from '../../../core/i18n';
+import { useWritingStore } from '../store/useWritingStore';
+
+interface OnboardingGoalScreenProps {
+  onComplete: (wordGoal: number) => void;
+}
+
+const PRESETS = [
+  { key: 'easy', words: 100, mins: 2 },
+  { key: 'normal', words: 300, mins: 7 },
+  { key: 'serious', words: 750, mins: 15 },
+] as const;
+
+export function OnboardingGoalScreen({ onComplete }: OnboardingGoalScreenProps) {
+  const { t } = useLanguage();
+  const [selected, setSelected] = useState<number | null>(null);
+  const [customWords, setCustomWords] = useState('');
+  const [isCustom, setIsCustom] = useState(false);
+
+  const goal = isCustom ? (parseInt(customWords) || 0) : selected;
+
+  const handleSelect = (words: number) => {
+    setSelected(words);
+    setIsCustom(false);
+  };
+
+  const handleCustom = () => {
+    setIsCustom(true);
+    setSelected(null);
+  };
+
+  const handleStart = () => {
+    const finalGoal = isCustom ? (parseInt(customWords) || 300) : (selected || 300);
+    useWritingStore.getState().setWordGoal(finalGoal);
+    localStorage.setItem('onboarding_done', '1');
+    onComplete(finalGoal);
+  };
+
+  return (
+    <div className="flex items-center justify-center min-h-[60vh] px-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md space-y-8"
+      >
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-text-main">{t('onboarding_goal_title')}</h2>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          {PRESETS.map(preset => (
+            <button
+              key={preset.key}
+              onClick={() => handleSelect(preset.words)}
+              className={cn(
+                "flex flex-col items-center gap-2 p-5 rounded-2xl border transition-all",
+                selected === preset.words && !isCustom
+                  ? "border-brand-primary bg-brand-primary/10 ring-2 ring-brand-primary/30"
+                  : "border-border-subtle bg-text-main/[0.02] hover:bg-text-main/5"
+              )}
+            >
+              <div className="text-xl font-mono font-bold text-text-main">{preset.words}</div>
+              <div className="text-[11px] font-bold uppercase tracking-widest text-text-main/50">
+                {t(`onboarding_goal_${preset.key}`)}
+              </div>
+              <div className="text-[10px] text-text-main/30">
+                ≈ {preset.mins} {t('goal_time_min')}
+              </div>
+            </button>
+          ))}
+
+          <button
+            onClick={handleCustom}
+            className={cn(
+              "flex flex-col items-center gap-2 p-5 rounded-2xl border transition-all",
+              isCustom
+                ? "border-brand-primary bg-brand-primary/10 ring-2 ring-brand-primary/30"
+                : "border-border-subtle bg-text-main/[0.02] hover:bg-text-main/5"
+            )}
+          >
+            {isCustom ? (
+              <input
+                type="number"
+                value={customWords}
+                onChange={e => setCustomWords(e.target.value)}
+                placeholder="500"
+                autoFocus
+                className="w-20 text-center text-xl font-mono font-bold bg-transparent border-b border-brand-primary outline-none text-text-main placeholder:text-text-main/30"
+                onClick={e => e.stopPropagation()}
+              />
+            ) : (
+              <div className="text-xl font-mono font-bold text-text-main">✎</div>
+            )}
+            <div className="text-[11px] font-bold uppercase tracking-widest text-text-main/50">
+              {t('onboarding_goal_custom')}
+            </div>
+          </button>
+        </div>
+
+        <div className="text-center">
+          <button
+            onClick={handleStart}
+            disabled={!goal || goal <= 0}
+            className="px-8 py-3.5 rounded-2xl font-bold text-sm bg-text-main text-surface-base hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {t('onboarding_goal_cta')}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
