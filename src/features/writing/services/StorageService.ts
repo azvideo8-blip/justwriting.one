@@ -262,6 +262,8 @@ export const StorageService = {
         cloudId = await withTimeout(DocumentService.createDocument(userId, {
           title: localDoc.title,
           tags: localDoc.tags,
+          firstSessionAt: localDoc.firstSessionAt ? new Date(localDoc.firstSessionAt) : undefined,
+          lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
         }));
 
         let prevContent = '';
