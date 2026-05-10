@@ -220,7 +220,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                             onOpen={() => setPreviewSession(session)}
                             t={t}
                             language={language}
-                            labels={profile?.labels}
+                            labels={profileLabels}
                             onDelete={(s) => setDeleteConfirm(s)}
                             onTagsChange={handleTagsChange}
                             onStorageChange={() => fetchSessions()}
