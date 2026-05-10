@@ -88,6 +88,14 @@ export const LocalDocumentService = {
     const existing = await db.get('documents', id);
     if (!existing) return;
     await db.put('documents', { ...existing, firstSessionAt, lastSessionAt });
+
+    const versions = await db.getAllFromIndex('versions', 'by-document', id);
+    if (versions.length > 0) {
+      versions.sort((a, b) => a.version - b.version);
+      const first = versions[0];
+      first.sessionStartedAt = firstSessionAt;
+      await db.put('versions', first);
+    }
   },
 
   async updateLinkedCloudId(id: string, cloudId: string): Promise<void> {

@@ -116,7 +116,7 @@ function NoteRow({ session, onOpen, t, onDelete, onTagsChange, onStorageChange, 
         </div>
       </div>
 
-      <div className="min-w-0 cursor-pointer" onClick={onOpen}>
+      <div className="min-w-0">
         {editingTitle ? (
           <input
             value={titleDraft}
@@ -130,6 +130,7 @@ function NoteRow({ session, onOpen, t, onDelete, onTagsChange, onStorageChange, 
         ) : (
           <div
             className="text-[15px] font-medium text-text-main leading-snug truncate hover:text-brand-soft transition-colors"
+            onClick={e => e.stopPropagation()}
             onDoubleClick={e => { e.stopPropagation(); setTitleDraft(session.title || ''); setEditingTitle(true); }}
             title={t('archive_edit_title_hint')}
           >
@@ -137,7 +138,7 @@ function NoteRow({ session, onOpen, t, onDelete, onTagsChange, onStorageChange, 
           </div>
         )}
         {session.content && (
-          <p className="text-sm text-text-main/55 leading-relaxed line-clamp-1 sm:line-clamp-2 mb-2">
+          <p className="text-sm text-text-main/55 leading-relaxed line-clamp-1 sm:line-clamp-2 mb-2 cursor-pointer" onClick={onOpen}>
             {session.content.slice(0, 200)}
           </p>
         )}
@@ -221,9 +222,7 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
           const content = await LocalVersionService.getLatestContent(doc.id);
           const versions = await LocalVersionService.getVersions(doc.id);
           const firstVersion = versions[0];
-          const createdAt = firstVersion
-            ? new Date(firstVersion.sessionStartedAt)
-            : new Date(doc.firstSessionAt);
+          const createdAt = new Date(doc.firstSessionAt);
           allSessions.push({
             id: doc.id,
             userId: doc.guestId,
@@ -237,7 +236,7 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
             title: doc.title,
             tags: doc.tags,
             createdAt,
-            sessionStartTime: firstVersion ? firstVersion.sessionStartedAt : doc.firstSessionAt,
+            sessionStartTime: doc.firstSessionAt,
             _isLocal: true,
             _linkedCloudId: doc.linkedCloudId || undefined,
             _hasCloudCopy: !!doc.linkedCloudId,
