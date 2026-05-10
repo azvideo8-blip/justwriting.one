@@ -3,6 +3,7 @@ import { useLifeLog } from '../hooks/useLifeLog';
 import { useLanguage } from '../../../core/i18n';
 import { Session } from '../../../types';
 import { parseFirestoreDate } from '../../../core/utils/utils';
+import { StreakDots } from '../../../shared/components/StreakDots';
 
 interface MobileLogScreenProps {
   userId: string;
@@ -16,82 +17,6 @@ function formatDuration(minutes: number, t: (key: string) => string): string {
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes % 60);
   return h > 0 ? `${h}${t('unit_hour')} ${pad(m)}${t('unit_min')}` : `${pad(m)}${t('unit_min')}`;
-}
-
-function StreakRow({ groups }: { groups: { date: Date; sessions: Session[] }[] }) {
-  const { language } = useLanguage();
-  const days = useMemo(() => {
-    const result = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setHours(0, 0, 0, 0);
-      d.setDate(d.getDate() - i);
-      const hasSession = groups.some(g =>
-        new Date(g.date).toDateString() === d.toDateString()
-      );
-      result.push({
-        date: d,
-        hasSession,
-        label: d.toLocaleDateString(language, { weekday: 'narrow' }).toUpperCase(),
-        isToday: d.toDateString() === new Date().toDateString(),
-      });
-    }
-    return result;
-  }, [groups, language]);
-
-  return (
-    <div style={{ display: 'flex', gap: 6, justifyContent: 'space-between' }}>
-      {days.map((day, i) => (
-        <div key={i} style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 4,
-          flex: 1,
-        }}>
-          <div style={{
-            width: 28,
-            height: 28,
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 11,
-            fontWeight: 700,
-            fontFamily: 'JetBrains Mono, monospace',
-            background: day.hasSession
-              ? day.isToday
-                ? 'var(--brand-primary)'
-                : 'rgba(255,255,255,0.12)'
-              : 'rgba(255,255,255,0.04)',
-            color: day.hasSession
-              ? day.isToday
-                ? 'var(--color-surface-base, #0b0d0c)'
-                : 'rgba(232,236,233,0.85)'
-              : 'rgba(255,255,255,0.20)',
-            border: day.isToday && !day.hasSession
-              ? '1px solid rgba(255,255,255,0.15)'
-              : '1px solid transparent',
-            boxShadow: day.isToday && day.hasSession
-              ? '0 0 8px color-mix(in srgb, var(--brand-primary) 40%, transparent)'
-              : 'none',
-          }}>
-            {day.date.getDate()}
-          </div>
-          <span style={{
-            fontSize: 9,
-            color: day.isToday
-              ? 'rgba(232,236,233,0.7)'
-              : 'rgba(74,81,77,1)',
-            fontFamily: 'JetBrains Mono, monospace',
-            letterSpacing: '.04em',
-          }}>
-            {day.label}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 export function MobileLogScreen({ userId, isGuest, onContinue }: MobileLogScreenProps) {
@@ -151,7 +76,7 @@ export function MobileLogScreen({ userId, isGuest, onContinue }: MobileLogScreen
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <StreakRow groups={sessionGroups} />
+          <StreakDots sessionGroups={sessionGroups} variant="mobile" />
         </div>
 
         <div style={{

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { getSessionDate, calculateStreak } from '../../../core/utils/utils';
+import { getSessionDate, calculateStreak, calculateBestStreak } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 import { Session } from '../../../types';
 
@@ -41,22 +41,7 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
 
   const currentStreak = useMemo(() => calculateStreak(sessions), [sessions]);
 
-  const bestStreak = useMemo(() => {
-    const sorted = [...sessions]
-      .map(s => ({ s, d: getSessionDate(s) }))
-      .filter((item): item is { s: Session; d: Date } => item.d !== null)
-      .sort((a, b) => a.d.getTime() - b.d.getTime());
-    let best = 0, cur = 0, prev: Date | null = null;
-    sorted.forEach(({ d }) => {
-      if (prev) {
-        const diffDays = Math.round((d.getTime() - prev.getTime()) / 86400000);
-        cur = diffDays === 1 ? cur + 1 : diffDays === 0 ? cur : 1;
-      } else cur = 1;
-      if (cur > best) best = cur;
-      prev = d;
-    });
-    return best;
-  }, [sessions]);
+  const bestStreak = useMemo(() => calculateBestStreak(sessions), [sessions]);
 
   const maxWords = Math.max(...days.map(d => d.words), 1);
 

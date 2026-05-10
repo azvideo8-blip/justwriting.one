@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { User } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
 import { WritingSessionService } from '../services/WritingSessionService';
@@ -6,9 +6,8 @@ import { WritingDraftService } from '../services/WritingDraftService';
 import { useWritingStore } from '../store/useWritingStore';
 import { useDraftAutosave } from './useDraftAutosave';
 import { UserProfile, SessionPayload } from '../../../types';
-import { LocalDocumentService } from '../services/LocalDocumentService';
-import { LocalVersionService } from '../services/LocalVersionService';
-import { LocalSessionInfo } from './useGuestWritingSession';
+import { fetchLocalSessions as fetchLocalSessionsFromLoader, loadLocalSession as loadLocalSessionFromLoader } from '../services/LocalSessionLoader';
+import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 
 export function useSessionPersistence(
   user: User | null,
@@ -45,7 +44,7 @@ export function useSessionPersistence(
     setInitialDuration: (duration: number) => void;
   }
 ) {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const isOnline = useOnlineStatus();
   const userId = user?.uid ?? '';
   const { saveStatus, lastSavedAt } = useDraftAutosave(user, {
     title: sessionState.title,
@@ -60,20 +59,11 @@ export function useSessionPersistence(
     status: timerState.status
   });
 
-  // Online status listener
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
+    if (isOnline) {
       WritingSessionService.syncPendingSessions(userId);
-    };
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [userId]);
+    }
+  }, [isOnline, userId]);
 
   const sessionStateRef = useRef(sessionState);
   useEffect(() => {
@@ -190,29 +180,8 @@ sessionStartTime: state.sessionStartTime,
     actions.setStatus('idle');
   };
 
-  const fetchLocalSessions = useCallback(async () => {
-    const localDocs = await LocalDocumentService.getGuestDocuments(userId);
-    return localDocs.map(d => ({
-      id: d.id,
-      createdAt: new Date(d.lastSessionAt),
-      title: d.title,
-      wordCount: d.totalWords,
-      duration: d.totalDuration,
-    })) as LocalSessionInfo[];
-  }, [userId]);
-
-  const loadLocalSession = useCallback(async (docId: string) => {
-    const doc = await LocalDocumentService.getDocument(docId);
-    if (!doc) return null;
-    const content = await LocalVersionService.getLatestContent(docId);
-    return {
-      content,
-      title: doc.title,
-      wordCount: doc.totalWords,
-      duration: doc.totalDuration,
-      tags: doc.tags,
-    } as Record<string, unknown>;
-  }, []);
+  const fetchLocalSessions = useCallback(() => fetchLocalSessionsFromLoader(userId), [userId]);
+  const loadLocalSession = useCallback((id: string) => loadLocalSessionFromLoader(id), []);
 
   return {
     saveStatus,

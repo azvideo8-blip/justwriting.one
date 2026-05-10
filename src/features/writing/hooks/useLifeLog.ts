@@ -6,6 +6,7 @@ import { Session, Document } from '../../../types';
 import { SessionService } from '../services/SessionService';
 import { LocalDocument, getLocalDb } from '../../../shared/lib/localDb';
 import { parseFirestoreDate } from '../../../core/utils/utils';
+import { toDate } from '../../../core/utils/dateUtils';
 import { useLanguage } from '../../../core/i18n';
 
 export interface LifeLogDocument {
@@ -176,7 +177,7 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
             totalDuration: cloud.totalDuration,
             currentVersion: cloud.currentVersion,
             sessionsCount: cloud.sessionsCount,
-            lastSessionAt: (cloud.lastSessionAt as { toDate?: () => Date })?.toDate?.().getTime() ?? 0,
+            lastSessionAt: toDate(cloud.lastSessionAt)?.getTime() ?? 0,
             tags: cloud.tags,
             storage: {
               local: false,

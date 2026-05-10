@@ -6,9 +6,7 @@ import { useLifeLog, LifeLogDocument } from '../hooks/useLifeLog';
 import { Session } from '../../../types';
 import { SettingsPanelContent } from '../../settings/components/SettingsPanel';
 import { CancelConfirmModal } from './modals/CancelConfirmModal';
-import { SessionService } from '../services/SessionService';
-import { StorageService } from '../services/StorageService';
-import { LocalDocumentService } from '../services/LocalDocumentService';
+import { deleteSession } from '../services/SessionDeleteService';
 import { useServiceAction } from '../hooks/useServiceAction';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { X, Pin, Trash2, Cloud, HardDrive } from 'lucide-react';
@@ -285,14 +283,7 @@ export function LifeLogPanel({
         onConfirm={async () => {
           if (deleteTarget?.id) {
             await execute(
-              async () => {
-                if (deleteTarget._isLocal) {
-                  const doc = await LocalDocumentService.getDocument(deleteTarget.id);
-                  await StorageService.deleteDocument(userId, deleteTarget.id, doc?.linkedCloudId || undefined);
-                } else {
-                  await SessionService.deleteSession(deleteTarget.id);
-                }
-              },
+              () => deleteSession(userId, deleteTarget),
               { successMessage: t('session_deleted'), errorMessage: t('error_delete_failed') }
             );
             refresh();

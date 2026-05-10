@@ -2,26 +2,13 @@ import { collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, Timesta
 import { db } from '../../../core/firebase/firestore';
 import { Document } from '../../../types';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
+import { toTimestampMs } from '../../../core/utils/dateUtils';
 
 const documentsRef = (userId: string) =>
   collection(db, 'users', userId, 'documents');
 
 const documentRef = (userId: string, documentId: string) =>
   doc(db, 'users', userId, 'documents', documentId);
-
-function toTimestamp(v: unknown): number {
-  if (v === null || v === undefined) return 0;
-  if (typeof v === 'number') return v;
-  if (v instanceof Date) return v.getTime();
-  if (typeof v === 'object') {
-    const obj = v as Record<string, unknown>;
-    if (typeof obj['toMillis'] === 'function') return (obj['toMillis'] as () => number)();
-    if (typeof obj['toDate'] === 'function') return (obj['toDate'] as () => Date)().getTime();
-    if (typeof obj['seconds'] === 'number') return obj['seconds'] * 1000;
-  }
-  console.warn('[toTimestamp] Unrecognized format, returning 0:', v);
-  return 0;
-}
 
 export const DocumentService = {
   async createDocument(
@@ -67,7 +54,7 @@ export const DocumentService = {
     try {
       const snap = await getDocs(documentsRef(userId));
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Document));
-      docs.sort((a, b) => toTimestamp(b.lastSessionAt) - toTimestamp(a.lastSessionAt));
+      docs.sort((a, b) => (toTimestampMs(b.lastSessionAt) ?? 0) - (toTimestampMs(a.lastSessionAt) ?? 0));
       return docs;
     } catch (e) {
       handleFirestoreError(e, OperationType.GET, `users/${userId}/documents`);

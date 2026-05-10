@@ -4,6 +4,7 @@ import { Session, Achievement } from '../../../types';
 import { ACHIEVEMENTS as ACH_DATA } from '../constants/achievements';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { ProfileService } from '../services/ProfileService';
+import { calculateBestStreak } from '../../../core/utils/utils';
 
 type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 
@@ -90,34 +91,8 @@ const GROUPS: AchGroup[] = [
   },
 ];
 
-function toJSDate(value: Date | { toDate?: () => Date } | number | unknown): Date {
-  if (value instanceof Date) return value;
-  if (typeof value === 'number') return new Date(value);
-  if (value && typeof value === 'object' && typeof (value as { toDate?: () => Date }).toDate === 'function') {
-    return (value as { toDate: () => Date }).toDate();
-  }
-  return new Date(0);
-}
-
 export function calcMaxHistoricalStreak(sessions: Session[]): number {
-  if (sessions.length === 0) return 0;
-  const dates = new Set(
-    sessions.map(s => {
-      const d = s.sessionStartTime ? new Date(s.sessionStartTime) : toJSDate(s.createdAt);
-      return d.toDateString();
-    })
-  );
-  const sorted = [...dates]
-    .map(d => new Date(d).getTime())
-    .sort((a, b) => a - b);
-  if (sorted.length === 0) return 0;
-  let max = 1, cur = 1;
-  for (let i = 1; i < sorted.length; i++) {
-    const diffDays = Math.round((sorted[i] - sorted[i - 1]) / 86400000);
-    if (diffDays === 1) { cur++; max = Math.max(max, cur); }
-    else if (diffDays > 1) { cur = 1; }
-  }
-  return max;
+  return calculateBestStreak(sessions);
 }
 
 export function checkAchievement(ach: Achievement, stats: Stats, sessions: Session[]): boolean {

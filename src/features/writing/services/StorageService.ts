@@ -3,6 +3,7 @@ import { VersionService } from './VersionService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
 import { getLocalDb } from '../../../shared/lib/localDb';
+import { toDate } from '../../../core/utils/dateUtils';
 
 export interface StorageState {
   local: boolean;
@@ -24,19 +25,6 @@ export interface SaveDocumentData {
 }
 
 const CLOUD_SYNC_TIMEOUT = 30_000;
-
-function toTimestampMs(v: unknown): number | null {
-  if (v === null || v === undefined) return null;
-  if (typeof v === 'number') return v;
-  if (v instanceof Date) return v.getTime();
-  if (typeof v === 'object') {
-    const obj = v as Record<string, unknown>;
-    if (typeof obj['toMillis'] === 'function') return (obj['toMillis'] as () => number)();
-    if (typeof obj['toDate'] === 'function') return (obj['toDate'] as () => Date)().getTime();
-    if (typeof obj['seconds'] === 'number') return obj['seconds'] as number * 1000;
-  }
-  return null;
-}
 
 function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): Promise<T> {
   return Promise.race([
@@ -173,8 +161,8 @@ export const StorageService = {
     if (!cloudDoc) throw new Error('Cloud document not found');
 
     const versions = await VersionService.getVersions(userId, cloudDocumentId);
-    const firstSessionMs = toTimestampMs(cloudDoc.firstSessionAt);
-    const lastSessionMs = toTimestampMs(cloudDoc.lastSessionAt);
+    const firstSessionMs = toDate(cloudDoc.firstSessionAt)?.getTime() || undefined;
+    const lastSessionMs = toDate(cloudDoc.lastSessionAt)?.getTime() || undefined;
     const localId = await LocalDocumentService.createDocument(userId, {
       title: cloudDoc.title,
       tags: cloudDoc.tags,
@@ -185,18 +173,7 @@ export const StorageService = {
     try {
       let prevContent = '';
       for (const ver of versions) {
-        let startedAt: Date;
-        if (typeof ver.sessionStartedAt === 'number') {
-          startedAt = new Date(ver.sessionStartedAt);
-        } else if (ver.sessionStartedAt && typeof ver.sessionStartedAt === 'object' && 'toDate' in (ver.sessionStartedAt as object)) {
-          startedAt = (ver.sessionStartedAt as { toDate: () => Date }).toDate();
-        } else if (ver.sessionStartedAt instanceof Date) {
-          startedAt = ver.sessionStartedAt;
-        } else if (ver.savedAt && typeof ver.savedAt === 'object' && 'toDate' in (ver.savedAt as object)) {
-          startedAt = (ver.savedAt as { toDate: () => Date }).toDate();
-        } else {
-          startedAt = new Date();
-        }
+        let startedAt = toDate(ver.sessionStartedAt) ?? toDate(ver.savedAt) ?? new Date();
         if (isNaN(startedAt.getTime())) startedAt = new Date();
 
         await LocalVersionService.addVersion(userId, localId, {
