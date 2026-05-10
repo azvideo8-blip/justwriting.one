@@ -35,19 +35,26 @@ interface ArchiveViewProps {
   profile: UserProfile | null;
 }
 
-function NoteRow({ session, onOpen, t, onDelete, onTagsChange, onStorageChange, userId }: {
+function NoteRow({ session, onOpen, t, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, userId }: {
   session: ArchiveSession;
   onOpen: () => void;
   t: (key: string) => string;
   onDelete?: (session: ArchiveSession) => void;
   onTagsChange?: (session: ArchiveSession, tags: string[]) => void;
   onStorageChange?: () => void;
+  onTitleChange?: (session: ArchiveSession, title: string) => void;
+  onDateChange?: (session: ArchiveSession, date: Date) => void;
   userId: string;
 }) {
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(session.title || '');
+  const [editingDate, setEditingDate] = useState(false);
   const date = getSessionDate(session);
   const dateLabel = date
     ? `${date.getDate()} ${['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'][date.getMonth()]} ${String(date.getFullYear()).slice(2)}`
     : '—';
+
+  const dateValue = date ? format(date, 'yyyy-MM-dd') : '';
 
   const timeStr = (() => {
     if (session.sessionStartTime) return new Date(session.sessionStartTime).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
@@ -59,24 +66,76 @@ function NoteRow({ session, onOpen, t, onDelete, onTagsChange, onStorageChange, 
     return '00:00';
   })();
 
+  const commitTitle = () => {
+    setEditingTitle(false);
+    const trimmed = titleDraft.trim();
+    if (trimmed !== (session.title || '') && trimmed) {
+      onTitleChange?.(session, trimmed);
+    } else {
+      setTitleDraft(session.title || '');
+    }
+  };
+
+  const commitDate = (val: string) => {
+    setEditingDate(false);
+    if (!val || !date) return;
+    const [y, m, d] = val.split('-').map(Number);
+    const newDate = new Date(date);
+    newDate.setFullYear(y, m - 1, d);
+    if (!isNaN(newDate.getTime()) && newDate.getTime() !== date.getTime()) {
+      onDateChange?.(session, newDate);
+    }
+  };
+
   return (
     <div
       className="grid items-start gap-3 px-3 py-4 rounded-xl hover:bg-text-main/[0.025] transition-colors group border border-transparent hover:border-border-subtle"
       style={{ gridTemplateColumns: '72px 1fr auto' }}
     >
       <div className="shrink-0">
-        <div className="font-mono text-[11px] text-text-main/50 uppercase tracking-wide leading-tight">
-          {dateLabel}
-        </div>
+        {editingDate ? (
+          <input
+            type="date"
+            defaultValue={dateValue}
+            autoFocus
+            onBlur={e => commitDate(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') commitDate((e.target as HTMLInputElement).value); if (e.key === 'Escape') setEditingDate(false); }}
+            className="w-[72px] text-[11px] font-mono bg-text-main/5 border border-border-subtle rounded px-1 py-0.5 outline-none"
+          />
+        ) : (
+          <div
+            className="font-mono text-[11px] text-text-main/50 uppercase tracking-wide leading-tight cursor-pointer hover:text-text-main/70"
+            onClick={() => setEditingDate(true)}
+            title={t('archive_edit_date')}
+          >
+            {dateLabel}
+          </div>
+        )}
         <div className="font-mono text-[11px] text-text-main/30 mt-0.5">
           {timeStr}
         </div>
       </div>
 
       <div className="min-w-0 cursor-pointer" onClick={onOpen}>
-        <div className="text-[15px] font-medium text-text-main leading-snug truncate">
-          {session.title || t('session_untitled')}
-        </div>
+        {editingTitle ? (
+          <input
+            value={titleDraft}
+            onChange={e => setTitleDraft(e.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={e => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') setEditingTitle(false); }}
+            autoFocus
+            onClick={e => e.stopPropagation()}
+            className="text-[15px] font-medium text-text-main bg-text-main/5 border border-border-subtle rounded px-2 py-0.5 outline-none w-full"
+          />
+        ) : (
+          <div
+            className="text-[15px] font-medium text-text-main leading-snug truncate hover:text-brand-soft transition-colors"
+            onDoubleClick={e => { e.stopPropagation(); setTitleDraft(session.title || ''); setEditingTitle(true); }}
+            title={t('archive_edit_title_hint')}
+          >
+            {session.title || t('session_untitled')}
+          </div>
+        )}
         {session.content && (
           <p className="text-sm text-text-main/55 leading-relaxed line-clamp-1 sm:line-clamp-2 mb-2">
             {session.content.slice(0, 200)}
@@ -322,6 +381,46 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
     }
   };
 
+  const handleTitleChange = async (session: ArchiveSession, newTitle: string) => {
+    try {
+      if (session._isLocal) {
+        await LocalDocumentService.updateTitle(session.id, newTitle);
+        if (session._linkedCloudId && user) {
+          await DocumentService.updateTitle(user.uid, session._linkedCloudId, newTitle).catch(() => {});
+        }
+      } else if (user) {
+        await DocumentService.updateTitle(user.uid, session.id, newTitle);
+      }
+      setSessions(prev => prev.map(s =>
+        s.id === session.id ? { ...s, title: newTitle } : s
+      ));
+      if (previewSession?.id === session.id) {
+        setPreviewSession(prev => prev ? { ...prev, title: newTitle } : null);
+      }
+    } catch (e) {
+      console.error('Failed to update title:', e);
+    }
+  };
+
+  const handleDateChange = async (session: ArchiveSession, newDate: Date) => {
+    try {
+      const ts = newDate.getTime();
+      if (session._isLocal) {
+        await LocalDocumentService.updateDate(session.id, ts, ts);
+        if (session._linkedCloudId && user) {
+          await DocumentService.updateDate(user.uid, session._linkedCloudId, newDate, newDate).catch(() => {});
+        }
+      } else if (user) {
+        await DocumentService.updateDate(user.uid, session.id, newDate, newDate);
+      }
+      setSessions(prev => prev.map(s =>
+        s.id === session.id ? { ...s, createdAt: newDate, sessionStartTime: ts } : s
+      ));
+    } catch (e) {
+      console.error('Failed to update date:', e);
+    }
+  };
+
   const { 
     selectedDate, setSelectedDate, 
     selectedMonth, setSelectedMonth,
@@ -562,6 +661,8 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
                             onDelete={(s) => setDeleteConfirm(s)}
                             onTagsChange={handleTagsChange}
                             onStorageChange={() => fetchSessions()}
+                            onTitleChange={handleTitleChange}
+                            onDateChange={handleDateChange}
                             userId={userId}
                           />
                         ))}

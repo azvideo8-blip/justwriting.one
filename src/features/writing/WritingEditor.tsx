@@ -75,6 +75,7 @@ export const WritingEditor = React.memo(function WritingEditor({
         onCut={handleCut}
         onCopy={handleCopy}
         onPaste={handlePaste}
+        readOnly={_status === 'paused'}
         aria-label={t('writing_placeholder')}
         placeholder={t('writing_placeholder')}
         style={{ 

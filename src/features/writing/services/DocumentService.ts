@@ -102,6 +102,27 @@ export const DocumentService = {
     }
   },
 
+  async updateTitle(userId: string, documentId: string, title: string): Promise<void> {
+    try {
+      await updateDoc(documentRef(userId, documentId), { title });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents/${documentId}`);
+      throw e;
+    }
+  },
+
+  async updateDate(userId: string, documentId: string, firstSessionAt: Date, lastSessionAt: Date): Promise<void> {
+    try {
+      await updateDoc(documentRef(userId, documentId), {
+        firstSessionAt: Timestamp.fromDate(firstSessionAt),
+        lastSessionAt: Timestamp.fromDate(lastSessionAt),
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents/${documentId}`);
+      throw e;
+    }
+  },
+
   async deleteDocument(userId: string, documentId: string): Promise<void> {
     try {
       await deleteDoc(documentRef(userId, documentId));
