@@ -1,7 +1,6 @@
 import React from 'react';
 import { useWritingStore } from '../store/useWritingStore';
 import { useShallow } from 'zustand/react/shallow';
-import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useLanguage } from '../../../core/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
 import { getWpmHex } from '../utils/wpmColors';
