@@ -7,6 +7,7 @@ import { cn } from '../../core/utils/utils';
 import { toDate, getDateLocale } from '../../core/utils/dateUtils';
 import { useLanguage } from '../../core/i18n';
 import { formatTime } from '../../core/utils/formatTime';
+import { useWritingStore } from './store/useWritingStore';
 
 const PROMPT_CATEGORIES = [
   { key: 'morning', prompts: [
@@ -76,12 +77,6 @@ interface WritingSetupProps {
   setupMode: SetupMode;
   setSetupMode: (mode: SetupMode) => void;
   startCountdown: (type: 'stopwatch' | 'timer' | 'words' | 'finish-by') => void;
-  timerDuration: number;
-  setTimerDuration: (duration: number) => void;
-  wordGoal: number;
-  setWordGoal: (goal: number) => void;
-  targetTime: string | null;
-  setTargetTime: (time: string | null) => void;
   countdown: number | null;
   userSessions: Session[];
   continueSession: (session: Session) => void;
@@ -92,18 +87,18 @@ export function WritingSetup({
   setupMode,
   setSetupMode,
   startCountdown,
-  timerDuration,
-  setTimerDuration,
-  wordGoal,
-  setWordGoal,
-  targetTime,
-  setTargetTime,
   countdown,
   userSessions,
   continueSession,
   onSetPromptTitle,
 }: WritingSetupProps) {
   const { t, language } = useLanguage();
+  const timerDuration = useWritingStore(s => s.timerDuration);
+  const setTimerDuration = useWritingStore(s => s.setTimerDuration);
+  const wordGoal = useWritingStore(s => s.wordGoal);
+  const setWordGoal = useWritingStore(s => s.setWordGoal);
+  const targetTime = useWritingStore(s => s.targetTime);
+  const setTargetTime = useWritingStore(s => s.setTargetTime);
   if (!setupMode) return null;
 
   const dateLocale = getDateLocale(language);

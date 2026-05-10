@@ -55,7 +55,7 @@ export interface LocalDraft {
   updatedAt: number;
 }
 
-export interface PendingSession {
+interface PendingSession {
   id?: number;
   sessionId: string | null;
   data: Record<string, unknown>;

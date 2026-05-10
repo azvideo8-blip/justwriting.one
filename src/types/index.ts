@@ -6,8 +6,7 @@ export interface Label {
   color: string;
 }
 
-export interface Session {
-  id: string;
+interface SessionCore {
   userId: string;
   authorName: string;
   authorPhoto: string;
@@ -20,26 +19,18 @@ export interface Session {
   wpm: number;
   isPublic?: boolean;
   tags?: string[];
+}
+
+export interface Session extends SessionCore {
+  id: string;
   labelId?: string;
   sessionStartTime?: number;
   createdAt: Timestamp | Date;
   _isLocal?: boolean;
 }
 
-export interface SessionPayload {
-  userId: string;
-  authorName: string;
-  authorPhoto: string;
-  nickname?: string;
-  title?: string;
-  content: string;
+export interface SessionPayload extends SessionCore {
   pinnedThoughts?: string[];
-  duration: number;
-  wordCount: number;
-  charCount: number;
-  wpm: number;
-  isPublic?: boolean;
-  tags?: string[];
   sessionType?: 'free' | 'stopwatch' | 'timer' | 'words' | 'finish-by';
   sessionStartTime?: number | null;
   goalReached?: boolean;

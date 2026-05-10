@@ -19,12 +19,6 @@ interface DesktopWritingLayoutProps {
   setupMode: SetupMode | null;
   setSetupMode: (mode: SetupMode | null) => void;
   startCountdown: (type: 'stopwatch' | 'timer' | 'words' | 'finish-by') => void;
-  timerDuration: number;
-  setTimerDuration: (d: number) => void;
-  wordGoal: number;
-  setWordGoal: (g: number) => void;
-  targetTime: string | null;
-  setTargetTime: (t: string | null) => void;
   countdown: number | null;
   totalDurationForDeadline: number;
   onOpenSettings: () => void;
@@ -57,9 +51,6 @@ interface DesktopWritingLayoutProps {
 export function DesktopWritingLayout({
   profile,
   setupMode, setSetupMode, startCountdown,
-  timerDuration, setTimerDuration,
-  wordGoal, setWordGoal,
-  targetTime, setTargetTime,
   countdown, totalDurationForDeadline,
   onOpenSettings, onNew, onOpenLog, onSave, onPlay, onPause, onStop,
   onContinueSession, handlePlayRef, keystrokeTrackerRef,
@@ -162,12 +153,6 @@ export function DesktopWritingLayout({
                 setupMode={setupMode}
                 setSetupMode={setSetupMode}
                 startCountdown={startCountdown}
-                timerDuration={timerDuration}
-                setTimerDuration={setTimerDuration}
-                wordGoal={wordGoal}
-                setWordGoal={setWordGoal}
-                targetTime={targetTime}
-                setTargetTime={setTargetTime}
                 countdown={countdown}
                 userSessions={[]}
                 continueSession={onContinueSession}
