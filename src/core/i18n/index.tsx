@@ -624,6 +624,7 @@ export const translations: Translations = {
   archive_delete: { ru: 'Удалить заметку', en: 'Delete note' },
   archive_delete_confirm: { ru: 'Удалить эту заметку?', en: 'Delete this note?' },
   archive_edit_date: { ru: 'Изменить дату', en: 'Edit date' },
+  archive_edit_time: { ru: 'Изменить время', en: 'Edit time' },
   archive_edit_title_hint: { ru: 'Двойной клик для редактирования', en: 'Double-click to edit' },
   archive_entry_1: { ru: 'запись', en: 'entry' },
   archive_entry_2: { ru: 'записи', en: 'entries' },
