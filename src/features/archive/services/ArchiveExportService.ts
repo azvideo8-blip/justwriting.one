@@ -1,4 +1,5 @@
 import { ArchiveSession } from '../types';
+import { toDate } from '../../../core/utils/dateUtils';
 
 export interface ExportStrings {
   date: string;
@@ -10,19 +11,13 @@ export interface ExportStrings {
 }
 
 function buildHeader(session: ArchiveSession, s: ExportStrings): string {
-  const date = toJsDate(session.createdAt);
+  const date = toDate(session.createdAt) ?? new Date();
   return [
     session.title || s.untitled,
     date.toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' }),
     `${session.wordCount} ${s.words} · ${Math.round((session.duration || 0) / 60)} ${s.time}`,
     session.tags?.length ? session.tags.map(t => '#' + t).join(' ') : '',
   ].filter(Boolean).join('\n');
-}
-
-function toJsDate(d: Date | { toDate?: () => Date }): Date {
-  if (d instanceof Date) return d;
-  if (d && typeof d === 'object' && 'toDate' in d) return (d as { toDate: () => Date }).toDate();
-  return new Date();
 }
 
 function getFilename(session: ArchiveSession, ext: string, s: ExportStrings): string {
@@ -65,7 +60,7 @@ export function exportAsTxt(session: ArchiveSession, s: ExportStrings): void {
 }
 
 export function exportAsMd(session: ArchiveSession, s: ExportStrings): void {
-  const date = toJsDate(session.createdAt);
+  const date = toDate(session.createdAt) ?? new Date();
   const locOpts = 'ru';
   const content = [
     `# ${session.title || s.untitled}`,
@@ -83,7 +78,7 @@ export function exportAsMd(session: ArchiveSession, s: ExportStrings): void {
 }
 
 export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
-  const date = toJsDate(session.createdAt);
+  const date = toDate(session.createdAt) ?? new Date();
   const locOpts = 'ru';
   const untitled = s.untitled;
   const html = `<!DOCTYPE html>
@@ -134,7 +129,7 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
 
 export async function exportAsDocx(session: ArchiveSession, s: ExportStrings): Promise<void> {
   const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import('docx');
-  const date = toJsDate(session.createdAt);
+  const date = toDate(session.createdAt) ?? new Date();
   const locOpts = 'ru';
   const metaText = [
     date.toLocaleDateString(locOpts, { day: 'numeric', month: 'long', year: 'numeric' }),
