@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
-import { Clock, Type, PenLine, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import { Clock, Type, PenLine, ChevronDown, ChevronUp, Trash2, Share2 } from 'lucide-react';
 import { auth } from '../../../core/firebase/auth';
 import { deleteSession } from '../services/SessionDeleteService';
 import { Session, Label } from '../../../types';
@@ -14,7 +14,6 @@ import { SessionEditor } from './SessionEditor';
 import { ExportMenu } from './ExportMenu';
 import { TagsSection } from './TagsSection';
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
-import { Share2 } from 'lucide-react';
 
 export function SessionCard({
   session,

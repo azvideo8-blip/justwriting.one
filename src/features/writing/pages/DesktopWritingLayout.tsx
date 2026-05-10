@@ -2,7 +2,6 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Session, UserProfile } from '../../../types';
 import { cn } from '../../../core/utils/utils';
-import { useWritingStore } from '../store/useWritingStore';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useLanguage } from '../../../core/i18n';
 
@@ -45,7 +44,6 @@ interface DesktopWritingLayoutProps {
   onContinueSessionOrDoc: (session: Session) => void;
   loadDraft: () => void;
   setHasDraft: (v: boolean) => void;
-  setTitle: (t: string) => void;
   onSetPromptTitle: (title: string) => void;
   showZen: boolean;
   lifeLogVisible: boolean;
@@ -66,7 +64,7 @@ export function DesktopWritingLayout({
   onOpenSettings, onNew, onOpenLog, onSave, onPlay, onPause, onStop,
   onContinueSession, handlePlayRef, keystrokeTrackerRef,
   isGuest, hasDraft, sessionStatus, userId,
-  onContinueSessionOrDoc, loadDraft, setHasDraft, setTitle,
+  onContinueSessionOrDoc, loadDraft, setHasDraft,
   onSetPromptTitle,
   showZen, lifeLogVisible, setLifeLogVisible,
   lifeLogTab, setLifeLogTab, lifeLogPinned, setLifeLogPinned,
