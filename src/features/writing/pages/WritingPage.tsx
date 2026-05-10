@@ -5,25 +5,16 @@ import { useWritingStore } from '../store/useWritingStore';
 import { Session, UserProfile } from '../../../types';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useSettings } from '../../../core/settings/SettingsContext';
-import { cn, calculateStreak } from '../../../core/utils/utils';
+import { calculateStreak } from '../../../core/utils/utils';
 import { GoalToast } from '../../../shared/components/GoalToast';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { WritingHeader } from '../WritingHeader';
-import { WritingEditor } from '../WritingEditor';
 import { WritingFinishModal } from '../WritingFinishModal';
-import { LifeLogPanel } from '../components/LifeLogPanel';
-import { WritingSetup } from '../WritingSetup';
 import { FlowPulse } from '../../../core/theme/FlowPulse';
-import { BottomStats } from '../components/BottomStats';
-import { Sidebar } from '../../navigation/components/Sidebar';
-import { KeystrokeTracker, KeystrokeStats } from '../utils/keystrokeTracker';
-
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
 
 import { useSessionFlow } from '../hooks/useSessionFlow';
 import { useLanguage } from '../../../core/i18n';
-import { ConnectionStatusBanner } from '../components/ConnectionStatusBanner';
 import { MobileWriteScreen } from '../components/MobileWriteScreen';
 import { MobileHomeScreen } from '../components/MobileHomeScreen';
 import { useLifeLog } from '../hooks/useLifeLog';
@@ -36,6 +27,8 @@ import { useGuestWritingSession } from '../hooks/useGuestWritingSession';
 import { useCloudWritingSession } from '../hooks/useCloudWritingSession';
 import { useWritingActions, AnySessionReturn } from '../hooks/useWritingActions';
 import { useWritingKeyboard } from '../hooks/useWritingKeyboard';
+import { KeystrokeTracker, KeystrokeStats } from '../utils/keystrokeTracker';
+import { DesktopWritingLayout } from './DesktopWritingLayout';
 
 export type { AnySessionReturn };
 
@@ -96,7 +89,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
 
   const {
     isZenActive, zenModeEnabled,
-    editorWidth,
     setStatus: setUIStatus,
     lifeLogVisible, setLifeLogVisible,
     lifeLogTab, setLifeLogTab,
@@ -135,19 +127,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
   const keystrokeTrackerRef = React.useRef(new KeystrokeTracker());
   const [devKpmStats, setDevKpmStats] = React.useState<KeystrokeStats | null>(null);
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
-  const editorColRef = React.useRef<HTMLDivElement>(null);
-  const [isCompact, setIsCompact] = useState(false);
-  const { layoutMode } = useLayoutMode();
-
-  React.useEffect(() => {
-    const el = editorColRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(([entry]) => {
-      setIsCompact(entry.contentRect.width < 600);
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
 
   React.useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -190,8 +169,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     setIsFinishModalOpen(true);
   }, [handleFinish]);
 
-  const LIFE_LOG_WIDTH = 380;
-  const isMobile = layoutMode !== 'desktop';
+  const isMobile = useLayoutMode().layoutMode !== 'desktop';
 
   const sharedOverlays = (
     <>
@@ -276,139 +254,49 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="w-full transition-colors duration-1000"
-    >
-      <>
-        <ConnectionStatusBanner showZen={showZen} />
-        {sharedOverlays}
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `${showZen ? '0px' : 'auto'} 1fr ${lifeLogVisible ? `${LIFE_LOG_WIDTH}px` : '0px'}`,
-            gridTemplateRows: '48px 1fr 64px',
-            height: '100vh',
-            width: '100vw',
-            position: 'fixed',
-            inset: 0,
-            zIndex: 20,
-            transition: 'grid-template-columns 0.25s cubic-bezier(.4,.2,.2,1)',
-            overflow: 'hidden',
-          }}
-        >
-          <div style={{ gridColumn: '1', gridRow: '1 / 4', overflow: 'hidden' }}>
-            <Sidebar isAdmin={!!profile?.role && profile.role === 'admin'} inGrid />
-          </div>
-
-          <div style={{ gridColumn: '2', gridRow: '1', overflow: 'hidden' }}>
-            <WritingHeader
-              totalDurationForDeadline={flow.totalDurationForDeadline}
-              onOpenSettings={openSettings}
-              onNew={handleNew}
-              onOpenLog={handleOpen}
-              onSave={onFinishClick}
-              onPlay={handlePlay}
-              onPause={handlePause}
-              onStop={onFinishClick}
-            />
-          </div>
-
-          {isGuest && hasDraft && sessionStatus === 'idle' && !flow.setupMode && (
-            <div className="flex items-center justify-between px-4 py-2.5 mx-4 mt-2 rounded-xl border border-text-main/10 bg-text-main/[0.04] text-sm text-text-main/60">
-              <span>{t('guest_draft_restore_prompt')}</span>
-              <div className="flex gap-2">
-                <button onClick={session.loadDraft} className="text-text-main font-medium hover:opacity-70 transition-opacity">
-                  {t('guest_draft_restore')}
-                </button>
-                <button onClick={() => { session.setHasDraft(false); localStorage.removeItem('jw_guest_draft'); }}
-                  className="text-text-main/40 hover:text-text-main/60 transition-colors">
-                  {t('guest_draft_discard')}
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div ref={editorColRef} style={{
-            gridColumn: '2',
-            gridRow: '2',
-            overflow: 'hidden',
-            position: 'relative',
-            display: 'flex',
-            justifyContent: 'center',
-          }}>
-            <div style={{
-              width: editorWidth < 100 ? `${editorWidth}%` : '100%',
-              height: '100%',
-              position: 'relative',
-            }}
-            className={cn(
-              editorWidth < 100 && "rounded-2xl m-2 border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] shadow-xl"
-            )}
-            >
-              {flow.setupMode ? (
-                <WritingSetup
-                  setupMode={flow.setupMode}
-                  setSetupMode={setSetupMode}
-                  startCountdown={startCountdown}
-                  timerDuration={timerDurationVal}
-                  setTimerDuration={setTimerDurationVal}
-                  wordGoal={wordGoalVal}
-                  setWordGoal={setWordGoalVal}
-                  targetTime={targetTimeVal}
-                  setTargetTime={setTargetTimeVal}
-                  countdown={flow.countdown}
-                  userSessions={[]}
-                  continueSession={handleContinueSession}
-                  onSetPromptTitle={(title) => setTitle(title)}
-                />
-              ) : (
-              <WritingEditor
-                onKeyDown={(e) => {
-                  if (!e.metaKey && !e.ctrlKey && !e.altKey) {
-                    keystrokeTrackerRef.current.record();
-                  }
-                  if (sessionStatus === 'idle' && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
-                    handlePlayRef.current();
-                  } else if (sessionStatus === 'paused' && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
-                    handlePlayRef.current();
-                  }
-                }}
-              />
-              )}
-            </div>
-          </div>
-
-          <div style={{ gridColumn: '2', gridRow: '3', overflow: 'hidden' }}>
-            <BottomStats
-              compact={isCompact}
-              onPlay={handlePlay}
-              onPause={handlePause}
-              onStop={onFinishClick}
-            />
-          </div>
-
-          <div style={{ gridColumn: '3', gridRow: '1 / 4', overflow: 'hidden' }}>
-            <AnimatePresence>
-              {lifeLogVisible && (
-                <LifeLogPanel
-                  userId={userId}
-                  onContinueSession={handleContinueSessionOrDoc}
-                  onClose={() => { if (!lifeLogPinned) setLifeLogVisible(false); }}
-                  activeTab={lifeLogTab}
-                  onTabChange={setLifeLogTab}
-                  pinned={lifeLogPinned}
-                  onTogglePin={() => setLifeLogPinned(!lifeLogPinned)}
-                  inGrid
-                />
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-      </>
-    </motion.div>
+    <>
+      <DesktopWritingLayout
+        profile={profile}
+        setupMode={flow.setupMode}
+        setSetupMode={setSetupMode}
+        startCountdown={startCountdown}
+        timerDuration={timerDurationVal}
+        setTimerDuration={setTimerDurationVal}
+        wordGoal={wordGoalVal}
+        setWordGoal={setWordGoalVal}
+        targetTime={targetTimeVal}
+        setTargetTime={setTargetTimeVal}
+        countdown={flow.countdown}
+        totalDurationForDeadline={flow.totalDurationForDeadline}
+        onOpenSettings={openSettings}
+        onNew={handleNew}
+        onOpenLog={handleOpen}
+        onSave={onFinishClick}
+        onPlay={handlePlay}
+        onPause={handlePause}
+        onStop={onFinishClick}
+        onContinueSession={handleContinueSession}
+        handlePlayRef={handlePlayRef}
+        keystrokeTrackerRef={keystrokeTrackerRef}
+        isGuest={isGuest}
+        hasDraft={hasDraft}
+        sessionStatus={sessionStatus}
+        userId={userId}
+        onContinueSessionOrDoc={handleContinueSessionOrDoc}
+        loadDraft={session.loadDraft}
+        setHasDraft={session.setHasDraft}
+        setTitle={setTitle}
+        onSetPromptTitle={(title) => setTitle(title)}
+        showZen={showZen}
+        lifeLogVisible={lifeLogVisible}
+        setLifeLogVisible={setLifeLogVisible}
+        lifeLogTab={lifeLogTab}
+        setLifeLogTab={setLifeLogTab}
+        lifeLogPinned={lifeLogPinned}
+        setLifeLogPinned={setLifeLogPinned}
+      />
+      {sharedOverlays}
+    </>
   );
 }
 

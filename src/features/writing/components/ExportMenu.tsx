@@ -1,0 +1,94 @@
+import React, { useRef, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { motion } from 'motion/react';
+import { Share2, FileText, Download, FileJson } from 'lucide-react';
+import { Session } from '../../../types';
+import { cn } from '../../../core/utils/utils';
+import { ExportService } from '../../export/ExportService';
+import { useLanguage } from '../../../core/i18n';
+import { useServiceAction } from '../../../shared/hooks/useServiceAction';
+
+interface ExportMenuProps {
+  session: Session;
+  buttonRef: React.RefObject<HTMLButtonElement | null>;
+  onClose: () => void;
+}
+
+export function ExportMenu({ session, buttonRef, onClose }: ExportMenuProps) {
+  const { t } = useLanguage();
+  const { execute } = useServiceAction();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+
+  useEffect(() => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuPos({
+        top: rect.bottom + window.scrollY + 8,
+        right: window.innerWidth - rect.right
+      });
+    }
+  }, [buttonRef]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: PointerEvent) => {
+      const clickedButton = buttonRef.current?.contains(e.target as Node);
+      const clickedMenu = menuRef.current?.contains(e.target as Node);
+      if (!clickedButton && !clickedMenu) {
+        onClose();
+      }
+    };
+    document.addEventListener('pointerup', handleClickOutside);
+    return () => document.removeEventListener('pointerup', handleClickOutside);
+  }, [buttonRef, onClose]);
+
+  if (!menuPos) return null;
+
+  const exportToTxt = () => {
+    ExportService.toTxt(session.title || 'session', session.content, new Date());
+    onClose();
+  };
+  const exportPDF = () => {
+    ExportService.toPDF(session.title || 'Untitled Session', session.content);
+    onClose();
+  };
+  const exportMarkdown = () => {
+    ExportService.toMarkdown(session.title || 'Untitled Session', session.content);
+    onClose();
+  };
+  const exportDocx = () => {
+    execute(
+      () => ExportService.toDocx(session.title || 'Untitled Session', session.content),
+      { errorMessage: t('error_export_failed') }
+    );
+  };
+
+  return createPortal(
+    <motion.div
+      ref={menuRef}
+      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      style={{
+        position: 'fixed',
+        top: menuPos.top,
+        right: menuPos.right,
+        zIndex: 9999
+      }}
+      className="w-48 rounded-2xl shadow-xl border p-2 bg-surface-card backdrop-blur-xl border-border-subtle"
+    >
+      <button onClick={exportToTxt} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
+        <FileText size={14} /> {t('export_txt')}
+      </button>
+      <button onClick={exportPDF} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
+        <FileText size={14} className="text-red-500" /> {t('export_pdf')}
+      </button>
+      <button onClick={exportMarkdown} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
+        <FileJson size={14} className="text-blue-500" /> {t('export_md')}
+      </button>
+      <button onClick={exportDocx} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
+        <Download size={14} className="text-emerald-500" /> {t('export_docx')}
+      </button>
+    </motion.div>,
+    document.body
+  );
+}

@@ -10,14 +10,13 @@ import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 import { z } from 'zod';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
-import { Calendar } from '../../calendar/components/Calendar';
 import { useLanguage } from '../../../core/i18n';
 import { useNavigate } from 'react-router-dom';
 import { useUserId } from '../../../shared/hooks/useUserId';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { DocumentPreview } from '../components/DocumentPreview';
-import { ArchiveStats } from '../components/ArchiveStats';
 import { NoteRow } from '../components/NoteRow';
+import { ArchiveSidebar } from '../components/ArchiveSidebar';
 import { useArchiveData } from '../hooks/useArchiveData';
 
 interface ArchiveViewProps {
@@ -230,54 +229,20 @@ export function ArchivePage({ user }: ArchiveViewProps) {
             </div>
           </div>
 
-          <div className="hidden lg:flex w-64 shrink-0 border-l border-border-subtle pl-6 flex-col gap-6">
-            <div>
-              <ArchiveStats
-                sessions={filteredByFilters}
-                streakDays={filteredStreakDays}
-                title={statsTitle}
-                onReset={hasActiveFilter ? resetStatsFilter : undefined}
-              />
-            </div>
-
-            <div className="h-px bg-border-subtle" />
-
-            <div className="text-[11px] font-mono text-text-main/30 uppercase tracking-widest">
-              {t('archive_calendar_title')}
-            </div>
-
-            <Calendar
-              sessions={data.sessions}
-              sessionsByDate={sessionsByDate}
-              selectedDate={selectedDate ?? new Date()}
-              onSelectDate={setSelectedDate}
-              onSelectMonth={setSelectedMonth}
-            />
-
-            {wordCloud.length > 0 && (
-              <div>
-                <div className="font-mono text-[11px] text-text-main/30 uppercase tracking-widest mb-3">
-                  {t('archive_wordcloud_title')}
-                </div>
-                <div className="flex flex-wrap gap-x-2 gap-y-1.5">
-                  {wordCloud.map(({ word, count }) => {
-                    const size = 10 + Math.round((count / maxCount) * 8);
-                    const opacity = 0.3 + (count / maxCount) * 0.7;
-                    return (
-                      <button
-                        key={word}
-                        onClick={() => setSearchQuery(word)}
-                        style={{ fontSize: size, opacity }}
-                        className="text-text-main hover:opacity-100 hover:text-text-main transition-all leading-tight"
-                      >
-                        {word}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
+          <ArchiveSidebar
+            filteredByFilters={filteredByFilters}
+            streakDays={filteredStreakDays}
+            statsTitle={statsTitle}
+            onReset={hasActiveFilter ? resetStatsFilter : undefined}
+            sessions={data.sessions}
+            sessionsByDate={sessionsByDate}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            onSelectMonth={setSelectedMonth}
+            wordCloud={wordCloud}
+            maxCount={maxCount}
+            onWordClick={setSearchQuery}
+          />
 
           {previewSession && (
             <div
