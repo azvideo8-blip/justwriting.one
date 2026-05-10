@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PenLine, History, User as UserIcon, Shield, LogIn, Info } from 'lucide-react';
+import { PenLine, History, User as UserIcon, Shield, LogIn, Info, Settings } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -11,9 +11,10 @@ import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 interface SidebarProps {
   isAdmin: boolean;
   inGrid?: boolean;
+  onOpenSettings?: () => void;
 }
 
-export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
+export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: SidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useLanguage();
   const { lifeLogEnabled: _lifeLogEnabled, isZenActive, zenModeEnabled } = useWritingSettings();
@@ -91,8 +92,8 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
             className={cn(
               "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
               location.pathname === item.path
-                ? "bg-text-main text-surface-base"
-                : "text-text-main/50 hover:text-text-main hover:bg-text-main/8"
+                ? "bg-text-main/12 text-text-main"
+                : "text-text-main/40 hover:text-text-main/70 hover:bg-text-main/6"
             )}
           >
             <span className="shrink-0">{item.icon}</span>
@@ -124,6 +125,25 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
             {t('nav_about')}
           </span>
         </button>
+
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            title={t('nav_settings')}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
+              "text-text-main/40 hover:text-text-main/60 hover:bg-text-main/8"
+            )}
+          >
+            <span className="shrink-0"><Settings size={20} /></span>
+            <span className={cn(
+              "text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
+              expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
+            )}>
+              {t('nav_settings')}
+            </span>
+          </button>
+        )}
 
         {isGuest && (
           <button
