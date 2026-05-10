@@ -3,7 +3,7 @@ import { getLocalDb, LocalDocument, randomUUID } from '../../../shared/lib/local
 export const LocalDocumentService = {
   async createDocument(
     guestId: string,
-    data: { title: string; tags?: string[] }
+    data: { title: string; tags?: string[]; firstSessionAt?: number; lastSessionAt?: number }
   ): Promise<string> {
     const db = await getLocalDb();
     const id = `local_${randomUUID()}`;
@@ -17,8 +17,8 @@ export const LocalDocumentService = {
       totalWords: 0,
       totalDuration: 0,
       sessionsCount: 0,
-      firstSessionAt: now,
-      lastSessionAt: now,
+      firstSessionAt: data.firstSessionAt ?? now,
+      lastSessionAt: data.lastSessionAt ?? now,
       tags: data.tags ?? [],
     });
 
@@ -74,6 +74,20 @@ export const LocalDocumentService = {
     const existing = await db.get('documents', id);
     if (!existing) return;
     await db.put('documents', { ...existing, tags });
+  },
+
+  async updateTitle(id: string, title: string): Promise<void> {
+    const db = await getLocalDb();
+    const existing = await db.get('documents', id);
+    if (!existing) return;
+    await db.put('documents', { ...existing, title });
+  },
+
+  async updateDate(id: string, firstSessionAt: number, lastSessionAt: number): Promise<void> {
+    const db = await getLocalDb();
+    const existing = await db.get('documents', id);
+    if (!existing) return;
+    await db.put('documents', { ...existing, firstSessionAt, lastSessionAt });
   },
 
   async updateLinkedCloudId(id: string, cloudId: string): Promise<void> {
