@@ -6,7 +6,7 @@ import { Label, UserProfile } from '../../../types';
 import { Plus, X } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
-import { useServiceAction } from '../../writing/hooks/useServiceAction';
+import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 
 export function ArchiveLabels({ user, profile, selectedLabelId, onSelectLabel }: { user: User, profile: UserProfile | null, selectedLabelId: string | null, onSelectLabel: (id: string | null) => void }) {
   const { t } = useLanguage();

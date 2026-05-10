@@ -7,7 +7,7 @@ import { WpmChart } from './components/WpmChart';
 import { Label } from '../../types';
 import { useLanguage } from '../../core/i18n';
 import { formatTime } from '../../core/utils/formatTime';
-import { useServiceAction } from './hooks/useServiceAction';
+import { useServiceAction } from '../../shared/hooks/useServiceAction';
 
 import { useWritingStore } from './store/useWritingStore';
 import { useModalEscape } from '../../shared/hooks/useModalEscape';

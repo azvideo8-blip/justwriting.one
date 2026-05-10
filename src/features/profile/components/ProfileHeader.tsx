@@ -3,7 +3,7 @@ import { User } from 'firebase/auth';
 import { User as UserIcon, PenLine, TrendingUp, Check, X } from 'lucide-react';
 import { ProfileService } from '../../../features/profile/services/ProfileService';
 import { useLanguage } from '../../../core/i18n';
-import { useServiceAction } from '../../../features/writing/hooks/useServiceAction';
+import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { UserProfile } from '../../../types';
 
 interface ProfileHeaderProps {

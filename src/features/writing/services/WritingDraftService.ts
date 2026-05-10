@@ -90,22 +90,6 @@ export const WritingDraftService = {
     } catch { /* ignore */ }
   },
 
-  importDraft: async (userId: string, draft: LocalDraft) => {
-    try {
-      const localDb = await getLocalDb();
-      const newDraft = { ...draft, userId };
-      await localDb.put('drafts', newDraft);
-    } catch (err) {
-      console.error('[DraftService] Failed to import draft to local:', err);
-    }
-    try {
-      const docRef = doc(db, 'drafts', userId);
-      await setDoc(docRef, { ...draft, userId }, { merge: true });
-    } catch (err) {
-      console.error('[DraftService] Failed to import draft to Firestore:', err);
-    }
-  },
-
   saveToLocal: async (draft: LocalDraft) => {
     try {
       const localDb = await getLocalDb();

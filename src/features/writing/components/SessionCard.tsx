@@ -14,11 +14,11 @@ import { parseFirestoreDate, cn } from '../../../core/utils/utils';
 import { highlightText } from '../../../shared/utils/highlightText';
 import { ExportService } from '../../export/ExportService';
 import { useLanguage } from '../../../core/i18n';
-import { useServiceAction } from '../hooks/useServiceAction';
+import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useSessionTags } from '../hooks/useSessionTags';
 
 import { SessionEditor } from './SessionEditor';
-import { CancelConfirmModal } from './modals/CancelConfirmModal';
+import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
 
 export function SessionCard({ 
   session, 

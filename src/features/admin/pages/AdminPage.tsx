@@ -7,13 +7,13 @@ import { Users, Database, Shield, AlertTriangle, Download, Loader } from 'lucide
 import { AdminUsersTable } from '../components/AdminUsersTable';
 import { AdminSessionsTable } from '../components/AdminSessionsTable';
 import { useLanguage } from '../../../core/i18n';
-import { useServiceAction } from '../../writing/hooks/useServiceAction';
+import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useToast } from '../../../shared/components/Toast';
 import { cn } from '../../../core/utils/utils';
 
 import { Session, UserProfile } from '../../../types';
 import { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
-import { CancelConfirmModal } from '../../writing/components/modals/CancelConfirmModal';
+import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
 import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
 import { DocumentService } from '../../writing/services/DocumentService';
 import { VersionService } from '../../writing/services/VersionService';

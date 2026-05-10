@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { X, AlertTriangle } from 'lucide-react';
-import { useLanguage } from '../../../../core/i18n';
-import { useModalEscape } from '../../../../shared/hooks/useModalEscape';
-import { cn } from '../../../../core/utils/utils';
+import { useLanguage } from '../../core/i18n';
+import { useModalEscape } from '../hooks/useModalEscape';
+import { cn } from '../../core/utils/utils';
 
 interface CancelConfirmModalProps {
   isOpen: boolean;

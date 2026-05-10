@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { useToast } from '../../../shared/components/Toast';
-import { useLanguage } from '../../../core/i18n';
+import { useToast } from '../components/Toast';
+import { useLanguage } from '../../core/i18n';
 
 interface ServiceActionOptions {
   successMessage?: string;

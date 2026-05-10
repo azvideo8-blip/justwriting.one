@@ -19,7 +19,7 @@ import { BottomStats } from '../components/BottomStats';
 import { Sidebar } from '../../navigation/components/Sidebar';
 import { KeystrokeTracker, KeystrokeStats } from '../utils/keystrokeTracker';
 
-import { CancelConfirmModal } from '../components/modals/CancelConfirmModal';
+import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
 
 import { useSessionFlow } from '../hooks/useSessionFlow';
 import { useLanguage } from '../../../core/i18n';

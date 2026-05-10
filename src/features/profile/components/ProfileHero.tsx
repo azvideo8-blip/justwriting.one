@@ -4,7 +4,7 @@ import { Pencil, PenLine } from 'lucide-react';
 import { UserProfile } from '../../../types';
 import { ProfileService } from '../services/ProfileService';
 import { useLanguage } from '../../../core/i18n';
-import { useServiceAction } from '../../writing/hooks/useServiceAction';
+import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 
 const QUOTES = [
   'Пишу по утрам, до того, как голова наполнится чужими голосами.',
