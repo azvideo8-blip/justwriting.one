@@ -14,6 +14,20 @@ import { useModalEscape } from '../../shared/hooks/useModalEscape';
 import { StreakDots } from '../../shared/components/StreakDots';
 import { MoodCheckin } from './components/MoodCheckin';
 
+function useCountUp(target: number, duration = 800) {
+  const [value, setValue] = useState(0);
+  React.useEffect(() => {
+    const start = performance.now();
+    const tick = (now: number) => {
+      const pct = Math.min((now - start) / duration, 1);
+      setValue(Math.round(pct * target));
+      if (pct < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [target, duration]);
+  return value;
+}
+
 export interface SaveData {
   title: string;
   tags: string[];
@@ -65,6 +79,10 @@ export function WritingFinishModal({
   const avgWpm = sessionSeconds > 0
     ? Math.round((sessionWords / sessionSeconds) * 60)
     : 0;
+
+  const animWords = useCountUp(wordCount);
+  const animSeconds = useCountUp(sessionSeconds);
+  const animWpm = useCountUp(avgWpm);
 
   useModalEscape(isOpen, onCancel);
 
@@ -167,15 +185,15 @@ export function WritingFinishModal({
         <div className="grid grid-cols-3 gap-4 text-center divide-x divide-border-subtle">
           <div className="p-2">
             <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_words')}</div>
-            <div className="text-xl font-mono font-bold text-text-main">{wordCount}</div>
+            <div className="text-xl font-mono font-bold text-text-main">{animWords}</div>
           </div>
           <div className="p-2">
             <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_time')}</div>
-            <div className="text-xl font-mono font-bold text-text-main">{formatTime(sessionSeconds)}</div>
+            <div className="text-xl font-mono font-bold text-text-main">{formatTime(animSeconds)}</div>
           </div>
           <div className="p-2">
             <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_wpm')}</div>
-            <div className="text-xl font-mono font-bold text-text-main">{avgWpm}</div>
+            <div className="text-xl font-mono font-bold text-text-main">{animWpm}</div>
           </div>
         </div>
 

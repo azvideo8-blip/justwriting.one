@@ -110,9 +110,9 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             )}
           </div>
           {!compact && wordPct !== null && (
-            <div className="w-14 h-px bg-border-subtle mt-1.5">
+            <div className="w-20 h-[3px] rounded-full bg-border-subtle mt-1.5">
               <div
-                className={cn("h-px transition-all", wordDone ? "bg-accent-success" : "bg-text-main")}
+                className={cn("h-[3px] rounded-full transition-all", wordDone ? "bg-accent-success" : "bg-text-main")}
                 style={{ width: `${wordPct}%` }}
               />
             </div>
@@ -148,9 +148,9 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             )}
           </div>
           {!compact && timePct !== null && (
-            <div className="w-14 h-px bg-border-subtle mt-1.5">
+            <div className="w-20 h-[3px] rounded-full bg-border-subtle mt-1.5">
               <div
-                className={cn("h-px transition-all", timeDone ? "bg-accent-success" : "bg-text-main")}
+                className={cn("h-[3px] rounded-full transition-all", timeDone ? "bg-accent-success" : "bg-text-main")}
                 style={{ width: `${timePct}%` }}
               />
             </div>

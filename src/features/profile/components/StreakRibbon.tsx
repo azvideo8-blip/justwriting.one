@@ -50,37 +50,33 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
     : days[0]?.date.toLocaleDateString(language, { month: 'long', year: 'numeric' });
 
   return (
-    <div style={{ padding: '24px 36px', borderBottom: '1px solid var(--border-light)' }}>
-      <div className="flex items-baseline justify-between mb-4">
-        <div className="flex items-baseline gap-3">
-          <h2 className="text-[18px] font-medium text-text-main">
-            {t('profile_streak_title')}
-          </h2>
-          <span className="font-mono text-[11px] text-text-main/30 uppercase tracking-widest">
-            {periodLabel}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="flex gap-4 font-mono text-[11px] text-text-main/40">
-            <span>{t('profile_streak_now')} <span style={{ color: 'var(--flow-pulse-color)' }} className="text-[13px] font-medium">{currentStreak}</span></span>
-            <span>{t('profile_streak_best')} <span className="text-[13px] font-medium text-text-main/70">{bestStreak}</span></span>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button onClick={() => setOffset(o => o + 1)}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-all">
-              <ChevronLeft size={14} />
-            </button>
-            <button onClick={() => setOffset(o => Math.max(0, o - 1))} disabled={offset === 0}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-all disabled:opacity-20 disabled:cursor-default">
-              <ChevronRight size={14} />
-            </button>
-          </div>
+    <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-light)' }}>
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="text-[16px] font-medium text-text-main">
+          {t('profile_streak_title')}
+        </h2>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setOffset(o => o + 1)}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-all">
+            <ChevronLeft size={14} />
+          </button>
+          <button onClick={() => setOffset(o => Math.max(0, o - 1))} disabled={offset === 0}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-all disabled:opacity-20 disabled:cursor-default">
+            <ChevronRight size={14} />
+          </button>
         </div>
       </div>
+      <div className="flex items-baseline gap-4 mb-4 font-mono text-[11px] text-text-main/40">
+        <span className="text-[10px] uppercase tracking-widest">{periodLabel}</span>
+        <span className="ml-auto">
+          {t('profile_streak_now')} <span style={{ color: 'var(--flow-pulse-color)' }} className="text-[14px] font-medium">{currentStreak}</span>
+        </span>
+        <span>
+          {t('profile_streak_best')} <span className="text-[14px] font-medium text-text-main/70">{bestStreak}</span>
+        </span>
+      </div>
 
-      <div className="flex gap-1 items-end" style={{ height: 48 }}>
+      <div className="flex gap-1 items-end" style={{ height: 64 }}>
         {days.map((day, i) => {
           const heightPct = day.words > 0 ? Math.max(16, (day.words / maxWords) * 100) : 16;
           const isCurrentStreak = day.hasSession && offset === 0 &&

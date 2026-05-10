@@ -100,7 +100,7 @@ export function DesktopWritingLayout({
         }}
       >
         <div style={{ gridColumn: '1', gridRow: '1 / 4', overflow: 'hidden' }}>
-          <Sidebar isAdmin={!!profile?.role && profile.role === 'admin'} inGrid />
+          <Sidebar isAdmin={!!profile?.role && profile.role === 'admin'} inGrid onOpenSettings={onOpenSettings} />
         </div>
 
         <div style={{ gridColumn: '2', gridRow: '1', overflow: 'hidden' }}>
