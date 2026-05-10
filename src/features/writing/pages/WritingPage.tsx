@@ -36,6 +36,7 @@ import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 import { SyncService } from '../services/SyncService';
 import { useToast } from '../../../shared/components/Toast';
+import { OnboardingGoalScreen } from '../components/OnboardingGoalScreen';
 
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 import { StorageService } from '../services/StorageService';
@@ -236,6 +237,16 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
   const { documents: _documents, refresh: refreshDocuments } = useDocuments(userId, isGuest);
 
   const { sessionGroups: lifeLogGroups, summary: lifeLogSummary, refresh: refreshLifeLog } = useLifeLog(userId, isGuest);
+
+  const [showOnboarding, setShowOnboarding] = useState(
+    () => !localStorage.getItem('onboarding_done')
+  );
+
+  const handleOnboardingComplete = React.useCallback((goal: number) => {
+    useWritingStore.getState().setWordGoal(goal);
+    localStorage.setItem('onboarding_done', '1');
+    setShowOnboarding(false);
+  }, []);
 
   const { userSessions, loadingSessions: _loadingSessions, fetchAllSessions: fetchSessions } = useSessionList(
     userId,
@@ -524,6 +535,15 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     </>
   );
 
+  if (showOnboarding && sessionStatus === 'idle') {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <OnboardingGoalScreen onComplete={handleOnboardingComplete} />
+        {sharedOverlays}
+      </div>
+    );
+  }
+
   if (isMobile) {
     if (sessionStatus === 'idle') {
       return (
@@ -640,6 +660,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
                   countdown={flow.countdown}
                   userSessions={userSessions}
                   continueSession={handleContinueSession}
+                  onSetPromptTitle={(title) => useWritingStore.getState().setTitle(title)}
                 />
               ) : (
               <WritingEditor 

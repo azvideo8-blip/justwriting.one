@@ -21,11 +21,11 @@ interface SessionItemProps {
   onDelete?: (session: Session) => void;
   t: (key: string) => string;
   language: string;
-  _userId: string;
-  _onStorageChange: () => void;
+  userId: string;
+  onStorageChange: () => void;
 }
 
-const SessionItem: React.FC<SessionItemProps> = ({ session, doc, isActive, onClick, onDelete, t, language }) => {
+const SessionItem: React.FC<SessionItemProps> = ({ session, doc, isActive, onClick, onDelete, t, language, userId: _userId, onStorageChange: _onStorageChange }) => {
   const date = parseFirestoreDate(session.createdAt);
   const timeStr = date
     ? date.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })
@@ -93,7 +93,7 @@ interface LifeLogPanelProps {
   pinned?: boolean;
   onTogglePin?: () => void;
   inGrid?: boolean;
-  _onRefreshDocuments?: () => void;
+  onRefreshDocuments?: () => void;
 }
 
 export function LifeLogPanel({
@@ -105,7 +105,7 @@ export function LifeLogPanel({
   pinned,
   onTogglePin,
   inGrid,
-  _onRefreshDocuments,
+  onRefreshDocuments,
 }: LifeLogPanelProps) {
   const [deleteTarget, setDeleteTarget] = useState<Session | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -252,6 +252,8 @@ export function LifeLogPanel({
                         onDelete={(s) => setDeleteTarget(s)}
                         t={t}
                         language={language}
+                        userId={userId}
+                        onStorageChange={() => { refresh(); onRefreshDocuments?.(); }}
                       />
                     ))}
                   </div>

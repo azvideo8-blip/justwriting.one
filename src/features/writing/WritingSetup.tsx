@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, Variants } from 'motion/react';
-import { Zap, Timer, Target, PenLine, Clock } from 'lucide-react';
+import { Zap, Timer, Target, PenLine, Clock, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { Session } from '../../types';
@@ -8,7 +8,69 @@ import { cn } from '../../core/utils/utils';
 import { useLanguage } from '../../core/i18n';
 import { formatTime } from '../../core/utils/formatTime';
 
-export type SetupMode = 'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | 'finish-by-config' | null;
+const PROMPT_CATEGORIES = [
+  { key: 'morning', prompts: [
+    'Что мне предстоит сегодня и как я к этому отношусь?',
+    'О чём я думал перед сном вчера?',
+    'Что меня радует прямо сейчас?',
+  ]},
+  { key: 'reflect', prompts: [
+    'Что было трудным на этой неделе?',
+    'Чем я горжусь за последнее время?',
+    'Что я хотел бы изменить?',
+  ]},
+  { key: 'creative', prompts: [
+    'Опиши место, где тебе хорошо',
+    'Напиши письмо себе через 5 лет',
+    'Что бы ты сделал, если бы не боялся?',
+  ]},
+] as const;
+
+function PromptsScreen({ t, onSelect, onBack }: {
+  t: (key: string) => string;
+  onSelect: (prompt: string) => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="space-y-6 py-2 md:py-4">
+      <div className="text-center space-y-2">
+        <h3 className="text-2xl md:text-3xl font-black tracking-tight text-text-main">
+          {t('writing_mode_prompts')}
+        </h3>
+      </div>
+
+      <div className="space-y-5">
+        {PROMPT_CATEGORIES.map(cat => (
+          <div key={cat.key}>
+            <div className="text-[11px] font-bold uppercase tracking-widest text-text-main/40 mb-2">
+              {t(`prompts_category_${cat.key}`)}
+            </div>
+            <div className="space-y-2">
+              {cat.prompts.map((prompt, i) => (
+                <button
+                  key={i}
+                  onClick={() => onSelect(prompt)}
+                  className="w-full text-left px-4 py-3 rounded-xl border border-border-subtle hover:border-brand-primary/30 hover:bg-brand-primary/5 transition-all text-sm text-text-main/70 hover:text-text-main"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={onBack}
+        className="w-full py-2 text-xs md:text-sm font-bold transition-colors text-text-main/50 hover:text-text-main"
+      >
+        {t('writing_back')}
+      </button>
+    </div>
+  );
+}
+
+export type SetupMode = 'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | 'finish-by-config' | 'prompts' | null;
 
 interface WritingSetupProps {
   setupMode: SetupMode;
@@ -23,6 +85,7 @@ interface WritingSetupProps {
   countdown: number | null;
   userSessions: Session[];
   continueSession: (session: Session) => void;
+  onSetPromptTitle?: (title: string) => void;
 }
 
 export function WritingSetup({
@@ -38,6 +101,7 @@ export function WritingSetup({
   countdown,
   userSessions,
   continueSession,
+  onSetPromptTitle,
 }: WritingSetupProps) {
   const { t, language } = useLanguage();
   if (!setupMode) return null;
@@ -95,7 +159,8 @@ export function WritingSetup({
                       { id: 'stopwatch', icon: Zap, label: 'writing_mode_flow', desc: 'writing_mode_flow_desc', color: 'text-amber-400', bg: 'bg-amber-400/10' },
                       { id: 'timer-config', icon: Timer, label: 'writing_mode_timer', desc: 'writing_mode_timer_desc', color: 'text-blue-400', bg: 'bg-blue-400/10' },
                       { id: 'words-config', icon: Target, label: 'writing_mode_words', desc: 'writing_mode_words_desc', color: 'text-rose-400', bg: 'bg-rose-400/10' },
-                      { id: 'finish-by-config', icon: Clock, label: 'writing_mode_deadline', desc: 'writing_mode_deadline_desc', color: 'text-emerald-400', bg: 'bg-emerald-400/10' }
+                      { id: 'finish-by-config', icon: Clock, label: 'writing_mode_deadline', desc: 'writing_mode_deadline_desc', color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
+                      { id: 'prompts', icon: Sparkles, label: 'writing_mode_prompts', desc: 'writing_mode_prompts_desc', color: 'text-violet-400', bg: 'bg-violet-400/10' },
                     ].map((mode) => (
                       <button 
                         key={mode.id}
@@ -246,6 +311,11 @@ export function WritingSetup({
                   </button>
                 </div>
               )}
+
+              {setupMode === 'prompts' && <PromptsScreen t={t} onSelect={(prompt) => {
+                onSetPromptTitle?.(prompt);
+                startCountdown('stopwatch');
+              }} onBack={() => setSetupMode('selection')} />}
             </div>
 
             {setupMode === 'selection' && (
