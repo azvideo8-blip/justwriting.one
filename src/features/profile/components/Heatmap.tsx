@@ -74,13 +74,13 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
       if (firstDay && firstDay.getDate() <= 7) {
         labels.push({
           col: wi,
-          label: firstDay.toLocaleDateString('ru', { month: 'short' }),
+          label: firstDay.toLocaleDateString(language, { month: 'short' }),
         });
       }
     });
 
     return { cells: weeks, monthLabels: labels };
-  }, [offset, sessions]);
+  }, [offset, sessions, language]);
 
   const colors = [
     'var(--surface-elevated)',
@@ -151,7 +151,7 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
                 {week.map((day, di) => (
                   <div
                     key={di}
-                    title={`${day.date.toLocaleDateString('ru')} — ${day.words} слов`}
+                    title={`${day.date.toLocaleDateString(language)} — ${day.words} ${t('home_words_short')}`}
                     style={{
                       height: 11,
                       background: colors[day.level],

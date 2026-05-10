@@ -6,22 +6,10 @@ import { useWritingStore } from './store/useWritingStore';
 import { getFontStack } from './utils/fontStack';
 
 interface WritingEditorProps {
-  handlePause: () => void;
-  handleStart: () => void;
-  handleFinish: () => void;
-  setShowCancelConfirm: (show: boolean) => void;
-  saveStatus: 'idle' | 'saving' | 'saved' | 'error';
-  lastSavedAt: number | null;
   onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
 }
 
 export const WritingEditor = React.memo(function WritingEditor({
-  handlePause: _handlePause,
-  handleStart: _handleStart,
-  handleFinish: _handleFinish,
-  setShowCancelConfirm: _setShowCancelConfirm,
-  saveStatus: _saveStatus,
-  lastSavedAt: _lastSavedAt,
   onKeyDown
 }: WritingEditorProps) {
   const { t } = useLanguage();

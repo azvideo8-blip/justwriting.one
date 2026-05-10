@@ -39,7 +39,7 @@ interface ProfileHeroProps {
 }
 
 export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileHeroProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(profile?.nickname || user?.displayName || '');
   const { execute } = useServiceAction();
@@ -142,7 +142,7 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
             {t('profile_member_since')}
           </div>
           <div className="text-[18px] font-medium text-text-main">
-            {memberSince.toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' })}
+            {memberSince.toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric' })}
           </div>
           <div className="font-mono text-[11px] text-text-main/40 mt-1">
             {daysSince} {t('home_streak_days')}

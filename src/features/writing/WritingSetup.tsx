@@ -2,9 +2,9 @@ import React from 'react';
 import { motion, Variants } from 'motion/react';
 import { Zap, Timer, Target, PenLine, Clock, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
-import { ru, enUS } from 'date-fns/locale';
 import { Session } from '../../types';
 import { cn } from '../../core/utils/utils';
+import { toDate, getDateLocale } from '../../core/utils/dateUtils';
 import { useLanguage } from '../../core/i18n';
 import { formatTime } from '../../core/utils/formatTime';
 
@@ -106,7 +106,7 @@ export function WritingSetup({
   const { t, language } = useLanguage();
   if (!setupMode) return null;
 
-  const dateLocale = language === 'ru' ? ru : enUS;
+  const dateLocale = getDateLocale(language);
 
   const containerVariants: Variants = {
     hidden: { opacity: 0, scale: 0.95 },
@@ -290,7 +290,7 @@ export function WritingSetup({
                               </div>
                             </div>
                             <div className="text-[11px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-white/10 text-text-main/50">
-                              {session.createdAt ? format(session.createdAt instanceof Date ? session.createdAt : (session.createdAt as { toDate?: () => Date }).toDate?.() || new Date(), 'd MMM', { locale: dateLocale }) : ''}
+                              {session.createdAt ? format(toDate(session.createdAt) ?? new Date(), 'd MMM', { locale: dateLocale }) : ''}
                             </div>
                           </div>
                           

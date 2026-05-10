@@ -5,7 +5,7 @@ import { useWritingStore } from '../store/useWritingStore';
 import { Session, UserProfile } from '../../../types';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useSettings } from '../../../core/settings/SettingsContext';
-import { cn } from '../../../core/utils/utils';
+import { cn, calculateStreak } from '../../../core/utils/utils';
 import { GoalToast } from '../../../shared/components/GoalToast';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -38,10 +38,8 @@ import { SyncService } from '../services/SyncService';
 import { useToast } from '../../../shared/components/Toast';
 import { OnboardingGoalScreen } from '../components/OnboardingGoalScreen';
 
-import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 import { StorageService } from '../services/StorageService';
 import { LocalVersionService } from '../services/LocalVersionService';
-import { z } from 'zod';
 
 import { useGuestWritingSession, GuestSessionReturn } from '../hooks/useGuestWritingSession';
 import { useCloudWritingSession, CloudSessionReturn } from '../hooks/useCloudWritingSession';
@@ -99,12 +97,10 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
   const setSessionType = session.setSessionType;
 
   const {
-    setTimerDuration: _setTimerDuration,
-    setWordGoal: _setWordGoal,
-    targetTime, setTargetTime: _setTargetTime,
+    targetTime,
     hasDraft,
-    saveStatus, lastSavedAt,
-    handleStart: hookHandleStart, handleCancel, resetSessionMetadata,
+    saveStatus, lastSavedAt: _lastSavedAt,
+    handleStart: hookHandleStart, handleCancel, resetSessionMetadata: _resetSessionMetadata,
     fetchLocalSessions,
     loadLocalSession,
   } = session;
@@ -232,10 +228,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     }
   }, [handleContinueDocument, handleContinueSession]);
 
-  const [_firstVisit, _setFirstVisit] = useLocalStorage('first-visit', true, z.boolean());
-
-  const { documents: _documents, refresh: refreshDocuments } = useDocuments(userId, isGuest);
-
+  const { refresh: refreshDocuments } = useDocuments(userId, isGuest);
   const { sessionGroups: lifeLogGroups, summary: lifeLogSummary, refresh: refreshLifeLog } = useLifeLog(userId, isGuest);
 
   const [showOnboarding, setShowOnboarding] = useState(
@@ -248,7 +241,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     setShowOnboarding(false);
   }, []);
 
-  const { userSessions, loadingSessions: _loadingSessions, fetchAllSessions: fetchSessions } = useSessionList(
+  const { userSessions, fetchAllSessions: fetchSessions } = useSessionList(
     userId,
     fetchLocalSessions,
     loadLocalSession
@@ -265,23 +258,8 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     }
   }, [sessionToContinue, handleContinueSession, navigate, location.pathname]);
   const streakDays = React.useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    let streak = 0;
-    let checkDate = new Date(today);
-    for (let i = 0; i < 365; i++) {
-      const dateStr = checkDate.toDateString();
-      const hasSession = lifeLogGroups.some(g =>
-        new Date(g.date).toDateString() === dateStr
-      );
-      if (hasSession) {
-        streak++;
-        checkDate.setDate(checkDate.getDate() - 1);
-      } else {
-        break;
-      }
-    }
-    return streak;
+    const allSessions = lifeLogGroups.flatMap(g => g.sessions);
+    return calculateStreak(allSessions);
   }, [lifeLogGroups]);
 
   const handleSave = React.useCallback(async (data: SaveData) => {
@@ -424,16 +402,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     window.addEventListener('keydown', handleAutoStartKey);
     return () => window.removeEventListener('keydown', handleAutoStartKey);
   }, [handleAutoStartKey]);
-
-  const _fetchAllSessions = React.useCallback(async () => {
-    await fetchSessions();
-    setSetupMode('session-selection');
-  }, [fetchSessions, setSetupMode]);
-
-  const _handleNewSession = React.useCallback(() => {
-    resetSessionMetadata();
-    setSetupMode('selection');
-  }, [resetSessionMetadata, setSetupMode]);
 
   const handleNew = React.useCallback(async () => {
     if (wordCount > 0 && sessionStatus !== 'idle') {
@@ -664,16 +632,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
                 />
               ) : (
               <WritingEditor 
-                handlePause={() => setSessionStatus('paused')}
-                handleStart={() => {
-                  useWritingStore.getState().setSessionType('free');
-                  useWritingStore.getState().setSessionStart();
-                  hookHandleStart();
-                }}
-                handleFinish={handleFinish}
-                setShowCancelConfirm={setShowCancelConfirm}
-                saveStatus={saveStatus}
-                lastSavedAt={lastSavedAt}
                 onKeyDown={(e) => {
                   if (!e.metaKey && !e.ctrlKey && !e.altKey) {
                     keystrokeTrackerRef.current.record();

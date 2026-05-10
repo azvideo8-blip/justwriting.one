@@ -1,5 +1,5 @@
 import { useLanguage } from '../../../core/i18n';
-import { cn, calculateStreak as calculateStreakFromUtils } from '../../../core/utils/utils';
+import { cn } from '../../../core/utils/utils';
 import { ArchiveSession } from '../types';
 import { X } from 'lucide-react';
 
@@ -69,8 +69,4 @@ export function ArchiveStats({ sessions, streakDays, title, onReset }: ArchiveSt
       </div>
     </div>
   );
-}
-
-export function calculateStreak(sessions: ArchiveSession[]): number {
-  return calculateStreakFromUtils(sessions as unknown as Parameters<typeof calculateStreakFromUtils>[0]);
 }

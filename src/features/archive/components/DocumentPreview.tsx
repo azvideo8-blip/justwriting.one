@@ -2,18 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { X, ArrowRight, Download, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
-import { ru, enUS } from 'date-fns/locale';
 import { ArchiveSession } from '../types';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
+import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx, ExportStrings } from '../services/ArchiveExportService';
 import { InlineTags } from './InlineTags';
-
-function toJsDate(d: Date | { toDate?: () => Date }): Date {
-  if (d instanceof Date) return d;
-  if (d && typeof d === 'object' && 'toDate' in d) return (d as { toDate: () => Date }).toDate();
-  return new Date();
-}
 
 export function DocumentPreview({ session, onClose, onContinue, onTagsChange }: {
   session: ArchiveSession | null;
@@ -84,8 +78,8 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange }: 
 
   if (!session) return null;
 
-  const dateLocale = language === 'ru' ? ru : enUS;
-  const date = toJsDate(session.createdAt);
+  const dateLocale = getDateLocale(language);
+  const date = toDate(session.createdAt) ?? new Date();
 
   const exportStrings: ExportStrings = {
     date: t('export_header_date'),

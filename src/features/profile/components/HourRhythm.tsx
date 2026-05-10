@@ -1,22 +1,12 @@
 import { useMemo } from 'react';
 import { useLanguage } from '../../../core/i18n';
 import { Session } from '../../../types';
+import { toDate } from '../../../core/utils/dateUtils';
 
 function getSessionHour(s: Session): number | null {
-  if (s.sessionStartTime) {
-    const h = new Date(s.sessionStartTime).getHours();
-    return isNaN(h) ? null : h;
-  }
-  const d = s.createdAt;
-  if (d instanceof Date) {
-    const h = d.getHours();
-    return isNaN(h) ? null : h;
-  }
-  if (typeof d === 'object' && d !== null && typeof (d as { toDate?: () => Date }).toDate === 'function') {
-    const h = (d as { toDate: () => Date }).toDate().getHours();
-    return isNaN(h) ? null : h;
-  }
-  return null;
+  const d = s.sessionStartTime ? new Date(s.sessionStartTime) : toDate(s.createdAt);
+  if (!d || isNaN(d.getTime())) return null;
+  return d.getHours();
 }
 
 export function HourRhythm({ sessions }: { sessions: Session[] }) {

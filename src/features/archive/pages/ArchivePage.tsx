@@ -2,19 +2,16 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { format } from 'date-fns';
-import { ru, enUS } from 'date-fns/locale';
 import { Search, LayoutGrid, LayoutList, BookOpen, Trash2, ExternalLink } from 'lucide-react';
-import { UserProfile, Document } from '../../../types';
+import { UserProfile } from '../../../types';
 import { GridNoteCard } from '../components/GridNoteCard';
-import { getSessionDate, cn } from '../../../core/utils/utils';
+import { getSessionDate, cn, calculateStreak } from '../../../core/utils/utils';
+import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
-import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
-import { LocalVersionService } from '../../writing/services/LocalVersionService';
-import { DocumentService } from '../../writing/services/DocumentService';
-import { VersionService } from '../../writing/services/VersionService';
-import { SessionService } from '../../writing/services/SessionService';
 import { StorageService } from '../../writing/services/StorageService';
-import { getOrCreateGuestId } from '../../../shared/lib/localDb';
+import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
+import { DocumentService } from '../../writing/services/DocumentService';
+import { loadAllSessions } from '../../writing/services/UnifiedSessionLoader';
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 import { z } from 'zod';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
@@ -23,9 +20,10 @@ import { useLanguage } from '../../../core/i18n';
 import { useArchiveFilters } from '../hooks/useArchiveFilters';
 import { useArchiveSearch } from '../hooks/useArchiveSearch';
 import { useNavigate } from 'react-router-dom';
+import { useUserId } from '../../../shared/hooks/useUserId';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { DocumentPreview } from '../components/DocumentPreview';
-import { ArchiveStats, calculateStreak } from '../components/ArchiveStats';
+import { ArchiveStats } from '../components/ArchiveStats';
 import { InlineTags } from '../components/InlineTags';
 import { StorageIcons } from '../../writing/components/StorageIcons';
 import { ArchiveSession } from '../types';
@@ -35,10 +33,11 @@ interface ArchiveViewProps {
   profile: UserProfile | null;
 }
 
-function NoteRow({ session, onOpen, t, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, userId }: {
+function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, userId }: {
   session: ArchiveSession;
   onOpen: () => void;
   t: (key: string) => string;
+  language: string;
   onDelete?: (session: ArchiveSession) => void;
   onTagsChange?: (session: ArchiveSession, tags: string[]) => void;
   onStorageChange?: () => void;
@@ -55,17 +54,12 @@ function NoteRow({ session, onOpen, t, onDelete, onTagsChange, onStorageChange, 
 
   const date = getSessionDate(session);
   const dateLabel = date
-    ? `${date.getDate()} ${['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'][date.getMonth()]} ${String(date.getFullYear()).slice(2)}`
+    ? format(date, 'd MMM yy', { locale: getDateLocale(language) })
     : '—';
 
   const timeStr = (() => {
-    if (session.sessionStartTime) return new Date(session.sessionStartTime).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
-    const d = session.createdAt;
-    if (d instanceof Date) return d.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
-    if (typeof d === 'object' && d !== null && typeof (d as { toDate?: () => Date }).toDate === 'function') {
-      return (d as { toDate: () => Date }).toDate().toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
-    }
-    return '00:00';
+    const d = toDate(session.sessionStartTime) ?? toDate(session.createdAt);
+    return d ? d.toLocaleTimeString(language === 'ru' ? 'ru' : 'en', { hour: '2-digit', minute: '2-digit' }) : '00:00';
   })();
 
   React.useEffect(() => {
@@ -236,7 +230,7 @@ function NoteRow({ session, onOpen, t, onDelete, onTagsChange, onStorageChange, 
   );
 }
 
-export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
+export function ArchivePage({ user }: ArchiveViewProps) {
   const { t, language } = useLanguage();
   const [sessions, setSessions] = useState<ArchiveSession[]>([]);
   const [loading, setLoading] = useState(false);
@@ -247,9 +241,7 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
   const [deleteConfirm, setDeleteConfirm] = useState<ArchiveSession | null>(null);
   const mountedRef = useRef(true);
 
-  const userId = user?.uid ?? getOrCreateGuestId();
-
-  const _streakDays = useMemo(() => calculateStreak(sessions), [sessions]);
+  const userId = useUserId(user);
 
   const sessionsByDate = useMemo(() => {
     const map: Record<string, number> = {};
@@ -265,108 +257,12 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
   const fetchSessions = async (_isRefresh = false) => {
     setLoading(true);
     setError(null);
-    setCloudLoadFailed(false);
 
     try {
-      const allSessions: ArchiveSession[] = [];
-      const seenIds = new Set<string>();
-
-      const guestId = getOrCreateGuestId();
-      const idsToQuery = user ? [user.uid, guestId] : [guestId];
-
-      for (const uid of idsToQuery) {
-        const localDocs = await LocalDocumentService.getGuestDocuments(uid);
-        const localByCloudId = new Set(localDocs.filter(d => d.linkedCloudId).map(d => d.linkedCloudId!));
-
-        for (const doc of localDocs) {
-          if (seenIds.has(doc.id)) continue;
-          seenIds.add(doc.id);
-          const content = await LocalVersionService.getLatestContent(doc.id);
-          const createdAt = new Date(doc.firstSessionAt);
-          allSessions.push({
-            id: doc.id,
-            userId: doc.guestId,
-            authorName: '',
-            authorPhoto: '',
-            content,
-            duration: doc.totalDuration,
-            wordCount: doc.totalWords,
-            charCount: 0,
-            wpm: 0,
-            title: doc.title,
-            tags: doc.tags,
-            createdAt,
-            sessionStartTime: doc.firstSessionAt,
-            _isLocal: true,
-            _linkedCloudId: doc.linkedCloudId || undefined,
-            _hasCloudCopy: !!doc.linkedCloudId,
-          });
-        }
-
-        if (user && uid === user.uid) {
-          let cloudDocs: Document[] = [];
-          try {
-            cloudDocs = await DocumentService.getUserDocuments(uid);
-          } catch (e) {
-            setCloudLoadFailed(true);
-            console.error(`Failed to fetch cloud docs for uid=${uid}:`, e);
-          }
-
-          for (const cloudDoc of cloudDocs) {
-            if (localByCloudId.has(cloudDoc.id) || seenIds.has(cloudDoc.id)) continue;
-            seenIds.add(cloudDoc.id);
-
-            const created = (cloudDoc.firstSessionAt as { toDate?: () => Date })?.toDate?.() ?? new Date();
-            let cloudContent = '';
-            try {
-              cloudContent = await VersionService.getLatestContent(user.uid, cloudDoc.id);
-            } catch { /* ignore */ }
-            allSessions.push({
-              id: cloudDoc.id,
-              userId: user.uid,
-              authorName: '',
-              authorPhoto: '',
-              content: cloudContent,
-              duration: cloudDoc.totalDuration,
-              wordCount: cloudDoc.totalWords,
-              charCount: 0,
-              wpm: 0,
-              title: cloudDoc.title,
-              tags: cloudDoc.tags,
-              createdAt: created,
-              sessionStartTime: created.getTime(),
-              _isLocal: false,
-              _linkedCloudId: cloudDoc.id,
-              _hasCloudCopy: true,
-            });
-          }
-        }
-      }
-
-      if (user) {
-        try {
-          const { sessions: legacySessions } = await SessionService.getAllSessions(user.uid, 500);
-          for (const s of legacySessions) {
-            if (seenIds.has(s.id)) continue;
-            seenIds.add(s.id);
-            allSessions.push({ ...s, _isLocal: false });
-          }
-        } catch (e) {
-          console.error('Failed to fetch legacy sessions:', e);
-        }
-      }
-
-      allSessions.sort((a, b) => {
-        const toMs = (d: Date | { toDate?: () => Date } | undefined): number => {
-          if (d instanceof Date) return d.getTime();
-          if (d && typeof d === 'object' && 'toDate' in d) return (d as { toDate: () => Date }).toDate().getTime();
-          return 0;
-        };
-        return toMs(b.createdAt) - toMs(a.createdAt);
-      });
-
+      const result = await loadAllSessions(userId, user);
       if (!mountedRef.current) return;
-      setSessions(allSessions);
+      setSessions(result.sessions as ArchiveSession[]);
+      setCloudLoadFailed(result.cloudLoadFailed);
     } catch (err) {
       if (!mountedRef.current) return;
       console.error('Archive load error:', err);
@@ -386,32 +282,10 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  const _handleToggleLocal = async (s: ArchiveSession) => {
-    if (!s._isLocal) return;
-    try {
-      await StorageService.removeLocalCopy(s.id);
-      setSessions(prev => prev.filter(x => x.id !== s.id));
-      if (previewSession?.id === s.id) setPreviewSession(null);
-    } catch (e) {
-      console.error('Failed to remove local copy:', e);
-    }
-  };
-
-  const _handleToggleCloud = async (s: ArchiveSession) => {
-    if (!s._hasCloudCopy || !user) return;
-    try {
-      const cloudId = s._linkedCloudId || s.id;
-      await StorageService.removeCloudCopy(user.uid, cloudId, s._isLocal ? s.id : undefined);
-      setSessions(prev => prev.map(x => x.id === s.id ? { ...x, _hasCloudCopy: false, _linkedCloudId: undefined } : x));
-    } catch (e) {
-      console.error('Failed to remove cloud copy:', e);
-    }
-  };
-
   const handleDeleteSession = async (s: ArchiveSession) => {
     try {
-      await StorageService.deleteDocument(
-        user?.uid ?? getOrCreateGuestId(),
+        await StorageService.deleteDocument(
+          userId,
         s._isLocal ? s.id : undefined,
         s._hasCloudCopy ? (s._linkedCloudId || s.id) : undefined
       );
@@ -505,7 +379,7 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
       return t('archive_stats_by_tag') + ' ' + selectedTags.map(t => '#' + t).join(', ');
     }
     if (selectedMonth) {
-      return t('archive_stats_by_month') + ' ' + format(selectedMonth, 'LLLL yyyy', { locale: language === 'ru' ? ru : enUS });
+      return t('archive_stats_by_month') + ' ' + format(selectedMonth, 'LLLL yyyy', { locale: getDateLocale(language) });
     }
     return t('archive_stats_title');
   }, [selectedTags, selectedMonth, t, language]);
@@ -530,7 +404,7 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
 
   const sortedDates = useMemo(() => Object.keys(groupedSessions).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [groupedSessions]);
 
-  const dateLocale = language === 'ru' ? ru : enUS;
+  const dateLocale = getDateLocale(language);
 
   const entriesLabel = (n: number) =>
     n === 1 ? t('archive_entry_1') :
@@ -717,6 +591,7 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
                             session={session}
                             onOpen={() => setPreviewSession(session)}
                             t={t}
+                            language={language}
                             onDelete={(s) => setDeleteConfirm(s)}
                             onTagsChange={handleTagsChange}
                             onStorageChange={() => fetchSessions()}

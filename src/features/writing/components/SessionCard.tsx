@@ -8,11 +8,10 @@ import {
   FileText, Download, FileJson, Plus, Trash2
 } from 'lucide-react';
 import { auth } from '../../../core/firebase/auth';
-import { SessionService } from '../services/SessionService';
-import { StorageService } from '../services/StorageService';
-import { LocalDocumentService } from '../services/LocalDocumentService';
+import { deleteSession } from '../services/SessionDeleteService';
 import { Session, Label } from '../../../types';
 import { parseFirestoreDate, cn } from '../../../core/utils/utils';
+import { highlightText } from '../../../shared/utils/highlightText';
 import { ExportService } from '../../export/ExportService';
 import { useLanguage } from '../../../core/i18n';
 import { useServiceAction } from '../hooks/useServiceAction';
@@ -28,7 +27,7 @@ export function SessionCard({
   searchQuery = '',
   onDeleteSuccess,
   userId,
-  linkedCloudId,
+  linkedCloudId: _linkedCloudId,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   hasCloudCopy,
 }: { 
@@ -104,34 +103,9 @@ export function SessionCard({
     removeTag(tagToRemove);
   };
 
-  const highlightText = (text: string, query: string) => {
-    if (!query) return text;
-    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
-    return (
-      <>
-        {parts.map((part, i) => 
-          part.toLowerCase() === query.toLowerCase() ? (
-            <mark key={i} className="px-0.5 rounded bg-text-main/20 text-text-main">
-              {part}
-            </mark>
-          ) : part
-        )}
-      </>
-    );
-  };
-
   const handleDelete = () => {
     execute(
-      async () => {
-        if (session._isLocal) {
-          const doc = await LocalDocumentService.getDocument(session.id);
-          const cloudId = doc?.linkedCloudId || linkedCloudId;
-          await StorageService.deleteDocument(userId || '', session.id, cloudId || undefined);
-        } else {
-          await SessionService.deleteSession(session.id);
-        }
-      },
+      () => deleteSession(userId || '', session),
       {
         successMessage: t('session_deleted'),
         errorMessage: t('error_delete_failed'),

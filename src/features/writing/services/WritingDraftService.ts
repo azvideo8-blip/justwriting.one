@@ -1,23 +1,14 @@
 import { getLocalDb, LocalDraft } from '../../../shared/lib/localDb';
 import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
+import { toTimestampMs } from '../../../core/utils/dateUtils';
 
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const _saveGeneration = new Map<string, number>();
 
 function isDraftExpired(draft: LocalDraft): boolean {
-  const updated = toMs(draft.updatedAt);
+  const updated = toTimestampMs(draft.updatedAt) ?? 0;
   return updated > 0 && Date.now() - updated > DRAFT_MAX_AGE_MS;
-}
-
-function toMs(v: unknown): number {
-  if (!v) return 0;
-  if (typeof v === 'number') return v;
-  if (v instanceof Date) return v.getTime();
-  if (typeof v === 'object' && 'toDate' in (v as object)) return (v as { toDate: () => Date }).toDate().getTime();
-  if (typeof v === 'object' && 'toMillis' in (v as object)) return (v as { toMillis: () => number }).toMillis();
-  if (typeof v === 'object' && 'seconds' in (v as object)) return (v as { seconds: number }).seconds * 1000;
-  return 0;
 }
 
 function hasDraftsStore(localDb: IDBDatabase): boolean {
@@ -68,8 +59,8 @@ export const WritingDraftService = {
     }
 
     if (localDraft && cloudDraft) {
-      const winner = toMs(localDraft.updatedAt) > toMs(cloudDraft.updatedAt) ? localDraft : cloudDraft;
-      if (deletedAt && toMs(winner.updatedAt) <= deletedAt) {
+      const winner = (toTimestampMs(localDraft.updatedAt) ?? 0) > (toTimestampMs(cloudDraft.updatedAt) ?? 0) ? localDraft : cloudDraft;
+      if (deletedAt && (toTimestampMs(winner.updatedAt) ?? 0) <= deletedAt) {
         await WritingDraftService.deleteDraft(userId);
         return null;
       }
@@ -81,7 +72,7 @@ export const WritingDraftService = {
     }
     const resolved = localDraft || cloudDraft;
     if (resolved) {
-      if (deletedAt && toMs(resolved.updatedAt) <= deletedAt) {
+      if (deletedAt && (toTimestampMs(resolved.updatedAt) ?? 0) <= deletedAt) {
         await WritingDraftService.deleteDraft(userId);
         return null;
       }
