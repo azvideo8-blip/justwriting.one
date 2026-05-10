@@ -4,14 +4,9 @@ import { useWritingStore } from '../store/useWritingStore';
 import { getOrCreateGuestId, getLocalDb } from '../../../shared/lib/localDb';
 import { fetchLocalSessions, loadLocalSession } from '../services/LocalSessionLoader';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
+import { LocalSessionInfo } from '../types/session';
 
-export interface LocalSessionInfo {
-  id: string;
-  createdAt: Date;
-  title?: string;
-  wordCount?: number;
-  duration?: number;
-}
+export type { LocalSessionInfo };
 
 export interface GuestSessionReturn extends BaseSessionReturn {
   userId: string;
@@ -186,12 +181,14 @@ export function useGuestWritingSession(): GuestSessionReturn {
       return;
     }
 
-    useWritingStore.setState({
+    useWritingStore.getState().loadDraftIntoStore({
       content: draft.content,
       title: draft.title ?? '',
+      wordCount: draft.wordCount ?? 0,
+    });
+    useWritingStore.setState({
       pinnedThoughts: draft.pinnedThoughts ?? [],
       seconds: draft.seconds ?? 0,
-      wordCount: draft.wordCount ?? 0,
     });
     setHasDraft(false);
   }, []);

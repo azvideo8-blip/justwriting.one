@@ -1,4 +1,4 @@
-import { Translations } from '../index';
+import { Translations } from '../types';
 
 export const settingsTranslations: Translations = {
   settings_title: { ru: 'Настройки', en: 'Settings' },

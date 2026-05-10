@@ -4,7 +4,7 @@ import { useBaseWritingSession, BaseSessionReturn } from './useBaseWritingSessio
 import { useSessionPersistence } from './useSessionPersistence';
 import { useState } from 'react';
 
-import { LocalSessionInfo } from './useGuestWritingSession';
+import { LocalSessionInfo } from '../types/session';
 
 export interface CloudSessionReturn extends BaseSessionReturn {
   userId: string;

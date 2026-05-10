@@ -57,6 +57,7 @@ export function WritingFinishModal({
   const sessionSeconds = accumulatedDuration + Math.max(0, seconds - sessionStartSeconds);
   const content = useWritingStore(s => s.content);
   const title = useWritingStore(s => s.title);
+  const setTitle = useWritingStore(s => s.setTitle);
   const wpmHistory = useWritingStore(s => s.wpmHistory);
 
   const sessionWords = Math.max(0, wordCount - initialWordCount);
@@ -153,7 +154,7 @@ export function WritingFinishModal({
 
   const handleSaveClick = () => {
     if (finalTitle && finalTitle !== title) {
-      useWritingStore.getState().setTitle(finalTitle);
+      setTitle(finalTitle);
     }
     execute(
       () => onSave({ ...saveData, title: finalTitle }),
