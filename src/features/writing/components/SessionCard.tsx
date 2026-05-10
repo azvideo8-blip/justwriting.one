@@ -17,7 +17,6 @@ import { ExportService } from '../../export/ExportService';
 import { useLanguage } from '../../../core/i18n';
 import { useServiceAction } from '../hooks/useServiceAction';
 import { useSessionTags } from '../hooks/useSessionTags';
-import { StorageIcons } from './StorageIcons';
 
 import { SessionEditor } from './SessionEditor';
 import { CancelConfirmModal } from './modals/CancelConfirmModal';
@@ -30,6 +29,7 @@ export function SessionCard({
   onDeleteSuccess,
   userId,
   linkedCloudId,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   hasCloudCopy,
 }: { 
   session: Session, 
@@ -195,17 +195,6 @@ export function SessionCard({
             <span className="flex items-center gap-1" title={t('writing_time')}><Clock size={14} /> {Math.floor(session.duration / 60)}{t('unit_min')}</span>
             <span className="flex items-center gap-1" title={t('writing_words')}><Type size={14} /> {session.wordCount}{t('unit_words')}</span>
             <span className="flex items-center gap-1" title={t('writing_chars')}><PenLine size={14} /> {session.charCount || 0}</span>
-
-            <StorageIcons
-              doc={{
-                localId: session._isLocal ? session.id : undefined,
-                cloudId: linkedCloudId,
-                hasLocal: !!session._isLocal,
-                hasCloud: !!hasCloudCopy,
-              }}
-              userId={userId || ''}
-              onStorageChange={() => { if (onDeleteSuccess) onDeleteSuccess(session.id); }}
-            />
 
             <div className="flex items-center flex-wrap gap-2 relative">
               <button 
