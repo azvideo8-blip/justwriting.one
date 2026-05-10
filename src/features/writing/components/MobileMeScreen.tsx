@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../../core/i18n';
-import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { UserProfile } from '../../../types';
 import { User } from 'firebase/auth';
-import { Toggle } from '../../../shared/components/Toggle';
-import { getFontStack } from '../utils/fontStack';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { getOrCreateGuestId, LocalProfile } from '../../../shared/lib/localDb';
+import { MeStatsSection } from './MeStatsSection';
+import { MeWritingSection } from './MeWritingSection';
+import { MeAccountSection } from './MeAccountSection';
 
 interface MobileMeScreenProps {
   user: User | null;
@@ -17,83 +17,8 @@ interface MobileMeScreenProps {
 
 type Section = 'stats' | 'writing' | 'account';
 
-function StatCard({ value, label, accent }: {
-  value: string | number;
-  label: string;
-  accent?: boolean;
-}) {
-  return (
-    <div style={{
-      flex: 1,
-      padding: '14px 16px',
-      background: 'rgba(255,255,255,0.03)',
-      border: `1px solid ${accent ? 'oklch(0.72 0.13 155 / 0.3)' : 'rgba(255,255,255,0.07)'}`,
-      borderRadius: 14,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 4,
-    }}>
-      <div style={{
-        fontSize: 24,
-        fontWeight: 500,
-        color: accent ? 'var(--brand-primary)' : 'rgba(232,236,233,0.95)',
-        lineHeight: 1,
-        fontVariantNumeric: 'tabular-nums',
-      }}>
-        {value}
-      </div>
-      <div style={{
-        fontSize: 11,
-        color: 'rgba(74,81,77,1)',
-        textTransform: 'uppercase',
-        letterSpacing: '.06em',
-        fontFamily: 'JetBrains Mono, monospace',
-      }}>
-        {label}
-      </div>
-    </div>
-  );
-}
-
-function SettingRow({ label, children, hint }: {
-  label: string;
-  children: React.ReactNode;
-  hint?: string;
-}) {
-  return (
-    <div style={{
-      padding: '14px 0',
-      borderBottom: '1px solid rgba(255,255,255,0.05)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 4,
-    }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 12,
-      }}>
-        <span style={{ fontSize: 14, color: 'rgba(232,236,233,0.8)' }}>
-          {label}
-        </span>
-        {children}
-      </div>
-      {hint && (
-        <div style={{ fontSize: 11, color: 'rgba(74,81,77,1)' }}>{hint}</div>
-      )}
-    </div>
-  );
-}
-
 export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeScreenProps) {
-  const { t, language, setLanguage } = useLanguage();
-  const {
-    fontFamily, setFontFamily,
-    fontSize, setFontSize,
-    zenModeEnabled, setZenModeEnabled,
-   } = useWritingSettings();
-
+  const { t } = useLanguage();
   const [activeSection, setActiveSection] = useState<Section>('stats');
   const [localProfile, setLocalProfile] = useState<LocalProfile | null>(null);
   const isGuest = !user;
@@ -233,209 +158,9 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
         paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)',
         WebkitOverflowScrolling: 'touch',
       }}>
-
-        {activeSection === 'stats' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <StatCard
-                value={(statsProfile?.totalWordCount || 0).toLocaleString()}
-                label={t('me_stat_total_words')}
-                accent
-              />
-              <StatCard
-                value={statsProfile?.sessionsCount || 0}
-                label={t('me_stat_sessions')}
-              />
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <StatCard
-                value={statsProfile?.streakDays || 0}
-                label={t('me_stat_streak')}
-              />
-              <StatCard
-                value={`${Math.round((statsProfile?.totalDuration || 0) / 60)}ч`}
-                label={t('me_stat_total_time')}
-              />
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <StatCard
-                value={statsProfile?.avgWpm || 0}
-                label={t('me_stat_avg_wpm')}
-              />
-              <StatCard
-                value={statsProfile?.avgSessionWords || 0}
-                label={t('me_stat_avg_session')}
-              />
-            </div>
-          </div>
-        )}
-
-        {activeSection === 'writing' && (
-          <div>
-            <div style={{
-              fontSize: 10,
-              color: 'rgba(74,81,77,1)',
-              textTransform: 'uppercase',
-              letterSpacing: '.08em',
-              fontFamily: 'JetBrains Mono, monospace',
-              marginBottom: 8,
-            }}>
-              {t('settings_section_font')}
-            </div>
-
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: 6,
-              marginBottom: 20,
-            }}>
-              {[
-                { id: 'sans',  label: 'Inter',         sample: 'Aa 123' },
-                { id: 'serif', label: 'Lora',       sample: 'Aa 123' },
-                { id: 'mono',  label: 'JetBrains Mono', sample: 'Aa 123' },
-              ].map(f => (
-                <button
-                  key={f.id}
-                  onClick={() => setFontFamily(f.id)}
-                  style={{
-                    padding: '12px 14px',
-                    borderRadius: 12,
-                    border: `1px solid ${fontFamily === f.id
-                      ? 'oklch(0.72 0.13 155 / 0.5)'
-                      : 'rgba(255,255,255,0.07)'}`,
-                    background: fontFamily === f.id
-                      ? 'oklch(0.72 0.13 155 / 0.08)'
-                      : 'rgba(255,255,255,0.03)',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    WebkitTapHighlightColor: 'transparent',
-                  }}
-                >
-                  <div style={{
-                    fontSize: 15,
-                    fontFamily: getFontStack(f.id),
-                    color: 'rgba(232,236,233,0.9)',
-                    marginBottom: 2,
-                  }}>
-                    {f.sample}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'rgba(138,145,141,1)' }}>
-                    {f.label}
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <SettingRow label={t('settings_font_size')} hint={`${fontSize}px`}>
-              <input
-                type="range"
-                min={14} max={28}
-                value={fontSize}
-                onChange={e => setFontSize(Number(e.target.value))}
-                style={{ width: 100 }}
-              />
-            </SettingRow>
-
-            <SettingRow label={t('settings_zen_mode')}>
-              <Toggle checked={zenModeEnabled} onChange={setZenModeEnabled} />
-            </SettingRow>
-           </div>
-        )}
-
-        {activeSection === 'account' && (
-          <div>
-            <SettingRow label={t('settings_language')}>
-              <div style={{
-                display: 'flex',
-                background: 'rgba(255,255,255,0.04)',
-                borderRadius: 8,
-                padding: 2,
-                gap: 2,
-              }}>
-                {(['ru', 'en'] as const).map(lang => (
-                  <button
-                    key={lang}
-                    onClick={() => setLanguage(lang)}
-                    style={{
-                      padding: '5px 12px',
-                      borderRadius: 6,
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: 12,
-                      fontWeight: 500,
-                      background: language === lang
-                        ? 'rgba(255,255,255,0.08)'
-                        : 'transparent',
-                      color: language === lang
-                        ? 'rgba(232,236,233,0.9)'
-                        : 'rgba(74,81,77,1)',
-                    }}
-                  >
-                    {lang.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            </SettingRow>
-
-            {user?.email && (
-              <SettingRow label={t('me_account_email')}>
-                <span style={{
-                  fontSize: 12,
-                  color: 'rgba(74,81,77,1)',
-                  fontFamily: 'JetBrains Mono, monospace',
-                  maxWidth: 180,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {user.email}
-                </span>
-              </SettingRow>
-            )}
-
-            {isGuest ? (
-              <button
-                onClick={onSignIn}
-                style={{
-                  marginTop: 24,
-                  width: '100%',
-                  padding: '14px',
-                  borderRadius: 14,
-                  border: '1px solid oklch(0.72 0.13 155 / 0.3)',
-                  background: 'oklch(0.72 0.13 155 / 0.08)',
-                  color: 'var(--brand-primary)',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  fontFamily: 'Inter, system-ui, sans-serif',
-                  WebkitTapHighlightColor: 'transparent',
-                }}
-              >
-                {t('auth_sign_in')}
-              </button>
-            ) : (
-              <button
-                onClick={onSignOut}
-                style={{
-                  marginTop: 24,
-                  width: '100%',
-                  padding: '14px',
-                  borderRadius: 14,
-                  border: '1px solid rgba(239,68,68,0.25)',
-                  background: 'rgba(239,68,68,0.06)',
-                  color: 'rgba(239,68,68,0.8)',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  fontFamily: 'Inter, system-ui, sans-serif',
-                  WebkitTapHighlightColor: 'transparent',
-                }}
-              >
-                {t('me_sign_out')}
-              </button>
-            )}
-          </div>
-        )}
+        {activeSection === 'stats' && <MeStatsSection profile={statsProfile} />}
+        {activeSection === 'writing' && <MeWritingSection />}
+        {activeSection === 'account' && <MeAccountSection user={user} onSignOut={onSignOut} onSignIn={onSignIn} />}
       </div>
     </div>
   );
