@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { HardDrive, LogIn, User as UserIcon } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
@@ -8,9 +8,7 @@ import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 import { ProfileService } from '../../profile/services/ProfileService';
-import { useProfileLabels } from '../../profile/hooks/useProfileLabels';
 import { Section } from './SettingsHelpers';
-import { LabelsManager } from './LabelsManager';
 
 interface AccountTabProps {
   userId: string;
@@ -22,15 +20,6 @@ export function AccountTab({ userId }: AccountTabProps) {
   const { isAuthenticated } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
   const { execute } = useServiceAction();
-
-  const [initialLabels, setInitialLabels] = useState<{ id: string; name: string; color: string }[]>([]);
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    ProfileService.getProfile(userId).then(p => {
-      if (p?.labels) setInitialLabels(p.labels);
-    });
-  }, [userId, isAuthenticated]);
-  const { labels: ls, addLabel, removeLabel } = useProfileLabels(userId, initialLabels);
 
   return (
     <div className="space-y-4 mt-2">
@@ -102,12 +91,6 @@ export function AccountTab({ userId }: AccountTabProps) {
           <LogIn size={16} />
           {t('auth_sign_in')}
         </button>
-      )}
-
-      {isAuthenticated && (
-        <Section title={t('finish_labels')}>
-          <LabelsManager labels={ls} addLabel={addLabel} removeLabel={removeLabel} />
-        </Section>
       )}
 
       <Section title={t('profile_achievements')}>

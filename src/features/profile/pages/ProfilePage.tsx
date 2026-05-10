@@ -204,8 +204,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           syncing={syncing}
         />
       </SafeSection>
-      <div className="lg:grid lg:grid-cols-[1fr_340px] lg:gap-10 lg:px-9 lg:pt-6">
-        <div>
+      <div className="px-9 pt-6 space-y-0">
           <SafeSection label="KPIStrip">
             <KPIStrip stats={kpiStats} />
           </SafeSection>
@@ -215,15 +214,12 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           <SafeSection label="HourRhythm">
             <HourRhythm sessions={sessions} />
           </SafeSection>
-        </div>
-        <div className="lg:sticky lg:top-0 lg:self-start">
           <SafeSection label="StreakRibbon">
             <StreakRibbon sessions={sessions} />
           </SafeSection>
           <SafeSection label="Achievements">
             <Achievements key={achResetKey} stats={kpiStats} sessions={sessions} />
           </SafeSection>
-        </div>
       </div>
       <div style={{ padding: '12px 36px 48px', textAlign: 'center' }}>
         {showResetConfirm ? (

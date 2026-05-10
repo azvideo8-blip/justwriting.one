@@ -18,6 +18,7 @@ import { DocumentPreview } from '../components/DocumentPreview';
 import { NoteRow } from '../components/NoteRow';
 import { ArchiveSidebar } from '../components/ArchiveSidebar';
 import { useArchiveData } from '../hooks/useArchiveData';
+import { useProfileLabels } from '../../profile/hooks/useProfileLabels';
 
 interface ArchiveViewProps {
   user: User | null;
@@ -42,16 +43,19 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     return () => document.removeEventListener('keydown', handler);
   }, []);
 
-  const data = useArchiveData(user, userId, t, language);
+  const { labels: profileLabels, addLabel, removeLabel } = useProfileLabels(userId, profile?.labels ?? []);
+
+  const data = useArchiveData(user, userId, t, language, profileLabels);
   const {
     loading, error, cloudLoadFailed, fetchSessions,
-    handleDeleteSession, handleTagsChange, handleTitleChange, handleDateChange,
+    handleDeleteSession, handleTagsChange, handleTitleChange, handleDateChange, handleLabelChange,
     previewSession, setPreviewSession,
     deleteConfirm, setDeleteConfirm,
     allTags, filteredByFilters, filteredSessions,
     searchQuery, setSearchQuery,
     selectedDate, setSelectedDate, selectedMonth: _selectedMonth, setSelectedMonth,
     selectedTags, setSelectedTags,
+    selectedLabels, toggleLabel,
     statsTitle, hasActiveFilter, resetStatsFilter,
     sessionsByDate, wordCloud, maxCount,
     groupedSessions, sortedDates, dateLocale, entriesLabel,
@@ -222,6 +226,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                             onStorageChange={() => fetchSessions()}
                             onTitleChange={handleTitleChange}
                             onDateChange={handleDateChange}
+                            onLabelChange={handleLabelChange}
                             userId={userId}
                           />
                         ))}
@@ -257,6 +262,12 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
             wordCloud={wordCloud}
             maxCount={maxCount}
             onWordClick={setSearchQuery}
+            labels={profileLabels}
+            onAddLabel={addLabel}
+            onRemoveLabel={removeLabel}
+            sessionsForLabels={data.sessions}
+            selectedLabels={selectedLabels}
+            onToggleLabel={toggleLabel}
           />
 
           {previewSession && (

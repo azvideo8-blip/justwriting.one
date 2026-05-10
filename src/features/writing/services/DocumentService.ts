@@ -113,6 +113,15 @@ export const DocumentService = {
     }
   },
 
+  async updateLabelId(userId: string, documentId: string, labelId: string | undefined): Promise<void> {
+    try {
+      await updateDoc(documentRef(userId, documentId), { labelId: labelId ?? null });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents/${documentId}`);
+      throw e;
+    }
+  },
+
   async deleteDocument(userId: string, documentId: string): Promise<void> {
     try {
       await deleteDoc(documentRef(userId, documentId));

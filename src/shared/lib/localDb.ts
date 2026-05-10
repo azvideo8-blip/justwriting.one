@@ -12,6 +12,7 @@ export interface LocalDocument {
   lastSessionAt: number;
   isPublic?: boolean;
   tags: string[];
+  labelId?: string;
   linkedCloudId?: string;
 }
 

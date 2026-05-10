@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { User } from 'firebase/auth';
 import { format } from 'date-fns';
+import { Label } from '../../../types';
 import { useArchiveFilters } from './useArchiveFilters';
 import { useArchiveSearch } from './useArchiveSearch';
 import { useArchiveSessions } from './useArchiveSessions';
@@ -8,13 +9,14 @@ import { useArchiveWordCloud } from './useArchiveWordCloud';
 import { useArchiveGrouping } from './useArchiveGrouping';
 import { getDateLocale } from '../../../core/utils/dateUtils';
 
-export function useArchiveData(user: User | null, userId: string, t: (key: string) => string, language: string) {
+export function useArchiveData(user: User | null, userId: string, t: (key: string) => string, language: string, labels?: Label[]) {
   const sessionsData = useArchiveSessions(user, userId, t);
 
   const {
     selectedDate, setSelectedDate,
     selectedMonth, setSelectedMonth,
     selectedTags, setSelectedTags,
+    selectedLabels, setSelectedLabels, toggleLabel,
     filteredSessions: filteredByFilters
   } = useArchiveFilters(sessionsData.sessions);
   const {
@@ -36,6 +38,10 @@ export function useArchiveData(user: User | null, userId: string, t: (key: strin
   }, [sessionsData.sessions]);
 
   const statsTitle = useMemo(() => {
+    if (selectedLabels.length > 0) {
+      const names = selectedLabels.map(id => labels?.find(l => l.id === id)?.name).filter(Boolean);
+      return names.length > 0 ? names.join(', ') : t('archive_stats_title');
+    }
     if (selectedTags.length > 0) {
       return t('archive_stats_by_tag') + ' ' + selectedTags.map(t => '#' + t).join(', ');
     }
@@ -43,12 +49,13 @@ export function useArchiveData(user: User | null, userId: string, t: (key: strin
       return t('archive_stats_by_month') + ' ' + format(selectedMonth, 'LLLL yyyy', { locale: getDateLocale(language) });
     }
     return t('archive_stats_title');
-  }, [selectedTags, selectedMonth, t, language]);
+  }, [selectedLabels, selectedTags, selectedMonth, t, language, labels]);
 
-  const hasActiveFilter = selectedTags.length > 0 || !!selectedMonth;
+  const hasActiveFilter = selectedTags.length > 0 || selectedLabels.length > 0 || !!selectedMonth;
 
   const resetStatsFilter = () => {
     setSelectedTags([]);
+    setSelectedLabels([]);
     setSelectedMonth(null);
   };
 
@@ -69,6 +76,7 @@ export function useArchiveData(user: User | null, userId: string, t: (key: strin
     selectedDate, setSelectedDate,
     selectedMonth, setSelectedMonth,
     selectedTags, setSelectedTags,
+    selectedLabels, setSelectedLabels, toggleLabel,
     statsTitle, hasActiveFilter, resetStatsFilter,
     sessionsByDate, wordCloud, maxCount,
     groupedSessions, sortedDates, dateLocale, entriesLabel,
