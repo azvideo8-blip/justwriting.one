@@ -97,9 +97,7 @@ export function WritingFinishModal({
   if (step === 'mood') {
     return (
       <MoodCheckin
-        onSelect={(mood) => {
-          const key = `mood_${new Date().toDateString()}`;
-          localStorage.setItem(key, String(mood));
+        onSelect={() => {
           setStep('form');
           onCancel();
         }}

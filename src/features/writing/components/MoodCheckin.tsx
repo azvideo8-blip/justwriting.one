@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { useLanguage } from '../../../core/i18n';
 
 interface MoodCheckinProps {
-  onSelect: (mood: number) => void;
+  onSelect: () => void;
   onSkip: () => void;
 }
 
@@ -26,7 +26,7 @@ export function MoodCheckin({ onSelect, onSkip }: MoodCheckinProps) {
             {(['😊', '🙂', '😐', '😔', '😤'] as const).map((emoji, i) => (
               <button
                 key={i}
-                onClick={() => onSelect(i + 1)}
+                onClick={() => onSelect()}
                 className="text-4xl hover:scale-125 transition-transform active:scale-95"
               >
                 {emoji}
