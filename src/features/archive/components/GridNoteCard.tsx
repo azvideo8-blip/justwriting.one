@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
 import { Session } from '../../../types';
-import { parseFirestoreDate } from '../../../core/utils/utils';
+import { getSessionDate } from '../../../core/utils/utils';
 import { getDateLocale } from '../../../core/utils/dateUtils';
 import { highlightText } from '../../../shared/utils/highlightText';
 import { useLanguage } from '../../../core/i18n';
@@ -15,15 +15,6 @@ interface GridNoteCardProps {
   onTagsChange?: (id: string, tags: string[]) => void;
 }
 
-function getSessionDate(s: Session): Date {
-  const ts = s.sessionStartTime ?? null;
-  if (ts) {
-    const d = new Date(ts);
-    if (!isNaN(d.getTime())) return d;
-  }
-  return parseFirestoreDate(s.createdAt);
-}
-
 /* eslint-disable react/prop-types */
 export const GridNoteCard: React.FC<GridNoteCardProps> = React.memo(({
   session,
@@ -32,7 +23,7 @@ export const GridNoteCard: React.FC<GridNoteCardProps> = React.memo(({
 }) => {
   const { t, language } = useLanguage();
   const { tags } = useSessionTags(session.id, session.tags || []);
-  const sessionDate = getSessionDate(session);
+  const sessionDate = getSessionDate(session) ?? new Date();
 
   const formattedDate = format(sessionDate, 'd MMM yy • HH:mm', {
     locale: getDateLocale(language),

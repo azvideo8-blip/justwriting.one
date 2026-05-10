@@ -5,9 +5,9 @@ import { useLanguage } from '../../../core/i18n';
 import { useLifeLog, LifeLogDocument } from '../hooks/useLifeLog';
 import { Session } from '../../../types';
 import { SettingsPanelContent } from '../../settings/components/SettingsPanel';
-import { CancelConfirmModal } from './modals/CancelConfirmModal';
+import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
 import { deleteSession } from '../services/SessionDeleteService';
-import { useServiceAction } from '../hooks/useServiceAction';
+import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { X, Pin, Trash2, Cloud, HardDrive } from 'lucide-react';
 

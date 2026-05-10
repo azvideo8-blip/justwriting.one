@@ -1,4 +1,4 @@
-import { doc, updateDoc, deleteDoc, setDoc, onSnapshot, query, where, collection, limit, getDocs, orderBy, startAfter, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, setDoc, query, where, collection, limit, getDocs, orderBy, startAfter, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { Session } from '../../../types';
@@ -26,14 +26,6 @@ export const SessionService = {
       console.error('SessionService: Error deleting session', sessionId, err);
       handleFirestoreError(err, OperationType.DELETE, `sessions/${sessionId}`);
     }
-  },
-
-  subscribeToSessions(userId: string, callback: (sessions: Session[]) => void, onError: (err: Error) => void) {
-    const q = query(collection(db, 'sessions'), where('userId', '==', userId), orderBy('createdAt', 'desc'), limit(100));
-    return onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Session));
-      callback(docs);
-    }, onError);
   },
 
   async updateSessionTags(sessionId: string, tags: string[]) {
