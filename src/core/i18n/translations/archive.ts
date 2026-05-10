@@ -45,6 +45,9 @@ export const archiveTranslations: Translations = {
   archive_wordcloud_title:     { ru: 'Облако слов',  en: 'Word cloud' },
   archive_labels: { ru: 'Бирки', en: 'Labels' },
   archive_label_name: { ru: 'Название бирки', en: 'Label Name' },
+  archive_add_label: { ru: 'Добавить бирку', en: 'Add label' },
+  archive_label_name_placeholder: { ru: 'Название...', en: 'Name...' },
+  archive_assign_label: { ru: 'Назначить бирку', en: 'Assign label' },
   session_delete_confirm_desc: { ru: 'Это действие нельзя отменить', en: 'This action cannot be undone' },
 
   session_anonymous: { ru: 'Аноним', en: 'Anonymous' },
