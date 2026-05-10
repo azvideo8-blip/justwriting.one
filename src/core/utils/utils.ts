@@ -4,7 +4,6 @@ import { format, subDays } from 'date-fns';
 import { Session } from '../../types';
 import { toDate } from './dateUtils';
 
-export { toDate, toTimestampMs } from './dateUtils';
 export const parseFirestoreDate = toDate;
 
 export function cn(...inputs: ClassValue[]) {

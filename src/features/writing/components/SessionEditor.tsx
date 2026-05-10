@@ -5,7 +5,7 @@ import { LocalVersionService } from '../services/LocalVersionService';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { Session } from '../../../types';
 import { useLanguage } from '../../../core/i18n';
-import { useServiceAction } from '../hooks/useServiceAction';
+import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 
 interface SessionEditorProps {
   session: Session;

@@ -4,7 +4,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { useLanguage } from '../../../core/i18n';
 import { useWritingStore } from '../../writing/store/useWritingStore';
-import { useServiceAction } from '../../writing/hooks/useServiceAction';
+import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 import { ProfileService } from '../../profile/services/ProfileService';

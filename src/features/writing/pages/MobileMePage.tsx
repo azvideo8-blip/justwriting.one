@@ -3,7 +3,7 @@ import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { useNavigate } from 'react-router-dom';
-import { useServiceAction } from '../hooks/useServiceAction';
+import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 
 export function MobileMePage() {
