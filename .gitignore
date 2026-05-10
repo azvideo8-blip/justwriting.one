@@ -9,3 +9,4 @@ coverage/
 functions/lib/
 firebase-applet-config.json
 _archive/
+.mcp.json
