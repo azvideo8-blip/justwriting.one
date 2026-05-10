@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { ProfileService } from '../services/ProfileService';
 import { randomUUID } from '../../../shared/lib/localDb';
 import { Label } from '../../../types';
@@ -6,15 +6,6 @@ import { Label } from '../../../types';
 export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
   const [labels, setLabels] = useState<Label[]>(initialLabels);
   const [loading, setLoading] = useState(false);
-
-  // Sync once when profile loads asynchronously (initialLabels starts as [] when profile is null)
-  const synced = useRef(false);
-  useEffect(() => {
-    if (!synced.current && initialLabels.length > 0) {
-      synced.current = true;
-      setLabels(initialLabels);
-    }
-  }, [initialLabels]);
 
   const updateLabels = async (newLabels: Label[]) => {
     setLoading(true);
