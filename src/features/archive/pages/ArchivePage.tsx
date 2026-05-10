@@ -48,13 +48,15 @@ function NoteRow({ session, onOpen, t, onDelete, onTagsChange, onStorageChange, 
 }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(session.title || '');
-  const [editingDate, setEditingDate] = useState(false);
+  const [editingDateTime, setEditingDateTime] = useState(false);
+  const [dateDraft, setDateDraft] = useState('');
+  const [timeDraft, setTimeDraft] = useState('');
+  const dtRef = React.useRef<HTMLDivElement>(null);
+
   const date = getSessionDate(session);
   const dateLabel = date
     ? `${date.getDate()} ${['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'][date.getMonth()]} ${String(date.getFullYear()).slice(2)}`
     : '—';
-
-  const dateValue = date ? format(date, 'yyyy-MM-dd') : '';
 
   const timeStr = (() => {
     if (session.sessionStartTime) return new Date(session.sessionStartTime).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
@@ -66,6 +68,17 @@ function NoteRow({ session, onOpen, t, onDelete, onTagsChange, onStorageChange, 
     return '00:00';
   })();
 
+  React.useEffect(() => {
+    if (!editingDateTime) return;
+    const handleClick = (e: MouseEvent) => {
+      if (dtRef.current && !dtRef.current.contains(e.target as Node)) {
+        setEditingDateTime(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [editingDateTime]);
+
   const commitTitle = () => {
     setEditingTitle(false);
     const trimmed = titleDraft.trim();
@@ -76,13 +89,25 @@ function NoteRow({ session, onOpen, t, onDelete, onTagsChange, onStorageChange, 
     }
   };
 
-  const commitDate = (val: string) => {
-    setEditingDate(false);
-    if (!val || !date) return;
-    const [y, m, d] = val.split('-').map(Number);
-    const newDate = new Date(date);
-    newDate.setFullYear(y, m - 1, d);
-    if (!isNaN(newDate.getTime()) && newDate.getTime() !== date.getTime()) {
+  const openDateTimeEditor = () => {
+    const ms = session.sessionStartTime
+      ?? (session.createdAt instanceof Date ? session.createdAt.getTime() : Date.now());
+    const d = new Date(ms);
+    setDateDraft(format(d, 'yyyy-MM-dd'));
+    setTimeDraft(format(d, 'HH:mm'));
+    setEditingDateTime(true);
+  };
+
+  const commitDateTime = () => {
+    setEditingDateTime(false);
+    if (!dateDraft || !timeDraft) return;
+    const [y, mo, d] = dateDraft.split('-').map(Number);
+    const [h, min] = timeDraft.split(':').map(Number);
+    const newDate = new Date(y, mo - 1, d, h, min, 0, 0);
+    if (isNaN(newDate.getTime())) return;
+    const originalMs = session.sessionStartTime
+      ?? (session.createdAt instanceof Date ? session.createdAt.getTime() : Date.now());
+    if (newDate.getTime() !== originalMs) {
       onDateChange?.(session, newDate);
     }
   };
@@ -92,28 +117,64 @@ function NoteRow({ session, onOpen, t, onDelete, onTagsChange, onStorageChange, 
       className="grid items-start gap-3 px-3 py-4 rounded-xl hover:bg-text-main/[0.025] transition-colors group border border-transparent hover:border-border-subtle"
       style={{ gridTemplateColumns: '72px 1fr auto' }}
     >
-      <div className="shrink-0">
-        {editingDate ? (
-          <input
-            type="date"
-            defaultValue={dateValue}
-            autoFocus
-            onBlur={e => commitDate(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') commitDate((e.target as HTMLInputElement).value); if (e.key === 'Escape') setEditingDate(false); }}
-            className="w-[72px] text-[11px] font-mono bg-text-main/5 border border-border-subtle rounded px-1 py-0.5 outline-none"
-          />
-        ) : (
-          <div
-            className="font-mono text-[11px] text-text-main/50 uppercase tracking-wide leading-tight cursor-pointer hover:text-text-main/70"
-            onClick={() => setEditingDate(true)}
-            title={t('archive_edit_date')}
-          >
+      <div className="shrink-0 relative">
+        <div
+          className="cursor-pointer"
+          onClick={openDateTimeEditor}
+          title={t('archive_edit_date')}
+        >
+          <div className="font-mono text-[11px] text-text-main/50 uppercase tracking-wide leading-tight hover:text-text-main/70">
             {dateLabel}
           </div>
-        )}
-        <div className="font-mono text-[11px] text-text-main/30 mt-0.5">
-          {timeStr}
+          <div className="font-mono text-[11px] text-text-main/30 mt-0.5 hover:text-text-main/50">
+            {timeStr}
+          </div>
         </div>
+        {editingDateTime && (
+          <div
+            ref={dtRef}
+            className="absolute top-full left-0 z-50 mt-1 bg-surface-card border border-border-subtle rounded-xl p-3 shadow-lg w-[200px]"
+          >
+            <div className="space-y-2">
+              <div>
+                <label className="text-[10px] font-mono text-text-main/40 uppercase tracking-wide">
+                  {t('archive_edit_date')}
+                </label>
+                <input
+                  type="date"
+                  value={dateDraft}
+                  onChange={e => setDateDraft(e.target.value)}
+                  className="w-full text-[12px] font-mono bg-text-main/5 border border-border-subtle rounded px-2 py-1 outline-none mt-0.5"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-mono text-text-main/40 uppercase tracking-wide">
+                  {t('archive_edit_time')}
+                </label>
+                <input
+                  type="time"
+                  value={timeDraft}
+                  onChange={e => setTimeDraft(e.target.value)}
+                  className="w-full text-[12px] font-mono bg-text-main/5 border border-border-subtle rounded px-2 py-1 outline-none mt-0.5"
+                />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={commitDateTime}
+                  className="flex-1 text-[11px] font-medium px-2 py-1.5 rounded-lg bg-brand-soft/15 text-brand-soft hover:bg-brand-soft/25 transition-colors"
+                >
+                  {t('common_save')}
+                </button>
+                <button
+                  onClick={() => setEditingDateTime(false)}
+                  className="flex-1 text-[11px] font-medium px-2 py-1.5 rounded-lg border border-border-subtle text-text-main/40 hover:text-text-main/60 transition-colors"
+                >
+                  {t('common_cancel')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="min-w-0">
@@ -220,8 +281,6 @@ export function ArchivePage({ user, profile: _profile }: ArchiveViewProps) {
           if (seenIds.has(doc.id)) continue;
           seenIds.add(doc.id);
           const content = await LocalVersionService.getLatestContent(doc.id);
-          const versions = await LocalVersionService.getVersions(doc.id);
-          const firstVersion = versions[0];
           const createdAt = new Date(doc.firstSessionAt);
           allSessions.push({
             id: doc.id,
