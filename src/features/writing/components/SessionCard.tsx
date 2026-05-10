@@ -1,38 +1,33 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
-import { 
-  Clock, Type, PenLine, Share2, 
-  ChevronDown, ChevronUp, X,
-  FileText, Download, FileJson, Plus, Trash2
-} from 'lucide-react';
+import { Clock, Type, PenLine, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { auth } from '../../../core/firebase/auth';
 import { deleteSession } from '../services/SessionDeleteService';
 import { Session, Label } from '../../../types';
 import { parseFirestoreDate, cn } from '../../../core/utils/utils';
 import { highlightText } from '../../../shared/utils/highlightText';
-import { ExportService } from '../../export/ExportService';
 import { useLanguage } from '../../../core/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
-import { useSessionTags } from '../hooks/useSessionTags';
 
 import { SessionEditor } from './SessionEditor';
+import { ExportMenu } from './ExportMenu';
+import { TagsSection } from './TagsSection';
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
+import { Share2 } from 'lucide-react';
 
-export function SessionCard({ 
-  session, 
-  onContinue, 
+export function SessionCard({
+  session,
+  onContinue,
   labels,
   searchQuery = '',
   onDeleteSuccess,
   userId,
   linkedCloudId: _linkedCloudId,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  hasCloudCopy,
-}: { 
-  session: Session, 
-  onContinue?: () => void, 
+  hasCloudCopy: _hasCloudCopy,
+}: {
+  session: Session,
+  onContinue?: () => void,
   labels?: Label[],
   searchQuery?: string,
   onDeleteSuccess?: (sessionId: string) => void
@@ -47,40 +42,10 @@ export function SessionCard({
   const [isEditing, setIsEditing] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportButtonRef = useRef<HTMLButtonElement>(null);
-  const exportMenuRef = useRef<HTMLDivElement>(null);
-  const [exportMenuPos, setExportMenuPos] = useState<{ top: number; right: number } | null>(null);
-  const [isAddingTag, setIsAddingTag] = useState(false);
-  const [newTag, setNewTag] = useState('');
-  const { tags, addTag, removeTag } = useSessionTags(session.id, session.tags || []);
 
-  const handleExportToggle = () => {
-    if (!showExportMenu && exportButtonRef.current) {
-      const rect = exportButtonRef.current.getBoundingClientRect();
-      setExportMenuPos({
-        top: rect.bottom + window.scrollY + 8,
-        right: window.innerWidth - rect.right
-      });
-    }
-    setShowExportMenu(!showExportMenu);
-  };
-
-  useEffect(() => {
-    if (!showExportMenu) return;
-    const handleClickOutside = (e: PointerEvent) => {
-      const clickedButton = exportButtonRef.current?.contains(e.target as Node);
-      const clickedMenu = exportMenuRef.current?.contains(e.target as Node);
-      if (!clickedButton && !clickedMenu) {
-        setShowExportMenu(false);
-      }
-    };
-    document.addEventListener('pointerup', handleClickOutside);
-    return () => document.removeEventListener('pointerup', handleClickOutside);
-  }, [showExportMenu]);
-
-  // Auto-expand on search match
   React.useEffect(() => {
     if (searchQuery && (
-      session.content.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      session.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
       session.title?.toLowerCase().includes(searchQuery.toLowerCase())
     )) {
       setExpanded(true);
@@ -88,20 +53,6 @@ export function SessionCard({
   }, [searchQuery, session.content, session.title]);
 
   const label = labels?.find(l => l.id === session.labelId);
-
-  const handleAddTag = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const tag = newTag.trim().toLowerCase();
-    if (tag) {
-      addTag(tag);
-      setNewTag('');
-      setIsAddingTag(false);
-    }
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    removeTag(tagToRemove);
-  };
 
   const handleDelete = () => {
     execute(
@@ -117,33 +68,11 @@ export function SessionCard({
     );
   };
 
-  const exportToTxt = () => {
-    ExportService.toTxt(session.title || 'session', session.content, parseFirestoreDate(session.createdAt));
-    setShowExportMenu(false);
-  };
-
-  const exportPDF = () => {
-    ExportService.toPDF(session.title || 'Untitled Session', session.content);
-    setShowExportMenu(false);
-  };
-
-  const exportMarkdown = () => {
-    ExportService.toMarkdown(session.title || 'Untitled Session', session.content);
-    setShowExportMenu(false);
-  };
-
-  const exportDocx = () => {
-    execute(
-      () => ExportService.toDocx(session.title || 'Untitled Session', session.content),
-      { errorMessage: t('error_export_failed') }
-    );
-  };
-
   const sessionDate = parseFirestoreDate(session.createdAt);
 
   return (
     <>
-      <motion.div 
+      <motion.div
         layout
         className="p-6 md:p-8 transition-all space-y-4 group relative bg-surface-card backdrop-blur-xl border border-border-subtle rounded-3xl text-text-main hover:bg-white/10"
       >
@@ -162,7 +91,6 @@ export function SessionCard({
               <span className="text-[11px] md:text-xs font-bold uppercase tracking-widest text-text-main/40">
                 {format(new Date(session.sessionStartTime || (sessionDate.getTime() - session.duration * 1000)), 'd MMM yyyy • HH:mm')}
               </span>
-
             </div>
           </div>
           <div className="flex items-center flex-wrap gap-3 text-xs md:text-sm font-mono text-text-main/50">
@@ -171,13 +99,13 @@ export function SessionCard({
             <span className="flex items-center gap-1" title={t('writing_chars')}><PenLine size={14} /> {session.charCount || 0}</span>
 
             <div className="flex items-center flex-wrap gap-2 relative">
-              <button 
+              <button
                 ref={exportButtonRef}
-                onClick={handleExportToggle}
+                onClick={() => setShowExportMenu(!showExportMenu)}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all",
-                  showExportMenu 
-                    ? "bg-text-main text-surface-base" 
+                  showExportMenu
+                    ? "bg-text-main text-surface-base"
                     : "bg-surface-base text-text-main/70 hover:bg-white/10"
                 )}
               >
@@ -185,47 +113,24 @@ export function SessionCard({
                 {t('session_export')}
               </button>
 
-              {showExportMenu && exportMenuPos && createPortal(
-                <motion.div 
-                  ref={exportMenuRef}
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  style={{
-                    position: 'fixed',
-                    top: exportMenuPos.top,
-                    right: exportMenuPos.right,
-                    zIndex: 9999
-                  }}
-                  className={cn(
-                    "w-48 rounded-2xl shadow-xl border p-2 bg-surface-card backdrop-blur-xl border-border-subtle"
-                  )}
-                >
-                  <button onClick={exportToTxt} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
-                    <FileText size={14} /> {t('export_txt')}
-                  </button>
-                  <button onClick={exportPDF} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
-                    <FileText size={14} className="text-red-500" /> {t('export_pdf')}
-                  </button>
-                  <button onClick={exportMarkdown} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
-                    <FileJson size={14} className="text-blue-500" /> {t('export_md')}
-                  </button>
-                  <button onClick={exportDocx} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
-                    <Download size={14} className="text-emerald-500" /> {t('export_docx')}
-                  </button>
-                </motion.div>,
-                document.body
+              {showExportMenu && (
+                <ExportMenu
+                  session={session}
+                  buttonRef={exportButtonRef}
+                  onClose={() => setShowExportMenu(false)}
+                />
               )}
 
               {(auth.currentUser?.uid === session.userId || session._isLocal) && (
                 <>
-                  <button 
+                  <button
                     onClick={() => setIsEditing(!isEditing)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all bg-surface-base text-text-main/70 hover:bg-white/10"
                   >
                     <PenLine size={12} />
                     {t('session_edit')}
                   </button>
-                  <button 
+                  <button
                     onClick={() => setShowDeleteConfirm(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all hover:text-red-500 bg-surface-base text-text-main/70 hover:bg-white/10"
                   >
@@ -234,8 +139,8 @@ export function SessionCard({
                   </button>
                 </>
               )}
-              
-              <button 
+
+              <button
                 onClick={() => setExpanded(!expanded)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all bg-surface-base text-text-main/70 hover:bg-white/10"
               >
@@ -253,10 +158,10 @@ export function SessionCard({
         )}
 
         {isEditing ? (
-          <SessionEditor 
-            session={session} 
-            onCancel={() => setIsEditing(false)} 
-            onSave={() => setIsEditing(false)} 
+          <SessionEditor
+            session={session}
+            onCancel={() => setIsEditing(false)}
+            onSave={() => setIsEditing(false)}
           />
         ) : (
           <div className={cn("relative z-10", !expanded && "max-h-24 overflow-hidden")}>
@@ -271,57 +176,9 @@ export function SessionCard({
 
         {!isEditing && (
           <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t relative z-10 border-border-subtle">
-            <div className="flex flex-wrap items-center gap-2">
-              {tags && tags.length > 0 ? (
-                tags.map(tag => (
-                  <span 
-                    key={tag} 
-                    className="group/tag flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-surface-base text-text-main/50 hover:bg-white/10"
-                  >
-                    #{tag}
-                    {auth.currentUser?.uid === session.userId && (
-                      <button 
-                        onClick={() => handleRemoveTag(tag)}
-                        className="opacity-0 group-hover/tag:opacity-100 hover:text-red-500 transition-all"
-                      >
-                        <X size={10} />
-                      </button>
-                    )}
-                  </span>
-                ))
-              ) : (
-                <button 
-                  onClick={() => setIsAddingTag(true)}
-                  className="text-xs italic transition-colors text-text-main/40 hover:text-text-main/50"
-                >
-                  + {t('session_add_tags')}
-                </button>
-              )}
-
-              {isAddingTag ? (
-                <form onSubmit={handleAddTag} className="flex items-center gap-1">
-                  <input 
-                    autoFocus
-                    type="text"
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    onBlur={() => !newTag && setIsAddingTag(false)}
-                    placeholder={t('session_tag_placeholder')}
-                    className="w-24 px-2.5 py-1.5 border rounded-lg text-xs outline-none transition-all bg-transparent border-border-subtle text-text-main placeholder-text-main/40 focus:ring-1 focus:ring-text-main/20 focus:border-text-main/40 focus:bg-white/5"
-                  />
-                </form>
-              ) : session.tags && session.tags.length > 0 && (
-                <button 
-                  onClick={() => setIsAddingTag(true)}
-                  className="p-1 transition-colors text-text-main/40 hover:text-text-main/50"
-                >
-                  <Plus size={12} />
-                </button>
-              )}
-            </div>
-            
+            <TagsSection session={session} isEditing={isEditing} />
             {onContinue && (auth.currentUser?.uid === session.userId || session._isLocal) && (
-              <button 
+              <button
                 onClick={onContinue}
                 className="flex items-center gap-2 px-6 py-2 rounded-2xl font-bold transition-opacity text-sm bg-text-main text-surface-base hover:opacity-90"
               >

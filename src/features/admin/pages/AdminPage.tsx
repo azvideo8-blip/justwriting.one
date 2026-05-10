@@ -15,10 +15,7 @@ import { Session, UserProfile } from '../../../types';
 import { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
 import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
-import { DocumentService } from '../../writing/services/DocumentService';
-import { VersionService } from '../../writing/services/VersionService';
-import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
-import { LocalVersionService } from '../../writing/services/LocalVersionService';
+import { StorageService } from '../../writing/services/StorageService';
 
 export function AdminPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -97,55 +94,13 @@ export function AdminPage() {
     const result = { total: 0, imported: 0, failed: 0 };
 
     try {
+      const { DocumentService } = await import('../../writing/services/DocumentService');
       const cloudDocs = await DocumentService.getUserDocuments(userId);
       result.total = cloudDocs.length;
 
       for (const cloudDoc of cloudDocs) {
         try {
-          const localDocs = await LocalDocumentService.getGuestDocuments(userId);
-          const alreadyExists = localDocs.some(
-            d => d.linkedCloudId === cloudDoc.id
-          );
-
-          if (alreadyExists) {
-            result.imported++;
-            continue;
-          }
-
-          const newLocalId = await LocalDocumentService.createDocument(userId, {
-            title: cloudDoc.title,
-            tags: cloudDoc.tags,
-          });
-
-          const versions = await VersionService.getVersions(userId, cloudDoc.id);
-          let prevContent = '';
-          for (const ver of versions) {
-            const startedAt = ver.sessionStartedAt?.toDate?.()
-              ?? (ver.sessionStartedAt instanceof Date ? ver.sessionStartedAt : null)
-              ?? new Date();
-
-            await LocalVersionService.addVersion(userId, newLocalId, {
-              content: ver.content,
-              previousContent: prevContent,
-              wordCount: ver.wordCount,
-              duration: ver.duration,
-              wpm: ver.wpm,
-              versionNumber: ver.version,
-              goalWords: ver.goalWords,
-              goalTime: ver.goalTime,
-              goalReached: ver.goalReached,
-              sessionStartedAt: startedAt,
-            });
-            prevContent = ver.content;
-          }
-
-          await LocalDocumentService.updateAfterSession(newLocalId, {
-            totalWords: cloudDoc.totalWords,
-            totalDuration: cloudDoc.totalDuration,
-            currentVersion: cloudDoc.currentVersion,
-          });
-          await LocalDocumentService.updateLinkedCloudId(newLocalId, cloudDoc.id);
-
+          await StorageService.addLocalCopy(userId, cloudDoc.id);
           result.imported++;
         } catch (e) {
           console.error(`Failed to import doc ${cloudDoc.id}:`, e);
