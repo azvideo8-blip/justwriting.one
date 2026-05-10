@@ -25,6 +25,19 @@ export interface SaveDocumentData {
 
 const CLOUD_SYNC_TIMEOUT = 30_000;
 
+function toTimestampMs(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number') return v;
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === 'object') {
+    const obj = v as Record<string, unknown>;
+    if (typeof obj['toMillis'] === 'function') return (obj['toMillis'] as () => number)();
+    if (typeof obj['toDate'] === 'function') return (obj['toDate'] as () => Date)().getTime();
+    if (typeof obj['seconds'] === 'number') return obj['seconds'] as number * 1000;
+  }
+  return null;
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): Promise<T> {
   return Promise.race([
     promise,
@@ -160,9 +173,13 @@ export const StorageService = {
     if (!cloudDoc) throw new Error('Cloud document not found');
 
     const versions = await VersionService.getVersions(userId, cloudDocumentId);
+    const firstSessionMs = toTimestampMs(cloudDoc.firstSessionAt);
+    const lastSessionMs = toTimestampMs(cloudDoc.lastSessionAt);
     const localId = await LocalDocumentService.createDocument(userId, {
       title: cloudDoc.title,
       tags: cloudDoc.tags,
+      firstSessionAt: firstSessionMs || undefined,
+      lastSessionAt: lastSessionMs || undefined,
     });
 
     try {

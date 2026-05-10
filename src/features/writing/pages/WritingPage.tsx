@@ -326,6 +326,12 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
         } catch (delErr) {
           console.warn('[handleSave] Failed to delete draft:', delErr);
         }
+        const docId = useWritingStore.getState().savedDocumentId;
+        if (docId) {
+          SyncService.syncOne(userId, docId).catch(e => {
+            console.warn('[handleSave] Cloud sync failed:', e);
+          });
+        }
       }
 
       await refreshDocuments();
@@ -446,6 +452,10 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
   }, [fetchSessions, setLifeLogVisible]);
 
   const handleFinish = React.useCallback(() => {
+    const state = useWritingStore.getState();
+    if (state.status === 'writing') {
+      useWritingStore.getState().setStatus('paused');
+    }
     const stats = keystrokeTrackerRef.current.getStats();
     if (stats) {
       const state = useWritingStore.getState();
@@ -495,7 +505,13 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
         labels={profile?.labels || []}
         isGuest={isGuest}
         onSave={handleSave}
-        onCancel={() => setIsFinishModalOpen(false)}
+        onCancel={() => {
+          const state = useWritingStore.getState();
+          if (state.status === 'paused' && state.content) {
+            useWritingStore.getState().setStatus('writing');
+          }
+          setIsFinishModalOpen(false);
+        }}
       />
       <FlowPulse />
       {import.meta.env.DEV && devKpmStats && (

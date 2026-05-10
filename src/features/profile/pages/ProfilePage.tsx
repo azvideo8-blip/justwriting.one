@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Cloud } from 'lucide-react';
 import { Session, UserProfile } from '../../../types';
 import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
 import { calculateStreak } from '../../../core/utils/utils';
 import { LocalVersionService } from '../../writing/services/LocalVersionService';
 import { DocumentService } from '../../writing/services/DocumentService';
 import { SessionService } from '../../writing/services/SessionService';
+import { SyncService } from '../../writing/services/SyncService';
 import { getOrCreateGuestId } from '../../../shared/lib/localDb';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../core/i18n';
@@ -20,6 +21,7 @@ import { Heatmap } from '../components/Heatmap';
 import { HourRhythm } from '../components/HourRhythm';
 import { Achievements } from '../components/Achievements';
 import { ProfileService } from '../services/ProfileService';
+import { useToast } from '../../../shared/components/Toast';
 
 interface ProfilePageProps {
   user: User | null;
@@ -48,6 +50,37 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   const [achResetKey, setAchResetKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [fetchKey, setFetchKey] = useState(0);
+  const [unsyncedCount, setUnsyncedCount] = useState<number | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    SyncService.getUnsyncedCount(user.uid).then(count => {
+      if (!cancelled) setUnsyncedCount(count);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [user, fetchKey]);
+
+  const handleSyncAll = useCallback(async () => {
+    if (!user || syncing) return;
+    setSyncing(true);
+    try {
+      const { synced, failed } = await SyncService.syncAllUnlinked(user.uid);
+      if (failed > 0) {
+        showToast(t('profile_sync_partial', { synced: String(synced), failed: String(failed) }), 'error');
+      } else {
+        showToast(t('profile_sync_success', { count: String(synced) }), 'success');
+      }
+      setUnsyncedCount(prev => prev !== null ? Math.max(0, prev - synced) : null);
+    } catch (e) {
+      reportError(e, { action: 'syncAll', userId: user.uid });
+      showToast(t('profile_sync_error'), 'error');
+    } finally {
+      setSyncing(false);
+    }
+  }, [user, syncing, showToast, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -302,6 +335,18 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
         <Achievements key={achResetKey} stats={kpiStats} sessions={sessions} />
       </SafeSection>
       <div style={{ padding: '12px 36px 48px', textAlign: 'center' }}>
+        {user && unsyncedCount !== null && unsyncedCount > 0 && (
+          <div className="mb-4">
+            <button
+              onClick={handleSyncAll}
+              disabled={syncing}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border border-brand-soft/30 text-brand-soft hover:bg-brand-soft/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Cloud size={14} />
+              {syncing ? t('profile_syncing') : t('profile_sync_all', { count: String(unsyncedCount) })}
+            </button>
+          </div>
+        )}
         {showResetConfirm ? (
           <div className="inline-flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
             <span className="text-[12px] text-red-400">{t('profile_ach_reset_confirm')}</span>

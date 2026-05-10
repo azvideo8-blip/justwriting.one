@@ -226,9 +226,9 @@ export const useWritingStore = create<WritingState>((set) => ({
     }
 
     // Gradual WPM decay instead of hard drop to 0
-    // Check when last word was added
+    // Only decay when actively writing; when paused, WPM stays frozen
     let currentWpm = state.wpm;
-    if (state.wordSnapshots.length > 0) {
+    if (state.status === 'writing' && state.wordSnapshots.length > 0) {
       const lastActive = state.wordSnapshots[state.wordSnapshots.length - 1].timestamp;
       const idleSeconds = (Date.now() - lastActive) / 1000;
 
