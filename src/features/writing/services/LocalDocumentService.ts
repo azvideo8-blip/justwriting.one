@@ -105,6 +105,13 @@ export const LocalDocumentService = {
     await db.put('documents', { ...existing, linkedCloudId: cloudId });
   },
 
+  async updateLabelId(id: string, labelId: string | undefined): Promise<void> {
+    const db = await getLocalDb();
+    const existing = await db.get('documents', id);
+    if (!existing) return;
+    await db.put('documents', { ...existing, labelId: labelId ?? null });
+  },
+
   async _updateProfile(guestId: string): Promise<void> {
     const db = await getLocalDb();
     const docs = await LocalDocumentService.getGuestDocuments(guestId);

@@ -60,7 +60,7 @@ export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate,
                   ? "text-text-main/80 font-medium" 
                   : "text-text-main/20 hover:text-text-main/40",
                 today && !hasSessions && "bg-text-main/10 border border-text-main/20 rounded-lg text-text-main",
-                isSelected && "ring-1 ring-text-main/50 ring-offset-2 ring-offset-surface-base"
+                isSelected && "ring-2 ring-text-main/30"
               )}
             >
               {format(day, 'd')}

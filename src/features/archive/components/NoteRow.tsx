@@ -18,17 +18,20 @@ interface NoteRowProps {
   onStorageChange?: () => void;
   onTitleChange?: (session: ArchiveSession, title: string) => void;
   onDateChange?: (session: ArchiveSession, date: Date) => void;
+  onLabelChange?: (session: ArchiveSession, labelId: string | undefined) => void;
   userId: string;
   labels?: Label[];
 }
 
-export function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, userId, labels }: NoteRowProps) {
+export function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels }: NoteRowProps) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(session.title || '');
   const [editingDateTime, setEditingDateTime] = useState(false);
   const [dateDraft, setDateDraft] = useState('');
   const [timeDraft, setTimeDraft] = useState('');
   const dtRef = React.useRef<HTMLDivElement>(null);
+  const labelPopupRef = React.useRef<HTMLDivElement>(null);
+  const [labelPopupOpen, setLabelPopupOpen] = useState(false);
 
   const date = getSessionDate(session);
   const dateLabel = date
@@ -50,6 +53,17 @@ export function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, 
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [editingDateTime]);
+
+  React.useEffect(() => {
+    if (!labelPopupOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (labelPopupRef.current && !labelPopupRef.current.contains(e.target as Node)) {
+        setLabelPopupOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [labelPopupOpen]);
 
   const commitTitle = () => {
     setEditingTitle(false);
@@ -89,7 +103,7 @@ export function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, 
   return (
     <div
       className={cn("grid items-start gap-3 px-3 py-4 rounded-xl hover:bg-text-main/[0.025] transition-colors group border border-transparent hover:border-border-subtle border-l-2", label ? "" : "border-l-transparent")}
-      style={{ gridTemplateColumns: '72px 1fr auto', ...(label ? { borderLeftColor: label.color } : {}) }}
+      style={{ gridTemplateColumns: '72px 1fr auto', ...(label ? { borderLeftColor: label.color, background: `color-mix(in srgb, ${label.color} 4%, transparent)` } : {}) }}
     >
       <div className="shrink-0 relative">
         <div
@@ -184,7 +198,37 @@ export function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, 
         />
       </div>
 
-      <div className="flex items-center gap-0.5 shrink-0 pt-1" onClick={e => e.stopPropagation()}>
+      <div className="flex items-center gap-1 shrink-0 pt-1" onClick={e => e.stopPropagation()}>
+        <div className="relative">
+          <button
+            onClick={e => { e.stopPropagation(); e.preventDefault(); setLabelPopupOpen(!labelPopupOpen); }}
+            className={cn("w-7 h-7 flex items-center justify-center rounded-lg transition-all", label ? "" : "hover:bg-text-main/5")}
+            title={label?.name ?? t('archive_assign_label')}
+          >
+            <div className={cn("w-4 h-4 rounded-full border-2 transition-all", label ? "border-transparent" : "border-border-subtle group-hover:border-text-main/20")}
+              style={{ background: label?.color ?? 'transparent' }}
+            />
+          </button>
+          {labelPopupOpen && labels && labels.length > 0 && (
+            <div
+              ref={labelPopupRef}
+              className="absolute right-0 top-full z-50 mt-1 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[150px] backdrop-blur-xl"
+              style={{ background: 'color-mix(in srgb, var(--bg-base) 92%, var(--brand-primary) 8%)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {labels.map(l => (
+                <button
+                  key={l.id}
+                  onClick={e => { e.stopPropagation(); onLabelChange?.(session, session.labelId === l.id ? undefined : l.id); setLabelPopupOpen(false); }}
+                  className={cn("w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left transition-all", session.labelId === l.id ? "bg-text-main/10 text-text-main" : "text-text-main/60 hover:bg-text-main/5")}
+                >
+                  <div className="w-3 h-3 rounded-full shrink-0" style={{ background: l.color }} />
+                  {l.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button onClick={e => { e.stopPropagation(); onOpen(); }}
           className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/20 hover:text-text-main/60 hover:bg-text-main/5 transition-all opacity-0 group-hover:opacity-100"
           title={t('archive_preview')}>

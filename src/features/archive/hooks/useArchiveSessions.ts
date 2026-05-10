@@ -107,9 +107,25 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
     }
   };
 
+  const handleLabelChange = async (session: ArchiveSession, labelId: string | undefined) => {
+    try {
+      if (session._isLocal) {
+        await LocalDocumentService.updateLabelId(session.id, labelId);
+        if (session._linkedCloudId && user) {
+          await DocumentService.updateLabelId(user.uid, session._linkedCloudId, labelId).catch(() => {});
+        }
+      } else if (user) {
+        await DocumentService.updateLabelId(user.uid, session.id, labelId);
+      }
+      updateSession(session.id, { labelId });
+    } catch (e) {
+      console.error('Failed to update label:', e);
+    }
+  };
+
   return {
     sessions, loading, error, cloudLoadFailed, fetchSessions,
-    handleDeleteSession, handleTagsChange, handleTitleChange, handleDateChange,
+    handleDeleteSession, handleTagsChange, handleTitleChange, handleDateChange, handleLabelChange,
     previewSession, setPreviewSession,
     deleteConfirm, setDeleteConfirm,
   };
