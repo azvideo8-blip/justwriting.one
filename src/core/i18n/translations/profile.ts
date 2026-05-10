@@ -1,4 +1,4 @@
-import { Translations } from '../index';
+import { Translations } from '../types';
 
 export const profileTranslations: Translations = {
   profile_title: { ru: 'Мой профиль', en: 'My Profile' },

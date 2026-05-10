@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Session } from '../../../types';
 import { SessionService } from '../services/SessionService';
 import { useLanguage } from '../../../core/i18n';
-import { LocalSessionInfo } from './useGuestWritingSession';
+import { LocalSessionInfo } from '../types/session';
 
 interface UseSessionListReturn {
   userSessions: Session[];

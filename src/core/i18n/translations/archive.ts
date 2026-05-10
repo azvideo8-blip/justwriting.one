@@ -1,4 +1,4 @@
-import { Translations } from '../index';
+import { Translations } from '../types';
 
 export const archiveTranslations: Translations = {
   notes_title: { ru: 'Мои заметки', en: 'My Notes' },
