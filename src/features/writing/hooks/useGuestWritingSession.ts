@@ -2,8 +2,8 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import { useBaseWritingSession, BaseSessionReturn } from './useBaseWritingSession';
 import { useWritingStore } from '../store/useWritingStore';
 import { getOrCreateGuestId, getLocalDb } from '../../../shared/lib/localDb';
-import { LocalDocumentService } from '../services/LocalDocumentService';
-import { LocalVersionService } from '../services/LocalVersionService';
+import { fetchLocalSessions, loadLocalSession } from '../services/LocalSessionLoader';
+import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 
 export interface LocalSessionInfo {
   id: string;
@@ -66,7 +66,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveErrorKind, setSaveErrorKind] = useState<'quota' | 'unknown' | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const isOnline = useOnlineStatus();
   const saveStatusRef = useRef(saveStatus);
   saveStatusRef.current = saveStatus;
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -84,17 +84,6 @@ export function useGuestWritingSession(): GuestSessionReturn {
   stateRef.current = { content: base.content, title: base.title, pinnedThoughts: base.pinnedThoughts, seconds: base.seconds, wordCount: base.wordCount };
 
   const _savingRef = useRef(false);
-
-  useEffect(() => {
-    const onOnline = () => setIsOnline(true);
-    const onOffline = () => setIsOnline(false);
-    window.addEventListener('online', onOnline);
-    window.addEventListener('offline', onOffline);
-    return () => {
-      window.removeEventListener('online', onOnline);
-      window.removeEventListener('offline', onOffline);
-    };
-  }, []);
 
   useEffect(() => {
     if (base.status !== 'writing' && base.status !== 'paused') return;
@@ -213,29 +202,8 @@ export function useGuestWritingSession(): GuestSessionReturn {
     base.setStatus('idle');
   }, [base, clearDraft]);
 
-  const fetchLocalSessions = useCallback(async () => {
-    const localDocs = await LocalDocumentService.getGuestDocuments(guestId);
-    return localDocs.map(d => ({
-      id: d.id,
-      createdAt: new Date(d.lastSessionAt),
-      title: d.title,
-      wordCount: d.totalWords,
-      duration: d.totalDuration,
-    }));
-  }, [guestId]);
-
-  const loadLocalSession = useCallback(async (docId: string) => {
-    const doc = await LocalDocumentService.getDocument(docId);
-    if (!doc) return null;
-    const content = await LocalVersionService.getLatestContent(docId);
-    return {
-      content,
-      title: doc.title,
-      wordCount: doc.totalWords,
-      duration: doc.totalDuration,
-      tags: doc.tags,
-    } as Record<string, unknown>;
-  }, []);
+  const fetchLocalSessionsCb = useCallback(() => fetchLocalSessions(guestId), [guestId]);
+  const loadLocalSessionCb = useCallback((id: string) => loadLocalSession(id), []);
 
   return {
     ...base,
@@ -248,8 +216,8 @@ export function useGuestWritingSession(): GuestSessionReturn {
     lastSavedAt,
     isOnline,
     handleCancel,
-    fetchLocalSessions,
-    loadLocalSession,
+    fetchLocalSessions: fetchLocalSessionsCb,
+    loadLocalSession: loadLocalSessionCb,
     loadDraft,
   };
 }

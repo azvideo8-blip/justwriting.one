@@ -3,15 +3,12 @@ import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Session, UserProfile } from '../../../types';
-import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
 import { calculateStreak } from '../../../core/utils/utils';
-import { LocalVersionService } from '../../writing/services/LocalVersionService';
-import { DocumentService } from '../../writing/services/DocumentService';
-import { SessionService } from '../../writing/services/SessionService';
 import { SyncService } from '../../writing/services/SyncService';
-import { getOrCreateGuestId } from '../../../shared/lib/localDb';
+import { loadAllSessions } from '../../writing/services/UnifiedSessionLoader';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../core/i18n';
+import { useUserId } from '../../../shared/hooks/useUserId';
 import { reportError } from '../../../core/errors/reportError';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { ProfileHero } from '../components/ProfileHero';
@@ -41,7 +38,7 @@ function SafeSection({ children }: { label?: string; children: React.ReactNode }
 export function ProfilePage({ user, profile }: ProfilePageProps) {
   const { t } = useLanguage();
   const isGuest = !user;
-  const userId = user?.uid ?? getOrCreateGuestId();
+  const userId = useUserId(user);
   const navigate = useNavigate();
 
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -50,18 +47,8 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   const [achResetKey, setAchResetKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [fetchKey, setFetchKey] = useState(0);
-  const [_unsyncedCount, setUnsyncedCount] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
   const { showToast } = useToast();
-
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    SyncService.getUnsyncedCount(user.uid).then(count => {
-      if (!cancelled) setUnsyncedCount(count);
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [user, fetchKey]);
 
   const handleSyncBoth = useCallback(async () => {
     if (!user || syncing) return;
@@ -77,7 +64,6 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       } else {
         showToast(t('profile_sync_success', { count: String(total) }), 'success');
       }
-      setUnsyncedCount(0);
       setFetchKey(k => k + 1);
     } catch (e) {
       reportError(e, { action: 'syncBoth', userId: user.uid });
@@ -89,132 +75,21 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
 
   useEffect(() => {
     let cancelled = false;
-    const fetchSessions = async () => {
+    const fetchProfileData = async () => {
       setLoading(true);
       setError(null);
       try {
-        const allSessions: Session[] = [];
-        const seenIds = new Set<string>();
+        const result = await loadAllSessions(userId, user);
+        if (cancelled) return;
         let totalWords = 0;
         let sessionsCount = 0;
         let totalDuration = 0;
-
-        const localDocs = await LocalDocumentService.getGuestDocuments(userId);
-
-        const allVersions = await Promise.allSettled(
-          localDocs.map(doc => LocalVersionService.getVersions(doc.id))
-        );
-
-        for (let idx = 0; idx < localDocs.length; idx++) {
-          const doc = localDocs[idx];
-          if (seenIds.has(doc.id)) continue;
-          seenIds.add(doc.id);
-          totalWords += doc.totalWords || 0;
-          sessionsCount += doc.sessionsCount || 1;
-          totalDuration += doc.totalDuration || 0;
-
-          const result = allVersions[idx];
-          if (result.status === 'rejected') {
-            console.error('Error loading versions for doc', doc.id, result.reason);
-            continue;
-          }
-
-          const versions = result.value;
-            for (const ver of versions) {
-              const startedAt = ver.sessionStartedAt
-                ? ver.sessionStartedAt
-                : doc.firstSessionAt || null;
-              if (!startedAt) continue;
-              allSessions.push({
-                id: ver.id,
-                userId: doc.guestId,
-                authorName: '',
-                authorPhoto: '',
-                content: ver.content || '',
-                duration: ver.duration || 0,
-                wordCount: ver.wordsAdded || 0,
-                charCount: 0,
-                wpm: ver.wpm || 0,
-                title: doc.title || '',
-                tags: doc.tags || [],
-                sessionStartTime: startedAt,
-                createdAt: new Date(startedAt),
-              });
-            }
-            if (versions.length === 0) {
-              const startedAt = doc.firstSessionAt || null;
-              if (!startedAt) continue;
-              allSessions.push({
-                id: doc.id,
-                userId: doc.guestId,
-                authorName: '',
-                authorPhoto: '',
-                content: '',
-                duration: doc.totalDuration || 0,
-                wordCount: doc.totalWords || 0,
-                charCount: 0,
-                wpm: 0,
-                title: doc.title || '',
-                tags: doc.tags || [],
-                sessionStartTime: startedAt,
-                createdAt: new Date(startedAt),
-              });
-            }
-
-}
-
-        if (user) {
-          try {
-            const cloudDocs = await DocumentService.getUserDocuments(user.uid);
-            for (const cloudDoc of cloudDocs) {
-              if (seenIds.has(cloudDoc.id)) continue;
-              seenIds.add(cloudDoc.id);
-              totalWords += cloudDoc.totalWords || 0;
-              sessionsCount += cloudDoc.sessionsCount || 1;
-              totalDuration += cloudDoc.totalDuration || 0;
-              try {
-                const firstAt = cloudDoc.firstSessionAt ?? cloudDoc.lastSessionAt;
-                const created = (firstAt as { toDate?: () => Date })?.toDate?.() ?? new Date();
-                allSessions.push({
-                  id: cloudDoc.id,
-                  userId: user.uid,
-                  authorName: '',
-                  authorPhoto: '',
-                  content: '',
-                  duration: cloudDoc.totalDuration || 0,
-                  wordCount: cloudDoc.totalWords || 0,
-                  charCount: 0,
-                  wpm: 0,
-                  title: cloudDoc.title || '',
-                  tags: cloudDoc.tags || [],
-                  sessionStartTime: created.getTime(),
-                  createdAt: created,
-                });
-              } catch (cloudErr) {
-                console.error('Error processing cloud doc', cloudDoc.id, cloudErr);
-              }
-            }
-          } catch (e) {
-            console.error('Failed to fetch cloud docs for profile:', e);
-          }
-
-          try {
-            const { sessions: legacySessions } = await SessionService.getAllSessions(user.uid, 500);
-            for (const s of legacySessions) {
-              if (seenIds.has(s.id)) continue;
-              seenIds.add(s.id);
-              totalWords += s.wordCount || 0;
-              sessionsCount += 1;
-              totalDuration += s.duration || 0;
-              allSessions.push(s);
-            }
-          } catch (e) {
-            console.error('Failed to fetch legacy sessions for profile:', e);
-          }
+        for (const s of result.sessions) {
+          totalWords += s._totalWords ?? s.wordCount ?? 0;
+          sessionsCount += s._sessionsCount ?? 1;
+          totalDuration += s._totalDuration ?? s.duration ?? 0;
         }
-
-        if (cancelled) return;
-        setSessions(allSessions);
+        setSessions(result.sessions);
         setDocStats({ totalWords, sessionsCount, totalDuration });
       } catch (err) {
         if (cancelled) return;
@@ -225,7 +100,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       }
     };
 
-    fetchSessions();
+    fetchProfileData();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, fetchKey]);

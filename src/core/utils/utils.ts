@@ -2,24 +2,13 @@ import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { format, subDays } from 'date-fns';
 import { Session } from '../../types';
+import { toDate } from './dateUtils';
+
+export { toDate, toTimestampMs } from './dateUtils';
+export const parseFirestoreDate = toDate;
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
-}
-
-export function parseFirestoreDate(date: unknown): Date | null {
-  if (!date) return null;
-  if (date instanceof Date) return date;
-  if (typeof date === 'object' && date !== null) {
-    const d = date as { toDate?: () => Date; seconds?: number };
-    if (typeof d.toDate === 'function') return d.toDate();
-    if (typeof d.seconds === 'number') return new Date(d.seconds * 1000);
-  }
-  try {
-    const parsed = new Date(date as string | number);
-    if (!isNaN(parsed.getTime())) return parsed;
-  } catch { /* ignore */ }
-  return null;
 }
 
 export function getSessionDate(session: Session): Date | null {
@@ -63,4 +52,24 @@ export function calculateStreak(sessions: Session[]) {
   }
   
   return streak;
+}
+
+export function calculateBestStreak(sessions: Session[]): number {
+  if (sessions.length === 0) return 0;
+  const dates = new Set(
+    sessions.map(s => getSessionDate(s))
+      .filter((d): d is Date => d !== null)
+      .map(d => format(d, 'yyyy-MM-dd'))
+  );
+  const sorted = [...dates]
+    .map(d => new Date(d).getTime())
+    .sort((a, b) => a - b);
+  if (sorted.length === 0) return 0;
+  let max = 1, cur = 1;
+  for (let i = 1; i < sorted.length; i++) {
+    const diffDays = Math.round((sorted[i] - sorted[i - 1]) / 86400000);
+    if (diffDays === 1) { cur++; max = Math.max(max, cur); }
+    else if (diffDays > 1) { cur = 1; }
+  }
+  return max;
 }

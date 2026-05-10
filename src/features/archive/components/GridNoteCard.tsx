@@ -1,9 +1,10 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
-import { ru, enUS } from 'date-fns/locale';
 import { Session } from '../../../types';
 import { parseFirestoreDate } from '../../../core/utils/utils';
+import { getDateLocale } from '../../../core/utils/dateUtils';
+import { highlightText } from '../../../shared/utils/highlightText';
 import { useLanguage } from '../../../core/i18n';
 import { useSessionTags } from '../../writing/hooks/useSessionTags';
 
@@ -12,23 +13,6 @@ interface GridNoteCardProps {
   onClick: () => void;
   searchQuery?: string;
   onTagsChange?: (id: string, tags: string[]) => void;
-}
-
-function highlightText(text: string, query: string): React.ReactNode {
-  if (!query) return text;
-  try {
-    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-    const parts = text.split(new RegExp(String.raw`(${escaped})`, 'gi'));
-    return React.createElement(React.Fragment, null,
-      ...parts.map((part, i) =>
-        part.toLowerCase() === query.toLowerCase()
-          ? React.createElement('mark', { key: i, className: 'px-0.5 rounded bg-text-main/20 text-text-main' }, part)
-          : part
-      )
-    );
-  } catch {
-    return text;
-  }
 }
 
 function getSessionDate(s: Session): Date {
@@ -51,7 +35,7 @@ export const GridNoteCard: React.FC<GridNoteCardProps> = React.memo(({
   const sessionDate = getSessionDate(session);
 
   const formattedDate = format(sessionDate, 'd MMM yy • HH:mm', {
-    locale: language === 'ru' ? ru : enUS,
+    locale: getDateLocale(language),
   }).toUpperCase();
 
   return (
