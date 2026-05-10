@@ -512,6 +512,8 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
           }
           setIsFinishModalOpen(false);
         }}
+        streakDays={streakDays}
+        sessionGroups={lifeLogGroups}
       />
       <FlowPulse />
       {import.meta.env.DEV && devKpmStats && (

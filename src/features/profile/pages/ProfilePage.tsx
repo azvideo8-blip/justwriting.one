@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
-import { AlertCircle, Cloud } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Session, UserProfile } from '../../../types';
 import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
 import { calculateStreak } from '../../../core/utils/utils';
@@ -50,7 +50,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   const [achResetKey, setAchResetKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [fetchKey, setFetchKey] = useState(0);
-  const [unsyncedCount, setUnsyncedCount] = useState<number | null>(null);
+  const [_unsyncedCount, setUnsyncedCount] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
   const { showToast } = useToast();
 
@@ -63,19 +63,24 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
     return () => { cancelled = true; };
   }, [user, fetchKey]);
 
-  const handleSyncAll = useCallback(async () => {
+  const handleSyncBoth = useCallback(async () => {
     if (!user || syncing) return;
     setSyncing(true);
     try {
-      const { synced, failed } = await SyncService.syncAllUnlinked(user.uid);
-      if (failed > 0) {
-        showToast(t('profile_sync_partial', { synced: String(synced), failed: String(failed) }), 'error');
+      const [uploadResult, downloadResult] = await Promise.all([
+        SyncService.syncAllUnlinked(user.uid),
+        SyncService.downloadAllFromCloud(user.uid),
+      ]);
+      const total = uploadResult.synced + downloadResult.downloaded;
+      if (uploadResult.failed + downloadResult.failed > 0) {
+        showToast(t('profile_sync_partial', { synced: String(total), failed: String(uploadResult.failed + downloadResult.failed) }), 'error');
       } else {
-        showToast(t('profile_sync_success', { count: String(synced) }), 'success');
+        showToast(t('profile_sync_success', { count: String(total) }), 'success');
       }
-      setUnsyncedCount(prev => prev !== null ? Math.max(0, prev - synced) : null);
+      setUnsyncedCount(0);
+      setFetchKey(k => k + 1);
     } catch (e) {
-      reportError(e, { action: 'syncAll', userId: user.uid });
+      reportError(e, { action: 'syncBoth', userId: user.uid });
       showToast(t('profile_sync_error'), 'error');
     } finally {
       setSyncing(false);
@@ -335,15 +340,15 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
         <Achievements key={achResetKey} stats={kpiStats} sessions={sessions} />
       </SafeSection>
       <div style={{ padding: '12px 36px 48px', textAlign: 'center' }}>
-        {user && unsyncedCount !== null && unsyncedCount > 0 && (
+        {user && (
           <div className="mb-4">
             <button
-              onClick={handleSyncAll}
+              onClick={handleSyncBoth}
               disabled={syncing}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border border-brand-soft/30 text-brand-soft hover:bg-brand-soft/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Cloud size={14} />
-              {syncing ? t('profile_syncing') : t('profile_sync_all', { count: String(unsyncedCount) })}
+              <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+              {syncing ? t('profile_syncing') : t('profile_sync_button')}
             </button>
           </div>
         )}

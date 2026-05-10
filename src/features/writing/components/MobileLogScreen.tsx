@@ -18,54 +18,6 @@ function formatDuration(minutes: number, t: (key: string) => string): string {
   return h > 0 ? `${h}${t('unit_hour')} ${pad(m)}${t('unit_min')}` : `${pad(m)}${t('unit_min')}`;
 }
 
-function Sparkline({ groups }: { groups: { date: Date; sessions: Session[] }[] }) {
-  const bars = useMemo(() => {
-    const days: { words: number; date: Date }[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setHours(0, 0, 0, 0);
-      d.setDate(d.getDate() - i);
-      const group = groups.find(g =>
-        new Date(g.date).toDateString() === d.toDateString()
-      );
-      const words = group
-        ? group.sessions.reduce((s, sess) => s + (sess.wordCount || 0), 0)
-        : 0;
-      days.push({ words, date: d });
-    }
-    const max = Math.max(...days.map(d => d.words), 1);
-    return days.map(d => ({ ...d, pct: d.words / max }));
-  }, [groups]);
-
-  const today = new Date().toDateString();
-
-  return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'flex-end',
-      gap: 4,
-      height: 32,
-    }}>
-      {bars.map((bar, i) => (
-        <div
-          key={i}
-          style={{
-            flex: 1,
-            height: Math.max(3, bar.pct * 32),
-            borderRadius: 3,
-            background: bar.date.toDateString() === today
-              ? 'var(--brand-primary)'
-              : bar.words > 0
-                ? 'rgba(255,255,255,0.15)'
-                : 'rgba(255,255,255,0.04)',
-            transition: 'height 0.3s',
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
 function StreakRow({ groups }: { groups: { date: Date; sessions: Session[] }[] }) {
   const { language } = useLanguage();
   const days = useMemo(() => {
@@ -80,8 +32,7 @@ function StreakRow({ groups }: { groups: { date: Date; sessions: Session[] }[] }
       result.push({
         date: d,
         hasSession,
-        label: d.toLocaleDateString(language, { weekday: 'short' })
-          .slice(0, 2).toUpperCase(),
+        label: d.toLocaleDateString(language, { weekday: 'narrow' }).toUpperCase(),
         isToday: d.toDateString() === new Date().toDateString(),
       });
     }
@@ -95,22 +46,38 @@ function StreakRow({ groups }: { groups: { date: Date; sessions: Session[] }[] }
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: 5,
+          gap: 4,
           flex: 1,
         }}>
           <div style={{
-            width: '100%',
-            aspectRatio: '1',
-            borderRadius: 8,
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 11,
+            fontWeight: 700,
+            fontFamily: 'JetBrains Mono, monospace',
             background: day.hasSession
               ? day.isToday
                 ? 'var(--brand-primary)'
-                : 'rgba(255,255,255,0.10)'
-              : 'rgba(255,255,255,0.03)',
+                : 'rgba(255,255,255,0.12)'
+              : 'rgba(255,255,255,0.04)',
+            color: day.hasSession
+              ? day.isToday
+                ? 'var(--color-surface-base, #0b0d0c)'
+                : 'rgba(232,236,233,0.85)'
+              : 'rgba(255,255,255,0.20)',
             border: day.isToday && !day.hasSession
               ? '1px solid rgba(255,255,255,0.15)'
               : '1px solid transparent',
-          }} />
+            boxShadow: day.isToday && day.hasSession
+              ? '0 0 8px color-mix(in srgb, var(--brand-primary) 40%, transparent)'
+              : 'none',
+          }}>
+            {day.date.getDate()}
+          </div>
           <span style={{
             fontSize: 9,
             color: day.isToday
@@ -183,72 +150,63 @@ export function MobileLogScreen({ userId, isGuest, onContinue }: MobileLogScreen
           {t('lifelog_tab_log')}
         </div>
 
+        <div style={{ marginBottom: 16 }}>
+          <StreakRow groups={sessionGroups} />
+        </div>
+
         <div style={{
           background: 'rgba(255,255,255,0.03)',
           border: '1px solid rgba(255,255,255,0.07)',
           borderRadius: 16,
           padding: '14px 16px',
           marginBottom: 12,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
         }}>
-          <div style={{ flex: 1 }}>
-            <div style={{
-              fontSize: 10,
-              color: 'rgba(74,81,77,1)',
-              textTransform: 'uppercase',
-              letterSpacing: '.08em',
-              fontFamily: 'JetBrains Mono, monospace',
-              marginBottom: 8,
-            }}>
-              {t('log_week_summary')}
-            </div>
-            <div style={{ display: 'flex', gap: 16 }}>
-              <div>
-                <div style={{
-                  fontSize: 22,
-                  fontWeight: 500,
-                  color: 'rgba(232,236,233,0.95)',
-                  lineHeight: 1,
-                }}>
-                  {weekSummary.words.toLocaleString()}
-                </div>
-                <div style={{
-                  fontSize: 10,
-                  color: 'rgba(138,145,141,1)',
-                  marginTop: 2,
-                }}>
-                  {t('home_words_short')}
-                </div>
+          <div style={{
+            fontSize: 10,
+            color: 'rgba(74,81,77,1)',
+            textTransform: 'uppercase',
+            letterSpacing: '.08em',
+            fontFamily: 'JetBrains Mono, monospace',
+            marginBottom: 8,
+          }}>
+            {t('log_week_summary')}
+          </div>
+          <div style={{ display: 'flex', gap: 16 }}>
+            <div>
+              <div style={{
+                fontSize: 22,
+                fontWeight: 500,
+                color: 'rgba(232,236,233,0.95)',
+                lineHeight: 1,
+              }}>
+                {weekSummary.words.toLocaleString()}
               </div>
-              <div>
-                <div style={{
-                  fontSize: 22,
-                  fontWeight: 500,
-                  color: 'rgba(232,236,233,0.95)',
-                  lineHeight: 1,
-                }}>
-                  {formatDuration(weekSummary.minutes, t)}
-                </div>
-                <div style={{
-                  fontSize: 10,
-                  color: 'rgba(138,145,141,1)',
-                  marginTop: 2,
-                }}>
-                  {t('home_today_flow')}
-                </div>
+              <div style={{
+                fontSize: 10,
+                color: 'rgba(138,145,141,1)',
+                marginTop: 2,
+              }}>
+                {t('home_words_short')}
+              </div>
+            </div>
+            <div>
+              <div style={{
+                fontSize: 22,
+                fontWeight: 500,
+                color: 'rgba(232,236,233,0.95)',
+                lineHeight: 1,
+              }}>
+                {formatDuration(weekSummary.minutes, t)}
+              </div>
+              <div style={{
+                fontSize: 10,
+                color: 'rgba(138,145,141,1)',
+                marginTop: 2,
+              }}>
+                {t('home_today_flow')}
               </div>
             </div>
           </div>
-
-          <div style={{ width: 80, flexShrink: 0 }}>
-            <Sparkline groups={sessionGroups} />
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <StreakRow groups={sessionGroups} />
         </div>
 
         <div style={{ position: 'relative', marginBottom: 12 }}>

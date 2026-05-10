@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { cn, parseFirestoreDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
@@ -12,7 +12,6 @@ import { LocalDocumentService } from '../services/LocalDocumentService';
 import { useServiceAction } from '../hooks/useServiceAction';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { X, Pin, Trash2, Cloud, HardDrive } from 'lucide-react';
-import { StorageIcons } from './StorageIcons';
 
 interface SessionItemProps {
   session: Session;
@@ -22,11 +21,11 @@ interface SessionItemProps {
   onDelete?: (session: Session) => void;
   t: (key: string) => string;
   language: string;
-  userId: string;
-  onStorageChange: () => void;
+  _userId: string;
+  _onStorageChange: () => void;
 }
 
-const SessionItem: React.FC<SessionItemProps> = ({ session, doc, isActive, onClick, onDelete, t, language, userId, onStorageChange }) => {
+const SessionItem: React.FC<SessionItemProps> = ({ session, doc, isActive, onClick, onDelete, t, language }) => {
   const date = parseFirestoreDate(session.createdAt);
   const timeStr = date
     ? date.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })
@@ -76,13 +75,10 @@ const SessionItem: React.FC<SessionItemProps> = ({ session, doc, isActive, onCli
           <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", badge.cls)}>
             {badge.label}
           </span>
-          {doc ? (
-            <StorageIcons doc={{ localId: doc.localId, cloudId: doc.cloudId, hasLocal: doc.storage.local, hasCloud: doc.storage.cloud }} userId={userId} onStorageChange={onStorageChange} />
-          ) : session._isLocal ? (
-            <span title={t('storage_local')}><HardDrive size={10} className="text-text-main/30" /></span>
-          ) : (
-            <span title={t('storage_cloud')}><Cloud size={10} className="text-text-main/30" /></span>
-          )}
+          {doc?.storage?.cloud
+            ? <Cloud size={10} className="text-blue-400/60" />
+            : <HardDrive size={10} className="text-text-main/30" />
+          }
         </div>
     </div>
   );
@@ -97,10 +93,10 @@ interface LifeLogPanelProps {
   pinned?: boolean;
   onTogglePin?: () => void;
   inGrid?: boolean;
-  onRefreshDocuments?: () => void;
+  _onRefreshDocuments?: () => void;
 }
 
-export function LifeLogPanel({ 
+export function LifeLogPanel({
   userId, 
   onContinueSession, 
   onClose, 
@@ -109,7 +105,7 @@ export function LifeLogPanel({
   pinned,
   onTogglePin,
   inGrid,
-  onRefreshDocuments,
+  _onRefreshDocuments,
 }: LifeLogPanelProps) {
   const [deleteTarget, setDeleteTarget] = useState<Session | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -127,11 +123,6 @@ export function LifeLogPanel({
     }
     return map;
   }, [unifiedDocuments]);
-
-  const handleStorageChange = useCallback(() => {
-    refresh();
-    onRefreshDocuments?.();
-  }, [refresh, onRefreshDocuments]);
 
   const filteredGroups = useMemo(() => {
     if (!searchQuery.trim()) return sessionGroups;
@@ -261,8 +252,6 @@ export function LifeLogPanel({
                         onDelete={(s) => setDeleteTarget(s)}
                         t={t}
                         language={language}
-                        userId={userId}
-                        onStorageChange={handleStorageChange}
                       />
                     ))}
                   </div>

@@ -28,6 +28,8 @@ interface WritingFinishModalProps {
   isGuest: boolean;
   onSave: (data: SaveData) => Promise<void>;
   onCancel: () => void;
+  streakDays?: number;
+  sessionGroups?: { date: Date; sessions: unknown[] }[];
 }
 
 export function WritingFinishModal({
@@ -40,6 +42,8 @@ export function WritingFinishModal({
   isGuest: _isGuest,
   onSave,
   onCancel,
+  streakDays = 0,
+  sessionGroups = [],
 }: WritingFinishModalProps) {
   const { t } = useLanguage();
   const { execute, isLoading: isSaving } = useServiceAction();
@@ -124,6 +128,43 @@ export function WritingFinishModal({
         <div className="text-center">
           <h3 className="text-2xl font-bold text-text-main">{t('finish_congrats')}</h3>
         </div>
+
+        {streakDays > 0 ? (
+          <div className="text-center">
+            <div className="text-4xl font-mono font-bold text-brand-primary">{streakDays}</div>
+            <div className="text-[11px] font-bold uppercase tracking-widest text-text-main/40 mt-1">{t('finish_streak_days')}</div>
+            <div className="flex justify-center gap-2 mt-3">
+              {Array.from({ length: 7 }, (_, i) => {
+                const d = new Date();
+                d.setHours(0, 0, 0, 0);
+                d.setDate(d.getDate() - (6 - i));
+                const hasSession = sessionGroups.some(g =>
+                  new Date(g.date).toDateString() === d.toDateString()
+                );
+                const isToday = i === 6;
+                return (
+                  <div
+                    key={i}
+                    className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold transition-all",
+                      hasSession
+                        ? isToday
+                          ? "bg-brand-primary text-surface-base ring-2 ring-brand-primary/30 ring-offset-2 ring-offset-surface-card"
+                          : "bg-brand-primary/40 text-text-main"
+                        : isToday
+                          ? "bg-text-main/10 text-text-main/40 ring-2 ring-brand-primary/20 ring-offset-2 ring-offset-surface-card"
+                          : "bg-text-main/10 text-text-main/30"
+                    )}
+                  >
+                    {d.getDate()}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center text-sm text-text-main/40">{t('finish_streak_zero')}</div>
+        )}
 
         <div className="grid grid-cols-3 gap-4 text-center divide-x divide-border-subtle">
           <div className="p-2">

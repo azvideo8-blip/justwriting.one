@@ -1,6 +1,7 @@
 import { getLocalDb } from '../../../shared/lib/localDb';
 import { StorageService } from './StorageService';
 import { LocalDocumentService } from './LocalDocumentService';
+import { DocumentService } from './DocumentService';
 
 const _syncInProgress = new Map<string, boolean>();
 
@@ -92,5 +93,30 @@ export const SyncService = {
   async syncOne(userId: string, localId: string): Promise<string> {
     const cloudId = await StorageService.addCloudCopy(userId, localId);
     return cloudId || '';
+  },
+
+  async downloadAllFromCloud(
+    userId: string
+  ): Promise<{ downloaded: number; skipped: number; failed: number }> {
+    const [cloudDocs, localDocs] = await Promise.all([
+      DocumentService.getUserDocuments(userId),
+      LocalDocumentService.getGuestDocuments(userId),
+    ]);
+
+    const linkedCloudIds = new Set(localDocs.map(d => d.linkedCloudId).filter(Boolean));
+    const toDownload = cloudDocs.filter(d => !linkedCloudIds.has(d.id));
+
+    const results = await Promise.allSettled(
+      toDownload.map(cloudDoc => StorageService.addLocalCopy(userId, cloudDoc.id))
+    );
+
+    let downloaded = 0;
+    let failed = 0;
+    for (const r of results) {
+      if (r.status === 'fulfilled') downloaded++;
+      else { failed++; console.error('[downloadAllFromCloud]', r.reason); }
+    }
+
+    return { downloaded, skipped: linkedCloudIds.size, failed };
   },
 };
