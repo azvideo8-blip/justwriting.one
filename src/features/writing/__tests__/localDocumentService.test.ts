@@ -1,7 +1,7 @@
 // Must be first — patches globalThis.indexedDB before any idb import
 import 'fake-indexeddb/auto';
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { getLocalDb, resetDbInstance } from '../../../shared/lib/localDb';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { LocalVersionService } from '../services/LocalVersionService';

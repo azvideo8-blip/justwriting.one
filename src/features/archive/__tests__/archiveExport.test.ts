@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { exportAsMd, ExportStrings } from '../services/ArchiveExportService';
 import type { ArchiveSession } from '../types';
 import type { Session } from '../../../types/index';
@@ -40,7 +40,7 @@ beforeEach(() => {
   // Override Blob to capture content
   const OriginalBlob = globalThis.Blob;
   vi.stubGlobal('Blob', class MockBlob extends OriginalBlob {
-    constructor(parts: BlobPart[], options?: BlobPropertyBag) {
+    constructor(parts: ConstructorParameters<typeof Blob>[0], options?: ConstructorParameters<typeof Blob>[1]) {
       super(parts, options);
       capturedContent = (parts as string[]).join('');
     }
