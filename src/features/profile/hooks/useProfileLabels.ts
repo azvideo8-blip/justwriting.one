@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { ProfileService } from '../services/ProfileService';
 import { randomUUID } from '../../../shared/lib/localDb';
 import { Label } from '../../../types';
+import { DocumentService } from '../../writing/services/DocumentService';
+import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
 
 const labelCache = new Map<string, Label[]>();
 const fetchedSet = new Set<string>();
@@ -46,9 +48,18 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
     updateLabels([...labels, newLabel]);
   };
 
-  const removeLabel = (labelId: string) => {
-    updateLabels(labels.filter(l => l.id !== labelId));
+  const updateLabel = (labelId: string, updates: Partial<Omit<Label, 'id'>>) => {
+    const newLabels = labels.map(l => l.id === labelId ? { ...l, ...updates } : l);
+    updateLabels(newLabels);
   };
 
-  return { labels, addLabel, removeLabel, loading };
+  const removeLabel = (labelId: string) => {
+    updateLabels(labels.filter(l => l.id !== labelId));
+    if (userId && userId !== 'guest') {
+      DocumentService.clearLabelFromAllDocs(userId, labelId).catch(() => {});
+    }
+    LocalDocumentService.clearLabelFromAllDocs(userId, labelId).catch(() => {});
+  };
+
+  return { labels, addLabel, updateLabel, removeLabel, loading };
 }
