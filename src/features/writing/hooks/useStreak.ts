@@ -4,7 +4,7 @@ import { Session } from '../../../types';
 import { loadAllSessions } from '../services/UnifiedSessionLoader';
 import { calculateStreak } from '../../../core/utils/utils';
 
-export function useStreak(userId: string, user: User | null, isGuest: boolean): number {
+export function useStreak(userId: string, user: User | null): number {
   const [sessions, setSessions] = useState<Session[]>([]);
   const mountedRef = useRef(true);
 
@@ -14,19 +14,13 @@ export function useStreak(userId: string, user: User | null, isGuest: boolean): 
   }, []);
 
   useEffect(() => {
-    if (isGuest) return;
     let cancelled = false;
     loadAllSessions(userId, user).then(result => {
       if (cancelled || !mountedRef.current) return;
       setSessions(result.sessions);
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [userId, user, isGuest]);
+  }, [userId, user]);
 
-  const streakDays = useMemo(() => {
-    if (isGuest) return 0;
-    return calculateStreak(sessions);
-  }, [sessions, isGuest]);
-
-  return streakDays;
+  return useMemo(() => calculateStreak(sessions), [sessions]);
 }

@@ -36,7 +36,7 @@ interface DesktopWritingLayoutProps {
   userId: string;
   onContinueSessionOrDoc: (session: Session) => void;
   loadDraft: () => void;
-  setHasDraft: (v: boolean) => void;
+  discardDraft: () => void;
   onSetPromptTitle: (title: string) => void;
   showZen: boolean;
   lifeLogVisible: boolean;
@@ -54,7 +54,7 @@ export function DesktopWritingLayout({
   onOpenSettings, onNew, onOpenLog, onSave, onPlay, onPause, onStop,
   onContinueSession, handlePlayRef, keystrokeTrackerRef,
   hasDraft, sessionStatus, userId,
-  onContinueSessionOrDoc, loadDraft, setHasDraft,
+  onContinueSessionOrDoc, loadDraft, discardDraft,
   onSetPromptTitle,
   showZen, lifeLogVisible, setLifeLogVisible,
   lifeLogTab, setLifeLogTab, lifeLogPinned, setLifeLogPinned,
@@ -122,7 +122,7 @@ export function DesktopWritingLayout({
               <button onClick={loadDraft} className="text-text-main font-medium hover:opacity-70 transition-opacity">
                 {t('draft_restore')}
               </button>
-              <button onClick={() => { setHasDraft(false); localStorage.removeItem('jw_guest_draft'); }}
+              <button onClick={discardDraft}
                 className="text-text-main/40 hover:text-text-main/60 transition-colors">
                 {t('draft_discard')}
               </button>
