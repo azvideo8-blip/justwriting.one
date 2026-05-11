@@ -107,28 +107,38 @@ export const StorageService = {
       if (existing.linkedCloudId) {
         try {
           const cloudDoc = await DocumentService.getDocument(userId, existing.linkedCloudId);
-          const cloudBaseDuration = cloudDoc?.totalDuration ?? 0;
-          const startedAt = data.sessionStartedAt;
-          if (isNaN(startedAt.getTime())) {
-            throw new Error('Invalid sessionStartedAt');
+          if (!cloudDoc) {
+            const db = await getLocalDb();
+            await db.put('syncQueue', {
+              id: `sync_${documentId}_${Date.now()}`,
+              documentId,
+              type: 'document' as const,
+              createdAt: Date.now(),
+            });
+          } else {
+            const cloudBaseDuration = cloudDoc.totalDuration ?? 0;
+            const startedAt = data.sessionStartedAt;
+            if (isNaN(startedAt.getTime())) {
+              throw new Error('Invalid sessionStartedAt');
+            }
+            await VersionService.addVersion(userId, existing.linkedCloudId, {
+              content: data.content,
+              previousContent: prevContent,
+              wordCount: data.wordCount,
+              duration: data.duration,
+              wpm: data.wpm,
+              versionNumber: newVersion,
+              goalWords: data.goalWords,
+              goalTime: data.goalTime,
+              goalReached: data.goalReached,
+              sessionStartedAt: startedAt,
+            });
+            await DocumentService.updateDocumentAfterSession(userId, existing.linkedCloudId, {
+              totalWords: data.wordCount,
+              totalDuration: cloudBaseDuration + data.duration,
+              currentVersion: newVersion,
+            });
           }
-          await VersionService.addVersion(userId, existing.linkedCloudId, {
-            content: data.content,
-            previousContent: prevContent,
-            wordCount: data.wordCount,
-            duration: data.duration,
-            wpm: data.wpm,
-            versionNumber: newVersion,
-            goalWords: data.goalWords,
-            goalTime: data.goalTime,
-            goalReached: data.goalReached,
-            sessionStartedAt: startedAt,
-          });
-          await DocumentService.updateDocumentAfterSession(userId, existing.linkedCloudId, {
-            totalWords: data.wordCount,
-            totalDuration: cloudBaseDuration + data.duration,
-            currentVersion: newVersion,
-          });
         } catch (e) {
           console.error(`Cloud version sync failed for ${existing.linkedCloudId}:`, e);
           try {
@@ -193,10 +203,11 @@ export const StorageService = {
         prevContent = ver.content;
       }
 
-      await LocalDocumentService.updateAfterSession(localId, {
+      await LocalDocumentService.updateDocument(localId, {
         totalWords: cloudDoc.totalWords,
         totalDuration: cloudDoc.totalDuration,
         currentVersion: cloudDoc.currentVersion,
+        sessionsCount: cloudDoc.sessionsCount ?? 1,
       });
 
       await LocalDocumentService.updateLinkedCloudId(localId, cloudDocumentId);

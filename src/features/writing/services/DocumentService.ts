@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, Timestamp, increment } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, addDoc, updateDoc, writeBatch, Timestamp, increment } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 import { Document } from '../../../types';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
@@ -124,7 +124,12 @@ export const DocumentService = {
 
   async deleteDocument(userId: string, documentId: string): Promise<void> {
     try {
-      await deleteDoc(documentRef(userId, documentId));
+      const ref = documentRef(userId, documentId);
+      const versionsSnap = await getDocs(collection(ref, 'versions'));
+      const batch = writeBatch(db);
+      versionsSnap.forEach(v => batch.delete(v.ref));
+      batch.delete(ref);
+      await batch.commit();
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, `users/${userId}/documents/${documentId}`);
       throw e;

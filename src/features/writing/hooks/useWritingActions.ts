@@ -144,6 +144,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         useWritingStore.getState().setSavedDocumentId(result.localId);
       }
 
+      const docIdToSync = useWritingStore.getState().savedDocumentId;
       useWritingStore.getState().finishSession();
 
       if (isGuest) {
@@ -163,9 +164,8 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         } catch (delErr) {
           console.warn('[handleSave] Failed to delete draft:', delErr);
         }
-        const docId = useWritingStore.getState().savedDocumentId;
-        if (docId) {
-          SyncService.syncOne(userId, docId).catch(e => {
+        if (docIdToSync) {
+          SyncService.syncOne(userId, docIdToSync).catch(e => {
             console.warn('[handleSave] Cloud sync failed:', e);
           });
         }
