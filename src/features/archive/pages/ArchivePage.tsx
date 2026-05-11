@@ -156,9 +156,10 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                             if (e.key === 'Enter') {
                               const trimmed = renameTagValue.trim();
                               if (trimmed && trimmed !== tag) {
-                                await DocumentService.renameTagInAllDocs(userId, tag, trimmed).catch(() => {});
-                                await LocalDocumentService.renameTagInAllDocs(userId, tag, trimmed).catch(() => {});
-                                fetchSessions();
+                                if (!userId.startsWith('guest')) {
+                                  DocumentService.renameTagInAllDocs(userId, tag, trimmed).catch(() => {});
+                                }
+                                LocalDocumentService.renameTagInAllDocs(userId, tag, trimmed).then(() => fetchSessions()).catch(() => {});
                               }
                               setRenamingTag(null);
                             }
@@ -492,9 +493,10 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 <div className="flex gap-2">
                   <button
                     onClick={async () => {
-                      await DocumentService.removeTagFromAllDocs(userId, tagDeleteConfirm).catch(() => {});
-                      await LocalDocumentService.removeTagFromAllDocs(userId, tagDeleteConfirm).catch(() => {});
-                      fetchSessions();
+                      if (!userId.startsWith('guest')) {
+                        DocumentService.removeTagFromAllDocs(userId, tagDeleteConfirm).catch(() => {});
+                      }
+                      LocalDocumentService.removeTagFromAllDocs(userId, tagDeleteConfirm).then(() => fetchSessions()).catch(() => {});
                       setTagDeleteConfirm(null);
                     }}
                     className="flex-1 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium hover:bg-red-500/20"

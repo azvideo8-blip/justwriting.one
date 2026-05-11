@@ -16,13 +16,14 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
   useEffect(() => {
     if (initialLabels.length > 0 && !labelCache.has(userId)) {
       labelCache.set(userId, initialLabels);
+      setLabels(initialLabels);
     }
   }, [initialLabels, userId]);
 
   useEffect(() => {
     if (fetchedSet.has(userId) || !userId || userId.startsWith('guest')) return;
-    fetchedSet.add(userId);
     ProfileService.getProfile(userId).then(p => {
+      fetchedSet.add(userId);
       if (p?.labels) {
         labelCache.set(userId, p.labels);
         setLabels(p.labels);
@@ -53,9 +54,9 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
     updateLabels(newLabels);
   };
 
-  const removeLabel = (labelId: string) => {
-    updateLabels(labels.filter(l => l.id !== labelId));
-    if (userId && userId !== 'guest') {
+  const removeLabel = async (labelId: string) => {
+    await updateLabels(labels.filter(l => l.id !== labelId));
+    if (!userId.startsWith('guest')) {
       DocumentService.clearLabelFromAllDocs(userId, labelId).catch(() => {});
     }
     LocalDocumentService.clearLabelFromAllDocs(userId, labelId).catch(() => {});
