@@ -20,6 +20,7 @@ export interface LifeLogDocument {
   firstSessionAt: number;
   lastSessionAt: number;
   tags: string[];
+  labelId?: string;
   storage: StorageState;
 }
 
@@ -129,6 +130,7 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
           firstSessionAt: d.firstSessionAt,
           lastSessionAt: d.lastSessionAt,
           tags: d.tags,
+          labelId: d.labelId ?? undefined,
           storage: { local: true, cloud: !!d.linkedCloudId },
         })));
       } else {
@@ -164,6 +166,7 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
             firstSessionAt: local.firstSessionAt,
             lastSessionAt: local.lastSessionAt,
             tags: local.tags,
+            labelId: local.labelId ?? undefined,
             storage: {
               local: true,
               cloud: hasCloud,
@@ -183,6 +186,7 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
             firstSessionAt: toDate(cloud.firstSessionAt)?.getTime() ?? 0,
             lastSessionAt: toDate(cloud.lastSessionAt)?.getTime() ?? 0,
             tags: cloud.tags,
+            labelId: cloud.labelId ?? undefined,
             storage: {
               local: false,
               cloud: true,
