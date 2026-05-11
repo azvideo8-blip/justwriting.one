@@ -45,7 +45,7 @@ export function ArchiveStats({ sessions, streakDays, title, onReset }: ArchiveSt
           <div
             key={stat.label}
             className={cn(
-              "border rounded-xl p-2.5 lg:p-3 flex flex-col gap-1",
+              "border rounded-xl p-2 flex flex-col gap-1",
               stat.isStreak
                 ? "bg-text-main/5 border-transparent"
                 : "bg-surface-card border-border-subtle"
@@ -56,7 +56,7 @@ export function ArchiveStats({ sessions, streakDays, title, onReset }: ArchiveSt
             } : {}}
           >
             <div
-              className="text-lg lg:text-xl font-medium tabular-nums leading-none"
+              className="text-base font-medium tabular-nums leading-none"
               style={stat.isStreak ? { color: 'var(--flow-pulse-color)' } : {}}
             >
               {stat.value}{stat.suffix ? ' ' + stat.suffix : ''}

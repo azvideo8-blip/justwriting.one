@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { Label } from '../../../types';
+import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
 
-const PRESET_COLORS = ['#7C6DFA', '#34D399', '#F97316', '#EC4899', '#60A5FA', '#FBBF24'];
+
 
 interface LabelsManagerProps {
   labels: Label[];
@@ -14,7 +15,7 @@ interface LabelsManagerProps {
 export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerProps) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
-  const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
+  const [selectedColor, setSelectedColor] = useState(LABEL_PRESET_COLORS[0]);
 
   const handleAdd = () => {
     const trimmed = name.trim();
@@ -47,7 +48,7 @@ export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerPr
             onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
           />
           <div className="flex gap-2">
-            {PRESET_COLORS.map(c => (
+            {LABEL_PRESET_COLORS.map(c => (
               <button
                 key={c}
                 style={{ background: c }}
@@ -55,6 +56,27 @@ export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerPr
                 onClick={() => setSelectedColor(c)}
               />
             ))}
+            <div className="relative">
+              <input
+                type="color"
+                defaultValue={selectedColor}
+                onChange={e => setSelectedColor(e.target.value)}
+                className="sr-only"
+                id="label-color-custom-settings"
+              />
+              <label
+                htmlFor="label-color-custom-settings"
+                className={cn(
+                  "w-6 h-6 rounded-full border-2 border-dashed border-border-subtle flex items-center justify-center cursor-pointer transition-all hover:border-text-main/40",
+                  !LABEL_PRESET_COLORS.includes(selectedColor) && "ring-2 ring-offset-2 ring-offset-surface-card ring-text-main/30"
+                )}
+                style={!LABEL_PRESET_COLORS.includes(selectedColor) ? { background: selectedColor } : {}}
+              >
+                {LABEL_PRESET_COLORS.includes(selectedColor) && (
+                  <span className="text-[11px] text-text-main/40 font-bold leading-none">+</span>
+                )}
+              </label>
+            </div>
           </div>
           <div className="flex gap-2">
             <button

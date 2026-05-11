@@ -1,0 +1,1 @@
+export const LABEL_PRESET_COLORS = ['#D04545', '#4A8C5C', '#3B6BB5', '#B07A30'];
