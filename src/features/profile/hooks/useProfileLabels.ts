@@ -1,15 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { ProfileService } from '../services/ProfileService';
 import { randomUUID } from '../../../shared/lib/localDb';
 import { Label } from '../../../types';
 
 const labelCache = new Map<string, Label[]>();
+const fetchedSet = new Set<string>();
 
 export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
   const cached = labelCache.get(userId);
   const [labels, setLabels] = useState<Label[]>(cached ?? initialLabels);
   const [loading, setLoading] = useState(false);
-  const fetchedRef = useRef(false);
 
   useEffect(() => {
     if (initialLabels.length > 0 && !labelCache.has(userId)) {
@@ -18,8 +18,8 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
   }, [initialLabels, userId]);
 
   useEffect(() => {
-    if (fetchedRef.current) return;
-    fetchedRef.current = true;
+    if (fetchedSet.has(userId) || !userId || userId.startsWith('guest')) return;
+    fetchedSet.add(userId);
     ProfileService.getProfile(userId).then(p => {
       if (p?.labels) {
         labelCache.set(userId, p.labels);
