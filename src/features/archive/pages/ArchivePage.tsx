@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { format } from 'date-fns';
@@ -19,6 +19,7 @@ import { NoteRow } from '../components/NoteRow';
 import { ArchiveSidebar } from '../components/ArchiveSidebar';
 import { useArchiveData } from '../hooks/useArchiveData';
 import { useProfileLabels } from '../../profile/hooks/useProfileLabels';
+import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
 
 interface ArchiveViewProps {
   user: User | null;
@@ -68,6 +69,9 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     'list',
     z.enum(['list', 'grid'])
   );
+  const [addingLabel, setAddingLabel] = useState(false);
+  const [newLabelName, setNewLabelName] = useState('');
+  const [newLabelColor, setNewLabelColor] = useState(LABEL_PRESET_COLORS[0]);
 
   return (
     <AdaptiveContainer>
@@ -158,7 +162,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               </div>
             )}
 
-            {profileLabels.length > 0 && (
+            {(profileLabels.length > 0 || user) && (
               <div className="flex items-center gap-2 py-3 flex-wrap" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
                 <span className="font-mono text-[10px] text-text-main/25 uppercase tracking-widest mr-1">
                   {t('archive_labels')}
@@ -171,9 +175,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                       onClick={() => toggleLabel(label.id)}
                       className={cn(
                         "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono transition-all border",
-                        active
-                          ? "border-transparent text-white"
-                          : "bg-transparent border-border-subtle text-text-main/50 hover:text-text-main/70"
+                        active ? "border-transparent text-white" : "bg-transparent border-border-subtle text-text-main/50 hover:text-text-main/70"
                       )}
                       style={active ? { background: label.color, borderColor: label.color } : {}}
                     >
@@ -189,6 +191,64 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                   >
                     {t('archive_tags_reset')} &#10005;
                   </button>
+                )}
+                {user && !addingLabel && (
+                  <button
+                    onClick={() => setAddingLabel(true)}
+                    className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-mono text-text-main/30 hover:text-text-main/50 border border-dashed border-border-subtle transition-all"
+                  >
+                    + {t('archive_add_label')}
+                  </button>
+                )}
+                {user && addingLabel && (
+                  <div className="flex items-center gap-2 px-2 py-1 rounded-xl border border-border-subtle bg-surface-card">
+                    <input
+                      value={newLabelName}
+                      onChange={e => setNewLabelName(e.target.value)}
+                      placeholder={t('archive_label_name_placeholder')}
+                      autoFocus
+                      className="w-28 bg-transparent text-[12px] text-text-main outline-none placeholder:text-text-main/25"
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          const trimmed = newLabelName.trim();
+                          if (trimmed) { addLabel({ name: trimmed, color: newLabelColor }); setNewLabelName(''); setAddingLabel(false); setNewLabelColor(LABEL_PRESET_COLORS[0]); }
+                        }
+                        if (e.key === 'Escape') { setAddingLabel(false); setNewLabelName(''); }
+                      }}
+                    />
+                    <div className="flex gap-1">
+                      {LABEL_PRESET_COLORS.map(c => (
+                        <button
+                          key={c}
+                          style={{ background: c }}
+                          className={cn("w-4 h-4 rounded-full transition-all", newLabelColor === c && "ring-2 ring-offset-1 ring-offset-surface-card ring-white/40")}
+                          onClick={() => setNewLabelColor(c)}
+                        />
+                      ))}
+                      <div className="relative">
+                        <input type="color" defaultValue={newLabelColor} onChange={e => setNewLabelColor(e.target.value)} className="sr-only" id="new-label-color" />
+                        <label htmlFor="new-label-color"
+                          className={cn("w-4 h-4 rounded-full border border-dashed border-border-subtle flex items-center justify-center cursor-pointer text-[9px] text-text-main/40 hover:border-text-main/40",
+                            !LABEL_PRESET_COLORS.includes(newLabelColor) && "ring-2 ring-offset-1 ring-offset-surface-card"
+                          )}
+                          style={!LABEL_PRESET_COLORS.includes(newLabelColor) ? { background: newLabelColor } : {}}
+                        >
+                          {LABEL_PRESET_COLORS.includes(newLabelColor) && '+'}
+                        </label>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => { const trimmed = newLabelName.trim(); if (trimmed) { addLabel({ name: trimmed, color: newLabelColor }); setNewLabelName(''); setAddingLabel(false); setNewLabelColor(LABEL_PRESET_COLORS[0]); } }}
+                      disabled={!newLabelName.trim()}
+                      className="text-[11px] font-medium text-text-main/60 hover:text-text-main disabled:opacity-30 transition-colors"
+                    >
+                      {t('common_save')}
+                    </button>
+                    <button onClick={() => { setAddingLabel(false); setNewLabelName(''); }}
+                      className="text-[11px] text-text-main/30 hover:text-text-main/50 transition-colors">
+                      ✕
+                    </button>
+                  </div>
                 )}
               </div>
             )}
@@ -297,7 +357,6 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
             wordCloud={wordCloud}
             maxCount={maxCount}
             onWordClick={setSearchQuery}
-            onAddLabel={addLabel}
           />
 
           {previewSession && (
