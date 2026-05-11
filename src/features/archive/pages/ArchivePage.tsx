@@ -43,7 +43,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     return () => document.removeEventListener('keydown', handler);
   }, []);
 
-  const { labels: profileLabels, addLabel, removeLabel } = useProfileLabels(userId, profile?.labels ?? []);
+  const { labels: profileLabels, addLabel } = useProfileLabels(userId, profile?.labels ?? []);
 
   const data = useArchiveData(user, userId, t, language, profileLabels);
   const {
@@ -158,6 +158,41 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               </div>
             )}
 
+            {profileLabels.length > 0 && (
+              <div className="flex items-center gap-2 py-3 flex-wrap" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
+                <span className="font-mono text-[10px] text-text-main/25 uppercase tracking-widest mr-1">
+                  {t('archive_labels')}
+                </span>
+                {profileLabels.map(label => {
+                  const active = selectedLabels.includes(label.id);
+                  return (
+                    <button
+                      key={label.id}
+                      onClick={() => toggleLabel(label.id)}
+                      className={cn(
+                        "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono transition-all border",
+                        active
+                          ? "border-transparent text-white"
+                          : "bg-transparent border-border-subtle text-text-main/50 hover:text-text-main/70"
+                      )}
+                      style={active ? { background: label.color, borderColor: label.color } : {}}
+                    >
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: label.color }} />
+                      {label.name}
+                    </button>
+                  );
+                })}
+                {selectedLabels.length > 0 && (
+                  <button
+                    onClick={() => selectedLabels.forEach(id => toggleLabel(id))}
+                    className="px-2.5 py-1 rounded-full text-[11px] font-mono border border-dashed border-border-subtle text-text-main/30 hover:text-text-main/50 transition-all"
+                  >
+                    {t('archive_tags_reset')} &#10005;
+                  </button>
+                )}
+              </div>
+            )}
+
             {cloudLoadFailed && (
               <div className="px-4 py-3 rounded-2xl text-sm bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-between mt-4">
                 <span>{t('archive_cloud_load_error')}</span>
@@ -262,12 +297,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
             wordCloud={wordCloud}
             maxCount={maxCount}
             onWordClick={setSearchQuery}
-            labels={profileLabels}
             onAddLabel={addLabel}
-            onRemoveLabel={removeLabel}
-            sessionsForLabels={data.sessions}
-            selectedLabels={selectedLabels}
-            onToggleLabel={toggleLabel}
           />
 
           {previewSession && (
