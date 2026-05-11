@@ -128,4 +128,18 @@ export const writingTranslations: Translations = {
   stats_set_word_goal: { ru: 'Цель по словам',  en: 'Set word goal' },
   stats_set_time_goal: { ru: 'Цель по времени', en: 'Set time goal' },
   stats_writing:       { ru: 'пишу',            en: 'writing' },
+
+  prompt_morning_1:  { ru: 'Что мне предстоит сегодня и как я к этому отношусь?', en: 'What lies ahead today and how do I feel about it?' },
+  prompt_morning_2:  { ru: 'О чём я думал перед сном вчера?', en: 'What was on my mind before falling asleep?' },
+  prompt_morning_3:  { ru: 'Что меня радует прямо сейчас?', en: 'What brings me joy right now?' },
+  prompt_reflect_1:  { ru: 'Что было трудным на этой неделе?', en: 'What was difficult this week?' },
+  prompt_reflect_2:  { ru: 'Чем я горжусь за последнее время?', en: 'What am I proud of lately?' },
+  prompt_reflect_3:  { ru: 'Что я хотел бы изменить?', en: 'What would I like to change?' },
+  prompt_creative_1: { ru: 'Опиши место, где тебе хорошо', en: 'Describe a place where you feel at ease' },
+  prompt_creative_2: { ru: 'Напиши письмо себе через 5 лет', en: 'Write a letter to yourself in 5 years' },
+  prompt_creative_3: { ru: 'Что бы ты сделал, если бы не боялся?', en: 'What would you do if you weren\'t afraid?' },
+
+  wpm_peak: { ru: 'пик', en: 'peak' },
+  wpm_avg:  { ru: 'средн.', en: 'avg' },
+  wpm_unit: { ru: 'сл/мин', en: 'wpm' },
 };

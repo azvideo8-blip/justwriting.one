@@ -134,7 +134,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           if (!isNaN(h) && h >= 0 && h < 24) hours[h]++;
         } catch { /* ignore */ }
       });
-      const typicalHour = `${String(hours.indexOf(Math.max(...hours))).padStart(2, '0')}:00`;
+      const typicalHour = sessions.length === 0 ? '—' : `${String(hours.indexOf(Math.max(...hours))).padStart(2, '0')}:00`;
 
       const daysActive = dates.size || 1;
       const wordsPerDay = Math.round(docStats.totalWords / daysActive);
@@ -149,7 +149,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       };
     } catch (err) {
       console.error('kpiStats error:', err);
-      return { totalWords: 0, streakDays: 0, sessionsCount: 0, avgSessionMins: 0, typicalHour: '00:00', wordsPerDay: 0 };
+      return { totalWords: 0, streakDays: 0, sessionsCount: 0, avgSessionMins: 0, typicalHour: '—', wordsPerDay: 0 };
     }
   }, [sessions, docStats]);
 

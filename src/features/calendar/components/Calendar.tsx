@@ -16,7 +16,7 @@ interface CalendarProps {
 
 export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate, onSelectMonth }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const locale = language === 'ru' ? ru : enUS;
   const start = startOfMonth(currentMonth);
   const end = endOfMonth(currentMonth);
@@ -38,8 +38,8 @@ export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate,
       </div>
 
       <div className="grid grid-cols-7 gap-2">
-        {(language === 'ru' ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']).map((d, i) => (
-          <div key={`${d}-${i}`} className="text-[10px] text-text-main/30 uppercase tracking-wider text-center">{d}</div>
+        {['calendar_mon', 'calendar_tue', 'calendar_wed', 'calendar_thu', 'calendar_fri', 'calendar_sat', 'calendar_sun'].map((key, i) => (
+          <div key={`${key}-${i}`} className="text-[10px] text-text-main/30 uppercase tracking-wider text-center">{t(key)}</div>
         ))}
         {Array.from({ length: offset }).map((_, i) => (
           <div key={`empty-${i}`} />

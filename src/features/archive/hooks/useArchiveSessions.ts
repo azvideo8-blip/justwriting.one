@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { User } from 'firebase/auth';
 import { StorageService } from '../../writing/services/StorageService';
 import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
@@ -16,7 +16,7 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
   const [deleteConfirm, setDeleteConfirm] = useState<ArchiveSession | null>(null);
   const mountedRef = useRef(true);
 
-  const fetchSessions = async (_retry = false) => {
+  const fetchSessions = useCallback(async (_retry = false) => {
     setLoading(true);
     setError(null);
 
@@ -32,7 +32,7 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  };
+  }, [userId, user, t]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -41,7 +41,7 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
 
   useEffect(() => {
     fetchSessions();
-  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchSessions]);
 
   const updateSession = (id: string, patch: Partial<ArchiveSession>) => {
     setSessions(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s));

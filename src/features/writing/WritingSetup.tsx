@@ -9,22 +9,10 @@ import { useLanguage } from '../../core/i18n';
 import { formatTime } from '../../core/utils/formatTime';
 import { useWritingStore } from './store/useWritingStore';
 
-const PROMPT_CATEGORIES = [
-  { key: 'morning', prompts: [
-    'Что мне предстоит сегодня и как я к этому отношусь?',
-    'О чём я думал перед сном вчера?',
-    'Что меня радует прямо сейчас?',
-  ]},
-  { key: 'reflect', prompts: [
-    'Что было трудным на этой неделе?',
-    'Чем я горжусь за последнее время?',
-    'Что я хотел бы изменить?',
-  ]},
-  { key: 'creative', prompts: [
-    'Опиши место, где тебе хорошо',
-    'Напиши письмо себе через 5 лет',
-    'Что бы ты сделал, если бы не боялся?',
-  ]},
+const PROMPT_KEYS = [
+  { key: 'morning', promptKeys: ['prompt_morning_1', 'prompt_morning_2', 'prompt_morning_3'] },
+  { key: 'reflect', promptKeys: ['prompt_reflect_1', 'prompt_reflect_2', 'prompt_reflect_3'] },
+  { key: 'creative', promptKeys: ['prompt_creative_1', 'prompt_creative_2', 'prompt_creative_3'] },
 ] as const;
 
 function PromptsScreen({ t, onSelect, onBack }: {
@@ -41,19 +29,19 @@ function PromptsScreen({ t, onSelect, onBack }: {
       </div>
 
       <div className="space-y-5">
-        {PROMPT_CATEGORIES.map(cat => (
+        {PROMPT_KEYS.map(cat => (
           <div key={cat.key}>
             <div className="text-[11px] font-bold uppercase tracking-widest text-text-main/40 mb-2">
               {t(`prompts_category_${cat.key}`)}
             </div>
             <div className="space-y-2">
-              {cat.prompts.map((prompt, i) => (
+              {cat.promptKeys.map((promptKey, i) => (
                 <button
                   key={i}
-                  onClick={() => onSelect(prompt)}
+                  onClick={() => onSelect(t(promptKey))}
                   className="w-full text-left px-4 py-3 rounded-xl border border-border-subtle hover:border-brand-primary/30 hover:bg-brand-primary/5 transition-all text-sm text-text-main/70 hover:text-text-main"
                 >
-                  {prompt}
+                  {t(promptKey)}
                 </button>
               ))}
             </div>

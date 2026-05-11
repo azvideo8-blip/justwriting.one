@@ -48,6 +48,16 @@ export const archiveTranslations: Translations = {
   archive_add_label: { ru: 'Добавить бирку', en: 'Add label' },
   archive_label_name_placeholder: { ru: 'Название...', en: 'Name...' },
   archive_assign_label: { ru: 'Назначить бирку', en: 'Assign label' },
+  archive_tag_placeholder_short: { ru: 'тег', en: 'tag' },
+  archive_tag_add_short: { ru: '+ тег', en: '+ tag' },
+
+  calendar_mon: { ru: 'Пн', en: 'Mon' },
+  calendar_tue: { ru: 'Вт', en: 'Tue' },
+  calendar_wed: { ru: 'Ср', en: 'Wed' },
+  calendar_thu: { ru: 'Чт', en: 'Thu' },
+  calendar_fri: { ru: 'Пт', en: 'Fri' },
+  calendar_sat: { ru: 'Сб', en: 'Sat' },
+  calendar_sun: { ru: 'Вс', en: 'Sun' },
   session_delete_confirm_desc: { ru: 'Это действие нельзя отменить', en: 'This action cannot be undone' },
 
   session_anonymous: { ru: 'Аноним', en: 'Anonymous' },
