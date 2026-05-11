@@ -6,30 +6,17 @@ import { ProfileService } from '../services/ProfileService';
 import { useLanguage } from '../../../core/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 
-const QUOTES = [
-  'Пишу по утрам, до того, как голова наполнится чужими голосами.',
-  'Письмо — это способ узнать, что ты думаешь на самом деле.',
-  'Чистый лист — не враг. Это приглашение.',
-  'Писать каждый день — значит верить, что у тебя есть что сказать.',
-  'Слова приходят только тогда, когда ты их не боишься.',
-  'Фрирайтинг — это разговор с собой без цензуры.',
-  'Не нужно писать хорошо. Нужно писать честно.',
-  'Страх чистого листа исчезает после первого слова.',
-  'Утренние страницы — это уборка в голове.',
-  'Писать — значит думать медленно.',
-  'Каждая сессия — это маленькое открытие.',
-  'Текст не должен быть идеальным. Он должен быть настоящим.',
-  'Письмо лечит то, что нельзя объяснить вслух.',
-  'Регулярность важнее вдохновения.',
-  'Самые важные слова — те, которые никто кроме тебя не прочтёт.',
-  'Поток слов смывает тревогу.',
-  'Не редактируй. Просто пиши.',
-  'Бумага терпит всё. Именно поэтому ей можно доверять.',
-  'Письмо — это медитация для тех, кто не умеет молчать.',
-  'Каждое слово — шаг в сторону ясности.',
+const QUOTE_KEYS = [
+  'profile_quote_1',  'profile_quote_2',  'profile_quote_3',
+  'profile_quote_4',  'profile_quote_5',  'profile_quote_6',
+  'profile_quote_7',  'profile_quote_8',  'profile_quote_9',
+  'profile_quote_10', 'profile_quote_11', 'profile_quote_12',
+  'profile_quote_13', 'profile_quote_14', 'profile_quote_15',
+  'profile_quote_16', 'profile_quote_17', 'profile_quote_18',
+  'profile_quote_19', 'profile_quote_20',
 ];
 
-const todayQuote = QUOTES[new Date().getDate() % QUOTES.length];
+const todayQuoteKey = QUOTE_KEYS[new Date().getDate() % QUOTE_KEYS.length];
 
 interface ProfileHeroProps {
   user: User | null;
@@ -124,7 +111,7 @@ export function ProfileHero({ user, profile, isGuest, onStartSession, onSync, sy
           )}
 
           <div className="font-serif italic text-[14px] text-text-main/50 leading-relaxed max-w-lg mb-5">
-            «{todayQuote}»
+             «{t(todayQuoteKey)}»
           </div>
 
           <div className="flex gap-2">

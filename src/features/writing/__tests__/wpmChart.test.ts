@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import React from 'react';
 import { render } from '@testing-library/react';
 import { WpmChart } from '../components/WpmChart';
+import { LanguageProvider } from '../../../core/i18n';
 
 // ─── Replicate the chart math from WpmChart.tsx ───────────────────────────────
 
@@ -121,14 +122,18 @@ describe('WpmChart path generation math', () => {
 describe('WpmChart component', () => {
   it('with data.length < 2 the component returns null', () => {
     const { container } = render(
-      React.createElement(WpmChart, { data: [{ timestamp: 0, wpm: 50 }] })
+      React.createElement(LanguageProvider, null,
+        React.createElement(WpmChart, { data: [{ timestamp: 0, wpm: 50 }] })
+      )
     );
     expect(container.firstChild).toBeNull();
   });
 
   it('with data.length === 0 the component returns null', () => {
     const { container } = render(
-      React.createElement(WpmChart, { data: [] })
+      React.createElement(LanguageProvider, null,
+        React.createElement(WpmChart, { data: [] })
+      )
     );
     expect(container.firstChild).toBeNull();
   });
@@ -139,7 +144,9 @@ describe('WpmChart component', () => {
       { timestamp: 1000, wpm: 80 },
     ];
     const { container } = render(
-      React.createElement(WpmChart, { data })
+      React.createElement(LanguageProvider, null,
+        React.createElement(WpmChart, { data })
+      )
     );
     expect(container.querySelector('svg')).not.toBeNull();
   });

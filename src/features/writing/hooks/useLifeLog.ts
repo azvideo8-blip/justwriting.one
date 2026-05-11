@@ -5,7 +5,7 @@ import { StorageState } from '../services/StorageService';
 import { Session, Document } from '../../../types';
 import { SessionService } from '../services/SessionService';
 import { LocalDocument, getLocalDb } from '../../../shared/lib/localDb';
-import { parseFirestoreDate } from '../../../core/utils/utils';
+import { getSessionDate } from '../../../core/utils/utils';
 import { toDate } from '../../../core/utils/dateUtils';
 import { useLanguage } from '../../../core/i18n';
 
@@ -17,6 +17,7 @@ export interface LifeLogDocument {
   totalDuration: number;
   currentVersion: number;
   sessionsCount: number;
+  firstSessionAt: number;
   lastSessionAt: number;
   tags: string[];
   storage: StorageState;
@@ -125,6 +126,7 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
           totalDuration: d.totalDuration,
           currentVersion: d.currentVersion,
           sessionsCount: d.sessionsCount,
+          firstSessionAt: d.firstSessionAt,
           lastSessionAt: d.lastSessionAt,
           tags: d.tags,
           storage: { local: true, cloud: !!d.linkedCloudId },
@@ -159,6 +161,7 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
             totalDuration: local.totalDuration,
             currentVersion: local.currentVersion,
             sessionsCount: local.sessionsCount,
+            firstSessionAt: local.firstSessionAt,
             lastSessionAt: local.lastSessionAt,
             tags: local.tags,
             storage: {
@@ -177,6 +180,7 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
             totalDuration: cloud.totalDuration,
             currentVersion: cloud.currentVersion,
             sessionsCount: cloud.sessionsCount,
+            firstSessionAt: toDate(cloud.firstSessionAt)?.getTime() ?? 0,
             lastSessionAt: toDate(cloud.lastSessionAt)?.getTime() ?? 0,
             tags: cloud.tags,
             storage: {
@@ -225,7 +229,8 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
       wpm: 0,
       title: d.title,
       tags: d.tags,
-      createdAt: new Date(d.lastSessionAt),
+      createdAt: new Date(d.firstSessionAt || d.lastSessionAt),
+      sessionStartTime: d.firstSessionAt || undefined,
       _isLocal: !!d.localId,
     } as Session));
 
@@ -235,7 +240,7 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
     const allEntries = [...docSessions, ...dedupedSessions];
 
     allEntries.forEach(entry => {
-      const date = parseFirestoreDate(entry.createdAt);
+      const date = getSessionDate(entry);
       if (!date) return;
 
       const sessionDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());

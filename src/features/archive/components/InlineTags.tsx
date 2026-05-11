@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { X } from 'lucide-react';
+import { useLanguage } from '../../../core/i18n';
 
 interface InlineTagsProps {
   tags: string[];
@@ -10,6 +11,7 @@ export function InlineTags({ tags, onChange }: InlineTagsProps) {
   const [adding, setAdding] = useState(false);
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const { t } = useLanguage();
 
   const removeTag = (e: React.MouseEvent, tag: string) => {
     e.stopPropagation();
@@ -53,7 +55,7 @@ export function InlineTags({ tags, onChange }: InlineTagsProps) {
           }}
           onBlur={addTag}
           autoFocus
-          placeholder="тег"
+          placeholder={t('archive_tag_placeholder_short')}
           className="font-mono text-[10px] text-text-main border border-text-main/20 rounded px-1.5 py-0.5 bg-transparent outline-none w-16"
         />
       ) : (
@@ -61,7 +63,7 @@ export function InlineTags({ tags, onChange }: InlineTagsProps) {
           onClick={e => { e.stopPropagation(); setAdding(true); }}
           className="font-mono text-[10px] text-text-main/20 border border-dashed border-text-main/15 rounded px-1.5 py-0.5 hover:text-text-main/40 hover:border-text-main/25 transition-colors"
         >
-          + тег
+          {t('archive_tag_add_short')}
         </button>
       )}
     </div>
