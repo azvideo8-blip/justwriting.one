@@ -230,6 +230,7 @@ export const useWritingStore = create<WritingState>((set) => ({
       labelId: undefined,
       initialDuration: 0,
       activeSessionId: null,
+      pinnedThoughts: [],
     });
   },
 

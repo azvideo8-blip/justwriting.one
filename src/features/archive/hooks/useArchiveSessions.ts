@@ -3,6 +3,7 @@ import { User } from 'firebase/auth';
 import { StorageService } from '../../writing/services/StorageService';
 import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
 import { DocumentService } from '../../writing/services/DocumentService';
+import { SessionService } from '../../writing/services/SessionService';
 import { loadAllSessions } from '../../writing/services/UnifiedSessionLoader';
 import { ArchiveSession } from '../types';
 
@@ -49,11 +50,15 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
 
   const handleDeleteSession = async (s: ArchiveSession) => {
     try {
-      await StorageService.deleteDocument(
-        userId,
-        s._isLocal ? s.id : undefined,
-        s._hasCloudCopy ? (s._linkedCloudId || s.id) : undefined
-      );
+      if (s._isLegacy) {
+        await SessionService.deleteSession(s.id);
+      } else {
+        await StorageService.deleteDocument(
+          userId,
+          s._isLocal ? s.id : undefined,
+          s._hasCloudCopy ? (s._linkedCloudId || s.id) : undefined
+        );
+      }
       setSessions(prev => prev.filter(x => x.id !== s.id));
       if (previewSession?.id === s.id) setPreviewSession(null);
     } catch (e) {
@@ -63,8 +68,13 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
 
   const handleTagsChange = async (session: ArchiveSession, newTags: string[]) => {
     try {
-      if (session._isLocal) {
+      if (session._isLegacy) {
+        await SessionService.updateSession(session.id, { tags: newTags });
+      } else if (session._isLocal) {
         await LocalDocumentService.updateTags(session.id, newTags);
+        if (session._linkedCloudId && user) {
+          await DocumentService.updateTags(user.uid, session._linkedCloudId, newTags).catch(() => {});
+        }
       } else if (user) {
         await DocumentService.updateTags(user.uid, session.id, newTags);
       }
@@ -76,7 +86,9 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
 
   const handleTitleChange = async (session: ArchiveSession, newTitle: string) => {
     try {
-      if (session._isLocal) {
+      if (session._isLegacy) {
+        await SessionService.updateSession(session.id, { title: newTitle });
+      } else if (session._isLocal) {
         await LocalDocumentService.updateTitle(session.id, newTitle);
         if (session._linkedCloudId && user) {
           await DocumentService.updateTitle(user.uid, session._linkedCloudId, newTitle).catch(() => {});
@@ -93,7 +105,9 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
   const handleDateChange = async (session: ArchiveSession, newDate: Date) => {
     try {
       const ts = newDate.getTime();
-      if (session._isLocal) {
+      if (session._isLegacy) {
+        await SessionService.updateSession(session.id, { sessionStartTime: ts });
+      } else if (session._isLocal) {
         await LocalDocumentService.updateDate(session.id, ts, ts);
         if (session._linkedCloudId && user) {
           await DocumentService.updateDate(user.uid, session._linkedCloudId, newDate, newDate).catch(() => {});
@@ -109,7 +123,9 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
 
   const handleLabelChange = async (session: ArchiveSession, labelId: string | undefined) => {
     try {
-      if (session._isLocal) {
+      if (session._isLegacy) {
+        await SessionService.updateSession(session.id, { labelId });
+      } else if (session._isLocal) {
         await LocalDocumentService.updateLabelId(session.id, labelId);
         if (session._linkedCloudId && user) {
           await DocumentService.updateLabelId(user.uid, session._linkedCloudId, labelId).catch(() => {});

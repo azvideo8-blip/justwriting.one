@@ -80,12 +80,6 @@ export function useSessionPersistence(
     if (draftToLoad) {
       actions.setHasDraft(true);
       if (!useWritingStore.getState().content) {
-        const currentStatus = useWritingStore.getState().status;
-        if (currentStatus === 'idle') {
-          await WritingDraftService.deleteDraft(userId);
-          draftLoadedForRef.current = userId;
-          return;
-        }
         useWritingStore.setState({
           content: draftToLoad.content || '',
           title: draftToLoad.title || '',

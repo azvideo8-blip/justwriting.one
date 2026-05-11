@@ -32,31 +32,7 @@ export const SyncService = {
     _syncInProgress.set(userId, true);
 
     try {
-      const db = await getLocalDb();
-      const queue = await db.getAll('syncQueue');
-      const pending = queue.filter(item => !item.id.startsWith('migrated_'));
-
-      if (pending.length === 0) return;
-
-      const documentIds = [...new Set(pending.map(p => p.documentId))];
-
-      const results = await Promise.allSettled(documentIds.map(async (localId) => {
-        const cloudId = await StorageService.addCloudCopy(userId, localId);
-        if (!cloudId) return [];
-        return pending.filter(p => p.documentId === localId).map(p => p.id);
-      }));
-
-      const syncedIds: string[] = [];
-      for (const r of results) {
-        if (r.status === 'fulfilled') syncedIds.push(...r.value);
-        else console.error(`Sync failed:`, r.reason);
-      }
-
-      if (syncedIds.length > 0) {
-        const tx = db.transaction('syncQueue', 'readwrite');
-        await Promise.all(syncedIds.map(id => tx.store.delete(id)));
-        await tx.done;
-      }
+      await _drainPendingQueue(userId);
     } finally {
       _syncInProgress.set(userId, false);
     }
@@ -67,7 +43,7 @@ export const SyncService = {
     _syncInProgress.set(userId, true);
 
     try {
-      await SyncService.syncPending(userId);
+      await _drainPendingQueue(userId);
 
       const localDocs = await LocalDocumentService.getGuestDocuments(userId);
       const unlinked = localDocs.filter(d => !d.linkedCloudId);
@@ -120,3 +96,31 @@ export const SyncService = {
     return { downloaded, skipped: linkedCloudIds.size, failed };
   },
 };
+
+async function _drainPendingQueue(userId: string): Promise<void> {
+  const db = await getLocalDb();
+  const queue = await db.getAll('syncQueue');
+  const pending = queue.filter(item => !item.id.startsWith('migrated_'));
+
+  if (pending.length === 0) return;
+
+  const documentIds = [...new Set(pending.map(p => p.documentId))];
+
+  const results = await Promise.allSettled(documentIds.map(async (localId) => {
+    const cloudId = await StorageService.addCloudCopy(userId, localId);
+    if (!cloudId) return [];
+    return pending.filter(p => p.documentId === localId).map(p => p.id);
+  }));
+
+  const syncedIds: string[] = [];
+  for (const r of results) {
+    if (r.status === 'fulfilled') syncedIds.push(...r.value);
+    else console.error(`Sync failed:`, r.reason);
+  }
+
+  if (syncedIds.length > 0) {
+    const tx = db.transaction('syncQueue', 'readwrite');
+    await Promise.all(syncedIds.map(id => tx.store.delete(id)));
+    await tx.done;
+  }
+}
