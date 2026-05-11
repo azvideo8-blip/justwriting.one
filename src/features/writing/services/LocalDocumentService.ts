@@ -143,6 +143,33 @@ export const LocalDocumentService = {
     });
   },
 
+  async clearLabelFromAllDocs(userId: string, labelId: string): Promise<void> {
+    const db = await getLocalDb();
+    const all = await db.getAllFromIndex('documents', 'by-guest', userId);
+    await Promise.all(
+      all.filter(d => d.labelId === labelId)
+         .map(d => db.put('documents', { ...d, labelId: undefined }))
+    );
+  },
+
+  async renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void> {
+    const db = await getLocalDb();
+    const all = await db.getAllFromIndex('documents', 'by-guest', userId);
+    await Promise.all(
+      all.filter(d => d.tags?.includes(oldTag))
+         .map(d => db.put('documents', { ...d, tags: d.tags!.map(t => t === oldTag ? newTag : t) }))
+    );
+  },
+
+  async removeTagFromAllDocs(userId: string, tag: string): Promise<void> {
+    const db = await getLocalDb();
+    const all = await db.getAllFromIndex('documents', 'by-guest', userId);
+    await Promise.all(
+      all.filter(d => d.tags?.includes(tag))
+         .map(d => db.put('documents', { ...d, tags: d.tags!.filter(t => t !== tag) }))
+    );
+  },
+
   async getProfile(guestId: string) {
     const db = await getLocalDb();
     return db.get('profile', guestId);

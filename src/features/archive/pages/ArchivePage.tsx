@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { format } from 'date-fns';
-import { Search, LayoutGrid, LayoutList, BookOpen } from 'lucide-react';
+import { Search, LayoutGrid, LayoutList, BookOpen, Pencil, X } from 'lucide-react';
 import { UserProfile } from '../../../types';
 import { GridNoteCard } from '../components/GridNoteCard';
 import { cn, calculateStreak } from '../../../core/utils/utils';
@@ -20,6 +20,8 @@ import { ArchiveSidebar } from '../components/ArchiveSidebar';
 import { useArchiveData } from '../hooks/useArchiveData';
 import { useProfileLabels } from '../../profile/hooks/useProfileLabels';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
+import { DocumentService } from '../../writing/services/DocumentService';
+import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
 
 interface ArchiveViewProps {
   user: User | null;
@@ -44,7 +46,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     return () => document.removeEventListener('keydown', handler);
   }, []);
 
-  const { labels: profileLabels, addLabel } = useProfileLabels(userId, profile?.labels ?? []);
+  const { labels: profileLabels, addLabel, updateLabel, removeLabel } = useProfileLabels(userId, profile?.labels ?? []);
 
   const data = useArchiveData(user, userId, t, language, profileLabels);
   const {
@@ -72,6 +74,13 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const [addingLabel, setAddingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
   const [newLabelColor, setNewLabelColor] = useState(LABEL_PRESET_COLORS[0]);
+  const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
+  const [editLabelName, setEditLabelName] = useState('');
+  const [editLabelColor, setEditLabelColor] = useState('');
+  const [renamingTag, setRenamingTag] = useState<string | null>(null);
+  const [renameTagValue, setRenameTagValue] = useState('');
+  const [tagDeleteConfirm, setTagDeleteConfirm] = useState<string | null>(null);
+  const [labelDeleteConfirm, setLabelDeleteConfirm] = useState<string | null>(null);
 
   return (
     <AdaptiveContainer>
@@ -134,21 +143,64 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 </span>
                 {allTags.map(tag => {
                   const active = selectedTags.includes(tag);
+                  if (renamingTag === tag) {
+                    return (
+                      <div key={tag} className="flex items-center gap-1 px-2 py-1 rounded-xl border border-border-subtle bg-surface-card">
+                        <span className="text-[11px] font-mono text-text-main/40">#</span>
+                        <input
+                          value={renameTagValue}
+                          onChange={e => setRenameTagValue(e.target.value)}
+                          autoFocus
+                          className="w-20 bg-transparent text-[12px] text-text-main outline-none"
+                          onKeyDown={async e => {
+                            if (e.key === 'Enter') {
+                              const trimmed = renameTagValue.trim();
+                              if (trimmed && trimmed !== tag) {
+                                await DocumentService.renameTagInAllDocs(userId, tag, trimmed).catch(() => {});
+                                await LocalDocumentService.renameTagInAllDocs(userId, tag, trimmed).catch(() => {});
+                                fetchSessions();
+                              }
+                              setRenamingTag(null);
+                            }
+                            if (e.key === 'Escape') setRenamingTag(null);
+                          }}
+                        />
+                        <button onClick={() => setRenamingTag(null)} className="text-[10px] text-text-main/30 hover:text-text-main/50">✕</button>
+                      </div>
+                    );
+                  }
                   return (
-                    <button
-                      key={tag}
-                      onClick={() => setSelectedTags(prev =>
-                        prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+                    <div key={tag} className="group/tag relative flex items-center">
+                      <button
+                        onClick={() => setSelectedTags(prev =>
+                          prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+                        )}
+                        className={cn(
+                          "px-2.5 py-1 rounded-full text-[11px] font-mono transition-all border",
+                          active
+                            ? "bg-text-main/10 border-text-main/30 text-text-main"
+                            : "bg-transparent border-border-subtle text-text-main/40 hover:text-text-main/60"
+                        )}
+                      >
+                        #{tag}
+                      </button>
+                      {user && (
+                        <span className="absolute -top-1.5 -right-1.5 opacity-0 group-hover/tag:opacity-100 transition-opacity flex gap-0.5">
+                          <button
+                            onClick={e => { e.stopPropagation(); setRenamingTag(tag); setRenameTagValue(tag); }}
+                            className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-text-main/60"
+                          >
+                            <Pencil size={7} />
+                          </button>
+                          <button
+                            onClick={e => { e.stopPropagation(); setTagDeleteConfirm(tag); }}
+                            className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-red-400"
+                          >
+                            <X size={7} />
+                          </button>
+                        </span>
                       )}
-                      className={cn(
-                        "px-2.5 py-1 rounded-full text-[11px] font-mono transition-all border",
-                        active
-                          ? "bg-text-main/10 border-text-main/30 text-text-main"
-                          : "bg-transparent border-border-subtle text-text-main/40 hover:text-text-main/60"
-                      )}
-                    >
-                      #{tag}
-                    </button>
+                    </div>
                   );
                 })}
                 {selectedTags.length > 0 && (
@@ -169,19 +221,72 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 </span>
                 {profileLabels.map(label => {
                   const active = selectedLabels.includes(label.id);
+                  if (editingLabelId === label.id) {
+                    return (
+                      <div key={label.id} className="flex items-center gap-2 px-2 py-1 rounded-xl border border-border-subtle bg-surface-card">
+                        <input
+                          value={editLabelName}
+                          onChange={e => setEditLabelName(e.target.value)}
+                          autoFocus
+                          className="w-24 bg-transparent text-[12px] text-text-main outline-none"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              const trimmed = editLabelName.trim();
+                              if (trimmed) updateLabel(label.id, { name: trimmed, color: editLabelColor });
+                              setEditingLabelId(null);
+                            }
+                            if (e.key === 'Escape') setEditingLabelId(null);
+                          }}
+                        />
+                        <div className="flex gap-1">
+                          {LABEL_PRESET_COLORS.map(c => (
+                            <button
+                              key={c}
+                              style={{ background: c }}
+                              className={cn("w-3.5 h-3.5 rounded-full transition-all", editLabelColor === c && "ring-2 ring-offset-1 ring-offset-surface-card ring-white/40")}
+                              onClick={() => setEditLabelColor(c)}
+                            />
+                          ))}
+                        </div>
+                        <button onClick={() => { const trimmed = editLabelName.trim(); if (trimmed) updateLabel(label.id, { name: trimmed, color: editLabelColor }); setEditingLabelId(null); }}
+                          disabled={!editLabelName.trim()}
+                          className="text-[10px] font-medium text-text-main/60 hover:text-text-main disabled:opacity-30">
+                          {t('common_save')}
+                        </button>
+                        <button onClick={() => setEditingLabelId(null)} className="text-[10px] text-text-main/30 hover:text-text-main/50">✕</button>
+                      </div>
+                    );
+                  }
                   return (
-                    <button
-                      key={label.id}
-                      onClick={() => toggleLabel(label.id)}
-                      className={cn(
-                        "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono transition-all border",
-                        active ? "border-transparent text-white" : "bg-transparent border-border-subtle text-text-main/50 hover:text-text-main/70"
+                    <div key={label.id} className="group/label relative flex items-center">
+                      <button
+                        onClick={() => toggleLabel(label.id)}
+                        className={cn(
+                          "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono transition-all border",
+                          active ? "border-transparent text-white" : "bg-transparent border-border-subtle text-text-main/50 hover:text-text-main/70"
+                        )}
+                        style={active ? { background: label.color, borderColor: label.color } : {}}
+                      >
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: label.color }} />
+                        {label.name}
+                      </button>
+                      {user && (
+                        <span className="absolute -top-1.5 -right-1.5 opacity-0 group-hover/label:opacity-100 transition-opacity flex gap-0.5">
+                          <button
+                            onClick={e => { e.stopPropagation(); setEditingLabelId(label.id); setEditLabelName(label.name); setEditLabelColor(label.color); }}
+                            className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-text-main/60"
+                          >
+                            <Pencil size={7} />
+                          </button>
+                          <button
+                            onClick={e => { e.stopPropagation(); setLabelDeleteConfirm(label.id); }}
+                            className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-red-400"
+                          >
+                            <X size={7} />
+                          </button>
+                        </span>
                       )}
-                      style={active ? { background: label.color, borderColor: label.color } : {}}
-                    >
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: label.color }} />
-                      {label.name}
-                    </button>
+                    </div>
                   );
                 })}
                 {selectedLabels.length > 0 && (
@@ -192,7 +297,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                     {t('archive_tags_reset')} &#10005;
                   </button>
                 )}
-                {user && !addingLabel && (
+                {user && !addingLabel && !editingLabelId && (
                   <button
                     onClick={() => setAddingLabel(true)}
                     className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-mono text-text-main/30 hover:text-text-main/50 border border-dashed border-border-subtle transition-all"
@@ -376,6 +481,61 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               />
             )}
           </AnimatePresence>
+
+          {tagDeleteConfirm && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+              <div className="bg-surface-card border border-border-subtle rounded-2xl p-6 w-80 shadow-lg">
+                <h3 className="text-base font-medium text-text-main mb-2">{t('archive_tags_label')}</h3>
+                <p className="text-sm text-text-main/40 mb-5">
+                  {t('archive_tag_delete_confirm', { tag: tagDeleteConfirm })}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      await DocumentService.removeTagFromAllDocs(userId, tagDeleteConfirm).catch(() => {});
+                      await LocalDocumentService.removeTagFromAllDocs(userId, tagDeleteConfirm).catch(() => {});
+                      fetchSessions();
+                      setTagDeleteConfirm(null);
+                    }}
+                    className="flex-1 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium hover:bg-red-500/20"
+                  >
+                    {t('storage_delete_confirm')}
+                  </button>
+                  <button
+                    onClick={() => setTagDeleteConfirm(null)}
+                    className="flex-1 py-2.5 rounded-xl border border-border-subtle text-text-main/40 text-sm hover:text-text-main"
+                  >
+                    {t('common_cancel')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {labelDeleteConfirm && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+              <div className="bg-surface-card border border-border-subtle rounded-2xl p-6 w-80 shadow-lg">
+                <h3 className="text-base font-medium text-text-main mb-2">{t('archive_labels')}</h3>
+                <p className="text-sm text-text-main/40 mb-5">
+                  {t('archive_label_delete_confirm')}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { removeLabel(labelDeleteConfirm); setLabelDeleteConfirm(null); }}
+                    className="flex-1 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium hover:bg-red-500/20"
+                  >
+                    {t('storage_delete_confirm')}
+                  </button>
+                  <button
+                    onClick={() => setLabelDeleteConfirm(null)}
+                    className="flex-1 py-2.5 rounded-xl border border-border-subtle text-text-main/40 text-sm hover:text-text-main"
+                  >
+                    {t('common_cancel')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {deleteConfirm && (
             <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm">
