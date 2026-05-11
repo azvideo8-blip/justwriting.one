@@ -31,7 +31,6 @@ interface DesktopWritingLayoutProps {
   onContinueSession: (session: Session) => void;
   handlePlayRef: React.MutableRefObject<() => void>;
   keystrokeTrackerRef: React.MutableRefObject<KeystrokeTracker>;
-  isGuest: boolean;
   hasDraft: boolean;
   sessionStatus: string;
   userId: string;
@@ -54,7 +53,7 @@ export function DesktopWritingLayout({
   countdown, totalDurationForDeadline,
   onOpenSettings, onNew, onOpenLog, onSave, onPlay, onPause, onStop,
   onContinueSession, handlePlayRef, keystrokeTrackerRef,
-  isGuest, hasDraft, sessionStatus, userId,
+  hasDraft, sessionStatus, userId,
   onContinueSessionOrDoc, loadDraft, setHasDraft,
   onSetPromptTitle,
   showZen, lifeLogVisible, setLifeLogVisible,
@@ -116,16 +115,16 @@ export function DesktopWritingLayout({
           />
         </div>
 
-        {isGuest && hasDraft && sessionStatus === 'idle' && !setupMode && (
+        {hasDraft && sessionStatus === 'idle' && !setupMode && (
           <div className="flex items-center justify-between px-4 py-2.5 mx-4 mt-2 rounded-xl border border-text-main/10 bg-text-main/[0.04] text-sm text-text-main/60">
-            <span>{t('guest_draft_restore_prompt')}</span>
+            <span>{t('draft_restore_prompt')}</span>
             <div className="flex gap-2">
               <button onClick={loadDraft} className="text-text-main font-medium hover:opacity-70 transition-opacity">
-                {t('guest_draft_restore')}
+                {t('draft_restore')}
               </button>
               <button onClick={() => { setHasDraft(false); localStorage.removeItem('jw_guest_draft'); }}
                 className="text-text-main/40 hover:text-text-main/60 transition-colors">
-                {t('guest_draft_discard')}
+                {t('draft_discard')}
               </button>
             </div>
           </div>

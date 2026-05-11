@@ -5,7 +5,6 @@ import { useWritingStore } from '../store/useWritingStore';
 import { Session, UserProfile } from '../../../types';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useSettings } from '../../../core/settings/SettingsContext';
-import { calculateStreak } from '../../../core/utils/utils';
 import { GoalToast } from '../../../shared/components/GoalToast';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -17,6 +16,7 @@ import { useSessionFlow } from '../hooks/useSessionFlow';
 import { MobileWriteScreen } from '../components/MobileWriteScreen';
 import { MobileHomeScreen } from '../components/MobileHomeScreen';
 import { useLifeLog } from '../hooks/useLifeLog';
+import { useStreak } from '../hooks/useStreak';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 import { SyncService } from '../services/SyncService';
@@ -38,12 +38,12 @@ interface WritingViewProps {
 
 function AuthenticatedWritingPage({ user, profile }: { user: User; profile: UserProfile | null }) {
   const session = useCloudWritingSession(user, profile);
-  return <WritingPageUI session={session} profile={profile} />;
+  return <WritingPageUI session={session} profile={profile} user={user} />;
 }
 
 function GuestWritingPageInner() {
   const session = useGuestWritingSession();
-  return <WritingPageUI session={session} profile={null} />;
+  return <WritingPageUI session={session} profile={null} user={null} />;
 }
 
 function WritingPageContent({ user, profile }: WritingViewProps) {
@@ -53,7 +53,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
   return <GuestWritingPageInner />;
 }
 
-function WritingPageUI({ session, profile }: { session: AnySessionReturn; profile: UserProfile | null }) {
+function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; profile: UserProfile | null; user: User | null }) {
   const location = useLocation();
   const navigate = useNavigate();
   const sessionToContinue = (location.state as { sessionToContinue?: Session | null } | null)?.sessionToContinue || null;
@@ -141,6 +141,7 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
   }, [sessionToContinue, handleContinueSession, navigate, location.pathname]);
 
   const { sessionGroups: lifeLogGroups, summary: lifeLogSummary } = useLifeLog(userId, isGuest);
+  const streakDays = useStreak(userId, user ?? null, isGuest);
 
   const [showOnboarding, setShowOnboarding] = useState(
     () => !localStorage.getItem('onboarding_done')
@@ -151,11 +152,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
     localStorage.setItem('onboarding_done', '1');
     setShowOnboarding(false);
   }, [setWordGoalVal]);
-
-  const streakDays = React.useMemo(() => {
-    const allSessions = lifeLogGroups.flatMap(g => g.sessions);
-    return calculateStreak(allSessions);
-  }, [lifeLogGroups]);
 
   const onFinishClick = React.useCallback(() => {
     handleFinish(keystrokeTrackerRef);
@@ -265,7 +261,6 @@ function WritingPageUI({ session, profile }: { session: AnySessionReturn; profil
         onContinueSession={handleContinueSession}
         handlePlayRef={handlePlayRef}
         keystrokeTrackerRef={keystrokeTrackerRef}
-        isGuest={isGuest}
         hasDraft={hasDraft}
         sessionStatus={sessionStatus}
         userId={userId}
