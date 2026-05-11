@@ -45,6 +45,7 @@ export const archiveTranslations: Translations = {
   archive_wordcloud_title:     { ru: 'Облако слов',  en: 'Word cloud' },
   archive_labels: { ru: 'Метки', en: 'Labels' },
   archive_label_name: { ru: 'Название метки', en: 'Label Name' },
+  archive_label_name_placeholder: { ru: 'Название...', en: 'Name...' },
   archive_add_label: { ru: 'Добавить метку', en: 'Add label' },
   archive_assign_label: { ru: 'Назначить метку', en: 'Assign label' },
   archive_tag_placeholder_short: { ru: 'тег', en: 'tag' },
