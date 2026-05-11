@@ -1,4 +1,5 @@
 import React from "react";
+import { useLanguage } from "../../../core/i18n";
 
 interface WpmChartProps {
   data: { timestamp: number; wpm: number }[];
@@ -7,6 +8,7 @@ interface WpmChartProps {
 }
 
 export function WpmChart({ data, avgWpm, height = 72 }: WpmChartProps) {
+  const { t } = useLanguage();
   if (data.length < 2) return null;
 
   const width = 400;
@@ -38,8 +40,8 @@ export function WpmChart({ data, avgWpm, height = 72 }: WpmChartProps) {
 
   return React.createElement("div", { className: "w-full space-y-2" },
     React.createElement("div", { className: "flex justify-between text-[10px] font-mono text-text-main/35 uppercase tracking-wider" },
-      React.createElement("span", null, "пик " + peakWpm + " сл/мин"),
-      React.createElement("span", null, "средн. " + displayAvg + " сл/мин")
+      React.createElement("span", null, t('wpm_peak') + " " + peakWpm + " " + t('wpm_unit')),
+      React.createElement("span", null, t('wpm_avg') + " " + displayAvg + " " + t('wpm_unit'))
     ),
     React.createElement("svg", { viewBox: "0 0 " + width + " " + height, preserveAspectRatio: "none", className: "w-full", style: { height }, "aria-hidden": true },
       React.createElement("defs", null,

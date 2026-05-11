@@ -10,12 +10,6 @@ const TIER_STYLES: Record<AchievementTier, string> = {
   legendary: 'border-amber-500/40 bg-amber-500/10 text-amber-400',
 };
 
-const TIER_LABELS: Record<AchievementTier, { ru: string; en: string }> = {
-  common:    { ru: 'обычное',      en: 'common' },
-  rare:      { ru: 'редкое',       en: 'rare' },
-  legendary: { ru: 'легендарное',  en: 'legendary' },
-};
-
 interface AchievementBadgeProps {
   achievement: {
     id: string;
@@ -28,7 +22,7 @@ interface AchievementBadgeProps {
 }
 
 export function AchievementBadge({ achievement, earned }: AchievementBadgeProps) {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
 
   return (
     <div className={cn(
@@ -41,7 +35,7 @@ export function AchievementBadge({ achievement, earned }: AchievementBadgeProps)
       </span>
       {earned && (
         <span className="text-[11px] uppercase tracking-widest opacity-60">
-          {TIER_LABELS[achievement.tier][language]}
+          {t(`badge_tier_${achievement.tier}`)}
         </span>
       )}
     </div>
