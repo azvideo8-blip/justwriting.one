@@ -135,4 +135,40 @@ export const DocumentService = {
       throw e;
     }
   },
+
+  async clearLabelFromAllDocs(userId: string, labelId: string): Promise<void> {
+    const snap = await getDocs(documentsRef(userId));
+    const matching = snap.docs.filter(d => d.data().labelId === labelId);
+    for (let i = 0; i < matching.length; i += 499) {
+      const batch = writeBatch(db);
+      matching.slice(i, i + 499).forEach(d => batch.update(d.ref, { labelId: null }));
+      await batch.commit();
+    }
+  },
+
+  async renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void> {
+    const snap = await getDocs(documentsRef(userId));
+    const matching = snap.docs.filter(d => (d.data().tags ?? []).includes(oldTag));
+    for (let i = 0; i < matching.length; i += 499) {
+      const batch = writeBatch(db);
+      matching.slice(i, i + 499).forEach(d => {
+        const tags: string[] = d.data().tags ?? [];
+        batch.update(d.ref, { tags: tags.map(t => t === oldTag ? newTag : t) });
+      });
+      await batch.commit();
+    }
+  },
+
+  async removeTagFromAllDocs(userId: string, tag: string): Promise<void> {
+    const snap = await getDocs(documentsRef(userId));
+    const matching = snap.docs.filter(d => (d.data().tags ?? []).includes(tag));
+    for (let i = 0; i < matching.length; i += 499) {
+      const batch = writeBatch(db);
+      matching.slice(i, i + 499).forEach(d => {
+        const tags: string[] = d.data().tags ?? [];
+        batch.update(d.ref, { tags: tags.filter(t => t !== tag) });
+      });
+      await batch.commit();
+    }
+  },
 };
