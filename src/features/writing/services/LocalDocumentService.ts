@@ -57,6 +57,23 @@ export const LocalDocumentService = {
     await LocalDocumentService._updateProfile(existing.guestId);
   },
 
+  async updateDocument(
+    id: string,
+    data: { totalWords?: number; totalDuration?: number; currentVersion?: number; sessionsCount?: number }
+  ): Promise<void> {
+    const db = await getLocalDb();
+    const existing = await db.get('documents', id);
+    if (!existing) return;
+
+    await db.put('documents', {
+      ...existing,
+      ...(data.totalWords !== undefined && { totalWords: data.totalWords }),
+      ...(data.totalDuration !== undefined && { totalDuration: data.totalDuration }),
+      ...(data.currentVersion !== undefined && { currentVersion: data.currentVersion }),
+      ...(data.sessionsCount !== undefined && { sessionsCount: data.sessionsCount }),
+    });
+  },
+
   async deleteDocument(id: string): Promise<void> {
     const db = await getLocalDb();
     const versions = await db.getAllFromIndex('versions', 'by-document', id);

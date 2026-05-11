@@ -10,6 +10,7 @@ import { toDate } from '../../../core/utils/dateUtils';
 interface LoadedSession extends Session {
   _linkedCloudId?: string;
   _hasCloudCopy?: boolean;
+  _isLegacy?: boolean;
   _totalWords?: number;
   _totalDuration?: number;
   _sessionsCount?: number;
@@ -109,7 +110,7 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
       for (const s of legacySessions) {
         if (seenIds.has(s.id)) continue;
         seenIds.add(s.id);
-        allSessions.push({ ...s, _isLocal: false });
+        allSessions.push({ ...s, _isLocal: false, _isLegacy: true });
       }
     } catch (e) {
       console.error('Failed to fetch legacy sessions:', e);
