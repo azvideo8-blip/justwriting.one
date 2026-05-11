@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { X, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { ArchiveSession } from '../types';
 import { ArchiveStats } from './ArchiveStats';
 import { Calendar } from '../../calendar/components/Calendar';
 import { useLanguage } from '../../../core/i18n';
 import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
-
-const PRESET_COLORS = ['#7C6DFA', '#34D399', '#F97316', '#EC4899', '#60A5FA', '#FBBF24'];
+import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
 
 interface ArchiveSidebarProps {
   filteredByFilters: ArchiveSession[];
@@ -22,12 +21,7 @@ interface ArchiveSidebarProps {
   wordCloud: { word: string; count: number }[];
   maxCount: number;
   onWordClick: (word: string) => void;
-  labels?: Label[];
   onAddLabel?: (label: Omit<Label, 'id'>) => void;
-  onRemoveLabel?: (labelId: string) => void;
-  sessionsForLabels?: ArchiveSession[];
-  selectedLabels?: string[];
-  onToggleLabel?: (labelId: string) => void;
 }
 
 export function ArchiveSidebar({
@@ -35,12 +29,12 @@ export function ArchiveSidebar({
   sessions, sessionsByDate,
   selectedDate, onSelectDate, onSelectMonth,
   wordCloud, maxCount, onWordClick,
-  labels, onAddLabel, onRemoveLabel, sessionsForLabels, selectedLabels, onToggleLabel,
+  onAddLabel,
 }: ArchiveSidebarProps) {
   const { t } = useLanguage();
   const [addingLabel, setAddingLabel] = useState(false);
   const [labelName, setLabelName] = useState('');
-  const [labelColor, setLabelColor] = useState(PRESET_COLORS[0]);
+  const [labelColor, setLabelColor] = useState(LABEL_PRESET_COLORS[0]);
 
   return (
     <div className="hidden lg:flex w-64 shrink-0 border-l border-border-subtle pl-6 flex-col gap-6 sticky top-0 self-start max-h-screen overflow-y-auto py-6 no-scrollbar">
@@ -67,34 +61,12 @@ export function ArchiveSidebar({
         onSelectMonth={onSelectMonth}
       />
 
-      {labels && (labels.length > 0 || onAddLabel) && (
+      {onAddLabel && (
         <div>
           <div className="font-mono text-[11px] text-text-main/30 uppercase tracking-widest mb-3">
-            {t('finish_labels')}
+            {t('archive_labels')}
           </div>
           <div className="space-y-1.5">
-            {labels.map(label => {
-              const count = sessionsForLabels?.filter(s => s.labelId === label.id).length ?? 0;
-              return (
-                <button
-                  key={label.id}
-                  onClick={() => onToggleLabel?.(label.id)}
-                  className={cn("flex items-center gap-2 w-full text-left group/label rounded-md px-1 py-0.5 transition-all", selectedLabels?.includes(label.id) ? "bg-text-main/10" : "hover:bg-text-main/5")}
-                >
-                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: label.color }} />
-                  <span className="text-xs text-text-main/60 flex-1 truncate">{label.name}</span>
-                  <span className="text-[10px] font-mono text-text-main/25">{count}</span>
-                  {onRemoveLabel && (
-                    <span
-                      onClick={e => { e.stopPropagation(); onRemoveLabel(label.id); }}
-                      className="opacity-0 group-hover/label:opacity-100 transition-opacity p-0.5"
-                    >
-                      <X size={10} className="text-text-main/30 hover:text-red-400 transition-colors" />
-                    </span>
-                  )}
-                </button>
-              );
-            })}
             {onAddLabel && !addingLabel && (
               <button
                 onClick={() => setAddingLabel(true)}
@@ -121,7 +93,7 @@ export function ArchiveSidebar({
                   }}
                 />
                 <div className="flex gap-1.5">
-                  {PRESET_COLORS.map(c => (
+                  {LABEL_PRESET_COLORS.map(c => (
                     <button
                       key={c}
                       style={{ background: c }}
@@ -129,6 +101,27 @@ export function ArchiveSidebar({
                       onClick={() => setLabelColor(c)}
                     />
                   ))}
+                  <div className="relative">
+                    <input
+                      type="color"
+                      defaultValue={labelColor}
+                      onChange={e => setLabelColor(e.target.value)}
+                      className="sr-only"
+                      id="label-color-custom"
+                    />
+                    <label
+                      htmlFor="label-color-custom"
+                      className={cn(
+                        "w-5 h-5 rounded-full border-2 border-dashed border-border-subtle flex items-center justify-center cursor-pointer transition-all hover:border-text-main/40",
+                        !LABEL_PRESET_COLORS.includes(labelColor) && "ring-2 ring-offset-1 ring-offset-surface-base ring-text-main/30"
+                      )}
+                      style={!LABEL_PRESET_COLORS.includes(labelColor) ? { background: labelColor } : {}}
+                    >
+                      {LABEL_PRESET_COLORS.includes(labelColor) && (
+                        <span className="text-[10px] text-text-main/40 font-bold leading-none">+</span>
+                      )}
+                    </label>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button
