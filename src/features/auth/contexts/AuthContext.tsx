@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.warn('Creating initial user profile:', JSON.stringify(initialProfile));
         }
 
-        setDoc(userDoc, initialProfile).then(() => {
+        setDoc(userDoc, initialProfile, { merge: true }).then(() => {
           creationAttemptedRef.current = false;
         }).catch(err => {
           console.error('Error creating user profile:', err);
