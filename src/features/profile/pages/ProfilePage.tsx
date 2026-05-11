@@ -134,7 +134,10 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           if (!isNaN(h) && h >= 0 && h < 24) hours[h]++;
         } catch { /* ignore */ }
       });
-      const typicalHour = sessions.length === 0 ? '—' : `${String(hours.indexOf(Math.max(...hours))).padStart(2, '0')}:00`;
+      const totalHourHits = hours.reduce((a, b) => a + b, 0);
+      const typicalHour = totalHourHits === 0
+        ? '—'
+        : `${String(hours.indexOf(Math.max(...hours))).padStart(2, '0')}:00`;
 
       const daysActive = dates.size || 1;
       const wordsPerDay = Math.round(docStats.totalWords / daysActive);
