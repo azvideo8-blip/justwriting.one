@@ -141,7 +141,7 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
   }, [sessionToContinue, handleContinueSession, navigate, location.pathname]);
 
   const { sessionGroups: lifeLogGroups, summary: lifeLogSummary } = useLifeLog(userId, isGuest);
-  const streakDays = useStreak(userId, user ?? null, isGuest);
+  const streakDays = useStreak(userId, user ?? null);
 
   const [showOnboarding, setShowOnboarding] = useState(
     () => !localStorage.getItem('onboarding_done')
@@ -266,7 +266,7 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
         userId={userId}
         onContinueSessionOrDoc={handleContinueSessionOrDoc}
         loadDraft={session.loadDraft}
-        setHasDraft={session.setHasDraft}
+        discardDraft={session.discardDraft}
         onSetPromptTitle={(title) => setTitle(title)}
         showZen={showZen}
         lifeLogVisible={lifeLogVisible}

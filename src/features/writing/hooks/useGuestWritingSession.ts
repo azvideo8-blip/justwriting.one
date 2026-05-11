@@ -21,6 +21,7 @@ export interface GuestSessionReturn extends BaseSessionReturn {
   fetchLocalSessions: () => Promise<LocalSessionInfo[]>;
   loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
   loadDraft: () => Promise<void>;
+  discardDraft: () => void;
 }
 
 const DRAFT_KEY = 'jw_guest_draft';
@@ -216,5 +217,6 @@ export function useGuestWritingSession(): GuestSessionReturn {
     fetchLocalSessions: fetchLocalSessionsCb,
     loadLocalSession: loadLocalSessionCb,
     loadDraft,
+    discardDraft: clearDraft,
   };
 }

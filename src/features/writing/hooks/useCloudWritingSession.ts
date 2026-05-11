@@ -2,9 +2,10 @@ import { User } from 'firebase/auth';
 import { UserProfile } from '../../../types';
 import { useBaseWritingSession, BaseSessionReturn } from './useBaseWritingSession';
 import { useSessionPersistence } from './useSessionPersistence';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 import { LocalSessionInfo } from '../types/session';
+import { WritingDraftService } from '../services/WritingDraftService';
 
 export interface CloudSessionReturn extends BaseSessionReturn {
   userId: string;
@@ -18,11 +19,17 @@ export interface CloudSessionReturn extends BaseSessionReturn {
   fetchLocalSessions: () => Promise<LocalSessionInfo[]>;
   loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
   loadDraft: () => Promise<void>;
+  discardDraft: () => void;
 }
 
 export function useCloudWritingSession(user: User, profile: UserProfile | null): CloudSessionReturn {
   const base = useBaseWritingSession();
   const [hasDraft, setHasDraft] = useState(false);
+
+  const discardDraft = useCallback(() => {
+    WritingDraftService.deleteDraft(user.uid);
+    setHasDraft(false);
+  }, [user.uid]);
 
   const persistence = useSessionPersistence(
     user,
@@ -73,5 +80,6 @@ export function useCloudWritingSession(user: User, profile: UserProfile | null):
     fetchLocalSessions: persistence.fetchLocalSessions,
     loadLocalSession: persistence.loadLocalSession,
     loadDraft: persistence.loadDraft,
+    discardDraft,
   };
 }
