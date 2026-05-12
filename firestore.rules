@@ -48,12 +48,19 @@ service cloud.firestore {
       return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
     }
 
-    function isValidUser(data) {
+    function isValidUserCreate(data) {
       return data.keys().hasAll(['uid', 'email']) &&
              data.uid is string && data.uid.size() > 0 &&
              data.email is string && data.email.size() > 0 &&
              (!('nickname' in data) || (data.nickname is string && data.nickname.size() <= 100)) &&
-             !('role' in data); // role must never be set by client on create or update
+             !('role' in data);
+    }
+
+    function isValidUserUpdate(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid is string && data.uid.size() > 0 &&
+             data.email is string && data.email.size() > 0 &&
+             (!('nickname' in data) || (data.nickname is string && data.nickname.size() <= 100));
     }
 
     function isValidSession(data) {
@@ -82,11 +89,11 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       
       // Allow creation of a profile. 
-      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow create: if isOwner(userId) && isValidUserCreate(request.resource.data);
       
       // Allow updates to a profile.
       // The role field MUST NOT be modified by the client.
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
+      allow update: if isOwner(userId) && isValidUserUpdate(request.resource.data) && 
                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
     }
 
