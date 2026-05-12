@@ -84,6 +84,7 @@ export const writingTranslations: Translations = {
   finish_save: { ru: 'Сохранить', en: 'Save' },
   finish_discard: { ru: 'Удалить', en: 'Discard' },
   finish_tags: { ru: 'Теги', en: 'Tags' },
+  finish_title_label: { ru: 'Название', en: 'Title' },
   finish_labels: { ru: 'Метки', en: 'Labels' },
   finish_add_tag: { ru: 'Добавить тег...', en: 'Add tag...' },
   finish_saving: { ru: 'Заметка сохраняется...', en: 'Saving note...' },
