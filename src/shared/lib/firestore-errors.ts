@@ -23,11 +23,13 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
   const errorCode = error instanceof Error && 'code' in error ? (error as { code: string }).code : 'unknown';
 
-  console.error('Firestore Error: ', {
-    operationType,
-    errorCode,
-    path: path || null,
-  });
+  if (import.meta.env.DEV) {
+    console.error('Firestore Error: ', {
+      operationType,
+      errorCode,
+      path: path || null,
+    });
+  }
 
   return errInfo;
 }

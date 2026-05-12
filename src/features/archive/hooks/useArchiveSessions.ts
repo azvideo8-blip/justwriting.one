@@ -16,7 +16,7 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
   const [deleteConfirm, setDeleteConfirm] = useState<ArchiveSession | null>(null);
   const mountedRef = useRef(true);
 
-  const fetchSessions = useCallback(async (_retry = false) => {
+  const fetchSessions = useCallback(async () => {
     setLoading(true);
     setError(null);
 

@@ -19,6 +19,19 @@ import { CloudSessionReturn } from './useCloudWritingSession';
 export type AnySessionReturn = GuestSessionReturn | CloudSessionReturn;
 import * as Sentry from '@sentry/react';
 
+async function clearGuestDraft() {
+  localStorage.removeItem('jw_guest_draft');
+  try {
+    const { getLocalDb } = await import('../../../shared/lib/localDb');
+    const db = await getLocalDb();
+    if (db.objectStoreNames.contains('drafts')) {
+      await db.delete('drafts', 'guest_draft');
+    }
+  } catch (idbErr) {
+    console.warn('[clearGuestDraft] Failed to delete guest IDB draft:', idbErr);
+  }
+}
+
 interface UseWritingActionsParams {
   session: AnySessionReturn;
   flow: {
@@ -148,16 +161,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       useWritingStore.getState().finishSession();
 
       if (isGuest) {
-        localStorage.removeItem('jw_guest_draft');
-        try {
-          const { getLocalDb } = await import('../../../shared/lib/localDb');
-          const db = await getLocalDb();
-          if (db.objectStoreNames.contains('drafts')) {
-            await db.delete('drafts', 'guest_draft');
-          }
-        } catch (idbErr) {
-          console.warn('[handleSave] Failed to delete guest IDB draft:', idbErr);
-        }
+        await clearGuestDraft();
       } else {
         try {
           await WritingDraftService.deleteDraft(userId);
@@ -203,14 +207,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
     useWritingStore.getState().resetAndClear();
 
     if (isGuest) {
-      localStorage.removeItem('jw_guest_draft');
-      try {
-        const { getLocalDb } = await import('../../../shared/lib/localDb');
-        const db = await getLocalDb();
-        if (db.objectStoreNames.contains('drafts')) {
-          await db.delete('drafts', 'guest_draft');
-        }
-      } catch { /* ignore */ }
+      await clearGuestDraft();
     } else {
       await WritingDraftService.deleteDraft(userId);
     }

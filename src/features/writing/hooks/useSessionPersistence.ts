@@ -140,7 +140,7 @@ sessionStartTime: state.sessionStartTime,
         }
         keysToRemove.forEach(k => localStorage.removeItem(k));
       } catch { /* ignore */ }
-      const sessionKey = `local_session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const sessionKey = `local_session_${Date.now()}_${crypto.randomUUID()}`;
       try {
         localStorage.setItem(sessionKey, JSON.stringify(sessionData));
       } catch (e) {

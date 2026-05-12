@@ -22,6 +22,7 @@ import { useProfileLabels } from '../../profile/hooks/useProfileLabels';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
 import { DocumentService } from '../../writing/services/DocumentService';
 import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
+import { ConfirmModal } from '../../../shared/components/ConfirmModal';
 
 interface ArchiveViewProps {
   user: User | null;
@@ -363,7 +364,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               <div className="px-4 py-3 rounded-2xl text-sm bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-between mt-4">
                 <span>{t('archive_cloud_load_error')}</span>
                 <button
-                  onClick={() => fetchSessions(true)}
+                  onClick={() => fetchSessions()}
                   className="underline text-red-400/70 hover:text-red-400"
                 >
                   {t('retry')}
@@ -483,89 +484,44 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
             )}
           </AnimatePresence>
 
-          {tagDeleteConfirm && (
-            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-              <div className="bg-surface-card border border-border-subtle rounded-2xl p-6 w-80 shadow-lg">
-                <h3 className="text-base font-medium text-text-main mb-2">{t('archive_tags_label')}</h3>
-                <p className="text-sm text-text-main/40 mb-5">
-                  {t('archive_tag_delete_confirm', { tag: tagDeleteConfirm })}
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={async () => {
-                      if (!userId.startsWith('guest')) {
-                        DocumentService.removeTagFromAllDocs(userId, tagDeleteConfirm).catch(() => {});
-                      }
-                      LocalDocumentService.removeTagFromAllDocs(userId, tagDeleteConfirm).then(() => fetchSessions()).catch(() => {});
-                      setTagDeleteConfirm(null);
-                    }}
-                    className="flex-1 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium hover:bg-red-500/20"
-                  >
-                    {t('storage_delete_confirm')}
-                  </button>
-                  <button
-                    onClick={() => setTagDeleteConfirm(null)}
-                    className="flex-1 py-2.5 rounded-xl border border-border-subtle text-text-main/40 text-sm hover:text-text-main"
-                  >
-                    {t('common_cancel')}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          <ConfirmModal
+            isOpen={!!tagDeleteConfirm}
+            title={t('archive_tags_label')}
+            message={t('archive_tag_delete_confirm', { tag: tagDeleteConfirm ?? '' })}
+            confirmLabel={t('storage_delete_confirm')}
+            cancelLabel={t('common_cancel')}
+            onConfirm={async () => {
+              if (!userId.startsWith('guest')) {
+                DocumentService.removeTagFromAllDocs(userId, tagDeleteConfirm!).catch(() => {});
+              }
+              LocalDocumentService.removeTagFromAllDocs(userId, tagDeleteConfirm!).then(() => fetchSessions()).catch(() => {});
+              setTagDeleteConfirm(null);
+            }}
+            onCancel={() => setTagDeleteConfirm(null)}
+          />
 
-          {labelDeleteConfirm && (
-            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-              <div className="bg-surface-card border border-border-subtle rounded-2xl p-6 w-80 shadow-lg">
-                <h3 className="text-base font-medium text-text-main mb-2">{t('archive_labels')}</h3>
-                <p className="text-sm text-text-main/40 mb-5">
-                  {t('archive_label_delete_confirm')}
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => { removeLabel(labelDeleteConfirm); setLabelDeleteConfirm(null); }}
-                    className="flex-1 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium hover:bg-red-500/20"
-                  >
-                    {t('storage_delete_confirm')}
-                  </button>
-                  <button
-                    onClick={() => setLabelDeleteConfirm(null)}
-                    className="flex-1 py-2.5 rounded-xl border border-border-subtle text-text-main/40 text-sm hover:text-text-main"
-                  >
-                    {t('common_cancel')}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          <ConfirmModal
+            isOpen={!!labelDeleteConfirm}
+            title={t('archive_labels')}
+            message={t('archive_label_delete_confirm')}
+            confirmLabel={t('storage_delete_confirm')}
+            cancelLabel={t('common_cancel')}
+            onConfirm={() => { removeLabel(labelDeleteConfirm!); setLabelDeleteConfirm(null); }}
+            onCancel={() => setLabelDeleteConfirm(null)}
+          />
 
-          {deleteConfirm && (
-            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-              <div className="bg-surface-card border border-border-subtle rounded-2xl p-6 w-80 shadow-lg">
-                <h3 className="text-base font-medium text-text-main mb-2">{t('archive_delete_confirm')}</h3>
-                <p className="text-sm text-text-main/40 mb-5">
-                  «{deleteConfirm.title || t('session_untitled')}»
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={async () => {
-                      await handleDeleteSession(deleteConfirm);
-                      setDeleteConfirm(null);
-                    }}
-                    className="flex-1 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium hover:bg-red-500/20"
-                  >
-                    {t('storage_delete_confirm')}
-                  </button>
-                  <button
-                    onClick={() => setDeleteConfirm(null)}
-                    className="flex-1 py-2.5 rounded-xl border border-border-subtle text-text-main/40 text-sm hover:text-text-main"
-                  >
-                    {t('common_cancel')}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          <ConfirmModal
+            isOpen={!!deleteConfirm}
+            title={t('archive_delete_confirm')}
+            message={`«${deleteConfirm?.title || t('session_untitled')}»`}
+            confirmLabel={t('storage_delete_confirm')}
+            cancelLabel={t('common_cancel')}
+            onConfirm={async () => {
+              await handleDeleteSession(deleteConfirm!);
+              setDeleteConfirm(null);
+            }}
+            onCancel={() => setDeleteConfirm(null)}
+          />
         </div>
       </motion.div>
     </AdaptiveContainer>

@@ -53,7 +53,10 @@ export const LocalVersionService = {
     const db = await getLocalDb();
     const all = await db.getAllFromIndex('versions', 'by-document', documentId);
     if (all.length === 0) return '';
-    const latest = all.reduce((a, b) => a.version > b.version ? a : b);
+    let latest = all[0];
+    for (let i = 1; i < all.length; i++) {
+      if (all[i].version > latest.version) latest = all[i];
+    }
     return latest.content ?? '';
   },
 };

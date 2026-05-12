@@ -115,11 +115,11 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
   </div>
   <hr class="divider">
   <div class="content">${escapeHtml(session.content || '')}</div>
-  ${session.tags?.length ? `<div class="tags">${session.tags.map(t => '#' + t).join(' ')}</div>` : ''}
+  ${session.tags?.length ? `<div class="tags">${session.tags.map(t => '#' + escapeHtml(t)).join(' ')}</div>` : ''}
 </body>
 </html>`;
 
-  const win = window.open('', '_blank');
+  const win = window.open('', '_blank', 'noopener');
   if (!win) return;
   win.document.write(html);
   win.document.close();

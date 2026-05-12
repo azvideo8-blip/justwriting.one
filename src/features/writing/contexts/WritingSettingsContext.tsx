@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { z } from 'zod';
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 import { TimerStatus } from '../store/useWritingStore';
@@ -101,26 +101,28 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     };
   }, [status, zenModeEnabled]);
 
-  const toggleStreamMode = () => setStreamMode(prev => !prev);
-  const toggleVisibility = (key: keyof HeaderVisibility) => {
+  const toggleStreamMode = useCallback(() => setStreamMode(prev => !prev), []);
+  const toggleVisibility = useCallback((key: keyof HeaderVisibility) => {
     setHeaderVisibility((prev: HeaderVisibility) => ({ ...prev, [key]: !prev[key] }));
-  };
+  }, []);
+
+  const contextValue = useMemo(() => ({
+    streamMode, toggleStreamMode,
+    zenModeEnabled, setZenModeEnabled,
+    editorWidth, setEditorWidth,
+    lifeLogEnabled, setLifeLogEnabled,
+    lifeLogVisible, setLifeLogVisible,
+    lifeLogTab, setLifeLogTab,
+    isZenActive,
+    status, setStatus,
+    fontFamily, setFontFamily,
+    fontSize, setFontSize,
+    lifeLogPinned, setLifeLogPinned,
+    headerVisibility, toggleVisibility,
+  }), [streamMode, toggleStreamMode, zenModeEnabled, editorWidth, lifeLogEnabled, lifeLogVisible, lifeLogTab, isZenActive, status, fontFamily, fontSize, lifeLogPinned, headerVisibility, toggleVisibility]);
 
   return (
-    <WritingSettingsContext.Provider value={{
-      streamMode, toggleStreamMode,
-      zenModeEnabled, setZenModeEnabled,
-      editorWidth, setEditorWidth,
-      lifeLogEnabled, setLifeLogEnabled,
-      lifeLogVisible, setLifeLogVisible,
-      lifeLogTab, setLifeLogTab,
-      isZenActive,
-      status, setStatus,
-      fontFamily, setFontFamily,
-      fontSize, setFontSize,
-      lifeLogPinned, setLifeLogPinned,
-      headerVisibility, toggleVisibility,
-    }}>
+    <WritingSettingsContext.Provider value={contextValue}>
       {children}
     </WritingSettingsContext.Provider>
   );
