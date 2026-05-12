@@ -83,20 +83,24 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
   return (
     <div className="flex justify-center gap-2">
       {days.map((day, i) => (
-        <div
-          key={i}
-          className={cn(
-            "w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold transition-all",
-            day.hasSession
-              ? day.isToday
-                ? "bg-brand-primary text-surface-base ring-2 ring-brand-primary/30 ring-offset-2 ring-offset-surface-card"
-                : "bg-brand-primary/40 text-text-main"
-              : day.isToday
-                ? "bg-text-main/10 text-text-main/40 ring-2 ring-brand-primary/20 ring-offset-2 ring-offset-surface-card"
-                : "bg-text-main/10 text-text-main/30"
-          )}
-        >
-          {day.date.getDate()}
+        <div key={i} className="flex flex-col items-center gap-1">
+          <div
+            className={cn(
+              "w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold transition-all",
+              day.hasSession
+                ? day.isToday
+                  ? "bg-brand-primary text-surface-base ring-2 ring-brand-primary/30 ring-offset-2 ring-offset-surface-card"
+                  : "bg-brand-primary/40 text-text-main"
+                : day.isToday
+                  ? "bg-text-main/10 text-text-main/40 ring-2 ring-brand-primary/20 ring-offset-2 ring-offset-surface-card"
+                  : "bg-text-main/10 text-text-main/30"
+            )}
+          >
+            {day.date.getDate()}
+          </div>
+          <span className="text-[9px] font-mono text-text-main/30 uppercase">
+            {day.date.toLocaleDateString(language, { weekday: 'narrow' })}
+          </span>
         </div>
       ))}
     </div>
