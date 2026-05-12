@@ -173,7 +173,7 @@ export const useWritingStore = create<WritingState>((set) => ({
   setTimeGoalReached: (timeGoalReached) => set({ timeGoalReached }),
   setWordGoalReached: (wordGoalReached) => set({ wordGoalReached }),
   setAccumulatedDuration: (accumulatedDuration) => set({ accumulatedDuration }),
-  pushWpmHistory: (entry) => set(state => ({ wpmHistory: [...state.wpmHistory, entry] })),
+  pushWpmHistory: (entry) => set(state => ({ wpmHistory: [...state.wpmHistory.slice(-119), entry] })),
   
   resetSessionMetadata: () => set({
     initialWordCount: 0,
