@@ -141,7 +141,7 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
   }, [sessionToContinue, handleContinueSession, navigate, location.pathname]);
 
   const { sessionGroups: lifeLogGroups, summary: lifeLogSummary } = useLifeLog(userId, isGuest);
-  const streakDays = useStreak(userId, user ?? null);
+  const streakDays = useStreak(lifeLogGroups);
 
   const streakForModal = React.useMemo(() => {
     const todayStr = new Date().toDateString();
@@ -199,7 +199,7 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
           }
           setIsFinishModalOpen(false);
         }}
-        streakDays={streakDays}
+        streakDays={streakForModal}
         sessionGroups={lifeLogGroups}
       />
       <FlowPulse />
@@ -226,7 +226,7 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
         <>
           <MobileHomeScreen
             userId={userId}
-        streakDays={streakForModal}
+            streakDays={streakDays}
             sessionGroups={lifeLogGroups}
             summary={lifeLogSummary}
             onStart={handlePlay}

@@ -1,26 +1,10 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { User } from 'firebase/auth';
+import { useMemo } from 'react';
 import { Session } from '../../../types';
-import { loadAllSessions } from '../services/UnifiedSessionLoader';
 import { calculateStreak } from '../../../core/utils/utils';
 
-export function useStreak(userId: string, user: User | null): number {
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const mountedRef = useRef(true);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => { mountedRef.current = false; };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    loadAllSessions(userId, user).then(result => {
-      if (cancelled || !mountedRef.current) return;
-      setSessions(result.sessions);
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [userId, user]);
-
-  return useMemo(() => calculateStreak(sessions), [sessions]);
+export function useStreak(sessionGroups: { date: Date; sessions: Session[] }[]): number {
+  return useMemo(() => {
+    const sessions = sessionGroups.flatMap(g => g.sessions);
+    return calculateStreak(sessions);
+  }, [sessionGroups]);
 }
