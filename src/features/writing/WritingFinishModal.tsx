@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Download, FileText } from 'lucide-react';
 import { cn } from '../../core/utils/utils';
 import { ExportService } from '../export/ExportService';
-import { WpmChart } from './components/WpmChart';
+const WpmChart = React.lazy(() => import('./components/WpmChart').then(m => ({ default: m.WpmChart })));
 import { Label } from '../../types';
 import { useLanguage } from '../../core/i18n';
 import { formatTime } from '../../core/utils/formatTime';
@@ -29,12 +29,14 @@ function useCountUp(target: number, duration = 800) {
   const [value, setValue] = useState(0);
   React.useEffect(() => {
     const start = performance.now();
+    let rafId: number;
     const tick = (now: number) => {
       const pct = Math.min((now - start) / duration, 1);
       setValue(Math.round(pct * target));
-      if (pct < 1) requestAnimationFrame(tick);
+      if (pct < 1) rafId = requestAnimationFrame(tick);
     };
-    requestAnimationFrame(tick);
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
   }, [target, duration]);
   return value;
 }
@@ -52,7 +54,6 @@ interface WritingFinishModalProps {
   labelId?: string;
   setLabelId: (labelId?: string) => void;
   labels: Label[];
-  isGuest: boolean;
   onSave: (data: SaveData) => Promise<void>;
   onCancel: () => void;
   streakDays?: number;
@@ -66,7 +67,6 @@ export function WritingFinishModal({
   labelId,
   setLabelId,
   labels,
-  isGuest: _isGuest,
   onSave,
   onCancel,
   streakDays = 0,
@@ -107,7 +107,7 @@ export function WritingFinishModal({
   const titleInputValue = editTitle || title || '';
 
   const popularWords = React.useMemo(() => {
-    const words = content.toLowerCase().match(/\b[а-яёa-z]{4,}\b/g) || [];
+    const words = content.toLowerCase().match(/(?<![а-яёa-z])[а-яёa-z]{4,}(?![а-яёa-z])/g) || [];
     const freq: Record<string, number> = {};
     words.forEach(w => {
       if (!STOP_WORDS.has(w)) freq[w] = (freq[w] || 0) + 1;
@@ -230,7 +230,9 @@ export function WritingFinishModal({
               <div className="text-[10px] font-bold uppercase tracking-widest text-text-main/40 mb-3">
                 {t('finish_wpm_chart')}
               </div>
-              <WpmChart data={wpmHistory} avgWpm={avgWpm} height={72} />
+              <React.Suspense fallback={null}>
+                <WpmChart data={wpmHistory} avgWpm={avgWpm} height={72} />
+              </React.Suspense>
             </div>
           )}
 

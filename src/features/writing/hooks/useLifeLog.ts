@@ -75,6 +75,23 @@ async function getLatestContentForDoc(docId: string): Promise<string> {
   }
 }
 
+function localDocToLifeLog(d: LocalDocument, hasCloud: boolean): LifeLogDocument {
+  return {
+    localId: d.id,
+    cloudId: d.linkedCloudId || undefined,
+    title: d.title,
+    totalWords: d.totalWords,
+    totalDuration: d.totalDuration,
+    currentVersion: d.currentVersion,
+    sessionsCount: d.sessionsCount,
+    firstSessionAt: d.firstSessionAt,
+    lastSessionAt: d.lastSessionAt,
+    tags: d.tags,
+    labelId: d.labelId ?? undefined,
+    storage: { local: true, cloud: hasCloud },
+  };
+}
+
 export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -119,20 +136,7 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
         if (!mountedRef.current) return;
         setSessions(sessionsWithContent);
         setDocuments([]);
-        setUnifiedDocuments(localDocs.map(d => ({
-          localId: d.id,
-          cloudId: d.linkedCloudId || undefined,
-          title: d.title,
-          totalWords: d.totalWords,
-          totalDuration: d.totalDuration,
-          currentVersion: d.currentVersion,
-          sessionsCount: d.sessionsCount,
-          firstSessionAt: d.firstSessionAt,
-          lastSessionAt: d.lastSessionAt,
-          tags: d.tags,
-          labelId: d.labelId ?? undefined,
-          storage: { local: true, cloud: !!d.linkedCloudId },
-        })));
+        setUnifiedDocuments(localDocs.map(d => localDocToLifeLog(d, false)));
       } else {
         const [sessionResult, cloudDocs, localDocs] = await Promise.all([
           SessionService.getAllSessions(userId, 100),
@@ -153,25 +157,7 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
           const cloud = local.linkedCloudId ? cloudById.get(local.linkedCloudId) : undefined;
           if (cloud) matchedCloudIds.add(cloud.id);
 
-          const hasCloud = !!local.linkedCloudId;
-
-          unified.push({
-            localId: local.id,
-            cloudId: local.linkedCloudId || undefined,
-            title: local.title,
-            totalWords: local.totalWords,
-            totalDuration: local.totalDuration,
-            currentVersion: local.currentVersion,
-            sessionsCount: local.sessionsCount,
-            firstSessionAt: local.firstSessionAt,
-            lastSessionAt: local.lastSessionAt,
-            tags: local.tags,
-            labelId: local.labelId ?? undefined,
-            storage: {
-              local: true,
-              cloud: hasCloud,
-            },
-          });
+          unified.push(localDocToLifeLog(local, !!local.linkedCloudId));
         }
 
         for (const cloud of cloudDocs) {

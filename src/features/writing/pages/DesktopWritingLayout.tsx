@@ -163,9 +163,7 @@ export function DesktopWritingLayout({
                 if (!e.metaKey && !e.ctrlKey && !e.altKey) {
                   keystrokeTrackerRef.current.record();
                 }
-                if (sessionStatus === 'idle' && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
-                  handlePlayRef.current();
-                } else if (sessionStatus === 'paused' && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+                if ((sessionStatus === 'idle' || sessionStatus === 'paused') && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
                   handlePlayRef.current();
                 }
               }}

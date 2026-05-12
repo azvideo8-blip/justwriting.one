@@ -23,7 +23,7 @@ interface NoteRowProps {
   labels?: Label[];
 }
 
-export function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels }: NoteRowProps) {
+function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels }: NoteRowProps) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(session.title || '');
   const [editingDateTime, setEditingDateTime] = useState(false);
@@ -253,3 +253,6 @@ export function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, 
     </div>
   );
 }
+
+const MemoizedNoteRow = React.memo(NoteRow);
+export { MemoizedNoteRow as NoteRow };

@@ -1,4 +1,3 @@
-import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { reportError } from '../../core/errors/reportError';
@@ -91,6 +90,7 @@ export class ExportService {
       iframe.style.width = '0';
       iframe.style.height = '0';
       iframe.style.border = 'none';
+      iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
       document.body.appendChild(iframe);
 
       const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -124,6 +124,7 @@ export class ExportService {
 
   static async toDocx(title: string, content: string) {
     try {
+      const { Document, Packer, Paragraph, TextRun } = await import('docx');
       const doc = new Document({
         sections: [{
           properties: {},

@@ -54,7 +54,18 @@ export const LocalDocumentService = {
       lastSessionAt: Date.now(),
     });
 
-    await LocalDocumentService._updateProfile(existing.guestId);
+    const profile = await db.get('profile', existing.guestId);
+    if (profile) {
+      await db.put('profile', {
+        ...profile,
+        totalWords: profile.totalWords - existing.totalWords + data.totalWords,
+        totalDuration: profile.totalDuration - existing.totalDuration + data.totalDuration,
+        sessionsCount: profile.sessionsCount + 1,
+        lastSessionAt: Date.now(),
+      });
+    } else {
+      await LocalDocumentService._updateProfile(existing.guestId);
+    }
   },
 
   async updateDocument(
@@ -148,7 +159,7 @@ export const LocalDocumentService = {
     const all = await db.getAllFromIndex('documents', 'by-guest', userId);
     await Promise.all(
       all.filter(d => d.labelId === labelId)
-         .map(d => db.put('documents', { ...d, labelId: undefined }))
+         .map(d => db.put('documents', { ...d, labelId: null }))
     );
   },
 

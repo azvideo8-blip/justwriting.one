@@ -31,6 +31,13 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
     }).catch(() => {});
   }, [userId]);
 
+  useEffect(() => {
+    return () => {
+      labelCache.delete(userId);
+      fetchedSet.delete(userId);
+    };
+  }, [userId]);
+
   const updateLabels = async (newLabels: Label[]) => {
     setLoading(true);
     try {

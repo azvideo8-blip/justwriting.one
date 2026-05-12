@@ -99,7 +99,7 @@ service cloud.firestore {
 
     // Connection test
     match /_connection_test_/{docId} {
-      allow read: if true;
+      allow read: if isAuthenticated();
     }
 
     // Sessions
@@ -118,11 +118,32 @@ service cloud.firestore {
     }
 
     // Documents (subcollection of users)
+    function isValidDocument(data) {
+      return data.keys().hasAll(['userId', 'title']) &&
+             data.userId is string &&
+             data.title is string && data.title.size() <= 200 &&
+             (!('tags' in data) || (data.tags is list && data.tags.size() <= 10)) &&
+             (!('labelId' in data) || data.labelId is string);
+    }
+
+    function isValidVersion(data) {
+      return data.keys().hasAll(['documentId', 'content', 'wordCount']) &&
+             data.documentId is string &&
+             data.content is string && data.content.size() <= 900000 &&
+             data.wordCount is number && data.wordCount >= 0;
+    }
+
     match /users/{userId}/documents/{documentId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidDocument(request.resource.data);
+      allow update: if isOwner(userId) && isValidDocument(request.resource.data);
+      allow delete: if isOwner(userId);
 
       match /versions/{versionId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidVersion(request.resource.data);
+        allow update: if isOwner(userId) && isValidVersion(request.resource.data);
+        allow delete: if isOwner(userId);
       }
     }
   }

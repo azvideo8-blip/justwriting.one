@@ -27,10 +27,11 @@ export interface SaveDocumentData {
 const CLOUD_SYNC_TIMEOUT = 30_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
   return Promise.race([
     promise,
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Sync timeout')), ms)),
-  ]);
+    new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Sync timeout')), ms); }),
+  ]).finally(() => clearTimeout(timer));
 }
 
 const _saveVersionLocks = new Map<string, Promise<void>>();
@@ -100,7 +101,7 @@ export const StorageService = {
 
       await LocalDocumentService.updateAfterSession(documentId, {
         totalWords: data.wordCount,
-        totalDuration: existing.totalDuration + data.duration,
+        totalDuration: data.duration,
         currentVersion: newVersion,
       });
 
@@ -135,7 +136,7 @@ export const StorageService = {
             });
             await DocumentService.updateDocumentAfterSession(userId, existing.linkedCloudId, {
               totalWords: data.wordCount,
-              totalDuration: cloudBaseDuration + data.duration,
+              totalDuration: data.duration,
               currentVersion: newVersion,
             });
           }

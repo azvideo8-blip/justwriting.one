@@ -192,11 +192,10 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
         tags={tags} setTags={setTags}
         labelId={labelId} setLabelId={setLabelId}
         labels={profile?.labels || []}
-        isGuest={isGuest}
         onSave={handleSave}
         onCancel={() => {
           if (sessionStatus === 'paused' && session.content) {
-            useWritingStore.getState().resumeSession();
+            handlePlay();
           }
           setIsFinishModalOpen(false);
         }}
@@ -275,7 +274,7 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
         onContinueSessionOrDoc={handleContinueSessionOrDoc}
         loadDraft={session.loadDraft}
         discardDraft={session.discardDraft}
-        onSetPromptTitle={(title) => setTitle(title)}
+        onSetPromptTitle={setTitle}
         showZen={showZen}
         lifeLogVisible={lifeLogVisible}
         setLifeLogVisible={setLifeLogVisible}
