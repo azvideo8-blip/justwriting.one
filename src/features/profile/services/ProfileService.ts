@@ -17,6 +17,7 @@ export const ProfileService = {
   async updateLabels(userId: string, labels: Label[]) {
     try {
       await setDoc(doc(db, 'users', userId), { labels }, { merge: true });
+      await setDoc(doc(db, 'users', userId), { labels }, { merge: true });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
       throw err;
