@@ -1,4 +1,4 @@
-import { doc, setDoc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../../core/firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 
@@ -10,30 +10,34 @@ export const ProfileService = {
       await setDoc(doc(db, 'users', userId), { nickname }, { merge: true });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+      throw err;
     }
   },
 
   async updateLabels(userId: string, labels: Label[]) {
     try {
-      await updateDoc(doc(db, 'users', userId), { labels });
+      await setDoc(doc(db, 'users', userId), { labels }, { merge: true });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+      throw err;
     }
   },
 
   async updateEarnedAchievements(userId: string, ids: string[]): Promise<void> {
     try {
-      await updateDoc(doc(db, 'users', userId), { earnedAchievements: ids });
+      await setDoc(doc(db, 'users', userId), { earnedAchievements: ids }, { merge: true });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+      throw err;
     }
   },
 
   async resetAchievements(userId: string): Promise<void> {
     try {
-      await updateDoc(doc(db, 'users', userId), { earnedAchievements: [] });
+      await setDoc(doc(db, 'users', userId), { earnedAchievements: [] }, { merge: true });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+      throw err;
     }
   },
 
