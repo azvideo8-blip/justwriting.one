@@ -143,6 +143,14 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
   const { sessionGroups: lifeLogGroups, summary: lifeLogSummary } = useLifeLog(userId, isGuest);
   const streakDays = useStreak(userId, user ?? null);
 
+  const streakForModal = React.useMemo(() => {
+    const todayStr = new Date().toDateString();
+    const hasSessionToday = lifeLogGroups.some(g =>
+      new Date(g.date).toDateString() === todayStr
+    );
+    return hasSessionToday ? streakDays : streakDays + 1;
+  }, [streakDays, lifeLogGroups]);
+
   const [showOnboarding, setShowOnboarding] = useState(
     () => !localStorage.getItem('onboarding_done')
   );
@@ -219,7 +227,7 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
         <>
           <MobileHomeScreen
             userId={userId}
-            streakDays={streakDays}
+        streakDays={streakForModal}
             sessionGroups={lifeLogGroups}
             summary={lifeLogSummary}
             onStart={handlePlay}
