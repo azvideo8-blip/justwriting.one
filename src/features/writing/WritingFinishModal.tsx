@@ -125,10 +125,10 @@ export function WritingFinishModal({
     return Array.from(suggestions);
   }, [title, popularWords]);
 
-  if (!isOpen) return null;
-
   const reducedMotion = useReducedMotion();
   const slideTransition = { duration: 0.22, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] };
+
+  if (!isOpen) return null;
 
   const toggleTag = (tag: string) => {
     if (!tags) return;

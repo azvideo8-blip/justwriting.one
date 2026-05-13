@@ -114,7 +114,8 @@ service cloud.firestore {
     // Drafts
     match /drafts/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow write: if isOwner(userId) && isValidDraft(request.resource.data);
+      allow create, update: if isOwner(userId) && isValidDraft(request.resource.data);
+      allow delete: if isOwner(userId);
     }
 
     // Documents (subcollection of users)
