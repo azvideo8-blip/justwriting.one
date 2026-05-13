@@ -1,4 +1,5 @@
 import React from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { useLanguage } from "../../../core/i18n";
 
 interface WpmChartProps {
@@ -9,6 +10,7 @@ interface WpmChartProps {
 
 export function WpmChart({ data, avgWpm, height = 72 }: WpmChartProps) {
   const { t } = useLanguage();
+  const reducedMotion = useReducedMotion();
   if (data.length < 2) return null;
 
   const width = 400;
@@ -50,9 +52,35 @@ export function WpmChart({ data, avgWpm, height = 72 }: WpmChartProps) {
             <stop offset="100%" stopColor="var(--brand-soft)" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <path d={fillD} fill="url(#wpm-fill)" />
-        <path d={pathD} fill="none" stroke="var(--brand-soft)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        {peakPoint && <circle cx={peakPoint.x} cy={peakPoint.y} r="3" fill="var(--brand-primary)" />}
+        <motion.path
+          d={fillD}
+          fill="url(#wpm-fill)"
+          initial={reducedMotion ? {} : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.6 }}
+        />
+        <motion.path
+          d={pathD}
+          fill="none"
+          stroke="var(--brand-soft)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          initial={reducedMotion ? {} : { pathLength: 0, opacity: 0 }}
+          animate={{ pathLength: 1, opacity: 1 }}
+          transition={{ duration: 1.2, ease: 'easeOut', delay: 0.1 }}
+        />
+        {peakPoint && (
+          <motion.circle
+            cx={peakPoint.x}
+            cy={peakPoint.y}
+            r="3"
+            fill="var(--brand-primary)"
+            initial={reducedMotion ? {} : { scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 15, delay: 1.1 }}
+          />
+        )}
       </svg>
     </div>
   );

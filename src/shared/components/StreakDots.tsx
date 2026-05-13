@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '../../core/utils/utils';
 import { useLanguage } from '../../core/i18n';
 
@@ -9,6 +10,8 @@ interface StreakDotsProps {
 
 export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
   const { language } = useLanguage();
+  const reducedMotion = useReducedMotion();
+
   const days = useMemo(() => {
     const result = [];
     for (let i = 6; i >= 0; i--) {
@@ -83,7 +86,18 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
   return (
     <div className="flex justify-center gap-2">
       {days.map((day, i) => (
-        <div key={i} className="flex flex-col items-center gap-1">
+        <motion.div
+          key={i}
+          className="flex flex-col items-center gap-1"
+          initial={reducedMotion ? {} : { scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={reducedMotion ? { duration: 0 } : {
+            type: 'spring',
+            stiffness: day.isToday ? 500 : 350,
+            damping: day.isToday ? 18 : 20,
+            delay: i * 0.04,
+          }}
+        >
           <div
             className={cn(
               "w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold transition-all",
@@ -101,7 +115,7 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
           <span className="text-[9px] font-mono text-text-main/30 uppercase">
             {day.date.toLocaleDateString(language, { weekday: 'narrow' })}
           </span>
-        </div>
+        </motion.div>
       ))}
     </div>
   );

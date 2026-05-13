@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Download, FileText } from 'lucide-react';
 import { cn } from '../../core/utils/utils';
 import { ExportService } from '../export/ExportService';
@@ -127,6 +127,9 @@ export function WritingFinishModal({
 
   if (!isOpen) return null;
 
+  const reducedMotion = useReducedMotion();
+  const slideTransition = { duration: 0.22, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] };
+
   const toggleTag = (tag: string) => {
     if (!tags) return;
     if (tags.includes(tag)) {
@@ -176,23 +179,38 @@ export function WritingFinishModal({
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ duration: 0.18 }}
         className="w-full max-w-lg rounded-3xl p-8 max-h-[90vh] overflow-y-auto no-scrollbar bg-surface-card backdrop-blur-2xl border border-border-subtle text-text-main shadow-[0_0_60px_rgba(0,0,0,0.8)]"
       >
+        <AnimatePresence mode="wait" initial={false}>
         {step === 'mood' ? (
-          <div className="text-center space-y-6 py-6">
+          <motion.div
+            key="mood"
+            initial={reducedMotion ? {} : { opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={reducedMotion ? {} : { opacity: 0, x: -40 }}
+            transition={slideTransition}
+            className="text-center space-y-6 py-6"
+          >
             <div>
               <div className="text-xl font-bold text-text-main">{t('mood_checkin_title')}</div>
               <div className="text-sm text-text-main/40 mt-1">{t('mood_checkin_subtitle')}</div>
             </div>
             <div className="flex justify-center gap-4">
               {(['😊', '🙂', '😐', '😔', '😤'] as const).map((emoji, i) => (
-                <button
+                <motion.button
                   key={i}
+                  whileHover={reducedMotion ? {} : { scale: 1.3 }}
+                  whileTap={reducedMotion ? {} : { scale: 0.85 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                  initial={reducedMotion ? {} : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0, transition: { delay: i * 0.06 } }}
                   onClick={onCancel}
-                  className="text-4xl hover:scale-125 transition-transform active:scale-95"
+                  className="text-4xl"
                 >
                   {emoji}
-                </button>
+                </motion.button>
               ))}
             </div>
             <button
@@ -201,9 +219,16 @@ export function WritingFinishModal({
             >
               {t('mood_checkin_skip')}
             </button>
-          </div>
+          </motion.div>
         ) : (
-        <div className="space-y-5">
+          <motion.div
+            key="form"
+            initial={reducedMotion ? {} : { opacity: 0, x: -40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={reducedMotion ? {} : { opacity: 0, x: 40 }}
+            transition={slideTransition}
+            className="space-y-5"
+          >
           <div className="text-center">
             <h3 className="text-2xl font-bold text-text-main">{t('finish_congrats')}</h3>
           </div>
@@ -360,8 +385,9 @@ export function WritingFinishModal({
               {isSaving ? t('finish_saving') : t('common_save')}
             </button>
           </div>
-        </div>
+        </motion.div>
         )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );
