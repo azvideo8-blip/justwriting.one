@@ -43,6 +43,12 @@ export function SessionChart({ sessions, startDate, endDate }: SessionChartProps
     <div className="h-[300px] w-full min-h-[300px]">
       <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <BarChart data={data}>
+          <defs>
+            <linearGradient id="bar-gradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--brand-soft)" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="var(--brand-soft)" stopOpacity="0.15" />
+            </linearGradient>
+          </defs>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border-subtle)" className="opacity-40" />
           <XAxis 
             dataKey="date" 
@@ -70,8 +76,7 @@ export function SessionChart({ sessions, startDate, endDate }: SessionChartProps
           />
           <Bar 
             dataKey="duration" 
-            fill="var(--color-text-main)" 
-            className="text-text-main" 
+            fill="url(#bar-gradient)"
             radius={[6, 6, 0, 0]} 
             barSize={24}
           />
