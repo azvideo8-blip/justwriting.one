@@ -105,6 +105,8 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     return dateGroupOrder;
   }, [dateGroupOrder, sortMode]);
 
+  const isGroupedByDate = sortMode === 'newest' || sortMode === 'oldest';
+
   return (
     <AdaptiveContainer>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="pb-10">
@@ -152,6 +154,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 viewMode={viewMode} loading={loading} error={error} filteredSessions={sortedSessions}
                 groupedSessions={groupedSessions} sortedDates={sortedDates} dateLocale={dateLocale}
                 labels={profileLabels} userId={userId} searchQuery={searchQuery}
+                isGroupedByDate={isGroupedByDate}
                 onOpen={s => setPreviewSession(s)} onDelete={s => setDeleteConfirm(s)}
                 onTagsChange={handleTagsChange} onTitleChange={handleTitleChange}
                 onDateChange={handleDateChange} onLabelChange={handleLabelChange}
