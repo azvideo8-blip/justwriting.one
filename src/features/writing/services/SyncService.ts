@@ -2,8 +2,10 @@ import { getLocalDb } from '../../../shared/lib/localDb';
 import { StorageService } from './StorageService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService } from './DocumentService';
+import pLimit from 'p-limit';
 
 const _syncInProgress = new Map<string, boolean>();
+const limit = pLimit(5);
 
 export const SyncService = {
   async addToQueue(documentId: string): Promise<void> {
@@ -48,10 +50,11 @@ export const SyncService = {
       const localDocs = await LocalDocumentService.getGuestDocuments(userId);
       const unlinked = localDocs.filter(d => !d.linkedCloudId);
 
-      const results = await Promise.allSettled(unlinked.map(async (doc) => {
-        const cloudId = await StorageService.addCloudCopy(userId, doc.id);
-        if (!cloudId) throw new Error('no cloudId');
-      }));
+      const results = await Promise.allSettled(unlinked.map(doc =>
+        limit(() => StorageService.addCloudCopy(userId, doc.id).then(cloudId => {
+          if (!cloudId) throw new Error('no cloudId');
+        }))
+      ));
 
       let synced = 0;
       let failed = 0;
@@ -83,7 +86,7 @@ export const SyncService = {
     const toDownload = cloudDocs.filter(d => !linkedCloudIds.has(d.id));
 
     const results = await Promise.allSettled(
-      toDownload.map(cloudDoc => StorageService.addLocalCopy(userId, cloudDoc.id))
+      toDownload.map(cloudDoc => limit(() => StorageService.addLocalCopy(userId, cloudDoc.id)))
     );
 
     let downloaded = 0;
@@ -106,11 +109,12 @@ async function _drainPendingQueue(userId: string): Promise<void> {
 
   const documentIds = [...new Set(pending.map(p => p.documentId))];
 
-  const results = await Promise.allSettled(documentIds.map(async (localId) => {
-    const cloudId = await StorageService.addCloudCopy(userId, localId);
-    if (!cloudId) return [];
-    return pending.filter(p => p.documentId === localId).map(p => p.id);
-  }));
+  const results = await Promise.allSettled(documentIds.map(localId =>
+    limit(() => StorageService.addCloudCopy(userId, localId).then(cloudId => {
+      if (!cloudId) return [];
+      return pending.filter(p => p.documentId === localId).map(p => p.id);
+    }))
+  ));
 
   const syncedIds: string[] = [];
   for (const r of results) {
