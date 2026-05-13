@@ -48,6 +48,7 @@ export const archiveTranslations: Translations = {
   archive_label_name_placeholder: { ru: 'Название...', en: 'Name...' },
   archive_add_label: { ru: 'Добавить метку', en: 'Add label' },
   archive_assign_label: { ru: 'Назначить метку', en: 'Assign label' },
+  archive_no_label: { ru: 'Без метки', en: 'No label' },
   archive_tag_placeholder_short: { ru: 'тег', en: 'tag' },
   archive_tag_add_short: { ru: '+ тег', en: '+ tag' },
   archive_tag_rename_hint: { ru: 'Новое название тега', en: 'New tag name' },

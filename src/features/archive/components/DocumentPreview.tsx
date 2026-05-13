@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { X, ArrowRight, Download, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
+import { Label } from '../../../types';
 import { ArchiveSession } from '../types';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
@@ -9,15 +10,19 @@ import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx, ExportStrings } from '../services/ArchiveExportService';
 import { InlineTags } from './InlineTags';
 
-export function DocumentPreview({ session, onClose, onContinue, onTagsChange }: {
+export function DocumentPreview({ session, onClose, onContinue, onTagsChange, onLabelChange, labels }: {
   session: ArchiveSession | null;
   onClose: () => void;
   onContinue: (session: ArchiveSession) => void;
   onTagsChange?: (session: ArchiveSession, tags: string[]) => void;
+  onLabelChange?: (session: ArchiveSession, labelId: string | undefined) => void;
+  labels?: Label[];
 }) {
   const { t, language } = useLanguage();
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
+  const [labelPopupOpen, setLabelPopupOpen] = useState(false);
+  const labelPopupRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(Math.min(600, window.innerWidth * 0.55));
   const isDragging = useRef(false);
   const startX = useRef(0);
@@ -76,7 +81,20 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange }: 
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  useEffect(() => {
+    if (!labelPopupOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (labelPopupRef.current && !labelPopupRef.current.contains(e.target as Node)) {
+        setLabelPopupOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [labelPopupOpen]);
+
   if (!session) return null;
+
+  const currentLabel = labels?.find(l => l.id === session.labelId);
 
   const dateLocale = getDateLocale(language);
   const date = toDate(session.createdAt) ?? new Date();
@@ -144,6 +162,63 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange }: 
             {' · '}
             {Math.round((session.duration || 0) / 60)} {t('goal_time_min')}
           </div>
+          {labels && labels.length > 0 && (
+            <div className="relative mt-2">
+              <button
+                onClick={() => setLabelPopupOpen(v => !v)}
+                className="flex items-center gap-1.5 text-[11px] font-mono"
+                title={currentLabel?.name ?? t('archive_assign_label')}
+              >
+                <div
+                  className="w-3 h-3 rounded-full border-2 shrink-0 transition-all"
+                  style={{
+                    background: currentLabel?.color ?? 'transparent',
+                    borderColor: currentLabel?.color ?? 'rgba(255,255,255,0.2)',
+                  }}
+                />
+                <span className="text-text-main/40 hover:text-text-main/60 transition-colors">
+                  {currentLabel?.name ?? t('archive_assign_label')}
+                </span>
+              </button>
+
+              {labelPopupOpen && (
+                <div
+                  ref={labelPopupRef}
+                  className="absolute left-0 top-full z-50 mt-1 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[160px] backdrop-blur-xl"
+                  style={{ background: 'color-mix(in srgb, var(--bg-base) 92%, var(--brand-primary) 8%)' }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  {currentLabel && (
+                    <button
+                      onClick={() => { onLabelChange?.(session!, undefined); setLabelPopupOpen(false); }}
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/40 hover:bg-text-main/5 transition-all"
+                    >
+                      <div className="w-3 h-3 rounded-full border border-dashed border-text-main/20 shrink-0" />
+                      {t('archive_no_label')}
+                    </button>
+                  )}
+                  {labels.map(l => (
+                    <button
+                      key={l.id}
+                      onClick={() => {
+                        onLabelChange?.(session!, session!.labelId === l.id ? undefined : l.id);
+                        setLabelPopupOpen(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left transition-all",
+                        session?.labelId === l.id
+                          ? "bg-text-main/10 text-text-main"
+                          : "text-text-main/60 hover:bg-text-main/5"
+                      )}
+                    >
+                      <div className="w-3 h-3 rounded-full shrink-0" style={{ background: l.color }} />
+                      {l.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <button
           onClick={onClose}

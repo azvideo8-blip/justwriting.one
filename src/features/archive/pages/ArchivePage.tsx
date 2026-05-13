@@ -480,6 +480,8 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 onClose={() => setPreviewSession(null)}
                 onContinue={(s) => navigate('/', { state: { sessionToContinue: s } })}
                 onTagsChange={handleTagsChange}
+                onLabelChange={handleLabelChange}
+                labels={profileLabels}
               />
             )}
           </AnimatePresence>
