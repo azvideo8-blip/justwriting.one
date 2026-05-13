@@ -5,9 +5,7 @@ import { useSessionContinue } from './useSessionContinue';
 import { useLifeLog, LifeLogDocument } from './useLifeLog';
 import { useDocuments } from './useDocuments';
 import { useSessionList } from './useSessionList';
-import { SyncService } from '../services/SyncService';
 import { StorageService } from '../services/StorageService';
-import { WritingDraftService } from '../services/WritingDraftService';
 import { LocalVersionService } from '../services/LocalVersionService';
 import { useToast } from '../../../shared/components/Toast';
 import { useLanguage } from '../../../core/i18n';
@@ -15,22 +13,9 @@ import { SaveData } from '../WritingFinishModal';
 import { Session } from '../../../types';
 import { GuestSessionReturn } from './useGuestWritingSession';
 import { CloudSessionReturn } from './useCloudWritingSession';
+import { cleanupDraftsAfterSave, reportKeystrokeStats } from '../utils/sessionActions';
 
 export type AnySessionReturn = GuestSessionReturn | CloudSessionReturn;
-import * as Sentry from '@sentry/react';
-
-async function clearGuestDraft() {
-  localStorage.removeItem('jw_guest_draft');
-  try {
-    const { getLocalDb } = await import('../../../shared/lib/localDb');
-    const db = await getLocalDb();
-    if (db.objectStoreNames.contains('drafts')) {
-      await db.delete('drafts', 'guest_draft');
-    }
-  } catch (idbErr) {
-    console.warn('[clearGuestDraft] Failed to delete guest IDB draft:', idbErr);
-  }
-}
 
 interface UseWritingActionsParams {
   session: AnySessionReturn;
@@ -160,20 +145,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       const docIdToSync = useWritingStore.getState().savedDocumentId;
       useWritingStore.getState().finishSession();
 
-      if (isGuest) {
-        await clearGuestDraft();
-      } else {
-        try {
-          await WritingDraftService.deleteDraft(userId);
-        } catch (delErr) {
-          console.warn('[handleSave] Failed to delete draft:', delErr);
-        }
-        if (docIdToSync) {
-          SyncService.syncOne(userId, docIdToSync).catch(e => {
-            console.warn('[handleSave] Cloud sync failed:', e);
-          });
-        }
-      }
+      await cleanupDraftsAfterSave(userId, isGuest, docIdToSync);
 
       await refreshDocuments();
       await refreshLifeLog();
@@ -205,33 +177,17 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       return;
     }
     useWritingStore.getState().resetAndClear();
-
-    if (isGuest) {
-      await clearGuestDraft();
-    } else {
-      await WritingDraftService.deleteDraft(userId);
-    }
+    await cleanupDraftsAfterSave(userId, isGuest, null);
   }, [flow, isGuest, userId]);
 
-  const handleFinish = React.useCallback((keystrokeTrackerRef: React.RefObject<{ getStats: () => { kpm: number; ikiMedian: number; ikiCv: number; sampleSize: number; kpmWpmRatio?: number }; reset: () => void }>) => {
+  const handleFinish = React.useCallback((keystrokeTrackerRef: React.RefObject<{ getStats: () => { kpm: number; ikiMedian: number; ikiCv: number; sampleSize: number; kpmWpmRatio?: number }; reset: () => void } | null>) => {
     const state = useWritingStore.getState();
     if (state.status === 'writing') {
       useWritingStore.getState().pauseSession();
     }
     const stats = keystrokeTrackerRef.current?.getStats();
     if (stats) {
-      const wpm = useWritingStore.getState().wpm;
-      const kpmWpmRatio = wpm > 0 ? stats.kpm / wpm : 0;
-      Sentry.withScope((scope) => {
-        scope.setExtra('iki_stats', { ...stats, wpm, kpmWpmRatio, sessionSeconds: useWritingStore.getState().seconds });
-        if (stats.ikiCv > 1.2 && stats.sampleSize > 30) {
-          scope.setLevel('warning');
-          Sentry.captureMessage('High IKI variance detected — possible editor lag');
-        } else {
-          scope.setLevel('info');
-          Sentry.captureMessage('editor.keystroke_stats');
-        }
-      });
+      reportKeystrokeStats(stats, useWritingStore.getState().wpm, useWritingStore.getState().seconds);
     }
     keystrokeTrackerRef.current?.reset();
   }, []);
