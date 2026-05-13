@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { User } from 'firebase/auth';
 import { WritingDraftService } from '../services/WritingDraftService';
+import { WritingSessionService } from '../services/WritingSessionService';
 import { useWritingStore } from '../store/useWritingStore';
 import { useDraftAutosave } from './useDraftAutosave';
 import { UserProfile } from '../../../types';
@@ -60,7 +61,6 @@ export function useSessionPersistence(
 
   useEffect(() => {
     if (isOnline) {
-      const { WritingSessionService } = require('../services/WritingSessionService');
       WritingSessionService.syncPendingSessions(userId);
     }
   }, [isOnline, userId]);
