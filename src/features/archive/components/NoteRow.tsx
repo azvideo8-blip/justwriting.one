@@ -21,9 +21,10 @@ interface NoteRowProps {
   onLabelChange?: (session: ArchiveSession, labelId: string | undefined) => void;
   userId: string;
   labels?: Label[];
+  allTags?: string[];
 }
 
-function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels }: NoteRowProps) {
+function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels, allTags }: NoteRowProps) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(session.title || '');
   const [editingDateTime, setEditingDateTime] = useState(false);
@@ -195,6 +196,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
         <InlineTags
           tags={session.tags || []}
           onChange={(newTags) => onTagsChange?.(session, newTags)}
+          allTags={allTags}
         />
       </div>
 

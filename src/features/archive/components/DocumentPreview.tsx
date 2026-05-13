@@ -9,14 +9,17 @@ import { cn } from '../../../core/utils/utils';
 import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx, ExportStrings } from '../services/ArchiveExportService';
 import { InlineTags } from './InlineTags';
+import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
 
-export function DocumentPreview({ session, onClose, onContinue, onTagsChange, onLabelChange, labels }: {
+export function DocumentPreview({ session, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags }: {
   session: ArchiveSession | null;
   onClose: () => void;
   onContinue: (session: ArchiveSession) => void;
   onTagsChange?: (session: ArchiveSession, tags: string[]) => void;
   onLabelChange?: (session: ArchiveSession, labelId: string | undefined) => void;
+  onAddLabel?: (label: { name: string; color: string }) => void;
   labels?: Label[];
+  allTags?: string[];
 }) {
   const { t, language } = useLanguage();
   const [exportOpen, setExportOpen] = useState(false);
@@ -29,6 +32,10 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
   const startWidth = useRef(0);
   const currentWidthRef = useRef(width);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  const [creatingLabel, setCreatingLabel] = useState(false);
+  const [newLabelName, setNewLabelName] = useState('');
+  const [newLabelColor, setNewLabelColor] = useState(LABEL_PRESET_COLORS[0]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     isDragging.current = true;
@@ -86,6 +93,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
     const handleClick = (e: MouseEvent) => {
       if (labelPopupRef.current && !labelPopupRef.current.contains(e.target as Node)) {
         setLabelPopupOpen(false);
+        setCreatingLabel(false);
       }
     };
     document.addEventListener('mousedown', handleClick);
@@ -113,6 +121,16 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
     { label: 'PDF', action: () => exportAsPdf(session, exportStrings) },
     { label: 'DOCX — Word', action: () => exportAsDocx(session, exportStrings) },
   ];
+
+  const handleCreateLabel = () => {
+    const trimmed = newLabelName.trim();
+    if (trimmed) {
+      onAddLabel?.({ name: trimmed, color: newLabelColor });
+      setNewLabelName('');
+      setNewLabelColor(LABEL_PRESET_COLORS[0]);
+    }
+    setCreatingLabel(false);
+  };
 
   return (
     <motion.div
@@ -162,7 +180,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
             {' · '}
             {Math.round((session.duration || 0) / 60)} {t('goal_time_min')}
           </div>
-          {labels && labels.length > 0 && (
+          {(labels || onAddLabel) && (
             <div className="relative mt-2">
               <button
                 onClick={() => setLabelPopupOpen(v => !v)}
@@ -197,7 +215,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                       {t('archive_no_label')}
                     </button>
                   )}
-                  {labels.map(l => (
+                  {labels?.map(l => (
                     <button
                       key={l.id}
                       onClick={() => {
@@ -215,6 +233,47 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                       {l.name}
                     </button>
                   ))}
+                  {onAddLabel && !creatingLabel && (
+                    <button
+                      onClick={() => setCreatingLabel(true)}
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/30 hover:text-text-main/50 hover:bg-text-main/5 transition-all border-t border-border-subtle mt-1 pt-2.5"
+                    >
+                      + {t('archive_add_label')}
+                    </button>
+                  )}
+                  {onAddLabel && creatingLabel && (
+                    <div className="flex items-center gap-1.5 px-2 py-1.5 border-t border-border-subtle mt-1 pt-2">
+                      <input
+                        value={newLabelName}
+                        onChange={e => setNewLabelName(e.target.value)}
+                        autoFocus
+                        placeholder={t('archive_label_name_placeholder')}
+                        className="w-24 bg-transparent text-[11px] text-text-main outline-none placeholder:text-text-main/25"
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') handleCreateLabel();
+                          if (e.key === 'Escape') setCreatingLabel(false);
+                        }}
+                      />
+                      <div className="flex gap-0.5">
+                        {LABEL_PRESET_COLORS.slice(0, 6).map(c => (
+                          <button
+                            key={c}
+                            style={{ background: c }}
+                            className={cn("w-3 h-3 rounded-full transition-all", newLabelColor === c && "ring-1 ring-offset-1 ring-offset-surface-card ring-white/40")}
+                            onClick={() => setNewLabelColor(c)}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        onClick={handleCreateLabel}
+                        disabled={!newLabelName.trim()}
+                        className="text-[10px] font-medium text-text-main/60 hover:text-text-main disabled:opacity-30"
+                      >
+                        {t('common_save')}
+                      </button>
+                      <button onClick={() => setCreatingLabel(false)} className="text-[10px] text-text-main/30 hover:text-text-main/50">✕</button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -236,6 +295,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
         <InlineTags
           tags={session.tags || []}
           onChange={(newTags) => onTagsChange?.(session, newTags)}
+          allTags={allTags}
         />
       </div>
 

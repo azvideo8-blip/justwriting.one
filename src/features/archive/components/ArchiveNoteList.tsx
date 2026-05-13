@@ -30,6 +30,7 @@ interface ArchiveNoteListProps {
   t: (key: string) => string;
   language: string;
   entriesLabel: (n: number) => string;
+  allTags?: string[];
 }
 
 export function ArchiveNoteList({
@@ -38,7 +39,7 @@ export function ArchiveNoteList({
   labels, userId, searchQuery,
   onOpen, onDelete, onTagsChange, onTitleChange,
   onDateChange, onLabelChange, onStorageChange,
-  t, language, entriesLabel,
+  t, language, entriesLabel, allTags,
 }: ArchiveNoteListProps) {
   if (loading) {
     return (
@@ -110,6 +111,7 @@ export function ArchiveNoteList({
                   onDateChange={onDateChange}
                   onLabelChange={onLabelChange}
                   userId={userId}
+                  allTags={allTags}
                 />
               ))}
             </div>
