@@ -199,6 +199,7 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
     setLifeLogTab,
     lifeLogPinned,
     setLifeLogPinned,
+    saveStatus,
   };
 
   const mainContent = (() => {

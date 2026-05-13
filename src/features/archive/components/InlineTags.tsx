@@ -70,7 +70,7 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
               if (allTags && e.target.value.trim()) {
                 const q = e.target.value.trim().toLowerCase();
                 setSuggestions(
-                  allTags.filter(t => t.toLowerCase().includes(q) && !tags.includes(t))
+                  allTags.filter(t => t.toLowerCase().includes(q) && !tags.includes(t)).slice(0, 7)
                 );
               } else {
                 setSuggestions([]);

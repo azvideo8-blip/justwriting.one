@@ -45,6 +45,7 @@ interface DesktopWritingLayoutProps {
   setLifeLogTab: (t: 'log' | 'settings') => void;
   lifeLogPinned: boolean;
   setLifeLogPinned: (v: boolean) => void;
+  saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
 }
 
 export function DesktopWritingLayout({
@@ -58,6 +59,7 @@ export function DesktopWritingLayout({
   onSetPromptTitle,
   showZen, lifeLogVisible, setLifeLogVisible,
   lifeLogTab, setLifeLogTab, lifeLogPinned, setLifeLogPinned,
+  saveStatus,
 }: DesktopWritingLayoutProps) {
   const { t } = useLanguage();
   const editorColRef = React.useRef<HTMLDivElement>(null);
@@ -112,6 +114,7 @@ export function DesktopWritingLayout({
             onPlay={onPlay}
             onPause={onPause}
             onStop={onStop}
+            saveStatus={saveStatus}
           />
         </div>
 

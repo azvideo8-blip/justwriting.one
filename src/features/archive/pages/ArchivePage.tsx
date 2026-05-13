@@ -119,7 +119,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 onTagsChange={handleTagsChange} onTitleChange={handleTitleChange}
                 onDateChange={handleDateChange} onLabelChange={handleLabelChange}
                 onStorageChange={() => fetchSessions()} t={t} language={language} entriesLabel={entriesLabel}
-                allTags={allTags}
+                allTags={allTags} onClearSearch={() => setSearchQuery('')}
               />
             </div>
           </div>

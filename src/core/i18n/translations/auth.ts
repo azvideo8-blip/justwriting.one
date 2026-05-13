@@ -79,6 +79,7 @@ export const authTranslations: Translations = {
   admin_importing:          { ru: 'Импортирую...', en: 'Importing...' },
   admin_import_done:        { ru: 'Импортировано {imported} из {total} документов', en: 'Imported {imported} of {total} documents' },
   admin_import_failed:      { ru: 'Ошибок: {count}', en: 'Failed: {count}' },
+  admin_import_result:      { ru: 'Импортировано {{imported}} из {{total}} записей', en: 'Imported {{imported}} of {{total}} entries' },
   admin_security_xss_title: { ru: 'XSS защита',             en: 'XSS Protection' },
   admin_security_csrf_title:{ ru: 'CSRF защита',            en: 'CSRF Protection' },
 };

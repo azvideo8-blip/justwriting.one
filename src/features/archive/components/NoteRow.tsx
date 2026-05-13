@@ -7,6 +7,7 @@ import { InlineTags } from './InlineTags';
 import { StorageIcons } from '../../writing/components/StorageIcons';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
+import { highlightText } from '../../../shared/utils/highlightText';
 
 interface NoteRowProps {
   session: ArchiveSession;
@@ -22,9 +23,10 @@ interface NoteRowProps {
   userId: string;
   labels?: Label[];
   allTags?: string[];
+  searchQuery?: string;
 }
 
-function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels, allTags }: NoteRowProps) {
+function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels, allTags, searchQuery }: NoteRowProps) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(session.title || '');
   const [editingDateTime, setEditingDateTime] = useState(false);
@@ -185,12 +187,12 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
             onDoubleClick={e => { e.stopPropagation(); setTitleDraft(session.title || ''); setEditingTitle(true); }}
             title={t('archive_edit_title_hint')}
           >
-            {session.title || t('session_untitled')}
+            {highlightText(session.title || t('session_untitled'), searchQuery ?? '')}
           </div>
         )}
         {session.content && (
           <p className="text-sm text-text-main/55 leading-relaxed line-clamp-1 sm:line-clamp-2 mb-2 cursor-pointer" onClick={onOpen}>
-            {session.content.slice(0, 200)}
+            {highlightText(session.content.slice(0, 200), searchQuery ?? '')}
           </p>
         )}
         <InlineTags
