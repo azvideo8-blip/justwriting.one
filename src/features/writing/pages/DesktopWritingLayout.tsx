@@ -118,20 +118,28 @@ export function DesktopWritingLayout({
           />
         </div>
 
-        {hasDraft && sessionStatus === 'idle' && !setupMode && (
-          <div className="flex items-center justify-between px-4 py-2.5 mx-4 mt-2 rounded-xl border border-text-main/10 bg-text-main/[0.04] text-sm text-text-main/60">
-            <span>{t('draft_restore_prompt')}</span>
-            <div className="flex gap-2">
-              <button onClick={loadDraft} className="text-text-main font-medium hover:opacity-70 transition-opacity">
-                {t('draft_restore')}
-              </button>
-              <button onClick={discardDraft}
-                className="text-text-main/40 hover:text-text-main/60 transition-colors">
-                {t('draft_discard')}
-              </button>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {hasDraft && sessionStatus === 'idle' && !setupMode && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+              className="flex items-center justify-between px-4 py-2.5 mx-4 mt-2 rounded-xl border border-text-main/10 bg-text-main/[0.04] text-sm text-text-main/60"
+            >
+              <span>{t('draft_restore_prompt')}</span>
+              <div className="flex gap-2">
+                <button onClick={loadDraft} className="text-text-main font-medium hover:opacity-70 transition-opacity">
+                  {t('draft_restore')}
+                </button>
+                <button onClick={discardDraft}
+                  className="text-text-main/40 hover:text-text-main/60 transition-colors">
+                  {t('draft_discard')}
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div ref={editorColRef} style={{
           gridColumn: '2',

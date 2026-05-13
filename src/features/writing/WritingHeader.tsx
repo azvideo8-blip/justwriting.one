@@ -227,8 +227,16 @@ export const WritingHeader = React.memo(function WritingHeader({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="font-mono text-[10px] text-text-main/25 tracking-widest uppercase ml-3"
+                    className="flex items-center gap-1 font-mono text-[10px] text-text-main/25 tracking-widest uppercase ml-3"
                   >
+                    <motion.svg viewBox="0 0 12 10" width={12} height={10}>
+                      <motion.path
+                        d="M1 5 L4.5 8.5 L11 1"
+                        stroke="currentColor" strokeWidth={1.5} fill="none" strokeLinecap="round"
+                        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }}
+                        transition={{ duration: 0.4, ease: 'easeOut' }}
+                      />
+                    </motion.svg>
                     {t('editor_saved')}
                   </motion.span>
                 )}

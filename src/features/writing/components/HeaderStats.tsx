@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
+import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
@@ -19,7 +20,7 @@ interface HeaderStatsProps {
   visibility: HeaderVisibility;
 }
 
-export const HeaderStats = React.memo(function HeaderStats({
+export const HeaderStats = memo(function HeaderStats({
   wordGoal, timerDuration, onSetWordGoal, onSetTimerDuration,
   sessionWords, sessionSeconds, wordCount, wpm, status,
   visibility
@@ -85,9 +86,10 @@ export const HeaderStats = React.memo(function HeaderStats({
         </div>
         {wordProgress !== null && wordGoal > 0 && (
           <div className="w-full h-px bg-border-subtle mt-1.5">
-            <div
-              className={cn("h-px transition-all", wordDone ? "bg-accent-success" : "bg-text-main")}
-              style={{ width: `${wordProgress}%` }}
+            <motion.div
+              className={cn("h-px", wordDone ? "bg-accent-success" : "bg-brand-soft")}
+              animate={{ width: `${wordProgress}%` }}
+              transition={{ type: 'spring', stiffness: 120, damping: 20 }}
             />
           </div>
         )}
@@ -136,9 +138,10 @@ export const HeaderStats = React.memo(function HeaderStats({
         </div>
         {timeProgress !== null && timerDuration > 0 && (
           <div className="w-full h-px bg-border-subtle mt-1.5">
-            <div
-              className={cn("h-px transition-all", timeDone ? "bg-accent-success" : "bg-text-main")}
-              style={{ width: `${timeProgress}%` }}
+            <motion.div
+              className={cn("h-px", timeDone ? "bg-accent-success" : "bg-brand-soft")}
+              animate={{ width: `${timeProgress}%` }}
+              transition={{ type: 'spring', stiffness: 120, damping: 20 }}
             />
           </div>
         )}
