@@ -165,6 +165,7 @@ export const profileTranslations: Translations = {
   me_stat_avg_wpm:   { ru: 'сл/мин средн.',        en: 'avg wpm' },
   me_stat_avg_session: { ru: 'слов/сессия',        en: 'words/session' },
   me_anonymous:      { ru: 'Аноним',               en: 'Anonymous' },
+  account_local_title: { ru: 'Локальный аккаунт',  en: 'Local Account' },
   me_account_email:  { ru: 'Email',                en: 'Email' },
   me_sign_out:       { ru: 'Выйти',                en: 'Sign out' },
 };

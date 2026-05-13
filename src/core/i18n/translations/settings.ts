@@ -54,6 +54,7 @@ export const settingsTranslations: Translations = {
   storage_remove_cloud: { ru: 'Удалить облачную копию', en: 'Remove cloud copy' },
   storage_no_local: { ru: 'Нет локальной копии', en: 'No local copy' },
   storage_no_cloud: { ru: 'Нет облачной копии', en: 'No cloud copy' },
+  storage_upload_to_cloud: { ru: 'Загрузить на облако', en: 'Upload to cloud' },
   storage_confirm_delete_local: { ru: 'Удалить локальную копию?', en: 'Remove local copy?' },
   storage_confirm_delete_cloud: { ru: 'Удалить облачную копию?', en: 'Remove cloud copy?' },
   storage_confirm_delete_only: { ru: 'Удалить документ полностью?', en: 'Delete document completely?' },

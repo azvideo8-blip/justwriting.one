@@ -53,6 +53,7 @@ export const writingTranslations: Translations = {
   header_wpm:          { ru: 'сл/мин',             en: 'wpm' },
   header_sessionWords_hint: { ru: 'слов в сессии · цель', en: 'session words · set goal' },
   header_time_hint:         { ru: 'время · цель',          en: 'time · set goal' },
+  header_time:              { ru: 'Время',                  en: 'Time' },
   header_new_session: { ru: 'Новая сессия', en: 'New Session' },
   header_continue: { ru: 'Продолжить', en: 'Continue' },
   header_draft: { ru: 'Черновик', en: 'Draft' },

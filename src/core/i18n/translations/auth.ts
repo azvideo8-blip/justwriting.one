@@ -58,6 +58,7 @@ export const authTranslations: Translations = {
   admin_tab_sessions: { ru: 'Сессии', en: 'Sessions' },
   admin_tab_security: { ru: 'Безопасность', en: 'Security' },
   admin_confirm_delete_session: { ru: 'Вы уверены, что хотите удалить эту сессию?', en: 'Are you sure you want to delete this session?' },
+  admin_confirm_delete_session_desc: { ru: 'Это действие нельзя отменить', en: 'This action cannot be undone' },
   admin_security_active: { ru: 'Активная защита', en: 'Active Protection' },
   admin_security_validation: { ru: 'Валидация схем данных на уровне Firestore', en: 'Firestore-level data schema validation' },
   admin_security_size_limits: { ru: 'Ограничение размера строковых полей (защита от DoS)', en: 'String field size limits (DoS protection)' },

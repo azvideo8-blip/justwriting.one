@@ -13,6 +13,7 @@
     "format:check": "prettier --check .",
     "test": "vitest",
     "test:ci": "vitest run",
+    "i18n:audit": "tsx scripts/i18n-audit.ts",
     "ci": "npm run typecheck && npm run lint && npm run test:ci"
   },
   "dependencies": {

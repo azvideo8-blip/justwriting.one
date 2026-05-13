@@ -1,27 +1,24 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
-import { format } from 'date-fns';
-import { Search, LayoutGrid, LayoutList, BookOpen, Pencil, X } from 'lucide-react';
+import { Search, LayoutGrid, LayoutList } from 'lucide-react';
 import { UserProfile } from '../../../types';
-import { GridNoteCard } from '../components/GridNoteCard';
 import { cn, calculateStreak } from '../../../core/utils/utils';
-import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 import { z } from 'zod';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
 import { useLanguage } from '../../../core/i18n';
 import { useNavigate } from 'react-router-dom';
 import { useUserId } from '../../../shared/hooks/useUserId';
-import { EmptyState } from '../../../shared/components/EmptyState';
 import { DocumentPreview } from '../components/DocumentPreview';
-import { NoteRow } from '../components/NoteRow';
 import { ArchiveSidebar } from '../components/ArchiveSidebar';
+import { ArchiveTagBar } from '../components/ArchiveTagBar';
+import { ArchiveLabelBar } from '../components/ArchiveLabelBar';
+import { ArchiveNoteList } from '../components/ArchiveNoteList';
 import { useArchiveData } from '../hooks/useArchiveData';
 import { useProfileLabels } from '../../profile/hooks/useProfileLabels';
-import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
-import { DocumentService } from '../../writing/services/DocumentService';
-import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
+import { useTagEditor } from '../hooks/useTagEditor';
+import { useLabelEditor } from '../hooks/useLabelEditor';
 import { ConfirmModal } from '../../../shared/components/ConfirmModal';
 
 interface ArchiveViewProps {
@@ -65,6 +62,9 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     groupedSessions, sortedDates, dateLocale, entriesLabel,
   } = data;
 
+  const tagEditor = useTagEditor(userId, fetchSessions);
+  const labelEditor = useLabelEditor({ addLabel, updateLabel, removeLabel });
+
   const filteredStreakDays = React.useMemo(() => calculateStreak(filteredByFilters), [filteredByFilters]);
 
   const [viewMode, setViewMode] = useLocalStorage<'list' | 'grid'>(
@@ -72,16 +72,6 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     'list',
     z.enum(['list', 'grid'])
   );
-  const [addingLabel, setAddingLabel] = useState(false);
-  const [newLabelName, setNewLabelName] = useState('');
-  const [newLabelColor, setNewLabelColor] = useState(LABEL_PRESET_COLORS[0]);
-  const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
-  const [editLabelName, setEditLabelName] = useState('');
-  const [editLabelColor, setEditLabelColor] = useState('');
-  const [renamingTag, setRenamingTag] = useState<string | null>(null);
-  const [renameTagValue, setRenameTagValue] = useState('');
-  const [tagDeleteConfirm, setTagDeleteConfirm] = useState<string | null>(null);
-  const [labelDeleteConfirm, setLabelDeleteConfirm] = useState<string | null>(null);
 
   return (
     <AdaptiveContainer>
@@ -94,7 +84,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
           <div className="flex-1 min-w-0 pr-0 lg:pr-8 overflow-y-auto">
             <div style={{ padding: '24px 0 18px', borderBottom: '1px solid var(--color-border-subtle)' }}>
               <div className="flex items-baseline gap-3 mb-1">
-                    <h1 className="text-3xl font-medium tracking-tight text-text-main">
+                <h1 className="text-3xl font-medium tracking-tight text-text-main">
                   {t('nav_notes')}
                 </h1>
                 <span className="font-mono text-[11px] text-text-main/30 uppercase tracking-widest">
@@ -137,228 +127,46 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               </div>
             </div>
 
-            {allTags.length > 0 && (
-              <div className="flex items-center gap-2 py-3 flex-wrap" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
-                <span className="font-mono text-[10px] text-text-main/25 uppercase tracking-widest mr-1">
-                  {t('archive_tags_label')}
-                </span>
-                {allTags.map(tag => {
-                  const active = selectedTags.includes(tag);
-                  if (renamingTag === tag) {
-                    return (
-                      <div key={tag} className="flex items-center gap-1 px-2 py-1 rounded-xl border border-border-subtle bg-surface-card">
-                        <span className="text-[11px] font-mono text-text-main/40">#</span>
-                        <input
-                          value={renameTagValue}
-                          onChange={e => setRenameTagValue(e.target.value)}
-                          autoFocus
-                          className="w-20 bg-transparent text-[12px] text-text-main outline-none"
-                          onKeyDown={async e => {
-                            if (e.key === 'Enter') {
-                              const trimmed = renameTagValue.trim();
-                              if (trimmed && trimmed !== tag) {
-                                if (!userId.startsWith('guest')) {
-                                  DocumentService.renameTagInAllDocs(userId, tag, trimmed).catch(() => {});
-                                }
-                                LocalDocumentService.renameTagInAllDocs(userId, tag, trimmed).then(() => fetchSessions()).catch(() => {});
-                              }
-                              setRenamingTag(null);
-                            }
-                            if (e.key === 'Escape') setRenamingTag(null);
-                          }}
-                        />
-                        <button onClick={() => setRenamingTag(null)} className="text-[10px] text-text-main/30 hover:text-text-main/50">✕</button>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div key={tag} className="group/tag relative flex items-center">
-                      <button
-                        onClick={() => setSelectedTags(prev =>
-                          prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-                        )}
-                        className={cn(
-                          "px-2.5 py-1 rounded-full text-[11px] font-mono transition-all border",
-                          active
-                            ? "bg-text-main/10 border-text-main/30 text-text-main"
-                            : "bg-transparent border-border-subtle text-text-main/40 hover:text-text-main/60"
-                        )}
-                      >
-                        #{tag}
-                      </button>
-                      {user && (
-                        <span className="absolute -top-1.5 -right-1.5 opacity-0 group-hover/tag:opacity-100 transition-opacity flex gap-0.5">
-                          <button
-                            onClick={e => { e.stopPropagation(); setRenamingTag(tag); setRenameTagValue(tag); }}
-                            className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-text-main/60"
-                          >
-                            <Pencil size={7} />
-                          </button>
-                          <button
-                            onClick={e => { e.stopPropagation(); setTagDeleteConfirm(tag); }}
-                            className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-red-400"
-                          >
-                            <X size={7} />
-                          </button>
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-                {selectedTags.length > 0 && (
-                  <button
-                    onClick={() => setSelectedTags([])}
-                    className="px-2.5 py-1 rounded-full text-[11px] font-mono border border-dashed border-border-subtle text-text-main/30 hover:text-text-main/50 transition-all"
-                  >
-                    {t('archive_tags_reset')} &#10005;
-                  </button>
-                )}
-              </div>
-            )}
+            <ArchiveTagBar
+              allTags={allTags}
+              selectedTags={selectedTags}
+              onToggleTag={tag => setSelectedTags(prev =>
+                prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+              )}
+              renamingTag={tagEditor.renamingTag}
+              renameTagValue={tagEditor.renameTagValue}
+              setRenameTagValue={tagEditor.setRenameTagValue}
+              onStartRename={tagEditor.startRenameTag}
+              onRenameSubmit={tagEditor.handleRenameTag}
+              onRenameCancel={() => tagEditor.setRenamingTag(null)}
+              onDeleteTag={tagEditor.setTagDeleteConfirm}
+              onResetTags={() => setSelectedTags([])}
+              showControls={!!user}
+              t={t}
+            />
 
-            {(profileLabels.length > 0 || user) && (
-              <div className="flex items-center gap-2 py-3 flex-wrap" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
-                <span className="font-mono text-[10px] text-text-main/25 uppercase tracking-widest mr-1">
-                  {t('archive_labels')}
-                </span>
-                {profileLabels.map(label => {
-                  const active = selectedLabels.includes(label.id);
-                  if (editingLabelId === label.id) {
-                    return (
-                      <div key={label.id} className="flex items-center gap-2 px-2 py-1 rounded-xl border border-border-subtle bg-surface-card">
-                        <input
-                          value={editLabelName}
-                          onChange={e => setEditLabelName(e.target.value)}
-                          autoFocus
-                          className="w-24 bg-transparent text-[12px] text-text-main outline-none"
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') {
-                              const trimmed = editLabelName.trim();
-                              if (trimmed) updateLabel(label.id, { name: trimmed, color: editLabelColor });
-                              setEditingLabelId(null);
-                            }
-                            if (e.key === 'Escape') setEditingLabelId(null);
-                          }}
-                        />
-                        <div className="flex gap-1">
-                          {LABEL_PRESET_COLORS.map(c => (
-                            <button
-                              key={c}
-                              style={{ background: c }}
-                              className={cn("w-3.5 h-3.5 rounded-full transition-all", editLabelColor === c && "ring-2 ring-offset-1 ring-offset-surface-card ring-white/40")}
-                              onClick={() => setEditLabelColor(c)}
-                            />
-                          ))}
-                        </div>
-                        <button onClick={() => { const trimmed = editLabelName.trim(); if (trimmed) updateLabel(label.id, { name: trimmed, color: editLabelColor }); setEditingLabelId(null); }}
-                          disabled={!editLabelName.trim()}
-                          className="text-[10px] font-medium text-text-main/60 hover:text-text-main disabled:opacity-30">
-                          {t('common_save')}
-                        </button>
-                        <button onClick={() => setEditingLabelId(null)} className="text-[10px] text-text-main/30 hover:text-text-main/50">✕</button>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div key={label.id} className="group/label relative flex items-center">
-                      <button
-                        onClick={() => toggleLabel(label.id)}
-                        className={cn(
-                          "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono transition-all border",
-                          active ? "border-transparent text-white" : "bg-transparent border-border-subtle text-text-main/50 hover:text-text-main/70"
-                        )}
-                        style={active ? { background: label.color, borderColor: label.color } : {}}
-                      >
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: label.color }} />
-                        {label.name}
-                      </button>
-                      {user && (
-                        <span className="absolute -top-1.5 -right-1.5 opacity-0 group-hover/label:opacity-100 transition-opacity flex gap-0.5">
-                          <button
-                            onClick={e => { e.stopPropagation(); setEditingLabelId(label.id); setEditLabelName(label.name); setEditLabelColor(label.color); }}
-                            className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-text-main/60"
-                          >
-                            <Pencil size={7} />
-                          </button>
-                          <button
-                            onClick={e => { e.stopPropagation(); setLabelDeleteConfirm(label.id); }}
-                            className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-red-400"
-                          >
-                            <X size={7} />
-                          </button>
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-                {selectedLabels.length > 0 && (
-                  <button
-                    onClick={() => selectedLabels.forEach(id => toggleLabel(id))}
-                    className="px-2.5 py-1 rounded-full text-[11px] font-mono border border-dashed border-border-subtle text-text-main/30 hover:text-text-main/50 transition-all"
-                  >
-                    {t('archive_tags_reset')} &#10005;
-                  </button>
-                )}
-                {user && !addingLabel && !editingLabelId && (
-                  <button
-                    onClick={() => setAddingLabel(true)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-mono text-text-main/30 hover:text-text-main/50 border border-dashed border-border-subtle transition-all"
-                  >
-                    + {t('archive_add_label')}
-                  </button>
-                )}
-                {user && addingLabel && (
-                  <div className="flex items-center gap-2 px-2 py-1 rounded-xl border border-border-subtle bg-surface-card">
-                    <input
-                      value={newLabelName}
-                      onChange={e => setNewLabelName(e.target.value)}
-                      placeholder={t('archive_label_name_placeholder')}
-                      autoFocus
-                      className="w-28 bg-transparent text-[12px] text-text-main outline-none placeholder:text-text-main/25"
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          const trimmed = newLabelName.trim();
-                          if (trimmed) { addLabel({ name: trimmed, color: newLabelColor }); setNewLabelName(''); setAddingLabel(false); setNewLabelColor(LABEL_PRESET_COLORS[0]); }
-                        }
-                        if (e.key === 'Escape') { setAddingLabel(false); setNewLabelName(''); }
-                      }}
-                    />
-                    <div className="flex gap-1">
-                      {LABEL_PRESET_COLORS.map(c => (
-                        <button
-                          key={c}
-                          style={{ background: c }}
-                          className={cn("w-4 h-4 rounded-full transition-all", newLabelColor === c && "ring-2 ring-offset-1 ring-offset-surface-card ring-white/40")}
-                          onClick={() => setNewLabelColor(c)}
-                        />
-                      ))}
-                      <div className="relative">
-                        <input type="color" defaultValue={newLabelColor} onChange={e => setNewLabelColor(e.target.value)} className="sr-only" id="new-label-color" />
-                        <label htmlFor="new-label-color"
-                          className={cn("w-4 h-4 rounded-full border border-dashed border-border-subtle flex items-center justify-center cursor-pointer text-[9px] text-text-main/40 hover:border-text-main/40",
-                            !LABEL_PRESET_COLORS.includes(newLabelColor) && "ring-2 ring-offset-1 ring-offset-surface-card"
-                          )}
-                          style={!LABEL_PRESET_COLORS.includes(newLabelColor) ? { background: newLabelColor } : {}}
-                        >
-                          {LABEL_PRESET_COLORS.includes(newLabelColor) && '+'}
-                        </label>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => { const trimmed = newLabelName.trim(); if (trimmed) { addLabel({ name: trimmed, color: newLabelColor }); setNewLabelName(''); setAddingLabel(false); setNewLabelColor(LABEL_PRESET_COLORS[0]); } }}
-                      disabled={!newLabelName.trim()}
-                      className="text-[11px] font-medium text-text-main/60 hover:text-text-main disabled:opacity-30 transition-colors"
-                    >
-                      {t('common_save')}
-                    </button>
-                    <button onClick={() => { setAddingLabel(false); setNewLabelName(''); }}
-                      className="text-[11px] text-text-main/30 hover:text-text-main/50 transition-colors">
-                      ✕
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+            <ArchiveLabelBar
+              labels={profileLabels}
+              selectedLabels={selectedLabels}
+              onToggleLabel={toggleLabel}
+              addingLabel={labelEditor.addingLabel}
+              setAddingLabel={labelEditor.setAddingLabel}
+              newLabelName={labelEditor.newLabelName}
+              setNewLabelName={labelEditor.setNewLabelName}
+              newLabelColor={labelEditor.newLabelColor}
+              setNewLabelColor={labelEditor.setNewLabelColor}
+              onAddLabel={labelEditor.handleAddLabel}
+              editingLabelId={labelEditor.editingLabelId}
+              setEditingLabelId={labelEditor.setEditingLabelId}
+              editLabelName={labelEditor.editLabelName}
+              setEditLabelName={labelEditor.setEditLabelName}
+              editLabelColor={labelEditor.editLabelColor}
+              setEditLabelColor={labelEditor.setEditLabelColor}
+              onUpdateLabel={labelEditor.handleUpdateLabel}
+              onDeleteLabel={labelEditor.setLabelDeleteConfirm}
+              showControls={!!user}
+              t={t}
+            />
 
             {cloudLoadFailed && (
               <div className="px-4 py-3 rounded-2xl text-sm bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-between mt-4">
@@ -372,82 +180,29 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               </div>
             )}
 
-            <div className="mt-4 space-y-1">
-              {loading ? (
-                <div className="flex flex-col items-center justify-center gap-6 py-16">
-                  <motion.div
-                    animate={{ opacity: [0.7, 1, 0.7] }}
-                    transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-                    style={{ filter: "drop-shadow(0 0 24px color-mix(in srgb, var(--brand-soft) 40%, transparent))" }}
-                  >
-                    <JustWritingLogo size={120} variant="dark" showRailway={true} showRoman={true} showCrown={true} />
-                  </motion.div>
-                  <p className="text-sm text-text-main/35 tracking-widest uppercase font-sans">
-                    {t('archive_loading')}
-                  </p>
-                </div>
-              ) : error ? (
-                <div className="p-12 text-center rounded-3xl border bg-red-500/10 border-red-500/30">
-                  <p className="text-red-400">{error}</p>
-                </div>
-              ) : filteredSessions.length === 0 ? (
-                <EmptyState
-                  icon={BookOpen}
-                  title={t('archive_empty_title')}
-                  description={t('archive_empty_subtitle')}
-                />
-              ) : (
-                sortedDates.map(dateKey => (
-                  <div key={dateKey}>
-                    {viewMode !== 'grid' && (
-                    <div className="flex items-center gap-4 py-4">
-                      <h4 className="text-[15px] font-medium text-text-main whitespace-nowrap">
-                        {format(new Date(dateKey), 'd MMMM yyyy', { locale: dateLocale })}
-                      </h4>
-                      <div className="flex-1 h-px bg-border-subtle" />
-                      <span className="font-mono text-[11px] text-text-main/35 whitespace-nowrap">
-                        {groupedSessions[dateKey].length} {entriesLabel(groupedSessions[dateKey].length)} · {' '}
-                        {groupedSessions[dateKey]
-                          .reduce((sum, s) => sum + (s.wordCount || 0), 0)
-                          .toLocaleString()} {t('home_words_short')}
-                      </span>
-                    </div>
-                    )}
-                    {viewMode === 'list' ? (
-                      <div className="flex flex-col">
-                        {groupedSessions[dateKey].map(session => (
-                          <NoteRow
-                            key={session.id}
-                            session={session}
-                            onOpen={() => setPreviewSession(session)}
-                            t={t}
-                            language={language}
-                            labels={profileLabels}
-                            onDelete={(s) => setDeleteConfirm(s)}
-                            onTagsChange={handleTagsChange}
-                            onStorageChange={() => fetchSessions()}
-                            onTitleChange={handleTitleChange}
-                            onDateChange={handleDateChange}
-                            onLabelChange={handleLabelChange}
-                            userId={userId}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-3">
-                        {groupedSessions[dateKey].map(session => (
-                          <GridNoteCard
-                            key={session.id}
-                            session={session}
-                            onClick={() => setPreviewSession(session)}
-                            searchQuery={searchQuery}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
+            <div className="mt-4">
+              <ArchiveNoteList
+                viewMode={viewMode}
+                loading={loading}
+                error={error}
+                filteredSessions={filteredSessions}
+                groupedSessions={groupedSessions}
+                sortedDates={sortedDates}
+                dateLocale={dateLocale}
+                labels={profileLabels}
+                userId={userId}
+                searchQuery={searchQuery}
+                onOpen={s => setPreviewSession(s)}
+                onDelete={s => setDeleteConfirm(s)}
+                onTagsChange={handleTagsChange}
+                onTitleChange={handleTitleChange}
+                onDateChange={handleDateChange}
+                onLabelChange={handleLabelChange}
+                onStorageChange={() => fetchSessions()}
+                t={t}
+                language={language}
+                entriesLabel={entriesLabel}
+              />
             </div>
           </div>
 
@@ -487,29 +242,23 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
           </AnimatePresence>
 
           <ConfirmModal
-            isOpen={!!tagDeleteConfirm}
+            isOpen={!!tagEditor.tagDeleteConfirm}
             title={t('archive_tags_label')}
-            message={t('archive_tag_delete_confirm', { tag: tagDeleteConfirm ?? '' })}
+            message={t('archive_tag_delete_confirm', { tag: tagEditor.tagDeleteConfirm ?? '' })}
             confirmLabel={t('storage_delete_confirm')}
             cancelLabel={t('common_cancel')}
-            onConfirm={async () => {
-              if (!userId.startsWith('guest')) {
-                DocumentService.removeTagFromAllDocs(userId, tagDeleteConfirm!).catch(() => {});
-              }
-              LocalDocumentService.removeTagFromAllDocs(userId, tagDeleteConfirm!).then(() => fetchSessions()).catch(() => {});
-              setTagDeleteConfirm(null);
-            }}
-            onCancel={() => setTagDeleteConfirm(null)}
+            onConfirm={tagEditor.handleDeleteTag}
+            onCancel={() => tagEditor.setTagDeleteConfirm(null)}
           />
 
           <ConfirmModal
-            isOpen={!!labelDeleteConfirm}
+            isOpen={!!labelEditor.labelDeleteConfirm}
             title={t('archive_labels')}
             message={t('archive_label_delete_confirm')}
             confirmLabel={t('storage_delete_confirm')}
             cancelLabel={t('common_cancel')}
-            onConfirm={() => { removeLabel(labelDeleteConfirm!); setLabelDeleteConfirm(null); }}
-            onCancel={() => setLabelDeleteConfirm(null)}
+            onConfirm={labelEditor.confirmDeleteLabel}
+            onCancel={() => labelEditor.setLabelDeleteConfirm(null)}
           />
 
           <ConfirmModal
