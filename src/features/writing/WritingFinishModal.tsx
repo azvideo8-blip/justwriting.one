@@ -97,6 +97,7 @@ export function WritingFinishModal({
 
   useModalEscape(isOpen, onCancel);
 
+  const tagInputRef = React.useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<'form' | 'mood'>('form');
 
   React.useEffect(() => {
@@ -150,11 +151,18 @@ export function WritingFinishModal({
   };
 
   const handleSaveClick = () => {
+    const pendingTag = tagInputRef.current?.value.trim();
+    const finalTags = pendingTag && tags && !tags.includes(pendingTag)
+      ? [...tags, pendingTag]
+      : tags;
+    if (tagInputRef.current) tagInputRef.current.value = '';
+    if (finalTags !== tags) setTags(finalTags);
+
     if (finalTitle && finalTitle !== title) {
       setTitle(finalTitle);
     }
     execute(
-      () => onSave({ ...saveData, title: finalTitle }),
+      () => onSave({ ...saveData, title: finalTitle, tags: finalTags || [] }),
       {
         successMessage: t('save_success'),
         errorMessage: t('error_save_failed'),
@@ -292,9 +300,17 @@ export function WritingFinishModal({
               ))}
             </div>
             <input
+              ref={tagInputRef}
               type="text"
               placeholder={t('finish_add_tag')}
               className="w-full px-4 py-2 rounded-2xl border outline-none transition-all bg-surface-base border-border-subtle text-text-main placeholder:text-text-main/60 focus:border-text-main/40"
+              onBlur={(e) => {
+                const val = e.currentTarget.value.trim();
+                if (val && tags && !tags.includes(val)) {
+                  setTags([...tags, val]);
+                  e.currentTarget.value = '';
+                }
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   const val = e.currentTarget.value.trim();
@@ -302,6 +318,7 @@ export function WritingFinishModal({
                     setTags([...tags, val]);
                     e.currentTarget.value = '';
                   }
+                  e.preventDefault();
                 }
               }}
             />

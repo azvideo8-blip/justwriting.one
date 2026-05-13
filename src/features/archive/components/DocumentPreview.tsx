@@ -155,6 +155,9 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange }: 
 
       {/* Tags */}
       <div className="px-6 py-3 border-b border-border-subtle">
+        <div className="text-[10px] font-mono text-text-main/30 uppercase tracking-widest mb-2">
+          {t('finish_tags')}
+        </div>
         <InlineTags
           tags={session.tags || []}
           onChange={(newTags) => onTagsChange?.(session, newTags)}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { format, isSameDay } from 'date-fns';
 import { ArchiveSession } from '../types';
 import { ArchiveStats } from './ArchiveStats';
 import { Calendar } from '../../calendar/components/Calendar';
@@ -44,12 +45,30 @@ export function ArchiveSidebar({
         {t('archive_calendar_title')}
       </div>
 
+      {selectedDate && (
+        <button
+          onClick={() => onSelectDate(null)}
+          className="text-[11px] font-mono text-brand-soft/70 hover:text-brand-soft flex items-center gap-1 transition-colors"
+        >
+          ✕ {format(selectedDate, 'd MMM yyyy')}
+        </button>
+      )}
+
       <Calendar
         sessions={sessions}
         sessionsByDate={sessionsByDate}
         selectedDate={selectedDate ?? new Date()}
-        onSelectDate={onSelectDate}
-        onSelectMonth={onSelectMonth}
+        onSelectDate={(d) => {
+          if (selectedDate && isSameDay(d, selectedDate)) {
+            onSelectDate(null);
+          } else {
+            onSelectDate(d);
+          }
+        }}
+        onSelectMonth={(d) => {
+          onSelectDate(null);
+          onSelectMonth(d);
+        }}
       />
 
       {wordCloud.length > 0 && (

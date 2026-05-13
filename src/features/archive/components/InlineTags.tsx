@@ -61,8 +61,9 @@ export function InlineTags({ tags, onChange }: InlineTagsProps) {
       ) : (
         <button
           onClick={e => { e.stopPropagation(); setAdding(true); }}
-          className="font-mono text-[10px] text-text-main/20 border border-dashed border-text-main/15 rounded px-1.5 py-0.5 hover:text-text-main/40 hover:border-text-main/25 transition-colors"
+          className="font-mono text-[10px] text-text-main/40 border border-dashed border-text-main/25 rounded px-1.5 py-0.5 hover:text-brand-soft hover:border-brand-soft/40 transition-colors flex items-center gap-0.5"
         >
+          <span className="text-[9px] leading-none">+</span>
           {t('archive_tag_add_short')}
         </button>
       )}
