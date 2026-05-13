@@ -66,11 +66,10 @@ export const WritingEditor = React.memo(function WritingEditor({
         readOnly={_status === 'paused'}
         aria-label={t('writing_placeholder')}
         placeholder={t('writing_placeholder')}
-        style={{ 
+        style={{
           fontSize: `${fontSize}px`,
           lineHeight: `${fontSize * 1.2}px`,
           fontFamily: getFontStack(fontFamily),
-          caretColor: undefined,
           userSelect: 'text'
         }}
         className={cn(
