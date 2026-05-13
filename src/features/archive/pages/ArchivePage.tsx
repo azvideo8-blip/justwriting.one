@@ -1,4 +1,4 @@
-import React from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { UserProfile } from '../../../types';
@@ -30,9 +30,9 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
   const userId = useUserId(user);
-  const searchInputRef = React.useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
@@ -61,7 +61,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const tagEditor = useTagEditor(userId, fetchSessions);
   const labelEditor = useLabelEditor({ addLabel, updateLabel, removeLabel });
 
-  const filteredStreakDays = React.useMemo(() => calculateStreak(filteredByFilters), [filteredByFilters]);
+  const filteredStreakDays = useMemo(() => calculateStreak(filteredByFilters), [filteredByFilters]);
 
   const [viewMode, setViewMode] = useLocalStorage<'list' | 'grid'>(
     'archive_viewMode',
