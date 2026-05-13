@@ -119,6 +119,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 onTagsChange={handleTagsChange} onTitleChange={handleTitleChange}
                 onDateChange={handleDateChange} onLabelChange={handleLabelChange}
                 onStorageChange={() => fetchSessions()} t={t} language={language} entriesLabel={entriesLabel}
+                allTags={allTags}
               />
             </div>
           </div>
@@ -136,7 +137,8 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               <DocumentPreview
                 session={previewSession} onClose={() => setPreviewSession(null)}
                 onContinue={s => navigate('/', { state: { sessionToContinue: s } })}
-                onTagsChange={handleTagsChange} onLabelChange={handleLabelChange} labels={profileLabels}
+                onTagsChange={handleTagsChange} onLabelChange={handleLabelChange}
+                onAddLabel={addLabel} labels={profileLabels} allTags={allTags}
               />
             )}
           </AnimatePresence>
