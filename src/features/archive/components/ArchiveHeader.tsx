@@ -1,4 +1,4 @@
-import React from 'react';
+import { type RefObject } from 'react';
 import { Search, LayoutGrid, LayoutList } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 
@@ -8,7 +8,7 @@ interface ArchiveHeaderProps {
   countLabel: string;
   subtitle: string;
   searchQuery: string;
-  searchInputRef: React.RefObject<HTMLInputElement | null>;
+  searchInputRef: RefObject<HTMLInputElement | null>;
   onSearchChange: (q: string) => void;
   searchPlaceholder: string;
   viewMode: 'list' | 'grid';

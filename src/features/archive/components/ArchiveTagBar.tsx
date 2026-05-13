@@ -1,4 +1,3 @@
-import React from 'react';
 import { Pencil, X } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 
