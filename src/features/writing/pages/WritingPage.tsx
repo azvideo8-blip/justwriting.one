@@ -168,8 +168,53 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
 
   const isMobile = useLayoutMode().layoutMode !== 'desktop';
 
-  const sharedOverlays = (
+  const desktopProps = {
+    profile,
+    setupMode: flow.setupMode,
+    setSetupMode: setSetupMode,
+    startCountdown,
+    countdown: flow.countdown,
+    totalDurationForDeadline: flow.totalDurationForDeadline,
+    onOpenSettings: openSettings,
+    onNew: handleNew,
+    onOpenLog: handleOpen,
+    onSave: onFinishClick,
+    onPlay: handlePlay,
+    onPause: handlePause,
+    onStop: onFinishClick,
+    onContinueSession: handleContinueSession,
+    handlePlayRef,
+    keystrokeTrackerRef,
+    hasDraft,
+    sessionStatus,
+    userId,
+    onContinueSessionOrDoc: handleContinueSessionOrDoc,
+    loadDraft: session.loadDraft,
+    discardDraft: session.discardDraft,
+    onSetPromptTitle: setTitle,
+    showZen,
+    lifeLogVisible,
+    setLifeLogVisible,
+    lifeLogTab,
+    setLifeLogTab,
+    lifeLogPinned,
+    setLifeLogPinned,
+  };
+
+  const mainContent = (() => {
+    if (showOnboarding && sessionStatus === 'idle')
+      return <OnboardingGoalScreen onComplete={handleOnboardingComplete} setWordGoal={setWordGoalVal} />;
+    if (isMobile) {
+      if (sessionStatus === 'idle')
+        return <MobileHomeScreen userId={userId} streakDays={streakDays} sessionGroups={lifeLogGroups} summary={lifeLogSummary} onStart={handlePlay} onContinue={handleContinueSessionOrDoc} />;
+      return <MobileWriteScreen onPlay={handlePlay} onPause={handlePause} onStop={onFinishClick} saveStatus={saveStatus} />;
+    }
+    return <DesktopWritingLayout {...desktopProps} />;
+  })();
+
+  return (
     <>
+      {mainContent}
       <GoalToast visible={flow.goalToastVisible} type={flow.goalToastType} />
       <AnimatePresence>
         {flow.sessionStartFlash && (
@@ -208,82 +253,6 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
           KPM {devKpmStats.kpm} · IKI {devKpmStats.ikiMedian}ms · CV {devKpmStats.ikiCv}
         </div>
       )}
-    </>
-  );
-
-  if (showOnboarding && sessionStatus === 'idle') {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <OnboardingGoalScreen onComplete={handleOnboardingComplete} setWordGoal={setWordGoalVal} />
-        {sharedOverlays}
-      </div>
-    );
-  }
-
-  if (isMobile) {
-    if (sessionStatus === 'idle') {
-      return (
-        <>
-          <MobileHomeScreen
-            userId={userId}
-            streakDays={streakDays}
-            sessionGroups={lifeLogGroups}
-            summary={lifeLogSummary}
-            onStart={handlePlay}
-            onContinue={handleContinueSessionOrDoc}
-          />
-          {sharedOverlays}
-        </>
-      );
-    }
-    return (
-      <>
-        <MobileWriteScreen
-          onPlay={handlePlay}
-          onPause={handlePause}
-          onStop={onFinishClick}
-          saveStatus={saveStatus}
-        />
-        {sharedOverlays}
-      </>
-    );
-  }
-
-  return (
-    <>
-      <DesktopWritingLayout
-        profile={profile}
-        setupMode={flow.setupMode}
-        setSetupMode={setSetupMode}
-        startCountdown={startCountdown}
-        countdown={flow.countdown}
-        totalDurationForDeadline={flow.totalDurationForDeadline}
-        onOpenSettings={openSettings}
-        onNew={handleNew}
-        onOpenLog={handleOpen}
-        onSave={onFinishClick}
-        onPlay={handlePlay}
-        onPause={handlePause}
-        onStop={onFinishClick}
-        onContinueSession={handleContinueSession}
-        handlePlayRef={handlePlayRef}
-        keystrokeTrackerRef={keystrokeTrackerRef}
-        hasDraft={hasDraft}
-        sessionStatus={sessionStatus}
-        userId={userId}
-        onContinueSessionOrDoc={handleContinueSessionOrDoc}
-        loadDraft={session.loadDraft}
-        discardDraft={session.discardDraft}
-        onSetPromptTitle={setTitle}
-        showZen={showZen}
-        lifeLogVisible={lifeLogVisible}
-        setLifeLogVisible={setLifeLogVisible}
-        lifeLogTab={lifeLogTab}
-        setLifeLogTab={setLifeLogTab}
-        lifeLogPinned={lifeLogPinned}
-        setLifeLogPinned={setLifeLogPinned}
-      />
-      {sharedOverlays}
     </>
   );
 }
