@@ -121,11 +121,12 @@ export function DesktopWritingLayout({
         <AnimatePresence>
           {hasDraft && sessionStatus === 'idle' && !setupMode && (
             <motion.div
-              initial={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
+              exit={{ opacity: 0, y: 12 }}
               transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-              className="flex items-center justify-between px-4 py-2.5 mx-4 mt-2 rounded-xl border border-text-main/10 bg-text-main/[0.04] text-sm text-text-main/60"
+              style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', zIndex: 40 }}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-text-main/10 bg-surface-card/90 backdrop-blur-xl shadow-lg text-sm text-text-main/60 whitespace-nowrap"
             >
               <span>{t('draft_restore_prompt')}</span>
               <div className="flex gap-2">
