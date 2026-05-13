@@ -1,13 +1,12 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { User } from 'firebase/auth';
-import { Timestamp } from 'firebase/firestore';
-import { WritingSessionService } from '../services/WritingSessionService';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { useWritingStore } from '../store/useWritingStore';
 import { useDraftAutosave } from './useDraftAutosave';
-import { UserProfile, SessionPayload } from '../../../types';
+import { UserProfile } from '../../../types';
 import { fetchLocalSessions as fetchLocalSessionsFromLoader, loadLocalSession as loadLocalSessionFromLoader } from '../services/LocalSessionLoader';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
+import { buildSessionPayload, saveLocalOnly, saveToCloud } from '../utils/sessionPersistence';
 
 export function useSessionPersistence(
   user: User | null,
@@ -61,6 +60,7 @@ export function useSessionPersistence(
 
   useEffect(() => {
     if (isOnline) {
+      const { WritingSessionService } = require('../services/WritingSessionService');
       WritingSessionService.syncPendingSessions(userId);
     }
   }, [isOnline, userId]);
@@ -70,7 +70,6 @@ export function useSessionPersistence(
     sessionStateRef.current = sessionState;
   }, [sessionState]);
 
-  // Load draft
   const draftLoadedForRef = useRef<string | null>(null);
   const loadDraft = useCallback(async () => {
     if (draftLoadedForRef.current === userId) return;
@@ -102,63 +101,37 @@ export function useSessionPersistence(
 
   const handleSave = async (isLocalOnly: boolean) => {
     const state = useWritingStore.getState();
-    
-    const sessionData: SessionPayload = {
-      userId: userId,
-      authorName: profile?.nickname || user?.displayName || user?.email?.split('@')[0] || 'Guest',
-      authorPhoto: user?.photoURL || '',
-      nickname: profile?.nickname || '',
-      title: state.title,
-      content: state.content,
-      pinnedThoughts: state.pinnedThoughts,
-      duration: state.seconds,
-      wordCount: state.wordCount,
-      charCount: state.content.length,
-      wpm: state.wpm,
-      tags: state.tags,
-      updatedAt: Timestamp.now(),
-      sessionType: state.sessionType,
-sessionStartTime: state.sessionStartTime,
-      goalReached: state.sessionType === 'timer' ? state.timeGoalReached : (state.sessionType === 'words' ? state.wordGoalReached : true)
-    };
+    const sessionData = buildSessionPayload(
+      {
+        title: state.title,
+        content: state.content,
+        pinnedThoughts: state.pinnedThoughts,
+        seconds: state.seconds,
+        wordCount: state.wordCount,
+        wpm: state.wpm,
+        tags: state.tags,
+        sessionType: state.sessionType,
+        sessionStartTime: state.sessionStartTime,
+        timeGoalReached: state.timeGoalReached,
+        wordGoalReached: state.wordGoalReached,
+      },
+      profile,
+      user,
+      userId
+    );
 
     if (isLocalOnly) {
-      try {
-        const keysToRemove: string[] = [];
-        const sessionKeys: { key: string; ts: number }[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key?.startsWith('local_session_')) {
-            const ts = parseInt(key.split('_')[2] || '0', 10);
-            sessionKeys.push({ key, ts });
-          }
-        }
-        sessionKeys.sort((a, b) => a.ts - b.ts);
-        while (sessionKeys.length >= 20) {
-          const oldest = sessionKeys.shift();
-          if (oldest) keysToRemove.push(oldest.key);
-        }
-        keysToRemove.forEach(k => localStorage.removeItem(k));
-      } catch { /* ignore */ }
-      const sessionKey = `local_session_${Date.now()}_${crypto.randomUUID()}`;
-      try {
-        localStorage.setItem(sessionKey, JSON.stringify(sessionData));
-      } catch (e) {
-        console.error('[SessionPersistence] localStorage write failed:', e);
-        return;
-      }
-      await WritingDraftService.deleteDraft(userId);
+      await saveLocalOnly(sessionData, userId);
       actions.setHasDraft(false);
       actions.finishSession();
       return;
     }
 
     try {
-      const savedId = await WritingSessionService.saveSession(sessionData, sessionState.activeSessionId, isOnline, userId);
+      const savedId = await saveToCloud(sessionData, sessionState.activeSessionId, isOnline, userId);
       if (savedId && !sessionState.activeSessionId) {
         actions.setActiveSessionId(savedId);
       }
-      await WritingDraftService.deleteDraft(userId);
       actions.setHasDraft(false);
       actions.finishSession();
     } catch (e) {

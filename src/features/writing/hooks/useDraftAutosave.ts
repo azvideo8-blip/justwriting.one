@@ -1,18 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { User } from 'firebase/auth';
 import { WritingDraftService } from '../services/WritingDraftService';
-import { LocalDraft } from '../../../shared/lib/localDb';
 import { useWritingStore } from '../store/useWritingStore';
-
-function getLocalStorageUsageKB(): number {
-  let total = 0;
-  for (const key in localStorage) {
-    if (Object.prototype.hasOwnProperty.call(localStorage, key)) {
-      total += (localStorage[key].length + key.length) * 2; // UTF-16
-    }
-  }
-  return total / 1024;
-}
+import { buildLocalDraft, persistDraft } from '../utils/draftPersistence';
 
 export function useDraftAutosave(
   user: User | null,
@@ -45,46 +35,29 @@ export function useDraftAutosave(
     draftDataRef.current = draftData;
   }, [draftData]);
 
+  const markSaved = useCallback(() => {
+    if (isMountedRef.current) {
+      setSaveStatus('saved');
+      setLastSavedAt(Date.now());
+      setTimeout(() => { if (isMountedRef.current) setSaveStatus('idle'); }, 1000);
+    }
+  }, []);
+
   const forceSaveEverything = useCallback(async () => {
     if (!user) return;
     const current = draftDataRef.current;
     if (current.status === 'idle') return;
     const storeStatus = useWritingStore.getState().status;
     if (storeStatus === 'idle') return;
-    const draft: LocalDraft = {
-      userId: user.uid,
-      ...current,
-      sessionStartTime: current.sessionStartTime ?? null,
-      updatedAt: Date.now()
-    } as LocalDraft;
+
+    const draft = buildLocalDraft(user, current);
+
     try {
       if (isMountedRef.current) setSaveStatus('saving');
-      
-      const usageKB = getLocalStorageUsageKB();
-      if (usageKB > 4500) { // ~4.5MB
-        console.warn(`localStorage usage: ${usageKB.toFixed(0)}KB — approaching limit`);
-      }
-
-      const [localResult, remoteResult] = await Promise.allSettled([
-        WritingDraftService.saveToLocal(draft),
-        WritingDraftService.saveToFirestore(draft)
-      ]);
-
-      const localOk = localResult.status === 'fulfilled';
-      const remoteOk = remoteResult.status === 'fulfilled';
-
-      if (!localOk) {
-        console.error('Local save failed:', localResult.reason);
-      }
-      if (!remoteOk) {
-        console.warn('Firestore save failed (will retry on next change):', remoteResult.reason);
-      }
-
+      const result = await persistDraft(draft);
       if (isMountedRef.current) {
-        if (localOk || remoteOk) {
-          setSaveStatus('saved');
-          setLastSavedAt(Date.now());
-          setTimeout(() => { if (isMountedRef.current) setSaveStatus('idle'); }, 1000);
+        if (result.localOk || result.remoteOk) {
+          markSaved();
         } else {
           setSaveStatus('error');
         }
@@ -94,7 +67,7 @@ export function useDraftAutosave(
       console.error(isQuotaError ? 'localStorage full' : 'Save error:', err);
       if (isMountedRef.current) setSaveStatus('error');
     }
-  }, [user]);
+  }, [user, markSaved]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -132,28 +105,12 @@ export function useDraftAutosave(
     if ((draftData.status === 'writing' || draftData.status === 'paused') && user) {
       const timeout = setTimeout(async () => {
         if (useWritingStore.getState().status !== 'writing' &&
-            useWritingStore.getState().status !== 'paused') return;        const draft: LocalDraft = {
-          userId: user.uid,
-          ...draftDataRef.current,
-          sessionStartTime: draftDataRef.current.sessionStartTime ?? null,
-          updatedAt: Date.now()
-        } as LocalDraft;
+            useWritingStore.getState().status !== 'paused') return;
+
+        const draft = buildLocalDraft(user, draftDataRef.current);
         try {
-          const usageKB = getLocalStorageUsageKB();
-          if (usageKB > 4500) {
-            console.warn(`localStorage usage: ${usageKB.toFixed(0)}KB — approaching limit`);
-          }
-          await WritingDraftService.saveToLocal(draft);
-          try {
-            await WritingDraftService.saveToFirestore(draft);
-          } catch (e) {
-            console.warn('[DraftAutosave] Firestore save failed (will retry):', e);
-          }
-          if (isMountedRef.current) {
-            setSaveStatus('saved');
-            setLastSavedAt(Date.now());
-            setTimeout(() => { if (isMountedRef.current) setSaveStatus('idle'); }, 1000);
-          }
+          await persistDraft(draft);
+          markSaved();
         } catch (err) {
           const isQuotaError = err instanceof DOMException && err.name === 'QuotaExceededError';
           console.error(isQuotaError ? 'localStorage full' : 'Local autosave error:', err);
@@ -163,7 +120,7 @@ export function useDraftAutosave(
       
       return () => clearTimeout(timeout);
     }
-  }, [draftData.status, draftData.content, draftData.title, draftData.wordCount, draftData.seconds, user]);
+  }, [draftData.status, draftData.content, draftData.title, draftData.wordCount, draftData.seconds, user, markSaved]);
 
   return { saveStatus, lastSavedAt };
 }

@@ -1,14 +1,17 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
-import { useBaseWritingSession, BaseSessionReturn } from './useBaseWritingSession';
+import { useBaseWritingSession } from './useBaseWritingSession';
 import { useWritingStore } from '../store/useWritingStore';
-import { getOrCreateGuestId, getLocalDb } from '../../../shared/lib/localDb';
+import { getOrCreateGuestId } from '../../../shared/lib/localDb';
 import { fetchLocalSessions, loadLocalSession } from '../services/LocalSessionLoader';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 import { LocalSessionInfo } from '../types/session';
+import {
+  saveGuestDraftToStorage,
+  loadGuestDraftFromStorage,
+  deleteGuestDraftFromStorage,
+} from '../services/GuestDraftService';
 
-export type { LocalSessionInfo };
-
-export interface GuestSessionReturn extends BaseSessionReturn {
+export interface GuestSessionReturn extends ReturnType<typeof useBaseWritingSession> {
   userId: string;
   isGuest: true;
   hasDraft: boolean;
@@ -24,37 +27,6 @@ export interface GuestSessionReturn extends BaseSessionReturn {
   discardDraft: () => void;
 }
 
-const DRAFT_KEY = 'jw_guest_draft';
-
-async function saveDraftToIdb(draft: Record<string, unknown>) {
-  try {
-    const db = await getLocalDb();
-    if (db.objectStoreNames.contains('drafts')) {
-      await db.put('drafts', { ...draft, userId: 'guest_draft' } as import('../../../shared/lib/localDb').LocalDraft);
-    }
-  } catch { /* ignore */ }
-}
-
-async function loadDraftFromIdb(): Promise<Record<string, unknown> | null> {
-  try {
-    const db = await getLocalDb();
-    if (db.objectStoreNames.contains('drafts')) {
-      const d = await db.get('drafts', 'guest_draft');
-      return d ? { ...d } as Record<string, unknown> : null;
-    }
-  } catch { /* ignore */ }
-  return null;
-}
-
-async function deleteDraftFromIdb() {
-  try {
-    const db = await getLocalDb();
-    if (db.objectStoreNames.contains('drafts')) {
-      await db.delete('drafts', 'guest_draft');
-    }
-  } catch { /* ignore */ }
-}
-
 export function useGuestWritingSession(): GuestSessionReturn {
   const base = useBaseWritingSession();
   const guestId = getOrCreateGuestId();
@@ -63,10 +35,9 @@ export function useGuestWritingSession(): GuestSessionReturn {
   const [saveErrorKind, setSaveErrorKind] = useState<'quota' | 'unknown' | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const isOnline = useOnlineStatus();
-  const saveStatusRef = useRef(saveStatus);
-  saveStatusRef.current = saveStatus;
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
+  const _savingRef = useRef(false);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -79,101 +50,61 @@ export function useGuestWritingSession(): GuestSessionReturn {
   const stateRef = useRef({ content: base.content, title: base.title, pinnedThoughts: base.pinnedThoughts, seconds: base.seconds, wordCount: base.wordCount });
   stateRef.current = { content: base.content, title: base.title, pinnedThoughts: base.pinnedThoughts, seconds: base.seconds, wordCount: base.wordCount };
 
-  const _savingRef = useRef(false);
+  const doAutosave = useCallback(async () => {
+    const currentStatus = useWritingStore.getState().status;
+    if (currentStatus === 'idle') return;
+    if (_savingRef.current) return;
+    _savingRef.current = true;
+    try {
+      const s = stateRef.current;
+      await saveGuestDraftToStorage({
+        content: s.content,
+        title: s.title,
+        pinnedThoughts: s.pinnedThoughts,
+        seconds: s.seconds,
+        wordCount: s.wordCount,
+        timestamp: Date.now(),
+      });
+      if (isMountedRef.current) {
+        setSaveStatus('saved');
+        setLastSavedAt(Date.now());
+        if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+        statusTimerRef.current = setTimeout(() => {
+          if (isMountedRef.current) setSaveStatus('idle');
+        }, 1000);
+      }
+    } catch (err) {
+      const isQuota = err instanceof DOMException && err.name === 'QuotaExceededError';
+      setSaveStatus('error');
+      setSaveErrorKind(isQuota ? 'quota' : 'unknown');
+      console.error('[GuestAutosave] Save failed:', err);
+    } finally {
+      _savingRef.current = false;
+    }
+  }, []);
 
   useEffect(() => {
     if (base.status !== 'writing' && base.status !== 'paused') return;
-    const interval = setInterval(() => {
-      const currentStatus = useWritingStore.getState().status;
-      if (currentStatus !== 'writing' && currentStatus !== 'paused') return;
-      if (_savingRef.current) return;
-      _savingRef.current = true;
-      try {
-        const s = stateRef.current;
-        const draftData = {
-          content: s.content,
-          title: s.title,
-          pinnedThoughts: s.pinnedThoughts,
-          seconds: s.seconds,
-          wordCount: s.wordCount,
-          timestamp: Date.now(),
-        };
-        localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
-        saveDraftToIdb(draftData);
-        if (isMountedRef.current) {
-          setSaveStatus('saved');
-          setLastSavedAt(Date.now());
-          statusTimerRef.current = setTimeout(() => {
-            if (isMountedRef.current) setSaveStatus('idle');
-          }, 1000);
-        }
-      } catch (err) {
-        const isQuota = err instanceof DOMException && err.name === 'QuotaExceededError';
-        setSaveStatus('error');
-        setSaveErrorKind(isQuota ? 'quota' : 'unknown');
-        console.error('[GuestAutosave] Save failed:', err);
-      } finally {
-        _savingRef.current = false;
-      }
-    }, 30_000);
+    const interval = setInterval(doAutosave, 30_000);
     return () => clearInterval(interval);
-  }, [base.status]);
+  }, [base.status, doAutosave]);
 
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState !== 'hidden' || !stateRef.current.content) return;
-      const currentStatus = useWritingStore.getState().status;
-      if (currentStatus === 'idle') return;
-      if (_savingRef.current) return;
-      _savingRef.current = true;
-      try {
-          const s = stateRef.current;
-          const draftData = {
-            content: s.content,
-            title: s.title,
-            pinnedThoughts: s.pinnedThoughts,
-            seconds: s.seconds,
-            wordCount: s.wordCount,
-            timestamp: Date.now(),
-          };
-          localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
-          saveDraftToIdb(draftData);
-        } catch (err) {
-          console.error('[GuestDraft] Emergency save on visibility change failed:', err);
-        } finally {
-          _savingRef.current = false;
-        }
+      doAutosave();
     };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, []);
+  }, [doAutosave]);
 
-  const clearDraft = useCallback(() => {
-    localStorage.removeItem(DRAFT_KEY);
-    deleteDraftFromIdb();
+  const clearDraft = useCallback(async () => {
+    await deleteGuestDraftFromStorage();
     setHasDraft(false);
   }, []);
 
   const loadDraft = useCallback(async () => {
-    const raw = localStorage.getItem(DRAFT_KEY);
-    let draft: { content?: string; title?: string; pinnedThoughts?: string[]; seconds?: number; wordCount?: number } | null = null;
-
-    if (raw) {
-      try {
-        draft = JSON.parse(raw);
-      } catch (err) {
-        console.warn('[GuestDraft] Corrupted localStorage draft, removing:', err);
-        localStorage.removeItem(DRAFT_KEY);
-      }
-    }
-
-    if (!draft) {
-      const idbDraft = await loadDraftFromIdb();
-      if (idbDraft) {
-        draft = idbDraft as { content?: string; title?: string; pinnedThoughts?: string[]; seconds?: number; wordCount?: number };
-      }
-    }
-
+    const draft = await loadGuestDraftFromStorage();
     if (!draft?.content) return;
 
     const currentContent = useWritingStore.getState().content;
