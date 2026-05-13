@@ -20,6 +20,7 @@ interface ArchiveNoteListProps {
   labels: Label[];
   userId: string;
   searchQuery: string;
+  isGroupedByDate: boolean;
   onOpen: (s: ArchiveSession) => void;
   onDelete: (s: ArchiveSession) => void;
   onTagsChange: (s: ArchiveSession, tags: string[]) => void;
@@ -37,7 +38,7 @@ interface ArchiveNoteListProps {
 export function ArchiveNoteList({
   viewMode, loading, error, filteredSessions,
   groupedSessions, sortedDates, dateLocale,
-  labels, userId, searchQuery,
+  labels, userId, searchQuery, isGroupedByDate,
   onOpen, onDelete, onTagsChange, onTitleChange,
   onDateChange, onLabelChange, onStorageChange,
   t, language, entriesLabel, allTags, onClearSearch,
@@ -100,6 +101,47 @@ export function ArchiveNoteList({
     );
   }
 
+  if (!isGroupedByDate) {
+    return viewMode === 'grid' ? (
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-3">
+        {filteredSessions.map(session => (
+          <GridNoteCard
+            key={session.id}
+            session={session}
+            onClick={() => onOpen(session)}
+            searchQuery={searchQuery}
+            labels={labels}
+            allTags={allTags}
+            onTagsChange={onTagsChange}
+            onLabelChange={onLabelChange}
+          />
+        ))}
+      </div>
+    ) : (
+      <div className="flex flex-col">
+        {filteredSessions.map(session => (
+          <NoteRow
+            key={session.id}
+            session={session}
+            onOpen={() => onOpen(session)}
+            t={t}
+            language={language}
+            labels={labels}
+            onDelete={(s) => onDelete(s)}
+            onTagsChange={onTagsChange}
+            onStorageChange={onStorageChange}
+            onTitleChange={onTitleChange}
+            onDateChange={onDateChange}
+            onLabelChange={onLabelChange}
+            userId={userId}
+            allTags={allTags}
+            searchQuery={searchQuery}
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-1">
       {sortedDates.map(dateKey => (
@@ -148,6 +190,10 @@ export function ArchiveNoteList({
                   session={session}
                   onClick={() => onOpen(session)}
                   searchQuery={searchQuery}
+                  labels={labels}
+                  allTags={allTags}
+                  onTagsChange={onTagsChange}
+                  onLabelChange={onLabelChange}
                 />
               ))}
             </div>
