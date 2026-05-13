@@ -26,8 +26,19 @@ const srcFiles = globSync('src/**/*.{ts,tsx}', {
 const usedKeys = new Set<string>();
 for (const file of srcFiles) {
   const src = readFileSync(file, 'utf-8');
-  const matches = [...src.matchAll(/\bt\(['"]([a-z_]+)['"]\)/g)];
-  for (const m of matches) usedKeys.add(m[1]);
+  const tMatches = [...src.matchAll(/\bt\(['"]([a-z][a-zA-Z_0-9]*)['"]/g)];
+  for (const m of tMatches) usedKeys.add(m[1]);
+  const arrayMatches = [...src.matchAll(/['"]([a-z][a-zA-Z_0-9]+)['"]/g)];
+  for (const m of arrayMatches) {
+    if (m[1].includes('_') && definedKeys.has(m[1])) usedKeys.add(m[1]);
+  }
+  const templateMatches = [...src.matchAll(/t\(`([a-z][a-zA-Z_]*)_\$\{/g)];
+  for (const m of templateMatches) {
+    const prefix = m[1] + '_';
+    for (const k of definedKeys) {
+      if (k.startsWith(prefix)) usedKeys.add(k);
+    }
+  }
 }
 
 const missing = [...usedKeys].filter(k => !definedKeys.has(k));
