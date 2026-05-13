@@ -20,6 +20,7 @@ interface WritingHeaderProps {
   onStop?: () => void;
   onPlay?: () => void;
   onPause?: () => void;
+  saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
 }
 
 export const WritingHeader = React.memo(function WritingHeader({
@@ -29,7 +30,8 @@ export const WritingHeader = React.memo(function WritingHeader({
   onSave,
   onStop,
   onPlay,
-  onPause
+  onPause,
+  saveStatus,
 }: WritingHeaderProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { t } = useLanguage();
@@ -206,6 +208,31 @@ export const WritingHeader = React.memo(function WritingHeader({
                 status={status}
                 visibility={headerVisibility}
               />
+              <AnimatePresence>
+                {saveStatus === 'saving' && (
+                  <motion.span
+                    key="saving"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="font-mono text-[10px] text-text-main/25 tracking-widest uppercase ml-3"
+                  >
+                    {t('editor_saving')}
+                  </motion.span>
+                )}
+                {saveStatus === 'saved' && (
+                  <motion.span
+                    key="saved"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="font-mono text-[10px] text-text-main/25 tracking-widest uppercase ml-3"
+                  >
+                    {t('editor_saved')}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </div>
           )}
         </motion.div>

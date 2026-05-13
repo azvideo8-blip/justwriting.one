@@ -1,13 +1,13 @@
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { format } from 'date-fns';
 import { BookOpen } from 'lucide-react';
 import { GridNoteCard } from './GridNoteCard';
-import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { NoteRow } from './NoteRow';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { Locale } from 'date-fns';
+import { cn } from '../../../core/utils/utils';
 
 interface ArchiveNoteListProps {
   viewMode: 'list' | 'grid';
@@ -27,10 +27,11 @@ interface ArchiveNoteListProps {
   onDateChange: (s: ArchiveSession, date: Date) => void;
   onLabelChange: (s: ArchiveSession, labelId: string | undefined) => void;
   onStorageChange: () => void;
-  t: (key: string) => string;
+  t: (key: string, args?: Record<string, unknown>) => string;
   language: string;
   entriesLabel: (n: number) => string;
   allTags?: string[];
+  onClearSearch?: () => void;
 }
 
 export function ArchiveNoteList({
@@ -39,21 +40,29 @@ export function ArchiveNoteList({
   labels, userId, searchQuery,
   onOpen, onDelete, onTagsChange, onTitleChange,
   onDateChange, onLabelChange, onStorageChange,
-  t, language, entriesLabel, allTags,
+  t, language, entriesLabel, allTags, onClearSearch,
 }: ArchiveNoteListProps) {
+  const reducedMotion = useReducedMotion();
+
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center gap-6 py-16">
-        <motion.div
-          animate={{ opacity: [0.7, 1, 0.7] }}
-          transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-          style={{ filter: "drop-shadow(0 0 24px color-mix(in srgb, var(--brand-soft) 40%, transparent))" }}
-        >
-          <JustWritingLogo size={120} variant="dark" showRailway={true} showRoman={true} showCrown={true} />
-        </motion.div>
-        <p className="text-sm text-text-main/35 tracking-widest uppercase font-sans">
-          {t('archive_loading')}
-        </p>
+      <div className="space-y-1 mt-2">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            className={cn(
+              "flex items-center gap-4 px-4 py-3 rounded-xl",
+              !reducedMotion && "animate-pulse"
+            )}
+            style={{ animationDelay: `${i * 60}ms` }}
+          >
+            <div className="flex-1 space-y-2">
+              <div className="h-3.5 bg-text-main/8 rounded w-1/3" />
+              <div className="h-2.5 bg-text-main/5 rounded w-2/3" />
+            </div>
+            <div className="h-2.5 bg-text-main/5 rounded w-12" />
+          </div>
+        ))}
       </div>
     );
   }
@@ -67,6 +76,21 @@ export function ArchiveNoteList({
   }
 
   if (filteredSessions.length === 0) {
+    if (searchQuery?.trim()) {
+      return (
+        <div className="py-16 text-center space-y-3">
+          <p className="text-sm text-text-main/50">
+            {t('archive_search_no_results', { query: searchQuery })}
+          </p>
+          <button
+            onClick={() => onClearSearch?.()}
+            className="text-sm text-brand-soft hover:underline"
+          >
+            {t('archive_search_clear')}
+          </button>
+        </div>
+      );
+    }
     return (
       <EmptyState
         icon={BookOpen}
@@ -112,6 +136,7 @@ export function ArchiveNoteList({
                   onLabelChange={onLabelChange}
                   userId={userId}
                   allTags={allTags}
+                  searchQuery={searchQuery}
                 />
               ))}
             </div>

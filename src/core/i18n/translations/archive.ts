@@ -86,4 +86,6 @@ export const archiveTranslations: Translations = {
   export_header_tags:  { ru: 'Теги',          en: 'Tags' },
   export_untitled:     { ru: 'Без названия',   en: 'Untitled' },
   export_filename_default: { ru: 'заметка',    en: 'note' },
+  archive_search_no_results: { ru: 'Ничего не найдено по «{{query}}»', en: 'Nothing found for "{{query}}"' },
+  archive_search_clear: { ru: 'Сбросить поиск', en: 'Clear search' },
 };
