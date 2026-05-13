@@ -57,7 +57,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     deleteConfirm, setDeleteConfirm,
     allTags, filteredByFilters, filteredSessions,
     searchQuery, setSearchQuery,
-    selectedDate, setSelectedDate, selectedMonth: _selectedMonth, setSelectedMonth,
+    selectedDate, setSelectedDate, selectedMonth, setSelectedMonth,
     selectedTags, setSelectedTags,
     selectedLabels, toggleLabel,
     statsTitle, hasActiveFilter, resetStatsFilter,
