@@ -36,6 +36,8 @@ interface WritingState {
   savedDocumentId: string | null;
   sessionStartTime: number | null;
 
+  _wordCalcTimer: ReturnType<typeof setTimeout> | null;
+
   setContent: (content: string) => void;
   setTitle: (title: string) => void;
   setPinnedThoughts: (thoughts: string[]) => void;
@@ -70,10 +72,9 @@ interface WritingState {
   resumeSession: () => void;
 }
 
-let _wordCalcTimer: ReturnType<typeof setTimeout> | null = null;
-
 function computeWordStats(content: string) {
   const state = useWritingStore.getState();
+  state._wordCalcTimer = null;
   const words = content.trim().split(/\s+/).filter(x => x.length > 0).length;
   const now = Date.now();
 
@@ -123,11 +124,14 @@ export const useWritingStore = create<WritingState>((set) => ({
 
   tags: [], labelId: undefined,
   initialDuration: 0, activeSessionId: null, savedDocumentId: null, sessionStartTime: null,
+  _wordCalcTimer: null,
 
   setContent: (content) => {
-    set({ content });
-    if (_wordCalcTimer) clearTimeout(_wordCalcTimer);
-    _wordCalcTimer = setTimeout(() => computeWordStats(content), 100);
+    set((state) => {
+      if (state._wordCalcTimer) clearTimeout(state._wordCalcTimer);
+      const timer = setTimeout(() => computeWordStats(content), 100);
+      return { content, _wordCalcTimer: timer };
+    });
   },
 
   setTitle: (title) => set({ title }),
@@ -207,30 +211,34 @@ export const useWritingStore = create<WritingState>((set) => ({
   },
 
   resetAndClear: () => {
-    set({
-      content: '',
-      title: '',
-      wordCount: 0,
-      initialWordCount: 0,
-      wpm: 0,
-      wordSnapshots: [],
-      lastWordCount: 0,
-      wpmHistory: [],
-      seconds: 0,
-      status: 'idle' as TimerStatus,
-      timeGoalReached: false,
-      wordGoalReached: false,
-      overtimeSeconds: 0,
-      sessionStartWords: 0,
-      sessionStartSeconds: 0,
-      accumulatedDuration: 0,
-      savedDocumentId: null,
-      sessionStartTime: null,
-      tags: [],
-      labelId: undefined,
-      initialDuration: 0,
-      activeSessionId: null,
-      pinnedThoughts: [],
+    set((state) => {
+      if (state._wordCalcTimer) clearTimeout(state._wordCalcTimer);
+      return {
+        content: '',
+        title: '',
+        wordCount: 0,
+        initialWordCount: 0,
+        wpm: 0,
+        wordSnapshots: [],
+        lastWordCount: 0,
+        wpmHistory: [],
+        seconds: 0,
+        status: 'idle' as TimerStatus,
+        timeGoalReached: false,
+        wordGoalReached: false,
+        overtimeSeconds: 0,
+        sessionStartWords: 0,
+        sessionStartSeconds: 0,
+        accumulatedDuration: 0,
+        savedDocumentId: null,
+        sessionStartTime: null,
+        tags: [],
+        labelId: undefined,
+        initialDuration: 0,
+        activeSessionId: null,
+        pinnedThoughts: [],
+        _wordCalcTimer: null,
+      };
     });
   },
 
@@ -242,24 +250,32 @@ export const useWritingStore = create<WritingState>((set) => ({
     set((state) => state.status === 'paused' ? { status: 'writing' as TimerStatus } : state);
   },
 
-  resetSession: () => set({
-    content: '', title: '', pinnedThoughts: [],
-    wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
-    lastWordCount: 0, wpmHistory: [],
-    seconds: 0, status: 'idle', timeGoalReached: false, wordGoalReached: false,
-    overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
-    savedDocumentId: null, sessionStartTime: null,
-    tags: [], labelId: undefined, initialDuration: 0, activeSessionId: null,
+  resetSession: () => set((state) => {
+    if (state._wordCalcTimer) clearTimeout(state._wordCalcTimer);
+    return {
+      content: '', title: '', pinnedThoughts: [],
+      wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
+      lastWordCount: 0, wpmHistory: [],
+      seconds: 0, status: 'idle', timeGoalReached: false, wordGoalReached: false,
+      overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
+      savedDocumentId: null, sessionStartTime: null,
+      tags: [], labelId: undefined, initialDuration: 0, activeSessionId: null,
+      _wordCalcTimer: null,
+    };
   }),
 
-  finishSession: () => set({
-    content: '', title: '', pinnedThoughts: [],
-    wordCount: 0,
-    seconds: 0, status: 'idle', wpm: 0, wordSnapshots: [],
-    lastWordCount: 0, wpmHistory: [], timeGoalReached: false, wordGoalReached: false,
-    overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
-    activeSessionId: null, savedDocumentId: null, sessionStartTime: null,
-    tags: [], labelId: undefined, initialDuration: 0, initialWordCount: 0,
+  finishSession: () => set((state) => {
+    if (state._wordCalcTimer) clearTimeout(state._wordCalcTimer);
+    return {
+      content: '', title: '', pinnedThoughts: [],
+      wordCount: 0,
+      seconds: 0, status: 'idle', wpm: 0, wordSnapshots: [],
+      lastWordCount: 0, wpmHistory: [], timeGoalReached: false, wordGoalReached: false,
+      overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
+      activeSessionId: null, savedDocumentId: null, sessionStartTime: null,
+      tags: [], labelId: undefined, initialDuration: 0, initialWordCount: 0,
+      _wordCalcTimer: null,
+    };
   }),
 
   tick: () => set((state) => {
