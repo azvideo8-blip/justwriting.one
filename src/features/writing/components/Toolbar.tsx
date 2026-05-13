@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { FilePlus, FolderOpen, Save, Play, Pause, Square, Flag } from 'lucide-react';
+import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 
@@ -76,11 +77,13 @@ export function Toolbar({
 
         <div className="w-px h-5 bg-border-subtle mx-0.5" />
 
-        <button
+        <motion.button
           onClick={onPlay}
           disabled={status === 'writing'}
           title={t('play')}
           aria-label={t('play')}
+          whileTap={{ scale: 0.82 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
             "w-9 h-9 flex items-center justify-center transition-all",
             status !== 'writing'
@@ -89,13 +92,15 @@ export function Toolbar({
           )}
         >
           <Play size={16} />
-        </button>
+        </motion.button>
 
-        <button
+        <motion.button
           onClick={onPause}
           disabled={status !== 'writing'}
           title={t('pause')}
           aria-label={t('pause')}
+          whileTap={{ scale: 0.82 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
             "w-9 h-9 flex items-center justify-center transition-all",
             status === 'writing'
@@ -104,13 +109,15 @@ export function Toolbar({
           )}
         >
           <Pause size={16} />
-        </button>
+        </motion.button>
 
-        <button
+        <motion.button
           onClick={onStop}
           disabled={status === 'idle'}
           title={status !== 'idle' ? t('header_finish') : t('stop')}
           aria-label={status !== 'idle' ? t('header_finish') : t('stop')}
+          whileTap={{ scale: 0.82 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
             "w-9 h-9 flex items-center justify-center transition-all",
             status !== 'idle'
@@ -119,7 +126,7 @@ export function Toolbar({
           )}
         >
           {status !== 'idle' ? <Flag size={16} /> : <Square size={16} />}
-        </button>
+        </motion.button>
       </div>
 
       <div className="ml-2 flex-1 min-w-0">

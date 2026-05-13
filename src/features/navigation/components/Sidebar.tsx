@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { PenLine, History, User as UserIcon, Shield, LogIn, Info, Settings } from 'lucide-react';
+import { motion } from 'motion/react';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -90,15 +91,22 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
             tabIndex={0}
             aria-current={location.pathname === item.path ? 'page' : undefined}
             className={cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
+              "relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
               location.pathname === item.path
-                ? "bg-text-main/12 text-text-main"
+                ? "text-text-main"
                 : "text-text-main/40 hover:text-text-main/70 hover:bg-text-main/6"
             )}
           >
-            <span className="shrink-0">{item.icon}</span>
+            {location.pathname === item.path && (
+              <motion.div
+                layoutId="nav-pill"
+                className="absolute inset-0 rounded-xl bg-text-main/12"
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              />
+            )}
+            <span className="relative z-10 shrink-0">{item.icon}</span>
             <span className={cn(
-              "text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
+              "relative z-10 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
               expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
             )}>
               {item.label}

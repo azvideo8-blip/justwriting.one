@@ -175,7 +175,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         {headerVisibility.wpm && (
         <div className={cn("flex flex-col", compact ? "ml-1" : "ml-2")}>
           <div className="flex items-center gap-1.5 leading-none whitespace-nowrap">
-            <div className={cn("w-2 h-2 rounded-full transition-colors duration-500 shrink-0", getWpmColor(wpm))} />
+            <div className={cn("w-2 h-2 rounded-full transition-colors duration-500 shrink-0", getWpmColor(wpm), status === 'writing' && "animate-pulse")} />
             <span className="text-lg font-medium text-text-main tabular-nums">{wpm}</span>
           </div>
           {!compact && (
@@ -189,10 +189,12 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
 
       <div className="flex items-center gap-2 ml-2 shrink-0">
         <div className="w-px h-6 bg-border-subtle" />
-        <button
+        <motion.button
           onClick={status === 'paused' ? onPlay : status === 'idle' ? onPlay : undefined}
           disabled={status === 'writing'}
           title={t('play')}
+          whileTap={{ scale: 0.82 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
             "w-8 h-8 flex items-center justify-center transition-all shrink-0",
             status !== 'writing'
@@ -201,11 +203,13 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
           )}
         >
           <Play size={14} />
-        </button>
-        <button
+        </motion.button>
+        <motion.button
           onClick={onPause}
           disabled={status !== 'writing'}
           title={t('pause')}
+          whileTap={{ scale: 0.82 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
             "w-8 h-8 flex items-center justify-center transition-all shrink-0",
             status === 'writing'
@@ -214,11 +218,13 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
           )}
         >
           <Pause size={14} />
-        </button>
-        <button
+        </motion.button>
+        <motion.button
           onClick={onStop}
           disabled={status === 'idle'}
           title={t('stop')}
+          whileTap={{ scale: 0.82 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
             "w-8 h-8 flex items-center justify-center transition-all shrink-0",
             status !== 'idle'
@@ -227,7 +233,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
           )}
         >
           <Square size={14} />
-        </button>
+        </motion.button>
       </div>
 
         {wordPopupOpen && (
