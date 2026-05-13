@@ -9,7 +9,7 @@ import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveCon
 import { useLanguage } from '../../../core/i18n';
 import { useNavigate } from 'react-router-dom';
 import { useUserId } from '../../../shared/hooks/useUserId';
-import { ArchiveHeader } from '../components/ArchiveHeader';
+import { ArchiveHeader, type SortMode } from '../components/ArchiveHeader';
 import { DocumentPreview } from '../components/DocumentPreview';
 import { ArchiveSidebar } from '../components/ArchiveSidebar';
 import { ArchiveTagBar } from '../components/ArchiveTagBar';
@@ -20,6 +20,7 @@ import { useArchiveData } from '../hooks/useArchiveData';
 import { useProfileLabels } from '../../profile/hooks/useProfileLabels';
 import { useTagEditor } from '../hooks/useTagEditor';
 import { useLabelEditor } from '../hooks/useLabelEditor';
+import { useArchiveGrouping } from '../hooks/useArchiveGrouping';
 
 interface ArchiveViewProps {
   user: User | null;
@@ -55,7 +56,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     selectedTags, setSelectedTags, selectedLabels, toggleLabel,
     statsTitle, hasActiveFilter, resetStatsFilter,
     sessionsByDate, wordCloud, maxCount,
-    groupedSessions, sortedDates, dateLocale, entriesLabel,
+    dateLocale, entriesLabel,
   } = useArchiveData(user, userId, t, language, profileLabels);
 
   const tagEditor = useTagEditor(userId, fetchSessions);
@@ -69,18 +70,54 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     z.enum(['list', 'grid'])
   );
 
+  const [sortMode, setSortMode] = useLocalStorage<SortMode>(
+    'archive_sortMode',
+    'newest',
+    z.enum(['newest', 'oldest', 'longest', 'shortest', 'title_az', 'title_za'])
+  );
+
+  const sortLabels: Record<SortMode, string> = useMemo(() => ({
+    newest: t('archive_sort_newest'),
+    oldest: t('archive_sort_oldest'),
+    longest: t('archive_sort_longest'),
+    shortest: t('archive_sort_shortest'),
+    title_az: t('archive_sort_title_az'),
+    title_za: t('archive_sort_title_za'),
+  }), [t]);
+
+  const sortedSessions = useMemo(() => {
+    const s = [...filteredSessions];
+    switch (sortMode) {
+      case 'oldest':    return s.sort((a, b) => (a.sessionStartTime ?? 0) - (b.sessionStartTime ?? 0));
+      case 'newest':    return s.sort((a, b) => (b.sessionStartTime ?? 0) - (a.sessionStartTime ?? 0));
+      case 'longest':   return s.sort((a, b) => b.wordCount - a.wordCount);
+      case 'shortest':  return s.sort((a, b) => a.wordCount - b.wordCount);
+      case 'title_az':  return s.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? '', language));
+      case 'title_za':  return s.sort((a, b) => (b.title ?? '').localeCompare(a.title ?? '', language));
+      default:          return s;
+    }
+  }, [filteredSessions, sortMode, language]);
+
+  const { groupedSessions, sortedDates: dateGroupOrder } = useArchiveGrouping(sortedSessions);
+
+  const sortedDates = useMemo(() => {
+    if (sortMode === 'oldest') return [...dateGroupOrder].reverse();
+    return dateGroupOrder;
+  }, [dateGroupOrder, sortMode]);
+
   return (
     <AdaptiveContainer>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="pb-10">
         <div className="flex gap-0 h-full min-w-[320px]">
           <div className="flex-1 min-w-0 pr-0 lg:pr-8 overflow-y-auto">
             <ArchiveHeader
-              title={t('nav_notes')} count={filteredSessions.length} countLabel={t('archive_count')}
+              title={t('nav_notes')} count={sortedSessions.length} countLabel={t('archive_count')}
               subtitle={t('archive_subtitle')}
               searchQuery={searchQuery} searchInputRef={searchInputRef} onSearchChange={setSearchQuery}
               searchPlaceholder={t('archive_search_placeholder')}
               viewMode={viewMode} onViewModeChange={setViewMode}
               listLabel={t('archive_list')} gridLabel={t('archive_grid')}
+              sortMode={sortMode} onSortModeChange={setSortMode} sortLabels={sortLabels}
             />
             <ArchiveTagBar
               allTags={allTags}
@@ -112,7 +149,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
             )}
             <div className="mt-4">
               <ArchiveNoteList
-                viewMode={viewMode} loading={loading} error={error} filteredSessions={filteredSessions}
+                viewMode={viewMode} loading={loading} error={error} filteredSessions={sortedSessions}
                 groupedSessions={groupedSessions} sortedDates={sortedDates} dateLocale={dateLocale}
                 labels={profileLabels} userId={userId} searchQuery={searchQuery}
                 onOpen={s => setPreviewSession(s)} onDelete={s => setDeleteConfirm(s)}
