@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { Play, Pause, Square } from 'lucide-react';
+import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useWritingStore } from '../store/useWritingStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -111,9 +112,10 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
           </div>
           {!compact && wordPct !== null && (
             <div className="w-20 h-[3px] rounded-full bg-border-subtle mt-1.5">
-              <div
-                className={cn("h-[3px] rounded-full transition-all", wordDone ? "bg-accent-success" : "bg-text-main")}
-                style={{ width: `${wordPct}%` }}
+              <motion.div
+                className={cn("h-[3px] rounded-full", wordDone ? "bg-accent-success" : "bg-brand-soft")}
+                animate={{ width: `${wordPct}%` }}
+                transition={{ type: 'spring', stiffness: 120, damping: 20 }}
               />
             </div>
           )}
@@ -149,9 +151,10 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
           </div>
           {!compact && timePct !== null && (
             <div className="w-20 h-[3px] rounded-full bg-border-subtle mt-1.5">
-              <div
-                className={cn("h-[3px] rounded-full transition-all", timeDone ? "bg-accent-success" : "bg-text-main")}
-                style={{ width: `${timePct}%` }}
+              <motion.div
+                className={cn("h-[3px] rounded-full", timeDone ? "bg-accent-success" : "bg-brand-soft")}
+                animate={{ width: `${timePct}%` }}
+                transition={{ type: 'spring', stiffness: 120, damping: 20 }}
               />
             </div>
           )}
