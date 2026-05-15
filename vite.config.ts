@@ -2,12 +2,14 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig } from 'vite';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig(() => {
   return {
     plugins: [
       react(),
       tailwindcss(),
+      visualizer({ open: false, gzipSize: true, filename: 'bundle-stats.html' }),
     ],
     define: {
     },
@@ -30,7 +32,8 @@ export default defineConfig(() => {
       rollupOptions: {
         output: {
           manualChunks: {
-            'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+            'vendor-firebase-core': ['firebase/app', 'firebase/auth'],
+            'vendor-firebase-firestore': ['firebase/firestore'],
             'vendor-motion': ['motion/react'],
             'vendor-charts': ['recharts'],
             'vendor-docx': ['docx'],

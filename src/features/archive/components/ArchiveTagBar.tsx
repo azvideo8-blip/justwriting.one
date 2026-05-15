@@ -1,4 +1,5 @@
 import { Pencil, X } from 'lucide-react';
+import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 
 interface ArchiveTagBarProps {
@@ -52,17 +53,19 @@ export function ArchiveTagBar({
         }
         return (
           <div key={tag} className="group/tag relative flex items-center">
-            <button
+            <motion.button
+              layout
+              transition={{ type: 'spring', stiffness: 350, damping: 30 }}
               onClick={() => onToggleTag(tag)}
               className={cn(
                 "px-2.5 py-1 rounded-full text-[11px] font-mono transition-all border",
                 active
-                  ? "bg-text-main/10 border-text-main/30 text-text-main"
+                  ? "bg-brand-soft/15 border-brand-soft/40 text-brand-soft"
                   : "bg-transparent border-border-subtle text-text-main/40 hover:text-text-main/60"
               )}
             >
               #{tag}
-            </button>
+            </motion.button>
             {showControls && (
               <span className="absolute -top-1.5 -right-1.5 opacity-0 group-hover/tag:opacity-100 transition-opacity flex gap-0.5">
                 <button

@@ -211,15 +211,19 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           <SafeSection label="KPIStrip">
             <KPIStrip stats={kpiStats} />
           </SafeSection>
+          <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
           <SafeSection label="Heatmap">
             <Heatmap sessions={sessions} />
           </SafeSection>
+          <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
           <SafeSection label="HourRhythm">
             <HourRhythm sessions={sessions} />
           </SafeSection>
+          <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
           <SafeSection label="StreakRibbon">
             <StreakRibbon sessions={sessions} />
           </SafeSection>
+          <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
           <SafeSection label="Achievements">
             <Achievements key={achResetKey} stats={kpiStats} sessions={sessions} />
           </SafeSection>

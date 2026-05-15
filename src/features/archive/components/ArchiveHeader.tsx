@@ -1,5 +1,6 @@
 import { type RefObject, useState, useEffect, useRef } from 'react';
 import { Search, LayoutGrid, LayoutList, ArrowUpDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 
 export type SortMode = 'newest' | 'oldest' | 'longest' | 'shortest' | 'title_az' | 'title_za';
@@ -63,23 +64,40 @@ export function ArchiveHeader({
             value={searchQuery}
             onChange={e => onSearchChange(e.target.value)}
             placeholder={searchPlaceholder}
-            className="w-full pl-8 pr-10 py-2 bg-text-main/[0.03] border border-border-subtle rounded-lg text-sm text-text-main placeholder:text-text-main/25 outline-none focus:border-border-subtle/60 transition-colors"
+            className="w-full pl-8 pr-12 py-2 bg-text-main/[0.03] border border-border-subtle rounded-lg text-sm text-text-main placeholder:text-text-main/25 outline-none focus:border-border-subtle/60 transition-colors"
           />
-          <kbd className="absolute right-3 top-2 text-[10px] text-text-main/25 font-mono border border-border-subtle rounded px-1.5 py-0.5">&#8984;K</kbd>
+          <AnimatePresence>
+            {!searchQuery && (
+              <motion.kbd
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[10px] text-text-main/20 border border-border-subtle rounded px-1.5 py-0.5 leading-none"
+              >
+                ⌘K
+              </motion.kbd>
+            )}
+          </AnimatePresence>
         </div>
         <div className="flex bg-text-main/[0.03] border border-border-subtle rounded-lg p-0.5">
           {(['list', 'grid'] as const).map(v => (
             <button
               key={v}
               onClick={() => onViewModeChange(v)}
-              className={cn(
-                "w-8 h-7 rounded-md flex items-center justify-center transition-all",
-                viewMode === v ? "bg-text-main/10 text-text-main" : "text-text-main/30 hover:text-text-main/60"
-              )}
+              className="relative w-8 h-7 rounded-md flex items-center justify-center transition-colors z-10"
               title={v === 'list' ? listLabel : gridLabel}
               aria-label={v === 'list' ? listLabel : gridLabel}
             >
-              {v === 'list' ? <LayoutList size={14} /> : <LayoutGrid size={14} />}
+              {viewMode === v && (
+                <motion.div
+                  layoutId="view-mode-pill"
+                  className="absolute inset-0 bg-text-main/15 rounded-md"
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                />
+              )}
+              <span className={cn("relative z-10", viewMode === v ? "text-text-main" : "text-text-main/30")}>
+                {v === 'list' ? <LayoutList size={14} /> : <LayoutGrid size={14} />}
+              </span>
             </button>
           ))}
         </div>

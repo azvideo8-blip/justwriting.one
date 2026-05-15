@@ -1,8 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { auth } from '../../../core/firebase/auth';
-import { db, onConnectionChange } from '../../../core/firebase/firestore';
+import { getDb, onConnectionChange } from '../../../core/firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { onSnapshot, doc, setDoc, getDoc } from 'firebase/firestore';
 import { UserProfile } from '../../../types';
 import * as Sentry from '@sentry/react';
 
@@ -87,61 +86,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     let cancelled = false;
-    const userDoc = doc(db, 'users', user.uid);
-    const unsubscribe = onSnapshot(userDoc, async (snap) => {
-      if (cancelled) return;
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data && typeof data === 'object' && 'uid' in data) {
-          setProfile(data as UserProfile);
-        } else {
-          if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, data);
-          setProfile(null);
-        }
-      } else {
-        if (creationAttemptedRef.current) return;
-        creationAttemptedRef.current = true;
+    let unsubscribe: (() => void) | null = null;
 
-        try {
-          const existingSnap = await getDoc(userDoc);
-          if (existingSnap.exists()) {
+    (async () => {
+      const [{ onSnapshot, doc, setDoc, getDoc }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+      if (cancelled) return;
+
+      const userDoc = doc(db, 'users', user.uid);
+      unsubscribe = onSnapshot(userDoc, async (snap) => {
+        if (cancelled) return;
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data && typeof data === 'object' && 'uid' in data) {
+            setProfile(data as UserProfile);
+          } else {
+            if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, data);
+            setProfile(null);
+          }
+        } else {
+          if (creationAttemptedRef.current) return;
+          creationAttemptedRef.current = true;
+
+          try {
+            const existingSnap = await getDoc(userDoc);
+            if (existingSnap.exists()) {
+              creationAttemptedRef.current = false;
+              return;
+            }
+          } catch {
             creationAttemptedRef.current = false;
             return;
           }
-        } catch {
-          creationAttemptedRef.current = false;
-          return;
-        }
 
-        const initialProfile: UserProfile = {
-          uid: user.uid,
-          email: user.email || '',
-          nickname: user.displayName || user.email?.split('@')[0] || 'User'
-        };
+          const initialProfile: UserProfile = {
+            uid: user.uid,
+            email: user.email || '',
+            nickname: user.displayName || user.email?.split('@')[0] || 'User'
+          };
 
-        if (import.meta.env.DEV) {
-          console.warn('Creating initial user profile:', JSON.stringify(initialProfile));
-        }
+          if (import.meta.env.DEV) {
+            console.warn('Creating initial user profile:', JSON.stringify(initialProfile));
+          }
 
-        setDoc(userDoc, initialProfile, { merge: true }).then(() => {
-          creationAttemptedRef.current = false;
-        }).catch(err => {
-          console.error('Error creating user profile:', err);
-          Sentry.captureException(err, {
-            tags: { context: 'profile_creation' },
-            extra: { uid: user.uid },
+          setDoc(userDoc, initialProfile, { merge: true }).then(() => {
+            creationAttemptedRef.current = false;
+          }).catch(err => {
+            console.error('Error creating user profile:', err);
+            Sentry.captureException(err, {
+              tags: { context: 'profile_creation' },
+              extra: { uid: user.uid },
+            });
+            creationAttemptedRef.current = false;
           });
-          creationAttemptedRef.current = false;
-        });
-        if (!cancelled) setProfile(initialProfile);
-      }
-    }, (err) => {
-      console.error('Firestore snapshot error:', err);
-    });
+          if (!cancelled) setProfile(initialProfile);
+        }
+      }, (err) => {
+        console.error('Firestore snapshot error:', err);
+      });
+    })();
 
     return () => {
       cancelled = true;
-      unsubscribe();
+      unsubscribe?.();
     };
   }, [user]);
 

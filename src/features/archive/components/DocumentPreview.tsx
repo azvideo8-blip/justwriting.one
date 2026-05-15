@@ -135,10 +135,10 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
   return (
     <motion.div
       ref={panelRef}
-      initial={{ opacity: 0, x: '100%' }}
+      initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: '100%' }}
-      transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+      exit={{ opacity: 0, x: 20 }}
+      transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
       style={{
         position: 'fixed',
         top: 0,

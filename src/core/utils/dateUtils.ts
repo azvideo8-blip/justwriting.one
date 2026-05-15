@@ -1,4 +1,11 @@
-import { ru, enUS } from 'date-fns/locale';
+import { ru } from 'date-fns/locale/ru';
+import { enUS } from 'date-fns/locale/en-US';
+
+type DateFnsLocale = import('date-fns/locale').Locale;
+
+export function getDateLocale(lang: string): DateFnsLocale {
+  return lang === 'ru' ? ru : enUS;
+}
 
 export function toDate(v: unknown): Date | null {
   if (!v) return null;
@@ -32,8 +39,4 @@ export function toDate(v: unknown): Date | null {
 export function toTimestampMs(v: unknown): number | null {
   const d = toDate(v);
   return d ? d.getTime() : null;
-}
-
-export function getDateLocale(lang: string) {
-  return lang === 'ru' ? ru : enUS;
 }

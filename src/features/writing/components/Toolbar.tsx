@@ -60,20 +60,29 @@ export function Toolbar({
           <FolderOpen size={16} />
         </button>
 
-        <button
+        <motion.button
           onClick={onSave}
           disabled={status === 'idle' || wordCount === 0}
           title={t('topbar_save')}
           aria-label={t('topbar_save')}
+          whileTap={{ scale: 0.9 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
-            "w-9 h-9 flex items-center justify-center transition-all",
+            "relative w-9 h-9 flex items-center justify-center transition-all",
             status !== 'idle' && wordCount > 0
               ? "text-text-main/50 hover:text-text-main hover:bg-text-main/5"
               : "text-text-main/20 cursor-not-allowed"
           )}
         >
           <Save size={16} />
-        </button>
+          {status !== 'idle' && wordCount > 0 && (
+            <motion.span
+              className="absolute inset-0 rounded-lg border border-brand-soft/50 pointer-events-none"
+              animate={{ opacity: [0.6, 0, 0.6], scale: [1, 1.3, 1] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            />
+          )}
+        </motion.button>
 
         <div className="w-px h-5 bg-border-subtle mx-0.5" />
 
@@ -136,7 +145,7 @@ export function Toolbar({
           value={title}
           onChange={e => setTitle(e.target.value)}
           placeholder={t('topbar_title_placeholder')}
-          className="w-full bg-surface-base/50 border border-border-subtle/60 rounded-lg px-2.5 py-1 text-[15px] text-text-main placeholder:text-text-main/25 outline-none focus:border-text-main/30 transition-all"
+          className="w-full bg-surface-base/50 border border-border-subtle/60 rounded-lg px-2.5 py-1 text-[15px] text-text-main placeholder:text-text-main/25 outline-none focus:border-brand-soft/40 focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--brand-soft)_15%,transparent)] transition-all"
         />
       </div>
     </div>

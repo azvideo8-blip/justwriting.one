@@ -91,19 +91,13 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
             tabIndex={0}
             aria-current={location.pathname === item.path ? 'page' : undefined}
             className={cn(
-              "relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
+              "relative group flex items-center gap-3 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
+              "px-3 py-2.5 border-l-2",
               location.pathname === item.path
-                ? "text-text-main"
-                : "text-text-main/40 hover:text-text-main/70 hover:bg-text-main/6"
+                ? "bg-brand-soft/10 text-brand-soft border-brand-soft pl-[10px]"
+                : "text-text-main/40 hover:text-text-main/70 hover:bg-text-main/6 border-transparent pl-[10px]"
             )}
           >
-            {location.pathname === item.path && (
-              <motion.div
-                layoutId="nav-pill"
-                className="absolute inset-0 rounded-xl bg-text-main/12"
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              />
-            )}
             <span className="relative z-10 shrink-0">{item.icon}</span>
             <span className={cn(
               "relative z-10 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
@@ -111,6 +105,15 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
             )}>
               {item.label}
             </span>
+            {!expanded && (
+              <motion.span
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-50 bg-surface-card border border-border-subtle text-text-main shadow-lg hidden group-hover:flex"
+              >
+                {item.label}
+              </motion.span>
+            )}
           </button>
         ))}
         </nav>
@@ -120,7 +123,7 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
         <button
           onClick={() => navigate('/about')}
           className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
+            "relative group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
             "text-text-main/40 hover:text-text-main/60 hover:bg-text-main/8"
           )}
           title={t('nav_about')}
@@ -132,6 +135,15 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
           )}>
             {t('nav_about')}
           </span>
+          {!expanded && (
+            <motion.span
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-50 bg-surface-card border border-border-subtle text-text-main shadow-lg hidden group-hover:flex"
+            >
+              {t('nav_about')}
+            </motion.span>
+          )}
         </button>
 
         {onOpenSettings && (
@@ -139,7 +151,7 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
             onClick={onOpenSettings}
             title={t('nav_settings')}
             className={cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
+              "relative group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
               "text-text-main/40 hover:text-text-main/60 hover:bg-text-main/8"
             )}
           >
@@ -150,6 +162,15 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
             )}>
               {t('nav_settings')}
             </span>
+            {!expanded && (
+              <motion.span
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-50 bg-surface-card border border-border-subtle text-text-main shadow-lg hidden group-hover:flex"
+              >
+                {t('nav_settings')}
+              </motion.span>
+            )}
           </button>
         )}
 
@@ -157,7 +178,7 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
           <button
             onClick={openLoginModal}
             className={cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
+              "relative group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
               "text-text-main/70 hover:text-text-main hover:bg-text-main/15"
             )}
             title={t('auth_sign_in')}
@@ -169,6 +190,15 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
             )}>
               {t('auth_sign_in')}
             </span>
+            {!expanded && (
+              <motion.span
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-50 bg-surface-card border border-border-subtle text-text-main shadow-lg hidden group-hover:flex"
+              >
+                {t('auth_sign_in')}
+              </motion.span>
+            )}
           </button>
         )}
       </div>

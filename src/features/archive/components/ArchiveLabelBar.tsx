@@ -86,7 +86,7 @@ export function ArchiveLabelBar({
                 "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono transition-all border",
                 active ? "border-transparent text-white" : "bg-transparent border-border-subtle text-text-main/50 hover:text-text-main/70"
               )}
-              style={active ? { background: label.color, borderColor: label.color } : {}}
+              style={active ? { background: label.color, borderColor: label.color, boxShadow: `0 0 12px color-mix(in srgb, ${label.color} 45%, transparent)` } : {}}
             >
               <span className="w-2 h-2 rounded-full shrink-0" style={{ background: label.color }} />
               {label.name}

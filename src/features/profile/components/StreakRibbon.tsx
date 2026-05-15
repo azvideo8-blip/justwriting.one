@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getSessionDate, calculateStreak, calculateBestStreak } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
@@ -14,6 +15,7 @@ interface StreakDay {
 export function StreakRibbon({ sessions }: { sessions: Session[] }) {
   const { t, language } = useLanguage();
   const [offset, setOffset] = useState(0);
+  const reducedMotion = useReducedMotion();
 
   const days: StreakDay[] = useMemo(() => {
     const result: StreakDay[] = [];
@@ -83,25 +85,30 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
             i >= days.length - currentStreak;
 
           return (
-            <div
+            <motion.div
               key={i}
+              initial={reducedMotion ? false : { scaleY: 0 }}
+              animate={{ scaleY: 1 }}
+              transition={{ duration: 0.35, delay: i * 0.02, ease: 'easeOut' }}
+              style={{ flex: 1, transformOrigin: 'bottom' }}
               role="img" aria-label={`${day.date.toLocaleDateString(language)} — ${day.words} ${t('writing_words')}`}
               title={`${day.date.toLocaleDateString(language)} — ${day.words} ${t('writing_words')}`}
-              style={{
-                flex: 1,
-                height: `${day.hasSession ? heightPct : 20}%`,
-                minHeight: 3,
-                borderRadius: 2,
-                background: isCurrentStreak
-                  ? 'var(--flow-pulse-color)'
-                  : day.hasSession
-                    ? 'var(--text-subtle)'
-                    : 'var(--surface-elevated)',
-                outline: day.isToday ? '1px solid var(--text-subtle)' : 'none',
-                outlineOffset: 1,
-                transition: 'height 0.3s',
-              }}
-            />
+            >
+              <div
+                style={{
+                  height: `${day.hasSession ? heightPct : 20}%`,
+                  minHeight: 3,
+                  borderRadius: 2,
+                  background: isCurrentStreak
+                    ? 'var(--flow-pulse-color)'
+                    : day.hasSession
+                      ? 'var(--text-subtle)'
+                      : 'var(--surface-elevated)',
+                  outline: day.isToday ? '1px solid var(--text-subtle)' : 'none',
+                  outlineOffset: 1,
+                }}
+              />
+            </motion.div>
           );
         })}
       </div>

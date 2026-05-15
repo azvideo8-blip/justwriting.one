@@ -90,11 +90,6 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       flow.setSetupMode(null);
       setSessionStatus('writing');
       useWritingStore.getState().setSessionStart();
-      useWritingStore.getState().loadDraftIntoStore({
-        content: '',
-        title: '',
-        wordCount: 0,
-      });
     } catch (err) {
       console.error('Continue session error:', err);
       showToast(t('error_continue_session'));

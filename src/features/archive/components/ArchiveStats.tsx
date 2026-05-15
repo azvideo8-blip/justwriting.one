@@ -1,3 +1,4 @@
+import { motion } from 'motion/react';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { ArchiveSession } from '../types';
@@ -41,9 +42,12 @@ export function ArchiveStats({ sessions, streakDays, title, onReset }: ArchiveSt
         )}
       </div>
       <div className="grid grid-cols-2 gap-2">
-        {stats.map(stat => (
-          <div
+        {stats.map((stat, i) => (
+          <motion.div
             key={stat.label}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, delay: i * 0.06 }}
             className={cn(
               "border rounded-xl p-2 flex flex-col gap-1",
               stat.isStreak
@@ -64,7 +68,7 @@ export function ArchiveStats({ sessions, streakDays, title, onReset }: ArchiveSt
             <div className="text-[10px] text-text-main/35 uppercase tracking-widest">
               {stat.label}
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
     </div>

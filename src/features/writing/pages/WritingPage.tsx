@@ -200,6 +200,7 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
     lifeLogPinned,
     setLifeLogPinned,
     saveStatus,
+    streakDays,
   };
 
   const mainContent = (() => {

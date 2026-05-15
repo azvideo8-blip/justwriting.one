@@ -1,9 +1,7 @@
-import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
-import { db } from '../../../core/firebase/firestore';
+import { getDb } from '../../../core/firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { getLocalDb } from '../../../shared/lib/localDb';
 import { reportError } from '../../../core/errors/reportError';
-
 import { SessionPayload } from '../../../types';
 
 async function savePendingSession(session: { sessionId: string | null; data: Record<string, unknown>; userId: string }): Promise<void> {
@@ -29,6 +27,8 @@ export const WritingSessionService = {
         return activeSessionId;
       }
 
+      const [{ collection, addDoc, updateDoc, doc, Timestamp }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+
       if (activeSessionId) {
         await updateDoc(doc(db, 'sessions', activeSessionId), {
           ...sessionData,
@@ -51,7 +51,6 @@ export const WritingSessionService = {
   
   syncPendingSessions: async (userId: string) => {
     if (!userId) return;
-    // Migration: Move legacy localStorage sessions to IndexedDB
     const legacyPending = localStorage.getItem(`pending_sessions_${userId}`);
     if (legacyPending) {
       try {
@@ -73,6 +72,7 @@ export const WritingSessionService = {
 
     for (const session of userPending) {
       try {
+        const [{ collection, addDoc, updateDoc, doc, Timestamp }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
         if (session.sessionId) {
           await updateDoc(doc(db, 'sessions', session.sessionId), {
             ...session.data,

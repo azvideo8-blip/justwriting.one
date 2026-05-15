@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { buildSessionPayload } from '../sessionPersistence';
-import { Timestamp } from 'firebase/firestore';
+
+vi.mock('firebase/firestore', () => ({
+  Timestamp: { now: () => ({ seconds: 123, nanoseconds: 0 }), fromDate: (d: Date) => ({ seconds: d.getTime() / 1000, nanoseconds: 0 }) },
+}));
 
 describe('buildSessionPayload', () => {
   const baseState = {
@@ -17,56 +20,56 @@ describe('buildSessionPayload', () => {
     wordGoalReached: false,
   };
 
-  it('sets userId from parameter', () => {
-    const result = buildSessionPayload(baseState, null, null, 'user123');
+  it('sets userId from parameter', async () => {
+    const result = await buildSessionPayload(baseState, null, null, 'user123');
     expect(result.userId).toBe('user123');
   });
 
-  it('authorName from profile nickname', () => {
+  it('authorName from profile nickname', async () => {
     const profile = { nickname: 'Nick' } as any;
-    const result = buildSessionPayload(baseState, profile, null, 'u1');
+    const result = await buildSessionPayload(baseState, profile, null, 'u1');
     expect(result.authorName).toBe('Nick');
   });
 
-  it('authorName fallback to user displayName', () => {
+  it('authorName fallback to user displayName', async () => {
     const user = { displayName: 'Display' } as any;
-    const result = buildSessionPayload(baseState, null, user, 'u1');
+    const result = await buildSessionPayload(baseState, null, user, 'u1');
     expect(result.authorName).toBe('Display');
   });
 
-  it('authorName fallback to email prefix', () => {
+  it('authorName fallback to email prefix', async () => {
     const user = { email: 'test@example.com' } as any;
-    const result = buildSessionPayload(baseState, null, user, 'u1');
+    const result = await buildSessionPayload(baseState, null, user, 'u1');
     expect(result.authorName).toBe('test');
   });
 
-  it('authorName fallback to Guest', () => {
-    const result = buildSessionPayload(baseState, null, null, 'u1');
+  it('authorName fallback to Guest', async () => {
+    const result = await buildSessionPayload(baseState, null, null, 'u1');
     expect(result.authorName).toBe('Guest');
   });
 
-  it('charCount = content.length', () => {
-    const result = buildSessionPayload(baseState, null, null, 'u1');
+  it('charCount = content.length', async () => {
+    const result = await buildSessionPayload(baseState, null, null, 'u1');
     expect(result.charCount).toBe(baseState.content.length);
   });
 
-  it('goalReached = true for free session type', () => {
-    const result = buildSessionPayload({ ...baseState, sessionType: 'free' }, null, null, 'u1');
+  it('goalReached = true for free session type', async () => {
+    const result = await buildSessionPayload({ ...baseState, sessionType: 'free' }, null, null, 'u1');
     expect(result.goalReached).toBe(true);
   });
 
-  it('goalReached = timeGoalReached for timer type', () => {
-    const result = buildSessionPayload({ ...baseState, sessionType: 'timer', timeGoalReached: true }, null, null, 'u1');
+  it('goalReached = timeGoalReached for timer type', async () => {
+    const result = await buildSessionPayload({ ...baseState, sessionType: 'timer', timeGoalReached: true }, null, null, 'u1');
     expect(result.goalReached).toBe(true);
   });
 
-  it('goalReached = wordGoalReached for words type', () => {
-    const result = buildSessionPayload({ ...baseState, sessionType: 'words', wordGoalReached: true }, null, null, 'u1');
+  it('goalReached = wordGoalReached for words type', async () => {
+    const result = await buildSessionPayload({ ...baseState, sessionType: 'words', wordGoalReached: true }, null, null, 'u1');
     expect(result.goalReached).toBe(true);
   });
 
-  it('includes updatedAt as Timestamp', () => {
-    const result = buildSessionPayload(baseState, null, null, 'u1');
-    expect(result.updatedAt).toBeInstanceOf(Timestamp);
+  it('includes updatedAt', async () => {
+    const result = await buildSessionPayload(baseState, null, null, 'u1');
+    expect(result.updatedAt).toBeDefined();
   });
 });

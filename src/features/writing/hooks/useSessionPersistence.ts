@@ -101,7 +101,7 @@ export function useSessionPersistence(
 
   const handleSave = async (isLocalOnly: boolean) => {
     const state = useWritingStore.getState();
-    const sessionData = buildSessionPayload(
+    const sessionData = await buildSessionPayload(
       {
         title: state.title,
         content: state.content,

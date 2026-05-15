@@ -1,15 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import { motion } from 'motion/react';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
-import { getSessionDate } from '../../../core/utils/utils';
+import { getSessionDate, cn } from '../../../core/utils/utils';
 import { getDateLocale } from '../../../core/utils/dateUtils';
 import { highlightText } from '../../../shared/utils/highlightText';
 import { InlineTags } from './InlineTags';
 import { useLanguage } from '../../../core/i18n';
 import { useSessionTags } from '../../writing/hooks/useSessionTags';
-import { cn } from '../../../core/utils/utils';
 
 interface GridNoteCardProps {
   session: ArchiveSession;
@@ -21,7 +20,7 @@ interface GridNoteCardProps {
   onLabelChange?: (session: ArchiveSession, labelId: string | undefined) => void;
 }
 
-export const GridNoteCard: React.FC<GridNoteCardProps> = React.memo(({
+export const GridNoteCard = memo<GridNoteCardProps>(({
   session,
   onClick,
   searchQuery = '',
@@ -53,6 +52,11 @@ export const GridNoteCard: React.FC<GridNoteCardProps> = React.memo(({
     locale: getDateLocale(language),
   }).toUpperCase();
 
+  const relativeDate = formatDistanceToNow(sessionDate, {
+    locale: getDateLocale(language),
+    addSuffix: true,
+  });
+
   return (
     <motion.div
       onClick={onClick}
@@ -71,6 +75,7 @@ export const GridNoteCard: React.FC<GridNoteCardProps> = React.memo(({
     >
       <div className="text-[11px] font-medium tracking-wider text-text-main/40 font-mono mb-3">
         {formattedDate}
+        <span className="text-text-main/25 ml-1.5">{relativeDate}</span>
       </div>
 
       {session.title && (

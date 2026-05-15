@@ -1,23 +1,8 @@
-import { 
-  initializeFirestore,
-  doc, 
-  getDocFromServer, 
-  persistentLocalCache,
-  persistentMultipleTabManager
-} from 'firebase/firestore';
 import { app } from './client';
 
-export const db = initializeFirestore(app, {
-  ...(import.meta.env.DEV && { experimentalForceLongPolling: true }),
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-}, import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
+type Firestore = import('firebase/firestore').Firestore;
 
-if (import.meta.env.DEV) {
-  console.warn("Firestore initialized with Database ID:", import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
-}
-
-// Connection status tracking
-export let isFirestoreConnected = true;
+export let isFirestoreConnected = false;
 const connectionListeners: ((status: boolean) => void)[] = [];
 
 export function onConnectionChange(callback: (status: boolean) => void) {
@@ -36,35 +21,53 @@ function updateConnectionStatus(status: boolean) {
   }
 }
 
-// Simple connection test
+let _db: Firestore | null = null;
+let _initPromise: Promise<Firestore> | null = null;
+
+export function getDb(): Promise<Firestore> {
+  if (_db) return Promise.resolve(_db);
+  if (_initPromise) return _initPromise;
+
+  _initPromise = (async () => {
+    const {
+      initializeFirestore,
+      persistentLocalCache,
+      persistentMultipleTabManager,
+    } = await import('firebase/firestore');
+
+    _db = initializeFirestore(app, {
+      ...(import.meta.env.DEV && { experimentalForceLongPolling: true }),
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+    }, import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
+
+    if (import.meta.env.DEV) {
+      console.warn("Firestore initialized with Database ID:", import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
+    }
+
+    testConnection(0);
+
+    return _db;
+  })();
+
+  return _initPromise;
+}
+
 async function testConnection(retryCount = 0) {
   try {
-    if (import.meta.env.DEV) console.warn("Starting Firestore connection test to:", import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
-    await getDocFromServer(doc(db, '_connection_test_', 'ping'));
-    if (import.meta.env.DEV) console.warn("Firestore connection test: SUCCESS (Document exists or reached server)");
+    const { doc, getDocFromServer } = await import('firebase/firestore');
+    if (!_db) return;
+    await getDocFromServer(doc(_db, '_connection_test_', 'ping'));
     updateConnectionStatus(true);
   } catch (error: unknown) {
     if (error instanceof Error) {
-      if (import.meta.env.DEV) console.warn("Firestore connection test result details:", {
-        code: 'code' in error ? (error as { code: string }).code : undefined,
-        message: error.message,
-        name: error.name
-      });
-
-      // In many cases, reaching the server but getting an error is still "connected"
-      // permission-denied: we reached the server, but rules blocked us.
-      // not-found: we reached the server, but doc doesn't exist.
-      // unauthenticated: we reached the server, but auth isn't ready yet.
       const reachedServerCodes = ['permission-denied', 'not-found', 'unauthenticated', 'resource-exhausted'];
       const errorCode = 'code' in error ? (error as { code: string }).code : '';
-      
+
       if (reachedServerCodes.includes(errorCode)) {
-        if (import.meta.env.DEV) console.warn("Firestore reached the backend successfully (received code: " + errorCode + ")");
         updateConnectionStatus(true);
       } else {
         console.error("Firestore connection truly failed or timed out:", errorCode, error.message);
         updateConnectionStatus(false);
-        
         if (retryCount < 3) {
           setTimeout(() => testConnection(retryCount + 1), 5000 * (retryCount + 1));
         }
@@ -78,5 +81,3 @@ async function testConnection(retryCount = 0) {
     }
   }
 }
-
-testConnection(0);
