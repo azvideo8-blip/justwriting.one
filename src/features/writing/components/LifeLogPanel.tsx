@@ -294,7 +294,7 @@ export function LifeLogPanel({
                           session={session}
                           doc={docMap.get(session.id)}
                           isActive={false}
-                          onClick={() => onContinueSession(session)}
+                          onClick={() => onContinueSession(docMap.get(session.id) || session)}
                           onDelete={(s) => setDeleteTarget(s)}
                           t={t}
                           language={language}

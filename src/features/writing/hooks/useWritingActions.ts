@@ -41,6 +41,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
     setSetupMode: flow.setSetupMode,
     setTags: session.setTags,
     loadLocalSession,
+    userId,
   });
 
   const { refresh: refreshDocuments } = useDocuments(userId, isGuest);
@@ -75,7 +76,10 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         accumulatedDuration: doc.totalDuration,
       });
 
+      useWritingStore.getState().setTags(doc.tags || []);
+      useWritingStore.getState().setLabelId(doc.labelId);
       useWritingStore.getState().setSessionStart();
+      useWritingStore.getState().setSessionStartTime(Date.now());
       setSessionStatus('writing');
       setLifeLogVisible(false);
     } catch (err) {
@@ -90,6 +94,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       flow.setSetupMode(null);
       setSessionStatus('writing');
       useWritingStore.getState().setSessionStart();
+      useWritingStore.getState().setSessionStartTime(Date.now());
     } catch (err) {
       console.error('Continue session error:', err);
       showToast(t('error_continue_session'));
