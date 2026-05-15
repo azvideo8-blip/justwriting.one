@@ -1,12 +1,13 @@
-import { doc, updateDoc, deleteDoc, setDoc, query, where, collection, limit, getDocs, startAfter, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
-import { db } from '../../../core/firebase/firestore';
+import { getDb } from '../../../core/firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { Session } from '../../../types';
 import { parseFirestoreDate } from '../../../core/utils/utils';
+import type { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 
 export const SessionService = {
   async saveSession(session: Session) {
     try {
+      const [{ doc, setDoc }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
       await setDoc(doc(db, 'sessions', session.id), session);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `sessions/${session.id}`);
@@ -15,6 +16,7 @@ export const SessionService = {
 
   async deleteSession(sessionId: string) {
     try {
+      const [{ doc, deleteDoc }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
       if (import.meta.env.DEV) {
         console.warn('SessionService: Attempting to delete session', sessionId);
       }
@@ -30,6 +32,7 @@ export const SessionService = {
 
   async updateSessionTags(sessionId: string, tags: string[]) {
     try {
+      const [{ doc, updateDoc }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
       await updateDoc(doc(db, 'sessions', sessionId), { tags });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `sessions/${sessionId}`);
@@ -38,6 +41,7 @@ export const SessionService = {
 
   async updateSession(sessionId: string, data: Partial<Session>) {
     try {
+      const [{ doc, updateDoc }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
       await updateDoc(doc(db, 'sessions', sessionId), data);
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `sessions/${sessionId}`);
@@ -46,6 +50,7 @@ export const SessionService = {
 
   async getAllSessions(userId: string, limitCount: number = 20, lastDoc?: QueryDocumentSnapshot<DocumentData>) {
     try {
+      const [{ query, where, collection, limit, getDocs, startAfter }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
       let q = query(
         collection(db, 'sessions'), 
         where('userId', '==', userId), 
@@ -71,6 +76,7 @@ export const SessionService = {
 
   async getAllSessionsAdmin(limitCount: number = 50, lastDoc?: QueryDocumentSnapshot<DocumentData>) {
     try {
+      const [{ query, collection, limit, getDocs, startAfter }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
       let q = query(collection(db, 'sessions'), limit(limitCount));
       if (lastDoc) q = query(q, startAfter(lastDoc));
       

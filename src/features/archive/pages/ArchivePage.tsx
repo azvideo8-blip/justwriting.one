@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { UserProfile } from '../../../types';
@@ -10,8 +10,6 @@ import { useLanguage } from '../../../core/i18n';
 import { useNavigate } from 'react-router-dom';
 import { useUserId } from '../../../shared/hooks/useUserId';
 import { ArchiveHeader, type SortMode } from '../components/ArchiveHeader';
-import { DocumentPreview } from '../components/DocumentPreview';
-import { ArchiveSidebar } from '../components/ArchiveSidebar';
 import { ArchiveTagBar } from '../components/ArchiveTagBar';
 import { ArchiveLabelBar } from '../components/ArchiveLabelBar';
 import { ArchiveNoteList } from '../components/ArchiveNoteList';
@@ -21,6 +19,13 @@ import { useProfileLabels } from '../../profile/hooks/useProfileLabels';
 import { useTagEditor } from '../hooks/useTagEditor';
 import { useLabelEditor } from '../hooks/useLabelEditor';
 import { useArchiveGrouping } from '../hooks/useArchiveGrouping';
+
+const DocumentPreview = lazy(() =>
+  import('../components/DocumentPreview').then(m => ({ default: m.DocumentPreview }))
+);
+const ArchiveSidebar = lazy(() =>
+  import('../components/ArchiveSidebar').then(m => ({ default: m.ArchiveSidebar }))
+);
 
 interface ArchiveViewProps {
   user: User | null;
@@ -163,23 +168,27 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               />
             </div>
           </div>
-          <ArchiveSidebar
-            filteredByFilters={filteredByFilters} streakDays={filteredStreakDays} statsTitle={statsTitle}
-            onReset={hasActiveFilter ? resetStatsFilter : undefined}
-            sessions={sessions} sessionsByDate={sessionsByDate} selectedDate={selectedDate}
-            onSelectDate={setSelectedDate} onSelectMonth={setSelectedMonth}
-            wordCloud={wordCloud} maxCount={maxCount} onWordClick={setSearchQuery}
-          />
+          <Suspense fallback={null}>
+            <ArchiveSidebar
+              filteredByFilters={filteredByFilters} streakDays={filteredStreakDays} statsTitle={statsTitle}
+              onReset={hasActiveFilter ? resetStatsFilter : undefined}
+              sessions={sessions} sessionsByDate={sessionsByDate} selectedDate={selectedDate}
+              onSelectDate={setSelectedDate} onSelectMonth={setSelectedMonth}
+              wordCloud={wordCloud} maxCount={maxCount} onWordClick={setSearchQuery}
+            />
+          </Suspense>
           {previewSession && <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setPreviewSession(null)} />}
 
           <AnimatePresence>
             {previewSession && (
-              <DocumentPreview
+              <Suspense fallback={null}>
+                <DocumentPreview
                 session={previewSession} onClose={() => setPreviewSession(null)}
                 onContinue={s => navigate('/', { state: { sessionToContinue: s } })}
                 onTagsChange={handleTagsChange} onLabelChange={handleLabelChange}
                 onAddLabel={addLabel} labels={profileLabels} allTags={allTags}
               />
+              </Suspense>
             )}
           </AnimatePresence>
           <ArchiveConfirmModals

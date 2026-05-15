@@ -88,6 +88,7 @@ export const archiveTranslations: Translations = {
   export_filename_default: { ru: 'заметка',    en: 'note' },
   archive_search_no_results: { ru: 'Ничего не найдено по «{{query}}»', en: 'Nothing found for "{{query}}"' },
   archive_search_clear: { ru: 'Сбросить поиск', en: 'Clear search' },
+  archive_empty_filtered: { ru: 'Ничего не найдено', en: 'Nothing found' },
   archive_sort_newest:   { ru: 'Сначала новые',          en: 'Newest first' },
   archive_sort_oldest:   { ru: 'Сначала старые',          en: 'Oldest first' },
   archive_sort_longest:  { ru: 'Самые длинные',           en: 'Longest first' },

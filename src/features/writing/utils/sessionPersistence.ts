@@ -1,10 +1,10 @@
-import { Timestamp } from 'firebase/firestore';
+import type { Timestamp } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 import { UserProfile, SessionPayload } from '../../../types';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { WritingSessionService } from '../services/WritingSessionService';
 
-export function buildSessionPayload(
+export async function buildSessionPayload(
   state: {
     title: string;
     content: string;
@@ -21,7 +21,8 @@ export function buildSessionPayload(
   profile: UserProfile | null,
   user: User | null,
   userId: string
-): SessionPayload {
+): Promise<SessionPayload> {
+  const { Timestamp: FirestoreTimestamp } = await import('firebase/firestore');
   return {
     userId,
     authorName: profile?.nickname || user?.displayName || user?.email?.split('@')[0] || 'Guest',
@@ -35,7 +36,7 @@ export function buildSessionPayload(
     charCount: state.content.length,
     wpm: state.wpm,
     tags: state.tags,
-    updatedAt: Timestamp.now(),
+    updatedAt: FirestoreTimestamp.now() as Timestamp,
     sessionType: state.sessionType as SessionPayload['sessionType'],
     sessionStartTime: state.sessionStartTime,
     goalReached: state.sessionType === 'timer' ? state.timeGoalReached : (state.sessionType === 'words' ? state.wordGoalReached : true),

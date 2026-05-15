@@ -236,6 +236,11 @@
 textarea {
   caret-color: var(--flow-pulse-color, rgba(255,255,255,0.9));
 }
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
   .gap-s-xl { gap: var(--sp-xl); }
   .space-y-s-xl > * + * { margin-top: var(--sp-xl); }
   .space-y-s-lg > * + * { margin-top: var(--sp-lg); }

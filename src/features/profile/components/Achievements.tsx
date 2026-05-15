@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, startTransition } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useLanguage } from '../../../core/i18n';
 import { Session, Achievement } from '../../../types';
 import { ACHIEVEMENTS as ACH_DATA } from '../constants/achievements';
@@ -119,6 +120,7 @@ interface AchievementsProps {
 export function Achievements({ stats, sessions }: AchievementsProps) {
   const { t } = useLanguage();
   const { user } = useAuthStatus();
+  const reducedMotion = useReducedMotion();
 
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(() => {
     try {
@@ -198,11 +200,18 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
         )}
       </div>
 
-      {GROUPS.map(group => {
+      {GROUPS.map((group, gi) => {
         const groupUnlocked = group.achievements.filter(a => unlockedIds.has(a.id)).length;
+        const groupProgress = group.achievements.length > 0 ? groupUnlocked / group.achievements.length : 0;
 
         return (
-          <div key={group.id} className="mb-8">
+          <motion.div
+            key={group.id}
+            initial={reducedMotion ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: gi * 0.08 }}
+            className="mb-8"
+          >
             <div className="flex items-center justify-between mb-3">
               <div className="font-mono text-[11px] text-text-muted uppercase tracking-widest">
                 {t(group.labelKey)}
@@ -210,6 +219,15 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
               <div className="font-mono text-[11px] text-text-subtle">
                 {groupUnlocked} / {group.achievements.length}
               </div>
+            </div>
+
+            <div style={{ height: 3, borderRadius: 2, background: 'var(--surface-elevated)', marginBottom: 12, overflow: 'hidden' }}>
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${groupProgress * 100}%` }}
+                transition={{ duration: 0.6, delay: gi * 0.08 + 0.1, ease: 'easeOut' }}
+                style={{ height: '100%', borderRadius: 2, background: 'var(--flow-pulse-color)' }}
+              />
             </div>
 
             <div
@@ -246,8 +264,17 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
                       alignItems: 'center',
                       gap: 8,
                       textAlign: 'center',
+                      position: 'relative',
+                      overflow: 'hidden',
                     }}
                   >
+                    {!unlocked && !reducedMotion && (
+                      <div style={{
+                        position: 'absolute', inset: 0,
+                        background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 5%, transparent), transparent)',
+                        animation: 'shimmer 3s infinite',
+                      }} />
+                    )}
                     <div style={{
                       fontSize: 24,
                       filter: unlocked ? 'none' : 'grayscale(1) opacity(0.3)',
@@ -279,7 +306,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
                 );
               })}
             </div>
-          </div>
+          </motion.div>
         );
       })}
     </div>

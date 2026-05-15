@@ -46,6 +46,7 @@ interface DesktopWritingLayoutProps {
   lifeLogPinned: boolean;
   setLifeLogPinned: (v: boolean) => void;
   saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
+  streakDays?: number;
 }
 
 export function DesktopWritingLayout({
@@ -60,6 +61,7 @@ export function DesktopWritingLayout({
   showZen, lifeLogVisible, setLifeLogVisible,
   lifeLogTab, setLifeLogTab, lifeLogPinned, setLifeLogPinned,
   saveStatus,
+  streakDays,
 }: DesktopWritingLayoutProps) {
   const { t } = useLanguage();
   const editorColRef = React.useRef<HTMLDivElement>(null);
@@ -156,7 +158,7 @@ export function DesktopWritingLayout({
             position: 'relative',
           }}
           className={cn(
-            editorWidth < 100 && "rounded-2xl m-2 border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] shadow-xl"
+            editorWidth < 100 && "rounded-2xl m-2 border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] shadow-xl focus-within:shadow-[0_0_60px_color-mix(in_srgb,var(--brand-soft)_18%,transparent)] transition-shadow duration-700"
           )}
           >
             {setupMode ? (
@@ -205,6 +207,7 @@ export function DesktopWritingLayout({
                 pinned={lifeLogPinned}
                 onTogglePin={() => setLifeLogPinned(!lifeLogPinned)}
                 inGrid
+                streakDays={streakDays}
               />
             )}
           </AnimatePresence>

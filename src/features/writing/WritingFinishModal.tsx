@@ -243,12 +243,12 @@ export function WritingFinishModal({
             <div className="text-center text-sm text-text-main/40">{t('finish_streak_zero')}</div>
           )}
 
-          <div className="grid grid-cols-3 gap-4 text-center divide-x divide-border-subtle">
+          <div className="grid grid-cols-3 text-center">
             <div className="p-2">
               <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_words')}</div>
               <div className="text-xl font-mono font-bold text-text-main">{animWords}</div>
             </div>
-            <div className="p-2">
+            <div className="p-2" style={{ borderImage: 'linear-gradient(to bottom, transparent, var(--color-border-subtle), transparent) 1', borderLeft: '1px solid', borderRight: '1px solid' }}>
               <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_time')}</div>
               <div className="text-xl font-mono font-bold text-text-main">{formatTime(animSeconds)}</div>
             </div>

@@ -1,6 +1,5 @@
+import { getDb } from '../../../core/firebase/firestore';
 import { getLocalDb, LocalDraft } from '../../../shared/lib/localDb';
-import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '../../../core/firebase/firestore';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
 
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -49,6 +48,7 @@ export const WritingDraftService = {
 
     let cloudDraft: LocalDraft | null = null;
     try {
+      const [{ doc, getDoc }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
       const docRef = doc(db, 'drafts', userId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
@@ -102,6 +102,7 @@ export const WritingDraftService = {
   saveToFirestore: async (draft: LocalDraft) => {
     if (!draft.userId) return;
     const genAtStart = _saveGeneration.get(draft.userId) ?? 0;
+    const [{ doc, setDoc, deleteDoc }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
     const docRef = doc(db, 'drafts', draft.userId);
     await setDoc(docRef, draft, { merge: true });
     if (_saveGeneration.get(draft.userId) !== genAtStart) {
@@ -125,6 +126,7 @@ export const WritingDraftService = {
       localStorage.removeItem(`draft-${userId}`);
     } catch { /* ignore */ }
     try {
+      const [{ doc, deleteDoc }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
       await deleteDoc(doc(db, 'drafts', userId));
     } catch (err) {
       console.error('[DraftService] Failed to delete cloud draft:', err);

@@ -1,14 +1,7 @@
-import { collection, doc, getDoc, getDocs, addDoc, updateDoc, writeBatch, Timestamp, increment } from 'firebase/firestore';
-import { db } from '../../../core/firebase/firestore';
+import { getDb } from '../../../core/firebase/firestore';
 import { Document } from '../../../types';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
-
-const documentsRef = (userId: string) =>
-  collection(db, 'users', userId, 'documents');
-
-const documentRef = (userId: string, documentId: string) =>
-  doc(db, 'users', userId, 'documents', documentId);
 
 export const DocumentService = {
   async createDocument(
@@ -19,8 +12,9 @@ export const DocumentService = {
     }
   ): Promise<string> {
     try {
+      const [{ collection, addDoc, Timestamp }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
       const now = Timestamp.now();
-      const ref = await addDoc(documentsRef(userId), {
+      const ref = await addDoc(collection(db, 'users', userId, 'documents'), {
         userId,
         title: data.title,
         currentVersion: 0,
@@ -41,7 +35,8 @@ export const DocumentService = {
 
   async getDocument(userId: string, documentId: string): Promise<Document | null> {
     try {
-      const snap = await getDoc(documentRef(userId, documentId));
+      const [{ doc, getDoc }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+      const snap = await getDoc(doc(db, 'users', userId, 'documents', documentId));
       if (!snap.exists()) return null;
       return { id: snap.id, ...snap.data() } as Document;
     } catch (e) {
@@ -52,7 +47,8 @@ export const DocumentService = {
 
   async getUserDocuments(userId: string): Promise<Document[]> {
     try {
-      const snap = await getDocs(documentsRef(userId));
+      const [{ collection, getDocs }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+      const snap = await getDocs(collection(db, 'users', userId, 'documents'));
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Document));
       docs.sort((a, b) => (toTimestampMs(b.lastSessionAt) ?? 0) - (toTimestampMs(a.lastSessionAt) ?? 0));
       return docs;
@@ -72,7 +68,8 @@ export const DocumentService = {
     }
   ): Promise<void> {
     try {
-      await updateDoc(documentRef(userId, documentId), {
+      const [{ doc, updateDoc, Timestamp, increment }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+      await updateDoc(doc(db, 'users', userId, 'documents', documentId), {
         ...data,
         sessionsCount: increment(1),
         lastSessionAt: Timestamp.now(),
@@ -85,7 +82,8 @@ export const DocumentService = {
 
   async updateTags(userId: string, documentId: string, tags: string[]): Promise<void> {
     try {
-      await updateDoc(documentRef(userId, documentId), { tags });
+      const [{ doc, updateDoc }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+      await updateDoc(doc(db, 'users', userId, 'documents', documentId), { tags });
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents/${documentId}`);
       throw e;
@@ -94,7 +92,8 @@ export const DocumentService = {
 
   async updateTitle(userId: string, documentId: string, title: string): Promise<void> {
     try {
-      await updateDoc(documentRef(userId, documentId), { title });
+      const [{ doc, updateDoc }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+      await updateDoc(doc(db, 'users', userId, 'documents', documentId), { title });
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents/${documentId}`);
       throw e;
@@ -103,7 +102,8 @@ export const DocumentService = {
 
   async updateDate(userId: string, documentId: string, firstSessionAt: Date, lastSessionAt: Date): Promise<void> {
     try {
-      await updateDoc(documentRef(userId, documentId), {
+      const [{ doc, updateDoc, Timestamp }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+      await updateDoc(doc(db, 'users', userId, 'documents', documentId), {
         firstSessionAt: Timestamp.fromDate(firstSessionAt),
         lastSessionAt: Timestamp.fromDate(lastSessionAt),
       });
@@ -115,7 +115,8 @@ export const DocumentService = {
 
   async updateLabelId(userId: string, documentId: string, labelId: string | undefined): Promise<void> {
     try {
-      await updateDoc(documentRef(userId, documentId), { labelId: labelId ?? null });
+      const [{ doc, updateDoc }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+      await updateDoc(doc(db, 'users', userId, 'documents', documentId), { labelId: labelId ?? null });
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents/${documentId}`);
       throw e;
@@ -124,7 +125,8 @@ export const DocumentService = {
 
   async deleteDocument(userId: string, documentId: string): Promise<void> {
     try {
-      const ref = documentRef(userId, documentId);
+      const [{ doc, collection, getDocs, writeBatch }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+      const ref = doc(db, 'users', userId, 'documents', documentId);
       const versionsSnap = await getDocs(collection(ref, 'versions'));
       const batch = writeBatch(db);
       versionsSnap.forEach(v => batch.delete(v.ref));
@@ -137,7 +139,8 @@ export const DocumentService = {
   },
 
   async clearLabelFromAllDocs(userId: string, labelId: string): Promise<void> {
-    const snap = await getDocs(documentsRef(userId));
+    const [{ collection, getDocs, writeBatch }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+    const snap = await getDocs(collection(db, 'users', userId, 'documents'));
     const matching = snap.docs.filter(d => d.data().labelId === labelId);
     for (let i = 0; i < matching.length; i += 499) {
       const batch = writeBatch(db);
@@ -147,7 +150,8 @@ export const DocumentService = {
   },
 
   async renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void> {
-    const snap = await getDocs(documentsRef(userId));
+    const [{ collection, getDocs, writeBatch }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+    const snap = await getDocs(collection(db, 'users', userId, 'documents'));
     const matching = snap.docs.filter(d => (d.data().tags ?? []).includes(oldTag));
     for (let i = 0; i < matching.length; i += 499) {
       const batch = writeBatch(db);
@@ -160,7 +164,8 @@ export const DocumentService = {
   },
 
   async removeTagFromAllDocs(userId: string, tag: string): Promise<void> {
-    const snap = await getDocs(documentsRef(userId));
+    const [{ collection, getDocs, writeBatch }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+    const snap = await getDocs(collection(db, 'users', userId, 'documents'));
     const matching = snap.docs.filter(d => (d.data().tags ?? []).includes(tag));
     for (let i = 0; i < matching.length; i += 499) {
       const batch = writeBatch(db);

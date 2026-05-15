@@ -1,4 +1,3 @@
-import React from 'react';
 import { AchievementBadge } from './AchievementBadge';
 import { Achievement } from '../../../types';
 

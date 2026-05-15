@@ -113,6 +113,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
           {!compact && wordPct !== null && (
             <div className="w-20 h-[3px] rounded-full bg-border-subtle mt-1.5">
               <motion.div
+                initial={{ width: 0 }}
                 className={cn("h-[3px] rounded-full", wordDone ? "bg-accent-success" : "bg-brand-soft")}
                 animate={{ width: `${wordPct}%` }}
                 transition={{ type: 'spring', stiffness: 120, damping: 20 }}
@@ -152,6 +153,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
           {!compact && timePct !== null && (
             <div className="w-20 h-[3px] rounded-full bg-border-subtle mt-1.5">
               <motion.div
+                initial={{ width: 0 }}
                 className={cn("h-[3px] rounded-full", timeDone ? "bg-accent-success" : "bg-brand-soft")}
                 animate={{ width: `${timePct}%` }}
                 transition={{ type: 'spring', stiffness: 120, damping: 20 }}
@@ -189,6 +191,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
 
       <div className="flex items-center gap-2 ml-2 shrink-0">
         <div className="w-px h-6 bg-border-subtle" />
+        <div className="flex items-center gap-1 bg-text-main/[0.04] rounded-xl px-1 py-0.5">
         <motion.button
           onClick={status === 'paused' ? onPlay : status === 'idle' ? onPlay : undefined}
           disabled={status === 'writing'}
@@ -234,6 +237,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         >
           <Square size={14} />
         </motion.button>
+        </div>
       </div>
 
         {wordPopupOpen && (

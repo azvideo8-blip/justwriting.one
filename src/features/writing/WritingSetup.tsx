@@ -145,9 +145,12 @@ export function WritingSetup({
                       { id: 'finish-by-config', icon: Clock, label: 'writing_mode_deadline', desc: 'writing_mode_deadline_desc', color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
                       { id: 'prompts', icon: Sparkles, label: 'writing_mode_prompts', desc: 'writing_mode_prompts_desc', color: 'text-violet-400', bg: 'bg-violet-400/10' },
                     ].map((mode) => (
-                      <button 
+                      <motion.button 
                         key={mode.id}
                         onClick={() => mode.id === 'stopwatch' ? startCountdown('stopwatch') : setSetupMode(mode.id as SetupMode)}
+                        whileHover={{ y: -2, scale: 1.01 }}
+                        whileTap={{ scale: 0.98 }}
+                        transition={{ type: 'spring', stiffness: 350, damping: 25 }}
                         className="px-4 py-3 rounded-2xl border border-border-subtle hover:border-text-main/40 hover:bg-text-main/5 transition-all flex items-center gap-3 text-left w-full"
                       >
                         <span className={cn("text-xl shrink-0", mode.color)}>
@@ -161,7 +164,7 @@ export function WritingSetup({
                             {t(mode.desc)}
                           </div>
                         </div>
-                      </button>
+                      </motion.button>
                     ))}
                   </div>
                 </>
