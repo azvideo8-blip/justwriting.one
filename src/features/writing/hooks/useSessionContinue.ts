@@ -3,17 +3,20 @@ import { Session } from '../../../types';
 import { useWritingStore } from '../store/useWritingStore';
 import { SetupMode } from '../WritingSetup';
 import { LocalVersionService } from '../services/LocalVersionService';
+import { LocalDocumentService } from '../services/LocalDocumentService';
 
 interface UseSessionContinueParams {
   setSetupMode: (mode: SetupMode) => void;
   setTags: (tags: string[]) => void;
   loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
+  userId: string;
 }
 
 export function useSessionContinue({
   setSetupMode,
   setTags,
   loadLocalSession,
+  userId,
 }: UseSessionContinueParams) {
   const continueSession = useCallback(async (session: Session) => {
     const isLocal = session._isLocal;
@@ -50,6 +53,17 @@ export function useSessionContinue({
       return;
     }
 
+    // Cloud session: try to find existing local document via _linkedCloudId
+    let savedDocumentId: string | null = null;
+    const linkedCloudId = (session as Session & { _linkedCloudId?: string })._linkedCloudId;
+    if (linkedCloudId) {
+      try {
+        const localDocs = await LocalDocumentService.getGuestDocuments(userId);
+        const existing = localDocs.find(d => d.linkedCloudId === linkedCloudId);
+        if (existing) savedDocumentId = existing.id;
+      } catch { /* ignore */ }
+    }
+
     useWritingStore.setState({
       content: session.content,
       title: session.title || '',
@@ -57,10 +71,11 @@ export function useSessionContinue({
       seconds: 0,
       wordCount: session.wordCount || 0,
       accumulatedDuration: session.duration || 0,
+      savedDocumentId,
     });
     setTags(session.tags || []);
     setSetupMode('selection');
-  }, [setSetupMode, setTags, loadLocalSession]);
+  }, [setSetupMode, setTags, loadLocalSession, userId]);
 
   return { continueSession };
 }
