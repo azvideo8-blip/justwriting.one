@@ -9,6 +9,7 @@ import { useLanguage } from '../../core/i18n';
 import { formatTime } from '../../core/utils/formatTime';
 import { useServiceAction } from '../../shared/hooks/useServiceAction';
 
+import { useCountUp } from '../../shared/hooks/useCountUp';
 import { useWritingStore } from './store/useWritingStore';
 import { useModalEscape } from '../../shared/hooks/useModalEscape';
 import { StreakDots } from '../../shared/components/StreakDots';
@@ -24,22 +25,6 @@ const STOP_WORDS = new Set([
   'than','which','their','there','when','also','into','some','more','about',
   'would','could','should','these','those','other','after','before',
 ]);
-
-function useCountUp(target: number, duration = 800) {
-  const [value, setValue] = useState(0);
-  React.useEffect(() => {
-    const start = performance.now();
-    let rafId: number;
-    const tick = (now: number) => {
-      const pct = Math.min((now - start) / duration, 1);
-      setValue(Math.round(pct * target));
-      if (pct < 1) rafId = requestAnimationFrame(tick);
-    };
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [target, duration]);
-  return value;
-}
 
 export interface SaveData {
   title: string;

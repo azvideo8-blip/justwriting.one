@@ -53,6 +53,10 @@ export interface LocalDraft {
   activeSessionId?: string | null;
   pinnedThoughts?: string[];
   sessionStartTime?: number | null;
+  accumulatedDuration?: number;
+  savedDocumentId?: string | null;
+  tags?: string[];
+  labelId?: string;
   updatedAt: number;
 }
 
