@@ -76,7 +76,7 @@ export function HourRhythm({ sessions }: { sessions: Session[] }) {
                 fontFamily: 'var(--font-mono)', color: 'var(--text-main)',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.3)', pointerEvents: 'none', zIndex: 10,
               }}>
-                {String(h).padStart(2, '0')}:00 · {counts[h]} {t('home_words_short')}
+                {String(h).padStart(2, '0')}:00 · {counts[h]}
               </div>
             )}
             {isPeak(h) && (

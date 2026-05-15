@@ -2,6 +2,7 @@ import { User } from 'firebase/auth';
 import { LocalDraft } from '../../../shared/lib/localDb';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { getLocalStorageUsageKB } from '../../../shared/lib/localStorageUtils';
+import { useWritingStore } from '../store/useWritingStore';
 
 export interface DraftPersistResult {
   localOk: boolean;
@@ -23,10 +24,15 @@ export function buildLocalDraft(
     status: string;
   }
 ): LocalDraft {
+  const store = useWritingStore.getState();
   return {
     userId: user.uid,
     ...draftData,
     sessionStartTime: draftData.sessionStartTime ?? null,
+    accumulatedDuration: store.accumulatedDuration,
+    savedDocumentId: store.savedDocumentId,
+    tags: store.tags,
+    labelId: store.labelId,
     updatedAt: Date.now(),
   } as LocalDraft;
 }

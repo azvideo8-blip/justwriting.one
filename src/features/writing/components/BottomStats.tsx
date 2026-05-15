@@ -36,7 +36,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
     }))
   );
 
-  const sessionWords = wordCount - sessionStartWords;
+  const sessionWords = Math.max(0, wordCount - sessionStartWords);
   const sessionSeconds = seconds - sessionStartSeconds;
   const timeRemaining = timerDuration > 0
     ? Math.max(0, timerDuration - sessionSeconds)
