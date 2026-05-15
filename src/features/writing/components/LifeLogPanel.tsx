@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { cn, parseFirestoreDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
@@ -32,7 +32,8 @@ const SessionItem = ({ session, doc, isActive, onClick, onDelete, t, language, u
     ? date.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })
     : '';
 
-  const [now] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(id); }, []);
   const isRecent = date ? (now - date.getTime()) < 30 * 60 * 1000 : false;
 
   const getStatusBadge = () => {

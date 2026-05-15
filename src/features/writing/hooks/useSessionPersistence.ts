@@ -85,7 +85,12 @@ export function useSessionPersistence(
           pinnedThoughts: draftToLoad.pinnedThoughts || [],
           initialWordCount: draftToLoad.initialWordCount || 0,
           seconds: draftToLoad.seconds || 0,
-          wordCount: draftToLoad.wordCount || 0
+          wordCount: draftToLoad.wordCount || 0,
+          accumulatedDuration: draftToLoad.accumulatedDuration ?? 0,
+          savedDocumentId: draftToLoad.savedDocumentId ?? null,
+          tags: draftToLoad.tags || [],
+          labelId: draftToLoad.labelId ?? undefined,
+          sessionStartTime: draftToLoad.sessionStartTime ?? null,
         });
         useWritingStore.getState().setSessionStart();
         if (draftToLoad.activeSessionId) actions.setActiveSessionId(draftToLoad.activeSessionId);
