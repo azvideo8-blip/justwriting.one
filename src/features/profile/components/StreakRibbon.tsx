@@ -90,14 +90,13 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
               initial={reducedMotion ? false : { scaleY: 0 }}
               animate={{ scaleY: 1 }}
               transition={{ duration: 0.35, delay: i * 0.02, ease: 'easeOut' }}
-              style={{ flex: 1, transformOrigin: 'bottom' }}
+              style={{ flex: 1, height: `${day.hasSession ? heightPct : 20}%`, minHeight: 3, transformOrigin: 'bottom' }}
               role="img" aria-label={`${day.date.toLocaleDateString(language)} — ${day.words} ${t('writing_words')}`}
               title={`${day.date.toLocaleDateString(language)} — ${day.words} ${t('writing_words')}`}
             >
               <div
                 style={{
-                  height: `${day.hasSession ? heightPct : 20}%`,
-                  minHeight: 3,
+                  height: '100%',
                   borderRadius: 2,
                   background: isCurrentStreak
                     ? 'var(--flow-pulse-color)'

@@ -46,18 +46,18 @@ export function HourRhythm({ sessions }: { sessions: Session[] }) {
       <div className="flex gap-0.5 items-end" style={{ height: 72 }}>
         {data.map((v, h) => (
           <motion.div
-            key={h}
-            initial={reducedMotion ? false : { scaleY: 0 }}
-            animate={{ scaleY: v > 0 ? 1 : 0 }}
-            transition={{ duration: 0.4, delay: h * 0.02, ease: 'easeOut' }}
-            style={{ flex: 1, transformOrigin: 'bottom', position: 'relative' }}
-            onMouseEnter={() => setHoveredHour(h)}
-            onMouseLeave={() => setHoveredHour(null)}
-          >
-            <div
-              style={{
-                height: `${Math.max(3, v * 100)}%`,
-                borderRadius: 2,
+              key={h}
+              initial={reducedMotion ? false : { scaleY: 0 }}
+              animate={{ scaleY: 1 }}
+              transition={{ duration: 0.4, delay: h * 0.02, ease: 'easeOut' }}
+              style={{ flex: 1, height: `${Math.max(3, v * 100)}%`, transformOrigin: 'bottom', position: 'relative' }}
+              onMouseEnter={() => setHoveredHour(h)}
+              onMouseLeave={() => setHoveredHour(null)}
+            >
+              <div
+                style={{
+                  height: '100%',
+                  borderRadius: 2,
                 background: isPeak(h)
                   ? 'var(--flow-pulse-color)'
                   : v > 0.1
