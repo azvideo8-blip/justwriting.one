@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { cn, parseFirestoreDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
@@ -9,7 +9,8 @@ import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModa
 import { deleteSession } from '../services/SessionDeleteService';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
-import { X, Pin, Trash2, Cloud, HardDrive } from 'lucide-react';
+import { X, Pin, Trash2, Cloud, HardDrive, ArrowRight } from 'lucide-react';
+import { highlightText } from '../../../shared/utils/highlightText';
 
 interface SessionItemProps {
   session: Session;
@@ -21,13 +22,18 @@ interface SessionItemProps {
   language: string;
   userId: string;
   onStorageChange: () => void;
+  maxWords: number;
+  searchQuery?: string;
 }
 
-const SessionItem: React.FC<SessionItemProps> = ({ session, doc, isActive, onClick, onDelete, t, language, userId: _userId, onStorageChange: _onStorageChange }) => {
+const SessionItem = ({ session, doc, isActive, onClick, onDelete, t, language, userId: _userId, onStorageChange: _onStorageChange, maxWords, searchQuery }: SessionItemProps) => {
   const date = parseFirestoreDate(session.createdAt);
   const timeStr = date
     ? date.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })
     : '';
+
+  const [now] = useState(() => Date.now());
+  const isRecent = date ? (now - date.getTime()) < 30 * 60 * 1000 : false;
 
   const getStatusBadge = () => {
     if (!session.id) return { label: t('lifelog_status_unsaved'), cls: 'bg-text-main/10 text-text-main' };
@@ -48,10 +54,24 @@ const SessionItem: React.FC<SessionItemProps> = ({ session, doc, isActive, onCli
     >
       <div className="flex items-center justify-between mb-1">
         <span className="text-[13px] font-medium text-text-main truncate max-w-[130px]">
-          {session.title || t('common_untitled')}
+          {highlightText(session.title || t('common_untitled'), searchQuery || '')}
         </span>
         <div className="flex items-center gap-1">
-          <span className="text-[11px] text-text-subtle shrink-0">{timeStr}</span>
+          {isRecent ? (
+            <span className="flex items-center gap-1 text-[11px] text-accent-success shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-success animate-pulse shrink-0" />
+              {t('lifelog_just_now')}
+            </span>
+          ) : (
+            <span className="text-[11px] text-text-subtle shrink-0">{timeStr}</span>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); onClick(); }}
+            className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-text-main/30 hover:text-text-main transition-all"
+            aria-label={t('lifelog_continue')}
+          >
+            <ArrowRight size={12} />
+          </button>
           {onDelete && session.id && (
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(session); }}
@@ -78,6 +98,17 @@ const SessionItem: React.FC<SessionItemProps> = ({ session, doc, isActive, onCli
             : <HardDrive size={10} className="text-text-main/30" />
           }
         </div>
+        {session.content && (
+          <p className="text-[12px] text-text-main/30 truncate mt-0.5 leading-none">
+            {highlightText(session.content.slice(0, 80).replace(/\n/g, ' '), searchQuery || '')}
+          </p>
+        )}
+        <div className="mt-1.5 h-[2px] rounded-full bg-border-subtle overflow-hidden">
+          <div
+            className="h-full rounded-full bg-brand-soft/50"
+            style={{ width: `${Math.min(100, Math.round((session.wordCount || 0) / maxWords * 100))}%` }}
+          />
+        </div>
     </div>
   );
 };
@@ -92,6 +123,7 @@ interface LifeLogPanelProps {
   onTogglePin?: () => void;
   inGrid?: boolean;
   onRefreshDocuments?: () => void;
+  streakDays?: number;
 }
 
 export function LifeLogPanel({
@@ -104,6 +136,7 @@ export function LifeLogPanel({
   onTogglePin,
   inGrid,
   onRefreshDocuments,
+  streakDays,
 }: LifeLogPanelProps) {
   const [deleteTarget, setDeleteTarget] = useState<Session | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -146,6 +179,7 @@ export function LifeLogPanel({
         "flex flex-col h-full border-l border-border-subtle bg-surface-card backdrop-blur-xl",
         inGrid ? "w-full" : "fixed top-0 right-0 bottom-0 w-[380px] z-50 shadow-2xl"
       )}
+      style={{ boxShadow: '-12px 0 40px rgba(0,0,0,0.35)' }}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
@@ -226,6 +260,14 @@ export function LifeLogPanel({
                 </div>
                 <div className="text-[11px] text-text-subtle">{t('lifelog_time')}</div>
               </div>
+              {streakDays !== undefined && (
+                <div>
+                  <div className="text-lg font-bold" style={{ color: 'var(--flow-pulse-color)' }}>
+                    {streakDays}
+                  </div>
+                  <div className="text-[11px] text-text-subtle">{t('home_streak_days')}</div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -235,27 +277,36 @@ export function LifeLogPanel({
               <div className="px-3 py-2 text-[11px] text-text-subtle font-medium">{t('lifelog_loading')}</div>
             ) : (
               <div className="sessions-list flex-1 overflow-y-auto">
-                {filteredGroups.map(group => (
-                  <div key={group.date.toISOString()}>
-                    <div className="px-4 py-2 text-[10px] text-text-subtle font-bold uppercase tracking-wider sticky top-0 bg-surface-card z-10 border-b border-border-subtle/30">
-                      {group.label}
+                {filteredGroups.map(group => {
+                  const groupWords = group.sessions.reduce((s, sess) => s + (sess.wordCount || 0), 0);
+                  const maxWords = Math.max(...group.sessions.map(s => s.wordCount || 0), 1);
+                  return (
+                    <div key={group.date.toISOString()}>
+                      <div className="px-4 py-2 text-[10px] text-text-subtle font-bold uppercase tracking-wider sticky top-0 bg-surface-card z-10 border-b border-border-subtle/30 flex items-center justify-between">
+                        <span>{group.label}</span>
+                        <span className="font-mono font-normal normal-case tracking-normal text-text-main/25">
+                          {groupWords.toLocaleString()} {t('lifelog_words_short')}
+                        </span>
+                      </div>
+                      {group.sessions.map(session => (
+                        <SessionItem
+                          key={session.id}
+                          session={session}
+                          doc={docMap.get(session.id)}
+                          isActive={false}
+                          onClick={() => onContinueSession(session)}
+                          onDelete={(s) => setDeleteTarget(s)}
+                          t={t}
+                          language={language}
+                          userId={userId}
+                          onStorageChange={() => { refresh(); onRefreshDocuments?.(); }}
+                          maxWords={maxWords}
+                          searchQuery={searchQuery}
+                        />
+                      ))}
                     </div>
-                    {group.sessions.map(session => (
-                      <SessionItem
-                        key={session.id}
-                        session={session}
-                        doc={docMap.get(session.id)}
-                        isActive={false}
-                        onClick={() => onContinueSession(session)}
-                        onDelete={(s) => setDeleteTarget(s)}
-                        t={t}
-                        language={language}
-                        userId={userId}
-                        onStorageChange={() => { refresh(); onRefreshDocuments?.(); }}
-                      />
-                    ))}
-                  </div>
-                ))}
+                  );
+                })}
                 {filteredGroups.length === 0 && (
                   <div className="px-4 py-8 text-center text-sm text-text-subtle">
                     {t('lifelog_empty')}

@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { Pencil, PenLine, RefreshCw } from 'lucide-react';
 import { UserProfile } from '../../../types';
@@ -16,8 +17,6 @@ const QUOTE_KEYS = [
   'profile_quote_19', 'profile_quote_20',
 ];
 
-const todayQuoteKey = QUOTE_KEYS[new Date().getDate() % QUOTE_KEYS.length];
-
 interface ProfileHeroProps {
   user: User | null;
   profile: UserProfile | null;
@@ -32,6 +31,9 @@ export function ProfileHero({ user, profile, isGuest, onStartSession, onSync, sy
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(profile?.nickname || user?.displayName || '');
   const { execute } = useServiceAction();
+  const [quoteIdx, setQuoteIdx] = useState(() => new Date().getDate() % QUOTE_KEYS.length);
+  const nextQuote = useCallback(() => setQuoteIdx(i => (i + 1) % QUOTE_KEYS.length), []);
+  useEffect(() => { const id = setInterval(nextQuote, 12000); return () => clearInterval(id); }, [nextQuote]);
 
   const handleSaveName = () => {
     setEditingName(false);
@@ -63,21 +65,27 @@ export function ProfileHero({ user, profile, isGuest, onStartSession, onSync, sy
     }}>
       <div className="flex items-start gap-6">
         <div className="relative shrink-0">
-          {user?.photoURL ? (
-            <img src={user.photoURL} alt={name}
-              className="w-24 h-24 rounded-full object-cover border border-white/10" />
-          ) : (
-            <div style={{
-              width: 96, height: 96, borderRadius: '50%',
-              background: 'linear-gradient(135deg, color-mix(in srgb, var(--flow-pulse-color) 60%, #000), color-mix(in srgb, var(--flow-pulse-color) 20%, #000))',
-              border: '1px solid var(--border-light)',
-              boxShadow: '0 0 60px color-mix(in srgb, var(--flow-pulse-color) 15%, transparent)',
-              display: 'grid', placeItems: 'center',
-              fontSize: 42, fontFamily: 'Inter, sans-serif', fontWeight: 500, color: 'var(--text-main)',
-            }}>
-              {initials}
-            </div>
-          )}
+          <motion.div
+            animate={{ boxShadow: ['0 0 0px color-mix(in srgb, var(--flow-pulse-color) 0%, transparent)', '0 0 40px color-mix(in srgb, var(--flow-pulse-color) 25%, transparent)', '0 0 0px color-mix(in srgb, var(--flow-pulse-color) 0%, transparent)'] }}
+            transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
+            style={{ borderRadius: '50%' }}
+          >
+            {user?.photoURL ? (
+              <img src={user.photoURL} alt={name}
+                className="w-24 h-24 rounded-full object-cover border border-white/10" />
+            ) : (
+              <div style={{
+                width: 96, height: 96, borderRadius: '50%',
+                background: 'linear-gradient(135deg, color-mix(in srgb, var(--flow-pulse-color) 60%, #000), color-mix(in srgb, var(--flow-pulse-color) 20%, #000))',
+                border: '1px solid var(--border-light)',
+                boxShadow: '0 0 60px color-mix(in srgb, var(--flow-pulse-color) 15%, transparent)',
+                display: 'grid', placeItems: 'center',
+                fontSize: 42, fontFamily: 'Inter, sans-serif', fontWeight: 500, color: 'var(--text-main)',
+              }}>
+                {initials}
+              </div>
+            )}
+          </motion.div>
         </div>
 
         <div className="flex-1 pt-1">
@@ -110,8 +118,18 @@ export function ProfileHero({ user, profile, isGuest, onStartSession, onSync, sy
             </div>
           )}
 
-          <div className="font-serif italic text-[14px] text-text-main/50 leading-relaxed max-w-lg mb-5">
-             «{t(todayQuoteKey)}»
+          <div className="font-serif italic text-[14px] text-text-main/50 leading-relaxed max-w-lg mb-5 min-h-[20px]">
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={quoteIdx}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.35 }}
+              >
+                «{t(QUOTE_KEYS[quoteIdx])}»
+              </motion.span>
+            </AnimatePresence>
           </div>
 
           <div className="flex gap-2">

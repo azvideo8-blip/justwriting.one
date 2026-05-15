@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getSessionDate } from '../../../core/utils/utils';
 
@@ -28,6 +29,8 @@ interface HeatCell {
 export function Heatmap({ sessions }: { sessions: Session[] }) {
   const { t, language } = useLanguage();
   const [offset, setOffset] = useState(0);
+  const [hoveredCell, setHoveredCell] = useState<{ wi: number; di: number } | null>(null);
+  const reducedMotion = useReducedMotion();
 
   const { cells, monthLabels } = useMemo(() => {
     const wordsByDate: Record<string, number> = {};
@@ -148,17 +151,43 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
           <div className="flex" style={{ gap: 3 }}>
             {cells.map((week, wi) => (
               <div key={wi} className="flex flex-col" style={{ flex: 1, gap: 3 }}>
-                {week.map((day, di) => (
-                  <div
-                    key={di}
-                    title={`${day.date.toLocaleDateString(language)} — ${day.words} ${t('home_words_short')}`}
-                    style={{
-                      height: 11,
-                      background: colors[day.level],
-                      borderRadius: 2,
-                    }}
-                  />
-                ))}
+                {week.map((day, di) => {
+                  const isHovered = hoveredCell?.wi === wi && hoveredCell?.di === di;
+                  return (
+                    <motion.div
+                      key={di}
+                      initial={reducedMotion ? false : { opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.15, delay: Math.min(wi, 12) * 0.01 }}
+                      onMouseEnter={() => setHoveredCell({ wi, di })}
+                      onMouseLeave={() => setHoveredCell(null)}
+                      style={{ position: 'relative' }}
+                    >
+                      <div
+                        style={{
+                          height: 11,
+                          background: isHovered
+                            ? 'var(--flow-pulse-color)'
+                            : colors[day.level],
+                          borderRadius: 2,
+                          transition: 'background 0.1s',
+                        }}
+                      />
+                      {isHovered && (
+                        <div style={{
+                          position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+                          marginBottom: 4, whiteSpace: 'nowrap',
+                          background: 'var(--surface-elevated)', border: '1px solid var(--border-light)',
+                          borderRadius: 6, padding: '3px 8px', fontSize: 10,
+                          fontFamily: 'var(--font-mono)', color: 'var(--text-main)',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.3)', pointerEvents: 'none', zIndex: 10,
+                        }}>
+                          {day.date.toLocaleDateString(language)} — {day.words} {t('home_words_short')}
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
               </div>
             ))}
           </div>
