@@ -260,7 +260,7 @@ export function WritingFinishModal({
             </div>
           )}
 
-          {wpmHistory.length >= 3 && (
+          {wpmHistory.length >= 2 && (
             <div className="rounded-2xl bg-surface-base border border-border-subtle px-4 py-3">
               <div className="text-[10px] font-bold uppercase tracking-widest text-text-main/40 mb-3">
                 {t('finish_wpm_chart')}
