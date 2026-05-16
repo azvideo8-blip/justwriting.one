@@ -69,6 +69,7 @@ export function WritingFinishModal({
   const accumulatedDuration = useWritingStore(s => s.accumulatedDuration);
   const sessionSeconds = accumulatedDuration + Math.max(0, seconds - sessionStartSeconds);
   const totalPauseSeconds = useWritingStore(s => s.totalPauseSeconds);
+  const totalElapsedSeconds = sessionSeconds + totalPauseSeconds;
   const content = useWritingStore(s => s.content);
   const title = useWritingStore(s => s.title);
   const setTitle = useWritingStore(s => s.setTitle);
@@ -80,7 +81,7 @@ export function WritingFinishModal({
     : 0;
 
   const animWords = useCountUp(wordCount);
-  const animSeconds = useCountUp(sessionSeconds);
+  const animSeconds = useCountUp(totalPauseSeconds > 0 ? totalElapsedSeconds : sessionSeconds);
   const animWpm = useCountUp(avgWpm);
 
   useModalEscape(isOpen, onCancel);
