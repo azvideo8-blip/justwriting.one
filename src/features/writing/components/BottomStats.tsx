@@ -42,8 +42,12 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
     ? Math.max(0, timerDuration - sessionSeconds)
     : sessionSeconds;
 
-  const wordPct = wordGoal > 0 ? Math.min(100, Math.round(sessionWords / wordGoal * 100)) : null;
-  const timePct = timerDuration > 0 ? Math.min(100, Math.round(sessionSeconds / timerDuration * 100)) : null;
+  const wordPct = wordGoal > 0
+    ? Math.min(100, Math.round(sessionWords / wordGoal * 100))
+    : Math.min(100, Math.round(sessionWords / 500 * 100));
+  const timePct = timerDuration > 0
+    ? Math.min(100, Math.round(sessionSeconds / timerDuration * 100))
+    : Math.min(100, Math.round(sessionSeconds / 1800 * 100));
   const wordDone = wordGoal > 0 && sessionWords >= wordGoal;
   const timeDone = timerDuration > 0 && sessionSeconds >= timerDuration;
 
@@ -110,11 +114,11 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
               </span>
             )}
           </div>
-          {!compact && wordPct !== null && (
+          {!compact && (
             <div className="w-20 h-[3px] rounded-full bg-border-subtle mt-1.5">
               <motion.div
                 initial={{ width: 0 }}
-                className={cn("h-[3px] rounded-full", wordDone ? "bg-accent-success" : "bg-brand-soft")}
+                className={cn("h-[3px] rounded-full", wordDone ? "bg-accent-success" : "bg-text-main")}
                 animate={{ width: `${wordPct}%` }}
                 transition={{ type: 'spring', stiffness: 120, damping: 20 }}
               />
@@ -150,11 +154,11 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
               </span>
             )}
           </div>
-          {!compact && timePct !== null && (
+          {!compact && (
             <div className="w-20 h-[3px] rounded-full bg-border-subtle mt-1.5">
               <motion.div
                 initial={{ width: 0 }}
-                className={cn("h-[3px] rounded-full", timeDone ? "bg-accent-success" : "bg-brand-soft")}
+                className={cn("h-[3px] rounded-full", timeDone ? "bg-accent-success" : "bg-text-main")}
                 animate={{ width: `${timePct}%` }}
                 transition={{ type: 'spring', stiffness: 120, damping: 20 }}
               />
