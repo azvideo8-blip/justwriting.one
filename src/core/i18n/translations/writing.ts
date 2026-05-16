@@ -104,6 +104,9 @@ export const writingTranslations: Translations = {
   finish_saving_to_cloud: { ru: 'Сохраняется в облако', en: 'Saving to cloud' },
   finish_saving_to_both: { ru: 'Сохраняется локально и в облако', en: 'Saving locally and to cloud' },
   finish_change_in_settings: { ru: 'изменить', en: 'change' },
+  finish_flow_time: { ru: 'В потоке', en: 'Flow time' },
+  finish_distraction_time: { ru: 'Отвлечения', en: 'Distractions' },
+  finish_skip_save: { ru: 'Не сохранять', en: "Don't save" },
 
   mood_checkin_title: { ru: 'Как ты себя чувствуешь?', en: 'How do you feel?' },
   mood_checkin_subtitle: { ru: 'Это займёт секунду', en: 'This takes a second' },

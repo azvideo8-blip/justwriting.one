@@ -29,6 +29,9 @@ interface WritingState {
   sessionStartSeconds: number;
   accumulatedDuration: number;
 
+  totalPauseSeconds: number;
+  _pauseWallStart: number | null;
+
   tags: string[];
   labelId?: string;
   initialDuration: number;
@@ -121,6 +124,7 @@ export const useWritingStore = create<WritingState>((set) => ({
   timerDuration: 30 * 60, targetTime: null, wordGoal: 1000,
   timeGoalReached: false, wordGoalReached: false, overtimeSeconds: 0,
   sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
+  totalPauseSeconds: 0, _pauseWallStart: null,
 
   tags: [], labelId: undefined,
   initialDuration: 0, activeSessionId: null, savedDocumentId: null, sessionStartTime: null,
@@ -230,6 +234,7 @@ export const useWritingStore = create<WritingState>((set) => ({
         sessionStartWords: 0,
         sessionStartSeconds: 0,
         accumulatedDuration: 0,
+        totalPauseSeconds: 0, _pauseWallStart: null,
         savedDocumentId: null,
         sessionStartTime: null,
         tags: [],
@@ -243,11 +248,21 @@ export const useWritingStore = create<WritingState>((set) => ({
   },
 
   pauseSession: () => {
-    set((state) => state.status === 'writing' ? { status: 'paused' as TimerStatus } : state);
+    set((state) => state.status === 'writing' ? { status: 'paused' as TimerStatus, _pauseWallStart: Date.now() } : state);
   },
 
   resumeSession: () => {
-    set((state) => state.status === 'paused' ? { status: 'writing' as TimerStatus } : state);
+    set((state) => {
+      if (state.status !== 'paused') return state;
+      const extra = state._pauseWallStart != null
+        ? Math.round((Date.now() - state._pauseWallStart) / 1000)
+        : 0;
+      return {
+        status: 'writing' as TimerStatus,
+        totalPauseSeconds: state.totalPauseSeconds + extra,
+        _pauseWallStart: null,
+      };
+    });
   },
 
   resetSession: () => set((state) => {
@@ -258,6 +273,7 @@ export const useWritingStore = create<WritingState>((set) => ({
       lastWordCount: 0, wpmHistory: [],
       seconds: 0, status: 'idle', timeGoalReached: false, wordGoalReached: false,
       overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
+      totalPauseSeconds: 0, _pauseWallStart: null,
       savedDocumentId: null, sessionStartTime: null,
       tags: [], labelId: undefined, initialDuration: 0, activeSessionId: null,
       _wordCalcTimer: null,
@@ -272,6 +288,7 @@ export const useWritingStore = create<WritingState>((set) => ({
       seconds: 0, status: 'idle', wpm: 0, wordSnapshots: [],
       lastWordCount: 0, wpmHistory: [], timeGoalReached: false, wordGoalReached: false,
       overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0, accumulatedDuration: 0,
+      totalPauseSeconds: 0, _pauseWallStart: null,
       activeSessionId: null, savedDocumentId: null, sessionStartTime: null,
       tags: [], labelId: undefined, initialDuration: 0, initialWordCount: 0,
       _wordCalcTimer: null,

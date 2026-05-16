@@ -246,6 +246,7 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
           }
           setIsFinishModalOpen(false);
         }}
+        onSkipSave={() => setIsFinishModalOpen(false)}
         streakDays={streakForModal}
         sessionGroups={lifeLogGroups}
       />

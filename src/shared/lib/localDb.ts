@@ -54,6 +54,7 @@ export interface LocalDraft {
   pinnedThoughts?: string[];
   sessionStartTime?: number | null;
   accumulatedDuration?: number;
+  totalPauseSeconds?: number;
   savedDocumentId?: string | null;
   tags?: string[];
   labelId?: string;

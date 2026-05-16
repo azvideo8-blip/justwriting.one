@@ -30,6 +30,7 @@ export function buildLocalDraft(
     ...draftData,
     sessionStartTime: draftData.sessionStartTime ?? null,
     accumulatedDuration: store.accumulatedDuration,
+    totalPauseSeconds: store.totalPauseSeconds,
     savedDocumentId: store.savedDocumentId,
     tags: store.tags,
     labelId: store.labelId,
