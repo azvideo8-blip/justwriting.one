@@ -41,6 +41,7 @@ interface WritingFinishModalProps {
   labels: Label[];
   onSave: (data: SaveData) => Promise<void>;
   onCancel: () => void;
+  onSkipSave: () => void;
   streakDays?: number;
   sessionGroups?: { date: Date; sessions: unknown[] }[];
 }
@@ -54,6 +55,7 @@ export function WritingFinishModal({
   labels,
   onSave,
   onCancel,
+  onSkipSave,
   streakDays = 0,
   sessionGroups = [],
 }: WritingFinishModalProps) {
@@ -66,6 +68,7 @@ export function WritingFinishModal({
   const sessionStartSeconds = useWritingStore(s => s.sessionStartSeconds);
   const accumulatedDuration = useWritingStore(s => s.accumulatedDuration);
   const sessionSeconds = accumulatedDuration + Math.max(0, seconds - sessionStartSeconds);
+  const totalPauseSeconds = useWritingStore(s => s.totalPauseSeconds);
   const content = useWritingStore(s => s.content);
   const title = useWritingStore(s => s.title);
   const setTitle = useWritingStore(s => s.setTitle);
@@ -243,6 +246,19 @@ export function WritingFinishModal({
             </div>
           </div>
 
+          {totalPauseSeconds > 0 && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-text-main/40">{t('finish_flow_time')}</span>
+                <span className="font-mono text-text-main">{formatTime(sessionSeconds)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-text-main/40">{t('finish_distraction_time')}</span>
+                <span className="font-mono text-accent-warning">{formatTime(totalPauseSeconds)}</span>
+              </div>
+            </div>
+          )}
+
           {wpmHistory.length >= 3 && (
             <div className="rounded-2xl bg-surface-base border border-border-subtle px-4 py-3">
               <div className="text-[10px] font-bold uppercase tracking-widest text-text-main/40 mb-3">
@@ -370,6 +386,12 @@ export function WritingFinishModal({
               {isSaving ? t('finish_saving') : t('common_save')}
             </button>
           </div>
+          <button
+            onClick={onSkipSave}
+            className="w-full text-sm text-text-main/40 hover:text-text-main/70 transition-colors py-2"
+          >
+            {t('finish_skip_save')}
+          </button>
         </motion.div>
         )}
         </AnimatePresence>

@@ -87,6 +87,7 @@ export function useSessionPersistence(
           seconds: draftToLoad.seconds || 0,
           wordCount: draftToLoad.wordCount || 0,
           accumulatedDuration: draftToLoad.accumulatedDuration ?? 0,
+          totalPauseSeconds: draftToLoad.totalPauseSeconds ?? 0,
           savedDocumentId: draftToLoad.savedDocumentId ?? null,
           tags: draftToLoad.tags || [],
           labelId: draftToLoad.labelId ?? undefined,
