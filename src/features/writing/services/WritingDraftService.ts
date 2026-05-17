@@ -104,7 +104,8 @@ export const WritingDraftService = {
     const genAtStart = _saveGeneration.get(draft.userId) ?? 0;
     const [{ doc, setDoc, deleteDoc }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
     const docRef = doc(db, 'drafts', draft.userId);
-    await setDoc(docRef, draft, { merge: true });
+    const clean = Object.fromEntries(Object.entries(draft).filter(([, v]) => v !== undefined));
+    await setDoc(docRef, clean, { merge: true });
     if (_saveGeneration.get(draft.userId) !== genAtStart) {
       try { await deleteDoc(docRef); } catch { /* ignore */ }
     }
