@@ -1,6 +1,7 @@
-import { getLocalDb } from '../../../shared/lib/localDb';
+import { getLocalDb, LocalDraft } from '../../../shared/lib/localDb';
 
 const DRAFT_KEY = 'jw_guest_draft';
+const GUEST_IDB_KEY = 'guest_draft';
 
 export interface GuestDraftData {
   content?: string;
@@ -9,50 +10,70 @@ export interface GuestDraftData {
   seconds?: number;
   wordCount?: number;
   timestamp?: number;
+  updatedAt?: number;
 }
 
 export async function saveGuestDraftToStorage(draft: GuestDraftData): Promise<void> {
-  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  const withMeta = { ...draft, updatedAt: Date.now() };
   try {
     const db = await getLocalDb();
     if (db.objectStoreNames.contains('drafts')) {
-      await db.put('drafts', { ...draft, userId: 'guest_draft' } as import('../../../shared/lib/localDb').LocalDraft);
+      await db.put('drafts', { ...withMeta, userId: GUEST_IDB_KEY } as LocalDraft);
     }
   } catch { /* ignore */ }
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(withMeta)); } catch { /* ignore */ }
 }
 
 export async function loadGuestDraftFromStorage(): Promise<GuestDraftData | null> {
-  const raw = localStorage.getItem(DRAFT_KEY);
-  let draft: GuestDraftData | null = null;
+  let idbDraft: GuestDraftData | null = null;
+  try {
+    const db = await getLocalDb();
+    if (db.objectStoreNames.contains('drafts')) {
+      const d = await db.get('drafts', GUEST_IDB_KEY);
+      if (d) idbDraft = d as GuestDraftData;
+    }
+  } catch { /* ignore */ }
 
+  let lsDraft: GuestDraftData | null = null;
+  const raw = localStorage.getItem(DRAFT_KEY);
   if (raw) {
-    try {
-      draft = JSON.parse(raw);
-    } catch (err) {
-      console.warn('[GuestDraft] Corrupted localStorage draft, removing:', err);
+    try { lsDraft = JSON.parse(raw); } catch {
       localStorage.removeItem(DRAFT_KEY);
     }
   }
 
-  if (!draft) {
+  if (idbDraft && lsDraft) {
+    const idbTs = idbDraft.updatedAt ?? idbDraft.timestamp ?? 0;
+    const lsTs = lsDraft.updatedAt ?? lsDraft.timestamp ?? 0;
+    const winner = idbTs >= lsTs ? idbDraft : lsDraft;
+    if (winner === lsDraft && idbDraft) {
+      try {
+        const db = await getLocalDb();
+        await db.put('drafts', { ...lsDraft, userId: GUEST_IDB_KEY } as LocalDraft);
+      } catch { /* ignore */ }
+    }
+    return winner;
+  }
+
+  if (lsDraft && !idbDraft) {
     try {
       const db = await getLocalDb();
       if (db.objectStoreNames.contains('drafts')) {
-        const d = await db.get('drafts', 'guest_draft');
-        if (d) draft = d as GuestDraftData;
+        await db.put('drafts', { ...lsDraft, userId: GUEST_IDB_KEY } as LocalDraft);
       }
     } catch { /* ignore */ }
+    return lsDraft;
   }
 
-  return draft;
+  return idbDraft;
 }
 
 export async function deleteGuestDraftFromStorage(): Promise<void> {
-  localStorage.removeItem(DRAFT_KEY);
+  try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
   try {
     const db = await getLocalDb();
     if (db.objectStoreNames.contains('drafts')) {
-      await db.delete('drafts', 'guest_draft');
+      await db.delete('drafts', GUEST_IDB_KEY);
     }
   } catch { /* ignore */ }
 }

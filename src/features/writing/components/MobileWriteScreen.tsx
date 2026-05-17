@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useWritingStore } from '../store/useWritingStore';
+import { useContentStore } from '../store/useContentStore';
+import { useTimerStore } from '../store/useTimerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useLanguage } from '../../../core/i18n';
@@ -20,13 +21,17 @@ export function MobileWriteScreen({
   onPlay, onPause, onStop, saveStatus
 }: MobileWriteScreenProps) {
   const { t } = useLanguage();
-  const { status, content, setContent, title, setTitle, seconds, timerDuration, sessionStartSeconds } = useWritingStore(
+  const { content, setContent, title, setTitle } = useContentStore(
     useShallow(s => ({
-      status: s.status,
       content: s.content,
       setContent: s.setContent,
       title: s.title,
       setTitle: s.setTitle,
+    }))
+  );
+  const { status, seconds, timerDuration, sessionStartSeconds } = useTimerStore(
+    useShallow(s => ({
+      status: s.status,
       seconds: s.seconds,
       timerDuration: s.timerDuration,
       sessionStartSeconds: s.sessionStartSeconds,

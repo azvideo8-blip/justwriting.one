@@ -1,5 +1,10 @@
 import { useCallback, useEffect } from 'react';
-import { useWritingStore, TimerStatus, SessionType } from '../store/useWritingStore';
+import { TimerStatus, SessionType } from '../store/types';
+import { useContentStore } from '../store/useContentStore';
+import { useTimerStore } from '../store/useTimerStore';
+import { useSessionMetaStore } from '../store/useSessionMetaStore';
+import { resetSession, finishSession, resetAllSessionMetadata } from '../store/storeActions';
+import { useWpm } from './useWpm';
 
 export interface BaseSessionReturn {
   status: TimerStatus;
@@ -43,50 +48,52 @@ export interface BaseSessionReturn {
 }
 
 export function useBaseWritingSession(): BaseSessionReturn {
-  const title = useWritingStore(s => s.title);
-  const content = useWritingStore(s => s.content);
-  const pinnedThoughts = useWritingStore(s => s.pinnedThoughts);
-  const tags = useWritingStore(s => s.tags);
-  const sessionType = useWritingStore(s => s.sessionType);
-  const activeSessionId = useWritingStore(s => s.activeSessionId);
-  const initialDuration = useWritingStore(s => s.initialDuration);
-  const initialWordCount = useWritingStore(s => s.initialWordCount);
-  const sessionStartTime = useWritingStore(s => s.sessionStartTime);
-  const seconds = useWritingStore(s => s.seconds);
-  const wpm = useWritingStore(s => s.wpm);
-  const wordCount = useWritingStore(s => s.wordCount);
-  const status = useWritingStore(s => s.status);
-  const timeGoalReached = useWritingStore(s => s.timeGoalReached);
-  const wordGoalReached = useWritingStore(s => s.wordGoalReached);
-  const wordGoal = useWritingStore(s => s.wordGoal);
-  const timerDuration = useWritingStore(s => s.timerDuration);
-  const targetTime = useWritingStore(s => s.targetTime);
-  const labelId = useWritingStore(s => s.labelId);
+  const title = useContentStore(s => s.title);
+  const content = useContentStore(s => s.content);
+  const pinnedThoughts = useContentStore(s => s.pinnedThoughts);
+  const tags = useContentStore(s => s.tags);
+  const labelId = useContentStore(s => s.labelId);
+  const wordCount = useContentStore(s => s.wordCount);
+  const initialWordCount = useContentStore(s => s.initialWordCount);
 
-  const setContent = useWritingStore(s => s.setContent);
-  const setTitle = useWritingStore(s => s.setTitle);
-  const setPinnedThoughts = useWritingStore(s => s.setPinnedThoughts);
-  const setActiveSessionId = useWritingStore(s => s.setActiveSessionId);
-  const setStatus = useWritingStore(s => s.setStatus);
-  const setInitialWordCount = useWritingStore(s => s.setInitialWordCount);
-  const setInitialDuration = useWritingStore(s => s.setInitialDuration);
-  const setTimeGoalReached = useWritingStore(s => s.setTimeGoalReached);
-  const setWordGoalReached = useWritingStore(s => s.setWordGoalReached);
-  const setSessionStartTime = useWritingStore(s => s.setSessionStartTime);
-  const setSessionStart = useWritingStore(s => s.setSessionStart);
-  const tick = useWritingStore(s => s.tick);
-  const setSessionType = useWritingStore(s => s.setSessionType);
-  const setTimerDuration = useWritingStore(s => s.setTimerDuration);
-  const setWordGoal = useWritingStore(s => s.setWordGoal);
-  const setTargetTime = useWritingStore(s => s.setTargetTime);
-  const setTags = useWritingStore(s => s.setTags);
-  const setLabelId = useWritingStore(s => s.setLabelId);
-  const resetSession = useWritingStore(s => s.resetSession);
-  const resetSessionMetadata = useWritingStore(s => s.resetSessionMetadata);
-  const finishSession = useWritingStore(s => s.finishSession);
+  const { wpm } = useWpm();
+
+  const sessionType = useTimerStore(s => s.sessionType);
+  const initialDuration = useTimerStore(s => s.initialDuration);
+  const seconds = useTimerStore(s => s.seconds);
+  const status = useTimerStore(s => s.status);
+  const timeGoalReached = useTimerStore(s => s.timeGoalReached);
+  const wordGoalReached = useTimerStore(s => s.wordGoalReached);
+  const wordGoal = useTimerStore(s => s.wordGoal);
+  const timerDuration = useTimerStore(s => s.timerDuration);
+  const targetTime = useTimerStore(s => s.targetTime);
+
+  const activeSessionId = useSessionMetaStore(s => s.activeSessionId);
+  const sessionStartTime = useSessionMetaStore(s => s.sessionStartTime);
+
+  const setContent = useContentStore(s => s.setContent);
+  const setTitle = useContentStore(s => s.setTitle);
+  const setPinnedThoughts = useContentStore(s => s.setPinnedThoughts);
+  const setTags = useContentStore(s => s.setTags);
+  const setLabelId = useContentStore(s => s.setLabelId);
+  const setInitialWordCount = useContentStore(s => s.setInitialWordCount);
+
+  const setStatus = useTimerStore(s => s.setStatus);
+  const setSessionType = useTimerStore(s => s.setSessionType);
+  const setTimerDuration = useTimerStore(s => s.setTimerDuration);
+  const setWordGoal = useTimerStore(s => s.setWordGoal);
+  const setTargetTime = useTimerStore(s => s.setTargetTime);
+  const setInitialDuration = useTimerStore(s => s.setInitialDuration);
+  const setTimeGoalReached = useTimerStore(s => s.setTimeGoalReached);
+  const setWordGoalReached = useTimerStore(s => s.setWordGoalReached);
+  const setSessionStart = useTimerStore(s => s.setSessionStart);
+  const tick = useTimerStore(s => s.tick);
+
+  const setActiveSessionId = useSessionMetaStore(s => s.setActiveSessionId);
+  const setSessionStartTime = useSessionMetaStore(s => s.setSessionStartTime);
 
   const handleStart = useCallback(() => {
-    const currentStatus = status;
+    const currentStatus = useTimerStore.getState().status;
     setStatus('writing');
     setTimeGoalReached(false);
     setWordGoalReached(false);
@@ -97,15 +104,13 @@ export function useBaseWritingSession(): BaseSessionReturn {
     if (currentStatus === 'idle') {
       setSessionStart();
     }
-  }, [status, setStatus, setTimeGoalReached, setWordGoalReached, sessionStartTime, setInitialWordCount, wordCount, setSessionStartTime, setSessionStart]);
+  }, [setStatus, setTimeGoalReached, setWordGoalReached, sessionStartTime, setInitialWordCount, wordCount, setSessionStartTime, setSessionStart]);
 
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (status === 'writing' || status === 'paused') {
-      interval = setInterval(() => {
-        tick();
-      }, 1000);
-    }
+    if (status !== 'writing') return;
+    const interval = setInterval(() => {
+      tick();
+    }, 1000);
     return () => clearInterval(interval);
   }, [status, tick]);
 
@@ -121,7 +126,7 @@ export function useBaseWritingSession(): BaseSessionReturn {
     setTags, setLabelId,
     setInitialWordCount, setInitialDuration,
     setActiveSessionId,
-    resetSession, finishSession, resetSessionMetadata,
+    resetSession, finishSession, resetSessionMetadata: resetAllSessionMetadata,
     setTimeGoalReached, setWordGoalReached,
   };
 }

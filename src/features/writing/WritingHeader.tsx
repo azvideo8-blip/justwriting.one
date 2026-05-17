@@ -7,7 +7,8 @@ import { cn } from '../../core/utils/utils';
 import { useLanguage } from '../../core/i18n';
 import { useWritingSettings } from './contexts/WritingSettingsContext';
 
-import { useWritingStore } from './store/useWritingStore';
+import { useContentStore } from './store/useContentStore';
+import { useTimerStore } from './store/useTimerStore';
 import { Toolbar } from './components/Toolbar';
 import { HeaderStats } from './components/HeaderStats';
 
@@ -41,19 +42,19 @@ export const WritingHeader = React.memo(function WritingHeader({
     lifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab
   } = useWritingSettings();
 
-  const status = useWritingStore(s => s.status);
-  const title = useWritingStore(s => s.title);
-  const setTitle = useWritingStore(s => s.setTitle);
-  const seconds = useWritingStore(s => s.seconds);
-  const wpm = useWritingStore(s => s.wpm);
-  const wordCount = useWritingStore(s => s.wordCount);
-  const sessionStartWords = useWritingStore(s => s.sessionStartWords);
-  const sessionStartSeconds = useWritingStore(s => s.sessionStartSeconds);
-  const wordGoal = useWritingStore(s => s.wordGoal);
-  const timerDuration = useWritingStore(s => s.timerDuration);
+  const status = useTimerStore(s => s.status);
+  const title = useContentStore(s => s.title);
+  const setTitle = useContentStore(s => s.setTitle);
+  const seconds = useTimerStore(s => s.seconds);
+  const wpm = useContentStore(s => s.wpm);
+  const wordCount = useContentStore(s => s.wordCount);
+  const sessionStartWords = useTimerStore(s => s.sessionStartWords);
+  const sessionStartSeconds = useTimerStore(s => s.sessionStartSeconds);
+  const wordGoal = useTimerStore(s => s.wordGoal);
+  const timerDuration = useTimerStore(s => s.timerDuration);
   
-  const setWordGoal = useWritingStore(s => s.setWordGoal);
-  const setTimerDuration = useWritingStore(s => s.setTimerDuration);
+  const setWordGoal = useTimerStore(s => s.setWordGoal);
+  const setTimerDuration = useTimerStore(s => s.setTimerDuration);
 
   const sessionWords = wordCount - sessionStartWords;
   const sessionSeconds = Math.max(0, seconds - sessionStartSeconds);
