@@ -2,10 +2,11 @@ import { User } from 'firebase/auth';
 import { DocumentService } from '../../writing/services/DocumentService';
 import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
 import { SessionService } from '../../writing/services/SessionService';
+import { StorageService } from '../../writing/services/StorageService';
 import { ArchiveSession } from '../types';
 
 type ArchiveField = 'tags' | 'title' | 'date' | 'labelId';
-type ArchiveFieldValue = string[] | string | Date | string | undefined;
+type ArchiveFieldValue = string[] | string | Date | undefined;
 
 export async function updateArchiveField(
   session: ArchiveSession,
@@ -18,7 +19,10 @@ export async function updateArchiveField(
     const patch: Record<string, unknown> = {};
     if (field === 'tags') patch.tags = value;
     else if (field === 'title') patch.title = value;
-    else if (field === 'date') patch.sessionStartTime = (value as Date).getTime();
+    else if (field === 'date') {
+      if (!(value instanceof Date)) throw new Error('Expected Date for date field');
+      patch.sessionStartTime = value.getTime();
+    }
     else if (field === 'labelId') patch.labelId = value;
     await SessionService.updateSession(session.id, patch);
     return;
@@ -36,10 +40,11 @@ export async function updateArchiveField(
         await DocumentService.updateTitle(user.uid, session._linkedCloudId, value as string).catch(() => {});
       }
     } else if (field === 'date') {
-      const ts = (value as Date).getTime();
+      if (!(value instanceof Date)) throw new Error('Expected Date for date field');
+      const ts = value.getTime();
       await LocalDocumentService.updateDate(session.id, ts, ts);
       if (session._linkedCloudId && user) {
-        await DocumentService.updateDate(user.uid, session._linkedCloudId, value as Date, value as Date).catch(() => {});
+        await DocumentService.updateDate(user.uid, session._linkedCloudId, value, value).catch(() => {});
       }
     } else if (field === 'labelId') {
       await LocalDocumentService.updateLabelId(session.id, value as string | undefined);
@@ -56,7 +61,8 @@ export async function updateArchiveField(
     } else if (field === 'title') {
       await DocumentService.updateTitle(user.uid, session.id, value as string);
     } else if (field === 'date') {
-      await DocumentService.updateDate(user.uid, session.id, value as Date, value as Date);
+      if (!(value instanceof Date)) throw new Error('Expected Date for date field');
+      await DocumentService.updateDate(user.uid, session.id, value, value);
     } else if (field === 'labelId') {
       await DocumentService.updateLabelId(user.uid, session.id, value as string | undefined);
     }
@@ -70,7 +76,7 @@ export async function deleteArchiveSession(
   if (session._isLegacy) {
     await SessionService.deleteSession(session.id);
   } else {
-    await (await import('../../writing/services/StorageService')).StorageService.deleteDocument(
+    await StorageService.deleteDocument(
       userId,
       session._isLocal ? session.id : undefined,
       session._hasCloudCopy ? (session._linkedCloudId || session.id) : undefined

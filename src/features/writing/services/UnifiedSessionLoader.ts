@@ -36,7 +36,8 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
       if (seenIds.has(doc.id)) continue;
       seenIds.add(doc.id);
       let content = '';
-      try { content = await LocalVersionService.getLatestContent(doc.id); } catch { /* ignore */ }
+      let _contentError = false;
+      try { content = await LocalVersionService.getLatestContent(doc.id); } catch { _contentError = true; }
       const createdAt = toDate(doc.firstSessionAt) ?? new Date();
       allSessions.push({
         id: doc.id,
@@ -59,6 +60,7 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
         _totalWords: doc.totalWords,
         _totalDuration: doc.totalDuration,
         _sessionsCount: doc.sessionsCount,
+        ...( _contentError ? { _contentError: true } : {}),
       });
     }
 
@@ -77,7 +79,8 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
 
         const created = toDate(cloudDoc.firstSessionAt) ?? new Date();
         let cloudContent = '';
-        try { cloudContent = await VersionService.getLatestContent(user.uid, cloudDoc.id); } catch { /* ignore */ }
+        let cloudContentError = false;
+        try { cloudContent = await VersionService.getLatestContent(user.uid, cloudDoc.id); } catch { cloudContentError = true; }
         allSessions.push({
           id: cloudDoc.id,
           userId: user.uid,
@@ -99,6 +102,7 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
           _totalWords: cloudDoc.totalWords,
           _totalDuration: cloudDoc.totalDuration,
           _sessionsCount: cloudDoc.sessionsCount,
+          ...(cloudContentError ? { _contentError: true } : {}),
         });
       }
     }

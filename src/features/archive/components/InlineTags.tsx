@@ -13,6 +13,7 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
   const [adding, setAdding] = useState(false);
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { t } = useLanguage();
 
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -94,7 +95,7 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
               }
               if (e.key === 'Escape') { setAdding(false); setInput(''); setSuggestions([]); }
             }}
-            onBlur={() => { setSuggestions([]); setSelectedIdx(-1); addTag(); }}
+            onBlur={() => { blurTimerRef.current = setTimeout(() => { setSuggestions([]); setSelectedIdx(-1); addTag(); }, 0); }}
             autoFocus
             placeholder={t('archive_tag_placeholder_short')}
             className="font-mono text-[10px] text-text-main border border-text-main/20 rounded px-1.5 py-0.5 bg-transparent outline-none w-16"
@@ -104,7 +105,7 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
               {suggestions.map((s, i) => (
                 <button
                   key={s}
-                  onMouseDown={e => { e.preventDefault(); selectSuggestion(s); }}
+                   onMouseDown={e => { e.preventDefault(); if (blurTimerRef.current) clearTimeout(blurTimerRef.current); selectSuggestion(s); }}
                   className={cn(
                     "w-full text-left px-2.5 py-1 font-mono text-[11px] text-text-main/70 hover:bg-text-main/5 transition-colors",
                     i === selectedIdx && "bg-text-main/8 text-text-main"

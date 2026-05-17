@@ -13,7 +13,7 @@ export function AdaptiveContainer({ children, maxWidth, widthPercent, className 
     <div
       className={cn("mx-auto w-full px-4", className)}
       style={{
-        maxWidth: widthPercent && widthPercent < 100 ? `${widthPercent}%` : (maxWidth ? `${maxWidth}px` : '100%'),
+        maxWidth: widthPercent && widthPercent < 100 ? `${widthPercent}%` : (maxWidth != null && maxWidth > 0 ? `${maxWidth}px` : '100%'),
       }}
     >
       {children}

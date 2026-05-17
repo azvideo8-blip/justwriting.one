@@ -20,7 +20,7 @@ export const VersionService = {
       sessionStartedAt: Date;
     }
   ): Promise<string> {
-    const payloadSize = new Blob([data.content]).size;
+    const payloadSize = new TextEncoder().encode(data.content).length;
     if (payloadSize > 900_000) {
       throw new Error(`Content too large (${(payloadSize / 1024).toFixed(0)}KB). Firestore limit is 1MB per document.`);
     }
@@ -75,7 +75,7 @@ export const VersionService = {
       return (snap.docs[0].data() as Version).content || '';
     } catch (e) {
       handleFirestoreError(e, OperationType.LIST, `users/${userId}/documents/${documentId}/versions`);
-      return '';
+      throw e;
     }
   },
 };

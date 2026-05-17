@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useToast } from '../components/Toast';
 import { useLanguage } from '../../core/i18n';
 
@@ -14,6 +14,7 @@ export function useServiceAction() {
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
   const { t } = useLanguage();
+  const callIdRef = useRef(0);
 
   const execute = useCallback(async <T>(
     action: () => Promise<T>,
@@ -21,6 +22,8 @@ export function useServiceAction() {
   ): Promise<T | null> => {
     setIsLoading(true);
     setError(null);
+    callIdRef.current++;
+    const callId = callIdRef.current;
 
     try {
       const result = await action();
@@ -43,7 +46,7 @@ export function useServiceAction() {
       return null;
 
     } finally {
-      setIsLoading(false);
+      if (callIdRef.current === callId) setIsLoading(false);
     }
   }, [showToast, t]);
 

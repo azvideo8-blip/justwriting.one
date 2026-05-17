@@ -9,14 +9,13 @@ export function useStartOfToday(): Date {
   useEffect(() => {
     const update = () => {
       const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      setStartOfToday(prev => {
-        if (prev.getTime() === today.getTime()) return prev;
-        return today;
-      });
+      setStartOfToday(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
     };
-    const interval = setInterval(update, 60_000);
-    return () => clearInterval(interval);
+    const now = new Date();
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const msUntilMidnight = tomorrow.getTime() - now.getTime();
+    const id = setTimeout(update, msUntilMidnight);
+    return () => clearTimeout(id);
   }, []);
 
   return startOfToday;

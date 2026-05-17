@@ -132,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           setDoc(userDoc, initialProfile, { merge: true }).then(() => {
             creationAttemptedRef.current = false;
+            if (!cancelled) setProfile(initialProfile);
           }).catch(err => {
             console.error('Error creating user profile:', err);
             Sentry.captureException(err, {
@@ -139,8 +140,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               extra: { uid: user.uid },
             });
             creationAttemptedRef.current = false;
+            if (!cancelled) setProfile(null);
           });
-          if (!cancelled) setProfile(initialProfile);
         }
       }, (err) => {
         console.error('Firestore snapshot error:', err);
