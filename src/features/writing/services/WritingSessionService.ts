@@ -1,4 +1,4 @@
-import { getDb } from '../../../core/firebase/firestore';
+import { getClient } from '../../../core/firebase/firestoreClient';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { getLocalDb } from '../../../shared/lib/localDb';
 import { reportError } from '../../../core/errors/reportError';
@@ -27,7 +27,8 @@ export const WritingSessionService = {
         return activeSessionId;
       }
 
-      const [{ collection, addDoc, updateDoc, doc, Timestamp }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+      const { db, mod } = await getClient();
+      const { collection, addDoc, updateDoc, doc, Timestamp } = mod;
 
       if (activeSessionId) {
         await updateDoc(doc(db, 'sessions', activeSessionId), {
@@ -72,7 +73,8 @@ export const WritingSessionService = {
 
     for (const session of userPending) {
       try {
-        const [{ collection, addDoc, updateDoc, doc, Timestamp }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+        const { db, mod } = await getClient();
+        const { collection, addDoc, updateDoc, doc, Timestamp } = mod;
         if (session.sessionId) {
           await updateDoc(doc(db, 'sessions', session.sessionId), {
             ...session.data,

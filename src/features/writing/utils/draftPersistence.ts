@@ -52,6 +52,10 @@ export async function persistDraft(draft: LocalDraft): Promise<DraftPersistResul
   const localOk = localResult.status === 'fulfilled';
   const remoteOk = remoteResult.status === 'fulfilled';
 
+  if (localOk) {
+    await WritingDraftService.clearLegacyDraft(draft.userId);
+  }
+
   if (!localOk) {
     console.error('Local save failed:', localResult.reason);
   }
