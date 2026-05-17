@@ -15,10 +15,9 @@ if (typeof window !== 'undefined') {
 }
 
 export function useOnlineStatus(): boolean {
-  const [online, setOnline] = useState(_isOnline);
+  const [online, setOnline] = useState(() => _isOnline);
 
   useEffect(() => {
-    setOnline(_isOnline);
     _listeners.add(setOnline);
     return () => { _listeners.delete(setOnline); };
   }, []);
