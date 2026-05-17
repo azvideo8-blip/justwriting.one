@@ -35,7 +35,7 @@ interface DesktopWritingLayoutProps {
   sessionStatus: string;
   userId: string;
   onContinueSessionOrDoc: (session: Session) => void;
-  loadDraft: () => void;
+  restoreDraft: () => void;
   discardDraft: () => void;
   onSetPromptTitle: (title: string) => void;
   showZen: boolean;
@@ -56,7 +56,7 @@ export function DesktopWritingLayout({
   onOpenSettings, onNew, onOpenLog, onSave, onPlay, onPause, onStop,
   onContinueSession, handlePlayRef, keystrokeTrackerRef,
   hasDraft, sessionStatus, userId,
-  onContinueSessionOrDoc, loadDraft, discardDraft,
+  onContinueSessionOrDoc, restoreDraft, discardDraft,
   onSetPromptTitle,
   showZen, lifeLogVisible, setLifeLogVisible,
   lifeLogTab, setLifeLogTab, lifeLogPinned, setLifeLogPinned,
@@ -132,7 +132,7 @@ export function DesktopWritingLayout({
             >
               <span>{t('draft_restore_prompt')}</span>
               <div className="flex gap-2">
-                <button onClick={loadDraft} className="text-text-main font-medium hover:opacity-70 transition-opacity">
+                <button onClick={restoreDraft} className="text-text-main font-medium hover:opacity-70 transition-opacity">
                   {t('draft_restore')}
                 </button>
                 <button onClick={discardDraft}

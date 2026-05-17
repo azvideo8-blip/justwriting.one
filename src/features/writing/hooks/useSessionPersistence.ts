@@ -101,6 +101,31 @@ export function useSessionPersistence(
     draftLoadedForRef.current = userId;
   }, [userId, actions]);
 
+  const restoreDraft = useCallback(async () => {
+    if (!userId) return;
+    const draftToLoad = await WritingDraftService.loadDraft(userId);
+    if (!draftToLoad) { actions.setHasDraft(false); return; }
+
+    useWritingStore.setState({
+      content: draftToLoad.content || '',
+      title: draftToLoad.title || '',
+      pinnedThoughts: draftToLoad.pinnedThoughts || [],
+      initialWordCount: draftToLoad.initialWordCount || 0,
+      seconds: draftToLoad.seconds || 0,
+      wordCount: draftToLoad.wordCount || 0,
+      accumulatedDuration: draftToLoad.accumulatedDuration ?? 0,
+      totalPauseSeconds: draftToLoad.totalPauseSeconds ?? 0,
+      savedDocumentId: draftToLoad.savedDocumentId ?? null,
+      tags: draftToLoad.tags || [],
+      labelId: draftToLoad.labelId ?? undefined,
+      sessionStartTime: draftToLoad.sessionStartTime ?? null,
+    });
+    useWritingStore.getState().setSessionStart();
+    if (draftToLoad.activeSessionId) actions.setActiveSessionId(draftToLoad.activeSessionId);
+    actions.setHasDraft(false);
+    await WritingDraftService.clearLegacyDraft(userId);
+  }, [userId, actions]);
+
   useEffect(() => {
     loadDraft();
   }, [loadDraft]);
@@ -164,6 +189,7 @@ export function useSessionPersistence(
     handleCancel,
     fetchLocalSessions,
     loadLocalSession,
-    loadDraft
+    loadDraft,
+    restoreDraft
   };
 }

@@ -24,6 +24,7 @@ export interface GuestSessionReturn extends ReturnType<typeof useBaseWritingSess
   fetchLocalSessions: () => Promise<LocalSessionInfo[]>;
   loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
   loadDraft: () => Promise<void>;
+  restoreDraft: () => Promise<void>;
   discardDraft: () => void;
 }
 
@@ -125,6 +126,22 @@ export function useGuestWritingSession(): GuestSessionReturn {
     setHasDraft(false);
   }, []);
 
+  const restoreDraft = useCallback(async () => {
+    const draft = await loadGuestDraftFromStorage();
+    if (!draft?.content) { setHasDraft(false); return; }
+
+    useWritingStore.getState().loadDraftIntoStore({
+      content: draft.content,
+      title: draft.title ?? '',
+      wordCount: draft.wordCount ?? 0,
+    });
+    useWritingStore.setState({
+      pinnedThoughts: draft.pinnedThoughts ?? [],
+      seconds: draft.seconds ?? 0,
+    });
+    setHasDraft(false);
+  }, []);
+
   const handleCancel = useCallback(async () => {
     clearDraft();
     base.resetSession();
@@ -148,6 +165,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
     fetchLocalSessions: fetchLocalSessionsCb,
     loadLocalSession: loadLocalSessionCb,
     loadDraft,
+    restoreDraft,
     discardDraft: clearDraft,
   };
 }

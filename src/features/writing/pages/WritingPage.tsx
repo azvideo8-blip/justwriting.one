@@ -192,7 +192,7 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
     sessionStatus,
     userId,
     onContinueSessionOrDoc: handleContinueSessionOrDoc,
-    loadDraft: session.loadDraft,
+    restoreDraft: session.restoreDraft,
     discardDraft: session.discardDraft,
     onSetPromptTitle: setTitle,
     showZen,

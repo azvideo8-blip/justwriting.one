@@ -118,10 +118,13 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       const sessionSeconds = state.accumulatedDuration +
         Math.max(0, state.seconds - state.sessionStartSeconds);
 
+      const sessionNewWords = Math.max(0, state.wordCount - state.initialWordCount);
+
       const saveData = {
         title: data.title || state.title || '',
         content: state.content,
-        wordCount: state.wordCount,
+        wordCount: sessionNewWords,
+        documentWordCount: state.wordCount,
         duration: sessionSeconds,
         wpm: state.wpm,
         isPublic: false,

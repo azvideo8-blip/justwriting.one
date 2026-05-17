@@ -19,6 +19,7 @@ export interface CloudSessionReturn extends BaseSessionReturn {
   fetchLocalSessions: () => Promise<LocalSessionInfo[]>;
   loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
   loadDraft: () => Promise<void>;
+  restoreDraft: () => Promise<void>;
   discardDraft: () => void;
 }
 
@@ -26,8 +27,8 @@ export function useCloudWritingSession(user: User, profile: UserProfile | null):
   const base = useBaseWritingSession();
   const [hasDraft, setHasDraft] = useState(false);
 
-  const discardDraft = useCallback(() => {
-    WritingDraftService.deleteDraft(user.uid);
+  const discardDraft = useCallback(async () => {
+    await WritingDraftService.deleteDraft(user.uid);
     setHasDraft(false);
   }, [user.uid]);
 
@@ -80,6 +81,7 @@ export function useCloudWritingSession(user: User, profile: UserProfile | null):
     fetchLocalSessions: persistence.fetchLocalSessions,
     loadLocalSession: persistence.loadLocalSession,
     loadDraft: persistence.loadDraft,
+    restoreDraft: persistence.restoreDraft,
     discardDraft,
   };
 }
