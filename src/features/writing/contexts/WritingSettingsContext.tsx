@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { z } from 'zod';
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
-import { TimerStatus } from '../store/useWritingStore';
+import { TimerStatus } from '../store/types';
 
 export interface HeaderVisibility {
   sessionTime: boolean;

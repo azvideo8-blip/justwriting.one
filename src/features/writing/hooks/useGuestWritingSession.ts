@@ -1,6 +1,8 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useBaseWritingSession } from './useBaseWritingSession';
-import { useWritingStore } from '../store/useWritingStore';
+import { useContentStore } from '../store/useContentStore';
+import { useTimerStore } from '../store/useTimerStore';
+import { loadDraftIntoStore } from '../store/storeActions';
 import { getOrCreateGuestId } from '../../../shared/lib/localDb';
 import { fetchLocalSessions, loadLocalSession } from '../services/LocalSessionLoader';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
@@ -52,7 +54,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
   stateRef.current = { content: base.content, title: base.title, pinnedThoughts: base.pinnedThoughts, seconds: base.seconds, wordCount: base.wordCount };
 
   const doAutosave = useCallback(async () => {
-    const currentStatus = useWritingStore.getState().status;
+    const currentStatus = useTimerStore.getState().status;
     if (currentStatus === 'idle') return;
     if (_savingRef.current) return;
     _savingRef.current = true;
@@ -108,19 +110,21 @@ export function useGuestWritingSession(): GuestSessionReturn {
     const draft = await loadGuestDraftFromStorage();
     if (!draft?.content) return;
 
-    const currentContent = useWritingStore.getState().content;
+    const currentContent = useContentStore.getState().content;
     if (currentContent.length > 0) {
       setHasDraft(true);
       return;
     }
 
-    useWritingStore.getState().loadDraftIntoStore({
+    loadDraftIntoStore({
       content: draft.content,
       title: draft.title ?? '',
       wordCount: draft.wordCount ?? 0,
     });
-    useWritingStore.setState({
+    useContentStore.setState({
       pinnedThoughts: draft.pinnedThoughts ?? [],
+    });
+    useTimerStore.setState({
       seconds: draft.seconds ?? 0,
     });
     setHasDraft(false);
@@ -130,13 +134,15 @@ export function useGuestWritingSession(): GuestSessionReturn {
     const draft = await loadGuestDraftFromStorage();
     if (!draft?.content) { setHasDraft(false); return; }
 
-    useWritingStore.getState().loadDraftIntoStore({
+    loadDraftIntoStore({
       content: draft.content,
       title: draft.title ?? '',
       wordCount: draft.wordCount ?? 0,
     });
-    useWritingStore.setState({
+    useContentStore.setState({
       pinnedThoughts: draft.pinnedThoughts ?? [],
+    });
+    useTimerStore.setState({
       seconds: draft.seconds ?? 0,
     });
     setHasDraft(false);

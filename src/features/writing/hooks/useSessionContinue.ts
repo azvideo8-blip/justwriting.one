@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import { Session } from '../../../types';
-import { useWritingStore } from '../store/useWritingStore';
+import { useContentStore } from '../store/useContentStore';
+import { useTimerStore } from '../store/useTimerStore';
+import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { SetupMode } from '../WritingSetup';
 import { LocalVersionService } from '../services/LocalVersionService';
 import { LocalDocumentService } from '../services/LocalDocumentService';
@@ -25,13 +27,17 @@ export function useSessionContinue({
 
       if (!loaded) {
         const content = await LocalVersionService.getLatestContent(session.id);
-        useWritingStore.setState({
+        useContentStore.setState({
           content,
           title: session.title || '',
           initialWordCount: session.wordCount || 0,
-          seconds: 0,
           wordCount: session.wordCount || 0,
+        });
+        useTimerStore.setState({
+          seconds: 0,
           accumulatedDuration: session.duration || 0,
+        });
+        useSessionMetaStore.setState({
           savedDocumentId: session.id,
         });
         setTags(session.tags || []);
@@ -39,13 +45,17 @@ export function useSessionContinue({
         return;
       }
 
-      useWritingStore.setState({
+      useContentStore.setState({
         content: (loaded.content as string) || '',
         title: (loaded.title as string) || '',
         initialWordCount: (loaded.wordCount as number) || 0,
-        seconds: 0,
         wordCount: (loaded.wordCount as number) || 0,
+      });
+      useTimerStore.setState({
+        seconds: 0,
         accumulatedDuration: (loaded.duration as number) || 0,
+      });
+      useSessionMetaStore.setState({
         savedDocumentId: session.id,
       });
       setTags((loaded.tags as string[]) || []);
@@ -53,7 +63,6 @@ export function useSessionContinue({
       return;
     }
 
-    // Cloud session: try to find existing local document via _linkedCloudId
     let savedDocumentId: string | null = null;
     const linkedCloudId = (session as Session & { _linkedCloudId?: string })._linkedCloudId;
     if (linkedCloudId) {
@@ -64,13 +73,17 @@ export function useSessionContinue({
       } catch { /* ignore */ }
     }
 
-    useWritingStore.setState({
+    useContentStore.setState({
       content: session.content,
       title: session.title || '',
       initialWordCount: session.wordCount || 0,
-      seconds: 0,
       wordCount: session.wordCount || 0,
+    });
+    useTimerStore.setState({
+      seconds: 0,
       accumulatedDuration: session.duration || 0,
+    });
+    useSessionMetaStore.setState({
       savedDocumentId,
     });
     setTags(session.tags || []);

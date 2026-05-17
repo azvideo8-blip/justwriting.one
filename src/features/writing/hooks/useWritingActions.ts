@@ -1,8 +1,11 @@
 import React from 'react';
-import { useWritingStore } from '../store/useWritingStore';
+import { useContentStore } from '../store/useContentStore';
+import { useTimerStore } from '../store/useTimerStore';
+import { useSessionMetaStore } from '../store/useSessionMetaStore';
+import { resetAndClear, finishSession, loadDraftIntoStore } from '../store/storeActions';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useSessionContinue } from './useSessionContinue';
-import { useLifeLog, LifeLogDocument } from './useLifeLog';
+import { LifeLogDocument, useLifeLog } from './useLifeLog';
 import { useDocuments } from './useDocuments';
 import { useSessionList } from './useSessionList';
 import { StorageService } from '../services/StorageService';
@@ -48,7 +51,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
   const { fetchAllSessions: fetchSessions } = useSessionList(userId, fetchLocalSessions, loadLocalSession);
 
   const handleContinueDocument = React.useCallback(async (doc: LifeLogDocument) => {
-    const currentStatus = useWritingStore.getState().status;
+    const currentStatus = useTimerStore.getState().status;
     if (currentStatus === 'writing' || currentStatus === 'paused') {
       flow.setShowCancelConfirm(true);
       return;
@@ -68,7 +71,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         }
       }
 
-      useWritingStore.getState().loadDraftIntoStore({
+      loadDraftIntoStore({
         content,
         title: doc.title,
         wordCount: doc.totalWords,
@@ -76,10 +79,10 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         accumulatedDuration: doc.totalDuration,
       });
 
-      useWritingStore.getState().setTags(doc.tags || []);
-      useWritingStore.getState().setLabelId(doc.labelId);
-      useWritingStore.getState().setSessionStart();
-      useWritingStore.getState().setSessionStartTime(Date.now());
+      useContentStore.getState().setTags(doc.tags || []);
+      useContentStore.getState().setLabelId(doc.labelId);
+      useTimerStore.getState().setSessionStart();
+      useSessionMetaStore.getState().setSessionStartTime(Date.now());
       setSessionStatus('writing');
       setLifeLogVisible(false);
     } catch (err) {
@@ -93,8 +96,8 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       await continueSession(s);
       flow.setSetupMode(null);
       setSessionStatus('writing');
-      useWritingStore.getState().setSessionStart();
-      useWritingStore.getState().setSessionStartTime(Date.now());
+      useTimerStore.getState().setSessionStart();
+      useSessionMetaStore.getState().setSessionStartTime(Date.now());
     } catch (err) {
       console.error('Continue session error:', err);
       showToast(t('error_continue_session'));
@@ -114,39 +117,41 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
     savingRef.current = true;
 
     try {
-      const state = useWritingStore.getState();
-      const sessionSeconds = state.accumulatedDuration +
-        Math.max(0, state.seconds - state.sessionStartSeconds);
+      const contentState = useContentStore.getState();
+      const timerState = useTimerStore.getState();
+      const metaState = useSessionMetaStore.getState();
+      const sessionSeconds = timerState.accumulatedDuration +
+        Math.max(0, timerState.seconds - timerState.sessionStartSeconds);
 
-      const sessionNewWords = Math.max(0, state.wordCount - state.initialWordCount);
+      const sessionNewWords = Math.max(0, contentState.wordCount - contentState.initialWordCount);
 
       const saveData = {
-        title: data.title || state.title || '',
-        content: state.content,
+        title: data.title || contentState.title || '',
+        content: contentState.content,
         wordCount: sessionNewWords,
-        documentWordCount: state.wordCount,
+        documentWordCount: contentState.wordCount,
         duration: sessionSeconds,
-        wpm: state.wpm,
+        wpm: contentState.wpm,
         isPublic: false,
         tags: data.tags,
         labelId: data.labelId,
-        goalWords: state.wordGoal > 0 ? state.wordGoal : undefined,
-        goalTime: state.timerDuration > 0 ? state.timerDuration : undefined,
-        goalReached: state.wordGoal > 0 && state.wordCount >= state.wordGoal,
-        sessionStartedAt: new Date(state.sessionStartTime ?? Date.now()),
+        goalWords: timerState.wordGoal > 0 ? timerState.wordGoal : undefined,
+        goalTime: timerState.timerDuration > 0 ? timerState.timerDuration : undefined,
+        goalReached: timerState.wordGoal > 0 && contentState.wordCount >= timerState.wordGoal,
+        sessionStartedAt: new Date(metaState.sessionStartTime ?? Date.now()),
       };
 
-      const existingDocId = state.savedDocumentId;
+      const existingDocId = metaState.savedDocumentId;
 
       if (existingDocId) {
         await StorageService.saveVersion(userId, existingDocId, saveData);
       } else {
         const result = await StorageService.saveNew(userId, saveData);
-        useWritingStore.getState().setSavedDocumentId(result.localId);
+        useSessionMetaStore.getState().setSavedDocumentId(result.localId);
       }
 
-      const docIdToSync = useWritingStore.getState().savedDocumentId;
-      useWritingStore.getState().finishSession();
+      const docIdToSync = useSessionMetaStore.getState().savedDocumentId;
+      finishSession();
 
       await cleanupDraftsAfterSave(userId, isGuest, docIdToSync);
 
@@ -161,37 +166,38 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
   }, [userId, isGuest, refreshDocuments, refreshLifeLog]);
 
   const handlePlay = React.useCallback(() => {
-    const currentStatus = useWritingStore.getState().status;
+    const currentStatus = useTimerStore.getState().status;
     if (currentStatus === 'idle') {
-      useWritingStore.getState().startFreeSession();
+      useTimerStore.getState().startFreeSession();
       hookHandleStart();
     } else if (currentStatus === 'paused') {
-      useWritingStore.getState().resumeSession();
+      useTimerStore.getState().resumeSession();
     }
   }, [hookHandleStart]);
 
   const handlePause = React.useCallback(() => {
-    useWritingStore.getState().pauseSession();
+    useTimerStore.getState().pauseSession();
   }, []);
 
   const handleNew = React.useCallback(async () => {
-    const { wordCount, status } = useWritingStore.getState();
+    const { wordCount } = useContentStore.getState();
+    const { status } = useTimerStore.getState();
     if (wordCount > 0 && status !== 'idle') {
       flow.setShowCancelConfirm(true);
       return;
     }
-    useWritingStore.getState().resetAndClear();
+    resetAndClear();
     await cleanupDraftsAfterSave(userId, isGuest, null);
   }, [flow, isGuest, userId]);
 
   const handleFinish = React.useCallback((keystrokeTrackerRef: React.RefObject<{ getStats: () => { kpm: number; ikiMedian: number; ikiCv: number; sampleSize: number; kpmWpmRatio?: number }; reset: () => void } | null>) => {
-    const state = useWritingStore.getState();
-    if (state.status === 'writing') {
-      useWritingStore.getState().pauseSession();
+    const { status } = useTimerStore.getState();
+    if (status === 'writing') {
+      useTimerStore.getState().pauseSession();
     }
     const stats = keystrokeTrackerRef.current?.getStats();
     if (stats) {
-      reportKeystrokeStats(stats, useWritingStore.getState().wpm, useWritingStore.getState().seconds);
+      reportKeystrokeStats(stats, useContentStore.getState().wpm, useTimerStore.getState().seconds);
     }
     keystrokeTrackerRef.current?.reset();
   }, []);

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
-import { useWritingStore } from '../store/useWritingStore';
+import { useTimerStore } from '../store/useTimerStore';
+import { useContentStore } from '../store/useContentStore';
 import { Session, UserProfile } from '../../../types';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useSettings } from '../../../core/settings/SettingsContext';
@@ -60,9 +61,9 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
   const isGuest = session.isGuest;
   const userId = session.userId;
 
-  const timeGoalReached = useWritingStore(s => s.timeGoalReached);
-  const wordGoalReached = useWritingStore(s => s.wordGoalReached);
-  const setWordGoalVal = useWritingStore(s => s.setWordGoal);
+  const timeGoalReached = useTimerStore(s => s.timeGoalReached);
+  const wordGoalReached = useTimerStore(s => s.wordGoalReached);
+  const setWordGoalVal = useTimerStore(s => s.setWordGoal);
 
   const sessionStatus = session.status;
   const tags = session.tags;
@@ -71,7 +72,7 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
   const setLabelId = session.setLabelId;
   const sessionType = session.sessionType;
   const setSessionType = session.setSessionType;
-  const setTitle = useWritingStore(s => s.setTitle);
+  const setTitle = useContentStore(s => s.setTitle);
 
   const {
     targetTime,

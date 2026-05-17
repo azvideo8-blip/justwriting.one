@@ -2,7 +2,8 @@ import React from 'react';
 import { cn } from '../../core/utils/utils';
 import { useLanguage } from '../../core/i18n';
 import { useWritingSettings } from './contexts/WritingSettingsContext';
-import { useWritingStore } from './store/useWritingStore';
+import { useContentStore } from './store/useContentStore';
+import { useTimerStore } from './store/useTimerStore';
 import { getFontStack } from './utils/fontStack';
 
 interface WritingEditorProps {
@@ -13,9 +14,9 @@ export const WritingEditor = React.memo(function WritingEditor({
   onKeyDown
 }: WritingEditorProps) {
   const { t } = useLanguage();
-  const content = useWritingStore(s => s.content);
-  const setContent = useWritingStore(s => s.setContent);
-  const _status = useWritingStore(s => s.status);
+  const content = useContentStore(s => s.content);
+  const setContent = useContentStore(s => s.setContent);
+  const _status = useTimerStore(s => s.status);
   const { 
     streamMode, isZenActive, zenModeEnabled, 
     fontSize, fontFamily,

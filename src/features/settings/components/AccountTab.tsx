@@ -3,7 +3,8 @@ import { HardDrive, LogIn, User as UserIcon } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { useLanguage } from '../../../core/i18n';
-import { useWritingStore } from '../../writing/store/useWritingStore';
+import { useTimerStore } from '../../writing/store/useTimerStore';
+import { resetAndClear } from '../../writing/store/storeActions';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
@@ -69,10 +70,10 @@ export function AccountTab({ userId }: AccountTabProps) {
       {isAuthenticated ? (
         <button
           onClick={() => {
-            const s = useWritingStore.getState();
+            const s = useTimerStore.getState();
             if (s.status === 'writing' || s.status === 'paused') {
               if (!window.confirm(t('writing_cancel_confirm'))) return;
-              useWritingStore.getState().resetAndClear();
+              resetAndClear();
             }
             execute(
               () => signOut(auth),

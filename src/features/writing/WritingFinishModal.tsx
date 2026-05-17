@@ -10,7 +10,8 @@ import { formatTime } from '../../core/utils/formatTime';
 import { useServiceAction } from '../../shared/hooks/useServiceAction';
 
 import { useCountUp } from '../../shared/hooks/useCountUp';
-import { useWritingStore } from './store/useWritingStore';
+import { useContentStore } from './store/useContentStore';
+import { useTimerStore } from './store/useTimerStore';
 import { useModalEscape } from '../../shared/hooks/useModalEscape';
 import { StreakDots } from '../../shared/components/StreakDots';
 
@@ -62,18 +63,18 @@ export function WritingFinishModal({
   const { t } = useLanguage();
   const { execute, isLoading: isSaving } = useServiceAction();
 
-  const wordCount = useWritingStore(s => s.wordCount);
-  const initialWordCount = useWritingStore(s => s.initialWordCount);
-  const seconds = useWritingStore(s => s.seconds);
-  const sessionStartSeconds = useWritingStore(s => s.sessionStartSeconds);
-  const accumulatedDuration = useWritingStore(s => s.accumulatedDuration);
+  const wordCount = useContentStore(s => s.wordCount);
+  const initialWordCount = useContentStore(s => s.initialWordCount);
+  const seconds = useTimerStore(s => s.seconds);
+  const sessionStartSeconds = useTimerStore(s => s.sessionStartSeconds);
+  const accumulatedDuration = useTimerStore(s => s.accumulatedDuration);
   const sessionSeconds = accumulatedDuration + Math.max(0, seconds - sessionStartSeconds);
-  const totalPauseSeconds = useWritingStore(s => s.totalPauseSeconds);
+  const totalPauseSeconds = useTimerStore(s => s.totalPauseSeconds);
   const totalElapsedSeconds = sessionSeconds + totalPauseSeconds;
-  const content = useWritingStore(s => s.content);
-  const title = useWritingStore(s => s.title);
-  const setTitle = useWritingStore(s => s.setTitle);
-  const wpmHistory = useWritingStore(s => s.wpmHistory);
+  const content = useContentStore(s => s.content);
+  const title = useContentStore(s => s.title);
+  const setTitle = useContentStore(s => s.setTitle);
+  const wpmHistory = useContentStore(s => s.wpmHistory);
 
   const sessionWords = Math.max(0, wordCount - initialWordCount);
   const avgWpm = sessionSeconds > 0

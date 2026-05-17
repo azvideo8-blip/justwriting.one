@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { User } from 'firebase/auth';
-import { WritingDraftService } from '../services/WritingDraftService';
-import { useWritingStore } from '../store/useWritingStore';
+import { useContentStore } from '../store/useContentStore';
+import { useTimerStore } from '../store/useTimerStore';
 import { buildLocalDraft, persistDraft } from '../utils/draftPersistence';
 
 export function useDraftAutosave(
@@ -47,7 +47,7 @@ export function useDraftAutosave(
     if (!user) return;
     const current = draftDataRef.current;
     if (current.status === 'idle') return;
-    const storeStatus = useWritingStore.getState().status;
+    const storeStatus = useTimerStore.getState().status;
     if (storeStatus === 'idle') return;
 
     const draft = buildLocalDraft(user, current);
@@ -77,15 +77,16 @@ export function useDraftAutosave(
     };
 
     const handleBeforeUnload = () => {
-      const state = useWritingStore.getState();
-      if (user && state.content.trim() && (state.status === 'writing' || state.status === 'paused')) {
+      const contentState = useContentStore.getState();
+      const timerState_ = useTimerStore.getState();
+      if (user && contentState.content.trim() && (timerState_.status === 'writing' || timerState_.status === 'paused')) {
         try {
           const key = `draft-${user.uid}`;
           localStorage.setItem(key, JSON.stringify({
-            content: state.content,
-            title: state.title,
-            seconds: state.seconds,
-            wordCount: state.wordCount,
+            content: contentState.content,
+            title: contentState.title,
+            seconds: timerState_.seconds,
+            wordCount: contentState.wordCount,
             updatedAt: Date.now(),
           }));
         } catch { /* ignore */ }
@@ -102,10 +103,11 @@ export function useDraftAutosave(
   }, [forceSaveEverything, user]);
 
   useEffect(() => {
-    if ((draftData.status === 'writing' || draftData.status === 'paused') && user) {
+    const currentStatus = useTimerStore.getState().status;
+    if ((currentStatus === 'writing' || currentStatus === 'paused') && user) {
       const timeout = setTimeout(async () => {
-        if (useWritingStore.getState().status !== 'writing' &&
-            useWritingStore.getState().status !== 'paused') return;
+        const latestStatus = useTimerStore.getState().status;
+        if (latestStatus !== 'writing' && latestStatus !== 'paused') return;
 
         const draft = buildLocalDraft(user, draftDataRef.current);
         try {

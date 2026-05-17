@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useWritingStore } from '../../features/writing/store/useWritingStore';
+import { useTimerStore } from '../../features/writing/store/useTimerStore';
 
 export function FlowPulse() {
-  const status = useWritingStore(s => s.status);
+  const status = useTimerStore(s => s.status);
   const [intensity, setIntensity] = useState(0);
   const active = status === 'writing';
 
