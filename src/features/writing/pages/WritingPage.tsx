@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { useWritingStore } from '../store/useWritingStore';
@@ -133,10 +133,13 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
     setUIStatus(sessionStatus);
   }, [sessionStatus, setUIStatus]);
 
+  const continueRef = useRef(false);
+  useEffect(() => { continueRef.current = false; }, [userId]);
   useEffect(() => {
-    if (sessionToContinue) {
-      handleContinueSession(sessionToContinue);
+    if (sessionToContinue && !continueRef.current) {
+      continueRef.current = true;
       navigate(location.pathname, { state: {}, replace: true });
+      handleContinueSession(sessionToContinue);
     }
   }, [sessionToContinue, handleContinueSession, navigate, location.pathname]);
 
