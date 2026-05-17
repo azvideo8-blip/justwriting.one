@@ -1,16 +1,16 @@
-import { getDb } from '../../../core/firebase/firestore';
+import { getClient } from '../../../core/firebase/firestoreClient';
 import { getLocalDb, LocalDraft } from '../../../shared/lib/localDb';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
 
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-const _saveGeneration = new Map<string, number>();
+const _abortControllers = new Map<string, AbortController>();
 
 function isDraftExpired(draft: LocalDraft): boolean {
   const updated = toTimestampMs(draft.updatedAt) ?? 0;
   return updated > 0 && Date.now() - updated > DRAFT_MAX_AGE_MS;
 }
 
-function hasDraftsStore(localDb: IDBDatabase): boolean {
+function hasDraftsStore(localDb: { objectStoreNames: DOMStringList }): boolean {
   return localDb.objectStoreNames.contains('drafts');
 }
 
@@ -25,7 +25,7 @@ export const WritingDraftService = {
     let localDraft: LocalDraft | null = null;
     try {
       const localDb = await getLocalDb();
-      if (hasDraftsStore(localDb as unknown as IDBDatabase)) {
+      if (hasDraftsStore(localDb)) {
         localDraft = await localDb.get('drafts', userId) ?? null;
       }
     } catch (err) {
@@ -48,7 +48,8 @@ export const WritingDraftService = {
 
     let cloudDraft: LocalDraft | null = null;
     try {
-      const [{ doc, getDoc }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+      const { db, mod } = await getClient();
+      const { doc, getDoc } = mod;
       const docRef = doc(db, 'drafts', userId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
@@ -101,23 +102,30 @@ export const WritingDraftService = {
 
   saveToFirestore: async (draft: LocalDraft) => {
     if (!draft.userId) return;
-    const genAtStart = _saveGeneration.get(draft.userId) ?? 0;
-    const [{ doc, setDoc, deleteDoc }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+    const ac = new AbortController();
+    _abortControllers.set(draft.userId, ac);
+    const { db, mod } = await getClient();
+    if (ac.signal.aborted) return;
+    const { doc, setDoc } = mod;
     const docRef = doc(db, 'drafts', draft.userId);
     const clean = Object.fromEntries(Object.entries(draft).filter(([, v]) => v !== undefined));
-    await setDoc(docRef, clean, { merge: true });
-    if (_saveGeneration.get(draft.userId) !== genAtStart) {
-      try { await deleteDoc(docRef); } catch { /* ignore */ }
+    try {
+      await setDoc(docRef, clean, { merge: true });
+    } catch {
+      if (ac.signal.aborted) return;
+      throw new Error('Draft save aborted');
     }
+    _abortControllers.delete(draft.userId);
   },
 
   deleteDraft: async (userId: string) => {
     if (!userId) return;
-    _saveGeneration.set(userId, (_saveGeneration.get(userId) ?? 0) + 1);
+    _abortControllers.get(userId)?.abort();
+    _abortControllers.delete(userId);
     try { sessionStorage.setItem(`draft-deleted-${userId}`, Date.now().toString()); } catch { /* ignore */ }
     try {
       const localDb = await getLocalDb();
-      if (hasDraftsStore(localDb as unknown as IDBDatabase)) {
+      if (hasDraftsStore(localDb)) {
         await localDb.delete('drafts', userId);
       }
     } catch (err) {
@@ -127,7 +135,8 @@ export const WritingDraftService = {
       localStorage.removeItem(`draft-${userId}`);
     } catch { /* ignore */ }
     try {
-      const [{ doc, deleteDoc }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+      const { db, mod } = await getClient();
+      const { doc, deleteDoc } = mod;
       await deleteDoc(doc(db, 'drafts', userId));
     } catch (err) {
       console.error('[DraftService] Failed to delete cloud draft:', err);
