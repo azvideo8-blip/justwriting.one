@@ -32,7 +32,6 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
 
   const isGuest = session.isGuest;
   const userId = session.userId;
-  const sessionStatus = session.status;
   const setSessionStatus = session.setStatus;
   const { handleStart: hookHandleStart, fetchLocalSessions, loadLocalSession } = session;
   const savingRef = React.useRef(false);
@@ -49,7 +48,8 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
   const { fetchAllSessions: fetchSessions } = useSessionList(userId, fetchLocalSessions, loadLocalSession);
 
   const handleContinueDocument = React.useCallback(async (doc: LifeLogDocument) => {
-    if (sessionStatus === 'writing' || sessionStatus === 'paused') {
+    const currentStatus = useWritingStore.getState().status;
+    if (currentStatus === 'writing' || currentStatus === 'paused') {
       flow.setShowCancelConfirm(true);
       return;
     }
@@ -86,7 +86,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       console.error('Failed to load document:', err);
       showToast(t('error_load_failed'), 'error');
     }
-  }, [userId, setSessionStatus, setLifeLogVisible, showToast, t, sessionStatus, flow]);
+  }, [userId, setSessionStatus, setLifeLogVisible, showToast, t, flow]);
 
   const handleContinueSession = React.useCallback(async (s: Session) => {
     try {
@@ -161,13 +161,14 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
   }, [userId, isGuest, refreshDocuments, refreshLifeLog]);
 
   const handlePlay = React.useCallback(() => {
-    if (sessionStatus === 'idle') {
+    const currentStatus = useWritingStore.getState().status;
+    if (currentStatus === 'idle') {
       useWritingStore.getState().startFreeSession();
       hookHandleStart();
-    } else if (sessionStatus === 'paused') {
+    } else if (currentStatus === 'paused') {
       useWritingStore.getState().resumeSession();
     }
-  }, [sessionStatus, hookHandleStart]);
+  }, [hookHandleStart]);
 
   const handlePause = React.useCallback(() => {
     useWritingStore.getState().pauseSession();

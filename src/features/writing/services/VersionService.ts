@@ -1,4 +1,4 @@
-import { getDb } from '../../../core/firebase/firestore';
+import { getClient } from '../../../core/firebase/firestoreClient';
 import { Version } from '../../../types';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { computeWordDelta } from './DiffService';
@@ -25,7 +25,8 @@ export const VersionService = {
       throw new Error(`Content too large (${(payloadSize / 1024).toFixed(0)}KB). Firestore limit is 1MB per document.`);
     }
     try {
-      const [{ collection, addDoc, Timestamp }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+      const { db, mod } = await getClient();
+      const { collection, addDoc, Timestamp } = mod;
       const diff = computeWordDelta(data.previousContent, data.content);
       const ref = await addDoc(collection(db, 'users', userId, 'documents', documentId, 'versions'), {
         documentId,
@@ -52,7 +53,8 @@ export const VersionService = {
 
   async getVersions(userId: string, documentId: string): Promise<Version[]> {
     try {
-      const [{ collection, getDocs }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+      const { db, mod } = await getClient();
+      const { collection, getDocs } = mod;
       const snap = await getDocs(collection(db, 'users', userId, 'documents', documentId, 'versions'));
       const versions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Version));
       versions.sort((a, b) => (a.version ?? 0) - (b.version ?? 0));
@@ -65,7 +67,8 @@ export const VersionService = {
 
   async getLatestContent(userId: string, documentId: string): Promise<string> {
     try {
-      const [{ collection, getDocs, query, orderBy, limit }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+      const { db, mod } = await getClient();
+      const { collection, getDocs, query, orderBy, limit } = mod;
       const q = query(collection(db, 'users', userId, 'documents', documentId, 'versions'), orderBy('version', 'desc'), limit(1));
       const snap = await getDocs(q);
       if (snap.docs.length === 0) return '';

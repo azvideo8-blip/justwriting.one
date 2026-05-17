@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { auth } from '../../../core/firebase/auth';
-import { getDb, onConnectionChange } from '../../../core/firebase/firestore';
+import { onConnectionChange } from '../../../core/firebase/firestore';
+import { getClient } from '../../../core/firebase/firestoreClient';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { UserProfile } from '../../../types';
 import * as Sentry from '@sentry/react';
@@ -89,7 +90,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let unsubscribe: (() => void) | null = null;
 
     (async () => {
-      const [{ onSnapshot, doc, setDoc, getDoc }, db] = await Promise.all([import('firebase/firestore'), getDb()]);
+      const { db, mod } = await getClient();
+      const { onSnapshot, doc, setDoc, getDoc } = mod;
       if (cancelled) return;
 
       const userDoc = doc(db, 'users', user.uid);

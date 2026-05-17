@@ -1,6 +1,7 @@
 import type { Timestamp } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 import { UserProfile, SessionPayload } from '../../../types';
+import { getClient } from '../../../core/firebase/firestoreClient';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { WritingSessionService } from '../services/WritingSessionService';
 
@@ -22,7 +23,8 @@ export async function buildSessionPayload(
   user: User | null,
   userId: string
 ): Promise<SessionPayload> {
-  const { Timestamp: FirestoreTimestamp } = await import('firebase/firestore');
+  const { mod } = await getClient();
+  const { Timestamp: FirestoreTimestamp } = mod;
   return {
     userId,
     authorName: profile?.nickname || user?.displayName || user?.email?.split('@')[0] || 'Guest',
