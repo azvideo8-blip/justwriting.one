@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useWritingStore } from '../store/useWritingStore';
+import { useContentStore } from '../store/useContentStore';
+import { useTimerStore } from '../store/useTimerStore';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useLanguage } from '../../../core/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
@@ -12,11 +13,11 @@ interface MobileFocusScreenProps {
 
 export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
   const { t } = useLanguage();
-  const content = useWritingStore(s => s.content);
-  const setContent = useWritingStore(s => s.setContent);
-  const seconds = useWritingStore(s => s.seconds);
-  const timerDuration = useWritingStore(s => s.timerDuration);
-  const sessionStartSeconds = useWritingStore(s => s.sessionStartSeconds);
+  const content = useContentStore(s => s.content);
+  const setContent = useContentStore(s => s.setContent);
+  const seconds = useTimerStore(s => s.seconds);
+  const timerDuration = useTimerStore(s => s.timerDuration);
+  const sessionStartSeconds = useTimerStore(s => s.sessionStartSeconds);
   const { fontFamily, fontSize } = useWritingSettings();
 
   const sessionSeconds = Math.max(0, seconds - sessionStartSeconds);

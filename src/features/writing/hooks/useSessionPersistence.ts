@@ -1,48 +1,58 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { User } from 'firebase/auth';
 import { WritingDraftService } from '../services/WritingDraftService';
+import { LocalDraft } from '../../../shared/lib/localDb';
 import { WritingSessionService } from '../services/WritingSessionService';
-import { useWritingStore } from '../store/useWritingStore';
+import { useContentStore } from '../store/useContentStore';
+import { useTimerStore } from '../store/useTimerStore';
+import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { useDraftAutosave } from './useDraftAutosave';
 import { UserProfile } from '../../../types';
 import { fetchLocalSessions as fetchLocalSessionsFromLoader, loadLocalSession as loadLocalSessionFromLoader } from '../services/LocalSessionLoader';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 import { buildSessionPayload, saveLocalOnly, saveToCloud } from '../utils/sessionPersistence';
+import { TimerStatus, SessionType } from '../store/types';
+
+export interface SessionStateSlice {
+  title: string;
+  content: string;
+  pinnedThoughts: string[];
+  tags: string[];
+  sessionType: SessionType;
+  activeSessionId: string | null;
+  initialDuration: number;
+  initialWordCount: number;
+  sessionStartTime: number | null;
+}
+
+export interface TimerStateSlice {
+  seconds: number;
+  wpm: number;
+  wordCount: number;
+  status: TimerStatus;
+  timeGoalReached: boolean;
+  wordGoalReached: boolean;
+}
+
+export interface PersistenceActions {
+  setContent: (content: string) => void;
+  setTitle: (title: string) => void;
+  setPinnedThoughts: (thoughts: string[]) => void;
+  setActiveSessionId: (id: string | null) => void;
+  setHasDraft: (has: boolean) => void;
+  resetSession: () => void;
+  finishSession: () => void;
+  setStatus: (status: TimerStatus) => void;
+  setInitialWordCount: (count: number) => void;
+  setInitialDuration: (duration: number) => void;
+}
 
 export function useSessionPersistence(
   user: User | null,
   profile: UserProfile | null,
-  sessionState: {
-    title: string;
-    content: string;
-    pinnedThoughts: string[];
-    tags: string[];
-    sessionType: 'free' | 'stopwatch' | 'timer' | 'words' | 'finish-by';
-    activeSessionId: string | null;
-    initialDuration: number;
-    initialWordCount: number;
-    sessionStartTime: number | null;
-  },
-  timerState: {
-    seconds: number;
-    wpm: number;
-    wordCount: number;
-    status: 'idle' | 'writing' | 'paused';
-    timeGoalReached: boolean;
-    wordGoalReached: boolean;
-  },
-  actions: {
-    setContent: (content: string) => void;
-    setTitle: (title: string) => void;
-    setPinnedThoughts: (thoughts: string[]) => void;
-    setActiveSessionId: (id: string | null) => void;
-    setHasDraft: (has: boolean) => void;
-    resetSession: () => void;
-    finishSession: () => void;
-    setStatus: (status: 'idle' | 'writing' | 'paused') => void;
-    setInitialWordCount: (count: number) => void;
-    setInitialDuration: (duration: number) => void;
-  }
+  sessionState: SessionStateSlice,
+  timerState: TimerStateSlice,
+  actions: PersistenceActions
 ) {
   const isOnline = useOnlineStatus();
   const userId = user?.uid ?? '';
@@ -70,6 +80,29 @@ export function useSessionPersistence(
     sessionStateRef.current = sessionState;
   }, [sessionState]);
 
+  function applyDraftToStore(draft: LocalDraft) {
+    useContentStore.setState({
+      content: draft.content || '',
+      title: draft.title || '',
+      pinnedThoughts: draft.pinnedThoughts || [],
+      initialWordCount: draft.initialWordCount || 0,
+      wordCount: draft.wordCount || 0,
+      tags: draft.tags || [],
+      labelId: draft.labelId ?? undefined,
+    });
+    useTimerStore.setState({
+      seconds: draft.seconds || 0,
+      accumulatedDuration: draft.accumulatedDuration ?? 0,
+      totalPauseSeconds: draft.totalPauseSeconds ?? 0,
+    });
+    useSessionMetaStore.setState({
+      savedDocumentId: draft.savedDocumentId ?? null,
+      sessionStartTime: draft.sessionStartTime ?? null,
+    });
+    useTimerStore.getState().setSessionStart();
+    if (draft.activeSessionId) actions.setActiveSessionId(draft.activeSessionId);
+  }
+
   const draftLoadedForRef = useRef<string | null>(null);
   const loadDraft = useCallback(async () => {
     if (draftLoadedForRef.current === userId) return;
@@ -78,23 +111,8 @@ export function useSessionPersistence(
     const draftToLoad = await WritingDraftService.loadDraft(userId);
     if (draftToLoad) {
       actions.setHasDraft(true);
-      if (!useWritingStore.getState().content) {
-        useWritingStore.setState({
-          content: draftToLoad.content || '',
-          title: draftToLoad.title || '',
-          pinnedThoughts: draftToLoad.pinnedThoughts || [],
-          initialWordCount: draftToLoad.initialWordCount || 0,
-          seconds: draftToLoad.seconds || 0,
-          wordCount: draftToLoad.wordCount || 0,
-          accumulatedDuration: draftToLoad.accumulatedDuration ?? 0,
-          totalPauseSeconds: draftToLoad.totalPauseSeconds ?? 0,
-          savedDocumentId: draftToLoad.savedDocumentId ?? null,
-          tags: draftToLoad.tags || [],
-          labelId: draftToLoad.labelId ?? undefined,
-          sessionStartTime: draftToLoad.sessionStartTime ?? null,
-        });
-        useWritingStore.getState().setSessionStart();
-        if (draftToLoad.activeSessionId) actions.setActiveSessionId(draftToLoad.activeSessionId);
+      if (!useContentStore.getState().content) {
+        applyDraftToStore(draftToLoad);
       }
       await WritingDraftService.clearLegacyDraft(userId);
     }
@@ -105,23 +123,7 @@ export function useSessionPersistence(
     if (!userId) return;
     const draftToLoad = await WritingDraftService.loadDraft(userId);
     if (!draftToLoad) { actions.setHasDraft(false); return; }
-
-    useWritingStore.setState({
-      content: draftToLoad.content || '',
-      title: draftToLoad.title || '',
-      pinnedThoughts: draftToLoad.pinnedThoughts || [],
-      initialWordCount: draftToLoad.initialWordCount || 0,
-      seconds: draftToLoad.seconds || 0,
-      wordCount: draftToLoad.wordCount || 0,
-      accumulatedDuration: draftToLoad.accumulatedDuration ?? 0,
-      totalPauseSeconds: draftToLoad.totalPauseSeconds ?? 0,
-      savedDocumentId: draftToLoad.savedDocumentId ?? null,
-      tags: draftToLoad.tags || [],
-      labelId: draftToLoad.labelId ?? undefined,
-      sessionStartTime: draftToLoad.sessionStartTime ?? null,
-    });
-    useWritingStore.getState().setSessionStart();
-    if (draftToLoad.activeSessionId) actions.setActiveSessionId(draftToLoad.activeSessionId);
+    applyDraftToStore(draftToLoad);
     actions.setHasDraft(false);
     await WritingDraftService.clearLegacyDraft(userId);
   }, [userId, actions]);
@@ -131,20 +133,22 @@ export function useSessionPersistence(
   }, [loadDraft]);
 
   const handleSave = async (isLocalOnly: boolean) => {
-    const state = useWritingStore.getState();
+    const contentState = useContentStore.getState();
+    const timerState_ = useTimerStore.getState();
+    const metaState = useSessionMetaStore.getState();
     const sessionData = await buildSessionPayload(
       {
-        title: state.title,
-        content: state.content,
-        pinnedThoughts: state.pinnedThoughts,
-        seconds: state.seconds,
-        wordCount: state.wordCount,
-        wpm: state.wpm,
-        tags: state.tags,
-        sessionType: state.sessionType,
-        sessionStartTime: state.sessionStartTime,
-        timeGoalReached: state.timeGoalReached,
-        wordGoalReached: state.wordGoalReached,
+        title: contentState.title,
+        content: contentState.content,
+        pinnedThoughts: contentState.pinnedThoughts,
+        seconds: timerState_.seconds,
+        wordCount: contentState.wordCount,
+        wpm: contentState.wpm,
+        tags: contentState.tags,
+        sessionType: timerState_.sessionType,
+        sessionStartTime: metaState.sessionStartTime,
+        timeGoalReached: timerState_.timeGoalReached,
+        wordGoalReached: timerState_.wordGoalReached,
       },
       profile,
       user,

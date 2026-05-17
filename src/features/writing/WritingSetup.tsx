@@ -7,7 +7,7 @@ import { cn } from '../../core/utils/utils';
 import { toDate, getDateLocale } from '../../core/utils/dateUtils';
 import { useLanguage } from '../../core/i18n';
 import { formatTime } from '../../core/utils/formatTime';
-import { useWritingStore } from './store/useWritingStore';
+import { useTimerStore } from './store/useTimerStore';
 
 const PROMPT_KEYS = [
   { key: 'morning', promptKeys: ['prompt_morning_1', 'prompt_morning_2', 'prompt_morning_3'] },
@@ -81,12 +81,12 @@ export function WritingSetup({
   onSetPromptTitle,
 }: WritingSetupProps) {
   const { t, language } = useLanguage();
-  const timerDuration = useWritingStore(s => s.timerDuration);
-  const setTimerDuration = useWritingStore(s => s.setTimerDuration);
-  const wordGoal = useWritingStore(s => s.wordGoal);
-  const setWordGoal = useWritingStore(s => s.setWordGoal);
-  const targetTime = useWritingStore(s => s.targetTime);
-  const setTargetTime = useWritingStore(s => s.setTargetTime);
+  const timerDuration = useTimerStore(s => s.timerDuration);
+  const setTimerDuration = useTimerStore(s => s.setTimerDuration);
+  const wordGoal = useTimerStore(s => s.wordGoal);
+  const setWordGoal = useTimerStore(s => s.setWordGoal);
+  const targetTime = useTimerStore(s => s.targetTime);
+  const setTargetTime = useTimerStore(s => s.setTargetTime);
   if (!setupMode) return null;
 
   const dateLocale = getDateLocale(language);

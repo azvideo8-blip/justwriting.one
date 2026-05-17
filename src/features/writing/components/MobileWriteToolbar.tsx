@@ -1,5 +1,6 @@
 import React from 'react';
-import { useWritingStore } from '../store/useWritingStore';
+import { useContentStore } from '../store/useContentStore';
+import { useTimerStore } from '../store/useTimerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useLanguage } from '../../../core/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
@@ -13,11 +14,15 @@ interface MobileWriteToolbarProps {
 
 export function MobileWriteToolbar({ onPlay, onPause, onStop }: MobileWriteToolbarProps) {
   const { t } = useLanguage();
-  const { wordCount, seconds, wpm, wordGoal, timerDuration, sessionStartWords, sessionStartSeconds, status } = useWritingStore(
+  const { wordCount, wpm } = useContentStore(
     useShallow(s => ({
       wordCount: s.wordCount,
-      seconds: s.seconds,
       wpm: s.wpm,
+    }))
+  );
+  const { seconds, wordGoal, timerDuration, sessionStartWords, sessionStartSeconds, status } = useTimerStore(
+    useShallow(s => ({
+      seconds: s.seconds,
       wordGoal: s.wordGoal,
       timerDuration: s.timerDuration,
       sessionStartWords: s.sessionStartWords,

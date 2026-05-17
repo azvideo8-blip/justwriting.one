@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { useWritingStore, SessionType } from '../store/useWritingStore';
+import { SessionType } from '../store/types';
+import { useTimerStore } from '../store/useTimerStore';
 import { SetupMode } from '../WritingSetup';
 import { playGoalSound } from '../../../core/utils/sound';
 
@@ -37,7 +38,6 @@ export function useSessionFlow(
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const goalFiredRef = useRef(false);
 
-  // Countdown logic
   const startCountdown = (type: SessionType) => {
     if (countdownRef.current) clearInterval(countdownRef.current);
     setSessionType(type);
@@ -60,7 +60,6 @@ export function useSessionFlow(
     }, 1000);
   };
 
-  // Session start flash
   useEffect(() => {
     if (sessionStatus === 'writing') {
       const showTimer = setTimeout(() => setSessionStartFlash(true), 0);
@@ -69,7 +68,6 @@ export function useSessionFlow(
     }
   }, [sessionStatus]);
 
-  // Goal toast + sound
   useEffect(() => {
     const isGoalJustReached = (timeGoalReached || wordGoalReached) && !goalFiredRef.current;
 
@@ -88,7 +86,6 @@ export function useSessionFlow(
     }
   }, [timeGoalReached, wordGoalReached, sessionStatus]);
 
-  // Deadline duration for finish-by progress bar
   const totalDurationRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -99,7 +96,7 @@ export function useSessionFlow(
         target.setHours(hours, minutes, 0, 0);
         const now = new Date();
         const remaining = Math.max(0, (target.getTime() - now.getTime()) / 1000);
-        const dur = remaining + useWritingStore.getState().seconds;
+        const dur = remaining + useTimerStore.getState().seconds;
         totalDurationRef.current = dur;
         setTimeout(() => setTotalDurationForDeadline(dur), 0);
       }
@@ -109,7 +106,6 @@ export function useSessionFlow(
     }
   }, [sessionStatus, sessionType, targetTime]);
 
-  // Cleanup countdown on unmount
   useEffect(() => {
     return () => {
       if (countdownRef.current) clearInterval(countdownRef.current);

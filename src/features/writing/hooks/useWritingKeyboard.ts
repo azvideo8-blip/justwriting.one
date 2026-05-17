@@ -1,5 +1,5 @@
 import { useEffect, RefObject } from 'react';
-import { useWritingStore } from '../store/useWritingStore';
+import { useTimerStore } from '../store/useTimerStore';
 
 interface UseWritingKeyboardParams {
   sessionStatus: string;
@@ -30,7 +30,7 @@ export function useWritingKeyboard({ sessionStatus, handlePlayRef, handlePauseRe
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      const state = useWritingStore.getState();
+      const state = useTimerStore.getState();
       if (state.status === 'writing' || state.status === 'paused') {
         e.preventDefault();
       }

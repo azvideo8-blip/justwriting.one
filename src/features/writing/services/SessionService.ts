@@ -35,8 +35,8 @@ export const SessionService = {
   async updateSessionTags(sessionId: string, tags: string[]) {
     try {
       const { db, mod } = await getClient();
-      const { doc, updateDoc } = mod;
-      await updateDoc(doc(db, 'sessions', sessionId), { tags });
+      const { doc, updateDoc, serverTimestamp } = mod;
+      await updateDoc(doc(db, 'sessions', sessionId), { tags, _updatedAt: serverTimestamp() });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `sessions/${sessionId}`);
     }
@@ -45,8 +45,8 @@ export const SessionService = {
   async updateSession(sessionId: string, data: Partial<Session>) {
     try {
       const { db, mod } = await getClient();
-      const { doc, updateDoc } = mod;
-      await updateDoc(doc(db, 'sessions', sessionId), data);
+      const { doc, updateDoc, serverTimestamp } = mod;
+      await updateDoc(doc(db, 'sessions', sessionId), { ...data, _updatedAt: serverTimestamp() });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `sessions/${sessionId}`);
     }

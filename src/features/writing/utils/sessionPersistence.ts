@@ -61,7 +61,7 @@ export async function saveLocalOnly(sessionData: SessionPayload, userId: string)
       const oldest = sessionKeys.shift();
       if (oldest) keysToRemove.push(oldest.key);
     }
-    keysToRemove.forEach(k => localStorage.removeItem(k));
+    keysToRemove.forEach(k => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
   } catch { /* ignore */ }
 
   const sessionKey = `local_session_${Date.now()}_${crypto.randomUUID()}`;
