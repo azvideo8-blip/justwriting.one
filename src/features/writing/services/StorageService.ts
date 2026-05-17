@@ -14,6 +14,7 @@ export interface SaveDocumentData {
   title: string;
   content: string;
   wordCount: number;
+  documentWordCount?: number;
   duration: number;
   wpm: number;
   tags: string[];
@@ -59,7 +60,7 @@ export const StorageService = {
       sessionStartedAt: data.sessionStartedAt,
     });
     await LocalDocumentService.updateAfterSession(localId, {
-      totalWords: data.wordCount,
+      totalWords: data.documentWordCount ?? data.wordCount,
       totalDuration: data.duration,
       currentVersion: 1,
     });
@@ -100,7 +101,7 @@ export const StorageService = {
       });
 
       await LocalDocumentService.updateAfterSession(documentId, {
-        totalWords: data.wordCount,
+        totalWords: data.documentWordCount ?? data.wordCount,
         totalDuration: data.duration,
         currentVersion: newVersion,
       });
@@ -135,7 +136,7 @@ export const StorageService = {
               sessionStartedAt: startedAt,
             });
             await DocumentService.updateDocumentAfterSession(userId, existing.linkedCloudId, {
-              totalWords: data.wordCount,
+              totalWords: data.documentWordCount ?? data.wordCount,
               totalDuration: data.duration,
               currentVersion: newVersion,
             });
