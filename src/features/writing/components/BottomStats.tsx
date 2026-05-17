@@ -65,8 +65,8 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target.closest('[data-goal-popup]')) return;
-      if (wordRef.current && !wordRef.current.contains(target) &&
-          timeRef.current && !timeRef.current.contains(target)) {
+      if ((wordRef.current && !wordRef.current.contains(target)) ||
+          (timeRef.current && !timeRef.current.contains(target))) {
         setWordPopupOpen(false);
         setTimePopupOpen(false);
       }

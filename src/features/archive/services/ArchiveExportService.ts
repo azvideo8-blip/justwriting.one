@@ -1,5 +1,6 @@
 import { ArchiveSession } from '../types';
 import { toDate } from '../../../core/utils/dateUtils';
+import { escapeHtml } from '../../../shared/utils/exportUtils';
 
 export interface ExportStrings {
   date: string;
@@ -10,11 +11,15 @@ export interface ExportStrings {
   untitledFilename: string;
 }
 
+function getLocale(): string {
+  return localStorage.getItem('app_language') || 'ru';
+}
+
 function buildHeader(session: ArchiveSession, s: ExportStrings): string {
   const date = toDate(session.createdAt) ?? new Date();
   return [
     session.title || s.untitled,
-    date.toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' }),
+    date.toLocaleDateString(getLocale(), { day: 'numeric', month: 'long', year: 'numeric' }),
     `${session.wordCount} ${s.words} · ${Math.round((session.duration || 0) / 60)} ${s.time}`,
     session.tags?.length ? session.tags.map(t => '#' + t).join(' ') : '',
   ].filter(Boolean).join('\n');
@@ -37,15 +42,7 @@ function downloadBlob(content: string | Blob, type: string, filename: string): v
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  setTimeout(() => URL.revokeObjectURL(url), 100);
 }
 
 export function exportAsTxt(session: ArchiveSession, s: ExportStrings): void {
@@ -61,7 +58,7 @@ export function exportAsTxt(session: ArchiveSession, s: ExportStrings): void {
 
 export function exportAsMd(session: ArchiveSession, s: ExportStrings): void {
   const date = toDate(session.createdAt) ?? new Date();
-  const locOpts = 'ru';
+  const locOpts = getLocale();
   const content = [
     `# ${session.title || s.untitled}`,
     '',
@@ -79,7 +76,7 @@ export function exportAsMd(session: ArchiveSession, s: ExportStrings): void {
 
 export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
   const date = toDate(session.createdAt) ?? new Date();
-  const locOpts = 'ru';
+  const locOpts = getLocale();
   const untitled = s.untitled;
   const html = `<!DOCTYPE html>
 <html lang="${locOpts}">
@@ -120,7 +117,10 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
 </html>`;
 
   const win = window.open('', '_blank', 'noopener');
-  if (!win) return;
+  if (!win) {
+    console.warn('Popup blocked — please allow popups for this site');
+    return;
+  }
   win.document.write(html);
   win.document.close();
   win.focus();
@@ -130,7 +130,7 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
 export async function exportAsDocx(session: ArchiveSession, s: ExportStrings): Promise<void> {
   const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import('docx');
   const date = toDate(session.createdAt) ?? new Date();
-  const locOpts = 'ru';
+  const locOpts = getLocale();
   const metaText = [
     date.toLocaleDateString(locOpts, { day: 'numeric', month: 'long', year: 'numeric' }),
     `${session.wordCount} ${s.words}`,

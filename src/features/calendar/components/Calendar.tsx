@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, subMonths, addMonths } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -25,7 +25,7 @@ export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate,
   // Adjust for Monday start (0=Mon, ..., 6=Sun)
   const offset = (startDay === 0 ? 6 : startDay - 1);
 
-  const activeDays = sessions.map(s => getSessionDate(s)).filter((d): d is Date => d !== null);
+  const activeDays = useMemo(() => sessions.map(s => getSessionDate(s)).filter((d): d is Date => d !== null), [sessions]);
 
   return (
     <div className="space-y-4">

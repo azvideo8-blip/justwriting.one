@@ -7,8 +7,8 @@ export function FlowPulse() {
   const active = status === 'writing';
 
   useEffect(() => {
+    if (status !== 'writing') return;
     const handleKey = () => {
-      if (status !== 'writing') return;
       setIntensity(i => Math.min(1, i + 0.15));
     };
     window.addEventListener('keydown', handleKey);
@@ -16,11 +16,12 @@ export function FlowPulse() {
   }, [status]);
 
   useEffect(() => {
+    if (intensity === 0 && status !== 'writing') return;
     const t = setInterval(() => {
       setIntensity(i => Math.max(0, i - 0.04));
     }, 200);
     return () => clearInterval(t);
-  }, []);
+  }, [intensity, status]);
 
   useEffect(() => {
     if (!active) setTimeout(() => setIntensity(0), 0);

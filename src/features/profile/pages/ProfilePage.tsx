@@ -31,10 +31,6 @@ interface DocLevelStats {
   totalDuration: number;
 }
 
-function SafeSection({ children }: { label?: string; children: React.ReactNode }) {
-  return <>{children}</>;
-}
-
 export function ProfilePage({ user, profile }: ProfilePageProps) {
   const { t } = useLanguage();
   const isGuest = !user;
@@ -54,13 +50,15 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
     if (!user || syncing) return;
     setSyncing(true);
     try {
-      const [uploadResult, downloadResult] = await Promise.all([
+      const [uploadResult, downloadResult] = await Promise.allSettled([
         SyncService.syncAllUnlinked(user.uid),
         SyncService.downloadAllFromCloud(user.uid),
       ]);
-      const total = uploadResult.synced + downloadResult.downloaded;
-      if (uploadResult.failed + downloadResult.failed > 0) {
-        showToast(t('profile_sync_partial', { synced: String(total), failed: String(uploadResult.failed + downloadResult.failed) }), 'error');
+      const upload = uploadResult.status === 'fulfilled' ? uploadResult.value : { synced: 0, failed: 0 };
+      const download = downloadResult.status === 'fulfilled' ? downloadResult.value : { downloaded: 0, failed: 0 };
+      const total = upload.synced + download.downloaded;
+      if (uploadResult.status === 'rejected' || downloadResult.status === 'rejected' || upload.failed + download.failed > 0) {
+        showToast(t('profile_sync_partial', { synced: String(total), failed: String(upload.failed + download.failed) }), 'error');
       } else {
         showToast(t('profile_sync_success', { count: String(total) }), 'success');
       }
@@ -110,7 +108,10 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       const dates = new Set<string>();
       sessions.forEach(s => {
         try {
-          const ts = s.sessionStartTime ?? (s.createdAt instanceof Date ? s.createdAt.getTime() : null);
+          const ts = s.sessionStartTime ?? 
+            (typeof (s.createdAt as any)?.toDate === 'function'
+              ? (s.createdAt as any).toDate().getTime()
+              : s.createdAt instanceof Date ? s.createdAt.getTime() : null);
           if (!ts) return;
           const d = new Date(ts);
           if (isNaN(d.getTime())) return;
@@ -127,7 +128,10 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       const hours = new Array(24).fill(0) as number[];
       sessions.forEach(s => {
         try {
-          const ts = s.sessionStartTime ?? (s.createdAt instanceof Date ? s.createdAt.getTime() : null);
+          const ts = s.sessionStartTime ?? 
+            (typeof (s.createdAt as any)?.toDate === 'function'
+              ? (s.createdAt as any).toDate().getTime()
+              : s.createdAt instanceof Date ? s.createdAt.getTime() : null);
           if (!ts) return;
           const d = new Date(ts);
           const h = d.getHours();
@@ -199,34 +203,34 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
 
   return (
     <div className="min-h-screen bg-surface-base">
-      <SafeSection label="ProfileHero">
+      <>
         <ProfileHero
           user={user} profile={profile} isGuest={isGuest}
           onStartSession={() => navigate('/')}
           onSync={user ? handleSyncBoth : undefined}
           syncing={syncing}
         />
-      </SafeSection>
+      </>
       <div className="px-9 pt-6 space-y-0">
-          <SafeSection label="KPIStrip">
+          <>
             <KPIStrip stats={kpiStats} />
-          </SafeSection>
+          </>
           <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
-          <SafeSection label="Heatmap">
+          <>
             <Heatmap sessions={sessions} />
-          </SafeSection>
+          </>
           <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
-          <SafeSection label="HourRhythm">
+          <>
             <HourRhythm sessions={sessions} />
-          </SafeSection>
+          </>
           <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
-          <SafeSection label="StreakRibbon">
+          <>
             <StreakRibbon sessions={sessions} />
-          </SafeSection>
+          </>
           <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
-          <SafeSection label="Achievements">
+          <>
             <Achievements key={achResetKey} stats={kpiStats} sessions={sessions} />
-          </SafeSection>
+          </>
       </div>
       <div style={{ padding: '12px 36px 48px', textAlign: 'center' }}>
         {showResetConfirm ? (

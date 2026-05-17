@@ -38,8 +38,8 @@ export const HeaderStats = memo(function HeaderStats({
       const target = e.target as HTMLElement;
       if (target.closest('[data-goal-popup]')) return;
       if (
-        wordBlockRef.current && !wordBlockRef.current.contains(target) &&
-        timeBlockRef.current && !timeBlockRef.current.contains(target)
+        (wordBlockRef.current && !wordBlockRef.current.contains(target)) ||
+        (timeBlockRef.current && !timeBlockRef.current.contains(target))
       ) {
         setWordPopupOpen(false);
         setTimePopupOpen(false);
