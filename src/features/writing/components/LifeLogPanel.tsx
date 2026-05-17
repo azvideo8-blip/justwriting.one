@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { cn, parseFirestoreDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
@@ -26,7 +26,7 @@ interface SessionItemProps {
   searchQuery?: string;
 }
 
-const SessionItem = ({ session, doc, isActive, onClick, onDelete, t, language, userId: _userId, onStorageChange: _onStorageChange, maxWords, searchQuery }: SessionItemProps) => {
+const SessionItem = React.memo(({ session, doc, isActive, onClick, onDelete, t, language, userId: _userId, onStorageChange: _onStorageChange, maxWords, searchQuery }: SessionItemProps) => {
   const date = parseFirestoreDate(session.createdAt);
   const timeStr = date
     ? date.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })
@@ -112,7 +112,7 @@ const SessionItem = ({ session, doc, isActive, onClick, onDelete, t, language, u
         </div>
     </div>
   );
-};
+});
 
 interface LifeLogPanelProps {
   userId: string;

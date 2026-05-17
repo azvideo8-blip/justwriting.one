@@ -6,7 +6,7 @@ import { useTheme } from './ThemeProvider';
 export function ThemeBackground() {
   const { themeId } = useTheme();
   const reducedMotion = useReducedMotion();
-  const [isVisible, setIsVisible] = useState(!document.hidden);
+  const [isVisible, setIsVisible] = useState(() => typeof document !== 'undefined' ? !document.hidden : true);
   const location = useLocation();
   const isWritingPage = location.pathname === '/';
 

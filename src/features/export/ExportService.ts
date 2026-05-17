@@ -1,6 +1,7 @@
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { reportError } from '../../core/errors/reportError';
+import { escapeHtml } from '../../shared/utils/exportUtils';
 
 export class ExportService {
   static toJson(data: unknown) {
@@ -26,7 +27,7 @@ export class ExportService {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
     } catch (error) {
       reportError(error, { method: 'toTxt', title, contentLength: content.length });
       throw error;
@@ -35,14 +36,6 @@ export class ExportService {
 
   static toPDF(title: string, content: string) {
     try {
-      const escapeHtml = (str: string) =>
-        str
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#039;');
-
       const safeTitle = escapeHtml(title || 'Session');
 
       const printContent = `

@@ -7,7 +7,7 @@ import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { ProfileService } from '../services/ProfileService';
 import { calculateBestStreak } from '../../../core/utils/utils';
 
-type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
+export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 
 interface Stats {
   totalWords: number;

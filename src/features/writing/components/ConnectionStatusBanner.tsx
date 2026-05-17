@@ -31,6 +31,7 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
   useEffect(() => {
     if (isOnline && wasOffline) {
       setTimeout(() => setShowSynced(true), 0);
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
       syncTimerRef.current = setTimeout(() => setShowSynced(false), 3000);
     }
   }, [isOnline, wasOffline]);

@@ -16,12 +16,21 @@ const sizeMap: Record<number, string> = {
 };
 
 export function LoadingSpinner({ size = 10 }: LoadingSpinnerProps) {
+  const sizeClass = sizeMap[size];
+  if (sizeClass) {
+    return (
+      <div 
+        className={cn(
+          "border-4 rounded-full animate-spin border-surface-base/10 border-t-text-main",
+          sizeClass
+        )} 
+      />
+    );
+  }
   return (
     <div 
-      className={cn(
-        "border-4 rounded-full animate-spin border-surface-base/10 border-t-text-main",
-        sizeMap[size] ?? 'w-10 h-10'
-      )} 
+      className="border-4 rounded-full animate-spin border-surface-base/10 border-t-text-main"
+      style={{ width: size * 4, height: size * 4 }}
     />
   );
 }

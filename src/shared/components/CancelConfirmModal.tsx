@@ -75,7 +75,12 @@ export function CancelConfirmModal({
           </button>
           <button 
             onClick={onConfirm}
-            className="flex-1 px-4 py-3 rounded-xl font-bold transition-all bg-accent-danger/20 text-accent-danger hover:bg-accent-danger/30"
+            className={cn(
+              "flex-1 px-4 py-3 rounded-xl font-bold transition-all",
+              variant === 'warning'
+                ? 'bg-accent-warning/20 text-accent-warning hover:bg-accent-warning/30'
+                : 'bg-accent-danger/20 text-accent-danger hover:bg-accent-danger/30'
+            )}
           >
             {confirmLabel || t('finish_discard')}
           </button>
