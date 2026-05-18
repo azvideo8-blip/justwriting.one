@@ -1,6 +1,7 @@
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { getLocalDb, LocalDraft } from '../../../shared/lib/localDb';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
+import { maybeEncrypt } from '../../../core/crypto/cryptoHelpers';
 
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const _abortControllers = new Map<string, AbortController>();
@@ -108,7 +109,8 @@ export const WritingDraftService = {
     if (ac.signal.aborted) return;
     const { doc, setDoc } = mod;
     const docRef = doc(db, 'drafts', draft.userId);
-    const clean = Object.fromEntries(Object.entries(draft).filter(([, v]) => v !== undefined));
+    const encrypted = await maybeEncrypt(draft as unknown as Record<string, unknown>, ['content'], ['pinnedThoughts']);
+    const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
     try {
       await setDoc(docRef, clean, { merge: true });
     } catch {
