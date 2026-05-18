@@ -16,5 +16,5 @@ export const AdminUserService = {
       return [];
     }
   },
-  getProfile: (uid: string) => ProfileService.getProfile(uid),
+  getProfile: (uid: string) => ProfileService.getProfile(uid).then(r => r.data),
 };

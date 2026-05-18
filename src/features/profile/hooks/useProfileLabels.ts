@@ -22,11 +22,12 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
 
   useEffect(() => {
     if (fetchedSet.has(userId) || !userId || userId.startsWith('guest')) return;
-    ProfileService.getProfile(userId).then(p => {
+    ProfileService.getProfile(userId).then(result => {
       fetchedSet.add(userId);
-      if (p?.labels) {
-        labelCache.set(userId, p.labels);
-        setLabels(p.labels);
+      if (!result.error && result.data?.labels) {
+        const labels = result.data.labels as Label[];
+        labelCache.set(userId, labels);
+        setLabels(labels);
       }
     }).catch(() => {});
   }, [userId]);

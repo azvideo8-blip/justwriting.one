@@ -8,19 +8,28 @@ import { SyncService } from '../../writing/services/SyncService';
 async function migrateDocuments(userId: string): Promise<number> {
   const guestId = getOrCreateGuestId();
   const db = await getLocalDb();
-  const guestDocs = await db.getAllFromIndex('documents', 'by-guest', guestId);
-  if (guestDocs.length === 0) return 0;
-
-  const guestVersions = await db.getAll('versions');
-  const versionsToMigrate = guestVersions.filter(v => v.guestId === guestId);
-
   const tx = db.transaction(['documents', 'versions'], 'readwrite');
   const docStore = tx.objectStore('documents');
   const verStore = tx.objectStore('versions');
 
+  const guestDocs = await docStore.index('by-guest').getAll(guestId);
+  if (guestDocs.length === 0) { await tx.done; return 0; }
+
+  const verIndex = verStore.index('by-document');
+  const versionPuts: Promise<string>[] = [];
+  for (const doc of guestDocs) {
+    let cursor = await verIndex.openCursor(doc.id);
+    while (cursor) {
+      if (cursor.value.guestId === guestId) {
+        versionPuts.push(verStore.put({ ...cursor.value, guestId: userId }));
+      }
+      cursor = await cursor.continue();
+    }
+  }
+
   await Promise.all([
     ...guestDocs.map(doc => docStore.put({ ...doc, guestId: userId })),
-    ...versionsToMigrate.map(ver => verStore.put({ ...ver, guestId: userId })),
+    ...versionPuts,
     tx.done,
   ]);
 
@@ -40,14 +49,18 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
   const handleMigrate = async () => {
     try {
       const count = await migrateDocuments(userId);
-      onDone();
       if (count > 0) {
-        SyncService.syncAllUnlinked(userId)
-          .then(({ synced }) => {
-            if (synced > 0) onCloudSynced?.(synced);
-          })
-          .catch(() => {});
+        try {
+          const { synced, failed } = await SyncService.syncAllUnlinked(userId);
+          if (synced > 0) onCloudSynced?.(synced);
+          if (failed > 0 && import.meta.env.DEV) {
+            console.warn(`Migration: ${synced} synced, ${failed} failed`);
+          }
+        } catch {
+          // Cloud sync failed — local migration still succeeded
+        }
       }
+      onDone();
     } catch (e) {
       console.error('Migration failed:', e);
       onDone();

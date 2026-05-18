@@ -47,33 +47,34 @@ export const ProfileService = {
     }
   },
 
-  async loadEarnedAchievements(userId: string): Promise<string[]> {
+  async loadEarnedAchievements(userId: string): Promise<{ ids: string[]; error: boolean }> {
     try {
       const { db, mod } = await getClient();
       const { doc, getDoc } = mod;
       const snap = await getDoc(doc(db, 'users', userId));
       if (snap.exists()) {
-        return (snap.data().earnedAchievements as string[]) ?? [];
+        return { ids: (snap.data().earnedAchievements as string[]) ?? [], error: false };
       }
+      return { ids: [], error: false };
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, `users/${userId}`);
+      return { ids: [], error: true };
     }
-    return [];
   },
 
-  async getProfile(userId: string) {
+  async getProfile(userId: string): Promise<{ data: Record<string, unknown> | null; error: boolean }> {
     try {
       const { db, mod } = await getClient();
       const { doc, getDoc } = mod;
       const docRef = doc(db, 'users', userId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        return docSnap.data();
+        return { data: docSnap.data(), error: false };
       }
-      return null;
+      return { data: null, error: false };
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, `users/${userId}`);
-      return null;
+      return { data: null, error: true };
     }
   },
 };
