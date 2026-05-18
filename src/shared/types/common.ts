@@ -19,6 +19,8 @@ export interface UserProfile {
   totalDuration?: number;
   avgWpm?: number;
   avgSessionWords?: number;
+  encryptionSalt?: string;
+  encryptedDataKey?: string;
 }
 
 export type AchievementTier = 'common' | 'rare' | 'legendary';
