@@ -2,8 +2,9 @@ import { DocumentService } from './DocumentService';
 import { VersionService } from './VersionService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
-import { getLocalDb } from '../../../shared/lib/localDb';
+import { getLocalDb, randomUUID } from '../../../shared/lib/localDb';
 import { toDate } from '../../../core/utils/dateUtils';
+import { computeWordDelta } from './DiffService';
 
 export interface StorageState {
   local: boolean;
@@ -74,37 +75,69 @@ export const StorageService = {
   ): Promise<void> {
     const prevPromise = _saveVersionLocks.get(documentId) ?? Promise.resolve();
     const promise = prevPromise.then(async () => {
-      let existing = await LocalDocumentService.getDocument(documentId);
-      if (!existing) throw new Error('Document not found');
+      const db = await getLocalDb();
+      const tx = db.transaction(['documents', 'versions', 'profile'], 'readwrite');
+      const docStore = tx.objectStore('documents');
+      const verStore = tx.objectStore('versions');
+      const profStore = tx.objectStore('profile');
 
-      // Defensive re-read: another tab may have written between initial read and now.
-      // IDB serializes readwrite transactions, so this read sees the latest state.
-      const rechecked = await LocalDocumentService.getDocument(documentId);
-      if (rechecked && rechecked.currentVersion !== existing.currentVersion) {
-        existing = rechecked;
-      }
+      const existing = await docStore.get(documentId);
+      if (!existing) { await tx.done; throw new Error('Document not found'); }
 
-      const prevContent = await LocalVersionService.getLatestContent(documentId);
+      const allVersions = await verStore.index('by-document').getAll(documentId);
+      const prevContent = allVersions.length > 0
+        ? allVersions.reduce((max, v) => v.version > max.version ? v : max, allVersions[0]).content ?? ''
+        : '';
+
       const newVersion = existing.currentVersion + 1;
+      const diff = computeWordDelta(prevContent, data.content);
+      const verId = `ver_${randomUUID()}`;
+      const totalWords = data.documentWordCount ?? data.wordCount;
+      const now = Date.now();
 
-      await LocalVersionService.addVersion(userId, documentId, {
+      await verStore.put({
+        id: verId,
+        documentId,
+        guestId: userId,
+        version: newVersion,
         content: data.content,
-        previousContent: prevContent,
         wordCount: data.wordCount,
+        wordsAdded: diff.wordsAdded,
+        charsAdded: diff.charsAdded,
         duration: data.duration,
         wpm: data.wpm,
-        versionNumber: newVersion,
         goalWords: data.goalWords,
         goalTime: data.goalTime,
-        goalReached: data.goalReached,
-        sessionStartedAt: data.sessionStartedAt,
+        goalReached: data.goalReached ?? false,
+        savedAt: now,
+        sessionStartedAt: data.sessionStartedAt.getTime(),
       });
 
-      await LocalDocumentService.updateAfterSession(documentId, {
-        totalWords: data.documentWordCount ?? data.wordCount,
+      await docStore.put({
+        ...existing,
+        totalWords,
         totalDuration: data.duration,
         currentVersion: newVersion,
+        sessionsCount: (existing.sessionsCount || 0) + 1,
+        lastSessionAt: now,
       });
+
+      const profile = await profStore.get(existing.guestId);
+      if (profile) {
+        await profStore.put({
+          ...profile,
+          totalWords: profile.totalWords - existing.totalWords + totalWords,
+          totalDuration: profile.totalDuration - existing.totalDuration + data.duration,
+          sessionsCount: profile.sessionsCount + 1,
+          lastSessionAt: now,
+        });
+      }
+
+      await tx.done;
+
+      if (!profile) {
+        await LocalDocumentService._updateProfile(existing.guestId);
+      }
 
       if (existing.linkedCloudId) {
         try {
@@ -227,15 +260,12 @@ export const StorageService = {
     const db = await getLocalDb();
     const lockKey = `lock_cloud_${localDocumentId}`;
 
-    // Cross-tab mutex via IDB (serialized across tabs)
-    try {
-      const existing = await db.get('syncQueue', lockKey);
-      if (existing) return ''; // another tab is already syncing this document
-    } catch { /* ignore */ }
-
-    try {
-      await db.put('syncQueue', { id: lockKey, documentId: localDocumentId, type: 'document' as const, createdAt: Date.now() });
-    } catch { /* ignore */ }
+    // Atomic check+claim via IDB transaction
+    const lockTx = db.transaction('syncQueue', 'readwrite');
+    const existing = await lockTx.store.get(lockKey);
+    if (existing) { await lockTx.done; return ''; }
+    await lockTx.store.put({ id: lockKey, documentId: localDocumentId, type: 'document' as const, createdAt: Date.now() });
+    await lockTx.done;
 
     try {
       const localDoc = await LocalDocumentService.getDocument(localDocumentId);
