@@ -5,7 +5,7 @@ import { LocalVersionService } from './LocalVersionService';
 import { getLocalDb, randomUUID } from '../../../shared/lib/localDb';
 import { toDate } from '../../../core/utils/dateUtils';
 import { computeWordDelta } from './DiffService';
-import { maybeEncrypt } from '../../../core/crypto/cryptoHelpers';
+import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 
 export interface StorageState {
   local: boolean;
@@ -236,8 +236,11 @@ export const StorageService = {
         let startedAt = toDate(ver.sessionStartedAt) ?? toDate(ver.savedAt) ?? new Date();
         if (isNaN(startedAt.getTime())) startedAt = new Date();
 
+        const decryptedVer = await maybeDecrypt(ver as unknown as Record<string, unknown>, ['content'], []);
+        const verContent = (decryptedVer.content as string) ?? ver.content;
+
         await LocalVersionService.addVersion(userId, localId, {
-          content: ver.content,
+          content: verContent,
           previousContent: prevContent,
           wordCount: ver.wordCount,
           duration: ver.duration,
