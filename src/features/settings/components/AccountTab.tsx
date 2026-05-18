@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HardDrive, LogIn, User as UserIcon, Lock } from 'lucide-react';
+import { HardDrive, LogIn, User as UserIcon, Lock, Shield } from 'lucide-react';
 import { signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { useLanguage } from '../../../core/i18n';
@@ -10,7 +10,8 @@ import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 import { ProfileService } from '../../profile/services/ProfileService';
 import { Section } from './SettingsHelpers';
-import { deriveMasterKey, wrapDataKey, unwrapDataKey, setSessionKey, toBase64, fromBase64, SALT_LENGTH } from '../../../core/crypto/encrypt';
+import { deriveMasterKey, wrapDataKey, unwrapDataKey, setSessionKey, getSessionKey, toBase64, fromBase64, SALT_LENGTH } from '../../../core/crypto/encrypt';
+import { encryptAllExistingNotes, type MigrationProgress } from '../../../core/crypto/encryptMigration';
 import { getClient } from '../../../core/firebase/firestoreClient';
 
 interface AccountTabProps {
@@ -30,6 +31,25 @@ export function AccountTab({ userId }: AccountTabProps) {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  const [migrationRunning, setMigrationRunning] = useState(false);
+  const [migrationProgress, setMigrationProgress] = useState<MigrationProgress | null>(null);
+  const [migrationDone, setMigrationDone] = useState(false);
+
+  const handleEncryptAll = async () => {
+    if (!getSessionKey()) return;
+    setMigrationRunning(true);
+    setMigrationDone(false);
+    setMigrationProgress(null);
+    try {
+      const result = await encryptAllExistingNotes(userId, setMigrationProgress);
+      setMigrationDone(true);
+    } catch (e) {
+      console.error('Encryption migration failed:', e);
+    } finally {
+      setMigrationRunning(false);
+    }
+  };
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || newPassword.length < 6) {
@@ -202,6 +222,44 @@ export function AccountTab({ userId }: AccountTabProps) {
               </div>
             )}
           </Section>
+
+          {getSessionKey() && (
+            <Section title={t('settings_encryption')}>
+              {!migrationRunning && !migrationDone ? (
+                <button
+                  onClick={handleEncryptAll}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-all text-left"
+                >
+                  <Shield size={16} className="text-text-main/40" />
+                  {t('settings_encrypt_all')}
+                </button>
+              ) : migrationRunning ? (
+                <div className="p-4 rounded-xl border border-border-subtle space-y-3">
+                  <div className="text-sm text-text-main/60">{t('settings_encrypting_progress')}</div>
+                  {migrationProgress && (
+                    <div className="w-full bg-text-main/10 rounded-full h-2">
+                      <div
+                        className="bg-[var(--brand-primary)] h-2 rounded-full transition-all"
+                        style={{ width: `${migrationProgress.total > 0 ? (migrationProgress.processed / migrationProgress.total * 100) : 0}%` }}
+                      />
+                    </div>
+                  )}
+                  {migrationProgress && (
+                    <div className="text-xs text-text-main/40">
+                      {migrationProgress.processed} / {migrationProgress.total} ({migrationProgress.encrypted} {t('settings_encrypted_label')})
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl border border-green-500/20 bg-green-500/5">
+                  <div className="text-sm text-green-400">{t('settings_encrypt_done', { count: migrationProgress?.encrypted ?? 0 })}</div>
+                  {migrationProgress && migrationProgress.errors > 0 && (
+                    <div className="text-xs text-text-main/40 mt-1">{t('settings_encrypt_errors', { count: migrationProgress.errors })}</div>
+                  )}
+                </div>
+              )}
+            </Section>
+          )}
         </>
       ) : (
         <button
