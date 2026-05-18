@@ -1,4 +1,4 @@
-import { Session } from '../../../types';
+import { Session } from '../../../shared/types/common';
 
 export interface LifeLogDocument {
   localId?: string;
