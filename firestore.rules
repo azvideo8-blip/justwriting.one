@@ -84,7 +84,8 @@ service cloud.firestore {
                'wordCount', 'charCount', 'wpm', 'tags', 'pinnedThoughts',
                'sessionType', 'sessionStartTime', 'goalReached', 'updatedAt',
                '_aiProcessed', '_aiAction', '_aiProcessedAt',
-               'authorName', 'authorPhoto', 'nickname', 'isPublic'
+               'authorName', 'authorPhoto', 'nickname', 'isPublic',
+               '_encrypted'
              ]) &&
              data.userId == request.auth.uid &&
              data.content is string && data.content.size() <= 900000 &&
@@ -97,11 +98,16 @@ service cloud.firestore {
 
     function isValidDraft(data) {
       return data.keys().hasAll(['userId', 'content', 'updatedAt']) &&
+             data.keys().hasOnly([
+               'userId', 'content', 'updatedAt', 'title',
+               'pinnedThoughts', 'tags', '_encrypted'
+             ]) &&
              data.userId == request.auth.uid &&
              data.content is string && data.content.size() <= 100000 &&
              data.updatedAt is number &&
              (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
-             (!('pinnedThoughts' in data) || (data.pinnedThoughts is list && data.pinnedThoughts.size() <= 20));
+             (!('pinnedThoughts' in data) || (data.pinnedThoughts is list && data.pinnedThoughts.size() <= 20)) &&
+             (!('tags' in data) || (data.tags is list && data.tags.size() <= 10));
     }
 
     // User profiles
@@ -156,6 +162,12 @@ service cloud.firestore {
 
     function isValidVersion(data) {
       return data.keys().hasAll(['documentId', 'content', 'wordCount']) &&
+             data.keys().hasOnly([
+               'documentId', 'content', 'wordCount', 'userId', 'version',
+               'wordsAdded', 'charsAdded', 'duration', 'wpm',
+               'goalWords', 'goalTime', 'goalReached',
+               'savedAt', 'sessionStartedAt', '_encrypted'
+             ]) &&
              data.documentId is string &&
              data.content is string && data.content.size() <= 900000 &&
              data.wordCount is number && data.wordCount >= 0;
