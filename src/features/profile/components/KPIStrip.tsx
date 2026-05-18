@@ -32,10 +32,11 @@ export function KPIStrip({ stats }: { stats: KPIStats }) {
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: 'repeat(6, 1fr)',
+      gridTemplateColumns: 'repeat(6, minmax(120px, 1fr))',
       gap: 1,
       background: 'var(--border-light)',
       borderBottom: '1px solid var(--border-light)',
+      overflowX: 'auto',
     }}>
       {items.map((item, i) => (
         <motion.div
@@ -48,13 +49,13 @@ export function KPIStrip({ stats }: { stats: KPIStats }) {
             <span style={{ color: item.accent ? 'var(--flow-pulse-color)' : 'var(--text-muted)' }}>
               {item.icon}
             </span>
-            <span className="font-mono text-[10px] text-text-muted uppercase tracking-widest">
+            <span className="text-[10px] text-text-muted uppercase tracking-wider whitespace-nowrap">
               {item.label}
             </span>
           </div>
           <div
             className="text-[24px] font-medium tracking-tight"
-            style={{ fontFamily: 'var(--font-mono)', color: item.accent ? 'var(--flow-pulse-color)' : item.dim ? 'var(--text-muted)' : 'var(--text-main)' }}
+            style={{ fontFamily: 'var(--font-sans)', color: item.accent ? 'var(--flow-pulse-color)' : item.dim ? 'var(--text-muted)' : 'var(--text-main)' }}
           >
             {item.countUp !== undefined
               ? <><CountUpValue target={item.countUp} />{item.suffix ?? ''}</>
