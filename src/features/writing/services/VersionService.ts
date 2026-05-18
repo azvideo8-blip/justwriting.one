@@ -18,6 +18,7 @@ export const VersionService = {
       goalTime?: number;
       goalReached?: boolean;
       sessionStartedAt: Date;
+      _encrypted?: boolean;
     }
   ): Promise<string> {
     const payloadSize = new TextEncoder().encode(data.content).length;
@@ -28,7 +29,7 @@ export const VersionService = {
       const { db, mod } = await getClient();
       const { collection, addDoc, Timestamp } = mod;
       const diff = computeWordDelta(data.previousContent, data.content);
-      const ref = await addDoc(collection(db, 'users', userId, 'documents', documentId, 'versions'), {
+      const doc: Record<string, unknown> = {
         documentId,
         userId,
         version: data.versionNumber,
@@ -43,7 +44,9 @@ export const VersionService = {
         goalReached: data.goalReached ?? false,
         savedAt: Timestamp.now(),
         sessionStartedAt: Timestamp.fromDate(data.sessionStartedAt),
-      });
+      };
+      if (data._encrypted) doc._encrypted = true;
+      const ref = await addDoc(collection(db, 'users', userId, 'documents', documentId, 'versions'), doc);
       return ref.id;
     } catch (e) {
       handleFirestoreError(e, OperationType.WRITE, `users/${userId}/documents/${documentId}/versions`);
