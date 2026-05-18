@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { AlertCircle, Mail, Lock, UserPlus, LogIn, X } from 'lucide-react';
-import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
-import { auth, googleProvider } from '../../../core/firebase/auth';
+import { AlertCircle, Mail, Lock, UserPlus, LogIn, X, ShieldAlert } from 'lucide-react';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, EmailAuthProvider, linkWithCredential } from 'firebase/auth';
+import { auth } from '../../../core/firebase/auth';
 import { useLanguage } from '../../../core/i18n';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { useToast } from '../../../shared/components/Toast';
 import { MigrationPrompt, checkGuestDocuments } from '../components/MigrationPrompt';
+import { deriveMasterKey, generateDataKey, wrapDataKey, unwrapDataKey, setSessionKey, clearSessionKey, toBase64, fromBase64, SALT_LENGTH } from '../../../core/crypto/encrypt';
+import { getClient } from '../../../core/firebase/firestoreClient';
 
 interface LoginPageProps {
   isModal?: boolean;
@@ -26,9 +28,27 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
   const [migrationUserId, setMigrationUserId] = useState<string | null>(null);
   const [migrationDocCount, setMigrationDocCount] = useState(0);
 
+  const [showGoogleMigration, setShowGoogleMigration] = useState(false);
+  const [googleMigrationEmail, setGoogleMigrationEmail] = useState('');
+  const [migrationPassword, setMigrationPassword] = useState('');
+  const [migrationLoading, setMigrationLoading] = useState(false);
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
-      if (!u) return;
+      if (!u) {
+        clearSessionKey();
+        return;
+      }
+      const providerData = u.providerData;
+      const hasGoogleProvider = providerData.some(p => p.providerId === 'google.com');
+      const hasEmailProvider = providerData.some(p => p.providerId === 'password');
+
+      if (hasGoogleProvider && !hasEmailProvider) {
+        setGoogleMigrationEmail(u.email || '');
+        setShowGoogleMigration(true);
+        return;
+      }
+
       if (onSuccess) {
         onSuccess();
         return;
@@ -42,23 +62,48 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
     return unsub;
   }, [onSuccess]);
 
-  const handleGoogleLogin = async () => {
-    setLoading(true);
+  const handleGoogleMigration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!migrationPassword || migrationPassword.length < 6) {
+      setError(t('auth_error_weak_password'));
+      return;
+    }
+    setMigrationLoading(true);
     setError(null);
     try {
-      googleProvider.setCustomParameters({ prompt: 'select_account' });
-      await signInWithPopup(auth, googleProvider);
+      const user = auth.currentUser;
+      if (!user || !user.email) throw new Error('No current user');
+
+      const credential = EmailAuthProvider.credential(user.email, migrationPassword);
+      await linkWithCredential(user, credential);
+
+      const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+      const masterKey = await deriveMasterKey(migrationPassword, salt);
+      const dataKey = await generateDataKey();
+      const wrappedDataKey = await wrapDataKey(dataKey, masterKey);
+
+      const { db, mod } = await getClient();
+      const { doc, setDoc } = mod;
+      await setDoc(doc(db, 'users', user.uid), {
+        encryptionSalt: toBase64(salt),
+        encryptedDataKey: wrappedDataKey,
+      }, { merge: true });
+
+      setSessionKey(dataKey);
+      setShowGoogleMigration(false);
+      showToast(t('auth_migration_success'), 'success');
+
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (err: unknown) {
       const firebaseError = err as { code?: string; message?: string };
-      if (firebaseError.code !== 'auth/cancelled-popup-request' && firebaseError.code !== 'auth/popup-closed-by-user') {
-        if (firebaseError.code === 'auth/network-request-failed') {
-          setError(t('auth_error_google_network'));
-        } else {
-          setError(t('auth_error_generic'));
-        }
-      }
+      let msg = t('auth_error_generic');
+      if (firebaseError.code === 'auth/email-already-in-use') msg = t('auth_error_email_in_use');
+      if (firebaseError.code === 'auth/weak-password') msg = t('auth_error_weak_password');
+      setError(msg);
     } finally {
-      setLoading(false);
+      setMigrationLoading(false);
     }
   };
 
@@ -72,9 +117,36 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
     setError(null);
     try {
       if (mode === 'register') {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+
+        const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+        const masterKey = await deriveMasterKey(password, salt);
+        const dataKey = await generateDataKey();
+        const wrappedDataKey = await wrapDataKey(dataKey, masterKey);
+
+        const { db, mod } = await getClient();
+        const { doc, setDoc } = mod;
+        await setDoc(doc(db, 'users', cred.user.uid), {
+          encryptionSalt: toBase64(salt),
+          encryptedDataKey: wrappedDataKey,
+        }, { merge: true });
+
+        setSessionKey(dataKey);
       } else {
         await signInWithEmailAndPassword(auth, email, password);
+
+        const { db, mod } = await getClient();
+        const { doc, getDoc } = mod;
+        const profileSnap = await getDoc(doc(db, 'users', auth.currentUser!.uid));
+        if (profileSnap.exists()) {
+          const profileData = profileSnap.data();
+          if (profileData.encryptionSalt && profileData.encryptedDataKey) {
+            const salt = fromBase64(profileData.encryptionSalt as string);
+            const masterKey = await deriveMasterKey(password, salt);
+            const dataKey = await unwrapDataKey(profileData.encryptedDataKey as string, masterKey);
+            setSessionKey(dataKey);
+          }
+        }
       }
     } catch (err: unknown) {
       console.error("Email auth error:", err);
@@ -99,6 +171,57 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
       setLoading(false);
     }
   };
+
+  if (showGoogleMigration) {
+    return (
+      <div className={isModal ? "flex flex-col items-center justify-center px-6 py-8" : "h-screen w-screen flex flex-col items-center justify-center px-6 overflow-y-auto py-10 bg-surface-base"}>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-md w-full text-center space-y-6"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto">
+            <ShieldAlert size={24} className="text-amber-400" />
+          </div>
+          <h2 className="text-xl font-bold text-text-main">{t('auth_google_migration_title')}</h2>
+          <p className="text-sm text-text-main/60">{t('auth_google_migration_hint')}</p>
+          <p className="text-xs text-text-main/40">{googleMigrationEmail}</p>
+
+          {error && (
+            <div role="alert" aria-live="assertive" className="p-4 rounded-xl flex items-center gap-3 text-sm text-left border bg-red-500/10 border-red-500/30 text-red-400">
+              <AlertCircle size={20} className="shrink-0" />
+              <div className="break-words">{error}</div>
+            </div>
+          )}
+
+          <form onSubmit={handleGoogleMigration} className="space-y-4 p-6 rounded-2xl border bg-surface-card border-border-subtle">
+            <div className="space-y-2 text-left">
+              <label className="text-xs font-bold uppercase tracking-widest ml-1 text-text-main/50">{t('auth_new_password')}</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/40" size={18} />
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={migrationPassword}
+                  onChange={(e) => setMigrationPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-12 pr-4 py-3 rounded-xl outline-none transition-all bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={migrationLoading}
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 text-white"
+              style={{ background: 'var(--brand-primary)' }}
+            >
+              {migrationLoading ? <div className="w-5 h-5 border-2 rounded-full animate-spin border-white/20 border-t-white" /> : t('auth_set_password')}
+            </button>
+          </form>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className={isModal ? "flex flex-col items-center justify-center px-6 py-8" : "h-screen w-screen flex flex-col items-center justify-center px-6 overflow-y-auto py-10 bg-surface-base"}>
@@ -184,20 +307,6 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
               {mode === 'login' ? t('auth_sign_in') : t('auth_sign_up')}
             </button>
           </form>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border-subtle"></div></div>
-            <div className="relative flex justify-center text-xs uppercase"><span className="px-2 bg-surface-card text-text-main/40">{t('auth_or')}</span></div>
-          </div>
-
-          <button 
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 py-4 rounded-xl shadow-sm hover:shadow-md transition-all group disabled:opacity-50 border bg-surface-base/5 border-border-subtle hover:bg-surface-base/10 text-text-main"
-          >
-            <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
-            <span className="font-semibold text-text-main">Google</span>
-          </button>
 
           <button 
             onClick={() => setMode(mode === 'login' ? 'register' : 'login')}

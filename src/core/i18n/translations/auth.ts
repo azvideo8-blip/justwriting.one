@@ -82,4 +82,10 @@ export const authTranslations: Translations = {
   admin_import_result:      { ru: 'Импортировано {{imported}} из {{total}} записей', en: 'Imported {{imported}} of {{total}} entries' },
   admin_security_xss_title: { ru: 'XSS защита',             en: 'XSS Protection' },
   admin_security_csrf_title:{ ru: 'CSRF защита',            en: 'CSRF Protection' },
+
+  auth_google_migration_title: { ru: 'Google авторизация больше не поддерживается', en: 'Google sign-in is no longer supported' },
+  auth_google_migration_hint:  { ru: 'Установите пароль для продолжения. Ваш UID и все данные сохранятся.', en: 'Set a password to continue. Your UID and all data will be preserved.' },
+  auth_new_password:           { ru: 'Новый пароль', en: 'New password' },
+  auth_set_password:           { ru: 'Установить пароль', en: 'Set password' },
+  auth_migration_success:      { ru: 'Пароль установлен. Аккаунт переведён на Email/Password.', en: 'Password set. Account switched to Email/Password.' },
 };
