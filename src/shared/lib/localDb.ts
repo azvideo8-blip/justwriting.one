@@ -83,6 +83,7 @@ interface JustWritingDB extends DBSchema {
     indexes: {
       'by-document': string;
       'by-version': number;
+      'by-doc-version': [string, number];
     };
   };
   profile: {
@@ -129,8 +130,8 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   }
   if (dbOpenPromise) return dbOpenPromise;
 
-  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 2, {
-    upgrade(db, oldVersion) {
+  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 3, {
+    upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const docStore = db.createObjectStore('documents', { keyPath: 'id' });
         docStore.createIndex('by-guest', 'guestId');
@@ -150,6 +151,10 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
         if (!db.objectStoreNames.contains('pending_sessions')) {
           db.createObjectStore('pending_sessions', { keyPath: 'id', autoIncrement: true });
         }
+      }
+      if (oldVersion < 3) {
+        const store = transaction!.objectStore('versions');
+        store.createIndex('by-doc-version', ['documentId', 'version']);
       }
     },
     blocked() {

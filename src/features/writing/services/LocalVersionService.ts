@@ -51,12 +51,10 @@ export const LocalVersionService = {
 
   async getLatestContent(documentId: string): Promise<string> {
     const db = await getLocalDb();
-    const all = await db.getAllFromIndex('versions', 'by-document', documentId);
-    if (all.length === 0) return '';
-    let latest = all[0];
-    for (let i = 1; i < all.length; i++) {
-      if (all[i].version > latest.version) latest = all[i];
-    }
-    return latest.content ?? '';
+    const tx = db.transaction('versions', 'readonly');
+    const index = tx.store.index('by-doc-version');
+    const range = IDBKeyRange.bound([documentId, 0], [documentId, Number.MAX_SAFE_INTEGER]);
+    const cursor = await index.openCursor(range, 'prev');
+    return cursor?.value.content ?? '';
   },
 };
