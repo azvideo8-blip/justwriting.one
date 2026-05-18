@@ -50,8 +50,8 @@ export interface BaseSessionReturn {
 export function useBaseWritingSession(): BaseSessionReturn {
   const title = useContentStore(s => s.title);
   const content = useContentStore(s => s.content);
-  const pinnedThoughts = useContentStore(s => s.pinnedThoughts);
-  const tags = useContentStore(s => s.tags);
+  const pinnedThoughts = useContentStore(s => Array.isArray(s.pinnedThoughts) ? s.pinnedThoughts : []);
+  const tags = useContentStore(s => Array.isArray(s.tags) ? s.tags : []);
   const labelId = useContentStore(s => s.labelId);
   const wordCount = useContentStore(s => s.wordCount);
   const initialWordCount = useContentStore(s => s.initialWordCount);

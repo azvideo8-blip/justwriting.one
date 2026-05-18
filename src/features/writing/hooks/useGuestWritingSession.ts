@@ -122,7 +122,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
       wordCount: draft.wordCount ?? 0,
     });
     useContentStore.setState({
-      pinnedThoughts: draft.pinnedThoughts ?? [],
+      pinnedThoughts: Array.isArray(draft.pinnedThoughts) ? draft.pinnedThoughts : [],
     });
     useTimerStore.setState({
       seconds: draft.seconds ?? 0,
@@ -140,7 +140,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
       wordCount: draft.wordCount ?? 0,
     });
     useContentStore.setState({
-      pinnedThoughts: draft.pinnedThoughts ?? [],
+      pinnedThoughts: Array.isArray(draft.pinnedThoughts) ? draft.pinnedThoughts : [],
     });
     useTimerStore.setState({
       seconds: draft.seconds ?? 0,

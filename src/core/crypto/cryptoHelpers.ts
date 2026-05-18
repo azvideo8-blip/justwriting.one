@@ -30,25 +30,32 @@ export async function maybeDecrypt(
   stringFields: string[],
   arrayFields: string[],
 ): Promise<Record<string, unknown>> {
-  if (!doc._encrypted) return doc;
   const key = getSessionKey();
-  if (!key) return doc;
+  const isEncrypted = doc._encrypted === true;
 
   const result: Record<string, unknown> = { ...doc };
   for (const field of stringFields) {
     const val = result[field];
-    if (typeof val === 'string') {
+    if (typeof val === 'string' && isEncrypted && key) {
       result[field] = await decryptContent(val, key);
     }
   }
   for (const field of arrayFields) {
     const val = result[field];
-    if (typeof val === 'string') {
+    if (typeof val === 'string' && isEncrypted && key) {
       try {
         result[field] = JSON.parse(await decryptContent(val, key));
       } catch {
         result[field] = [];
       }
+    } else if (typeof val === 'string' && !isEncrypted) {
+      try {
+        result[field] = JSON.parse(val);
+      } catch {
+        result[field] = [];
+      }
+    } else if (!Array.isArray(val)) {
+      result[field] = [];
     }
   }
   return result;
