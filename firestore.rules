@@ -17,7 +17,7 @@ service cloud.firestore {
     // Document ID: auto-generated
     // Fields:
     //   - userId: string (required, matches owner)
-    //   - content: string (required, 1-50000 chars)
+    //   - content: string (required, 1-900000 chars)
     //   - duration: number (required, >= 0)
     //   - createdAt: timestamp (required)
     //   - title: string (optional, 0-200 chars)
@@ -66,7 +66,7 @@ service cloud.firestore {
     function isValidSession(data) {
       return data.keys().hasAll(['userId', 'content', 'duration', 'createdAt']) &&
              data.userId == request.auth.uid &&
-             data.content is string && data.content.size() <= 50000 &&
+             data.content is string && data.content.size() <= 900000 &&
              data.duration is number && data.duration >= 0 &&
              data.createdAt is timestamp &&
              (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
@@ -97,8 +97,8 @@ service cloud.firestore {
                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
     }
 
-    // Connection test
-    match /_connection_test_/{docId} {
+    // Connection test — restricted to specific ping doc only
+    match /_connection_test_/ping {
       allow read: if isAuthenticated();
     }
 
