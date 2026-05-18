@@ -84,10 +84,10 @@ export function useSessionPersistence(
     useContentStore.setState({
       content: draft.content || '',
       title: draft.title || '',
-      pinnedThoughts: draft.pinnedThoughts || [],
+      pinnedThoughts: Array.isArray(draft.pinnedThoughts) ? draft.pinnedThoughts : [],
       initialWordCount: draft.initialWordCount || 0,
       wordCount: draft.wordCount || 0,
-      tags: draft.tags || [],
+      tags: Array.isArray(draft.tags) ? draft.tags : [],
       labelId: draft.labelId ?? undefined,
     });
     useTimerStore.setState({
