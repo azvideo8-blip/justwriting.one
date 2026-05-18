@@ -5,6 +5,7 @@ import { LocalVersionService } from './LocalVersionService';
 import { getLocalDb, randomUUID } from '../../../shared/lib/localDb';
 import { toDate } from '../../../core/utils/dateUtils';
 import { computeWordDelta } from './DiffService';
+import { maybeEncrypt } from '../../../core/crypto/cryptoHelpers';
 
 export interface StorageState {
   local: boolean;
@@ -155,7 +156,7 @@ export const StorageService = {
             if (isNaN(startedAt.getTime())) {
               throw new Error('Invalid sessionStartedAt');
             }
-            await VersionService.addVersion(userId, existing.linkedCloudId, {
+            const versionPayload = await maybeEncrypt({
               content: data.content,
               previousContent: prevContent,
               wordCount: data.wordCount,
@@ -166,6 +167,19 @@ export const StorageService = {
               goalTime: data.goalTime,
               goalReached: data.goalReached,
               sessionStartedAt: startedAt,
+            } as Record<string, unknown>, ['content', 'previousContent'], []);
+            await VersionService.addVersion(userId, existing.linkedCloudId, {
+              content: versionPayload.content as string,
+              previousContent: versionPayload.previousContent as string,
+              wordCount: data.wordCount,
+              duration: data.duration,
+              wpm: data.wpm,
+              versionNumber: newVersion,
+              goalWords: data.goalWords,
+              goalTime: data.goalTime,
+              goalReached: data.goalReached,
+              sessionStartedAt: startedAt,
+              _encrypted: versionPayload._encrypted as boolean | undefined,
             });
             await DocumentService.updateDocumentAfterSession(userId, existing.linkedCloudId, {
               totalWords: data.documentWordCount ?? data.wordCount,
@@ -297,7 +311,7 @@ export const StorageService = {
             throw new Error(`Invalid sessionStartedAt for version ${ver.id}`);
           }
 
-          await withTimeout(VersionService.addVersion(userId, cloudId, {
+          const versionPayload = await maybeEncrypt({
             content: ver.content,
             previousContent: prevContent,
             wordCount: ver.wordCount,
@@ -308,6 +322,20 @@ export const StorageService = {
             goalTime: ver.goalTime,
             goalReached: ver.goalReached,
             sessionStartedAt: startedAt,
+          } as Record<string, unknown>, ['content', 'previousContent'], []);
+
+          await withTimeout(VersionService.addVersion(userId, cloudId, {
+            content: versionPayload.content as string,
+            previousContent: versionPayload.previousContent as string,
+            wordCount: ver.wordCount,
+            duration: ver.duration,
+            wpm: ver.wpm,
+            versionNumber: ver.version,
+            goalWords: ver.goalWords,
+            goalTime: ver.goalTime,
+            goalReached: ver.goalReached,
+            sessionStartedAt: startedAt,
+            _encrypted: versionPayload._encrypted as boolean | undefined,
           }));
           prevContent = ver.content;
         }

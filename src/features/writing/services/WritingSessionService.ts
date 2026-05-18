@@ -3,6 +3,7 @@ import { handleFirestoreError, OperationType } from '../../../shared/lib/firesto
 import { getLocalDb } from '../../../shared/lib/localDb';
 import { reportError } from '../../../core/errors/reportError';
 import { SessionPayload } from '../../../types';
+import { maybeEncrypt } from '../../../core/crypto/cryptoHelpers';
 
 async function savePendingSession(session: { sessionId: string | null; data: Record<string, unknown>; userId: string }): Promise<void> {
   const localDb = await getLocalDb();
@@ -29,7 +30,8 @@ export const WritingSessionService = {
 
       const { db, mod } = await getClient();
       const { collection, addDoc, updateDoc, doc, Timestamp } = mod;
-      const clean = Object.fromEntries(Object.entries(sessionData).filter(([, v]) => v !== undefined));
+      const encrypted = await maybeEncrypt(sessionData as unknown as Record<string, unknown>, ['content'], ['pinnedThoughts']);
+      const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
 
       if (activeSessionId) {
         await updateDoc(doc(db, 'sessions', activeSessionId), {
@@ -76,7 +78,8 @@ export const WritingSessionService = {
       try {
         const { db, mod } = await getClient();
         const { collection, addDoc, updateDoc, doc, Timestamp } = mod;
-        const cleanData = Object.fromEntries(Object.entries(session.data).filter(([, v]) => v !== undefined));
+        const encryptedData = await maybeEncrypt(session.data as Record<string, unknown>, ['content'], ['pinnedThoughts']);
+        const cleanData = Object.fromEntries(Object.entries(encryptedData).filter(([, v]) => v !== undefined));
         if (session.sessionId) {
           await updateDoc(doc(db, 'sessions', session.sessionId), {
             ...cleanData,
