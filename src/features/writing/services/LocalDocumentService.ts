@@ -91,12 +91,14 @@ export const LocalDocumentService = {
 
   async deleteDocument(id: string): Promise<void> {
     const db = await getLocalDb();
-    const versions = await db.getAllFromIndex('versions', 'by-document', id);
-    const doc = await db.get('documents', id);
     const tx = db.transaction(['documents', 'versions'], 'readwrite');
+    const verStore = tx.objectStore('versions');
+    const docStore = tx.objectStore('documents');
+    const versions = await verStore.index('by-document').getAll(id);
+    const doc = await docStore.get(id);
     await Promise.all([
-      ...versions.map(v => tx.objectStore('versions').delete(v.id)),
-      tx.objectStore('documents').delete(id),
+      ...versions.map(v => verStore.delete(v.id)),
+      docStore.delete(id),
       tx.done,
     ]);
     if (doc) await LocalDocumentService._updateProfile(doc.guestId);
