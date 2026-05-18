@@ -121,6 +121,8 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
   const { t } = useLanguage();
   const { user } = useAuthStatus();
   const reducedMotion = useReducedMotion();
+  const abortRef = useRef<AbortController | null>(null);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(() => {
     try {
@@ -133,15 +135,22 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
 
   useEffect(() => {
     if (!user) return;
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+
     ProfileService.loadEarnedAchievements(user.uid).then(cloudIds => {
+      if (ac.signal.aborted) return;
       if (cloudIds.length > 0) {
         setUnlockedIds(prev => {
           const merged = new Set([...prev, ...cloudIds]);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify([...merged]));
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...merged])); } catch { /* ignore */ }
           return merged;
         });
       }
     }).catch(() => { /* localStorage as fallback */ });
+
+    return () => ac.abort();
   }, [user]);
 
   const statsKeyRef = useRef('');
@@ -168,14 +177,31 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
           console.warn('[Achievements] newly unlocked:', [...updated].filter(id => !prev.has(id)));
         }
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...updated])); } catch { /* ignore */ }
-        if (user) {
-          ProfileService.updateEarnedAchievements(user.uid, [...updated]).catch(e => {
-            console.error('Failed to sync achievements to cloud:', e);
-          });
-        }
         return updated;
       });
     });
+
+    // Debounced cloud sync — reads latest from localStorage
+    if (user) {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = setTimeout(() => {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            ProfileService.updateEarnedAchievements(user.uid, JSON.parse(saved)).catch(e => {
+              console.error('Failed to sync achievements to cloud:', e);
+            });
+          }
+        } catch { /* ignore */ }
+      }, 2000);
+    }
+
+    return () => {
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
+        syncTimerRef.current = null;
+      }
+    };
   }, [stats, sessions, user]);
 
   const totalAchievements = GROUPS.reduce((s, g) => s + g.achievements.length, 0);

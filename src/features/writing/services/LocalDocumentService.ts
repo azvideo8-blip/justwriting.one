@@ -42,28 +42,32 @@ export const LocalDocumentService = {
     data: { totalWords: number; totalDuration: number; currentVersion: number }
   ): Promise<void> {
     const db = await getLocalDb();
-    const existing = await db.get('documents', id);
-    if (!existing) return;
+    const tx = db.transaction(['documents', 'profile'], 'readwrite');
+    const existing = await tx.objectStore('documents').get(id);
+    if (!existing) { await tx.done; return; }
+    const now = Date.now();
 
-    await db.put('documents', {
+    await tx.objectStore('documents').put({
       ...existing,
       totalWords: data.totalWords,
       totalDuration: data.totalDuration,
       currentVersion: data.currentVersion,
       sessionsCount: (existing.sessionsCount || 0) + 1,
-      lastSessionAt: Date.now(),
+      lastSessionAt: now,
     });
 
-    const profile = await db.get('profile', existing.guestId);
+    const profile = await tx.objectStore('profile').get(existing.guestId);
     if (profile) {
-      await db.put('profile', {
+      await tx.objectStore('profile').put({
         ...profile,
         totalWords: profile.totalWords - existing.totalWords + data.totalWords,
         totalDuration: profile.totalDuration - existing.totalDuration + data.totalDuration,
         sessionsCount: profile.sessionsCount + 1,
-        lastSessionAt: Date.now(),
+        lastSessionAt: now,
       });
+      await tx.done;
     } else {
+      await tx.done;
       await LocalDocumentService._updateProfile(existing.guestId);
     }
   },

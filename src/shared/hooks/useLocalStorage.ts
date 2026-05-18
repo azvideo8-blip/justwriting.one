@@ -5,114 +5,55 @@ export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodT
   const initialValueRef = useRef(initialValue);
   const schemaRef = useRef(schema);
 
-  function loadFromStorage(): T {
-    if (typeof window === 'undefined') {
-      return initialValue;
-    }
-
+  const parseStoredValue = useCallback((): T => {
+    if (typeof window === 'undefined') return initialValueRef.current;
     try {
-      const item = window.localStorage.getItem(key);
-      if (!item) return initialValue;
-
-      const parsed = JSON.parse(item);
-
-      if (schema) {
-        const result = schema.safeParse(parsed);
-        if (!result.success) {
-          if (import.meta.env.DEV) {
-            console.warn(`Storage schema mismatch for key "${key}":`, result.error);
-          }
-          try { window.localStorage.removeItem(key); } catch { /* ignore */ }
-          return initialValue;
-        }
-        return result.data;
-      }
-
-      return parsed as T;
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.warn(`Error reading localStorage key "${key}":`, error);
-      }
-      return initialValue;
-    }
-  }
-
-  const [storedValue, setStoredValue] = useState<T>(loadFromStorage);
-
-  const readValue = useCallback((): T => {
-    if (typeof window === 'undefined') {
-      return initialValueRef.current;
-    }
-
-    try {
-      const item = window.localStorage.getItem(key);
+      const item = localStorage.getItem(key);
       if (!item) return initialValueRef.current;
-
       const parsed = JSON.parse(item);
-
       if (schemaRef.current) {
         const result = schemaRef.current.safeParse(parsed);
         if (!result.success) {
           if (import.meta.env.DEV) {
             console.warn(`Storage schema mismatch for key "${key}":`, result.error);
           }
-          try { window.localStorage.removeItem(key); } catch { /* ignore */ }
+          try { localStorage.removeItem(key); } catch { /* ignore */ }
           return initialValueRef.current;
         }
         return result.data;
       }
-
       return parsed as T;
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.warn(`Error reading localStorage key "${key}":`, error);
-      }
+    } catch {
       return initialValueRef.current;
     }
   }, [key]);
 
-  const setValue = useCallback((value: T | ((val: T) => T)) => {
-    try {
-      setStoredValue(prev => {
-        const valueToStore = value instanceof Function ? value(prev) : value;
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem(key, JSON.stringify(valueToStore));
-          window.dispatchEvent(new Event('local-storage'));
-        }
-        return valueToStore;
-      });
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-        console.error(`localStorage quota exceeded for key "${key}"`);
-      } else if (import.meta.env.DEV) {
-        console.warn(`Error setting localStorage key "${key}":`, error);
-      }
-    }
-  }, [key]);
+  const [storedValue, setStoredValue] = useState<T>(parseStoredValue);
 
   useEffect(() => {
-    setTimeout(() => setStoredValue(readValue()), 0);
-  }, [key, readValue]);
-
-  const handleStorageChange = useCallback(
-    (event: StorageEvent | CustomEvent) => {
-      if ((event as StorageEvent).key && (event as StorageEvent).key !== key) {
-        return;
-      }
-      setStoredValue(readValue());
-    },
-    [key, readValue],
-  );
+    setStoredValue(parseStoredValue());
+  }, [key, parseStoredValue]);
 
   useEffect(() => {
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('local-storage', handleStorageChange);
-
+    const handler = () => setStoredValue(parseStoredValue());
+    window.addEventListener('storage', handler);
+    window.addEventListener('local-storage', handler);
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('local-storage', handleStorageChange);
+      window.removeEventListener('storage', handler);
+      window.removeEventListener('local-storage', handler);
     };
-  }, [handleStorageChange]);
+  }, [parseStoredValue]);
+
+  const setValue = useCallback((value: T | ((val: T) => T)) => {
+    setStoredValue(prev => {
+      const valueToStore = value instanceof Function ? value(prev) : value;
+      try {
+        localStorage.setItem(key, JSON.stringify(valueToStore));
+        window.dispatchEvent(new Event('local-storage'));
+      } catch { /* quota exceeded — silently ignore */ }
+      return valueToStore;
+    });
+  }, [key]);
 
   return [storedValue, setValue] as const;
 }
