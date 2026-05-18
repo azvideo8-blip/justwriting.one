@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLanguage } from '../../../core/i18n';
 import { Session } from '../../../types';
-import type { SessionGroup, DailySummary, LifeLogDocument } from '../hooks/useLifeLog';
+import type { SessionGroup, DailySummary, LifeLogDocument } from '../types/lifeLog';
 
 interface MobileHomeScreenProps {
   userId: string;

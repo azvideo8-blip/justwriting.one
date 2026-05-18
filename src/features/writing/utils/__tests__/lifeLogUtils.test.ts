@@ -5,7 +5,7 @@ import {
   groupSessionsByDate,
   computeDailySummary,
 } from '../lifeLogUtils';
-import { LifeLogDocument } from '../../hooks/useLifeLog';
+import { LifeLogDocument } from '../../types/lifeLog';
 import { LocalDocument } from '../../../../shared/lib/localDb';
 import { Document, Session } from '../../../../types';
 import { Timestamp } from 'firebase/firestore';
