@@ -139,11 +139,11 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
     const ac = new AbortController();
     abortRef.current = ac;
 
-    ProfileService.loadEarnedAchievements(user.uid).then(cloudIds => {
+    ProfileService.loadEarnedAchievements(user.uid).then(result => {
       if (ac.signal.aborted) return;
-      if (cloudIds.length > 0) {
+      if (result.ids.length > 0 && !result.error) {
         setUnlockedIds(prev => {
-          const merged = new Set([...prev, ...cloudIds]);
+          const merged = new Set([...prev, ...result.ids]);
           try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...merged])); } catch { /* ignore */ }
           return merged;
         });

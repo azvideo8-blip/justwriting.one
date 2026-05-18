@@ -35,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(true);
   const creationAttemptedRef = useRef(false);
   const prevUidRef = useRef<string | null>(null);
+  const profileSetBySnapshotRef = useRef(false);
 
   useEffect(() => {
     const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
@@ -100,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (snap.exists()) {
           const data = snap.data();
           if (data && typeof data === 'object' && 'uid' in data) {
+            profileSetBySnapshotRef.current = true;
             setProfile(data as UserProfile);
           } else {
             if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, data);
@@ -132,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           setDoc(userDoc, initialProfile, { merge: true }).then(() => {
             creationAttemptedRef.current = false;
-            if (!cancelled) setProfile(initialProfile);
+            if (!cancelled && !profileSetBySnapshotRef.current) setProfile(initialProfile);
           }).catch(err => {
             console.error('Error creating user profile:', err);
             Sentry.captureException(err, {

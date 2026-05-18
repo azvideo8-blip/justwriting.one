@@ -140,7 +140,8 @@ async function _drainPendingQueue(userId: string): Promise<void> {
   }
 
   if (syncedIds.length > 0) {
-    const tx = db.transaction('syncQueue', 'readwrite');
+    const cleanupDb = await getLocalDb();
+    const tx = cleanupDb.transaction('syncQueue', 'readwrite');
     await Promise.all(syncedIds.map(id => tx.store.delete(id)));
     await tx.done;
   }
