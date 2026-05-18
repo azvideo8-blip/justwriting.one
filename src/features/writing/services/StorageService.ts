@@ -151,7 +151,6 @@ export const StorageService = {
               createdAt: Date.now(),
             });
           } else {
-            const cloudBaseDuration = cloudDoc.totalDuration ?? 0;
             const startedAt = data.sessionStartedAt;
             if (isNaN(startedAt.getTime())) {
               throw new Error('Invalid sessionStartedAt');
@@ -207,14 +206,14 @@ export const StorageService = {
     if (!cloudDoc) throw new Error('Cloud document not found');
 
     const versions = await VersionService.getVersions(userId, cloudDocumentId);
-    const firstSessionMs = toDate(cloudDoc.firstSessionAt)?.getTime() || undefined;
-    const lastSessionMs = toDate(cloudDoc.lastSessionAt)?.getTime() || undefined;
+    const firstSessionMs = toDate(cloudDoc.firstSessionAt)?.getTime() ?? undefined;
+    const lastSessionMs = toDate(cloudDoc.lastSessionAt)?.getTime() ?? undefined;
     const localId = await LocalDocumentService.createDocument(userId, {
       title: cloudDoc.title,
       tags: cloudDoc.tags,
       labelId: cloudDoc.labelId ?? undefined,
-      firstSessionAt: firstSessionMs || undefined,
-      lastSessionAt: lastSessionMs || undefined,
+      firstSessionAt: firstSessionMs ?? undefined,
+      lastSessionAt: lastSessionMs ?? undefined,
     });
 
     try {
