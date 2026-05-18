@@ -5,6 +5,7 @@ import { getClient } from '../../../core/firebase/firestoreClient';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { UserProfile } from '../../../types';
 import * as Sentry from '@sentry/react';
+import { clearSessionKey } from '../../../core/crypto/encrypt';
 
 type AuthState = 'loading' | 'authenticated' | 'guest';
 
@@ -75,6 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           keysToRemove.forEach(k => localStorage.removeItem(k));
         } catch { /* ignore */ }
+      } else {
+        clearSessionKey();
       }
     });
     return unsubscribe;
