@@ -1,7 +1,21 @@
-import { useContentStore, clearWordCalcTimer } from './useContentStore';
+import { useContentStore, clearWordCalcTimer, registerTimerBridge } from './useContentStore';
 import { useTimerStore } from './useTimerStore';
 import { useSessionMetaStore } from './useSessionMetaStore';
 import { TimerStatus, SessionType } from './types';
+
+export function getContentState() { return useContentStore.getState(); }
+export function getTimerState() { return useTimerStore.getState(); }
+export function setTimerPartial(partial: Parameters<typeof useTimerStore.setState>[0]) {
+  return useTimerStore.setState(partial);
+}
+
+registerTimerBridge(
+  () => {
+    const s = useTimerStore.getState();
+    return { status: s.status, sessionStartWords: s.sessionStartWords, wordGoal: s.wordGoal };
+  },
+  (partial) => useTimerStore.setState(partial as unknown as Parameters<typeof useTimerStore.setState>[0]),
+);
 
 const CONTENT_DEFAULTS = {
   content: '', title: '', pinnedThoughts: [],

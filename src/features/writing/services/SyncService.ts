@@ -6,6 +6,7 @@ import pLimit from 'p-limit';
 
 const _syncInProgress = new Map<string, boolean>();
 const limit = pLimit(5);
+const MAX_QUEUE_AGE_MS = 24 * 60 * 60 * 1000;
 
 export const SyncService = {
   async addToQueue(documentId: string): Promise<void> {
@@ -103,7 +104,23 @@ export const SyncService = {
 async function _drainPendingQueue(userId: string): Promise<void> {
   const db = await getLocalDb();
   const queue = await db.getAll('syncQueue');
-  const pending = queue.filter(item => !item.id.startsWith('migrated_'));
+  const now = Date.now();
+
+  const expiredIds: string[] = [];
+  const pending = queue.filter(item => {
+    if (item.id.startsWith('migrated_')) return false;
+    if (now - item.createdAt > MAX_QUEUE_AGE_MS) {
+      expiredIds.push(item.id);
+      return false;
+    }
+    return true;
+  });
+
+  if (expiredIds.length > 0) {
+    const tx = db.transaction('syncQueue', 'readwrite');
+    await Promise.all(expiredIds.map(id => tx.store.delete(id)));
+    await tx.done;
+  }
 
   if (pending.length === 0) return;
 

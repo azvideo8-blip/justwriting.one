@@ -1,6 +1,16 @@
 import { create } from 'zustand';
 import { WordSnapshot } from './types';
-import { useTimerStore } from './useTimerStore';
+
+type TimerStateGetter = () => { status: string; sessionStartWords: number; wordGoal: number };
+type TimerStateSetter = (partial: Record<string, unknown>) => void;
+
+let _getTimerState: TimerStateGetter | null = null;
+let _setTimerPartial: TimerStateSetter | null = null;
+
+export function registerTimerBridge(get: TimerStateGetter, set: TimerStateSetter) {
+  _getTimerState = get;
+  _setTimerPartial = set;
+}
 
 interface ContentState {
   content: string;
@@ -33,7 +43,7 @@ export function clearWordCalcTimer() {
 
 function computeWordStats(content: string) {
   const contentState = useContentStore.getState();
-  const timerState = useTimerStore.getState();
+  const timerState = _getTimerState?.() ?? { status: 'idle', sessionStartWords: 0, wordGoal: 0 };
   _wordCalcTimer = null;
   const words = content.trim().split(/\s+/).filter(x => x.length > 0).length;
   const now = Date.now();
@@ -70,7 +80,7 @@ function computeWordStats(content: string) {
     wpm: currentWpm,
   });
 
-  useTimerStore.setState({ wordGoalReached });
+  _setTimerPartial?.({ wordGoalReached });
 }
 
 export const useContentStore = create<ContentState>((set) => ({
