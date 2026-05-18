@@ -30,20 +30,13 @@ export function KPIStrip({ stats }: { stats: KPIStats }) {
   ];
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(6, minmax(120px, 1fr))',
-      gap: 1,
-      background: 'var(--border-light)',
-      borderBottom: '1px solid var(--border-light)',
-      overflowX: 'auto',
-    }}>
+    <div className="grid grid-cols-3 sm:grid-cols-6 gap-px bg-border-light border-b border-border-light">
       {items.map((item, i) => (
         <motion.div
           key={i}
           whileHover={{ y: -2, scale: 1.02 }}
           transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-          style={{ padding: '20px 24px', background: 'var(--surface-card)', cursor: 'default' }}
+          style={{ padding: '16px 20px', background: 'var(--surface-card)', cursor: 'default' }}
         >
           <div className="flex items-center gap-2 mb-2">
             <span style={{ color: item.accent ? 'var(--flow-pulse-color)' : 'var(--text-muted)' }}>
