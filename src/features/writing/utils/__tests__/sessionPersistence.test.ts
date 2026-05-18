@@ -1,8 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { buildSessionPayload } from '../sessionPersistence';
 
-vi.mock('firebase/firestore', () => ({
-  Timestamp: { now: () => ({ seconds: 123, nanoseconds: 0 }), fromDate: (d: Date) => ({ seconds: d.getTime() / 1000, nanoseconds: 0 }) },
+vi.mock('../../../core/firebase/firestoreClient', () => ({
+  getClient: () => ({
+    mod: {
+      Timestamp: {
+        now: () => ({ seconds: 123, nanoseconds: 0 }),
+        fromDate: (d: Date) => ({ seconds: d.getTime() / 1000, nanoseconds: 0 }),
+      },
+    },
+  }),
 }));
 
 describe('buildSessionPayload', () => {
@@ -25,27 +32,19 @@ describe('buildSessionPayload', () => {
     expect(result.userId).toBe('user123');
   });
 
-  it('authorName from profile nickname', async () => {
-    const profile = { nickname: 'Nick' } as any;
-    const result = await buildSessionPayload(baseState, profile, null, 'u1');
-    expect(result.authorName).toBe('Nick');
-  });
-
-  it('authorName fallback to user displayName', async () => {
-    const user = { displayName: 'Display' } as any;
-    const result = await buildSessionPayload(baseState, null, user, 'u1');
-    expect(result.authorName).toBe('Display');
-  });
-
-  it('authorName fallback to email prefix', async () => {
-    const user = { email: 'test@example.com' } as any;
-    const result = await buildSessionPayload(baseState, null, user, 'u1');
-    expect(result.authorName).toBe('test');
-  });
-
-  it('authorName fallback to Guest', async () => {
+  it('does not include authorName (PII removed)', async () => {
     const result = await buildSessionPayload(baseState, null, null, 'u1');
-    expect(result.authorName).toBe('Guest');
+    expect(result.authorName).toBeUndefined();
+  });
+
+  it('does not include authorPhoto (PII removed)', async () => {
+    const result = await buildSessionPayload(baseState, null, null, 'u1');
+    expect(result.authorPhoto).toBeUndefined();
+  });
+
+  it('does not include nickname (PII removed)', async () => {
+    const result = await buildSessionPayload(baseState, { nickname: 'Nick' } as any, null, 'u1');
+    expect(result.nickname).toBeUndefined();
   });
 
   it('charCount = content.length', async () => {

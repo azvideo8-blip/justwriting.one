@@ -45,8 +45,6 @@ export function useSessionList(
           return {
             id: s.id,
             userId: '',
-            authorName: '',
-            authorPhoto: '',
             content: (data?.content as string) || '',
             duration: (data?.duration as number) || s.duration || 0,
             wordCount: (data?.wordCount as number) || s.wordCount || 0,

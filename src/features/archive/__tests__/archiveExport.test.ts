@@ -67,10 +67,8 @@ function makeSession(overrides: Partial<ArchiveSession> = {}): ArchiveSession {
   const base: Session = {
     id: 'sess1',
     userId: 'u1',
-    authorName: 'Tester',
-    authorPhoto: '',
     content: 'Hello world content',
-    duration: 300, // 5 minutes
+    duration: 300,
     wordCount: 42,
     charCount: 100,
     wpm: 50,
