@@ -79,4 +79,10 @@ export const settingsTranslations: Translations = {
   settings_current_password:   { ru: 'Текущий пароль', en: 'Current password' },
   settings_new_password:       { ru: 'Новый пароль', en: 'New password' },
   settings_password_changed:   { ru: 'Пароль успешно изменён', en: 'Password changed successfully' },
+  settings_encryption:         { ru: 'Шифрование', en: 'Encryption' },
+  settings_encrypt_all:        { ru: 'Зашифровать все заметки', en: 'Encrypt all notes' },
+  settings_encrypting_progress:{ ru: 'Шифрование заметок...', en: 'Encrypting notes...' },
+  settings_encrypted_label:    { ru: 'зашифровано', en: 'encrypted' },
+  settings_encrypt_done:       { ru: 'Зашифровано заметок: {count}', en: 'Encrypted notes: {count}' },
+  settings_encrypt_errors:     { ru: 'Ошибок: {count}', en: 'Errors: {count}' },
 };
