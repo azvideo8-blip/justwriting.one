@@ -74,4 +74,9 @@ export const settingsTranslations: Translations = {
   offline_pending: { ru: 'Ожидает синхронизации: {count}', en: '{count} pending sync' },
   offline_synced: { ru: 'Все данные синхронизированы', en: 'All data synced' },
   offline_banner_message: { ru: 'Работа в офлайн-режиме. Сессия будет сохранена локально.', en: 'Working offline. Session will be saved locally.' },
+
+  settings_change_password:    { ru: 'Сменить пароль', en: 'Change password' },
+  settings_current_password:   { ru: 'Текущий пароль', en: 'Current password' },
+  settings_new_password:       { ru: 'Новый пароль', en: 'New password' },
+  settings_password_changed:   { ru: 'Пароль успешно изменён', en: 'Password changed successfully' },
 };
