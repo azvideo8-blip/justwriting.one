@@ -1,6 +1,12 @@
 {
-  "rewrites": [{ "source": "/((?!assets|favicon|sw\\.js|manifest\\.json).*)", "destination": "/index.html" }],
+  "rewrites": [{ "source": "/([^.]*)", "destination": "/index.html" }],
   "headers": [
+    {
+      "source": "/",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [
@@ -26,7 +32,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://firestore.googleapis.com https://firebase.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://gen-lang-client-0751626072.firebaseio.com wss://gen-lang-client-0751626072.firebaseio.com https://accounts.google.com https://oauth2.googleapis.com https://o4509237484238848.ingest.us.sentry.io https://*.sentry.io https://*.ingest.sentry.io; frame-src 'self' https://apis.google.com https://accounts.google.com https://*.firebaseapp.com; frame-ancestors 'none'"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://lh3.googleusercontent.com; connect-src 'self' https://firestore.googleapis.com https://firebase.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://gen-lang-client-0751626072.firebaseio.com wss://gen-lang-client-0751626072.firebaseio.com https://accounts.google.com https://oauth2.googleapis.com https://o4509237484238848.ingest.us.sentry.io https://*.sentry.io https://*.ingest.sentry.io; frame-src 'self' https://apis.google.com https://accounts.google.com https://*.firebaseapp.com; frame-ancestors 'none'"
         }
       ]
     }
