@@ -42,7 +42,7 @@ export function KPIStrip({ stats }: { stats: KPIStats }) {
             <span style={{ color: item.accent ? 'var(--flow-pulse-color)' : 'var(--text-muted)' }}>
               {item.icon}
             </span>
-            <span className="text-[10px] text-text-muted uppercase tracking-wider whitespace-nowrap">
+            <span className="text-[10px] text-text-muted uppercase tracking-wider leading-tight">
               {item.label}
             </span>
           </div>

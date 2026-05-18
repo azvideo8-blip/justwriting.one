@@ -1,7 +1,6 @@
 import { Translations } from '../types';
 
 export const authTranslations: Translations = {
-  auth_error_google_network: { ru: 'Ошибка сети при авторизации через Google. Проверьте интернет-соединение или настройки Authorized Domains в консоли Firebase.', en: 'Network error during Google sign-in. Check your internet connection or Authorized Domains settings in Firebase Console.' },
   auth_error_generic: { ru: 'Произошла ошибка при входе.', en: 'An error occurred during sign-in.' },
   auth_error_fields_required: { ru: 'Пожалуйста, заполните все поля.', en: 'Please fill in all fields.' },
   auth_error_user_not_found: { ru: 'Пользователь не найден.', en: 'User not found.' },
@@ -83,19 +82,9 @@ export const authTranslations: Translations = {
   admin_security_xss_title: { ru: 'XSS защита',             en: 'XSS Protection' },
   admin_security_csrf_title:{ ru: 'CSRF защита',            en: 'CSRF Protection' },
 
-  auth_google_migration_title: { ru: 'Google авторизация больше не поддерживается', en: 'Google sign-in is no longer supported' },
-  auth_google_migration_hint:  { ru: 'Установите пароль для продолжения. Ваш UID и все данные сохранятся.', en: 'Set a password to continue. Your UID and all data will be preserved.' },
-  auth_new_password:           { ru: 'Новый пароль', en: 'New password' },
-  auth_set_password:           { ru: 'Установить пароль', en: 'Set password' },
-  auth_migration_success:      { ru: 'Пароль установлен. Аккаунт переведён на Email/Password.', en: 'Password set. Account switched to Email/Password.' },
-
   auth_forgot_password:  { ru: 'Забыли пароль?', en: 'Forgot password?' },
   auth_forgot_title:     { ru: 'Сброс пароля', en: 'Password reset' },
   auth_forgot_warning:   { ru: 'Сброс пароля удалит доступ ко всем зашифрованным заметкам. Они останутся в системе, но будут нечитаемы. Продолжить?', en: 'Resetting your password will revoke access to all encrypted notes. They will remain in the system but become unreadable. Continue?' },
   auth_forgot_confirm:   { ru: 'Да, сбросить пароль', en: 'Yes, reset password' },
   auth_forgot_sent:      { ru: 'Письмо для сброса пароля отправлено на ваш email.', en: 'Password reset email has been sent.' },
-
-  auth_google_migration_login:    { ru: 'Войти через Google', en: 'Sign in with Google' },
-  auth_google_migration_subtitle: { ru: 'Только для пользователей, зарегистрированных ранее', en: 'Only for previously registered users' },
-  auth_error_google_popup:        { ru: 'Не удалось открыть окно Google. Проверьте блокировщик всплывающих окон.', en: 'Could not open Google popup. Check your popup blocker.' },
 };
