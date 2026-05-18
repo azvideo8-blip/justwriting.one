@@ -29,8 +29,6 @@ function getRarityLabel(rarity: Rarity, t: (key: string) => string): string {
   return t(`ach_rarity_${rarity}`);
 }
 
-const STORAGE_KEY = 'unlocked_achievements';
-
 interface AchGroup {
   id: string;
   labelKey: string;
@@ -105,7 +103,6 @@ export function checkAchievement(ach: Achievement, stats: Stats, sessions: Sessi
   if (ach.id.startsWith('notes_')) return stats.sessionsCount >= ach.threshold;
   if (ach.id.startsWith('duration_')) {
     if (sessions.length === 0) return false;
-    // Math.floor — strict: 89m59s does NOT count as 90 minutes
     const maxMins = Math.floor(Math.max(...sessions.map(s => s.duration || 0)) / 60);
     return maxMins >= ach.threshold;
   }
@@ -123,10 +120,12 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
   const reducedMotion = useReducedMotion();
   const abortRef = useRef<AbortController | null>(null);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userId = user?.uid ?? 'guest';
+  const storageKey = `unlocked_achievements_${userId}`;
 
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(storageKey);
       return saved ? new Set(JSON.parse(saved) as string[]) : new Set<string>();
     } catch {
       return new Set<string>();
@@ -144,7 +143,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
       if (result.ids.length > 0 && !result.error) {
         setUnlockedIds(prev => {
           const merged = new Set([...prev, ...result.ids]);
-          try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...merged])); } catch { /* ignore */ }
+          try { localStorage.setItem(storageKey, JSON.stringify([...merged])); } catch { /* ignore */ }
           return merged;
         });
       }
@@ -176,7 +175,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
         if (import.meta.env.DEV) {
           console.warn('[Achievements] newly unlocked:', [...updated].filter(id => !prev.has(id)));
         }
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...updated])); } catch { /* ignore */ }
+        try { localStorage.setItem(storageKey, JSON.stringify([...updated])); } catch { /* ignore */ }
         return updated;
       });
     });
@@ -186,7 +185,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
       syncTimerRef.current = setTimeout(() => {
         try {
-          const saved = localStorage.getItem(STORAGE_KEY);
+          const saved = localStorage.getItem(storageKey);
           if (saved) {
             ProfileService.updateEarnedAchievements(user.uid, JSON.parse(saved)).catch(e => {
               console.error('Failed to sync achievements to cloud:', e);

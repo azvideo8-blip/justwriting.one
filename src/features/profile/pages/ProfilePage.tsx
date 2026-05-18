@@ -163,7 +163,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const handleResetAchievements = useCallback(() => {
-    localStorage.removeItem('unlocked_achievements');
+    localStorage.removeItem(`unlocked_achievements_${user?.uid ?? 'guest'}`);
     setAchResetKey(k => k + 1);
     setShowResetConfirm(false);
     if (user) {
