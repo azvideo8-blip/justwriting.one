@@ -1,16 +1,7 @@
 {
-  "rewrites": [
-    { "source": "/assets/(.*)", "destination": "/assets/$1" },
-    { "source": "/(.*).js", "destination": "/$1.js" },
-    { "source": "/(.*).css", "destination": "/$1.css" },
-    { "source": "/(.*).ico", "destination": "/$1.ico" },
-    { "source": "/(.*).svg", "destination": "/$1.svg" },
-    { "source": "/(.*).png", "destination": "/$1.png" },
-    { "source": "/(.*).json", "destination": "/$1.json" },
-    { "source": "/(.*).woff2", "destination": "/$1.woff2" },
-    { "source": "/sw.js", "destination": "/sw.js" },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ],
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
     {
       "source": "/(.*)",
