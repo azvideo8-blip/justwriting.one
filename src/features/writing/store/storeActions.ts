@@ -108,7 +108,11 @@ export function setSessionConfig(config: Record<string, unknown>) {
     else if (metaKeys.has(key)) metaPart[key] = value;
   }
 
-  if (Object.keys(contentPart).length > 0) useContentStore.setState(contentPart as Partial<typeof CONTENT_DEFAULTS>);
+  if (Object.keys(contentPart).length > 0) {
+    if (contentPart.pinnedThoughts && !Array.isArray(contentPart.pinnedThoughts)) contentPart.pinnedThoughts = [];
+    if (contentPart.tags && !Array.isArray(contentPart.tags)) contentPart.tags = [];
+    useContentStore.setState(contentPart as Partial<typeof CONTENT_DEFAULTS>);
+  }
   if (Object.keys(timerPart).length > 0) useTimerStore.setState(timerPart as Partial<typeof TIMER_DEFAULTS>);
   if (Object.keys(metaPart).length > 0) useSessionMetaStore.setState(metaPart as Partial<typeof META_DEFAULTS>);
 }

@@ -67,7 +67,7 @@ function computeWordStats(content: string) {
   const sessionWords = words - timerState.sessionStartWords;
   const wordGoalReached = timerState.wordGoal > 0 && sessionWords >= timerState.wordGoal;
 
-  const history = contentState.wpmHistory ?? [];
+  const history = Array.isArray(contentState.wpmHistory) ? contentState.wpmHistory : [];
   const lastHistoryEntry = history[history.length - 1];
   if (currentWpm > 0 && (!lastHistoryEntry || now - lastHistoryEntry.timestamp >= 30_000)) {
     useContentStore.getState().pushWpmHistory({ timestamp: now, wpm: currentWpm });
