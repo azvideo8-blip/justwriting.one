@@ -3,7 +3,7 @@ import { LocalDocument, getLocalDb } from '../../../shared/lib/localDb';
 import { StorageState } from '../../writing/services/StorageService';
 import { toDate } from '../../../core/utils/dateUtils';
 import { getSessionDate } from '../../../core/utils/utils';
-import { LifeLogDocument, SessionGroup } from '../hooks/useLifeLog';
+import { LifeLogDocument, SessionGroup } from '../types/lifeLog';
 
 export function localDocToSession(doc: LocalDocument, content: string): Session {
   return {
