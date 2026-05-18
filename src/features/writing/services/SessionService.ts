@@ -9,7 +9,8 @@ export const SessionService = {
     try {
       const { db, mod } = await getClient();
       const { doc, setDoc } = mod;
-      await setDoc(doc(db, 'sessions', session.id), session);
+      const clean = Object.fromEntries(Object.entries(session).filter(([, v]) => v !== undefined));
+      await setDoc(doc(db, 'sessions', session.id), clean);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `sessions/${session.id}`);
     }
@@ -46,7 +47,8 @@ export const SessionService = {
     try {
       const { db, mod } = await getClient();
       const { doc, updateDoc, serverTimestamp } = mod;
-      await updateDoc(doc(db, 'sessions', sessionId), { ...data, _updatedAt: serverTimestamp() });
+      const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
+      await updateDoc(doc(db, 'sessions', sessionId), { ...clean, _updatedAt: serverTimestamp() });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `sessions/${sessionId}`);
     }

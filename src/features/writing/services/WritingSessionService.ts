@@ -29,16 +29,17 @@ export const WritingSessionService = {
 
       const { db, mod } = await getClient();
       const { collection, addDoc, updateDoc, doc, Timestamp } = mod;
+      const clean = Object.fromEntries(Object.entries(sessionData).filter(([, v]) => v !== undefined));
 
       if (activeSessionId) {
         await updateDoc(doc(db, 'sessions', activeSessionId), {
-          ...sessionData,
+          ...clean,
           updatedAt: Timestamp.now()
         });
         return activeSessionId;
       } else {
         const ref = await addDoc(collection(db, 'sessions'), {
-          ...sessionData,
+          ...clean,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now()
         });
@@ -75,14 +76,15 @@ export const WritingSessionService = {
       try {
         const { db, mod } = await getClient();
         const { collection, addDoc, updateDoc, doc, Timestamp } = mod;
+        const cleanData = Object.fromEntries(Object.entries(session.data).filter(([, v]) => v !== undefined));
         if (session.sessionId) {
           await updateDoc(doc(db, 'sessions', session.sessionId), {
-            ...session.data,
+            ...cleanData,
             updatedAt: Timestamp.now()
           });
         } else {
           await addDoc(collection(db, 'sessions'), {
-            ...session.data,
+            ...cleanData,
             createdAt: Timestamp.now(),
             updatedAt: Timestamp.now()
           });
