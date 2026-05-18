@@ -6,6 +6,7 @@ import { VersionService } from './VersionService';
 import { SessionService } from './SessionService';
 import { LocalVersionService } from './LocalVersionService';
 import { toDate } from '../../../core/utils/dateUtils';
+import { maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 
 interface LoadedSession extends Session {
   _linkedCloudId?: string;
@@ -110,7 +111,8 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
       for (const s of legacySessions) {
         if (seenIds.has(s.id)) continue;
         seenIds.add(s.id);
-        allSessions.push({ ...s, _isLocal: false, _isLegacy: true });
+        const decrypted = await maybeDecrypt(s as unknown as Record<string, unknown>, ['content'], ['pinnedThoughts', 'tags']);
+        allSessions.push({ ...(decrypted as unknown as Session), _isLocal: false, _isLegacy: true });
       }
     } catch (e) {
       console.error('Failed to fetch legacy sessions:', e);
