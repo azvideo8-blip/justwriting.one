@@ -1,7 +1,7 @@
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { getLocalDb, LocalDraft } from '../../../shared/lib/localDb';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
-import { maybeEncrypt } from '../../../core/crypto/cryptoHelpers';
+import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const _abortControllers = new Map<string, AbortController>();
@@ -54,7 +54,7 @@ export const WritingDraftService = {
       const docRef = doc(db, 'drafts', userId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        cloudDraft = docSnap.data() as LocalDraft;
+        cloudDraft = (await maybeDecrypt(docSnap.data() as Record<string, unknown>, ['content'], ['pinnedThoughts'])) as unknown as LocalDraft;
       }
     } catch (err) {
       console.error('[DraftService] Failed to load cloud draft:', err);
