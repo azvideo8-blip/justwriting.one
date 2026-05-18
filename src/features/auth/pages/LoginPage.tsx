@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AlertCircle, Mail, Lock, UserPlus, LogIn, X, ShieldAlert } from 'lucide-react';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, EmailAuthProvider, linkWithCredential } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, EmailAuthProvider, linkWithCredential, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { useLanguage } from '../../../core/i18n';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
@@ -32,6 +32,12 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
   const [googleMigrationEmail, setGoogleMigrationEmail] = useState('');
   const [migrationPassword, setMigrationPassword] = useState('');
   const [migrationLoading, setMigrationLoading] = useState(false);
+
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -314,7 +320,90 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
           >
             {mode === 'login' ? t('auth_no_account') : t('auth_has_account')}
           </button>
+
+          {mode === 'login' && (
+            <button
+              type="button"
+              onClick={() => { setForgotEmail(email); setShowForgotPassword(true); setForgotSent(false); setForgotError(null); }}
+              className="text-xs transition-colors text-text-main/30 hover:text-text-main/50"
+            >
+              {t('auth_forgot_password')}
+            </button>
+          )}
         </div>
+
+        {showForgotPassword && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-surface-base/80 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setShowForgotPassword(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="w-full max-w-sm bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mb-4">
+                <ShieldAlert size={18} className="text-amber-400" />
+              </div>
+              <h2 className="text-base font-medium text-text-main mb-2">{t('auth_forgot_title')}</h2>
+              <p className="text-sm text-text-main/50 mb-4">{t('auth_forgot_warning')}</p>
+
+              {forgotSent ? (
+                <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-sm">
+                  {t('auth_forgot_sent')}
+                </div>
+              ) : (
+                <>
+                  {forgotError && (
+                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs mb-3">{forgotError}</div>
+                  )}
+                  <div className="space-y-2 text-left mb-3">
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      placeholder={t('auth_email_placeholder')}
+                      className="w-full px-4 py-3 rounded-xl outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        if (!forgotEmail) return;
+                        setForgotLoading(true);
+                        setForgotError(null);
+                        try {
+                          await sendPasswordResetEmail(auth, forgotEmail);
+                          setForgotSent(true);
+                        } catch (err: unknown) {
+                          const fe = err as { code?: string };
+                          setForgotError(fe.code === 'auth/user-not-found' ? t('auth_error_user_not_found') : t('auth_error_generic'));
+                        } finally {
+                          setForgotLoading(false);
+                        }
+                      }}
+                      disabled={forgotLoading || !forgotEmail}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-all"
+                      style={{ background: 'var(--brand-primary)' }}
+                    >
+                      {forgotLoading ? <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white mx-auto" /> : t('auth_forgot_confirm')}
+                    </button>
+                    <button
+                      onClick={() => setShowForgotPassword(false)}
+                      className="px-4 py-2.5 rounded-xl text-sm text-text-main/40 hover:text-text-main/60 transition-colors"
+                    >
+                      {t('writing_cancel')}
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
 
         {!isModal && (
           <p className="text-sm text-text-main/40">

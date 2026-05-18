@@ -88,4 +88,10 @@ export const authTranslations: Translations = {
   auth_new_password:           { ru: 'Новый пароль', en: 'New password' },
   auth_set_password:           { ru: 'Установить пароль', en: 'Set password' },
   auth_migration_success:      { ru: 'Пароль установлен. Аккаунт переведён на Email/Password.', en: 'Password set. Account switched to Email/Password.' },
+
+  auth_forgot_password:  { ru: 'Забыли пароль?', en: 'Forgot password?' },
+  auth_forgot_title:     { ru: 'Сброс пароля', en: 'Password reset' },
+  auth_forgot_warning:   { ru: 'Сброс пароля удалит доступ ко всем зашифрованным заметкам. Они останутся в системе, но будут нечитаемы. Продолжить?', en: 'Resetting your password will revoke access to all encrypted notes. They will remain in the system but become unreadable. Continue?' },
+  auth_forgot_confirm:   { ru: 'Да, сбросить пароль', en: 'Yes, reset password' },
+  auth_forgot_sent:      { ru: 'Письмо для сброса пароля отправлено на ваш email.', en: 'Password reset email has been sent.' },
 };
