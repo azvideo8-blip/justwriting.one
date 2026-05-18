@@ -42,8 +42,6 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
       allSessions.push({
         id: doc.id,
         userId: doc.guestId,
-        authorName: '',
-        authorPhoto: '',
         content,
         duration: doc.totalDuration,
         wordCount: doc.totalWords,
@@ -84,8 +82,6 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
         allSessions.push({
           id: cloudDoc.id,
           userId: user.uid,
-          authorName: '',
-          authorPhoto: '',
           content: cloudContent,
           duration: cloudDoc.totalDuration,
           wordCount: cloudDoc.totalWords,

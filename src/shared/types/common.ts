@@ -33,8 +33,8 @@ export interface Achievement {
 
 export interface SessionCore {
   userId: string;
-  authorName: string;
-  authorPhoto: string;
+  authorName?: string;
+  authorPhoto?: string;
   nickname?: string;
   title?: string;
   content: string;

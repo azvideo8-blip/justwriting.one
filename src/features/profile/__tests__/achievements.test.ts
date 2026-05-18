@@ -8,8 +8,6 @@ function makeSession(overrides: Partial<Session> = {}): Session {
   return {
     id: Math.random().toString(36).slice(2),
     userId: 'u1',
-    authorName: 'Test',
-    authorPhoto: '',
     content: '',
     duration: 0,
     wordCount: 0,

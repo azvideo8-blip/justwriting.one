@@ -43,8 +43,6 @@ function makeSession(overrides: Partial<ArchiveSession> = {}): ArchiveSession {
   return {
     id: 's1',
     userId: 'user1',
-    authorName: '',
-    authorPhoto: '',
     content: '',
     duration: 60,
     wordCount: 100,

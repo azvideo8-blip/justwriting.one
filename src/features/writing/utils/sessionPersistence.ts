@@ -1,6 +1,5 @@
 import type { Timestamp } from 'firebase/firestore';
-import { User } from 'firebase/auth';
-import { UserProfile, SessionPayload } from '../../../types';
+import { SessionPayload } from '../../../types';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { WritingSessionService } from '../services/WritingSessionService';
@@ -19,17 +18,14 @@ export async function buildSessionPayload(
     timeGoalReached: boolean;
     wordGoalReached: boolean;
   },
-  profile: UserProfile | null,
-  user: User | null,
+  _profile: unknown,
+  _user: unknown,
   userId: string
 ): Promise<SessionPayload> {
   const { mod } = await getClient();
   const { Timestamp: FirestoreTimestamp } = mod;
   return {
     userId,
-    authorName: profile?.nickname || user?.displayName || user?.email?.split('@')[0] || 'Guest',
-    authorPhoto: user?.photoURL || '',
-    nickname: profile?.nickname || '',
     title: state.title,
     content: state.content,
     pinnedThoughts: state.pinnedThoughts,
@@ -66,7 +62,8 @@ export async function saveLocalOnly(sessionData: SessionPayload, userId: string)
 
   const sessionKey = `local_session_${Date.now()}_${crypto.randomUUID()}`;
   try {
-    localStorage.setItem(sessionKey, JSON.stringify(sessionData));
+    const { authorName, authorPhoto, nickname, ...safePayload } = sessionData;
+    localStorage.setItem(sessionKey, JSON.stringify(safePayload));
   } catch (e) {
     console.error('[saveLocalOnly] localStorage write failed:', e);
     return;

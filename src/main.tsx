@@ -11,7 +11,7 @@ if (sentryDsn && sentryDsn.startsWith('https://')) {
     dsn: sentryDsn,
     integrations: [
       Sentry.browserTracingIntegration(),
-      Sentry.replayIntegration(),
+      Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }),
     ],
     // Performance Monitoring
     tracesSampleRate: 0.1, 

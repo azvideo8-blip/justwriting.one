@@ -129,7 +129,7 @@ describe('groupSessionsByDate', () => {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const session: Session = {
-      id: 's1', userId: 'u1', authorName: '', authorPhoto: '',
+      id: 's1', userId: 'u1',
       content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0,
       title: '', tags: [], createdAt: now,
     };
@@ -143,7 +143,7 @@ describe('groupSessionsByDate', () => {
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const yesterday = new Date(startOfToday.getTime() - 86400000);
     const session: Session = {
-      id: 's1', userId: 'u1', authorName: '', authorPhoto: '',
+      id: 's1', userId: 'u1',
       content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0,
       title: '', tags: [], createdAt: yesterday,
     };
@@ -155,8 +155,8 @@ describe('groupSessionsByDate', () => {
   it('multiple sessions same day → one group, multiple entries', () => {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const s1: Session = { id: 's1', userId: 'u1', authorName: '', authorPhoto: '', content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0, title: '', tags: [], createdAt: now };
-    const s2: Session = { id: 's2', userId: 'u1', authorName: '', authorPhoto: '', content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0, title: '', tags: [], createdAt: now };
+    const s1: Session = { id: 's1', userId: 'u1', content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0, title: '', tags: [], createdAt: now };
+    const s2: Session = { id: 's2', userId: 'u1', content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0, title: '', tags: [], createdAt: now };
     const groups = groupSessionsByDate([s1, s2], [], startOfToday, t, language);
     expect(groups).toHaveLength(1);
     expect(groups[0].sessions).toHaveLength(2);
@@ -170,7 +170,7 @@ describe('groupSessionsByDate', () => {
       currentVersion: 1, sessionsCount: 1, firstSessionAt: now.getTime(),
       lastSessionAt: now.getTime(), tags: [], storage: { local: true, cloud: false },
     };
-    const legacySession: Session = { id: 's1', userId: 'u1', authorName: '', authorPhoto: '', content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0, title: 'Doc', tags: [], createdAt: now };
+    const legacySession: Session = { id: 's1', userId: 'u1', content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0, title: 'Doc', tags: [], createdAt: now };
     const groups = groupSessionsByDate([legacySession], [unifiedDoc], startOfToday, t, language);
     expect(groups).toHaveLength(1);
     expect(groups[0].sessions).toHaveLength(1);
@@ -180,8 +180,8 @@ describe('groupSessionsByDate', () => {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const yesterday = new Date(startOfToday.getTime() - 86400000);
-    const s1: Session = { id: 's1', userId: 'u1', authorName: '', authorPhoto: '', content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0, title: '', tags: [], createdAt: now };
-    const s2: Session = { id: 's2', userId: 'u1', authorName: '', authorPhoto: '', content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0, title: '', tags: [], createdAt: yesterday };
+    const s1: Session = { id: 's1', userId: 'u1', content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0, title: '', tags: [], createdAt: now };
+    const s2: Session = { id: 's2', userId: 'u1', content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0, title: '', tags: [], createdAt: yesterday };
     const groups = groupSessionsByDate([s1, s2], [], startOfToday, t, language);
     expect(groups).toHaveLength(2);
     expect(groups[0].label).toBe('lifelog_group_today');
