@@ -8,8 +8,6 @@ function makeSession(daysAgo: number): import('../../../types').Session {
   return {
     id: `s-${daysAgo}`,
     userId: 'u1',
-    authorName: '',
-    authorPhoto: '',
     content: '',
     duration: 60,
     wordCount: 100,

@@ -9,8 +9,6 @@ export function localDocToSession(doc: LocalDocument, content: string): Session 
   return {
     id: doc.id,
     userId: doc.guestId,
-    authorName: '',
-    authorPhoto: '',
     content,
     duration: doc.totalDuration,
     wordCount: doc.totalWords,
@@ -98,8 +96,6 @@ export function groupSessionsByDate(
   const docSessions = unifiedDocuments.map(d => ({
     id: d.localId || d.cloudId || '',
     userId: '',
-    authorName: '',
-    authorPhoto: '',
     content: '',
     duration: d.totalDuration,
     wordCount: d.totalWords,

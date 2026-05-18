@@ -27,7 +27,7 @@ export function AdminSessionsTable({ sessions, onDelete }: AdminSessionsTablePro
         {sessions.map(s => (
           <tr key={s.id} className="border-b last:border-0 border-border-subtle">
             <td className="px-6 py-4 text-sm font-medium text-text-main">{s.title || t('common_untitled')}</td>
-            <td className="px-6 py-4 text-sm text-text-main/70">{s.authorName || t('common_anonymous')}</td>
+             <td className="px-6 py-4 text-sm text-text-main/70">{s.userId?.slice(0, 8) || t('common_anonymous')}</td>
             <td className="px-6 py-4 text-sm text-text-main/50">
               {s.createdAt ? format(parseFirestoreDate(s.createdAt), 'dd.MM.yyyy HH:mm') : '-'}
             </td>

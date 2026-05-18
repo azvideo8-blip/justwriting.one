@@ -65,6 +65,13 @@ service cloud.firestore {
 
     function isValidSession(data) {
       return data.keys().hasAll(['userId', 'content', 'duration', 'createdAt']) &&
+             data.keys().hasOnly([
+               'userId', 'content', 'duration', 'createdAt', 'title',
+               'wordCount', 'charCount', 'wpm', 'tags', 'pinnedThoughts',
+               'sessionType', 'sessionStartTime', 'goalReached', 'updatedAt',
+               '_aiProcessed', '_aiAction', '_aiProcessedAt',
+               'authorName', 'authorPhoto', 'nickname', 'isPublic'
+             ]) &&
              data.userId == request.auth.uid &&
              data.content is string && data.content.size() <= 900000 &&
              data.duration is number && data.duration >= 0 &&
