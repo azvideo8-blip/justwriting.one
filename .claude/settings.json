@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run ci *)",
+      "Bash(npm run lint *)",
+      "Bash(npm run typecheck *)",
+      "Bash(npm run test:ci *)"
+    ]
+  },
+  "enabledMcpjsonServers": ["lazyweb"]
+}

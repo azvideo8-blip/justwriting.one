@@ -94,4 +94,8 @@ export const authTranslations: Translations = {
   auth_forgot_warning:   { ru: 'Сброс пароля удалит доступ ко всем зашифрованным заметкам. Они останутся в системе, но будут нечитаемы. Продолжить?', en: 'Resetting your password will revoke access to all encrypted notes. They will remain in the system but become unreadable. Continue?' },
   auth_forgot_confirm:   { ru: 'Да, сбросить пароль', en: 'Yes, reset password' },
   auth_forgot_sent:      { ru: 'Письмо для сброса пароля отправлено на ваш email.', en: 'Password reset email has been sent.' },
+
+  auth_google_migration_login:    { ru: 'Войти через Google', en: 'Sign in with Google' },
+  auth_google_migration_subtitle: { ru: 'Только для пользователей, зарегистрированных ранее', en: 'Only for previously registered users' },
+  auth_error_google_popup:        { ru: 'Не удалось открыть окно Google. Проверьте блокировщик всплывающих окон.', en: 'Could not open Google popup. Check your popup blocker.' },
 };
