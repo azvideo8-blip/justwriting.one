@@ -90,8 +90,17 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
           if (profileData.encryptionSalt && profileData.encryptedDataKey) {
             const salt = fromBase64(profileData.encryptionSalt as string);
             const masterKey = await deriveMasterKey(password, salt);
-            const dataKey = await unwrapDataKey(profileData.encryptedDataKey as string, masterKey);
-            setSessionKey(dataKey);
+            try {
+              const dataKey = await unwrapDataKey(profileData.encryptedDataKey as string, masterKey);
+              setSessionKey(dataKey);
+            } catch (e) {
+              if (e instanceof DOMException && e.name === 'OperationError') {
+                setError(t('auth_error_wrong_password_encrypted'));
+                setLoading(false);
+                return;
+              }
+              throw e;
+            }
           }
         }
       }
@@ -260,6 +269,9 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                       className="w-full px-4 py-3 rounded-xl outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
                     />
                   </div>
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-400 mb-3">
+                    {t('auth_forgot_password_encryption_warning')}
+                  </div>
                   <div className="flex gap-2">
                     <button
                       onClick={async () => {
@@ -280,7 +292,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                       className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-all"
                       style={{ background: 'var(--brand-primary)' }}
                     >
-                      {forgotLoading ? <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white mx-auto" /> : t('auth_forgot_confirm')}
+                      {forgotLoading ? <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white mx-auto" /> : t('auth_forgot_confirm_anyway')}
                     </button>
                     <button
                       onClick={() => setShowForgotPassword(false)}
