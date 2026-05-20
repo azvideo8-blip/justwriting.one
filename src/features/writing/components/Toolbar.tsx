@@ -1,8 +1,23 @@
 import { useEffect, useRef } from 'react';
-import { FilePlus, FolderOpen, Save, Play, Pause, Square, Flag } from 'lucide-react';
+import { FilePlus, FolderOpen, Save, Square, Flag } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
+
+const PLAY_PATH = "M8 5v14l11-7z";
+const PAUSE_PATH = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
+
+function PlayPauseIcon({ isPlaying }: { isPlaying: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+      <motion.path
+        initial={false}
+        animate={{ d: isPlaying ? PAUSE_PATH : PLAY_PATH }}
+        transition={{ duration: 0.2, ease: "easeInOut" }}
+      />
+    </svg>
+  );
+}
 
 interface ToolbarProps {
   onNew?: () => void;
@@ -87,7 +102,7 @@ export function Toolbar({
         <div className="w-px h-5 bg-border-subtle mx-0.5" />
 
         <motion.button
-          onClick={onPlay}
+          onClick={status === 'paused' ? onPlay : status === 'idle' ? onPlay : undefined}
           disabled={status === 'writing'}
           title={t('play')}
           aria-label={t('play')}
@@ -100,7 +115,7 @@ export function Toolbar({
               : "text-text-main/25 cursor-not-allowed"
           )}
         >
-          <Play size={16} />
+          <PlayPauseIcon isPlaying={status === 'writing'} />
         </motion.button>
 
         <motion.button
@@ -117,7 +132,7 @@ export function Toolbar({
               : "text-text-main/25 cursor-not-allowed"
           )}
         >
-          <Pause size={16} />
+          <PlayPauseIcon isPlaying={status === 'writing'} />
         </motion.button>
 
         <motion.button
@@ -145,7 +160,7 @@ export function Toolbar({
           value={title}
           onChange={e => setTitle(e.target.value)}
           placeholder={t('topbar_title_placeholder')}
-          className="w-full bg-surface-base/50 border border-border-subtle/60 rounded-lg px-2.5 py-1 text-[15px] text-text-main placeholder:text-text-main/25 outline-none focus:border-brand-soft/40 focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--brand-soft)_15%,transparent)] transition-all"
+          className="w-full bg-transparent border-0 border-b border-transparent px-0 py-1 text-[15px] font-medium text-text-main/60 placeholder:text-text-main/25 outline-none focus:ring-0 focus:border-brand-soft/30 font-sans focus:font-serif transition-all duration-300"
         />
       </div>
     </div>

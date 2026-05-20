@@ -57,13 +57,20 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
     addSuffix: true,
   });
 
+  const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+    e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+  };
+
   return (
     <motion.div
       onClick={onClick}
+      onMouseMove={handleMouseMove}
       whileHover={{ y: -3, scale: 1.01 }}
       whileTap={{ scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-      className="cursor-pointer rounded-2xl p-5 bg-surface-card border border-border-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text-main/30
+      className="spotlight-card cursor-pointer rounded-2xl p-5 bg-surface-card border border-border-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text-main/30
                  hover:border-text-main/20 hover:bg-text-main/[0.07] hover:shadow-lg transition-colors
                  flex flex-col"
       style={label ? {

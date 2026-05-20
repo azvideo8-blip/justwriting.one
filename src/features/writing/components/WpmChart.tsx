@@ -48,8 +48,8 @@ export function WpmChart({ data, avgWpm, height = 72 }: WpmChartProps) {
       <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="w-full" style={{ height }} aria-hidden="true">
         <defs>
           <linearGradient id="wpm-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--brand-soft)" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="var(--brand-soft)" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--flow-pulse-color)" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="var(--flow-pulse-color)" stopOpacity="0" />
           </linearGradient>
         </defs>
         <motion.path
@@ -62,7 +62,7 @@ export function WpmChart({ data, avgWpm, height = 72 }: WpmChartProps) {
         <motion.path
           d={pathD}
           fill="none"
-          stroke="var(--brand-soft)"
+          stroke="var(--flow-pulse-color)"
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -75,7 +75,7 @@ export function WpmChart({ data, avgWpm, height = 72 }: WpmChartProps) {
             cx={peakPoint.x}
             cy={peakPoint.y}
             r="3"
-            fill="var(--brand-primary)"
+            fill="var(--flow-pulse-color)"
             initial={reducedMotion ? {} : { scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 400, damping: 15, delay: 1.1 }}

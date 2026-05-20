@@ -27,6 +27,9 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
     return result;
   }, [sessionGroups]);
 
+  const filledCount = days.filter(d => d.hasSession).length;
+  const chainWidth = filledCount > 0 ? `${((filledCount - 1) / 6) * 100}%` : '0%';
+
   if (variant === 'mobile') {
     return (
       <div style={{ display: 'flex', gap: 6, justifyContent: 'space-between' }}>
@@ -84,11 +87,13 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
   }
 
   return (
-    <div className="flex justify-center gap-2">
+    <div className="flex justify-center gap-2 relative">
+      <div className="absolute top-[16px] left-[16px] right-[16px] h-[2px] bg-border-subtle/40 z-0" />
+      <div className="absolute top-[16px] left-[16px] h-[2px] bg-brand-primary z-0 transition-all duration-500" style={{ width: chainWidth }} />
       {days.map((day, i) => (
         <motion.div
           key={i}
-          className="flex flex-col items-center gap-1"
+          className="flex flex-col items-center gap-1 relative z-10"
           initial={reducedMotion ? {} : { scale: 0.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={reducedMotion ? { duration: 0 } : {
