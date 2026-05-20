@@ -153,7 +153,6 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
       onMouseLeave={() => setExpanded(false)}
       className={cn(
         "h-full z-50 flex flex-col py-4 transition-all duration-300 ease-in-out",
-        expanded && "sidebar-hovered",
         "bg-surface-card/50 border-r border-border-subtle backdrop-blur-xl",
         inGrid ? "relative w-full" : "fixed top-0 left-0",
         !inGrid && expanded && "w-[220px]",
@@ -162,10 +161,8 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
       )}
     >
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 mb-8 h-10 overflow-hidden group/logo">
-        <div className="logo-shine shrink-0">
-          <JustWritingLogo size={36} variant="dark" showRailway={true} showRoman={false} showCrown={true} className="shrink-0" />
-        </div>
+      <div className="flex items-center gap-3 px-4 mb-8 h-10 overflow-hidden">
+        <JustWritingLogo size={36} variant="dark" showRailway={true} showRoman={false} showCrown={true} className="shrink-0" />
         <span className={cn(
           "font-bold text-lg text-text-main whitespace-nowrap overflow-hidden transition-all duration-300",
           expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"

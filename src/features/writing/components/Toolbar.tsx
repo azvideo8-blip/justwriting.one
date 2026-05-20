@@ -102,34 +102,17 @@ export function Toolbar({
         <div className="w-px h-5 bg-border-subtle mx-0.5" />
 
         <motion.button
-          onClick={status === 'paused' ? onPlay : status === 'idle' ? onPlay : undefined}
-          disabled={status === 'writing'}
-          title={t('play')}
-          aria-label={t('play')}
-          whileTap={{ scale: 0.82 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-          className={cn(
-            "w-9 h-9 flex items-center justify-center transition-all",
-            status !== 'writing'
-              ? "text-text-main hover:bg-text-main/5"
-              : "text-text-main/25 cursor-not-allowed"
-          )}
-        >
-          <PlayPauseIcon isPlaying={status === 'writing'} />
-        </motion.button>
-
-        <motion.button
-          onClick={onPause}
-          disabled={status !== 'writing'}
-          title={t('pause')}
-          aria-label={t('pause')}
+          onClick={status === 'writing' ? onPause : onPlay}
+          disabled={status === 'writing' && !onPause}
+          title={status === 'writing' ? t('pause') : t('play')}
+          aria-label={status === 'writing' ? t('pause') : t('play')}
           whileTap={{ scale: 0.82 }}
           transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
             "w-9 h-9 flex items-center justify-center transition-all",
             status === 'writing'
               ? "text-accent-warning hover:bg-accent-warning/10"
-              : "text-text-main/25 cursor-not-allowed"
+              : "text-text-main hover:bg-text-main/5"
           )}
         >
           <PlayPauseIcon isPlaying={status === 'writing'} />
