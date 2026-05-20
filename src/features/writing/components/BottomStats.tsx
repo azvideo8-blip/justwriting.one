@@ -217,31 +217,15 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         <div className="w-px h-6 bg-border-subtle" />
         <div className="flex items-center gap-1 bg-text-main/[0.04] rounded-xl px-1 py-0.5">
         <motion.button
-          onClick={status === 'paused' ? onPlay : status === 'idle' ? onPlay : undefined}
-          disabled={status === 'writing'}
-          title={t('play')}
-          whileTap={{ scale: 0.82 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-          className={cn(
-            "w-8 h-8 flex items-center justify-center transition-all shrink-0",
-            status !== 'writing'
-              ? "text-text-main hover:bg-text-main/5"
-              : "text-text-main/20 cursor-not-allowed"
-          )}
-        >
-          <PlayPauseIcon isPlaying={status === 'writing'} />
-        </motion.button>
-        <motion.button
-          onClick={onPause}
-          disabled={status !== 'writing'}
-          title={t('pause')}
+          onClick={status === 'writing' ? onPause : onPlay}
+          title={status === 'writing' ? t('pause') : t('play')}
           whileTap={{ scale: 0.82 }}
           transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
             "w-8 h-8 flex items-center justify-center transition-all shrink-0",
             status === 'writing'
               ? "text-accent-warning hover:bg-accent-warning/10"
-              : "text-text-main/20 cursor-not-allowed"
+              : "text-text-main hover:bg-text-main/5"
           )}
         >
           <PlayPauseIcon isPlaying={status === 'writing'} />
