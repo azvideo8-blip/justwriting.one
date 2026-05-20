@@ -10,6 +10,9 @@ interface UseWritingKeyboardParams {
 export function useWritingKeyboard({ sessionStatus, handlePlayRef, handlePauseRef }: UseWritingKeyboardParams) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const inEditor = target.tagName === 'TEXTAREA' || target.tagName === 'INPUT';
+
       if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
         if (sessionStatus === 'writing' || sessionStatus === 'paused') {
           e.preventDefault();
@@ -21,7 +24,9 @@ export function useWritingKeyboard({ sessionStatus, handlePlayRef, handlePauseRe
         }
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        e.preventDefault();
+        if (!inEditor) {
+          e.preventDefault();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);

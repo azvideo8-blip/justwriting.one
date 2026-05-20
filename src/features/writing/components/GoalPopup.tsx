@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect } from 'react';
+import React, { useState, useLayoutEffect, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
@@ -35,6 +35,7 @@ export function GoalPopup({
   width = 'w-[180px]'
 }: GoalPopupProps) {
   const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
     if (open && triggerRef.current) {
@@ -69,12 +70,50 @@ export function GoalPopup({
     }
   }, [open, triggerRef, width]);
 
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.activeElement as HTMLElement | null;
+    const input = dialogRef.current?.querySelector('input');
+    if (input) input.focus();
+
+    return () => {
+      if (prev && typeof prev.focus === 'function') prev.focus();
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key !== 'Tab') return;
+      const container = dialogRef.current;
+      if (!container) return;
+      const focusable = container.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
   if (typeof document === 'undefined') return null;
 
   return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
           initial={{ opacity: 0, y: 8, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 8, scale: 0.95 }}

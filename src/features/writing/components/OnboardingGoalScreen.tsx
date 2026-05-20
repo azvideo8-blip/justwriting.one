@@ -62,7 +62,7 @@ export function OnboardingGoalScreen({ onComplete, setWordGoal }: OnboardingGoal
                   : "border-border-subtle bg-text-main/[0.02] hover:bg-text-main/5"
               )}
             >
-              <div className="text-xl font-mono font-bold text-text-main">{preset.words}</div>
+              <div className="text-xl font-mono font-bold text-text-main tabular-nums">{preset.words}</div>
               <div className="text-[11px] font-bold uppercase tracking-widest text-text-main/50">
                 {t(`onboarding_goal_${preset.key}`)}
               </div>
@@ -92,7 +92,7 @@ export function OnboardingGoalScreen({ onComplete, setWordGoal }: OnboardingGoal
                 onClick={e => e.stopPropagation()}
               />
             ) : (
-              <div className="text-xl font-mono font-bold text-text-main">✎</div>
+              <div className="text-xl font-mono font-bold text-text-main tabular-nums">✎</div>
             )}
             <div className="text-[11px] font-bold uppercase tracking-widest text-text-main/50">
               {t('onboarding_goal_custom')}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { ExternalLink, Trash2 } from 'lucide-react';
+import { ExternalLink, Trash2, Pencil } from 'lucide-react';
 import { getSessionDate, cn } from '../../../core/utils/utils';
 import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { InlineTags } from './InlineTags';
@@ -114,10 +114,10 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           onClick={openDateTimeEditor}
           title={t('archive_edit_date')}
         >
-          <div className="font-mono text-[11px] text-text-main/50 uppercase tracking-wide leading-tight hover:text-text-main/70">
+          <div className="font-mono text-[11px] text-text-main/50 uppercase tracking-wide leading-tight hover:text-text-main/70 tabular-nums">
             {dateLabel}
           </div>
-          <div className="font-mono text-[11px] text-text-main/30 mt-0.5 hover:text-text-main/50">
+          <div className="font-mono text-[11px] text-text-main/30 mt-0.5 hover:text-text-main/50 tabular-nums">
             {timeStr}
           </div>
         </div>
@@ -233,6 +233,11 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
             </div>
           )}
         </div>
+        <button onClick={e => { e.stopPropagation(); setTitleDraft(session.title || ''); setEditingTitle(true); }}
+          className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/20 hover:text-text-main/60 hover:bg-text-main/5 transition-all opacity-0 group-hover:opacity-100"
+          title={t('archive_edit_title_hint')}>
+          <Pencil size={13} />
+        </button>
         <button onClick={e => { e.stopPropagation(); onOpen(); }}
           className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/20 hover:text-text-main/60 hover:bg-text-main/5 transition-all opacity-0 group-hover:opacity-100"
           title={t('archive_preview')}>

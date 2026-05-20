@@ -47,7 +47,7 @@ export function KPIStrip({ stats }: { stats: KPIStats }) {
             </span>
           </div>
           <div
-            className="text-[24px] font-medium tracking-tight"
+            className="text-[24px] font-medium tracking-tight tabular-nums"
             style={{ fontFamily: 'var(--font-sans)', color: item.accent ? 'var(--flow-pulse-color)' : item.dim ? 'var(--text-muted)' : 'var(--text-main)' }}
           >
             {item.countUp !== undefined

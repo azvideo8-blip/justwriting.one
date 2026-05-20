@@ -26,7 +26,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
   const exportRef = useRef<HTMLDivElement>(null);
   const [labelPopupOpen, setLabelPopupOpen] = useState(false);
   const labelPopupRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(Math.min(600, window.innerWidth * 0.55));
+  const [width, setWidth] = useState(Math.min(600, Math.max(380, window.innerWidth * 0.6)));
   const isDragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
@@ -48,14 +48,14 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
 
   useEffect(() => {
     const saved = localStorage.getItem('preview_width');
-    if (saved) setTimeout(() => setWidth(Math.max(380, Math.min(window.innerWidth * 0.8, Number(saved)))), 0);
+    if (saved) setTimeout(() => setWidth(Math.max(380, Math.min(window.innerWidth * 0.6, Number(saved)))), 0);
   }, []);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging.current) return;
       const delta = startX.current - e.clientX;
-      const newWidth = Math.max(380, Math.min(window.innerWidth * 0.8, startWidth.current + delta));
+      const newWidth = Math.max(380, Math.min(window.innerWidth * 0.6, startWidth.current + delta));
       currentWidthRef.current = newWidth;
       if (panelRef.current) panelRef.current.style.width = `${newWidth}px`;
     };

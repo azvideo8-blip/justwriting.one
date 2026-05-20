@@ -274,11 +274,11 @@ export function LifeLogPanel({
           </div>
 
           {/* Sessions list grouped by date */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto" style={{ overscrollBehavior: 'contain' }}>
             {loading ? (
               <div className="px-3 py-2 text-[11px] text-text-subtle font-medium">{t('lifelog_loading')}</div>
             ) : (
-              <div className="sessions-list flex-1 overflow-y-auto">
+              <div className="sessions-list flex-1 overflow-y-auto" style={{ overscrollBehavior: 'contain' }}>
                 {filteredGroups.map(group => {
                   const groupWords = group.sessions.reduce((s, sess) => s + (sess.wordCount || 0), 0);
                   const maxWords = Math.max(...group.sessions.map(s => s.wordCount || 0), 1);

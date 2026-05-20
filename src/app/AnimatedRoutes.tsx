@@ -61,6 +61,11 @@ export function AnimatedRoutes() {
     <AppLayout className="min-h-screen bg-surface-base text-text-main font-sans selection:bg-white/10">
       <a
         href="#main-content"
+        onClick={(e) => {
+          e.preventDefault();
+          const textarea = document.querySelector<HTMLTextAreaElement>('#main-content textarea');
+          if (textarea) { textarea.focus(); } else { document.getElementById('main-content')?.focus(); }
+        }}
         className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[999] focus:px-4 focus:py-2 focus:bg-surface-card focus:text-text-main focus:rounded-xl focus:border focus:border-border-subtle"
       >
         {t('skip_to_content')}
@@ -79,7 +84,7 @@ export function AnimatedRoutes() {
       </>
 
       <main id="main-content" className={cn(
-        "w-full relative z-10",
+        "w-full relative z-10 min-h-screen",
         hideSidebar ? "" : "pt-8",
         layoutMode === 'desktop' && !hideSidebar && "pl-20 pr-4",
         layoutMode !== 'desktop' && !hideSidebar && "pb-20 px-4"
