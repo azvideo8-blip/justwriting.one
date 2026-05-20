@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { Play, Pause, Square } from 'lucide-react';
+import { Square } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useContentStore } from '../store/useContentStore';
@@ -10,6 +10,21 @@ import { useLanguage } from '../../../core/i18n';
 import { getWpmColor } from '../utils/wpmColors';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { GoalPopup } from './GoalPopup';
+
+const PLAY_PATH = "M8 5v14l11-7z";
+const PAUSE_PATH = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
+
+function PlayPauseIcon({ isPlaying, size = 14 }: { isPlaying: boolean; size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
+      <motion.path
+        initial={false}
+        animate={{ d: isPlaying ? PAUSE_PATH : PLAY_PATH }}
+        transition={{ duration: 0.2, ease: "easeInOut" }}
+      />
+    </svg>
+  );
+}
 
 interface BottomStatsProps {
   onPlay: () => void;
@@ -123,7 +138,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             <div className="w-20 h-[3px] rounded-full bg-border-subtle mt-1.5">
               <motion.div
                 initial={{ width: 0 }}
-                className={cn("h-[3px] rounded-full", wordDone ? "bg-accent-success" : "bg-text-main")}
+                className={cn("h-[3px] rounded-full", wordDone ? "bg-accent-success progress-glow" : "bg-gradient-to-r from-brand-primary to-brand-soft progress-glow")}
                 animate={{ width: `${wordPct}%` }}
                 transition={{ type: 'spring', stiffness: 120, damping: 20 }}
               />
@@ -163,7 +178,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             <div className="w-20 h-[3px] rounded-full bg-border-subtle mt-1.5">
               <motion.div
                 initial={{ width: 0 }}
-                className={cn("h-[3px] rounded-full", timeDone ? "bg-accent-success" : "bg-text-main")}
+                className={cn("h-[3px] rounded-full", timeDone ? "bg-accent-success progress-glow" : "bg-gradient-to-r from-brand-primary to-brand-soft progress-glow")}
                 animate={{ width: `${timePct}%` }}
                 transition={{ type: 'spring', stiffness: 120, damping: 20 }}
               />
@@ -214,7 +229,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
               : "text-text-main/20 cursor-not-allowed"
           )}
         >
-          <Play size={14} />
+          <PlayPauseIcon isPlaying={status === 'writing'} />
         </motion.button>
         <motion.button
           onClick={onPause}
@@ -229,7 +244,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
               : "text-text-main/20 cursor-not-allowed"
           )}
         >
-          <Pause size={14} />
+          <PlayPauseIcon isPlaying={status === 'writing'} />
         </motion.button>
         <motion.button
           onClick={onStop}

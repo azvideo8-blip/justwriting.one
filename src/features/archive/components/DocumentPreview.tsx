@@ -139,6 +139,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
       transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+      className="glass-panel custom-scrollbar"
       style={{
         position: 'fixed',
         top: 0,
@@ -148,8 +149,6 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
         zIndex: 50,
         display: 'flex',
         flexDirection: 'column',
-        background: 'var(--bg-base)',
-        borderLeft: '1px solid rgba(255,255,255,0.08)',
       }}
     >
       {/* Drag handle */}

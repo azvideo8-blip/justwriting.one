@@ -178,7 +178,7 @@ export function LifeLogPanel({
       exit={{ x: 380, opacity: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
       className={cn(
-        "flex flex-col h-full border-l border-border-subtle bg-surface-card backdrop-blur-xl",
+        "glass-panel flex flex-col h-full border-l border-white/[0.04] bg-surface-card backdrop-blur-xl custom-scrollbar",
         inGrid ? "w-full" : "fixed top-0 right-0 bottom-0 w-[380px] z-50 shadow-2xl"
       )}
       style={{ boxShadow: '-12px 0 40px rgba(0,0,0,0.35)' }}

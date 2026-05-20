@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { PenLine, History, User as UserIcon, Shield, LogIn, Info, Settings } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -30,13 +30,20 @@ function SidebarNavItem({ icon, label, isActive, expanded, onClick }: SidebarNav
       tabIndex={0}
       aria-current={isActive ? 'page' : undefined}
       className={cn(
-        "relative group flex items-center gap-3 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
-        "px-3 py-2.5 border-l-2",
+        "relative group flex items-center gap-3 rounded-xl transition-colors duration-200 text-left w-full overflow-hidden",
+        "px-3 py-2.5 pl-[10px]",
         isActive
-          ? "bg-brand-soft/10 text-brand-soft border-brand-soft pl-[10px]"
-          : "text-text-main/40 hover:text-text-main/70 hover:bg-text-main/6 border-transparent pl-[10px]"
+          ? "text-brand-soft"
+          : "text-text-main/40 hover:text-text-main/70"
       )}
     >
+      {isActive && (
+        <motion.div
+          layoutId="active-nav-indicator"
+          className="absolute inset-0 bg-brand-soft/8 border-l-2 border-brand-soft rounded-xl"
+          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+        />
+      )}
       <span className="relative z-10 shrink-0">{icon}</span>
       <span className={cn(
         "relative z-10 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
@@ -146,6 +153,7 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
       onMouseLeave={() => setExpanded(false)}
       className={cn(
         "h-full z-50 flex flex-col py-4 transition-all duration-300 ease-in-out",
+        expanded && "sidebar-hovered",
         "bg-surface-card/50 border-r border-border-subtle backdrop-blur-xl",
         inGrid ? "relative w-full" : "fixed top-0 left-0",
         !inGrid && expanded && "w-[220px]",
@@ -154,8 +162,10 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
       )}
     >
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 mb-8 h-10 overflow-hidden">
-        <JustWritingLogo size={36} variant="dark" showRailway={true} showRoman={false} showCrown={true} className="shrink-0" />
+      <div className="flex items-center gap-3 px-4 mb-8 h-10 overflow-hidden group/logo">
+        <div className="logo-shine shrink-0">
+          <JustWritingLogo size={36} variant="dark" showRailway={true} showRoman={false} showCrown={true} className="shrink-0" />
+        </div>
         <span className={cn(
           "font-bold text-lg text-text-main whitespace-nowrap overflow-hidden transition-all duration-300",
           expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
@@ -182,6 +192,7 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
           }
         }}
       >
+        <LayoutGroup>
         {navItems.map(item => (
           <SidebarNavItem
             key={item.id}
@@ -192,6 +203,7 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
             onClick={() => navigate(item.path)}
           />
         ))}
+        </LayoutGroup>
       </nav>
 
       {/* Bottom section */}

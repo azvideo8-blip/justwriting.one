@@ -41,21 +41,94 @@
 }
 
 @layer base {
-  /* Base defaults (fallback only) */
-  :root {
+  /* ─── AMETHYST (Флагманский эталон — глубокий фиолетовый) ─── */
+  .theme-amethyst {
     color-scheme: dark;
-    --bg-base: #0c0a09;
-    --text-main: #f5f5f4;
-    --border-light: #292524;
+    --bg-base: #0E0A18;
+    --bg-surface: #1a1030;
+    --bg-elevated: #231542;
+    --text-main: #F0EBFF;
+    --text-muted: #9B89CC;
+    --text-subtle: rgba(155, 137, 204, 0.45);
+    --border-light: rgba(165, 131, 232, 0.12);
+    --surface-card: rgba(26, 16, 48, 0.4);
+    --surface-elevated: rgba(35, 21, 66, 0.6);
+    --accent-success: #34D399;
+    --accent-warning: #FBBF24;
+    --accent-danger: #F87171;
+    --accent-info: #A583E8;
+    --flow-pulse-color: #A583E8;
+  }
+
+  .theme-amethyst body {
+    background-color: var(--bg-base);
+    color: var(--text-main);
+  }
+
+  /* ─── MODERN (Обсидиановый черный — монохромный люкс) ─── */
+  .theme-modern {
+    color-scheme: dark;
+    --bg-base: #050506;
+    --text-main: #FAFAFA;
+    --text-muted: #A1A1AA;
+    --text-subtle: rgba(161, 161, 170, 0.4);
+    --border-light: rgba(255, 255, 255, 0.06);
     --surface-card: rgba(255, 255, 255, 0.03);
-    --surface-elevated: rgba(255, 255, 255, 0.08);
-    --accent-success: #34d399;
-    --accent-warning: #fbbf24;
-    --accent-danger: #f87171;
-    --accent-info: #60a5fa;
-    --text-muted: rgba(245, 245, 244, 0.55);
-    --text-subtle: rgba(245, 245, 244, 0.4);
-    --flow-pulse-color: var(--brand-soft);
+    --surface-elevated: rgba(255, 255, 255, 0.07);
+    --accent-success: #10B981;
+    --accent-warning: #F59E0B;
+    --accent-danger: #EF4444;
+    --accent-info: #3B82F6;
+    --flow-pulse-color: #FAFAFA;
+  }
+
+  .theme-modern body {
+    background-color: var(--bg-base);
+    color: var(--text-main);
+  }
+
+  /* ─── NOTION (Теплый алебастр — японский бумажный минимализм) ─── */
+  .theme-notion {
+    color-scheme: light;
+    --bg-base: #FAF8F5;
+    --text-main: #1A1412;
+    --text-muted: #6B625E;
+    --text-subtle: rgba(107, 98, 94, 0.45);
+    --border-light: rgba(26, 20, 18, 0.07);
+    --surface-card: #F0EDE6;
+    --surface-elevated: #E5E1D7;
+    --accent-success: #15803D;
+    --accent-warning: #B45309;
+    --accent-danger: #B91C1C;
+    --accent-info: #1D4ED8;
+    --flow-pulse-color: #8B7E74;
+  }
+
+  .theme-notion body {
+    background-color: var(--bg-base);
+    color: var(--text-main);
+  }
+
+  /* ─── SPOTIFY (Лесной мох — глубокий органический темно-зеленый) ─── */
+  .theme-spotify {
+    color-scheme: dark;
+    --bg-base: #090C0A;
+    --text-main: #EBF5EF;
+    --text-muted: #8AA393;
+    --text-subtle: rgba(138, 163, 147, 0.35);
+    --border-light: rgba(29, 185, 84, 0.1);
+    --surface-card: #131915;
+    --surface-elevated: #1C2620;
+    --accent-success: #1DB954;
+    --accent-warning: #FBBF24;
+    --accent-danger: #F87171;
+    --accent-info: #1DB954;
+    --flow-pulse-color: #1DB954;
+  }
+
+  .theme-spotify body {
+    background-color: var(--bg-base);
+    color: var(--text-main);
   }
 
   /* ─── STRIPE — Elegant purple gradients ─────────────────── */
@@ -76,96 +149,6 @@
   }
 
   .theme-stripe body {
-    background-color: var(--bg-base);
-    color: var(--text-main);
-  }
-
-  /* ─── NOTION — Warm minimal light ───────────────────────── */
-  .theme-notion {
-    color-scheme: light;
-    --bg-base: #e8dfc0;
-    --text-main: #2c2420;
-    --border-light: rgba(44, 36, 32, 0.25);
-    --surface-card: #d8cfa8;
-    --surface-elevated: #c8be98;
-    --accent-success: #059669;
-    --accent-warning: #d97706;
-    --accent-danger: #dc2626;
-    --accent-info: #2563eb;
-    --text-muted: rgba(44, 36, 32, 0.72);
-    --text-subtle: rgba(44, 36, 32, 0.55);
-    --flow-pulse-color: var(--brand-soft);
-  }
-
-  .theme-notion body {
-    background-color: var(--bg-base);
-    color: var(--text-main);
-  }
-
-  /* ─── SPOTIFY — Energy dark green ───────────────────────── */
-  .theme-spotify {
-    color-scheme: dark;
-    --bg-base: #121212;
-    --text-main: #ffffff;
-    --border-light: rgba(255, 255, 255, 0.1);
-    --surface-card: #1f1f1f;
-    --surface-elevated: #2a2a2a;
-    --accent-success: #1db954;
-    --accent-warning: #fbbf24;
-    --accent-danger: #e74c3c;
-    --accent-info: #1db9c5;
-    --text-muted: rgba(255, 255, 255, 0.55);
-    --text-subtle: rgba(255, 255, 255, 0.4);
-    --flow-pulse-color: var(--brand-soft);
-  }
-
-  .theme-spotify body {
-    background-color: var(--bg-base);
-    color: var(--text-main);
-  }
-
-  /* Modern theme — deep black, glassmorphism */
-  .theme-modern {
-    color-scheme: dark;
-    --bg-base: #0A0A0B;
-    --text-main: rgba(255, 255, 255, 0.95);
-    --border-light: rgba(255, 255, 255, 0.1);
-    --surface-card: rgba(255, 255, 255, 0.05);
-    --surface-elevated: rgba(255, 255, 255, 0.08);
-    --accent-success: #34d399;
-    --accent-warning: #fbbf24;
-    --accent-danger: #f87171;
-    --accent-info: #60a5fa;
-    --text-muted: rgba(255, 255, 255, 0.55);
-    --text-subtle: rgba(255, 255, 255, 0.4);
-    --flow-pulse-color: var(--brand-soft);
-  }
-
-  .theme-modern body {
-    background-color: var(--bg-base);
-    color: var(--text-main);
-  }
-
-  /* ─── AMETHYST — Dark purple gradient ──────────────────────── */
-  .theme-amethyst {
-    color-scheme: dark;
-    --bg-base: #0E0A18;
-    --bg-surface: #1a1030;
-    --bg-elevated: #231542;
-    --text-main: #f0ebff;
-    --border-light: rgba(165, 131, 232, 0.15);
-    --surface-card: rgba(255, 255, 255, 0.05);
-    --surface-elevated: rgba(255, 255, 255, 0.08);
-    --accent-success: #34d399;
-    --accent-warning: #fbbf24;
-    --accent-danger: #f87171;
-    --accent-info: #A583E8;
-    --text-muted: #9b89cc;
-    --text-subtle: rgba(240, 235, 255, 0.4);
-    --flow-pulse-color: var(--brand-soft);
-  }
-
-  .theme-amethyst body {
     background-color: var(--bg-base);
     color: var(--text-main);
   }
@@ -253,6 +236,68 @@ textarea {
 @keyframes themeBgPulse2 {
   0% { opacity: 0.7; transform: scale(0.96); }
   100% { opacity: 0.3; transform: scale(1.04); }
+}
+
+.glass-panel {
+  background: color-mix(in srgb, var(--color-surface-card) 40%, transparent);
+  backdrop-filter: blur(20px);
+  box-shadow:
+    inset 1px 1px 0px 0px rgba(255, 255, 255, 0.05),
+    -10px 0px 40px rgba(0, 0, 0, 0.25);
+  border-left: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.spotlight-card {
+  position: relative;
+  overflow: hidden;
+}
+.spotlight-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: radial-gradient(150px circle at var(--mouse-x) var(--mouse-y), rgba(255, 255, 255, 0.08), transparent 80%);
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.progress-glow {
+  box-shadow: 0 0 6px var(--flow-pulse-color);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-border-subtle);
+  border-radius: 99px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--flow-pulse-color);
+}
+
+@keyframes smooth-caret {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
+}
+
+@keyframes shine {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+.sidebar-hovered .logo-shine::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 50%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  transform: skewX(-25deg);
+  animation: shine 1.2s ease-in-out;
+  pointer-events: none;
 }
   .gap-s-xl { gap: var(--sp-xl); }
   .space-y-s-xl > * + * { margin-top: var(--sp-xl); }

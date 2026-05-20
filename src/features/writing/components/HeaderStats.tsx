@@ -85,9 +85,9 @@ export const HeaderStats = memo(function HeaderStats({
           )}
         </div>
         {wordProgress !== null && wordGoal > 0 && (
-          <div className="w-full h-px bg-border-subtle mt-1.5">
+          <div className="w-full h-[2px] bg-border-subtle mt-1.5 rounded-full overflow-hidden">
             <motion.div
-              className={cn("h-px", wordDone ? "bg-accent-success" : "bg-brand-soft")}
+              className={cn("h-[2px] rounded-full", wordDone ? "bg-accent-success progress-glow" : "bg-gradient-to-r from-brand-primary to-brand-soft progress-glow")}
               animate={{ width: `${wordProgress}%` }}
               transition={{ type: 'spring', stiffness: 120, damping: 20 }}
             />
@@ -137,9 +137,9 @@ export const HeaderStats = memo(function HeaderStats({
           )}
         </div>
         {timeProgress !== null && timerDuration > 0 && (
-          <div className="w-full h-px bg-border-subtle mt-1.5">
+          <div className="w-full h-[2px] bg-border-subtle mt-1.5 rounded-full overflow-hidden">
             <motion.div
-              className={cn("h-px", timeDone ? "bg-accent-success" : "bg-brand-soft")}
+              className={cn("h-[2px] rounded-full", timeDone ? "bg-accent-success progress-glow" : "bg-gradient-to-r from-brand-primary to-brand-soft progress-glow")}
               animate={{ width: `${timeProgress}%` }}
               transition={{ type: 'spring', stiffness: 120, damping: 20 }}
             />
