@@ -122,7 +122,7 @@ export function useDraftAutosave(
       
       return () => clearTimeout(timeout);
     }
-  }, [draftData.status, draftData.content, draftData.title, draftData.wordCount, draftData.seconds, user, markSaved]);
+  }, [draftData.status, draftData.content, draftData.title, draftData.wordCount, user, markSaved]);
 
   return { saveStatus, lastSavedAt };
 }

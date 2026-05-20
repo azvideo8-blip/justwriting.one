@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { WordSnapshot } from './types';
+import { countWords } from '../../../shared/utils/countWords';
 
 type TimerStateGetter = () => { status: string; sessionStartWords: number; wordGoal: number };
 type TimerStateSetter = (partial: Record<string, unknown>) => void;
@@ -45,7 +46,7 @@ function computeWordStats(content: string) {
   const contentState = useContentStore.getState();
   const timerState = _getTimerState?.() ?? { status: 'idle', sessionStartWords: 0, wordGoal: 0 };
   _wordCalcTimer = null;
-  const words = content.trim().split(/\s+/).filter(x => x.length > 0).length;
+  const words = countWords(content);
   const now = Date.now();
 
   const newSnapshots = [...contentState.wordSnapshots, { timestamp: now, wordCount: words }]
@@ -90,16 +91,14 @@ export const useContentStore = create<ContentState>((set) => ({
   tags: [], labelId: undefined,
 
   setContent: (content) => {
-    set(() => {
-      if (_wordCalcTimer) clearTimeout(_wordCalcTimer);
-      _wordCalcTimer = setTimeout(() => computeWordStats(content), 100);
-      return { content };
-    });
+    if (_wordCalcTimer) clearTimeout(_wordCalcTimer);
+    _wordCalcTimer = setTimeout(() => computeWordStats(content), 100);
+    set({ content });
   },
 
   setTitle: (title) => set({ title }),
   setPinnedThoughts: (pinnedThoughts) => set({ pinnedThoughts }),
-  setTags: (tags) => set({ tags }),
+  setTags: (tags) => set({ tags: (tags ?? []).slice(0, 10).map(t => String(t).slice(0, 50)) }),
   setLabelId: (labelId) => set({ labelId }),
   setInitialWordCount: (initialWordCount) => set({ initialWordCount }),
   pushWpmHistory: (entry) => set(state => ({ wpmHistory: [...state.wpmHistory.slice(-119), entry] })),

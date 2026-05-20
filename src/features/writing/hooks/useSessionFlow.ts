@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { SessionType } from '../store/types';
 import { useTimerStore } from '../store/useTimerStore';
 import { SetupMode } from '../WritingSetup';
@@ -38,7 +38,7 @@ export function useSessionFlow(
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const goalFiredRef = useRef(false);
 
-  const startCountdown = (type: SessionType) => {
+  const startCountdown = useCallback((type: SessionType) => {
     if (countdownRef.current) clearInterval(countdownRef.current);
     setSessionType(type);
     setSetupMode('countdown');
@@ -58,7 +58,15 @@ export function useSessionFlow(
         }, 800);
       }
     }, 1000);
-  };
+  }, [setSessionType, handleStart]);
+
+  const stableSetSetupMode = useCallback((mode: SetupMode) => {
+    setSetupMode(mode);
+  }, []);
+
+  const stableSetShowCancelConfirm = useCallback((v: boolean) => {
+    setShowCancelConfirm(v);
+  }, []);
 
   useEffect(() => {
     if (sessionStatus === 'writing') {
@@ -96,7 +104,7 @@ export function useSessionFlow(
         target.setHours(hours, minutes, 0, 0);
         const now = new Date();
         const remaining = Math.max(0, (target.getTime() - now.getTime()) / 1000);
-        const dur = remaining + useTimerStore.getState().seconds;
+        const dur = remaining + useTimerStore.getState().getElapsedSeconds();
         totalDurationRef.current = dur;
         setTimeout(() => setTotalDurationForDeadline(dur), 0);
       }
@@ -112,12 +120,14 @@ export function useSessionFlow(
     };
   }, []);
 
-  return {
-    setupMode, setSetupMode,
+  return useMemo(() => ({
+    setupMode, setSetupMode: stableSetSetupMode,
     countdown, startCountdown,
     goalToastVisible, goalToastType,
     sessionStartFlash,
     totalDurationForDeadline,
-    showCancelConfirm, setShowCancelConfirm,
-  };
+    showCancelConfirm, setShowCancelConfirm: stableSetShowCancelConfirm,
+  }), [setupMode, countdown, goalToastVisible, goalToastType,
+       sessionStartFlash, totalDurationForDeadline,
+       showCancelConfirm, stableSetSetupMode, startCountdown, stableSetShowCancelConfirm]);
 }

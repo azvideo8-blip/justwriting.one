@@ -103,8 +103,8 @@ export function groupSessionsByDate(
     wpm: 0,
     title: d.title,
     tags: d.tags,
-    createdAt: new Date(d.firstSessionAt || d.lastSessionAt),
-    sessionStartTime: d.firstSessionAt ?? undefined,
+    createdAt: new Date(d.lastSessionAt),
+    sessionStartTime: d.lastSessionAt ?? undefined,
     _isLocal: !!d.localId,
   } as Session));
 

@@ -61,7 +61,14 @@ export const WritingDraftService = {
     }
 
     if (localDraft && cloudDraft) {
-      const winner = (toTimestampMs(localDraft.updatedAt) ?? 0) > (toTimestampMs(cloudDraft.updatedAt) ?? 0) ? localDraft : cloudDraft;
+      const localTs = toTimestampMs(localDraft.updatedAt) ?? 0;
+      const cloudTs = toTimestampMs(cloudDraft.updatedAt) ?? 0;
+      let winner: LocalDraft;
+      if (Math.abs(localTs - cloudTs) < 60_000) {
+        winner = (localDraft.wordCount ?? 0) >= (cloudDraft.wordCount ?? 0) ? localDraft : cloudDraft;
+      } else {
+        winner = localTs > cloudTs ? localDraft : cloudDraft;
+      }
       if (deletedAt && (toTimestampMs(winner.updatedAt) ?? 0) <= deletedAt) {
         await WritingDraftService.deleteDraft(userId);
         return null;
@@ -107,12 +114,12 @@ export const WritingDraftService = {
     _abortControllers.set(draft.userId, ac);
     const { db, mod } = await getClient();
     if (ac.signal.aborted) return;
-    const { doc, setDoc } = mod;
+    const { doc, setDoc, serverTimestamp } = mod;
     const docRef = doc(db, 'drafts', draft.userId);
-    const encrypted = await maybeEncrypt(draft as unknown as Record<string, unknown>, ['content'], ['pinnedThoughts']);
+    const encrypted = await maybeEncrypt(draft as unknown as Record<string, unknown>, ['content'], ['pinnedThoughts'], true);
     const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
     try {
-      await setDoc(docRef, clean, { merge: true });
+      await setDoc(docRef, { ...clean, updatedAt: serverTimestamp() }, { merge: true });
     } catch {
       if (ac.signal.aborted) return;
       throw new Error('Draft save aborted');

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { SessionService } from '../services/SessionService';
+import { countWords } from '../../../shared/utils/countWords';
 import { LocalVersionService } from '../services/LocalVersionService';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { Session } from '../../../types';
@@ -22,7 +23,7 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
   const [tagInput, setTagInput] = useState('');
 
   const handleSave = () => {
-    const wordCount = editContent.trim().split(/\s+/).filter(x => x.length > 0).length;
+    const wordCount = countWords(editContent);
 
     if (session._isLocal) {
       execute(

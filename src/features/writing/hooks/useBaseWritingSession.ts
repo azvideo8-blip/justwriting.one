@@ -87,7 +87,6 @@ export function useBaseWritingSession(): BaseSessionReturn {
   const setTimeGoalReached = useTimerStore(s => s.setTimeGoalReached);
   const setWordGoalReached = useTimerStore(s => s.setWordGoalReached);
   const setSessionStart = useTimerStore(s => s.setSessionStart);
-  const tick = useTimerStore(s => s.tick);
 
   const setActiveSessionId = useSessionMetaStore(s => s.setActiveSessionId);
   const setSessionStartTime = useSessionMetaStore(s => s.setSessionStartTime);
@@ -102,17 +101,20 @@ export function useBaseWritingSession(): BaseSessionReturn {
       setSessionStartTime(Date.now());
     }
     if (currentStatus === 'idle') {
+      useTimerStore.setState({ _startWallMs: performance.now(), _accumulatedMs: 0, seconds: 0, sessionStartSeconds: 0 });
       setSessionStart();
+    } else if (currentStatus === 'paused') {
+      useTimerStore.getState().resumeSession();
     }
   }, [setStatus, setTimeGoalReached, setWordGoalReached, sessionStartTime, setInitialWordCount, wordCount, setSessionStartTime, setSessionStart]);
 
   useEffect(() => {
     if (status !== 'writing') return;
-    const interval = setInterval(() => {
-      tick();
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [status, tick]);
+    const id = setInterval(() => {
+      useTimerStore.getState().checkGoals();
+    }, 500);
+    return () => clearInterval(id);
+  }, [status]);
 
   return {
     status, sessionType, timerDuration, wordGoal, targetTime,

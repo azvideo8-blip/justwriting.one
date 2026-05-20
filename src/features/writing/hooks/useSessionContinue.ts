@@ -6,6 +6,7 @@ import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { SetupMode } from '../WritingSetup';
 import { LocalVersionService } from '../services/LocalVersionService';
 import { LocalDocumentService } from '../services/LocalDocumentService';
+import { countWords } from '../../../shared/utils/countWords';
 
 interface UseSessionContinueParams {
   setSetupMode: (mode: SetupMode) => void;
@@ -21,17 +22,19 @@ export function useSessionContinue({
   userId,
 }: UseSessionContinueParams) {
   const continueSession = useCallback(async (session: Session) => {
+
     const isLocal = session._isLocal;
     if (isLocal) {
       const loaded = await loadLocalSession(session.id);
 
       if (!loaded) {
         const content = await LocalVersionService.getLatestContent(session.id);
+        const wc = countWords(content || '');
         useContentStore.setState({
           content,
           title: session.title || '',
-          initialWordCount: session.wordCount || 0,
-          wordCount: session.wordCount || 0,
+          initialWordCount: wc,
+          wordCount: wc,
         });
         useTimerStore.setState({
           seconds: 0,
@@ -45,11 +48,13 @@ export function useSessionContinue({
         return;
       }
 
+      const loadedContent = (loaded.content as string) || '';
+      const wc = countWords(loadedContent);
       useContentStore.setState({
-        content: (loaded.content as string) || '',
+        content: loadedContent,
         title: (loaded.title as string) || '',
-        initialWordCount: (loaded.wordCount as number) || 0,
-        wordCount: (loaded.wordCount as number) || 0,
+        initialWordCount: wc,
+        wordCount: wc,
       });
       useTimerStore.setState({
         seconds: 0,
@@ -73,11 +78,13 @@ export function useSessionContinue({
       } catch { /* ignore */ }
     }
 
+    const sessionContent = session.content || '';
+    const wc = countWords(sessionContent);
     useContentStore.setState({
-      content: session.content,
+      content: sessionContent,
       title: session.title || '',
-      initialWordCount: session.wordCount || 0,
-      wordCount: session.wordCount || 0,
+      initialWordCount: wc,
+      wordCount: wc,
     });
     useTimerStore.setState({
       seconds: 0,

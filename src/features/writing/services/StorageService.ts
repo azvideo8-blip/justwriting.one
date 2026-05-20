@@ -28,6 +28,7 @@ export interface SaveDocumentData {
 }
 
 const CLOUD_SYNC_TIMEOUT = 30_000;
+const LOCK_TTL_MS = 30_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
@@ -77,10 +78,9 @@ export const StorageService = {
     const prevPromise = _saveVersionLocks.get(documentId) ?? Promise.resolve();
     const promise = prevPromise.then(async () => {
       const db = await getLocalDb();
-      const tx = db.transaction(['documents', 'versions', 'profile'], 'readwrite');
+      const tx = db.transaction(['documents', 'versions'], 'readwrite');
       const docStore = tx.objectStore('documents');
       const verStore = tx.objectStore('versions');
-      const profStore = tx.objectStore('profile');
 
       const existing = await docStore.get(documentId);
       if (!existing) { await tx.done; throw new Error('Document not found'); }
@@ -96,56 +96,77 @@ export const StorageService = {
       const totalWords = data.documentWordCount ?? data.wordCount;
       const now = Date.now();
 
-      await verStore.put({
-        id: verId,
-        documentId,
-        guestId: userId,
-        version: newVersion,
-        content: data.content,
-        wordCount: data.wordCount,
-        wordsAdded: diff.wordsAdded,
-        charsAdded: diff.charsAdded,
-        duration: data.duration,
-        wpm: data.wpm,
-        goalWords: data.goalWords,
-        goalTime: data.goalTime,
-        goalReached: data.goalReached ?? false,
-        savedAt: now,
-        sessionStartedAt: data.sessionStartedAt.getTime(),
-      });
+      let localSaved = false;
+      try {
+        await verStore.put({
+          id: verId,
+          documentId,
+          guestId: userId,
+          version: newVersion,
+          content: data.content,
+          wordCount: data.wordCount,
+          wordsAdded: diff.wordsAdded,
+          charsAdded: diff.charsAdded,
+          duration: data.duration,
+          wpm: data.wpm,
+          goalWords: data.goalWords,
+          goalTime: data.goalTime,
+          goalReached: data.goalReached ?? false,
+          savedAt: now,
+          sessionStartedAt: data.sessionStartedAt.getTime(),
+        });
 
-      await docStore.put({
-        ...existing,
-        totalWords,
-        totalDuration: data.duration,
-        currentVersion: newVersion,
-        sessionsCount: (existing.sessionsCount || 0) + 1,
-        lastSessionAt: now,
-      });
-
-      const profile = await profStore.get(existing.guestId);
-      if (profile) {
-        await profStore.put({
-          ...profile,
-          totalWords: profile.totalWords - existing.totalWords + totalWords,
-          totalDuration: profile.totalDuration - existing.totalDuration + data.duration,
-          sessionsCount: profile.sessionsCount + 1,
+        await docStore.put({
+          ...existing,
+          totalWords,
+          totalDuration: data.duration,
+          currentVersion: newVersion,
+          sessionsCount: (existing.sessionsCount || 0) + 1,
           lastSessionAt: now,
         });
+
+        await tx.done;
+        localSaved = true;
+      } catch (localErr) {
+        if (localErr instanceof DOMException && localErr.name === 'QuotaExceededError') {
+          console.warn('[Storage] IDB quota exceeded — will try cloud only');
+        } else {
+          throw localErr;
+        }
       }
 
-      await tx.done;
+      if (localSaved) {
+        try {
+          const profileDb = await getLocalDb();
+          const profileTx = profileDb.transaction(['profile'], 'readwrite');
+          const profStore = profileTx.objectStore('profile');
+          const profile = await profStore.get(existing.guestId);
+          if (profile) {
+            await profStore.put({
+              ...profile,
+              totalWords: profile.totalWords - existing.totalWords + totalWords,
+              totalDuration: profile.totalDuration - existing.totalDuration + data.duration,
+              sessionsCount: profile.sessionsCount + 1,
+              lastSessionAt: now,
+            });
+          }
+          await profileTx.done;
 
-      if (!profile) {
-        await LocalDocumentService._updateProfile(existing.guestId);
+          if (!profile) {
+            await LocalDocumentService._updateProfile(existing.guestId);
+          }
+        } catch (profileErr) {
+          console.error('Failed to update profile stats:', profileErr);
+          try { await LocalDocumentService._updateProfile(existing.guestId); } catch { /* ignore */ }
+        }
       }
 
       if (existing.linkedCloudId) {
         try {
           const cloudDoc = await DocumentService.getDocument(userId, existing.linkedCloudId);
           if (!cloudDoc) {
-            const db = await getLocalDb();
-            await db.put('syncQueue', {
+            const syncDb = await getLocalDb();
+            await syncDb.put('syncQueue', {
               id: `sync_${documentId}_${Date.now()}`,
               documentId,
               type: 'document' as const,
@@ -167,7 +188,7 @@ export const StorageService = {
               goalTime: data.goalTime,
               goalReached: data.goalReached,
               sessionStartedAt: startedAt,
-            } as Record<string, unknown>, ['content', 'previousContent'], []);
+            } as Record<string, unknown>, ['content', 'previousContent'], [], true);
             await VersionService.addVersion(userId, existing.linkedCloudId, {
               content: versionPayload.content as string,
               previousContent: versionPayload.previousContent as string,
@@ -190,8 +211,8 @@ export const StorageService = {
         } catch (e) {
           console.error(`Cloud version sync failed for ${existing.linkedCloudId}:`, e);
           try {
-            const db = await getLocalDb();
-            await db.put('syncQueue', {
+            const syncDb = await getLocalDb();
+            await syncDb.put('syncQueue', {
               id: `sync_${documentId}_${Date.now()}`,
               documentId,
               type: 'document' as const,
@@ -279,7 +300,13 @@ export const StorageService = {
     // Atomic check+claim via IDB transaction
     const lockTx = db.transaction('syncQueue', 'readwrite');
     const existing = await lockTx.store.get(lockKey);
-    if (existing) { await lockTx.done; return ''; }
+    if (existing) {
+      const age = Date.now() - (existing.createdAt ?? 0);
+      if (age < LOCK_TTL_MS) {
+        await lockTx.done;
+        return '';
+      }
+    }
     await lockTx.store.put({ id: lockKey, documentId: localDocumentId, type: 'document' as const, createdAt: Date.now() });
     await lockTx.done;
 
@@ -325,7 +352,7 @@ export const StorageService = {
             goalTime: ver.goalTime,
             goalReached: ver.goalReached,
             sessionStartedAt: startedAt,
-          } as Record<string, unknown>, ['content', 'previousContent'], []);
+          } as Record<string, unknown>, ['content', 'previousContent'], [], true);
 
           await withTimeout(VersionService.addVersion(userId, cloudId, {
             content: versionPayload.content as string,
@@ -382,15 +409,11 @@ export const StorageService = {
     localId?: string,
     cloudId?: string
   ): Promise<void> {
+    if (cloudId) {
+      await DocumentService.deleteDocument(userId, cloudId);
+    }
     if (localId) {
       await LocalDocumentService.deleteDocument(localId);
-    }
-    if (cloudId) {
-      try {
-        await DocumentService.deleteDocument(userId, cloudId);
-      } catch (e) {
-        console.error(`Cloud delete failed for ${cloudId}, local copy already removed:`, e);
-      }
     }
   },
 
