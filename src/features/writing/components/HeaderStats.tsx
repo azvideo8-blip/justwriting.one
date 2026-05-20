@@ -59,7 +59,7 @@ export const HeaderStats = memo(function HeaderStats({
     <div className="flex items-center border-t border-border-subtle" style={{ borderRadius: 0 }}>
       {visibility.totalWords && (
         <div className="hidden sm:flex flex-col px-4 py-3 shrink-0">
-          <span className="text-2xl font-medium text-text-main leading-none">{wordCount}</span>
+          <span className="text-2xl font-medium text-text-main leading-none tabular-nums">{wordCount}</span>
           <span className="text-[11px] text-text-muted mt-1">{t('header_totalWords')}</span>
         </div>
       )}
@@ -75,9 +75,9 @@ export const HeaderStats = memo(function HeaderStats({
         onClick={() => { setWordPopupOpen(!wordPopupOpen); setTimePopupOpen(false); }}
       >
         <div className="flex items-baseline gap-1.5 leading-none">
-          <span className={cn("text-xl sm:text-2xl font-medium", wordDone ? "text-accent-success" : "text-text-main")}>
-            {sessionWords}
-          </span>
+           <span className={cn("text-xl sm:text-2xl font-medium tabular-nums", wordDone ? "text-accent-success" : "text-text-main")}>
+             {sessionWords}
+           </span>
           {wordGoal > 0 && (
             <span className={cn("text-sm sm:text-base", wordDone ? "text-accent-success/70" : "text-text-subtle")}>
               / {wordGoal}
@@ -179,7 +179,7 @@ export const HeaderStats = memo(function HeaderStats({
       <div className="flex flex-col shrink-0 px-4 py-3">
         <div className="flex items-center gap-1.5 leading-none">
           <div className={cn("w-2 h-2 rounded-full transition-colors duration-500", getWpmColor(wpm), status === 'writing' && "animate-pulse")} />
-          <span className="text-xl sm:text-2xl font-medium text-text-main leading-none">{wpm}</span>
+          <span className="text-xl sm:text-2xl font-medium text-text-main leading-none tabular-nums">{wpm}</span>
         </div>
         <span className="text-[11px] text-text-muted mt-1">{t('header_wpm')}</span>
       </div>

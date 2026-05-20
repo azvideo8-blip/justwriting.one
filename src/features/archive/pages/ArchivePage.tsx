@@ -116,7 +116,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     <AdaptiveContainer>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="pb-10">
         <div className="flex gap-0 h-full min-w-[320px]">
-          <div className="flex-1 min-w-0 pr-0 lg:pr-8 overflow-y-auto">
+          <div className="flex-1 min-w-0 pr-0 lg:pr-8 overflow-y-auto" style={{ overscrollBehavior: 'contain' }}>
             <ArchiveHeader
               title={t('nav_notes')} count={sortedSessions.length} countLabel={t('archive_count')}
               subtitle={t('archive_subtitle')}

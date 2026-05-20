@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { PenLine, History, User as UserIcon, Shield, LogIn, Info, Settings } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -8,6 +8,111 @@ import { useWritingSettings } from '../../writing/contexts/WritingSettingsContex
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
+
+interface SidebarNavItemProps {
+  icon: ReactNode;
+  label: string;
+  isActive: boolean;
+  expanded: boolean;
+  onClick: () => void;
+}
+
+function SidebarNavItem({ icon, label, isActive, expanded, onClick }: SidebarNavItemProps) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
+      tabIndex={0}
+      aria-current={isActive ? 'page' : undefined}
+      className={cn(
+        "relative group flex items-center gap-3 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
+        "px-3 py-2.5 border-l-2",
+        isActive
+          ? "bg-brand-soft/10 text-brand-soft border-brand-soft pl-[10px]"
+          : "text-text-main/40 hover:text-text-main/70 hover:bg-text-main/6 border-transparent pl-[10px]"
+      )}
+    >
+      <span className="relative z-10 shrink-0">{icon}</span>
+      <span className={cn(
+        "relative z-10 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
+        expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
+      )}>
+        {label}
+      </span>
+      {!expanded && (
+        <AnimatePresence>
+          {hovered && (
+            <motion.span
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -6 }}
+              transition={{ duration: 0.15 }}
+              className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-50 bg-surface-card border border-border-subtle text-text-main shadow-lg"
+            >
+              {label}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      )}
+    </button>
+  );
+}
+
+interface SidebarActionItemProps {
+  icon: ReactNode;
+  label: string;
+  expanded: boolean;
+  onClick: () => void;
+  accent?: boolean;
+}
+
+function SidebarActionItem({ icon, label, expanded, onClick, accent }: SidebarActionItemProps) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
+      className={cn(
+        "relative group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
+        accent
+          ? "text-text-main/70 hover:text-text-main hover:bg-text-main/15"
+          : "text-text-main/40 hover:text-text-main/60 hover:bg-text-main/8"
+      )}
+    >
+      <span className="shrink-0">{icon}</span>
+      <span className={cn(
+        "text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
+        expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
+      )}>
+        {label}
+      </span>
+      {!expanded && (
+        <AnimatePresence>
+          {hovered && (
+            <motion.span
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -6 }}
+              transition={{ duration: 0.15 }}
+              className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-50 bg-surface-card border border-border-subtle text-text-main shadow-lg"
+            >
+              {label}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      )}
+    </button>
+  );
+}
 
 interface SidebarProps {
   isAdmin: boolean;
@@ -37,10 +142,6 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
     <div
       role="navigation"
       aria-label={t('nav_main')}
-      onFocusCapture={() => setExpanded(true)}
-      onBlurCapture={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget)) setExpanded(false);
-      }}
       onMouseEnter={() => setExpanded(true)}
       onMouseLeave={() => setExpanded(false)}
       className={cn(
@@ -66,9 +167,8 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
       {/* Nav items */}
       <nav
         className="flex-1 flex flex-col gap-1 px-2"
-        role="menubar"
         onKeyDown={(e) => {
-          const items = Array.from(e.currentTarget.querySelectorAll('[role="menuitem"]')) as HTMLElement[];
+          const items = Array.from(e.currentTarget.querySelectorAll('button[tabindex="0"]')) as HTMLElement[];
           const idx = items.indexOf(document.activeElement as HTMLElement);
           if (e.key === 'ArrowDown') {
             e.preventDefault();
@@ -80,126 +180,46 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
             const prev = items[(idx - 1 + items.length) % items.length];
             prev?.focus();
           }
-          if (e.key === 'Escape') setExpanded(false);
         }}
       >
         {navItems.map(item => (
-          <button
+          <SidebarNavItem
             key={item.id}
+            icon={item.icon}
+            label={item.label}
+            isActive={location.pathname === item.path}
+            expanded={expanded}
             onClick={() => navigate(item.path)}
-            role="menuitem"
-            tabIndex={0}
-            aria-current={location.pathname === item.path ? 'page' : undefined}
-            className={cn(
-              "relative group flex items-center gap-3 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
-              "px-3 py-2.5 border-l-2",
-              location.pathname === item.path
-                ? "bg-brand-soft/10 text-brand-soft border-brand-soft pl-[10px]"
-                : "text-text-main/40 hover:text-text-main/70 hover:bg-text-main/6 border-transparent pl-[10px]"
-            )}
-          >
-            <span className="relative z-10 shrink-0">{item.icon}</span>
-            <span className={cn(
-              "relative z-10 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
-              expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
-            )}>
-              {item.label}
-            </span>
-            {!expanded && (
-              <motion.span
-                initial={{ opacity: 0, x: -6 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-50 bg-surface-card border border-border-subtle text-text-main shadow-lg hidden group-hover:flex"
-              >
-                {item.label}
-              </motion.span>
-            )}
-          </button>
+          />
         ))}
-        </nav>
+      </nav>
 
       {/* Bottom section */}
       <div className="flex flex-col gap-1 px-2 mt-auto">
-        <button
+        <SidebarActionItem
+          icon={<Info size={20} />}
+          label={t('nav_about')}
+          expanded={expanded}
           onClick={() => navigate('/about')}
-          className={cn(
-            "relative group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
-            "text-text-main/40 hover:text-text-main/60 hover:bg-text-main/8"
-          )}
-          title={t('nav_about')}
-        >
-          <span className="shrink-0"><Info size={20} /></span>
-          <span className={cn(
-            "text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
-            expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
-          )}>
-            {t('nav_about')}
-          </span>
-          {!expanded && (
-            <motion.span
-              initial={{ opacity: 0, x: -6 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-50 bg-surface-card border border-border-subtle text-text-main shadow-lg hidden group-hover:flex"
-            >
-              {t('nav_about')}
-            </motion.span>
-          )}
-        </button>
+        />
 
         {onOpenSettings && (
-          <button
+          <SidebarActionItem
+            icon={<Settings size={20} />}
+            label={t('nav_settings')}
+            expanded={expanded}
             onClick={onOpenSettings}
-            title={t('nav_settings')}
-            className={cn(
-              "relative group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
-              "text-text-main/40 hover:text-text-main/60 hover:bg-text-main/8"
-            )}
-          >
-            <span className="shrink-0"><Settings size={20} /></span>
-            <span className={cn(
-              "text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
-              expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
-            )}>
-              {t('nav_settings')}
-            </span>
-            {!expanded && (
-              <motion.span
-                initial={{ opacity: 0, x: -6 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-50 bg-surface-card border border-border-subtle text-text-main shadow-lg hidden group-hover:flex"
-              >
-                {t('nav_settings')}
-              </motion.span>
-            )}
-          </button>
+          />
         )}
 
         {isGuest && (
-          <button
+          <SidebarActionItem
+            icon={<LogIn size={20} />}
+            label={t('auth_sign_in')}
+            expanded={expanded}
             onClick={openLoginModal}
-            className={cn(
-              "relative group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
-              "text-text-main/70 hover:text-text-main hover:bg-text-main/15"
-            )}
-            title={t('auth_sign_in')}
-          >
-            <span className="shrink-0"><LogIn size={20} /></span>
-            <span className={cn(
-              "text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
-              expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
-            )}>
-              {t('auth_sign_in')}
-            </span>
-            {!expanded && (
-              <motion.span
-                initial={{ opacity: 0, x: -6 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-50 bg-surface-card border border-border-subtle text-text-main shadow-lg hidden group-hover:flex"
-              >
-                {t('auth_sign_in')}
-              </motion.span>
-            )}
-          </button>
+            accent
+          />
         )}
       </div>
     </div>

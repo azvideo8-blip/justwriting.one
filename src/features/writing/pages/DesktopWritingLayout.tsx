@@ -71,11 +71,20 @@ export function DesktopWritingLayout({
   React.useEffect(() => {
     const el = editorColRef.current;
     if (!el) return;
-    const observer = new ResizeObserver(([entry]) => {
-      setIsCompact(entry.contentRect.width < 600);
+    let rafId: number | null = null;
+    const observer = new ResizeObserver(() => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const entry = el.getBoundingClientRect();
+        setIsCompact(entry.width < 600);
+        rafId = null;
+      });
     });
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   const LIFE_LOG_WIDTH = 380;
@@ -120,41 +129,43 @@ export function DesktopWritingLayout({
           />
         </div>
 
-        <AnimatePresence>
-          {hasDraft && sessionStatus === 'idle' && !setupMode && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 12 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-              style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', zIndex: 40 }}
-              className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-text-main/10 bg-surface-card/90 backdrop-blur-xl shadow-lg text-sm text-text-main/60 whitespace-nowrap"
-            >
-              <span>{t('draft_restore_prompt')}</span>
-              <div className="flex gap-2">
-                <button onClick={restoreDraft} className="text-text-main font-medium hover:opacity-70 transition-opacity">
-                  {t('draft_restore')}
-                </button>
-                <button onClick={discardDraft}
-                  className="text-text-main/40 hover:text-text-main/60 transition-colors">
-                  {t('draft_discard')}
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         <div ref={editorColRef} style={{
           gridColumn: '2',
           gridRow: '2',
           overflow: 'hidden',
           position: 'relative',
           display: 'flex',
+          flexDirection: 'column',
           justifyContent: 'center',
         }}>
+          <AnimatePresence>
+            {hasDraft && sessionStatus === 'idle' && !setupMode && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+                className="shrink-0 flex items-center justify-center overflow-hidden"
+              >
+                <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-text-main/10 bg-surface-card/90 backdrop-blur-xl shadow-lg text-sm text-text-main/60 whitespace-nowrap">
+                  <span>{t('draft_restore_prompt')}</span>
+                  <div className="flex gap-2">
+                    <button onClick={restoreDraft} className="text-text-main font-medium hover:opacity-70 transition-opacity">
+                      {t('draft_restore')}
+                    </button>
+                    <button onClick={discardDraft}
+                      className="text-text-main/40 hover:text-text-main/60 transition-colors">
+                      {t('draft_discard')}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <div style={{
             width: editorWidth < 100 ? `${editorWidth}%` : '100%',
-            height: '100%',
+            flex: '1 1 0',
+            minHeight: 0,
             position: 'relative',
           }}
           className={cn(

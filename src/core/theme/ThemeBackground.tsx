@@ -1,7 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { useReducedMotion } from 'motion/react';
 import { useLocation } from 'react-router-dom';
 import { useTheme } from './ThemeProvider';
+
+const GRADIENT_THEMES: Record<string, { layers: { gradient: string; origin: string }[]; base: string }> = {
+  spotify: {
+    base: '#121212',
+    layers: [
+      { gradient: 'radial-gradient(ellipse at 30% 40%, #0d2b1a 0%, transparent 65%)', origin: '30% 40%' },
+      { gradient: 'radial-gradient(ellipse at 70% 60%, #0a2416 0%, transparent 65%)', origin: '70% 60%' },
+      { gradient: 'radial-gradient(ellipse at 50% 20%, #0f2e1c 0%, transparent 65%)', origin: '50% 20%' },
+    ],
+  },
+  modern: {
+    base: '#0A0A0B',
+    layers: [
+      { gradient: 'radial-gradient(ellipse at 40% 40%, #1e1e22 0%, transparent 70%)', origin: '40% 40%' },
+      { gradient: 'radial-gradient(ellipse at 60% 60%, #16161a 0%, transparent 70%)', origin: '60% 60%' },
+      { gradient: 'radial-gradient(ellipse at 50% 30%, #1a1a1e 0%, transparent 70%)', origin: '50% 30%' },
+    ],
+  },
+  amethyst: {
+    base: 'var(--brand-bg)',
+    layers: [
+      { gradient: 'radial-gradient(ellipse at 35% 55%, color-mix(in srgb, var(--brand-primary) 30%, transparent) 0%, transparent 65%)', origin: '35% 55%' },
+      { gradient: 'radial-gradient(ellipse at 55% 40%, color-mix(in srgb, var(--brand-primary) 30%, transparent) 0%, transparent 65%)', origin: '55% 40%' },
+      { gradient: 'radial-gradient(ellipse at 40% 60%, color-mix(in srgb, var(--brand-primary) 30%, transparent) 0%, transparent 65%)', origin: '40% 60%' },
+    ],
+  },
+};
 
 export function ThemeBackground() {
   const { themeId } = useTheme();
@@ -16,72 +43,32 @@ export function ThemeBackground() {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
+  const config = GRADIENT_THEMES[themeId];
+  if (!config) return null;
+
   const shouldAnimate = !reducedMotion && isVisible && isWritingPage;
 
-  // Spotify — subtle dark green pulse
-  if (themeId === 'spotify') {
-    return (
-      <motion.div
-        className="fixed inset-0 pointer-events-none"
-        style={{ zIndex: 0 }}
-        animate={shouldAnimate ? {
-          background: [
-            'radial-gradient(ellipse at 30% 40%, #0d2b1a 0%, #121212 65%)',
-            'radial-gradient(ellipse at 70% 60%, #0a2416 0%, #121212 65%)',
-            'radial-gradient(ellipse at 50% 20%, #0f2e1c 0%, #121212 65%)',
-          ],
-        } : {}}
-        transition={{ duration: 7, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
-      />
-    );
-  }
-
-  // Modern — existing animation (keep as is)
-  if (themeId === 'modern') {
-    return (
-      <motion.div
-        className="fixed inset-0 pointer-events-none"
-        style={{ zIndex: 0 }}
-        animate={shouldAnimate ? {
-          background: [
-            'radial-gradient(ellipse at 40% 40%, #1e1e22 0%, #0A0A0B 70%)',
-            'radial-gradient(ellipse at 60% 60%, #16161a 0%, #0A0A0B 70%)',
-            'radial-gradient(ellipse at 50% 30%, #1a1a1e 0%, #0A0A0B 70%)',
-          ],
-        } : {}}
-        transition={{ duration: 8, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
-      />
-    );
-  }
-
-  if (themeId === 'amethyst') {
-    if (!shouldAnimate) {
-      return (
+  return (
+    <div
+      className="fixed inset-0 pointer-events-none"
+      style={{ zIndex: 0, background: config.base }}
+    >
+      {config.layers.map((layer, i) => (
         <div
-          className="fixed inset-0 pointer-events-none"
+          key={i}
           style={{
-            zIndex: 0,
-            background: 'radial-gradient(ellipse at 35% 55%, color-mix(in srgb, var(--brand-primary) 30%, transparent) 0%, var(--brand-bg) 65%)',
+            position: 'absolute',
+            inset: 0,
+            background: layer.gradient,
+            transformOrigin: layer.origin,
+            opacity: shouldAnimate ? 1 : 0,
+            animation: shouldAnimate
+              ? `themeBgPulse${i} ${8 + i * 1.5}s ease-in-out infinite alternate`
+              : 'none',
+            willChange: shouldAnimate ? 'opacity, transform' : 'auto',
           }}
         />
-      );
-    }
-    return (
-      <motion.div
-        className="fixed inset-0 pointer-events-none"
-        style={{ zIndex: 0 }}
-        animate={{
-          background: [
-            'radial-gradient(ellipse at 35% 55%, color-mix(in srgb, var(--brand-primary) 30%, transparent) 0%, var(--brand-bg) 65%)',
-            'radial-gradient(ellipse at 55% 40%, color-mix(in srgb, var(--brand-primary) 30%, transparent) 0%, var(--brand-bg) 65%)',
-            'radial-gradient(ellipse at 40% 60%, color-mix(in srgb, var(--brand-primary) 30%, transparent) 0%, var(--brand-bg) 65%)',
-          ],
-        }}
-        transition={{ duration: 10, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
-      />
-    );
-  }
-
-  // Notion — plain white, no background component needed
-  return null;
+      ))}
+    </div>
+  );
 }

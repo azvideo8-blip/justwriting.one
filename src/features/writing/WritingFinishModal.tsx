@@ -225,7 +225,7 @@ export function WritingFinishModal({
 
           {streakDays > 0 ? (
             <div className="text-center">
-              <div className="text-4xl font-mono font-bold text-brand-primary">{streakDays}</div>
+              <div className="text-4xl font-mono font-bold text-brand-primary tabular-nums">{streakDays}</div>
               <div className="text-[11px] font-bold uppercase tracking-widest text-text-main/40 mt-1">{t('finish_streak_days')}</div>
               <StreakDots sessionGroups={sessionGroups} variant="modal" />
             </div>
@@ -236,15 +236,15 @@ export function WritingFinishModal({
           <div className="grid grid-cols-3 text-center">
             <div className="p-2">
               <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_words')}</div>
-              <div className="text-xl font-mono font-bold text-text-main">{animWords}</div>
+              <div className="text-xl font-mono font-bold text-text-main tabular-nums">{animWords}</div>
             </div>
             <div className="p-2" style={{ borderImage: 'linear-gradient(to bottom, transparent, var(--color-border-subtle), transparent) 1', borderLeft: '1px solid', borderRight: '1px solid' }}>
               <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_time')}</div>
-              <div className="text-xl font-mono font-bold text-text-main">{formatTime(animSeconds)}</div>
+              <div className="text-xl font-mono font-bold text-text-main tabular-nums">{formatTime(animSeconds)}</div>
             </div>
             <div className="p-2">
               <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_wpm')}</div>
-              <div className="text-xl font-mono font-bold text-text-main">{animWpm}</div>
+              <div className="text-xl font-mono font-bold text-text-main tabular-nums">{animWpm}</div>
             </div>
           </div>
 
@@ -252,11 +252,11 @@ export function WritingFinishModal({
             <div className="space-y-1">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-text-main/40">{t('finish_flow_time')}</span>
-                <span className="font-mono text-text-main">{formatTime(sessionSeconds)}</span>
+                <span className="font-mono text-text-main tabular-nums">{formatTime(sessionSeconds)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-text-main/40">{t('finish_distraction_time')}</span>
-                <span className="font-mono text-accent-warning">{formatTime(totalPauseSeconds)}</span>
+                <span className="font-mono text-accent-warning tabular-nums">{formatTime(totalPauseSeconds)}</span>
               </div>
             </div>
           )}

@@ -1,31 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useTimerStore } from '../../features/writing/store/useTimerStore';
 
 export function FlowPulse() {
   const status = useTimerStore(s => s.status);
-  const [intensity, setIntensity] = useState(0);
+  const [spike, setSpike] = useState(false);
+  const decayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const active = status === 'writing';
 
   useEffect(() => {
     if (status !== 'writing') return;
     const handleKey = () => {
-      setIntensity(i => Math.min(1, i + 0.15));
+      setSpike(true);
+      if (decayTimerRef.current) clearTimeout(decayTimerRef.current);
+      decayTimerRef.current = setTimeout(() => setSpike(false), 800);
     };
     window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
+    return () => {
+      window.removeEventListener('keydown', handleKey);
+      if (decayTimerRef.current) clearTimeout(decayTimerRef.current);
+    };
   }, [status]);
-
-  useEffect(() => {
-    if (intensity === 0 && status !== 'writing') return;
-    const t = setInterval(() => {
-      setIntensity(i => Math.max(0, i - 0.04));
-    }, 200);
-    return () => clearInterval(t);
-  }, [intensity, status]);
-
-  useEffect(() => {
-    if (!active) setTimeout(() => setIntensity(0), 0);
-  }, [active]);
 
   return (
     <div style={{
@@ -40,9 +34,9 @@ export function FlowPulse() {
         height: '100%',
         background: 'linear-gradient(90deg, transparent, var(--flow-pulse-color) 50%, transparent)',
         width: '60%',
-        transform: `translateX(${intensity * 80 - 40}%)`,
-        opacity: active ? 0.3 + intensity * 0.55 : 0,
-        transition: 'opacity 0.6s, transform 0.6s cubic-bezier(.4,.2,.2,1)',
+        transform: spike ? 'translateX(40%)' : 'translateX(-40%)',
+        opacity: active ? (spike ? 0.85 : 0.3) : 0,
+        transition: 'opacity 0.6s ease, transform 1.2s cubic-bezier(.25,.1,.25,1)',
         filter: 'blur(1px)',
       }} />
     </div>
