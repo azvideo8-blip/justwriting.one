@@ -17,7 +17,7 @@ service cloud.firestore {
     // Document ID: auto-generated
     // Fields:
     //   - userId: string (required, matches owner)
-    //   - content: string (required, 1-900000 chars)
+    //   - content: string (required, 1-700000 chars)
     //   - duration: number (required, >= 0)
     //   - createdAt: timestamp (required)
     //   - title: string (optional, 0-200 chars)
@@ -87,8 +87,8 @@ service cloud.firestore {
                'authorName', 'authorPhoto', 'nickname', 'isPublic',
                '_encrypted'
              ]) &&
-             data.userId == request.auth.uid &&
-             data.content is string && data.content.size() <= 900000 &&
+              data.userId == request.auth.uid &&
+              data.content is string && data.content.size() <= 700000 &&
              data.duration is number && data.duration >= 0 &&
              data.createdAt is timestamp &&
              (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
@@ -121,7 +121,8 @@ service cloud.firestore {
       // Allow updates to a profile.
       // The role field MUST NOT be modified by the client.
       allow update: if isOwner(userId) && isValidUserUpdate(request.resource.data) && 
-                      !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
+                      !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) &&
+                      request.resource.data.uid == resource.data.uid;
     }
 
     // Connection test — restricted to specific ping doc only
@@ -168,9 +169,10 @@ service cloud.firestore {
                'goalWords', 'goalTime', 'goalReached',
                'savedAt', 'sessionStartedAt', '_encrypted'
              ]) &&
-             data.documentId is string &&
-             data.content is string && data.content.size() <= 900000 &&
-             data.wordCount is number && data.wordCount >= 0;
+              data.documentId is string &&
+              data.content is string && data.content.size() <= 700000 &&
+             data.wordCount is number && data.wordCount >= 0 &&
+         (!('userId' in data) || data.userId == request.auth.uid);
     }
 
     match /users/{userId}/documents/{documentId} {

@@ -64,26 +64,36 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
     setError(null);
     try {
       if (mode === 'register') {
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
-
         const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
         const masterKey = await deriveMasterKey(password, salt);
         const dataKey = await generateDataKey();
         const wrappedDataKey = await wrapDataKey(dataKey, masterKey);
 
-        const { db, mod } = await getClient();
-        const { doc, setDoc } = mod;
-        await setDoc(doc(db, 'users', cred.user.uid), {
-          encryptionSalt: toBase64(salt),
-          encryptedDataKey: wrappedDataKey,
-        }, { merge: true });
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+
+        try {
+          const { db, mod } = await getClient();
+          const { doc, setDoc } = mod;
+          await setDoc(doc(db, 'users', cred.user.uid), {
+            encryptionSalt: toBase64(salt),
+            encryptedDataKey: wrappedDataKey,
+          }, { merge: true });
+        } catch (firestoreErr) {
+          console.error('Failed to save encryption keys to Firestore:', firestoreErr);
+          try {
+            sessionStorage.setItem(`pending_keys_${cred.user.uid}`, JSON.stringify({
+              encryptionSalt: toBase64(salt),
+              encryptedDataKey: wrappedDataKey,
+            }));
+          } catch { /* ignore */ }
+        }
 
         setSessionKey(dataKey);
       } else {
         await signInWithEmailAndPassword(auth, email, password);
 
         const { db, mod } = await getClient();
-        const { doc, getDoc } = mod;
+        const { doc, getDoc, setDoc } = mod;
         const profileSnap = await getDoc(doc(db, 'users', auth.currentUser!.uid));
         if (profileSnap.exists()) {
           const profileData = profileSnap.data();
@@ -100,6 +110,21 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                 return;
               }
               throw e;
+            }
+          } else {
+            const pendingRaw = sessionStorage.getItem(`pending_keys_${auth.currentUser!.uid}`);
+            if (pendingRaw) {
+              try {
+                const keys = JSON.parse(pendingRaw);
+                await setDoc(doc(db, 'users', auth.currentUser!.uid), keys, { merge: true });
+                sessionStorage.removeItem(`pending_keys_${auth.currentUser!.uid}`);
+                const salt = fromBase64(keys.encryptionSalt);
+                const masterKey = await deriveMasterKey(password, salt);
+                const dataKey = await unwrapDataKey(keys.encryptedDataKey, masterKey);
+                setSessionKey(dataKey);
+              } catch (repairErr) {
+                console.error('Failed to repair encryption keys:', repairErr);
+              }
             }
           }
         }

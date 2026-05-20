@@ -11,9 +11,6 @@ export function reportKeystrokeStats(
     if (stats.ikiCv > 1.2 && stats.sampleSize > 30) {
       scope.setLevel('warning');
       Sentry.captureMessage('High IKI variance detected — possible editor lag');
-    } else {
-      scope.setLevel('info');
-      Sentry.captureMessage('editor.keystroke_stats');
     }
   });
 }

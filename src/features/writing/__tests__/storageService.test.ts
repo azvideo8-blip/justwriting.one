@@ -44,6 +44,11 @@ vi.mock('../services/VersionService', () => ({
   VersionService: MockVersionService,
 }));
 
+vi.mock('../../../core/crypto/cryptoHelpers', () => ({
+  maybeEncrypt: vi.fn(async (doc: Record<string, unknown>) => ({ ...doc, _encrypted: false })),
+  maybeDecrypt: vi.fn(async (doc: Record<string, unknown>) => doc),
+}));
+
 // ─── Subject imports (after mocks) ───────────────────────────────────────────
 
 import { resetDbInstance } from '../../../shared/lib/localDb';

@@ -83,7 +83,7 @@ export class ExportService {
       iframe.style.width = '0';
       iframe.style.height = '0';
       iframe.style.border = 'none';
-      iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
+      iframe.setAttribute('sandbox', 'allow-same-origin allow-modals');
       document.body.appendChild(iframe);
 
       const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;

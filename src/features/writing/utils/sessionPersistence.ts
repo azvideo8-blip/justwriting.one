@@ -3,6 +3,7 @@ import { SessionPayload } from '../../../types';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { WritingSessionService } from '../services/WritingSessionService';
+import { randomUUID } from '../../../shared/lib/localDb';
 
 export async function buildSessionPayload(
   state: {
@@ -60,7 +61,7 @@ export async function saveLocalOnly(sessionData: SessionPayload, userId: string)
     keysToRemove.forEach(k => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
   } catch { /* ignore */ }
 
-  const sessionKey = `local_session_${Date.now()}_${crypto.randomUUID()}`;
+  const sessionKey = `local_session_${Date.now()}_${randomUUID()}`;
   try {
     const { authorName, authorPhoto, nickname, ...safePayload } = sessionData;
     localStorage.setItem(sessionKey, JSON.stringify(safePayload));

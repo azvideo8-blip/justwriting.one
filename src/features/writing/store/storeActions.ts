@@ -17,17 +17,20 @@ registerTimerBridge(
   (partial) => useTimerStore.setState(partial as unknown as Parameters<typeof useTimerStore.setState>[0]),
 );
 
-const CONTENT_DEFAULTS = {
+const createContentDefaults = () => ({
   content: '', title: '', pinnedThoughts: [],
   wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
   lastWordCount: 0, wpmHistory: [],
   tags: [], labelId: undefined,
-};
+});
 
 const TIMER_DEFAULTS = {
-  seconds: 0, status: 'idle' as TimerStatus,
+  seconds: 0, sessionStartSeconds: 0,
+  status: 'idle' as TimerStatus,
+  _startWallMs: null as number | null, _accumulatedMs: 0,
+  sessionStartWallMs: null as number | null, sessionStartAccMs: 0,
   timeGoalReached: false, wordGoalReached: false,
-  overtimeSeconds: 0, sessionStartWords: 0, sessionStartSeconds: 0,
+  overtimeSeconds: 0, sessionStartWords: 0,
   accumulatedDuration: 0, totalPauseSeconds: 0, _pauseWallStart: null as number | null,
   initialDuration: 0, sessionType: 'free' as SessionType,
 };
@@ -38,21 +41,21 @@ const META_DEFAULTS = {
 
 export function resetAndClear() {
   clearWordCalcTimer();
-  useContentStore.setState(CONTENT_DEFAULTS);
+  useContentStore.setState(createContentDefaults());
   useTimerStore.setState(TIMER_DEFAULTS);
   useSessionMetaStore.setState(META_DEFAULTS);
 }
 
 export function resetSession() {
   clearWordCalcTimer();
-  useContentStore.setState(CONTENT_DEFAULTS);
+  useContentStore.setState(createContentDefaults());
   useTimerStore.setState(TIMER_DEFAULTS);
   useSessionMetaStore.setState(META_DEFAULTS);
 }
 
 export function finishSession() {
   clearWordCalcTimer();
-  useContentStore.setState(CONTENT_DEFAULTS);
+  useContentStore.setState(createContentDefaults());
   useTimerStore.setState(TIMER_DEFAULTS);
   useSessionMetaStore.setState(META_DEFAULTS);
 }
@@ -70,6 +73,11 @@ export function loadDraftIntoStore(draft: {
     wordSnapshots: [],
   });
   useTimerStore.setState({
+    _startWallMs: null,
+    _accumulatedMs: 0,
+    status: 'idle',
+    timeGoalReached: false,
+    wordGoalReached: false,
     accumulatedDuration: draft.accumulatedDuration ?? 0,
   });
   useSessionMetaStore.setState({
@@ -92,7 +100,7 @@ export function resetAllSessionMetadata() {
 export function setSessionConfig(config: Record<string, unknown>) {
   const contentKeys = new Set(['content', 'title', 'pinnedThoughts', 'wordCount',
     'initialWordCount', 'wpm', 'wordSnapshots', 'lastWordCount', 'wpmHistory', 'tags', 'labelId']);
-  const timerKeys = new Set(['status', 'seconds', 'sessionStartWords', 'sessionStartSeconds',
+  const timerKeys = new Set(['status', 'seconds', 'sessionStartSeconds', '_startWallMs', '_accumulatedMs', 'sessionStartWallMs', 'sessionStartAccMs', 'sessionStartWords',
     'timerDuration', 'wordGoal', 'targetTime', 'timeGoalReached', 'wordGoalReached',
     'overtimeSeconds', 'accumulatedDuration', 'totalPauseSeconds', '_pauseWallStart',
     'sessionType', 'initialDuration']);
@@ -111,7 +119,8 @@ export function setSessionConfig(config: Record<string, unknown>) {
   if (Object.keys(contentPart).length > 0) {
     if (contentPart.pinnedThoughts && !Array.isArray(contentPart.pinnedThoughts)) contentPart.pinnedThoughts = [];
     if (contentPart.tags && !Array.isArray(contentPart.tags)) contentPart.tags = [];
-    useContentStore.setState(contentPart as Partial<typeof CONTENT_DEFAULTS>);
+    if (Array.isArray(contentPart.tags)) contentPart.tags = (contentPart.tags as string[]).slice(0, 10).map(t => String(t).slice(0, 50));
+    useContentStore.setState(contentPart as Partial<ReturnType<typeof createContentDefaults>>);
   }
   if (Object.keys(timerPart).length > 0) useTimerStore.setState(timerPart as Partial<typeof TIMER_DEFAULTS>);
   if (Object.keys(metaPart).length > 0) useSessionMetaStore.setState(metaPart as Partial<typeof META_DEFAULTS>);

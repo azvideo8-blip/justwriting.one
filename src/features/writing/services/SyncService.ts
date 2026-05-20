@@ -108,6 +108,7 @@ async function _drainPendingQueue(userId: string): Promise<void> {
 
   const expiredIds: string[] = [];
   const pending = queue.filter(item => {
+    if (item.id.startsWith('lock_cloud_')) return false;
     if (item.id.startsWith('migrated_')) return false;
     if (now - item.createdAt > MAX_QUEUE_AGE_MS) {
       expiredIds.push(item.id);

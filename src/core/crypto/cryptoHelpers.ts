@@ -4,9 +4,13 @@ export async function maybeEncrypt(
   doc: Record<string, unknown>,
   fields: string[],
   arrayFields: string[],
+  required?: boolean,
 ): Promise<Record<string, unknown>> {
   const key = getSessionKey();
-  if (!key) return doc;
+  if (!key) {
+    if (required) throw new Error('ENCRYPT_REQUIRED: session key not available');
+    return doc;
+  }
 
   const result: Record<string, unknown> = { ...doc };
   for (const field of fields) {
@@ -33,11 +37,21 @@ export async function maybeDecrypt(
   const key = getSessionKey();
   const isEncrypted = doc._encrypted === true;
 
+  if (isEncrypted && !key) {
+    throw new Error('LOCKED: session key not available');
+  }
+
   const result: Record<string, unknown> = { ...doc };
   for (const field of stringFields) {
     const val = result[field];
     if (typeof val === 'string' && isEncrypted && key) {
-      result[field] = await decryptContent(val, key);
+      try {
+        result[field] = await decryptContent(val, key);
+      } catch (e) {
+        console.error(`[maybeDecrypt] Failed to decrypt field "${field}":`, e);
+        result[field] = `[${field}: decryption error]`;
+        result._decryptionError = true;
+      }
     }
   }
   for (const field of arrayFields) {
@@ -45,8 +59,10 @@ export async function maybeDecrypt(
     if (typeof val === 'string' && isEncrypted && key) {
       try {
         result[field] = JSON.parse(await decryptContent(val, key));
-      } catch {
+      } catch (e) {
+        console.error(`[maybeDecrypt] Failed to decrypt array field "${field}":`, e);
         result[field] = [];
+        result._decryptionError = true;
       }
     } else if (typeof val === 'string' && !isEncrypted) {
       try {

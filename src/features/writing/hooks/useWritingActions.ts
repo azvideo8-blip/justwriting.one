@@ -122,7 +122,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       const timerState = useTimerStore.getState();
       const metaState = useSessionMetaStore.getState();
       const sessionSeconds = timerState.accumulatedDuration +
-        Math.max(0, timerState.seconds - timerState.sessionStartSeconds);
+        Math.max(0, timerState.getSessionSeconds());
 
       const sessionNewWords = Math.max(0, contentState.wordCount - contentState.initialWordCount);
 
@@ -198,7 +198,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
     }
     const stats = keystrokeTrackerRef.current?.getStats();
     if (stats) {
-      reportKeystrokeStats(stats, useContentStore.getState().wpm, useTimerStore.getState().seconds);
+      reportKeystrokeStats(stats, useContentStore.getState().wpm, useTimerStore.getState().getElapsedSeconds());
     }
     keystrokeTrackerRef.current?.reset();
   }, []);

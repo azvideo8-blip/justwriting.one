@@ -57,6 +57,11 @@ vi.mock('../../../features/writing/services/VersionService', () => ({
   VersionService: MockVersionService,
 }));
 
+vi.mock('../../../core/crypto/cryptoHelpers', () => ({
+  maybeEncrypt: vi.fn(async (doc: Record<string, unknown>) => ({ ...doc, _encrypted: false })),
+  maybeDecrypt: vi.fn(async (doc: Record<string, unknown>) => doc),
+}));
+
 // Mock localDb — keep everything real but override getOrCreateGuestId
 vi.mock('../../../shared/lib/localDb', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../shared/lib/localDb')>();

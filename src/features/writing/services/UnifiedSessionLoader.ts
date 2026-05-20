@@ -15,6 +15,8 @@ interface LoadedSession extends Session {
   _totalWords?: number;
   _totalDuration?: number;
   _sessionsCount?: number;
+  _firstSessionAt?: number;
+  _locked?: boolean;
 }
 
 interface LoadResult {
@@ -39,7 +41,7 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
       let content = '';
       let _contentError = false;
       try { content = await LocalVersionService.getLatestContent(doc.id); } catch { _contentError = true; }
-      const createdAt = toDate(doc.firstSessionAt) ?? new Date();
+      const createdAt = toDate(doc.lastSessionAt) ?? new Date();
       allSessions.push({
         id: doc.id,
         userId: doc.guestId,
@@ -52,13 +54,14 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
         tags: doc.tags,
         labelId: doc.labelId ?? undefined,
         createdAt,
-        sessionStartTime: doc.firstSessionAt,
+        sessionStartTime: doc.lastSessionAt,
         _isLocal: true,
         _linkedCloudId: doc.linkedCloudId || undefined,
         _hasCloudCopy: !!doc.linkedCloudId,
         _totalWords: doc.totalWords,
         _totalDuration: doc.totalDuration,
         _sessionsCount: doc.sessionsCount,
+        _firstSessionAt: doc.firstSessionAt,
         ...( _contentError ? { _contentError: true } : {}),
       });
     }
@@ -76,7 +79,7 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
         if (localByCloudId.has(cloudDoc.id) || seenIds.has(cloudDoc.id)) continue;
         seenIds.add(cloudDoc.id);
 
-        const created = toDate(cloudDoc.firstSessionAt) ?? new Date();
+        const created = toDate(cloudDoc.lastSessionAt) ?? new Date();
         let cloudContent = '';
         let cloudContentError = false;
         try { cloudContent = await VersionService.getLatestContent(user.uid, cloudDoc.id); } catch { cloudContentError = true; }
@@ -99,6 +102,7 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
           _totalWords: cloudDoc.totalWords,
           _totalDuration: cloudDoc.totalDuration,
           _sessionsCount: cloudDoc.sessionsCount,
+          _firstSessionAt: toDate(cloudDoc.firstSessionAt)?.getTime(),
           ...(cloudContentError ? { _contentError: true } : {}),
         });
       }
@@ -111,8 +115,16 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
       for (const s of legacySessions) {
         if (seenIds.has(s.id)) continue;
         seenIds.add(s.id);
-        const decrypted = await maybeDecrypt(s as unknown as Record<string, unknown>, ['content'], ['pinnedThoughts', 'tags']);
-        allSessions.push({ ...(decrypted as unknown as Session), _isLocal: false, _isLegacy: true });
+        try {
+          const decrypted = await maybeDecrypt(s as unknown as Record<string, unknown>, ['content'], ['pinnedThoughts', 'tags']);
+          allSessions.push({ ...(decrypted as unknown as Session), _isLocal: false, _isLegacy: true });
+        } catch (decryptErr) {
+          if (decryptErr instanceof Error && decryptErr.message.startsWith('LOCKED')) {
+            allSessions.push({ ...s, _isLocal: false, _isLegacy: true, _locked: true });
+          } else {
+            throw decryptErr;
+          }
+        }
       }
     } catch (e) {
       console.error('Failed to fetch legacy sessions:', e);

@@ -21,9 +21,11 @@ export const VersionService = {
       _encrypted?: boolean;
     }
   ): Promise<string> {
-    const payloadSize = new TextEncoder().encode(data.content).length;
-    if (payloadSize > 900_000) {
-      throw new Error(`Content too large (${(payloadSize / 1024).toFixed(0)}KB). Firestore limit is 1MB per document.`);
+    const contentSize = new TextEncoder().encode(data.content).length;
+    const prevContentSize = new TextEncoder().encode(data.previousContent || '').length;
+    const estimatedDocSize = Math.ceil((contentSize + prevContentSize) * 1.35) + 10_000;
+    if (estimatedDocSize > 900_000) {
+      throw new Error(`Document too large for cloud sync (${(estimatedDocSize / 1024).toFixed(0)}KB estimated). Consider splitting into multiple documents.`);
     }
     try {
       const { db, mod } = await getClient();
