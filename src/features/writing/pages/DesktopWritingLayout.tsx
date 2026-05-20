@@ -167,6 +167,7 @@ export function DesktopWritingLayout({
             flex: '1 1 0',
             minHeight: 0,
             position: 'relative',
+            alignSelf: 'center',
           }}
           className={cn(
             editorWidth < 100 && "rounded-2xl m-2 border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] shadow-xl focus-within:shadow-[0_0_60px_color-mix(in_srgb,var(--brand-soft)_18%,transparent)] transition-shadow duration-700"
