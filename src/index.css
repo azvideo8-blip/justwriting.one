@@ -30,6 +30,14 @@
   --color-text-muted: var(--text-muted);
   --color-text-subtle: var(--text-subtle);
 
+  /* Brand tokens */
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-deep: var(--brand-deep);
+
+  /* Surface tokens */
+  --color-surface-elevated: var(--surface-elevated);
+
   /* Spacing Scale — theme-aware (px values, allow theme overrides) */
   --sp-xs: 2px;
   --sp-sm: 4px;
