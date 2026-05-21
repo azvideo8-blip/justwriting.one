@@ -121,7 +121,6 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
   const keystrokeTrackerRef = React.useRef(new KeystrokeTracker());
   const [devKpmStats, setDevKpmStats] = React.useState<KeystrokeStats | null>(null);
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
-  const [aiPanelOpen, setAiPanelOpen] = useState(false);
 
   React.useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -206,8 +205,6 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
     setLifeLogPinned,
     saveStatus,
     streakDays,
-    aiPanelOpen,
-    onToggleAI: () => setAiPanelOpen(v => !v),
   };
 
   const mainContent = (() => {

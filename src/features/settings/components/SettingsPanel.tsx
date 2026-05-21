@@ -45,7 +45,7 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog }: { userId: str
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-28 space-y-4">
+      <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-28 space-y-4">
         {activeTab === 'editor' && <EditorTab />}
         {activeTab === 'app' && <AppTab userId={userId} onRefreshLifeLog={onRefreshLifeLog} />}
         {activeTab === 'account' && <AccountTab userId={userId} />}

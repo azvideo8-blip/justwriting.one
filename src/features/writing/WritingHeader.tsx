@@ -11,7 +11,6 @@ import { useContentStore } from './store/useContentStore';
 import { useTimerStore } from './store/useTimerStore';
 import { Toolbar } from './components/Toolbar';
 import { HeaderStats } from './components/HeaderStats';
-import { AIToggleButton } from './components/AIPanel';
 
 interface WritingHeaderProps {
   totalDurationForDeadline?: number | null;
@@ -23,8 +22,6 @@ interface WritingHeaderProps {
   onPlay?: () => void;
   onPause?: () => void;
   saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
-  aiPanelOpen?: boolean;
-  onToggleAI?: () => void;
 }
 
 export const WritingHeader = React.memo(function WritingHeader({
@@ -36,8 +33,6 @@ export const WritingHeader = React.memo(function WritingHeader({
   onPlay,
   onPause,
   saveStatus,
-  aiPanelOpen,
-  onToggleAI,
 }: WritingHeaderProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { t } = useLanguage();
@@ -115,7 +110,6 @@ export const WritingHeader = React.memo(function WritingHeader({
                   className="flex-1 min-w-[120px] bg-transparent outline-none text-[15px] font-medium text-text-main/60 placeholder:text-text-main/25"
                 />
                 <div className="flex items-center gap-1 ml-auto">
-                  <AIToggleButton onClick={onToggleAI ?? (() => {})} active={!!aiPanelOpen} />
                   <button
                     onClick={() => {
                       if (!lifeLogVisible || lifeLogTab !== 'log') {
@@ -167,7 +161,6 @@ export const WritingHeader = React.memo(function WritingHeader({
                   setTitle={setTitle}
                 />
                 <div className="flex items-center gap-1.5 ml-auto">
-                   <AIToggleButton onClick={onToggleAI ?? (() => {})} active={!!aiPanelOpen} />
                    <button
                      onClick={() => {
                        if (!lifeLogVisible || lifeLogTab !== 'log') {
