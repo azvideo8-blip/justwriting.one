@@ -37,7 +37,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
       }
       const data = snap.data();
       if (!data.encryptionSalt || !data.encryptedDataKey) {
-        setError(t('error_generic'));
+        setError(t('unlock_no_keys_error'));
         setLoading(false);
         return;
       }

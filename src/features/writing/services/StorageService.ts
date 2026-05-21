@@ -293,7 +293,7 @@ export const StorageService = {
     return localId;
   },
 
-  async addCloudCopy(userId: string, localDocumentId: string): Promise<string> {
+  async addCloudCopy(userId: string, localDocumentId: string, encryptionRequired = true): Promise<string> {
     const db = await getLocalDb();
     const lockKey = `lock_cloud_${localDocumentId}`;
 
@@ -352,7 +352,7 @@ export const StorageService = {
             goalTime: ver.goalTime,
             goalReached: ver.goalReached,
             sessionStartedAt: startedAt,
-          } as Record<string, unknown>, ['content', 'previousContent'], [], true);
+          } as Record<string, unknown>, ['content', 'previousContent'], [], encryptionRequired);
 
           await withTimeout(VersionService.addVersion(userId, cloudId, {
             content: versionPayload.content as string,
