@@ -273,6 +273,21 @@ textarea {
   box-shadow: 0 0 6px var(--flow-pulse-color);
 }
 
+html::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+html::-webkit-scrollbar-thumb {
+  background: var(--color-border-subtle);
+  border-radius: 99px;
+}
+html::-webkit-scrollbar-thumb:hover {
+  background: var(--flow-pulse-color);
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
   height: 5px;

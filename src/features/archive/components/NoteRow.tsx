@@ -235,7 +235,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
         </div>
         <button onClick={e => { e.stopPropagation(); setTitleDraft(session.title || ''); setEditingTitle(true); }}
           className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/20 hover:text-text-main/60 hover:bg-text-main/5 transition-all opacity-0 group-hover:opacity-100"
-          title={t('archive_edit_title_hint')}>
+          title={t('archive_rename_title')}>
           <Pencil size={13} />
         </button>
         <button onClick={e => { e.stopPropagation(); onOpen(); }}
