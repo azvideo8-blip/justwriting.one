@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isSentryInitialized = sentryDsn && sentryDsn.startsWith('https://');
 
     if (user && isSentryInitialized) {
-      Sentry.setUser({ id: user.uid, email: user.email ?? undefined });
+      Sentry.setUser({ id: user.uid });
     } else if (!user && isSentryInitialized) {
       Sentry.setUser(null);
     }

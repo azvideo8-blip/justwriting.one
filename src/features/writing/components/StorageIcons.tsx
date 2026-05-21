@@ -6,6 +6,9 @@ import { useLanguage } from '../../../core/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { StorageService } from '../services/StorageService';
 import { LocalDocumentService } from '../services/LocalDocumentService';
+import { getSessionKey } from '../../../core/crypto/encrypt';
+import { reportError } from '../../../core/errors/reportError';
+import { UnlockPrompt } from '../../auth/components/UnlockPrompt';
 
 interface StorageDoc {
   localId?: string;
@@ -27,15 +30,18 @@ export function StorageIcons({
   doc,
   userId,
   onStorageChange,
+  onUnlockNeeded,
 }: {
   doc: StorageDoc;
   userId: string;
   onStorageChange: () => void;
+  onUnlockNeeded?: () => void;
 }) {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const [confirmState, setConfirmState] = useState<ConfirmState>(IDLE);
   const [uploading, setUploading] = useState(false);
+  const [showUnlock, setShowUnlock] = useState(false);
 
   const handleLocalClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -50,6 +56,13 @@ export function StorageIcons({
       return;
     }
     if (!doc.localId || !userId || userId.startsWith('guest_')) return;
+    if (!getSessionKey()) {
+      showToast(t('error_session_key_missing'), 'error');
+      reportError('ENCRYPT_REQUIRED: session key missing on cloud upload', { userId });
+      onUnlockNeeded?.();
+      setShowUnlock(true);
+      return;
+    }
     setUploading(true);
     try {
       const cloudId = await StorageService.addCloudCopy(userId, doc.localId);
@@ -59,7 +72,8 @@ export function StorageIcons({
       } else {
         showToast(t('error_generic_action'), 'error');
       }
-    } catch {
+    } catch (e) {
+      reportError(e, { action: 'addCloudCopy', userId, localId: doc.localId });
       showToast(t('error_generic_action'), 'error');
     } finally {
       setUploading(false);
@@ -90,7 +104,8 @@ export function StorageIcons({
           break;
       }
       onStorageChange();
-    } catch {
+    } catch (e) {
+      reportError(e, { action: confirmState.kind, userId });
       showToast(t('error_generic_action'), 'error');
     } finally {
       setConfirmState(IDLE);
@@ -190,6 +205,16 @@ export function StorageIcons({
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showUnlock && userId && !userId.startsWith('guest_') && (
+          <UnlockPrompt
+            uid={userId}
+            onUnlocked={() => { setShowUnlock(false); }}
+            onClose={() => setShowUnlock(false)}
+          />
         )}
       </AnimatePresence>
     </div>
