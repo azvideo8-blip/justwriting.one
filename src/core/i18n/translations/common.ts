@@ -64,6 +64,10 @@ export const commonTranslations: Translations = {
   unlock_submit: { ru: 'Разблокировать', en: 'Unlock' },
   unlock_wrong_password: { ru: 'Неверный пароль', en: 'Wrong password' },
   unlock_success: { ru: 'Шифрование разблокировано', en: 'Encryption unlocked' },
+  unlock_no_keys_error: {
+    ru: 'Ключи шифрования не найдены. Выйдите из аккаунта и войдите снова.',
+    en: 'Encryption keys not found. Please sign out and sign in again.',
+  },
 
   save_success: { ru: 'Заметка сохранена', en: 'Note saved' },
   session_deleted: { ru: 'Заметка удалена', en: 'Note deleted' },

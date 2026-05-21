@@ -9,6 +9,7 @@ import { LocalDocumentService } from '../services/LocalDocumentService';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { reportError } from '../../../core/errors/reportError';
 import { UnlockPrompt } from '../../auth/components/UnlockPrompt';
+import { useAuthStatus } from '../../auth/contexts/AuthContext';
 
 interface StorageDoc {
   localId?: string;
@@ -30,15 +31,15 @@ export function StorageIcons({
   doc,
   userId,
   onStorageChange,
-  onUnlockNeeded,
 }: {
   doc: StorageDoc;
   userId: string;
   onStorageChange: () => void;
-  onUnlockNeeded?: () => void;
 }) {
   const { t } = useLanguage();
   const { showToast } = useToast();
+  const { profile } = useAuthStatus();
+  const hasEncryption = !!(profile?.encryptionSalt && profile?.encryptedDataKey);
   const [confirmState, setConfirmState] = useState<ConfirmState>(IDLE);
   const [uploading, setUploading] = useState(false);
   const [showUnlock, setShowUnlock] = useState(false);
@@ -57,15 +58,15 @@ export function StorageIcons({
     }
     if (!doc.localId || !userId || userId.startsWith('guest_')) return;
     if (!getSessionKey()) {
-      showToast(t('error_session_key_missing'), 'error');
-      reportError('ENCRYPT_REQUIRED: session key missing on cloud upload', { userId });
-      onUnlockNeeded?.();
-      setShowUnlock(true);
-      return;
+      if (hasEncryption) {
+        reportError('ENCRYPT_REQUIRED: session key missing on cloud upload', { userId });
+        setShowUnlock(true);
+        return;
+      }
     }
     setUploading(true);
     try {
-      const cloudId = await StorageService.addCloudCopy(userId, doc.localId);
+      const cloudId = await StorageService.addCloudCopy(userId, doc.localId, hasEncryption);
       if (cloudId) {
         showToast(t('storage_uploaded_cloud'), 'success');
         onStorageChange();
@@ -209,7 +210,7 @@ export function StorageIcons({
       </AnimatePresence>
 
       <AnimatePresence>
-        {showUnlock && userId && !userId.startsWith('guest_') && (
+        {showUnlock && hasEncryption && userId && !userId.startsWith('guest_') && (
           <UnlockPrompt
             uid={userId}
             onUnlocked={() => { setShowUnlock(false); }}
