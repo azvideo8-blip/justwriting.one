@@ -1,0 +1,222 @@
+import React, { useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Sparkles, X, Copy, Check, Loader2, Wand2, Lightbulb, Tags, Smile, ArrowRight, AlignLeft, Highlighter } from 'lucide-react';
+import { cn } from '../../../core/utils/utils';
+import { useLanguage } from '../../../core/i18n';
+import { AIService, type AIAction, type AIResult } from '../../ai/services/AIService';
+import { AIContextService } from '../../ai/services/AIContextService';
+import { useContentStore } from '../store/useContentStore';
+import { useSessionMetaStore } from '../store/useSessionMetaStore';
+
+const AI_ACTIONS: { action: AIAction; icon: React.ReactNode; labelKey: string }[] = [
+  { action: 'shorten', icon: <AlignLeft size={14} />, labelKey: 'ai_action_shorten' },
+  { action: 'accents', icon: <Highlighter size={14} />, labelKey: 'ai_action_accents' },
+  { action: 'ideas', icon: <Lightbulb size={14} />, labelKey: 'ai_action_ideas' },
+  { action: 'summarize', icon: <Wand2 size={14} />, labelKey: 'ai_action_summarize' },
+  { action: 'tags', icon: <Tags size={14} />, labelKey: 'ai_action_tags' },
+  { action: 'mood', icon: <Smile size={14} />, labelKey: 'ai_action_mood' },
+  { action: 'continue', icon: <ArrowRight size={14} />, labelKey: 'ai_action_continue' },
+];
+
+interface AIPanelProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export function AIPanel({ open, onClose }: AIPanelProps) {
+  const { t } = useLanguage();
+  const content = useContentStore(s => s.content);
+  const setContent = useContentStore(s => s.setContent);
+  const setTags = useContentStore(s => s.setTags);
+  const savedDocumentId = useSessionMetaStore(s => s.savedDocumentId);
+
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [lastAction, setLastAction] = useState<AIAction | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [applied, setApplied] = useState(false);
+
+  const handleAction = useCallback(async (action: AIAction) => {
+    if (!content.trim() || loading) return;
+    setLoading(true);
+    setResult(null);
+    setError(null);
+    setLastAction(action);
+    setApplied(false);
+
+    const history = savedDocumentId
+      ? await AIContextService.get(savedDocumentId).catch(() => [])
+      : [];
+
+    const res: AIResult = await AIService.process(content, action, { history });
+
+    if (res.ok) {
+      setResult(res.text);
+      if (savedDocumentId) {
+        AIContextService.append(savedDocumentId, content.slice(0, 2000), res.text).catch(() => {});
+      }
+    } else {
+      const errorMap: Record<string, string> = {
+        AUTH_REQUIRED: t('ai_error_auth'),
+        RATE_LIMIT: t('ai_error_rate_limit'),
+        TOO_LONG: t('ai_error_too_long'),
+        SERVER_ERROR: t('ai_error_server'),
+      };
+      setError(errorMap[(res as { ok: false; error: string }).error] ?? t('ai_error_server'));
+    }
+    setLoading(false);
+  }, [content, loading, savedDocumentId, t]);
+
+  const handleApply = useCallback(() => {
+    if (!result || !lastAction) return;
+    if (lastAction === 'tags') {
+      const parsed = AIService.parseTags(result);
+      if (parsed.length > 0) setTags(parsed);
+    } else if (lastAction === 'continue') {
+      setContent(content + '\n\n' + result);
+    } else if (lastAction === 'mood' || lastAction === 'ideas' || lastAction === 'accents') {
+      // these are informational — no content replacement
+    } else {
+      setContent(result);
+    }
+    setApplied(true);
+  }, [result, lastAction, content, setContent, setTags]);
+
+  const handleCopy = useCallback(async () => {
+    if (!result) return;
+    await navigator.clipboard.writeText(result);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }, [result]);
+
+  const canApply = result && lastAction && !applied && ['shorten', 'summarize', 'continue'].includes(lastAction);
+  const canApplyTags = result && lastAction === 'tags' && !applied;
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 20 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+          className="absolute top-2 right-2 bottom-2 w-[340px] z-50 flex flex-col rounded-2xl border border-border-subtle/40 bg-surface-card/95 backdrop-blur-2xl shadow-2xl overflow-hidden"
+        >
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle/40">
+            <div className="flex items-center gap-2 text-text-main/70">
+              <Sparkles size={16} className="text-brand-soft" />
+              <span className="text-sm font-medium">{t('ai_panel_title')}</span>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all"
+            >
+              <X size={14} />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-2">
+              {AI_ACTIONS.map(({ action, icon, labelKey }) => (
+                <button
+                  key={action}
+                  onClick={() => handleAction(action)}
+                  disabled={loading || !content.trim()}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-all",
+                    loading && lastAction === action
+                      ? "bg-brand-soft/20 text-brand-soft"
+                      : "bg-text-main/[0.04] text-text-main/60 hover:bg-text-main/[0.08] hover:text-text-main/80",
+                    (loading || !content.trim()) && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {loading && lastAction === action ? <Loader2 size={14} className="animate-spin" /> : icon}
+                  {t(labelKey)}
+                </button>
+              ))}
+            </div>
+
+            <AnimatePresence mode="wait">
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="text-xs text-accent-danger/80 bg-accent-danger/10 rounded-xl px-3 py-2"
+                >
+                  {error}
+                </motion.div>
+              )}
+
+              {result && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="flex flex-col gap-3"
+                >
+                  <div className="text-xs text-text-main/40 font-medium uppercase tracking-wider">
+                    {t('ai_result_label')}
+                  </div>
+                  <div className="text-sm text-text-main/80 whitespace-pre-wrap leading-relaxed rounded-xl bg-text-main/[0.03] p-3 border border-border-subtle/30">
+                    {result}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCopy}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-text-main/[0.05] text-text-main/60 hover:bg-text-main/[0.1] hover:text-text-main/80 transition-all"
+                    >
+                      {copied ? <Check size={12} /> : <Copy size={12} />}
+                      {copied ? t('ai_copied') : t('ai_copy')}
+                    </button>
+                    {(canApply || canApplyTags) && (
+                      <button
+                        onClick={handleApply}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30 transition-all"
+                      >
+                        <Check size={12} />
+                        {lastAction === 'tags' ? t('ai_apply_tags') : t('ai_apply')}
+                      </button>
+                    )}
+                    {applied && (
+                      <span className="flex items-center gap-1 text-xs text-accent-success">
+                        <Check size={12} />
+                        {t('ai_applied')}
+                      </span>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {!content.trim() && (
+            <div className="px-4 pb-3">
+              <div className="text-xs text-text-main/30 text-center">{t('ai_no_content')}</div>
+            </div>
+          )}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+export function AIToggleButton({ onClick, active }: { onClick: () => void; active: boolean }) {
+  const { t } = useLanguage();
+  return (
+    <button
+      onClick={onClick}
+      title={t('ai_toggle')}
+      aria-label={t('ai_toggle')}
+      className={cn(
+        "w-9 h-9 rounded-lg flex items-center justify-center transition-all",
+        active
+          ? "bg-brand-soft/20 text-brand-soft"
+          : "text-text-main/40 hover:text-text-main hover:bg-text-main/5"
+      )}
+    >
+      <Sparkles size={16} />
+    </button>
+  );
+}
