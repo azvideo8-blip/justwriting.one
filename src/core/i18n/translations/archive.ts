@@ -32,6 +32,7 @@ export const archiveTranslations: Translations = {
   archive_edit_date: { ru: 'Изменить дату', en: 'Edit date' },
   archive_edit_time: { ru: 'Изменить время', en: 'Edit time' },
   archive_edit_title_hint: { ru: 'Двойной клик для редактирования', en: 'Double-click to edit' },
+  archive_rename_title: { ru: 'Изменить название', en: 'Rename' },
   archive_entry_1: { ru: 'запись', en: 'entry' },
   archive_entry_2: { ru: 'записи', en: 'entries' },
   archive_entry_5: { ru: 'записей', en: 'entries' },
