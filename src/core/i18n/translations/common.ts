@@ -51,6 +51,19 @@ export const commonTranslations: Translations = {
   error_labels_failed:  { ru: 'Не удалось обновить ярлыки.', en: 'Failed to update labels.' },
   error_continue_session: { ru: 'Ошибка при продолжении сессии', en: 'Error continuing session' },
   error_reload: { ru: 'Перезагрузить', en: 'Reload' },
+  error_session_key_missing: {
+    ru: 'Сессия устарела. Введите пароль для разблокировки шифрования.',
+    en: 'Session expired. Enter your password to unlock encryption.',
+  },
+
+  unlock_title: { ru: 'Разблокировать шифрование', en: 'Unlock Encryption' },
+  unlock_subtitle: {
+    ru: 'Введите пароль для восстановления доступа к облачным заметкам.',
+    en: 'Enter your password to restore access to cloud notes.',
+  },
+  unlock_submit: { ru: 'Разблокировать', en: 'Unlock' },
+  unlock_wrong_password: { ru: 'Неверный пароль', en: 'Wrong password' },
+  unlock_success: { ru: 'Шифрование разблокировано', en: 'Encryption unlocked' },
 
   save_success: { ru: 'Заметка сохранена', en: 'Note saved' },
   session_deleted: { ru: 'Заметка удалена', en: 'Note deleted' },
