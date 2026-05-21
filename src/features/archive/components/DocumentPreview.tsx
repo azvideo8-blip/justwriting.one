@@ -299,7 +299,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+      <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5">
         <p className="text-[15px] text-text-main/75 leading-[1.8] whitespace-pre-wrap">
           {session.content || (
             <span className="text-text-main/25 italic">{t('archive_no_content')}</span>
