@@ -68,6 +68,12 @@ interface PendingSession {
   userId: string;
 }
 
+export interface AIContext {
+  documentId: string;
+  messages: { role: 'user' | 'assistant'; content: string }[];
+  updatedAt: number;
+}
+
 interface JustWritingDB extends DBSchema {
   documents: {
     key: string;
@@ -108,6 +114,10 @@ interface JustWritingDB extends DBSchema {
     value: PendingSession;
     autoIncrement: true;
   };
+  aiContexts: {
+    key: string;
+    value: AIContext;
+  };
 }
 
 let dbInstance: IDBPDatabase<JustWritingDB> | null = null;
@@ -130,7 +140,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   }
   if (dbOpenPromise) return dbOpenPromise;
 
-  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 3, {
+  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 4, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const docStore = db.createObjectStore('documents', { keyPath: 'id' });
@@ -155,6 +165,11 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
       if (oldVersion < 3) {
         const store = transaction!.objectStore('versions');
         store.createIndex('by-doc-version', ['documentId', 'version']);
+      }
+      if (oldVersion < 4) {
+        if (!db.objectStoreNames.contains('aiContexts')) {
+          db.createObjectStore('aiContexts');
+        }
       }
     },
     blocked() {

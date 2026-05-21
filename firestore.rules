@@ -188,5 +188,16 @@ service cloud.firestore {
         allow delete: if isOwner(userId);
       }
     }
+
+    // AI rate limit — admin SDK only
+    match /aiRateLimit/{uid} {
+      allow read, write: if false;
+    }
+
+    // AI usage — client can read own usage, admin SDK writes
+    match /aiUsage/{uid}/daily/{date} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
   }
 }
