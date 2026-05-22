@@ -6,6 +6,7 @@ import { useLanguage } from '../../../core/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { StorageService } from '../services/StorageService';
 import { LocalDocumentService } from '../services/LocalDocumentService';
+import { SyncService } from '../services/SyncService';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { reportError } from '../../../core/errors/reportError';
 import { UnlockPrompt } from '../../auth/components/UnlockPrompt';
@@ -16,6 +17,7 @@ interface StorageDoc {
   cloudId?: string;
   hasLocal: boolean;
   hasCloud: boolean;
+  hasPendingSync?: boolean;
 }
 
 type ConfirmState =
@@ -52,7 +54,7 @@ export function StorageIcons({
 
   const handleCloudClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (doc.hasCloud) {
+    if (doc.hasCloud && !doc.hasPendingSync) {
       setConfirmState(doc.hasCloud && !doc.hasLocal ? { kind: 'delete-cloud-only' } : { kind: 'delete-cloud' });
       return;
     }
@@ -66,15 +68,20 @@ export function StorageIcons({
     }
     setUploading(true);
     try {
-      const cloudId = await StorageService.addCloudCopy(userId, doc.localId, hasEncryption);
-      if (cloudId) {
+      if (doc.hasPendingSync) {
+        await SyncService.syncDocument(userId, doc.localId, hasEncryption);
         showToast(t('storage_uploaded_cloud'), 'success');
-        onStorageChange();
       } else {
-        showToast(t('error_generic_action'), 'error');
+        const cloudId = await StorageService.addCloudCopy(userId, doc.localId, hasEncryption);
+        if (cloudId) {
+          showToast(t('storage_uploaded_cloud'), 'success');
+        } else {
+          showToast(t('error_generic_action'), 'error');
+        }
       }
+      onStorageChange();
     } catch (e) {
-      reportError(e, { action: 'addCloudCopy', userId, localId: doc.localId });
+      reportError(e, { action: doc.hasPendingSync ? 'syncDocument' : 'addCloudCopy', userId, localId: doc.localId });
       showToast(t('error_generic_action'), 'error');
     } finally {
       setUploading(false);
@@ -138,6 +145,17 @@ export function StorageIcons({
   })();
 
   const canUpload = !doc.hasCloud && !!doc.localId && !!userId && !userId.startsWith('guest_');
+  const isUnsynced = doc.hasPendingSync;
+
+  const cloudTitle = uploading
+    ? (t('common_loading') || 'Loading...')
+    : isUnsynced
+      ? (t('storage_sync_pending') || 'Pending changes (click to sync)')
+      : doc.hasCloud
+        ? t('storage_remove_cloud')
+        : canUpload
+          ? t('storage_upload_to_cloud')
+          : t('storage_no_cloud');
 
   return (
     <div className="flex items-center gap-1.5 shrink-0">
@@ -157,15 +175,14 @@ export function StorageIcons({
       <button
         onClick={handleCloudClick}
         disabled={uploading}
-        title={doc.hasCloud ? t('storage_remove_cloud') : canUpload ? t('storage_upload_to_cloud') : t('storage_no_cloud')}
+        title={cloudTitle}
         className={cn(
           "w-6 h-6 rounded-lg flex items-center justify-center transition-all",
           uploading && "animate-pulse text-blue-400",
-          doc.hasCloud
-            ? "text-blue-400 hover:text-red-400 hover:bg-red-400/10"
-            : canUpload
-              ? "text-text-main/30 hover:text-blue-400 hover:bg-blue-400/10 cursor-pointer"
-              : "text-text-main/20 cursor-default"
+          !uploading && isUnsynced && "text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 cursor-pointer",
+          !uploading && !isUnsynced && doc.hasCloud && "text-blue-400 hover:text-red-400 hover:bg-red-400/10",
+          !uploading && !isUnsynced && !doc.hasCloud && canUpload && "text-text-main/30 hover:text-blue-400 hover:bg-blue-400/10 cursor-pointer",
+          !uploading && !isUnsynced && !doc.hasCloud && !canUpload && "text-text-main/20 cursor-default"
         )}
       >
         {uploading ? <Loader2 size={14} className="animate-spin" /> : <Cloud size={14} />}

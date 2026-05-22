@@ -118,7 +118,7 @@ export const WritingDraftService = {
     if (ac.signal.aborted) return;
     const { doc, setDoc, serverTimestamp } = mod;
     const docRef = doc(db, 'drafts', draft.userId);
-    const encrypted = await maybeEncrypt(draft as unknown as Record<string, unknown>, ['content'], ['pinnedThoughts'], true);
+    const encrypted = await maybeEncrypt(draft as unknown as Record<string, unknown>, ['content'], ['pinnedThoughts'], draft.userId);
     const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
     try {
       await setDoc(docRef, { ...clean, updatedAt: serverTimestamp() }, { merge: true });

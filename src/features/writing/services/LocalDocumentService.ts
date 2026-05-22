@@ -147,6 +147,36 @@ export const LocalDocumentService = {
     await db.put('documents', { ...existing, labelId: labelId ?? undefined });
   },
 
+  async migrateDocumentOwner(documentId: string, newOwnerId: string): Promise<void> {
+    const db = await getLocalDb();
+    const tx = db.transaction(['documents', 'versions'], 'readwrite');
+    const docStore = tx.objectStore('documents');
+    const verStore = tx.objectStore('versions');
+
+    const doc = await docStore.get(documentId);
+    if (!doc) {
+      await tx.done;
+      return;
+    }
+
+    if (doc.guestId === newOwnerId) {
+      await tx.done;
+      return;
+    }
+
+    const oldOwnerId = doc.guestId;
+    const versions = await verStore.index('by-document').getAll(documentId);
+
+    await Promise.all([
+      docStore.put({ ...doc, guestId: newOwnerId }),
+      ...versions.map(ver => verStore.put({ ...ver, guestId: newOwnerId })),
+      tx.done,
+    ]);
+
+    await LocalDocumentService._updateProfile(oldOwnerId);
+    await LocalDocumentService._updateProfile(newOwnerId);
+  },
+
   async _updateProfile(guestId: string): Promise<void> {
     const db = await getLocalDb();
     const docs = await LocalDocumentService.getGuestDocuments(guestId);

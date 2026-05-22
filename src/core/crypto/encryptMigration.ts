@@ -204,3 +204,55 @@ export async function encryptAllExistingNotes(
   clearCheckpoint(userId);
   return progress;
 }
+
+export async function encryptSingleDocument(
+  userId: string,
+  documentId: string,
+): Promise<{ processed: number; encrypted: number; errors: number }> {
+  const key = getSessionKey();
+  if (!key) throw new Error('Not unlocked');
+
+  const { db, mod } = await getClient();
+  const { collection, getDocs, doc } = mod;
+
+  const result = { processed: 0, encrypted: 0, errors: 0 };
+
+  try {
+    const versionsSnap = await getDocs(collection(db, 'users', userId, 'documents', documentId, 'versions'));
+    const pending: PendingOp[] = [];
+
+    const flush = async () => {
+      if (pending.length === 0) return;
+      await flushPending(mod.writeBatch(db), pending.splice(0, pending.length));
+    };
+
+    for (const v of versionsSnap.docs) {
+      try {
+        if (v.data()._encrypted) {
+          result.processed++;
+          continue;
+        }
+        const encrypted = await maybeEncrypt(v.data() as Record<string, unknown>, ['content'], []);
+        const clean = Object.fromEntries(Object.entries(encrypted).filter(([, val]) => val !== undefined));
+        pending.push({
+          ref: doc(db, 'users', userId, 'documents', documentId, 'versions', v.id),
+          data: clean,
+          checkKey: `v_${documentId}_${v.id}`,
+        });
+        if (pending.length >= BATCH_SIZE) await flush();
+        result.encrypted++;
+      } catch (e) {
+        result.errors++;
+        reportError(e, { action: 'encryptSingleDocument_version', versionId: v.id, documentId });
+      }
+      result.processed++;
+    }
+    await flush();
+  } catch (e) {
+    reportError(e, { action: 'encryptSingleDocument_versionsQuery', documentId });
+    throw e;
+  }
+
+  return result;
+}
+

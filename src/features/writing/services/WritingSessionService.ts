@@ -30,7 +30,7 @@ export const WritingSessionService = {
 
       const { db, mod } = await getClient();
       const { collection, addDoc, updateDoc, doc, Timestamp } = mod;
-      const encrypted = await maybeEncrypt(sessionData as unknown as Record<string, unknown>, ['content'], ['pinnedThoughts'], true);
+      const encrypted = await maybeEncrypt(sessionData as unknown as Record<string, unknown>, ['content'], ['pinnedThoughts'], userId);
       const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
 
       if (activeSessionId) {
@@ -79,7 +79,7 @@ export const WritingSessionService = {
       try {
         const { db, mod } = await getClient();
         const { collection, addDoc, updateDoc, doc, Timestamp } = mod;
-        const encryptedData = await maybeEncrypt(session.data as Record<string, unknown>, ['content'], ['pinnedThoughts'], true);
+        const encryptedData = await maybeEncrypt(session.data as Record<string, unknown>, ['content'], ['pinnedThoughts'], userId);
         const cleanData = Object.fromEntries(Object.entries(encryptedData).filter(([, v]) => v !== undefined));
         if (session.sessionId) {
           await updateDoc(doc(db, 'sessions', session.sessionId), {
