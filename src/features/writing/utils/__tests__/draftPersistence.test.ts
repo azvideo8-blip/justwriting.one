@@ -6,6 +6,7 @@ vi.mock('../../services/WritingDraftService', () => ({
   WritingDraftService: {
     saveToLocal: vi.fn().mockResolvedValue(undefined),
     saveToFirestore: vi.fn().mockResolvedValue(undefined),
+    clearLegacyDraft: vi.fn().mockResolvedValue(undefined),
   },
 }));
 

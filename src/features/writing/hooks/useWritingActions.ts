@@ -140,7 +140,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         labelId: data.labelId,
         goalWords: timerState.wordGoal > 0 ? timerState.wordGoal : undefined,
         goalTime: timerState.timerDuration > 0 ? timerState.timerDuration : undefined,
-        goalReached: timerState.wordGoal > 0 && contentState.wordCount >= timerState.wordGoal,
+        goalReached: timerState.wordGoal > 0 && sessionNewWords >= timerState.wordGoal,
         sessionStartedAt: new Date(metaState.sessionStartTime ?? Date.now()),
       };
 

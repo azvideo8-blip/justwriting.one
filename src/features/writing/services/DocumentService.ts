@@ -165,9 +165,10 @@ export const DocumentService = {
   async clearLabelFromAllDocs(userId: string, labelId: string): Promise<void> {
     try {
       const { db, mod } = await getClient();
-      const { collection, getDocs, writeBatch } = mod;
-      const snap = await getDocs(collection(db, 'users', userId, 'documents'));
-      const matching = snap.docs.filter(d => d.data().labelId === labelId);
+      const { collection, getDocs, writeBatch, query, where } = mod;
+      const q = query(collection(db, 'users', userId, 'documents'), where('labelId', '==', labelId));
+      const snap = await getDocs(q);
+      const matching = snap.docs;
       for (let i = 0; i < matching.length; i += 499) {
         const batch = writeBatch(db);
         matching.slice(i, i + 499).forEach(d => batch.update(d.ref, { labelId: null }));
@@ -182,9 +183,10 @@ export const DocumentService = {
   async renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void> {
     try {
       const { db, mod } = await getClient();
-      const { collection, getDocs, writeBatch } = mod;
-      const snap = await getDocs(collection(db, 'users', userId, 'documents'));
-      const matching = snap.docs.filter(d => (d.data().tags ?? []).includes(oldTag));
+      const { collection, getDocs, writeBatch, query, where } = mod;
+      const q = query(collection(db, 'users', userId, 'documents'), where('tags', 'array-contains', oldTag));
+      const snap = await getDocs(q);
+      const matching = snap.docs;
       for (let i = 0; i < matching.length; i += 499) {
         const batch = writeBatch(db);
         matching.slice(i, i + 499).forEach(d => {
@@ -202,9 +204,10 @@ export const DocumentService = {
   async removeTagFromAllDocs(userId: string, tag: string): Promise<void> {
     try {
       const { db, mod } = await getClient();
-      const { collection, getDocs, writeBatch } = mod;
-      const snap = await getDocs(collection(db, 'users', userId, 'documents'));
-      const matching = snap.docs.filter(d => (d.data().tags ?? []).includes(tag));
+      const { collection, getDocs, writeBatch, query, where } = mod;
+      const q = query(collection(db, 'users', userId, 'documents'), where('tags', 'array-contains', tag));
+      const snap = await getDocs(q);
+      const matching = snap.docs;
       for (let i = 0; i < matching.length; i += 499) {
         const batch = writeBatch(db);
         matching.slice(i, i + 499).forEach(d => {

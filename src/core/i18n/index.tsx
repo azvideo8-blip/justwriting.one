@@ -38,12 +38,12 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     return 'ru';
   });
 
-  const setLanguage = (lang: Language) => {
+  const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
     localStorage.setItem('app_language', lang);
-  };
+  }, []);
 
-  const t = (key: string, params?: Record<string, string | number>): string => {
+  const t = useCallback((key: string, params?: Record<string, string | number>): string => {
     if (import.meta.env.DEV && !translations[key] && !_missingKeyWarned.has(key)) {
       _missingKeyWarned.add(key);
       console.warn(`[i18n] Missing translation key: "${key}"`);
@@ -55,7 +55,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       });
     }
     return str;
-  };
+  }, [language]);
 
   const tp = useCallback((key: string, count: number): string => {
     const getPluralSuffix = (n: number, lang: Language): string => {
@@ -86,8 +86,15 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.lang = language;
   }, [language]);
 
+  const contextValue = React.useMemo(() => ({
+    language,
+    setLanguage,
+    t,
+    tp: tpFn
+  }), [language, setLanguage, t, tpFn]);
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t, tp: tpFn }}>
+    <LanguageContext.Provider value={contextValue}>
       {children}
     </LanguageContext.Provider>
   );
