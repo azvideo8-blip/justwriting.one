@@ -40,9 +40,9 @@ export const useContentStore = create<ContentState>((set, get) => ({
   tags: [], labelId: undefined,
 
   setContent: (content) => {
+    set({ content });
     if (_wordCalcTimer) clearTimeout(_wordCalcTimer);
     _wordCalcTimer = setTimeout(() => {
-      set({ content });
       get().recalcStats();
     }, 100);
   },
@@ -50,7 +50,16 @@ export const useContentStore = create<ContentState>((set, get) => ({
   recalcStats: () => {
     const state = get();
     const content = state.content;
-    if (!content) return;
+    if (!content) {
+      set({
+        wordCount: 0,
+        lastWordCount: 0,
+        wordSnapshots: [],
+        wpm: 0,
+      });
+      useTimerStore.setState({ wordGoalReached: false });
+      return;
+    }
 
     const timerState = useTimerStore.getState();
     const words = countWords(content);

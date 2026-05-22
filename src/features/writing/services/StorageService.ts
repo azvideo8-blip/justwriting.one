@@ -131,7 +131,7 @@ export const StorageService = {
           goalReached: ver.goalReached,
           sessionStartedAt: startedAt,
         });
-        prevContent = ver.content;
+        prevContent = verContent;
       }
 
       await LocalDocumentService.updateDocument(localId, {

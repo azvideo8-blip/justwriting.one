@@ -100,14 +100,28 @@ service cloud.firestore {
       return data.keys().hasAll(['userId', 'content', 'updatedAt']) &&
              data.keys().hasOnly([
                'userId', 'content', 'updatedAt', 'title',
-               'pinnedThoughts', 'tags', '_encrypted'
+               'pinnedThoughts', 'tags', '_encrypted',
+               'seconds', 'wpm', 'wordCount', 'initialWordCount',
+               'activeSessionId', 'sessionStartTime', 'accumulatedDuration',
+               'totalPauseSeconds', 'savedDocumentId', 'labelId'
              ]) &&
              data.userId == request.auth.uid &&
              data.content is string && data.content.size() <= 100000 &&
-             data.updatedAt is number &&
+             (data.updatedAt is number || data.updatedAt is timestamp) &&
              (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
              (!('pinnedThoughts' in data) || (data.pinnedThoughts is list && data.pinnedThoughts.size() <= 20)) &&
-             (!('tags' in data) || (data.tags is list && data.tags.size() <= 10));
+             (!('tags' in data) || (data.tags is list && data.tags.size() <= 10)) &&
+             (!('_encrypted' in data) || data._encrypted is bool) &&
+             (!('seconds' in data) || data.seconds is number) &&
+             (!('wpm' in data) || data.wpm is number) &&
+             (!('wordCount' in data) || data.wordCount is number) &&
+             (!('initialWordCount' in data) || data.initialWordCount is number) &&
+             (!('activeSessionId' in data) || data.activeSessionId is string || data.activeSessionId == null) &&
+             (!('sessionStartTime' in data) || data.sessionStartTime is number || data.sessionStartTime == null) &&
+             (!('accumulatedDuration' in data) || data.accumulatedDuration is number) &&
+             (!('totalPauseSeconds' in data) || data.totalPauseSeconds is number) &&
+             (!('savedDocumentId' in data) || data.savedDocumentId is string || data.savedDocumentId == null) &&
+             (!('labelId' in data) || data.labelId is string || data.labelId == null);
     }
 
     // User profiles

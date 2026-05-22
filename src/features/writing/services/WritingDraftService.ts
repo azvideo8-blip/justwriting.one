@@ -108,6 +108,10 @@ export const WritingDraftService = {
 
   saveToFirestore: async (draft: LocalDraft) => {
     if (!draft.userId) return;
+    const oldAc = _abortControllers.get(draft.userId);
+    if (oldAc) {
+      oldAc.abort();
+    }
     const ac = new AbortController();
     _abortControllers.set(draft.userId, ac);
     const { db, mod } = await getClient();
