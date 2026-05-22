@@ -75,156 +75,14 @@ export const StorageService = {
     documentId: string,
     data: SaveDocumentData
   ): Promise<void> {
-    const prevPromise = _saveVersionLocks.get(documentId) ?? Promise.resolve();
-    const promise = prevPromise.then(async () => {
-      const db = await getLocalDb();
-      const tx = db.transaction(['documents', 'versions'], 'readwrite');
-      const docStore = tx.objectStore('documents');
-      const verStore = tx.objectStore('versions');
-
-      const existing = await docStore.get(documentId);
-      if (!existing) { await tx.done; throw new Error('Document not found'); }
-
-      const allVersions = await verStore.index('by-document').getAll(documentId);
-      const prevContent = allVersions.length > 0
-        ? allVersions.reduce((max, v) => v.version > max.version ? v : max, allVersions[0]).content ?? ''
-        : '';
-
-      const newVersion = existing.currentVersion + 1;
-      const diff = computeWordDelta(prevContent, data.content);
-      const verId = `ver_${randomUUID()}`;
-      const totalWords = data.documentWordCount ?? data.wordCount;
-      const now = Date.now();
-
-      let localSaved = false;
-      try {
-        await verStore.put({
-          id: verId,
-          documentId,
-          guestId: userId,
-          version: newVersion,
-          content: data.content,
-          wordCount: data.wordCount,
-          wordsAdded: diff.wordsAdded,
-          charsAdded: diff.charsAdded,
-          duration: data.duration,
-          wpm: data.wpm,
-          goalWords: data.goalWords,
-          goalTime: data.goalTime,
-          goalReached: data.goalReached ?? false,
-          savedAt: now,
-          sessionStartedAt: data.sessionStartedAt.getTime(),
-        });
-
-        await docStore.put({
-          ...existing,
-          totalWords,
-          totalDuration: data.duration,
-          currentVersion: newVersion,
-          sessionsCount: (existing.sessionsCount || 0) + 1,
-          lastSessionAt: now,
-        });
-
-        await tx.done;
-        localSaved = true;
-      } catch (localErr) {
-        if (localErr instanceof DOMException && localErr.name === 'QuotaExceededError') {
-          console.warn('[Storage] IDB quota exceeded — will try cloud only');
-        } else {
-          throw localErr;
-        }
-      }
-
-      if (localSaved) {
-        try {
-          const profileDb = await getLocalDb();
-          const profileTx = profileDb.transaction(['profile'], 'readwrite');
-          const profStore = profileTx.objectStore('profile');
-          const profile = await profStore.get(existing.guestId);
-          if (profile) {
-            await profStore.put({
-              ...profile,
-              totalWords: profile.totalWords - existing.totalWords + totalWords,
-              totalDuration: profile.totalDuration - existing.totalDuration + data.duration,
-              sessionsCount: profile.sessionsCount + 1,
-              lastSessionAt: now,
-            });
-          }
-          await profileTx.done;
-
-          if (!profile) {
-            await LocalDocumentService._updateProfile(existing.guestId);
-          }
-        } catch (profileErr) {
-          console.error('Failed to update profile stats:', profileErr);
-          try { await LocalDocumentService._updateProfile(existing.guestId); } catch { /* ignore */ }
-        }
-      }
-
-      if (existing.linkedCloudId) {
-        try {
-          const cloudDoc = await DocumentService.getDocument(userId, existing.linkedCloudId);
-          if (!cloudDoc) {
-            const syncDb = await getLocalDb();
-            await syncDb.put('syncQueue', {
-              id: `sync_${documentId}_${Date.now()}`,
-              documentId,
-              type: 'document' as const,
-              createdAt: Date.now(),
-            });
-          } else {
-            const startedAt = data.sessionStartedAt;
-            if (isNaN(startedAt.getTime())) {
-              throw new Error('Invalid sessionStartedAt');
-            }
-            const versionPayload = await maybeEncrypt({
-              content: data.content,
-              previousContent: prevContent,
-              wordCount: data.wordCount,
-              duration: data.duration,
-              wpm: data.wpm,
-              versionNumber: newVersion,
-              goalWords: data.goalWords,
-              goalTime: data.goalTime,
-              goalReached: data.goalReached,
-              sessionStartedAt: startedAt,
-            } as Record<string, unknown>, ['content', 'previousContent'], [], true);
-            await VersionService.addVersion(userId, existing.linkedCloudId, {
-              content: versionPayload.content as string,
-              previousContent: versionPayload.previousContent as string,
-              wordCount: data.wordCount,
-              duration: data.duration,
-              wpm: data.wpm,
-              versionNumber: newVersion,
-              goalWords: data.goalWords,
-              goalTime: data.goalTime,
-              goalReached: data.goalReached,
-              sessionStartedAt: startedAt,
-              _encrypted: versionPayload._encrypted as boolean | undefined,
-            });
-            await DocumentService.updateDocumentAfterSession(userId, existing.linkedCloudId, {
-              totalWords: data.documentWordCount ?? data.wordCount,
-              totalDuration: data.duration,
-              currentVersion: newVersion,
-            });
-          }
-        } catch (e) {
-          console.error(`Cloud version sync failed for ${existing.linkedCloudId}:`, e);
-          try {
-            const syncDb = await getLocalDb();
-            await syncDb.put('syncQueue', {
-              id: `sync_${documentId}_${Date.now()}`,
-              documentId,
-              type: 'document' as const,
-              createdAt: Date.now(),
-            });
-          } catch { /* ignore */ }
-        }
-      }
-    });
+    const prevPromise = _saveVersionLocks.get(documentId);
+    if (prevPromise) {
+      try { await prevPromise; } catch { /* previous save failed — proceed */ }
+    }
+    const promise = _doSaveVersion(userId, documentId, data);
     _saveVersionLocks.set(documentId, promise);
     try {
-      await promise;
+      await withTimeout(promise, 60_000);
     } finally {
       if (_saveVersionLocks.get(documentId) === promise) {
         _saveVersionLocks.delete(documentId);
@@ -429,3 +287,154 @@ export const StorageService = {
     return { local: localExists, cloud: cloudExists };
   },
 };
+
+async function _doSaveVersion(
+  userId: string,
+  documentId: string,
+  data: SaveDocumentData
+): Promise<void> {
+  const db = await getLocalDb();
+  const tx = db.transaction(['documents', 'versions'], 'readwrite');
+  const docStore = tx.objectStore('documents');
+  const verStore = tx.objectStore('versions');
+
+  const existing = await docStore.get(documentId);
+  if (!existing) { await tx.done; throw new Error('Document not found'); }
+
+  const allVersions = await verStore.index('by-document').getAll(documentId);
+  const prevContent = allVersions.length > 0
+    ? allVersions.reduce((max, v) => v.version > max.version ? v : max, allVersions[0]).content ?? ''
+    : '';
+
+  const newVersion = existing.currentVersion + 1;
+  const diff = computeWordDelta(prevContent, data.content);
+  const verId = `ver_${randomUUID()}`;
+  const totalWords = data.documentWordCount ?? data.wordCount;
+  const now = Date.now();
+
+  let localSaved = false;
+  try {
+    await verStore.put({
+      id: verId,
+      documentId,
+      guestId: userId,
+      version: newVersion,
+      content: data.content,
+      wordCount: data.wordCount,
+      wordsAdded: diff.wordsAdded,
+      charsAdded: diff.charsAdded,
+      duration: data.duration,
+      wpm: data.wpm,
+      goalWords: data.goalWords,
+      goalTime: data.goalTime,
+      goalReached: data.goalReached ?? false,
+      savedAt: now,
+      sessionStartedAt: data.sessionStartedAt.getTime(),
+    });
+
+    await docStore.put({
+      ...existing,
+      totalWords,
+      totalDuration: data.duration,
+      currentVersion: newVersion,
+      sessionsCount: (existing.sessionsCount || 0) + 1,
+      lastSessionAt: now,
+    });
+
+    await tx.done;
+    localSaved = true;
+  } catch (localErr) {
+    if (localErr instanceof DOMException && localErr.name === 'QuotaExceededError') {
+      console.warn('[Storage] IDB quota exceeded — will try cloud only');
+    } else {
+      throw localErr;
+    }
+  }
+
+  if (localSaved) {
+    try {
+      const profileDb = await getLocalDb();
+      const profileTx = profileDb.transaction(['profile'], 'readwrite');
+      const profStore = profileTx.objectStore('profile');
+      const profile = await profStore.get(existing.guestId);
+      if (profile) {
+        await profStore.put({
+          ...profile,
+          totalWords: profile.totalWords - existing.totalWords + totalWords,
+          totalDuration: profile.totalDuration - existing.totalDuration + data.duration,
+          sessionsCount: profile.sessionsCount + 1,
+          lastSessionAt: now,
+        });
+      }
+      await profileTx.done;
+
+      if (!profile) {
+        await LocalDocumentService._updateProfile(existing.guestId);
+      }
+    } catch (profileErr) {
+      console.error('Failed to update profile stats:', profileErr);
+      try { await LocalDocumentService._updateProfile(existing.guestId); } catch { /* ignore */ }
+    }
+  }
+
+  if (existing.linkedCloudId) {
+    try {
+      const cloudDoc = await DocumentService.getDocument(userId, existing.linkedCloudId);
+      if (!cloudDoc) {
+        const syncDb = await getLocalDb();
+        await syncDb.put('syncQueue', {
+          id: `sync_${documentId}_${Date.now()}`,
+          documentId,
+          type: 'document' as const,
+          createdAt: Date.now(),
+        });
+      } else {
+        const startedAt = data.sessionStartedAt;
+        if (isNaN(startedAt.getTime())) {
+          throw new Error('Invalid sessionStartedAt');
+        }
+        const versionPayload = await maybeEncrypt({
+          content: data.content,
+          previousContent: prevContent,
+          wordCount: data.wordCount,
+          duration: data.duration,
+          wpm: data.wpm,
+          versionNumber: newVersion,
+          goalWords: data.goalWords,
+          goalTime: data.goalTime,
+          goalReached: data.goalReached,
+          sessionStartedAt: startedAt,
+        } as Record<string, unknown>, ['content', 'previousContent'], [], true);
+        await VersionService.addVersion(userId, existing.linkedCloudId, {
+          content: versionPayload.content as string,
+          previousContent: versionPayload.previousContent as string,
+          wordCount: data.wordCount,
+          duration: data.duration,
+          wpm: data.wpm,
+          versionNumber: newVersion,
+          goalWords: data.goalWords,
+          goalTime: data.goalTime,
+          goalReached: data.goalReached,
+          sessionStartedAt: startedAt,
+          _encrypted: versionPayload._encrypted as boolean | undefined,
+        });
+        await DocumentService.updateDocumentAfterSession(userId, existing.linkedCloudId, {
+          totalWords: data.documentWordCount ?? data.wordCount,
+          totalDuration: data.duration,
+          currentVersion: newVersion,
+        });
+      }
+    } catch (e) {
+      console.error(`Cloud version sync failed for ${existing.linkedCloudId}:`, e);
+      try {
+        const syncDb = await getLocalDb();
+        await syncDb.put('syncQueue', {
+          id: `sync_${documentId}_${Date.now()}`,
+          documentId,
+          type: 'document' as const,
+          createdAt: Date.now(),
+        });
+      } catch { /* ignore */ }
+    }
+  }
+}

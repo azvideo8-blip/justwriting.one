@@ -3,9 +3,15 @@ const SALT_LENGTH = 16;
 const IV_LENGTH = 12;
 
 function toBase64(buf: Uint8Array): string {
-  let binary = '';
-  buf.forEach(b => { binary += String.fromCharCode(b); });
-  return btoa(binary);
+  const CHUNK = 0x8000;
+  const len = buf.length;
+  if (len === 0) return '';
+  const parts: string[] = [];
+  for (let i = 0; i < len; i += CHUNK) {
+    const end = Math.min(i + CHUNK, len);
+    parts.push(String.fromCharCode(...buf.subarray(i, end)));
+  }
+  return btoa(parts.join(''));
 }
 
 function fromBase64(b64: string): Uint8Array {
