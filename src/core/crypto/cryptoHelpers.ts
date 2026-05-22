@@ -30,6 +30,19 @@ export async function maybeEncrypt(
   return result;
 }
 
+function deepClone<T>(obj: T): T {
+  if (typeof structuredClone === 'function') return structuredClone(obj);
+  return JSON.parse(JSON.stringify(obj));
+}
+
+export class DecryptionError extends Error {
+  constructor(field: string, cause?: unknown) {
+    super(`DECRYPTION_FAILED: "${field}"`);
+    this.name = 'DecryptionError';
+    if (cause) this.cause = cause;
+  }
+}
+
 export async function maybeDecrypt(
   doc: Record<string, unknown>,
   stringFields: string[],
@@ -42,7 +55,7 @@ export async function maybeDecrypt(
     throw new Error('LOCKED: session key not available');
   }
 
-  const result: Record<string, unknown> = { ...doc };
+  const result: Record<string, unknown> = deepClone(doc);
   for (const field of stringFields) {
     const val = result[field];
     if (typeof val === 'string' && isEncrypted && key) {
@@ -50,8 +63,7 @@ export async function maybeDecrypt(
         result[field] = await decryptContent(val, key);
       } catch (e) {
         reportError(e, { action: 'maybeDecrypt_stringField', field });
-        result[field] = `[${field}: decryption error]`;
-        result._decryptionError = true;
+        throw new DecryptionError(field, e);
       }
     }
   }
@@ -62,8 +74,7 @@ export async function maybeDecrypt(
         result[field] = JSON.parse(await decryptContent(val, key));
       } catch (e) {
         reportError(e, { action: 'maybeDecrypt_arrayField', field });
-        result[field] = [];
-        result._decryptionError = true;
+        throw new DecryptionError(field, e);
       }
     } else if (typeof val === 'string' && !isEncrypted) {
       try {
