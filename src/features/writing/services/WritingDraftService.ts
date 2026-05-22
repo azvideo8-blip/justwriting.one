@@ -64,7 +64,7 @@ export const WritingDraftService = {
       if (Math.abs(localTs - cloudTs) < 60_000) {
         winner = (resolvedLocal.wordCount ?? 0) >= (cloudDraft.wordCount ?? 0) ? resolvedLocal : cloudDraft;
       } else {
-        winner = localTs > cloudTs ? localDraft : cloudDraft;
+        winner = localTs > cloudTs ? resolvedLocal : cloudDraft;
       }
       if (deletedAt && (toTimestampMs(winner.updatedAt) ?? 0) <= deletedAt) {
         await WritingDraftService.deleteDraft(userId);

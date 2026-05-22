@@ -502,7 +502,7 @@ describe('GROUP D — Idempotency', () => {
     await LocalDocumentService.updateLinkedCloudId(docIds[0], existingCloudId);
 
     // MockDocumentService.getDocument returns the pre-existing doc
-    MockDocumentService.getDocument.mockResolvedValueOnce(cloudDocs.get(existingCloudId));
+    MockDocumentService.getDocument.mockResolvedValueOnce(cloudDocs.get(existingCloudId) ?? null);
 
     const returnedId = await StorageService.addCloudCopy(USER_ID, docIds[0]);
 

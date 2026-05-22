@@ -20,15 +20,15 @@ export const LocalDocumentService = {
       firstSessionAt: data.firstSessionAt ?? now,
       lastSessionAt: data.lastSessionAt ?? now,
       tags: data.tags ?? [],
-      labelId: data.labelId ?? null,
+      labelId: data.labelId ?? undefined,
     });
 
     return id;
   },
 
-  async getDocument(id: string): Promise<LocalDocument | null> {
+  async getDocument(id: string): Promise<LocalDocument | undefined> {
     const db = await getLocalDb();
-    return db.get('documents', id) ?? null;
+    return db.get('documents', id) ?? undefined;
   },
 
   async getGuestDocuments(guestId: string): Promise<LocalDocument[]> {
@@ -144,7 +144,7 @@ export const LocalDocumentService = {
     const db = await getLocalDb();
     const existing = await db.get('documents', id);
     if (!existing) return;
-    await db.put('documents', { ...existing, labelId: labelId ?? null });
+    await db.put('documents', { ...existing, labelId: labelId ?? undefined });
   },
 
   async _updateProfile(guestId: string): Promise<void> {
@@ -165,7 +165,7 @@ export const LocalDocumentService = {
     const all = await db.getAllFromIndex('documents', 'by-guest', userId);
     await Promise.all(
       all.filter(d => d.labelId === labelId)
-         .map(d => db.put('documents', { ...d, labelId: null }))
+         .map(d => db.put('documents', { ...d, labelId: undefined }))
     );
   },
 

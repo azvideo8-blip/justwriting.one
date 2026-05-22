@@ -18,13 +18,14 @@ import { Session } from '../../../types';
 import { GuestSessionReturn } from './useGuestWritingSession';
 import { CloudSessionReturn } from './useCloudWritingSession';
 import { cleanupDraftsAfterSave, reportKeystrokeStats } from '../utils/sessionActions';
+import { SetupMode } from '../WritingSetup';
 
 export type AnySessionReturn = GuestSessionReturn | CloudSessionReturn;
 
 interface UseWritingActionsParams {
   session: AnySessionReturn;
   flow: {
-    setSetupMode: (m: string | null) => void;
+    setSetupMode: (m: SetupMode | null) => void;
     setShowCancelConfirm: (v: boolean) => void;
   };
 }
@@ -191,7 +192,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
     await cleanupDraftsAfterSave(userId, isGuest, null);
   }, [flow, isGuest, userId]);
 
-  const handleFinish = React.useCallback((keystrokeTrackerRef: React.RefObject<{ getStats: () => { kpm: number; ikiMedian: number; ikiCv: number; sampleSize: number; kpmWpmRatio?: number }; reset: () => void } | null>) => {
+  const handleFinish = React.useCallback((keystrokeTrackerRef: React.RefObject<{ getStats: () => { kpm: number; ikiMedian: number; ikiCv: number; sampleSize: number; kpmWpmRatio?: number } | null; reset: () => void } | null>) => {
     const { status } = useTimerStore.getState();
     if (status === 'writing') {
       useTimerStore.getState().pauseSession();

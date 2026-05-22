@@ -64,7 +64,7 @@ export function useSessionPersistence(
     wpm: timerState.wpm,
     wordCount: timerState.wordCount,
     initialWordCount: sessionState.initialWordCount,
-    sessionStartTime: sessionState.sessionStartTime,
+    sessionStartTime: sessionState.sessionStartTime ?? undefined,
     activeSessionId: sessionState.activeSessionId,
     status: timerState.status
   });

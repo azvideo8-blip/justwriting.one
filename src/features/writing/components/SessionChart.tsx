@@ -30,7 +30,7 @@ export function SessionChart({ sessions, startDate, endDate }: SessionChartProps
     const dateStr = format(day, 'yyyy-MM-dd');
     const daySessions = sessions.filter(s => {
       const sDate = parseFirestoreDate(s.createdAt);
-      return format(sDate, 'yyyy-MM-dd') === dateStr;
+      return sDate ? format(sDate, 'yyyy-MM-dd') === dateStr : false;
     });
     return {
       date: format(day, 'd MMM'),

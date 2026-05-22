@@ -23,6 +23,8 @@ export function useWpm() {
   useEffect(() => {
     if (status === 'writing') {
       decayRef.current = setInterval(applyWpmDecay, 1000);
+    } else {
+      useContentStore.setState({ wpm: 0 });
     }
     return () => {
       if (decayRef.current) clearInterval(decayRef.current);

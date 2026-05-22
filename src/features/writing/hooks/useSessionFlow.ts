@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { SessionType } from '../store/types';
 import { useTimerStore } from '../store/useTimerStore';
 import { SetupMode } from '../WritingSetup';
@@ -35,11 +35,11 @@ export function useSessionFlow(
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [totalDurationForDeadline, setTotalDurationForDeadline] = useState<number | null>(null);
 
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const goalFiredRef = useRef(false);
 
   const startCountdown = useCallback((type: SessionType) => {
-    if (countdownRef.current) clearInterval(countdownRef.current);
+    if (countdownRef.current !== undefined) clearInterval(countdownRef.current);
     setSessionType(type);
     setSetupMode('countdown');
     setCountdown(3);
@@ -50,7 +50,7 @@ export function useSessionFlow(
       setCountdown(count);
 
       if (count === 0) {
-        clearInterval(countdownRef.current);
+        if (countdownRef.current !== undefined) clearInterval(countdownRef.current);
         handleStart();
         setTimeout(() => {
           setSetupMode(null);
@@ -116,18 +116,16 @@ export function useSessionFlow(
 
   useEffect(() => {
     return () => {
-      if (countdownRef.current) clearInterval(countdownRef.current);
+      if (countdownRef.current !== undefined) clearInterval(countdownRef.current);
     };
   }, []);
 
-  return useMemo(() => ({
+  return {
     setupMode, setSetupMode: stableSetSetupMode,
     countdown, startCountdown,
     goalToastVisible, goalToastType,
     sessionStartFlash,
     totalDurationForDeadline,
     showCancelConfirm, setShowCancelConfirm: stableSetShowCancelConfirm,
-  }), [setupMode, countdown, goalToastVisible, goalToastType,
-       sessionStartFlash, totalDurationForDeadline,
-       showCancelConfirm, stableSetSetupMode, startCountdown, stableSetShowCancelConfirm]);
+  };
 }

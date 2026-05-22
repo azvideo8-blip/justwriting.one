@@ -88,7 +88,7 @@ export function SessionCard({
           <div className="flex items-center gap-3">
             <div className="flex flex-col">
               <span className="text-[11px] md:text-xs font-bold uppercase tracking-widest text-text-main/40">
-                {format(new Date(session.sessionStartTime || (sessionDate.getTime() - session.duration * 1000)), 'd MMM yyyy • HH:mm')}
+                {format(new Date(session.sessionStartTime || ((sessionDate?.getTime() ?? Date.now()) - session.duration * 1000)), 'd MMM yyyy • HH:mm')}
               </span>
             </div>
           </div>

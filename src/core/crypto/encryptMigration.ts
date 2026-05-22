@@ -1,7 +1,7 @@
 import { getSessionKey } from './encrypt';
 import { maybeEncrypt } from './cryptoHelpers';
 import { getClient } from '../firebase/firestoreClient';
-import type { DocumentReference, WriteBatch } from 'firebase/firestore';
+import type { DocumentReference, WriteBatch, FieldValue } from 'firebase/firestore';
 
 export interface MigrationProgress {
   total: number;
@@ -49,7 +49,7 @@ async function flushPending(batch: WriteBatch, ops: PendingOp[]): Promise<string
     if (op.useSet) {
       batch.set(op.ref, op.data, { merge: true });
     } else {
-      batch.update(op.ref, op.data);
+      batch.update(op.ref, op.data as Record<string, FieldValue | Partial<unknown> | undefined>);
     }
     keys.push(op.checkKey);
   }

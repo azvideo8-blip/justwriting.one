@@ -2,13 +2,15 @@ import { getDb } from './firestore';
 
 type Firestore = import('firebase/firestore').Firestore;
 
-let _cached: {
+type Client = {
   db: Firestore;
   mod: typeof import('firebase/firestore');
-} | null = null;
-let _initPromise: Promise<typeof _cached> | null = null;
+};
 
-async function init() {
+let _cached: Client | null = null;
+let _initPromise: Promise<Client> | null = null;
+
+async function init(): Promise<Client> {
   if (_cached) return _cached;
   if (_initPromise) return _initPromise;
   _initPromise = (async () => {
@@ -19,6 +21,6 @@ async function init() {
   return _initPromise;
 }
 
-export async function getClient() {
+export async function getClient(): Promise<Client> {
   return init();
 }
