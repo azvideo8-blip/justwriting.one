@@ -9,7 +9,7 @@ interface ArchiveConfirmModalsProps {
   deleteConfirm: ArchiveSession | null;
   onDeleteConfirm: () => Promise<void>;
   onDeleteCancel: () => void;
-  t: (key: string, args?: Record<string, unknown>) => string;
+  t: (key: string, args?: Record<string, string | number>) => string;
 }
 
 export function ArchiveConfirmModals({

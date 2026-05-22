@@ -20,12 +20,12 @@ type Section = 'stats' | 'writing' | 'account';
 export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeScreenProps) {
   const { t } = useLanguage();
   const [activeSection, setActiveSection] = useState<Section>('stats');
-  const [localProfile, setLocalProfile] = useState<LocalProfile | null>(null);
+  const [localProfile, setLocalProfile] = useState<LocalProfile | undefined>(undefined);
   const isGuest = !user;
 
   useEffect(() => {
     if (isGuest) {
-      LocalDocumentService.getProfile(getOrCreateGuestId()).then(p => setLocalProfile(p));
+      LocalDocumentService.getProfile(getOrCreateGuestId()).then(p => setLocalProfile(p ?? undefined));
     }
   }, [isGuest]);
 

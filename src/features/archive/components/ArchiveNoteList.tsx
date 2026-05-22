@@ -27,7 +27,7 @@ interface ArchiveNoteListProps {
   onDateChange: (s: ArchiveSession, date: Date) => void;
   onLabelChange: (s: ArchiveSession, labelId: string | undefined) => void;
   onStorageChange: () => void;
-  t: (key: string, args?: Record<string, unknown>) => string;
+  t: (key: string, args?: Record<string, string | number>) => string;
   language: string;
   entriesLabel: (n: number) => string;
   allTags?: string[];

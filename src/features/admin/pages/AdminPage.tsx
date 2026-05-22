@@ -48,7 +48,7 @@ export function AdminPage() {
       } else if (activeTab === 'sessions') {
         const result = await AdminSessionService.getAllSessionsAdmin(
           20,
-          isInitial ? undefined : lastSessionDocRef.current
+          isInitial ? undefined : lastSessionDocRef.current ?? undefined
         );
         if (isInitial) {
           setSessions(result.sessions);

@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Session, UserProfile } from '../../../types';
+import { LifeLogDocument } from '../types/lifeLog';
 import { cn } from '../../../core/utils/utils';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useLanguage } from '../../../core/i18n';
@@ -20,7 +21,7 @@ interface DesktopWritingLayoutProps {
   setSetupMode: (mode: SetupMode | null) => void;
   startCountdown: (type: 'stopwatch' | 'timer' | 'words' | 'finish-by') => void;
   countdown: number | null;
-  totalDurationForDeadline: number;
+  totalDurationForDeadline: number | null;
   onOpenSettings: () => void;
   onNew: () => void;
   onOpenLog: () => void;
@@ -34,7 +35,7 @@ interface DesktopWritingLayoutProps {
   hasDraft: boolean;
   sessionStatus: string;
   userId: string;
-  onContinueSessionOrDoc: (session: Session) => void;
+  onContinueSessionOrDoc: (session: Session | LifeLogDocument) => void;
   restoreDraft: () => void;
   discardDraft: () => void;
   onSetPromptTitle: (title: string) => void;

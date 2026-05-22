@@ -255,10 +255,10 @@ export function MobileLogScreen({ userId, isGuest, onContinue }: MobileLogScreen
                       flexShrink: 0,
                     }}>
                       {parseFirestoreDate(session.createdAt)
-                        .toLocaleTimeString(language, {
+                        ?.toLocaleTimeString(language, {
                           hour: '2-digit',
                           minute: '2-digit',
-                        })}
+                        }) ?? ''}
                     </div>
                   </div>
                   <div style={{

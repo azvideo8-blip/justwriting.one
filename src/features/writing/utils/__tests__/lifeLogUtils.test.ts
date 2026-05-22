@@ -22,8 +22,8 @@ function makeLocalDoc(overrides: Partial<LocalDocument> = {}): LocalDocument {
     firstSessionAt: Date.now() - 3600000,
     lastSessionAt: Date.now(),
     tags: [],
-    labelId: null,
-    linkedCloudId: null,
+    labelId: undefined,
+    linkedCloudId: undefined,
     ...overrides,
   };
 }
@@ -56,8 +56,8 @@ describe('localDocToLifeLog', () => {
     expect(result.storage).toEqual({ local: true, cloud: false });
   });
 
-  it('labelId null → labelId undefined', () => {
-    const result = localDocToLifeLog(makeLocalDoc({ labelId: null }), false);
+  it('labelId undefined → labelId undefined', () => {
+    const result = localDocToLifeLog(makeLocalDoc({ labelId: undefined }), false);
     expect(result.labelId).toBeUndefined();
   });
 
@@ -66,8 +66,8 @@ describe('localDocToLifeLog', () => {
     expect(result.cloudId).toBe('cloud1');
   });
 
-  it('linkedCloudId null → cloudId undefined', () => {
-    const result = localDocToLifeLog(makeLocalDoc({ linkedCloudId: null }), false);
+  it('linkedCloudId undefined → cloudId undefined', () => {
+    const result = localDocToLifeLog(makeLocalDoc({ linkedCloudId: undefined }), false);
     expect(result.cloudId).toBeUndefined();
   });
 });
