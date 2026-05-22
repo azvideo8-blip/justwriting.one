@@ -1,12 +1,64 @@
 import { encryptContent, decryptContent, getSessionKey } from './encrypt';
 import { reportError } from '../errors/reportError';
 
+const encryptionEnabledCache: Record<string, boolean> = {};
+
+export function setEncryptionEnabled(userId: string, enabled: boolean): void {
+  if (!userId) return;
+  encryptionEnabledCache[userId] = enabled;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(`enc_enabled_${userId}`, enabled ? '1' : '0');
+    }
+  } catch (e) {
+    reportError(e, { action: 'setEncryptionEnabled_localStorage', userId });
+  }
+}
+
+export function isEncryptionEnabled(userId: string): boolean {
+  if (!userId) return false;
+  if (userId.startsWith('guest_') || userId === 'guest') return false;
+  if (encryptionEnabledCache[userId] !== undefined) {
+    return encryptionEnabledCache[userId];
+  }
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const val = localStorage.getItem(`enc_enabled_${userId}`);
+      if (val !== null) {
+        const enabled = val === '1';
+        encryptionEnabledCache[userId] = enabled;
+        return enabled;
+      }
+    }
+  } catch (e) {
+    reportError(e, { action: 'isEncryptionEnabled_localStorage', userId });
+  }
+  return false;
+}
+
 export async function maybeEncrypt(
   doc: Record<string, unknown>,
   fields: string[],
   arrayFields: string[],
-  required?: boolean,
+  userIdOrRequired?: boolean | string,
 ): Promise<Record<string, unknown>> {
+  let required = false;
+  let shouldEncrypt = true;
+
+  if (typeof userIdOrRequired === 'boolean') {
+    required = userIdOrRequired;
+  } else if (typeof userIdOrRequired === 'string') {
+    const enabled = isEncryptionEnabled(userIdOrRequired);
+    required = enabled;
+    shouldEncrypt = enabled;
+  }
+
+  if (!shouldEncrypt) {
+    const result = { ...doc };
+    delete result._encrypted;
+    return result;
+  }
+
   const key = getSessionKey();
   if (!key) {
     if (required) throw new Error('ENCRYPT_REQUIRED: session key not available');

@@ -166,13 +166,13 @@ service cloud.firestore {
              data.userId is string &&
              data.title is string && data.title.size() <= 200 &&
              (!('tags' in data) || (data.tags is list && data.tags.size() <= 10)) &&
-             (!('labelId' in data) || data.labelId is string);
+             (!('labelId' in data) || data.labelId is string || data.labelId == null);
     }
 
     function isValidDocumentUpdate(data) {
       return (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
              (!('tags' in data) || (data.tags is list && data.tags.size() <= 10)) &&
-             (!('labelId' in data) || data.labelId is string);
+             (!('labelId' in data) || data.labelId is string || data.labelId == null);
     }
 
     function isValidVersion(data) {

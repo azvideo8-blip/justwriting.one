@@ -114,10 +114,11 @@ export async function encryptContent(plaintext: string, dataKey: CryptoKey): Pro
     );
   } finally {
     secureClear(plainBytes);
-    secureClear(iv);
   }
   const combined = new Uint8Array(IV_LENGTH + ciphertext.byteLength);
+  combined.set(iv, 0);
   combined.set(new Uint8Array(ciphertext), IV_LENGTH);
+  secureClear(iv);
   return toBase64(combined);
 }
 

@@ -10,6 +10,7 @@ import { MigrationPrompt, checkGuestDocuments } from '../components/MigrationPro
 import { deriveMasterKey, generateDataKey, wrapDataKey, unwrapDataKey, setSessionKey, clearSessionKey, toBase64, fromBase64, SALT_LENGTH } from '../../../core/crypto/encrypt';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { reportError } from '../../../core/errors/reportError';
+import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 
 interface LoginPageProps {
   isModal?: boolean;
@@ -90,6 +91,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         }
 
         setSessionKey(dataKey);
+        setEncryptionEnabled(cred.user.uid, true);
       } else {
         await signInWithEmailAndPassword(auth, email, password);
 
@@ -104,6 +106,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
             try {
               const dataKey = await unwrapDataKey(profileData.encryptedDataKey as string, masterKey);
               setSessionKey(dataKey);
+              setEncryptionEnabled(auth.currentUser!.uid, true);
             } catch (e) {
               if (e instanceof DOMException && e.name === 'OperationError') {
                 setError(t('auth_error_wrong_password_encrypted'));
@@ -123,9 +126,13 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                 const masterKey = await deriveMasterKey(password, salt);
                 const dataKey = await unwrapDataKey(keys.encryptedDataKey, masterKey);
                 setSessionKey(dataKey);
-               } catch (repairErr) {
-                 reportError(repairErr, { action: 'repairEncryptionKeys' });
+                setEncryptionEnabled(auth.currentUser!.uid, true);
+              } catch (repairErr) {
+                reportError(repairErr, { action: 'repairEncryptionKeys' });
+                setEncryptionEnabled(auth.currentUser!.uid, false);
               }
+            } else {
+              setEncryptionEnabled(auth.currentUser!.uid, false);
             }
           }
         }

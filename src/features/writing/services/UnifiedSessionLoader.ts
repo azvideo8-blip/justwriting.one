@@ -8,6 +8,7 @@ import { LocalVersionService } from './LocalVersionService';
 import { toDate } from '../../../core/utils/dateUtils';
 import { maybeDecrypt, DecryptionError } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../core/errors/reportError';
+import { getLocalDb } from '../../../shared/lib/localDb';
 
 interface LoadedSession extends Session {
   _linkedCloudId?: string;
@@ -19,6 +20,7 @@ interface LoadedSession extends Session {
   _firstSessionAt?: number;
   _locked?: boolean;
   _decryptionError?: boolean;
+  _hasPendingSync?: boolean;
 }
 
 interface LoadResult {
@@ -30,6 +32,19 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
   const allSessions: LoadedSession[] = [];
   const seenIds = new Set<string>();
   let cloudLoadFailed = false;
+
+  const pendingDocIds = new Set<string>();
+  try {
+    const db = await getLocalDb();
+    const queue = await db.getAll('syncQueue');
+    for (const item of queue) {
+      if (item.documentId && !item.id.startsWith('migrated_') && !item.id.startsWith('lock_cloud_')) {
+        pendingDocIds.add(item.documentId);
+      }
+    }
+  } catch (err) {
+    reportError(err, { action: 'loadAllSessions_syncQueue' });
+  }
 
   const idsToQuery = user ? [user.uid, userId] : [userId];
 
@@ -60,6 +75,7 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
         _isLocal: true,
         _linkedCloudId: doc.linkedCloudId || undefined,
         _hasCloudCopy: !!doc.linkedCloudId,
+        _hasPendingSync: pendingDocIds.has(doc.id),
         _totalWords: doc.totalWords,
         _totalDuration: doc.totalDuration,
         _sessionsCount: doc.sessionsCount,

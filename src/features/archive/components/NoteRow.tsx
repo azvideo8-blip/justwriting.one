@@ -249,6 +249,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
             cloudId: session._linkedCloudId,
             hasLocal: !!session._isLocal,
             hasCloud: !!session._hasCloudCopy,
+            hasPendingSync: !!session._hasPendingSync,
           }}
           userId={userId}
           onStorageChange={() => onStorageChange?.()}

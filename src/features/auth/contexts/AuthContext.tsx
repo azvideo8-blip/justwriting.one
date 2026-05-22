@@ -7,6 +7,7 @@ import { UserProfile } from '../../../types';
 import * as Sentry from '@sentry/react';
 import { clearSessionKey } from '../../../core/crypto/encrypt';
 import { reportError } from '../../../core/errors/reportError';
+import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 
 type AuthState = 'loading' | 'authenticated' | 'guest';
 
@@ -107,11 +108,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (data && typeof data === 'object' && 'uid' in data) {
             profileSetBySnapshotRef.current = true;
             setProfile(data as UserProfile);
+            setEncryptionEnabled(user.uid, !!(data.encryptionSalt && data.encryptedDataKey));
           } else {
             if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, data);
             setProfile(null);
+            setEncryptionEnabled(user.uid, false);
           }
         } else {
+          setEncryptionEnabled(user.uid, false);
           if (creationAttemptedRef.current) return;
           creationAttemptedRef.current = true;
 

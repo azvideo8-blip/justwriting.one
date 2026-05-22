@@ -57,6 +57,7 @@ export const authTranslations: Translations = {
   admin_tab_users: { ru: 'Пользователи', en: 'Users' },
   admin_tab_sessions: { ru: 'Сессии', en: 'Sessions' },
   admin_tab_security: { ru: 'Безопасность', en: 'Security' },
+  admin_tab_diagnostics: { ru: 'Диагностика', en: 'Diagnostics' },
   admin_confirm_delete_session: { ru: 'Вы уверены, что хотите удалить эту сессию?', en: 'Are you sure you want to delete this session?' },
   admin_confirm_delete_session_desc: { ru: 'Это действие нельзя отменить', en: 'This action cannot be undone' },
   admin_security_active: { ru: 'Активная защита', en: 'Active Protection' },

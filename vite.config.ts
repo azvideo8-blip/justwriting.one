@@ -23,7 +23,9 @@ export default defineConfig(() => {
     },
     server: {
       hmr: process.env.DISABLE_HMR !== 'true'
-        ? { clientPort: 443, protocol: 'wss' }
+        ? (process.env.VITE_HMR_SECURE === 'true'
+          ? { clientPort: 443, protocol: 'wss' }
+          : true)
         : false,
     },
     build: {
@@ -45,6 +47,14 @@ export default defineConfig(() => {
       globals: true,
       environment: 'jsdom',
       setupFiles: './src/test/setup.ts',
+      exclude: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/.claude/**',
+        '**/coverage/**',
+        '**/.git/**',
+        '**/.firebase/**',
+      ],
     },
   };
 });

@@ -212,7 +212,7 @@ export const StorageService = {
             goalTime: ver.goalTime,
             goalReached: ver.goalReached,
             sessionStartedAt: startedAt,
-          } as Record<string, unknown>, ['content', 'previousContent'], [], encryptionRequired);
+          } as Record<string, unknown>, ['content', 'previousContent'], [], userId);
 
           await withTimeout(VersionService.addVersion(userId, cloudId, {
             content: versionPayload.content as string,
@@ -244,6 +244,7 @@ export const StorageService = {
 
       if (!cloudId) throw new Error('Failed to create cloud document');
       await LocalDocumentService.updateLinkedCloudId(localDocumentId, cloudId);
+      await LocalDocumentService.migrateDocumentOwner(localDocumentId, userId);
       return cloudId;
     } finally {
       try {
@@ -407,7 +408,7 @@ async function _doSaveVersion(
           goalTime: data.goalTime,
           goalReached: data.goalReached,
           sessionStartedAt: startedAt,
-        } as Record<string, unknown>, ['content', 'previousContent'], [], true);
+        } as Record<string, unknown>, ['content', 'previousContent'], [], userId);
         await VersionService.addVersion(userId, existing.linkedCloudId, {
           content: versionPayload.content as string,
           previousContent: versionPayload.previousContent as string,

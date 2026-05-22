@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { AdminUserService } from '../services/AdminUserService';
 import { AdminSessionService } from '../services/AdminSessionService';
 import { auth } from '../../../core/firebase/auth';
-import { Users, Database, Shield, AlertTriangle, Download, Loader } from 'lucide-react';
+import { Users, Database, Shield, AlertTriangle, Download, Loader, RefreshCw } from 'lucide-react';
 import { AdminUsersTable } from '../components/AdminUsersTable';
 import { AdminSessionsTable } from '../components/AdminSessionsTable';
 import { useLanguage } from '../../../core/i18n';
@@ -17,6 +17,7 @@ import { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
 import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
 import { StorageService } from '../../writing/services/StorageService';
+import { SyncDiagnostics } from '../../settings/components/SyncDiagnostics';
 
 export function AdminPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -25,7 +26,7 @@ export function AdminPage() {
   const [hasMoreSessions, setHasMoreSessions] = useState(true);
   const [loadingMoreSessions, setLoadingMoreSessions] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'users' | 'sessions' | 'security'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'sessions' | 'security' | 'diagnostics'>('users');
   const [isAdmin, setIsAdmin] = useState(false);
   const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
@@ -35,6 +36,10 @@ export function AdminPage() {
   const { showToast } = useToast();
 
   const fetchData = useCallback(async (isInitial = true) => {
+    if (activeTab !== 'users' && activeTab !== 'sessions') {
+      setLoading(false);
+      return;
+    }
     if (isInitial) {
       setLoading(true);
       lastSessionDocRef.current = null;
@@ -202,7 +207,7 @@ export function AdminPage() {
         <button 
           onClick={() => setActiveTab('security')}
           className={cn(
-            "flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all",
+            "flex items-center gap-2 px-6 py-2 rounded-2xl text-sm font-bold transition-all",
             activeTab === 'security' 
               ? "bg-surface-base/20 text-text-main shadow-sm" 
               : "text-text-main/50 hover:text-text-main"
@@ -210,6 +215,18 @@ export function AdminPage() {
         >
           <AlertTriangle size={16} />
           {t('admin_tab_security')}
+        </button>
+        <button 
+          onClick={() => setActiveTab('diagnostics')}
+          className={cn(
+            "flex items-center gap-2 px-6 py-2 rounded-2xl text-sm font-bold transition-all",
+            activeTab === 'diagnostics' 
+              ? "bg-surface-base/20 text-text-main shadow-sm" 
+              : "text-text-main/50 hover:text-text-main"
+          )}
+        >
+          <RefreshCw size={16} />
+          {t('admin_tab_diagnostics')}
         </button>
       </div>
 
@@ -266,6 +283,12 @@ export function AdminPage() {
                   <p className="text-sm mt-2 text-text-main/80">{t('admin_security_csrf')}</p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'diagnostics' && (
+            <div className="p-6">
+              <SyncDiagnostics userId={auth.currentUser!.uid} />
             </div>
           )}
         </div>
