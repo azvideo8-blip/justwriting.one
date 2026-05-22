@@ -1,6 +1,7 @@
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { Label } from '../../../types';
+import { reportError } from '../../../core/errors/reportError';
 
 export const ProfileService = {
   async updateNickname(userId: string, nickname: string) {
@@ -9,6 +10,7 @@ export const ProfileService = {
       const { doc, setDoc } = mod;
       await setDoc(doc(db, 'users', userId), { nickname }, { merge: true });
     } catch (err) {
+      reportError(err, { action: 'updateNickname', userId });
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
       throw err;
     }
@@ -20,6 +22,7 @@ export const ProfileService = {
       const { doc, setDoc } = mod;
       await setDoc(doc(db, 'users', userId), { labels }, { merge: true });
     } catch (err) {
+      reportError(err, { action: 'updateLabels', userId });
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
       throw err;
     }
@@ -31,6 +34,7 @@ export const ProfileService = {
       const { doc, setDoc } = mod;
       await setDoc(doc(db, 'users', userId), { earnedAchievements: ids }, { merge: true });
     } catch (err) {
+      reportError(err, { action: 'updateEarnedAchievements', userId });
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
       throw err;
     }
@@ -42,6 +46,7 @@ export const ProfileService = {
       const { doc, setDoc } = mod;
       await setDoc(doc(db, 'users', userId), { earnedAchievements: [] }, { merge: true });
     } catch (err) {
+      reportError(err, { action: 'resetAchievements', userId });
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
       throw err;
     }
@@ -57,6 +62,7 @@ export const ProfileService = {
       }
       return { ids: [], error: false };
     } catch (err) {
+      reportError(err, { action: 'loadEarnedAchievements', userId });
       handleFirestoreError(err, OperationType.GET, `users/${userId}`);
       return { ids: [], error: true };
     }
@@ -73,6 +79,7 @@ export const ProfileService = {
       }
       return { data: null, error: false };
     } catch (err) {
+      reportError(err, { action: 'getProfile', userId });
       handleFirestoreError(err, OperationType.GET, `users/${userId}`);
       return { data: null, error: true };
     }

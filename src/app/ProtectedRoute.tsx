@@ -4,6 +4,7 @@ import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
 import { useLanguage } from '../core/i18n';
 import { LogIn, Loader2 } from 'lucide-react';
+import { reportError } from '../core/errors/reportError';
 
 export function ProtectedRoute({ children, requireAdmin }: { children: React.ReactNode; requireAdmin?: boolean }) {
   const { isAuthenticated, user, profile, loading } = useAuthStatus();
@@ -20,7 +21,8 @@ export function ProtectedRoute({ children, requireAdmin }: { children: React.Rea
     user.getIdTokenResult().then(token => {
       setIsAdmin(token.claims.admin === true || profile?.role === 'admin');
       setTimeout(() => setCheckingAdmin(false), 0);
-    }).catch(() => {
+    }).catch(e => {
+      reportError(e, { action: 'checkAdminClaim' });
       setIsAdmin(false);
       setTimeout(() => setCheckingAdmin(false), 0);
     });

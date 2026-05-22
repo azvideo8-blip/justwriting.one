@@ -1,6 +1,8 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { HardDrive } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
+import { useToast } from '../../../shared/components/Toast';
+import { reportError } from '../../../core/errors/reportError';
 import { getOrCreateGuestId, getLocalDb } from '../../../shared/lib/localDb';
 import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
 import { SyncService } from '../../writing/services/SyncService';
@@ -45,6 +47,7 @@ interface MigrationPromptProps {
 
 export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: MigrationPromptProps) {
   const { t } = useLanguage();
+  const { showToast } = useToast();
 
   const handleMigrate = async () => {
     try {
@@ -56,13 +59,15 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
           if (failed > 0 && import.meta.env.DEV) {
             console.warn(`Migration: ${synced} synced, ${failed} failed`);
           }
-        } catch {
-          // Cloud sync failed — local migration still succeeded
+        } catch (e) {
+          reportError(e, { action: 'migrateCloudSync', userId });
+          showToast(t('error_generic_action'), 'error');
         }
       }
       onDone();
     } catch (e) {
-      console.error('Migration failed:', e);
+      reportError(e, { action: 'migrateDocuments', userId });
+      showToast(t('error_generic_action'), 'error');
       onDone();
     }
   };
@@ -119,7 +124,7 @@ export async function checkGuestDocuments(): Promise<{ guestId: string; docs: im
     const localDocs = await LocalDocumentService.getGuestDocuments(guestId);
     if (localDocs.length > 0) return { guestId, docs: localDocs };
   } catch (e) {
-    console.error('Failed to check local docs for migration:', e);
+    reportError(e, { action: 'checkGuestDocuments' });
   }
   return null;
 }

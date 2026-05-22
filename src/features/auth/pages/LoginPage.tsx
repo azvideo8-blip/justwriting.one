@@ -9,6 +9,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { MigrationPrompt, checkGuestDocuments } from '../components/MigrationPrompt';
 import { deriveMasterKey, generateDataKey, wrapDataKey, unwrapDataKey, setSessionKey, clearSessionKey, toBase64, fromBase64, SALT_LENGTH } from '../../../core/crypto/encrypt';
 import { getClient } from '../../../core/firebase/firestoreClient';
+import { reportError } from '../../../core/errors/reportError';
 
 interface LoginPageProps {
   isModal?: boolean;
@@ -79,7 +80,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
             encryptedDataKey: wrappedDataKey,
           }, { merge: true });
         } catch (firestoreErr) {
-          console.error('Failed to save encryption keys to Firestore:', firestoreErr);
+          reportError(firestoreErr, { action: 'saveEncryptionKeys' });
           try {
             sessionStorage.setItem(`pending_keys_${cred.user.uid}`, JSON.stringify({
               encryptionSalt: toBase64(salt),
@@ -122,15 +123,15 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                 const masterKey = await deriveMasterKey(password, salt);
                 const dataKey = await unwrapDataKey(keys.encryptedDataKey, masterKey);
                 setSessionKey(dataKey);
-              } catch (repairErr) {
-                console.error('Failed to repair encryption keys:', repairErr);
+               } catch (repairErr) {
+                 reportError(repairErr, { action: 'repairEncryptionKeys' });
               }
             }
           }
         }
       }
     } catch (err: unknown) {
-      console.error("Email auth error:", err);
+      reportError(err, { action: 'emailAuth', mode });
       const firebaseError = err as { code?: string; message?: string };
       let msg = t('auth_error_generic');
       if (firebaseError.code === 'auth/user-not-found') msg = t('auth_error_user_not_found');
@@ -306,8 +307,9 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                         try {
                           await sendPasswordResetEmail(auth, forgotEmail);
                           setForgotSent(true);
-                        } catch (err: unknown) {
-                          const fe = err as { code?: string };
+                         } catch (err: unknown) {
+                           reportError(err, { action: 'sendPasswordReset' });
+                           const fe = err as { code?: string };
                           setForgotError(fe.code === 'auth/user-not-found' ? t('auth_error_user_not_found') : t('auth_error_generic'));
                         } finally {
                           setForgotLoading(false);

@@ -4,6 +4,7 @@ import { randomUUID } from '../../../shared/lib/localDb';
 import { Label } from '../../../types';
 import { DocumentService } from '../../writing/services/DocumentService';
 import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
+import { reportError } from '../../../core/errors/reportError';
 
 const labelCache = new Map<string, Label[]>();
 const fetchedSet = new Set<string>();
@@ -29,7 +30,7 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
         labelCache.set(userId, labels);
         setLabels(labels);
       }
-    }).catch(() => {});
+    }).catch(e => { reportError(e, { action: 'profileLabels/fetchProfile' }); });
   }, [userId]);
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
       labelCache.set(userId, newLabels);
       setLabels(newLabels);
     } catch (error) {
-      console.error('Error updating profile labels:', error);
+      reportError(error, { action: 'profileLabels/updateLabels' });
     } finally {
       setLoading(false);
     }
@@ -65,9 +66,9 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
   const removeLabel = async (labelId: string) => {
     await updateLabels(labels.filter(l => l.id !== labelId));
     if (!userId.startsWith('guest')) {
-      DocumentService.clearLabelFromAllDocs(userId, labelId).catch(() => {});
+      DocumentService.clearLabelFromAllDocs(userId, labelId).catch(e => { reportError(e, { action: 'profileLabels/clearLabelFromCloudDocs' }); });
     }
-    LocalDocumentService.clearLabelFromAllDocs(userId, labelId).catch(() => {});
+    LocalDocumentService.clearLabelFromAllDocs(userId, labelId).catch(e => { reportError(e, { action: 'profileLabels/clearLabelFromLocalDocs' }); });
   };
 
   return { labels, addLabel, updateLabel, removeLabel, loading };

@@ -12,6 +12,7 @@ import { fetchLocalSessions as fetchLocalSessionsFromLoader, loadLocalSession as
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 import { buildSessionPayload, saveLocalOnly, saveToCloud } from '../utils/sessionPersistence';
 import { TimerStatus, SessionType } from '../store/types';
+import { reportError } from '../../../core/errors/reportError';
 
 export interface SessionStateSlice {
   title: string;
@@ -170,7 +171,7 @@ export function useSessionPersistence(
       actions.setHasDraft(false);
       actions.finishSession();
     } catch (e) {
-      console.error('[SessionPersistence] Save failed:', e);
+      reportError(e, { action: 'sessionPersistence/save' });
       throw e;
     }
   };

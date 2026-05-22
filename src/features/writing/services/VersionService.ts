@@ -2,6 +2,7 @@ import { getClient } from '../../../core/firebase/firestoreClient';
 import { Version } from '../../../types';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { computeWordDelta } from './DiffService';
+import { reportError } from '../../../core/errors/reportError';
 
 export const VersionService = {
   async addVersion(
@@ -51,6 +52,7 @@ export const VersionService = {
       const ref = await addDoc(collection(db, 'users', userId, 'documents', documentId, 'versions'), doc);
       return ref.id;
     } catch (e) {
+      reportError(e, { action: 'addVersion', userId, documentId });
       handleFirestoreError(e, OperationType.WRITE, `users/${userId}/documents/${documentId}/versions`);
       throw e;
     }
@@ -65,6 +67,7 @@ export const VersionService = {
       versions.sort((a, b) => (a.version ?? 0) - (b.version ?? 0));
       return versions;
     } catch (e) {
+      reportError(e, { action: 'getVersions', userId, documentId });
       handleFirestoreError(e, OperationType.LIST, `users/${userId}/documents/${documentId}/versions`);
       throw e;
     }
@@ -79,6 +82,7 @@ export const VersionService = {
       if (snap.docs.length === 0) return '';
       return (snap.docs[0].data() as Version).content || '';
     } catch (e) {
+      reportError(e, { action: 'getLatestContent', userId, documentId });
       handleFirestoreError(e, OperationType.LIST, `users/${userId}/documents/${documentId}/versions`);
       throw e;
     }

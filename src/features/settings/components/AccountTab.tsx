@@ -3,6 +3,8 @@ import { HardDrive, LogIn, User as UserIcon, Lock, Shield } from 'lucide-react';
 import { signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { useLanguage } from '../../../core/i18n';
+import { useToast } from '../../../shared/components/Toast';
+import { reportError } from '../../../core/errors/reportError';
 import { useTimerStore } from '../../writing/store/useTimerStore';
 import { resetAndClear } from '../../writing/store/storeActions';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
@@ -20,6 +22,7 @@ interface AccountTabProps {
 
 export function AccountTab({ userId }: AccountTabProps) {
   const { t } = useLanguage();
+  const { showToast } = useToast();
   const [confirmReset, setConfirmReset] = useState(false);
   const { isAuthenticated } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
@@ -45,7 +48,8 @@ export function AccountTab({ userId }: AccountTabProps) {
       const result = await encryptAllExistingNotes(userId, setMigrationProgress);
       setMigrationDone(true);
     } catch (e) {
-      console.error('Encryption migration failed:', e);
+      reportError(e, { action: 'encryptAllExistingNotes', userId });
+      showToast(t('error_generic_action'), 'error');
     } finally {
       setMigrationRunning(false);
     }
@@ -94,6 +98,7 @@ export function AccountTab({ userId }: AccountTabProps) {
       setCurrentPassword('');
       setNewPassword('');
     } catch (err: unknown) {
+      reportError(err, { action: 'changePassword', userId });
       const firebaseError = err as { code?: string; message?: string };
       let msg = t('auth_error_generic');
       if (firebaseError.code === 'auth/wrong-password' || firebaseError.code === 'auth/invalid-credential') {

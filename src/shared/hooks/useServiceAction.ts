@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useToast } from '../components/Toast';
 import { useLanguage } from '../../core/i18n';
+import { reportError } from '../../core/errors/reportError';
 
 interface ServiceActionOptions {
   successMessage?: string;
@@ -36,13 +37,11 @@ export function useServiceAction() {
       return result;
 
     } catch (err) {
+      reportError(err, { action: 'serviceAction/execute' });
       const message = options.errorMessage || t('error_generic_action');
       setError(message);
       showToast(message, 'error');
       options.onError?.(err);
-      if (import.meta.env.DEV) {
-        console.error('[useServiceAction]', err);
-      }
       return null;
 
     } finally {

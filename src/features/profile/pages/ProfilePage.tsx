@@ -116,7 +116,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           const d = new Date(ts);
           if (isNaN(d.getTime())) return;
           dates.add(d.toDateString());
-        } catch { /* ignore */ }
+        } catch (e) { reportError(e, { action: 'parseSessionDate' }, 'warning'); }
       });
 
       const streak = calculateStreak(sessions);
@@ -136,7 +136,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           const d = new Date(ts);
           const h = d.getHours();
           if (!isNaN(h) && h >= 0 && h < 24) hours[h]++;
-        } catch { /* ignore */ }
+        } catch (e) { reportError(e, { action: 'parseSessionHour' }, 'warning'); }
       });
       const totalHourHits = hours.reduce((a, b) => a + b, 0);
       const typicalHour = totalHourHits === 0
@@ -155,7 +155,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
         wordsPerDay,
       };
     } catch (err) {
-      console.error('kpiStats error:', err);
+      reportError(err, { action: 'kpiStats' });
       return { totalWords: 0, streakDays: 0, sessionsCount: 0, avgSessionMins: 0, typicalHour: '—', wordsPerDay: 0 };
     }
   }, [sessions, docStats]);
@@ -168,7 +168,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
     setShowResetConfirm(false);
     if (user) {
       ProfileService.resetAchievements(user.uid).catch(e => {
-        console.error('Failed to reset cloud achievements:', e);
+        reportError(e, { action: 'resetCloudAchievements', userId: user.uid });
       });
     }
   }, [user]);

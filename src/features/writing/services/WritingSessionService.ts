@@ -48,6 +48,7 @@ export const WritingSessionService = {
         return ref.id;
       }
     } catch (e) {
+      reportError(e, { action: 'saveSession', activeSessionId, userId });
       handleFirestoreError(e, activeSessionId ? OperationType.UPDATE : OperationType.CREATE, 'sessions');
       throw e;
     }
@@ -64,7 +65,7 @@ export const WritingSessionService = {
         }
         localStorage.removeItem(`pending_sessions_${userId}`);
       } catch (e) {
-        console.error('Migration failed', e);
+        reportError(e, { action: 'syncPendingSessions_migration', userId });
       }
     }
 

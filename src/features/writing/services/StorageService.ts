@@ -6,6 +6,7 @@ import { getLocalDb, randomUUID } from '../../../shared/lib/localDb';
 import { toDate } from '../../../core/utils/dateUtils';
 import { computeWordDelta } from './DiffService';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
+import { reportError } from '../../../core/errors/reportError';
 
 export interface StorageState {
   local: boolean;
@@ -77,7 +78,7 @@ export const StorageService = {
   ): Promise<void> {
     const prevPromise = _saveVersionLocks.get(documentId);
     if (prevPromise) {
-      try { await prevPromise; } catch { /* previous save failed — proceed */ }
+      try { await prevPromise; } catch (prevErr) { reportError(prevErr, { action: 'saveVersion', documentId }); }
     }
     const promise = _doSaveVersion(userId, documentId, data);
     _saveVersionLocks.set(documentId, promise);
@@ -142,8 +143,9 @@ export const StorageService = {
 
       await LocalDocumentService.updateLinkedCloudId(localId, cloudDocumentId);
     } catch (e) {
-      try { await LocalDocumentService.deleteDocument(localId); } catch (err) {
-        console.error('[StorageService] Failed to cleanup local doc after addLocalCopy failure:', err);
+      reportError(e, { action: 'addLocalCopy', cloudDocumentId });
+      try { await LocalDocumentService.deleteDocument(localId); } catch (cleanupErr) {
+        reportError(cleanupErr, { action: 'addLocalCopy_cleanup', localId });
       }
       throw e;
     }
@@ -235,7 +237,7 @@ export const StorageService = {
         }));
       } catch (e) {
         if (cloudId) {
-          try { await DocumentService.deleteDocument(userId, cloudId); } catch { /* ignore */ }
+          try { await DocumentService.deleteDocument(userId, cloudId); } catch (cleanupErr) { reportError(cleanupErr, { action: 'addCloudCopy_cleanup', cloudId }); }
         }
         throw e;
       }
@@ -247,7 +249,7 @@ export const StorageService = {
       try {
         const cleanupDb = await getLocalDb();
         await cleanupDb.delete('syncQueue', lockKey);
-      } catch { /* ignore */ }
+      } catch (cleanupErr) { reportError(cleanupErr, { action: 'addCloudCopy_lockCleanup', lockKey }); }
     }
   },
 
@@ -345,8 +347,9 @@ async function _doSaveVersion(
     localSaved = true;
   } catch (localErr) {
     if (localErr instanceof DOMException && localErr.name === 'QuotaExceededError') {
-      console.warn('[Storage] IDB quota exceeded — will try cloud only');
+      reportError(localErr, { action: '_doSaveVersion', documentId, quotaExceeded: true }, 'warning');
     } else {
+      reportError(localErr, { action: '_doSaveVersion_localSave', documentId });
       throw localErr;
     }
   }
@@ -372,8 +375,8 @@ async function _doSaveVersion(
         await LocalDocumentService._updateProfile(existing.guestId);
       }
     } catch (profileErr) {
-      console.error('Failed to update profile stats:', profileErr);
-      try { await LocalDocumentService._updateProfile(existing.guestId); } catch { /* ignore */ }
+      reportError(profileErr, { action: '_doSaveVersion_profileUpdate', guestId: existing.guestId });
+      try { await LocalDocumentService._updateProfile(existing.guestId); } catch (fallbackErr) { reportError(fallbackErr, { action: '_doSaveVersion_profileFallback', guestId: existing.guestId }); }
     }
   }
 
@@ -425,7 +428,7 @@ async function _doSaveVersion(
         });
       }
     } catch (e) {
-      console.error(`Cloud version sync failed for ${existing.linkedCloudId}:`, e);
+      reportError(e, { action: '_doSaveVersion_cloudSync', documentId, linkedCloudId: existing.linkedCloudId });
       try {
         const syncDb = await getLocalDb();
         await syncDb.put('syncQueue', {
@@ -434,7 +437,7 @@ async function _doSaveVersion(
           type: 'document' as const,
           createdAt: Date.now(),
         });
-      } catch { /* ignore */ }
+      } catch (queueErr) { reportError(queueErr, { action: '_doSaveVersion_queueSync', documentId }); }
     }
   }
 }

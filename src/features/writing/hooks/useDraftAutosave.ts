@@ -3,6 +3,7 @@ import { User } from 'firebase/auth';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { buildLocalDraft, persistDraft } from '../utils/draftPersistence';
+import { reportError } from '../../../core/errors/reportError';
 
 export function useDraftAutosave(
   user: User | null,
@@ -64,7 +65,7 @@ export function useDraftAutosave(
       }
     } catch (err) {
       const isQuotaError = err instanceof DOMException && err.name === 'QuotaExceededError';
-      console.error(isQuotaError ? 'localStorage full' : 'Save error:', err);
+      if (!isQuotaError) reportError(err, { action: 'draftAutosave/forceSave' });
       if (isMountedRef.current) setSaveStatus('error');
     }
   }, [user, markSaved]);
@@ -115,7 +116,7 @@ export function useDraftAutosave(
           markSaved();
         } catch (err) {
           const isQuotaError = err instanceof DOMException && err.name === 'QuotaExceededError';
-          console.error(isQuotaError ? 'localStorage full' : 'Local autosave error:', err);
+          if (!isQuotaError) reportError(err, { action: 'draftAutosave/autoSave' });
           if (isMountedRef.current) setSaveStatus('error');
         }
       }, 500);

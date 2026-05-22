@@ -1,4 +1,5 @@
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { reportError } from '../../../core/errors/reportError';
 
 export type AIAction = 'shorten' | 'accents' | 'ideas' | 'summarize' | 'tags' | 'mood' | 'continue';
 
@@ -21,6 +22,7 @@ export const AIService = {
       const { data } = await fn({ content, action, ...opts });
       return { ok: true, text: data.result };
     } catch (e: unknown) {
+      reportError(e, { action: 'process', aiAction: action });
       const code = (e as { code?: string }).code;
       if (code === 'functions/unauthenticated') return { ok: false, error: 'AUTH_REQUIRED' };
       if (code === 'functions/resource-exhausted') return { ok: false, error: 'RATE_LIMIT' };
@@ -30,6 +32,6 @@ export const AIService = {
   },
 
   parseTags(text: string): string[] {
-    try { return JSON.parse(text); } catch { return []; }
+    try { return JSON.parse(text); } catch (e) { reportError(e, { action: 'parseTags' }); return []; }
   },
 };
