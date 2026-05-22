@@ -1,4 +1,4 @@
-import { useContentStore, clearWordCalcTimer, registerTimerBridge } from './useContentStore';
+import { useContentStore, clearWordCalcTimer } from './useContentStore';
 import { useTimerStore } from './useTimerStore';
 import { useSessionMetaStore } from './useSessionMetaStore';
 import { TimerStatus, SessionType } from './types';
@@ -8,14 +8,6 @@ export function getTimerState() { return useTimerStore.getState(); }
 export function setTimerPartial(partial: Parameters<typeof useTimerStore.setState>[0]) {
   return useTimerStore.setState(partial);
 }
-
-registerTimerBridge(
-  () => {
-    const s = useTimerStore.getState();
-    return { status: s.status, sessionStartWords: s.sessionStartWords, wordGoal: s.wordGoal };
-  },
-  (partial) => useTimerStore.setState(partial as unknown as Parameters<typeof useTimerStore.setState>[0]),
-);
 
 const createContentDefaults = () => ({
   content: '', title: '', pinnedThoughts: [],
@@ -39,13 +31,6 @@ const META_DEFAULTS = {
   activeSessionId: null, savedDocumentId: null, sessionStartTime: null as number | null,
 };
 
-export function resetAndClear() {
-  clearWordCalcTimer();
-  useContentStore.setState(createContentDefaults());
-  useTimerStore.setState(TIMER_DEFAULTS);
-  useSessionMetaStore.setState(META_DEFAULTS);
-}
-
 export function resetSession() {
   clearWordCalcTimer();
   useContentStore.setState(createContentDefaults());
@@ -53,12 +38,7 @@ export function resetSession() {
   useSessionMetaStore.setState(META_DEFAULTS);
 }
 
-export function finishSession() {
-  clearWordCalcTimer();
-  useContentStore.setState(createContentDefaults());
-  useTimerStore.setState(TIMER_DEFAULTS);
-  useSessionMetaStore.setState(META_DEFAULTS);
-}
+export { resetSession as resetAndClear, resetSession as finishSession };
 
 export function loadDraftIntoStore(draft: {
   content: string; title: string; wordCount: number;

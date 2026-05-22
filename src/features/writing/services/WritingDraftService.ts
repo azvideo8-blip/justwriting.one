@@ -23,49 +23,46 @@ export const WritingDraftService = {
       if (s) deletedAt = parseInt(s, 10);
     } catch { /* ignore */ }
 
-    let localDraft: LocalDraft | null = null;
-    try {
-      const localDb = await getLocalDb();
-      if (hasDraftsStore(localDb)) {
-        localDraft = await localDb.get('drafts', userId) ?? null;
-      }
-    } catch (err) {
-      console.error('[DraftService] Failed to load local draft:', err);
-    }
-
-    if (!localDraft) {
-      try {
+    const [localResult, legacyResult, cloudResult] = await Promise.allSettled([
+      (async () => {
+        const localDb = await getLocalDb();
+        if (hasDraftsStore(localDb)) {
+          return await localDb.get('drafts', userId) ?? null;
+        }
+        return null;
+      })(),
+      (async () => {
         const raw = localStorage.getItem(`draft-${userId}`);
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (parsed.content) {
-            localDraft = { ...parsed, userId } as LocalDraft;
-          }
+          if (parsed.content) return { ...parsed, userId } as LocalDraft;
         }
-      } catch (err) {
-        console.warn('[DraftService] Failed to parse localStorage draft:', err);
-      }
-    }
+        return null;
+      })(),
+      (async () => {
+        const { db, mod } = await getClient();
+        const { doc, getDoc } = mod;
+        const docRef = doc(db, 'drafts', userId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          return (await maybeDecrypt(docSnap.data() as Record<string, unknown>, ['content'], ['pinnedThoughts'])) as unknown as LocalDraft;
+        }
+        return null;
+      })(),
+    ]);
 
-    let cloudDraft: LocalDraft | null = null;
-    try {
-      const { db, mod } = await getClient();
-      const { doc, getDoc } = mod;
-      const docRef = doc(db, 'drafts', userId);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        cloudDraft = (await maybeDecrypt(docSnap.data() as Record<string, unknown>, ['content'], ['pinnedThoughts'])) as unknown as LocalDraft;
-      }
-    } catch (err) {
-      console.error('[DraftService] Failed to load cloud draft:', err);
-    }
+    const localDraft: LocalDraft | null = localResult.status === 'fulfilled' ? localResult.value : null;
+    const legacyDraft: LocalDraft | null = legacyResult.status === 'fulfilled' ? legacyResult.value : null;
+    const cloudDraft: LocalDraft | null = cloudResult.status === 'fulfilled' ? cloudResult.value : null;
 
-    if (localDraft && cloudDraft) {
-      const localTs = toTimestampMs(localDraft.updatedAt) ?? 0;
+    const resolvedLocal = localDraft || legacyDraft;
+
+    if (resolvedLocal && cloudDraft) {
+      const localTs = toTimestampMs(resolvedLocal.updatedAt) ?? 0;
       const cloudTs = toTimestampMs(cloudDraft.updatedAt) ?? 0;
       let winner: LocalDraft;
       if (Math.abs(localTs - cloudTs) < 60_000) {
-        winner = (localDraft.wordCount ?? 0) >= (cloudDraft.wordCount ?? 0) ? localDraft : cloudDraft;
+        winner = (resolvedLocal.wordCount ?? 0) >= (cloudDraft.wordCount ?? 0) ? resolvedLocal : cloudDraft;
       } else {
         winner = localTs > cloudTs ? localDraft : cloudDraft;
       }
@@ -79,7 +76,7 @@ export const WritingDraftService = {
       }
       return winner;
     }
-    const resolved = localDraft || cloudDraft;
+    const resolved = resolvedLocal || cloudDraft;
     if (resolved) {
       if (deletedAt && (toTimestampMs(resolved.updatedAt) ?? 0) <= deletedAt) {
         await WritingDraftService.deleteDraft(userId);

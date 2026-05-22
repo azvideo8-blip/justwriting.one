@@ -1,17 +1,7 @@
 import { create } from 'zustand';
 import { WordSnapshot } from './types';
 import { countWords } from '../../../shared/utils/countWords';
-
-type TimerStateGetter = () => { status: string; sessionStartWords: number; wordGoal: number };
-type TimerStateSetter = (partial: Record<string, unknown>) => void;
-
-let _getTimerState: TimerStateGetter | null = null;
-let _setTimerPartial: TimerStateSetter | null = null;
-
-export function registerTimerBridge(get: TimerStateGetter, set: TimerStateSetter) {
-  _getTimerState = get;
-  _setTimerPartial = set;
-}
+import { useTimerStore } from './useTimerStore';
 
 interface ContentState {
   content: string;
@@ -33,6 +23,7 @@ interface ContentState {
   setLabelId: (labelId?: string) => void;
   setInitialWordCount: (count: number) => void;
   pushWpmHistory: (entry: { timestamp: number; wpm: number }) => void;
+  recalcStats: () => void;
 }
 
 let _wordCalcTimer: ReturnType<typeof setTimeout> | null = null;
@@ -42,49 +33,7 @@ export function clearWordCalcTimer() {
   _wordCalcTimer = null;
 }
 
-function computeWordStats(content: string) {
-  const contentState = useContentStore.getState();
-  const timerState = _getTimerState?.() ?? { status: 'idle', sessionStartWords: 0, wordGoal: 0 };
-  _wordCalcTimer = null;
-  const words = countWords(content);
-  const now = Date.now();
-
-  const newSnapshots = [...contentState.wordSnapshots, { timestamp: now, wordCount: words }]
-    .filter(snap => now - snap.timestamp <= 60000);
-
-  let currentWpm = contentState.wpm;
-  if (timerState.status === 'writing' && newSnapshots.length > 1) {
-    const oldest = newSnapshots[0];
-    const newest = newSnapshots[newSnapshots.length - 1];
-    const timeDiffMins = (newest.timestamp - oldest.timestamp) / 60000;
-
-    if (timeDiffMins > 0) {
-      const rawWpm = Math.max(0, (newest.wordCount - oldest.wordCount) / timeDiffMins);
-      const alpha = 0.3;
-      currentWpm = Math.round(alpha * rawWpm + (1 - alpha) * contentState.wpm);
-    }
-  }
-
-  const sessionWords = words - timerState.sessionStartWords;
-  const wordGoalReached = timerState.wordGoal > 0 && sessionWords >= timerState.wordGoal;
-
-  const history = Array.isArray(contentState.wpmHistory) ? contentState.wpmHistory : [];
-  const lastHistoryEntry = history[history.length - 1];
-  if (currentWpm > 0 && (!lastHistoryEntry || now - lastHistoryEntry.timestamp >= 30_000)) {
-    useContentStore.getState().pushWpmHistory({ timestamp: now, wpm: currentWpm });
-  }
-
-  useContentStore.setState({
-    wordCount: words,
-    lastWordCount: words,
-    wordSnapshots: newSnapshots,
-    wpm: currentWpm,
-  });
-
-  _setTimerPartial?.({ wordGoalReached });
-}
-
-export const useContentStore = create<ContentState>((set) => ({
+export const useContentStore = create<ContentState>((set, get) => ({
   content: '', title: '', pinnedThoughts: [],
   wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
   lastWordCount: 0, wpmHistory: [],
@@ -92,8 +41,53 @@ export const useContentStore = create<ContentState>((set) => ({
 
   setContent: (content) => {
     if (_wordCalcTimer) clearTimeout(_wordCalcTimer);
-    _wordCalcTimer = setTimeout(() => computeWordStats(content), 100);
-    set({ content });
+    _wordCalcTimer = setTimeout(() => {
+      set({ content });
+      get().recalcStats();
+    }, 100);
+  },
+
+  recalcStats: () => {
+    const state = get();
+    const content = state.content;
+    if (!content) return;
+
+    const timerState = useTimerStore.getState();
+    const words = countWords(content);
+    const now = Date.now();
+
+    const newSnapshots = [...state.wordSnapshots, { timestamp: now, wordCount: words }]
+      .filter(snap => now - snap.timestamp <= 60000);
+
+    let currentWpm = state.wpm;
+    if (timerState.status === 'writing' && newSnapshots.length > 1) {
+      const oldest = newSnapshots[0];
+      const newest = newSnapshots[newSnapshots.length - 1];
+      const timeDiffMins = (newest.timestamp - oldest.timestamp) / 60000;
+
+      if (timeDiffMins > 0) {
+        const rawWpm = Math.max(0, (newest.wordCount - oldest.wordCount) / timeDiffMins);
+        currentWpm = Math.round(0.3 * rawWpm + 0.7 * state.wpm);
+      }
+    }
+
+    const sessionWords = words - timerState.sessionStartWords;
+    const wordGoalReached = timerState.wordGoal > 0 && sessionWords >= timerState.wordGoal;
+
+    const history = Array.isArray(state.wpmHistory) ? state.wpmHistory : [];
+    const lastHistoryEntry = history[history.length - 1];
+    if (currentWpm > 0 && (!lastHistoryEntry || now - lastHistoryEntry.timestamp >= 30_000)) {
+      get().pushWpmHistory({ timestamp: now, wpm: currentWpm });
+    }
+
+    set({
+      wordCount: words,
+      lastWordCount: words,
+      wordSnapshots: newSnapshots,
+      wpm: currentWpm,
+    });
+
+    useTimerStore.setState({ wordGoalReached });
   },
 
   setTitle: (title) => set({ title }),

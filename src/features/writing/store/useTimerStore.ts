@@ -106,6 +106,8 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     const newSeconds = s.getElapsedSeconds();
     const sessionSeconds = newSeconds - s.sessionStartSeconds;
 
+    if (newSeconds === s.seconds && s.timeGoalReached === (s.sessionType === 'timer' && s.timerDuration > 0 && sessionSeconds >= s.timerDuration)) return;
+
     let timeGoalReached = s.timeGoalReached;
     if (s.sessionType === 'timer' && s.timerDuration > 0 && sessionSeconds >= s.timerDuration) {
       timeGoalReached = true;
