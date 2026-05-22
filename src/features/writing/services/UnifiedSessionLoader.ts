@@ -6,7 +6,7 @@ import { VersionService } from './VersionService';
 import { SessionService } from './SessionService';
 import { LocalVersionService } from './LocalVersionService';
 import { toDate } from '../../../core/utils/dateUtils';
-import { maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
+import { maybeDecrypt, DecryptionError } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../core/errors/reportError';
 
 interface LoadedSession extends Session {
@@ -18,6 +18,7 @@ interface LoadedSession extends Session {
   _sessionsCount?: number;
   _firstSessionAt?: number;
   _locked?: boolean;
+  _decryptionError?: boolean;
 }
 
 interface LoadResult {
@@ -122,6 +123,8 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
         } catch (decryptErr) {
           if (decryptErr instanceof Error && decryptErr.message.startsWith('LOCKED')) {
             allSessions.push({ ...s, _isLocal: false, _isLegacy: true, _locked: true });
+          } else if (decryptErr instanceof DecryptionError) {
+            allSessions.push({ ...s, _isLocal: false, _isLegacy: true, _decryptionError: true });
           } else {
             reportError(decryptErr, { action: 'loadAllSessions_decrypt', sessionId: s.id });
             throw decryptErr;
