@@ -3,6 +3,7 @@ import { handleFirestoreError, OperationType } from '../../../shared/lib/firesto
 import { Session } from '../../../types';
 import { parseFirestoreDate } from '../../../core/utils/utils';
 import type { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { reportError } from '../../../core/errors/reportError';
 
 export const SessionService = {
   async saveSession(session: Session) {
@@ -12,7 +13,9 @@ export const SessionService = {
       const clean = Object.fromEntries(Object.entries(session).filter(([, v]) => v !== undefined));
       await setDoc(doc(db, 'sessions', session.id), clean);
     } catch (err) {
+      reportError(err, { action: 'saveSession', sessionId: session.id });
       handleFirestoreError(err, OperationType.WRITE, `sessions/${session.id}`);
+      throw err;
     }
   },
 
@@ -28,8 +31,9 @@ export const SessionService = {
         console.warn('SessionService: Session deleted successfully', sessionId);
       }
     } catch (err) {
-      console.error('SessionService: Error deleting session', sessionId, err);
+      reportError(err, { action: 'deleteSession', sessionId });
       handleFirestoreError(err, OperationType.DELETE, `sessions/${sessionId}`);
+      throw err;
     }
   },
 
@@ -39,7 +43,9 @@ export const SessionService = {
       const { doc, updateDoc, serverTimestamp } = mod;
       await updateDoc(doc(db, 'sessions', sessionId), { tags, _updatedAt: serverTimestamp() });
     } catch (err) {
+      reportError(err, { action: 'updateSessionTags', sessionId });
       handleFirestoreError(err, OperationType.UPDATE, `sessions/${sessionId}`);
+      throw err;
     }
   },
 
@@ -50,7 +56,9 @@ export const SessionService = {
       const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
       await updateDoc(doc(db, 'sessions', sessionId), { ...clean, _updatedAt: serverTimestamp() });
     } catch (err) {
+      reportError(err, { action: 'updateSession', sessionId });
       handleFirestoreError(err, OperationType.UPDATE, `sessions/${sessionId}`);
+      throw err;
     }
   },
 
@@ -76,7 +84,7 @@ export const SessionService = {
       const newLastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData> : null;
       return { sessions, lastDoc: newLastDoc };
     } catch (err) {
-      console.error('SessionService.getAllSessions failed:', err);
+      reportError(err, { action: 'getAllSessions', userId });
       return { sessions: [], lastDoc: null };
     }
   },
@@ -99,7 +107,7 @@ export const SessionService = {
       const newLastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData> : null;
       return { sessions, lastDoc: newLastDoc };
     } catch (err) {
-      console.error('SessionService.getAllSessionsAdmin failed:', err);
+      reportError(err, { action: 'getAllSessionsAdmin' });
       return { sessions: [], lastDoc: null };
     }
   },

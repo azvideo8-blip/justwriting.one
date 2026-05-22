@@ -2,6 +2,7 @@ import { getClient } from '../../../core/firebase/firestoreClient';
 import { getLocalDb, LocalDraft } from '../../../shared/lib/localDb';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
+import { reportError } from '../../../core/errors/reportError';
 
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const _abortControllers = new Map<string, AbortController>();
@@ -21,7 +22,7 @@ export const WritingDraftService = {
     try {
       const s = sessionStorage.getItem(`draft-deleted-${userId}`);
       if (s) deletedAt = parseInt(s, 10);
-    } catch { /* ignore */ }
+    } catch (e) { reportError(e, { action: 'loadDraft_sessionStorageRead', userId }); }
 
     const [localResult, legacyResult, cloudResult] = await Promise.allSettled([
       (async () => {
@@ -93,7 +94,7 @@ export const WritingDraftService = {
   clearLegacyDraft: async (userId: string) => {
     try {
       localStorage.removeItem(`draft-${userId}`);
-    } catch { /* ignore */ }
+    } catch (e) { reportError(e, { action: 'clearLegacyDraft', userId }); }
   },
 
   saveToLocal: async (draft: LocalDraft) => {
@@ -101,7 +102,7 @@ export const WritingDraftService = {
       const localDb = await getLocalDb();
       await localDb.put('drafts', draft);
     } catch (err) {
-      console.error('[DraftService] Failed to save draft locally:', err);
+      reportError(err, { action: 'saveToLocal', userId: draft.userId });
     }
   },
 
@@ -117,8 +118,9 @@ export const WritingDraftService = {
     const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
     try {
       await setDoc(docRef, { ...clean, updatedAt: serverTimestamp() }, { merge: true });
-    } catch {
+    } catch (e) {
       if (ac.signal.aborted) return;
+      reportError(e, { action: 'saveToFirestore', userId: draft.userId });
       throw new Error('Draft save aborted');
     }
     _abortControllers.delete(draft.userId);
@@ -128,24 +130,24 @@ export const WritingDraftService = {
     if (!userId) return;
     _abortControllers.get(userId)?.abort();
     _abortControllers.delete(userId);
-    try { sessionStorage.setItem(`draft-deleted-${userId}`, Date.now().toString()); } catch { /* ignore */ }
+    try { sessionStorage.setItem(`draft-deleted-${userId}`, Date.now().toString()); } catch (e) { reportError(e, { action: 'deleteDraft_sessionStorageWrite', userId }); }
     try {
       const localDb = await getLocalDb();
       if (hasDraftsStore(localDb)) {
         await localDb.delete('drafts', userId);
       }
     } catch (err) {
-      console.error('[DraftService] Failed to delete local draft:', err);
+      reportError(err, { action: 'deleteDraft_local', userId });
     }
     try {
       localStorage.removeItem(`draft-${userId}`);
-    } catch { /* ignore */ }
+    } catch (e) { reportError(e, { action: 'deleteDraft_legacyLocalStorage', userId }); }
     try {
       const { db, mod } = await getClient();
       const { doc, deleteDoc } = mod;
       await deleteDoc(doc(db, 'drafts', userId));
     } catch (err) {
-      console.error('[DraftService] Failed to delete cloud draft:', err);
+      reportError(err, { action: 'deleteDraft_cloud', userId });
     }
   }
 };

@@ -19,6 +19,7 @@ import { GuestSessionReturn } from './useGuestWritingSession';
 import { CloudSessionReturn } from './useCloudWritingSession';
 import { cleanupDraftsAfterSave, reportKeystrokeStats } from '../utils/sessionActions';
 import { SetupMode } from '../WritingSetup';
+import { reportError } from '../../../core/errors/reportError';
 
 export type AnySessionReturn = GuestSessionReturn | CloudSessionReturn;
 
@@ -69,7 +70,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
           localId = await StorageService.addLocalCopy(userId, doc.cloudId);
           content = await LocalVersionService.getLatestContent(localId);
         } catch (e) {
-          console.error('Failed to import cloud doc for continue:', e);
+          reportError(e, { action: 'writingActions/importCloudDoc' });
         }
       }
 
@@ -88,7 +89,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       setSessionStatus('writing');
       setLifeLogVisible(false);
     } catch (err) {
-      console.error('Failed to load document:', err);
+      reportError(err, { action: 'writingActions/continueDocument' });
       showToast(t('error_load_failed'), 'error');
     }
   }, [userId, setSessionStatus, setLifeLogVisible, showToast, t, flow]);
@@ -101,7 +102,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       useTimerStore.getState().setSessionStart();
       useSessionMetaStore.getState().setSessionStartTime(Date.now());
     } catch (err) {
-      console.error('Continue session error:', err);
+      reportError(err, { action: 'writingActions/continueSession' });
       showToast(t('error_continue_session'));
     }
   }, [continueSession, setSessionStatus, flow, showToast, t]);
@@ -160,7 +161,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       await refreshDocuments();
       await refreshLifeLog();
     } catch (e) {
-      console.error('Save failed:', e);
+      reportError(e, { action: 'writingActions/save' });
       throw e;
     } finally {
       savingRef.current = false;

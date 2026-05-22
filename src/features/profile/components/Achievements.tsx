@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, startTransition } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useLanguage } from '../../../core/i18n';
+import { reportError } from '../../../core/errors/reportError';
 import { Session, Achievement } from '../../../types';
 import { ACHIEVEMENTS as ACH_DATA } from '../constants/achievements';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
@@ -143,11 +144,11 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
       if (result.ids.length > 0 && !result.error) {
         setUnlockedIds(prev => {
           const merged = new Set([...prev, ...result.ids]);
-          try { localStorage.setItem(storageKey, JSON.stringify([...merged])); } catch { /* ignore */ }
+          try { localStorage.setItem(storageKey, JSON.stringify([...merged])); } catch (e) { reportError(e, { action: 'saveAchievementsLocal' }); }
           return merged;
         });
       }
-    }).catch(() => { /* localStorage as fallback */ });
+    }).catch(e => { reportError(e, { action: 'loadCloudAchievements', userId: user.uid }); });
 
     return () => ac.abort();
   }, [user]);
@@ -175,7 +176,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
         if (import.meta.env.DEV) {
           console.warn('[Achievements] newly unlocked:', [...updated].filter(id => !prev.has(id)));
         }
-        try { localStorage.setItem(storageKey, JSON.stringify([...updated])); } catch { /* ignore */ }
+        try { localStorage.setItem(storageKey, JSON.stringify([...updated])); } catch (e) { reportError(e, { action: 'updateAchievementsLocal' }); }
         return updated;
       });
     });
@@ -188,7 +189,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
           const saved = localStorage.getItem(storageKey);
           if (saved) {
             ProfileService.updateEarnedAchievements(user.uid, JSON.parse(saved)).catch(e => {
-              console.error('Failed to sync achievements to cloud:', e);
+              reportError(e, { action: 'syncAchievementsToCloud', userId: user.uid });
             });
           }
         } catch { /* ignore */ }

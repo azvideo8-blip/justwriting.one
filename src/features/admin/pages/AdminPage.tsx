@@ -10,6 +10,7 @@ import { useLanguage } from '../../../core/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useToast } from '../../../shared/components/Toast';
 import { cn } from '../../../core/utils/utils';
+import { reportError } from '../../../core/errors/reportError';
 
 import { Session, UserProfile } from '../../../types';
 import { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
@@ -59,7 +60,8 @@ export function AdminPage() {
         setHasMoreSessions(result.sessions.length === 20);
       }
     } catch (err) {
-      if (import.meta.env.DEV) console.error("Admin fetch error:", err);
+      reportError(err, { action: 'adminFetch', tab: activeTab });
+      showToast(t('error_generic_action'), 'error');
     } finally {
       setLoading(false);
       setLoadingMoreSessions(false);
@@ -76,7 +78,8 @@ export function AdminPage() {
           if (adminStatus) {
             fetchData();
           }
-        } catch {
+        } catch (e) {
+          reportError(e, { action: 'checkAdminStatus' });
           setIsAdmin(false);
         }
       }
@@ -102,16 +105,16 @@ export function AdminPage() {
         try {
           await StorageService.addLocalCopy(userId, cloudDoc.id);
           result.imported++;
-        } catch (e) {
-          console.error(`Failed to import doc ${cloudDoc.id}:`, e);
-          result.failed++;
-        }
+          } catch (e) {
+            reportError(e, { action: 'importDoc', docId: cloudDoc.id, userId });
+            result.failed++;
+          }
       }
 
       setImportResult(result);
       showToast(t('admin_import_result', { imported: result.imported, total: result.total }), 'success');
     } catch (e) {
-      console.error('Import failed:', e);
+      reportError(e, { action: 'importFromCloud', userId });
       showToast(t('error_generic_action'), 'error');
     } finally {
       setImporting(false);

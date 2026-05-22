@@ -4,6 +4,7 @@ import { LocalDocumentService } from '../../writing/services/LocalDocumentServic
 import { SessionService } from '../../writing/services/SessionService';
 import { StorageService } from '../../writing/services/StorageService';
 import { ArchiveSession } from '../types';
+import { reportError } from '../../../core/errors/reportError';
 
 type ArchiveField = 'tags' | 'title' | 'date' | 'labelId';
 type ArchiveFieldValue = string[] | string | Date | undefined;
@@ -32,24 +33,24 @@ export async function updateArchiveField(
     if (field === 'tags') {
       await LocalDocumentService.updateTags(session.id, value as string[]);
       if (session._linkedCloudId && user) {
-        await DocumentService.updateTags(user.uid, session._linkedCloudId, value as string[]).catch(() => {});
+        await DocumentService.updateTags(user.uid, session._linkedCloudId, value as string[]).catch(e => { reportError(e, { action: 'updateArchiveField_tags', documentId: session._linkedCloudId }); });
       }
     } else if (field === 'title') {
       await LocalDocumentService.updateTitle(session.id, value as string);
       if (session._linkedCloudId && user) {
-        await DocumentService.updateTitle(user.uid, session._linkedCloudId, value as string).catch(() => {});
+        await DocumentService.updateTitle(user.uid, session._linkedCloudId, value as string).catch(e => { reportError(e, { action: 'updateArchiveField_title', documentId: session._linkedCloudId }); });
       }
     } else if (field === 'date') {
       if (!(value instanceof Date)) throw new Error('Expected Date for date field');
       const ts = value.getTime();
       await LocalDocumentService.updateDate(session.id, ts, ts);
       if (session._linkedCloudId && user) {
-        await DocumentService.updateDate(user.uid, session._linkedCloudId, value, value).catch(() => {});
+        await DocumentService.updateDate(user.uid, session._linkedCloudId, value, value).catch(e => { reportError(e, { action: 'updateArchiveField_date', documentId: session._linkedCloudId }); });
       }
     } else if (field === 'labelId') {
       await LocalDocumentService.updateLabelId(session.id, value as string | undefined);
       if (session._linkedCloudId && user) {
-        await DocumentService.updateLabelId(user.uid, session._linkedCloudId, value as string | undefined).catch(() => {});
+        await DocumentService.updateLabelId(user.uid, session._linkedCloudId, value as string | undefined).catch(e => { reportError(e, { action: 'updateArchiveField_labelId', documentId: session._linkedCloudId }); });
       }
     }
     return;

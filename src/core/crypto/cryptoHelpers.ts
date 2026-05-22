@@ -1,4 +1,5 @@
 import { encryptContent, decryptContent, getSessionKey } from './encrypt';
+import { reportError } from '../errors/reportError';
 
 export async function maybeEncrypt(
   doc: Record<string, unknown>,
@@ -48,7 +49,7 @@ export async function maybeDecrypt(
       try {
         result[field] = await decryptContent(val, key);
       } catch (e) {
-        console.error(`[maybeDecrypt] Failed to decrypt field "${field}":`, e);
+        reportError(e, { action: 'maybeDecrypt_stringField', field });
         result[field] = `[${field}: decryption error]`;
         result._decryptionError = true;
       }
@@ -60,14 +61,15 @@ export async function maybeDecrypt(
       try {
         result[field] = JSON.parse(await decryptContent(val, key));
       } catch (e) {
-        console.error(`[maybeDecrypt] Failed to decrypt array field "${field}":`, e);
+        reportError(e, { action: 'maybeDecrypt_arrayField', field });
         result[field] = [];
         result._decryptionError = true;
       }
     } else if (typeof val === 'string' && !isEncrypted) {
       try {
         result[field] = JSON.parse(val);
-      } catch {
+      } catch (e) {
+        reportError(e, { action: 'maybeDecrypt_jsonParse', field });
         result[field] = [];
       }
     } else if (!Array.isArray(val)) {

@@ -14,6 +14,7 @@ import {
   computeDailySummary,
 } from '../utils/lifeLogUtils';
 import { LifeLogDocument, DailySummary, SessionGroup } from '../types/lifeLog';
+import { reportError } from '../../../core/errors/reportError';
 
 interface UseLifeLogReturn {
   sessionGroups: SessionGroup[];
@@ -56,8 +57,8 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
       } else {
         const [sessionResult, cloudDocs, localDocs] = await Promise.all([
           SessionService.getAllSessions(userId, 100),
-          DocumentService.getUserDocuments(userId).catch(() => [] as Document[]),
-          LocalDocumentService.getGuestDocuments(userId).catch(() => []),
+          DocumentService.getUserDocuments(userId).catch(e => { reportError(e, { action: 'lifeLog/fetchCloudDocs' }); return [] as Document[]; }),
+          LocalDocumentService.getGuestDocuments(userId).catch(e => { reportError(e, { action: 'lifeLog/fetchLocalDocs' }); return []; }),
         ]);
 
         if (!mountedRef.current) return;
@@ -66,7 +67,7 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
         setUnifiedDocuments(mergeUnifiedDocuments(localDocs, cloudDocs));
       }
     } catch (e) {
-      if (import.meta.env.DEV) console.error('useLifeLog fetch error:', e);
+      reportError(e, { action: 'lifeLog/fetchSessions' });
     } finally {
       if (mountedRef.current) setLoading(false);
     }

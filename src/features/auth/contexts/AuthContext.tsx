@@ -6,6 +6,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { UserProfile } from '../../../types';
 import * as Sentry from '@sentry/react';
 import { clearSessionKey } from '../../../core/crypto/encrypt';
+import { reportError } from '../../../core/errors/reportError';
 
 type AuthState = 'loading' | 'authenticated' | 'guest';
 
@@ -120,7 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               creationAttemptedRef.current = false;
               return;
             }
-          } catch {
+          } catch (e) {
+            reportError(e, { action: 'checkProfileExists', uid: user.uid });
             creationAttemptedRef.current = false;
             return;
           }

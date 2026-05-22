@@ -12,6 +12,7 @@ import {
   loadGuestDraftFromStorage,
   deleteGuestDraftFromStorage,
 } from '../services/GuestDraftService';
+import { reportError } from '../../../core/errors/reportError';
 
 export interface GuestSessionReturn extends ReturnType<typeof useBaseWritingSession> {
   userId: string;
@@ -80,7 +81,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
       const isQuota = err instanceof DOMException && err.name === 'QuotaExceededError';
       setSaveStatus('error');
       setSaveErrorKind(isQuota ? 'quota' : 'unknown');
-      console.error('[GuestAutosave] Save failed:', err);
+      if (!isQuota) reportError(err, { action: 'guestWritingSession/autosave' });
     } finally {
       _savingRef.current = false;
     }

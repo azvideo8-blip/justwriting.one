@@ -7,6 +7,7 @@ import { SetupMode } from '../WritingSetup';
 import { LocalVersionService } from '../services/LocalVersionService';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { countWords } from '../../../shared/utils/countWords';
+import { reportError } from '../../../core/errors/reportError';
 
 interface UseSessionContinueParams {
   setSetupMode: (mode: SetupMode) => void;
@@ -75,7 +76,7 @@ export function useSessionContinue({
         const localDocs = await LocalDocumentService.getGuestDocuments(userId);
         const existing = localDocs.find(d => d.linkedCloudId === linkedCloudId);
         if (existing) savedDocumentId = existing.id;
-      } catch { /* ignore */ }
+      } catch (e) { reportError(e, { action: 'sessionContinue/lookupLinkedDoc' }); }
     }
 
     const sessionContent = session.content || '';

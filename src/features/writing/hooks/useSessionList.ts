@@ -3,6 +3,7 @@ import { Session } from '../../../types';
 import { SessionService } from '../services/SessionService';
 import { useLanguage } from '../../../core/i18n';
 import { LocalSessionInfo } from '../types/session';
+import { reportError } from '../../../core/errors/reportError';
 
 interface UseSessionListReturn {
   userSessions: Session[];
@@ -66,7 +67,7 @@ export function useSessionList(
       setUserSessions([...firestoreSessions, ...localSessions]);
     } catch (e) {
       if (ac.signal.aborted) return;
-      console.error('Error fetching sessions:', e);
+      reportError(e, { action: 'sessionList/fetchAll' });
     } finally {
       if (!ac.signal.aborted) setLoadingSessions(false);
     }

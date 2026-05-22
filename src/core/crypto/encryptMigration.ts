@@ -2,6 +2,7 @@ import { getSessionKey } from './encrypt';
 import { maybeEncrypt } from './cryptoHelpers';
 import { getClient } from '../firebase/firestoreClient';
 import type { DocumentReference, WriteBatch, FieldValue } from 'firebase/firestore';
+import { reportError } from '../errors/reportError';
 
 export interface MigrationProgress {
   total: number;
@@ -100,16 +101,16 @@ export async function encryptAllExistingNotes(
         pending.push({ ref: doc(db, 'sessions', d.id), data: clean, checkKey: ck });
         if (pending.length >= BATCH_SIZE) await flush();
         progress.encrypted++;
-      } catch (e) {
-        progress.errors++;
-        console.error(`encryptAll: session ${d.id} failed:`, e);
-      }
+       } catch (e) {
+         progress.errors++;
+         reportError(e, { action: 'encryptAllExistingNotes_session', sessionId: d.id });
+       }
       progress.processed++;
       report();
     }
     await flush();
   } catch (e) {
-    console.error('encryptAll: sessions query failed:', e);
+    reportError(e, { action: 'encryptAllExistingNotes_sessionsQuery', userId });
   }
 
   // Document versions
@@ -143,21 +144,21 @@ export async function encryptAllExistingNotes(
             const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
             pending.push({ ref: doc(db, 'users', userId, 'documents', documentId, 'versions', v.id), data: clean, checkKey: ck });
             if (pending.length >= BATCH_SIZE) await flush();
-            progress.encrypted++;
-          } catch (e) {
-            progress.errors++;
-            console.error(`encryptAll: version ${v.id} failed:`, e);
-          }
+             progress.encrypted++;
+           } catch (e) {
+             progress.errors++;
+             reportError(e, { action: 'encryptAllExistingNotes_version', versionId: v.id, documentId });
+           }
           progress.processed++;
           report();
         }
-        await flush();
-      } catch (e) {
-        console.error(`encryptAll: document ${documentId} versions failed:`, e);
-      }
+         await flush();
+       } catch (e) {
+         reportError(e, { action: 'encryptAllExistingNotes_documentVersions', documentId });
+       }
     }
   } catch (e) {
-    console.error('encryptAll: documents query failed:', e);
+    reportError(e, { action: 'encryptAllExistingNotes_documentsQuery', userId });
   }
 
   // Drafts
@@ -187,17 +188,17 @@ export async function encryptAllExistingNotes(
         const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
         pending.push({ ref: doc(db, 'drafts', d.id), data: clean, checkKey: ck, useSet: true });
         if (pending.length >= BATCH_SIZE) await flush();
-        progress.encrypted++;
-      } catch (e) {
-        progress.errors++;
-        console.error(`encryptAll: draft ${d.id} failed:`, e);
-      }
+         progress.encrypted++;
+       } catch (e) {
+         progress.errors++;
+         reportError(e, { action: 'encryptAllExistingNotes_draft', draftId: d.id });
+       }
       progress.processed++;
       report();
     }
     await flush();
   } catch (e) {
-    console.error('encryptAll: drafts query failed:', e);
+    reportError(e, { action: 'encryptAllExistingNotes_draftsQuery', userId });
   }
 
   clearCheckpoint(userId);

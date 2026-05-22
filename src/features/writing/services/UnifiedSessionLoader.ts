@@ -7,6 +7,7 @@ import { SessionService } from './SessionService';
 import { LocalVersionService } from './LocalVersionService';
 import { toDate } from '../../../core/utils/dateUtils';
 import { maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
+import { reportError } from '../../../core/errors/reportError';
 
 interface LoadedSession extends Session {
   _linkedCloudId?: string;
@@ -40,7 +41,7 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
       seenIds.add(doc.id);
       let content = '';
       let _contentError = false;
-      try { content = await LocalVersionService.getLatestContent(doc.id); } catch { _contentError = true; }
+      try { content = await LocalVersionService.getLatestContent(doc.id); } catch (contentErr) { reportError(contentErr, { action: 'loadAllSessions_localContent', documentId: doc.id }); _contentError = true; }
       const createdAt = toDate(doc.lastSessionAt) ?? new Date();
       allSessions.push({
         id: doc.id,
@@ -72,7 +73,7 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
         cloudDocs = await DocumentService.getUserDocuments(uid);
       } catch (e) {
         cloudLoadFailed = true;
-        console.error(`Failed to fetch cloud docs for uid=${uid}:`, e);
+        reportError(e, { action: 'loadAllSessions_cloudDocs', uid });
       }
 
       for (const cloudDoc of cloudDocs) {
@@ -82,7 +83,7 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
         const created = toDate(cloudDoc.lastSessionAt) ?? new Date();
         let cloudContent = '';
         let cloudContentError = false;
-        try { cloudContent = await VersionService.getLatestContent(user.uid, cloudDoc.id); } catch { cloudContentError = true; }
+        try { cloudContent = await VersionService.getLatestContent(user.uid, cloudDoc.id); } catch (contentErr) { reportError(contentErr, { action: 'loadAllSessions_cloudContent', documentId: cloudDoc.id }); cloudContentError = true; }
         allSessions.push({
           id: cloudDoc.id,
           userId: user.uid,
@@ -122,12 +123,13 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
           if (decryptErr instanceof Error && decryptErr.message.startsWith('LOCKED')) {
             allSessions.push({ ...s, _isLocal: false, _isLegacy: true, _locked: true });
           } else {
+            reportError(decryptErr, { action: 'loadAllSessions_decrypt', sessionId: s.id });
             throw decryptErr;
           }
         }
       }
     } catch (e) {
-      console.error('Failed to fetch legacy sessions:', e);
+      reportError(e, { action: 'loadAllSessions_legacy' });
     }
   }
 
