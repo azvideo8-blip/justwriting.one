@@ -8,6 +8,7 @@ import { useWritingSettings } from '../../writing/contexts/WritingSettingsContex
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
+import { APP_VERSION } from '../../../version';
 
 interface SidebarNavItemProps {
   icon: ReactNode;
@@ -230,6 +231,13 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
             accent
           />
         )}
+
+        <div className={cn(
+          "px-3 py-2 text-[10px] font-mono text-text-main/25 transition-all duration-300 select-none whitespace-nowrap",
+          expanded ? "opacity-100 pl-3" : "opacity-0 h-0 p-0 overflow-hidden"
+        )}>
+          {t('common_version')}: {APP_VERSION}
+        </div>
       </div>
     </div>
   );

@@ -104,4 +104,5 @@ export const commonTranslations: Translations = {
   topbar_title_placeholder: { ru: 'Название сессии', en: 'Session title' },
 
   settings_data_section: { ru: 'Данные', en: 'Data' },
+  common_version: { ru: 'Версия', en: 'Version' },
 };
