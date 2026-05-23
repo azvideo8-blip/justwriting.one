@@ -141,3 +141,17 @@ export async function maybeDecrypt(
   }
   return result;
 }
+
+const profileLoadedCache: Record<string, boolean> = {};
+
+export function setProfileLoaded(userId: string, loaded: boolean): void {
+  if (!userId) return;
+  profileLoadedCache[userId] = loaded;
+}
+
+export function isProfileLoaded(userId: string): boolean {
+  if (!userId) return true;
+  if (userId.startsWith('guest_') || userId === 'guest') return true;
+  return profileLoadedCache[userId] ?? false;
+}
+

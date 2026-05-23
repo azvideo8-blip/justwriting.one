@@ -65,10 +65,11 @@ export const SessionService = {
   async getAllSessions(userId: string, limitCount: number = 20, lastDoc?: QueryDocumentSnapshot<DocumentData>) {
     try {
       const { db, mod } = await getClient();
-      const { query, where, collection, limit, getDocs, startAfter } = mod;
+      const { query, where, collection, limit, getDocs, startAfter, orderBy } = mod;
       let q = query(
         collection(db, 'sessions'), 
         where('userId', '==', userId), 
+        orderBy('createdAt', 'desc'),
         limit(limitCount)
       );
       if (lastDoc) q = query(q, startAfter(lastDoc));
@@ -92,8 +93,12 @@ export const SessionService = {
   async getAllSessionsAdmin(limitCount: number = 50, lastDoc?: QueryDocumentSnapshot<DocumentData>) {
     try {
       const { db, mod } = await getClient();
-      const { query, collection, limit, getDocs, startAfter } = mod;
-      let q = query(collection(db, 'sessions'), limit(limitCount));
+      const { query, collection, limit, getDocs, startAfter, orderBy } = mod;
+      let q = query(
+        collection(db, 'sessions'), 
+        orderBy('createdAt', 'desc'),
+        limit(limitCount)
+      );
       if (lastDoc) q = query(q, startAfter(lastDoc));
       
       const snap = await getDocs(q);

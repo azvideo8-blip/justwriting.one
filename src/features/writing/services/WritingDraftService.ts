@@ -1,7 +1,7 @@
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { getLocalDb, LocalDraft } from '../../../shared/lib/localDb';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
-import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
+import { maybeEncrypt, maybeDecrypt, isProfileLoaded } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../core/errors/reportError';
 
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -108,6 +108,9 @@ export const WritingDraftService = {
 
   saveToFirestore: async (draft: LocalDraft) => {
     if (!draft.userId) return;
+    if (!isProfileLoaded(draft.userId)) {
+      return;
+    }
     const oldAc = _abortControllers.get(draft.userId);
     if (oldAc) {
       oldAc.abort();
@@ -127,7 +130,9 @@ export const WritingDraftService = {
       reportError(e, { action: 'saveToFirestore', userId: draft.userId });
       throw new Error('Draft save aborted');
     }
-    _abortControllers.delete(draft.userId);
+    if (_abortControllers.get(draft.userId) === ac) {
+      _abortControllers.delete(draft.userId);
+    }
   },
 
   deleteDraft: async (userId: string) => {

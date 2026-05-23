@@ -35,6 +35,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
   const dtRef = React.useRef<HTMLDivElement>(null);
   const labelPopupRef = React.useRef<HTMLDivElement>(null);
   const [labelPopupOpen, setLabelPopupOpen] = useState(false);
+  const [labelOpenUp, setLabelOpenUp] = useState(false);
 
   const date = getSessionDate(session);
   const dateLabel = date
@@ -205,7 +206,14 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
       <div className="flex items-center gap-1 shrink-0 pt-1" onClick={e => e.stopPropagation()}>
         <div className="relative">
           <button
-            onClick={e => { e.stopPropagation(); e.preventDefault(); setLabelPopupOpen(!labelPopupOpen); }}
+            onClick={e => {
+              e.stopPropagation();
+              e.preventDefault();
+              const rect = e.currentTarget.getBoundingClientRect();
+              const spaceBelow = window.innerHeight - rect.bottom;
+              setLabelOpenUp(spaceBelow < 220);
+              setLabelPopupOpen(!labelPopupOpen);
+            }}
             className={cn("w-7 h-7 flex items-center justify-center rounded-lg transition-all", label ? "" : "hover:bg-text-main/5")}
             title={label?.name ?? t('archive_assign_label')}
           >
@@ -216,7 +224,10 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           {labelPopupOpen && labels && labels.length > 0 && (
             <div
               ref={labelPopupRef}
-              className="absolute right-0 top-full z-50 mt-1 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[150px] backdrop-blur-xl"
+              className={cn(
+                "absolute right-0 z-50 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[150px] backdrop-blur-xl",
+                labelOpenUp ? "bottom-full mb-1" : "top-full mt-1"
+              )}
               style={{ background: 'color-mix(in srgb, var(--bg-base) 92%, var(--brand-primary) 8%)' }}
               onClick={e => e.stopPropagation()}
             >

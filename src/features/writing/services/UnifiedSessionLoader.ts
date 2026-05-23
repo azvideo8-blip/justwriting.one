@@ -93,37 +93,45 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
         reportError(e, { action: 'loadAllSessions_cloudDocs', uid });
       }
 
-      for (const cloudDoc of cloudDocs) {
-        if (localByCloudId.has(cloudDoc.id) || seenIds.has(cloudDoc.id)) continue;
-        seenIds.add(cloudDoc.id);
-
-        const created = toDate(cloudDoc.lastSessionAt) ?? new Date();
-        let cloudContent = '';
-        let cloudContentError = false;
-        try { cloudContent = await VersionService.getLatestContent(user.uid, cloudDoc.id); } catch (contentErr) { reportError(contentErr, { action: 'loadAllSessions_cloudContent', documentId: cloudDoc.id }); cloudContentError = true; }
-        allSessions.push({
-          id: cloudDoc.id,
-          userId: user.uid,
-          content: cloudContent,
-          duration: cloudDoc.totalDuration,
-          wordCount: cloudDoc.totalWords,
-          charCount: 0,
-          wpm: 0,
-          title: cloudDoc.title,
-          tags: cloudDoc.tags,
-          labelId: cloudDoc.labelId ?? undefined,
-          createdAt: created,
-          sessionStartTime: created.getTime(),
-          _isLocal: false,
-          _linkedCloudId: cloudDoc.id,
-          _hasCloudCopy: true,
-          _totalWords: cloudDoc.totalWords,
-          _totalDuration: cloudDoc.totalDuration,
-          _sessionsCount: cloudDoc.sessionsCount,
-          _firstSessionAt: toDate(cloudDoc.firstSessionAt)?.getTime(),
-          ...(cloudContentError ? { _contentError: true } : {}),
+      const cloudSessionsPromises = cloudDocs
+        .filter(cloudDoc => !localByCloudId.has(cloudDoc.id) && !seenIds.has(cloudDoc.id))
+        .map(async (cloudDoc) => {
+          seenIds.add(cloudDoc.id);
+          const created = toDate(cloudDoc.lastSessionAt) ?? new Date();
+          let cloudContent = '';
+          let cloudContentError = false;
+          try {
+            cloudContent = await VersionService.getLatestContent(uid, cloudDoc.id);
+          } catch (contentErr) {
+            reportError(contentErr, { action: 'loadAllSessions_cloudContent', documentId: cloudDoc.id });
+            cloudContentError = true;
+          }
+          return {
+            id: cloudDoc.id,
+            userId: uid,
+            content: cloudContent,
+            duration: cloudDoc.totalDuration,
+            wordCount: cloudDoc.totalWords,
+            charCount: 0,
+            wpm: 0,
+            title: cloudDoc.title,
+            tags: cloudDoc.tags,
+            labelId: cloudDoc.labelId ?? undefined,
+            createdAt: created,
+            sessionStartTime: created.getTime(),
+            _isLocal: false,
+            _linkedCloudId: cloudDoc.id,
+            _hasCloudCopy: true,
+            _totalWords: cloudDoc.totalWords,
+            _totalDuration: cloudDoc.totalDuration,
+            _sessionsCount: cloudDoc.sessionsCount,
+            _firstSessionAt: toDate(cloudDoc.firstSessionAt)?.getTime(),
+            ...(cloudContentError ? { _contentError: true } : {}),
+          };
         });
-      }
+
+      const cloudSessions = await Promise.all(cloudSessionsPromises);
+      allSessions.push(...cloudSessions);
     }
   }
 

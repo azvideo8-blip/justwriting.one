@@ -38,6 +38,8 @@ export function useWritingKeyboard({ sessionStatus, handlePlayRef, handlePauseRe
       const state = useTimerStore.getState();
       if (state.status === 'writing' || state.status === 'paused') {
         e.preventDefault();
+        e.returnValue = '';
+        return '';
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);

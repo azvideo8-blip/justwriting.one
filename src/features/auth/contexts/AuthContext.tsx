@@ -7,7 +7,7 @@ import { UserProfile } from '../../../types';
 import * as Sentry from '@sentry/react';
 import { clearSessionKey } from '../../../core/crypto/encrypt';
 import { reportError } from '../../../core/errors/reportError';
-import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
+import { setEncryptionEnabled, setProfileLoaded } from '../../../core/crypto/cryptoHelpers';
 
 type AuthState = 'loading' | 'authenticated' | 'guest';
 
@@ -64,6 +64,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(u);
       setAuthState(u ? 'authenticated' : 'guest');
 
+      if (!u) {
+        setProfileLoaded('guest', true);
+      } else {
+        setProfileLoaded(u.uid, false);
+      }
+
       if (!uidChanged) return;
 
       if (u) {
@@ -88,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) {
       setProfile(null);
+      setProfileLoaded('guest', true);
       creationAttemptedRef.current = false;
       return;
     }
@@ -109,10 +116,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             profileSetBySnapshotRef.current = true;
             setProfile(data as UserProfile);
             setEncryptionEnabled(user.uid, !!(data.encryptionSalt && data.encryptedDataKey));
+            setProfileLoaded(user.uid, true);
           } else {
             if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, data);
             setProfile(null);
             setEncryptionEnabled(user.uid, false);
+            setProfileLoaded(user.uid, true);
           }
         } else {
           setEncryptionEnabled(user.uid, false);
@@ -143,7 +152,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           setDoc(userDoc, initialProfile, { merge: true }).then(() => {
             creationAttemptedRef.current = false;
-            if (!cancelled && !profileSetBySnapshotRef.current) setProfile(initialProfile);
+            if (!cancelled && !profileSetBySnapshotRef.current) {
+              setProfile(initialProfile);
+              setProfileLoaded(user.uid, true);
+            }
           }).catch(err => {
             console.error('Error creating user profile:', err);
             Sentry.captureException(err, {
@@ -151,7 +163,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               extra: { uid: user.uid },
             });
             creationAttemptedRef.current = false;
-            if (!cancelled) setProfile(null);
+            if (!cancelled) {
+              setProfile(null);
+              setProfileLoaded(user.uid, true);
+            }
           });
         }
       }, (err) => {

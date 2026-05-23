@@ -304,10 +304,8 @@ async function _doSaveVersion(
   const existing = await docStore.get(documentId);
   if (!existing) { await tx.done; throw new Error('Document not found'); }
 
-  const allVersions = await verStore.index('by-document').getAll(documentId);
-  const prevContent = allVersions.length > 0
-    ? allVersions.reduce((max, v) => v.version > max.version ? v : max, allVersions[0]).content ?? ''
-    : '';
+  const prevVer = await verStore.index('by-doc-version').get([documentId, existing.currentVersion]);
+  const prevContent = prevVer?.content ?? '';
 
   const newVersion = existing.currentVersion + 1;
   const diff = computeWordDelta(prevContent, data.content);
