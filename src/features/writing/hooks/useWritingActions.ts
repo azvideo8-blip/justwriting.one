@@ -120,6 +120,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
     savingRef.current = true;
 
     try {
+      useContentStore.getState().recalcStats();
       const contentState = useContentStore.getState();
       const timerState = useTimerStore.getState();
       const metaState = useSessionMetaStore.getState();

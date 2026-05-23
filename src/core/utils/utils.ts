@@ -29,9 +29,11 @@ export function calculateStreak(sessions: Session[]) {
     .filter((d): d is Date => d !== null)
     .map(d => format(d, 'yyyy-MM-dd'));
   if (dates.length === 0) return 0;
-  const uniqueDates = Array.from(new Set(dates)).sort((a, b) => b.localeCompare(a));
-  
   const today = format(new Date(), 'yyyy-MM-dd');
+  const uniqueDates = Array.from(new Set(dates))
+    .filter(d => d <= today)
+    .sort((a, b) => b.localeCompare(a));
+  
   const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
   
   if (uniqueDates[0] !== today && uniqueDates[0] !== yesterday) {
@@ -55,10 +57,12 @@ export function calculateStreak(sessions: Session[]) {
 
 export function calculateBestStreak(sessions: Session[]): number {
   if (sessions.length === 0) return 0;
+  const today = format(new Date(), 'yyyy-MM-dd');
   const dates = new Set(
     sessions.map(s => getSessionDate(s))
       .filter((d): d is Date => d !== null)
       .map(d => format(d, 'yyyy-MM-dd'))
+      .filter(d => d <= today)
   );
   const sorted = [...dates]
     .map(d => new Date(d).getTime())

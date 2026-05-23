@@ -42,6 +42,32 @@ export function SessionCard({
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportButtonRef = useRef<HTMLButtonElement>(null);
 
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (isEditing) return;
+    setTouchStart(e.touches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStart === null || isEditing) return;
+    const current = e.touches[0].clientX;
+    const diff = current - touchStart;
+    if (diff < 0) {
+      setSwipeOffset(diff);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStart === null) return;
+    if (swipeOffset < -150) {
+      setShowDeleteConfirm(true);
+    }
+    setTouchStart(null);
+    setSwipeOffset(0);
+  };
+
   React.useEffect(() => {
     if (searchQuery && (
       session.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -71,13 +97,32 @@ export function SessionCard({
 
   return (
     <>
-      <motion.div
-        layout
-        className="p-6 md:p-8 transition-all space-y-4 group relative bg-surface-card backdrop-blur-xl border border-border-subtle rounded-3xl text-text-main hover:bg-white/10"
-      >
-        <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
-          <div className="absolute -top-16 -left-16 w-32 h-32 rounded-full blur-3xl opacity-0 transition-all duration-700 bg-white/5 mix-blend-screen group-hover:opacity-100 group-hover:translate-x-4" />
+      <div className="relative overflow-hidden rounded-3xl select-none">
+        {/* Red Delete Background */}
+        <div 
+          className="absolute inset-y-0 right-0 left-0 bg-accent-danger text-white rounded-3xl flex items-center justify-end pr-8 z-0 pointer-events-none transition-opacity"
+          style={{ opacity: swipeOffset < -10 ? 1 : 0 }}
+        >
+          <Trash2 
+            size={22} 
+            className={cn("transition-transform duration-150", swipeOffset < -150 ? "scale-125" : "scale-100")} 
+          />
         </div>
+
+        <motion.div
+          layout
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="p-6 md:p-8 transition-all space-y-4 group relative bg-surface-card backdrop-blur-xl border border-border-subtle rounded-3xl text-text-main hover:bg-white/10 z-10 touch-pan-y"
+          style={{
+            transform: `translate3d(${swipeOffset}px, 0, 0)`,
+            transition: touchStart === null ? 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' : 'none'
+          }}
+        >
+          <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+            <div className="absolute -top-16 -left-16 w-32 h-32 rounded-full blur-3xl opacity-0 transition-all duration-700 bg-white/5 mix-blend-screen group-hover:opacity-100 group-hover:translate-x-4" />
+          </div>
         {label && (
           <div className="flex items-center gap-2 relative z-10">
             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: label.color }} />
@@ -188,6 +233,7 @@ export function SessionCard({
           </div>
         )}
       </motion.div>
+      </div>
       <CancelConfirmModal
         isOpen={showDeleteConfirm}
         title={t('session_delete_confirm')}

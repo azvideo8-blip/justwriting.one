@@ -48,6 +48,10 @@ export const useContentStore = create<ContentState>((set, get) => ({
   },
 
   recalcStats: () => {
+    if (_wordCalcTimer) {
+      clearTimeout(_wordCalcTimer);
+      _wordCalcTimer = null;
+    }
     const state = get();
     const content = state.content;
     if (!content) {

@@ -134,6 +134,7 @@ export function useSessionPersistence(
   }, [loadDraft]);
 
   const handleSave = async (isLocalOnly: boolean) => {
+    useContentStore.getState().recalcStats();
     const contentState = useContentStore.getState();
     const timerState_ = useTimerStore.getState();
     const metaState = useSessionMetaStore.getState();

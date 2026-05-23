@@ -211,26 +211,26 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           syncing={syncing}
         />
       </>
-      <div className="px-9 pt-6 space-y-0">
-          <>
+      <div className="px-4 md:px-9 pt-6 flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible scroll-snap-x-container gap-6 md:gap-0 pb-6 md:pb-0">
+          <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden">
             <KPIStrip stats={kpiStats} />
-          </>
-          <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
-          <>
+          </div>
+          <div className="hidden md:block" style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
+          <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden">
             <Heatmap sessions={sessions} />
-          </>
-          <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
-          <>
+          </div>
+          <div className="hidden md:block" style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
+          <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden">
             <HourRhythm sessions={sessions} />
-          </>
-          <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
-          <>
+          </div>
+          <div className="hidden md:block" style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
+          <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden">
             <StreakRibbon sessions={sessions} />
-          </>
-          <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
-          <>
+          </div>
+          <div className="hidden md:block" style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
+          <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden animate-none">
             <Achievements key={achResetKey} stats={kpiStats} sessions={sessions} />
-          </>
+          </div>
       </div>
       <div style={{ padding: '12px 36px 48px', textAlign: 'center' }}>
         {showResetConfirm ? (

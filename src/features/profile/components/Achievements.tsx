@@ -134,6 +134,14 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
   });
 
   useEffect(() => {
+    const handleReset = () => {
+      setUnlockedIds(new Set());
+    };
+    window.addEventListener('achievements-reset', handleReset);
+    return () => window.removeEventListener('achievements-reset', handleReset);
+  }, []);
+
+  useEffect(() => {
     if (!user) return;
     abortRef.current?.abort();
     const ac = new AbortController();

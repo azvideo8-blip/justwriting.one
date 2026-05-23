@@ -8,7 +8,9 @@ export async function deleteSession(userId: string, session: Session): Promise<v
     const doc = await LocalDocumentService.getDocument(session.id);
     const cloudId = doc?.linkedCloudId || undefined;
     await StorageService.deleteDocument(userId, session.id, cloudId);
-  } else {
+  } else if ((session as any)._isLegacy) {
     await SessionService.deleteSession(session.id);
+  } else {
+    await StorageService.deleteDocument(userId, undefined, session.id);
   }
 }

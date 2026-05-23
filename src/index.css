@@ -255,20 +255,6 @@ textarea {
   border-left: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.spotlight-card {
-  position: relative;
-  overflow: hidden;
-}
-.spotlight-card::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  background: radial-gradient(150px circle at var(--mouse-x) var(--mouse-y), rgba(255, 255, 255, 0.08), transparent 80%);
-  z-index: 0;
-  pointer-events: none;
-  border-radius: inherit;
-}
-
 .progress-glow {
   box-shadow: 0 0 6px var(--flow-pulse-color);
 }
@@ -310,4 +296,138 @@ html::-webkit-scrollbar-thumb:hover {
   .gap-s-xl { gap: var(--sp-xl); }
   .space-y-s-xl > * + * { margin-top: var(--sp-xl); }
   .space-y-s-lg > * + * { margin-top: var(--sp-lg); }
+}
+
+/* 1. Scroll shadow indicators */
+.scroll-shadow-top, .scroll-shadow-bottom {
+  display: none;
+}
+
+@supports (animation-timeline: scroll()) {
+  .scroll-shadow-top {
+    display: block;
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 12px;
+    margin-bottom: -12px;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.3), transparent);
+    pointer-events: none;
+    z-index: 20;
+    transform-origin: top;
+    animation: fade-in-scroll linear both;
+    animation-timeline: scroll(nearest);
+    animation-range: 0px 30px;
+  }
+
+  .scroll-shadow-bottom {
+    display: block;
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 12px;
+    margin-top: -12px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.3), transparent);
+    pointer-events: none;
+    z-index: 20;
+    transform-origin: bottom;
+    animation: fade-out-scroll linear both;
+    animation-timeline: scroll(nearest);
+    animation-range: calc(100% - 30px) 100%;
+  }
+}
+
+@keyframes fade-in-scroll {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out-scroll {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* 3. Soft Edge Content Fade */
+.soft-edge-fade {
+  mask-image: linear-gradient(to bottom, transparent 0%, black 15px, black calc(100% - 15px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15px, black calc(100% - 15px), transparent 100%);
+}
+
+/* 5. Scroll Entrance Effects */
+@media (prefers-reduced-motion: no-preference) {
+  @supports ((animation-timeline: view()) and (animation-range: entry)) {
+    @keyframes note-entrance {
+      from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.96);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+    
+    .note-card-scroll-anim {
+      animation: note-entrance auto linear both;
+      animation-timeline: view();
+      animation-range: entry 5% entry 35%;
+    }
+  }
+}
+
+/* 6. Container Queries for GridNoteCard */
+.card-container {
+  container-type: inline-size;
+  width: 100%;
+}
+
+.grid-note-card-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+@container (min-width: 480px) {
+  .grid-note-card-inner {
+    flex-direction: row !important;
+    gap: 20px !important;
+    align-items: stretch !important;
+  }
+
+  .grid-note-card-left {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    min-width: 180px !important;
+    border-right: 1px solid var(--color-border-subtle) !important;
+    padding-right: 16px !important;
+    border-bottom: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  .grid-note-card-right {
+    flex: 1.8 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    padding-left: 4px !important;
+  }
+}
+
+/* 9. Scroll Snap for stats cards */
+@media (max-width: 767px) {
+  .scroll-snap-x-container {
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+  .scroll-snap-x-container::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .scroll-snap-card {
+    scroll-snap-align: center;
+  }
 }

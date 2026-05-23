@@ -33,6 +33,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
   const { tags } = useSessionTags(session.id, session.tags || []);
   const sessionDate = getSessionDate(session) ?? new Date();
   const [labelPopupOpen, setLabelPopupOpen] = useState(false);
+  const [labelOpenUp, setLabelOpenUp] = useState(false);
   const labelPopupRef = useRef<HTMLDivElement>(null);
 
   const label = labels?.find(l => l.id === session.labelId);
@@ -57,22 +58,15 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
     addSuffix: true,
   });
 
-  const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
-    e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
-  };
-
   return (
     <motion.div
       onClick={onClick}
-      onMouseMove={handleMouseMove}
       whileHover={{ y: -3, scale: 1.01 }}
       whileTap={{ scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-      className="spotlight-card cursor-pointer rounded-2xl p-5 bg-surface-card border border-border-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text-main/30
+      className="cursor-pointer rounded-2xl p-5 bg-surface-card border border-border-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text-main/30
                  hover:border-text-main/20 hover:bg-text-main/[0.07] hover:shadow-lg transition-colors
-                 flex flex-col"
+                 flex flex-col gap-3"
       style={label ? {
         borderLeftWidth: 2,
         borderLeftColor: label.color,
@@ -80,13 +74,13 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
         boxShadow: `inset 3px 0 10px color-mix(in srgb, ${label.color} 12%, transparent)`,
       } : {}}
     >
-      <div className="text-[11px] font-medium tracking-wider text-text-main/40 font-mono mb-3">
+      <div className="text-[11px] font-medium tracking-wider text-text-main/40 font-mono">
         {formattedDate}
         <span className="text-text-main/25 ml-1.5">{relativeDate}</span>
       </div>
 
       {session.title && (
-        <h4 className="text-[17px] font-semibold text-text-main mb-2 leading-snug">
+        <h4 className="text-[17px] font-semibold text-text-main leading-snug">
           {highlightText(session.title, searchQuery)}
         </h4>
       )}
@@ -105,16 +99,19 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
         />
       </div>
 
-      <div className="flex-1" />
-
-      <div className="flex items-center gap-2 text-[12px] font-mono text-text-main/35 pt-3 mt-2 border-t border-border-subtle">
+      <div className="flex items-center gap-2 text-[12px] font-mono text-text-main/35 pt-3 mt-auto border-t border-border-subtle">
         <span>{session.wordCount.toLocaleString()} {t('home_words_short')}</span>
         <span className="text-text-main/15">·</span>
         <span>{Math.floor(session.duration / 60)} {t('goal_time_short')}</span>
         {labels && onLabelChange && (
           <div className="relative ml-auto" onClick={e => e.stopPropagation()}>
             <button
-              onClick={() => setLabelPopupOpen(v => !v)}
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const spaceBelow = window.innerHeight - rect.bottom;
+                setLabelOpenUp(spaceBelow < 220);
+                setLabelPopupOpen(v => !v);
+              }}
               className="flex items-center gap-1 font-mono text-[11px] text-text-main/30 hover:text-text-main/60 transition-colors"
             >
               <span
@@ -126,7 +123,10 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
             {labelPopupOpen && (
               <div
                 ref={labelPopupRef}
-                className="absolute right-0 bottom-full mb-1 z-50 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[150px] backdrop-blur-xl"
+                className={cn(
+                  "absolute right-0 z-50 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[150px] backdrop-blur-xl",
+                  labelOpenUp ? "bottom-full mb-1" : "top-full mt-1"
+                )}
                 style={{ background: 'color-mix(in srgb, var(--bg-base) 92%, var(--brand-primary) 8%)' }}
                 onClick={e => e.stopPropagation()}
               >
