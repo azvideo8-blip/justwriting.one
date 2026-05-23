@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
-import { resetAndClear, finishSession, resetSession } from '../store/storeActions';
+import { resetAndClear, finishSession } from '../store/storeActions';
 import { applyWpmDecay } from '../hooks/useWpm';
 
 const CONTENT_INITIAL = {
@@ -223,7 +223,7 @@ describe('setWordGoal()', () => {
   });
 });
 
-// ─── finishSession() and resetSession() ──────────────────────────────────────
+// ─── finishSession() and resetAndClear() ──────────────────────────────────────
 
 describe('finishSession()', () => {
   beforeEach(() => {
@@ -273,7 +273,7 @@ describe('finishSession()', () => {
   });
 });
 
-describe('resetSession()', () => {
+describe('resetAndClear()', () => {
   beforeEach(() => {
     useContentStore.setState({
       content: 'some text',
@@ -291,32 +291,32 @@ describe('resetSession()', () => {
   });
 
   it('resets content to empty string', () => {
-    resetSession();
+    resetAndClear();
     expect(useContentStore.getState().content).toBe('');
   });
 
   it('resets wpm to 0', () => {
-    resetSession();
+    resetAndClear();
     expect(useContentStore.getState().wpm).toBe(0);
   });
 
   it('resets seconds to 0', () => {
-    resetSession();
+    resetAndClear();
     expect(useTimerStore.getState().seconds).toBe(0);
   });
 
   it('resets status to idle', () => {
-    resetSession();
+    resetAndClear();
     expect(useTimerStore.getState().status).toBe('idle');
   });
 
   it('clears wpmHistory', () => {
-    resetSession();
+    resetAndClear();
     expect(useContentStore.getState().wpmHistory).toHaveLength(0);
   });
 
   it('clears wordSnapshots', () => {
-    resetSession();
+    resetAndClear();
     expect(useContentStore.getState().wordSnapshots).toHaveLength(0);
   });
 });
@@ -338,9 +338,9 @@ describe('wpmHistory', () => {
     expect(useContentStore.getState().wpmHistory).toHaveLength(0);
   });
 
-  it('resetSession clears wpmHistory', () => {
+  it('resetAndClear clears wpmHistory', () => {
     useContentStore.getState().pushWpmHistory({ timestamp: 1000, wpm: 60 });
-    resetSession();
+    resetAndClear();
     expect(useContentStore.getState().wpmHistory).toHaveLength(0);
   });
 });

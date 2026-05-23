@@ -13,6 +13,7 @@ import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 import { ProfileService } from '../../profile/services/ProfileService';
 import { Section } from './SettingsHelpers';
 import { deriveMasterKey, wrapDataKey, unwrapDataKey, setSessionKey, getSessionKey, toBase64, fromBase64, SALT_LENGTH, generateDataKey, clearSessionKey } from '../../../core/crypto/encrypt';
+import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { encryptAllExistingNotes, type MigrationProgress } from '../../../core/crypto/encryptMigration';
 import { getClient } from '../../../core/firebase/firestoreClient';
@@ -47,7 +48,7 @@ export function AccountTab({ userId }: AccountTabProps) {
   const [confirmVaultPassword, setConfirmVaultPassword] = useState('');
   const [vaultLoading, setVaultLoading] = useState(false);
   const [vaultError, setVaultError] = useState<string | null>(null);
-  const [isVaultUnlocked, setIsVaultUnlocked] = useState(() => !!getSessionKey());
+  const isVaultUnlocked = useEncryptionStore(s => s.isVaultUnlocked);
 
   const handleUnlockVault = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +68,6 @@ export function AccountTab({ userId }: AccountTabProps) {
       
       setSessionKey(dataKey);
       setEncryptionEnabled(userId, true);
-      setIsVaultUnlocked(true);
       setVaultPassword('');
       showToast(t('unlock_success'), 'success');
     } catch (err) {
@@ -113,7 +113,6 @@ export function AccountTab({ userId }: AccountTabProps) {
       showToast(t('unlock_success') || 'Encryption set up successfully', 'success');
       setVaultPassword('');
       setConfirmVaultPassword('');
-      setIsVaultUnlocked(true);
     } catch (err) {
       reportError(err, { action: 'initializeEncryptionInSettings', userId });
       setVaultError(t('error_generic_action'));
@@ -125,7 +124,6 @@ export function AccountTab({ userId }: AccountTabProps) {
   const handleLockVault = () => {
     clearSessionKey();
     setEncryptionEnabled(userId, false);
-    setIsVaultUnlocked(false);
     showToast(t('settings_lock_vault') || 'Vault locked', 'success');
   };
 

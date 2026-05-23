@@ -118,18 +118,18 @@ export async function decryptContent(ciphertext: string, dataKey: CryptoKey): Pr
   }
 }
 
-let _dataKey: CryptoKey | null = null;
+import { useEncryptionStore } from './useEncryptionStore';
 
 export function setSessionKey(key: CryptoKey): void {
-  _dataKey = key;
+  useEncryptionStore.getState().setKey(key);
 }
 
 export function getSessionKey(): CryptoKey | null {
-  return _dataKey;
+  return useEncryptionStore.getState().dataKey;
 }
 
 export function clearSessionKey(): void {
-  _dataKey = null;
+  useEncryptionStore.getState().lockVault();
 }
 
 export { toBase64, fromBase64, SALT_LENGTH };

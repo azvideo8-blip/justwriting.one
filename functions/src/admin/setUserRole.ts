@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 import * as logger from 'firebase-functions/logger';
 import { z } from 'zod';
 import { roleSchema, userIdSchema } from '../shared/validators';
@@ -48,6 +49,8 @@ export const setUserRole = onCall(async (request) => {
 
     tx.update(targetRef, { role });
   });
+
+  await getAuth().setCustomUserClaims(targetUid, { role });
 
   logger.info('Role updated', {
     callerUid: request.auth.uid,

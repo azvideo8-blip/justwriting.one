@@ -18,12 +18,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet" />
     <title>justwriting — тихий редактор</title>
+    <script src="/inline-init.js"></script>
   </head>
   <body>
     <noscript><div style="padding:48px;font-family:sans-serif;text-align:center;color:#888">This app requires JavaScript. Please enable it in your browser settings.</div></noscript>
-    <script>try{var l=localStorage.getItem('app_language')||'en';document.documentElement.lang=l;var t=localStorage.getItem('app-theme')||'amethyst';var c={modern:'theme-modern',notion:'theme-notion',spotify:'theme-spotify',amethyst:'theme-amethyst'};if(c[t])document.documentElement.classList.add(c[t])}catch(e){}</script>
     <div id="root"></div>
-    <script>'serviceWorker' in navigator && navigator.serviceWorker.register('/sw.js')</script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

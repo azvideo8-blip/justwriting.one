@@ -2,6 +2,7 @@ import { getClient } from '../../../core/firebase/firestoreClient';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { Label } from '../../../types';
 import { reportError } from '../../../core/errors/reportError';
+import { userProfileDbSchema } from '../../../shared/schemas/firestoreSchemas';
 
 export const ProfileService = {
   async updateNickname(userId: string, nickname: string) {
@@ -58,7 +59,12 @@ export const ProfileService = {
       const { doc, getDoc } = mod;
       const snap = await getDoc(doc(db, 'users', userId));
       if (snap.exists()) {
-        return { ids: (snap.data().earnedAchievements as string[]) ?? [], error: false };
+        const parsed = userProfileDbSchema.safeParse({ uid: userId, ...snap.data() });
+        if (!parsed.success) {
+          reportError(parsed.error, { action: 'loadEarnedAchievements_parse', docId: userId });
+          return { ids: [], error: false };
+        }
+        return { ids: parsed.data.earnedAchievements, error: false };
       }
       return { ids: [], error: false };
     } catch (err) {

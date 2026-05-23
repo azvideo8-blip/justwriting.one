@@ -3,7 +3,7 @@ import { TimerStatus, SessionType } from '../store/types';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
-import { resetSession, finishSession, resetAllSessionMetadata } from '../store/storeActions';
+import { resetAndClear, finishSession, resetAllSessionMetadata } from '../store/storeActions';
 import { useWpm } from './useWpm';
 
 export interface BaseSessionReturn {
@@ -40,7 +40,7 @@ export interface BaseSessionReturn {
   setInitialWordCount: (count: number) => void;
   setInitialDuration: (duration: number) => void;
   setActiveSessionId: (id: string | null) => void;
-  resetSession: () => void;
+  resetAndClear: () => void;
   finishSession: () => void;
   resetSessionMetadata: () => void;
   setTimeGoalReached: (reached: boolean) => void;
@@ -128,7 +128,7 @@ export function useBaseWritingSession(): BaseSessionReturn {
     setTags, setLabelId,
     setInitialWordCount, setInitialDuration,
     setActiveSessionId,
-    resetSession, finishSession, resetSessionMetadata: resetAllSessionMetadata,
+    resetAndClear, finishSession, resetSessionMetadata: resetAllSessionMetadata,
     setTimeGoalReached, setWordGoalReached,
   };
 }

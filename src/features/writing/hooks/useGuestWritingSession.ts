@@ -12,7 +12,7 @@ import {
   loadGuestDraftFromStorage,
   deleteGuestDraftFromStorage,
 } from '../services/GuestDraftService';
-import { reportError } from '../../../core/errors/reportError';
+import { useDraftManager, DraftData } from './useDraftManager';
 
 export interface GuestSessionReturn extends ReturnType<typeof useBaseWritingSession> {
   userId: string;
@@ -42,72 +42,34 @@ export function useGuestWritingSession(): GuestSessionReturn {
   const base = useBaseWritingSession();
   const guestId = getOrCreateGuestId();
   const [hasDraft, setHasDraft] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [saveErrorKind, setSaveErrorKind] = useState<'quota' | 'unknown' | null>(null);
-  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const isOnline = useOnlineStatus();
-  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isMountedRef = useRef(true);
-  const _savingRef = useRef(false);
 
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
-    };
+  const draftDataRef = useRef<DraftData>({
+    content: '', title: '', pinnedThoughts: [], seconds: 0, wpm: 0, wordCount: 0,
+  });
+  draftDataRef.current = {
+    content: base.content,
+    title: base.title,
+    pinnedThoughts: base.pinnedThoughts,
+    seconds: base.seconds,
+    wpm: base.wpm,
+    wordCount: base.wordCount,
+  };
+
+  const getDraftData = useCallback(() => draftDataRef.current, []);
+
+  const onSaveDraft = useCallback(async (data: DraftData) => {
+    await saveGuestDraftToStorage({
+      content: data.content,
+      title: data.title,
+      pinnedThoughts: data.pinnedThoughts,
+      seconds: data.seconds,
+      wordCount: data.wordCount,
+      timestamp: Date.now(),
+    });
   }, []);
 
-  const stateRef = useRef({ content: base.content, title: base.title, pinnedThoughts: base.pinnedThoughts, seconds: base.seconds, wordCount: base.wordCount });
-  stateRef.current = { content: base.content, title: base.title, pinnedThoughts: base.pinnedThoughts, seconds: base.seconds, wordCount: base.wordCount };
-
-  const doAutosave = useCallback(async () => {
-    const currentStatus = useTimerStore.getState().status;
-    if (currentStatus === 'idle') return;
-    if (_savingRef.current) return;
-    _savingRef.current = true;
-    try {
-      const s = stateRef.current;
-      await saveGuestDraftToStorage({
-        content: s.content,
-        title: s.title,
-        pinnedThoughts: s.pinnedThoughts,
-        seconds: s.seconds,
-        wordCount: s.wordCount,
-        timestamp: Date.now(),
-      });
-      if (isMountedRef.current) {
-        setSaveStatus('saved');
-        setLastSavedAt(Date.now());
-        if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
-        statusTimerRef.current = setTimeout(() => {
-          if (isMountedRef.current) setSaveStatus('idle');
-        }, 1000);
-      }
-    } catch (err) {
-      const isQuota = err instanceof DOMException && err.name === 'QuotaExceededError';
-      setSaveStatus('error');
-      setSaveErrorKind(isQuota ? 'quota' : 'unknown');
-      if (!isQuota) reportError(err, { action: 'guestWritingSession/autosave' });
-    } finally {
-      _savingRef.current = false;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (base.status !== 'writing' && base.status !== 'paused') return;
-    const interval = setInterval(doAutosave, 30_000);
-    return () => clearInterval(interval);
-  }, [base.status, doAutosave]);
-
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState !== 'hidden' || !stateRef.current.content) return;
-      doAutosave();
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [doAutosave]);
+  const draftManager = useDraftManager(guestId, getDraftData, { onSaveDraft });
 
   const clearDraft = useCallback(async () => {
     await deleteGuestDraftFromStorage();
@@ -161,8 +123,8 @@ export function useGuestWritingSession(): GuestSessionReturn {
   }, []);
 
   const handleCancel = useCallback(async () => {
-    await clearDraft(); // [L-07] await добавлен: черновик должен удалиться до сброса сессии
-    base.resetSession();
+    await clearDraft();
+    base.resetAndClear();
     base.setStatus('idle');
   }, [base, clearDraft]);
 
@@ -175,9 +137,9 @@ export function useGuestWritingSession(): GuestSessionReturn {
     isGuest: true as const,
     hasDraft,
     setHasDraft,
-    saveStatus,
-    saveErrorKind,
-    lastSavedAt,
+    saveStatus: draftManager.saveStatus,
+    saveErrorKind: draftManager.saveErrorKind,
+    lastSavedAt: draftManager.lastSavedAt,
     isOnline,
     handleCancel,
     fetchLocalSessions: fetchLocalSessionsCb,

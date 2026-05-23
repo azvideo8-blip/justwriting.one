@@ -3,6 +3,7 @@ import { Version } from '../../../types';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { computeWordDelta } from './DiffService';
 import { reportError } from '../../../core/errors/reportError';
+import { versionDbSchema } from '../../../shared/schemas/firestoreSchemas';
 
 export const VersionService = {
   async addVersion(
@@ -63,7 +64,16 @@ export const VersionService = {
       const { db, mod } = await getClient();
       const { collection, getDocs } = mod;
       const snap = await getDocs(collection(db, 'users', userId, 'documents', documentId, 'versions'));
-      const versions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Version));
+      const versions = snap.docs
+        .map(d => {
+          const parsed = versionDbSchema.safeParse({ id: d.id, ...d.data() });
+          if (!parsed.success) {
+            reportError(parsed.error, { action: 'getVersions_parse', docId: d.id });
+            return null;
+          }
+          return parsed.data as Version;
+        })
+        .filter((v): v is Version => v !== null);
       versions.sort((a, b) => (a.version ?? 0) - (b.version ?? 0));
       return versions;
     } catch (e) {
@@ -80,7 +90,13 @@ export const VersionService = {
       const q = query(collection(db, 'users', userId, 'documents', documentId, 'versions'), orderBy('version', 'desc'), limit(1));
       const snap = await getDocs(q);
       if (snap.docs.length === 0) return '';
-      return (snap.docs[0].data() as Version).content || '';
+      const raw = snap.docs[0];
+      const parsed = versionDbSchema.safeParse({ id: raw.id, ...raw.data() });
+      if (!parsed.success) {
+        reportError(parsed.error, { action: 'getLatestContent_parse', docId: documentId });
+        return '';
+      }
+      return parsed.data.content || '';
     } catch (e) {
       reportError(e, { action: 'getLatestContent', userId, documentId });
       handleFirestoreError(e, OperationType.LIST, `users/${userId}/documents/${documentId}/versions`);
