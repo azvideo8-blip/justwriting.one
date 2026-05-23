@@ -87,6 +87,7 @@ export function WritingSetup({
   const setWordGoal = useTimerStore(s => s.setWordGoal);
   const targetTime = useTimerStore(s => s.targetTime);
   const setTargetTime = useTimerStore(s => s.setTargetTime);
+  const [finishByError, setFinishByError] = React.useState(false);
   if (!setupMode) return null;
 
   const dateLocale = getDateLocale(language);
@@ -213,18 +214,38 @@ export function WritingSetup({
                           <input 
                             type="time" 
                             value={targetTime || ''}
-                            onChange={(e) => setTargetTime(e.target.value)}
-                            className="w-56 md:w-64 text-center text-5xl md:text-7xl font-black bg-transparent outline-none transition-all focus:scale-110 text-text-main"
+                            onChange={(e) => { setTargetTime(e.target.value); setFinishByError(false); }}
+                            className={`w-56 md:w-64 text-center text-5xl md:text-7xl font-black bg-transparent outline-none transition-all focus:scale-110 ${
+                              finishByError ? 'text-red-400' : 'text-text-main'
+                            }`}
                             autoFocus
                           />
                           <div className="text-[11px] md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/50">{t('writing_time')}</div>
+                          {finishByError && (
+                            <div className="text-xs text-red-400 mt-2 font-medium">
+                              {t('error_target_time_in_past') || 'Выберите время в будущем'}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
 
                     <div className="w-full flex flex-col gap-2 md:gap-3">
                       <button 
-                        onClick={() => startCountdown(setupMode === 'timer-config' ? 'timer' : setupMode === 'words-config' ? 'words' : 'finish-by')}
+                        onClick={() => {
+                          // [L-08] валидация времени finish-by: должно быть в будущем
+                          if (setupMode === 'finish-by-config' && targetTime) {
+                            const [hours, minutes] = targetTime.split(':').map(Number);
+                            const target = new Date();
+                            target.setHours(hours, minutes, 0, 0);
+                            if (target <= new Date()) {
+                              setFinishByError(true);
+                              return;
+                            }
+                          }
+                          setFinishByError(false);
+                          startCountdown(setupMode === 'timer-config' ? 'timer' : setupMode === 'words-config' ? 'words' : 'finish-by');
+                        }}
                         className="w-full py-4 md:py-5 rounded-2xl md:rounded-[1.5rem] font-black text-base md:text-lg hover:scale-[1.02] active:scale-[0.98] transition-all bg-text-main text-surface-base shadow-[0_0_20px_var(--brand-soft)]/30"
                       >
                         {t('writing_start')}

@@ -54,7 +54,7 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
   return <GuestWritingPageInner />;
 }
 
-function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; profile: UserProfile | null; user: User | null }) {
+function WritingPageUI({ session, profile, user: _user }: { session: AnySessionReturn; profile: UserProfile | null; user: User | null }) {
   const location = useLocation();
   const navigate = useNavigate();
   const sessionToContinue = (location.state as { sessionToContinue?: Session | null } | null)?.sessionToContinue || null;
@@ -130,6 +130,13 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
     return () => clearInterval(interval);
   }, []);
 
+  // [L-05] checkGoals вызывается каждую секунду в продакшне (в состоянии 'writing')
+  React.useEffect(() => {
+    if (sessionStatus !== 'writing') return;
+    const id = setInterval(() => useTimerStore.getState().checkGoals(), 1000);
+    return () => clearInterval(id);
+  }, [sessionStatus]);
+
   useEffect(() => {
     setUIStatus(sessionStatus);
   }, [sessionStatus, setUIStatus]);
@@ -148,12 +155,13 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
   const streakDays = useStreak(lifeLogGroups);
 
   const streakForModal = React.useMemo(() => {
+    if (!isFinishModalOpen) return streakDays;
     const todayStr = new Date().toDateString();
     const hasSessionToday = lifeLogGroups.some(g =>
       new Date(g.date).toDateString() === todayStr
     );
     return hasSessionToday ? streakDays : streakDays + 1;
-  }, [streakDays, lifeLogGroups]);
+  }, [streakDays, lifeLogGroups, isFinishModalOpen]);
 
   const [showOnboarding, setShowOnboarding] = useState(
     () => !localStorage.getItem('onboarding_done')
@@ -172,7 +180,8 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
 
   const isMobile = useLayoutMode().layoutMode !== 'desktop';
 
-  const desktopProps = {
+  // [L-09] desktopProps мемоизированы — не пересоздаются при мобильном рендере
+  const desktopProps = React.useMemo(() => ({
     profile,
     setupMode: flow.setupMode,
     setSetupMode: setSetupMode,
@@ -205,7 +214,11 @@ function WritingPageUI({ session, profile, user }: { session: AnySessionReturn; 
     setLifeLogPinned,
     saveStatus,
     streakDays,
-  };
+  }), [profile, flow.setupMode, flow.countdown, flow.totalDurationForDeadline, setSetupMode, startCountdown,
+    openSettings, handleNew, handleOpen, onFinishClick, handlePlay, handlePause, handleContinueSession,
+    handlePlayRef, keystrokeTrackerRef, hasDraft, sessionStatus, userId, handleContinueSessionOrDoc,
+    session.restoreDraft, session.discardDraft, setTitle, showZen, lifeLogVisible, setLifeLogVisible,
+    lifeLogTab, setLifeLogTab, lifeLogPinned, setLifeLogPinned, saveStatus, streakDays]);
 
   const mainContent = (() => {
     if (showOnboarding && sessionStatus === 'idle')

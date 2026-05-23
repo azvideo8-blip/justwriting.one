@@ -107,6 +107,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   placeholder={t('topbar_title_placeholder')}
+                  maxLength={200} // [U-04] ограничение в соответствии с Firestore правилами
                   className="flex-1 min-w-[120px] bg-transparent outline-none text-[15px] font-medium text-text-main/60 placeholder:text-text-main/25"
                 />
                 <div className="flex items-center gap-1 ml-auto">

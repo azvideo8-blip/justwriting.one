@@ -26,7 +26,14 @@ export interface GuestSessionReturn extends ReturnType<typeof useBaseWritingSess
   handleCancel: () => Promise<void>;
   fetchLocalSessions: () => Promise<LocalSessionInfo[]>;
   loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
-  loadDraft: () => Promise<void>;
+  /**
+   * Automatically loads the draft if the current store content is empty.
+   * If there is a draft but the store already has content, it sets hasDraft to true.
+   */
+  autoLoadDraftIfEmpty: () => Promise<void>;
+  /**
+   * Forcefully restores the draft, overwriting any current content in the store.
+   */
   restoreDraft: () => Promise<void>;
   discardDraft: () => void;
 }
@@ -107,7 +114,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
     setHasDraft(false);
   }, []);
 
-  const loadDraft = useCallback(async () => {
+  const autoLoadDraftIfEmpty = useCallback(async () => {
     const draft = await loadGuestDraftFromStorage();
     if (!draft?.content) return;
 
@@ -131,6 +138,10 @@ export function useGuestWritingSession(): GuestSessionReturn {
     setHasDraft(false);
   }, []);
 
+  useEffect(() => {
+    autoLoadDraftIfEmpty();
+  }, [autoLoadDraftIfEmpty]);
+
   const restoreDraft = useCallback(async () => {
     const draft = await loadGuestDraftFromStorage();
     if (!draft?.content) { setHasDraft(false); return; }
@@ -150,7 +161,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
   }, []);
 
   const handleCancel = useCallback(async () => {
-    clearDraft();
+    await clearDraft(); // [L-07] await добавлен: черновик должен удалиться до сброса сессии
     base.resetSession();
     base.setStatus('idle');
   }, [base, clearDraft]);
@@ -171,7 +182,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
     handleCancel,
     fetchLocalSessions: fetchLocalSessionsCb,
     loadLocalSession: loadLocalSessionCb,
-    loadDraft,
+    autoLoadDraftIfEmpty,
     restoreDraft,
     discardDraft: clearDraft,
   };

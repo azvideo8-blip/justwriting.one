@@ -2,16 +2,18 @@ import { useState, useEffect } from 'react';
 
 type Listener = (online: boolean) => void;
 
-let _isOnline = navigator.onLine;
+let _isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 const _listeners = new Set<Listener>();
+let _refCount = 0;
 
-function notify() {
-  _listeners.forEach(fn => fn(_isOnline));
+function handleOnline() {
+  _isOnline = true;
+  _listeners.forEach(fn => fn(true));
 }
 
-if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => { _isOnline = true; notify(); });
-  window.addEventListener('offline', () => { _isOnline = false; notify(); });
+function handleOffline() {
+  _isOnline = false;
+  _listeners.forEach(fn => fn(false));
 }
 
 export function useOnlineStatus(): boolean {
@@ -19,7 +21,21 @@ export function useOnlineStatus(): boolean {
 
   useEffect(() => {
     _listeners.add(setOnline);
-    return () => { _listeners.delete(setOnline); };
+    
+    if (_refCount === 0 && typeof window !== 'undefined') {
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+    }
+    _refCount++;
+
+    return () => {
+      _listeners.delete(setOnline);
+      _refCount--;
+      if (_refCount === 0 && typeof window !== 'undefined') {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      }
+    };
   }, []);
 
   return online;

@@ -27,10 +27,12 @@ interface ContentState {
 }
 
 let _wordCalcTimer: ReturnType<typeof setTimeout> | null = null;
+let _wordCalcIsScheduled = false; // [P-01] флаг для предотвращения нескольких setContent в очереди
 
 export function clearWordCalcTimer() {
   if (_wordCalcTimer) clearTimeout(_wordCalcTimer);
   _wordCalcTimer = null;
+  _wordCalcIsScheduled = false;
 }
 
 export const useContentStore = create<ContentState>((set, get) => ({
@@ -41,10 +43,13 @@ export const useContentStore = create<ContentState>((set, get) => ({
 
   setContent: (content) => {
     set({ content });
-    if (_wordCalcTimer) clearTimeout(_wordCalcTimer);
-    _wordCalcTimer = setTimeout(() => {
-      get().recalcStats();
-    }, 100);
+    if (!_wordCalcIsScheduled) { // [P-01] создаём таймер только если нет запланированного
+      _wordCalcIsScheduled = true;
+      _wordCalcTimer = setTimeout(() => {
+        _wordCalcIsScheduled = false;
+        get().recalcStats();
+      }, 100);
+    }
   },
 
   recalcStats: () => {

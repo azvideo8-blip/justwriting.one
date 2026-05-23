@@ -15,16 +15,16 @@ export function ProtectedRoute({ children, requireAdmin }: { children: React.Rea
 
   useEffect(() => {
     if (!requireAdmin || !user) {
-      setTimeout(() => setCheckingAdmin(false), 0);
+      setCheckingAdmin(false);
       return;
     }
     user.getIdTokenResult().then(token => {
       setIsAdmin(token.claims.admin === true || profile?.role === 'admin');
-      setTimeout(() => setCheckingAdmin(false), 0);
+      setCheckingAdmin(false);
     }).catch(e => {
       reportError(e, { action: 'checkAdminClaim' });
       setIsAdmin(false);
-      setTimeout(() => setCheckingAdmin(false), 0);
+      setCheckingAdmin(false);
     });
   }, [requireAdmin, user, profile]);
 

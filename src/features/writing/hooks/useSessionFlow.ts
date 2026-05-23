@@ -70,9 +70,10 @@ export function useSessionFlow(
 
   useEffect(() => {
     if (sessionStatus === 'writing') {
-      const showTimer = setTimeout(() => setSessionStartFlash(true), 0);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSessionStartFlash(true);
       const hideTimer = setTimeout(() => setSessionStartFlash(false), 800);
-      return () => { clearTimeout(showTimer); clearTimeout(hideTimer); };
+      return () => { clearTimeout(hideTimer); };
     }
   }, [sessionStatus]);
 
@@ -83,14 +84,16 @@ export function useSessionFlow(
       goalFiredRef.current = true;
       playGoalSound();
       const type = wordGoalReached ? 'words' : 'time';
-      const showTimer = setTimeout(() => { setGoalToastType(type); setGoalToastVisible(true); }, 0);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setGoalToastType(type);
+      setGoalToastVisible(true);
       const hideTimer = setTimeout(() => setGoalToastVisible(false), 4000);
-      return () => { clearTimeout(showTimer); clearTimeout(hideTimer); };
+      return () => { clearTimeout(hideTimer); };
     }
 
     if (sessionStatus === 'idle') {
       goalFiredRef.current = false;
-      setTimeout(() => setGoalToastVisible(false), 0);
+      setGoalToastVisible(false);
     }
   }, [timeGoalReached, wordGoalReached, sessionStatus]);
 
@@ -106,11 +109,12 @@ export function useSessionFlow(
         const remaining = Math.max(0, (target.getTime() - now.getTime()) / 1000);
         const dur = remaining + useTimerStore.getState().getElapsedSeconds();
         totalDurationRef.current = dur;
-        setTimeout(() => setTotalDurationForDeadline(dur), 0);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setTotalDurationForDeadline(dur);
       }
     } else if (sessionStatus === 'idle') {
       totalDurationRef.current = null;
-      setTimeout(() => setTotalDurationForDeadline(null), 0);
+      setTotalDurationForDeadline(null);
     }
   }, [sessionStatus, sessionType, targetTime]);
 

@@ -18,7 +18,14 @@ export interface CloudSessionReturn extends BaseSessionReturn {
   handleCancel: () => Promise<void>;
   fetchLocalSessions: () => Promise<LocalSessionInfo[]>;
   loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
-  loadDraft: () => Promise<void>;
+  /**
+   * Automatically loads the draft if the current store content is empty.
+   * If there is a draft but the store already has content, it sets hasDraft to true.
+   */
+  autoLoadDraftIfEmpty: () => Promise<void>;
+  /**
+   * Forcefully restores the draft, overwriting any current content in the store.
+   */
   restoreDraft: () => Promise<void>;
   discardDraft: () => void;
 }
@@ -80,7 +87,7 @@ export function useCloudWritingSession(user: User, profile: UserProfile | null):
     handleCancel: persistence.handleCancel,
     fetchLocalSessions: persistence.fetchLocalSessions,
     loadLocalSession: persistence.loadLocalSession,
-    loadDraft: persistence.loadDraft,
+    autoLoadDraftIfEmpty: persistence.autoLoadDraftIfEmpty,
     restoreDraft: persistence.restoreDraft,
     discardDraft,
   };

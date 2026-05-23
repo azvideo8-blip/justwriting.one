@@ -2,7 +2,7 @@ import { DocumentService } from './DocumentService';
 import { VersionService } from './VersionService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
-import { getLocalDb, randomUUID } from '../../../shared/lib/localDb';
+import { getLocalDb, randomUUID, LocalDocument } from '../../../shared/lib/localDb';
 import { toDate } from '../../../core/utils/dateUtils';
 import { computeWordDelta } from './DiffService';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
@@ -291,34 +291,28 @@ export const StorageService = {
   },
 };
 
-async function _doSaveVersion(
-  userId: string,
+async function saveVersionToLocal(
+  db: Awaited<ReturnType<typeof getLocalDb>>,
   documentId: string,
-  data: SaveDocumentData
+  data: SaveDocumentData,
+  existing: LocalDocument,
+  newVersion: number,
+  prevContent: string,
+  now: number
 ): Promise<void> {
-  const db = await getLocalDb();
   const tx = db.transaction(['documents', 'versions'], 'readwrite');
   const docStore = tx.objectStore('documents');
   const verStore = tx.objectStore('versions');
 
-  const existing = await docStore.get(documentId);
-  if (!existing) { await tx.done; throw new Error('Document not found'); }
-
-  const prevVer = await verStore.index('by-doc-version').get([documentId, existing.currentVersion]);
-  const prevContent = prevVer?.content ?? '';
-
-  const newVersion = existing.currentVersion + 1;
   const diff = computeWordDelta(prevContent, data.content);
   const verId = `ver_${randomUUID()}`;
   const totalWords = data.documentWordCount ?? data.wordCount;
-  const now = Date.now();
 
-  let localSaved = false;
   try {
     await verStore.put({
       id: verId,
       documentId,
-      guestId: userId,
+      guestId: existing.guestId,
       version: newVersion,
       content: data.content,
       wordCount: data.wordCount,
@@ -343,100 +337,166 @@ async function _doSaveVersion(
     });
 
     await tx.done;
-    localSaved = true;
   } catch (localErr) {
     if (localErr instanceof DOMException && localErr.name === 'QuotaExceededError') {
-      reportError(localErr, { action: '_doSaveVersion', documentId, quotaExceeded: true }, 'warning');
+      reportError(localErr, { action: 'saveVersionToLocal', documentId, quotaExceeded: true }, 'warning');
     } else {
-      reportError(localErr, { action: '_doSaveVersion_localSave', documentId });
+      reportError(localErr, { action: 'saveVersionToLocal_localSave', documentId });
       throw localErr;
     }
   }
+}
 
-  if (localSaved) {
+async function updateLocalProfile(
+  guestId: string,
+  oldWords: number,
+  newWords: number,
+  oldDuration: number,
+  newDuration: number,
+  now: number
+): Promise<void> {
+  try {
+    const profileDb = await getLocalDb();
+    const profileTx = profileDb.transaction(['profile'], 'readwrite');
+    const profStore = profileTx.objectStore('profile');
+    const profile = await profStore.get(guestId);
+    if (profile) {
+      await profStore.put({
+        ...profile,
+        totalWords: profile.totalWords - oldWords + newWords,
+        totalDuration: profile.totalDuration - oldDuration + newDuration,
+        sessionsCount: profile.sessionsCount + 1,
+        lastSessionAt: now,
+      });
+    }
+    await profileTx.done;
+
+    if (!profile) {
+      await LocalDocumentService._updateProfile(guestId);
+    }
+  } catch (profileErr) {
+    reportError(profileErr, { action: 'updateLocalProfile', guestId });
     try {
-      const profileDb = await getLocalDb();
-      const profileTx = profileDb.transaction(['profile'], 'readwrite');
-      const profStore = profileTx.objectStore('profile');
-      const profile = await profStore.get(existing.guestId);
-      if (profile) {
-        await profStore.put({
-          ...profile,
-          totalWords: profile.totalWords - existing.totalWords + totalWords,
-          totalDuration: profile.totalDuration - existing.totalDuration + data.duration,
-          sessionsCount: profile.sessionsCount + 1,
-          lastSessionAt: now,
-        });
-      }
-      await profileTx.done;
-
-      if (!profile) {
-        await LocalDocumentService._updateProfile(existing.guestId);
-      }
-    } catch (profileErr) {
-      reportError(profileErr, { action: '_doSaveVersion_profileUpdate', guestId: existing.guestId });
-      try { await LocalDocumentService._updateProfile(existing.guestId); } catch (fallbackErr) { reportError(fallbackErr, { action: '_doSaveVersion_profileFallback', guestId: existing.guestId }); }
+      await LocalDocumentService._updateProfile(guestId);
+    } catch (fallbackErr) {
+      reportError(fallbackErr, { action: 'updateLocalProfile_fallback', guestId });
     }
   }
+}
+
+async function syncVersionToCloud(
+  userId: string,
+  documentId: string,
+  linkedCloudId: string,
+  data: SaveDocumentData,
+  newVersion: number,
+  prevContent: string
+): Promise<void> {
+  try {
+    const cloudDoc = await DocumentService.getDocument(userId, linkedCloudId);
+    if (!cloudDoc) {
+      const syncDb = await getLocalDb();
+      await syncDb.put('syncQueue', {
+        id: `sync_${documentId}_${Date.now()}`,
+        documentId,
+        type: 'document' as const,
+        createdAt: Date.now(),
+      });
+    } else {
+      const startedAt = data.sessionStartedAt;
+      if (isNaN(startedAt.getTime())) {
+        throw new Error('Invalid sessionStartedAt');
+      }
+      const versionPayload = await maybeEncrypt({
+        content: data.content,
+        previousContent: prevContent,
+        wordCount: data.wordCount,
+        duration: data.duration,
+        wpm: data.wpm,
+        versionNumber: newVersion,
+        goalWords: data.goalWords,
+        goalTime: data.goalTime,
+        goalReached: data.goalReached,
+        sessionStartedAt: startedAt,
+      } as Record<string, unknown>, ['content', 'previousContent'], [], userId);
+      await VersionService.addVersion(userId, linkedCloudId, {
+        content: versionPayload.content as string,
+        previousContent: versionPayload.previousContent as string,
+        wordCount: data.wordCount,
+        duration: data.duration,
+        wpm: data.wpm,
+        versionNumber: newVersion,
+        goalWords: data.goalWords,
+        goalTime: data.goalTime,
+        goalReached: data.goalReached,
+        sessionStartedAt: startedAt,
+        _encrypted: versionPayload._encrypted as boolean | undefined,
+      });
+      await DocumentService.updateDocumentAfterSession(userId, linkedCloudId, {
+        totalWords: data.documentWordCount ?? data.wordCount,
+        totalDuration: data.duration,
+        currentVersion: newVersion,
+      });
+    }
+  } catch (e) {
+    reportError(e, { action: 'syncVersionToCloud', documentId, linkedCloudId });
+    try {
+      const syncDb = await getLocalDb();
+      await syncDb.put('syncQueue', {
+        id: `sync_${documentId}_${Date.now()}`,
+        documentId,
+        type: 'document' as const,
+        createdAt: Date.now(),
+      });
+    } catch (queueErr) {
+      reportError(queueErr, { action: 'syncVersionToCloud_queueSync', documentId });
+    }
+  }
+}
+
+async function _doSaveVersion(
+  userId: string,
+  documentId: string,
+  data: SaveDocumentData
+): Promise<void> {
+  const db = await getLocalDb();
+  const tx = db.transaction(['documents', 'versions'], 'readonly');
+  const docStore = tx.objectStore('documents');
+  const verStore = tx.objectStore('versions');
+
+  const existing = await docStore.get(documentId);
+  if (!existing) {
+    await tx.done;
+    throw new Error('Document not found');
+  }
+
+  const prevVer = await verStore.index('by-doc-version').get([documentId, existing.currentVersion]);
+  const prevContent = prevVer?.content ?? '';
+  await tx.done;
+
+  const newVersion = existing.currentVersion + 1;
+  const totalWords = data.documentWordCount ?? data.wordCount;
+  const now = Date.now();
+
+  await saveVersionToLocal(db, documentId, data, existing, newVersion, prevContent, now);
+
+  await updateLocalProfile(
+    existing.guestId,
+    existing.totalWords,
+    totalWords,
+    existing.totalDuration,
+    data.duration,
+    now
+  );
 
   if (existing.linkedCloudId) {
-    try {
-      const cloudDoc = await DocumentService.getDocument(userId, existing.linkedCloudId);
-      if (!cloudDoc) {
-        const syncDb = await getLocalDb();
-        await syncDb.put('syncQueue', {
-          id: `sync_${documentId}_${Date.now()}`,
-          documentId,
-          type: 'document' as const,
-          createdAt: Date.now(),
-        });
-      } else {
-        const startedAt = data.sessionStartedAt;
-        if (isNaN(startedAt.getTime())) {
-          throw new Error('Invalid sessionStartedAt');
-        }
-        const versionPayload = await maybeEncrypt({
-          content: data.content,
-          previousContent: prevContent,
-          wordCount: data.wordCount,
-          duration: data.duration,
-          wpm: data.wpm,
-          versionNumber: newVersion,
-          goalWords: data.goalWords,
-          goalTime: data.goalTime,
-          goalReached: data.goalReached,
-          sessionStartedAt: startedAt,
-        } as Record<string, unknown>, ['content', 'previousContent'], [], userId);
-        await VersionService.addVersion(userId, existing.linkedCloudId, {
-          content: versionPayload.content as string,
-          previousContent: versionPayload.previousContent as string,
-          wordCount: data.wordCount,
-          duration: data.duration,
-          wpm: data.wpm,
-          versionNumber: newVersion,
-          goalWords: data.goalWords,
-          goalTime: data.goalTime,
-          goalReached: data.goalReached,
-          sessionStartedAt: startedAt,
-          _encrypted: versionPayload._encrypted as boolean | undefined,
-        });
-        await DocumentService.updateDocumentAfterSession(userId, existing.linkedCloudId, {
-          totalWords: data.documentWordCount ?? data.wordCount,
-          totalDuration: data.duration,
-          currentVersion: newVersion,
-        });
-      }
-    } catch (e) {
-      reportError(e, { action: '_doSaveVersion_cloudSync', documentId, linkedCloudId: existing.linkedCloudId });
-      try {
-        const syncDb = await getLocalDb();
-        await syncDb.put('syncQueue', {
-          id: `sync_${documentId}_${Date.now()}`,
-          documentId,
-          type: 'document' as const,
-          createdAt: Date.now(),
-        });
-      } catch (queueErr) { reportError(queueErr, { action: '_doSaveVersion_queueSync', documentId }); }
-    }
+    await syncVersionToCloud(
+      userId,
+      documentId,
+      existing.linkedCloudId,
+      data,
+      newVersion,
+      prevContent
+    );
   }
 }

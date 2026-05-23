@@ -58,9 +58,11 @@ async function flushPending(batch: WriteBatch, ops: PendingOp[]): Promise<string
   return keys;
 }
 
+// [A-09] добавлен signal для отмены: предотвращает частичное шифрование при закрытии вкладки
 export async function encryptAllExistingNotes(
   userId: string,
   onProgress?: (p: MigrationProgress) => void,
+  signal?: AbortSignal,
 ): Promise<MigrationProgress> {
   const key = getSessionKey();
   if (!key) throw new Error('Not unlocked');
@@ -88,6 +90,7 @@ export async function encryptAllExistingNotes(
     };
 
     for (const d of sessionsSnap.docs) {
+      if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError'); // [A-09]
       try {
         const ck = `s_${d.id}`;
         if (checkpoint.has(ck) || d.data()._encrypted) {
@@ -132,6 +135,7 @@ export async function encryptAllExistingNotes(
         };
 
         for (const v of versionsSnap.docs) {
+          if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError'); // [A-09]
           try {
             const ck = `v_${documentId}_${v.id}`;
             if (checkpoint.has(ck) || v.data()._encrypted) {
@@ -176,6 +180,7 @@ export async function encryptAllExistingNotes(
     };
 
     for (const d of draftSnap.docs) {
+      if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError'); // [A-09]
       try {
         const ck = `d_${d.id}`;
         if (checkpoint.has(ck) || d.data()._encrypted) {
