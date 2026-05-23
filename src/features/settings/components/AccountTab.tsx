@@ -45,7 +45,7 @@ export function AccountTab({ userId }: AccountTabProps) {
   const [confirmVaultPassword, setConfirmVaultPassword] = useState('');
   const [vaultLoading, setVaultLoading] = useState(false);
   const [vaultError, setVaultError] = useState<string | null>(null);
-  const [, setForceUpdate] = useState(0);
+  const [isVaultUnlocked, setIsVaultUnlocked] = useState(() => !!getSessionKey());
 
   const handleUnlockVault = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,9 +65,9 @@ export function AccountTab({ userId }: AccountTabProps) {
       
       setSessionKey(dataKey);
       setEncryptionEnabled(userId, true);
-      showToast(t('unlock_success'), 'success');
+      setIsVaultUnlocked(true);
       setVaultPassword('');
-      setForceUpdate(u => u + 1);
+      showToast(t('unlock_success'), 'success');
     } catch (err) {
       if (err instanceof DOMException && err.name === 'OperationError') {
         setVaultError(t('unlock_wrong_password'));
@@ -111,7 +111,7 @@ export function AccountTab({ userId }: AccountTabProps) {
       showToast(t('unlock_success') || 'Encryption set up successfully', 'success');
       setVaultPassword('');
       setConfirmVaultPassword('');
-      setForceUpdate(u => u + 1);
+      setIsVaultUnlocked(true);
     } catch (err) {
       reportError(err, { action: 'initializeEncryptionInSettings', userId });
       setVaultError(t('error_generic_action'));
@@ -123,7 +123,7 @@ export function AccountTab({ userId }: AccountTabProps) {
   const handleLockVault = () => {
     clearSessionKey();
     setEncryptionEnabled(userId, false);
-    setForceUpdate(u => u + 1);
+    setIsVaultUnlocked(false);
     showToast(t('settings_lock_vault') || 'Vault locked', 'success');
   };
 
@@ -389,7 +389,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                   </button>
                 </form>
               </div>
-            ) : !getSessionKey() ? (
+            ) : !isVaultUnlocked ? (
               <div className="p-4 rounded-xl border border-border-subtle space-y-4">
                 <div className="flex items-start gap-3">
                   <Lock size={18} className="text-text-main/40 mt-0.5" />
