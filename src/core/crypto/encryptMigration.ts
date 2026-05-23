@@ -28,7 +28,9 @@ function loadCheckpoint(userId: string): Set<string> {
 function saveCheckpoint(userId: string, ids: Set<string>) {
   try {
     localStorage.setItem(getCheckpointKey(userId), JSON.stringify([...ids]));
-  } catch { /* ignore */ }
+  } catch (e) {
+    reportError(e, { action: 'encryptMigration_checkpoint_save', processedCount: ids.size }, 'warning');
+  }
 }
 
 function clearCheckpoint(userId: string) {
@@ -64,6 +66,7 @@ export async function encryptAllExistingNotes(
   onProgress?: (p: MigrationProgress) => void,
   signal?: AbortSignal,
 ): Promise<MigrationProgress> {
+  if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
   const key = getSessionKey();
   if (!key) throw new Error('Not unlocked');
 
@@ -105,6 +108,7 @@ export async function encryptAllExistingNotes(
         if (pending.length >= BATCH_SIZE) await flush();
         progress.encrypted++;
        } catch (e) {
+         if (e instanceof DOMException && e.name === 'AbortError') throw e;
          progress.errors++;
          reportError(e, { action: 'encryptAllExistingNotes_session', sessionId: d.id });
        }
@@ -113,6 +117,7 @@ export async function encryptAllExistingNotes(
     }
     await flush();
   } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e;
     reportError(e, { action: 'encryptAllExistingNotes_sessionsQuery', userId });
   }
 
@@ -150,6 +155,7 @@ export async function encryptAllExistingNotes(
             if (pending.length >= BATCH_SIZE) await flush();
              progress.encrypted++;
            } catch (e) {
+             if (e instanceof DOMException && e.name === 'AbortError') throw e;
              progress.errors++;
              reportError(e, { action: 'encryptAllExistingNotes_version', versionId: v.id, documentId });
            }
@@ -158,10 +164,12 @@ export async function encryptAllExistingNotes(
         }
          await flush();
        } catch (e) {
+         if (e instanceof DOMException && e.name === 'AbortError') throw e;
          reportError(e, { action: 'encryptAllExistingNotes_documentVersions', documentId });
        }
     }
   } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e;
     reportError(e, { action: 'encryptAllExistingNotes_documentsQuery', userId });
   }
 
@@ -195,6 +203,7 @@ export async function encryptAllExistingNotes(
         if (pending.length >= BATCH_SIZE) await flush();
          progress.encrypted++;
        } catch (e) {
+         if (e instanceof DOMException && e.name === 'AbortError') throw e;
          progress.errors++;
          reportError(e, { action: 'encryptAllExistingNotes_draft', draftId: d.id });
        }
@@ -203,6 +212,7 @@ export async function encryptAllExistingNotes(
     }
     await flush();
   } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e;
     reportError(e, { action: 'encryptAllExistingNotes_draftsQuery', userId });
   }
 

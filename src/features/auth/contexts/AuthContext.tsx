@@ -83,7 +83,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
           keysToRemove.forEach(k => localStorage.removeItem(k));
-        } catch { /* ignore */ }
+        } catch (e) {
+          reportError(e, { action: 'cleanupOldSessionKeys', uid: u.uid }, 'warning');
+        }
       } else {
         clearSessionKey();
       }

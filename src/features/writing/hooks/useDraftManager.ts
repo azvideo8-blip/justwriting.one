@@ -41,6 +41,14 @@ export function useDraftManager(
     };
   }, []);
 
+  const getDraftDataRef = useRef(getDraftData);
+  const onSaveDraftRef = useRef(options.onSaveDraft);
+
+  useEffect(() => {
+    getDraftDataRef.current = getDraftData;
+    onSaveDraftRef.current = options.onSaveDraft;
+  }, [getDraftData, options.onSaveDraft]);
+
   const doAutosave = useCallback(async () => {
     if (!userId) return;
     const currentStatus = useTimerStore.getState().status;
@@ -48,8 +56,8 @@ export function useDraftManager(
     if (savingRef.current) return;
     savingRef.current = true;
     try {
-      const data = getDraftData();
-      await options.onSaveDraft(data);
+      const data = getDraftDataRef.current();
+      await onSaveDraftRef.current(data);
       if (isMountedRef.current) {
         setSaveStatus('saved');
         setLastSavedAt(Date.now());
@@ -65,11 +73,15 @@ export function useDraftManager(
         setSaveStatus('error');
         setSaveErrorKind(isQuota ? 'quota' : 'unknown');
       }
-      if (!isQuota) reportError(err, { action: 'draftManager/autosave' });
+      if (isQuota) {
+        reportError(err, { action: 'draftManager/quota_exceeded', userId }, 'warning');
+      } else {
+        reportError(err, { action: 'draftManager/autosave', userId });
+      }
     } finally {
       savingRef.current = false;
     }
-  }, [userId, getDraftData, options.onSaveDraft]);
+  }, [userId]);
 
   useEffect(() => {
     if (timerStatus !== 'writing' && timerStatus !== 'paused') return;

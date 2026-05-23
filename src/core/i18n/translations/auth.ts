@@ -12,6 +12,7 @@ export const authTranslations: Translations = {
   auth_error_operation_not_allowed: { ru: 'Вход по Email не включен в консоли Firebase. Пожалуйста, включите провайдера \'Email/Password\' в настройках Authentication.', en: 'Email sign-in is not enabled in Firebase Console. Please enable the \'Email/Password\' provider in Authentication settings.' },
   auth_error_network: { ru: 'Ошибка сети при попытке входа. Проверьте соединение или убедитесь, что провайдер Email включен в консоли Firebase.', en: 'Network error during sign-in. Check your connection or ensure the Email provider is enabled in Firebase Console.' },
   auth_error_internal: { ru: 'Внутренняя ошибка Firebase. Убедитесь, что провайдер Email/Password включен в консоли Firebase (Authentication -> Sign-in method), или попробуйте позже.', en: 'Internal Firebase error. Ensure the Email/Password provider is enabled in Firebase Console (Authentication -> Sign-in method), or try again later.' },
+  auth_error_encryption_key_save_failed: { ru: 'Не удалось сохранить ключи шифрования. Пожалуйста, попробуйте другую почту или очистите кэш.', en: 'Failed to save encryption keys. Please try another email or clear cache.' },
   auth_subtitle: { ru: 'Минималистичное пространство для писателей.', en: 'A minimalist space for writers.' },
   auth_password: { ru: 'Пароль', en: 'Password' },
   auth_sign_in: { ru: 'Войти', en: 'Sign In' },

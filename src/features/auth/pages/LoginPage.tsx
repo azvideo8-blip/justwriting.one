@@ -87,7 +87,11 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
               encryptionSalt: toBase64(salt),
               encryptedDataKey: wrappedDataKey,
             }));
-          } catch { /* ignore */ }
+          } catch (storageErr) {
+            reportError(storageErr, { action: 'saveEncryptionKeys_fallback', userId: cred.user.uid });
+            setError(t('auth_error_encryption_key_save_failed'));
+            return;
+          }
         }
 
         setSessionKey(dataKey);

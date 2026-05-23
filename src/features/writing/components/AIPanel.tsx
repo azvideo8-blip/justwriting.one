@@ -7,6 +7,7 @@ import { AIService, type AIAction, type AIResult } from '../../ai/services/AISer
 import { AIContextService } from '../../ai/services/AIContextService';
 import { useContentStore } from '../store/useContentStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
+import { reportError } from '../../../core/errors/reportError';
 
 const AI_ACTIONS: { action: AIAction; icon: React.ReactNode; labelKey: string }[] = [
   { action: 'shorten', icon: <AlignLeft size={14} />, labelKey: 'ai_action_shorten' },
@@ -54,7 +55,8 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
     if (res.ok) {
       setResult(res.text);
       if (savedDocumentId) {
-        AIContextService.append(savedDocumentId, content.slice(0, 2000), res.text).catch(() => {});
+        AIContextService.append(savedDocumentId, content.slice(0, 2000), res.text)
+          .catch((e) => reportError(e, { action: 'aiContext_append', docId: savedDocumentId }, 'warning'));
       }
     } else {
       const errorMap: Record<string, string> = {

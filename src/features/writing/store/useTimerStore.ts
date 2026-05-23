@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { TimerStatus, SessionType } from './types';
-import { useContentStore } from './useContentStore';
 
 interface TimerState {
   status: TimerStatus;
@@ -26,18 +25,18 @@ interface TimerState {
   getElapsedSeconds: () => number;
   getSessionSeconds: () => number;
   setStatus: (status: TimerStatus) => void;
-  setSessionStart: () => void;
+  setSessionStart: (wordCount: number) => void;
   pauseSession: () => void;
   resumeSession: () => void;
   setTimerDuration: (duration: number) => void;
-  setWordGoal: (goal: number) => void;
+  setWordGoal: (goal: number, wordCount?: number) => void;
   setTargetTime: (time: string | null) => void;
   setTimeGoalReached: (reached: boolean) => void;
   setWordGoalReached: (reached: boolean) => void;
   setSessionType: (type: SessionType) => void;
   setInitialDuration: (duration: number) => void;
   setAccumulatedDuration: (d: number) => void;
-  startFreeSession: () => void;
+  startFreeSession: (wordCount: number) => void;
   checkGoals: () => void;
 }
 
@@ -66,8 +65,8 @@ export const useTimerStore = create<TimerState>((set, get) => ({
 
   setStatus: (status) => set({ status }),
 
-  setSessionStart: () => set((state) => ({
-    sessionStartWords: useContentStore.getState().wordCount,
+  setSessionStart: (wordCount) => set((state) => ({
+    sessionStartWords: wordCount,
     sessionStartSeconds: state.getElapsedSeconds(),
     sessionStartAccMs: state._accumulatedMs,
     sessionStartWallMs: state._startWallMs,
@@ -144,12 +143,12 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     return { timerDuration };
   }),
 
-  setWordGoal: (wordGoal) => set((state) => {
+  setWordGoal: (wordGoal, wordCount) => set((state) => {
     if (state.status !== 'idle' && state.wordGoalReached) {
       return {
         wordGoal,
         wordGoalReached: false,
-        sessionStartWords: useContentStore.getState().wordCount,
+        sessionStartWords: wordCount ?? 0,
       };
     }
     return { wordGoal };
@@ -162,9 +161,9 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   setInitialDuration: (initialDuration) => set({ initialDuration }),
   setAccumulatedDuration: (accumulatedDuration) => set({ accumulatedDuration }),
 
-  startFreeSession: () => set((state) => ({
+  startFreeSession: (wordCount) => set((state) => ({
     sessionType: 'free' as SessionType,
-    sessionStartWords: useContentStore.getState().wordCount,
+    sessionStartWords: wordCount,
     sessionStartSeconds: state.getElapsedSeconds(),
     sessionStartAccMs: state._accumulatedMs,
     sessionStartWallMs: state._startWallMs,

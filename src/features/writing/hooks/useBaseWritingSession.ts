@@ -102,7 +102,7 @@ export function useBaseWritingSession(): BaseSessionReturn {
     }
     if (currentStatus === 'idle') {
       useTimerStore.setState({ _startWallMs: performance.now(), _accumulatedMs: 0, seconds: 0, sessionStartSeconds: 0 });
-      setSessionStart();
+      setSessionStart(wordCount);
     } else if (currentStatus === 'paused') {
       useTimerStore.getState().resumeSession();
     }

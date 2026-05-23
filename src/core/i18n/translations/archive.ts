@@ -96,4 +96,8 @@ export const archiveTranslations: Translations = {
   archive_sort_shortest: { ru: 'Самые короткие',          en: 'Shortest first' },
   archive_sort_title_az: { ru: 'По названию А→Я',         en: 'Title A→Z' },
   archive_sort_title_za: { ru: 'По названию Я→А',         en: 'Title Z→A' },
+  tag_renamed: { ru: 'Тег изменен', en: 'Tag renamed' },
+  error_tag_rename_failed: { ru: 'Не удалось изменить тег', en: 'Failed to rename tag' },
+  tag_deleted: { ru: 'Тег удален', en: 'Tag deleted' },
+  error_tag_delete_failed: { ru: 'Не удалось удалить тег', en: 'Failed to delete tag' },
 };

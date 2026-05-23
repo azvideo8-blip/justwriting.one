@@ -67,7 +67,6 @@ export const useContentStore = create<ContentState>((set, get) => ({
         wordSnapshots: [],
         wpm: 0,
       });
-      useTimerStore.setState({ wordGoalReached: false });
       return;
     }
 
@@ -90,9 +89,6 @@ export const useContentStore = create<ContentState>((set, get) => ({
       }
     }
 
-    const sessionWords = words - timerState.sessionStartWords;
-    const wordGoalReached = timerState.wordGoal > 0 && sessionWords >= timerState.wordGoal;
-
     const history = Array.isArray(state.wpmHistory) ? state.wpmHistory : [];
     const lastHistoryEntry = history[history.length - 1];
     if (currentWpm > 0 && (!lastHistoryEntry || now - lastHistoryEntry.timestamp >= 30_000)) {
@@ -105,8 +101,6 @@ export const useContentStore = create<ContentState>((set, get) => ({
       wordSnapshots: newSnapshots,
       wpm: currentWpm,
     });
-
-    useTimerStore.setState({ wordGoalReached });
   },
 
   setTitle: (title) => set({ title }),

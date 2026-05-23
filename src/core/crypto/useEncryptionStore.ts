@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { reportError } from '../errors/reportError';
 
 interface EncryptionState {
   dataKey: CryptoKey | null;
@@ -48,7 +49,10 @@ export const useEncryptionStore = create<EncryptionState>((set, get) => ({
           return enabled;
         }
       }
-    } catch {}
+    } catch (e) {
+      reportError(e, { action: 'isEncryptionEnabled_read', userId }, 'warning');
+      return !userId.startsWith('guest_') && userId !== 'guest';
+    }
     return false;
   },
 

@@ -201,7 +201,7 @@ export const WritingHeader = React.memo(function WritingHeader({
               <HeaderStats
                 wordGoal={wordGoal}
                 timerDuration={timerDuration}
-                onSetWordGoal={setWordGoal}
+                onSetWordGoal={(v) => setWordGoal(v, wordCount)}
                 onSetTimerDuration={setTimerDuration}
                 sessionWords={sessionWords}
                 sessionSeconds={sessionSeconds}

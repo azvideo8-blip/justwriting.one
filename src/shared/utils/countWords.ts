@@ -1,15 +1,6 @@
 export function countWords(text: string): number {
-  let count = 0;
-  let inWord = false;
-  for (let i = 0; i < text.length; i++) {
-    const isSpace = text.charCodeAt(i) <= 32;
-    if (inWord && isSpace) {
-      count++;
-      inWord = false;
-    } else if (!inWord && !isSpace) {
-      inWord = true;
-    }
-  }
-  if (inWord) count++;
-  return count;
+  if (!text) return 0;
+  // Match sequences of letters/digits (including Unicode) or words with internal apostrophes/hyphens
+  const matches = text.match(/[\p{L}\p{N}]+(?:[-'\p{L}\p{N}]*[\p{L}\p{N}]+)?/gu);
+  return matches ? matches.length : 0;
 }

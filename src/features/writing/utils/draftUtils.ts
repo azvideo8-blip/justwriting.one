@@ -48,5 +48,5 @@ export function applyDraftToStores(draft: DraftDataToApply) {
     activeSessionId: draft.activeSessionId ?? null,
   });
 
-  useTimerStore.getState().setSessionStart();
+  useTimerStore.getState().setSessionStart(useContentStore.getState().wordCount);
 }
