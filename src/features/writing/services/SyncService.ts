@@ -47,7 +47,7 @@ export const SyncService = {
     try {
       await _drainPendingQueue(userId);
     } finally {
-      _syncInProgress.set(userId, false);
+      _syncInProgress.delete(userId); // [A-08] delete вместо set(false): очищаем Map, а не накапливаем false-записи
     }
   },
 

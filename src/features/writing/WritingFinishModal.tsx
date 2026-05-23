@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Download, FileText } from 'lucide-react';
 import { cn } from '../../core/utils/utils';
@@ -14,6 +14,34 @@ import { useContentStore } from './store/useContentStore';
 import { useTimerStore } from './store/useTimerStore';
 import { useModalEscape } from '../../shared/hooks/useModalEscape';
 import { StreakDots } from '../../shared/components/StreakDots';
+
+// [U-06]  focus trap: удерживает фокус внутри модала при навигации через Tab (WCAG 2.1 — 2.4.3 Focus Order)
+function useFocusTrap(ref: React.RefObject<HTMLElement | null>, isActive: boolean) {
+  useEffect(() => {
+    if (!isActive || !ref.current) return;
+    const container = ref.current;
+    const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
+    const getFocusable = () => Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE));
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const focusable = getFocusable();
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
+
+    // фокус на первый элемент при открытии
+    getFocusable()[0]?.focus();
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isActive, ref]);
+}
 
 const STOP_WORDS = new Set([
   'это','что','как','так','все','они','она','он','мы','вы','я','его','её','их',
@@ -86,6 +114,8 @@ export function WritingFinishModal({
   const animWpm = useCountUp(avgWpm);
 
   useModalEscape(isOpen, onCancel);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, isOpen); // [U-06] focus trap — удерживаем фокус внутри модала
 
   const tagInputRef = React.useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<'form' | 'mood'>('form');
@@ -98,6 +128,7 @@ export function WritingFinishModal({
   const titleInputValue = editTitle || title || '';
 
   const popularWords = React.useMemo(() => {
+    if (!isOpen) return [];
     const words = content.toLowerCase().match(/(?<![а-яёa-z])[а-яёa-z]{4,}(?![а-яёa-z])/g) || [];
     const freq: Record<string, number> = {};
     words.forEach(w => {
@@ -108,7 +139,7 @@ export function WritingFinishModal({
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([word]) => word);
-  }, [content]);
+  }, [content, isOpen]);
 
   const allSuggestions = React.useMemo(() => {
     const suggestions = new Set([(title || '').trim(), ...popularWords].filter(Boolean));
@@ -167,6 +198,7 @@ export function WritingFinishModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-base/80 backdrop-blur-2xl">
       <motion.div
+        ref={modalRef}
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
@@ -281,6 +313,7 @@ export function WritingFinishModal({
               value={titleInputValue}
               onChange={e => setEditTitle(e.target.value)}
               placeholder={t('editor_title_placeholder')}
+              maxLength={200} // [U-04] ограничение в соответствии с Firestore правилами
               className="w-full px-4 py-3 rounded-2xl border outline-none transition-all bg-surface-base border-border-subtle text-text-main text-lg font-medium placeholder:text-text-main/30 focus:border-text-main/40"
               autoFocus
             />

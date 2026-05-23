@@ -4,7 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
 
 const MAX_AI_CONTENT_LENGTH = 50_000;
-const RATE_LIMIT_MAX = 20;
+const RATE_LIMIT_MAX = 10; // [S-05] снижено с 20 до 10 req/min
 const RATE_LIMIT_WINDOW_MS = 60_000;
 
 const actionSchema = z.enum(['shorten', 'accents', 'ideas', 'summarize', 'tags', 'mood', 'continue']);
@@ -30,11 +30,15 @@ function sanitizeAiInput(content: string): string {
 }
 
 function sanitizeAiResponse(response: string): string {
+  // [S-04] расширенная санитизация:
+  // 1. убираем опасные теги целиком
+  // 2. убираем on* атрибуты в любом виде: onerror="...", onerror='...', onerror=alert(1)
+  // 3. блокируем javascript: схему везде (включая href="javascript:...")
   return response
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/on\w+\s*=\s*"[^"]*"/gi, '')
+    .replace(/on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
     .replace(/javascript\s*:/gi, 'blocked:');
 }
 

@@ -12,8 +12,15 @@ const AdminPage = React.lazy(() => import('../features/admin/pages/AdminPage').t
 const LoginPage = React.lazy(() => import('../features/auth/pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const AboutPage = React.lazy(() => import('../features/navigation/pages/AboutPage').then(m => ({ default: m.AboutPage })));
 
+import { Loader2 } from 'lucide-react';
+
+// [U-05] \u0437\u0430\u043c\u0435\u043d\u0438\u043b\u0438 "..." \u043d\u0430 \u0430\u043d\u0438\u043c\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u044b\u0439 \u0441\u043f\u0438\u043d\u043d\u0435\u0440
 function PageLoader() {
-  return <div className="flex items-center justify-center h-full"><div className="text-text-main/30 text-sm">...</div></div>;
+  return (
+    <div className="flex items-center justify-center h-full min-h-[200px]">
+      <Loader2 size={24} className="animate-spin text-text-main/30" />
+    </div>
+  );
 }
 
 export function AppRoutes() {

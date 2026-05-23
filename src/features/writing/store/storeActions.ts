@@ -38,6 +38,10 @@ export function resetSession() {
   useSessionMetaStore.setState(META_DEFAULTS);
 }
 
+// [L-02] finishSession и resetAndClear намеренно экспортируют одну и ту же функцию resetSession,
+// так как на данный момент сброс состояния при завершении сессии и при отмене идентичны.
+// Если в будущем поведение разделится (например, при завершении нужно будет сохранять мета-данные
+// или статистику перед сбросом), их следует реализовать как отдельные функции.
 export { resetSession as resetAndClear, resetSession as finishSession };
 
 export function loadDraftIntoStore(draft: {

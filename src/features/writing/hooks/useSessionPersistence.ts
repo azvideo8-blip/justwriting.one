@@ -81,7 +81,9 @@ export function useSessionPersistence(
     sessionStateRef.current = sessionState;
   }, [sessionState]);
 
-  function applyDraftToStore(draft: LocalDraft) {
+  const { setActiveSessionId, setHasDraft } = actions;
+
+  const applyDraftToStore = useCallback((draft: LocalDraft) => {
     useContentStore.setState({
       content: draft.content || '',
       title: draft.title || '',
@@ -101,39 +103,47 @@ export function useSessionPersistence(
       sessionStartTime: draft.sessionStartTime ?? null,
     });
     useTimerStore.getState().setSessionStart();
-    if (draft.activeSessionId) actions.setActiveSessionId(draft.activeSessionId);
-  }
+    if (draft.activeSessionId) setActiveSessionId(draft.activeSessionId);
+  }, [setActiveSessionId]);
 
   const draftLoadedForRef = useRef<string | null>(null);
-  const loadDraft = useCallback(async () => {
+  /**
+   * Automatically loads the draft if the current store content is empty.
+   * If there is a draft but the store already has content, it sets hasDraft to true.
+   */
+  const autoLoadDraftIfEmpty = useCallback(async () => {
     if (draftLoadedForRef.current === userId) return;
     if (!userId) return;
     
     const draftToLoad = await WritingDraftService.loadDraft(userId);
     if (draftToLoad) {
-      actions.setHasDraft(true);
+      setHasDraft(true);
       if (!useContentStore.getState().content) {
         applyDraftToStore(draftToLoad);
       }
       await WritingDraftService.clearLegacyDraft(userId);
     }
     draftLoadedForRef.current = userId;
-  }, [userId, actions]);
+  }, [userId, setHasDraft, applyDraftToStore]);
 
+  /**
+   * Forcefully restores the draft, overwriting any current content in the store.
+   */
   const restoreDraft = useCallback(async () => {
     if (!userId) return;
     const draftToLoad = await WritingDraftService.loadDraft(userId);
-    if (!draftToLoad) { actions.setHasDraft(false); return; }
+    if (!draftToLoad) { setHasDraft(false); return; }
     applyDraftToStore(draftToLoad);
-    actions.setHasDraft(false);
+    setHasDraft(false);
     await WritingDraftService.clearLegacyDraft(userId);
-  }, [userId, actions]);
+  }, [userId, setHasDraft, applyDraftToStore]);
 
   useEffect(() => {
-    loadDraft();
-  }, [loadDraft]);
+    autoLoadDraftIfEmpty();
+  }, [autoLoadDraftIfEmpty]);
 
-  const handleSave = async (isLocalOnly: boolean) => {
+  // [A-07] handleSave обёрнут в useCallback: не создаётся заново на каждом рендере
+  const handleSave = useCallback(async (isLocalOnly: boolean) => {
     useContentStore.getState().recalcStats();
     const contentState = useContentStore.getState();
     const timerState_ = useTimerStore.getState();
@@ -175,7 +185,7 @@ export function useSessionPersistence(
       reportError(e, { action: 'sessionPersistence/save' });
       throw e;
     }
-  };
+  }, [userId, isOnline, sessionState.activeSessionId, profile, user, actions]);
 
   const handleCancel = async () => {
     await WritingDraftService.deleteDraft(userId);
@@ -195,7 +205,7 @@ export function useSessionPersistence(
     handleCancel,
     fetchLocalSessions,
     loadLocalSession,
-    loadDraft,
+    autoLoadDraftIfEmpty,
     restoreDraft
   };
 }

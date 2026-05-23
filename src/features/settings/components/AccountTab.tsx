@@ -25,6 +25,7 @@ export function AccountTab({ userId }: AccountTabProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const [confirmReset, setConfirmReset] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false); // [U-07] inline confirm вместо window.confirm
   const { isAuthenticated, profile } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
   const { execute } = useServiceAction();
@@ -39,6 +40,7 @@ export function AccountTab({ userId }: AccountTabProps) {
   const [migrationRunning, setMigrationRunning] = useState(false);
   const [migrationProgress, setMigrationProgress] = useState<MigrationProgress | null>(null);
   const [migrationDone, setMigrationDone] = useState(false);
+  const migrationAbortRef = React.useRef<AbortController | null>(null); // [A-09] AbortController для отмены
 
   // Vault/Encryption state
   const [vaultPassword, setVaultPassword] = useState('');
@@ -129,18 +131,30 @@ export function AccountTab({ userId }: AccountTabProps) {
 
   const handleEncryptAll = async () => {
     if (!getSessionKey()) return;
+    const abortCtrl = new AbortController(); // [A-09]
+    migrationAbortRef.current = abortCtrl;
     setMigrationRunning(true);
     setMigrationDone(false);
     setMigrationProgress(null);
     try {
-      const result = await encryptAllExistingNotes(userId, setMigrationProgress);
+      const result = await encryptAllExistingNotes(userId, setMigrationProgress, abortCtrl.signal);
+      void result;
       setMigrationDone(true);
     } catch (e) {
-      reportError(e, { action: 'encryptAllExistingNotes', userId });
-      showToast(t('error_generic_action'), 'error');
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        showToast(t('cancel') || 'Отменено', 'error');
+      } else {
+        reportError(e, { action: 'encryptAllExistingNotes', userId });
+        showToast(t('error_generic_action'), 'error');
+      }
     } finally {
       setMigrationRunning(false);
+      migrationAbortRef.current = null;
     }
+  };
+
+  const handleAbortEncryption = () => { // [A-09] кнопка Отмена
+    migrationAbortRef.current?.abort();
   };
 
   const handleChangePassword = async () => {
@@ -265,22 +279,47 @@ export function AccountTab({ userId }: AccountTabProps) {
 
       {isAuthenticated ? (
         <>
-          <button
-            onClick={() => {
-              const s = useTimerStore.getState();
-              if (s.status === 'writing' || s.status === 'paused') {
-                if (!window.confirm(t('writing_cancel_confirm'))) return;
-                resetAndClear();
-              }
-              execute(
-                () => signOut(auth),
-                { errorMessage: t('error_signout_failed') }
-              );
-            }}
-            className="w-full px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-red-400 hover:border-red-400/30 transition-all text-left"
-          >
-            {t('me_sign_out')}
-          </button>
+          {/* [U-07] inline confirm вместо window.confirm */}
+          {showSignOutConfirm ? (
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowSignOutConfirm(false);
+                  resetAndClear();
+                  execute(
+                    () => signOut(auth),
+                    { errorMessage: t('error_signout_failed') }
+                  );
+                }}
+                className="flex-1 px-4 py-3 rounded-xl border border-red-400/40 text-sm text-red-400 hover:bg-red-400/10 transition-all text-left"
+              >
+                {t('writing_cancel_confirm') || 'Да, выйти'}
+              </button>
+              <button
+                onClick={() => setShowSignOutConfirm(false)}
+                className="px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-all"
+              >
+                {t('cancel') || 'Отмена'}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                const s = useTimerStore.getState();
+                if (s.status === 'writing' || s.status === 'paused') {
+                  setShowSignOutConfirm(true);
+                  return;
+                }
+                execute(
+                  () => signOut(auth),
+                  { errorMessage: t('error_signout_failed') }
+                );
+              }}
+              className="w-full px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-red-400 hover:border-red-400/30 transition-all text-left"
+            >
+              {t('me_sign_out')}
+            </button>
+          )}
 
           <Section title={t('settings_change_password')}>
             <div
@@ -457,7 +496,16 @@ export function AccountTab({ userId }: AccountTabProps) {
                   </button>
                 ) : migrationRunning ? (
                   <div className="p-4 rounded-xl border border-border-subtle space-y-3">
-                    <div className="text-sm text-text-main/60">{t('settings_encrypting_progress')}</div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-text-main/60">{t('settings_encrypting_progress')}</div>
+                      {/* [A-09] кнопка отмены шифрования */}
+                      <button
+                        onClick={handleAbortEncryption}
+                        className="text-xs text-text-main/40 hover:text-red-400 transition-colors"
+                      >
+                        {t('cancel') || 'Отмена'}
+                      </button>
+                    </div>
                     {migrationProgress && (
                       <div className="w-full bg-text-main/10 rounded-full h-2">
                         <div

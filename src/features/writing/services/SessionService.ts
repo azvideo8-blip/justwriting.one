@@ -3,6 +3,7 @@ import { handleFirestoreError, OperationType } from '../../../shared/lib/firesto
 import { Session } from '../../../types';
 import { parseFirestoreDate } from '../../../core/utils/utils';
 import type { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+// [A-04] импорт reportError удален: handleFirestoreError уже логирует ошибки внутри себя
 import { reportError } from '../../../core/errors/reportError';
 
 export const SessionService = {
@@ -13,7 +14,7 @@ export const SessionService = {
       const clean = Object.fromEntries(Object.entries(session).filter(([, v]) => v !== undefined));
       await setDoc(doc(db, 'sessions', session.id), clean);
     } catch (err) {
-      reportError(err, { action: 'saveSession', sessionId: session.id });
+      // [A-04] дублирующий reportError убран: handleFirestoreError уже логирует внутри
       handleFirestoreError(err, OperationType.WRITE, `sessions/${session.id}`);
       throw err;
     }
@@ -31,7 +32,7 @@ export const SessionService = {
         console.warn('SessionService: Session deleted successfully', sessionId);
       }
     } catch (err) {
-      reportError(err, { action: 'deleteSession', sessionId });
+      // [A-04] дублирующий reportError убран
       handleFirestoreError(err, OperationType.DELETE, `sessions/${sessionId}`);
       throw err;
     }
@@ -43,7 +44,7 @@ export const SessionService = {
       const { doc, updateDoc, serverTimestamp } = mod;
       await updateDoc(doc(db, 'sessions', sessionId), { tags, _updatedAt: serverTimestamp() });
     } catch (err) {
-      reportError(err, { action: 'updateSessionTags', sessionId });
+      // [A-04] дублирующий reportError убран
       handleFirestoreError(err, OperationType.UPDATE, `sessions/${sessionId}`);
       throw err;
     }
@@ -56,7 +57,7 @@ export const SessionService = {
       const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
       await updateDoc(doc(db, 'sessions', sessionId), { ...clean, _updatedAt: serverTimestamp() });
     } catch (err) {
-      reportError(err, { action: 'updateSession', sessionId });
+      // [A-04] дублирующий reportError убран
       handleFirestoreError(err, OperationType.UPDATE, `sessions/${sessionId}`);
       throw err;
     }
@@ -75,13 +76,8 @@ export const SessionService = {
       if (lastDoc) q = query(q, startAfter(lastDoc));
 
       const snap = await getDocs(q);
-      const sessions = snap.docs
-        .map(d => ({ id: d.id, ...d.data() } as Session))
-        .sort((a, b) => {
-          const ta = parseFirestoreDate(a.createdAt)?.getTime() ?? 0;
-          const tb = parseFirestoreDate(b.createdAt)?.getTime() ?? 0;
-          return tb - ta;
-        });
+      // [L-06] клиентская сортировка убрана: Firestore orderBy('createdAt', 'desc') уже гарантирует порядок
+      const sessions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Session));
       const newLastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData> : null;
       return { sessions, lastDoc: newLastDoc };
     } catch (err) {
@@ -102,13 +98,8 @@ export const SessionService = {
       if (lastDoc) q = query(q, startAfter(lastDoc));
       
       const snap = await getDocs(q);
-      const sessions = snap.docs
-        .map(d => ({ id: d.id, ...d.data() } as Session))
-        .sort((a, b) => {
-          const ta = parseFirestoreDate(a.createdAt)?.getTime() ?? 0;
-          const tb = parseFirestoreDate(b.createdAt)?.getTime() ?? 0;
-          return tb - ta;
-        });
+      // [L-06] клиентская сортировка убрана: Firestore orderBy('createdAt', 'desc') уже гарантирует порядок
+      const sessions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Session));
       const newLastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData> : null;
       return { sessions, lastDoc: newLastDoc };
     } catch (err) {

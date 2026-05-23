@@ -65,8 +65,7 @@ export function AppShell() {
         <AppRoutes />
       </main>
 
-      {layoutMode === 'mobile' && <div className="h-28" />}
-
+      {/* [U-03] спейсер h-28 убран: pb-20 на main уже компенсирует высоту BottomNav */}
       <LoginModalOverlay open={loginModalOpen} />
     </AppLayout>
   );
