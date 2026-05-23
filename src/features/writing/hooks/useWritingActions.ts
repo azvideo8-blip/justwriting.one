@@ -143,6 +143,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         goalTime: timerState.timerDuration > 0 ? timerState.timerDuration : undefined,
         goalReached: timerState.wordGoal > 0 && sessionNewWords >= timerState.wordGoal,
         sessionStartedAt: new Date(metaState.sessionStartTime ?? Date.now()),
+        mood: data.mood,
       };
 
       const existingDocId = metaState.savedDocumentId;

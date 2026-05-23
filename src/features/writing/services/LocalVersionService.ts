@@ -16,6 +16,7 @@ export const LocalVersionService = {
       goalTime?: number;
       goalReached?: boolean;
       sessionStartedAt: Date;
+      mood?: string;
     }
   ): Promise<string> {
     const db = await getLocalDb();
@@ -38,6 +39,7 @@ export const LocalVersionService = {
       goalReached: data.goalReached ?? false,
       savedAt: Date.now(),
       sessionStartedAt: data.sessionStartedAt.getTime(),
+      mood: data.mood,
     });
 
     return id;

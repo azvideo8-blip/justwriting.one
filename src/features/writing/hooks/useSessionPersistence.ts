@@ -6,6 +6,7 @@ import { WritingSessionService } from '../services/WritingSessionService';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
+import { applyDraftToStores } from '../utils/draftUtils';
 import { useDraftAutosave } from './useDraftAutosave';
 import { UserProfile } from '../../../types';
 import { fetchLocalSessions as fetchLocalSessionsFromLoader, loadLocalSession as loadLocalSessionFromLoader } from '../services/LocalSessionLoader';
@@ -84,25 +85,7 @@ export function useSessionPersistence(
   const { setActiveSessionId, setHasDraft } = actions;
 
   const applyDraftToStore = useCallback((draft: LocalDraft) => {
-    useContentStore.setState({
-      content: draft.content || '',
-      title: draft.title || '',
-      pinnedThoughts: Array.isArray(draft.pinnedThoughts) ? draft.pinnedThoughts : [],
-      initialWordCount: draft.initialWordCount || 0,
-      wordCount: draft.wordCount || 0,
-      tags: Array.isArray(draft.tags) ? draft.tags : [],
-      labelId: draft.labelId ?? undefined,
-    });
-    useTimerStore.setState({
-      seconds: draft.seconds || 0,
-      accumulatedDuration: draft.accumulatedDuration ?? 0,
-      totalPauseSeconds: draft.totalPauseSeconds ?? 0,
-    });
-    useSessionMetaStore.setState({
-      savedDocumentId: draft.savedDocumentId ?? null,
-      sessionStartTime: draft.sessionStartTime ?? null,
-    });
-    useTimerStore.getState().setSessionStart();
+    applyDraftToStores(draft);
     if (draft.activeSessionId) setActiveSessionId(draft.activeSessionId);
   }, [setActiveSessionId]);
 

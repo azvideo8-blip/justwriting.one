@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
+import DOMPurify from 'isomorphic-dompurify';
 
 const MAX_AI_CONTENT_LENGTH = 50_000;
 const RATE_LIMIT_MAX = 10; // [S-05] снижено с 20 до 10 req/min
@@ -30,16 +31,12 @@ function sanitizeAiInput(content: string): string {
 }
 
 function sanitizeAiResponse(response: string): string {
-  // [S-04] расширенная санитизация:
-  // 1. убираем опасные теги целиком
-  // 2. убираем on* атрибуты в любом виде: onerror="...", onerror='...', onerror=alert(1)
-  // 3. блокируем javascript: схему везде (включая href="javascript:...")
-  return response
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    .replace(/javascript\s*:/gi, 'blocked:');
+  // [S-04] Безопасная XSS-санитизация с помощью DOMPurify: удаляем все HTML-теги и JS-атрибуты
+  return DOMPurify.sanitize(response, {
+    ALLOWED_TAGS: [],
+    ALLOWED_ATTR: [],
+    ALLOW_DATA_ATTR: false,
+  });
 }
 
 const ACTION_PROMPTS: Record<string, string> = {
@@ -113,7 +110,10 @@ async function recordUsage(uid: string, tokensIn: number, tokensOut: number): Pr
   }, { merge: true });
 }
 
-export const editWithAI = onCall({ secrets: ['GEMINI_API_KEY'] }, async (request) => {
+export const editWithAI = onCall({
+  secrets: ['GEMINI_API_KEY'],
+  enforceAppCheck: true,
+}, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Authentication required.');
   }

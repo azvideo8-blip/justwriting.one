@@ -23,3 +23,17 @@ if (missingKeys.length > 0) {
 }
 
 export const app = initializeApp(firebaseConfig);
+
+const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+if (siteKey) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const selfRef = globalThis as any;
+  if (!selfRef.__FIREBASE_APP_CHECK_INITIALIZED__) {
+    const { initializeAppCheck, ReCaptchaV3Provider } = await import('firebase/app-check');
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(siteKey),
+      isTokenAutoRefreshEnabled: true,
+    });
+    selfRef.__FIREBASE_APP_CHECK_INITIALIZED__ = true;
+  }
+}

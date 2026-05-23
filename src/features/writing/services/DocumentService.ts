@@ -87,6 +87,7 @@ export const DocumentService = {
       totalWords: number;
       totalDuration: number;
       currentVersion: number;
+      mood?: string;
     }
   ): Promise<void> {
     try {

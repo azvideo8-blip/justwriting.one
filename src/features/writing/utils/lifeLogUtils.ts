@@ -18,6 +18,7 @@ export function localDocToSession(doc: LocalDocument, content: string): Session 
     tags: doc.tags,
     createdAt: new Date(doc.lastSessionAt),
     _isLocal: true,
+    mood: doc.mood,
   };
 }
 
@@ -44,6 +45,7 @@ export function localDocToLifeLog(d: LocalDocument, hasCloud: boolean): LifeLogD
     tags: d.tags,
     labelId: d.labelId ?? undefined,
     storage: { local: true, cloud: hasCloud },
+    mood: d.mood,
   };
 }
 
@@ -75,6 +77,7 @@ export function mergeUnifiedDocuments(
       tags: cloud.tags,
       labelId: cloud.labelId ?? undefined,
       storage: { local: false, cloud: true },
+      mood: cloud.mood,
     });
   }
 
@@ -106,6 +109,7 @@ export function groupSessionsByDate(
     createdAt: new Date(d.lastSessionAt),
     sessionStartTime: d.lastSessionAt ?? undefined,
     _isLocal: !!d.localId,
+    mood: d.mood,
   } as Session));
 
   const docSessionIds = new Set(unifiedDocuments.map(d => d.localId || d.cloudId).filter(Boolean));

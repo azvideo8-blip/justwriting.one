@@ -14,6 +14,7 @@ export interface LocalDocument {
   tags: string[];
   labelId?: string;
   linkedCloudId?: string;
+  mood?: string;
 }
 
 export interface LocalVersion {
@@ -32,6 +33,7 @@ export interface LocalVersion {
   goalReached?: boolean;
   savedAt: number;
   sessionStartedAt: number;
+  mood?: string;
 }
 
 export interface LocalProfile {

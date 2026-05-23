@@ -195,11 +195,16 @@ export function SessionCard({
           </div>
         </div>
 
-        {session.title && !isEditing && (
-          <h4 className="text-xl font-bold relative z-10 text-text-main">
+        {session.title && !isEditing ? (
+          <h4 className="text-xl font-bold relative z-10 text-text-main flex items-center gap-2">
+            {session.mood && <span className="text-2xl shrink-0" title={`Mood: ${session.mood}`}>{session.mood}</span>}
             {highlightText(session.title, searchQuery)}
           </h4>
-        )}
+        ) : !isEditing && session.mood ? (
+          <div className="flex items-center gap-2 relative z-10 text-2xl" title={`Mood: ${session.mood}`}>
+            {session.mood}
+          </div>
+        ) : null}
 
         {isEditing ? (
           <SessionEditor
