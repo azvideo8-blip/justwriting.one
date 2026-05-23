@@ -11,3 +11,4 @@ firebase-applet-config.json
 _archive/
 .mcp.json
 .vercel
+functions/*.js
