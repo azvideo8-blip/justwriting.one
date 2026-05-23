@@ -21,6 +21,7 @@ export const VersionService = {
       goalReached?: boolean;
       sessionStartedAt: Date;
       _encrypted?: boolean;
+      mood?: string;
     }
   ): Promise<string> {
     const contentSize = new TextEncoder().encode(data.content).length;
@@ -50,6 +51,7 @@ export const VersionService = {
         sessionStartedAt: Timestamp.fromDate(data.sessionStartedAt),
       };
       if (data._encrypted) doc._encrypted = true;
+      if (data.mood) doc.mood = data.mood;
       const ref = await addDoc(collection(db, 'users', userId, 'documents', documentId, 'versions'), doc);
       return ref.id;
     } catch (e) {

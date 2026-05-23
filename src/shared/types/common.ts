@@ -46,6 +46,7 @@ export interface SessionCore {
   wpm: number;
   isPublic?: boolean;
   tags?: string[];
+  mood?: string;
 }
 
 export interface Session extends SessionCore {
@@ -77,6 +78,7 @@ export interface Document {
   isPublic?: boolean;
   tags: string[];
   labelId?: string;
+  mood?: string;
 }
 
 export interface Version {

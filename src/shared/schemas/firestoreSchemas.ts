@@ -26,6 +26,7 @@ export const sessionDbSchema = z.object({
   createdAt: firestoreTimestampSchema,
   sessionStartTime: z.number().nullable().optional(),
   _encrypted: z.boolean().optional(),
+  mood: z.string().optional(),
 });
 
 export const userProfileDbSchema = z.object({
@@ -51,6 +52,7 @@ export const documentDbSchema = z.object({
   isPublic: z.boolean().optional(),
   firstSessionAt: firestoreTimestampSchema,
   lastSessionAt: firestoreTimestampSchema,
+  mood: z.string().optional(),
 });
 
 export const versionDbSchema = z.object({
@@ -70,4 +72,5 @@ export const versionDbSchema = z.object({
   savedAt: firestoreTimestampSchema,
   sessionStartedAt: firestoreTimestampSchema,
   _encrypted: z.boolean().optional(),
+  mood: z.string().optional(),
 });

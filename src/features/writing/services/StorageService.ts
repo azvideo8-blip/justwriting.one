@@ -26,6 +26,7 @@ export interface SaveDocumentData {
   goalTime?: number;
   goalReached?: boolean;
   sessionStartedAt: Date;
+  mood?: string;
 }
 
 const CLOUD_SYNC_TIMEOUT = 30_000;
@@ -62,11 +63,13 @@ export const StorageService = {
       goalTime: data.goalTime,
       goalReached: data.goalReached,
       sessionStartedAt: data.sessionStartedAt,
+      mood: data.mood,
     });
     await LocalDocumentService.updateAfterSession(localId, {
       totalWords: data.documentWordCount ?? data.wordCount,
       totalDuration: data.duration,
       currentVersion: 1,
+      mood: data.mood,
     });
     return { localId };
   },
@@ -325,6 +328,7 @@ async function saveVersionToLocal(
       goalReached: data.goalReached ?? false,
       savedAt: now,
       sessionStartedAt: data.sessionStartedAt.getTime(),
+      mood: data.mood,
     });
 
     await docStore.put({
@@ -334,6 +338,7 @@ async function saveVersionToLocal(
       currentVersion: newVersion,
       sessionsCount: (existing.sessionsCount || 0) + 1,
       lastSessionAt: now,
+      mood: data.mood,
     });
 
     await tx.done;
@@ -418,6 +423,7 @@ async function syncVersionToCloud(
         goalTime: data.goalTime,
         goalReached: data.goalReached,
         sessionStartedAt: startedAt,
+        mood: data.mood,
       } as Record<string, unknown>, ['content', 'previousContent'], [], userId);
       await VersionService.addVersion(userId, linkedCloudId, {
         content: versionPayload.content as string,
@@ -430,12 +436,14 @@ async function syncVersionToCloud(
         goalTime: data.goalTime,
         goalReached: data.goalReached,
         sessionStartedAt: startedAt,
+        mood: data.mood,
         _encrypted: versionPayload._encrypted as boolean | undefined,
       });
       await DocumentService.updateDocumentAfterSession(userId, linkedCloudId, {
         totalWords: data.documentWordCount ?? data.wordCount,
         totalDuration: data.duration,
         currentVersion: newVersion,
+        mood: data.mood,
       });
     }
   } catch (e) {

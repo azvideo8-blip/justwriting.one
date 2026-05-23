@@ -13,6 +13,7 @@ export interface LifeLogDocument {
   tags: string[];
   labelId?: string;
   storage: { local: boolean; cloud: boolean };
+  mood?: string;
 }
 
 export interface DailySummary {

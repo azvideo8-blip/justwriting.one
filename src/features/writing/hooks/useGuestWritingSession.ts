@@ -1,8 +1,7 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { useBaseWritingSession } from './useBaseWritingSession';
 import { useContentStore } from '../store/useContentStore';
-import { useTimerStore } from '../store/useTimerStore';
-import { loadDraftIntoStore } from '../store/storeActions';
+import { applyDraftToStores } from '../utils/draftUtils';
 import { getOrCreateGuestId } from '../../../shared/lib/localDb';
 import { fetchLocalSessions, loadLocalSession } from '../services/LocalSessionLoader';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
@@ -47,14 +46,17 @@ export function useGuestWritingSession(): GuestSessionReturn {
   const draftDataRef = useRef<DraftData>({
     content: '', title: '', pinnedThoughts: [], seconds: 0, wpm: 0, wordCount: 0,
   });
-  draftDataRef.current = {
-    content: base.content,
-    title: base.title,
-    pinnedThoughts: base.pinnedThoughts,
-    seconds: base.seconds,
-    wpm: base.wpm,
-    wordCount: base.wordCount,
-  };
+
+  useEffect(() => {
+    draftDataRef.current = {
+      content: base.content,
+      title: base.title,
+      pinnedThoughts: base.pinnedThoughts,
+      seconds: base.seconds,
+      wpm: base.wpm,
+      wordCount: base.wordCount,
+    };
+  });
 
   const getDraftData = useCallback(() => draftDataRef.current, []);
 
@@ -86,21 +88,12 @@ export function useGuestWritingSession(): GuestSessionReturn {
       return;
     }
 
-    loadDraftIntoStore({
-      content: draft.content,
-      title: draft.title ?? '',
-      wordCount: draft.wordCount ?? 0,
-    });
-    useContentStore.setState({
-      pinnedThoughts: Array.isArray(draft.pinnedThoughts) ? draft.pinnedThoughts : [],
-    });
-    useTimerStore.setState({
-      seconds: draft.seconds ?? 0,
-    });
+    applyDraftToStores(draft);
     setHasDraft(false);
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     autoLoadDraftIfEmpty();
   }, [autoLoadDraftIfEmpty]);
 
@@ -108,17 +101,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
     const draft = await loadGuestDraftFromStorage();
     if (!draft?.content) { setHasDraft(false); return; }
 
-    loadDraftIntoStore({
-      content: draft.content,
-      title: draft.title ?? '',
-      wordCount: draft.wordCount ?? 0,
-    });
-    useContentStore.setState({
-      pinnedThoughts: Array.isArray(draft.pinnedThoughts) ? draft.pinnedThoughts : [],
-    });
-    useTimerStore.setState({
-      seconds: draft.seconds ?? 0,
-    });
+    applyDraftToStores(draft);
     setHasDraft(false);
   }, []);
 

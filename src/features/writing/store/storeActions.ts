@@ -38,19 +38,7 @@ function resetSession() {
   useSessionMetaStore.setState(META_DEFAULTS);
 }
 
-export function finishSession() {
-  clearWordCalcTimer();
-  useContentStore.setState(createContentDefaults());
-  useTimerStore.setState(TIMER_DEFAULTS);
-  useSessionMetaStore.setState(META_DEFAULTS);
-}
-
-export function resetAndClear() {
-  clearWordCalcTimer();
-  useContentStore.setState(createContentDefaults());
-  useTimerStore.setState(TIMER_DEFAULTS);
-  useSessionMetaStore.setState(META_DEFAULTS);
-}
+export { resetSession, resetSession as finishSession, resetSession as resetAndClear };
 
 export function loadDraftIntoStore(draft: {
   content: string; title: string; wordCount: number;

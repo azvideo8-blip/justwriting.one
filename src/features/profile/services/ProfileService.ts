@@ -11,7 +11,7 @@ export const ProfileService = {
       const { doc, setDoc } = mod;
       await setDoc(doc(db, 'users', userId), { nickname }, { merge: true });
     } catch (err) {
-      reportError(err, { action: 'updateNickname', userId });
+      // [A-04] дублирующий reportError убран: handleFirestoreError уже логирует внутри
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
       throw err;
     }
@@ -23,7 +23,7 @@ export const ProfileService = {
       const { doc, setDoc } = mod;
       await setDoc(doc(db, 'users', userId), { labels }, { merge: true });
     } catch (err) {
-      reportError(err, { action: 'updateLabels', userId });
+      // [A-04] дублирующий reportError убран: handleFirestoreError уже логирует внутри
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
       throw err;
     }
@@ -35,7 +35,7 @@ export const ProfileService = {
       const { doc, setDoc } = mod;
       await setDoc(doc(db, 'users', userId), { earnedAchievements: ids }, { merge: true });
     } catch (err) {
-      reportError(err, { action: 'updateEarnedAchievements', userId });
+      // [A-04] дублирующий reportError убран: handleFirestoreError уже логирует внутри
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
       throw err;
     }
@@ -47,7 +47,7 @@ export const ProfileService = {
       const { doc, setDoc } = mod;
       await setDoc(doc(db, 'users', userId), { earnedAchievements: [] }, { merge: true });
     } catch (err) {
-      reportError(err, { action: 'resetAchievements', userId });
+      // [A-04] дублирующий reportError убран: handleFirestoreError уже логирует внутри
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
       throw err;
     }
@@ -68,7 +68,7 @@ export const ProfileService = {
       }
       return { ids: [], error: false };
     } catch (err) {
-      reportError(err, { action: 'loadEarnedAchievements', userId });
+      // [A-04] дублирующий reportError убран: handleFirestoreError уже логирует внутри
       handleFirestoreError(err, OperationType.GET, `users/${userId}`);
       return { ids: [], error: true };
     }
@@ -85,7 +85,7 @@ export const ProfileService = {
       }
       return { data: null, error: false };
     } catch (err) {
-      reportError(err, { action: 'getProfile', userId });
+      // [A-04] дублирующий reportError убран: handleFirestoreError уже логирует внутри
       handleFirestoreError(err, OperationType.GET, `users/${userId}`);
       return { data: null, error: true };
     }

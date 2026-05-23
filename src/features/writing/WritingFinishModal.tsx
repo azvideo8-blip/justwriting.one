@@ -15,7 +15,7 @@ import { useTimerStore } from './store/useTimerStore';
 import { useModalEscape } from '../../shared/hooks/useModalEscape';
 import { StreakDots } from '../../shared/components/StreakDots';
 
-// [U-06]  focus trap: удерживает фокус внутри модала при навигации через Tab (WCAG 2.1 — 2.4.3 Focus Order)
+// [U-06] focus trap: удерживает фокус внутри модала при навигации через Tab (WCAG 2.1 — 2.4.3 Focus Order)
 function useFocusTrap(ref: React.RefObject<HTMLElement | null>, isActive: boolean) {
   useEffect(() => {
     if (!isActive || !ref.current) return;
@@ -59,6 +59,7 @@ export interface SaveData {
   title: string;
   tags: string[];
   labelId?: string;
+  mood?: string;
 }
 
 interface WritingFinishModalProps {
@@ -119,9 +120,13 @@ export function WritingFinishModal({
 
   const tagInputRef = React.useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<'form' | 'mood'>('form');
+  const [saveDataState, setSaveDataState] = useState<SaveData | null>(null);
 
   React.useEffect(() => {
-    if (isOpen) setStep('form');
+    if (isOpen) {
+      setStep('form');
+      setSaveDataState(null);
+    }
   }, [isOpen]);
 
   const [editTitle, setEditTitle] = useState('');
@@ -168,12 +173,6 @@ export function WritingFinishModal({
 
   const finalTitle = titleInputValue.trim() || title || '';
 
-  const saveData: SaveData = {
-    title: finalTitle,
-    tags: tags || [],
-    labelId,
-  };
-
   const handleSaveClick = () => {
     const pendingTag = tagInputRef.current?.value.trim();
     const finalTags = pendingTag && tags && !tags.includes(pendingTag)
@@ -185,12 +184,25 @@ export function WritingFinishModal({
     if (finalTitle && finalTitle !== title) {
       setTitle(finalTitle);
     }
+
+    setSaveDataState({
+      title: finalTitle,
+      tags: finalTags || [],
+      labelId,
+    });
+    setStep('mood');
+  };
+
+  const handleMoodSelect = (selectedMood?: string) => {
+    if (!saveDataState) return;
     execute(
-      () => onSave({ ...saveData, title: finalTitle, tags: finalTags || [] }),
+      () => onSave({ ...saveDataState, mood: selectedMood }),
       {
         successMessage: t('save_success'),
         errorMessage: t('error_save_failed'),
-        onSuccess: () => setStep('mood'),
+        onSuccess: () => {
+          onCancel(); // Закрываем модал
+        },
       }
     );
   };
@@ -228,18 +240,20 @@ export function WritingFinishModal({
                   transition={{ type: 'spring', stiffness: 400, damping: 15 }}
                   initial={reducedMotion ? {} : { opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0, transition: { delay: i * 0.06 } }}
-                  onClick={onCancel}
-                  className="text-4xl"
+                  disabled={isSaving}
+                  onClick={() => handleMoodSelect(emoji)}
+                  className={cn("text-4xl", isSaving && "opacity-50 cursor-not-allowed")}
                 >
                   {emoji}
                 </motion.button>
               ))}
             </div>
             <button
-              onClick={onCancel}
-              className="text-xs text-text-main/30 hover:text-text-main/50 transition-colors"
+              disabled={isSaving}
+              onClick={() => handleMoodSelect(undefined)}
+              className="text-xs text-text-main/30 hover:text-text-main/50 transition-colors disabled:opacity-50"
             >
-              {t('mood_checkin_skip')}
+              {isSaving ? t('finish_saving') : t('mood_checkin_skip')}
             </button>
           </motion.div>
         ) : (

@@ -55,7 +55,8 @@ const SessionItem = React.memo(({ session, doc, isActive, onClick, onDelete, t, 
       )}
     >
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[13px] font-medium text-text-main truncate max-w-[130px]">
+        <span className="text-[13px] font-medium text-text-main truncate max-w-[130px] flex items-center gap-1">
+          {session.mood && <span className="text-sm shrink-0" title={`Mood: ${session.mood}`}>{session.mood}</span>}
           {highlightText(session.title || t('common_untitled'), searchQuery || '')}
         </span>
         <div className="flex items-center gap-1">

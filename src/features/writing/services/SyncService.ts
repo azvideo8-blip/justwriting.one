@@ -76,7 +76,7 @@ export const SyncService = {
 
       return { synced, failed };
     } finally {
-      _syncInProgress.set(userId, false);
+      _syncInProgress.delete(userId);  // [A-08] delete instead of set(false)
     }
   },
 

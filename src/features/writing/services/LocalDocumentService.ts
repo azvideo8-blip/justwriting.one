@@ -39,7 +39,7 @@ export const LocalDocumentService = {
 
   async updateAfterSession(
     id: string,
-    data: { totalWords: number; totalDuration: number; currentVersion: number }
+    data: { totalWords: number; totalDuration: number; currentVersion: number; mood?: string }
   ): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction(['documents', 'profile'], 'readwrite');
@@ -54,6 +54,7 @@ export const LocalDocumentService = {
       currentVersion: data.currentVersion,
       sessionsCount: (existing.sessionsCount || 0) + 1,
       lastSessionAt: now,
+      mood: data.mood,
     });
 
     const profile = await tx.objectStore('profile').get(existing.guestId);
