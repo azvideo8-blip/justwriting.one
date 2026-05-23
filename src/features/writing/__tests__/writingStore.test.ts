@@ -203,7 +203,7 @@ describe('setWordGoal()', () => {
       wordGoalReached: true,
       wordGoal: 200,
     });
-    useTimerStore.getState().setWordGoal(500);
+    useTimerStore.getState().setWordGoal(500, useContentStore.getState().wordCount);
     const state = useTimerStore.getState();
     expect(state.wordGoal).toBe(500);
     expect(state.wordGoalReached).toBe(false);

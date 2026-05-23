@@ -86,6 +86,14 @@ export function setSessionConfig(config: Record<string, unknown>) {
     'sessionType', 'initialDuration']);
   const metaKeys = new Set(['activeSessionId', 'savedDocumentId', 'sessionStartTime']);
 
+  if (import.meta.env.DEV) {
+    const allKnown = new Set([...contentKeys, ...timerKeys, ...metaKeys]);
+    const unknown = Object.keys(config).filter(k => !allKnown.has(k));
+    if (unknown.length > 0) {
+      console.warn('[setSessionConfig] Unknown keys dropped:', unknown);
+    }
+  }
+
   const contentPart: Record<string, unknown> = {};
   const timerPart: Record<string, unknown> = {};
   const metaPart: Record<string, unknown> = {};
@@ -105,3 +113,14 @@ export function setSessionConfig(config: Record<string, unknown>) {
   if (Object.keys(timerPart).length > 0) useTimerStore.setState(timerPart as Partial<typeof TIMER_DEFAULTS>);
   if (Object.keys(metaPart).length > 0) useSessionMetaStore.setState(metaPart as Partial<typeof META_DEFAULTS>);
 }
+
+// Automatically update wordGoalReached when content store wordCount changes
+useContentStore.subscribe((state) => {
+  const { wordCount } = state;
+  const { sessionStartWords, wordGoal } = useTimerStore.getState();
+  const sessionWords = wordCount - sessionStartWords;
+  const wordGoalReached = wordGoal > 0 && sessionWords >= wordGoal;
+  if (useTimerStore.getState().wordGoalReached !== wordGoalReached) {
+    useTimerStore.setState({ wordGoalReached });
+  }
+});

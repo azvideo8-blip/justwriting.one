@@ -84,7 +84,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
 
       useContentStore.getState().setTags(doc.tags || []);
       useContentStore.getState().setLabelId(doc.labelId);
-      useTimerStore.getState().setSessionStart();
+      useTimerStore.getState().setSessionStart(useContentStore.getState().wordCount);
       useSessionMetaStore.getState().setSessionStartTime(Date.now());
       setSessionStatus('writing');
       setLifeLogVisible(false);
@@ -99,7 +99,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       await continueSession(s);
       flow.setSetupMode(null);
       setSessionStatus('writing');
-      useTimerStore.getState().setSessionStart();
+      useTimerStore.getState().setSessionStart(useContentStore.getState().wordCount);
       useSessionMetaStore.getState().setSessionStartTime(Date.now());
     } catch (err) {
       reportError(err, { action: 'writingActions/continueSession' });
@@ -173,7 +173,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
   const handlePlay = React.useCallback(() => {
     const currentStatus = useTimerStore.getState().status;
     if (currentStatus === 'idle') {
-      useTimerStore.getState().startFreeSession();
+      useTimerStore.getState().startFreeSession(useContentStore.getState().wordCount);
       hookHandleStart();
     } else if (currentStatus === 'paused') {
       useTimerStore.getState().resumeSession();

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { z } from 'zod';
+import { reportError } from '../../core/errors/reportError';
 
 export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodType<T>) {
   const initialValueRef = useRef(initialValue);
@@ -17,13 +18,21 @@ export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodT
           if (import.meta.env.DEV) {
             console.warn(`Storage schema mismatch for key "${key}":`, result.error);
           }
-          try { localStorage.removeItem(key); } catch { /* ignore */ }
+          try {
+            localStorage.removeItem(key);
+          } catch (e) {
+            reportError(e, { action: 'useLocalStorage_removeItem', key }, 'warning');
+          }
           return initialValueRef.current;
         }
         return result.data;
       }
       return parsed as T;
-    } catch {
+    } catch (e) {
+      if (import.meta.env.DEV) {
+        console.warn(`[useLocalStorage] Failed to parse key "${key}":`, e);
+      }
+      reportError(e, { action: 'useLocalStorage_parse', key }, 'warning');
       return initialValueRef.current;
     }
   }, [key]);
@@ -50,7 +59,13 @@ export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodT
       try {
         localStorage.setItem(key, JSON.stringify(valueToStore));
         window.dispatchEvent(new Event('local-storage'));
-      } catch { /* quota exceeded — silently ignore */ }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+          reportError(e, { action: 'useLocalStorage_quota', key }, 'warning');
+        } else {
+          reportError(e, { action: 'useLocalStorage_write', key });
+        }
+      }
       return valueToStore;
     });
   }, [key]);

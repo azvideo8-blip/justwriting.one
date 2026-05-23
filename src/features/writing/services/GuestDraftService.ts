@@ -1,4 +1,5 @@
 import { getLocalDb, LocalDraft } from '../../../shared/lib/localDb';
+import { reportError } from '../../../core/errors/reportError';
 
 const DRAFT_KEY = 'jw_guest_draft';
 const GUEST_IDB_KEY = 'guest_draft';
@@ -15,13 +16,29 @@ export interface GuestDraftData {
 
 export async function saveGuestDraftToStorage(draft: GuestDraftData): Promise<void> {
   const withMeta = { ...draft, updatedAt: Date.now() };
+  let idbOk = false;
+  let lsOk = false;
+
   try {
     const db = await getLocalDb();
     if (db.objectStoreNames.contains('drafts')) {
       await db.put('drafts', { ...withMeta, userId: GUEST_IDB_KEY } as LocalDraft);
+      idbOk = true;
     }
-  } catch { /* ignore */ }
-  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(withMeta)); } catch { /* ignore */ }
+  } catch (e) {
+    reportError(e, { action: 'saveGuestDraft_idb' }, 'warning');
+  }
+
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(withMeta));
+    lsOk = true;
+  } catch (e) {
+    reportError(e, { action: 'saveGuestDraft_ls' }, 'warning');
+  }
+
+  if (!idbOk && !lsOk) {
+    throw new Error('GUEST_DRAFT_SAVE_FAILED: both IDB and localStorage failed');
+  }
 }
 
 export async function loadGuestDraftFromStorage(): Promise<GuestDraftData | null> {
@@ -32,14 +49,21 @@ export async function loadGuestDraftFromStorage(): Promise<GuestDraftData | null
       const d = await db.get('drafts', GUEST_IDB_KEY);
       if (d) idbDraft = d as GuestDraftData;
     }
-  } catch { /* ignore */ }
+  } catch (e) {
+    reportError(e, { action: 'loadGuestDraft_idb' }, 'warning');
+  }
 
   let lsDraft: GuestDraftData | null = null;
-  const raw = localStorage.getItem(DRAFT_KEY);
-  if (raw) {
-    try { lsDraft = JSON.parse(raw); } catch {
-      localStorage.removeItem(DRAFT_KEY);
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (raw) {
+      lsDraft = JSON.parse(raw);
     }
+  } catch (e) {
+    reportError(e, { action: 'loadGuestDraft_ls_read' }, 'warning');
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {}
   }
 
   if (idbDraft && lsDraft) {
@@ -50,7 +74,9 @@ export async function loadGuestDraftFromStorage(): Promise<GuestDraftData | null
       try {
         const db = await getLocalDb();
         await db.put('drafts', { ...lsDraft, userId: GUEST_IDB_KEY } as LocalDraft);
-      } catch { /* ignore */ }
+      } catch (e) {
+        reportError(e, { action: 'loadGuestDraft_ls_sync' }, 'warning');
+      }
     }
     return winner;
   }
@@ -61,7 +87,9 @@ export async function loadGuestDraftFromStorage(): Promise<GuestDraftData | null
       if (db.objectStoreNames.contains('drafts')) {
         await db.put('drafts', { ...lsDraft, userId: GUEST_IDB_KEY } as LocalDraft);
       }
-    } catch { /* ignore */ }
+    } catch (e) {
+      reportError(e, { action: 'loadGuestDraft_ls_restore' }, 'warning');
+    }
     return lsDraft;
   }
 
@@ -69,11 +97,17 @@ export async function loadGuestDraftFromStorage(): Promise<GuestDraftData | null
 }
 
 export async function deleteGuestDraftFromStorage(): Promise<void> {
-  try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch (e) {
+    reportError(e, { action: 'deleteGuestDraft_ls' }, 'warning');
+  }
   try {
     const db = await getLocalDb();
     if (db.objectStoreNames.contains('drafts')) {
       await db.delete('drafts', GUEST_IDB_KEY);
     }
-  } catch { /* ignore */ }
+  } catch (e) {
+    reportError(e, { action: 'deleteGuestDraft_idb' }, 'warning');
+  }
 }

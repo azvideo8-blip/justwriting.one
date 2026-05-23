@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { DocumentService } from '../services/DocumentService';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { Document } from '../../../types';
+import { reportError } from '../../../core/errors/reportError';
+import { useLanguage } from '../../../core/i18n';
 
 function localDocToDocument(doc: { id: string; title: string; currentVersion: number; totalWords: number; totalDuration: number; sessionsCount: number; firstSessionAt: number; lastSessionAt: number; tags: string[]; linkedCloudId?: string }): Document {
   const firstMs = doc.firstSessionAt || doc.lastSessionAt || Date.now();
@@ -21,19 +23,25 @@ function localDocToDocument(doc: { id: string; title: string; currentVersion: nu
 }
 
 export function useDocuments(userId: string, isGuest?: boolean) {
+  const { t } = useLanguage();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchDocs = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
+    setError(null);
     try {
       if (isGuest) {
         const localDocs = await LocalDocumentService.getGuestDocuments(userId);
         setDocuments(localDocs.map(localDocToDocument));
       } else {
         const [cloudDocs, localDocs] = await Promise.all([
-          DocumentService.getUserDocuments(userId).catch(() => [] as Document[]),
+          DocumentService.getUserDocuments(userId).catch((err) => {
+            reportError(err, { action: 'fetchDocuments_cloud_partial', userId }, 'warning');
+            return [] as Document[];
+          }),
           LocalDocumentService.getGuestDocuments(userId),
         ]);
         const localMapped = localDocs.map(localDocToDocument);
@@ -41,11 +49,13 @@ export function useDocuments(userId: string, isGuest?: boolean) {
         const dedupedCloud = cloudDocs.filter(d => !seenIds.has(d.id));
         setDocuments([...localMapped, ...dedupedCloud]);
       }
-    } catch { /* ignore */ }
-    finally {
+    } catch (err) {
+      reportError(err, { action: 'fetchDocuments', userId });
+      setError(t('archive_load_error') || 'Error loading documents');
+    } finally {
       setLoading(false);
     }
-  }, [userId, isGuest]);
+  }, [userId, isGuest, t]);
 
   useEffect(() => {
     fetchDocs();
@@ -55,5 +65,5 @@ export function useDocuments(userId: string, isGuest?: boolean) {
     await fetchDocs();
   }, [fetchDocs]);
 
-  return { documents, loading, refresh };
+  return { documents, loading, refresh, error };
 }

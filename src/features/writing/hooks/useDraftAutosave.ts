@@ -64,8 +64,12 @@ export function useDraftAutosave(
         }
       }
     } catch (err) {
-      const isQuotaError = err instanceof DOMException && err.name === 'QuotaExceededError';
-      if (!isQuotaError) reportError(err, { action: 'draftAutosave/forceSave' });
+      const isQuota = err instanceof DOMException && err.name === 'QuotaExceededError';
+      if (isQuota) {
+        reportError(err, { action: 'autosave_quota_exceeded', userId: user.uid }, 'warning');
+      } else {
+        reportError(err, { action: 'draftAutosave/forceSave', userId: user.uid });
+      }
       if (isMountedRef.current) setSaveStatus('error');
     }
   }, [user, markSaved]);
@@ -90,7 +94,9 @@ export function useDraftAutosave(
             wordCount: contentState.wordCount,
             updatedAt: Date.now(),
           }));
-        } catch { /* ignore */ }
+        } catch (e) {
+          reportError(e, { action: 'autosave_beforeunload', userId: user.uid }, 'warning');
+        }
       }
     };
 
@@ -115,8 +121,12 @@ export function useDraftAutosave(
           await persistDraft(draft);
           markSaved();
         } catch (err) {
-          const isQuotaError = err instanceof DOMException && err.name === 'QuotaExceededError';
-          if (!isQuotaError) reportError(err, { action: 'draftAutosave/autoSave' });
+          const isQuota = err instanceof DOMException && err.name === 'QuotaExceededError';
+          if (isQuota) {
+            reportError(err, { action: 'autosave_quota_exceeded', userId: user.uid }, 'warning');
+          } else {
+            reportError(err, { action: 'draftAutosave/autoSave', userId: user.uid });
+          }
           if (isMountedRef.current) setSaveStatus('error');
         }
       }, 500);

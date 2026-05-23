@@ -256,8 +256,8 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             type="words"
             presets={[250, 500, 1000, 1500, 2000].map(p => ({ value: p, label: String(p) }))}
             current={wordGoal}
-            onSelect={v => { setWordGoal(v); setWordPopupOpen(false); }}
-            onClear={() => { setWordGoal(0); setWordPopupOpen(false); }}
+            onSelect={v => { setWordGoal(v, wordCount); setWordPopupOpen(false); }}
+            onClear={() => { setWordGoal(0, wordCount); setWordPopupOpen(false); }}
             onClearLabel={t('goal_popup_clear')}
             placeholder="1000"
             triggerRef={wordRef}
