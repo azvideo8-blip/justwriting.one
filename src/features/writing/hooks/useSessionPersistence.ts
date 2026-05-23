@@ -41,7 +41,7 @@ export interface PersistenceActions {
   setPinnedThoughts: (thoughts: string[]) => void;
   setActiveSessionId: (id: string | null) => void;
   setHasDraft: (has: boolean) => void;
-  resetSession: () => void;
+  resetAndClear: () => void;
   finishSession: () => void;
   setStatus: (status: TimerStatus) => void;
   setInitialWordCount: (count: number) => void;
@@ -190,7 +190,7 @@ export function useSessionPersistence(
   const handleCancel = async () => {
     await WritingDraftService.deleteDraft(userId);
     actions.setHasDraft(false);
-    actions.resetSession();
+    actions.resetAndClear();
     actions.setStatus('idle');
   };
 

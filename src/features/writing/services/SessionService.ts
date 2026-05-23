@@ -3,8 +3,8 @@ import { handleFirestoreError, OperationType } from '../../../shared/lib/firesto
 import { Session } from '../../../types';
 import { parseFirestoreDate } from '../../../core/utils/utils';
 import type { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
-// [A-04] импорт reportError удален: handleFirestoreError уже логирует ошибки внутри себя
 import { reportError } from '../../../core/errors/reportError';
+import { sessionDbSchema } from '../../../shared/schemas/firestoreSchemas';
 
 export const SessionService = {
   async saveSession(session: Session) {
@@ -77,7 +77,16 @@ export const SessionService = {
 
       const snap = await getDocs(q);
       // [L-06] клиентская сортировка убрана: Firestore orderBy('createdAt', 'desc') уже гарантирует порядок
-      const sessions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Session));
+      const sessions = snap.docs
+        .map(d => {
+          const parsed = sessionDbSchema.safeParse({ id: d.id, ...d.data() });
+          if (!parsed.success) {
+            reportError(parsed.error, { action: 'getAllSessions_parse', docId: d.id });
+            return null;
+          }
+          return parsed.data as Session;
+        })
+        .filter((s): s is Session => s !== null);
       const newLastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData> : null;
       return { sessions, lastDoc: newLastDoc };
     } catch (err) {
@@ -98,8 +107,16 @@ export const SessionService = {
       if (lastDoc) q = query(q, startAfter(lastDoc));
       
       const snap = await getDocs(q);
-      // [L-06] клиентская сортировка убрана: Firestore orderBy('createdAt', 'desc') уже гарантирует порядок
-      const sessions = snap.docs.map(d => ({ id: d.id, ...d.data() } as Session));
+      const sessions = snap.docs
+        .map(d => {
+          const parsed = sessionDbSchema.safeParse({ id: d.id, ...d.data() });
+          if (!parsed.success) {
+            reportError(parsed.error, { action: 'getAllSessionsAdmin_parse', docId: d.id });
+            return null;
+          }
+          return parsed.data as Session;
+        })
+        .filter((s): s is Session => s !== null);
       const newLastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData> : null;
       return { sessions, lastDoc: newLastDoc };
     } catch (err) {

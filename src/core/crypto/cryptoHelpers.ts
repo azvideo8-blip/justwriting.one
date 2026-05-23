@@ -1,39 +1,13 @@
 import { encryptContent, decryptContent, getSessionKey } from './encrypt';
+import { useEncryptionStore } from './useEncryptionStore';
 import { reportError } from '../errors/reportError';
 
-const encryptionEnabledCache: Record<string, boolean> = {};
-
 export function setEncryptionEnabled(userId: string, enabled: boolean): void {
-  if (!userId) return;
-  encryptionEnabledCache[userId] = enabled;
-  try {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(`enc_enabled_${userId}`, enabled ? '1' : '0');
-    }
-  } catch (e) {
-    reportError(e, { action: 'setEncryptionEnabled_localStorage', userId });
-  }
+  useEncryptionStore.getState().setEncryptionEnabled(userId, enabled);
 }
 
 export function isEncryptionEnabled(userId: string): boolean {
-  if (!userId) return false;
-  if (userId.startsWith('guest_') || userId === 'guest') return false;
-  if (encryptionEnabledCache[userId] !== undefined) {
-    return encryptionEnabledCache[userId];
-  }
-  try {
-    if (typeof localStorage !== 'undefined') {
-      const val = localStorage.getItem(`enc_enabled_${userId}`);
-      if (val !== null) {
-        const enabled = val === '1';
-        encryptionEnabledCache[userId] = enabled;
-        return enabled;
-      }
-    }
-  } catch (e) {
-    reportError(e, { action: 'isEncryptionEnabled_localStorage', userId });
-  }
-  return false;
+  return useEncryptionStore.getState().isEncryptionEnabled(userId);
 }
 
 export async function maybeEncrypt(
@@ -142,16 +116,11 @@ export async function maybeDecrypt(
   return result;
 }
 
-const profileLoadedCache: Record<string, boolean> = {};
-
 export function setProfileLoaded(userId: string, loaded: boolean): void {
-  if (!userId) return;
-  profileLoadedCache[userId] = loaded;
+  useEncryptionStore.getState().setProfileLoaded(userId, loaded);
 }
 
 export function isProfileLoaded(userId: string): boolean {
-  if (!userId) return true;
-  if (userId.startsWith('guest_') || userId === 'guest') return true;
-  return profileLoadedCache[userId] ?? false;
+  return useEncryptionStore.getState().isProfileLoaded(userId);
 }
 

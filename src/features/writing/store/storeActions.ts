@@ -31,18 +31,26 @@ const META_DEFAULTS = {
   activeSessionId: null, savedDocumentId: null, sessionStartTime: null as number | null,
 };
 
-export function resetSession() {
+function resetSession() {
   clearWordCalcTimer();
   useContentStore.setState(createContentDefaults());
   useTimerStore.setState(TIMER_DEFAULTS);
   useSessionMetaStore.setState(META_DEFAULTS);
 }
 
-// [L-02] finishSession и resetAndClear намеренно экспортируют одну и ту же функцию resetSession,
-// так как на данный момент сброс состояния при завершении сессии и при отмене идентичны.
-// Если в будущем поведение разделится (например, при завершении нужно будет сохранять мета-данные
-// или статистику перед сбросом), их следует реализовать как отдельные функции.
-export { resetSession as resetAndClear, resetSession as finishSession };
+export function finishSession() {
+  clearWordCalcTimer();
+  useContentStore.setState(createContentDefaults());
+  useTimerStore.setState(TIMER_DEFAULTS);
+  useSessionMetaStore.setState(META_DEFAULTS);
+}
+
+export function resetAndClear() {
+  clearWordCalcTimer();
+  useContentStore.setState(createContentDefaults());
+  useTimerStore.setState(TIMER_DEFAULTS);
+  useSessionMetaStore.setState(META_DEFAULTS);
+}
 
 export function loadDraftIntoStore(draft: {
   content: string; title: string; wordCount: number;

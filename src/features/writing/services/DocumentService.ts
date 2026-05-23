@@ -3,6 +3,7 @@ import { Document } from '../../../types';
 import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
 import { reportError } from '../../../core/errors/reportError';
+import { documentDbSchema } from '../../../shared/schemas/firestoreSchemas';
 
 export const DocumentService = {
   async createDocument(
@@ -42,7 +43,12 @@ export const DocumentService = {
       const { doc, getDoc } = mod;
       const snap = await getDoc(doc(db, 'users', userId, 'documents', documentId));
       if (!snap.exists()) return null;
-      return { id: snap.id, ...snap.data() } as Document;
+      const parsed = documentDbSchema.safeParse({ id: snap.id, ...snap.data() });
+      if (!parsed.success) {
+        reportError(parsed.error, { action: 'getDocument_parse', docId: documentId });
+        return null;
+      }
+      return parsed.data as Document;
     } catch (e) {
       reportError(e, { action: 'getDocument', userId, documentId });
       handleFirestoreError(e, OperationType.GET, `users/${userId}/documents/${documentId}`);
@@ -55,7 +61,16 @@ export const DocumentService = {
       const { db, mod } = await getClient();
       const { collection, getDocs } = mod;
       const snap = await getDocs(collection(db, 'users', userId, 'documents'));
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Document));
+      const docs = snap.docs
+        .map(d => {
+          const parsed = documentDbSchema.safeParse({ id: d.id, ...d.data() });
+          if (!parsed.success) {
+            reportError(parsed.error, { action: 'getUserDocuments_parse', docId: d.id });
+            return null;
+          }
+          return parsed.data as Document;
+        })
+        .filter((d): d is Document => d !== null);
       docs.sort((a, b) => (toTimestampMs(b.lastSessionAt) ?? 0) - (toTimestampMs(a.lastSessionAt) ?? 0));
       return docs;
     } catch (e) {
