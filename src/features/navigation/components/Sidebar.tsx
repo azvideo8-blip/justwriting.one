@@ -157,7 +157,7 @@ export function Sidebar({ isAdmin }: SidebarProps) {
           expanded && "w-[220px]",
           !expanded && "w-16",
           showZen && "opacity-0 pointer-events-none -translate-x-4",
-          isWritePage && !hovered && "opacity-0 pointer-events-none"
+          isWritePage && !hovered && "opacity-25"
         )}
     >
       {/* Logo */}
