@@ -11,7 +11,6 @@ import { WritingEditor } from '../WritingEditor';
 import { WritingSetup, SetupMode } from '../WritingSetup';
 import { LifeLogPanel } from '../components/LifeLogPanel';
 import { BottomStats } from '../components/BottomStats';
-import { Sidebar } from '../../navigation/components/Sidebar';
 import { ConnectionStatusBanner } from '../components/ConnectionStatusBanner';
 import { KeystrokeTracker } from '../utils/keystrokeTracker';
 
@@ -51,7 +50,7 @@ interface DesktopWritingLayoutProps {
 }
 
 export function DesktopWritingLayout({
-  profile,
+  profile: _profile,
   setupMode, setSetupMode, startCountdown,
   countdown, totalDurationForDeadline,
   onOpenSettings, onNew, onOpenLog, onSave, onPlay, onPause, onStop,
@@ -113,10 +112,6 @@ export function DesktopWritingLayout({
           overflow: 'hidden',
         }}
       >
-        <div style={{ gridColumn: '1', gridRow: '1 / 4', overflow: 'hidden' }}>
-          <Sidebar isAdmin={!!profile?.role && profile.role === 'admin'} inGrid />
-        </div>
-
         <div style={{ gridColumn: '2', gridRow: '1', overflow: 'hidden' }}>
           <WritingHeader
             totalDurationForDeadline={totalDurationForDeadline}

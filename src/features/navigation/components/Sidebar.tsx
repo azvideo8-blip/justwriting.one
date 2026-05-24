@@ -124,15 +124,13 @@ function SidebarActionItem({ icon, label, expanded, onClick, accent }: SidebarAc
 
 interface SidebarProps {
   isAdmin: boolean;
-  inGrid?: boolean;
 }
 
-export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
+export function Sidebar({ isAdmin }: SidebarProps) {
   const [hovered, setHovered] = useState(false);
   const { t } = useLanguage();
   const { lifeLogEnabled: _lifeLogEnabled, isZenActive, zenModeEnabled } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
-  const inGrid = inGridProp ?? false;
   const location = useLocation();
   const navigate = useNavigate();
   const { isGuest } = useAuthStatus();
@@ -154,14 +152,13 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        "h-full z-50 flex flex-col py-4 transition-all duration-300 ease-in-out",
-        "bg-surface-card/50 border-r border-border-subtle backdrop-blur-xl",
-        inGrid ? "relative w-full max-w-16" : "fixed top-0 left-0",
-        !inGrid && expanded && "w-[220px]",
-        !inGrid && !expanded && "w-16",
-        showZen && !inGrid && "opacity-0 pointer-events-none -translate-x-4",
-        isWritePage && !hovered && !inGrid && "opacity-0 pointer-events-none"
-      )}
+          "h-full z-50 flex flex-col py-4 transition-all duration-300 ease-in-out",
+          "fixed top-0 left-0 bg-surface-card/50 border-r border-border-subtle backdrop-blur-xl",
+          expanded && "w-[220px]",
+          !expanded && "w-16",
+          showZen && "opacity-0 pointer-events-none -translate-x-4",
+          isWritePage && !hovered && "opacity-0 pointer-events-none"
+        )}
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 mb-8 h-10 overflow-hidden">
