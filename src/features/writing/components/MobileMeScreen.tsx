@@ -4,21 +4,18 @@ import { UserProfile, Session } from '../../../types';
 import { User } from 'firebase/auth';
 import { LocalDocumentService } from '../services/LocalDocumentService';
 import { getOrCreateGuestId, LocalProfile } from '../../../shared/lib/localDb';
-import { MeWritingSection } from './MeWritingSection';
 import { MeAccountSection } from './MeAccountSection';
 import { useSettings } from '../../../core/settings/SettingsContext';
 import { Settings } from 'lucide-react';
 import { useUserId } from '../../../shared/hooks/useUserId';
 import { loadAllSessions } from '../services/UnifiedSessionLoader';
 import { calculateStreak } from '../../../core/utils/utils';
-import { SyncService } from '../services/SyncService';
 import { ProfileHero } from '../../profile/components/ProfileHero';
 import { KPIStrip } from '../../profile/components/KPIStrip';
 import { StreakRibbon } from '../../profile/components/StreakRibbon';
 import { Heatmap } from '../../profile/components/Heatmap';
 import { HourRhythm } from '../../profile/components/HourRhythm';
 import { Achievements } from '../../profile/components/Achievements';
-import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../core/errors/reportError';
 import { useNavigate } from 'react-router-dom';
 import { ProfileService } from '../../profile/services/ProfileService';
@@ -31,7 +28,7 @@ interface MobileMeScreenProps {
   onSignIn: () => void;
 }
 
-type Section = 'stats' | 'writing' | 'account';
+type Section = 'stats' | 'account';
 
 interface DocLevelStats {
   totalWords: number;
@@ -47,13 +44,11 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
   const { openSettings } = useSettings();
   const userId = useUserId(user);
   const isGuest = !user;
-  const { showToast } = useToast();
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [docStats, setDocStats] = useState<DocLevelStats>({ totalWords: 0, sessionsCount: 0, totalDuration: 0 });
   const [loadingSessions, setLoadingSessions] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [fetchKey, setFetchKey] = useState(0);
+  const [fetchKey] = useState(0);
   const [achResetKey, setAchResetKey] = useState(0);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
@@ -105,31 +100,6 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
     return () => { cancelled = true; };
   }, [userId, user, fetchKey]);
 
-  // Sync action trigger
-  const handleSyncBoth = useCallback(async () => {
-    if (!user || syncing) return;
-    setSyncing(true);
-    try {
-      const [uploadResult, downloadResult] = await Promise.allSettled([
-        SyncService.syncAllUnlinked(user.uid),
-        SyncService.downloadAllFromCloud(user.uid),
-      ]);
-      const upload = uploadResult.status === 'fulfilled' ? uploadResult.value : { synced: 0, failed: 0 };
-      const download = downloadResult.status === 'fulfilled' ? downloadResult.value : { downloaded: 0, failed: 0 };
-      const total = upload.synced + download.downloaded;
-      if (uploadResult.status === 'rejected' || downloadResult.status === 'rejected' || upload.failed + download.failed > 0) {
-        showToast(t('profile_sync_partial', { synced: String(total), failed: String(upload.failed + download.failed) }), 'error');
-      } else {
-        showToast(t('profile_sync_success', { count: String(total) }), 'success');
-      }
-      setFetchKey(k => k + 1);
-    } catch (e) {
-      reportError(e, { action: 'syncBoth', userId: user.uid });
-      showToast(t('profile_sync_error'), 'error');
-    } finally {
-      setSyncing(false);
-    }
-  }, [user, syncing, showToast, t]);
 
   // Calculate full KPI Statistics
   const kpiStats = useMemo(() => {
@@ -191,7 +161,6 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
 
   const sections: { id: Section; label: string }[] = [
     { id: 'stats',   label: t('me_tab_stats') },
-    { id: 'writing', label: t('me_tab_writing') },
     { id: 'account', label: t('me_tab_account') },
   ];
 
@@ -207,7 +176,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
     }}>
       {/* Top Header with title and Settings gear icon */}
       <MobilePageHeader
-        title={t('nav_me')}
+        title={t('nav_profile_short')}
         titleFont="sans"
         right={
           <button
@@ -306,8 +275,6 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
                 profile={profile}
                 isGuest={isGuest}
                 onStartSession={() => navigate('/')}
-                onSync={user ? handleSyncBoth : undefined}
-                syncing={syncing}
               />
               <div className="px-4 flex flex-col gap-5 pt-2">
                 {/* KPI stats strip card */}
@@ -357,7 +324,6 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
             </div>
           )
         )}
-        {activeSection === 'writing' && <MeWritingSection />}
         {activeSection === 'account' && <MeAccountSection user={user} onSignOut={onSignOut} onSignIn={onSignIn} />}
       </div>
     </div>

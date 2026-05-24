@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
-import { Pencil, PenLine, RefreshCw } from 'lucide-react';
+import { Pencil, PenLine } from 'lucide-react';
 import { UserProfile } from '../../../types';
 import { ProfileService } from '../services/ProfileService';
 import { useLanguage } from '../../../core/i18n';
@@ -22,11 +22,9 @@ interface ProfileHeroProps {
   profile: UserProfile | null;
   isGuest: boolean;
   onStartSession: () => void;
-  onSync?: () => void;
-  syncing?: boolean;
 }
 
-export function ProfileHero({ user, profile, isGuest, onStartSession, onSync, syncing }: ProfileHeroProps) {
+export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileHeroProps) {
   const { t, language } = useLanguage();
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(profile?.nickname || user?.displayName || '');
@@ -145,14 +143,6 @@ export function ProfileHero({ user, profile, isGuest, onStartSession, onSync, sy
               <PenLine size={14} />
               {t('home_cta')}
             </button>
-            {onSync && (
-              <button onClick={onSync} disabled={syncing}
-                className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[13px] border border-border-subtle text-text-main/50 hover:text-text-main transition-all disabled:opacity-40 w-full sm:w-auto"
-              >
-                <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-                {syncing ? t('profile_syncing') : t('profile_sync_button')}
-              </button>
-            )}
           </div>
         </div>
 

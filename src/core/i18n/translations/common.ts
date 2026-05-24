@@ -2,8 +2,8 @@ import { Translations } from '../types';
 
 export const commonTranslations: Translations = {
   nav_write: { ru: 'Писать', en: 'Write' },
-  nav_notes: { ru: 'Мои заметки', en: 'My Notes' },
-  nav_profile: { ru: 'Мой профиль', en: 'My Profile' },
+  nav_notes: { ru: 'Заметки', en: 'Notes' },
+  nav_profile: { ru: 'Профиль', en: 'Profile' },
   nav_stream_mode: { ru: 'Режим потока сознания', en: 'Stream Mode' },
   nav_admin: { ru: 'Админ', en: 'Admin' },
   nav_about: { ru: 'О приложении', en: 'About' },
@@ -14,7 +14,7 @@ export const commonTranslations: Translations = {
   nav_write_short: { ru: 'Писать', en: 'Write' },
   nav_notes_short: { ru: 'Заметки', en: 'Notes' },
   nav_profile_short: { ru: 'Профиль', en: 'Profile' },
-  nav_me: { ru: 'Я', en: 'Me' },
+  nav_me: { ru: 'Профиль', en: 'Profile' },
 
   about_subtitle:       { ru: 'Место для текста', en: 'A place for writing' },
   about_description:    { ru: 'justwriting — минималистичный редактор для фрирайтинга и потокового письма. Всё сохраняется локально, облако — опционально.', en: 'justwriting is a minimalist editor for freewriting and stream-of-consciousness writing. Everything saves locally, cloud is optional.' },

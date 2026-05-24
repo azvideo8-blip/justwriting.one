@@ -18,12 +18,13 @@ interface MobileWriteScreenProps {
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
+  onNew?: () => void;
   saveStatus?: string;
   keystrokeTrackerRef?: React.RefObject<KeystrokeTracker>;
 }
 
 export function MobileWriteScreen({
-  onPlay, onPause, onStop, saveStatus, keystrokeTrackerRef
+  onPlay, onPause, onStop, onNew, saveStatus, keystrokeTrackerRef
 }: MobileWriteScreenProps) {
   const { t } = useLanguage();
   const { content, setContent, title, setTitle } = useContentStore(
@@ -309,6 +310,7 @@ export function MobileWriteScreen({
             onPlay={onPlay}
             onPause={onPause}
             onStop={onStop}
+            onNew={onNew}
             onGoalClick={() => setShowGoalSheet(true)}
             streamMode={streamMode}
             onToggleStreamMode={toggleStreamMode}

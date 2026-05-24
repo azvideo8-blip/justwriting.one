@@ -105,4 +105,6 @@ export const settingsTranslations: Translations = {
   settings_vault_unlocked: { ru: 'Сейф разблокирован', en: 'Vault Unlocked' },
   settings_vault_unlocked_desc: { ru: 'Вы можете расшифровать и редактировать зашифрованные заметки. Вы также можете зашифровать все существующие незашифрованные заметки.', en: 'You can decrypt and edit encrypted notes. You can also encrypt all existing unencrypted notes.' },
   settings_passwords_dont_match: { ru: 'Пароли не совпадают.', en: 'Passwords do not match.' },
+  settings_all_editor_settings: { ru: 'Все настройки редактора →', en: 'All editor settings →' },
+  settings_encryption_management: { ru: 'Настройки шифрования и аккаунта →', en: 'Encryption & Account settings →' },
 };

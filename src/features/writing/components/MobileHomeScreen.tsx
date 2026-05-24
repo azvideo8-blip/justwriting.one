@@ -5,6 +5,8 @@ import type { SessionGroup, DailySummary, LifeLogDocument } from '../types/lifeL
 import { ConnectionStatusBanner } from './ConnectionStatusBanner';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../../../core/utils/utils';
+import { Settings } from 'lucide-react';
+import { useSettings } from '../../../core/settings/SettingsContext';
 
 interface MobileHomeScreenProps {
   userId: string;
@@ -49,6 +51,7 @@ export function MobileHomeScreen({
 }: MobileHomeScreenProps) {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
+  const { openSettings } = useSettings();
   const greeting = getGreeting(t);
 
   const recentSessions = sessionGroups
@@ -167,35 +170,62 @@ export function MobileHomeScreen({
           </span>
         </div>
 
-        <button
-          onClick={() => navigate('/me')}
-          style={{
-            width: 44, height: 44,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'transparent',
-            border: 'none',
-            padding: 0,
-            cursor: 'pointer',
-            WebkitTapHighlightColor: 'transparent',
-          }}
-          aria-label={t('nav_me')}
-        >
-          <div style={{
-            width: 32, height: 32,
-            borderRadius: '50%',
-            background: 'var(--surface-elevated)',
-            border: '1px solid var(--border-light)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'var(--text-muted)',
-          }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="1.6"
-              strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="8" r="4"/>
-              <path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>
-            </svg>
-          </div>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <button
+            onClick={() => openSettings()}
+            style={{
+              width: 44, height: 44,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+            aria-label={t('nav_settings')}
+          >
+            <div style={{
+              width: 32, height: 32,
+              borderRadius: '50%',
+              background: 'var(--surface-elevated)',
+              border: '1px solid var(--border-light)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--text-muted)',
+            }}>
+              <Settings size={15} />
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate('/me')}
+            style={{
+              width: 44, height: 44,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+            aria-label={t('nav_me')}
+          >
+            <div style={{
+              width: 32, height: 32,
+              borderRadius: '50%',
+              background: 'var(--surface-elevated)',
+              border: '1px solid var(--border-light)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--text-muted)',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="1.6"
+                strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="8" r="4"/>
+                <path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>
+              </svg>
+            </div>
+          </button>
+        </div>
       </div>
 
       {hasDraft && (
