@@ -250,7 +250,7 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
             onRefresh={refreshLifeLog}
           />
         );
-      return <MobileWriteScreen onPlay={handlePlay} onPause={handlePause} onStop={onFinishClick} saveStatus={saveStatus} keystrokeTrackerRef={keystrokeTrackerRef} />;
+      return <MobileWriteScreen onPlay={handlePlay} onPause={handlePause} onStop={onFinishClick} onNew={handleNew} saveStatus={saveStatus} keystrokeTrackerRef={keystrokeTrackerRef} />;
     }
     return <DesktopWritingLayout {...desktopProps} />;
   })();

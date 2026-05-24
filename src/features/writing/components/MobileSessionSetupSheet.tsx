@@ -1,16 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Zap, Timer, Target, Clock, Sparkles, ChevronLeft, X } from 'lucide-react';
+import { Zap, Timer, Target, Clock, ChevronLeft, X } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useTimerStore } from '../store/useTimerStore';
 import { SetupMode } from '../WritingSetup';
 
-const PROMPT_KEYS = [
-  { key: 'morning', promptKeys: ['prompt_morning_1', 'prompt_morning_2', 'prompt_morning_3'] },
-  { key: 'reflect', promptKeys: ['prompt_reflect_1', 'prompt_reflect_2', 'prompt_reflect_3'] },
-  { key: 'creative', promptKeys: ['prompt_creative_1', 'prompt_creative_2', 'prompt_creative_3'] },
-] as const;
 
 interface MobileSessionSetupSheetProps {
   setupMode: SetupMode;
@@ -138,7 +133,8 @@ export function MobileSessionSetupSheet({
               </button>
             </div>
 
-            <div className="px-6 pb-8 overflow-y-auto no-scrollbar flex-1">
+            <div className="px-6 overflow-y-auto no-scrollbar flex-1"
+              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}>
               {/* Selection Screen */}
               {setupMode === 'selection' && (
                 <div className="space-y-4">
@@ -154,7 +150,6 @@ export function MobileSessionSetupSheet({
                       { id: 'timer-config', icon: Timer, label: 'writing_mode_timer', desc: 'writing_mode_timer_desc', color: 'text-blue-400', bg: 'bg-blue-400/8' },
                       { id: 'words-config', icon: Target, label: 'writing_mode_words', desc: 'writing_mode_words_desc', color: 'text-rose-400', bg: 'bg-rose-400/8' },
                       { id: 'finish-by-config', icon: Clock, label: 'writing_mode_deadline', desc: 'writing_mode_deadline_desc', color: 'text-emerald-400', bg: 'bg-emerald-400/8' },
-                      { id: 'prompts', icon: Sparkles, label: 'writing_mode_prompts', desc: 'writing_mode_prompts_desc', color: 'text-violet-400', bg: 'bg-violet-400/8' },
                     ].map((mode) => (
                       <button
                         key={mode.id}
@@ -309,38 +304,8 @@ export function MobileSessionSetupSheet({
                 </div>
               )}
 
-              {/* Prompts list selection */}
-              {setupMode === 'prompts' && (
-                <div className="space-y-4 pt-2">
-                  <div className="text-center">
-                    <h3 className="text-xl font-bold text-text-main">
-                      {t('writing_mode_prompts')}
-                    </h3>
-                  </div>
 
-                  <div className="space-y-4">
-                    {PROMPT_KEYS.map(cat => (
-                      <div key={cat.key} className="space-y-1.5">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-text-main/40 pl-1">
-                          {t(`prompts_category_${cat.key}`)}
-                        </div>
-                        <div className="space-y-2">
-                          {cat.promptKeys.map((promptKey, i) => (
-                            <button
-                              key={i}
-                              onClick={() => handlePromptSelect(t(promptKey))}
-                              className="w-full text-left px-4 py-3 rounded-xl border border-white/[0.05] bg-white/[0.02] active:bg-white/[0.06] text-xs text-text-main/80 active:text-text-main transition-all cursor-pointer leading-relaxed"
-                            >
-                              {t(promptKey)}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            </div>{/* end overflow-y-auto */}
           </motion.div>
         </div>
       )}

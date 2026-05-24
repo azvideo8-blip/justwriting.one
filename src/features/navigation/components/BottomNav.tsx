@@ -12,13 +12,6 @@ const PenIcon = () => (
     <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"/>
   </svg>
 );
-const LogIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
-    strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
-    <circle cx="12" cy="12" r="9"/>
-    <path d="M12 7v5l3 2"/>
-  </svg>
-);
 const MeIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
     strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
@@ -49,10 +42,9 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
   const { openLoginModal } = useLoginModal();
 
   const tabs = [
-    { id: 'write' as const, path: '/',       label: t('nav_write'), icon: <PenIcon /> },
-    { id: 'log' as const,  path: '/log',     label: t('lifelog_tab_log'), icon: <LogIcon /> },
-    { id: 'archive' as const, path: '/archive', label: t('archive_sidebar_title'), icon: <ArchiveIcon /> },
-    { id: 'me' as const,   path: '/me',      label: t('nav_me'),    icon: <MeIcon /> },
+    { id: 'write' as const, path: '/',        label: t('nav_write'),          icon: <PenIcon /> },
+    { id: 'archive' as const, path: '/archive', label: t('nav_notes_short'),  icon: <ArchiveIcon /> },
+    { id: 'me' as const,   path: '/me',       label: t('nav_profile_short'),  icon: <MeIcon /> },
     ...(isAdmin ? [{ id: 'admin' as const, path: '/admin', label: t('nav_admin'), icon: <Shield size={22} strokeWidth={1.6} /> } as const] : []),
   ];
 

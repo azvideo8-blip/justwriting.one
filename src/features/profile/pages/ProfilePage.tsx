@@ -4,7 +4,6 @@ import { User } from 'firebase/auth';
 import { AlertCircle } from 'lucide-react';
 import { Session, UserProfile } from '../../../types';
 import { calculateStreak } from '../../../core/utils/utils';
-import { SyncService } from '../../writing/services/SyncService';
 import { loadAllSessions } from '../../writing/services/UnifiedSessionLoader';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../core/i18n';
@@ -43,33 +42,8 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   const [achResetKey, setAchResetKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [fetchKey, setFetchKey] = useState(0);
-  const [syncing, setSyncing] = useState(false);
-  const { showToast } = useToast();
+  const { showToast: _showToast } = useToast();
 
-  const handleSyncBoth = useCallback(async () => {
-    if (!user || syncing) return;
-    setSyncing(true);
-    try {
-      const [uploadResult, downloadResult] = await Promise.allSettled([
-        SyncService.syncAllUnlinked(user.uid),
-        SyncService.downloadAllFromCloud(user.uid),
-      ]);
-      const upload = uploadResult.status === 'fulfilled' ? uploadResult.value : { synced: 0, failed: 0 };
-      const download = downloadResult.status === 'fulfilled' ? downloadResult.value : { downloaded: 0, failed: 0 };
-      const total = upload.synced + download.downloaded;
-      if (uploadResult.status === 'rejected' || downloadResult.status === 'rejected' || upload.failed + download.failed > 0) {
-        showToast(t('profile_sync_partial', { synced: String(total), failed: String(upload.failed + download.failed) }), 'error');
-      } else {
-        showToast(t('profile_sync_success', { count: String(total) }), 'success');
-      }
-      setFetchKey(k => k + 1);
-    } catch (e) {
-      reportError(e, { action: 'syncBoth', userId: user.uid });
-      showToast(t('profile_sync_error'), 'error');
-    } finally {
-      setSyncing(false);
-    }
-  }, [user, syncing, showToast, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,8 +181,6 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
         <ProfileHero
           user={user} profile={profile} isGuest={isGuest}
           onStartSession={() => navigate('/')}
-          onSync={user ? handleSyncBoth : undefined}
-          syncing={syncing}
         />
       </>
       <div className="px-4 md:px-9 pt-6 flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible scroll-snap-x-container gap-6 md:gap-0 pb-6 md:pb-0">

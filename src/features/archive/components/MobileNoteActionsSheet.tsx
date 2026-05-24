@@ -167,7 +167,8 @@ export function MobileNoteActionsSheet({
         </div>
 
         {/* Action Options List */}
-        <div className="px-6 py-5 overflow-y-auto no-scrollbar space-y-2">
+        <div className="px-6 py-5 overflow-y-auto no-scrollbar space-y-2"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}>
           {!showLabelsSelector ? (
             <>
               {/* 1. Preview Option */}

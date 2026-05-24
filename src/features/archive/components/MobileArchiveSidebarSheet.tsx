@@ -82,7 +82,8 @@ export function MobileArchiveSidebarSheet({
         </div>
 
         {/* Content */}
-        <div className="px-6 pb-8 overflow-y-auto no-scrollbar flex-1 space-y-6">
+        <div className="px-6 pb-8 overflow-y-auto no-scrollbar flex-1 space-y-6"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}>
           {/* Stats section */}
           <div className="bg-white/[0.01] border border-white/[0.04] rounded-2xl p-4">
             <ArchiveStats

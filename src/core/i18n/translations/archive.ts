@@ -100,4 +100,5 @@ export const archiveTranslations: Translations = {
   error_tag_rename_failed: { ru: 'Не удалось изменить тег', en: 'Failed to rename tag' },
   tag_deleted: { ru: 'Тег удален', en: 'Tag deleted' },
   error_tag_delete_failed: { ru: 'Не удалось удалить тег', en: 'Failed to delete tag' },
+  archive_note_actions: { ru: 'Действия с заметкой', en: 'Note Actions' },
 };

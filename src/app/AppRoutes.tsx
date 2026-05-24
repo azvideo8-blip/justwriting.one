@@ -4,7 +4,6 @@ import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { ProtectedRoute, GuestRoute } from './ProtectedRoute';
 
 const WritingPage = React.lazy(() => import('../features/writing/pages/WritingPage').then(m => ({ default: m.WritingPage })));
-const MobileLogPage = React.lazy(() => import('../features/writing/pages/MobileLogPage').then(m => ({ default: m.MobileLogPage })));
 const MobileMePage = React.lazy(() => import('../features/writing/pages/MobileMePage').then(m => ({ default: m.MobileMePage })));
 const ArchivePage = React.lazy(() => import('../features/archive/pages/ArchivePage').then(m => ({ default: m.ArchivePage })));
 const ProfilePage = React.lazy(() => import('../features/profile/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
@@ -30,7 +29,7 @@ export function AppRoutes() {
     <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/" element={<WritingPage user={user} profile={profile} />} />
-        <Route path="/log" element={<MobileLogPage />} />
+        <Route path="/log" element={<Navigate to="/archive" replace />} />
         <Route path="/me" element={<MobileMePage />} />
         <Route path="/archive" element={<ArchivePage user={user} profile={profile} />} />
         <Route path="/profile" element={<ProfilePage user={user} profile={profile} />} />

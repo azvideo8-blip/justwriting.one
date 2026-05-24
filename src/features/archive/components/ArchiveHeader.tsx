@@ -120,7 +120,7 @@ export function ArchiveHeader({
             <span className="hidden sm:inline">{sortLabels[sortMode]}</span>
           </button>
           {sortOpen && (
-            <div className="absolute right-0 top-full mt-1 py-1 w-48 bg-bg-main border border-border-subtle rounded-lg shadow-lg z-30">
+            <div className="absolute right-0 top-full mt-1 py-1 w-48 bg-surface-elevated border border-border-subtle rounded-lg shadow-xl z-30">
               {SORT_OPTIONS.map(mode => (
                 <button
                   key={mode}

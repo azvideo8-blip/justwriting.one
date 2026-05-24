@@ -59,7 +59,7 @@ function PromptsScreen({ t, onSelect, onBack }: {
   );
 }
 
-export type SetupMode = 'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | 'finish-by-config' | 'prompts' | null;
+export type SetupMode = 'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | 'finish-by-config' | null;
 
 interface WritingSetupProps {
   setupMode: SetupMode;
@@ -144,7 +144,6 @@ export function WritingSetup({
                       { id: 'timer-config', icon: Timer, label: 'writing_mode_timer', desc: 'writing_mode_timer_desc', color: 'text-blue-400', bg: 'bg-blue-400/10' },
                       { id: 'words-config', icon: Target, label: 'writing_mode_words', desc: 'writing_mode_words_desc', color: 'text-rose-400', bg: 'bg-rose-400/10' },
                       { id: 'finish-by-config', icon: Clock, label: 'writing_mode_deadline', desc: 'writing_mode_deadline_desc', color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-                      { id: 'prompts', icon: Sparkles, label: 'writing_mode_prompts', desc: 'writing_mode_prompts_desc', color: 'text-violet-400', bg: 'bg-violet-400/10' },
                     ].map((mode) => (
                       <motion.button 
                         key={mode.id}
@@ -319,10 +318,7 @@ export function WritingSetup({
                 </div>
               )}
 
-              {setupMode === 'prompts' && <PromptsScreen t={t} onSelect={(prompt) => {
-                onSetPromptTitle?.(prompt);
-                startCountdown('stopwatch');
-              }} onBack={() => setSetupMode('selection')} />}
+
             </div>
 
             {setupMode === 'selection' && (

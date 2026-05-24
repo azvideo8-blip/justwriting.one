@@ -10,6 +10,8 @@ import { updateArchiveField } from '../../archive/services/archiveCrud';
 import { auth } from '../../../core/firebase/auth';
 import { AnimatePresence } from 'motion/react';
 import { MobilePageHeader } from '../../../shared/components/MobilePageHeader';
+import { Settings } from 'lucide-react';
+import { useSettings } from '../../../core/settings/SettingsContext';
 
 interface MobileLogScreenProps {
   userId: string;
@@ -28,6 +30,7 @@ function formatDuration(minutes: number, t: (key: string) => string): string {
 
 export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileLogScreenProps) {
   const { t } = useLanguage();
+  const { openSettings } = useSettings();
   const { sessionGroups, loading, refresh } = useLifeLog(userId, isGuest);
   const [query, setQuery] = useState('');
   const [previewSession, setPreviewSession] = useState<Session | null>(null);
@@ -84,7 +87,27 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
       paddingTop: 0,
     }}>
 
-      <MobilePageHeader title={t('lifelog_tab_log')} titleFont="serif" />
+      <MobilePageHeader
+        title={t('lifelog_tab_log')}
+        titleFont="serif"
+        right={
+          <button
+            onClick={() => openSettings()}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              padding: 10,
+              display: 'flex',
+              alignItems: 'center',
+            }}
+            aria-label={t('nav_settings')}
+          >
+            <Settings size={20} />
+          </button>
+        }
+      />
 
       <div style={{ padding: '16px 20px 0' }}>
 
