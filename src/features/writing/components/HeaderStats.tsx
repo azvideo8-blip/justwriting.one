@@ -60,7 +60,7 @@ export const HeaderStats = memo(function HeaderStats({
       {visibility.totalWords && (
         <div className="hidden sm:flex flex-col px-4 py-3 shrink-0">
           <span className="text-2xl font-medium text-text-main leading-none tabular-nums">{wordCount}</span>
-          <span className="text-[11px] text-text-muted mt-1">{t('header_totalWords')}</span>
+          <span className="text-label-sm text-text-muted mt-1">{t('header_totalWords')}</span>
         </div>
       )}
 
@@ -93,7 +93,7 @@ export const HeaderStats = memo(function HeaderStats({
             />
           </div>
         )}
-        <span className="text-[11px] text-text-muted mt-1">
+        <span className="text-label-sm text-text-muted mt-1">
           {wordGoal > 0 ? t('header_sessionWords') : t('header_sessionWords_hint')}
         </span>
 
@@ -145,7 +145,7 @@ export const HeaderStats = memo(function HeaderStats({
             />
           </div>
         )}
-        <span className="text-[11px] text-text-muted mt-1">
+        <span className="text-label-sm text-text-muted mt-1">
           {timerDuration > 0
             ? `${t('goal_time_of')} ${Math.round(timerDuration / 60)} ${t('goal_time_min')}`
             : t('header_time_hint')}
@@ -181,14 +181,14 @@ export const HeaderStats = memo(function HeaderStats({
           <div className={cn("w-2 h-2 rounded-full transition-colors duration-500", getWpmColor(wpm), status === 'writing' && "animate-pulse")} />
           <span className="text-xl sm:text-2xl font-medium text-text-main leading-none tabular-nums">{wpm}</span>
         </div>
-        <span className="text-[11px] text-text-muted mt-1">{t('header_wpm')}</span>
+        <span className="text-label-sm text-text-muted mt-1">{t('header_wpm')}</span>
       </div>
       )}
           
       {status === 'writing' && (
         <div className="flex items-center gap-1.5 ml-auto px-4">
           <div className="w-2 h-2 rounded-full bg-accent-success animate-pulse" />
-          <span className="text-[11px] text-text-subtle font-medium">{t('stats_writing')}</span>
+          <span className="text-label-sm text-text-subtle font-medium">{t('stats_writing')}</span>
         </div>
       )}
     </div>

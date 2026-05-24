@@ -105,7 +105,7 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
         >
           <div
             className={cn(
-              "w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold transition-all",
+              "w-8 h-8 rounded-full flex items-center justify-center text-label-sm font-bold transition-colors",
               day.hasSession
                 ? day.isToday
                   ? "bg-brand-primary text-surface-base ring-2 ring-brand-primary/30 ring-offset-2 ring-offset-surface-card"

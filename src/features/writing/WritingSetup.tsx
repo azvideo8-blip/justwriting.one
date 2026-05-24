@@ -31,7 +31,7 @@ function PromptsScreen({ t, onSelect, onBack }: {
       <div className="space-y-5">
         {PROMPT_KEYS.map(cat => (
           <div key={cat.key}>
-            <div className="text-[11px] font-bold uppercase tracking-widest text-text-main/40 mb-2">
+            <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/40 mb-2">
               {t(`prompts_category_${cat.key}`)}
             </div>
             <div className="space-y-2">
@@ -39,7 +39,7 @@ function PromptsScreen({ t, onSelect, onBack }: {
                 <button
                   key={i}
                   onClick={() => onSelect(t(promptKey))}
-                  className="w-full text-left px-4 py-3 rounded-xl border border-border-subtle hover:border-brand-primary/30 hover:bg-brand-primary/5 transition-all text-sm text-text-main/70 hover:text-text-main"
+                  className="w-full text-left px-4 py-3 rounded-xl border border-border-subtle hover:border-brand-primary/30 hover:bg-brand-primary/5 transition-colors text-sm text-text-main/70 hover:text-text-main"
                 >
                   {t(promptKey)}
                 </button>
@@ -151,7 +151,7 @@ export function WritingSetup({
                         whileHover={{ y: -2, scale: 1.01 }}
                         whileTap={{ scale: 0.98 }}
                         transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-                        className="px-4 py-3 rounded-2xl border border-border-subtle hover:border-text-main/40 hover:bg-text-main/5 transition-all flex items-center gap-3 text-left w-full"
+                        className="px-4 py-3 rounded-2xl border border-border-subtle hover:border-text-main/40 hover:bg-text-main/5 transition-colors flex items-center gap-3 text-left w-full"
                       >
                         <span className={cn("text-xl shrink-0", mode.color)}>
                           <mode.icon size={20} className="md:w-6 md:h-6" strokeWidth={2.5} />
@@ -187,11 +187,11 @@ export function WritingSetup({
                             type="number" 
                             value={timerDuration / 60}
                             onChange={(e) => setTimerDuration(Number(e.target.value) * 60)}
-                            className="w-32 md:w-40 text-center text-5xl md:text-7xl font-black bg-transparent outline-none transition-all focus:scale-110 text-text-main"
+                            className="w-32 md:w-40 text-center text-5xl md:text-7xl font-black bg-transparent outline-none transition-colors focus:scale-110 text-text-main"
                             min="1"
                             autoFocus
                           />
-                          <div className="text-[11px] md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/50">{t('writing_minutes')}</div>
+                          <div className="text-label-sm md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/50">{t('writing_minutes')}</div>
                         </div>
                       )}
                       {setupMode === 'words-config' && (
@@ -200,12 +200,12 @@ export function WritingSetup({
                             type="number" 
                             value={wordGoal}
                             onChange={(e) => setWordGoal(Number(e.target.value))}
-                            className="w-40 md:w-48 text-center text-5xl md:text-7xl font-black bg-transparent outline-none transition-all focus:scale-110 text-text-main"
+                            className="w-40 md:w-48 text-center text-5xl md:text-7xl font-black bg-transparent outline-none transition-colors focus:scale-110 text-text-main"
                             min="10"
                             step="50"
                             autoFocus
                           />
-                          <div className="text-[11px] md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/50">{t('writing_words')}</div>
+                          <div className="text-label-sm md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/50">{t('writing_words')}</div>
                         </div>
                       )}
                       {setupMode === 'finish-by-config' && (
@@ -214,12 +214,12 @@ export function WritingSetup({
                             type="time" 
                             value={targetTime || ''}
                             onChange={(e) => { setTargetTime(e.target.value); setFinishByError(false); }}
-                            className={`w-56 md:w-64 text-center text-5xl md:text-7xl font-black bg-transparent outline-none transition-all focus:scale-110 ${
+                            className={`w-56 md:w-64 text-center text-5xl md:text-7xl font-black bg-transparent outline-none transition-colors focus:scale-110 ${
                               finishByError ? 'text-red-400' : 'text-text-main'
                             }`}
                             autoFocus
                           />
-                          <div className="text-[11px] md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/50">{t('writing_time')}</div>
+                          <div className="text-label-sm md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/50">{t('writing_time')}</div>
                           {finishByError && (
                             <div className="text-xs text-red-400 mt-2 font-medium">
                               {t('error_target_time_in_past') || 'Выберите время в будущем'}
@@ -245,7 +245,7 @@ export function WritingSetup({
                           setFinishByError(false);
                           startCountdown(setupMode === 'timer-config' ? 'timer' : setupMode === 'words-config' ? 'words' : 'finish-by');
                         }}
-                        className="w-full py-4 md:py-5 rounded-2xl md:rounded-[1.5rem] font-black text-base md:text-lg hover:scale-[1.02] active:scale-[0.98] transition-all bg-text-main text-surface-base shadow-[0_0_20px_var(--brand-soft)]/30"
+                        className="w-full py-4 md:py-5 rounded-2xl md:rounded-[1.5rem] font-black text-base md:text-lg hover:scale-[1.02] active:scale-[0.98] transition-colors bg-text-main text-surface-base shadow-[0_0_20px_var(--brand-soft)]/30"
                       >
                         {t('writing_start')}
                       </button>
@@ -290,12 +290,12 @@ export function WritingSetup({
                                 <div className="font-bold text-sm md:text-base group-hover:translate-x-1 transition-transform duration-300 text-text-main">
                                   {session.title || t('common_untitled')}
                                 </div>
-                                <div className="text-[11px] font-bold uppercase tracking-wider text-text-main/50">
+                                <div className="text-label-sm font-bold uppercase tracking-wider text-text-main/50">
                                   {session.wordCount} {t('writing_words')} · {formatTime(session.duration)}
                                 </div>
                               </div>
                             </div>
-                            <div className="text-[11px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-white/10 text-text-main/50">
+                            <div className="text-label-sm font-black uppercase tracking-widest px-2 py-1 rounded-full bg-white/10 text-text-main/50">
                               {session.createdAt ? format(toDate(session.createdAt) ?? new Date(), 'd MMM', { locale: dateLocale }) : ''}
                             </div>
                           </div>
@@ -325,7 +325,7 @@ export function WritingSetup({
               <div className="px-10 py-6 border-t flex justify-center bg-white/5 border-border-subtle">
                 <button 
                   onClick={() => setSetupMode(null)} 
-                  className="text-xs font-black uppercase tracking-[0.2em] transition-all hover:tracking-[0.3em] text-text-main/50 hover:text-text-main"
+                  className="text-xs font-black uppercase tracking-[0.2em] transition-colors hover:tracking-[0.3em] text-text-main/50 hover:text-text-main"
                 >
                   {t('writing_cancel')}
                 </button>

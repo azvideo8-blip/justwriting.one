@@ -51,7 +51,7 @@ export function ArchiveHeader({
         <h1 className="text-3xl font-medium tracking-tight text-text-main">
           {title}
         </h1>
-        <span className="font-mono text-[11px] text-text-main/30 uppercase tracking-widest">
+        <span className="font-mono text-label-sm text-text-main/30 uppercase tracking-widest">
           {count} {countLabel}
         </span>
       </div>
@@ -74,7 +74,7 @@ export function ArchiveHeader({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[10px] text-text-main/20 border border-border-subtle rounded px-1.5 py-0.5 leading-none"
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-label text-text-main/20 border border-border-subtle rounded px-1.5 py-0.5 leading-none"
               >
                 ⌘K
               </motion.kbd>
@@ -93,7 +93,7 @@ export function ArchiveHeader({
               {viewMode === v && (
                 <motion.div
                   layoutId="view-mode-pill"
-                  className="absolute inset-0 bg-text-main/15 rounded-md"
+                  className="absolute inset-0 bg-text-main/25 rounded-md"
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
@@ -107,7 +107,7 @@ export function ArchiveHeader({
           <button
             onClick={() => setSortOpen(o => !o)}
             className={cn(
-              "h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-sm transition-all border",
+              "h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-sm transition-colors border",
               sortOpen
                 ? "bg-text-main/10 border-border-subtle/60 text-text-main"
                 : sortMode !== 'newest'
@@ -141,7 +141,7 @@ export function ArchiveHeader({
         {onFilterClick && (
           <button
             onClick={onFilterClick}
-            className="md:hidden h-8 px-2.5 rounded-lg flex items-center justify-center border border-border-subtle bg-text-main/[0.03] text-text-main/40 hover:text-text-main/60 active:scale-[0.98] transition-all cursor-pointer"
+            className="md:hidden h-8 px-2.5 rounded-lg flex items-center justify-center border border-border-subtle bg-text-main/[0.03] text-text-main/40 hover:text-text-main/60 active:scale-[0.98] transition-colors cursor-pointer"
             title="Filters"
           >
             <SlidersHorizontal size={14} />

@@ -157,7 +157,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
         >
           <JustWritingLogo size={120} variant="dark" showRailway={true} showRoman={true} showCrown={true} />
         </motion.div>
-        <p className="text-sm text-text-main/35 tracking-widest uppercase font-sans">
+        <p className="text-sm text-text-main/40 tracking-widest uppercase font-sans">
           {t("profile_loading")}
         </p>
       </div>
@@ -168,7 +168,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
     return (
       <div className="p-12 text-center rounded-2xl border bg-red-500/10 border-red-500/20">
         <AlertCircle size={24} className="mx-auto mb-3 text-red-400/70" /><p className="text-red-400 text-sm mb-4">{t('profile_load_error')}</p>
-        <button onClick={() => { setError(null); setFetchKey(k => k + 1); }} className="px-4 py-2 rounded-xl text-sm font-medium text-red-400 border border-red-400/30 hover:bg-red-400/10 transition-all">
+        <button onClick={() => { setError(null); setFetchKey(k => k + 1); }} className="px-4 py-2 rounded-xl text-sm font-medium text-red-400 border border-red-400/30 hover:bg-red-400/10 transition-colors">
           {t('retry')}
         </button>
       </div>
@@ -224,15 +224,15 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
         {showResetConfirm ? (
           <div className="inline-flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
             <span className="text-[12px] text-red-400">{t('profile_ach_reset_confirm')}</span>
-            <button onClick={handleResetAchievements} className="text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors uppercase tracking-widest">
+            <button onClick={handleResetAchievements} className="text-label-sm font-medium text-red-400 hover:text-red-300 transition-colors uppercase tracking-widest">
               {t('profile_ach_reset')}
             </button>
-            <button onClick={() => setShowResetConfirm(false)} className="text-[11px] font-medium text-text-main/40 hover:text-text-main/60 transition-colors uppercase tracking-widest">
+            <button onClick={() => setShowResetConfirm(false)} className="text-label-sm font-medium text-text-main/40 hover:text-text-main/60 transition-colors uppercase tracking-widest">
               ✕
             </button>
           </div>
         ) : (
-          <button onClick={() => setShowResetConfirm(true)} className="font-mono text-[11px] text-text-main/20 hover:text-red-400/50 transition-colors uppercase tracking-widest">
+          <button onClick={() => setShowResetConfirm(true)} className="font-mono text-label-sm text-text-main/20 hover:text-red-400/50 transition-colors uppercase tracking-widest">
             {t('profile_ach_reset')}
           </button>
         )}

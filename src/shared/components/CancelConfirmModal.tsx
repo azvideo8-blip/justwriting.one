@@ -50,7 +50,7 @@ export function CancelConfirmModal({
       >
         <button 
           onClick={onCancel}
-          className="absolute top-4 right-4 p-3 rounded-full text-text-main/50 hover:text-text-main hover:bg-text-main/10 transition-all"
+          className="absolute top-4 right-4 p-3 rounded-full text-text-main/50 hover:text-text-main hover:bg-text-main/10 transition-colors"
           aria-label={t('common_close')}
         >
           <X size={20} />
@@ -69,14 +69,14 @@ export function CancelConfirmModal({
         <div className="flex gap-3">
           <button 
             onClick={onCancel}
-            className="flex-1 px-4 py-3 rounded-xl font-bold transition-all border border-border-subtle text-text-main hover:bg-white/5"
+            className="flex-1 px-4 py-3 rounded-xl font-bold transition-colors border border-border-subtle text-text-main hover:bg-white/5"
           >
             {cancelLabel || t('writing_back')}
           </button>
           <button 
             onClick={onConfirm}
             className={cn(
-              "flex-1 px-4 py-3 rounded-xl font-bold transition-all",
+              "flex-1 px-4 py-3 rounded-xl font-bold transition-colors",
               variant === 'warning'
                 ? 'bg-accent-warning/20 text-accent-warning hover:bg-accent-warning/30'
                 : 'bg-accent-danger/20 text-accent-danger hover:bg-accent-danger/30'

@@ -243,7 +243,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
       <h2 className="text-[18px] font-medium text-text-main mb-1">
         {t('profile_achievements_title')}
       </h2>
-      <div className="flex gap-4 mb-6 font-mono text-[11px] text-text-muted uppercase tracking-widest">
+      <div className="flex gap-4 mb-6 font-mono text-label-sm text-text-muted uppercase tracking-widest">
         <span>{unlockedCount} / {totalAchievements} {t('profile_ach_opened')}</span>
         {legendaryCount > 0 && (
           <span style={{ color: RARITY_COLORS.legendary }}>
@@ -265,10 +265,10 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
             className="mb-8"
           >
             <div className="flex items-center justify-between mb-3">
-              <div className="font-mono text-[11px] text-text-muted uppercase tracking-widest">
+              <div className="font-mono text-label-sm text-text-muted uppercase tracking-widest">
                 {t(group.labelKey)}
               </div>
-              <div className="font-mono text-[11px] text-text-subtle">
+              <div className="font-mono text-label-sm text-text-subtle">
                 {groupUnlocked} / {group.achievements.length}
               </div>
             </div>
@@ -295,7 +295,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
                     title={t(ach.title)}
                     onClick={() => setActiveAchId(activeAchId === ach.id ? null : ach.id)}
                     className={cn(
-                      "p-4 flex flex-col items-center gap-2 text-center relative overflow-hidden transition-all cursor-pointer min-h-[110px] justify-center select-none active:bg-white/5",
+                      "p-4 flex flex-col items-center gap-2 text-center relative overflow-hidden transition-colors cursor-pointer min-h-[110px] justify-center select-none active:bg-white/5",
                       unlocked ? "bg-surface-elevated/40" : "bg-transparent"
                     )}
                   >
@@ -338,10 +338,10 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
 
                     {activeAchId === ach.id && (
                       <div className="absolute inset-0 bg-surface-card border border-border-light flex flex-col items-center justify-center p-2 z-20 text-xs rounded-xl shadow-lg animate-in fade-in zoom-in-95 duration-100">
-                        <div className="font-semibold text-text-main text-[11px] leading-tight mb-1">
+                        <div className="font-semibold text-text-main text-label-sm leading-tight mb-1">
                           {t(ach.title)}
                         </div>
-                        <div className="text-[10px] text-text-muted leading-snug">
+                        <div className="text-label text-text-muted leading-snug">
                           {getAchievementDescription(ach, t)}
                         </div>
                         <div className="text-[9px] mt-2 uppercase font-bold tracking-wider" style={{ color: unlocked ? RARITY_COLORS[rarity] : 'var(--text-subtle)' }}>

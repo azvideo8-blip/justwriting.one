@@ -102,13 +102,13 @@ export function MobileArchiveSidebarSheet({
           {/* Calendar Picker Section */}
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="font-mono text-[10px] text-text-main/30 uppercase tracking-widest">
+              <span className="font-mono text-label text-text-main/30 uppercase tracking-widest">
                 {t('archive_calendar_title')}
               </span>
               {selectedDate && (
                 <button
                   onClick={() => onSelectDate(null)}
-                  className="text-[10px] font-mono text-brand-soft/80 hover:text-brand-soft flex items-center gap-1 bg-brand-soft/10 border border-brand-soft/20 rounded-lg px-2 py-0.5"
+                  className="text-label font-mono text-brand-soft/80 hover:text-brand-soft flex items-center gap-1 bg-brand-soft/10 border border-brand-soft/20 rounded-lg px-2 py-0.5"
                 >
                   ✕ {format(selectedDate, 'd MMM yyyy')}
                 </button>
@@ -141,7 +141,7 @@ export function MobileArchiveSidebarSheet({
 
               {/* Word Cloud Tag list */}
               <div className="space-y-3">
-                <span className="font-mono text-[10px] text-text-main/30 uppercase tracking-widest block">
+                <span className="font-mono text-label text-text-main/30 uppercase tracking-widest block">
                   {t('archive_wordcloud_title')}
                 </span>
                 <div className="flex flex-wrap gap-x-3 gap-y-2 bg-white/[0.01] border border-white/[0.04] rounded-2xl p-4">
@@ -153,7 +153,7 @@ export function MobileArchiveSidebarSheet({
                         key={word}
                         onClick={() => handleSelectWord(word)}
                         style={{ fontSize: size, opacity }}
-                        className="text-text-main/70 active:text-brand-primary active:opacity-100 transition-all leading-tight cursor-pointer py-1"
+                        className="text-text-main/70 active:text-brand-primary active:opacity-100 transition-colors leading-tight cursor-pointer py-1"
                       >
                         {word}
                       </button>
@@ -169,7 +169,7 @@ export function MobileArchiveSidebarSheet({
             <button
               onClick={onClose}
               style={{ background: 'var(--brand-primary)' }}
-              className="w-full py-3.5 rounded-2xl font-bold text-sm text-surface-base border-none cursor-pointer text-center active:scale-[0.98] transition-all"
+              className="w-full py-3.5 rounded-2xl font-bold text-sm text-surface-base border-none cursor-pointer text-center active:scale-[0.98] transition-colors"
             >
               {t('common_close') || 'Закрыть'}
             </button>

@@ -91,7 +91,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
             )}
           >
             {tab.icon}
-            <span className="text-[11px] font-sans tracking-[0.02em]">
+            <span className="text-label-sm font-sans tracking-[0.02em]">
               {tab.label}
             </span>
           </button>

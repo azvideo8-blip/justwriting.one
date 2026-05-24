@@ -4,7 +4,7 @@ import { cn } from '../../../core/utils/utils';
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <p className="text-[11px] font-bold uppercase tracking-widest text-text-main/40 px-1">{title}</p>
+      <p className="text-label-sm font-bold uppercase tracking-widest text-text-main/40 px-1">{title}</p>
       <div className="space-y-1">{children}</div>
     </div>
   );
@@ -20,12 +20,12 @@ export function ToggleRow({ emoji, label, hint, value, onChange }: {
   return (
     <button
       onClick={onChange}
-      className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle hover:bg-text-main/5 transition-all w-full"
+      className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle hover:bg-text-main/5 transition-colors w-full"
     >
       {emoji && <span className="text-base shrink-0">{emoji}</span>}
       <div className="flex-1 text-left">
         <span className="text-sm text-text-main/70">{label}</span>
-        {hint && <p className="text-[10px] text-text-main/40 mt-0.5">{hint}</p>}
+        {hint && <p className="text-label text-text-main/40 mt-0.5">{hint}</p>}
       </div>
       <div className={cn(
         "w-8 h-4 rounded-full relative transition-colors duration-200 shrink-0",

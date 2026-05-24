@@ -162,7 +162,7 @@ export function AdminPage() {
         <button
           onClick={handleImportFromCloud}
           disabled={importing}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-text-main text-surface-base text-sm font-medium disabled:opacity-50 transition-all"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-text-main text-surface-base text-sm font-medium disabled:opacity-50 transition-colors"
         >
           {importing
             ? <><Loader size={14} className="animate-spin" /> {t('admin_importing')}</>
@@ -183,7 +183,7 @@ export function AdminPage() {
         <button 
           onClick={() => setActiveTab('users')}
           className={cn(
-            "flex items-center gap-2 px-6 py-2 rounded-2xl text-sm font-bold transition-all",
+            "flex items-center gap-2 px-6 py-2 rounded-2xl text-sm font-bold transition-colors",
             activeTab === 'users' 
               ? "bg-surface-base/20 text-text-main shadow-sm" 
               : "text-text-main/50 hover:text-text-main"
@@ -195,7 +195,7 @@ export function AdminPage() {
         <button 
           onClick={() => setActiveTab('sessions')}
           className={cn(
-            "flex items-center gap-2 px-6 py-2 rounded-2xl text-sm font-bold transition-all",
+            "flex items-center gap-2 px-6 py-2 rounded-2xl text-sm font-bold transition-colors",
             activeTab === 'sessions' 
               ? "bg-surface-base/20 text-text-main shadow-sm" 
               : "text-text-main/50 hover:text-text-main"
@@ -207,7 +207,7 @@ export function AdminPage() {
         <button 
           onClick={() => setActiveTab('security')}
           className={cn(
-            "flex items-center gap-2 px-6 py-2 rounded-2xl text-sm font-bold transition-all",
+            "flex items-center gap-2 px-6 py-2 rounded-2xl text-sm font-bold transition-colors",
             activeTab === 'security' 
               ? "bg-surface-base/20 text-text-main shadow-sm" 
               : "text-text-main/50 hover:text-text-main"
@@ -219,7 +219,7 @@ export function AdminPage() {
         <button 
           onClick={() => setActiveTab('diagnostics')}
           className={cn(
-            "flex items-center gap-2 px-6 py-2 rounded-2xl text-sm font-bold transition-all",
+            "flex items-center gap-2 px-6 py-2 rounded-2xl text-sm font-bold transition-colors",
             activeTab === 'diagnostics' 
               ? "bg-surface-base/20 text-text-main shadow-sm" 
               : "text-text-main/50 hover:text-text-main"
@@ -235,7 +235,7 @@ export function AdminPage() {
           <LoadingSpinner size={10} />
         </div>
       ) : (
-        <div className="rounded-3xl overflow-hidden transition-all bg-surface-card backdrop-blur-2xl border border-border-subtle shadow-sm">
+        <div className="rounded-3xl overflow-hidden transition-colors bg-surface-card backdrop-blur-2xl border border-border-subtle shadow-sm">
           {activeTab === 'users' && (
             <AdminUsersTable users={users} />
           )}
@@ -248,7 +248,7 @@ export function AdminPage() {
                   <button
                     onClick={() => fetchData(false)}
                     disabled={loadingMoreSessions}
-                    className="px-8 py-2 rounded-2xl font-bold transition-all disabled:opacity-50 bg-text-main text-surface-base shadow-lg"
+                    className="px-8 py-2 rounded-2xl font-bold transition-colors disabled:opacity-50 bg-text-main text-surface-base shadow-lg"
                   >
                     {loadingMoreSessions ? t('archive_loading_more') : t('archive_load_more')}
                   </button>

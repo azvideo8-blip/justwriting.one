@@ -39,7 +39,7 @@ export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate,
 
       <div className="grid grid-cols-7 gap-2">
         {['calendar_mon', 'calendar_tue', 'calendar_wed', 'calendar_thu', 'calendar_fri', 'calendar_sat', 'calendar_sun'].map((key, i) => (
-          <div key={`${key}-${i}`} className="text-[10px] text-text-main/30 uppercase tracking-wider text-center">{t(key)}</div>
+          <div key={`${key}-${i}`} className="text-label text-text-main/30 uppercase tracking-wider text-center">{t(key)}</div>
         ))}
         {Array.from({ length: offset }).map((_, i) => (
           <div key={`empty-${i}`} />
@@ -55,7 +55,7 @@ export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate,
               key={day.toString()}
               onClick={() => onSelectDate(day)}
               className={cn(
-                "aspect-square rounded-lg flex items-center justify-center text-sm transition-all relative flex-col gap-0",
+                "aspect-square rounded-lg flex items-center justify-center text-sm transition-colors relative flex-col gap-0",
                 hasSessions 
                   ? "text-text-main/80 font-medium" 
                   : "text-text-main/20 hover:text-text-main/40",

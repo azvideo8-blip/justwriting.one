@@ -109,7 +109,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                   key={words}
                   onClick={() => handleSelectWords(words)}
                   className={cn(
-                    "py-2 px-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer text-center",
+                    "py-2 px-1 rounded-xl text-xs font-semibold border transition-colors cursor-pointer text-center",
                     wordGoal === words
                       ? "bg-rose-400/10 border-rose-400 text-rose-400"
                       : "bg-white/[0.02] border-white/[0.06] text-text-main/60"
@@ -158,7 +158,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                   key={mins}
                   onClick={() => handleSelectMins(mins)}
                   className={cn(
-                    "py-2 px-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer text-center",
+                    "py-2 px-1 rounded-xl text-xs font-semibold border transition-colors cursor-pointer text-center",
                     Math.round(timerDuration / 60) === mins
                       ? "bg-blue-400/10 border-blue-400 text-blue-400"
                       : "bg-white/[0.02] border-white/[0.06] text-text-main/60"
@@ -198,7 +198,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
             <button
               onClick={onClose}
               style={{ background: 'var(--brand-primary)' }}
-              className="w-full py-3.5 rounded-2xl font-bold text-sm text-surface-base border-none cursor-pointer text-center active:scale-[0.98] transition-all"
+              className="w-full py-3.5 rounded-2xl font-bold text-sm text-surface-base border-none cursor-pointer text-center active:scale-[0.98] transition-colors"
             >
               {t('save_success') || 'Готово'}
             </button>

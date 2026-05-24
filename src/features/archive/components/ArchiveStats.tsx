@@ -28,13 +28,13 @@ export function ArchiveStats({ sessions, streakDays, title, onReset }: ArchiveSt
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <div className="text-[11px] font-mono text-text-main/40 uppercase tracking-widest truncate">
+        <div className="text-label-sm font-mono text-text-main/40 uppercase tracking-widest truncate">
           {title}
         </div>
         {onReset && (
           <button
             onClick={onReset}
-            className="w-5 h-5 flex items-center justify-center rounded text-text-main/25 hover:text-text-main/60 hover:bg-text-main/5 transition-all shrink-0 ml-2"
+            className="w-5 h-5 flex items-center justify-center rounded text-text-main/25 hover:text-text-main/60 hover:bg-text-main/5 transition-colors shrink-0 ml-2"
             title={t('archive_stats_reset')}
           >
             <X size={12} />
@@ -65,7 +65,7 @@ export function ArchiveStats({ sessions, streakDays, title, onReset }: ArchiveSt
             >
               {stat.value}{stat.suffix ? ' ' + stat.suffix : ''}
             </div>
-            <div className="text-[10px] text-text-main/35 uppercase tracking-widest">
+            <div className="text-label text-text-main/40 uppercase tracking-widest">
               {stat.label}
             </div>
           </motion.div>

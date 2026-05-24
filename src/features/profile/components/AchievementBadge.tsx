@@ -25,7 +25,7 @@ export function AchievementBadge({ achievement, earned }: AchievementBadgeProps)
 
   return (
     <div className={cn(
-      "flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all",
+      "flex flex-col items-center gap-2 p-4 rounded-2xl border transition-colors",
       earned ? TIER_STYLES[achievement.tier] ?? 'border-border-subtle opacity-30 grayscale' : 'border-border-subtle opacity-30 grayscale'
     )}>
       <span className="text-3xl">{achievement.icon}</span>
@@ -33,7 +33,7 @@ export function AchievementBadge({ achievement, earned }: AchievementBadgeProps)
         {t(achievement.title)}
       </span>
       {earned && (
-        <span className="text-[11px] uppercase tracking-widest opacity-60">
+        <span className="text-label-sm uppercase tracking-widest opacity-60">
           {t(`badge_tier_${achievement.tier}`)}
         </span>
       )}

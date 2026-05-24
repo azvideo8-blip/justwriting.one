@@ -44,14 +44,14 @@ export function AppTab({ userId, onRefreshLifeLog }: AppTabProps) {
   return (
     <div className="space-y-4 mt-2">
       <Section title={t('settings_section_storage')}>
-        <div className="text-[11px] text-text-main/40 mb-3 px-1">
+        <div className="text-label-sm text-text-main/40 mb-3 px-1">
           {t('settings_storage_hint')}
         </div>
 
         {isAuthenticated && (
           <button
             onClick={handleSyncNow}
-            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-all"
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors"
           >
             <Cloud size={14} />
             {t('settings_upload_to_cloud')}
@@ -61,7 +61,7 @@ export function AppTab({ userId, onRefreshLifeLog }: AppTabProps) {
         {isGuest && (
           <button
             onClick={openLoginModal}
-            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-border-subtle text-sm text-text-main/40 hover:text-text-main transition-all"
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-border-subtle text-sm text-text-main/40 hover:text-text-main transition-colors"
           >
             <LogIn size={14} />
             {t('storage_sign_in_for_cloud')}
@@ -78,7 +78,7 @@ export function AppTab({ userId, onRefreshLifeLog }: AppTabProps) {
             <button
               key={theme.id}
               onClick={() => setThemeId(theme.id)}
-              className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-all text-left ${
+              className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left ${
                 themeId === theme.id
                   ? "border-text-main bg-text-main text-surface-base"
                   : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
@@ -102,7 +102,7 @@ export function AppTab({ userId, onRefreshLifeLog }: AppTabProps) {
             <button
               key={lang}
               onClick={() => setLanguage(lang)}
-              className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+              className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
                 language === lang
                   ? "border-text-main bg-text-main text-surface-base"
                   : "border-border-subtle text-text-main/60 hover:text-text-main"

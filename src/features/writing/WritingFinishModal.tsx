@@ -273,7 +273,7 @@ export function WritingFinishModal({
                 <button
                   type="button"
                   onClick={() => setStatsExpanded(!statsExpanded)}
-                  className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-all font-semibold text-sm"
+                  className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-colors font-semibold text-sm"
                 >
                   <span>{t('finish_wpm_chart') || 'Session Stats'}</span>
                   {statsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -284,7 +284,7 @@ export function WritingFinishModal({
                     {streakDays > 0 ? (
                       <div className="text-center">
                         <div className="text-3xl font-mono font-bold text-brand-primary tabular-nums">{streakDays}</div>
-                        <div className="text-[10px] font-bold uppercase tracking-widest text-text-main/40 mt-0.5">{t('finish_streak_days')}</div>
+                        <div className="text-label font-bold uppercase tracking-widest text-text-main/40 mt-0.5">{t('finish_streak_days')}</div>
                         <StreakDots sessionGroups={sessionGroups} variant="modal" />
                       </div>
                     ) : (
@@ -293,15 +293,15 @@ export function WritingFinishModal({
 
                     <div className="grid grid-cols-3 text-center">
                       <div className="p-1">
-                        <div className="text-[10px] font-bold uppercase tracking-widest mb-0.5 text-text-main/50">{t('writing_words')}</div>
+                        <div className="text-label font-bold uppercase tracking-widest mb-0.5 text-text-main/50">{t('writing_words')}</div>
                         <div className="text-lg font-mono font-bold text-text-main tabular-nums">{animWords}</div>
                       </div>
                       <div className="p-1 border-l border-r border-border-subtle">
-                        <div className="text-[10px] font-bold uppercase tracking-widest mb-0.5 text-text-main/50">{t('writing_time')}</div>
+                        <div className="text-label font-bold uppercase tracking-widest mb-0.5 text-text-main/50">{t('writing_time')}</div>
                         <div className="text-lg font-mono font-bold text-text-main tabular-nums">{formatTime(animSeconds)}</div>
                       </div>
                       <div className="p-1">
-                        <div className="text-[10px] font-bold uppercase tracking-widest mb-0.5 text-text-main/50">{t('writing_wpm')}</div>
+                        <div className="text-label font-bold uppercase tracking-widest mb-0.5 text-text-main/50">{t('writing_wpm')}</div>
                         <div className="text-lg font-mono font-bold text-text-main tabular-nums">{animWpm}</div>
                       </div>
                     </div>
@@ -335,7 +335,7 @@ export function WritingFinishModal({
                 <button
                   type="button"
                   onClick={() => setFormExpanded(!formExpanded)}
-                  className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-all font-semibold text-sm"
+                  className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-colors font-semibold text-sm"
                 >
                   <span>{t('finish_title_label') || 'Title & Label'}</span>
                   {formExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -350,7 +350,7 @@ export function WritingFinishModal({
                         onChange={e => setEditTitle(e.target.value)}
                         placeholder={t('editor_title_placeholder')}
                         maxLength={200}
-                        className="w-full px-4 py-3 rounded-xl border outline-none transition-all bg-surface-base border-border-subtle text-text-main text-base font-medium placeholder:text-text-main/30 focus:border-text-main/40 min-h-[44px]"
+                        className="w-full px-4 py-3 rounded-xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-base font-medium placeholder:text-text-main/30 focus:border-text-main/40 min-h-[44px]"
                       />
                     </div>
 
@@ -363,7 +363,7 @@ export function WritingFinishModal({
                               key={label.id}
                               onClick={() => setLabelId(labelId === label.id ? undefined : label.id)}
                               className={cn(
-                                "px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 min-h-[40px]",
+                                "px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 min-h-[40px]",
                                 labelId === label.id
                                   ? "border-2 border-white scale-105 opacity-100 shadow-lg"
                                   : labelId !== undefined
@@ -387,7 +387,7 @@ export function WritingFinishModal({
                 <button
                   type="button"
                   onClick={() => setTagsExpanded(!tagsExpanded)}
-                  className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-all font-semibold text-sm"
+                  className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-colors font-semibold text-sm"
                 >
                   <span>{t('finish_tags') || 'Tags'}</span>
                   {tagsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -402,7 +402,7 @@ export function WritingFinishModal({
                             key={tag}
                             onClick={() => toggleTag(tag)}
                             className={cn(
-                              "px-3 py-1.5 rounded-lg text-xs font-medium transition-all min-h-[36px]",
+                              "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-[36px]",
                               tags && tags.includes(tag)
                                 ? "bg-text-main text-surface-base"
                                 : "bg-surface-base text-text-main/70 hover:bg-text-main/10"
@@ -417,7 +417,7 @@ export function WritingFinishModal({
                       ref={tagInputRef}
                       type="text"
                       placeholder={t('finish_add_tag')}
-                      className="w-full px-4 py-2 rounded-xl border outline-none transition-all bg-surface-base border-border-subtle text-text-main text-sm placeholder:text-text-main/60 focus:border-text-main/40 min-h-[44px]"
+                      className="w-full px-4 py-2 rounded-xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-sm placeholder:text-text-main/60 focus:border-text-main/40 min-h-[44px]"
                       onBlur={(e) => {
                         const val = e.currentTarget.value.trim();
                         if (val && tags && !tags.includes(val)) {
@@ -445,7 +445,7 @@ export function WritingFinishModal({
                 <button
                   type="button"
                   onClick={() => setExportExpanded(!exportExpanded)}
-                  className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-all font-semibold text-sm"
+                  className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-colors font-semibold text-sm"
                 >
                   <span>{t('session_export') || 'Export'}</span>
                   {exportExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -454,17 +454,17 @@ export function WritingFinishModal({
                 {exportExpanded && (
                   <div className="p-4">
                     <div className="grid grid-cols-3 gap-3">
-                      <button onClick={exportPDF} className="flex flex-col items-center justify-center gap-2 p-3 transition-all rounded-xl bg-surface-base hover:bg-text-main/10 border border-border-subtle min-h-[56px]">
+                      <button onClick={exportPDF} className="flex flex-col items-center justify-center gap-2 p-3 transition-colors rounded-xl bg-surface-base hover:bg-text-main/10 border border-border-subtle min-h-[56px]">
                         <FileText size={18} className="text-text-main/70" />
-                        <span className="text-[10px] font-bold text-text-main/70">PDF</span>
+                        <span className="text-label font-bold text-text-main/70">PDF</span>
                       </button>
-                      <button onClick={exportMarkdown} className="flex flex-col items-center justify-center gap-2 p-3 transition-all rounded-xl bg-surface-base hover:bg-text-main/10 border border-border-subtle min-h-[56px]">
+                      <button onClick={exportMarkdown} className="flex flex-col items-center justify-center gap-2 p-3 transition-colors rounded-xl bg-surface-base hover:bg-text-main/10 border border-border-subtle min-h-[56px]">
                         <FileText size={18} className="text-text-main/70" />
-                        <span className="text-[10px] font-bold text-text-main/70">MD</span>
+                        <span className="text-label font-bold text-text-main/70">MD</span>
                       </button>
-                      <button onClick={exportDocx} className="flex flex-col items-center justify-center gap-2 p-3 transition-all rounded-xl bg-surface-base hover:bg-text-main/10 border border-border-subtle min-h-[56px]">
+                      <button onClick={exportDocx} className="flex flex-col items-center justify-center gap-2 p-3 transition-colors rounded-xl bg-surface-base hover:bg-text-main/10 border border-border-subtle min-h-[56px]">
                         <Download size={18} className="text-text-main/70" />
-                        <span className="text-[10px] font-bold text-text-main/70">DOCX</span>
+                        <span className="text-label font-bold text-text-main/70">DOCX</span>
                       </button>
                     </div>
                   </div>
@@ -478,7 +478,7 @@ export function WritingFinishModal({
               <div className="flex gap-3">
                 <button
                   onClick={onCancel}
-                  className="flex-1 px-6 py-3.5 font-bold transition-all rounded-2xl border border-border-subtle text-text-main hover:bg-white/5 min-h-[44px]"
+                  className="flex-1 px-6 py-3.5 font-bold transition-colors rounded-2xl border border-border-subtle text-text-main hover:bg-white/5 min-h-[44px]"
                 >
                   {t('finish_back')}
                 </button>
@@ -486,7 +486,7 @@ export function WritingFinishModal({
                   onClick={handleSaveClick}
                   disabled={isSaving}
                   className={cn(
-                    "flex-1 px-6 py-3.5 font-bold transition-all bg-text-main text-surface-base rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30 min-h-[44px]",
+                    "flex-1 px-6 py-3.5 font-bold transition-colors bg-text-main text-surface-base rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30 min-h-[44px]",
                     isSaving ? "opacity-60 cursor-not-allowed" : "hover:brightness-110 will-change-transform"
                   )}
                 >
@@ -511,7 +511,7 @@ export function WritingFinishModal({
           {streakDays > 0 ? (
             <div className="text-center">
               <div className="text-4xl font-mono font-bold text-brand-primary tabular-nums">{streakDays}</div>
-              <div className="text-[11px] font-bold uppercase tracking-widest text-text-main/40 mt-1">{t('finish_streak_days')}</div>
+              <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/40 mt-1">{t('finish_streak_days')}</div>
               <StreakDots sessionGroups={sessionGroups} variant="modal" />
             </div>
           ) : (
@@ -520,15 +520,15 @@ export function WritingFinishModal({
 
           <div className="grid grid-cols-3 text-center">
             <div className="p-2">
-              <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_words')}</div>
+              <div className="text-label-sm font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_words')}</div>
               <div className="text-xl font-mono font-bold text-text-main tabular-nums">{animWords}</div>
             </div>
             <div className="p-2" style={{ borderImage: 'linear-gradient(to bottom, transparent, var(--color-border-subtle), transparent) 1', borderLeft: '1px solid', borderRight: '1px solid' }}>
-              <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_time')}</div>
+              <div className="text-label-sm font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_time')}</div>
               <div className="text-xl font-mono font-bold text-text-main tabular-nums">{formatTime(animSeconds)}</div>
             </div>
             <div className="p-2">
-              <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_wpm')}</div>
+              <div className="text-label-sm font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_wpm')}</div>
               <div className="text-xl font-mono font-bold text-text-main tabular-nums">{animWpm}</div>
             </div>
           </div>
@@ -548,7 +548,7 @@ export function WritingFinishModal({
 
           {wpmHistory.length >= 2 && (
             <div className="rounded-2xl bg-surface-base border border-border-subtle px-4 py-3">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-text-main/40 mb-3">
+              <div className="text-label font-bold uppercase tracking-widest text-text-main/40 mb-3">
                 {t('finish_wpm_chart')}
               </div>
               <React.Suspense fallback={null}>
@@ -567,7 +567,7 @@ export function WritingFinishModal({
               onChange={e => setEditTitle(e.target.value)}
               placeholder={t('editor_title_placeholder')}
               maxLength={200} // [U-04] ограничение в соответствии с Firestore правилами
-              className="w-full px-4 py-3 rounded-2xl border outline-none transition-all bg-surface-base border-border-subtle text-text-main text-lg font-medium placeholder:text-text-main/30 focus:border-text-main/40"
+              className="w-full px-4 py-3 rounded-2xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-lg font-medium placeholder:text-text-main/30 focus:border-text-main/40"
               autoFocus
             />
           </div>
@@ -581,7 +581,7 @@ export function WritingFinishModal({
                     key={label.id}
                     onClick={() => setLabelId(labelId === label.id ? undefined : label.id)}
                     className={cn(
-                      "px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2",
+                      "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2",
                       labelId === label.id
                         ? "border-2 border-white scale-105 opacity-100 shadow-lg"
                         : labelId !== undefined
@@ -605,7 +605,7 @@ export function WritingFinishModal({
                   key={tag}
                   onClick={() => toggleTag(tag)}
                   className={cn(
-                    "px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
+                    "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
                     tags && tags.includes(tag)
                       ? "bg-text-main text-surface-base"
                       : "bg-surface-base text-text-main/70 hover:bg-text-main/10"
@@ -619,7 +619,7 @@ export function WritingFinishModal({
               ref={tagInputRef}
               type="text"
               placeholder={t('finish_add_tag')}
-              className="w-full px-4 py-2 rounded-2xl border outline-none transition-all bg-surface-base border-border-subtle text-text-main placeholder:text-text-main/60 focus:border-text-main/40"
+              className="w-full px-4 py-2 rounded-2xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main placeholder:text-text-main/60 focus:border-text-main/40"
               onBlur={(e) => {
                 const val = e.currentTarget.value.trim();
                 if (val && tags && !tags.includes(val)) {
@@ -641,19 +641,19 @@ export function WritingFinishModal({
           </div>
 
           <div className="space-y-3">
-            <div className="text-[11px] font-bold uppercase tracking-widest text-text-main/50">{t('session_export')}</div>
+            <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/50">{t('session_export')}</div>
             <div className="grid grid-cols-3 gap-3">
-              <button onClick={exportPDF} className="flex flex-col items-center gap-2 p-3 transition-all rounded-2xl bg-surface-base hover:bg-text-main/10 border border-border-subtle">
+              <button onClick={exportPDF} className="flex flex-col items-center gap-2 p-3 transition-colors rounded-2xl bg-surface-base hover:bg-text-main/10 border border-border-subtle">
                 <FileText size={18} className="text-text-main/70" />
-                <span className="text-[10px] font-bold text-text-main/70">PDF</span>
+                <span className="text-label font-bold text-text-main/70">PDF</span>
               </button>
-              <button onClick={exportMarkdown} className="flex flex-col items-center gap-2 p-3 transition-all rounded-2xl bg-surface-base hover:bg-text-main/10 border border-border-subtle">
+              <button onClick={exportMarkdown} className="flex flex-col items-center gap-2 p-3 transition-colors rounded-2xl bg-surface-base hover:bg-text-main/10 border border-border-subtle">
                 <FileText size={18} className="text-text-main/70" />
-                <span className="text-[10px] font-bold text-text-main/70">MD</span>
+                <span className="text-label font-bold text-text-main/70">MD</span>
               </button>
-              <button onClick={exportDocx} className="flex flex-col items-center gap-2 p-3 transition-all rounded-2xl bg-surface-base hover:bg-text-main/10 border border-border-subtle">
+              <button onClick={exportDocx} className="flex flex-col items-center gap-2 p-3 transition-colors rounded-2xl bg-surface-base hover:bg-text-main/10 border border-border-subtle">
                 <Download size={18} className="text-text-main/70" />
-                <span className="text-[10px] font-bold text-text-main/70">DOCX</span>
+                <span className="text-label font-bold text-text-main/70">DOCX</span>
               </button>
             </div>
           </div>
@@ -662,7 +662,7 @@ export function WritingFinishModal({
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--bottom-nav-height, 72px) + 8px)' }}>
             <button
               onClick={onCancel}
-              className="flex-1 px-6 py-4 font-bold transition-all rounded-2xl border border-border-subtle text-text-main hover:bg-white/5"
+              className="flex-1 px-6 py-4 font-bold transition-colors rounded-2xl border border-border-subtle text-text-main hover:bg-white/5"
             >
               {t('finish_back')}
             </button>
@@ -670,7 +670,7 @@ export function WritingFinishModal({
               onClick={handleSaveClick}
               disabled={isSaving}
               className={cn(
-                "flex-1 px-6 py-4 font-bold transition-all bg-text-main text-surface-base rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30",
+                "flex-1 px-6 py-4 font-bold transition-colors bg-text-main text-surface-base rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30",
                 isSaving ? "opacity-60 cursor-not-allowed" : "hover:brightness-110 will-change-transform"
               )}
             >

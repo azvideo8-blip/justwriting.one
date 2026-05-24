@@ -289,13 +289,13 @@ export function AccountTab({ userId }: AccountTabProps) {
                     { errorMessage: t('error_signout_failed') }
                   );
                 }}
-                className="flex-1 px-4 py-3 rounded-xl border border-red-400/40 text-sm text-red-400 hover:bg-red-400/10 transition-all text-left"
+                className="flex-1 px-4 py-3 rounded-xl border border-red-400/40 text-sm text-red-400 hover:bg-red-400/10 transition-colors text-left"
               >
                 {t('writing_cancel_confirm') || 'Да, выйти'}
               </button>
               <button
                 onClick={() => setShowSignOutConfirm(false)}
-                className="px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-all"
+                className="px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors"
               >
                 {t('cancel') || 'Отмена'}
               </button>
@@ -313,7 +313,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                   { errorMessage: t('error_signout_failed') }
                 );
               }}
-              className="w-full px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-red-400 hover:border-red-400/30 transition-all text-left"
+              className="w-full px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-red-400 hover:border-red-400/30 transition-colors text-left"
             >
               {t('me_sign_out')}
             </button>
@@ -326,7 +326,7 @@ export function AccountTab({ userId }: AccountTabProps) {
             >
               <button
                 onClick={() => setShowChangePassword(true)}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-all text-left"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors text-left"
               >
                 <Lock size={16} className="text-text-main/40" />
                 {t('settings_change_password')}
@@ -378,8 +378,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                 <button
                   type="submit"
                   disabled={passwordLoading}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-all"
-                  style={{ background: 'var(--brand-primary)' }}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors bg-brand-primary"
                 >
                   {passwordLoading ? <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white mx-auto" /> : t('settings_change_password')}
                 </button>
@@ -400,7 +399,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                   <Shield size={18} className="text-text-main/40 mt-0.5" />
                   <div className="flex-1 space-y-1">
                     <div className="text-sm font-medium text-text-main">{t('settings_encryption_not_set')}</div>
-                    <div className="text-xs text-text-main/55 leading-relaxed">{t('settings_encryption_not_set_desc')}</div>
+                    <div className="text-xs text-text-main/60 leading-relaxed">{t('settings_encryption_not_set_desc')}</div>
                   </div>
                 </div>
                 {vaultError && (
@@ -436,8 +435,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                   <button
                     type="submit"
                     disabled={vaultLoading}
-                    className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-all flex items-center justify-center gap-2"
-                    style={{ background: 'var(--brand-primary)' }}
+                    className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-brand-primary"
                   >
                     {vaultLoading ? (
                       <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white" />
@@ -456,7 +454,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                   <Lock size={18} className="text-text-main/40 mt-0.5" />
                   <div className="flex-1 space-y-1">
                     <div className="text-sm font-medium text-text-main">{t('settings_encryption_locked')}</div>
-                    <div className="text-xs text-text-main/55 leading-relaxed">{t('settings_encryption_locked_desc')}</div>
+                    <div className="text-xs text-text-main/60 leading-relaxed">{t('settings_encryption_locked_desc')}</div>
                   </div>
                 </div>
                 {vaultError && (
@@ -484,8 +482,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                   <button
                     type="submit"
                     disabled={vaultLoading}
-                    className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-all flex items-center justify-center gap-2"
-                    style={{ background: 'var(--brand-primary)' }}
+                    className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-brand-primary"
                   >
                     {vaultLoading ? (
                       <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white" />
@@ -505,7 +502,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                     <Shield size={18} className="text-accent-success mt-0.5" />
                     <div className="flex-1 space-y-1">
                       <div className="text-sm font-medium text-text-main">{t('settings_vault_unlocked')}</div>
-                      <div className="text-xs text-text-main/55 leading-relaxed">{t('settings_vault_unlocked_desc')}</div>
+                      <div className="text-xs text-text-main/60 leading-relaxed">{t('settings_vault_unlocked_desc')}</div>
                     </div>
                   </div>
                   
@@ -521,7 +518,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                 {!migrationRunning && !migrationDone ? (
                   <button
                     onClick={handleEncryptAll}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-all text-left"
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors text-left"
                   >
                     <Shield size={16} className="text-text-main/40" />
                     {t('settings_encrypt_all')}
@@ -541,7 +538,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                     {migrationProgress && (
                       <div className="w-full bg-text-main/10 rounded-full h-2">
                         <div
-                          className="bg-[var(--brand-primary)] h-2 rounded-full transition-all"
+                          className="bg-[var(--brand-primary)] h-2 rounded-full transition-colors"
                           style={{ width: `${migrationProgress.total > 0 ? (migrationProgress.processed / migrationProgress.total * 100) : 0}%` }}
                         />
                       </div>
@@ -567,7 +564,7 @@ export function AccountTab({ userId }: AccountTabProps) {
       ) : (
         <button
           onClick={openLoginModal}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-text-main bg-text-main text-surface-base text-sm font-bold hover:opacity-90 transition-all"
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-text-main bg-text-main text-surface-base text-sm font-bold hover:opacity-90 transition-colors"
         >
           <LogIn size={16} />
           {t('auth_sign_in')}
@@ -581,7 +578,7 @@ export function AccountTab({ userId }: AccountTabProps) {
         >
           <button
             onClick={() => setConfirmReset(true)}
-            className="w-full px-4 py-3 rounded-xl border border-red-400/25 text-sm text-red-400/70 hover:text-red-400 hover:border-red-400/40 transition-all text-left"
+            className="w-full px-4 py-3 rounded-xl border border-red-400/25 text-sm text-red-400/70 hover:text-red-400 hover:border-red-400/40 transition-colors text-left"
           >
             {t('profile_reset_achievements')}
           </button>
@@ -603,7 +600,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                 },
                 { successMessage: t('save_success'), errorMessage: t('error_generic_action'), onSuccess: () => setConfirmReset(false) }
               )}
-              className="px-4 py-2 rounded-xl text-sm font-bold text-red-400 border border-red-400/30 hover:bg-red-400/10 transition-all"
+              className="px-4 py-2 rounded-xl text-sm font-bold text-red-400 border border-red-400/30 hover:bg-red-400/10 transition-colors"
             >
               {t('finish_discard')}
             </button>

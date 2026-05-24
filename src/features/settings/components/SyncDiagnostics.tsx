@@ -294,49 +294,49 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
     switch (status) {
       case 'synced':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-500/10 text-green-400 border border-green-500/20">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-green-500/10 text-green-400 border border-green-500/20">
             <CheckCircle2 size={10} />
             Synced
           </span>
         );
       case 'pending':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
             <AlertTriangle size={10} />
             Pending Sync
           </span>
         );
       case 'mismatch':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
             <AlertTriangle size={10} />
             Unsynced Edits
           </span>
         );
       case 'local_only':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-500/10 text-gray-400 border border-gray-500/20">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-gray-500/10 text-gray-400 border border-gray-500/20">
             <HardDrive size={10} />
             Device Only
           </span>
         );
       case 'cloud_only':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
             <Cloud size={10} />
             Cloud Only
           </span>
         );
       case 'cloud_missing':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-red-500/10 text-red-400 border border-red-500/20">
             <AlertTriangle size={10} />
             Cloud Copy Lost
           </span>
         );
       case 'legacy_session':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">
             <Cloud size={10} />
             Legacy Cloud Session
           </span>
@@ -352,7 +352,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
             Compare local IndexedDB cache with Cloud Firestore collections.
           </div>
           {hasEncryption && !getSessionKey() && (
-            <div className="text-[11px] text-amber-500/80 mt-1 font-medium flex items-center gap-1">
+            <div className="text-label-sm text-amber-500/80 mt-1 font-medium flex items-center gap-1">
               <AlertTriangle size={11} />
               Vault is locked. Decrypted sync is disabled until unlocked.
             </div>
@@ -363,7 +363,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
             <button
               onClick={handleSyncAllQueue}
               disabled={loading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 transition-colors"
             >
               Sync Queue ({queueCount})
             </button>
@@ -371,7 +371,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
           <button
             onClick={fetchData}
             disabled={loading}
-            className="p-1.5 rounded-lg border border-border-subtle hover:bg-surface-base/10 text-text-main/60 hover:text-text-main transition-all disabled:opacity-50"
+            className="p-1.5 rounded-lg border border-border-subtle hover:bg-surface-base/10 text-text-main/60 hover:text-text-main transition-colors disabled:opacity-50"
             title="Refresh diagnostics"
           >
             <RefreshCw size={14} className={cn(loading && "animate-spin")} />
@@ -399,14 +399,14 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                     <h4 className="font-semibold text-text-main text-sm truncate" title={item.title}>
                       {item.title}
                     </h4>
-                    <span className="text-[10px] text-text-main/30 font-mono block truncate mt-0.5">{item.id}</span>
+                    <span className="text-label text-text-main/30 font-mono block truncate mt-0.5">{item.id}</span>
                   </div>
                   <div className="shrink-0">
                     {getStatusBadge(item.status)}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-[11px] text-text-main/60 bg-surface-card/20 p-2 rounded">
+                <div className="grid grid-cols-2 gap-2 text-label-sm text-text-main/60 bg-surface-card/20 p-2 rounded">
                   <div>
                     <span className="text-text-main/40 block">Versions (L / C)</span>
                     <span className="font-mono text-text-main">
@@ -431,7 +431,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       {item.status === 'local_only' && (
                         <button
                           onClick={() => handleSyncItem(item)}
-                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-semibold border border-blue-500/20 transition-all min-h-[44px]"
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-semibold border border-blue-500/20 transition-colors min-h-[44px]"
                         >
                           <Upload size={14} />
                           Upload
@@ -440,7 +440,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       {item.status === 'cloud_only' && (
                         <button
                           onClick={() => handleDownloadItem(item)}
-                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-400 text-xs font-semibold border border-green-500/20 transition-all min-h-[44px]"
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-400 text-xs font-semibold border border-green-500/20 transition-colors min-h-[44px]"
                         >
                           <Download size={14} />
                           Download
@@ -449,7 +449,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       {(item.status === 'pending' || item.status === 'mismatch') && (
                         <button
                           onClick={() => handleSyncItem(item)}
-                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold border border-amber-500/20 transition-all min-h-[44px]"
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold border border-amber-500/20 transition-colors min-h-[44px]"
                         >
                           <RefreshCw size={14} />
                           Sync
@@ -458,7 +458,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       {item.status === 'cloud_missing' && (
                         <button
                           onClick={() => handleUnlinkItem(item)}
-                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-red-500/20 transition-all min-h-[44px]"
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-red-500/20 transition-colors min-h-[44px]"
                         >
                           <Link2Off size={14} />
                           Unlink
@@ -467,7 +467,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       {item.status === 'legacy_session' && (
                         <button
                           onClick={() => handleMigrateLegacySession(item)}
-                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-xs font-semibold border border-purple-500/20 transition-all min-h-[44px]"
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-xs font-semibold border border-purple-500/20 transition-colors min-h-[44px]"
                         >
                           <RefreshCw size={14} />
                           Migrate
@@ -476,7 +476,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       {hasEncryption && item.hasCloud && item.cloudId && (
                         <button
                           onClick={() => handleEncryptItem(item)}
-                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold border border-amber-500/20 transition-all min-h-[44px]"
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold border border-amber-500/20 transition-colors min-h-[44px]"
                         >
                           <Lock size={14} />
                           Encrypt
@@ -485,7 +485,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       {item.inQueue && (
                         <button
                           onClick={() => handleClearQueueItem(item)}
-                          className="px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all min-h-[44px] flex items-center justify-center"
+                          className="px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-colors min-h-[44px] flex items-center justify-center"
                           title="Remove item from sync queue"
                         >
                           <Trash2 size={14} />
@@ -537,7 +537,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             {item.status === 'local_only' && (
                               <button
                                 onClick={() => handleSyncItem(item)}
-                                className="flex items-center gap-1 px-2 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[10px] font-semibold border border-blue-500/20 transition-all"
+                                className="flex items-center gap-1 px-2 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-label font-semibold border border-blue-500/20 transition-colors"
                                 title="Upload to cloud"
                               >
                                 <Upload size={10} />
@@ -547,7 +547,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             {item.status === 'cloud_only' && (
                               <button
                                 onClick={() => handleDownloadItem(item)}
-                                className="flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 hover:bg-green-500/20 text-green-400 text-[10px] font-semibold border border-green-500/20 transition-all"
+                                className="flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 hover:bg-green-500/20 text-green-400 text-label font-semibold border border-green-500/20 transition-colors"
                                 title="Download to device"
                               >
                                 <Download size={10} />
@@ -557,7 +557,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             {(item.status === 'pending' || item.status === 'mismatch') && (
                               <button
                                 onClick={() => handleSyncItem(item)}
-                                className="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-[10px] font-semibold border border-amber-500/20 transition-all"
+                                className="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-label font-semibold border border-amber-500/20 transition-colors"
                                 title="Sync pending edits to cloud"
                               >
                                 <RefreshCw size={10} />
@@ -567,7 +567,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             {item.status === 'cloud_missing' && (
                               <button
                                 onClick={() => handleUnlinkItem(item)}
-                                className="flex items-center gap-1 px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-semibold border border-red-500/20 transition-all"
+                                className="flex items-center gap-1 px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 text-label font-semibold border border-red-500/20 transition-colors"
                                 title="Cloud document has been deleted. Unlink local document to allow re-upload."
                               >
                                 <Link2Off size={10} />
@@ -577,7 +577,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             {item.status === 'legacy_session' && (
                               <button
                                 onClick={() => handleMigrateLegacySession(item)}
-                                className="flex items-center gap-1 px-2 py-1 rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-[10px] font-semibold border border-purple-500/20 transition-all"
+                                className="flex items-center gap-1 px-2 py-1 rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-label font-semibold border border-purple-500/20 transition-colors"
                                 title="Migrate legacy session to modern document structure"
                               >
                                 <RefreshCw size={10} />
@@ -587,7 +587,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             {hasEncryption && item.hasCloud && item.cloudId && (
                               <button
                                 onClick={() => handleEncryptItem(item)}
-                                className="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-[10px] font-semibold border border-amber-500/20 transition-all"
+                                className="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-label font-semibold border border-amber-500/20 transition-colors"
                                 title="Encrypt cloud versions"
                               >
                                 <Lock size={10} />
@@ -597,7 +597,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             {item.inQueue && (
                               <button
                                 onClick={() => handleClearQueueItem(item)}
-                                className="p-1 rounded hover:bg-red-500/10 text-text-main/30 hover:text-red-400 transition-all"
+                                className="p-1 rounded hover:bg-red-500/10 text-text-main/30 hover:text-red-400 transition-colors"
                                 title="Remove item from sync queue"
                               >
                                 <Trash2 size={10} />

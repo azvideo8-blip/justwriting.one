@@ -177,7 +177,7 @@ export function SessionCard({
               onPreview?.();
             }
           }}
-          className="p-6 md:p-8 transition-all space-y-4 group relative bg-surface-card backdrop-blur-xl border border-border-subtle rounded-3xl text-text-main hover:bg-white/10 z-10 touch-pan-y"
+          className="p-6 md:p-8 transition-colors space-y-4 group relative bg-surface-card backdrop-blur-xl border border-border-subtle rounded-3xl text-text-main hover:bg-white/10 z-10 touch-pan-y"
           style={{
             transform: `translate3d(${swipeOffset}px, 0, 0)`,
             transition: touchStart === null ? 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' : 'none'
@@ -195,7 +195,7 @@ export function SessionCard({
             }}
           >
             <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: label.color }} />
-            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: label.color + 'bb' }}>
+            <span className="text-label font-bold uppercase tracking-widest" style={{ color: label.color + 'bb' }}>
               {label.name}
             </span>
           </div>
@@ -203,7 +203,7 @@ export function SessionCard({
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
           <div className="flex items-center gap-3">
             <div className="flex flex-col">
-              <span className="text-[11px] md:text-xs font-bold uppercase tracking-widest text-text-main/40">
+              <span className="text-label-sm md:text-xs font-bold uppercase tracking-widest text-text-main/40">
                 {sessionTime.getTime() > 0 ? format(sessionTime, 'd MMM yyyy • HH:mm') : ''}
               </span>
             </div>
@@ -237,7 +237,7 @@ export function SessionCard({
                 ref={exportButtonRef}
                 onClick={() => setShowExportMenu(!showExportMenu)}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label-sm font-bold uppercase tracking-wider transition-colors",
                   showExportMenu
                     ? "bg-text-main text-surface-base"
                     : "bg-surface-base text-text-main/70 hover:bg-white/10"
@@ -259,14 +259,14 @@ export function SessionCard({
                 <>
                   <button
                     onClick={() => setIsEditing(!isEditing)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all bg-surface-base text-text-main/70 hover:bg-white/10"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label-sm font-bold uppercase tracking-wider transition-colors bg-surface-base text-text-main/70 hover:bg-white/10"
                   >
                     <PenLine size={12} />
                     {t('session_edit')}
                   </button>
                   <button
                     onClick={() => setShowDeleteConfirm(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all hover:text-red-500 bg-surface-base text-text-main/70 hover:bg-white/10"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label-sm font-bold uppercase tracking-wider transition-colors hover:text-red-500 bg-surface-base text-text-main/70 hover:bg-white/10"
                   >
                     <Trash2 size={12} />
                     {t('session_delete')}
@@ -277,7 +277,7 @@ export function SessionCard({
               {!isMobile && session.content.length > 200 && (
                 <button
                   onClick={() => setExpanded(!expanded)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all bg-surface-base text-text-main/70 hover:bg-white/10"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label-sm font-bold uppercase tracking-wider transition-colors bg-surface-base text-text-main/70 hover:bg-white/10"
                 >
                   {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                   {expanded ? t('session_collapse') : t('session_expand')}

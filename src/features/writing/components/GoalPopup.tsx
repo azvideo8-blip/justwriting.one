@@ -124,12 +124,11 @@ export function GoalPopup({
             top: coords.top,
             left: coords.left,
             zIndex: 9999,
-            background: '#111413',
           }}
           className={cn("border border-border-subtle rounded-lg p-3 shadow-xl", width)}
           data-goal-popup
         >
-          <div className="text-[11px] text-text-main/40 mb-2 font-bold uppercase tracking-widest">{title}</div>
+          <div className="text-label-sm text-text-main/40 mb-2 font-bold uppercase tracking-widest">{title}</div>
           <div className="flex gap-1 flex-wrap mb-2">
             {presets.map(p => {
               const isActive = type === 'time'
@@ -141,7 +140,7 @@ export function GoalPopup({
                   key={p.value}
                   onClick={() => { onSelect(p.value); onClose(); }}
                   className={cn(
-                    "px-2 py-1 rounded-lg text-xs border transition-all font-bold",
+                    "px-2 py-1 rounded-lg text-xs border transition-colors font-bold",
                     isActive
                       ? "border-text-main bg-text-main text-surface-base"
                       : "border-border-subtle text-text-main/60 hover:text-text-main hover:bg-white/5"
