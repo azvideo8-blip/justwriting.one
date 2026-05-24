@@ -12,7 +12,6 @@ import { MobileGoalSheet } from './MobileGoalSheet';
 import { getFontStack } from '../utils/fontStack';
 import { KeystrokeTracker } from '../utils/keystrokeTracker';
 import { ConnectionStatusBanner } from './ConnectionStatusBanner';
-import { AIPanel } from './AIPanel';
 
 interface MobileWriteScreenProps {
   onPlay: () => void;
@@ -106,7 +105,6 @@ export function MobileWriteScreen({
 
   const [focusMode, setFocusMode] = useState(false);
   const [showGoalSheet, setShowGoalSheet] = useState(false);
-  const [isAiOpen, setIsAiOpen] = useState(false);
   const swipeTouchStartY = useRef<number>(0);
   const swipeTouchStartX = useRef<number>(0);
 
@@ -314,8 +312,7 @@ export function MobileWriteScreen({
             onGoalClick={() => setShowGoalSheet(true)}
             streamMode={streamMode}
             onToggleStreamMode={toggleStreamMode}
-            onAiClick={() => setIsAiOpen(true)}
-            isAiActive={isAiOpen}
+            keyboardHeight={keyboardHeight}
           />
         )}
       </AnimatePresence>
@@ -347,11 +344,6 @@ export function MobileWriteScreen({
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {isAiOpen && (
-          <AIPanel open={isAiOpen} onClose={() => setIsAiOpen(false)} />
-        )}
-      </AnimatePresence>
     </div>
   );
 }

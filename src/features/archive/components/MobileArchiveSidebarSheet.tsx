@@ -50,7 +50,10 @@ export function MobileArchiveSidebarSheet({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm">
+    <div 
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none"
+      onTouchMove={e => e.preventDefault()}
+    >
       {/* Dismiss overlay */}
       <div className="absolute inset-0" onClick={onClose} />
 
@@ -168,7 +171,7 @@ export function MobileArchiveSidebarSheet({
               style={{ background: 'var(--brand-primary)' }}
               className="w-full py-3.5 rounded-2xl font-bold text-sm text-surface-base border-none cursor-pointer text-center active:scale-[0.98] transition-all"
             >
-              {t('save_success') || 'Готово'}
+              {t('common_close') || 'Закрыть'}
             </button>
           </div>
         </div>

@@ -22,7 +22,6 @@ import { useStreak } from '../hooks/useStreak';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 import { SyncService } from '../services/SyncService';
-import { OnboardingGoalScreen } from '../components/OnboardingGoalScreen';
 
 import { useGuestWritingSession } from '../hooks/useGuestWritingSession';
 import { useCloudWritingSession } from '../hooks/useCloudWritingSession';
@@ -64,7 +63,6 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
 
   const timeGoalReached = useTimerStore(s => s.timeGoalReached);
   const wordGoalReached = useTimerStore(s => s.wordGoalReached);
-  const setWordGoalVal = useTimerStore(s => s.setWordGoal);
 
   const sessionStatus = session.status;
   const tags = session.tags;
@@ -174,15 +172,6 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
     return hasSessionToday ? streakDays : streakDays + 1;
   }, [streakDays, lifeLogGroups, isFinishModalOpen]);
 
-  const [showOnboarding, setShowOnboarding] = useState(
-    () => !localStorage.getItem('onboarding_done')
-  );
-
-  const handleOnboardingComplete = React.useCallback((goal: number) => {
-    setWordGoalVal(goal);
-    localStorage.setItem('onboarding_done', '1');
-    setShowOnboarding(false);
-  }, [setWordGoalVal]);
 
   const onFinishClick = React.useCallback(() => {
     handleFinish(keystrokeTrackerRef);
@@ -232,8 +221,6 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
     lifeLogTab, setLifeLogTab, lifeLogPinned, setLifeLogPinned, saveStatus, streakDays]);
 
   const mainContent = (() => {
-    if (showOnboarding && sessionStatus === 'idle')
-      return <OnboardingGoalScreen onComplete={handleOnboardingComplete} setWordGoal={setWordGoalVal} />;
     if (isMobile) {
       if (sessionStatus === 'idle')
         return (
@@ -263,7 +250,6 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
         setSetupMode={setSetupMode}
         startCountdown={startCountdown}
         countdown={flow.countdown}
-        onSetPromptTitle={setTitle}
       />
       <GoalToast visible={flow.goalToastVisible} type={flow.goalToastType} />
       <AnimatePresence>

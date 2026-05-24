@@ -122,7 +122,10 @@ export function MobileNoteActionsSheet({
   const selectedLabel = labels?.find(l => l.id === session.labelId);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm">
+    <div 
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none"
+      onTouchMove={e => e.preventDefault()}
+    >
       <div className="absolute inset-0" onClick={onClose} />
 
       <motion.div

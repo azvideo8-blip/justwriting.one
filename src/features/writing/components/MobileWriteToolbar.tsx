@@ -5,7 +5,6 @@ import { useShallow } from 'zustand/react/shallow';
 import { useLanguage } from '../../../core/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
 import { getWpmHex } from '../utils/wpmColors';
-import { Sparkles } from 'lucide-react';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -16,13 +15,13 @@ interface MobileWriteToolbarProps {
   onGoalClick?: () => void;
   streamMode?: boolean;
   onToggleStreamMode?: () => void;
-  onAiClick?: () => void;
-  isAiActive?: boolean;
   onNew?: () => void;
+  isRunning?: boolean;
+  keyboardHeight?: number;
 }
 
 export function MobileWriteToolbar({
-  onPlay, onPause, onStop, onGoalClick, streamMode, onToggleStreamMode, onAiClick, isAiActive, onNew
+  onPlay, onPause, onStop, onGoalClick, streamMode, onToggleStreamMode, onNew, keyboardHeight
 }: MobileWriteToolbarProps) {
   const { t } = useLanguage();
   const { headerVisibility = { sessionTime: true, sessionWords: true, totalWords: true, wpm: true } } = useWritingSettings();
@@ -76,7 +75,9 @@ export function MobileWriteToolbar({
       style={{
         position: 'absolute',
         left: 16, right: 16,
-        bottom: 'calc(env(safe-area-inset-bottom, 16px) + var(--bottom-nav-height, 72px))',
+        bottom: keyboardHeight && keyboardHeight > 130
+          ? keyboardHeight + 8
+          : 'calc(env(safe-area-inset-bottom, 16px) + var(--bottom-nav-height, 72px))',
         background: 'var(--surface-card)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
@@ -190,26 +191,6 @@ export function MobileWriteToolbar({
       <div style={{ width: 1, height: 36, background: 'var(--border-light)', margin: '0 12px' }} />
 
       <div style={{ display: 'flex', gap: 6 }}>
-        {onAiClick && (
-          <button
-            onClick={onAiClick}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              border: `1px solid ${isAiActive ? 'var(--brand-soft)' : 'var(--border-light)'}`,
-              background: isAiActive ? 'rgba(var(--brand-soft-rgb, 124, 58, 237), 0.1)' : 'transparent',
-              color: isAiActive ? 'var(--brand-soft)' : 'var(--text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-            }}
-            title={t('ai_toggle') || 'AI Assistant'}
-          >
-            <Sparkles size={16} />
-          </button>
-        )}
 
         <button
           onClick={isRunning ? onPause : onPlay}

@@ -369,7 +369,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
       </div>
 
       {/* Actions */}
-      <div className="p-5 border-t border-border-subtle flex gap-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
+      <div className="p-5 border-t border-border-subtle flex gap-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--bottom-nav-height, 72px) + 8px)' }}>
         <button
           onClick={() => onContinue(session)}
           className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-text-main text-surface-base text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
