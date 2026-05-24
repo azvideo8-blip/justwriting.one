@@ -73,8 +73,8 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
 
   const [wordPopupOpen, setWordPopupOpen] = useState(false);
   const [timePopupOpen, setTimePopupOpen] = useState(false);
-  const wordRef = useRef<HTMLDivElement>(null);
-  const timeRef = useRef<HTMLDivElement>(null);
+  const wordRef = useRef<HTMLButtonElement>(null);
+  const timeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -122,11 +122,14 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         )}
 
         {headerVisibility.sessionWords && (
-        <div
+        <button
           ref={wordRef}
           onClick={() => { setWordPopupOpen(!wordPopupOpen); setTimePopupOpen(false); }}
+          aria-label={t('goal_popup_words_title')}
+          aria-expanded={wordPopupOpen}
+          aria-haspopup="dialog"
           className={cn(
-            "group flex flex-col cursor-pointer rounded-xl transition-colors hover:bg-text-main/[0.04]",
+            "group flex flex-col rounded-xl text-left transition-colors hover:bg-text-main/[0.04]",
             compact ? "pr-3 mr-3 px-2 py-1" : "pr-5 mr-5 px-3 py-1.5"
           )}
         >
@@ -161,7 +164,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
               {t('header_sessionWords')}
             </span>
           )}
-        </div>
+        </button>
         )}
 
         {headerVisibility.sessionWords && headerVisibility.sessionTime && (
@@ -169,11 +172,14 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         )}
 
         {headerVisibility.sessionTime && (
-        <div
+        <button
           ref={timeRef}
           onClick={() => { setTimePopupOpen(!timePopupOpen); setWordPopupOpen(false); }}
+          aria-label={t('goal_popup_time_title')}
+          aria-expanded={timePopupOpen}
+          aria-haspopup="dialog"
           className={cn(
-            "group flex flex-col cursor-pointer rounded-xl transition-colors hover:bg-text-main/[0.04]",
+            "group flex flex-col rounded-xl text-left transition-colors hover:bg-text-main/[0.04]",
             compact ? "pr-3 mr-3 px-2 py-1" : "pr-5 mr-5 px-3 py-1.5"
           )}
         >
@@ -204,7 +210,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
                 : t('header_time')}
             </span>
           )}
-        </div>
+        </button>
         )}
 
         {headerVisibility.sessionTime && headerVisibility.wpm && (
@@ -215,6 +221,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         <div className={cn("flex flex-col", compact ? "ml-1" : "ml-2")}>
           <div className="flex items-center gap-1.5 leading-none whitespace-nowrap">
             <div
+              aria-hidden="true"
               className={cn("w-2 h-2 rounded-full transition-all duration-500 shrink-0", getWpmColor(wpm), status === 'writing' && "animate-pulse")}
               style={{ boxShadow: status === 'writing' && wpm > 0 ? `0 0 10px ${getWpmHex(wpm)}` : 'none' }}
             />

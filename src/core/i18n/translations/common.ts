@@ -107,4 +107,6 @@ export const commonTranslations: Translations = {
   common_version: { ru: 'Версия', en: 'Version' },
   sidebar_pin:   { ru: 'Закрепить', en: 'Pin sidebar' },
   sidebar_unpin: { ru: 'Открепить', en: 'Unpin sidebar' },
+  settings_tabs_label: { ru: 'Разделы настроек', en: 'Settings sections' },
+  header_exit_fullscreen: { ru: 'Выйти из полноэкранного режима', en: 'Exit fullscreen' },
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Session, UserProfile } from '../../../types';
 import { LifeLogDocument } from '../types/lifeLog';
 import { cn } from '../../../core/utils/utils';
@@ -68,6 +68,7 @@ export function DesktopWritingLayout({
   const editorColRef = React.useRef<HTMLDivElement>(null);
   const [isCompact, setIsCompact] = React.useState(false);
   const { editorWidth } = useWritingSettings();
+  const reducedMotion = useReducedMotion();
 
   React.useEffect(() => {
     const el = editorColRef.current;
@@ -92,8 +93,8 @@ export function DesktopWritingLayout({
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      initial={reducedMotion ? false : { opacity: 0 }}
+      animate={reducedMotion ? false : { opacity: 1 }}
       className="w-full transition-colors duration-1000"
     >
       <ConnectionStatusBanner showZen={showZen} />

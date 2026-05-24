@@ -54,7 +54,7 @@ export function AppShell() {
         {layoutMode === 'desktop' && <ConnectionStatusBanner showZen={showZen} />}
       </>
 
-      <main id="main-content" className={cn(
+      <main id="main-content" tabIndex={-1} className={cn(
         "w-full relative z-10 min-h-screen",
         hideSidebar ? "" : "pt-8",
         layoutMode === 'desktop' && !hideSidebar && "pl-20 pr-4",

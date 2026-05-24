@@ -90,20 +90,21 @@ export const WritingHeader = React.memo(function WritingHeader({
         >
           {lifeLogEnabled ? (
               <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-border-subtle bg-surface-card/50 min-h-[56px]">
-                <button onClick={onNew} title={t('topbar_new')}
+                <button onClick={onNew} title={t('topbar_new')} aria-label={t('topbar_new')}
                   className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all">
-                  <FilePlus size={16} />
+                  <FilePlus size={16} aria-hidden="true" />
                 </button>
-                <button onClick={onOpenLog} title={t('topbar_open')}
+                <button onClick={onOpenLog} title={t('topbar_open')} aria-label={t('topbar_open')}
                   className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all">
-                  <FolderOpen size={16} />
+                  <FolderOpen size={16} aria-hidden="true" />
                 </button>
-                <button onClick={onSave} title={t('topbar_save')}
+                <button onClick={onSave} title={t('topbar_save')} aria-label={t('topbar_save')}
                   className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all">
-                  <Save size={16} />
+                  <Save size={16} aria-hidden="true" />
                 </button>
                 <div className="w-px h-5 bg-border-subtle mx-1" />
                 <input
+                  aria-label={t('topbar_title_placeholder')}
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   placeholder={t('topbar_title_placeholder')}
@@ -121,6 +122,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                       }
                     }}
                     title={t('lifelog_tab_log')}
+                    aria-label={t('lifelog_tab_log')}
                     className={cn(
                       "w-9 h-9 rounded-xl flex items-center justify-center transition-all",
                       lifeLogVisible && lifeLogTab === 'log'
@@ -128,21 +130,23 @@ export const WritingHeader = React.memo(function WritingHeader({
                         : "text-text-main/40 hover:text-text-main hover:bg-text-main/5"
                     )}
                   >
-                    <BookOpen size={16} />
+                    <BookOpen size={16} aria-hidden="true" />
                   </button>
                    <button
-                      onClick={onOpenSettings}
-                      title={t('nav_settings')}
-                      className="w-9 h-9 rounded-lg flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all"
-                    >
-                      <Settings size={16} />
+                       onClick={onOpenSettings}
+                       title={t('nav_settings')}
+                       aria-label={t('nav_settings')}
+                       className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all"
+                     >
+                       <Settings size={16} aria-hidden="true" />
                     </button>
                      <button
                        onClick={toggleFullscreen}
-                       title={t('header_fullscreen')}
+                       title={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
+                       aria-label={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
                        className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all"
-                   >
-                     {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+                    >
+                      {isFullscreen ? <Minimize size={16} aria-hidden="true" /> : <Maximize size={16} aria-hidden="true" />}
                    </button>
                  </div>
                </div>
@@ -171,29 +175,32 @@ export const WritingHeader = React.memo(function WritingHeader({
                          setLifeLogVisible(false);
                        }
                      }}
-                     title={t('lifelog_tab_log')}
-                     className={cn(
-                       "w-9 h-9 rounded-xl flex items-center justify-center transition-all",
-                       lifeLogVisible && lifeLogTab === 'log'
-                         ? "bg-text-main/10 text-text-main"
-                         : "text-text-main/40 hover:text-text-main hover:bg-text-main/5"
-                     )}
-                   >
-                     <BookOpen size={16} />
+                      title={t('lifelog_tab_log')}
+                      aria-label={t('lifelog_tab_log')}
+                      className={cn(
+                        "w-9 h-9 rounded-xl flex items-center justify-center transition-all",
+                        lifeLogVisible && lifeLogTab === 'log'
+                          ? "bg-text-main/10 text-text-main"
+                          : "text-text-main/40 hover:text-text-main hover:bg-text-main/5"
+                      )}
+                    >
+                      <BookOpen size={16} aria-hidden="true" />
                    </button>
+                      <button
+                        onClick={onOpenSettings}
+                        title={t('nav_settings')}
+                        aria-label={t('nav_settings')}
+                        className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all"
+                      >
+                        <Settings size={16} aria-hidden="true" />
+                      </button>
                      <button
-                       onClick={onOpenSettings}
-                       title={t('nav_settings')}
+                       onClick={toggleFullscreen}
+                       title={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
+                       aria-label={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
                        className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all"
                      >
-                       <Settings size={16} />
-                     </button>
-                    <button
-                      onClick={toggleFullscreen}
-                      title={t('header_fullscreen')}
-                      className="w-9 h-9 rounded-lg flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all"
-                    >
-                     {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+                      {isFullscreen ? <Minimize size={16} aria-hidden="true" /> : <Maximize size={16} aria-hidden="true" />}
                    </button>
                  </div>
               </div>
