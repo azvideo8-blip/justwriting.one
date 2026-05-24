@@ -9,8 +9,6 @@ import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { APP_VERSION } from '../../../version';
-import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
-import { z } from 'zod';
 
 interface SidebarNavItemProps {
   icon: ReactNode;
@@ -130,7 +128,6 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
-  const [pinned, setPinned] = useLocalStorage<boolean>('sidebar_pinned', false, z.boolean());
   const [hovered, setHovered] = useState(false);
   const { t } = useLanguage();
   const { lifeLogEnabled: _lifeLogEnabled, isZenActive, zenModeEnabled } = useWritingSettings();
@@ -141,7 +138,7 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
   const { isGuest } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
   const isWritePage = location.pathname === '/';
-  const expanded = isWritePage ? hovered : (pinned || hovered);
+  const expanded = hovered;
 
   const navItems = [
     { id: 'write',   path: '/',       icon: <PenLine size={20} />,   label: t('nav_write') },
@@ -162,7 +159,8 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
         inGrid ? "relative w-full" : "fixed top-0 left-0",
         !inGrid && expanded && "w-[220px]",
         !inGrid && !expanded && "w-16",
-        showZen && !inGrid && "opacity-0 pointer-events-none -translate-x-4"
+        showZen && !inGrid && "opacity-0 pointer-events-none -translate-x-4",
+        isWritePage && !hovered && !inGrid && "opacity-0 pointer-events-none"
       )}
     >
       {/* Logo */}
@@ -218,27 +216,6 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
             onClick={openLoginModal}
             accent
           />
-        )}
-
-        {!isWritePage && (
-        <button
-          onClick={() => setPinned(!pinned)}
-          title={pinned ? t('sidebar_unpin') : t('sidebar_pin')}
-          className={cn(
-            "w-full flex items-center gap-3 px-3 py-2 rounded-xl text-text-main/25 hover:text-text-main/50 transition-colors",
-            expanded ? "opacity-100" : "opacity-0 pointer-events-none"
-          )}
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4">
-            {pinned
-              ? <path d="M7 2v10M4 5h6M4 9h6" strokeLinecap="round"/>
-              : <path d="M5 2l4 4-6 6M9 2l-4 4 6 6" strokeLinecap="round"/>
-            }
-          </svg>
-          <span className="text-label font-mono uppercase tracking-widest">
-            {pinned ? t('sidebar_unpin') : t('sidebar_pin')}
-          </span>
-        </button>
         )}
 
         <div className={cn(
