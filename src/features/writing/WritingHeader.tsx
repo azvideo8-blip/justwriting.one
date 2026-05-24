@@ -91,15 +91,15 @@ export const WritingHeader = React.memo(function WritingHeader({
           {lifeLogEnabled ? (
               <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-border-subtle bg-surface-card/50 min-h-[56px]">
                 <button onClick={onNew} title={t('topbar_new')}
-                  className="w-9 h-9 rounded-lg flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all">
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all">
                   <FilePlus size={16} />
                 </button>
                 <button onClick={onOpenLog} title={t('topbar_open')}
-                  className="w-9 h-9 rounded-lg flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all">
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all">
                   <FolderOpen size={16} />
                 </button>
                 <button onClick={onSave} title={t('topbar_save')}
-                  className="w-9 h-9 rounded-lg flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all">
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all">
                   <Save size={16} />
                 </button>
                 <div className="w-px h-5 bg-border-subtle mx-1" />
@@ -122,7 +122,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                     }}
                     title={t('lifelog_tab_log')}
                     className={cn(
-                      "w-9 h-9 rounded-lg flex items-center justify-center transition-all",
+                      "w-9 h-9 rounded-xl flex items-center justify-center transition-all",
                       lifeLogVisible && lifeLogTab === 'log'
                         ? "bg-text-main/10 text-text-main"
                         : "text-text-main/40 hover:text-text-main hover:bg-text-main/5"
@@ -137,10 +137,10 @@ export const WritingHeader = React.memo(function WritingHeader({
                     >
                       <Settings size={16} />
                     </button>
-                   <button
-                     onClick={toggleFullscreen}
-                     title={t('header_fullscreen')}
-                     className="w-9 h-9 rounded-lg flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all"
+                     <button
+                       onClick={toggleFullscreen}
+                       title={t('header_fullscreen')}
+                       className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all"
                    >
                      {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
                    </button>

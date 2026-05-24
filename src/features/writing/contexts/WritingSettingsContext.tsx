@@ -41,7 +41,7 @@ const WritingSettingsContext = createContext<WritingSettingsContextType | undefi
 export function WritingSettingsProvider({ children }: { children: React.ReactNode }) {
   const [streamMode, setStreamMode] = useLocalStorage<boolean>('streamMode', false, z.boolean());
   const [zenModeEnabled, setZenModeEnabled] = useLocalStorage<boolean>('v2_zenModeEnabled', true, z.boolean());
-  const [editorWidth, setEditorWidth] = useLocalStorage<number>('v3_editorWidth', 100, z.number());
+  const [editorWidth, setEditorWidth] = useLocalStorage<number>('v3_editorWidth', 68, z.number());
   const [lifeLogEnabled, setLifeLogEnabled] = useLocalStorage<boolean>('lifeLogEnabled', true, z.boolean());
   const [lifeLogVisible, setLifeLogVisible] = useState(false);
   const [lifeLogTab, setLifeLogTab] = useState<'log' | 'settings'>('log');

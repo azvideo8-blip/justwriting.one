@@ -33,6 +33,7 @@ export const lifelogTranslations: Translations = {
 
   home_streak_days:   { ru: 'дней',            en: 'days' },
   home_cta:           { ru: 'Начать',          en: 'Start' },
+  profile_cta:        { ru: 'Написать сейчас', en: 'Write now' },
   home_cta_hint:      { ru: 'или просто начни писать',  en: 'or just start typing' },
   home_today_words:   { ru: 'слов сегодня',    en: 'words today' },
   home_today_flow:    { ru: 'в потоке',        en: 'in flow' },

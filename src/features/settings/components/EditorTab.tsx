@@ -64,7 +64,7 @@ export function EditorTab() {
           <div className="flex items-center gap-3 px-1">
             <input
               type="range"
-              min={50}
+              min={40}
               max={100}
               step={1}
               value={editorWidth}

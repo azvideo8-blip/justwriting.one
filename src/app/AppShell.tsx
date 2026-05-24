@@ -5,7 +5,6 @@ import { useLayoutMode } from '../shared/hooks/useLayoutMode';
 import { useLanguage } from '../core/i18n';
 import { cn } from '../core/utils/utils';
 import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
-import { useSettings } from '../core/settings/SettingsContext';
 
 import { AppLayout } from '../shared/components/Layout/AppLayout';
 import { Sidebar } from '../features/navigation/components/Sidebar';
@@ -23,7 +22,6 @@ export function AppShell() {
   const { isZenActive, zenModeEnabled, lifeLogEnabled } = useWritingSettings();
   const { layoutMode } = useLayoutMode();
   const { loginModalOpen } = useLoginModal();
-  const { openSettings } = useSettings();
 
   const currentPath = location.pathname;
   const showZen = isZenActive && zenModeEnabled && currentPath === '/';
@@ -48,7 +46,7 @@ export function AppShell() {
       <>
         {!hideSidebar && (
           layoutMode === 'desktop' ? (
-            <Sidebar isAdmin={isAdmin} onOpenSettings={openSettings} />
+            <Sidebar isAdmin={isAdmin} />
           ) : (
             !showZen && <BottomNav isAdmin={isAdmin} />
           )

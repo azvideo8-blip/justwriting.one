@@ -268,6 +268,15 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
               <div className="skeleton-pulse bg-surface-card border border-white/[0.04] rounded-2xl h-40 w-full" />
               <div className="skeleton-pulse bg-surface-card border border-white/[0.04] rounded-2xl h-40 w-full" />
             </div>
+          ) : sessions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-6 px-6 py-16 text-center">
+              <div className="text-[14px] text-text-main/40 leading-relaxed max-w-xs">
+                {t('profile_empty_desc')}
+              </div>
+              <div className="text-[11px] text-text-main/25 font-mono uppercase tracking-widest">
+                {t('profile_empty_hint')}
+              </div>
+            </div>
           ) : (
             <div className="flex flex-col gap-6">
               <ProfileHero

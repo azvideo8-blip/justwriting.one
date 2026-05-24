@@ -137,11 +137,10 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-stretch sm:items-center">
             <button
               onClick={onStartSession}
-              style={{ background: 'var(--flow-pulse-color)' }}
-              className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[13px] font-semibold text-surface-base w-full sm:w-auto"
+              className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium text-text-main/60 hover:text-text-main border border-border-subtle hover:border-text-main/30 transition-all w-full sm:w-auto"
             >
-              <PenLine size={14} />
-              {t('home_cta')}
+              <PenLine size={13} />
+              {t('profile_cta')}
             </button>
           </div>
         </div>

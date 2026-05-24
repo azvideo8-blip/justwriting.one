@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { PenLine, History, User as UserIcon, Shield, LogIn, Info, Settings } from 'lucide-react';
+import { PenLine, History, User as UserIcon, Shield, LogIn } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
@@ -9,6 +9,8 @@ import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { APP_VERSION } from '../../../version';
+import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
+import { z } from 'zod';
 
 interface SidebarNavItemProps {
   icon: ReactNode;
@@ -125,11 +127,12 @@ function SidebarActionItem({ icon, label, expanded, onClick, accent }: SidebarAc
 interface SidebarProps {
   isAdmin: boolean;
   inGrid?: boolean;
-  onOpenSettings?: () => void;
 }
 
-export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: SidebarProps) {
-  const [expanded, setExpanded] = useState(false);
+export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
+  const [pinned, setPinned] = useLocalStorage<boolean>('sidebar_pinned', true, z.boolean());
+  const [hovered, setHovered] = useState(false);
+  const expanded = pinned || hovered;
   const { t } = useLanguage();
   const { lifeLogEnabled: _lifeLogEnabled, isZenActive, zenModeEnabled } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
@@ -150,8 +153,8 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
     <div
       role="navigation"
       aria-label={t('nav_main')}
-      onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => setExpanded(false)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       className={cn(
         "h-full z-50 flex flex-col py-4 transition-all duration-300 ease-in-out",
         "bg-surface-card/50 border-r border-border-subtle backdrop-blur-xl",
@@ -206,22 +209,6 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
 
       {/* Bottom section */}
       <div className="flex flex-col gap-1 px-2 mt-auto">
-        <SidebarActionItem
-          icon={<Info size={20} />}
-          label={t('nav_about')}
-          expanded={expanded}
-          onClick={() => navigate('/about')}
-        />
-
-        {onOpenSettings && (
-          <SidebarActionItem
-            icon={<Settings size={20} />}
-            label={t('nav_settings')}
-            expanded={expanded}
-            onClick={onOpenSettings}
-          />
-        )}
-
         {isGuest && (
           <SidebarActionItem
             icon={<LogIn size={20} />}
@@ -232,11 +219,37 @@ export function Sidebar({ isAdmin, inGrid: inGridProp, onOpenSettings }: Sidebar
           />
         )}
 
+        <button
+          onClick={() => setPinned(!pinned)}
+          title={pinned ? t('sidebar_unpin') : t('sidebar_pin')}
+          className={cn(
+            "w-full flex items-center gap-3 px-3 py-2 rounded-xl text-text-main/25 hover:text-text-main/50 transition-all",
+            expanded ? "opacity-100" : "opacity-0 pointer-events-none"
+          )}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4">
+            {pinned
+              ? <path d="M7 2v10M4 5h6M4 9h6" strokeLinecap="round"/>
+              : <path d="M5 2l4 4-6 6M9 2l-4 4 6 6" strokeLinecap="round"/>
+            }
+          </svg>
+          <span className="text-[10px] font-mono uppercase tracking-widest">
+            {pinned ? t('sidebar_unpin') : t('sidebar_pin')}
+          </span>
+        </button>
+
         <div className={cn(
-          "px-3 py-2 text-[10px] font-mono text-text-main/25 transition-all duration-300 select-none whitespace-nowrap",
+          "px-3 py-2 text-[10px] font-mono text-text-main/25 transition-all duration-300 select-none whitespace-nowrap flex items-center gap-2",
           expanded ? "opacity-100 pl-3" : "opacity-0 h-0 p-0 overflow-hidden"
         )}>
-          {t('common_version')}: {APP_VERSION}
+          <span>{t('common_version')}: {APP_VERSION}</span>
+          <span className="text-text-main/15">·</span>
+          <button
+            onClick={() => navigate('/about')}
+            className="hover:text-text-main/50 transition-colors underline underline-offset-2 decoration-dotted"
+          >
+            {t('nav_about')}
+          </button>
         </div>
       </div>
     </div>

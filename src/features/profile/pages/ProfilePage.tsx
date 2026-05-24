@@ -175,6 +175,22 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
     );
   }
 
+  if (!loading && sessions.length === 0) {
+    return (
+      <div className="min-h-screen bg-surface-base flex flex-col items-center justify-center gap-8 px-6 text-center">
+        <ProfileHero user={user} profile={profile} isGuest={isGuest} onStartSession={() => navigate('/')} />
+        <div className="max-w-sm space-y-3">
+          <p className="text-[15px] text-text-main/50 leading-relaxed">
+            {t('profile_empty_desc')}
+          </p>
+          <p className="text-[13px] text-text-main/30 font-mono uppercase tracking-widest">
+            {t('profile_empty_hint')}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-surface-base">
       <>

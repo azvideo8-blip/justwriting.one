@@ -84,6 +84,8 @@ export const profileTranslations: Translations = {
   profile_download_nothing: { ru: 'Все заметки уже есть локально', en: 'All notes already downloaded' },
   profile_download_partial: { ru: 'Скачано {downloaded}, ошибок {failed}', en: 'Downloaded {downloaded}, failed {failed}' },
   profile_download_error: { ru: 'Ошибка при скачивании', en: 'Download failed' },
+  profile_empty_desc: { ru: 'Здесь появится твоя статистика — слова, серии, ритм. Начни первую сессию.', en: 'Your stats will appear here — words, streaks, rhythm. Start your first session.' },
+  profile_empty_hint: { ru: 'вкладка «Писать»', en: 'go to the Write tab' },
   profile_activity_title:   { ru: 'Активность',             en: 'Activity' },
   profile_sessions_found: { ru: 'Найдено {count} сессий', en: '{count} sessions found' },
   profile_theme_hint: { ru: 'Меняет цвет фона. Логотип и акценты бренда остаются фиолетовыми.', en: 'Changes background color. Logo and brand accents stay purple.' },
