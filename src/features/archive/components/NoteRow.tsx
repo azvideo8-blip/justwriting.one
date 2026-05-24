@@ -230,8 +230,22 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
             {highlightText(session.title || t('session_untitled'), searchQuery ?? '')}
           </div>
         )}
+        {label && (
+          <div
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full mt-1"
+            style={{
+              border: `1px solid ${label.color}40`,
+              background: `${label.color}0d`,
+            }}
+          >
+            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: label.color }} />
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: label.color + 'bb' }}>
+              {label.name}
+            </span>
+          </div>
+        )}
         {session.content && (
-          <p className="text-sm text-text-main/55 leading-relaxed line-clamp-1 sm:line-clamp-2 mb-2 cursor-pointer" onClick={onOpen}>
+          <p className="text-sm text-text-main/55 leading-relaxed line-clamp-1 sm:line-clamp-2 mb-2 cursor-pointer" style={{ textWrap: 'pretty' }} onClick={onOpen}>
             {highlightText(session.content.slice(0, 200), searchQuery ?? '')}
           </p>
         )}

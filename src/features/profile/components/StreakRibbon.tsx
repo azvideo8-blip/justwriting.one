@@ -71,7 +71,15 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
       <div className="flex items-baseline gap-4 mb-4 font-mono text-[11px] text-text-main/40">
         <span className="text-[10px] uppercase tracking-widest">{periodLabel}</span>
         <span className="ml-auto">
-          {t('profile_streak_now')} <span style={{ color: 'var(--flow-pulse-color)' }} className="text-[14px] font-medium">{currentStreak}</span>
+          {t('profile_streak_now')}{' '}
+          <span style={{
+            color: 'var(--flow-pulse-color)',
+            fontSize: 16,
+            fontWeight: 600,
+            textShadow: '0 0 12px var(--flow-pulse-color)',
+          }}>
+            {currentStreak}
+          </span>
         </span>
         <span>
           {t('profile_streak_best')} <span className="text-[14px] font-medium text-text-main/70">{bestStreak}</span>
@@ -105,6 +113,9 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
                       : 'var(--surface-elevated)',
                   outline: day.isToday ? '1px solid var(--text-subtle)' : 'none',
                   outlineOffset: 1,
+                  boxShadow: isCurrentStreak && i === days.length - 1
+                    ? '0 0 8px var(--flow-pulse-color)'
+                    : 'none',
                 }}
               />
             </motion.div>

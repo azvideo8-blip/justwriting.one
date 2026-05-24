@@ -18,38 +18,15 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanelContent({ userId, onRefreshLifeLog, defaultTab }: { userId: string; onRefreshLifeLog?: () => void; defaultTab?: Tab }) {
-  const [activeTab, setActiveTab] = useState<Tab>(defaultTab || 'editor');
+  const initialTab = (defaultTab === 'editor' || defaultTab === 'app' || defaultTab === 'account') ? defaultTab : 'editor';
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const { t } = useLanguage();
 
-  const editorTabRef = React.useRef<HTMLDivElement>(null);
-  const appTabRef = React.useRef<HTMLDivElement>(null);
-  const accountTabRef = React.useRef<HTMLDivElement>(null);
-
   React.useEffect(() => {
-    if (defaultTab) {
+    if (defaultTab === 'editor' || defaultTab === 'app' || defaultTab === 'account') {
       setActiveTab(defaultTab);
     }
   }, [defaultTab]);
-
-  React.useEffect(() => {
-    const handleEditorBeforeMatch = () => setActiveTab('editor');
-    const handleAppBeforeMatch = () => setActiveTab('app');
-    const handleAccountBeforeMatch = () => setActiveTab('account');
-
-    const editorEl = editorTabRef.current;
-    const appEl = appTabRef.current;
-    const accountEl = accountTabRef.current;
-
-    editorEl?.addEventListener('beforematch', handleEditorBeforeMatch);
-    appEl?.addEventListener('beforematch', handleAppBeforeMatch);
-    accountEl?.addEventListener('beforematch', handleAccountBeforeMatch);
-
-    return () => {
-      editorEl?.removeEventListener('beforematch', handleEditorBeforeMatch);
-      appEl?.removeEventListener('beforematch', handleAppBeforeMatch);
-      accountEl?.removeEventListener('beforematch', handleAccountBeforeMatch);
-    };
-  }, []);
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'editor',  label: t('settings_tab_editor') },
@@ -77,27 +54,9 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog, defaultTab }: {
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-28 space-y-4">
-        <div
-          ref={editorTabRef}
-          hidden={activeTab !== 'editor' ? ("until-found" as any) : undefined}
-          style={activeTab !== 'editor' ? { contentVisibility: 'hidden' } : undefined}
-        >
-          <EditorTab />
-        </div>
-        <div
-          ref={appTabRef}
-          hidden={activeTab !== 'app' ? ("until-found" as any) : undefined}
-          style={activeTab !== 'app' ? { contentVisibility: 'hidden' } : undefined}
-        >
-          <AppTab userId={userId} onRefreshLifeLog={onRefreshLifeLog} />
-        </div>
-        <div
-          ref={accountTabRef}
-          hidden={activeTab !== 'account' ? ("until-found" as any) : undefined}
-          style={activeTab !== 'account' ? { contentVisibility: 'hidden' } : undefined}
-        >
-          <AccountTab userId={userId} />
-        </div>
+        {activeTab === 'editor' && <EditorTab />}
+        {activeTab === 'app' && <AppTab userId={userId} onRefreshLifeLog={onRefreshLifeLog} />}
+        {activeTab === 'account' && <AccountTab userId={userId} />}
       </div>
     </div>
   );

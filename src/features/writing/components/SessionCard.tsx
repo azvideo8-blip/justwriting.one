@@ -187,9 +187,17 @@ export function SessionCard({
             <div className="absolute -top-16 -left-16 w-32 h-32 rounded-full blur-3xl opacity-0 transition-all duration-700 bg-white/5 mix-blend-screen group-hover:opacity-100 group-hover:translate-x-4" />
           </div>
         {label && (
-          <div className="flex items-center gap-2 relative z-10">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: label.color }} />
-            <span className="text-xs font-bold uppercase tracking-widest text-text-main/50">{label.name}</span>
+          <div
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full"
+            style={{
+              border: `1px solid ${label.color}40`,
+              background: `${label.color}0d`,
+            }}
+          >
+            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: label.color }} />
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: label.color + 'bb' }}>
+              {label.name}
+            </span>
           </div>
         )}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
@@ -217,7 +225,8 @@ export function SessionCard({
                 <span title={session._hasPendingSync ? t('storage_sync_pending') : session._hasCloudCopy ? t('storage_cloud') : t('storage_no_cloud')}>
                   <Cloud 
                     size={13} 
-                    className={session._hasPendingSync ? "text-amber-500 animate-pulse" : session._hasCloudCopy ? "text-blue-400" : "text-text-main/20"} 
+                    className={session._hasPendingSync ? "text-amber-500 animate-pulse" : session._hasCloudCopy ? "text-blue-400" : "text-text-main/20"}
+                    style={session._hasPendingSync ? { filter: 'drop-shadow(0 0 5px rgb(245 158 11 / 0.6))' } : undefined}
                   />
                 </span>
               </span>
