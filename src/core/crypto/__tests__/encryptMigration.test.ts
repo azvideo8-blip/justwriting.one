@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { encryptAllExistingNotes } from '../encryptMigration';
+import { encryptAllExistingNotes, encryptSingleDocument } from '../encryptMigration';
 import * as encryptModule from '../encrypt';
 import * as cryptoHelpers from '../cryptoHelpers';
 
@@ -202,5 +202,111 @@ describe('encryptAllExistingNotes', () => {
     const progress = await encryptAllExistingNotes(userId);
     expect(progress.encrypted).toBe(1);
     expect(progress.errors).toBe(0);
+  });
+
+  it('saves checkpoint after batch flush and clears it on completion', async () => {
+    const sessionDocs = [
+      { id: 'sess1', data: { content: 'hello', _encrypted: false } },
+    ];
+
+    mockGetDocs.mockImplementation(async (queryOrCol: any) => {
+      if (queryOrCol.path === 'sessions') return createMockSnapshot(sessionDocs);
+      return createMockSnapshot([]);
+    });
+
+    await encryptAllExistingNotes(userId);
+
+    expect(mockWriteBatchCommit).toHaveBeenCalled();
+    expect(localStorage.getItem(`encryptionMigration_${userId}_checkpoint`)).toBeNull();
+  });
+
+  it('returns zero progress when no documents exist', async () => {
+    mockGetDocs.mockResolvedValue(createMockSnapshot([]));
+
+    const progress = await encryptAllExistingNotes(userId);
+    expect(progress.total).toBe(0);
+    expect(progress.processed).toBe(0);
+    expect(progress.encrypted).toBe(0);
+    expect(progress.errors).toBe(0);
+  });
+
+  it('handles corrupted checkpoint data gracefully', async () => {
+    localStorage.setItem(`encryptionMigration_${userId}_checkpoint`, 'not-valid-json{{{');
+
+    const sessionDocs = [
+      { id: 'sess1', data: { content: 'hello', _encrypted: false } },
+    ];
+
+    mockGetDocs.mockImplementation(async (queryOrCol: any) => {
+      if (queryOrCol.path === 'sessions') return createMockSnapshot(sessionDocs);
+      return createMockSnapshot([]);
+    });
+
+    const progress = await encryptAllExistingNotes(userId);
+    expect(progress.encrypted).toBe(1);
+    expect(progress.errors).toBe(0);
+  });
+});
+
+describe('encryptSingleDocument', () => {
+  const userId = 'user123';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  const createMockSnapshot = (docs: any[]) => ({
+    docs: docs.map(d => ({
+      id: d.id,
+      data: () => d.data,
+    })),
+  });
+
+  it('encrypts all unencrypted versions of a single document', async () => {
+    const versionDocs = [
+      { id: 'ver1', data: { content: 'hello', _encrypted: false } },
+      { id: 'ver2', data: { content: 'world', _encrypted: false } },
+    ];
+
+    mockGetDocs.mockResolvedValue(createMockSnapshot(versionDocs));
+
+    const result = await encryptSingleDocument(userId, 'doc1');
+    expect(result.processed).toBe(2);
+    expect(result.encrypted).toBe(2);
+    expect(result.errors).toBe(0);
+  });
+
+  it('skips already encrypted versions', async () => {
+    const versionDocs = [
+      { id: 'ver1', data: { content: 'encrypted_val', _encrypted: true } },
+    ];
+
+    mockGetDocs.mockResolvedValue(createMockSnapshot(versionDocs));
+
+    const result = await encryptSingleDocument(userId, 'doc1');
+    expect(result.processed).toBe(1);
+    expect(result.encrypted).toBe(0);
+    expect(result.errors).toBe(0);
+  });
+
+  it('handles individual version encryption failure', async () => {
+    const versionDocs = [
+      { id: 'ver1', data: { content: 'hello', _encrypted: false } },
+    ];
+
+    mockGetDocs.mockResolvedValue(createMockSnapshot(versionDocs));
+    vi.spyOn(cryptoHelpers, 'maybeEncrypt').mockRejectedValueOnce(new Error('Crypt error'));
+
+    const result = await encryptSingleDocument(userId, 'doc1');
+    expect(result.processed).toBe(1);
+    expect(result.encrypted).toBe(0);
+    expect(result.errors).toBe(1);
+  });
+
+  it('throws when versions query fails', async () => {
+    mockGetDocs.mockRejectedValue(new Error('Firestore error'));
+
+    await expect(encryptSingleDocument(userId, 'doc1')).rejects.toThrow('Firestore error');
   });
 });
