@@ -60,7 +60,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
     { id: 'write' as const, path: '/',       label: t('nav_write'), icon: <PenIcon /> },
     { id: 'log' as const,  path: '/log',     label: t('lifelog_tab_log'), icon: <LogIcon /> },
     { id: 'archive' as const, path: '/archive', label: t('archive_sidebar_title'), icon: <ArchiveIcon /> },
-    { id: 'me' as const,   path: '/me',      label: t('nav_me'),    icon: <MeIcon /> },
+    ...(!isGuest ? [{ id: 'me' as const,   path: '/me',      label: t('nav_me'),    icon: <MeIcon /> } as const] : []),
     ...(isAdmin ? [{ id: 'admin' as const, path: '/admin', label: t('nav_admin'), icon: <Shield size={22} strokeWidth={1.6} /> } as const] : []),
     ...(isGuest ? [{ id: 'login' as const, path: '', label: t('auth_sign_in'), icon: <LoginIcon />, action: openLoginModal } as const] : []),
   ];
@@ -68,6 +68,13 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
   type Tab = typeof tabs[number];
 
   const handleTabPress = (tab: Tab) => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      try {
+        navigator.vibrate(8);
+      } catch {
+        // ignore
+      }
+    }
     if ('action' in tab && tab.action) {
       tab.action();
     } else {
@@ -94,17 +101,14 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
             aria-label={tab.label}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              "flex flex-col items-center gap-[3px] py-1 px-6 bg-transparent border-none cursor-pointer transition-colors duration-150",
-              active ? "text-text-main" : "text-text-main/30 hover:text-text-main/60"
+              "flex flex-col items-center gap-[3px] py-1 px-2 bg-transparent border-none cursor-pointer transition-colors duration-150",
+              active ? "text-text-main font-semibold" : "text-text-main/30 hover:text-text-main/60"
             )}
           >
             {tab.icon}
-            <span className="text-[10px] font-sans tracking-[0.02em]">
+            <span className="text-[11px] font-sans tracking-[0.02em]">
               {tab.label}
             </span>
-            {active && (
-              <div className="w-1 h-1 rounded-full bg-current mt-0.5" />
-            )}
           </button>
         );
       })}

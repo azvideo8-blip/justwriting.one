@@ -45,6 +45,8 @@ export const settingsTranslations: Translations = {
   layout_switch_desktop: { ru: 'Широкий экран', en: 'Desktop view' },
   layout_switch_mobile:  { ru: 'Мобильный вид', en: 'Mobile view' },
 
+  storage_title: { ru: 'Управление хранилищем', en: 'Storage Management' },
+  storage_delete_completely: { ru: 'Удалить полностью', en: 'Delete completely' },
   storage_cloud: { ru: 'Облако', en: 'Cloud' },
   storage_local: { ru: 'Устройство', en: 'Device' },
   storage_both: { ru: 'Локально и облако', en: 'Local & Cloud' },

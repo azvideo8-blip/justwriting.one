@@ -10,6 +10,7 @@ import { Label } from '../../../types';
 import { highlightText } from '../../../shared/utils/highlightText';
 import { MobileNoteActionsSheet } from './MobileNoteActionsSheet';
 import { AnimatePresence } from 'motion/react';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 
 interface NoteRowProps {
   session: ArchiveSession;
@@ -29,7 +30,8 @@ interface NoteRowProps {
 }
 
 function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels, allTags, searchQuery }: NoteRowProps) {
-  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  const { layoutMode } = useLayoutMode();
+  const isMobile = layoutMode === 'mobile';
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(session.title || '');
   const [editingDateTime, setEditingDateTime] = useState(false);

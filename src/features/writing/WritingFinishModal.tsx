@@ -218,7 +218,7 @@ export function WritingFinishModal({
 
   return (
     <div className={cn(
-      "fixed inset-0 z-50 flex bg-surface-base text-text-main",
+      "fixed inset-0 z-[110] flex bg-surface-base text-text-main",
       isMobile ? "flex-col w-full h-full" : "items-center justify-center p-4 bg-surface-base/80 backdrop-blur-2xl"
     )}>
       <motion.div
@@ -392,10 +392,12 @@ export function WritingFinishModal({
                               className={cn(
                                 "px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 min-h-[40px]",
                                 labelId === label.id
-                                  ? "ring-2 ring-offset-2 ring-offset-surface-base"
-                                  : "hover:opacity-80"
+                                  ? "border-2 border-white scale-105 opacity-100 shadow-lg"
+                                  : labelId !== undefined
+                                    ? "opacity-55 hover:opacity-85 border border-transparent"
+                                    : "hover:opacity-100 border border-transparent"
                               )}
-                              style={{ backgroundColor: label.color, outlineColor: label.color }}
+                              style={{ backgroundColor: label.color }}
                             >
                               {label.name}
                             </button>
@@ -498,7 +500,7 @@ export function WritingFinishModal({
             </div>
 
             {/* Sticky Save Footer */}
-            <div className="p-6 border-t border-border-subtle bg-surface-card shrink-0 flex flex-col gap-3">
+            <div className="p-6 pb-[calc(env(safe-area-inset-bottom,16px)+16px)] border-t border-border-subtle bg-surface-card shrink-0 flex flex-col gap-3">
               <div className="flex gap-3">
                 <button
                   onClick={onCancel}
@@ -607,10 +609,12 @@ export function WritingFinishModal({
                     className={cn(
                       "px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2",
                       labelId === label.id
-                        ? "ring-2 ring-offset-2 ring-offset-surface-base"
-                        : "hover:opacity-80"
+                        ? "border-2 border-white scale-105 opacity-100 shadow-lg"
+                        : labelId !== undefined
+                          ? "opacity-55 hover:opacity-85 border border-transparent"
+                          : "hover:opacity-100 border border-transparent"
                     )}
-                    style={{ backgroundColor: label.color, outlineColor: label.color }}
+                    style={{ backgroundColor: label.color }}
                   >
                     {label.name}
                   </button>

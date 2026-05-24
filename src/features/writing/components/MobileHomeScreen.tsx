@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLanguage } from '../../../core/i18n';
 import { Session } from '../../../types';
 import type { SessionGroup, DailySummary, LifeLogDocument } from '../types/lifeLog';
 import { ConnectionStatusBanner } from './ConnectionStatusBanner';
+import { useNavigate } from 'react-router-dom';
+import { cn } from '../../../core/utils/utils';
 
 interface MobileHomeScreenProps {
   userId: string;
@@ -14,6 +16,7 @@ interface MobileHomeScreenProps {
   hasDraft?: boolean;
   restoreDraft?: () => void;
   discardDraft?: () => void;
+  onRefresh?: () => Promise<void> | void;
 }
 
 function getGreeting(t: (key: string) => string): { top: string; bottom: string } {
@@ -42,8 +45,10 @@ export function MobileHomeScreen({
   hasDraft,
   restoreDraft,
   discardDraft,
+  onRefresh,
 }: MobileHomeScreenProps) {
   const { t, language } = useLanguage();
+  const navigate = useNavigate();
   const greeting = getGreeting(t);
 
   const recentSessions = sessionGroups
@@ -56,16 +61,80 @@ export function MobileHomeScreen({
     return () => clearInterval(timer);
   }, []);
 
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [pullOffset, setPullOffset] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartY(e.touches[0].clientY);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartY === null || refreshing) return;
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - touchStartY;
+    if (diff > 0) {
+      setPullOffset(Math.min(80, diff * 0.45));
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (touchStartY === null || refreshing) return;
+    if (pullOffset > 50 && onRefresh) {
+      setRefreshing(true);
+      try {
+        await onRefresh();
+      } catch (e) {
+        console.error('Refresh failed:', e);
+      } finally {
+        setRefreshing(false);
+      }
+    }
+    setTouchStartY(null);
+    setPullOffset(0);
+  };
+
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'var(--color-surface-base, #0b0d0c)',
-      display: 'flex',
-      flexDirection: 'column',
-      zIndex: 30,
-      overflow: 'hidden',
-    }}>
+    <div 
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'var(--color-surface-base, #0b0d0c)',
+        display: 'flex',
+        flexDirection: 'column',
+        zIndex: 30,
+        overflow: 'hidden',
+      }}
+    >
+      {/* Pull to refresh indicator */}
+      {pullOffset > 0 && (
+        <div style={{
+          position: 'absolute',
+          top: 10,
+          left: '50%',
+          transform: `translateX(-50%) translateY(${pullOffset - 20}px)`,
+          opacity: pullOffset / 50,
+          zIndex: 100,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          background: 'var(--surface-card)',
+          border: '1px solid var(--border-light)',
+          padding: '6px 12px',
+          borderRadius: 99,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          pointerEvents: 'none',
+        }}>
+          <div className={cn("w-3.5 h-3.5 border-2 border-brand-primary border-t-transparent rounded-full", refreshing && "animate-spin")} />
+          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500 }}>
+            {refreshing ? t('offline_syncing') : 'Потяните для обновления'}
+          </span>
+        </div>
+      )}
+
       <ConnectionStatusBanner />
 
       <div style={{
@@ -98,21 +167,35 @@ export function MobileHomeScreen({
           </span>
         </div>
 
-        <div style={{
-          width: 30, height: 30,
-          borderRadius: '50%',
-          background: 'var(--surface-elevated)',
-          border: '1px solid var(--border-light)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: 'var(--text-muted)',
-        }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="1.6"
-            strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="8" r="4"/>
-            <path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>
-          </svg>
-        </div>
+        <button
+          onClick={() => navigate('/me')}
+          style={{
+            width: 44, height: 44,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'transparent',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+          aria-label={t('nav_me')}
+        >
+          <div style={{
+            width: 32, height: 32,
+            borderRadius: '50%',
+            background: 'var(--surface-elevated)',
+            border: '1px solid var(--border-light)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--text-muted)',
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="1.6"
+              strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="4"/>
+              <path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>
+            </svg>
+          </div>
+        </button>
       </div>
 
       {hasDraft && (

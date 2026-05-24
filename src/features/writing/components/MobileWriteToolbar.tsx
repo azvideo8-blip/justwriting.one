@@ -7,6 +7,7 @@ import { formatTime } from '../../../core/utils/formatTime';
 import { getWpmHex } from '../utils/wpmColors';
 import { Sparkles } from 'lucide-react';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface MobileWriteToolbarProps {
   onPlay: () => void;
@@ -47,6 +48,7 @@ export function MobileWriteToolbar({
     ? Math.max(0, timerDuration - sessionSeconds)
     : sessionSeconds;
 
+  const [showExitConfirm, setShowExitConfirm] = React.useState(false);
   const isRunning = status === 'writing';
   const isIdle = status === 'idle';
 
@@ -55,9 +57,7 @@ export function MobileWriteToolbar({
   const handleTouchStart = () => {
     if (!streamMode || !onToggleStreamMode) return;
     longPressTimer.current = setTimeout(() => {
-      if (window.confirm(t('stream_mode_exit_confirm') || 'Exit Stream Mode?')) {
-        onToggleStreamMode();
-      }
+      setShowExitConfirm(true);
     }, 3000);
   };
 
@@ -75,7 +75,7 @@ export function MobileWriteToolbar({
       style={{
         position: 'absolute',
         left: 16, right: 16,
-        bottom: 'calc(env(safe-area-inset-bottom, 16px) + 72px)',
+        bottom: 'calc(env(safe-area-inset-bottom, 16px) + var(--bottom-nav-height, 72px))',
         background: 'var(--surface-card)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
@@ -106,7 +106,7 @@ export function MobileWriteToolbar({
           pointerEvents: 'none',
           boxShadow: '0 2px 4px rgba(239, 68, 68, 0.2)',
         }}>
-          Stream Mode
+          {t('stream_mode_label') || 'Stream Mode'}
         </div>
       )}
       <div style={{ flex: 1, display: 'flex', gap: 0 }}>
@@ -193,8 +193,8 @@ export function MobileWriteToolbar({
           <button
             onClick={onAiClick}
             style={{
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               borderRadius: 12,
               border: `1px solid ${isAiActive ? 'var(--brand-soft)' : 'var(--border-light)'}`,
               background: isAiActive ? 'rgba(var(--brand-soft-rgb, 124, 58, 237), 0.1)' : 'transparent',
@@ -213,7 +213,7 @@ export function MobileWriteToolbar({
         <button
           onClick={isRunning ? onPause : onPlay}
           style={{
-            width: 40, height: 40,
+            width: 44, height: 44,
             borderRadius: 12,
             border: `1px solid ${isRunning ? 'var(--border-light)' : 'var(--flow-pulse-color, var(--brand-primary) / 0.4)'}`,
             background: isRunning ? 'var(--surface-card)' : 'var(--flow-pulse-color, var(--brand-primary) / 0.12)',
@@ -239,7 +239,7 @@ export function MobileWriteToolbar({
           onClick={onStop}
           disabled={isIdle}
           style={{
-            width: 40, height: 40,
+            width: 44, height: 44,
             borderRadius: 12,
             border: '1px solid var(--border-light)',
             background: 'transparent',
@@ -253,6 +253,51 @@ export function MobileWriteToolbar({
           </svg>
         </button>
       </div>
+
+      <AnimatePresence>
+        {showExitConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm">
+            <div className="absolute inset-0" onClick={() => setShowExitConfirm(false)} />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+              className="relative z-10 w-full max-w-lg bg-surface-card border-t border-white/[0.06] rounded-t-[28px] overflow-hidden flex flex-col p-6 space-y-6 shadow-[0_-8px_32px_rgba(0,0,0,0.4)]"
+              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 16px) + 16px)' }}
+            >
+              <div className="flex justify-center">
+                <div className="w-12 h-1.5 rounded-full bg-white/10" />
+              </div>
+              <div className="text-center space-y-2">
+                <h3 className="text-lg font-bold text-text-main">
+                  {t('stream_mode_exit_confirm') || 'Exit Stream Mode?'}
+                </h3>
+                <p className="text-sm text-text-main/55">
+                  {t('stream_mode_exit_desc') || 'Вы вернетесь к обычному режиму написания.'}
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowExitConfirm(false)}
+                  className="flex-1 py-3.5 rounded-2xl border border-border-subtle text-text-main font-bold text-sm bg-transparent cursor-pointer active:scale-98 transition-all min-h-[44px]"
+                >
+                  {t('writing_cancel') || 'Cancel'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowExitConfirm(false);
+                    onToggleStreamMode?.();
+                  }}
+                  className="flex-1 py-3.5 rounded-2xl bg-accent-danger text-white font-bold text-sm border-none cursor-pointer active:scale-98 transition-all min-h-[44px]"
+                >
+                  {t('storage_delete_confirm') || 'Exit'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
