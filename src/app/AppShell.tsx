@@ -19,13 +19,12 @@ export function AppShell() {
   const location = useLocation();
   const { t } = useLanguage();
   const { profile } = useAuthStatus();
-  const { isZenActive, zenModeEnabled, lifeLogEnabled } = useWritingSettings();
+  const { isZenActive, zenModeEnabled } = useWritingSettings();
   const { layoutMode } = useLayoutMode();
   const { loginModalOpen } = useLoginModal();
 
   const currentPath = location.pathname;
   const showZen = isZenActive && zenModeEnabled && currentPath === '/';
-  const hideSidebar = lifeLogEnabled && currentPath === '/' && layoutMode === 'desktop';
   const isAdmin = profile?.role === 'admin';
 
   return (
@@ -44,21 +43,18 @@ export function AppShell() {
       <ThemeBackground />
 
       <>
-        {!hideSidebar && (
-          layoutMode === 'desktop' ? (
-            <Sidebar isAdmin={isAdmin} />
-          ) : (
-            !showZen && <BottomNav isAdmin={isAdmin} />
-          )
+        {layoutMode === 'desktop' ? (
+          <Sidebar isAdmin={isAdmin} />
+        ) : (
+          !showZen && <BottomNav isAdmin={isAdmin} />
         )}
         {layoutMode === 'desktop' && <ConnectionStatusBanner showZen={showZen} />}
       </>
 
       <main id="main-content" tabIndex={-1} className={cn(
-        "w-full relative z-10 min-h-screen",
-        hideSidebar ? "" : "pt-8",
-        layoutMode === 'desktop' && !hideSidebar && "pl-20 pr-4",
-        layoutMode !== 'desktop' && !hideSidebar && (showZen ? "pb-4 px-4" : "pb-20 px-4")
+        "w-full relative z-10 min-h-screen pt-8",
+        layoutMode === 'desktop' && "pl-20 pr-4",
+        layoutMode !== 'desktop' && (showZen ? "pb-4 px-4" : "pb-20 px-4")
       )}>
         <AppRoutes />
       </main>
