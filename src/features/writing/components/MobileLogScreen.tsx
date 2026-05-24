@@ -1,14 +1,16 @@
 import { useState, useMemo } from 'react';
 import { useLifeLog } from '../hooks/useLifeLog';
 import { useLanguage } from '../../../core/i18n';
-import { Session } from '../../../types';
+import { Session, Label } from '../../../types';
 import { parseFirestoreDate } from '../../../core/utils/utils';
 import { StreakDots } from '../../../shared/components/StreakDots';
+import { SessionCard } from './SessionCard';
 
 interface MobileLogScreenProps {
   userId: string;
   isGuest: boolean;
   onContinue: (session: Session) => void;
+  labels?: Label[];
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -19,9 +21,9 @@ function formatDuration(minutes: number, t: (key: string) => string): string {
   return h > 0 ? `${h}${t('unit_hour')} ${pad(m)}${t('unit_min')}` : `${pad(m)}${t('unit_min')}`;
 }
 
-export function MobileLogScreen({ userId, isGuest, onContinue }: MobileLogScreenProps) {
+export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileLogScreenProps) {
   const { t, language } = useLanguage();
-  const { sessionGroups, loading } = useLifeLog(userId, isGuest);
+  const { sessionGroups, loading, refresh } = useLifeLog(userId, isGuest);
   const [query, setQuery] = useState('');
 
   const filteredGroups = useMemo(() => {
@@ -214,66 +216,20 @@ export function MobileLogScreen({ userId, isGuest, onContinue }: MobileLogScreen
                 {group.label}
               </div>
 
-              {group.sessions.map(session => (
-                <button
-                  key={session.id}
-                  onClick={() => onContinue(session)}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '12px 20px',
-                    background: 'transparent',
-                    border: 'none',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    WebkitTapHighlightColor: 'transparent',
-                    borderBottom: '1px solid rgba(255,255,255,0.04)',
-                  }}
-                >
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'baseline',
-                    gap: 8,
-                    marginBottom: 4,
-                  }}>
-                    <div style={{
-                      fontSize: 14,
-                      fontWeight: 500,
-                      color: 'rgba(232,236,233,0.85)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      flex: 1,
-                    }}>
-                      {session.title || t('common_untitled')}
-                    </div>
-                    <div style={{
-                      fontSize: 11,
-                      color: 'rgba(74,81,77,1)',
-                      fontFamily: 'JetBrains Mono, monospace',
-                      flexShrink: 0,
-                    }}>
-                      {parseFirestoreDate(session.createdAt)
-                        ?.toLocaleTimeString(language, {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        }) ?? ''}
-                    </div>
-                  </div>
-                  <div style={{
-                    fontSize: 12,
-                    color: 'rgba(74,81,77,1)',
-                    fontFamily: 'JetBrains Mono, monospace',
-                    display: 'flex',
-                    gap: 8,
-                  }}>
-                    <span>{session.wordCount} {t('home_words_short')}</span>
-                    <span>·</span>
-                    <span>{formatDuration((session.duration || 0) / 60, t)}</span>
-                  </div>
-                </button>
-              ))}
+              <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {group.sessions.map(session => (
+                  <SessionCard
+                    key={session.id}
+                    session={session}
+                    onContinue={() => onContinue(session)}
+                    labels={labels}
+                    userId={userId}
+                    onDeleteSuccess={() => {
+                      refresh();
+                    }}
+                  />
+                ))}
+              </div>
             </div>
           ))
         )}

@@ -16,6 +16,7 @@ import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModa
 import { useSessionFlow } from '../hooks/useSessionFlow';
 import { MobileWriteScreen } from '../components/MobileWriteScreen';
 import { MobileHomeScreen } from '../components/MobileHomeScreen';
+import { MobileSessionSetupSheet } from '../components/MobileSessionSetupSheet';
 import { useLifeLog } from '../hooks/useLifeLog';
 import { useStreak } from '../hooks/useStreak';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
@@ -141,6 +142,16 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
     setUIStatus(sessionStatus);
   }, [sessionStatus, setUIStatus]);
 
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && sessionStatus === 'writing') {
+        handlePause();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [sessionStatus, handlePause]);
+
   const continueRef = useRef(false);
   useEffect(() => { continueRef.current = false; }, [userId]);
   useEffect(() => {
@@ -225,8 +236,20 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
       return <OnboardingGoalScreen onComplete={handleOnboardingComplete} setWordGoal={setWordGoalVal} />;
     if (isMobile) {
       if (sessionStatus === 'idle')
-        return <MobileHomeScreen userId={userId} streakDays={streakDays} sessionGroups={lifeLogGroups} summary={lifeLogSummary} onStart={handlePlay} onContinue={handleContinueSessionOrDoc} />;
-      return <MobileWriteScreen onPlay={handlePlay} onPause={handlePause} onStop={onFinishClick} saveStatus={saveStatus} />;
+        return (
+          <MobileHomeScreen
+            userId={userId}
+            streakDays={streakDays}
+            sessionGroups={lifeLogGroups}
+            summary={lifeLogSummary}
+            onStart={() => setSetupMode('selection')}
+            onContinue={handleContinueSessionOrDoc}
+            hasDraft={hasDraft}
+            restoreDraft={session.restoreDraft}
+            discardDraft={session.discardDraft}
+          />
+        );
+      return <MobileWriteScreen onPlay={handlePlay} onPause={handlePause} onStop={onFinishClick} saveStatus={saveStatus} keystrokeTrackerRef={keystrokeTrackerRef} />;
     }
     return <DesktopWritingLayout {...desktopProps} />;
   })();
@@ -234,6 +257,13 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
   return (
     <>
       {mainContent}
+      <MobileSessionSetupSheet
+        setupMode={flow.setupMode}
+        setSetupMode={setSetupMode}
+        startCountdown={startCountdown}
+        countdown={flow.countdown}
+        onSetPromptTitle={setTitle}
+      />
       <GoalToast visible={flow.goalToastVisible} type={flow.goalToastType} />
       <AnimatePresence>
         {flow.sessionStartFlash && (

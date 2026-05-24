@@ -47,35 +47,39 @@ export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerPr
             autoFocus
             onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
           />
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-1 -m-2">
             {LABEL_PRESET_COLORS.map(c => (
-              <button
-                key={c}
-                style={{ background: c }}
-                className={cn("w-6 h-6 rounded-full transition-all", selectedColor === c && "ring-2 ring-offset-2 ring-offset-surface-card")}
-                onClick={() => setSelectedColor(c)}
-              />
+              <div key={c} className="w-11 h-11 flex items-center justify-center">
+                <button
+                  type="button"
+                  style={{ background: c }}
+                  className={cn("w-6 h-6 rounded-full transition-all", selectedColor === c && "ring-2 ring-offset-2 ring-offset-surface-card")}
+                  onClick={() => setSelectedColor(c)}
+                />
+              </div>
             ))}
-            <div className="relative">
-              <input
-                type="color"
-                defaultValue={selectedColor}
-                onChange={e => setSelectedColor(e.target.value)}
-                className="sr-only"
-                id="label-color-custom-settings"
-              />
-              <label
-                htmlFor="label-color-custom-settings"
-                className={cn(
-                  "w-6 h-6 rounded-full border-2 border-dashed border-border-subtle flex items-center justify-center cursor-pointer transition-all hover:border-text-main/40",
-                  !LABEL_PRESET_COLORS.includes(selectedColor) && "ring-2 ring-offset-2 ring-offset-surface-card ring-text-main/30"
-                )}
-                style={!LABEL_PRESET_COLORS.includes(selectedColor) ? { background: selectedColor } : {}}
-              >
-                {LABEL_PRESET_COLORS.includes(selectedColor) && (
-                  <span className="text-[11px] text-text-main/40 font-bold leading-none">+</span>
-                )}
-              </label>
+            <div className="w-11 h-11 flex items-center justify-center">
+              <div className="relative">
+                <input
+                  type="color"
+                  defaultValue={selectedColor}
+                  onChange={e => setSelectedColor(e.target.value)}
+                  className="sr-only"
+                  id="label-color-custom-settings"
+                />
+                <label
+                  htmlFor="label-color-custom-settings"
+                  className={cn(
+                    "w-6 h-6 rounded-full border-2 border-dashed border-border-subtle flex items-center justify-center cursor-pointer transition-all hover:border-text-main/40",
+                    !LABEL_PRESET_COLORS.includes(selectedColor) && "ring-2 ring-offset-2 ring-offset-surface-card ring-text-main/30"
+                  )}
+                  style={!LABEL_PRESET_COLORS.includes(selectedColor) ? { background: selectedColor } : {}}
+                >
+                  {LABEL_PRESET_COLORS.includes(selectedColor) && (
+                    <span className="text-[11px] text-text-main/40 font-bold leading-none">+</span>
+                  )}
+                </label>
+              </div>
             </div>
           </div>
           <div className="flex gap-2">

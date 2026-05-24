@@ -58,12 +58,14 @@ export function ProfileHero({ user, profile, isGuest, onStartSession, onSync, sy
   );
 
   return (
-    <div style={{
-      padding: '32px 36px',
-      background: 'radial-gradient(ellipse 60% 80% at 20% 30%, color-mix(in srgb, var(--flow-pulse-color) 12%, transparent), transparent 60%)',
-      borderBottom: '1px solid var(--border-light)',
-    }}>
-      <div className="flex items-start gap-6">
+    <div
+      className="px-6 py-6 md:px-9 md:py-8"
+      style={{
+        background: 'radial-gradient(ellipse 60% 80% at 20% 30%, color-mix(in srgb, var(--flow-pulse-color) 12%, transparent), transparent 60%)',
+        borderBottom: '1px solid var(--border-light)',
+      }}
+    >
+      <div className="flex flex-col md:flex-row items-center md:items-start gap-6 text-center md:text-left">
         <div className="relative shrink-0">
           <motion.div
             animate={{ boxShadow: ['0 0 0px color-mix(in srgb, var(--flow-pulse-color) 0%, transparent)', '0 0 40px color-mix(in srgb, var(--flow-pulse-color) 25%, transparent)', '0 0 0px color-mix(in srgb, var(--flow-pulse-color) 0%, transparent)'] }}
@@ -72,24 +74,26 @@ export function ProfileHero({ user, profile, isGuest, onStartSession, onSync, sy
           >
             {user?.photoURL ? (
               <img src={user.photoURL} alt={name}
-                className="w-24 h-24 rounded-full object-cover border border-white/10" />
+                className="w-16 h-16 md:w-24 md:h-24 rounded-full object-cover border border-white/10" />
             ) : (
               <div style={{
-                width: 96, height: 96, borderRadius: '50%',
+                borderRadius: '50%',
                 background: 'linear-gradient(135deg, color-mix(in srgb, var(--flow-pulse-color) 60%, #000), color-mix(in srgb, var(--flow-pulse-color) 20%, #000))',
                 border: '1px solid var(--border-light)',
                 boxShadow: '0 0 60px color-mix(in srgb, var(--flow-pulse-color) 15%, transparent)',
                 display: 'grid', placeItems: 'center',
-                fontSize: 42, fontFamily: 'Inter, sans-serif', fontWeight: 500, color: 'var(--text-main)',
-              }}>
+                fontFamily: 'Inter, sans-serif', fontWeight: 500, color: 'var(--text-main)',
+              }}
+              className="w-16 h-16 md:w-24 md:h-24 text-2xl md:text-4xl"
+              >
                 {initials}
               </div>
             )}
           </motion.div>
         </div>
 
-        <div className="flex-1 pt-1">
-          <div className="flex items-center gap-2 mb-1">
+        <div className="flex-1 pt-1 w-full flex flex-col items-center md:items-start">
+          <div className="flex items-center justify-center md:justify-start gap-2 mb-1 w-full">
             {editingName ? (
               <input
                 value={name}
@@ -97,10 +101,10 @@ export function ProfileHero({ user, profile, isGuest, onStartSession, onSync, sy
                 onBlur={handleSaveName}
                 onKeyDown={e => e.key === 'Enter' && handleSaveName()}
                 autoFocus
-                className="text-3xl font-medium text-text-main bg-transparent border-b border-text-main/20 outline-none"
+                className="text-2xl md:text-3xl font-medium text-text-main bg-transparent border-b border-text-main/20 outline-none text-center md:text-left"
               />
             ) : (
-              <h1 className="text-3xl font-medium text-text-main tracking-tight">
+              <h1 className="text-2xl md:text-3xl font-medium text-text-main tracking-tight">
                 {isGuest ? t('account_local_title') : name || t('me_anonymous')}
               </h1>
             )}
@@ -113,12 +117,12 @@ export function ProfileHero({ user, profile, isGuest, onStartSession, onSync, sy
           </div>
 
           {user?.email && (
-            <div className="font-mono text-[13px] text-text-main/40 mb-4">
+            <div className="font-mono text-[12px] md:text-[13px] text-text-main/40 mb-3 md:mb-4">
               {user.email}
             </div>
           )}
 
-          <div className="font-serif italic text-[14px] text-text-main/50 leading-relaxed max-w-lg mb-5 min-h-[20px]">
+          <div className="font-serif italic text-[13px] md:text-[14px] text-text-main/50 leading-relaxed max-w-lg mb-4 md:mb-5 min-h-[20px] text-center md:text-left">
             <AnimatePresence mode="wait">
               <motion.span
                 key={quoteIdx}
@@ -132,18 +136,18 @@ export function ProfileHero({ user, profile, isGuest, onStartSession, onSync, sy
             </AnimatePresence>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-stretch sm:items-center">
             <button
               onClick={onStartSession}
               style={{ background: 'var(--flow-pulse-color)' }}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-semibold text-surface-base"
+              className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[13px] font-semibold text-surface-base w-full sm:w-auto"
             >
               <PenLine size={14} />
               {t('home_cta')}
             </button>
             {onSync && (
               <button onClick={onSync} disabled={syncing}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] border border-border-subtle text-text-main/50 hover:text-text-main transition-all disabled:opacity-40"
+                className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[13px] border border-border-subtle text-text-main/50 hover:text-text-main transition-all disabled:opacity-40 w-full sm:w-auto"
               >
                 <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
                 {syncing ? t('profile_syncing') : t('profile_sync_button')}
@@ -152,11 +156,11 @@ export function ProfileHero({ user, profile, isGuest, onStartSession, onSync, sy
           </div>
         </div>
 
-        <div className="text-right shrink-0 border border-border-subtle rounded-xl p-3 bg-surface-card">
+        <div className="text-center md:text-right w-full md:w-auto border border-border-subtle rounded-xl p-3 bg-surface-card/45">
           <div className="font-mono text-[10px] text-text-main/30 uppercase tracking-widest mb-1">
             {t('profile_member_since')}
           </div>
-          <div className="text-[18px] font-medium text-text-main">
+          <div className="text-[16px] md:text-[18px] font-medium text-text-main">
             {memberSince.toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric' })}
           </div>
           <div className="font-mono text-[11px] text-text-main/40 mt-1">

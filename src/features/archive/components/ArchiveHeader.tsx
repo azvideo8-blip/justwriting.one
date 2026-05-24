@@ -1,5 +1,5 @@
 import { type RefObject, useState, useEffect, useRef } from 'react';
-import { Search, LayoutGrid, LayoutList, ArrowUpDown } from 'lucide-react';
+import { Search, LayoutGrid, LayoutList, ArrowUpDown, SlidersHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 
@@ -23,6 +23,7 @@ interface ArchiveHeaderProps {
   sortMode: SortMode;
   onSortModeChange: (m: SortMode) => void;
   sortLabels: Record<SortMode, string>;
+  onFilterClick?: () => void;
 }
 
 export function ArchiveHeader({
@@ -30,6 +31,7 @@ export function ArchiveHeader({
   searchQuery, searchInputRef, onSearchChange, searchPlaceholder,
   viewMode, onViewModeChange, listLabel, gridLabel,
   sortMode, onSortModeChange, sortLabels,
+  onFilterClick,
 }: ArchiveHeaderProps) {
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
@@ -136,6 +138,15 @@ export function ArchiveHeader({
             </div>
           )}
         </div>
+        {onFilterClick && (
+          <button
+            onClick={onFilterClick}
+            className="md:hidden h-8 px-2.5 rounded-lg flex items-center justify-center border border-border-subtle bg-text-main/[0.03] text-text-main/40 hover:text-text-main/60 active:scale-[0.98] transition-all cursor-pointer"
+            title="Filters"
+          >
+            <SlidersHorizontal size={14} />
+          </button>
+        )}
       </div>
     </div>
   );

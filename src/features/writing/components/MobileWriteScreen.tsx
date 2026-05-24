@@ -8,17 +8,22 @@ import { formatTime } from '../../../core/utils/formatTime';
 import { AnimatePresence, motion } from 'motion/react';
 import { MobileFocusScreen } from './MobileFocusScreen';
 import { MobileWriteToolbar } from './MobileWriteToolbar';
+import { MobileGoalSheet } from './MobileGoalSheet';
 import { getFontStack } from '../utils/fontStack';
+import { KeystrokeTracker } from '../utils/keystrokeTracker';
+import { ConnectionStatusBanner } from './ConnectionStatusBanner';
+import { AIPanel } from './AIPanel';
 
 interface MobileWriteScreenProps {
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
   saveStatus?: string;
+  keystrokeTrackerRef?: React.RefObject<KeystrokeTracker>;
 }
 
 export function MobileWriteScreen({
-  onPlay, onPause, onStop, saveStatus
+  onPlay, onPause, onStop, saveStatus, keystrokeTrackerRef
 }: MobileWriteScreenProps) {
   const { t } = useLanguage();
   const { content, setContent, title, setTitle } = useContentStore(
@@ -37,7 +42,7 @@ export function MobileWriteScreen({
       sessionStartSeconds: s.sessionStartSeconds,
     }))
   );
-  const { fontFamily, fontSize, isZenActive, zenModeEnabled } = useWritingSettings();
+  const { fontFamily, fontSize, isZenActive, zenModeEnabled, streamMode, toggleStreamMode } = useWritingSettings();
 
   const sessionSeconds = Math.max(0, seconds - sessionStartSeconds);
   const timeRemaining = timerDuration > 0
@@ -49,9 +54,31 @@ export function MobileWriteScreen({
   const isIdle = status === 'idle';
   const showZen = isZenActive && zenModeEnabled;
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && keystrokeTrackerRef?.current) {
+      keystrokeTrackerRef.current.record();
+    }
+
     if ((isIdle || isPaused) && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
       onPlay();
+    }
+
+    if (streamMode) {
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault();
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'x' || e.key === 'c' || e.key === 'v')) {
+        e.preventDefault();
+      }
+    }
+  };
+
+  const handleBeforeInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
+    if (!streamMode) return;
+    const inputEvent = e.nativeEvent as any;
+    const inputType = inputEvent.inputType || '';
+    if (inputType.includes('delete') || inputType.includes('cut') || inputType.includes('paste')) {
+      e.preventDefault();
     }
   };
 
@@ -77,6 +104,8 @@ export function MobileWriteScreen({
   };
 
   const [focusMode, setFocusMode] = useState(false);
+  const [showGoalSheet, setShowGoalSheet] = useState(false);
+  const [isAiOpen, setIsAiOpen] = useState(false);
   const swipeTouchStartY = useRef<number>(0);
   const swipeTouchStartX = useRef<number>(0);
 
@@ -104,6 +133,7 @@ export function MobileWriteScreen({
       flexDirection: 'column',
       zIndex: 30,
     }}>
+      <ConnectionStatusBanner showZen={showZen} />
 
       <AnimatePresence>
         {!showZen && (
@@ -194,6 +224,10 @@ export function MobileWriteScreen({
           value={content}
           onChange={e => { setContent(e.target.value); handleType(); }}
           onKeyDown={handleKeyDown}
+          onBeforeInput={handleBeforeInput}
+          onCut={e => { if (streamMode) e.preventDefault(); }}
+          onCopy={e => { if (streamMode) e.preventDefault(); }}
+          onPaste={e => { if (streamMode) e.preventDefault(); }}
           placeholder={t('writing_placeholder')}
           autoFocus
           style={{
@@ -237,13 +271,34 @@ export function MobileWriteScreen({
 
       <AnimatePresence>
         {!showZen && (
-          <MobileWriteToolbar onPlay={onPlay} onPause={onPause} onStop={onStop} />
+          <MobileWriteToolbar
+            onPlay={onPlay}
+            onPause={onPause}
+            onStop={onStop}
+            onGoalClick={() => setShowGoalSheet(true)}
+            streamMode={streamMode}
+            onToggleStreamMode={toggleStreamMode}
+            onAiClick={() => setIsAiOpen(true)}
+            isAiActive={isAiOpen}
+          />
         )}
       </AnimatePresence>
 
       <AnimatePresence>
         {focusMode && (
           <MobileFocusScreen onExit={() => setFocusMode(false)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showGoalSheet && (
+          <MobileGoalSheet isOpen={showGoalSheet} onClose={() => setShowGoalSheet(false)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isAiOpen && (
+          <AIPanel open={isAiOpen} onClose={() => setIsAiOpen(false)} />
         )}
       </AnimatePresence>
     </div>

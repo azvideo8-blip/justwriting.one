@@ -2,6 +2,7 @@ import React from 'react';
 import { User } from 'firebase/auth';
 import { useLanguage } from '../../../core/i18n';
 import { SettingRow } from './MeScreenHelpers';
+import { useSettings } from '../../../core/settings/SettingsContext';
 
 interface MeAccountSectionProps {
   user: User | null;
@@ -12,6 +13,8 @@ interface MeAccountSectionProps {
 export function MeAccountSection({ user, onSignOut, onSignIn }: MeAccountSectionProps) {
   const { t, language, setLanguage } = useLanguage();
   const isGuest = !user;
+
+  const { openSettings } = useSettings();
 
   return (
     <div>
@@ -105,6 +108,27 @@ export function MeAccountSection({ user, onSignOut, onSignIn }: MeAccountSection
           {t('me_sign_out')}
         </button>
       )}
+
+      <button
+        onClick={() => openSettings('account')}
+        style={{
+          marginTop: 16,
+          width: '100%',
+          padding: '12px',
+          borderRadius: 12,
+          border: '1px solid rgba(255,255,255,0.07)',
+          background: 'rgba(255,255,255,0.03)',
+          color: 'rgba(232,236,233,0.8)',
+          fontSize: 13,
+          fontWeight: 500,
+          cursor: 'pointer',
+          textAlign: 'center',
+          fontFamily: 'Inter, system-ui, sans-serif',
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        {t('settings_encryption_management') || 'Настройки шифрования и аккаунта →'}
+      </button>
     </div>
   );
 }

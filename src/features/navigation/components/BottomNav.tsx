@@ -27,6 +27,15 @@ const MeIcon = () => (
   </svg>
 );
 
+const ArchiveIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
+    strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
+    <rect width="20" height="5" x="2" y="3" rx="1" />
+    <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+    <line x1="10" y1="12" x2="14" y2="12" />
+  </svg>
+);
+
 const LoginIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
     strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
@@ -50,6 +59,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
   const tabs = [
     { id: 'write' as const, path: '/',       label: t('nav_write'), icon: <PenIcon /> },
     { id: 'log' as const,  path: '/log',     label: t('lifelog_tab_log'), icon: <LogIcon /> },
+    { id: 'archive' as const, path: '/archive', label: t('archive_sidebar_title'), icon: <ArchiveIcon /> },
     { id: 'me' as const,   path: '/me',      label: t('nav_me'),    icon: <MeIcon /> },
     ...(isAdmin ? [{ id: 'admin' as const, path: '/admin', label: t('nav_admin'), icon: <Shield size={22} strokeWidth={1.6} /> } as const] : []),
     ...(isGuest ? [{ id: 'login' as const, path: '', label: t('auth_sign_in'), icon: <LoginIcon />, action: openLoginModal } as const] : []),

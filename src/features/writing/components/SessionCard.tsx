@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
-import { Clock, Type, PenLine, ChevronDown, ChevronUp, Trash2, Share2 } from 'lucide-react';
+import { Clock, Type, PenLine, ChevronDown, ChevronUp, Trash2, Share2, HardDrive, Cloud } from 'lucide-react';
 import { auth } from '../../../core/firebase/auth';
 import { deleteSession } from '../services/SessionDeleteService';
 import { Session, Label } from '../../../types';
@@ -9,11 +9,13 @@ import { parseFirestoreDate, cn } from '../../../core/utils/utils';
 import { highlightText } from '../../../shared/utils/highlightText';
 import { useLanguage } from '../../../core/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 
 import { SessionEditor } from './SessionEditor';
 import { ExportMenu } from './ExportMenu';
 import { TagsSection } from './TagsSection';
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
+import { MobileStorageActionsSheet } from './MobileStorageActionsSheet';
 
 export function SessionCard({
   session,
@@ -25,7 +27,12 @@ export function SessionCard({
   linkedCloudId: _linkedCloudId,
   hasCloudCopy: _hasCloudCopy,
 }: {
-  session: Session,
+  session: Session & {
+    _isLocal?: boolean;
+    _linkedCloudId?: string;
+    _hasCloudCopy?: boolean;
+    _hasPendingSync?: boolean;
+  },
   onContinue?: () => void,
   labels?: Label[],
   searchQuery?: string,
@@ -36,11 +43,25 @@ export function SessionCard({
 }) {
   const { t } = useLanguage();
   const { execute } = useServiceAction();
+  const { layoutMode } = useLayoutMode();
+  const isMobile = layoutMode !== 'desktop';
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showStorageSheet, setShowStorageSheet] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportButtonRef = useRef<HTMLButtonElement>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerVibration = () => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      try {
+        navigator.vibrate(60);
+      } catch {
+        // ignore
+      }
+    }
+  };
 
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
@@ -48,18 +69,35 @@ export function SessionCard({
   const handleTouchStart = (e: React.TouchEvent) => {
     if (isEditing) return;
     setTouchStart(e.touches[0].clientX);
+
+    if (isMobile && userId && !userId.startsWith('guest_')) {
+      longPressTimer.current = setTimeout(() => {
+        triggerVibration();
+        setShowStorageSheet(true);
+      }, 600);
+    }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (touchStart === null || isEditing) return;
     const current = e.touches[0].clientX;
     const diff = current - touchStart;
+
+    if (Math.abs(diff) > 10 && longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+
     if (diff < 0) {
       setSwipeOffset(diff);
     }
   };
 
   const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
     if (touchStart === null) return;
     if (swipeOffset < -150) {
       setShowDeleteConfirm(true);
@@ -94,6 +132,14 @@ export function SessionCard({
   };
 
   const sessionDate = parseFirestoreDate(session.createdAt);
+
+  const sessionTime = React.useMemo(() => {
+    if (session.sessionStartTime) {
+      return new Date(session.sessionStartTime);
+    }
+    const baseTime = sessionDate?.getTime() ?? 0;
+    return new Date(baseTime - session.duration * 1000);
+  }, [session.sessionStartTime, sessionDate, session.duration]);
 
   return (
     <>
@@ -133,7 +179,7 @@ export function SessionCard({
           <div className="flex items-center gap-3">
             <div className="flex flex-col">
               <span className="text-[11px] md:text-xs font-bold uppercase tracking-widest text-text-main/40">
-                {format(new Date(session.sessionStartTime || ((sessionDate?.getTime() ?? Date.now()) - session.duration * 1000)), 'd MMM yyyy • HH:mm')}
+                {sessionTime.getTime() > 0 ? format(sessionTime, 'd MMM yyyy • HH:mm') : ''}
               </span>
             </div>
           </div>
@@ -141,6 +187,24 @@ export function SessionCard({
             <span className="flex items-center gap-1" title={t('writing_time')}><Clock size={14} /> {Math.floor(session.duration / 60)}{t('unit_min')}</span>
             <span className="flex items-center gap-1" title={t('writing_words')}><Type size={14} /> {session.wordCount}{t('unit_words')}</span>
             <span className="flex items-center gap-1" title={t('writing_chars')}><PenLine size={14} /> {session.charCount || 0}</span>
+
+            {/* Storage Status Indicators */}
+            {userId && !userId.startsWith('guest_') && (
+              <span className="flex items-center gap-1.5 ml-1 border-l border-white/10 pl-2">
+                <span title={session._isLocal ? t('storage_local') : t('storage_no_local')}>
+                  <HardDrive 
+                    size={13} 
+                    className={session._isLocal ? "text-text-main/60" : "text-text-main/20"} 
+                  />
+                </span>
+                <span title={session._hasPendingSync ? t('storage_sync_pending') : session._hasCloudCopy ? t('storage_cloud') : t('storage_no_cloud')}>
+                  <Cloud 
+                    size={13} 
+                    className={session._hasPendingSync ? "text-amber-500 animate-pulse" : session._hasCloudCopy ? "text-blue-400" : "text-text-main/20"} 
+                  />
+                </span>
+              </span>
+            )}
 
             <div className="flex items-center flex-wrap gap-2 relative">
               <button
@@ -248,6 +312,26 @@ export function SessionCard({
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteConfirm(false)}
       />
+      <AnimatePresence>
+        {showStorageSheet && (
+          <MobileStorageActionsSheet
+            isOpen={showStorageSheet}
+            onClose={() => setShowStorageSheet(false)}
+            session={{
+              id: session.id,
+              title: session.title,
+              _isLocal: session._isLocal,
+              _linkedCloudId: session._linkedCloudId,
+              _hasCloudCopy: session._hasCloudCopy,
+              _hasPendingSync: session._hasPendingSync,
+            }}
+            userId={userId || ''}
+            onStorageChange={() => {
+              if (onDeleteSuccess) onDeleteSuccess(session.id);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 }

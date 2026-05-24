@@ -33,8 +33,24 @@ function getFilename(session: ArchiveSession, ext: string, s: ExportStrings): st
   return `${title}.${ext}`;
 }
 
-function downloadBlob(content: string | Blob, type: string, filename: string): void {
+async function downloadBlob(content: string | Blob, type: string, filename: string): Promise<void> {
   const blob = content instanceof Blob ? content : new Blob([content], { type });
+  
+  if (typeof navigator !== 'undefined' && navigator.canShare && navigator.share) {
+    try {
+      const file = new File([blob], filename, { type });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: filename,
+        });
+        return;
+      }
+    } catch (e) {
+      console.error('[ArchiveExportService] Share failed:', e);
+    }
+  }
+
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -116,15 +132,42 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
 </body>
 </html>`;
 
-  const win = window.open('', '_blank', 'noopener');
-  if (!win) {
-    console.warn('Popup blocked — please allow popups for this site');
-    return;
+  const isMobile = typeof window !== 'undefined' && (window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(hover: none)').matches);
+
+  if (isMobile) {
+    const filename = getFilename(session, 'html', s);
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const file = new File([blob], filename, { type: 'text/html' });
+      const shareData: { title: string; files?: File[]; text?: string } = {
+        title: session.title || s.untitled,
+      };
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        shareData.files = [file];
+      } else {
+        shareData.text = session.content || '';
+      }
+
+      navigator.share(shareData).catch(err => {
+        console.error('[ArchiveExportService] Share failed, falling back to download:', err);
+        downloadBlob(html, 'text/html;charset=utf-8', filename);
+      });
+    } else {
+      downloadBlob(html, 'text/html;charset=utf-8', filename);
+    }
+  } else {
+    const win = window.open('', '_blank', 'noopener');
+    if (!win) {
+      console.warn('Popup blocked — falling back to html download');
+      downloadBlob(html, 'text/html;charset=utf-8', getFilename(session, 'html', s));
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 500);
   }
-  win.document.write(html);
-  win.document.close();
-  win.focus();
-  setTimeout(() => { win.print(); }, 500);
 }
 
 export async function exportAsDocx(session: ArchiveSession, s: ExportStrings): Promise<void> {

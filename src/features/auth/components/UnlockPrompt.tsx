@@ -72,7 +72,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
-          className="w-[360px] bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
+          className="w-full max-w-[360px] bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
           onClick={e => e.stopPropagation()}
         >
           <div className="w-10 h-10 rounded-2xl bg-brand-soft/10 border border-brand-soft/30 flex items-center justify-center mb-4">

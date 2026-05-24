@@ -4,6 +4,7 @@ import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { Toggle } from '../../../shared/components/Toggle';
 import { getFontStack } from '../utils/fontStack';
 import { SettingRow } from './MeScreenHelpers';
+import { useSettings } from '../../../core/settings/SettingsContext';
 
 export function MeWritingSection() {
   const { t } = useLanguage();
@@ -12,6 +13,8 @@ export function MeWritingSection() {
     fontSize, setFontSize,
     zenModeEnabled, setZenModeEnabled,
   } = useWritingSettings();
+
+  const { openSettings } = useSettings();
 
   return (
     <div>
@@ -33,9 +36,9 @@ export function MeWritingSection() {
         marginBottom: 20,
       }}>
         {[
-          { id: 'sans',  label: 'Inter',         sample: 'Aa 123' },
-          { id: 'serif', label: 'Lora',       sample: 'Aa 123' },
-          { id: 'mono',  label: 'JetBrains Mono', sample: 'Aa 123' },
+          { id: 'Inter',  label: 'Inter',         sample: 'Aa 123' },
+          { id: 'Lora',   label: 'Lora',          sample: 'Aa 123' },
+          { id: 'JetBrains Mono', label: 'JetBrains Mono', sample: 'Aa 123' },
         ].map(f => (
           <button
             key={f.id}
@@ -82,6 +85,27 @@ export function MeWritingSection() {
       <SettingRow label={t('settings_zen_mode')}>
         <Toggle checked={zenModeEnabled} onChange={setZenModeEnabled} />
       </SettingRow>
+
+      <button
+        onClick={() => openSettings('editor')}
+        style={{
+          marginTop: 20,
+          width: '100%',
+          padding: '12px',
+          borderRadius: 12,
+          border: '1px solid rgba(255,255,255,0.07)',
+          background: 'rgba(255,255,255,0.03)',
+          color: 'rgba(232,236,233,0.8)',
+          fontSize: 13,
+          fontWeight: 500,
+          cursor: 'pointer',
+          textAlign: 'center',
+          fontFamily: 'Inter, system-ui, sans-serif',
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        {t('settings_all_editor_settings') || 'Все настройки редактора →'}
+      </button>
     </div>
   );
 }

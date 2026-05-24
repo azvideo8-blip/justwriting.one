@@ -59,12 +59,12 @@ export function ArchiveLabelBar({
                   if (e.key === 'Escape') setEditingLabelId(null);
                 }}
               />
-              <div className="flex gap-1">
+              <div className="flex gap-1.5 md:gap-1">
                 {LABEL_PRESET_COLORS.map(c => (
                   <button
                     key={c}
                     style={{ background: c }}
-                    className={cn("w-3.5 h-3.5 rounded-full transition-all", editLabelColor === c && "ring-2 ring-offset-1 ring-offset-surface-card ring-white/40")}
+                    className={cn("w-6 h-6 md:w-4 md:h-4 rounded-full transition-all cursor-pointer")}
                     onClick={() => setEditLabelColor(c)}
                   />
                 ))}
@@ -92,18 +92,20 @@ export function ArchiveLabelBar({
               {label.name}
             </button>
             {showControls && (
-              <span className="absolute -top-1.5 -right-1.5 opacity-0 group-hover/label:opacity-100 transition-opacity flex gap-0.5">
+              <span className="hidden md:flex absolute -top-1.5 -right-1.5 opacity-0 group-hover/label:opacity-100 transition-opacity gap-0.5">
                 <button
                   onClick={e => { e.stopPropagation(); setEditingLabelId(label.id); setEditLabelName(label.name); setEditLabelColor(label.color); }}
-                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-text-main/60"
+                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/50 hover:text-text-main"
+                  title="Rename"
                 >
-                  <Pencil size={7} />
+                  <Pencil className="w-1.5 h-1.5" />
                 </button>
                 <button
                   onClick={e => { e.stopPropagation(); onDeleteLabel(label.id); }}
-                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-red-400"
+                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/50 hover:text-red-400"
+                  title="Delete"
                 >
-                  <X size={7} />
+                  <X className="w-1.5 h-1.5" />
                 </button>
               </span>
             )}

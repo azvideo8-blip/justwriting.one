@@ -3,9 +3,11 @@ import { useLanguage } from '../../../core/i18n';
 import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
 import { cn } from '../../../core/utils/utils';
 import { Section, ToggleRow } from './SettingsHelpers';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 
 export function EditorTab() {
   const { t } = useLanguage();
+  const { layoutMode } = useLayoutMode();
   const {
     fontFamily, setFontFamily,
     fontSize, setFontSize,
@@ -57,22 +59,24 @@ export function EditorTab() {
         </div>
       </Section>
 
-      <Section title={t('settings_editor_width')}>
-        <div className="flex items-center gap-3 px-1">
-          <input
-            type="range"
-            min={50}
-            max={100}
-            step={1}
-            value={editorWidth}
-            onChange={e => setEditorWidth(Number(e.target.value))}
-            className="flex-1 accent-text-main"
-          />
-          <span className="text-sm font-mono text-text-main w-16 text-right">
-            {editorWidth}%
-          </span>
-        </div>
-      </Section>
+      {layoutMode === 'desktop' && (
+        <Section title={t('settings_editor_width')}>
+          <div className="flex items-center gap-3 px-1">
+            <input
+              type="range"
+              min={50}
+              max={100}
+              step={1}
+              value={editorWidth}
+              onChange={e => setEditorWidth(Number(e.target.value))}
+              className="flex-1 accent-text-main"
+            />
+            <span className="text-sm font-mono text-text-main w-16 text-right">
+              {editorWidth}%
+            </span>
+          </div>
+        </Section>
+      )}
 
       <Section title={t('settings_zen_mode')}>
         <ToggleRow emoji="🧘" label={t('settings_zen_mode')} hint={t('settings_zen_desc')}    value={zenModeEnabled}  onChange={() => setZenModeEnabled(!zenModeEnabled)} />

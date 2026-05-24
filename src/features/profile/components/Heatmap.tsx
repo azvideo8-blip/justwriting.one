@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getSessionDate } from '../../../core/utils/utils';
@@ -31,6 +31,18 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
   const [offset, setOffset] = useState(0);
   const [hoveredCell, setHoveredCell] = useState<{ wi: number; di: number } | null>(null);
   const reducedMotion = useReducedMotion();
+
+  // Clear tooltip on tap away
+  useEffect(() => {
+    if (hoveredCell === null) return;
+    const handleBodyClick = () => {
+      setHoveredCell(null);
+    };
+    document.addEventListener('click', handleBodyClick);
+    return () => {
+      document.removeEventListener('click', handleBodyClick);
+    };
+  }, [hoveredCell]);
 
   const { cells, monthLabels } = useMemo(() => {
     const wordsByDate: Record<string, number> = {};
@@ -94,8 +106,8 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
   ];
 
   return (
-    <div style={{ padding: '24px 36px', borderBottom: '1px solid var(--border-light)' }}>
-      <div className="flex items-baseline justify-between mb-4">
+    <div className="px-4 py-6 md:px-9 md:py-8" style={{ borderBottom: '1px solid var(--border-light)' }}>
+      <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3 mb-4">
         <div className="flex items-baseline gap-3">
           <h2 className="text-[18px] font-medium text-text-main">
             {t('profile_heatmap_title')}
@@ -105,7 +117,7 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
           </span>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between sm:justify-end gap-4">
           <div className="flex items-center gap-1.5 font-mono text-[10px] text-text-main/30">
             <span>{t('profile_heatmap_less')}</span>
             {colors.map((c, i) => (
@@ -127,7 +139,7 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
         </div>
       </div>
 
-      <div className="flex gap-4">
+      <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
         <div className="flex flex-col gap-[3px] pt-5">
           {getDayLabels(language).map((d, i) => (
             <div key={i} style={{ height: 11, lineHeight: '11px' }}
@@ -135,7 +147,7 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
           ))}
         </div>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 min-w-[280px] overflow-visible">
           <div className="flex mb-1" style={{ gap: 3 }}>
             {cells.map((_, wi) => {
               const label = monthLabels.find(l => l.col === wi);
@@ -153,6 +165,15 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
               <div key={wi} className="flex flex-col" style={{ flex: 1, gap: 3 }}>
                 {week.map((day, di) => {
                   const isHovered = hoveredCell?.wi === wi && hoveredCell?.di === di;
+                  const isLeftEdge = wi < 3;
+                  const isRightEdge = wi > cells.length - 4;
+
+                  const tooltipAlignStyle: React.CSSProperties = isLeftEdge
+                    ? { left: 0, transform: 'none' }
+                    : isRightEdge
+                    ? { right: 0, left: 'auto', transform: 'none' }
+                    : { left: '50%', transform: 'translateX(-50%)' };
+
                   return (
                     <motion.div
                       key={di}
@@ -161,7 +182,11 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
                       transition={{ duration: 0.15, delay: Math.min(wi, 12) * 0.01 }}
                       onMouseEnter={() => setHoveredCell({ wi, di })}
                       onMouseLeave={() => setHoveredCell(null)}
-                      style={{ position: 'relative' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setHoveredCell({ wi, di });
+                      }}
+                      style={{ position: 'relative', cursor: 'pointer' }}
                     >
                       <div
                         style={{
@@ -175,12 +200,13 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
                       />
                       {isHovered && (
                         <div style={{
-                          position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+                          position: 'absolute', bottom: '100%',
                           marginBottom: 4, whiteSpace: 'nowrap',
                           background: 'var(--surface-elevated)', border: '1px solid var(--border-light)',
                           borderRadius: 6, padding: '3px 8px', fontSize: 10,
                           fontFamily: 'var(--font-mono)', color: 'var(--text-main)',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.3)', pointerEvents: 'none', zIndex: 10,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.3)', pointerEvents: 'none', zIndex: 50,
+                          ...tooltipAlignStyle
                         }}>
                           {day.date.toLocaleDateString(language)} — {day.words} {t('home_words_short')}
                         </div>

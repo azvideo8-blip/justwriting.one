@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLanguage } from '../../../core/i18n';
 import { Session } from '../../../types';
 import type { SessionGroup, DailySummary, LifeLogDocument } from '../types/lifeLog';
+import { ConnectionStatusBanner } from './ConnectionStatusBanner';
 
 interface MobileHomeScreenProps {
   userId: string;
@@ -10,6 +11,9 @@ interface MobileHomeScreenProps {
   summary: DailySummary;
   onStart: () => void;
   onContinue: (session: Session | LifeLogDocument) => void;
+  hasDraft?: boolean;
+  restoreDraft?: () => void;
+  discardDraft?: () => void;
 }
 
 function getGreeting(t: (key: string) => string): { top: string; bottom: string } {
@@ -29,7 +33,15 @@ function formatDate(lang: string): string {
 }
 
 export function MobileHomeScreen({
-  userId: _userId, streakDays, sessionGroups, summary, onStart, onContinue
+  userId: _userId,
+  streakDays,
+  sessionGroups,
+  summary,
+  onStart,
+  onContinue,
+  hasDraft,
+  restoreDraft,
+  discardDraft,
 }: MobileHomeScreenProps) {
   const { t, language } = useLanguage();
   const greeting = getGreeting(t);
@@ -54,6 +66,7 @@ export function MobileHomeScreen({
       zIndex: 30,
       overflow: 'hidden',
     }}>
+      <ConnectionStatusBanner />
 
       <div style={{
         display: 'flex',
@@ -102,7 +115,55 @@ export function MobileHomeScreen({
         </div>
       </div>
 
-      <div style={{ padding: '24px 24px 0' }}>
+      {hasDraft && (
+        <div style={{
+          margin: '12px 20px 0',
+          padding: '14px 16px',
+          borderRadius: 16,
+          border: '1px solid rgba(245,158,11,0.25)',
+          background: 'rgba(245,158,11,0.06)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+        }}>
+          <span style={{ fontSize: 13, color: 'rgba(245,158,11,0.85)', lineHeight: 1.45, fontWeight: 500 }}>
+            {t('draft_restore_prompt')}
+          </span>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={restoreDraft}
+              style={{
+                background: 'rgba(245,158,11,0.15)',
+                border: '1px solid rgba(245,158,11,0.3)',
+                borderRadius: 10,
+                padding: '6px 14px',
+                fontSize: 12,
+                fontWeight: 600,
+                color: '#f59e0b',
+                cursor: 'pointer',
+              }}
+            >
+              {t('draft_restore')}
+            </button>
+            <button
+              onClick={discardDraft}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: '6px 12px',
+                fontSize: 12,
+                fontWeight: 500,
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+              }}
+            >
+              {t('draft_discard')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ padding: '20px 24px 0' }}>
         <div style={{
           fontSize: 11,
           color: 'var(--text-subtle)',
