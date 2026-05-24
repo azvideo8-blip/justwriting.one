@@ -156,7 +156,7 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
       className={cn(
         "h-full z-50 flex flex-col py-4 transition-all duration-300 ease-in-out",
         "bg-surface-card/50 border-r border-border-subtle backdrop-blur-xl",
-        inGrid ? "relative w-full" : "fixed top-0 left-0",
+        inGrid ? "relative w-full max-w-16" : "fixed top-0 left-0",
         !inGrid && expanded && "w-[220px]",
         !inGrid && !expanded && "w-16",
         showZen && !inGrid && "opacity-0 pointer-events-none -translate-x-4",

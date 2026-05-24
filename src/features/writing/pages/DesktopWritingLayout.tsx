@@ -102,7 +102,7 @@ export function DesktopWritingLayout({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `${showZen ? '0px' : 'auto'} 1fr ${lifeLogVisible ? `${LIFE_LOG_WIDTH}px` : '0px'}`,
+          gridTemplateColumns: `${showZen ? '0px' : '64px'} 1fr ${lifeLogVisible ? `${LIFE_LOG_WIDTH}px` : '0px'}`,
           gridTemplateRows: '48px 1fr 64px',
           height: '100vh',
           width: '100vw',
