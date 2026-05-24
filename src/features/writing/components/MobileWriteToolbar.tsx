@@ -128,8 +128,8 @@ export function MobileWriteToolbar({
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         borderRadius: 20,
-        border: streamMode ? '1px solid #ef4444' : '1px solid var(--border-light)',
-        boxShadow: streamMode ? '0 0 12px rgba(239, 68, 68, 0.2)' : 'none',
+        border: streamMode ? '1px solid var(--accent-danger)' : '1px solid var(--border-light)',
+        boxShadow: streamMode ? '0 0 12px color-mix(in srgb, var(--accent-danger) 20%, transparent)' : 'none',
         padding: '12px 16px',
         display: 'flex',
         alignItems: 'center',
@@ -143,8 +143,8 @@ export function MobileWriteToolbar({
           top: -20,
           left: '50%',
           transform: 'translateX(-50%)',
-          background: '#ef4444',
-          color: '#fff',
+          background: 'var(--accent-danger)',
+          color: 'var(--bg-base)',
           fontSize: 9,
           fontWeight: 'bold',
           padding: '2px 8px',
@@ -152,7 +152,7 @@ export function MobileWriteToolbar({
           textTransform: 'uppercase',
           letterSpacing: '0.05em',
           pointerEvents: 'none',
-          boxShadow: '0 2px 4px rgba(239, 68, 68, 0.2)',
+          boxShadow: '0 2px 4px color-mix(in srgb, var(--accent-danger) 20%, transparent)',
         }}>
           {t('stream_mode_label') || 'Stream Mode'}
         </div>
@@ -322,14 +322,14 @@ export function MobileWriteToolbar({
                 <h3 className="text-lg font-bold text-text-main">
                   {t('stream_mode_exit_confirm') || 'Exit Stream Mode?'}
                 </h3>
-                <p className="text-sm text-text-main/55">
+                <p className="text-sm text-text-main/60">
                   {t('stream_mode_exit_desc') || 'Вы вернетесь к обычному режиму написания.'}
                 </p>
               </div>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowExitConfirm(false)}
-                  className="flex-1 py-3.5 rounded-2xl border border-border-subtle text-text-main font-bold text-sm bg-transparent cursor-pointer active:scale-98 transition-all min-h-[44px]"
+                  className="flex-1 py-3.5 rounded-2xl border border-border-subtle text-text-main font-bold text-sm bg-transparent cursor-pointer active:scale-98 transition-colors min-h-[44px]"
                 >
                   {t('writing_cancel') || 'Cancel'}
                 </button>
@@ -338,7 +338,7 @@ export function MobileWriteToolbar({
                     setShowExitConfirm(false);
                     onToggleStreamMode?.();
                   }}
-                  className="flex-1 py-3.5 rounded-2xl bg-accent-danger text-white font-bold text-sm border-none cursor-pointer active:scale-98 transition-all min-h-[44px]"
+                  className="flex-1 py-3.5 rounded-2xl bg-accent-danger text-white font-bold text-sm border-none cursor-pointer active:scale-98 transition-colors min-h-[44px]"
                 >
                   {t('storage_delete_confirm') || 'Exit'}
                 </button>

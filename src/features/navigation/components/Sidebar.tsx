@@ -94,7 +94,7 @@ function SidebarActionItem({ icon, label, expanded, onClick, accent }: SidebarAc
       className={cn(
         "relative group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
         accent
-          ? "text-text-main/70 hover:text-text-main hover:bg-text-main/15"
+          ? "text-text-main/70 hover:text-text-main hover:bg-text-main/25"
           : "text-text-main/40 hover:text-text-main/60 hover:bg-text-main/8"
       )}
     >
@@ -130,9 +130,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
-  const [pinned, setPinned] = useLocalStorage<boolean>('sidebar_pinned', true, z.boolean());
+  const [pinned, setPinned] = useLocalStorage<boolean>('sidebar_pinned', false, z.boolean());
   const [hovered, setHovered] = useState(false);
-  const expanded = pinned || hovered;
   const { t } = useLanguage();
   const { lifeLogEnabled: _lifeLogEnabled, isZenActive, zenModeEnabled } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
@@ -141,6 +140,8 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
   const navigate = useNavigate();
   const { isGuest } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
+  const isWritePage = location.pathname === '/';
+  const expanded = isWritePage ? hovered : (pinned || hovered);
 
   const navItems = [
     { id: 'write',   path: '/',       icon: <PenLine size={20} />,   label: t('nav_write') },
@@ -219,11 +220,12 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
           />
         )}
 
+        {!isWritePage && (
         <button
           onClick={() => setPinned(!pinned)}
           title={pinned ? t('sidebar_unpin') : t('sidebar_pin')}
           className={cn(
-            "w-full flex items-center gap-3 px-3 py-2 rounded-xl text-text-main/25 hover:text-text-main/50 transition-all",
+            "w-full flex items-center gap-3 px-3 py-2 rounded-xl text-text-main/25 hover:text-text-main/50 transition-colors",
             expanded ? "opacity-100" : "opacity-0 pointer-events-none"
           )}
         >
@@ -233,17 +235,18 @@ export function Sidebar({ isAdmin, inGrid: inGridProp }: SidebarProps) {
               : <path d="M5 2l4 4-6 6M9 2l-4 4 6 6" strokeLinecap="round"/>
             }
           </svg>
-          <span className="text-[10px] font-mono uppercase tracking-widest">
+          <span className="text-label font-mono uppercase tracking-widest">
             {pinned ? t('sidebar_unpin') : t('sidebar_pin')}
           </span>
         </button>
+        )}
 
         <div className={cn(
-          "px-3 py-2 text-[10px] font-mono text-text-main/25 transition-all duration-300 select-none whitespace-nowrap flex items-center gap-2",
+          "px-3 py-2 text-label font-mono text-text-main/25 transition-all duration-300 select-none whitespace-nowrap flex items-center gap-2",
           expanded ? "opacity-100 pl-3" : "opacity-0 h-0 p-0 overflow-hidden"
         )}>
           <span>{t('common_version')}: {APP_VERSION}</span>
-          <span className="text-text-main/15">·</span>
+          <span className="text-text-main/25">·</span>
           <button
             onClick={() => navigate('/about')}
             className="hover:text-text-main/50 transition-colors underline underline-offset-2 decoration-dotted"

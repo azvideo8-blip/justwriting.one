@@ -75,16 +75,16 @@ export function ExportMenu({ session, buttonRef, onClose }: ExportMenuProps) {
       }}
       className="w-48 rounded-2xl shadow-xl border p-2 bg-surface-card backdrop-blur-xl border-border-subtle"
     >
-      <button onClick={exportToTxt} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
+      <button onClick={exportToTxt} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-colors text-text-main/70 hover:bg-white/10 hover:text-text-main">
         <FileText size={14} /> {t('export_txt')}
       </button>
-      <button onClick={exportPDF} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
+      <button onClick={exportPDF} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-colors text-text-main/70 hover:bg-white/10 hover:text-text-main">
         <FileText size={14} className="text-red-500" /> {t('export_pdf')}
       </button>
-      <button onClick={exportMarkdown} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
+      <button onClick={exportMarkdown} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-colors text-text-main/70 hover:bg-white/10 hover:text-text-main">
         <FileJson size={14} className="text-blue-500" /> {t('export_md')}
       </button>
-      <button onClick={exportDocx} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-all text-text-main/70 hover:bg-white/10 hover:text-text-main">
+      <button onClick={exportDocx} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-colors text-text-main/70 hover:bg-white/10 hover:text-text-main">
         <Download size={14} className="text-emerald-500" /> {t('export_docx')}
       </button>
     </motion.div>,

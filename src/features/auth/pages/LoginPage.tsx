@@ -216,7 +216,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t('auth_email_placeholder')}
-                  className="w-full pl-12 pr-4 py-3 rounded-xl outline-none transition-all bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
+                  className="w-full pl-12 pr-4 py-3 rounded-xl outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
                 />
               </div>
             </div>
@@ -231,7 +231,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-12 pr-4 py-3 rounded-xl outline-none transition-all bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
+                  className="w-full pl-12 pr-4 py-3 rounded-xl outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
                 />
               </div>
             </div>
@@ -239,7 +239,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
             <button 
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 text-white" style={{ background: 'var(--brand-primary)' }}
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold hover:brightness-110 active:scale-[0.98] transition-colors disabled:opacity-50 text-white" style={{ background: 'var(--brand-primary)' }}
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 rounded-full animate-spin border-white/20 border-t-white" />
@@ -327,7 +327,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                         }
                       }}
                       disabled={forgotLoading || !forgotEmail}
-                      className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-all"
+                      className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors"
                       style={{ background: 'var(--brand-primary)' }}
                     >
                       {forgotLoading ? <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white mx-auto" /> : t('auth_forgot_confirm_anyway')}

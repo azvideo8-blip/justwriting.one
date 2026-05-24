@@ -28,7 +28,7 @@ export function EditorTab() {
               key={font}
               onClick={() => setFontFamily(font)}
               className={cn(
-                "px-3 py-3 rounded-xl border text-left transition-all",
+                "px-3 py-3 rounded-xl border text-left transition-colors",
                 fontFamily === font
                   ? "border-text-main bg-text-main text-surface-base"
                   : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
@@ -95,7 +95,7 @@ export function EditorTab() {
               key={item.key}
               onClick={() => toggleVisibility(item.key)}
               className={cn(
-                "flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all",
+                "flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-colors",
                 headerVisibility[item.key]
                   ? "border-text-main bg-text-main/10 text-text-main"
                   : "border-border-subtle text-text-main/40 hover:text-text-main/60"

@@ -56,17 +56,17 @@ export function OnboardingGoalScreen({ onComplete, setWordGoal }: OnboardingGoal
               key={preset.key}
               onClick={() => handleSelect(preset.words)}
               className={cn(
-                "flex flex-col items-center gap-2 p-5 rounded-2xl border transition-all",
+                "flex flex-col items-center gap-2 p-5 rounded-2xl border transition-colors",
                 selected === preset.words && !isCustom
                   ? "border-brand-primary bg-brand-primary/10 ring-2 ring-brand-primary/30"
                   : "border-border-subtle bg-text-main/[0.02] hover:bg-text-main/5"
               )}
             >
               <div className="text-xl font-mono font-bold text-text-main tabular-nums">{preset.words}</div>
-              <div className="text-[11px] font-bold uppercase tracking-widest text-text-main/50">
+              <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/50">
                 {t(`onboarding_goal_${preset.key}`)}
               </div>
-              <div className="text-[10px] text-text-main/30">
+              <div className="text-label text-text-main/30">
                 ≈ {preset.mins} {t('goal_time_min')}
               </div>
             </button>
@@ -75,7 +75,7 @@ export function OnboardingGoalScreen({ onComplete, setWordGoal }: OnboardingGoal
           <button
             onClick={handleCustom}
             className={cn(
-              "flex flex-col items-center gap-2 p-5 rounded-2xl border transition-all",
+              "flex flex-col items-center gap-2 p-5 rounded-2xl border transition-colors",
               isCustom
                 ? "border-brand-primary bg-brand-primary/10 ring-2 ring-brand-primary/30"
                 : "border-border-subtle bg-text-main/[0.02] hover:bg-text-main/5"
@@ -94,7 +94,7 @@ export function OnboardingGoalScreen({ onComplete, setWordGoal }: OnboardingGoal
             ) : (
               <div className="text-xl font-mono font-bold text-text-main tabular-nums">✎</div>
             )}
-            <div className="text-[11px] font-bold uppercase tracking-widest text-text-main/50">
+            <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/50">
               {t('onboarding_goal_custom')}
             </div>
           </button>
@@ -104,7 +104,7 @@ export function OnboardingGoalScreen({ onComplete, setWordGoal }: OnboardingGoal
           <button
             onClick={handleStart}
             disabled={!goal || goal <= 0}
-            className="px-8 py-3.5 rounded-2xl font-bold text-sm bg-text-main text-surface-base hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-8 py-3.5 rounded-2xl font-bold text-sm bg-text-main text-surface-base hover:brightness-110 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {t('onboarding_goal_cta')}
           </button>

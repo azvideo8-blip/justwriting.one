@@ -209,7 +209,7 @@ export function MobileStorageActionsSheet({
             <button
               onClick={handleUploadOrSync}
               disabled={!!loadingAction}
-              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm border-none cursor-pointer bg-brand-primary text-surface-base active:scale-[0.98] transition-all disabled:opacity-50"
+              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm border-none cursor-pointer bg-brand-primary text-surface-base active:scale-[0.98] transition-colors disabled:opacity-50"
             >
               {loadingAction === 'upload' ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -232,7 +232,7 @@ export function MobileStorageActionsSheet({
             <button
               onClick={handleDeleteLocalOnly}
               disabled={!!loadingAction}
-              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm cursor-pointer bg-white/[0.02] border border-white/[0.06] text-text-main/70 hover:text-red-400 active:scale-[0.98] transition-all disabled:opacity-50"
+              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm cursor-pointer bg-white/[0.02] border border-white/[0.06] text-text-main/70 hover:text-red-400 active:scale-[0.98] transition-colors disabled:opacity-50"
             >
               {loadingAction === 'delete-local' ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -250,7 +250,7 @@ export function MobileStorageActionsSheet({
             <button
               onClick={handleDeleteCloudOnly}
               disabled={!!loadingAction}
-              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm cursor-pointer bg-white/[0.02] border border-white/[0.06] text-text-main/70 hover:text-red-400 active:scale-[0.98] transition-all disabled:opacity-50"
+              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm cursor-pointer bg-white/[0.02] border border-white/[0.06] text-text-main/70 hover:text-red-400 active:scale-[0.98] transition-colors disabled:opacity-50"
             >
               {loadingAction === 'delete-cloud' ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -268,7 +268,7 @@ export function MobileStorageActionsSheet({
             <button
               onClick={handleDeleteCompletely}
               disabled={!!loadingAction}
-              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm cursor-pointer bg-red-500/10 border border-red-500/20 text-red-400 active:scale-[0.98] transition-all disabled:opacity-50"
+              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm cursor-pointer bg-red-500/10 border border-red-500/20 text-red-400 active:scale-[0.98] transition-colors disabled:opacity-50"
             >
               {loadingAction === 'delete-complete' ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -285,7 +285,7 @@ export function MobileStorageActionsSheet({
           <div className="pt-2">
             <button
               onClick={onClose}
-              className="w-full min-h-[48px] py-3 rounded-2xl font-semibold text-sm bg-white/[0.04] border-none text-text-main/50 cursor-pointer text-center active:scale-[0.98] transition-all"
+              className="w-full min-h-[48px] py-3 rounded-2xl font-semibold text-sm bg-white/[0.04] border-none text-text-main/50 cursor-pointer text-center active:scale-[0.98] transition-colors"
             >
               {t('common_cancel') || 'Отмена'}
             </button>

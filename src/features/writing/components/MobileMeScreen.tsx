@@ -273,7 +273,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
               <div className="text-[14px] text-text-main/40 leading-relaxed max-w-xs">
                 {t('profile_empty_desc')}
               </div>
-              <div className="text-[11px] text-text-main/25 font-mono uppercase tracking-widest">
+              <div className="text-label-sm text-text-main/25 font-mono uppercase tracking-widest">
                 {t('profile_empty_hint')}
               </div>
             </div>
@@ -316,15 +316,15 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
                   {showResetConfirm ? (
                     <div className="inline-flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
                       <span className="text-[12px] text-red-400">{t('profile_ach_reset_confirm')}</span>
-                      <button onClick={handleResetAchievements} className="text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors uppercase tracking-widest">
+                      <button onClick={handleResetAchievements} className="text-label-sm font-medium text-red-400 hover:text-red-300 transition-colors uppercase tracking-widest">
                         {t('profile_ach_reset')}
                       </button>
-                      <button onClick={() => setShowResetConfirm(false)} className="text-[11px] font-medium text-text-main/40 hover:text-text-main/60 transition-colors uppercase tracking-widest">
+                      <button onClick={() => setShowResetConfirm(false)} className="text-label-sm font-medium text-text-main/40 hover:text-text-main/60 transition-colors uppercase tracking-widest">
                         ✕
                       </button>
                     </div>
                   ) : (
-                    <button onClick={() => setShowResetConfirm(true)} className="font-mono text-[11px] text-text-main/20 hover:text-red-400/50 transition-colors uppercase tracking-widest">
+                    <button onClick={() => setShowResetConfirm(true)} className="font-mono text-label-sm text-text-main/20 hover:text-red-400/50 transition-colors uppercase tracking-widest">
                       {t('profile_ach_reset')}
                     </button>
                   )}

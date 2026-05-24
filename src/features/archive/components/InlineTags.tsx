@@ -48,7 +48,7 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
       {tags.map(tag => (
         <span
           key={tag}
-          className="group/tag flex items-center gap-1 font-mono text-[10px] text-text-main/40 border border-border-subtle rounded px-1.5 py-0.5 hover:border-text-main/20 transition-colors"
+          className="group/tag flex items-center gap-1 font-mono text-label text-text-main/40 border border-border-subtle rounded px-1.5 py-0.5 hover:border-text-main/20 transition-colors"
         >
           #{tag}
           <button
@@ -100,7 +100,7 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
             onBlur={() => { blurTimerRef.current = setTimeout(() => { setSuggestions([]); setSelectedIdx(-1); addTag(); }, 0); }}
             autoFocus
             placeholder={t('archive_tag_placeholder_short')}
-            className="font-mono text-[10px] text-text-main border border-text-main/20 rounded px-1.5 py-0.5 bg-transparent outline-none w-16"
+            className="font-mono text-label text-text-main border border-text-main/20 rounded px-1.5 py-0.5 bg-transparent outline-none w-16"
           />
           {suggestions.length > 0 && (
             <div className="absolute top-full left-0 mt-0.5 z-50 bg-surface-card border border-border-subtle rounded-lg shadow-lg py-1 min-w-[120px]">
@@ -109,7 +109,7 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
                   key={s}
                    onMouseDown={e => { e.preventDefault(); if (blurTimerRef.current) clearTimeout(blurTimerRef.current); selectSuggestion(s); }}
                   className={cn(
-                    "w-full text-left px-2.5 py-1 font-mono text-[11px] text-text-main/70 hover:bg-text-main/5 transition-colors",
+                    "w-full text-left px-2.5 py-1 font-mono text-label-sm text-text-main/70 hover:bg-text-main/5 transition-colors",
                     i === selectedIdx && "bg-text-main/8 text-text-main"
                   )}
                 >
@@ -122,7 +122,7 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
       ) : (
         <button
           onClick={e => { e.stopPropagation(); setAdding(true); }}
-          className="font-mono text-[10px] text-text-main/40 border border-dashed border-text-main/25 rounded px-1.5 py-0.5 hover:text-brand-soft hover:border-brand-soft/40 transition-colors flex items-center gap-0.5"
+          className="font-mono text-label text-text-main/40 border border-dashed border-text-main/25 rounded px-1.5 py-0.5 hover:text-brand-soft hover:border-brand-soft/40 transition-colors flex items-center gap-0.5"
         >
           <span className="text-[9px] leading-none">+</span>
           {t('archive_tag_add_short')}

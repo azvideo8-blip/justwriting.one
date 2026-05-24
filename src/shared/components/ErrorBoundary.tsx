@@ -77,7 +77,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
             <h2 className="text-2xl font-bold text-text-main">{translations['error_generic'][lang]}</h2>
             <p className="font-mono text-xs text-text-muted">ERR-{code}</p>
-            <button onClick={this.toggleStack} className="text-[11px] text-text-main/30 hover:text-text-main/60 transition-colors">{this.state.showStack ? (lang === 'ru' ? 'Скрыть детали' : 'Hide details') : (lang === 'ru' ? 'Показать детали' : 'Show details')}</button>
+            <button onClick={this.toggleStack} className="text-label-sm text-text-main/30 hover:text-text-main/60 transition-colors">{this.state.showStack ? (lang === 'ru' ? 'Скрыть детали' : 'Hide details') : (lang === 'ru' ? 'Показать детали' : 'Show details')}</button>
             {this.state.showStack && import.meta.env.DEV && <pre className="text-left text-red-400 text-[12px] whitespace-pre-wrap break-all max-h-40 overflow-auto bg-black/30 p-3 rounded-lg">{this.state.errorMessage}\n\n{this.state.errorStack?.slice(0, 500)}</pre>}
             <div className="space-y-3">
               <button
@@ -88,13 +88,13 @@ export class ErrorBoundary extends Component<Props, State> {
               </button>
               <button
                 onClick={() => window.location.reload()}
-                className="w-full py-3 rounded-xl font-bold border border-border-subtle text-text-main hover:bg-white/5 transition-all"
+                className="w-full py-3 rounded-xl font-bold border border-border-subtle text-text-main hover:bg-white/5 transition-colors"
               >
                 {translations['error_reload'][lang]}
               </button>
               <a
                 href={mailtoLink}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold border border-border-subtle text-text-main hover:bg-white/5 transition-all"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold border border-border-subtle text-text-main hover:bg-white/5 transition-colors"
               >
                 ✉ {lang === 'ru' ? 'Отправить разработчику' : 'Send to developer'}
               </a>

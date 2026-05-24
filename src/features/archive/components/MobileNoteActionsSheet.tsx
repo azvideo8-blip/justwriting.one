@@ -177,7 +177,7 @@ export function MobileNoteActionsSheet({
               {/* 1. Preview Option */}
               <button
                 onClick={() => { onOpen(); onClose(); }}
-                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-all text-left"
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
               >
                 <ExternalLink size={18} className="text-text-main/40" />
                 <span>{t('archive_preview') || 'Открыть превью'}</span>
@@ -186,7 +186,7 @@ export function MobileNoteActionsSheet({
               {/* 2. Rename Option */}
               <button
                 onClick={() => { onRename(); onClose(); }}
-                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-all text-left"
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
               >
                 <Pencil size={18} className="text-text-main/40" />
                 <span>{t('archive_rename_title') || 'Переименовать'}</span>
@@ -196,7 +196,7 @@ export function MobileNoteActionsSheet({
               {labels && labels.length > 0 && (
                 <button
                   onClick={() => setShowLabelsSelector(true)}
-                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-all text-left"
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
                 >
                   <Tag size={18} className="text-text-main/40" />
                   <span>{t('archive_assign_label') || 'Назначить ярлык'}</span>
@@ -208,7 +208,7 @@ export function MobileNoteActionsSheet({
                 <button
                   onClick={handleUploadOrSync}
                   disabled={!!loadingAction}
-                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold text-brand-primary bg-brand-primary/10 border border-brand-primary/20 active:bg-brand-primary/20 transition-all text-left"
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold text-brand-primary bg-brand-primary/10 border border-brand-primary/20 active:bg-brand-primary/20 transition-colors text-left"
                 >
                   {loadingAction === 'upload' ? (
                     <Loader2 size={18} className="animate-spin" />
@@ -230,7 +230,7 @@ export function MobileNoteActionsSheet({
                 <button
                   onClick={handleDeleteLocalOnly}
                   disabled={!!loadingAction}
-                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/70 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-all text-left"
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/70 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
                 >
                   {loadingAction === 'delete-local' ? (
                     <Loader2 size={18} className="animate-spin" />
@@ -247,7 +247,7 @@ export function MobileNoteActionsSheet({
                 <button
                   onClick={handleDeleteCloudOnly}
                   disabled={!!loadingAction}
-                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/70 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-all text-left"
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/70 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
                 >
                   {loadingAction === 'delete-cloud' ? (
                     <Loader2 size={18} className="animate-spin" />
@@ -263,7 +263,7 @@ export function MobileNoteActionsSheet({
               {/* 5. Delete Completely Option */}
               <button
                 onClick={() => { onDelete(); onClose(); }}
-                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-red-400 bg-red-500/10 border border-red-500/20 active:bg-red-500/20 transition-all text-left"
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-red-400 bg-red-500/10 border border-red-500/20 active:bg-red-500/20 transition-colors text-left"
               >
                 <Trash2 size={18} />
                 <span>{t('archive_delete') || 'Удалить полностью'}</span>
@@ -287,7 +287,7 @@ export function MobileNoteActionsSheet({
                       onClose();
                     }}
                     className={cn(
-                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-left transition-all border",
+                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-left transition-colors border",
                       session.labelId === l.id
                         ? "bg-text-main/10 border-text-main/20 text-text-main"
                         : "bg-white/[0.01] border-white/[0.04] text-text-main/60 hover:bg-white/[0.03]"

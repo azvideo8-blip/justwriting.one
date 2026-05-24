@@ -53,7 +53,7 @@ export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerPr
                 <button
                   type="button"
                   style={{ background: c }}
-                  className={cn("w-6 h-6 rounded-full transition-all", selectedColor === c && "ring-2 ring-offset-2 ring-offset-surface-card")}
+                  className={cn("w-6 h-6 rounded-full transition-colors", selectedColor === c && "ring-2 ring-offset-2 ring-offset-surface-card")}
                   onClick={() => setSelectedColor(c)}
                 />
               </div>
@@ -70,13 +70,13 @@ export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerPr
                 <label
                   htmlFor="label-color-custom-settings"
                   className={cn(
-                    "w-6 h-6 rounded-full border-2 border-dashed border-border-subtle flex items-center justify-center cursor-pointer transition-all hover:border-text-main/40",
+                    "w-6 h-6 rounded-full border-2 border-dashed border-border-subtle flex items-center justify-center cursor-pointer transition-colors hover:border-text-main/40",
                     !LABEL_PRESET_COLORS.includes(selectedColor) && "ring-2 ring-offset-2 ring-offset-surface-card ring-text-main/30"
                   )}
                   style={!LABEL_PRESET_COLORS.includes(selectedColor) ? { background: selectedColor } : {}}
                 >
                   {LABEL_PRESET_COLORS.includes(selectedColor) && (
-                    <span className="text-[11px] text-text-main/40 font-bold leading-none">+</span>
+                    <span className="text-label-sm text-text-main/40 font-bold leading-none">+</span>
                   )}
                 </label>
               </div>
@@ -86,7 +86,7 @@ export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerPr
             <button
               onClick={handleAdd}
               disabled={!name.trim()}
-              className="px-4 py-2 rounded-lg bg-text-main text-surface-base text-sm font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              className="px-4 py-2 rounded-lg bg-text-main text-surface-base text-sm font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Add
             </button>
@@ -101,7 +101,7 @@ export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerPr
       ) : (
         <button
           onClick={() => setAdding(true)}
-          className="w-full px-4 py-3 rounded-xl border border-dashed border-border-subtle text-sm text-text-main/40 hover:text-text-main/60 hover:border-border-subtle/80 transition-all"
+          className="w-full px-4 py-3 rounded-xl border border-dashed border-border-subtle text-sm text-text-main/40 hover:text-text-main/60 hover:border-border-subtle/80 transition-colors"
         >
           + Add label
         </button>

@@ -74,7 +74,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
         boxShadow: `inset 3px 0 10px color-mix(in srgb, ${label.color} 12%, transparent)`,
       } : {}}
     >
-      <div className="text-[11px] font-medium tracking-wider text-text-main/40 font-mono">
+      <div className="text-label-sm font-medium tracking-wider text-text-main/40 font-mono">
         {formattedDate}
         <span className="text-text-main/25 ml-1.5">{relativeDate}</span>
       </div>
@@ -86,7 +86,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
       )}
 
       <div className="relative">
-        <p className="text-[14px] leading-relaxed text-text-main/65 line-clamp-4 whitespace-pre-wrap">
+        <p className="text-[14px] leading-relaxed text-text-main/60 line-clamp-4 whitespace-pre-wrap">
           {highlightText(session.content, searchQuery)}
         </p>
       </div>
@@ -99,9 +99,9 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
         />
       </div>
 
-      <div className="flex items-center gap-2 text-[12px] font-mono text-text-main/35 pt-3 mt-auto border-t border-border-subtle">
+      <div className="flex items-center gap-2 text-[12px] font-mono text-text-main/40 pt-3 mt-auto border-t border-border-subtle">
         <span>{session.wordCount.toLocaleString()} {t('home_words_short')}</span>
-        <span className="text-text-main/15">·</span>
+        <span className="text-text-main/25">·</span>
         <span>{Math.floor(session.duration / 60)} {t('goal_time_short')}</span>
         {labels && onLabelChange && (
           <div className="relative ml-auto" onClick={e => e.stopPropagation()}>
@@ -112,7 +112,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
                 setLabelOpenUp(spaceBelow < 220);
                 setLabelPopupOpen(v => !v);
               }}
-              className="flex items-center gap-1 font-mono text-[11px] text-text-main/30 hover:text-text-main/60 transition-colors"
+              className="flex items-center gap-1 font-mono text-label-sm text-text-main/30 hover:text-text-main/60 transition-colors"
             >
               <span
                 className="w-2.5 h-2.5 rounded-full border border-text-main/20 shrink-0"
@@ -133,7 +133,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
                 {session.labelId && (
                   <button
                     onClick={() => { onLabelChange(session, undefined); setLabelPopupOpen(false); }}
-                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/40 hover:bg-text-main/5 transition-all"
+                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/40 hover:bg-text-main/5 transition-colors"
                   >
                     <div className="w-3 h-3 rounded-full border border-dashed border-text-main/20 shrink-0" />
                     {t('archive_no_label')}
@@ -143,7 +143,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
                   <button
                     key={l.id}
                     onClick={() => { onLabelChange(session, session.labelId === l.id ? undefined : l.id); setLabelPopupOpen(false); }}
-                    className={cn("w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left transition-all", session.labelId === l.id ? "bg-text-main/10 text-text-main" : "text-text-main/60 hover:bg-text-main/5")}
+                    className={cn("w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left transition-colors", session.labelId === l.id ? "bg-text-main/10 text-text-main" : "text-text-main/60 hover:bg-text-main/5")}
                   >
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ background: l.color }} />
                     {l.name}

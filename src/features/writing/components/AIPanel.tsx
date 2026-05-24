@@ -129,7 +129,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
             </div>
             <button
               onClick={onClose}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all"
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-colors"
             >
               <X size={14} />
             </button>
@@ -143,7 +143,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
                   onClick={() => handleAction(action)}
                   disabled={loading || !content.trim()}
                   className={cn(
-                    "flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-all",
+                    "flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors",
                     loading && lastAction === action
                       ? "bg-brand-soft/20 text-brand-soft"
                       : "bg-text-main/[0.04] text-text-main/60 hover:bg-text-main/[0.08] hover:text-text-main/80",
@@ -184,7 +184,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
                   <div className="flex gap-2">
                     <button
                       onClick={handleCopy}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-text-main/[0.05] text-text-main/60 hover:bg-text-main/[0.1] hover:text-text-main/80 transition-all"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-text-main/[0.05] text-text-main/60 hover:bg-text-main/[0.1] hover:text-text-main/80 transition-colors"
                     >
                       {copied ? <Check size={12} /> : <Copy size={12} />}
                       {copied ? t('ai_copied') : t('ai_copy')}
@@ -192,7 +192,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
                     {(canApply || canApplyTags) && (
                       <button
                         onClick={handleApply}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30 transition-all"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30 transition-colors"
                       >
                         <Check size={12} />
                         {lastAction === 'tags' ? t('ai_apply_tags') : t('ai_apply')}
@@ -230,7 +230,7 @@ export function AIToggleButton({ onClick, active }: { onClick: () => void; activ
       title={t('ai_toggle')}
       aria-label={t('ai_toggle')}
       className={cn(
-        "w-9 h-9 rounded-lg flex items-center justify-center transition-all",
+        "w-9 h-9 rounded-lg flex items-center justify-center transition-colors",
         active
           ? "bg-brand-soft/20 text-brand-soft"
           : "text-text-main/40 hover:text-text-main hover:bg-text-main/5"

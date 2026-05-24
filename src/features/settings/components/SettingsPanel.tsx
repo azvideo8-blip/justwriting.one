@@ -71,7 +71,7 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog, defaultTab }: {
             tabIndex={activeTab === tab.id ? 0 : -1}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-all",
+              "flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-colors",
               activeTab === tab.id
                 ? "bg-text-main text-surface-base"
                 : "text-text-main/50 hover:text-text-main hover:bg-text-main/8"
@@ -160,7 +160,7 @@ export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog, defau
               <button
                 onClick={onClose}
                 aria-label={t('common_close')}
-                className="p-3 rounded-xl text-text-main/50 hover:text-text-main hover:bg-text-main/8 transition-all"
+                className="p-3 rounded-xl text-text-main/50 hover:text-text-main hover:bg-text-main/8 transition-colors"
               >
                 <X size={20} aria-hidden="true" />
               </button>

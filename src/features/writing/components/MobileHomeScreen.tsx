@@ -233,26 +233,26 @@ export function MobileHomeScreen({
           margin: '12px 20px 0',
           padding: '14px 16px',
           borderRadius: 16,
-          border: '1px solid rgba(245,158,11,0.25)',
-          background: 'rgba(245,158,11,0.06)',
+          border: '1px solid color-mix(in srgb, var(--accent-warning) 25%, transparent)',
+          background: 'color-mix(in srgb, var(--accent-warning) 6%, transparent)',
           display: 'flex',
           flexDirection: 'column',
           gap: 10,
         }}>
-          <span style={{ fontSize: 13, color: 'rgba(245,158,11,0.85)', lineHeight: 1.45, fontWeight: 500 }}>
+          <span style={{ fontSize: 13, color: 'color-mix(in srgb, var(--accent-warning) 85%, var(--text-main))', lineHeight: 1.45, fontWeight: 500 }}>
             {t('draft_restore_prompt')}
           </span>
           <div style={{ display: 'flex', gap: 10 }}>
             <button
               onClick={restoreDraft}
               style={{
-                background: 'rgba(245,158,11,0.15)',
-                border: '1px solid rgba(245,158,11,0.3)',
+                background: 'color-mix(in srgb, var(--accent-warning) 15%, transparent)',
+                border: '1px solid color-mix(in srgb, var(--accent-warning) 30%, transparent)',
                 borderRadius: 10,
                 padding: '6px 14px',
                 fontSize: 12,
                 fontWeight: 600,
-                color: '#f59e0b',
+                color: 'var(--accent-warning)',
                 cursor: 'pointer',
               }}
             >
@@ -330,13 +330,13 @@ export function MobileHomeScreen({
           onPointerDown={e => (e.currentTarget.style.transform = 'scale(0.96)')}
           onPointerUp={e => (e.currentTarget.style.transform = 'scale(1)')}
         >
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="#0b1a12">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="var(--bg-base)">
             <path d="M8 5v14l11-7z"/>
           </svg>
           <span style={{
             fontSize: 12,
             fontWeight: 600,
-            color: '#0b1a12',
+            color: 'var(--bg-base)',
             fontFamily: 'Inter, system-ui, sans-serif',
             letterSpacing: '.02em',
           }}>

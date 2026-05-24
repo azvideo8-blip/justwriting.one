@@ -23,7 +23,7 @@ export function AppRouter() {
         initial={reducedMotion ? {} : { opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={reducedMotion ? undefined : { delay: 0.4, duration: 0.8 }}
-        className="text-sm text-text-main/35 tracking-widest uppercase font-sans"
+        className="text-sm text-text-main/40 tracking-widest uppercase font-sans"
       >
         {t("common_loading")}
       </motion.p>

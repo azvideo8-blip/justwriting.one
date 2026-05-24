@@ -59,17 +59,17 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
         </h2>
         <div className="flex items-center gap-1">
           <button onClick={() => setOffset(o => o + 1)}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-all">
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-colors">
             <ChevronLeft size={14} />
           </button>
           <button onClick={() => setOffset(o => Math.max(0, o - 1))} disabled={offset === 0}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-all disabled:opacity-20 disabled:cursor-default">
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-colors disabled:opacity-20 disabled:cursor-default">
             <ChevronRight size={14} />
           </button>
         </div>
       </div>
-      <div className="flex items-baseline gap-4 mb-4 font-mono text-[11px] text-text-main/40">
-        <span className="text-[10px] uppercase tracking-widest">{periodLabel}</span>
+      <div className="flex items-baseline gap-4 mb-4 font-mono text-label-sm text-text-main/40">
+        <span className="text-label uppercase tracking-widest">{periodLabel}</span>
         <span className="ml-auto">
           {t('profile_streak_now')}{' '}
           <span style={{
@@ -123,7 +123,7 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
         })}
       </div>
 
-      <div className="flex justify-between mt-2 font-mono text-[10px] text-text-main/25">
+      <div className="flex justify-between mt-2 font-mono text-label text-text-main/25">
         <span>{days[0]?.date.toLocaleDateString(language, { day: 'numeric', month: 'short' })}</span>
         <span>{days[14]?.date.toLocaleDateString(language, { day: 'numeric', month: 'short' })}</span>
         <span>{t('profile_streak_today')}</span>

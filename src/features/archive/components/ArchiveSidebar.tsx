@@ -41,14 +41,14 @@ export function ArchiveSidebar({
 
       <div className="h-px bg-border-subtle" />
 
-      <div className="text-[11px] font-mono text-text-main/30 uppercase tracking-widest">
+      <div className="text-label-sm font-mono text-text-main/30 uppercase tracking-widest">
         {t('archive_calendar_title')}
       </div>
 
       {selectedDate && (
         <button
           onClick={() => onSelectDate(null)}
-          className="text-[11px] font-mono text-brand-soft/70 hover:text-brand-soft flex items-center gap-1 transition-colors"
+          className="text-label-sm font-mono text-brand-soft/70 hover:text-brand-soft flex items-center gap-1 transition-colors"
         >
           ✕ {format(selectedDate, 'd MMM yyyy')}
         </button>
@@ -73,7 +73,7 @@ export function ArchiveSidebar({
 
       {wordCloud.length > 0 && (
         <div>
-          <div className="font-mono text-[11px] text-text-main/30 uppercase tracking-widest mb-3">
+          <div className="font-mono text-label-sm text-text-main/30 uppercase tracking-widest mb-3">
             {t('archive_wordcloud_title')}
           </div>
           <div className="flex flex-wrap gap-x-2 gap-y-1.5">

@@ -231,7 +231,7 @@ export function MobileWriteScreen({
                 borderRadius: '50%',
                 background: isRunning
                   ? 'var(--brand-primary)'
-                   : isPaused ? '#f59e0b' : 'var(--text-subtle)',
+                   : isPaused ? 'var(--accent-warning)' : 'var(--text-subtle)',
                 boxShadow: isRunning ? '0 0 6px oklch(0.72 0.13 155 / 0.6)' : 'none',
               }} />
               <span style={{

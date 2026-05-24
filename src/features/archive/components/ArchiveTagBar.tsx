@@ -28,7 +28,7 @@ export function ArchiveTagBar({
 
   return (
     <div className="flex items-center gap-2 py-3 flex-wrap" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
-      <span className="font-mono text-[10px] text-text-main/25 uppercase tracking-widest mr-1">
+      <span className="font-mono text-label text-text-main/25 uppercase tracking-widest mr-1">
         {t('archive_tags_label')}
       </span>
       {allTags.map(tag => {
@@ -36,7 +36,7 @@ export function ArchiveTagBar({
         if (renamingTag === tag) {
           return (
             <div key={tag} className="flex items-center gap-1 px-2 py-1 rounded-xl border border-border-subtle bg-surface-card">
-              <span className="text-[11px] font-mono text-text-main/40">#</span>
+              <span className="text-label-sm font-mono text-text-main/40">#</span>
               <input
                 value={renameTagValue}
                 onChange={e => setRenameTagValue(e.target.value)}
@@ -47,7 +47,7 @@ export function ArchiveTagBar({
                   if (e.key === 'Escape') onRenameCancel();
                 }}
               />
-              <button onClick={onRenameCancel} className="text-[10px] text-text-main/30 hover:text-text-main/50">✕</button>
+              <button onClick={onRenameCancel} className="text-label text-text-main/30 hover:text-text-main/50">✕</button>
             </div>
           );
         }
@@ -58,7 +58,7 @@ export function ArchiveTagBar({
               transition={{ type: 'spring', stiffness: 350, damping: 30 }}
               onClick={() => onToggleTag(tag)}
               className={cn(
-                "px-2.5 py-1 rounded-full text-[11px] font-mono transition-all border",
+                "px-2.5 py-1 rounded-full text-label-sm font-mono transition-colors border",
                 active
                   ? "bg-brand-soft/15 border-brand-soft/40 text-brand-soft"
                   : "bg-transparent border-border-subtle text-text-main/40 hover:text-text-main/60"
@@ -90,7 +90,7 @@ export function ArchiveTagBar({
       {selectedTags.length > 0 && (
         <button
           onClick={onResetTags}
-          className="px-2.5 py-1 rounded-full text-[11px] font-mono border border-dashed border-border-subtle text-text-main/30 hover:text-text-main/50 transition-all"
+          className="px-2.5 py-1 rounded-full text-label-sm font-mono border border-dashed border-border-subtle text-text-main/30 hover:text-text-main/50 transition-colors"
         >
           {t('archive_tags_reset')} ✕
         </button>

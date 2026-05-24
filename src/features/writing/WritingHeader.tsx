@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../core/utils/utils';
 import { useLanguage } from '../../core/i18n';
 import { useWritingSettings } from './contexts/WritingSettingsContext';
+import { IconButton } from '../../shared/components/IconButton';
 
 import { useContentStore } from './store/useContentStore';
 import { useTimerStore } from './store/useTimerStore';
@@ -90,18 +91,9 @@ export const WritingHeader = React.memo(function WritingHeader({
         >
           {lifeLogEnabled ? (
               <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-border-subtle bg-surface-card/50 min-h-[56px]">
-                <button onClick={onNew} title={t('topbar_new')} aria-label={t('topbar_new')}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all">
-                  <FilePlus size={16} aria-hidden="true" />
-                </button>
-                <button onClick={onOpenLog} title={t('topbar_open')} aria-label={t('topbar_open')}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all">
-                  <FolderOpen size={16} aria-hidden="true" />
-                </button>
-                <button onClick={onSave} title={t('topbar_save')} aria-label={t('topbar_save')}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all">
-                  <Save size={16} aria-hidden="true" />
-                </button>
+                <IconButton icon={<FilePlus size={16} aria-hidden="true" />} label={t('topbar_new')} onClick={onNew} />
+                <IconButton icon={<FolderOpen size={16} aria-hidden="true" />} label={t('topbar_open')} onClick={onOpenLog} />
+                <IconButton icon={<Save size={16} aria-hidden="true" />} label={t('topbar_save')} onClick={onSave} />
                 <div className="w-px h-5 bg-border-subtle mx-1" />
                 <input
                   aria-label={t('topbar_title_placeholder')}
@@ -112,7 +104,10 @@ export const WritingHeader = React.memo(function WritingHeader({
                   className="flex-1 min-w-[120px] bg-transparent outline-none text-[15px] font-medium text-text-main/60 placeholder:text-text-main/25"
                 />
                 <div className="flex items-center gap-1 ml-auto">
-                  <button
+                  <IconButton
+                    icon={<BookOpen size={16} aria-hidden="true" />}
+                    label={t('lifelog_tab_log')}
+                    active={lifeLogVisible && lifeLogTab === 'log'}
                     onClick={() => {
                       if (!lifeLogVisible || lifeLogTab !== 'log') {
                         setLifeLogTab('log');
@@ -121,33 +116,13 @@ export const WritingHeader = React.memo(function WritingHeader({
                         setLifeLogVisible(false);
                       }
                     }}
-                    title={t('lifelog_tab_log')}
-                    aria-label={t('lifelog_tab_log')}
-                    className={cn(
-                      "w-9 h-9 rounded-xl flex items-center justify-center transition-all",
-                      lifeLogVisible && lifeLogTab === 'log'
-                        ? "bg-text-main/10 text-text-main"
-                        : "text-text-main/40 hover:text-text-main hover:bg-text-main/5"
-                    )}
-                  >
-                    <BookOpen size={16} aria-hidden="true" />
-                  </button>
-                   <button
-                       onClick={onOpenSettings}
-                       title={t('nav_settings')}
-                       aria-label={t('nav_settings')}
-                       className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all"
-                     >
-                       <Settings size={16} aria-hidden="true" />
-                    </button>
-                     <button
-                       onClick={toggleFullscreen}
-                       title={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
-                       aria-label={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
-                       className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all"
-                    >
-                      {isFullscreen ? <Minimize size={16} aria-hidden="true" /> : <Maximize size={16} aria-hidden="true" />}
-                   </button>
+                  />
+                   <IconButton icon={<Settings size={16} aria-hidden="true" />} label={t('nav_settings')} onClick={onOpenSettings} />
+                   <IconButton
+                     icon={isFullscreen ? <Minimize size={16} aria-hidden="true" /> : <Maximize size={16} aria-hidden="true" />}
+                     label={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
+                     onClick={toggleFullscreen}
+                   />
                  </div>
                </div>
           ) : (
@@ -166,7 +141,10 @@ export const WritingHeader = React.memo(function WritingHeader({
                   setTitle={setTitle}
                 />
                 <div className="flex items-center gap-1.5 ml-auto">
-                   <button
+                   <IconButton
+                     icon={<BookOpen size={16} aria-hidden="true" />}
+                     label={t('lifelog_tab_log')}
+                     active={lifeLogVisible && lifeLogTab === 'log'}
                      onClick={() => {
                        if (!lifeLogVisible || lifeLogTab !== 'log') {
                          setLifeLogTab('log');
@@ -175,33 +153,13 @@ export const WritingHeader = React.memo(function WritingHeader({
                          setLifeLogVisible(false);
                        }
                      }}
-                      title={t('lifelog_tab_log')}
-                      aria-label={t('lifelog_tab_log')}
-                      className={cn(
-                        "w-9 h-9 rounded-xl flex items-center justify-center transition-all",
-                        lifeLogVisible && lifeLogTab === 'log'
-                          ? "bg-text-main/10 text-text-main"
-                          : "text-text-main/40 hover:text-text-main hover:bg-text-main/5"
-                      )}
-                    >
-                      <BookOpen size={16} aria-hidden="true" />
-                   </button>
-                      <button
-                        onClick={onOpenSettings}
-                        title={t('nav_settings')}
-                        aria-label={t('nav_settings')}
-                        className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all"
-                      >
-                        <Settings size={16} aria-hidden="true" />
-                      </button>
-                     <button
-                       onClick={toggleFullscreen}
-                       title={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
-                       aria-label={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
-                       className="w-9 h-9 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all"
-                     >
-                      {isFullscreen ? <Minimize size={16} aria-hidden="true" /> : <Maximize size={16} aria-hidden="true" />}
-                   </button>
+                   />
+                     <IconButton icon={<Settings size={16} aria-hidden="true" />} label={t('nav_settings')} onClick={onOpenSettings} />
+                    <IconButton
+                      icon={isFullscreen ? <Minimize size={16} aria-hidden="true" /> : <Maximize size={16} aria-hidden="true" />}
+                      label={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
+                      onClick={toggleFullscreen}
+                    />
                  </div>
               </div>
 
@@ -224,7 +182,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="font-mono text-[10px] text-text-main/25 tracking-widest uppercase ml-3"
+                    className="font-mono text-label text-text-main/25 tracking-widest uppercase ml-3"
                   >
                     {t('editor_saving')}
                   </motion.span>
@@ -236,7 +194,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="flex items-center gap-1 font-mono text-[10px] text-text-main/25 tracking-widest uppercase ml-3"
+                    className="flex items-center gap-1 font-mono text-label text-text-main/25 tracking-widest uppercase ml-3"
                   >
                     <motion.svg viewBox="0 0 12 10" width={12} height={10}>
                       <motion.path

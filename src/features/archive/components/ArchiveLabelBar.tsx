@@ -41,7 +41,7 @@ export function ArchiveLabelBar({
 
   return (
     <div className="flex items-center gap-2 py-3 flex-wrap" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
-      <span className="font-mono text-[10px] text-text-main/25 uppercase tracking-widest mr-1">
+      <span className="font-mono text-label text-text-main/25 uppercase tracking-widest mr-1">
         {t('archive_labels')}
       </span>
       {labels.map(label => {
@@ -64,17 +64,17 @@ export function ArchiveLabelBar({
                   <button
                     key={c}
                     style={{ background: c }}
-                    className={cn("w-6 h-6 md:w-4 md:h-4 rounded-full transition-all cursor-pointer")}
+                    className={cn("w-6 h-6 md:w-4 md:h-4 rounded-full transition-colors cursor-pointer")}
                     onClick={() => setEditLabelColor(c)}
                   />
                 ))}
               </div>
               <button onClick={() => onUpdateLabel(label.id)}
                 disabled={!editLabelName.trim()}
-                className="text-[10px] font-medium text-text-main/60 hover:text-text-main disabled:opacity-30">
+                className="text-label font-medium text-text-main/60 hover:text-text-main disabled:opacity-30">
                 {t('common_save')}
               </button>
-              <button onClick={() => setEditingLabelId(null)} className="text-[10px] text-text-main/30 hover:text-text-main/50">✕</button>
+              <button onClick={() => setEditingLabelId(null)} className="text-label text-text-main/30 hover:text-text-main/50">✕</button>
             </div>
           );
         }
@@ -83,7 +83,7 @@ export function ArchiveLabelBar({
             <button
               onClick={() => onToggleLabel(label.id)}
               className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono transition-all border",
+                "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label-sm font-mono transition-colors border",
                 active ? "border-transparent text-white" : "bg-transparent border-border-subtle text-text-main/50 hover:text-text-main/70"
               )}
               style={active ? { background: label.color, borderColor: label.color, boxShadow: `0 0 12px color-mix(in srgb, ${label.color} 45%, transparent)` } : {}}
@@ -115,7 +115,7 @@ export function ArchiveLabelBar({
       {selectedLabels.length > 0 && (
         <button
           onClick={() => selectedLabels.forEach(id => onToggleLabel(id))}
-          className="px-2.5 py-1 rounded-full text-[11px] font-mono border border-dashed border-border-subtle text-text-main/30 hover:text-text-main/50 transition-all"
+          className="px-2.5 py-1 rounded-full text-label-sm font-mono border border-dashed border-border-subtle text-text-main/30 hover:text-text-main/50 transition-colors"
         >
           {t('archive_tags_reset')} ✕
         </button>
@@ -123,7 +123,7 @@ export function ArchiveLabelBar({
       {showControls && !addingLabel && !editingLabelId && (
         <button
           onClick={() => setAddingLabel(true)}
-          className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-mono text-text-main/30 hover:text-text-main/50 border border-dashed border-border-subtle transition-all"
+          className="flex items-center gap-1 px-2 py-1 rounded-full text-label-sm font-mono text-text-main/30 hover:text-text-main/50 border border-dashed border-border-subtle transition-colors"
         >
           + {t('archive_add_label')}
         </button>
@@ -146,7 +146,7 @@ export function ArchiveLabelBar({
               <button
                 key={c}
                 style={{ background: c }}
-                className={cn("w-4 h-4 rounded-full transition-all", newLabelColor === c && "ring-2 ring-offset-1 ring-offset-surface-card ring-white/40")}
+                className={cn("w-4 h-4 rounded-full transition-colors", newLabelColor === c && "ring-2 ring-offset-1 ring-offset-surface-card ring-white/40")}
                 onClick={() => setNewLabelColor(c)}
               />
             ))}
@@ -165,12 +165,12 @@ export function ArchiveLabelBar({
           <button
             onClick={onAddLabel}
             disabled={!newLabelName.trim()}
-            className="text-[11px] font-medium text-text-main/60 hover:text-text-main disabled:opacity-30 transition-colors"
+            className="text-label-sm font-medium text-text-main/60 hover:text-text-main disabled:opacity-30 transition-colors"
           >
             {t('common_save')}
           </button>
           <button onClick={() => { setAddingLabel(false); setNewLabelName(''); }}
-            className="text-[11px] text-text-main/30 hover:text-text-main/50 transition-colors">
+            className="text-label-sm text-text-main/30 hover:text-text-main/50 transition-colors">
             ✕
           </button>
         </div>

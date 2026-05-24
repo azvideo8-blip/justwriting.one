@@ -32,13 +32,13 @@ export function TagsSection({ session, isEditing: _isEditing }: TagsSectionProps
         tags.map(tag => (
           <span
             key={tag}
-            className="group/tag flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-surface-base text-text-main/50 hover:bg-white/10"
+            className="group/tag flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-surface-base text-text-main/50 hover:bg-white/10"
           >
             #{tag}
             {auth.currentUser?.uid === session.userId && (
               <button
                 onClick={() => removeTag(tag)}
-                className="opacity-0 group-hover/tag:opacity-100 hover:text-red-500 transition-all"
+                className="opacity-0 group-hover/tag:opacity-100 hover:text-red-500 transition-colors"
               >
                 <X size={10} />
               </button>
@@ -63,7 +63,7 @@ export function TagsSection({ session, isEditing: _isEditing }: TagsSectionProps
             onChange={(e) => setNewTag(e.target.value)}
             onBlur={() => !newTag && setIsAddingTag(false)}
             placeholder={t('session_tag_placeholder')}
-            className="w-24 px-2.5 py-1.5 border rounded-lg text-xs outline-none transition-all bg-transparent border-border-subtle text-text-main placeholder-text-main/40 focus:ring-1 focus:ring-text-main/20 focus:border-text-main/40 focus:bg-white/5"
+            className="w-24 px-2.5 py-1.5 border rounded-lg text-xs outline-none transition-colors bg-transparent border-border-subtle text-text-main placeholder-text-main/40 focus:ring-1 focus:ring-text-main/20 focus:border-text-main/40 focus:bg-white/5"
           />
         </form>
       ) : session.tags && session.tags.length > 0 && (

@@ -112,7 +112,7 @@ export function MobileSessionSetupSheet({
               {setupMode !== 'selection' ? (
                 <button
                   onClick={() => setSetupMode('selection')}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-text-main/55 bg-transparent border-none cursor-pointer py-2 pr-4 pl-0"
+                  className="flex items-center gap-1.5 text-xs font-semibold text-text-main/60 bg-transparent border-none cursor-pointer py-2 pr-4 pl-0"
                 >
                   <ChevronLeft size={16} />
                   {t('writing_back')}
@@ -136,7 +136,7 @@ export function MobileSessionSetupSheet({
               {setupMode === 'selection' && (
                 <div className="space-y-4">
                   <div className="space-y-1">
-                    <p className="text-xs text-text-main/45 font-medium leading-relaxed">
+                    <p className="text-xs text-text-main/40 font-medium leading-relaxed">
                       {t('writing_how_to_write')}
                     </p>
                   </div>
@@ -151,7 +151,7 @@ export function MobileSessionSetupSheet({
                       <button
                         key={mode.id}
                         onClick={() => mode.id === 'stopwatch' ? startCountdown('stopwatch') : setSetupMode(mode.id as SetupMode)}
-                        className="p-4 rounded-2xl border border-white/[0.05] bg-white/[0.02] flex items-center gap-4 text-left w-full active:bg-white/[0.07] active:scale-[0.99] transition-all cursor-pointer"
+                        className="p-4 rounded-2xl border border-white/[0.05] bg-white/[0.02] flex items-center gap-4 text-left w-full active:bg-white/[0.07] active:scale-[0.99] transition-colors cursor-pointer"
                         style={{ minHeight: 64 }}
                       >
                         <div className={cn("p-2.5 rounded-xl shrink-0", mode.bg, mode.color)}>
@@ -199,7 +199,7 @@ export function MobileSessionSetupSheet({
                               autoFocus
                             />
                           </div>
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-text-main/40 mt-2">
+                          <span className="text-label font-bold uppercase tracking-widest text-text-main/40 mt-2">
                             {t('writing_minutes')}
                           </span>
 
@@ -210,7 +210,7 @@ export function MobileSessionSetupSheet({
                                 key={mins}
                                 onClick={() => setTimerDuration(mins * 60)}
                                 className={cn(
-                                  "px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer",
+                                  "px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer",
                                   timerDuration === mins * 60
                                     ? "bg-brand-primary/10 border-brand-primary text-brand-primary"
                                     : "bg-white/[0.02] border-white/[0.06] text-text-main/60"
@@ -238,7 +238,7 @@ export function MobileSessionSetupSheet({
                               autoFocus
                             />
                           </div>
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-text-main/40 mt-2">
+                          <span className="text-label font-bold uppercase tracking-widest text-text-main/40 mt-2">
                             {t('writing_words')}
                           </span>
 
@@ -249,7 +249,7 @@ export function MobileSessionSetupSheet({
                                 key={words}
                                 onClick={() => setWordGoal(words)}
                                 className={cn(
-                                  "px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer",
+                                  "px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer",
                                   wordGoal === words
                                     ? "bg-brand-primary/10 border-brand-primary text-brand-primary"
                                     : "bg-white/[0.02] border-white/[0.06] text-text-main/60"
@@ -276,7 +276,7 @@ export function MobileSessionSetupSheet({
                               autoFocus
                             />
                           </div>
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-text-main/40 mt-2">
+                          <span className="text-label font-bold uppercase tracking-widest text-text-main/40 mt-2">
                             {t('writing_time')}
                           </span>
                           {finishByError && (
@@ -292,7 +292,7 @@ export function MobileSessionSetupSheet({
                     <div className="w-full pt-4">
                       <button
                         onClick={handleStartWithValidation}
-                        className="w-full py-4 rounded-2xl font-bold text-sm bg-text-main text-surface-base active:scale-[0.98] transition-all cursor-pointer shadow-[0_4px_16px_rgba(255,255,255,0.08)]"
+                        className="w-full py-4 rounded-2xl font-bold text-sm bg-text-main text-surface-base active:scale-[0.98] transition-colors cursor-pointer shadow-[0_4px_16px_rgba(255,255,255,0.08)]"
                       >
                         {t('writing_start')}
                       </button>

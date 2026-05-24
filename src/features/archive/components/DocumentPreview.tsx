@@ -233,7 +233,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
           <h2 className="text-xl font-medium text-text-main leading-snug mb-1">
             {session.title || t('session_untitled')}
           </h2>
-          <div className="font-mono text-[11px] text-text-main/30 uppercase tracking-wider">
+          <div className="font-mono text-label-sm text-text-main/30 uppercase tracking-wider">
             {format(date, 'd MMMM yyyy', { locale: dateLocale })}
             {' · '}
             {session.wordCount?.toLocaleString()} {t('home_words_short')}
@@ -244,11 +244,11 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
             <div className="relative mt-2">
               <button
                 onClick={() => setLabelPopupOpen(v => !v)}
-                className="flex items-center gap-1.5 text-[11px] font-mono"
+                className="flex items-center gap-1.5 text-label-sm font-mono"
                 title={currentLabel?.name ?? t('archive_assign_label')}
               >
                 <div
-                  className="w-3 h-3 rounded-full border-2 shrink-0 transition-all"
+                  className="w-3 h-3 rounded-full border-2 shrink-0 transition-colors"
                   style={{
                     background: currentLabel?.color ?? 'transparent',
                     borderColor: currentLabel?.color ?? 'rgba(255,255,255,0.2)',
@@ -269,7 +269,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                   {currentLabel && (
                     <button
                       onClick={() => { onLabelChange?.(session!, undefined); setLabelPopupOpen(false); }}
-                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/40 hover:bg-text-main/5 transition-all"
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/40 hover:bg-text-main/5 transition-colors"
                     >
                       <div className="w-3 h-3 rounded-full border border-dashed border-text-main/20 shrink-0" />
                       {t('archive_no_label')}
@@ -283,7 +283,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                         setLabelPopupOpen(false);
                       }}
                       className={cn(
-                        "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left transition-all",
+                        "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left transition-colors",
                         session?.labelId === l.id
                           ? "bg-text-main/10 text-text-main"
                           : "text-text-main/60 hover:bg-text-main/5"
@@ -296,7 +296,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                   {onAddLabel && !creatingLabel && (
                     <button
                       onClick={() => setCreatingLabel(true)}
-                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/30 hover:text-text-main/50 hover:bg-text-main/5 transition-all border-t border-border-subtle mt-1 pt-2.5"
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/30 hover:text-text-main/50 hover:bg-text-main/5 transition-colors border-t border-border-subtle mt-1 pt-2.5"
                     >
                       + {t('archive_add_label')}
                     </button>
@@ -308,7 +308,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                         onChange={e => setNewLabelName(e.target.value)}
                         autoFocus
                         placeholder={t('archive_label_name_placeholder')}
-                        className="w-24 bg-transparent text-[11px] text-text-main outline-none placeholder:text-text-main/25"
+                        className="w-24 bg-transparent text-label-sm text-text-main outline-none placeholder:text-text-main/25"
                         onKeyDown={e => {
                           if (e.key === 'Enter') handleCreateLabel();
                           if (e.key === 'Escape') setCreatingLabel(false);
@@ -319,7 +319,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                           <button
                             key={c}
                             style={{ background: c }}
-                            className={cn("w-3 h-3 rounded-full transition-all", newLabelColor === c && "ring-1 ring-offset-1 ring-offset-surface-card ring-white/40")}
+                            className={cn("w-3 h-3 rounded-full transition-colors", newLabelColor === c && "ring-1 ring-offset-1 ring-offset-surface-card ring-white/40")}
                             onClick={() => setNewLabelColor(c)}
                           />
                         ))}
@@ -327,11 +327,11 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                       <button
                         onClick={handleCreateLabel}
                         disabled={!newLabelName.trim()}
-                        className="text-[10px] font-medium text-text-main/60 hover:text-text-main disabled:opacity-30"
+                        className="text-label font-medium text-text-main/60 hover:text-text-main disabled:opacity-30"
                       >
                         {t('common_save')}
                       </button>
-                      <button onClick={() => setCreatingLabel(false)} className="text-[10px] text-text-main/30 hover:text-text-main/50">✕</button>
+                      <button onClick={() => setCreatingLabel(false)} className="text-label text-text-main/30 hover:text-text-main/50">✕</button>
                     </div>
                   )}
                 </div>
@@ -341,7 +341,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
         </div>
         <button
           onClick={onClose}
-          className="w-10 h-10 md:w-8 md:h-8 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all shrink-0 cursor-pointer"
+          className="w-10 h-10 md:w-8 md:h-8 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-colors shrink-0 cursor-pointer"
         >
           <X size={18} className="md:w-4 md:h-4" />
         </button>
@@ -349,7 +349,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
 
       {/* Tags */}
       <div className="px-6 py-3 border-b border-border-subtle">
-        <div className="text-[10px] font-mono text-text-main/30 uppercase tracking-widest mb-2">
+        <div className="text-label font-mono text-text-main/30 uppercase tracking-widest mb-2">
           {t('finish_tags')}
         </div>
         <InlineTags
@@ -361,7 +361,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5">
-        <p className="text-[15px] text-text-main/75 leading-[1.8] whitespace-pre-wrap" style={{ textWrap: 'pretty' }}>
+        <p className="text-[15px] text-text-main/80 leading-[1.8] whitespace-pre-wrap" style={{ textWrap: 'pretty' }}>
           {session.content || (
             <span className="text-text-main/25 italic">{t('archive_no_content')}</span>
           )}
@@ -381,7 +381,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
         <div className="relative" ref={exportRef}>
           <button
             onClick={() => setExportOpen(!exportOpen)}
-            className="flex items-center gap-1.5 px-3.5 h-11 rounded-xl bg-surface-card border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-surface-elevated transition-all text-sm cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 h-11 rounded-xl bg-surface-card border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-surface-elevated transition-colors text-sm cursor-pointer"
             title={t('archive_export')}
           >
             <Download size={14} />

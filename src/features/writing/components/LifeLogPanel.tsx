@@ -48,7 +48,7 @@ const SessionItem = React.memo(({ session, doc, isActive, onClick, onDelete, t, 
     <div
       onClick={onClick}
       className={cn(
-        "group px-3 py-2.5 border-b border-border-subtle cursor-pointer transition-all",
+        "group px-3 py-2.5 border-b border-border-subtle cursor-pointer transition-colors",
         isActive
           ? "bg-surface-base border-l-2 border-l-text-main pl-[10px]"
           : "hover:bg-surface-base/50"
@@ -61,16 +61,16 @@ const SessionItem = React.memo(({ session, doc, isActive, onClick, onDelete, t, 
         </span>
         <div className="flex items-center gap-1">
           {isRecent ? (
-            <span className="flex items-center gap-1 text-[11px] text-accent-success shrink-0">
+            <span className="flex items-center gap-1 text-label-sm text-accent-success shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-accent-success animate-pulse shrink-0" />
               {t('lifelog_just_now')}
             </span>
           ) : (
-            <span className="text-[11px] text-text-subtle shrink-0">{timeStr}</span>
+            <span className="text-label-sm text-text-subtle shrink-0">{timeStr}</span>
           )}
           <button
             onClick={(e) => { e.stopPropagation(); onClick(); }}
-            className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-text-main/30 hover:text-text-main transition-all"
+            className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-text-main/30 hover:text-text-main transition-colors"
             aria-label={t('lifelog_continue')}
           >
             <ArrowRight size={12} />
@@ -78,7 +78,7 @@ const SessionItem = React.memo(({ session, doc, isActive, onClick, onDelete, t, 
           {onDelete && session.id && (
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(session); }}
-              className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-text-main/30 hover:text-accent-danger transition-all"
+              className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-text-main/30 hover:text-accent-danger transition-colors"
               aria-label={t('session_delete')}
             >
               <Trash2 size={12} />
@@ -93,7 +93,7 @@ const SessionItem = React.memo(({ session, doc, isActive, onClick, onDelete, t, 
               return mins < 1 ? `<1${t('goal_time_min')}` : `${mins}${t('goal_time_min')}`;
             })()}
           </span>
-          <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", badge.cls)}>
+          <span className={cn("text-label px-1.5 py-0.5 rounded font-medium", badge.cls)}>
             {badge.label}
           </span>
           {doc?.storage?.cloud
@@ -190,7 +190,7 @@ export function LifeLogPanel({
           <button
             onClick={() => onTabChange('log')}
             className={cn(
-              "px-3 py-1.5 rounded-xl text-sm transition-all",
+              "px-3 py-1.5 rounded-xl text-sm transition-colors",
               activeTab === 'log'
                 ? "bg-text-main text-surface-base"
                 : "text-text-main/50 hover:text-text-main"
@@ -201,7 +201,7 @@ export function LifeLogPanel({
           <button
             onClick={() => onTabChange('settings')}
             className={cn(
-              "px-3 py-1.5 rounded-xl text-sm transition-all",
+              "px-3 py-1.5 rounded-xl text-sm transition-colors",
               activeTab === 'settings'
                 ? "bg-text-main text-surface-base"
                 : "text-text-main/50 hover:text-text-main"
@@ -216,7 +216,7 @@ export function LifeLogPanel({
             onClick={onTogglePin}
             title={pinned ? t('lifelog_unpin') : t('lifelog_pin')}
             className={cn(
-              "w-8 h-8 rounded-xl border transition-all flex items-center justify-center",
+              "w-8 h-8 rounded-xl border transition-colors flex items-center justify-center",
               pinned
                 ? "border-text-main/30 bg-text-main/10 text-text-main"
                 : "border-border-subtle text-text-main/40 hover:text-text-main"
@@ -227,7 +227,7 @@ export function LifeLogPanel({
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-xl text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all flex items-center justify-center"
+            className="w-8 h-8 rounded-xl text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-colors flex items-center justify-center"
           >
             <X size={14} />
           </button>
@@ -249,11 +249,11 @@ export function LifeLogPanel({
 
           {/* Daily summary */}
           <div className="shrink-0 px-3 py-3 border-b border-border-subtle bg-surface-base/50">
-            <div className="text-[11px] text-text-subtle mb-2">{t('lifelog_today')}</div>
+            <div className="text-label-sm text-text-subtle mb-2">{t('lifelog_today')}</div>
             <div className="flex gap-4">
               <div>
                 <div className="text-lg font-bold text-text-main">{summary.totalWords.toLocaleString()}</div>
-                <div className="text-[11px] text-text-subtle">{t('lifelog_words')}</div>
+                <div className="text-label-sm text-text-subtle">{t('lifelog_words')}</div>
               </div>
               <div>
                 <div className="text-lg font-bold text-text-main">
@@ -261,14 +261,14 @@ export function LifeLogPanel({
                     ? `${Math.floor(summary.totalMinutes / 60)}${t('unit_hour')} ${summary.totalMinutes % 60}${t('unit_min')}`
                     : `${summary.totalMinutes}${t('unit_min')}`}
                 </div>
-                <div className="text-[11px] text-text-subtle">{t('lifelog_time')}</div>
+                <div className="text-label-sm text-text-subtle">{t('lifelog_time')}</div>
               </div>
               {streakDays !== undefined && (
                 <div>
                   <div className="text-lg font-bold" style={{ color: 'var(--flow-pulse-color)' }}>
                     {streakDays}
                   </div>
-                  <div className="text-[11px] text-text-subtle">{t('home_streak_days')}</div>
+                  <div className="text-label-sm text-text-subtle">{t('home_streak_days')}</div>
                 </div>
               )}
             </div>
@@ -277,7 +277,7 @@ export function LifeLogPanel({
           {/* Sessions list grouped by date */}
           <div className="flex-1 overflow-y-auto custom-scrollbar" style={{ overscrollBehavior: 'contain' }}>
             {loading ? (
-              <div className="px-3 py-2 text-[11px] text-text-subtle font-medium">{t('lifelog_loading')}</div>
+              <div className="px-3 py-2 text-label-sm text-text-subtle font-medium">{t('lifelog_loading')}</div>
             ) : (
               <div className="sessions-list">
                 {filteredGroups.map(group => {
@@ -285,7 +285,7 @@ export function LifeLogPanel({
                   const maxWords = Math.max(...group.sessions.map(s => s.wordCount || 0), 1);
                   return (
                     <div key={group.date.toISOString()}>
-                      <div className="px-4 py-2 text-[10px] text-text-subtle font-bold uppercase tracking-wider sticky top-0 bg-surface-card z-10 border-b border-border-subtle/30 flex items-center justify-between">
+                      <div className="px-4 py-2 text-label text-text-subtle font-bold uppercase tracking-wider sticky top-0 bg-surface-card z-10 border-b border-border-subtle/30 flex items-center justify-between">
                         <span>{group.label}</span>
                         <span className="font-mono font-normal normal-case tracking-normal text-text-main/25">
                           {groupWords.toLocaleString()} {t('lifelog_words_short')}

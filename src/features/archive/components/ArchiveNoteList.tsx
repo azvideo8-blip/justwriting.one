@@ -87,7 +87,7 @@ export function ArchiveNoteList({
           <p className="text-[16px] text-text-main/50 font-medium">
             {t('archive_empty_filtered')}
           </p>
-          <p className="text-[13px] text-text-main/35">
+          <p className="text-[13px] text-text-main/40">
             {t('archive_search_no_results', { query: searchQuery })}
           </p>
           <button
@@ -174,17 +174,17 @@ export function ArchiveNoteList({
           <div key={dateKey}>
             {viewMode !== 'grid' && (
               <div className="flex items-center gap-3 py-5">
-                <span className="font-mono text-[11px] text-text-main/40 uppercase tracking-widest whitespace-nowrap">
+                <span className="font-mono text-label-sm text-text-main/40 uppercase tracking-widest whitespace-nowrap">
                   {format(new Date(dateKey), 'd MMM', { locale: dateLocale })}
                 </span>
                 <div className="flex-1 flex items-center gap-2">
                   <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, var(--border-subtle))' }} />
-                  <span className="font-mono text-[10px] tracking-[.2em]" style={{ color: 'var(--brand-soft)', opacity: 0.5 }}>
+                  <span className="font-mono text-label tracking-[.2em]" style={{ color: 'var(--brand-soft)', opacity: 0.5 }}>
                     {toRoman(groupedSessions[dateKey].length)}
                   </span>
                   <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, var(--border-subtle))' }} />
                 </div>
-                <span className="font-mono text-[11px] text-text-main/30 whitespace-nowrap">
+                <span className="font-mono text-label-sm text-text-main/30 whitespace-nowrap">
                   {groupedSessions[dateKey]
                     .reduce((sum, s) => sum + (s.wordCount || 0), 0)
                     .toLocaleString()} {t('home_words_short')}

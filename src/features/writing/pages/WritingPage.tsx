@@ -286,7 +286,7 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
       />
       <FlowPulse />
       {import.meta.env.DEV && devKpmStats && (
-        <div className="fixed bottom-2 left-2 text-[10px] font-mono text-text-main/30 z-50 pointer-events-none">
+        <div className="fixed bottom-2 left-2 text-label font-mono text-text-main/30 z-50 pointer-events-none">
           KPM {devKpmStats.kpm} · IKI {devKpmStats.ikiMedian}ms · CV {devKpmStats.ikiCv}
         </div>
       )}

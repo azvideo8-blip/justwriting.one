@@ -110,7 +110,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             {wordCount.toLocaleString()}
           </span>
           {!compact && (
-            <span className="text-[10px] text-text-main/55 tracking-wide mt-1 hidden sm:block">
+            <span className="text-label text-text-main/60 tracking-wide mt-1 hidden sm:block">
               {t('header_totalWords')}
             </span>
           )}
@@ -160,7 +160,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             </div>
           )}
           {!compact && (
-            <span className="text-[10px] text-text-main/55 tracking-wide mt-1 hidden sm:block">
+            <span className="text-label text-text-main/60 tracking-wide mt-1 hidden sm:block">
               {t('header_sessionWords')}
             </span>
           )}
@@ -204,7 +204,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             </div>
           )}
           {!compact && (
-            <span className="text-[10px] text-text-main/55 tracking-wide mt-1 hidden sm:block">
+            <span className="text-label text-text-main/60 tracking-wide mt-1 hidden sm:block">
               {timerDuration > 0
                 ? `${t('goal_time_of')} ${Math.round(timerDuration / 60)} ${t('goal_time_min')}`
                 : t('header_time')}
@@ -228,7 +228,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             <span className="text-lg font-medium text-text-main tabular-nums">{wpm}</span>
           </div>
           {!compact && (
-            <span className="text-[10px] text-text-main/55 tracking-wide mt-1 hidden sm:block">
+            <span className="text-label text-text-main/60 tracking-wide mt-1 hidden sm:block">
               {t('header_wpm')}
             </span>
           )}
@@ -245,7 +245,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
           whileTap={{ scale: 0.82 }}
           transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
-            "w-8 h-8 flex items-center justify-center transition-all shrink-0",
+            "w-8 h-8 flex items-center justify-center transition-colors shrink-0",
             status === 'writing'
               ? "text-accent-warning hover:bg-accent-warning/10"
               : "text-text-main hover:bg-text-main/5"
@@ -260,7 +260,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
           whileTap={{ scale: 0.82 }}
           transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
-            "w-8 h-8 flex items-center justify-center transition-all shrink-0",
+            "w-8 h-8 flex items-center justify-center transition-colors shrink-0",
             status !== 'idle'
               ? "text-accent-danger hover:bg-accent-danger/10"
               : "text-text-main/20 cursor-not-allowed"

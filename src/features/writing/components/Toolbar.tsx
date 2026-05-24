@@ -61,7 +61,7 @@ export function Toolbar({
           onClick={onNew}
           title={t('topbar_new')}
           aria-label={t('topbar_new')}
-          className="w-9 h-9 flex items-center justify-center rounded-lg text-text-main/50 hover:text-text-main hover:bg-text-main/5 transition-all"
+          className="w-9 h-9 flex items-center justify-center rounded-lg text-text-main/50 hover:text-text-main hover:bg-text-main/5 transition-colors"
         >
           <FilePlus size={16} />
         </button>
@@ -70,7 +70,7 @@ export function Toolbar({
           onClick={onOpenLog}
           title={t('topbar_open')}
           aria-label={t('topbar_open')}
-          className="w-9 h-9 flex items-center justify-center rounded-lg text-text-main/50 hover:text-text-main hover:bg-text-main/5 transition-all"
+          className="w-9 h-9 flex items-center justify-center rounded-lg text-text-main/50 hover:text-text-main hover:bg-text-main/5 transition-colors"
         >
           <FolderOpen size={16} />
         </button>
@@ -83,7 +83,7 @@ export function Toolbar({
           whileTap={{ scale: 0.9 }}
           transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
-            "relative w-9 h-9 flex items-center justify-center transition-all",
+            "relative w-9 h-9 flex items-center justify-center transition-colors",
             status !== 'idle' && wordCount > 0
               ? "text-text-main/50 hover:text-text-main hover:bg-text-main/5"
               : "text-text-main/20 cursor-not-allowed"
@@ -109,7 +109,7 @@ export function Toolbar({
           whileTap={{ scale: 0.82 }}
           transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
-            "w-9 h-9 flex items-center justify-center transition-all",
+            "w-9 h-9 flex items-center justify-center transition-colors",
             status === 'writing'
               ? "text-accent-warning hover:bg-accent-warning/10"
               : "text-text-main hover:bg-text-main/5"
@@ -126,7 +126,7 @@ export function Toolbar({
           whileTap={{ scale: 0.82 }}
           transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
-            "w-9 h-9 flex items-center justify-center transition-all",
+            "w-9 h-9 flex items-center justify-center transition-colors",
             status !== 'idle'
               ? "text-accent-danger hover:bg-accent-danger/10"
               : "text-text-main/25 cursor-not-allowed"

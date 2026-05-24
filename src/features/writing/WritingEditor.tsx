@@ -77,7 +77,7 @@ export const WritingEditor = React.memo(function WritingEditor({
           "w-full outline-none resize-none leading-[1.8] text-text-main placeholder:text-text-main/40 flex-1 min-h-0",
           lifeLogEnabled
             ? "bg-transparent border-0 shadow-none p-4 md:p-6 overflow-y-auto custom-scrollbar"
-            : "min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-3xl border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] shadow-xl focus:shadow-2xl transition-all custom-scrollbar"
+            : "min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-3xl border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] shadow-xl focus:shadow-2xl transition-colors custom-scrollbar"
         )}
       />
     </div>
