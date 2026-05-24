@@ -8,6 +8,11 @@ import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
 
+function toRoman(n: number): string {
+  if (n < 1 || n > 12) return String(n);
+  return ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'][n - 1];
+}
+
 interface ArchiveNoteListProps {
   viewMode: 'list' | 'grid';
   loading: boolean;
@@ -168,13 +173,18 @@ export function ArchiveNoteList({
         {sortedDates.map(dateKey => (
           <div key={dateKey}>
             {viewMode !== 'grid' && (
-              <div className="flex items-center gap-4 py-4">
-                <h4 className="text-[15px] font-medium text-text-main whitespace-nowrap">
-                  {format(new Date(dateKey), 'd MMMM yyyy', { locale: dateLocale })}
-                </h4>
-                <div className="flex-1 h-px bg-border-subtle" />
-                <span className="font-mono text-[11px] text-text-main/35 whitespace-nowrap">
-                  {groupedSessions[dateKey].length} {entriesLabel(groupedSessions[dateKey].length)} · {' '}
+              <div className="flex items-center gap-3 py-5">
+                <span className="font-mono text-[11px] text-text-main/40 uppercase tracking-widest whitespace-nowrap">
+                  {format(new Date(dateKey), 'd MMM', { locale: dateLocale })}
+                </span>
+                <div className="flex-1 flex items-center gap-2">
+                  <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, var(--border-subtle))' }} />
+                  <span className="font-mono text-[10px] tracking-[.2em]" style={{ color: 'var(--brand-soft)', opacity: 0.5 }}>
+                    {toRoman(groupedSessions[dateKey].length)}
+                  </span>
+                  <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, var(--border-subtle))' }} />
+                </div>
+                <span className="font-mono text-[11px] text-text-main/30 whitespace-nowrap">
                   {groupedSessions[dateKey]
                     .reduce((sum, s) => sum + (s.wordCount || 0), 0)
                     .toLocaleString()} {t('home_words_short')}

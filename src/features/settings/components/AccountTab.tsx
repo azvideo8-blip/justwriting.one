@@ -211,7 +211,7 @@ export function AccountTab({ userId }: AccountTabProps) {
     }
   };
 
-  const changePasswordRef = React.useRef<HTMLDivElement>(null);
+  const changePasswordRef = React.useRef<HTMLFormElement>(null);
   const resetConfirmRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -332,12 +332,26 @@ export function AccountTab({ userId }: AccountTabProps) {
                 {t('settings_change_password')}
               </button>
             </div>
-            <div
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleChangePassword();
+              }}
               ref={changePasswordRef}
               hidden={!showChangePassword ? ("until-found" as any) : undefined}
               style={!showChangePassword ? { contentVisibility: 'hidden' } : undefined}
               className="space-y-3 p-4 rounded-xl border border-border-subtle"
             >
+              {/* Hidden email input to prevent browser autofill from leaking to other text inputs */}
+              <input
+                type="text"
+                name="username"
+                autoComplete="username"
+                value={auth.currentUser?.email || ''}
+                readOnly
+                className="hidden"
+                style={{ display: 'none' }}
+              />
               {passwordError && (
                 <div className="p-3 rounded-lg text-xs bg-red-500/10 border border-red-500/30 text-red-400">{passwordError}</div>
               )}
@@ -362,7 +376,7 @@ export function AccountTab({ userId }: AccountTabProps) {
               />
               <div className="flex gap-2">
                 <button
-                  onClick={handleChangePassword}
+                  type="submit"
                   disabled={passwordLoading}
                   className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-all"
                   style={{ background: 'var(--brand-primary)' }}
@@ -376,7 +390,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                   {t('writing_cancel')}
                 </button>
               </div>
-            </div>
+            </form>
           </Section>
 
           <Section title={t('settings_encryption')}>
@@ -393,6 +407,16 @@ export function AccountTab({ userId }: AccountTabProps) {
                   <div className="p-3 rounded-lg text-xs bg-red-500/10 border border-red-500/30 text-red-400">{vaultError}</div>
                 )}
                 <form onSubmit={handleInitializeEncryption} className="space-y-3 pt-1">
+                  {/* Hidden email input to prevent browser autofill from leaking to other text inputs */}
+                  <input
+                    type="text"
+                    name="username"
+                    autoComplete="username"
+                    value={auth.currentUser?.email || ''}
+                    readOnly
+                    className="hidden"
+                    style={{ display: 'none' }}
+                  />
                   <input
                     type="password"
                     value={vaultPassword}
@@ -439,6 +463,16 @@ export function AccountTab({ userId }: AccountTabProps) {
                   <div className="p-3 rounded-lg text-xs bg-red-500/10 border border-red-500/30 text-red-400">{vaultError}</div>
                 )}
                 <form onSubmit={handleUnlockVault} className="space-y-3 pt-1">
+                  {/* Hidden email input to prevent browser autofill from leaking to other text inputs */}
+                  <input
+                    type="text"
+                    name="username"
+                    autoComplete="username"
+                    value={auth.currentUser?.email || ''}
+                    readOnly
+                    className="hidden"
+                    style={{ display: 'none' }}
+                  />
                   <input
                     type="password"
                     value={vaultPassword}

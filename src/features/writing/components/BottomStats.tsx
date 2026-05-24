@@ -7,7 +7,7 @@ import { useTimerStore } from '../store/useTimerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { formatTime } from '../../../core/utils/formatTime';
 import { useLanguage } from '../../../core/i18n';
-import { getWpmColor } from '../utils/wpmColors';
+import { getWpmColor, getWpmHex } from '../utils/wpmColors';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { GoalPopup } from './GoalPopup';
 
@@ -90,13 +90,18 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  if (showZen) return null;
-
   return (
-    <div className={cn(
-      "border-t border-border-subtle bg-surface-card/50 backdrop-blur-xl flex items-center flex-nowrap h-[64px]",
-      compact ? "px-3" : "px-6"
-    )}>
+    <div
+      className={cn(
+        "border-t border-border-subtle bg-surface-card/50 backdrop-blur-xl flex items-center flex-nowrap h-[64px]",
+        compact ? "px-3" : "px-6"
+      )}
+      style={{
+        opacity: showZen ? 0.08 : 1,
+        transition: 'opacity .4s ease',
+        pointerEvents: showZen ? 'none' : undefined,
+      }}
+    >
 
       <div className="flex items-center gap-0 flex-1 min-w-0 overflow-hidden">
         {headerVisibility.totalWords && (
@@ -201,7 +206,10 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         {headerVisibility.wpm && (
         <div className={cn("flex flex-col", compact ? "ml-1" : "ml-2")}>
           <div className="flex items-center gap-1.5 leading-none whitespace-nowrap">
-            <div className={cn("w-2 h-2 rounded-full transition-colors duration-500 shrink-0", getWpmColor(wpm), status === 'writing' && "animate-pulse")} />
+            <div
+              className={cn("w-2 h-2 rounded-full transition-all duration-500 shrink-0", getWpmColor(wpm), status === 'writing' && "animate-pulse")}
+              style={{ boxShadow: status === 'writing' && wpm > 0 ? `0 0 10px ${getWpmHex(wpm)}` : 'none' }}
+            />
             <span className="text-lg font-medium text-text-main tabular-nums">{wpm}</span>
           </div>
           {!compact && (

@@ -8,6 +8,51 @@ import { getWpmHex } from '../utils/wpmColors';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { motion, AnimatePresence } from 'motion/react';
 
+function DottedProgress({ pct, color }: { pct: number; color: string }) {
+  const n = 16;
+  const filled = Math.round(Math.min(1, pct) * n);
+  return (
+    <div style={{ display: 'flex', gap: 2, marginTop: 4 }}>
+      {Array.from({ length: n }, (_, i) => (
+        <span
+          key={i}
+          style={{
+            width: 5, height: 5, borderRadius: 3,
+            background: i < filled ? color : 'var(--border-light)',
+            boxShadow: i === filled - 1 && filled > 0 ? `0 0 5px ${color}` : 'none',
+            transition: 'background 0.3s',
+            flexShrink: 0,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function MiniSpark({ history, color }: { history: { timestamp: number; wpm: number }[]; color: string }) {
+  const pts = history.slice(-12);
+  if (pts.length < 2) return null;
+  const maxWpm = Math.max(...pts.map(p => p.wpm), 1);
+  const w = 44, h = 16;
+  const points = pts.map((p, i) => {
+    const x = (i / (pts.length - 1)) * w;
+    const y = h - (p.wpm / maxWpm) * h;
+    return `${x},${y}`;
+  }).join(' ');
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block', opacity: 0.7 }}>
+      <polyline
+        points={points}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 interface MobileWriteToolbarProps {
   onPlay: () => void;
   onPause: () => void;
@@ -25,10 +70,11 @@ export function MobileWriteToolbar({
 }: MobileWriteToolbarProps) {
   const { t } = useLanguage();
   const { headerVisibility = { sessionTime: true, sessionWords: true, totalWords: true, wpm: true } } = useWritingSettings();
-  const { wordCount, wpm } = useContentStore(
+  const { wordCount, wpm, wpmHistory } = useContentStore(
     useShallow(s => ({
       wordCount: s.wordCount,
       wpm: s.wpm,
+      wpmHistory: s.wpmHistory,
     }))
   );
   const { seconds, wordGoal, timerDuration, sessionStartWords, sessionStartSeconds, status } = useTimerStore(
@@ -128,15 +174,10 @@ export function MobileWriteToolbar({
               )}
             </span>
             {wordGoal > 0 && (
-              <div style={{ width: '80%', height: 2, borderRadius: 2, background: 'var(--border-light)', marginTop: 3 }}>
-                <div style={{
-                  height: '100%',
-                  borderRadius: 2,
-                  background: 'var(--brand-primary)',
-                  width: `${Math.min(100, Math.round(sessionWords / wordGoal * 100))}%`,
-                  transition: 'width 0.3s',
-                }} />
-              </div>
+              <DottedProgress
+                pct={sessionWords / wordGoal}
+                color={getWpmHex(wpm)}
+              />
             )}
             <span style={{ fontSize: 9, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '.06em', marginTop: wordGoal > 0 ? 1 : 3 }}>
               {t('header_sessionWords')}
@@ -174,13 +215,17 @@ export function MobileWriteToolbar({
               <div style={{
                 width: 7, height: 7, borderRadius: '50%',
                 background: getWpmHex(wpm),
-                transition: 'background 0.5s',
+                transition: 'background 0.5s, box-shadow 0.5s',
                 flexShrink: 0,
+                boxShadow: status === 'writing' && wpm > 0
+                  ? `0 0 8px ${getWpmHex(wpm)}`
+                  : 'none',
               }} />
               <span style={{ fontSize: 17, fontWeight: 500, color: 'var(--text-main)' }}>
                 {wpm}
               </span>
             </div>
+            <MiniSpark history={wpmHistory} color={getWpmHex(wpm)} />
             <span style={{ fontSize: 9, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '.06em', marginTop: 3 }}>
               {t('header_wpm')}
             </span>

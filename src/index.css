@@ -67,10 +67,11 @@
     --flow-pulse-color: #A583E8;
   }
 
-  .theme-amethyst body {
-    background-color: var(--bg-base);
-    color: var(--text-main);
-  }
+.theme-amethyst body {
+  background: linear-gradient(to bottom, #0E0A18 0%, #130D24 60%, #1a1030 100%);
+  background-attachment: fixed;
+  color: var(--text-main);
+}
 
   /* ─── MODERN (Обсидиановый черный — монохромный люкс) ─── */
   .theme-modern {
@@ -89,10 +90,11 @@
     --flow-pulse-color: #FAFAFA;
   }
 
-  .theme-modern body {
-    background-color: var(--bg-base);
-    color: var(--text-main);
-  }
+.theme-modern body {
+  background: linear-gradient(to bottom, #050506 0%, #09090d 60%, #0d0b14 100%);
+  background-attachment: fixed;
+  color: var(--text-main);
+}
 
   /* ─── NOTION (Теплый алебастр — японский бумажный минимализм) ─── */
   .theme-notion {
@@ -222,6 +224,20 @@
   .gap-s-sm { gap: var(--sp-sm); }
   .gap-s-md { gap: var(--sp-md); }
   .gap-s-lg { gap: var(--sp-lg); }
+
+.font-lora, [style*="Lora"] {
+  text-wrap: pretty;
+  hyphens: auto;
+}
+
+@keyframes lighthouseWave {
+  0%   { box-shadow: 0 0 0 0 rgba(165, 131, 232, 0.35); }
+  60%  { box-shadow: 0 0 0 28px rgba(165, 131, 232, 0); }
+  100% { box-shadow: 0 0 0 28px rgba(165, 131, 232, 0); }
+}
+.lighthouse-pulse {
+  animation: lighthouseWave 1.2s ease-out forwards;
+}
 
 textarea {
   caret-color: color-mix(in srgb, var(--flow-pulse-color, rgba(255,255,255,0.9)) 70%, var(--text-main));

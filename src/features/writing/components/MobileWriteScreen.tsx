@@ -12,6 +12,7 @@ import { MobileGoalSheet } from './MobileGoalSheet';
 import { getFontStack } from '../utils/fontStack';
 import { KeystrokeTracker } from '../utils/keystrokeTracker';
 import { ConnectionStatusBanner } from './ConnectionStatusBanner';
+import { getWpmHex } from '../utils/wpmColors';
 
 interface MobileWriteScreenProps {
   onPlay: () => void;
@@ -26,25 +27,29 @@ export function MobileWriteScreen({
   onPlay, onPause, onStop, onNew, saveStatus, keystrokeTrackerRef
 }: MobileWriteScreenProps) {
   const { t } = useLanguage();
-  const { content, setContent, title, setTitle } = useContentStore(
+  const { content, setContent, title, setTitle, wordCount, wpm } = useContentStore(
     useShallow(s => ({
       content: s.content,
       setContent: s.setContent,
       title: s.title,
       setTitle: s.setTitle,
+      wordCount: s.wordCount,
+      wpm: s.wpm,
     }))
   );
-  const { status, seconds, timerDuration, sessionStartSeconds } = useTimerStore(
+  const { status, seconds, timerDuration, sessionStartSeconds, sessionStartWords } = useTimerStore(
     useShallow(s => ({
       status: s.status,
       seconds: s.seconds,
       timerDuration: s.timerDuration,
       sessionStartSeconds: s.sessionStartSeconds,
+      sessionStartWords: s.sessionStartWords,
     }))
   );
   const { fontFamily, fontSize, isZenActive, zenModeEnabled, streamMode, toggleStreamMode } = useWritingSettings();
 
   const sessionSeconds = Math.max(0, seconds - sessionStartSeconds);
+  const sessionWords = Math.max(0, wordCount - sessionStartWords);
   const timeRemaining = timerDuration > 0
     ? Math.max(0, timerDuration - sessionSeconds)
     : sessionSeconds;
@@ -71,6 +76,7 @@ export function MobileWriteScreen({
         e.preventDefault();
       }
     }
+    resetIdleTimer();
   };
 
   const handleBeforeInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
@@ -101,15 +107,44 @@ export function MobileWriteScreen({
     if (status === 'writing') {
       intensityRef.current = Math.min(1, intensityRef.current + 0.2);
     }
+    resetIdleTimer();
   };
 
   const [focusMode, setFocusMode] = useState(false);
   const [showGoalSheet, setShowGoalSheet] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [lighthouseActive, setLighthouseActive] = useState(false);
+
+  const resetIdleTimer = () => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    setLighthouseActive(false);
+    if (status === 'writing') {
+      idleTimerRef.current = setTimeout(() => {
+        setLighthouseActive(true);
+        setTimeout(() => setLighthouseActive(false), 1500);
+      }, 5000);
+    }
+  };
+
+  useEffect(() => {
+    return () => { if (idleTimerRef.current) clearTimeout(idleTimerRef.current); };
+  }, []);
   const swipeTouchStartY = useRef<number>(0);
   const swipeTouchStartX = useRef<number>(0);
 
   const [keyboardHeight, setKeyboardHeight] = useState(120);
   const [showSwipeHint, setShowSwipeHint] = useState(false);
+  const prevMilestoneRef = useRef(0);
+
+  useEffect(() => {
+    const sessionWords = wordCount - sessionStartWords;
+    const milestone = Math.floor(sessionWords / 100);
+    if (milestone > prevMilestoneRef.current && milestone > 0) {
+      prevMilestoneRef.current = milestone;
+      navigator.vibrate?.(12);
+    }
+  }, [wordCount, sessionStartWords]);
 
   useEffect(() => {
     const hintShown = localStorage.getItem('focus_swipe_hint_shown');
@@ -253,6 +288,7 @@ export function MobileWriteScreen({
         onTouchEnd={handleEditorTouchEnd}
       >
         <textarea
+          ref={textareaRef}
           value={content}
           onChange={e => { setContent(e.target.value); handleType(); }}
           onKeyDown={handleKeyDown}
@@ -263,6 +299,7 @@ export function MobileWriteScreen({
           placeholder={t('writing_placeholder')}
           autoFocus
           inputMode="text"
+          className={lighthouseActive ? 'lighthouse-pulse' : ''}
           style={{
             width: '100%',
             height: '100%',
@@ -301,6 +338,39 @@ export function MobileWriteScreen({
           />
         </div>
       </div>
+
+      {keyboardHeight > 130 && !showZen && (
+        <div style={{
+          position: 'absolute',
+          left: 0, right: 0,
+          bottom: keyboardHeight,
+          height: 28,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 16,
+          background: 'rgba(14, 10, 24, 0.85)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          borderTop: '1px solid rgba(165, 131, 232, 0.08)',
+          zIndex: 35,
+          paddingInline: 16,
+        }}>
+          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'rgba(240,235,250,0.6)', fontVariantNumeric: 'tabular-nums' }}>
+            {sessionWords} {t('home_words_short')}
+          </span>
+          <span style={{ width: 1, height: 12, background: 'rgba(165,131,232,0.2)' }} />
+          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'rgba(240,235,250,0.6)', fontVariantNumeric: 'tabular-nums' }}>
+            {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
+          </span>
+          <span style={{ width: 1, height: 12, background: 'rgba(165,131,232,0.2)' }} />
+          <span style={{
+            width: 6, height: 6, borderRadius: '50%',
+            background: getWpmHex(wpm),
+            boxShadow: status === 'writing' && wpm > 0 ? `0 0 6px ${getWpmHex(wpm)}` : 'none',
+          }} />
+        </div>
+      )}
 
       <AnimatePresence>
         {!showZen && (

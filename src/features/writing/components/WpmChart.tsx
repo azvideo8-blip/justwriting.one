@@ -71,15 +71,44 @@ export function WpmChart({ data, avgWpm, height = 72 }: WpmChartProps) {
           transition={{ duration: 1.2, ease: 'easeOut', delay: 0.1 }}
         />
         {peakPoint && (
-          <motion.circle
-            cx={peakPoint.x}
-            cy={peakPoint.y}
-            r="3"
-            fill="var(--flow-pulse-color)"
-            initial={reducedMotion ? {} : { scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 15, delay: 1.1 }}
-          />
+          <>
+            <motion.circle
+              cx={peakPoint.x}
+              cy={peakPoint.y}
+              r="3"
+              fill="var(--flow-pulse-color)"
+              initial={reducedMotion ? {} : { scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 15, delay: 1.1 }}
+            />
+            <motion.g
+              initial={reducedMotion ? {} : { opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 1.3 }}
+            >
+              <rect
+                x={peakPoint.x > width * 0.75 ? peakPoint.x - 46 : peakPoint.x + 6}
+                y={peakPoint.y - 22}
+                width={40}
+                height={18}
+                rx={4}
+                fill="var(--surface-elevated)"
+                stroke="var(--border-light)"
+                strokeWidth={0.5}
+              />
+              <text
+                x={peakPoint.x > width * 0.75 ? peakPoint.x - 26 : peakPoint.x + 26}
+                y={peakPoint.y - 9}
+                textAnchor="middle"
+                fontSize="9"
+                fontFamily="JetBrains Mono, monospace"
+                fill="var(--flow-pulse-color)"
+                fontWeight="500"
+              >
+                {peakWpm} wpm
+              </text>
+            </motion.g>
+          </>
         )}
       </svg>
     </div>

@@ -10,8 +10,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuthStatus();
   const userId = user?.uid ?? getOrCreateGuestId();
 
-  const openSettings = (tab?: 'editor' | 'app' | 'account') => {
-    setDefaultTab(tab);
+  const openSettings = (tab?: 'editor' | 'app' | 'account' | unknown) => {
+    const validTab = (tab === 'editor' || tab === 'app' || tab === 'account') ? tab : undefined;
+    setDefaultTab(validTab);
     setSettingsOpen(true);
   };
 

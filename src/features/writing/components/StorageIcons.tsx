@@ -185,7 +185,12 @@ export function StorageIcons({
           !uploading && !isUnsynced && !doc.hasCloud && !canUpload && "text-text-main/20 cursor-default"
         )}
       >
-        {uploading ? <Loader2 size={14} className="animate-spin" /> : <Cloud size={14} />}
+        {uploading ? <Loader2 size={14} className="animate-spin" /> : <Cloud size={14} style={{
+          ...(isUnsynced && !uploading ? {
+            filter: 'drop-shadow(0 0 6px var(--accent-warning))',
+            transition: 'filter 0.4s ease, color 0.4s ease',
+          } : {}),
+        }} />}
       </button>
 
       <AnimatePresence>
