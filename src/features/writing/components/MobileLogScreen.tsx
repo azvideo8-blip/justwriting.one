@@ -84,7 +84,7 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
       paddingTop: 0,
     }}>
 
-      <MobilePageHeader title={t('lifelog_tab_log')} />
+      <MobilePageHeader title={t('lifelog_tab_log')} titleFont="serif" />
 
       <div style={{ padding: '16px 20px 0' }}>
 

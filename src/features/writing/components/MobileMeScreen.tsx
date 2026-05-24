@@ -208,6 +208,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
       {/* Top Header with title and Settings gear icon */}
       <MobilePageHeader
         title={t('nav_me')}
+        titleFont="sans"
         right={
           <button
             onClick={() => openSettings()}

@@ -69,6 +69,7 @@ export function SessionCard({
 
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
+  const swipeOffsetRef = useRef(0); // always up-to-date, avoids stale closure in handleTouchEnd
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (isEditing) return;
@@ -93,6 +94,7 @@ export function SessionCard({
     }
 
     if (diff < 0) {
+      swipeOffsetRef.current = diff;
       setSwipeOffset(diff);
     }
   };
@@ -103,9 +105,12 @@ export function SessionCard({
       longPressTimer.current = null;
     }
     if (touchStart === null) return;
-    if (swipeOffset < -150) {
+    // Use ref to avoid stale closure — check before resetting
+    if (swipeOffsetRef.current < -150) {
+      triggerVibration();
       setShowDeleteConfirm(true);
     }
+    swipeOffsetRef.current = 0;
     setTouchStart(null);
     setSwipeOffset(0);
   };
