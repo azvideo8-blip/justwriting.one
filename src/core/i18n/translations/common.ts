@@ -105,4 +105,6 @@ export const commonTranslations: Translations = {
 
   settings_data_section: { ru: 'Данные', en: 'Data' },
   common_version: { ru: 'Версия', en: 'Version' },
+  sidebar_pin:   { ru: 'Закрепить', en: 'Pin sidebar' },
+  sidebar_unpin: { ru: 'Открепить', en: 'Unpin sidebar' },
 };

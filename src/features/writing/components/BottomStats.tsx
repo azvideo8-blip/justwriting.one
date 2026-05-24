@@ -110,7 +110,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             {wordCount.toLocaleString()}
           </span>
           {!compact && (
-            <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1 hidden sm:block">
+            <span className="text-[10px] text-text-main/55 tracking-wide mt-1 hidden sm:block">
               {t('header_totalWords')}
             </span>
           )}
@@ -125,7 +125,8 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         <div
           ref={wordRef}
           onClick={() => { setWordPopupOpen(!wordPopupOpen); setTimePopupOpen(false); }}
-          className={cn("flex flex-col cursor-pointer",
+          className={cn(
+            "group flex flex-col cursor-pointer rounded-xl transition-colors hover:bg-text-main/[0.04]",
             compact ? "pr-3 mr-3 px-2 py-1" : "pr-5 mr-5 px-3 py-1.5"
           )}
         >
@@ -137,6 +138,12 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
               <span className={cn("text-xs", wordDone ? "text-accent-success/60" : "text-text-main/30")}>
                 / {wordGoal}
               </span>
+            )}
+            {!compact && (
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
+                className="text-text-main/20 group-hover:text-text-main/40 transition-colors self-center mb-0.5">
+                <path d="M5 2v4M3 4l2 2 2-2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+              </svg>
             )}
           </div>
           {!compact && (
@@ -150,7 +157,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             </div>
           )}
           {!compact && (
-            <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1 hidden sm:block">
+            <span className="text-[10px] text-text-main/55 tracking-wide mt-1 hidden sm:block">
               {t('header_sessionWords')}
             </span>
           )}
@@ -165,7 +172,8 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         <div
           ref={timeRef}
           onClick={() => { setTimePopupOpen(!timePopupOpen); setWordPopupOpen(false); }}
-          className={cn("flex flex-col cursor-pointer",
+          className={cn(
+            "group flex flex-col cursor-pointer rounded-xl transition-colors hover:bg-text-main/[0.04]",
             compact ? "pr-3 mr-3 px-2 py-1" : "pr-5 mr-5 px-3 py-1.5"
           )}
         >
@@ -190,7 +198,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             </div>
           )}
           {!compact && (
-            <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1 hidden sm:block">
+            <span className="text-[10px] text-text-main/55 tracking-wide mt-1 hidden sm:block">
               {timerDuration > 0
                 ? `${t('goal_time_of')} ${Math.round(timerDuration / 60)} ${t('goal_time_min')}`
                 : t('header_time')}
@@ -213,7 +221,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             <span className="text-lg font-medium text-text-main tabular-nums">{wpm}</span>
           </div>
           {!compact && (
-            <span className="text-[10px] text-text-main/40 uppercase tracking-widest mt-1 hidden sm:block">
+            <span className="text-[10px] text-text-main/55 tracking-wide mt-1 hidden sm:block">
               {t('header_wpm')}
             </span>
           )}
