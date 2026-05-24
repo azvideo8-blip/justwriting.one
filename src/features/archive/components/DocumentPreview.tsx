@@ -171,17 +171,27 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
   return (
     <motion.div
       ref={panelRef}
-      initial={{ opacity: 0, x: isMobile ? '100%' : 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: isMobile ? '100%' : 20 }}
-      transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+      initial={{ opacity: 0, x: isMobile ? 0 : 20, y: isMobile ? '100%' : 0 }}
+      animate={{ opacity: 1, x: 0, y: 0 }}
+      exit={{ opacity: 0, x: isMobile ? 0 : 20, y: isMobile ? '100%' : 0 }}
+      transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
       className="glass-panel custom-scrollbar"
       style={{
         position: 'fixed',
-        top: 0,
-        right: 0,
-        bottom: 0,
-        width: isMobile ? '100%' : width,
+        ...(isMobile ? {
+          left: 0,
+          right: 0,
+          bottom: 0,
+          top: 'auto',
+          height: '92dvh',
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+        } : {
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: width,
+        }),
         zIndex: 50,
         display: 'flex',
         flexDirection: 'column',
@@ -190,6 +200,16 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
+      {isMobile && (
+        <div style={{
+          width: 36,
+          height: 4,
+          borderRadius: 2,
+          background: 'rgba(255,255,255,0.15)',
+          margin: '10px auto 0',
+          flexShrink: 0,
+        }} />
+      )}
       {/* Drag handle (Disabled on mobile) */}
       {!isMobile && (
         <div

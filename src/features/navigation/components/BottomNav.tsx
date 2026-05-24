@@ -36,14 +36,6 @@ const ArchiveIcon = () => (
   </svg>
 );
 
-const LoginIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
-    strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
-    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-    <polyline points="10 17 15 12 10 7"/>
-    <line x1="15" y1="12" x2="3" y2="12"/>
-  </svg>
-);
 
 interface BottomNavProps {
   isAdmin: boolean;
@@ -60,9 +52,8 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
     { id: 'write' as const, path: '/',       label: t('nav_write'), icon: <PenIcon /> },
     { id: 'log' as const,  path: '/log',     label: t('lifelog_tab_log'), icon: <LogIcon /> },
     { id: 'archive' as const, path: '/archive', label: t('archive_sidebar_title'), icon: <ArchiveIcon /> },
-    ...(!isGuest ? [{ id: 'me' as const,   path: '/me',      label: t('nav_me'),    icon: <MeIcon /> } as const] : []),
+    { id: 'me' as const,   path: '/me',      label: t('nav_me'),    icon: <MeIcon /> },
     ...(isAdmin ? [{ id: 'admin' as const, path: '/admin', label: t('nav_admin'), icon: <Shield size={22} strokeWidth={1.6} /> } as const] : []),
-    ...(isGuest ? [{ id: 'login' as const, path: '', label: t('auth_sign_in'), icon: <LoginIcon />, action: openLoginModal } as const] : []),
   ];
 
   type Tab = typeof tabs[number];
@@ -75,11 +66,12 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
         // ignore
       }
     }
-    if ('action' in tab && tab.action) {
-      tab.action();
-    } else {
-      navigate(tab.path);
+    // If guest taps auth-required tab — open login modal
+    if (isGuest && (tab.id === 'archive' || tab.id === 'me' || tab.id === 'admin')) {
+      openLoginModal();
+      return;
     }
+    navigate(tab.path);
   };
 
   const isActive = (tab: Tab) => {
@@ -102,7 +94,8 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
             aria-current={active ? 'page' : undefined}
             className={cn(
               "flex flex-col items-center gap-[3px] py-1 px-2 bg-transparent border-none cursor-pointer transition-colors duration-150",
-              active ? "text-text-main font-semibold" : "text-text-main/30 hover:text-text-main/60"
+              active ? "text-text-main font-semibold" : "text-text-main/30 hover:text-text-main/60",
+              isGuest && ['archive', 'me'].includes(tab.id) ? "opacity-40" : ""
             )}
           >
             {tab.icon}
