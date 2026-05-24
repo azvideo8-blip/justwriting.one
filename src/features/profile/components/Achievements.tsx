@@ -6,7 +6,7 @@ import { Session, Achievement } from '../../../types';
 import { ACHIEVEMENTS as ACH_DATA } from '../constants/achievements';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { ProfileService } from '../services/ProfileService';
-import { calculateBestStreak } from '../../../core/utils/utils';
+import { calculateBestStreak, cn } from '../../../core/utils/utils';
 
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 
@@ -220,6 +220,24 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
       g.rarities[i] === 'legendary' && unlockedIds.has(a.id)
     ).length, 0);
 
+  const [activeAchId, setActiveAchId] = useState<string | null>(null);
+
+  const getAchievementDescription = (ach: Achievement, t: (key: string) => string) => {
+    if (ach.id.startsWith('streak_')) {
+      return `${ach.threshold} ${t('profile_streak') || 'days in a row'}`;
+    }
+    if (ach.id.startsWith('words_')) {
+      return `${ach.threshold.toLocaleString()} ${t('profile_words') || 'words'}`;
+    }
+    if (ach.id.startsWith('notes_')) {
+      return `${ach.threshold} ${t('me_stat_sessions') || 'sessions'}`;
+    }
+    if (ach.id.startsWith('duration_')) {
+      return `${ach.threshold} ${t('unit_min') || 'min'}`;
+    }
+    return '';
+  };
+
   return (
     <div style={{ padding: '24px 36px' }}>
       <h2 className="text-[18px] font-medium text-text-main mb-1">
@@ -265,42 +283,21 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
             </div>
 
             <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(6, 1fr)',
-                border: '1px solid var(--border-light)',
-                borderRadius: 12,
-                overflow: 'hidden',
-              }}
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-[1px] bg-border-light/40 border border-border-light/40 rounded-xl overflow-hidden"
             >
               {group.achievements.map((ach, i) => {
                 const unlocked = unlockedIds.has(ach.id);
                 const rarity = group.rarities[i];
-                const cols = 6;
-                const row = Math.floor(i / cols);
-                const totalRows = Math.ceil(group.achievements.length / cols);
-                const isLastRow = row === totalRows - 1;
-                const isLastCol = (i + 1) % cols === 0;
 
                 return (
                   <div
                     key={ach.id}
                     title={t(ach.title)}
-                    style={{
-                      padding: '16px 12px',
-                      borderRight: isLastCol ? 'none' : '1px solid var(--border-light)',
-                      borderBottom: isLastRow ? 'none' : '1px solid var(--border-light)',
-                      background: unlocked
-                        ? 'var(--surface-elevated)'
-                        : 'transparent',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: 8,
-                      textAlign: 'center',
-                      position: 'relative',
-                      overflow: 'hidden',
-                    }}
+                    onClick={() => setActiveAchId(activeAchId === ach.id ? null : ach.id)}
+                    className={cn(
+                      "p-4 flex flex-col items-center gap-2 text-center relative overflow-hidden transition-all cursor-pointer min-h-[110px] justify-center select-none active:bg-white/5",
+                      unlocked ? "bg-surface-elevated/40" : "bg-transparent"
+                    )}
                   >
                     {!unlocked && !reducedMotion && (
                       <div style={{
@@ -323,6 +320,8 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
                       color: unlocked ? 'var(--text-main)' : 'var(--text-subtle)',
                       lineHeight: 1.3,
                       minHeight: 28,
+                      display: 'flex',
+                      alignItems: 'center',
                     }}>
                       {t(ach.title)}
                     </div>
@@ -336,6 +335,20 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
                     }}>
                       {getRarityLabel(rarity, t)}
                     </div>
+
+                    {activeAchId === ach.id && (
+                      <div className="absolute inset-0 bg-surface-card border border-border-light flex flex-col items-center justify-center p-2 z-20 text-xs rounded-xl shadow-lg animate-in fade-in zoom-in-95 duration-100">
+                        <div className="font-semibold text-text-main text-[11px] leading-tight mb-1">
+                          {t(ach.title)}
+                        </div>
+                        <div className="text-[10px] text-text-muted leading-snug">
+                          {getAchievementDescription(ach, t)}
+                        </div>
+                        <div className="text-[9px] mt-2 uppercase font-bold tracking-wider" style={{ color: unlocked ? RARITY_COLORS[rarity] : 'var(--text-subtle)' }}>
+                          {unlocked ? t('profile_achievement_done') : t('profile_achievement_locked')}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

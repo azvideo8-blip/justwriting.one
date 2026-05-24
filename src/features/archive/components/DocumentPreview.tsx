@@ -37,7 +37,10 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
   const [newLabelName, setNewLabelName] = useState('');
   const [newLabelColor, setNewLabelColor] = useState(LABEL_PRESET_COLORS[0]);
 
+  const isMobile = window.innerWidth <= 768;
+
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (isMobile) return;
     isDragging.current = true;
     startX.current = e.clientX;
     startWidth.current = width;
@@ -47,11 +50,13 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
   };
 
   useEffect(() => {
+    if (isMobile) return;
     const saved = localStorage.getItem('preview_width');
     if (saved) setTimeout(() => setWidth(Math.max(380, Math.min(window.innerWidth * 0.6, Number(saved)))), 0);
-  }, []);
+  }, [isMobile]);
 
   useEffect(() => {
+    if (isMobile) return;
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging.current) return;
       const delta = startX.current - e.clientX;
@@ -76,7 +81,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, []);
+  }, [isMobile]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -99,6 +104,35 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [labelPopupOpen]);
+
+  // Touch gesture swipe-to-close handlers
+  const touchStartX = useRef(0);
+  const touchCurrentX = useRef(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isMobile) return;
+    touchStartX.current = e.touches[0].clientX;
+    touchCurrentX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isMobile) return;
+    touchCurrentX.current = e.touches[0].clientX;
+    const deltaX = touchCurrentX.current - touchStartX.current;
+    if (deltaX > 0 && panelRef.current) {
+      panelRef.current.style.transform = `translateX(${deltaX}px)`;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!isMobile) return;
+    const deltaX = touchCurrentX.current - touchStartX.current;
+    if (deltaX > 120) {
+      onClose();
+    } else if (panelRef.current) {
+      panelRef.current.style.transform = '';
+    }
+  };
 
   if (!session) return null;
 
@@ -135,9 +169,9 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
   return (
     <motion.div
       ref={panelRef}
-      initial={{ opacity: 0, x: 20 }}
+      initial={{ opacity: 0, x: isMobile ? '100%' : 20 }}
       animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
+      exit={{ opacity: 0, x: isMobile ? '100%' : 20 }}
       transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
       className="glass-panel custom-scrollbar"
       style={{
@@ -145,29 +179,34 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
         top: 0,
         right: 0,
         bottom: 0,
-        width,
+        width: isMobile ? '100%' : width,
         zIndex: 50,
         display: 'flex',
         flexDirection: 'column',
       }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
-      {/* Drag handle */}
-      <div
-        onMouseDown={handleMouseDown}
-        style={{
-          position: 'absolute',
-          left: 0, top: 0, bottom: 0,
-          width: 6,
-          cursor: 'ew-resize',
-          zIndex: 10,
-        }}
-        className="group"
-      >
-        <div className="absolute inset-y-0 left-0 w-[2px] bg-transparent group-hover:bg-text-main/20 transition-colors" />
-      </div>
+      {/* Drag handle (Disabled on mobile) */}
+      {!isMobile && (
+        <div
+          onMouseDown={handleMouseDown}
+          style={{
+            position: 'absolute',
+            left: 0, top: 0, bottom: 0,
+            width: 6,
+            cursor: 'ew-resize',
+            zIndex: 10,
+          }}
+          className="group"
+        >
+          <div className="absolute inset-y-0 left-0 w-[2px] bg-transparent group-hover:bg-text-main/20 transition-colors" />
+        </div>
+      )}
 
       {/* Header */}
-      <div className="flex items-start justify-between p-6 pb-4 border-b border-border-subtle">
+      <div className="flex items-start justify-between p-6 pb-4 border-b border-border-subtle pt-8 md:pt-6">
         <div className="flex-1 min-w-0 pr-4">
           <h2 className="text-xl font-medium text-text-main leading-snug mb-1">
             {session.title || t('session_untitled')}
@@ -280,9 +319,9 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
         </div>
         <button
           onClick={onClose}
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-all shrink-0"
+          className="w-10 h-10 md:w-8 md:h-8 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-all shrink-0 cursor-pointer"
         >
-          <X size={16} />
+          <X size={18} className="md:w-4 md:h-4" />
         </button>
       </div>
 
@@ -308,10 +347,10 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
       </div>
 
       {/* Actions */}
-      <div className="p-5 border-t border-border-subtle flex gap-2">
+      <div className="p-5 border-t border-border-subtle flex gap-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
         <button
           onClick={() => onContinue(session)}
-          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-text-main text-surface-base text-sm font-medium hover:opacity-90 transition-opacity"
+          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-text-main text-surface-base text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
         >
           <ArrowRight size={14} />
           {t('archive_continue_writing')}
@@ -320,7 +359,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
         <div className="relative" ref={exportRef}>
           <button
             onClick={() => setExportOpen(!exportOpen)}
-            className="flex items-center gap-1.5 px-3 h-10 rounded-xl bg-surface-card border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-surface-elevated transition-all text-sm"
+            className="flex items-center gap-1.5 px-3.5 h-11 rounded-xl bg-surface-card border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-surface-elevated transition-all text-sm cursor-pointer"
             title={t('archive_export')}
           >
             <Download size={14} />
@@ -343,7 +382,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                       setExportOpen(false);
                       await fmt.action();
                     }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors"
+                    className="w-full text-left px-4 py-2.5 text-sm text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors cursor-pointer"
                   >
                     {fmt.label}
                   </button>

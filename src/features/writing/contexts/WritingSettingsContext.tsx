@@ -71,13 +71,20 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
 
     guardRef.current = false;
     let lastMoveTime = 0;
-    const showUI = (e: MouseEvent) => {
+    const showUI = (e: MouseEvent | TouchEvent) => {
       if (guardRef.current) return;
       const now = Date.now();
       if (now - lastMoveTime < 200) return;
       lastMoveTime = now;
-      if (e.clientX === lastMousePos.current.x && e.clientY === lastMousePos.current.y) return;
-      lastMousePos.current = { x: e.clientX, y: e.clientY };
+
+      const clientX = 'touches' in e ? e.touches[0]?.clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0]?.clientY : e.clientY;
+
+      if (clientX !== undefined && clientY !== undefined) {
+        if (clientX === lastMousePos.current.x && clientY === lastMousePos.current.y) return;
+        lastMousePos.current = { x: clientX, y: clientY };
+      }
+
       setIsZenActive(false);
       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
       zenTimerRef.current = setTimeout(() => setIsZenActive(true), 3000);
@@ -90,12 +97,14 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
 
     window.addEventListener('mousemove', showUI);
     window.addEventListener('keydown', hideUI);
+    window.addEventListener('touchstart', showUI, { passive: true });
 
     const timer = setTimeout(() => setIsZenActive(true), 300);
 
     return () => {
       window.removeEventListener('mousemove', showUI);
       window.removeEventListener('keydown', hideUI);
+      window.removeEventListener('touchstart', showUI);
       clearTimeout(timer);
       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
     };

@@ -67,18 +67,20 @@ export function ArchiveTagBar({
               #{tag}
             </motion.button>
             {showControls && (
-              <span className="absolute -top-1.5 -right-1.5 opacity-0 group-hover/tag:opacity-100 transition-opacity flex gap-0.5">
+              <span className="hidden md:flex absolute -top-1.5 -right-1.5 opacity-0 group-hover/tag:opacity-100 transition-opacity gap-0.5">
                 <button
                   onClick={e => { e.stopPropagation(); onStartRename(tag); }}
-                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-text-main/60"
+                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/50 hover:text-text-main"
+                  title="Rename"
                 >
-                  <Pencil size={7} />
+                  <Pencil className="w-1.5 h-1.5" />
                 </button>
                 <button
                   onClick={e => { e.stopPropagation(); onDeleteTag(tag); }}
-                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/40 hover:text-red-400"
+                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/50 hover:text-red-400"
+                  title="Delete"
                 >
-                  <X size={7} />
+                  <X className="w-1.5 h-1.5" />
                 </button>
               </span>
             )}

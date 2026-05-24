@@ -4,6 +4,7 @@ import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { buildLocalDraft, persistDraft } from '../utils/draftPersistence';
 import { reportError } from '../../../core/errors/reportError';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 
 export function useDraftAutosave(
   user: User | null,
@@ -24,6 +25,7 @@ export function useDraftAutosave(
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const draftDataRef = useRef(draftData);
   const isMountedRef = useRef(true);
+  const { layoutMode } = useLayoutMode();
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -112,6 +114,7 @@ export function useDraftAutosave(
   useEffect(() => {
     const currentStatus = useTimerStore.getState().status;
     if ((currentStatus === 'writing' || currentStatus === 'paused') && user) {
+      const debounceDelay = layoutMode === 'mobile' ? 5000 : 500;
       const timeout = setTimeout(async () => {
         const latestStatus = useTimerStore.getState().status;
         if (latestStatus !== 'writing' && latestStatus !== 'paused') return;
@@ -129,11 +132,11 @@ export function useDraftAutosave(
           }
           if (isMountedRef.current) setSaveStatus('error');
         }
-      }, 500);
+      }, debounceDelay);
       
       return () => clearTimeout(timeout);
     }
-  }, [draftData.status, draftData.content, draftData.title, draftData.wordCount, user, markSaved]);
+  }, [draftData.status, draftData.content, draftData.title, draftData.wordCount, user, markSaved, layoutMode]);
 
   return { saveStatus, lastSavedAt };
 }

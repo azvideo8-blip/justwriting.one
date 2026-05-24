@@ -95,16 +95,33 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
   const canApply = result && lastAction && !applied && ['shorten', 'summarize', 'continue'].includes(lastAction);
   const canApplyTags = result && lastAction === 'tags' && !applied;
 
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 20 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-          className="absolute top-2 right-2 bottom-2 w-[340px] z-50 flex flex-col rounded-2xl border border-border-subtle/40 bg-surface-card/95 backdrop-blur-2xl shadow-2xl overflow-hidden"
-        >
+        <>
+          {isMobile && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onClose}
+              className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm"
+            />
+          )}
+          <motion.div
+            initial={isMobile ? { y: '100%' } : { opacity: 0, x: 20 }}
+            animate={isMobile ? { y: 0 } : { opacity: 1, x: 0 }}
+            exit={isMobile ? { y: '100%' } : { opacity: 0, x: 20 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+            className="fixed md:absolute bottom-0 md:bottom-2 left-0 md:left-auto right-0 md:right-2 top-auto md:top-2 h-[80vh] md:h-[calc(100%-16px)] w-full md:w-[340px] z-[100] md:z-50 flex flex-col rounded-t-[28px] md:rounded-2xl border-t md:border border-border-subtle/40 bg-surface-card/95 backdrop-blur-2xl shadow-2xl overflow-hidden"
+          >
+            {isMobile && (
+              <div className="flex justify-center py-2 shrink-0">
+                <div className="w-12 h-1.5 rounded-full bg-text-main/10" />
+              </div>
+            )}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle/40">
             <div className="flex items-center gap-2 text-text-main/70">
               <Sparkles size={16} className="text-brand-soft" />
@@ -198,7 +215,8 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
               <div className="text-xs text-text-main/30 text-center">{t('ai_no_content')}</div>
             </div>
           )}
-        </motion.div>
+          </motion.div>
+        </>
       )}
     </AnimatePresence>
   );

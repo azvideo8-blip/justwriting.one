@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo, lazy, Suspense } from 'react';
+import { useState, useRef, useEffect, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { UserProfile } from '../../../types';
@@ -14,11 +14,13 @@ import { ArchiveTagBar } from '../components/ArchiveTagBar';
 import { ArchiveLabelBar } from '../components/ArchiveLabelBar';
 import { ArchiveNoteList } from '../components/ArchiveNoteList';
 import { ArchiveConfirmModals } from '../components/ArchiveConfirmModals';
+import { MobileArchiveSidebarSheet } from '../components/MobileArchiveSidebarSheet';
 import { useArchiveData } from '../hooks/useArchiveData';
 import { useProfileLabels } from '../../profile/hooks/useProfileLabels';
 import { useTagEditor } from '../hooks/useTagEditor';
 import { useLabelEditor } from '../hooks/useLabelEditor';
 import { useArchiveGrouping } from '../hooks/useArchiveGrouping';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 
 const DocumentPreview = lazy(() =>
   import('../components/DocumentPreview').then(m => ({ default: m.DocumentPreview }))
@@ -37,6 +39,9 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const navigate = useNavigate();
   const userId = useUserId(user);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const { layoutMode } = useLayoutMode();
+  const isMobile = layoutMode === 'mobile';
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -125,29 +130,61 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               viewMode={viewMode} onViewModeChange={setViewMode}
               listLabel={t('archive_list')} gridLabel={t('archive_grid')}
               sortMode={sortMode} onSortModeChange={setSortMode} sortLabels={sortLabels}
+              onFilterClick={() => setIsFilterOpen(true)}
             />
-            <ArchiveTagBar
-              allTags={allTags}
-              selectedTags={selectedTags}
-              onToggleTag={tag => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
-              renamingTag={tagEditor.renamingTag} renameTagValue={tagEditor.renameTagValue}
-              setRenameTagValue={tagEditor.setRenameTagValue}
-              onStartRename={tagEditor.startRenameTag} onRenameSubmit={tagEditor.handleRenameTag}
-              onRenameCancel={() => tagEditor.setRenamingTag(null)} onDeleteTag={tagEditor.setTagDeleteConfirm}
-              onResetTags={() => setSelectedTags([])} showControls={!!user} t={t}
-            />
-            <ArchiveLabelBar
-              labels={profileLabels} selectedLabels={selectedLabels} onToggleLabel={toggleLabel}
-              addingLabel={labelEditor.addingLabel} setAddingLabel={labelEditor.setAddingLabel}
-              newLabelName={labelEditor.newLabelName} setNewLabelName={labelEditor.setNewLabelName}
-              newLabelColor={labelEditor.newLabelColor} setNewLabelColor={labelEditor.setNewLabelColor}
-              onAddLabel={labelEditor.handleAddLabel}
-              editingLabelId={labelEditor.editingLabelId} setEditingLabelId={labelEditor.setEditingLabelId}
-              editLabelName={labelEditor.editLabelName} setEditLabelName={labelEditor.setEditLabelName}
-              editLabelColor={labelEditor.editLabelColor} setEditLabelColor={labelEditor.setEditLabelColor}
-              onUpdateLabel={labelEditor.handleUpdateLabel} onDeleteLabel={labelEditor.setLabelDeleteConfirm}
-              showControls={!!user} t={t}
-            />
+            {isMobile ? (
+              (allTags.length > 0 || profileLabels.length > 0) && (
+                <div className="bg-surface-card/25 backdrop-blur-md border border-white/[0.04] rounded-2xl px-4 py-1 shadow-md flex flex-col mt-4 [&>div:last-child]:!border-b-0">
+                  <ArchiveTagBar
+                    allTags={allTags}
+                    selectedTags={selectedTags}
+                    onToggleTag={tag => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
+                    renamingTag={tagEditor.renamingTag} renameTagValue={tagEditor.renameTagValue}
+                    setRenameTagValue={tagEditor.setRenameTagValue}
+                    onStartRename={tagEditor.startRenameTag} onRenameSubmit={tagEditor.handleRenameTag}
+                    onRenameCancel={() => tagEditor.setRenamingTag(null)} onDeleteTag={tagEditor.setTagDeleteConfirm}
+                    onResetTags={() => setSelectedTags([])} showControls={false} t={t}
+                  />
+                  <ArchiveLabelBar
+                    labels={profileLabels} selectedLabels={selectedLabels} onToggleLabel={toggleLabel}
+                    addingLabel={labelEditor.addingLabel} setAddingLabel={labelEditor.setAddingLabel}
+                    newLabelName={labelEditor.newLabelName} setNewLabelName={labelEditor.setNewLabelName}
+                    newLabelColor={labelEditor.newLabelColor} setNewLabelColor={labelEditor.setNewLabelColor}
+                    onAddLabel={labelEditor.handleAddLabel}
+                    editingLabelId={labelEditor.editingLabelId} setEditingLabelId={labelEditor.setEditingLabelId}
+                    editLabelName={labelEditor.editLabelName} setEditLabelName={labelEditor.setEditLabelName}
+                    editLabelColor={labelEditor.editLabelColor} setEditLabelColor={labelEditor.setEditLabelColor}
+                    onUpdateLabel={labelEditor.handleUpdateLabel} onDeleteLabel={labelEditor.setLabelDeleteConfirm}
+                    showControls={false} t={t}
+                  />
+                </div>
+              )
+            ) : (
+              <>
+                <ArchiveTagBar
+                  allTags={allTags}
+                  selectedTags={selectedTags}
+                  onToggleTag={tag => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
+                  renamingTag={tagEditor.renamingTag} renameTagValue={tagEditor.renameTagValue}
+                  setRenameTagValue={tagEditor.setRenameTagValue}
+                  onStartRename={tagEditor.startRenameTag} onRenameSubmit={tagEditor.handleRenameTag}
+                  onRenameCancel={() => tagEditor.setRenamingTag(null)} onDeleteTag={tagEditor.setTagDeleteConfirm}
+                  onResetTags={() => setSelectedTags([])} showControls={!!user} t={t}
+                />
+                <ArchiveLabelBar
+                  labels={profileLabels} selectedLabels={selectedLabels} onToggleLabel={toggleLabel}
+                  addingLabel={labelEditor.addingLabel} setAddingLabel={labelEditor.setAddingLabel}
+                  newLabelName={labelEditor.newLabelName} setNewLabelName={labelEditor.setNewLabelName}
+                  newLabelColor={labelEditor.newLabelColor} setNewLabelColor={labelEditor.setNewLabelColor}
+                  onAddLabel={labelEditor.handleAddLabel}
+                  editingLabelId={labelEditor.editingLabelId} setEditingLabelId={labelEditor.setEditingLabelId}
+                  editLabelName={labelEditor.editLabelName} setEditLabelName={labelEditor.setEditLabelName}
+                  editLabelColor={labelEditor.editLabelColor} setEditLabelColor={labelEditor.setEditLabelColor}
+                  onUpdateLabel={labelEditor.handleUpdateLabel} onDeleteLabel={labelEditor.setLabelDeleteConfirm}
+                  showControls={!!user} t={t}
+                />
+              </>
+            )}
             {cloudLoadFailed && (
               <div className="px-4 py-3 rounded-2xl text-sm bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-between mt-4">
                 <span>{t('archive_cloud_load_error')}</span>
@@ -196,6 +233,26 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
             onDeleteConfirm={async () => { await handleDeleteSession(deleteConfirm!); setDeleteConfirm(null); }}
             onDeleteCancel={() => setDeleteConfirm(null)} t={t}
           />
+          <AnimatePresence>
+            {isFilterOpen && (
+              <MobileArchiveSidebarSheet
+                isOpen={isFilterOpen}
+                onClose={() => setIsFilterOpen(false)}
+                filteredByFilters={filteredByFilters}
+                streakDays={filteredStreakDays}
+                statsTitle={statsTitle}
+                onReset={hasActiveFilter ? resetStatsFilter : undefined}
+                sessions={sessions}
+                sessionsByDate={sessionsByDate}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+                onSelectMonth={setSelectedMonth}
+                wordCloud={wordCloud}
+                maxCount={maxCount}
+                onWordClick={(w) => { setSearchQuery(w); setIsFilterOpen(false); }}
+              />
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
     </AdaptiveContainer>

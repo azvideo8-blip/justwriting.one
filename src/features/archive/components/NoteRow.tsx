@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { ExternalLink, Trash2, Pencil } from 'lucide-react';
+import { ExternalLink, Trash2, Pencil, MoreVertical } from 'lucide-react';
 import { getSessionDate, cn } from '../../../core/utils/utils';
 import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { InlineTags } from './InlineTags';
@@ -8,6 +8,8 @@ import { StorageIcons } from '../../writing/components/StorageIcons';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { highlightText } from '../../../shared/utils/highlightText';
+import { MobileNoteActionsSheet } from './MobileNoteActionsSheet';
+import { AnimatePresence } from 'motion/react';
 
 interface NoteRowProps {
   session: ArchiveSession;
@@ -27,6 +29,7 @@ interface NoteRowProps {
 }
 
 function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels, allTags, searchQuery }: NoteRowProps) {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(session.title || '');
   const [editingDateTime, setEditingDateTime] = useState(false);
@@ -36,6 +39,37 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
   const labelPopupRef = React.useRef<HTMLDivElement>(null);
   const [labelPopupOpen, setLabelPopupOpen] = useState(false);
   const [labelOpenUp, setLabelOpenUp] = useState(false);
+  const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
+  const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    longPressTimerRef.current = setTimeout(() => {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try {
+          navigator.vibrate(60);
+        } catch {
+          // ignore
+        }
+      }
+      setTitleDraft(session.title || '');
+      setEditingTitle(true);
+    }, 600);
+  };
+
+  const handleTouchMove = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
 
   const date = getSessionDate(session);
   const dateLabel = date
@@ -186,6 +220,9 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
             className="text-[15px] font-medium text-text-main leading-snug truncate hover:text-brand-soft transition-colors"
             onClick={e => e.stopPropagation()}
             onDoubleClick={e => { e.stopPropagation(); setTitleDraft(session.title || ''); setEditingTitle(true); }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
             title={t('archive_edit_title_hint')}
           >
             {highlightText(session.title || t('session_untitled'), searchQuery ?? '')}
@@ -204,72 +241,102 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
       </div>
 
       <div className="flex items-center gap-1 shrink-0 pt-1" onClick={e => e.stopPropagation()}>
-        <div className="relative">
-          <button
-            onClick={e => {
-              e.stopPropagation();
-              e.preventDefault();
-              const rect = e.currentTarget.getBoundingClientRect();
-              const spaceBelow = window.innerHeight - rect.bottom;
-              setLabelOpenUp(spaceBelow < 220);
-              setLabelPopupOpen(!labelPopupOpen);
-            }}
-            className={cn("w-7 h-7 flex items-center justify-center rounded-lg transition-all", label ? "" : "hover:bg-text-main/5")}
-            title={label?.name ?? t('archive_assign_label')}
-          >
-            <div className={cn("w-4 h-4 rounded-full border-2 transition-all", label ? "border-transparent" : "border-border-subtle group-hover:border-text-main/20")}
-              style={{ background: label?.color ?? 'transparent' }}
-            />
-          </button>
-          {labelPopupOpen && labels && labels.length > 0 && (
-            <div
-              ref={labelPopupRef}
-              className={cn(
-                "absolute right-0 z-50 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[150px] backdrop-blur-xl",
-                labelOpenUp ? "bottom-full mb-1" : "top-full mt-1"
-              )}
-              style={{ background: 'color-mix(in srgb, var(--bg-base) 92%, var(--brand-primary) 8%)' }}
-              onClick={e => e.stopPropagation()}
+        {isMobile ? (
+          <>
+            <button
+              onClick={e => { e.stopPropagation(); setActionsSheetOpen(true); }}
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-text-main/60 hover:bg-text-main/5 active:bg-text-main/10"
+              title={t('archive_note_actions') || 'Actions'}
             >
-              {labels.map(l => (
-                <button
-                  key={l.id}
-                  onClick={e => { e.stopPropagation(); onLabelChange?.(session, session.labelId === l.id ? undefined : l.id); setLabelPopupOpen(false); }}
-                  className={cn("w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left transition-all", session.labelId === l.id ? "bg-text-main/10 text-text-main" : "text-text-main/60 hover:bg-text-main/5")}
+              <MoreVertical size={18} />
+            </button>
+            <AnimatePresence>
+              {actionsSheetOpen && (
+                <MobileNoteActionsSheet
+                  isOpen={actionsSheetOpen}
+                  onClose={() => setActionsSheetOpen(false)}
+                  session={session}
+                  userId={userId}
+                  labels={labels}
+                  onOpen={onOpen}
+                  onRename={() => { setTitleDraft(session.title || ''); setEditingTitle(true); }}
+                  onDelete={() => onDelete?.(session)}
+                  onLabelChange={(labelId) => onLabelChange?.(session, labelId)}
+                  onStorageChange={() => onStorageChange?.()}
+                />
+              )}
+            </AnimatePresence>
+          </>
+        ) : (
+          <>
+            <div className="relative">
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const spaceBelow = window.innerHeight - rect.bottom;
+                  setLabelOpenUp(spaceBelow < 220);
+                  setLabelPopupOpen(!labelPopupOpen);
+                }}
+                className={cn("w-7 h-7 flex items-center justify-center rounded-lg transition-all", label ? "" : "hover:bg-text-main/5")}
+                title={label?.name ?? t('archive_assign_label')}
+              >
+                <div className={cn("w-4 h-4 rounded-full border-2 transition-all", label ? "border-transparent" : "border-border-subtle group-hover:border-text-main/20")}
+                  style={{ background: label?.color ?? 'transparent' }}
+                />
+              </button>
+              {labelPopupOpen && labels && labels.length > 0 && (
+                <div
+                  ref={labelPopupRef}
+                  className={cn(
+                    "absolute right-0 z-50 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[150px] backdrop-blur-xl",
+                    labelOpenUp ? "bottom-full mb-1" : "top-full mt-1"
+                  )}
+                  style={{ background: 'color-mix(in srgb, var(--bg-base) 92%, var(--brand-primary) 8%)' }}
+                  onClick={e => e.stopPropagation()}
                 >
-                  <div className="w-3 h-3 rounded-full shrink-0" style={{ background: l.color }} />
-                  {l.name}
-                </button>
-              ))}
+                  {labels.map(l => (
+                    <button
+                      key={l.id}
+                      onClick={e => { e.stopPropagation(); onLabelChange?.(session, session.labelId === l.id ? undefined : l.id); setLabelPopupOpen(false); }}
+                      className={cn("w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left transition-all", session.labelId === l.id ? "bg-text-main/10 text-text-main" : "text-text-main/60 hover:bg-text-main/5")}
+                    >
+                      <div className="w-3 h-3 rounded-full shrink-0" style={{ background: l.color }} />
+                      {l.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        <button onClick={e => { e.stopPropagation(); setTitleDraft(session.title || ''); setEditingTitle(true); }}
-          className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/20 hover:text-text-main/60 hover:bg-text-main/5 transition-all opacity-0 group-hover:opacity-100"
-          title={t('archive_rename_title')}>
-          <Pencil size={13} />
-        </button>
-        <button onClick={e => { e.stopPropagation(); onOpen(); }}
-          className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/20 hover:text-text-main/60 hover:bg-text-main/5 transition-all opacity-0 group-hover:opacity-100"
-          title={t('archive_preview')}>
-          <ExternalLink size={13} />
-        </button>
-        <StorageIcons
-          doc={{
-            localId: session._isLocal ? session.id : undefined,
-            cloudId: session._linkedCloudId,
-            hasLocal: !!session._isLocal,
-            hasCloud: !!session._hasCloudCopy,
-            hasPendingSync: !!session._hasPendingSync,
-          }}
-          userId={userId}
-          onStorageChange={() => onStorageChange?.()}
-        />
-        <button onClick={e => { e.stopPropagation(); onDelete?.(session); }}
-          className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/15 hover:text-red-400 hover:bg-red-400/5 transition-all opacity-0 group-hover:opacity-100"
-          title={t('archive_delete')}>
-          <Trash2 size={13} />
-        </button>
+            <button onClick={e => { e.stopPropagation(); setTitleDraft(session.title || ''); setEditingTitle(true); }}
+              className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/40 md:text-text-main/20 hover:text-text-main/60 hover:bg-text-main/5 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
+              title={t('archive_rename_title')}>
+              <Pencil size={14} />
+            </button>
+            <button onClick={e => { e.stopPropagation(); onOpen(); }}
+              className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/40 md:text-text-main/20 hover:text-text-main/60 hover:bg-text-main/5 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
+              title={t('archive_preview')}>
+              <ExternalLink size={14} />
+            </button>
+            <StorageIcons
+              doc={{
+                localId: session._isLocal ? session.id : undefined,
+                cloudId: session._linkedCloudId,
+                hasLocal: !!session._isLocal,
+                hasCloud: !!session._hasCloudCopy,
+                hasPendingSync: !!session._hasPendingSync,
+              }}
+              userId={userId}
+              onStorageChange={() => onStorageChange?.()}
+            />
+            <button onClick={e => { e.stopPropagation(); onDelete?.(session); }}
+              className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/30 md:text-text-main/15 hover:text-red-400 hover:bg-red-400/5 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
+              title={t('archive_delete')}>
+              <Trash2 size={14} />
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

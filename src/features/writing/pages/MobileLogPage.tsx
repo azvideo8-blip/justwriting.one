@@ -5,7 +5,7 @@ import { Session } from '../../../types';
 import { getOrCreateGuestId } from '../../../shared/lib/localDb';
 
 export function MobileLogPage() {
-  const { user, isGuest } = useAuthStatus();
+  const { user, isGuest, profile } = useAuthStatus();
   const navigate = useNavigate();
   const userId = user?.uid ?? getOrCreateGuestId();
 
@@ -18,6 +18,7 @@ export function MobileLogPage() {
       userId={userId}
       isGuest={isGuest}
       onContinue={handleContinue}
+      labels={profile?.labels || []}
     />
   );
 }

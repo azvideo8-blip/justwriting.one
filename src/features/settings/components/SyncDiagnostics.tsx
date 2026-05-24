@@ -14,6 +14,7 @@ import { cn } from '../../../core/utils/utils';
 import { encryptSingleDocument } from '../../../core/crypto/encryptMigration';
 import { maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { Session } from '../../../types';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 
 interface SyncDiagnosticsProps {
   userId: string;
@@ -40,7 +41,9 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const { profile } = useAuthStatus();
+  const { layoutMode } = useLayoutMode();
   const hasEncryption = !!(profile?.encryptionSalt && profile?.encryptedDataKey);
+
 
   const [loading, setLoading] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
@@ -384,6 +387,116 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
       ) : items.length === 0 ? (
         <div className="text-center py-6 text-xs text-text-main/30">
           No documents found on this device or in the cloud.
+        </div>
+      ) : layoutMode === 'mobile' ? (
+        <div className="space-y-3">
+          {items.map(item => {
+            const isSyncing = syncingId === item.id;
+            return (
+              <div key={item.id} className="p-3 rounded-lg border border-border-subtle bg-surface-base/5 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-semibold text-text-main text-sm truncate" title={item.title}>
+                      {item.title}
+                    </h4>
+                    <span className="text-[10px] text-text-main/30 font-mono block truncate mt-0.5">{item.id}</span>
+                  </div>
+                  <div className="shrink-0">
+                    {getStatusBadge(item.status)}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[11px] text-text-main/60 bg-surface-card/20 p-2 rounded">
+                  <div>
+                    <span className="text-text-main/40 block">Versions (L / C)</span>
+                    <span className="font-mono text-text-main">
+                      {item.hasLocal ? item.localVersion : '-'} / {item.hasCloud ? item.cloudVersion : '-'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-text-main/40 block">Words (L / C)</span>
+                    <span className="font-mono text-text-main">
+                      {item.hasLocal ? item.localWords : '-'} / {item.hasCloud ? item.cloudWords : '-'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {isSyncing ? (
+                    <div className="flex items-center justify-center w-full py-2">
+                      <Loader2 size={16} className="animate-spin text-[var(--brand-soft)]" />
+                    </div>
+                  ) : (
+                    <>
+                      {item.status === 'local_only' && (
+                        <button
+                          onClick={() => handleSyncItem(item)}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-semibold border border-blue-500/20 transition-all min-h-[44px]"
+                        >
+                          <Upload size={14} />
+                          Upload
+                        </button>
+                      )}
+                      {item.status === 'cloud_only' && (
+                        <button
+                          onClick={() => handleDownloadItem(item)}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-400 text-xs font-semibold border border-green-500/20 transition-all min-h-[44px]"
+                        >
+                          <Download size={14} />
+                          Download
+                        </button>
+                      )}
+                      {(item.status === 'pending' || item.status === 'mismatch') && (
+                        <button
+                          onClick={() => handleSyncItem(item)}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold border border-amber-500/20 transition-all min-h-[44px]"
+                        >
+                          <RefreshCw size={14} />
+                          Sync
+                        </button>
+                      )}
+                      {item.status === 'cloud_missing' && (
+                        <button
+                          onClick={() => handleUnlinkItem(item)}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-red-500/20 transition-all min-h-[44px]"
+                        >
+                          <Link2Off size={14} />
+                          Unlink
+                        </button>
+                      )}
+                      {item.status === 'legacy_session' && (
+                        <button
+                          onClick={() => handleMigrateLegacySession(item)}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-xs font-semibold border border-purple-500/20 transition-all min-h-[44px]"
+                        >
+                          <RefreshCw size={14} />
+                          Migrate
+                        </button>
+                      )}
+                      {hasEncryption && item.hasCloud && item.cloudId && (
+                        <button
+                          onClick={() => handleEncryptItem(item)}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold border border-amber-500/20 transition-all min-h-[44px]"
+                        >
+                          <Lock size={14} />
+                          Encrypt
+                        </button>
+                      )}
+                      {item.inQueue && (
+                        <button
+                          onClick={() => handleClearQueueItem(item)}
+                          className="px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all min-h-[44px] flex items-center justify-center"
+                          title="Remove item from sync queue"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="overflow-x-auto">

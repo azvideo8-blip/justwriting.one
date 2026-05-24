@@ -50,17 +50,17 @@ export function AppShell() {
           layoutMode === 'desktop' ? (
             <Sidebar isAdmin={isAdmin} onOpenSettings={openSettings} />
           ) : (
-            <BottomNav isAdmin={isAdmin} />
+            !showZen && <BottomNav isAdmin={isAdmin} />
           )
         )}
-        <ConnectionStatusBanner showZen={showZen} />
+        {layoutMode === 'desktop' && <ConnectionStatusBanner showZen={showZen} />}
       </>
 
       <main id="main-content" className={cn(
         "w-full relative z-10 min-h-screen",
         hideSidebar ? "" : "pt-8",
         layoutMode === 'desktop' && !hideSidebar && "pl-20 pr-4",
-        layoutMode !== 'desktop' && !hideSidebar && "pb-20 px-4"
+        layoutMode !== 'desktop' && !hideSidebar && (showZen ? "pb-4 px-4" : "pb-20 px-4")
       )}>
         <AppRoutes />
       </main>

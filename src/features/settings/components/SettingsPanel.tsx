@@ -14,15 +14,22 @@ interface SettingsPanelProps {
   onClose: () => void;
   userId: string;
   onRefreshLifeLog?: () => void;
+  defaultTab?: Tab;
 }
 
-export function SettingsPanelContent({ userId, onRefreshLifeLog }: { userId: string; onRefreshLifeLog?: () => void }) {
-  const [activeTab, setActiveTab] = useState<Tab>('editor');
+export function SettingsPanelContent({ userId, onRefreshLifeLog, defaultTab }: { userId: string; onRefreshLifeLog?: () => void; defaultTab?: Tab }) {
+  const [activeTab, setActiveTab] = useState<Tab>(defaultTab || 'editor');
   const { t } = useLanguage();
 
   const editorTabRef = React.useRef<HTMLDivElement>(null);
   const appTabRef = React.useRef<HTMLDivElement>(null);
   const accountTabRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab]);
 
   React.useEffect(() => {
     const handleEditorBeforeMatch = () => setActiveTab('editor');
@@ -96,7 +103,7 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog }: { userId: str
   );
 }
 
-export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog }: SettingsPanelProps) {
+export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog, defaultTab }: SettingsPanelProps) {
   const { t } = useLanguage();
 
   return (
@@ -128,7 +135,7 @@ export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog }: Set
               </button>
             </div>
 
-            <SettingsPanelContent userId={userId} onRefreshLifeLog={onRefreshLifeLog} />
+            <SettingsPanelContent userId={userId} onRefreshLifeLog={onRefreshLifeLog} defaultTab={defaultTab} />
           </motion.div>
         </>
       )}

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { Download, FileText } from 'lucide-react';
+import { Download, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../core/utils/utils';
 import { ExportService } from '../export/ExportService';
 const WpmChart = React.lazy(() => import('./components/WpmChart').then(m => ({ default: m.WpmChart })));
@@ -14,6 +14,7 @@ import { useContentStore } from './store/useContentStore';
 import { useTimerStore } from './store/useTimerStore';
 import { useModalEscape } from '../../shared/hooks/useModalEscape';
 import { StreakDots } from '../../shared/components/StreakDots';
+import { useLayoutMode } from '../../shared/hooks/useLayoutMode';
 
 // [U-06] focus trap: удерживает фокус внутри модала при навигации через Tab (WCAG 2.1 — 2.4.3 Focus Order)
 function useFocusTrap(ref: React.RefObject<HTMLElement | null>, isActive: boolean) {
@@ -91,6 +92,8 @@ export function WritingFinishModal({
 }: WritingFinishModalProps) {
   const { t } = useLanguage();
   const { execute, isLoading: isSaving } = useServiceAction();
+  const { layoutMode } = useLayoutMode();
+  const isMobile = layoutMode === 'mobile';
 
   const wordCount = useContentStore(s => s.wordCount);
   const initialWordCount = useContentStore(s => s.initialWordCount);
@@ -121,6 +124,12 @@ export function WritingFinishModal({
   const tagInputRef = React.useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<'form' | 'mood'>('form');
   const [saveDataState, setSaveDataState] = useState<SaveData | null>(null);
+
+  // Стейты аккордеона для мобильного
+  const [statsExpanded, setStatsExpanded] = useState(true);
+  const [formExpanded, setFormExpanded] = useState(true);
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const [exportExpanded, setExportExpanded] = useState(false);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -208,14 +217,22 @@ export function WritingFinishModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-base/80 backdrop-blur-2xl">
+    <div className={cn(
+      "fixed inset-0 z-50 flex bg-surface-base text-text-main",
+      isMobile ? "flex-col w-full h-full" : "items-center justify-center p-4 bg-surface-base/80 backdrop-blur-2xl"
+    )}>
       <motion.div
         ref={modalRef}
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        transition={{ duration: 0.18 }}
-        className="w-full max-w-lg rounded-3xl p-8 max-h-[90vh] overflow-y-auto no-scrollbar bg-surface-card backdrop-blur-2xl border border-border-subtle text-text-main shadow-[0_0_60px_rgba(0,0,0,0.8)]"
+        initial={isMobile ? { y: '100%' } : { scale: 0.9, opacity: 0 }}
+        animate={isMobile ? { y: 0 } : { scale: 1, opacity: 1 }}
+        exit={isMobile ? { y: '100%' } : { scale: 0.95, opacity: 0 }}
+        transition={{ duration: 0.22, ease: 'easeOut' }}
+        className={cn(
+          "bg-surface-card text-text-main shadow-[0_0_60px_rgba(0,0,0,0.8)]",
+          isMobile
+            ? "w-full h-full flex flex-col overflow-hidden"
+            : "w-full max-w-lg rounded-3xl p-8 max-h-[90vh] overflow-y-auto no-scrollbar border border-border-subtle"
+        )}
       >
         <AnimatePresence mode="wait" initial={false}>
         {step === 'mood' ? (
@@ -225,7 +242,7 @@ export function WritingFinishModal({
             animate={{ opacity: 1, x: 0 }}
             exit={reducedMotion ? {} : { opacity: 0, x: -40 }}
             transition={slideTransition}
-            className="text-center space-y-6 py-6"
+            className="text-center space-y-6 py-6 flex-1 flex flex-col justify-center p-6"
           >
             <div>
               <div className="text-xl font-bold text-text-main">{t('mood_checkin_title')}</div>
@@ -251,10 +268,256 @@ export function WritingFinishModal({
             <button
               disabled={isSaving}
               onClick={() => handleMoodSelect(undefined)}
-              className="text-xs text-text-main/30 hover:text-text-main/50 transition-colors disabled:opacity-50"
+              className="text-xs text-text-main/30 hover:text-text-main/50 transition-colors disabled:opacity-50 mt-4"
             >
               {isSaving ? t('finish_saving') : t('mood_checkin_skip')}
             </button>
+          </motion.div>
+        ) : isMobile ? (
+          <motion.div
+            key="form"
+            initial={reducedMotion ? {} : { opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reducedMotion ? {} : { opacity: 0, y: 40 }}
+            transition={slideTransition}
+            className="flex-1 flex flex-col overflow-hidden"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle shrink-0">
+              <h3 className="text-lg font-bold text-text-main">{t('finish_congrats')}</h3>
+              <button
+                onClick={onSkipSave}
+                className="text-sm text-text-main/40 hover:text-text-main/70 transition-colors py-2"
+              >
+                {t('finish_skip_save')}
+              </button>
+            </div>
+
+            {/* Scrollable Accordion Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
+              {/* Accordion 1: Stats */}
+              <div className="border border-border-subtle rounded-2xl overflow-hidden bg-surface-base/10">
+                <button
+                  type="button"
+                  onClick={() => setStatsExpanded(!statsExpanded)}
+                  className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-all font-semibold text-sm"
+                >
+                  <span>{t('finish_wpm_chart') || 'Session Stats'}</span>
+                  {statsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+                
+                {statsExpanded && (
+                  <div className="p-4 space-y-4">
+                    {streakDays > 0 ? (
+                      <div className="text-center">
+                        <div className="text-3xl font-mono font-bold text-brand-primary tabular-nums">{streakDays}</div>
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-text-main/40 mt-0.5">{t('finish_streak_days')}</div>
+                        <StreakDots sessionGroups={sessionGroups} variant="modal" />
+                      </div>
+                    ) : (
+                      <div className="text-center text-xs text-text-main/40">{t('finish_streak_zero')}</div>
+                    )}
+
+                    <div className="grid grid-cols-3 text-center">
+                      <div className="p-1">
+                        <div className="text-[10px] font-bold uppercase tracking-widest mb-0.5 text-text-main/50">{t('writing_words')}</div>
+                        <div className="text-lg font-mono font-bold text-text-main tabular-nums">{animWords}</div>
+                      </div>
+                      <div className="p-1 border-l border-r border-border-subtle">
+                        <div className="text-[10px] font-bold uppercase tracking-widest mb-0.5 text-text-main/50">{t('writing_time')}</div>
+                        <div className="text-lg font-mono font-bold text-text-main tabular-nums">{formatTime(animSeconds)}</div>
+                      </div>
+                      <div className="p-1">
+                        <div className="text-[10px] font-bold uppercase tracking-widest mb-0.5 text-text-main/50">{t('writing_wpm')}</div>
+                        <div className="text-lg font-mono font-bold text-text-main tabular-nums">{animWpm}</div>
+                      </div>
+                    </div>
+
+                    {totalPauseSeconds > 0 && (
+                      <div className="space-y-1 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-text-main/40">{t('finish_flow_time')}</span>
+                          <span className="font-mono text-text-main tabular-nums">{formatTime(sessionSeconds)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-text-main/40">{t('finish_distraction_time')}</span>
+                          <span className="font-mono text-accent-warning tabular-nums">{formatTime(totalPauseSeconds)}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {wpmHistory.length >= 2 && (
+                      <div className="rounded-xl bg-surface-base border border-border-subtle px-3 py-2">
+                        <React.Suspense fallback={null}>
+                          <WpmChart data={wpmHistory} avgWpm={avgWpm} height={60} />
+                        </React.Suspense>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Accordion 2: Form */}
+              <div className="border border-border-subtle rounded-2xl overflow-hidden bg-surface-base/10">
+                <button
+                  type="button"
+                  onClick={() => setFormExpanded(!formExpanded)}
+                  className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-all font-semibold text-sm"
+                >
+                  <span>{t('finish_title_label') || 'Title & Label'}</span>
+                  {formExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+
+                {formExpanded && (
+                  <div className="p-4 space-y-4">
+                    <div className="space-y-1.5">
+                      <input
+                        type="text"
+                        value={titleInputValue}
+                        onChange={e => setEditTitle(e.target.value)}
+                        placeholder={t('editor_title_placeholder')}
+                        maxLength={200}
+                        className="w-full px-4 py-3 rounded-xl border outline-none transition-all bg-surface-base border-border-subtle text-text-main text-base font-medium placeholder:text-text-main/30 focus:border-text-main/40 min-h-[44px]"
+                      />
+                    </div>
+
+                    {labels.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-xs font-bold uppercase tracking-wider text-text-main/50">{t('finish_labels')}</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {labels.map(label => (
+                            <button
+                              key={label.id}
+                              onClick={() => setLabelId(labelId === label.id ? undefined : label.id)}
+                              className={cn(
+                                "px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 min-h-[40px]",
+                                labelId === label.id
+                                  ? "ring-2 ring-offset-2 ring-offset-surface-base"
+                                  : "hover:opacity-80"
+                              )}
+                              style={{ backgroundColor: label.color, outlineColor: label.color }}
+                            >
+                              {label.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Accordion 3: Tags */}
+              <div className="border border-border-subtle rounded-2xl overflow-hidden bg-surface-base/10">
+                <button
+                  type="button"
+                  onClick={() => setTagsExpanded(!tagsExpanded)}
+                  className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-all font-semibold text-sm"
+                >
+                  <span>{t('finish_tags') || 'Tags'}</span>
+                  {tagsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+
+                {tagsExpanded && (
+                  <div className="p-4 space-y-4">
+                    {allSuggestions.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {allSuggestions.map(tag => (
+                          <button
+                            key={tag}
+                            onClick={() => toggleTag(tag)}
+                            className={cn(
+                              "px-3 py-1.5 rounded-lg text-xs font-medium transition-all min-h-[36px]",
+                              tags && tags.includes(tag)
+                                ? "bg-text-main text-surface-base"
+                                : "bg-surface-base text-text-main/70 hover:bg-text-main/10"
+                            )}
+                          >
+                            #{tag}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <input
+                      ref={tagInputRef}
+                      type="text"
+                      placeholder={t('finish_add_tag')}
+                      className="w-full px-4 py-2 rounded-xl border outline-none transition-all bg-surface-base border-border-subtle text-text-main text-sm placeholder:text-text-main/60 focus:border-text-main/40 min-h-[44px]"
+                      onBlur={(e) => {
+                        const val = e.currentTarget.value.trim();
+                        if (val && tags && !tags.includes(val)) {
+                          setTags([...tags, val]);
+                          e.currentTarget.value = '';
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const val = e.currentTarget.value.trim();
+                          if (val && tags && !tags.includes(val)) {
+                            setTags([...tags, val]);
+                            e.currentTarget.value = '';
+                          }
+                          e.preventDefault();
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Accordion 4: Export */}
+              <div className="border border-border-subtle rounded-2xl overflow-hidden bg-surface-base/10">
+                <button
+                  type="button"
+                  onClick={() => setExportExpanded(!exportExpanded)}
+                  className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-all font-semibold text-sm"
+                >
+                  <span>{t('session_export') || 'Export'}</span>
+                  {exportExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+
+                {exportExpanded && (
+                  <div className="p-4">
+                    <div className="grid grid-cols-3 gap-3">
+                      <button onClick={exportPDF} className="flex flex-col items-center justify-center gap-2 p-3 transition-all rounded-xl bg-surface-base hover:bg-text-main/10 border border-border-subtle min-h-[56px]">
+                        <FileText size={18} className="text-text-main/70" />
+                        <span className="text-[10px] font-bold text-text-main/70">PDF</span>
+                      </button>
+                      <button onClick={exportMarkdown} className="flex flex-col items-center justify-center gap-2 p-3 transition-all rounded-xl bg-surface-base hover:bg-text-main/10 border border-border-subtle min-h-[56px]">
+                        <FileText size={18} className="text-text-main/70" />
+                        <span className="text-[10px] font-bold text-text-main/70">MD</span>
+                      </button>
+                      <button onClick={exportDocx} className="flex flex-col items-center justify-center gap-2 p-3 transition-all rounded-xl bg-surface-base hover:bg-text-main/10 border border-border-subtle min-h-[56px]">
+                        <Download size={18} className="text-text-main/70" />
+                        <span className="text-[10px] font-bold text-text-main/70">DOCX</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Sticky Save Footer */}
+            <div className="p-6 border-t border-border-subtle bg-surface-card shrink-0 flex flex-col gap-3">
+              <div className="flex gap-3">
+                <button
+                  onClick={onCancel}
+                  className="flex-1 px-6 py-3.5 font-bold transition-all rounded-2xl border border-border-subtle text-text-main hover:bg-white/5 min-h-[44px]"
+                >
+                  {t('finish_back')}
+                </button>
+                <button
+                  onClick={handleSaveClick}
+                  disabled={isSaving}
+                  className={cn(
+                    "flex-1 px-6 py-3.5 font-bold transition-all bg-text-main text-surface-base rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30 min-h-[44px]",
+                    isSaving ? "opacity-60 cursor-not-allowed" : "hover:brightness-110 will-change-transform"
+                  )}
+                >
+                  {isSaving ? t('finish_saving') : t('common_save')}
+                </button>
+              </div>
+            </div>
           </motion.div>
         ) : (
           <motion.div
