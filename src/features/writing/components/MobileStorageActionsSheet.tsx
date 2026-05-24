@@ -147,7 +147,10 @@ export function MobileStorageActionsSheet({
   const canUpload = !doc.hasCloud && !!doc.localId && !!userId && !userId.startsWith('guest_');
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm">
+    <div 
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none"
+      onTouchMove={e => e.preventDefault()}
+    >
       {/* Dismiss Tap Area */}
       <div className="absolute inset-0" onClick={onClose} />
 

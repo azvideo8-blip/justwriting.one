@@ -12,7 +12,6 @@ interface MobileSessionSetupSheetProps {
   setSetupMode: (mode: SetupMode) => void;
   startCountdown: (type: 'stopwatch' | 'timer' | 'words' | 'finish-by') => void;
   countdown: number | null;
-  onSetPromptTitle?: (title: string) => void;
 }
 
 export function MobileSessionSetupSheet({
@@ -20,7 +19,6 @@ export function MobileSessionSetupSheet({
   setSetupMode,
   startCountdown,
   countdown,
-  onSetPromptTitle,
 }: MobileSessionSetupSheetProps) {
   const { t } = useLanguage();
   const timerDuration = useTimerStore(s => s.timerDuration);
@@ -61,10 +59,6 @@ export function MobileSessionSetupSheet({
     );
   };
 
-  const handlePromptSelect = (prompt: string) => {
-    onSetPromptTitle?.(prompt);
-    startCountdown('stopwatch');
-  };
 
   return (
     <>
@@ -93,7 +87,10 @@ export function MobileSessionSetupSheet({
 
       {/* Slide-up Bottom Sheet Panel */}
       {setupMode !== 'countdown' && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm">
+        <div 
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none"
+          onTouchMove={e => e.preventDefault()}
+        >
           {/* Dismiss Back-tap Zone */}
           <div className="absolute inset-0" onClick={() => setSetupMode(null)} />
 

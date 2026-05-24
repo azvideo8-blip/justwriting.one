@@ -500,7 +500,8 @@ export function WritingFinishModal({
             </div>
 
             {/* Sticky Save Footer */}
-            <div className="p-6 pb-[calc(env(safe-area-inset-bottom,16px)+16px)] border-t border-border-subtle bg-surface-card shrink-0 flex flex-col gap-3">
+            <div className="p-6 border-t border-border-subtle bg-surface-card shrink-0 flex flex-col gap-3"
+              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--bottom-nav-height, 72px) + 8px)' }}>
               <div className="flex gap-3">
                 <button
                   onClick={onCancel}
@@ -684,7 +685,8 @@ export function WritingFinishModal({
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--bottom-nav-height, 72px) + 8px)' }}>
             <button
               onClick={onCancel}
               className="flex-1 px-6 py-4 font-bold transition-all rounded-2xl border border-border-subtle text-text-main hover:bg-white/5"
