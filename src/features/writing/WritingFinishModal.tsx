@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Download, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../core/utils/utils';
@@ -13,36 +13,9 @@ import { useCountUp } from '../../shared/hooks/useCountUp';
 import { useContentStore } from './store/useContentStore';
 import { useTimerStore } from './store/useTimerStore';
 import { useModalEscape } from '../../shared/hooks/useModalEscape';
+import { useFocusTrap } from '../../shared/hooks/useFocusTrap';
 import { StreakDots } from '../../shared/components/StreakDots';
 import { useLayoutMode } from '../../shared/hooks/useLayoutMode';
-
-// [U-06] focus trap: удерживает фокус внутри модала при навигации через Tab (WCAG 2.1 — 2.4.3 Focus Order)
-function useFocusTrap(ref: React.RefObject<HTMLElement | null>, isActive: boolean) {
-  useEffect(() => {
-    if (!isActive || !ref.current) return;
-    const container = ref.current;
-    const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
-    const getFocusable = () => Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE));
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
-      const focusable = getFocusable();
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (e.shiftKey) {
-        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
-      } else {
-        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
-      }
-    };
-
-    // фокус на первый элемент при открытии
-    getFocusable()[0]?.focus();
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isActive, ref]);
-}
 
 const STOP_WORDS = new Set([
   'это','что','как','так','все','они','она','он','мы','вы','я','его','её','их',
