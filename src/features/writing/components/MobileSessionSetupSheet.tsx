@@ -41,7 +41,7 @@ export function MobileSessionSetupSheet({
     if (countdown !== null && countdown > 0 && typeof navigator !== 'undefined' && navigator.vibrate) {
       try {
         navigator.vibrate(80);
-      } catch (e) {
+      } catch {
         // Safe fallback if permission is blocked
       }
     }
@@ -108,6 +108,7 @@ export function MobileSessionSetupSheet({
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 280 }}
             className="relative z-10 w-full max-w-lg bg-surface-card border-t border-white/[0.06] rounded-t-[28px] overflow-hidden flex flex-col max-h-[90vh] shadow-[0_-8px_32px_rgba(0,0,0,0.4)]"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}
           >
             {/* Grab Handle */}
             <div className="flex justify-center py-3">

@@ -15,7 +15,7 @@ import { SessionEditor } from './SessionEditor';
 import { ExportMenu } from './ExportMenu';
 import { TagsSection } from './TagsSection';
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
-import { MobileStorageActionsSheet } from './MobileStorageActionsSheet';
+import { MobileNoteActionsSheet } from '../../archive/components/MobileNoteActionsSheet';
 
 export function SessionCard({
   session,
@@ -26,6 +26,8 @@ export function SessionCard({
   userId,
   linkedCloudId: _linkedCloudId,
   hasCloudCopy: _hasCloudCopy,
+  onPreview,
+  onLabelChange,
 }: {
   session: Session & {
     _isLocal?: boolean;
@@ -36,17 +38,19 @@ export function SessionCard({
   onContinue?: () => void,
   labels?: Label[],
   searchQuery?: string,
-  onDeleteSuccess?: (sessionId: string) => void
+  onDeleteSuccess?: (sessionId: string) => void,
   userId?: string,
   linkedCloudId?: string,
   hasCloudCopy?: boolean,
+  onPreview?: () => void,
+  onLabelChange?: (session: Session, labelId: string | undefined) => void,
 }) {
   const { t } = useLanguage();
   const { execute } = useServiceAction();
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode !== 'desktop';
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showStorageSheet, setShowStorageSheet] = useState(false);
+  const [showActionsSheet, setShowActionsSheet] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -73,7 +77,7 @@ export function SessionCard({
     if (isMobile && userId && !userId.startsWith('guest_')) {
       longPressTimer.current = setTimeout(() => {
         triggerVibration();
-        setShowStorageSheet(true);
+        setShowActionsSheet(true);
       }, 600);
     }
   };
@@ -160,6 +164,14 @@ export function SessionCard({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onClick={(e) => {
+            if (isEditing) return;
+            const target = e.target as HTMLElement;
+            if (target.closest('button') || target.closest('a') || target.closest('input')) return;
+            if (isMobile) {
+              onPreview?.();
+            }
+          }}
           className="p-6 md:p-8 transition-all space-y-4 group relative bg-surface-card backdrop-blur-xl border border-border-subtle rounded-3xl text-text-main hover:bg-white/10 z-10 touch-pan-y"
           style={{
             transform: `translate3d(${swipeOffset}px, 0, 0)`,
@@ -248,13 +260,15 @@ export function SessionCard({
                 </>
               )}
 
-              <button
-                onClick={() => setExpanded(!expanded)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all bg-surface-base text-text-main/70 hover:bg-white/10"
-              >
-                {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                {expanded ? t('session_collapse') : t('session_expand')}
-              </button>
+              {!isMobile && session.content.length > 200 && (
+                <button
+                  onClick={() => setExpanded(!expanded)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all bg-surface-base text-text-main/70 hover:bg-white/10"
+                >
+                  {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  {expanded ? t('session_collapse') : t('session_expand')}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -313,19 +327,25 @@ export function SessionCard({
         onCancel={() => setShowDeleteConfirm(false)}
       />
       <AnimatePresence>
-        {showStorageSheet && (
-          <MobileStorageActionsSheet
-            isOpen={showStorageSheet}
-            onClose={() => setShowStorageSheet(false)}
+        {showActionsSheet && (
+          <MobileNoteActionsSheet
+            isOpen={showActionsSheet}
+            onClose={() => setShowActionsSheet(false)}
             session={{
               id: session.id,
               title: session.title,
+              labelId: session.labelId,
               _isLocal: session._isLocal,
               _linkedCloudId: session._linkedCloudId,
               _hasCloudCopy: session._hasCloudCopy,
               _hasPendingSync: session._hasPendingSync,
             }}
             userId={userId || ''}
+            labels={labels}
+            onOpen={() => onPreview?.()}
+            onRename={() => setIsEditing(true)}
+            onDelete={() => setShowDeleteConfirm(true)}
+            onLabelChange={(labelId) => onLabelChange?.(session, labelId)}
             onStorageChange={() => {
               if (onDeleteSuccess) onDeleteSuccess(session.id);
             }}

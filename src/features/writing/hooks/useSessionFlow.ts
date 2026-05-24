@@ -3,6 +3,7 @@ import { SessionType } from '../store/types';
 import { useTimerStore } from '../store/useTimerStore';
 import { SetupMode } from '../WritingSetup';
 import { playGoalSound } from '../../../core/utils/sound';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 
 interface UseSessionFlowReturn {
   setupMode: SetupMode;
@@ -27,6 +28,7 @@ export function useSessionFlow(
   timeGoalReached: boolean,
   wordGoalReached: boolean
 ): UseSessionFlowReturn {
+  const { layoutMode } = useLayoutMode();
   const [setupMode, setSetupMode] = useState<SetupMode>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [goalToastVisible, setGoalToastVisible] = useState(false);
@@ -41,6 +43,14 @@ export function useSessionFlow(
   const startCountdown = useCallback((type: SessionType) => {
     if (countdownRef.current !== undefined) clearInterval(countdownRef.current);
     setSessionType(type);
+    
+    if (layoutMode === 'mobile') {
+      handleStart();
+      setSetupMode(null);
+      setCountdown(null);
+      return;
+    }
+
     setSetupMode('countdown');
     setCountdown(3);
 
@@ -58,7 +68,7 @@ export function useSessionFlow(
         }, 800);
       }
     }, 1000);
-  }, [setSessionType, handleStart]);
+  }, [setSessionType, handleStart, layoutMode]);
 
   const stableSetSetupMode = useCallback((mode: SetupMode) => {
     setSetupMode(mode);

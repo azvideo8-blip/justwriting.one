@@ -22,6 +22,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../core/errors/reportError';
 import { useNavigate } from 'react-router-dom';
 import { ProfileService } from '../../profile/services/ProfileService';
+import { MobilePageHeader } from '../../../shared/components/MobilePageHeader';
 
 interface MobileMeScreenProps {
   user: User | null;
@@ -42,7 +43,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<Section>('stats');
-  const [localProfile, setLocalProfile] = useState<LocalProfile | undefined>(undefined);
+  const [_localProfile, setLocalProfile] = useState<LocalProfile | undefined>(undefined);
   const { openSettings } = useSettings();
   const userId = useUserId(user);
   const isGuest = !user;
@@ -137,8 +138,8 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
       sessions.forEach(s => {
         try {
           const ts = s.sessionStartTime ?? 
-            (typeof (s.createdAt as any)?.toDate === 'function'
-              ? (s.createdAt as any).toDate().getTime()
+            (typeof (s.createdAt as { toDate?: () => Date })?.toDate === 'function'
+              ? (s.createdAt as { toDate: () => Date }).toDate().getTime()
               : s.createdAt instanceof Date ? s.createdAt.getTime() : null);
           if (!ts) return;
           const d = new Date(ts);
@@ -157,8 +158,8 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
       sessions.forEach(s => {
         try {
           const ts = s.sessionStartTime ?? 
-            (typeof (s.createdAt as any)?.toDate === 'function'
-              ? (s.createdAt as any).toDate().getTime()
+            (typeof (s.createdAt as { toDate?: () => Date })?.toDate === 'function'
+              ? (s.createdAt as { toDate: () => Date }).toDate().getTime()
               : s.createdAt instanceof Date ? s.createdAt.getTime() : null);
           if (!ts) return;
           const d = new Date(ts);
@@ -202,36 +203,32 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
       zIndex: 30,
       display: 'flex',
       flexDirection: 'column',
-      paddingTop: 'env(safe-area-inset-top, 0px)',
+      paddingTop: 0,
     }}>
       {/* Top Header with title and Settings gear icon */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '16px 20px 8px',
-        borderBottom: '1px solid rgba(255,255,255,0.03)',
-      }}>
-        <span style={{ fontSize: 18, fontWeight: 600, color: 'rgba(232,236,233,0.95)' }}>
-          {t('nav_me')}
-        </span>
-        <button
-          onClick={() => openSettings()}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'rgba(232,236,233,0.6)',
-            cursor: 'pointer',
-            padding: 8,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          aria-label={t('nav_settings')}
-        >
-          <Settings size={20} />
-        </button>
-      </div>
+      <MobilePageHeader
+        title={t('nav_me')}
+        right={
+          <button
+            onClick={() => openSettings()}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'rgba(232,236,233,0.6)',
+              cursor: 'pointer',
+              padding: 12,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: 44,
+              minHeight: 44,
+            }}
+            aria-label={t('nav_settings')}
+          >
+            <Settings size={20} />
+          </button>
+        }
+      />
 
       <div style={{ padding: '12px 20px 0' }}>
         {/* Navigation Tabs Selector */}
@@ -249,7 +246,10 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
               onClick={() => setActiveSection(s.id)}
               style={{
                 flex: 1,
-                padding: '7px 0',
+                minHeight: 44,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 borderRadius: 8,
                 border: 'none',
                 cursor: 'pointer',
@@ -260,8 +260,8 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
                   ? 'rgba(255,255,255,0.08)'
                   : 'transparent',
                 color: activeSection === s.id
-                  ? 'rgba(232,236,233,0.9)'
-                  : 'rgba(74,81,77,1)',
+                  ? 'var(--color-text-main, var(--text-main))'
+                  : 'var(--color-text-subtle, var(--text-subtle))',
                 transition: 'all 0.15s',
               }}
             >
@@ -280,8 +280,23 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
       }}>
         {activeSection === 'stats' && (
           loadingSessions ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0', color: 'rgba(232,236,233,0.4)', fontSize: 13 }}>
-              {t('profile_loading')}
+            <div className="space-y-4 px-4 pt-4">
+              <style dangerouslySetInnerHTML={{__html: `
+                @keyframes pulse-bg {
+                  0%, 100% { opacity: 0.6; }
+                  50% { opacity: 0.35; }
+                }
+                .skeleton-pulse {
+                  animation: pulse-bg 1.5s ease-in-out infinite;
+                }
+              `}} />
+              {/* Profile Hero Skeleton */}
+              <div className="skeleton-pulse bg-surface-card border border-white/[0.04] rounded-2xl h-32 w-full" />
+              {/* KPI Skeleton */}
+              <div className="skeleton-pulse bg-surface-card border border-white/[0.04] rounded-2xl h-16 w-full" />
+              {/* Charts Skeletons */}
+              <div className="skeleton-pulse bg-surface-card border border-white/[0.04] rounded-2xl h-40 w-full" />
+              <div className="skeleton-pulse bg-surface-card border border-white/[0.04] rounded-2xl h-40 w-full" />
             </div>
           ) : (
             <div className="flex flex-col gap-6">

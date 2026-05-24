@@ -162,7 +162,7 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
     }
   }, [sessionToContinue, handleContinueSession, navigate, location.pathname]);
 
-  const { sessionGroups: lifeLogGroups, summary: lifeLogSummary } = useLifeLog(userId, isGuest);
+  const { sessionGroups: lifeLogGroups, summary: lifeLogSummary, refresh: refreshLifeLog } = useLifeLog(userId, isGuest);
   const streakDays = useStreak(lifeLogGroups);
 
   const streakForModal = React.useMemo(() => {
@@ -247,6 +247,7 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
             hasDraft={hasDraft}
             restoreDraft={session.restoreDraft}
             discardDraft={session.discardDraft}
+            onRefresh={refreshLifeLog}
           />
         );
       return <MobileWriteScreen onPlay={handlePlay} onPause={handlePause} onStop={onFinishClick} saveStatus={saveStatus} keystrokeTrackerRef={keystrokeTrackerRef} />;

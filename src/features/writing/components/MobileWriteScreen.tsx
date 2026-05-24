@@ -75,7 +75,7 @@ export function MobileWriteScreen({
 
   const handleBeforeInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
     if (!streamMode) return;
-    const inputEvent = e.nativeEvent as any;
+    const inputEvent = e.nativeEvent as InputEvent;
     const inputType = inputEvent.inputType || '';
     if (inputType.includes('delete') || inputType.includes('cut') || inputType.includes('paste')) {
       e.preventDefault();
@@ -108,6 +108,37 @@ export function MobileWriteScreen({
   const [isAiOpen, setIsAiOpen] = useState(false);
   const swipeTouchStartY = useRef<number>(0);
   const swipeTouchStartX = useRef<number>(0);
+
+  const [keyboardHeight, setKeyboardHeight] = useState(120);
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
+
+  useEffect(() => {
+    const hintShown = localStorage.getItem('focus_swipe_hint_shown');
+    if (!hintShown) {
+      const showTimer = setTimeout(() => {
+        setShowSwipeHint(true);
+        const hideTimer = setTimeout(() => {
+          setShowSwipeHint(false);
+          localStorage.setItem('focus_swipe_hint_shown', 'true');
+        }, 4000);
+        return () => clearTimeout(hideTimer);
+      }, 0);
+      return () => clearTimeout(showTimer);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+    const handleResize = () => {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      const offset = window.innerHeight - vv.height;
+      const padBottom = offset > 0 ? Math.max(16, offset + 16) : 120;
+      setKeyboardHeight(padBottom);
+    };
+    window.visualViewport.addEventListener('resize', handleResize);
+    return () => window.visualViewport?.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleEditorTouchStart = (e: React.TouchEvent) => {
     swipeTouchStartY.current = e.touches[0].clientY;
@@ -185,6 +216,8 @@ export function MobileWriteScreen({
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder={t('topbar_title_placeholder')}
+              inputMode="text"
+              enterKeyHint="done"
               style={{
                 flex: 1,
                 background: 'transparent',
@@ -230,10 +263,11 @@ export function MobileWriteScreen({
           onPaste={e => { if (streamMode) e.preventDefault(); }}
           placeholder={t('writing_placeholder')}
           autoFocus
+          inputMode="text"
           style={{
             width: '100%',
             height: '100%',
-            padding: '16px 24px 120px',
+            padding: `16px 24px ${keyboardHeight}px`,
             background: 'transparent',
             border: 'none',
             outline: 'none',
@@ -281,6 +315,21 @@ export function MobileWriteScreen({
             onAiClick={() => setIsAiOpen(true)}
             isAiActive={isAiOpen}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showSwipeHint && isRunning && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            style={{ position: 'absolute', bottom: 100, left: 24, right: 24, zIndex: 40, background: 'var(--surface-card)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: 12, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}
+          >
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>
+              {t('swipe_down_hint')}
+            </span>
+          </motion.div>
         )}
       </AnimatePresence>
 

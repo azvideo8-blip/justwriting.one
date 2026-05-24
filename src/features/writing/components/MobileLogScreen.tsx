@@ -2,9 +2,14 @@ import { useState, useMemo } from 'react';
 import { useLifeLog } from '../hooks/useLifeLog';
 import { useLanguage } from '../../../core/i18n';
 import { Session, Label } from '../../../types';
-import { parseFirestoreDate } from '../../../core/utils/utils';
+import { parseFirestoreDate as _parseFirestoreDate } from '../../../core/utils/utils';
 import { StreakDots } from '../../../shared/components/StreakDots';
 import { SessionCard } from './SessionCard';
+import { DocumentPreview } from '../../archive/components/DocumentPreview';
+import { updateArchiveField } from '../../archive/services/archiveCrud';
+import { auth } from '../../../core/firebase/auth';
+import { AnimatePresence } from 'motion/react';
+import { MobilePageHeader } from '../../../shared/components/MobilePageHeader';
 
 interface MobileLogScreenProps {
   userId: string;
@@ -22,9 +27,22 @@ function formatDuration(minutes: number, t: (key: string) => string): string {
 }
 
 export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileLogScreenProps) {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const { sessionGroups, loading, refresh } = useLifeLog(userId, isGuest);
   const [query, setQuery] = useState('');
+  const [previewSession, setPreviewSession] = useState<Session | null>(null);
+
+  const handleLabelChange = async (s: Session, labelId: string | undefined) => {
+    try {
+      await updateArchiveField(s, 'labelId', labelId, auth.currentUser, userId);
+      if (previewSession && previewSession.id === s.id) {
+        setPreviewSession(prev => prev ? { ...prev, labelId } : null);
+      }
+      refresh();
+    } catch (e) {
+      console.error('Failed to update labelId:', e);
+    }
+  };
 
   const filteredGroups = useMemo(() => {
     if (!query.trim()) return sessionGroups;
@@ -63,19 +81,12 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
       zIndex: 30,
       display: 'flex',
       flexDirection: 'column',
-      paddingTop: 'env(safe-area-inset-top, 0px)',
+      paddingTop: 0,
     }}>
 
+      <MobilePageHeader title={t('lifelog_tab_log')} />
+
       <div style={{ padding: '16px 20px 0' }}>
-        <div style={{
-          fontSize: 20,
-          fontWeight: 500,
-          color: 'rgba(232,236,233,0.95)',
-          fontFamily: 'Lora, Georgia, serif',
-          marginBottom: 16,
-        }}>
-          {t('lifelog_tab_log')}
-        </div>
 
         <div style={{ marginBottom: 16 }}>
           <StreakDots sessionGroups={sessionGroups} variant="mobile" />
@@ -90,7 +101,7 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
         }}>
           <div style={{
             fontSize: 10,
-            color: 'rgba(74,81,77,1)',
+            color: 'var(--color-text-subtle, var(--text-subtle))',
             textTransform: 'uppercase',
             letterSpacing: '.08em',
             fontFamily: 'JetBrains Mono, monospace',
@@ -103,14 +114,14 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
               <div style={{
                 fontSize: 22,
                 fontWeight: 500,
-                color: 'rgba(232,236,233,0.95)',
+                color: 'var(--color-text-main, var(--text-main))',
                 lineHeight: 1,
               }}>
                 {weekSummary.words.toLocaleString()}
               </div>
               <div style={{
                 fontSize: 10,
-                color: 'rgba(138,145,141,1)',
+                color: 'var(--color-text-muted, var(--text-muted))',
                 marginTop: 2,
               }}>
                 {t('home_words_short')}
@@ -120,14 +131,14 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
               <div style={{
                 fontSize: 22,
                 fontWeight: 500,
-                color: 'rgba(232,236,233,0.95)',
+                color: 'var(--color-text-main, var(--text-main))',
                 lineHeight: 1,
               }}>
                 {formatDuration(weekSummary.minutes, t)}
               </div>
               <div style={{
                 fontSize: 10,
-                color: 'rgba(138,145,141,1)',
+                color: 'var(--color-text-muted, var(--text-muted))',
                 marginTop: 2,
               }}>
                 {t('home_today_flow')}
@@ -141,7 +152,7 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
             style={{
               position: 'absolute', left: 10, top: '50%',
               transform: 'translateY(-50%)',
-              color: 'rgba(74,81,77,1)',
+              color: 'var(--color-text-subtle, var(--text-subtle))',
             }}
             width="14" height="14" viewBox="0 0 24 24"
             fill="none" stroke="currentColor"
@@ -154,6 +165,8 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder={t('lifelog_search_placeholder')}
+            inputMode="search"
+            enterKeyHint="search"
             style={{
               width: '100%',
               padding: '9px 12px 9px 32px',
@@ -161,7 +174,7 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
               border: '1px solid rgba(255,255,255,0.08)',
               borderRadius: 10,
               fontSize: 14,
-              color: 'rgba(232,236,233,0.9)',
+              color: 'var(--color-text-main, var(--text-main))',
               outline: 'none',
               fontFamily: 'Inter, system-ui, sans-serif',
             }}
@@ -176,14 +189,19 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
         paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)',
       }}>
         {loading ? (
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            padding: 40,
-            color: 'rgba(74,81,77,1)',
-            fontSize: 13,
-          }}>
-            {t('common_loading')}
+          <div className="space-y-4 px-5 pt-4">
+            <style dangerouslySetInnerHTML={{__html: `
+              @keyframes pulse-bg {
+                0%, 100% { opacity: 0.6; }
+                50% { opacity: 0.35; }
+              }
+              .skeleton-pulse {
+                animation: pulse-bg 1.5s ease-in-out infinite;
+              }
+            `}} />
+            <div className="skeleton-pulse bg-surface-card border border-border-subtle rounded-3xl h-24 w-full" />
+            <div className="skeleton-pulse bg-surface-card border border-border-subtle rounded-3xl h-24 w-full" />
+            <div className="skeleton-pulse bg-surface-card border border-border-subtle rounded-3xl h-24 w-full" />
           </div>
         ) : filteredGroups.length === 0 ? (
           <div style={{
@@ -196,7 +214,7 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
             <div style={{ fontSize: 24, marginBottom: 4 }}>✦</div>
             <div style={{
               fontSize: 14,
-              color: 'rgba(138,145,141,1)',
+              color: 'var(--color-text-muted, var(--text-muted))',
               textAlign: 'center',
             }}>
               {query ? t('log_no_results') : t('log_empty')}
@@ -208,7 +226,7 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
               <div style={{
                 padding: '14px 20px 6px',
                 fontSize: 10,
-                color: 'rgba(74,81,77,1)',
+                color: 'var(--color-text-subtle, var(--text-subtle))',
                 textTransform: 'uppercase',
                 letterSpacing: '.08em',
                 fontFamily: 'JetBrains Mono, monospace',
@@ -227,6 +245,8 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
                     onDeleteSuccess={() => {
                       refresh();
                     }}
+                    onPreview={() => setPreviewSession(session)}
+                    onLabelChange={handleLabelChange}
                   />
                 ))}
               </div>
@@ -234,6 +254,26 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
           ))
         )}
       </div>
+      <AnimatePresence>
+        {previewSession && (
+          <DocumentPreview
+            session={previewSession}
+            onClose={() => setPreviewSession(null)}
+            onContinue={onContinue}
+            onLabelChange={handleLabelChange}
+            onTagsChange={async (s, tags) => {
+              try {
+                await updateArchiveField(s, 'tags', tags, auth.currentUser, userId);
+                setPreviewSession(prev => prev ? { ...prev, tags } : null);
+                refresh();
+              } catch (e) {
+                console.error('Failed to update tags:', e);
+              }
+            }}
+            labels={labels}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

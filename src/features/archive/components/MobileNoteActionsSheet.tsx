@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { X, ExternalLink, Pencil, Tag, Trash2, Cloud, HardDrive, Loader2, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { StorageService } from '../../writing/services/StorageService';
 import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
 import { SyncService } from '../../writing/services/SyncService';
-import { getSessionKey } from '../../../core/crypto/encrypt';
+
 import { reportError } from '../../../core/errors/reportError';
 import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
@@ -131,6 +131,7 @@ export function MobileNoteActionsSheet({
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 280 }}
         className="relative z-10 w-full max-w-lg bg-surface-card border-t border-white/[0.06] rounded-t-[28px] overflow-hidden flex flex-col max-h-[85vh] shadow-[0_-8px_32px_rgba(0,0,0,0.4)]"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}
       >
         {/* Grab Handle */}
         <div className="flex justify-center py-3">

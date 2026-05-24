@@ -1,6 +1,6 @@
 # Changelog
 
-## 2026-05-24 (v1.1.0)
+## 2026-05-24 (v0.6.6)
 - **[RU]** Реализована полная мобильная адаптация (Фазы 1 и 2) и интеграция улучшений для сенсорных экранов: управление локальным/облачным статусом через bottom-sheet по удержанию, тач-переходы в настройках, автопауза в фоновом режиме, нативный экспорт Web Share API, компактный мобильный баннер подключения, мобильное меню действий в архиве и адаптация AI-панели.
 - **[EN]** Implemented full mobile adaptation (Phases 1 & 2) and touch-screen enhancements: local/cloud status management via long-press bottom-sheet, tabbed settings touch navigation, auto-pause on backgrounding, native export via Web Share API, compact mobile connection banner, mobile note actions sheet, and mobile AI panel integration.
 

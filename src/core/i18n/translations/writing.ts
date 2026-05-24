@@ -30,6 +30,10 @@ export const writingTranslations: Translations = {
   writing_total: { ru: 'Всего', en: 'Total' },
   writing_wpm: { ru: 'Слов/мин', en: 'WPM' },
   writing_go: { ru: 'ПОЕХАЛИ!', en: 'GO!' },
+  stream_mode_label: { ru: 'Поток сознания', en: 'Stream Mode' },
+  stream_mode_exit_confirm: { ru: 'Выйти из режима потока сознания?', en: 'Exit Stream Mode?' },
+  stream_mode_exit_desc: { ru: 'Вы вернетесь к обычному режиму написания. Все ограничения на удаление текста будут сняты.', en: 'You will return to the regular writing mode. All text deletion restrictions will be lifted.' },
+  swipe_down_hint: { ru: '↓ Смахните вниз, чтобы скрыть всё и сфокусироваться', en: '↓ Swipe down to hide everything and focus' },
 
   editor_title_placeholder: { ru: 'Заголовок...', en: 'Title...' },
   editor_content_placeholder: { ru: 'Начните писать...', en: 'Start writing...' },

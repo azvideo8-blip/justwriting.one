@@ -10,6 +10,7 @@ import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx, ExportStrings } from '../services/ArchiveExportService';
 import { InlineTags } from './InlineTags';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 
 export function DocumentPreview({ session, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags }: {
   session: ArchiveSession | null;
@@ -37,7 +38,8 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
   const [newLabelName, setNewLabelName] = useState('');
   const [newLabelColor, setNewLabelColor] = useState(LABEL_PRESET_COLORS[0]);
 
-  const isMobile = window.innerWidth <= 768;
+  const { layoutMode } = useLayoutMode();
+  const isMobile = layoutMode === 'mobile';
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isMobile) return;
