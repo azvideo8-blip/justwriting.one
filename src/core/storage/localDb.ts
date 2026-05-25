@@ -1,4 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { STORAGE_KEYS } from '../constants/storageKeys';
 
 export interface LocalDocument {
   id: string;
@@ -208,7 +209,7 @@ function randomUUID(): string {
 export { randomUUID };
 
 export function getOrCreateGuestId(): string {
-  const KEY = 'jw_guest_id';
+  const KEY = STORAGE_KEYS.GUEST_ID;
   let id = localStorage.getItem(KEY);
   if (!id) {
     const saved = sessionStorage.getItem(KEY);

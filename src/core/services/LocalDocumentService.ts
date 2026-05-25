@@ -1,4 +1,4 @@
-import { getLocalDb, LocalDocument, randomUUID } from '../../../shared/lib/localDb';
+import { getLocalDb, LocalDocument, randomUUID } from '../storage/localDb';
 
 export const LocalDocumentService = {
   async createDocument(

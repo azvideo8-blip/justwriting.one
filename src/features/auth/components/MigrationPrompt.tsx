@@ -3,9 +3,9 @@ import { HardDrive } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../core/errors/reportError';
-import { getOrCreateGuestId, getLocalDb } from '../../../shared/lib/localDb';
-import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
-import { SyncService } from '../../writing/services/SyncService';
+import { getOrCreateGuestId, getLocalDb } from '../../../core/storage/localDb';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
+import { SyncService } from '../../../core/services/SyncService';
 
 async function migrateDocuments(userId: string): Promise<number> {
   const guestId = getOrCreateGuestId();
@@ -118,7 +118,7 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
   );
 }
 
-export async function checkGuestDocuments(): Promise<{ guestId: string; docs: import('../../../shared/lib/localDb').LocalDocument[] } | null> {
+export async function checkGuestDocuments(): Promise<{ guestId: string; docs: import('../../../core/storage/localDb').LocalDocument[] } | null> {
   const guestId = getOrCreateGuestId();
   try {
     const localDocs = await LocalDocumentService.getGuestDocuments(guestId);

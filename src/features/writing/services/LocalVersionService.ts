@@ -1,4 +1,4 @@
-import { getLocalDb, LocalVersion, randomUUID } from '../../../shared/lib/localDb';
+import { getLocalDb, LocalVersion, randomUUID } from '../../../core/storage/localDb';
 import { computeWordDelta } from './DiffService';
 
 export const LocalVersionService = {

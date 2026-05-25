@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { DocumentService } from '../../writing/services/DocumentService';
-import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
+import { DocumentService } from '../../../core/services/DocumentService';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { useToast } from '../../../shared/components/Toast';
 import { useLanguage } from '../../../core/i18n';
 import { reportError } from '../../../core/errors/reportError';
@@ -21,7 +21,7 @@ export function useTagEditor(userId: string, fetchSessions: () => Promise<void>)
     }
 
     try {
-      const promises: Promise<any>[] = [
+      const promises: Promise<unknown>[] = [
         LocalDocumentService.renameTagInAllDocs(userId, tag, trimmed),
       ];
       if (userId && !userId.startsWith('guest')) {
@@ -42,7 +42,7 @@ export function useTagEditor(userId: string, fetchSessions: () => Promise<void>)
     if (!tagDeleteConfirm) return;
 
     try {
-      const promises: Promise<any>[] = [
+      const promises: Promise<unknown>[] = [
         LocalDocumentService.removeTagFromAllDocs(userId, tagDeleteConfirm),
       ];
       if (userId && !userId.startsWith('guest')) {

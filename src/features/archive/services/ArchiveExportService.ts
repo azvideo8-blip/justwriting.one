@@ -157,7 +157,7 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
       downloadBlob(html, 'text/html;charset=utf-8', filename);
     }
   } else {
-    const win = window.open('', '_blank', 'noopener');
+    const win = window.open('', '_blank', 'noopener,noreferrer');
     if (!win) {
       console.warn('Popup blocked — falling back to html download');
       downloadBlob(html, 'text/html;charset=utf-8', getFilename(session, 'html', s));

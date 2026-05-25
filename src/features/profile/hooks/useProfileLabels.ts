@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { ProfileService } from '../services/ProfileService';
-import { randomUUID } from '../../../shared/lib/localDb';
+import { randomUUID } from '../../../core/storage/localDb';
 import { Label } from '../../../types';
-import { DocumentService } from '../../writing/services/DocumentService';
-import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
+import { DocumentService } from '../../../core/services/DocumentService';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { reportError } from '../../../core/errors/reportError';
 
 const labelCache = new Map<string, Label[]>();

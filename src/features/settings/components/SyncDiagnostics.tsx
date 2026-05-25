@@ -1,18 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Cloud, HardDrive, RefreshCw, AlertTriangle, CheckCircle2, Upload, Download, Trash2, Loader2, Link2Off, Lock } from 'lucide-react';
-import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
-import { DocumentService } from '../../writing/services/DocumentService';
-import { SyncService } from '../../writing/services/SyncService';
-import { StorageService } from '../../writing/services/StorageService';
-import { SessionService } from '../../writing/services/SessionService';
-import { getLocalDb } from '../../../shared/lib/localDb';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
+import { DocumentService } from '../../../core/services/DocumentService';
+import { SyncService } from '../../../core/services/SyncService';
+import { StorageService } from '../../../core/services/StorageService';
+import { SessionService } from '../../../core/services/SessionService';
+import { getLocalDb } from '../../../core/storage/localDb';
 import { useLanguage } from '../../../core/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { useAuthStatus } from '../../auth/contexts/AuthContext';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { cn } from '../../../core/utils/utils';
 import { encryptSingleDocument } from '../../../core/crypto/encryptMigration';
-import { maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { Session } from '../../../types';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 

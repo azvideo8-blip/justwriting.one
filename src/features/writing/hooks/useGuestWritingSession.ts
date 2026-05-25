@@ -2,7 +2,7 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import { useBaseWritingSession } from './useBaseWritingSession';
 import { useContentStore } from '../store/useContentStore';
 import { applyDraftToStores } from '../utils/draftUtils';
-import { getOrCreateGuestId } from '../../../shared/lib/localDb';
+import { getOrCreateGuestId } from '../../../core/storage/localDb';
 import { fetchLocalSessions, loadLocalSession } from '../services/LocalSessionLoader';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 import { LocalSessionInfo } from '../types/session';

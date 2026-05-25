@@ -27,7 +27,7 @@ interface SessionItemProps {
   searchQuery?: string;
 }
 
-const SessionItem = React.memo(({ session, doc, isActive, onClick, onDelete, t, language, userId: _userId, onStorageChange: _onStorageChange, maxWords, searchQuery }: SessionItemProps) => {
+const SessionItem = React.memo(function SessionItem({ session, doc, isActive, onClick, onDelete, t, language, userId: _userId, onStorageChange: _onStorageChange, maxWords, searchQuery }: SessionItemProps) {
   const date = parseFirestoreDate(session.createdAt);
   const timeStr = date
     ? date.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })

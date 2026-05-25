@@ -1,11 +1,11 @@
-import { getLocalDb, randomUUID } from '../../../shared/lib/localDb';
+import { getLocalDb, randomUUID } from '../storage/localDb';
 import { StorageService } from './StorageService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService } from './DocumentService';
 import { SessionService } from './SessionService';
-import { Session } from '../../../types';
-import { maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
-import { toDate } from '../../../core/utils/dateUtils';
+import { Session } from '../../types';
+import { maybeDecrypt } from '../crypto/cryptoHelpers';
+import { toDate } from '../utils/dateUtils';
 import pLimit from 'p-limit';
 
 interface LegacySession extends Session {

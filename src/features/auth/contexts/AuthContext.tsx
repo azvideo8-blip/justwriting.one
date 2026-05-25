@@ -8,6 +8,8 @@ import * as Sentry from '@sentry/react';
 import { clearSessionKey } from '../../../core/crypto/encrypt';
 import { reportError } from '../../../core/errors/reportError';
 import { setEncryptionEnabled, setProfileLoaded } from '../../../core/crypto/cryptoHelpers';
+import { userProfileDbSchema } from '../../../core/firebase/schemas/firestoreSchemas';
+import { STORAGE_KEYS } from '../../../core/constants/storageKeys';
 
 type AuthState = 'loading' | 'authenticated' | 'guest';
 
@@ -74,11 +76,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (u) {
         try {
-          const guestId = localStorage.getItem('jw_guest_id');
+          const guestId = localStorage.getItem(STORAGE_KEYS.GUEST_ID);
           const keysToRemove: string[] = [];
           for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key?.startsWith('local_session_')) {
+            if (key?.startsWith(STORAGE_KEYS.LOCAL_SESSION_PREFIX)) {
               if (!guestId || !key.includes(guestId)) keysToRemove.push(key);
             }
           }
@@ -95,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting profile when user signs out
       setProfile(null);
       setProfileLoaded('guest', true);
       creationAttemptedRef.current = false;
@@ -115,10 +118,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (snap.exists()) {
           const data = snap.data();
           if (data && typeof data === 'object' && 'uid' in data) {
-            profileSetBySnapshotRef.current = true;
-            setProfile(data as UserProfile);
-            setEncryptionEnabled(user.uid, !!(data.encryptionSalt && data.encryptedDataKey));
-            setProfileLoaded(user.uid, true);
+            const parsed = userProfileDbSchema.safeParse(data);
+            if (parsed.success) {
+              profileSetBySnapshotRef.current = true;
+              setProfile(parsed.data as UserProfile);
+              setEncryptionEnabled(user.uid, !!(parsed.data.encryptionSalt && parsed.data.encryptedDataKey));
+              setProfileLoaded(user.uid, true);
+            } else {
+              if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, parsed.error.flatten());
+              profileSetBySnapshotRef.current = true;
+              setProfile(data as UserProfile);
+              setEncryptionEnabled(user.uid, !!(data.encryptionSalt && data.encryptedDataKey));
+              setProfileLoaded(user.uid, true);
+            }
           } else {
             if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, data);
             setProfile(null);
@@ -173,6 +185,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }, (err) => {
         console.error('Firestore snapshot error:', err);
+        reportError(err, { action: 'profileSnapshot', uid: user.uid });
+        setIsConnected(false);
       });
     })();
 

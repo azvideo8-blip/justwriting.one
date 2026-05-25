@@ -9,7 +9,7 @@ import { useSettings } from '../../../core/settings/SettingsContext';
 import { GoalToast } from '../../../shared/components/GoalToast';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { WritingFinishModal } from '../WritingFinishModal';
+import { WritingFinishModal } from '../components/WritingFinishModal';
 import { FlowPulse } from '../../../core/theme/FlowPulse';
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
 
@@ -21,7 +21,7 @@ import { useLifeLog } from '../hooks/useLifeLog';
 import { useStreak } from '../hooks/useStreak';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
-import { SyncService } from '../services/SyncService';
+import { SyncService } from '../../../core/services/SyncService';
 
 import { useGuestWritingSession } from '../hooks/useGuestWritingSession';
 import { useCloudWritingSession } from '../hooks/useCloudWritingSession';
@@ -128,13 +128,6 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
     }, 1000);
     return () => clearInterval(interval);
   }, []);
-
-  // [L-05] checkGoals вызывается каждую секунду в продакшне (в состоянии 'writing')
-  React.useEffect(() => {
-    if (sessionStatus !== 'writing') return;
-    const id = setInterval(() => useTimerStore.getState().checkGoals(), 1000);
-    return () => clearInterval(id);
-  }, [sessionStatus]);
 
   useEffect(() => {
     setUIStatus(sessionStatus);
@@ -284,7 +277,7 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
         streakDays={streakForModal}
         sessionGroups={lifeLogGroups}
       />
-      <FlowPulse />
+      <FlowPulse isActive={sessionStatus === 'writing'} />
       {import.meta.env.DEV && devKpmStats && (
         <div className="fixed bottom-2 left-2 text-label font-mono text-text-main/30 z-50 pointer-events-none">
           KPM {devKpmStats.kpm} · IKI {devKpmStats.ikiMedian}ms · CV {devKpmStats.ikiCv}

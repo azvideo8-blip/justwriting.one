@@ -4,7 +4,7 @@ import { useLanguage } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme/ThemeProvider';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
-import { SyncService } from '../../writing/services/SyncService';
+import { SyncService } from '../../../core/services/SyncService';
 import { useToast } from '../../../shared/components/Toast';
 import { Section } from './SettingsHelpers';
 

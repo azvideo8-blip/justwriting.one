@@ -1,8 +1,9 @@
 import { getClient } from '../../../core/firebase/firestoreClient';
-import { getLocalDb, LocalDraft } from '../../../shared/lib/localDb';
+import { getLocalDb, LocalDraft } from '../../../core/storage/localDb';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
 import { maybeEncrypt, maybeDecrypt, isProfileLoaded } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../core/errors/reportError';
+import { STORAGE_KEYS } from '../../../core/constants/storageKeys';
 
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const _abortControllers = new Map<string, AbortController>();
@@ -20,7 +21,7 @@ export const WritingDraftService = {
   loadDraft: async (userId: string): Promise<LocalDraft | null> => {
     let deletedAt = 0;
     try {
-      const s = sessionStorage.getItem(`draft-deleted-${userId}`);
+      const s = sessionStorage.getItem(STORAGE_KEYS.DRAFT_DELETED(userId));
       if (s) deletedAt = parseInt(s, 10);
     } catch (e) { reportError(e, { action: 'loadDraft_sessionStorageRead', userId }); }
 
@@ -33,7 +34,7 @@ export const WritingDraftService = {
         return null;
       })(),
       (async () => {
-        const raw = localStorage.getItem(`draft-${userId}`);
+        const raw = localStorage.getItem(STORAGE_KEYS.DRAFT(userId));
         if (raw) {
           const parsed = JSON.parse(raw);
           if (parsed.content) return { ...parsed, userId } as LocalDraft;
@@ -93,7 +94,7 @@ export const WritingDraftService = {
 
   clearLegacyDraft: async (userId: string) => {
     try {
-      localStorage.removeItem(`draft-${userId}`);
+      localStorage.removeItem(STORAGE_KEYS.DRAFT(userId));
     } catch (e) { reportError(e, { action: 'clearLegacyDraft', userId }); }
   },
 
@@ -139,7 +140,7 @@ export const WritingDraftService = {
     if (!userId) return;
     _abortControllers.get(userId)?.abort();
     _abortControllers.delete(userId);
-    try { sessionStorage.setItem(`draft-deleted-${userId}`, Date.now().toString()); } catch (e) { reportError(e, { action: 'deleteDraft_sessionStorageWrite', userId }); }
+    try { sessionStorage.setItem(STORAGE_KEYS.DRAFT_DELETED(userId), Date.now().toString()); } catch (e) { reportError(e, { action: 'deleteDraft_sessionStorageWrite', userId }); }
     try {
       const localDb = await getLocalDb();
       if (hasDraftsStore(localDb)) {
@@ -149,7 +150,7 @@ export const WritingDraftService = {
       reportError(err, { action: 'deleteDraft_local', userId });
     }
     try {
-      localStorage.removeItem(`draft-${userId}`);
+      localStorage.removeItem(STORAGE_KEYS.DRAFT(userId));
     } catch (e) { reportError(e, { action: 'deleteDraft_legacyLocalStorage', userId }); }
     try {
       const { db, mod } = await getClient();

@@ -6,9 +6,9 @@ import { cn } from '../../../core/utils/utils';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useLanguage } from '../../../core/i18n';
 
-import { WritingHeader } from '../WritingHeader';
-import { WritingEditor } from '../WritingEditor';
-import { WritingSetup, SetupMode } from '../WritingSetup';
+import { WritingHeader } from '../components/WritingHeader';
+import { WritingEditor } from '../components/WritingEditor';
+import { WritingSetup, SetupMode } from '../components/WritingSetup';
 import { LifeLogPanel } from '../components/LifeLogPanel';
 import { BottomStats } from '../components/BottomStats';
 import { ConnectionStatusBanner } from '../components/ConnectionStatusBanner';

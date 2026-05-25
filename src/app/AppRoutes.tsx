@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { ProtectedRoute, GuestRoute } from './ProtectedRoute';
+import { ErrorBoundary } from '../shared/components/ErrorBoundary';
 
 const WritingPage = React.lazy(() => import('../features/writing/pages/WritingPage').then(m => ({ default: m.WritingPage })));
 const MobileMePage = React.lazy(() => import('../features/writing/pages/MobileMePage').then(m => ({ default: m.MobileMePage })));
@@ -28,12 +29,12 @@ export function AppRoutes() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route path="/" element={<WritingPage user={user} profile={profile} />} />
+        <Route path="/" element={<ErrorBoundary><WritingPage user={user} profile={profile} /></ErrorBoundary>} />
         <Route path="/log" element={<Navigate to="/archive" replace />} />
-        <Route path="/me" element={<MobileMePage />} />
-        <Route path="/archive" element={<ArchivePage user={user} profile={profile} />} />
-        <Route path="/profile" element={<ProfilePage user={user} profile={profile} />} />
-        <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminPage /></ProtectedRoute>} />
+        <Route path="/me" element={<ProtectedRoute><ErrorBoundary><MobileMePage /></ErrorBoundary></ProtectedRoute>} />
+        <Route path="/archive" element={<ProtectedRoute><ErrorBoundary><ArchivePage user={user} profile={profile} /></ErrorBoundary></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><ErrorBoundary><ProfilePage user={user} profile={profile} /></ErrorBoundary></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute requireAdmin><ErrorBoundary><AdminPage /></ErrorBoundary></ProtectedRoute>} />
         <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

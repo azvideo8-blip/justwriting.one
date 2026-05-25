@@ -159,7 +159,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
     }).catch(e => { reportError(e, { action: 'loadCloudAchievements', userId: user.uid }); });
 
     return () => ac.abort();
-  }, [user]);
+  }, [user, storageKey]);
 
   const statsKeyRef = useRef('');
   useEffect(() => {
@@ -210,7 +210,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
         syncTimerRef.current = null;
       }
     };
-  }, [stats, sessions, user]);
+  }, [stats, sessions, user, storageKey]);
 
   const totalAchievements = GROUPS.reduce((s, g) => s + g.achievements.length, 0);
   const unlockedCount = GROUPS.reduce((s, g) =>

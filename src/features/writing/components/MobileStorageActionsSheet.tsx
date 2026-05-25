@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Cloud, HardDrive, Loader2, Trash2, X, Upload, RefreshCw } from 'lucide-react';
 
 import { useLanguage } from '../../../core/i18n';
 import { useToast } from '../../../shared/components/Toast';
-import { StorageService } from '../services/StorageService';
-import { LocalDocumentService } from '../services/LocalDocumentService';
-import { SyncService } from '../services/SyncService';
+import { StorageService } from '../../../core/services/StorageService';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
+import { SyncService } from '../../../core/services/SyncService';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { reportError } from '../../../core/errors/reportError';
 import { UnlockPrompt } from '../../auth/components/UnlockPrompt';

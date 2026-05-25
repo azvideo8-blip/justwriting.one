@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { DocumentService } from '../services/DocumentService';
-import { LocalDocumentService } from '../services/LocalDocumentService';
+import { DocumentService } from '../../../core/services/DocumentService';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { Document } from '../../../types';
 import { reportError } from '../../../core/errors/reportError';
 import { useLanguage } from '../../../core/i18n';

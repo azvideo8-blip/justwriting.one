@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { useLocation } from 'react-router-dom';
 import { useTheme } from './ThemeProvider';

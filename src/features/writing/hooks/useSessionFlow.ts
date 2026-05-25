@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { SessionType } from '../store/types';
 import { useTimerStore } from '../store/useTimerStore';
-import { SetupMode } from '../WritingSetup';
+import { SetupMode } from '../components/WritingSetup';
 import { playGoalSound } from '../../../core/utils/sound';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 

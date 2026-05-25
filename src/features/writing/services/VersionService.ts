@@ -1,9 +1,9 @@
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { Version } from '../../../types';
-import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
+import { handleFirestoreError, OperationType } from '../../../core/errors/firestore-errors';
 import { computeWordDelta } from './DiffService';
 import { reportError } from '../../../core/errors/reportError';
-import { versionDbSchema } from '../../../shared/schemas/firestoreSchemas';
+import { versionDbSchema } from '../../../core/firebase/schemas/firestoreSchemas';
 
 export const VersionService = {
   async addVersion(

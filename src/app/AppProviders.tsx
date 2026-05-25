@@ -1,6 +1,7 @@
 import { ThemeProvider } from '../core/theme/ThemeProvider';
 import { WritingSettingsProvider } from '../features/writing/contexts/WritingSettingsContext';
 import { SettingsProvider } from '../core/settings/SettingsProvider';
+import { SettingsPanel } from '../features/settings/components/SettingsPanel';
 import { LanguageProvider } from '../core/i18n';
 import { ToastProvider } from '../shared/components/Toast';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
@@ -17,7 +18,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
             <WritingSettingsProvider>
               <ToastProvider>
                 <LoginModalProvider>
-                  <SettingsProvider>
+                  <SettingsProvider renderSettingsPanel={(props) => <SettingsPanel {...props} />}>
                     {children}
                   </SettingsProvider>
                 </LoginModalProvider>

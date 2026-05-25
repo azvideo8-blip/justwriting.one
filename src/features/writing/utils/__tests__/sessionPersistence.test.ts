@@ -28,47 +28,47 @@ describe('buildSessionPayload', () => {
   };
 
   it('sets userId from parameter', async () => {
-    const result = await buildSessionPayload(baseState, null, null, 'user123');
+    const result = await buildSessionPayload(baseState, 'user123');
     expect(result.userId).toBe('user123');
   });
 
   it('does not include authorName (PII removed)', async () => {
-    const result = await buildSessionPayload(baseState, null, null, 'u1');
+    const result = await buildSessionPayload(baseState, 'u1');
     expect(result.authorName).toBeUndefined();
   });
 
   it('does not include authorPhoto (PII removed)', async () => {
-    const result = await buildSessionPayload(baseState, null, null, 'u1');
+    const result = await buildSessionPayload(baseState, 'u1');
     expect(result.authorPhoto).toBeUndefined();
   });
 
   it('does not include nickname (PII removed)', async () => {
-    const result = await buildSessionPayload(baseState, { nickname: 'Nick' } as any, null, 'u1');
+    const result = await buildSessionPayload(baseState, 'u1');
     expect(result.nickname).toBeUndefined();
   });
 
   it('charCount = content.length', async () => {
-    const result = await buildSessionPayload(baseState, null, null, 'u1');
+    const result = await buildSessionPayload(baseState, 'u1');
     expect(result.charCount).toBe(baseState.content.length);
   });
 
   it('goalReached = true for free session type', async () => {
-    const result = await buildSessionPayload({ ...baseState, sessionType: 'free' }, null, null, 'u1');
+    const result = await buildSessionPayload({ ...baseState, sessionType: 'free' }, 'u1');
     expect(result.goalReached).toBe(true);
   });
 
   it('goalReached = timeGoalReached for timer type', async () => {
-    const result = await buildSessionPayload({ ...baseState, sessionType: 'timer', timeGoalReached: true }, null, null, 'u1');
+    const result = await buildSessionPayload({ ...baseState, sessionType: 'timer', timeGoalReached: true }, 'u1');
     expect(result.goalReached).toBe(true);
   });
 
   it('goalReached = wordGoalReached for words type', async () => {
-    const result = await buildSessionPayload({ ...baseState, sessionType: 'words', wordGoalReached: true }, null, null, 'u1');
+    const result = await buildSessionPayload({ ...baseState, sessionType: 'words', wordGoalReached: true }, 'u1');
     expect(result.goalReached).toBe(true);
   });
 
   it('includes updatedAt', async () => {
-    const result = await buildSessionPayload(baseState, null, null, 'u1');
+    const result = await buildSessionPayload(baseState, 'u1');
     expect(result.updatedAt).toBeDefined();
   });
 });

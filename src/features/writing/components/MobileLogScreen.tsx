@@ -12,6 +12,7 @@ import { AnimatePresence } from 'motion/react';
 import { MobilePageHeader } from '../../../shared/components/MobilePageHeader';
 import { Settings } from 'lucide-react';
 import { useSettings } from '../../../core/settings/SettingsContext';
+import { LoadingSkeleton } from '../../../shared/components/LoadingSkeleton';
 
 interface MobileLogScreenProps {
   userId: string;
@@ -55,7 +56,7 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
         ...g,
         sessions: g.sessions.filter(s =>
           (s.title || '').toLowerCase().includes(needle) ||
-          (s.content || '').toLowerCase().slice(0, 200).includes(needle)
+          (s.content || '').toLowerCase().includes(needle)
         ),
       }))
       .filter(g => g.sessions.length > 0);
@@ -213,15 +214,7 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
       }}>
         {loading ? (
           <div className="space-y-4 px-5 pt-4">
-            <style dangerouslySetInnerHTML={{__html: `
-              @keyframes pulse-bg {
-                0%, 100% { opacity: 0.6; }
-                50% { opacity: 0.35; }
-              }
-              .skeleton-pulse {
-                animation: pulse-bg 1.5s ease-in-out infinite;
-              }
-            `}} />
+            <LoadingSkeleton />
             <div className="skeleton-pulse bg-surface-card border border-border-subtle rounded-3xl h-24 w-full" />
             <div className="skeleton-pulse bg-surface-card border border-border-subtle rounded-3xl h-24 w-full" />
             <div className="skeleton-pulse bg-surface-card border border-border-subtle rounded-3xl h-24 w-full" />

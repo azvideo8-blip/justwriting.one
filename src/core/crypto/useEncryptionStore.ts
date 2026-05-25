@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { reportError } from '../errors/reportError';
+import { STORAGE_KEYS } from '../constants/storageKeys';
 
 interface EncryptionState {
   dataKey: CryptoKey | null;
@@ -28,7 +29,7 @@ export const useEncryptionStore = create<EncryptionState>((set, get) => ({
     set(state => ({ encryptionEnabled: { ...state.encryptionEnabled, [userId]: enabled } }));
     try {
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(`enc_enabled_${userId}`, enabled ? '1' : '0');
+        localStorage.setItem(STORAGE_KEYS.ENC_ENABLED(userId), enabled ? '1' : '0');
       }
     } catch (e) {
       console.error('[useEncryptionStore] localStorage write failed', e);
@@ -42,7 +43,7 @@ export const useEncryptionStore = create<EncryptionState>((set, get) => ({
     if (state.encryptionEnabled[userId] !== undefined) return state.encryptionEnabled[userId];
     try {
       if (typeof localStorage !== 'undefined') {
-        const val = localStorage.getItem(`enc_enabled_${userId}`);
+        const val = localStorage.getItem(STORAGE_KEYS.ENC_ENABLED(userId));
         if (val !== null) {
           const enabled = val === '1';
           set(state => ({ encryptionEnabled: { ...state.encryptionEnabled, [userId]: enabled } }));

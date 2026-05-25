@@ -38,7 +38,7 @@ function resetSession() {
   useSessionMetaStore.setState(META_DEFAULTS);
 }
 
-export { resetSession, resetSession as finishSession, resetSession as resetAndClear };
+export { resetSession, resetSession as resetAndClear };
 
 export function loadDraftIntoStore(draft: {
   content: string; title: string; wordCount: number;

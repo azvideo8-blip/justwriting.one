@@ -1,7 +1,8 @@
-import { getLocalDb, LocalDraft } from '../../../shared/lib/localDb';
+import { getLocalDb, LocalDraft } from '../../../core/storage/localDb';
 import { reportError } from '../../../core/errors/reportError';
+import { STORAGE_KEYS } from '../../../core/constants/storageKeys';
 
-const DRAFT_KEY = 'jw_guest_draft';
+const DRAFT_KEY = STORAGE_KEYS.GUEST_DRAFT;
 const GUEST_IDB_KEY = 'guest_draft';
 
 export interface GuestDraftData {
@@ -63,7 +64,7 @@ export async function loadGuestDraftFromStorage(): Promise<GuestDraftData | null
     reportError(e, { action: 'loadGuestDraft_ls_read' }, 'warning');
     try {
       localStorage.removeItem(DRAFT_KEY);
-    } catch {}
+    } catch { /* ignore cleanup */ }
   }
 
   if (idbDraft && lsDraft) {

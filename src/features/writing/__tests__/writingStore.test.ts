@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
-import { resetAndClear, finishSession } from '../store/storeActions';
+import { resetAndClear, resetSession } from '../store/storeActions';
 import { applyWpmDecay } from '../hooks/useWpm';
 
 const CONTENT_INITIAL = {
@@ -223,9 +223,9 @@ describe('setWordGoal()', () => {
   });
 });
 
-// ─── finishSession() and resetAndClear() ──────────────────────────────────────
+// ─── resetSession() and resetAndClear() ──────────────────────────────────────
 
-describe('finishSession()', () => {
+describe('resetSession()', () => {
   beforeEach(() => {
     useContentStore.setState({
       content: 'some text',
@@ -243,32 +243,32 @@ describe('finishSession()', () => {
   });
 
   it('resets content to empty string', () => {
-    finishSession();
+    resetSession();
     expect(useContentStore.getState().content).toBe('');
   });
 
   it('resets wpm to 0', () => {
-    finishSession();
+    resetSession();
     expect(useContentStore.getState().wpm).toBe(0);
   });
 
   it('resets seconds to 0', () => {
-    finishSession();
+    resetSession();
     expect(useTimerStore.getState().seconds).toBe(0);
   });
 
   it('resets status to idle', () => {
-    finishSession();
+    resetSession();
     expect(useTimerStore.getState().status).toBe('idle');
   });
 
   it('clears wpmHistory', () => {
-    finishSession();
+    resetSession();
     expect(useContentStore.getState().wpmHistory).toHaveLength(0);
   });
 
   it('clears wordSnapshots', () => {
-    finishSession();
+    resetSession();
     expect(useContentStore.getState().wordSnapshots).toHaveLength(0);
   });
 });
@@ -332,9 +332,9 @@ describe('wpmHistory', () => {
     expect(useContentStore.getState().wpmHistory[1].wpm).toBe(80);
   });
 
-  it('finishSession clears wpmHistory', () => {
+  it('resetSession clears wpmHistory', () => {
     useContentStore.getState().pushWpmHistory({ timestamp: 1000, wpm: 60 });
-    finishSession();
+    resetSession();
     expect(useContentStore.getState().wpmHistory).toHaveLength(0);
   });
 

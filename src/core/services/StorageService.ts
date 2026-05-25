@@ -1,12 +1,13 @@
 import { DocumentService } from './DocumentService';
-import { VersionService } from './VersionService';
+import { VersionService } from '../../features/writing/services/VersionService';
 import { LocalDocumentService } from './LocalDocumentService';
-import { LocalVersionService } from './LocalVersionService';
-import { getLocalDb, randomUUID, LocalDocument } from '../../../shared/lib/localDb';
-import { toDate } from '../../../core/utils/dateUtils';
-import { computeWordDelta } from './DiffService';
-import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
-import { reportError } from '../../../core/errors/reportError';
+import { LocalVersionService } from '../../features/writing/services/LocalVersionService';
+import { getLocalDb, randomUUID, LocalDocument } from '../storage/localDb';
+import { toDate } from '../utils/dateUtils';
+import { computeWordDelta } from '../../features/writing/services/DiffService';
+import { maybeEncrypt, maybeDecrypt } from '../crypto/cryptoHelpers';
+import { reportError } from '../errors/reportError';
+import { isFirestoreConnected } from '../firebase/firestore';
 
 export interface StorageState {
   local: boolean;
@@ -156,7 +157,10 @@ export const StorageService = {
     return localId;
   },
 
-  async addCloudCopy(userId: string, localDocumentId: string, encryptionRequired = true): Promise<string> {
+  async addCloudCopy(userId: string, localDocumentId: string, _encryptionRequired = true): Promise<string> {
+    if (!isFirestoreConnected) {
+      throw new Error('Not connected to cloud. Changes saved locally.');
+    }
     const db = await getLocalDb();
     const lockKey = `lock_cloud_${localDocumentId}`;
 
@@ -397,6 +401,16 @@ async function syncVersionToCloud(
   newVersion: number,
   prevContent: string
 ): Promise<void> {
+  if (!isFirestoreConnected) {
+    const syncDb = await getLocalDb();
+    await syncDb.put('syncQueue', {
+      id: `sync_${documentId}_${Date.now()}`,
+      documentId,
+      type: 'document' as const,
+      createdAt: Date.now(),
+    });
+    return;
+  }
   try {
     const cloudDoc = await DocumentService.getDocument(userId, linkedCloudId);
     if (!cloudDoc) {

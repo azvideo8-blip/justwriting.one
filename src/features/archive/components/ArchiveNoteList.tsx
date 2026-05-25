@@ -45,7 +45,7 @@ export function ArchiveNoteList({
   labels, userId, searchQuery, isGroupedByDate,
   onOpen, onDelete, onTagsChange, onTitleChange,
   onDateChange, onLabelChange, onStorageChange,
-  t, language, entriesLabel, allTags, onClearSearch,
+  t, language, entriesLabel: _entriesLabel, allTags, onClearSearch,
 }: ArchiveNoteListProps) {
   const reducedMotion = useReducedMotion();
 

@@ -38,7 +38,7 @@ vi.mock('../../firebase/firestoreClient', () => ({
     mod: {
       collection: (db: any, ...paths: string[]) => ({ path: paths.join('/') }),
       getDocs: mockGetDocs,
-      query: (col: any, ...constraints: any[]) => col,
+      query: (col: any, ..._constraints: any[]) => col,
       where: (field: string, op: string, value: any) => ({ field, op, value }),
       doc: (db: any, ...paths: string[]) => ({ path: paths.join('/'), id: paths[paths.length - 1] }),
       writeBatch: mockWriteBatch,

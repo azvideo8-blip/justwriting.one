@@ -1,4 +1,4 @@
-import { SessionService } from '../../writing/services/SessionService';
+import { SessionService } from '../../../core/services/SessionService';
 import type { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 
 export const AdminSessionService = {

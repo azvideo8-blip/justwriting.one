@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { DocumentService } from '../DocumentService';
+import { DocumentService } from '../../../../core/services/DocumentService';
 
 const mockAddDoc = vi.fn();
 const mockGetDoc = vi.fn();

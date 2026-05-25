@@ -1,9 +1,9 @@
-import { getClient } from '../../../core/firebase/firestoreClient';
-import { Document } from '../../../types';
-import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
-import { toTimestampMs } from '../../../core/utils/dateUtils';
-import { reportError } from '../../../core/errors/reportError';
-import { documentDbSchema } from '../../../shared/schemas/firestoreSchemas';
+import { getClient } from '../firebase/firestoreClient';
+import { Document } from '../../types';
+import { handleFirestoreError, OperationType } from '../errors/firestore-errors';
+import { toTimestampMs } from '../utils/dateUtils';
+import { reportError } from '../errors/reportError';
+import { documentDbSchema } from '../firebase/schemas/firestoreSchemas';
 
 export const DocumentService = {
   async createDocument(

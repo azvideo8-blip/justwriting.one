@@ -70,7 +70,7 @@ describe('useDraftAutosave', () => {
     useTimerStore.setState({ status: 'idle' });
     const idleData = { ...initialData, status: 'idle' as const };
 
-    const { result, rerender } = renderHook(
+    const { rerender } = renderHook(
       ({ data }) => useDraftAutosave(mockUser, data),
       { initialProps: { data: idleData } }
     );

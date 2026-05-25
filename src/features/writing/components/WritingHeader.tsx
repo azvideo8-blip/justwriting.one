@@ -3,15 +3,15 @@ import {
   Maximize, Minimize, FilePlus, FolderOpen, Save, BookOpen, Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../../core/utils/utils';
-import { useLanguage } from '../../core/i18n';
-import { useWritingSettings } from './contexts/WritingSettingsContext';
-import { IconButton } from '../../shared/components/IconButton';
+import { cn } from '../../../core/utils/utils';
+import { useLanguage } from '../../../core/i18n';
+import { useWritingSettings } from '../contexts/WritingSettingsContext';
+import { IconButton } from '../../../shared/components/IconButton';
 
-import { useContentStore } from './store/useContentStore';
-import { useTimerStore } from './store/useTimerStore';
-import { Toolbar } from './components/Toolbar';
-import { HeaderStats } from './components/HeaderStats';
+import { useContentStore } from '../store/useContentStore';
+import { useTimerStore } from '../store/useTimerStore';
+import { Toolbar } from './Toolbar';
+import { HeaderStats } from './HeaderStats';
 
 interface WritingHeaderProps {
   totalDurationForDeadline?: number | null;

@@ -1,4 +1,4 @@
-import { LocalDocumentService } from './LocalDocumentService';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
 import { LocalSessionInfo } from '../types/session';
 

@@ -6,7 +6,7 @@ import {
   computeDailySummary,
 } from '../lifeLogUtils';
 import { LifeLogDocument } from '../../types/lifeLog';
-import { LocalDocument } from '../../../../shared/lib/localDb';
+import { LocalDocument } from '../../../../core/storage/localDb';
 import { Document, Session } from '../../../../types';
 import { Timestamp } from 'firebase/firestore';
 

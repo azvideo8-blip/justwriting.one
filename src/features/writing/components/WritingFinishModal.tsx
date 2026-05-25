@@ -1,21 +1,21 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Download, FileText, ChevronDown, ChevronUp } from 'lucide-react';
-import { cn } from '../../core/utils/utils';
-import { ExportService } from '../export/ExportService';
-const WpmChart = React.lazy(() => import('./components/WpmChart').then(m => ({ default: m.WpmChart })));
-import { Label } from '../../types';
-import { useLanguage } from '../../core/i18n';
-import { formatTime } from '../../core/utils/formatTime';
-import { useServiceAction } from '../../shared/hooks/useServiceAction';
+import { cn } from '../../../core/utils/utils';
+import { ExportService } from '../../export/ExportService';
+const WpmChart = React.lazy(() => import('./WpmChart').then(m => ({ default: m.WpmChart })));
+import { Label } from '../../../types';
+import { useLanguage } from '../../../core/i18n';
+import { formatTime } from '../../../core/utils/formatTime';
+import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 
-import { useCountUp } from '../../shared/hooks/useCountUp';
-import { useContentStore } from './store/useContentStore';
-import { useTimerStore } from './store/useTimerStore';
-import { useModalEscape } from '../../shared/hooks/useModalEscape';
-import { useFocusTrap } from '../../shared/hooks/useFocusTrap';
-import { StreakDots } from '../../shared/components/StreakDots';
-import { useLayoutMode } from '../../shared/hooks/useLayoutMode';
+import { useCountUp } from '../../../shared/hooks/useCountUp';
+import { useContentStore } from '../store/useContentStore';
+import { useTimerStore } from '../store/useTimerStore';
+import { useModalEscape } from '../../../shared/hooks/useModalEscape';
+import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
+import { StreakDots } from '../../../shared/components/StreakDots';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 
 const STOP_WORDS = new Set([
   'это','что','как','так','все','они','она','он','мы','вы','я','его','её','их',

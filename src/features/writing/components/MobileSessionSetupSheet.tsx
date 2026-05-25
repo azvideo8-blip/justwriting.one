@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Zap, Timer, Target, Clock, ChevronLeft, X } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useTimerStore } from '../store/useTimerStore';
-import { SetupMode } from '../WritingSetup';
+import { SetupMode } from './WritingSetup';
 
 
 interface MobileSessionSetupSheetProps {

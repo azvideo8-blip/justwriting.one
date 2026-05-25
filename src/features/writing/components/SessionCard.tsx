@@ -17,7 +17,7 @@ import { TagsSection } from './TagsSection';
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
 import { MobileNoteActionsSheet } from '../../archive/components/MobileNoteActionsSheet';
 
-export function SessionCard({
+export const SessionCard = React.memo(function SessionCard({
   session,
   onContinue,
   labels,
@@ -368,4 +368,4 @@ export function SessionCard({
       </AnimatePresence>
     </>
   );
-}
+});

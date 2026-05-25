@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { User } from 'firebase/auth';
-import { getOrCreateGuestId } from '../lib/localDb';
+import { getOrCreateGuestId } from '../../core/storage/localDb';
 
 export function useUserId(user: User | null): string {
   const [guestId] = useState(() => getOrCreateGuestId());

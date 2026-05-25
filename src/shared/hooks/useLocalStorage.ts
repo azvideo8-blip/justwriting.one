@@ -37,6 +37,7 @@ export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodT
     }
   }, [key]);
 
+  // eslint-disable-next-line react-hooks/refs -- parseStoredValue reads from ref but is a lazy initializer, not a render-time read
   const [storedValue, setStoredValue] = useState<T>(parseStoredValue);
 
   useEffect(() => {

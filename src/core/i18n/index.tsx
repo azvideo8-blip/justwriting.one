@@ -7,6 +7,7 @@ import { settingsTranslations } from './translations/settings';
 import { authTranslations } from './translations/auth';
 import { lifelogTranslations } from './translations/lifelog';
 import { Language, Translations } from './types';
+import { STORAGE_KEYS } from '../constants/storageKeys';
 
 export type { Language, Translations };
 
@@ -33,14 +34,14 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>(() => {
-    const saved = localStorage.getItem('app_language');
+    const saved = localStorage.getItem(STORAGE_KEYS.APP_LANGUAGE);
     if (saved === 'ru' || saved === 'en') return saved as Language;
     return 'ru';
   });
 
   const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
-    localStorage.setItem('app_language', lang);
+    localStorage.setItem(STORAGE_KEYS.APP_LANGUAGE, lang);
   }, []);
 
   const t = useCallback((key: string, params?: Record<string, string | number>): string => {
