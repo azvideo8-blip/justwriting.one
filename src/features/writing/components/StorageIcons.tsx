@@ -199,7 +199,7 @@ export function StorageIcons({
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed inset-0 z-[300] flex items-center justify-center bg-surface-base/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[var(--z-critical)] flex items-center justify-center bg-surface-base/60 backdrop-blur-sm"
             onClick={() => setConfirmState(IDLE)}
           >
             <motion.div

@@ -172,7 +172,7 @@ export function WritingFinishModal({
 
   return (
     <div className={cn(
-      "fixed inset-0 z-[110] flex bg-surface-base text-text-main",
+      "fixed inset-0 z-[var(--z-modal)] flex bg-surface-base text-text-main",
       isMobile ? "flex-col w-full h-full" : "items-center justify-center p-4 bg-surface-base/80 backdrop-blur-2xl"
     )}>
       <motion.div
@@ -203,9 +203,18 @@ export function WritingFinishModal({
               <div className="text-sm text-text-main/40 mt-1">{t('mood_checkin_subtitle')}</div>
             </div>
             <div className="flex justify-center gap-4">
-              {(['😊', '🙂', '😐', '😔', '😤'] as const).map((emoji, i) => (
+              {(['😊', '🙂', '😐', '😔', '😤'] as const).map((emoji, i) => {
+                const moodLabels: Record<string, string> = {
+                  '😊': t('mood_happy'),
+                  '🙂': t('mood_good'),
+                  '😐': t('mood_neutral'),
+                  '😔': t('mood_sad'),
+                  '😤': t('mood_frustrated'),
+                };
+                return (
                 <motion.button
                   key={i}
+                  aria-label={moodLabels[emoji]}
                   whileHover={reducedMotion ? {} : { scale: 1.3 }}
                   whileTap={reducedMotion ? {} : { scale: 0.85 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 15 }}
@@ -217,7 +226,8 @@ export function WritingFinishModal({
                 >
                   {emoji}
                 </motion.button>
-              ))}
+              );
+              })}
             </div>
             <button
               disabled={isSaving}
@@ -240,7 +250,7 @@ export function WritingFinishModal({
               <h3 className="text-lg font-bold text-text-main">{t('finish_congrats')}</h3>
               <button
                 onClick={onSkipSave}
-                className="text-sm text-text-main/40 hover:text-text-main/70 transition-colors py-2"
+                className="text-sm text-text-main/60 hover:text-text-main/70 transition-colors py-2"
               >
                 {t('finish_skip_save')}
               </button>
@@ -388,7 +398,7 @@ export function WritingFinishModal({
           </div>
           <button
             onClick={onSkipSave}
-            className="w-full text-sm text-text-main/40 hover:text-text-main/70 transition-colors py-2"
+            className="w-full text-sm text-text-main/60 hover:text-text-main/70 transition-colors py-2"
           >
             {t('finish_skip_save')}
           </button>

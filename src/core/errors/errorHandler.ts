@@ -15,7 +15,7 @@ export const mapFirebaseError = (error: unknown, language: 'ru' | 'en' = 'ru'): 
       return translations['error_unavailable'][language];
     case 'auth/user-not-found':
     case 'auth/wrong-password':
-      return translations['error_invalid_credentials'][language];
+      return translations['auth_error_invalid_credential'][language];
     case 'auth/too-many-requests':
       return translations['error_too_many_requests'][language];
     default:

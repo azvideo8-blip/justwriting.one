@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { Square } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
@@ -37,6 +37,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
   const { t } = useLanguage();
   const { isZenActive, zenModeEnabled, headerVisibility } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
+  const reducedMotion = useReducedMotion();
   const { wordCount, wpm } = useContentStore(
     useShallow(s => ({
       wordCount: s.wordCount,
@@ -222,7 +223,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
           <div className="flex items-center gap-1.5 leading-none whitespace-nowrap">
             <div
               aria-hidden="true"
-              className={cn("w-2 h-2 rounded-full transition-all duration-500 shrink-0", getWpmColor(wpm), status === 'writing' && "animate-pulse")}
+              className={cn("w-2 h-2 rounded-full transition-all duration-500 shrink-0", getWpmColor(wpm), status === 'writing' && !reducedMotion && "animate-pulse")}
               style={{ boxShadow: status === 'writing' && wpm > 0 ? `0 0 10px ${getWpmHex(wpm)}` : 'none' }}
             />
             <span className="text-lg font-medium text-text-main tabular-nums">{wpm}</span>
@@ -241,7 +242,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         <div className="flex items-center gap-1 bg-text-main/[0.04] rounded-xl px-1 py-0.5">
         <motion.button
           onClick={status === 'writing' ? onPause : onPlay}
-          title={status === 'writing' ? t('pause') : t('play')}
+          aria-label={status === 'writing' ? t('pause') : t('play')}
           whileTap={{ scale: 0.82 }}
           transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
@@ -256,7 +257,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         <motion.button
           onClick={onStop}
           disabled={status === 'idle'}
-          title={t('stop')}
+          aria-label={t('stop')}
           whileTap={{ scale: 0.82 }}
           transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(

@@ -37,6 +37,21 @@
   /* Surface tokens */
   --color-surface-elevated: var(--surface-elevated);
 
+  /* Z-index scale */
+  --z-sidebar: 50;
+  --z-overlay: 60;
+  --z-panel: 70;
+  --z-sheet: 100;
+  --z-modal: 110;
+  --z-auth: 200;
+  --z-critical: 300;
+  --z-skip: 999;
+
+  /* Radius scale */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+
   /* Spacing Scale — theme-aware (px values, allow theme overrides) */
   --sp-xs: 2px;
   --sp-sm: 4px;
@@ -56,7 +71,7 @@
     --bg-elevated: #231542;
     --text-main: #F0EBFF;
     --text-muted: #9B89CC;
-    --text-subtle: rgba(155, 137, 204, 0.45);
+    --text-subtle: rgba(155, 137, 204, 0.70);
     --border-light: rgba(165, 131, 232, 0.12);
     --surface-card: rgba(26, 16, 48, 0.4);
     --surface-elevated: rgba(35, 21, 66, 0.6);
@@ -79,7 +94,7 @@
     --bg-base: #050506;
     --text-main: #FAFAFA;
     --text-muted: #A1A1AA;
-    --text-subtle: rgba(161, 161, 170, 0.4);
+    --text-subtle: rgba(161, 161, 170, 0.65);
     --border-light: rgba(255, 255, 255, 0.06);
     --surface-card: rgba(255, 255, 255, 0.03);
     --surface-elevated: rgba(255, 255, 255, 0.07);
@@ -102,7 +117,7 @@
     --bg-base: #FAF8F5;
     --text-main: #1A1412;
     --text-muted: #6B625E;
-    --text-subtle: rgba(107, 98, 94, 0.45);
+    --text-subtle: rgba(107, 98, 94, 0.75);
     --border-light: rgba(26, 20, 18, 0.07);
     --surface-card: #F0EDE6;
     --surface-elevated: #E5E1D7;
@@ -124,7 +139,7 @@
     --bg-base: #090C0A;
     --text-main: #EBF5EF;
     --text-muted: #8AA393;
-    --text-subtle: rgba(138, 163, 147, 0.35);
+    --text-subtle: rgba(138, 163, 147, 0.70);
     --border-light: rgba(29, 185, 84, 0.1);
     --surface-card: #131915;
     --surface-elevated: #1C2620;
@@ -153,7 +168,7 @@
     --accent-danger: #f87171;
     --accent-info: #a78bfa;
     --text-muted: rgba(255, 255, 255, 0.55);
-    --text-subtle: rgba(255, 255, 255, 0.4);
+    --text-subtle: rgba(255, 255, 255, 0.60);
     --flow-pulse-color: var(--brand-soft);
   }
 
@@ -273,44 +288,26 @@ textarea {
 .progress-glow {
   box-shadow: 0 0 6px var(--flow-pulse-color);
 }
+}
 
-html::-webkit-scrollbar {
+*::-webkit-scrollbar {
   width: 5px;
   height: 5px;
 }
-html::-webkit-scrollbar-track {
+*::-webkit-scrollbar-track {
   background: transparent;
 }
-html::-webkit-scrollbar-thumb {
-  background: var(--color-border-subtle);
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--brand-soft) 45%, transparent);
   border-radius: 99px;
 }
-html::-webkit-scrollbar-thumb:hover {
-  background: var(--flow-pulse-color);
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--color-border-subtle);
-  border-radius: 99px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+*::-webkit-scrollbar-thumb:hover {
   background: var(--flow-pulse-color);
 }
 
 @keyframes smooth-caret {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.15; }
-}
-  .gap-s-xl { gap: var(--sp-xl); }
-  .space-y-s-xl > * + * { margin-top: var(--sp-xl); }
-  .space-y-s-lg > * + * { margin-top: var(--sp-lg); }
 }
 
 /* 1. Scroll shadow indicators */
@@ -458,4 +455,13 @@ html::-webkit-scrollbar-thumb:hover {
     line-height: 1.3;
     letter-spacing: 0.06em;
   }
+  .archive-grid-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .archive-grid-item {
+    max-width: 400px;
+  }
+  .shadow-card { box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+  .shadow-panel { box-shadow: -12px 0 40px rgba(0,0,0,0.35); }
+  .shadow-modal { box-shadow: 0 0 60px rgba(0,0,0,0.8); }
 }

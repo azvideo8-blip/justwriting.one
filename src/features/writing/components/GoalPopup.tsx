@@ -152,6 +152,7 @@ export function GoalPopup({
           <div className="flex gap-2 items-center">
             <input
               type="number"
+              aria-label={title}
               placeholder={placeholder}
               defaultValue={current || ''}
               onKeyDown={e => {

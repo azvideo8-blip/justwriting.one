@@ -21,7 +21,6 @@ interface DesktopWritingLayoutProps {
   startCountdown: (type: 'stopwatch' | 'timer' | 'words' | 'finish-by') => void;
   countdown: number | null;
   totalDurationForDeadline: number | null;
-  onOpenSettings: () => void;
   onNew: () => void;
   onOpenLog: () => void;
   onSave: () => void;
@@ -53,7 +52,7 @@ export function DesktopWritingLayout({
   profile: _profile,
   setupMode, setSetupMode, startCountdown,
   countdown, totalDurationForDeadline,
-  onOpenSettings, onNew, onOpenLog, onSave, onPlay, onPause, onStop,
+  onNew, onOpenLog, onSave, onPlay, onPause, onStop,
   onContinueSession, handlePlayRef, keystrokeTrackerRef,
   hasDraft, sessionStatus, userId,
   onContinueSessionOrDoc, restoreDraft, discardDraft,
@@ -66,7 +65,7 @@ export function DesktopWritingLayout({
   const { t } = useLanguage();
   const editorColRef = React.useRef<HTMLDivElement>(null);
   const [isCompact, setIsCompact] = React.useState(false);
-  const { editorWidth } = useWritingSettings();
+  const { editorWidth, zenSeenOnce } = useWritingSettings();
   const reducedMotion = useReducedMotion();
 
   React.useEffect(() => {
@@ -88,8 +87,6 @@ export function DesktopWritingLayout({
     };
   }, []);
 
-  const LIFE_LOG_WIDTH = 380;
-
   return (
     <motion.div
       initial={reducedMotion ? false : { opacity: 0 }}
@@ -101,7 +98,7 @@ export function DesktopWritingLayout({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `${showZen ? '0px' : '64px'} 1fr ${lifeLogVisible ? `${LIFE_LOG_WIDTH}px` : '0px'}`,
+          gridTemplateColumns: `${showZen ? '0px' : '64px'} 1fr`,
           gridTemplateRows: '48px 1fr 64px',
           height: '100vh',
           width: '100vw',
@@ -115,7 +112,6 @@ export function DesktopWritingLayout({
         <div style={{ gridColumn: '2', gridRow: '1', overflow: 'hidden' }}>
           <WritingHeader
             totalDurationForDeadline={totalDurationForDeadline}
-            onOpenSettings={onOpenSettings}
             onNew={onNew}
             onOpenLog={onOpenLog}
             onSave={onSave}
@@ -203,25 +199,36 @@ export function DesktopWritingLayout({
             onStop={onStop}
           />
         </div>
-
-        <div style={{ gridColumn: '3', gridRow: '1 / 4', overflow: 'hidden' }}>
-          <AnimatePresence>
-            {lifeLogVisible && (
-              <LifeLogPanel
-                userId={userId}
-                onContinueSession={onContinueSessionOrDoc}
-                onClose={() => { if (!lifeLogPinned) setLifeLogVisible(false); }}
-                activeTab={lifeLogTab}
-                onTabChange={setLifeLogTab}
-                pinned={lifeLogPinned}
-                onTogglePin={() => setLifeLogPinned(!lifeLogPinned)}
-                inGrid
-                streakDays={streakDays}
-              />
-            )}
-          </AnimatePresence>
-        </div>
       </div>
+
+      <AnimatePresence>
+        {lifeLogVisible && (
+          <LifeLogPanel
+            userId={userId}
+            onContinueSession={onContinueSessionOrDoc}
+            onClose={() => { if (!lifeLogPinned) setLifeLogVisible(false); }}
+            activeTab={lifeLogTab}
+            onTabChange={setLifeLogTab}
+            pinned={lifeLogPinned}
+            onTogglePin={() => setLifeLogPinned(!lifeLogPinned)}
+            inGrid={false}
+            streakDays={streakDays}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showZen && !zenSeenOnce && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-surface-card/60 backdrop-blur-xl text-xs text-text-main/70 pointer-events-none"
+          >
+            {t('zen_hint')}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

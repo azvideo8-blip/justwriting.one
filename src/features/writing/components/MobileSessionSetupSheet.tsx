@@ -69,7 +69,7 @@ export function MobileSessionSetupSheet({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[150] bg-surface-base flex flex-col items-center justify-center"
+            className="fixed inset-0 z-[var(--z-sheet)] bg-surface-base flex flex-col items-center justify-center"
           >
             <motion.div
               key={countdown}
@@ -88,7 +88,7 @@ export function MobileSessionSetupSheet({
       {/* Slide-up Bottom Sheet Panel */}
       {setupMode !== 'countdown' && (
         <div 
-          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none"
+          className="fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none"
           onTouchMove={e => e.preventDefault()}
         >
           {/* Dismiss Back-tap Zone */}

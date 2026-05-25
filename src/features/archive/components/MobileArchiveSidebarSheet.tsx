@@ -51,7 +51,7 @@ export function MobileArchiveSidebarSheet({
 
   return (
     <div 
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none"
+      className="fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none"
       onTouchMove={e => e.preventDefault()}
     >
       {/* Dismiss overlay */}

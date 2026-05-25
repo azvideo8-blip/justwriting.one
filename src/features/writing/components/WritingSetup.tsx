@@ -109,7 +109,7 @@ export function WritingSetup({
   return (
     <>
       {setupMode === 'countdown' && (
-        <div className="fixed inset-0 z-[100] bg-surface-base flex items-center justify-center">
+        <div className="fixed inset-0 z-[var(--z-sheet)] bg-surface-base flex items-center justify-center">
           <motion.div 
             key={countdown}
             initial={{ scale: 0.2, opacity: 0, rotate: -20, filter: 'blur(10px)' }}

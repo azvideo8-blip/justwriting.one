@@ -5,7 +5,6 @@ import { useTimerStore } from '../store/useTimerStore';
 import { useContentStore } from '../store/useContentStore';
 import { Session, UserProfile } from '../../../types';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
-import { useSettings } from '../../../core/settings/SettingsContext';
 import { GoalToast } from '../../../shared/components/GoalToast';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -116,7 +115,6 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
 
   useWritingKeyboard({ sessionStatus, handlePlayRef, handlePauseRef });
 
-  const { openSettings } = useSettings();
   const keystrokeTrackerRef = React.useRef(new KeystrokeTracker());
   const [devKpmStats, setDevKpmStats] = React.useState<KeystrokeStats | null>(null);
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
@@ -181,7 +179,6 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
     startCountdown,
     countdown: flow.countdown,
     totalDurationForDeadline: flow.totalDurationForDeadline,
-    onOpenSettings: openSettings,
     onNew: handleNew,
     onOpenLog: handleOpen,
     onSave: onFinishClick,
@@ -208,7 +205,7 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
     saveStatus,
     streakDays,
   }), [profile, flow.setupMode, flow.countdown, flow.totalDurationForDeadline, setSetupMode, startCountdown,
-    openSettings, handleNew, handleOpen, onFinishClick, handlePlay, handlePause, handleContinueSession,
+    handleNew, handleOpen, onFinishClick, handlePlay, handlePause, handleContinueSession,
     handlePlayRef, keystrokeTrackerRef, hasDraft, sessionStatus, userId, handleContinueSessionOrDoc,
     session.restoreDraft, session.discardDraft, setTitle, showZen, lifeLogVisible, setLifeLogVisible,
     lifeLogTab, setLifeLogTab, lifeLogPinned, setLifeLogPinned, saveStatus, streakDays]);
@@ -252,7 +249,7 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
             animate={{ opacity: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8, ease: 'easeOut' }}
-            className="fixed inset-0 z-[200] bg-text-main pointer-events-none"
+            className="fixed inset-0 z-[var(--z-auth)] bg-text-main pointer-events-none"
           />
         )}
       </AnimatePresence>

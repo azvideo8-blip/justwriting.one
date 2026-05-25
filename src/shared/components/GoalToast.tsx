@@ -19,7 +19,7 @@ export function GoalToast({ visible, type }: GoalToastProps) {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.95 }}
           transition={reducedMotion ? { duration: 0 } : { type: 'spring', damping: 20, stiffness: 300 }}
-          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] pointer-events-none"
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[var(--z-auth)] pointer-events-none"
         >
           <div role="status" aria-live="polite" className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-surface-card border border-border-subtle backdrop-blur-xl shadow-lg">
             <CheckCircle2 size={18} className="text-emerald-500 shrink-0" />

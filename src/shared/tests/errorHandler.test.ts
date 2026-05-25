@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 
 describe('errorHandler', () => {
   it('maps permission-denied correctly', () => {
-    expect(mapFirebaseError({ code: 'permission-denied' })).toBe('У вас нет прав для выполнения этого действия.');
+    expect(mapFirebaseError({ code: 'permission-denied' })).toBe('У тебя нет прав для выполнения этого действия.');
   });
 
   it('maps auth errors correctly', () => {

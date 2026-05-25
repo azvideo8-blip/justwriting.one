@@ -276,7 +276,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] bg-surface-base/80 backdrop-blur-sm flex items-center justify-center p-4"
+            className="fixed inset-0 z-[var(--z-auth)] bg-surface-base/80 backdrop-blur-sm flex items-center justify-center p-4"
             onClick={() => setShowForgotPassword(false)}
           >
             <motion.div

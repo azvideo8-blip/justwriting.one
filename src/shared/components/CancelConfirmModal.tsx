@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { motion } from 'motion/react';
 import { X, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '../../core/i18n';
 import { useModalEscape } from '../hooks/useModalEscape';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { cn } from '../../core/utils/utils';
 
 interface CancelConfirmModalProps {
@@ -33,14 +34,17 @@ export function CancelConfirmModal({
 }: CancelConfirmModalProps) {
   const { t } = useLanguage();
   const v = variantConfig[variant];
+  const modalRef = useRef<HTMLDivElement>(null);
 
   useModalEscape(isOpen, onCancel);
+  useFocusTrap(modalRef, isOpen);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-surface-base/80 backdrop-blur-xl">
+    <div className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center p-4 bg-surface-base/80 backdrop-blur-xl">
       <motion.div 
+        ref={modalRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="cancel-modal-title"

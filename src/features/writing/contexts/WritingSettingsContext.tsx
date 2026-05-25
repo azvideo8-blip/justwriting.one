@@ -24,6 +24,7 @@ interface WritingSettingsContextType {
   lifeLogTab: 'log' | 'settings';
   setLifeLogTab: (tab: 'log' | 'settings') => void;
   isZenActive: boolean;
+  zenSeenOnce: boolean;
   status: TimerStatus;
   setStatus: (status: TimerStatus) => void;
   fontFamily: string;
@@ -56,6 +57,8 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
 
   const [status, setStatus] = useState<TimerStatus>('idle');
   const [isZenActive, setIsZenActive] = useState<boolean>(false);
+  const [zenSeenOnce, setZenSeenOnce] = useLocalStorage<boolean>('zen_seen_once', false, z.boolean());
+  const zenSeenOnceRef = useRef(zenSeenOnce);
   const zenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const guardRef = useRef<boolean>(false);
   const lastMousePos = useRef<{ x: number; y: number }>({ x: -1, y: -1 });
@@ -90,9 +93,10 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
       zenTimerRef.current = setTimeout(() => setIsZenActive(true), 3000);
     };
 
-    const hideUI = () => {
-      setIsZenActive(true);
-      if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
+     const hideUI = () => {
+       setIsZenActive(true);
+       if (!zenSeenOnceRef.current) setZenSeenOnce(true);
+       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
     };
 
     window.addEventListener('mousemove', showUI);
@@ -108,7 +112,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
       clearTimeout(timer);
       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
     };
-  }, [status, zenModeEnabled]);
+  }, [status, zenModeEnabled, setZenSeenOnce]);
 
   const toggleStreamMode = useCallback(() => setStreamMode(prev => !prev), [setStreamMode]);
   const toggleVisibility = useCallback((key: keyof HeaderVisibility) => {
@@ -123,12 +127,13 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     lifeLogVisible, setLifeLogVisible,
     lifeLogTab, setLifeLogTab,
     isZenActive,
+    zenSeenOnce,
     status, setStatus,
     fontFamily, setFontFamily,
     fontSize, setFontSize,
     lifeLogPinned, setLifeLogPinned,
     headerVisibility, toggleVisibility,
-  }), [streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled, editorWidth, setEditorWidth, lifeLogEnabled, setLifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isZenActive, status, setStatus, fontFamily, setFontFamily, fontSize, setFontSize, lifeLogPinned, setLifeLogPinned, headerVisibility, toggleVisibility]);
+  }), [streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled, editorWidth, setEditorWidth, lifeLogEnabled, setLifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isZenActive, zenSeenOnce, status, setStatus, fontFamily, setFontFamily, fontSize, setFontSize, lifeLogPinned, setLifeLogPinned, headerVisibility, toggleVisibility]);
 
   return (
     <WritingSettingsContext.Provider value={contextValue}>
