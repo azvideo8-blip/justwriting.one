@@ -226,7 +226,13 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
            "px-3 py-2 text-[9px] font-mono text-text-main/25 transition-all duration-300 select-none whitespace-nowrap flex items-center gap-2",
           expanded ? "opacity-100 pl-3" : "opacity-0 h-0 p-0 overflow-hidden"
         )}>
-          <span>{t('common_version')}: {APP_VERSION}</span>
+          <button
+            type="button"
+            onClick={() => navigate('/changelog')}
+            className="hover:text-text-main/50 transition-colors"
+          >
+            v{APP_VERSION}
+          </button>
           <span className="text-text-main/25">·</span>
           <button
             onClick={() => navigate('/about')}

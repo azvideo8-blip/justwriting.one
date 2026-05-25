@@ -10,7 +10,7 @@ import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModa
 import { deleteSession } from '../services/SessionDeleteService';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
-import { X, Pin, Trash2, Cloud, HardDrive, ArrowRight } from 'lucide-react';
+import { X, Pin, Trash2, ArrowRight } from 'lucide-react';
 import { highlightText } from '../../../shared/utils/highlightText';
 
 interface SessionItemProps {
@@ -23,11 +23,10 @@ interface SessionItemProps {
   language: string;
   userId: string;
   onStorageChange: () => void;
-  maxWords: number;
   searchQuery?: string;
 }
 
-const SessionItem = React.memo(function SessionItem({ session, doc, isActive, onClick, onDelete, t, language, userId: _userId, onStorageChange: _onStorageChange, maxWords, searchQuery }: SessionItemProps) {
+const SessionItem = React.memo(function SessionItem({ session, doc: _doc, isActive, onClick, onDelete, t, language, userId: _userId, onStorageChange: _onStorageChange, searchQuery }: SessionItemProps) {
   const date = parseFirestoreDate(session.createdAt);
   const timeStr = date
     ? date.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })
@@ -36,13 +35,6 @@ const SessionItem = React.memo(function SessionItem({ session, doc, isActive, on
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(id); }, []);
   const isRecent = date ? (now - date.getTime()) < 30 * 60 * 1000 : false;
-
-  const getStatusBadge = () => {
-    if (!session.id) return { label: t('lifelog_status_unsaved'), cls: 'bg-text-main/10 text-text-main' };
-    return { label: t('lifelog_status_saved'), cls: 'bg-accent-info/10 text-accent-info' };
-  };
-
-  const badge = getStatusBadge();
 
   return (
     <div
@@ -93,25 +85,12 @@ const SessionItem = React.memo(function SessionItem({ session, doc, isActive, on
               return mins < 1 ? `<1${t('goal_time_min')}` : `${mins}${t('goal_time_min')}`;
             })()}
           </span>
-          <span className={cn("text-label px-1.5 py-0.5 rounded font-medium", badge.cls)}>
-            {badge.label}
-          </span>
-          {doc?.storage?.cloud
-            ? <Cloud size={10} className="text-blue-400/60" />
-            : <HardDrive size={10} className="text-text-main/30" />
-          }
         </div>
         {session.content && (
           <p className="text-[12px] text-text-main/30 truncate mt-0.5 leading-none">
             {highlightText(session.content.slice(0, 80).replace(/\n/g, ' '), searchQuery || '')}
           </p>
         )}
-        <div className="mt-1.5 h-[2px] rounded-full bg-border-subtle overflow-hidden">
-          <div
-            className="h-full rounded-full bg-brand-soft/50"
-            style={{ width: `${Math.min(100, Math.round((session.wordCount || 0) / maxWords * 100))}%` }}
-          />
-        </div>
     </div>
   );
 });
@@ -130,9 +109,9 @@ interface LifeLogPanelProps {
 }
 
 export function LifeLogPanel({
-  userId, 
-  onContinueSession, 
-  onClose, 
+  userId,
+  onContinueSession,
+  onClose,
   activeTab,
   onTabChange,
   pinned,
@@ -148,6 +127,27 @@ export function LifeLogPanel({
   const { execute } = useServiceAction();
   const { isGuest } = useAuthStatus();
   const { sessionGroups, summary, loading, refresh, unifiedDocuments } = useLifeLog(userId, isGuest);
+
+  const sevenDayData = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const wordsByDay: { label: string; words: number; isToday: boolean }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const group = sessionGroups.find(g => {
+        const gd = new Date(g.date);
+        gd.setHours(0, 0, 0, 0);
+        return gd.getTime() === d.getTime();
+      });
+      const words = group ? group.sessions.reduce((sum, s) => sum + (s.wordCount || 0), 0) : 0;
+      const label = i === 0
+        ? t('lifelog_today').slice(0, 2)
+        : d.toLocaleDateString(language, { weekday: 'short' }).replace('.', '').slice(0, 2);
+      wordsByDay.push({ label, words, isToday: i === 0 });
+    }
+    return wordsByDay;
+  }, [sessionGroups, language, t]);
 
   const docMap = useMemo(() => {
     const map = new Map<string, LifeLogDocument>();
@@ -250,7 +250,7 @@ export function LifeLogPanel({
           {/* Daily summary */}
           <div className="shrink-0 px-3 py-3 border-b border-border-subtle bg-surface-base/50">
             <div className="text-label-sm text-text-subtle mb-2">{t('lifelog_today')}</div>
-            <div className="flex gap-4">
+            <div className="flex gap-4 mb-3">
               <div>
                 <div className="text-lg font-bold text-text-main">{summary.totalWords.toLocaleString()}</div>
                 <div className="text-label-sm text-text-subtle">{t('lifelog_words')}</div>
@@ -272,6 +272,36 @@ export function LifeLogPanel({
                 </div>
               )}
             </div>
+
+            {/* 7-day mini bar chart */}
+            {(() => {
+              const maxWords = Math.max(...sevenDayData.map(d => d.words), 1);
+              return (
+                <div className="flex items-end gap-1 h-10">
+                  {sevenDayData.map((day, i) => {
+                    const barHeight = day.words > 0 ? Math.max(4, Math.round((day.words / maxWords) * 28)) : 3;
+                    return (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                        <div
+                          className="w-full rounded-sm transition-all duration-300"
+                          style={{
+                            height: `${barHeight}px`,
+                            background: day.isToday
+                              ? 'var(--flow-pulse-color, var(--color-brand-soft))'
+                              : day.words > 0
+                                ? 'color-mix(in srgb, var(--color-text-main) 25%, transparent)'
+                                : 'color-mix(in srgb, var(--color-text-main) 8%, transparent)',
+                          }}
+                        />
+                        <span className="text-[9px] text-text-main/30 leading-none capitalize">
+                          {day.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Sessions list grouped by date */}
@@ -282,7 +312,6 @@ export function LifeLogPanel({
               <div className="sessions-list">
                 {filteredGroups.map(group => {
                   const groupWords = group.sessions.reduce((s, sess) => s + (sess.wordCount || 0), 0);
-                  const maxWords = Math.max(...group.sessions.map(s => s.wordCount || 0), 1);
                   return (
                     <div key={group.date.toISOString()}>
                       <div className="px-4 py-2 text-label text-text-subtle font-bold uppercase tracking-wider sticky top-0 bg-surface-card z-10 border-b border-border-subtle/30 flex items-center justify-between">
@@ -303,7 +332,6 @@ export function LifeLogPanel({
                           language={language}
                           userId={userId}
                           onStorageChange={() => { refresh(); onRefreshDocuments?.(); }}
-                          maxWords={maxWords}
                           searchQuery={searchQuery}
                         />
                       ))}

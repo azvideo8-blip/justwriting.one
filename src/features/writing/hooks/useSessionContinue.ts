@@ -23,6 +23,10 @@ export function useSessionContinue({
   userId,
 }: UseSessionContinueParams) {
   const continueSession = useCallback(async (session: Session) => {
+    if (!session.id) {
+      reportError(new Error('Session has no id'), { action: 'sessionContinue/noId' });
+      return;
+    }
 
     const isLocal = session._isLocal;
     if (isLocal) {

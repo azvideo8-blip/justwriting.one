@@ -82,38 +82,44 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         accumulatedDuration: doc.totalDuration,
       });
 
+      // Reset goals so no false "goal reached" toast fires when loading a large doc
+      useTimerStore.setState({ wordGoal: 0, timerDuration: 0, sessionStartWords: doc.totalWords });
       useContentStore.getState().setTags(doc.tags || []);
       useContentStore.getState().setLabelId(doc.labelId);
-      useTimerStore.getState().setSessionStart(useContentStore.getState().wordCount);
-      useSessionMetaStore.getState().setSessionStartTime(Date.now());
-      setSessionStatus('writing');
+      flow.setSetupMode(null);
+      // Stay idle — user clicks Start to begin writing (same as Archive continue)
       setLifeLogVisible(false);
     } catch (err) {
       reportError(err, { action: 'writingActions/continueDocument' });
       showToast(t('error_load_failed'), 'error');
     }
-  }, [userId, setSessionStatus, setLifeLogVisible, showToast, t, flow]);
+  }, [userId, setLifeLogVisible, showToast, t, flow]);
 
   const handleContinueSession = React.useCallback(async (s: Session) => {
     try {
       await continueSession(s);
+      setLifeLogVisible(false);
       flow.setSetupMode(null);
-      setSessionStatus('writing');
-      useTimerStore.getState().setSessionStart(useContentStore.getState().wordCount);
-      useSessionMetaStore.getState().setSessionStartTime(Date.now());
+      // Stay idle — user clicks Start to begin writing
     } catch (err) {
       reportError(err, { action: 'writingActions/continueSession' });
       showToast(t('error_continue_session'));
     }
-  }, [continueSession, setSessionStatus, flow, showToast, t]);
+  }, [continueSession, flow, showToast, t, setLifeLogVisible]);
 
   const handleContinueSessionOrDoc = React.useCallback(async (sessionOrDoc: Session | LifeLogDocument) => {
-    if ('totalWords' in sessionOrDoc && 'localId' in sessionOrDoc) {
-      await handleContinueDocument(sessionOrDoc as LifeLogDocument);
-    } else {
-      await handleContinueSession(sessionOrDoc as Session);
+    try {
+      if ('totalWords' in sessionOrDoc) {
+        await handleContinueDocument(sessionOrDoc as LifeLogDocument);
+      } else {
+        await handleContinueSession(sessionOrDoc as Session);
+      }
+    } catch (err) {
+      console.error('[LifeLog] continue failed:', err);
+      reportError(err, { action: 'writingActions/continueSessionOrDoc' });
+      showToast(t('error_continue_session'), 'error');
     }
-  }, [handleContinueDocument, handleContinueSession]);
+  }, [handleContinueDocument, handleContinueSession, showToast, t]);
 
   const handleSave = React.useCallback(async (data: SaveData) => {
     if (savingRef.current) return;
