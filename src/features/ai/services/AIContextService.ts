@@ -1,4 +1,4 @@
-import { getLocalDb } from '../../../shared/lib/localDb';
+import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIMessage } from './AIService';
 
 export const AIContextService = {

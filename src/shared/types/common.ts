@@ -52,8 +52,8 @@ export interface SessionCore {
 export interface Session extends SessionCore {
   id: string;
   labelId?: string;
-  sessionStartTime?: number;
-  createdAt: Timestamp | Date;
+  sessionStartTime?: number | null;
+  createdAt: Timestamp | Date | number;
   _isLocal?: boolean;
 }
 
@@ -62,7 +62,7 @@ export interface SessionPayload extends SessionCore {
   sessionType?: 'free' | 'stopwatch' | 'timer' | 'words' | 'finish-by';
   sessionStartTime?: number | null;
   goalReached?: boolean;
-  updatedAt?: Timestamp;
+  updatedAt?: Timestamp | Date | number;
 }
 
 export interface Document {

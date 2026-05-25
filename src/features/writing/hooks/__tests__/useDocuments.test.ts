@@ -8,13 +8,13 @@ const mocks = vi.hoisted(() => ({
   mockGetGuestDocuments: vi.fn(),
 }));
 
-vi.mock('../../services/DocumentService', () => ({
+vi.mock('../../../../core/services/DocumentService', () => ({
   DocumentService: {
     getUserDocuments: mocks.mockGetUserDocuments,
   },
 }));
 
-vi.mock('../../services/LocalDocumentService', () => ({
+vi.mock('../../../../core/services/LocalDocumentService', () => ({
   LocalDocumentService: {
     getGuestDocuments: mocks.mockGetGuestDocuments,
   },

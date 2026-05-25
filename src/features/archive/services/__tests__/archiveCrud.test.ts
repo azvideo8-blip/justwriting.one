@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { updateArchiveField, deleteArchiveSession } from '../archiveCrud';
 import { ArchiveSession } from '../../types';
 
-vi.mock('../../../writing/services/DocumentService', () => ({
+vi.mock('../../../../core/services/DocumentService', () => ({
   DocumentService: {
     updateTags: vi.fn().mockResolvedValue(undefined),
     updateTitle: vi.fn().mockResolvedValue(undefined),
@@ -11,7 +11,7 @@ vi.mock('../../../writing/services/DocumentService', () => ({
   },
 }));
 
-vi.mock('../../../writing/services/LocalDocumentService', () => ({
+vi.mock('../../../../core/services/LocalDocumentService', () => ({
   LocalDocumentService: {
     updateTags: vi.fn().mockResolvedValue(undefined),
     updateTitle: vi.fn().mockResolvedValue(undefined),
@@ -20,22 +20,22 @@ vi.mock('../../../writing/services/LocalDocumentService', () => ({
   },
 }));
 
-vi.mock('../../../writing/services/SessionService', () => ({
+vi.mock('../../../../core/services/SessionService', () => ({
   SessionService: {
     updateSession: vi.fn().mockResolvedValue(undefined),
     deleteSession: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
-vi.mock('../../../writing/services/StorageService', () => ({
+vi.mock('../../../../core/services/StorageService', () => ({
   StorageService: {
     deleteDocument: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
-import { SessionService } from '../../../writing/services/SessionService';
-import { LocalDocumentService } from '../../../writing/services/LocalDocumentService';
-import { DocumentService } from '../../../writing/services/DocumentService';
+import { SessionService } from '../../../../core/services/SessionService';
+import { LocalDocumentService } from '../../../../core/services/LocalDocumentService';
+import { DocumentService } from '../../../../core/services/DocumentService';
 
 const mockUser = { uid: 'user1' } as any;
 
@@ -127,13 +127,13 @@ describe('deleteArchiveSession', () => {
   });
 
   it('local → StorageService.deleteDocument with localId', async () => {
-    const { StorageService } = await import('../../../writing/services/StorageService');
+    const { StorageService } = await import('../../../../core/services/StorageService');
     await deleteArchiveSession(makeSession({ _isLocal: true, _hasCloudCopy: false }), 'user1');
     expect(StorageService.deleteDocument).toHaveBeenCalledWith('user1', 's1', undefined);
   });
 
   it('cloud → StorageService.deleteDocument with cloudId', async () => {
-    const { StorageService } = await import('../../../writing/services/StorageService');
+    const { StorageService } = await import('../../../../core/services/StorageService');
     await deleteArchiveSession(makeSession({ _isLocal: false, _hasCloudCopy: true, _linkedCloudId: 'cloud1' }), 'user1');
     expect(StorageService.deleteDocument).toHaveBeenCalledWith('user1', undefined, 'cloud1');
   });

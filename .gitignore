@@ -12,3 +12,4 @@ _archive/
 .mcp.json
 .vercel
 functions/*.js
+.agents/skills/

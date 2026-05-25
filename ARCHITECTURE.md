@@ -7,13 +7,15 @@ We have moved from a technical grouping (components/, hooks/, views/) to a domai
 ### Directory Structure
 
 - `src/app/`: Application-level setup, routing, and global providers (e.g., `AppRouter.tsx`, `AppProviders.tsx`).
-- `src/core/`: Singleton infrastructure (Firebase, i18n, shared utils).
-- `src/features/`: Domain modules containing their own pages, components, hooks, and services.
+- `src/core/`: Singleton infrastructure (Firebase, i18n, shared utils, shared services).
+  - `src/core/services/`: Cross-cutting services used by multiple features (DocumentService, SessionService, StorageService, SyncService, LocalDocumentService).
+- `src/features/`: Domain modules containing their own pages, components, hooks, and feature-specific services.
   - `src/features/admin/`: Admin dashboard and user management.
   - `src/features/ai/`: AI-related services and components.
   - `src/features/archive/`: Archive and history management.
-  - `src/features/auth/`: Authentication and login logic.
-  - `src/features/feed/`: Public feed and shared sessions.
+  - `src/features/auth/`: Authentication and login logic (includes AuthService).
+  - `src/features/calendar/`: Calendar-related components.
+  - `src/features/export/`: Export utilities (PDF, DOCX, MD).
   - `src/features/navigation/`: App navigation components.
   - `src/features/profile/`: User profile, stats, and achievements.
   - `src/features/settings/`: User settings and preferences.
@@ -22,9 +24,9 @@ We have moved from a technical grouping (components/, hooks/, views/) to a domai
 
 ### Responsibility Boundaries
 
-- **Shared**: Stateless UI components, design system elements. No business logic.
-- **Features**: Domain-specific logic, state management, and UI.
-- **Core**: Global infrastructure, configuration, and utilities.
+- **Shared**: Stateless UI components, design system elements, pure utility functions. No business logic. No Firebase imports.
+- **Features**: Domain-specific logic, state management, and UI. Features should NOT import from other features directly — use `core/services/` for shared service access.
+- **Core**: Global infrastructure, configuration, shared services, and utilities. Core must NOT import from `features/`.
 - **App**: Bootstrapping and global routing.
 
 ### Service Layer Pattern
@@ -41,3 +43,9 @@ The `useWritingSession` hook acts as the central orchestrator for the writing ex
 - **Service Integration**: Communicating with `SessionService` to save sessions to the database once completed or auto-saving drafts.
 - **AI Integration**: Coordinating with `AiService` for features like "Stream of Consciousness" or text editing.
 This hook abstracts the complex state transitions of a writing session away from the `WritingPage` component, keeping the UI clean and focused on rendering.
+
+### State Management Convention
+
+- **Zustand** for high-frequency, cross-component state (timers, content, encryption keys).
+- **React Context** for provider-scoped, low-frequency state (auth, settings, login modal).
+- Features should NOT access other features' stores directly — use shared services or props.

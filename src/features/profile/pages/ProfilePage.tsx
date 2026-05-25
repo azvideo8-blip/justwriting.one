@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
 import { AlertCircle } from 'lucide-react';
 import { Session, UserProfile } from '../../../types';
 import { calculateStreak } from '../../../core/utils/utils';
+import { toTimestampMs } from '../../../core/utils/dateUtils';
 import { loadAllSessions } from '../../writing/services/UnifiedSessionLoader';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../core/i18n';
@@ -82,10 +83,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       const dates = new Set<string>();
       sessions.forEach(s => {
         try {
-          const ts = s.sessionStartTime ?? 
-            (typeof (s.createdAt as any)?.toDate === 'function'
-              ? (s.createdAt as any).toDate().getTime()
-              : s.createdAt instanceof Date ? s.createdAt.getTime() : null);
+          const ts = s.sessionStartTime ?? toTimestampMs(s.createdAt);
           if (!ts) return;
           const d = new Date(ts);
           if (isNaN(d.getTime())) return;
@@ -102,10 +100,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       const hours = new Array(24).fill(0) as number[];
       sessions.forEach(s => {
         try {
-          const ts = s.sessionStartTime ?? 
-            (typeof (s.createdAt as any)?.toDate === 'function'
-              ? (s.createdAt as any).toDate().getTime()
-              : s.createdAt instanceof Date ? s.createdAt.getTime() : null);
+          const ts = s.sessionStartTime ?? toTimestampMs(s.createdAt);
           if (!ts) return;
           const d = new Date(ts);
           const h = d.getHours();

@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/react';
+import { STORAGE_KEYS } from '../../../core/constants/storageKeys';
 
 export function reportKeystrokeStats(
   stats: { kpm: number; ikiMedian: number; ikiCv: number; sampleSize: number; kpmWpmRatio?: number },
@@ -30,7 +31,7 @@ export async function cleanupDraftsAfterSave(
       console.warn('[cleanupDraftsAfterSave] Failed to delete draft:', delErr);
     }
     if (docIdToSync) {
-      const { SyncService } = await import('../services/SyncService');
+      const { SyncService } = await import('../../../core/services/SyncService');
       SyncService.syncOne(userId, docIdToSync).catch(e => {
         console.warn('[cleanupDraftsAfterSave] Cloud sync failed:', e);
       });
@@ -39,9 +40,9 @@ export async function cleanupDraftsAfterSave(
 }
 
 async function clearGuestDraft() {
-  localStorage.removeItem('jw_guest_draft');
+  localStorage.removeItem(STORAGE_KEYS.GUEST_DRAFT);
   try {
-    const { getLocalDb } = await import('../../../shared/lib/localDb');
+    const { getLocalDb } = await import('../../../core/storage/localDb');
     const db = await getLocalDb();
     if (db.objectStoreNames.contains('drafts')) {
       await db.delete('drafts', 'guest_draft');

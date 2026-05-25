@@ -1,15 +1,16 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLanguage } from '../../../core/i18n';
 import { UserProfile, Session } from '../../../types';
 import { User } from 'firebase/auth';
-import { LocalDocumentService } from '../services/LocalDocumentService';
-import { getOrCreateGuestId, LocalProfile } from '../../../shared/lib/localDb';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
+import { getOrCreateGuestId, LocalProfile } from '../../../core/storage/localDb';
 import { MeAccountSection } from './MeAccountSection';
 import { useSettings } from '../../../core/settings/SettingsContext';
 import { Settings } from 'lucide-react';
 import { useUserId } from '../../../shared/hooks/useUserId';
 import { loadAllSessions } from '../services/UnifiedSessionLoader';
 import { calculateStreak } from '../../../core/utils/utils';
+import { toTimestampMs } from '../../../core/utils/dateUtils';
 import { ProfileHero } from '../../profile/components/ProfileHero';
 import { KPIStrip } from '../../profile/components/KPIStrip';
 import { StreakRibbon } from '../../profile/components/StreakRibbon';
@@ -20,6 +21,7 @@ import { reportError } from '../../../core/errors/reportError';
 import { useNavigate } from 'react-router-dom';
 import { ProfileService } from '../../profile/services/ProfileService';
 import { MobilePageHeader } from '../../../shared/components/MobilePageHeader';
+import { LoadingSkeleton } from '../../../shared/components/LoadingSkeleton';
 
 interface MobileMeScreenProps {
   user: User | null;
@@ -107,10 +109,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
       const dates = new Set<string>();
       sessions.forEach(s => {
         try {
-          const ts = s.sessionStartTime ?? 
-            (typeof (s.createdAt as { toDate?: () => Date })?.toDate === 'function'
-              ? (s.createdAt as { toDate: () => Date }).toDate().getTime()
-              : s.createdAt instanceof Date ? s.createdAt.getTime() : null);
+          const ts = s.sessionStartTime ?? toTimestampMs(s.createdAt);
           if (!ts) return;
           const d = new Date(ts);
           if (isNaN(d.getTime())) return;
@@ -127,10 +126,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
       const hours = new Array(24).fill(0) as number[];
       sessions.forEach(s => {
         try {
-          const ts = s.sessionStartTime ?? 
-            (typeof (s.createdAt as { toDate?: () => Date })?.toDate === 'function'
-              ? (s.createdAt as { toDate: () => Date }).toDate().getTime()
-              : s.createdAt instanceof Date ? s.createdAt.getTime() : null);
+          const ts = s.sessionStartTime ?? toTimestampMs(s.createdAt);
           if (!ts) return;
           const d = new Date(ts);
           const h = d.getHours();
@@ -251,15 +247,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
         {activeSection === 'stats' && (
           loadingSessions ? (
             <div className="space-y-4 px-4 pt-4">
-              <style dangerouslySetInnerHTML={{__html: `
-                @keyframes pulse-bg {
-                  0%, 100% { opacity: 0.6; }
-                  50% { opacity: 0.35; }
-                }
-                .skeleton-pulse {
-                  animation: pulse-bg 1.5s ease-in-out infinite;
-                }
-              `}} />
+              <LoadingSkeleton />
               {/* Profile Hero Skeleton */}
               <div className="skeleton-pulse bg-surface-card border border-white/[0.04] rounded-2xl h-32 w-full" />
               {/* KPI Skeleton */}

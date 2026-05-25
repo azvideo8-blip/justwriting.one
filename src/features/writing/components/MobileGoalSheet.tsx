@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Target, Timer, X, Check } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';

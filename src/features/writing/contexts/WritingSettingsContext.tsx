@@ -110,10 +110,10 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     };
   }, [status, zenModeEnabled]);
 
-  const toggleStreamMode = useCallback(() => setStreamMode(prev => !prev), []);
+  const toggleStreamMode = useCallback(() => setStreamMode(prev => !prev), [setStreamMode]);
   const toggleVisibility = useCallback((key: keyof HeaderVisibility) => {
     setHeaderVisibility((prev: HeaderVisibility) => ({ ...prev, [key]: !prev[key] }));
-  }, []);
+  }, [setHeaderVisibility]);
 
   const contextValue = useMemo(() => ({
     streamMode, toggleStreamMode,
@@ -128,7 +128,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     fontSize, setFontSize,
     lifeLogPinned, setLifeLogPinned,
     headerVisibility, toggleVisibility,
-  }), [streamMode, toggleStreamMode, zenModeEnabled, editorWidth, lifeLogEnabled, lifeLogVisible, lifeLogTab, isZenActive, status, fontFamily, fontSize, lifeLogPinned, headerVisibility, toggleVisibility]);
+  }), [streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled, editorWidth, setEditorWidth, lifeLogEnabled, setLifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isZenActive, status, setStatus, fontFamily, setFontFamily, fontSize, setFontSize, lifeLogPinned, setLifeLogPinned, headerVisibility, toggleVisibility]);
 
   return (
     <WritingSettingsContext.Provider value={contextValue}>

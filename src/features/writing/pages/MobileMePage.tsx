@@ -1,7 +1,6 @@
 import { MobileMeScreen } from '../components/MobileMeScreen';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
-import { signOut } from 'firebase/auth';
-import { auth } from '../../../core/firebase/auth';
+import { AuthService } from '../../auth/services/AuthService';
 import { useNavigate } from 'react-router-dom';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
@@ -14,7 +13,7 @@ export function MobileMePage() {
 
   const handleSignOut = () => {
     execute(
-      () => signOut(auth),
+      () => AuthService.signOut(),
       { onSuccess: () => navigate('/login') }
     );
   };

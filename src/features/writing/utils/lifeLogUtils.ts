@@ -1,6 +1,5 @@
 import { Session, Document } from '../../../types';
-import { LocalDocument, getLocalDb } from '../../../shared/lib/localDb';
-import { StorageState } from '../../writing/services/StorageService';
+import { LocalDocument, getLocalDb } from '../../../core/storage/localDb';
 import { toDate } from '../../../core/utils/dateUtils';
 import { getSessionDate } from '../../../core/utils/utils';
 import { LifeLogDocument, SessionGroup } from '../types/lifeLog';

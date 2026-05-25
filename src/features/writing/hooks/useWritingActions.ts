@@ -2,23 +2,23 @@ import React from 'react';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
-import { resetAndClear, finishSession, loadDraftIntoStore } from '../store/storeActions';
+import { resetAndClear, resetSession, loadDraftIntoStore } from '../store/storeActions';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useSessionContinue } from './useSessionContinue';
 import { LifeLogDocument } from '../types/lifeLog';
 import { useLifeLog } from './useLifeLog';
 import { useDocuments } from './useDocuments';
 import { useSessionList } from './useSessionList';
-import { StorageService } from '../services/StorageService';
+import { StorageService } from '../../../core/services/StorageService';
 import { LocalVersionService } from '../services/LocalVersionService';
 import { useToast } from '../../../shared/components/Toast';
 import { useLanguage } from '../../../core/i18n';
-import { SaveData } from '../WritingFinishModal';
+import { SaveData } from '../components/WritingFinishModal';
 import { Session } from '../../../types';
 import { GuestSessionReturn } from './useGuestWritingSession';
 import { CloudSessionReturn } from './useCloudWritingSession';
 import { cleanupDraftsAfterSave, reportKeystrokeStats } from '../utils/sessionActions';
-import { SetupMode } from '../WritingSetup';
+import { SetupMode } from '../components/WritingSetup';
 import { reportError } from '../../../core/errors/reportError';
 
 export type AnySessionReturn = GuestSessionReturn | CloudSessionReturn;
@@ -156,7 +156,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       }
 
       const docIdToSync = useSessionMetaStore.getState().savedDocumentId;
-      finishSession();
+      resetSession();
 
       await cleanupDraftsAfterSave(userId, isGuest, docIdToSync);
 

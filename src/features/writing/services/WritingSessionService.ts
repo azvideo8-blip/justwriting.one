@@ -1,6 +1,6 @@
 import { getClient } from '../../../core/firebase/firestoreClient';
-import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
-import { getLocalDb } from '../../../shared/lib/localDb';
+import { handleFirestoreError, OperationType } from '../../../core/errors/firestore-errors';
+import { getLocalDb } from '../../../core/storage/localDb';
 import { reportError } from '../../../core/errors/reportError';
 import { SessionPayload } from '../../../types';
 import { maybeEncrypt } from '../../../core/crypto/cryptoHelpers';

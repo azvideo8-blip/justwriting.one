@@ -1,10 +1,9 @@
-import { getClient } from '../../../core/firebase/firestoreClient';
-import { handleFirestoreError, OperationType } from '../../../shared/lib/firestore-errors';
-import { Session } from '../../../types';
-import { parseFirestoreDate } from '../../../core/utils/utils';
+import { getClient } from '../firebase/firestoreClient';
+import { handleFirestoreError, OperationType } from '../errors/firestore-errors';
+import { Session } from '../../types';
 import type { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
-import { reportError } from '../../../core/errors/reportError';
-import { sessionDbSchema } from '../../../shared/schemas/firestoreSchemas';
+import { reportError } from '../errors/reportError';
+import { sessionDbSchema } from '../firebase/schemas/firestoreSchemas';
 
 export const SessionService = {
   async saveSession(session: Session) {
@@ -88,10 +87,10 @@ export const SessionService = {
         })
         .filter((s): s is Session => s !== null);
       const newLastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData> : null;
-      return { sessions, lastDoc: newLastDoc };
+      return { sessions, lastDoc: newLastDoc, error: false };
     } catch (err) {
       reportError(err, { action: 'getAllSessions', userId });
-      return { sessions: [], lastDoc: null };
+      return { sessions: [], lastDoc: null, error: true };
     }
   },
 
@@ -118,10 +117,10 @@ export const SessionService = {
         })
         .filter((s): s is Session => s !== null);
       const newLastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData> : null;
-      return { sessions, lastDoc: newLastDoc };
+      return { sessions, lastDoc: newLastDoc, error: false };
     } catch (err) {
       reportError(err, { action: 'getAllSessionsAdmin' });
-      return { sessions: [], lastDoc: null };
+      return { sessions: [], lastDoc: null, error: true };
     }
   },
 };

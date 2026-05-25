@@ -1,17 +1,17 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { resetDbInstance, getLocalDb } from '../../../../shared/lib/localDb';
-import { SyncService } from '../SyncService';
-import { StorageService } from '../StorageService';
-import { SessionService } from '../SessionService';
+import { resetDbInstance, getLocalDb } from '../../../../core/storage/localDb';
+import { SyncService } from '../../../../core/services/SyncService';
+import { StorageService } from '../../../../core/services/StorageService';
+import { SessionService } from '../../../../core/services/SessionService';
 
-vi.mock('../StorageService', () => ({
+vi.mock('../../../../core/services/StorageService', () => ({
   StorageService: {
     addCloudCopy: vi.fn(async () => 'mocked_cloud_id'),
   }
 }));
 
-vi.mock('../SessionService', () => ({
+vi.mock('../../../../core/services/SessionService', () => ({
   SessionService: {
     deleteSession: vi.fn(async () => {}),
   }

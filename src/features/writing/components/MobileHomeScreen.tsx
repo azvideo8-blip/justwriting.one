@@ -133,7 +133,7 @@ export function MobileHomeScreen({
         }}>
           <div className={cn("w-3.5 h-3.5 border-2 border-brand-primary border-t-transparent rounded-full", refreshing && "animate-spin")} />
           <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 500 }}>
-            {refreshing ? t('offline_syncing') : 'Потяните для обновления'}
+            {refreshing ? t('offline_syncing') : t('pull_to_refresh')}
           </span>
         </div>
       )}

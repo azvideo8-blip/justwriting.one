@@ -36,7 +36,7 @@ const { cloudDocs, cloudVersions, MockDocumentService, MockVersionService } = vi
   return { cloudDocs, cloudVersions, MockDocumentService, MockVersionService };
 });
 
-vi.mock('../services/DocumentService', () => ({
+vi.mock('../../../core/services/DocumentService', () => ({
   DocumentService: MockDocumentService,
 }));
 
@@ -49,12 +49,17 @@ vi.mock('../../../core/crypto/cryptoHelpers', () => ({
   maybeDecrypt: vi.fn(async (doc: Record<string, unknown>) => doc),
 }));
 
+vi.mock('../../../core/firebase/firestore', () => ({
+  isFirestoreConnected: true,
+  onConnectionChange: vi.fn(),
+}));
+
 // ─── Subject imports (after mocks) ───────────────────────────────────────────
 
-import { resetDbInstance } from '../../../shared/lib/localDb';
-import { LocalDocumentService } from '../services/LocalDocumentService';
+import { resetDbInstance } from '../../../core/storage/localDb';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { LocalVersionService } from '../services/LocalVersionService';
-import { StorageService } from '../services/StorageService';
+import { StorageService } from '../../../core/services/StorageService';
 
 const GUEST = 'guest_storage_test';
 

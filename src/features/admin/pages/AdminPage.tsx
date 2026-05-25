@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
 import { AdminUserService } from '../services/AdminUserService';
 import { AdminSessionService } from '../services/AdminSessionService';
@@ -16,7 +16,7 @@ import { Session, UserProfile } from '../../../types';
 import { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
 import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
-import { StorageService } from '../../writing/services/StorageService';
+import { StorageService } from '../../../core/services/StorageService';
 import { SyncDiagnostics } from '../../settings/components/SyncDiagnostics';
 
 export function AdminPage() {
@@ -71,7 +71,7 @@ export function AdminPage() {
       setLoading(false);
       setLoadingMoreSessions(false);
     }
-  }, [activeTab]);
+  }, [activeTab, showToast, t]);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -102,7 +102,7 @@ export function AdminPage() {
     const result = { total: 0, imported: 0, failed: 0 };
 
     try {
-      const { DocumentService } = await import('../../writing/services/DocumentService');
+      const { DocumentService } = await import('../../../core/services/DocumentService');
       const cloudDocs = await DocumentService.getUserDocuments(userId);
       result.total = cloudDocs.length;
 
@@ -288,7 +288,7 @@ export function AdminPage() {
 
           {activeTab === 'diagnostics' && (
             <div className="p-6">
-              <SyncDiagnostics userId={auth.currentUser!.uid} />
+              <SyncDiagnostics userId={auth.currentUser?.uid ?? ''} />
             </div>
           )}
         </div>

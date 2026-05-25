@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { DocumentService } from '../services/DocumentService';
-import { LocalDocumentService } from '../services/LocalDocumentService';
+import { DocumentService } from '../../../core/services/DocumentService';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { Session, Document } from '../../../types';
-import { SessionService } from '../services/SessionService';
+import { SessionService } from '../../../core/services/SessionService';
 import { useLanguage } from '../../../core/i18n';
 import { useStartOfToday } from '../../../shared/hooks/useStartOfToday';
 import {

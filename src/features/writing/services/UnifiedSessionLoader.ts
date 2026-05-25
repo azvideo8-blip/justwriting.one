@@ -1,14 +1,14 @@
 import { User } from 'firebase/auth';
 import { Session, Document } from '../../../types';
-import { LocalDocumentService } from './LocalDocumentService';
-import { DocumentService } from './DocumentService';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
+import { DocumentService } from '../../../core/services/DocumentService';
 import { VersionService } from './VersionService';
-import { SessionService } from './SessionService';
+import { SessionService } from '../../../core/services/SessionService';
 import { LocalVersionService } from './LocalVersionService';
 import { toDate } from '../../../core/utils/dateUtils';
 import { maybeDecrypt, DecryptionError } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../core/errors/reportError';
-import { getLocalDb } from '../../../shared/lib/localDb';
+import { getLocalDb } from '../../../core/storage/localDb';
 
 interface LoadedSession extends Session {
   _linkedCloudId?: string;

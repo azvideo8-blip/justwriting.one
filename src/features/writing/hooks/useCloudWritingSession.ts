@@ -68,7 +68,7 @@ export function useCloudWritingSession(user: User, profile: UserProfile | null):
       setActiveSessionId: base.setActiveSessionId,
       setHasDraft,
       resetAndClear: base.resetAndClear,
-      finishSession: base.finishSession,
+      resetSession: base.resetSession,
       setStatus: base.setStatus,
       setInitialWordCount: base.setInitialWordCount,
       setInitialDuration: base.setInitialDuration,

@@ -1,0 +1,18 @@
+export const STORAGE_KEYS = {
+  GUEST_ID: 'jw_guest_id',
+  GUEST_DRAFT: 'jw_guest_draft',
+  DRAFT: (userId: string) => `draft-${userId}`,
+  DRAFT_DELETED: (userId: string) => `draft-deleted-${userId}`,
+  APP_LANGUAGE: 'app_language',
+  FOCUS_SWIPE_HINT_SHOWN: 'focus_swipe_hint_shown',
+  ONBOARDING_DONE: 'onboarding_done',
+  ENC_ENABLED: (userId: string) => `enc_enabled_${userId}`,
+  UNLOCKED_ACHIEVEMENTS: (uid: string) => `unlocked_achievements_${uid}`,
+  LOCAL_SESSION: (ts: number, uuid: string) => `local_session_${ts}_${uuid}`,
+  LOCAL_SESSION_PREFIX: 'local_session_',
+  PREVIEW_WIDTH: 'preview_width',
+  ZEN_MODE_ENABLED: 'v2_zenModeEnabled',
+  PENDING_KEYS: (uid: string) => `pending_keys_${uid}`,
+  PENDING_SESSIONS: (userId: string) => `pending_sessions_${userId}`,
+  ENCRYPTION_MIGRATION_CHECKPOINT: (userId: string) => `encryptionMigration_${userId}_checkpoint`,
+} as const;

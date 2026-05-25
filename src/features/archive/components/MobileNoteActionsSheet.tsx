@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'motion/react';
 import { X, ExternalLink, Pencil, Tag, Trash2, Cloud, HardDrive, Loader2, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { useToast } from '../../../shared/components/Toast';
-import { StorageService } from '../../writing/services/StorageService';
-import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
-import { SyncService } from '../../writing/services/SyncService';
+import { StorageService } from '../../../core/services/StorageService';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
+import { SyncService } from '../../../core/services/SyncService';
 
 import { reportError } from '../../../core/errors/reportError';
 import { Label } from '../../../types';

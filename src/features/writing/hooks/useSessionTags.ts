@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { SessionService } from '../services/SessionService';
+import { SessionService } from '../../../core/services/SessionService';
 
 export function useSessionTags(sessionId: string, initialTags: string[] = []) {
   const [tags, setTags] = useState<string[]>(initialTags);

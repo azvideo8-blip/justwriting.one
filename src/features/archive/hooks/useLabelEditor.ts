@@ -1,5 +1,4 @@
 import { useState} from 'react';
-import { Label } from '../../../types';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
 
 export function useLabelEditor({

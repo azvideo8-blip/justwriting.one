@@ -15,6 +15,7 @@ export function ProtectedRoute({ children, requireAdmin }: { children: React.Rea
 
   useEffect(() => {
     if (!requireAdmin || !user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting derived state on condition change
       setCheckingAdmin(false);
       return;
     }

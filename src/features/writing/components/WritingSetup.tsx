@@ -1,13 +1,13 @@
 import React from 'react';
 import { motion, Variants } from 'motion/react';
-import { Zap, Timer, Target, PenLine, Clock, Sparkles } from 'lucide-react';
+import { Zap, Timer, Target, PenLine, Clock } from 'lucide-react';
 import { format } from 'date-fns';
-import { Session } from '../../types';
-import { cn } from '../../core/utils/utils';
-import { toDate, getDateLocale } from '../../core/utils/dateUtils';
-import { useLanguage } from '../../core/i18n';
-import { formatTime } from '../../core/utils/formatTime';
-import { useTimerStore } from './store/useTimerStore';
+import { Session } from '../../../types';
+import { cn } from '../../../core/utils/utils';
+import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
+import { useLanguage } from '../../../core/i18n';
+import { formatTime } from '../../../core/utils/formatTime';
+import { useTimerStore } from '../store/useTimerStore';
 
 const PROMPT_KEYS = [
   { key: 'morning', promptKeys: ['prompt_morning_1', 'prompt_morning_2', 'prompt_morning_3'] },
@@ -15,7 +15,7 @@ const PROMPT_KEYS = [
   { key: 'creative', promptKeys: ['prompt_creative_1', 'prompt_creative_2', 'prompt_creative_3'] },
 ] as const;
 
-function PromptsScreen({ t, onSelect, onBack }: {
+function _PromptsScreen({ t, onSelect, onBack }: {
   t: (key: string) => string;
   onSelect: (prompt: string) => void;
   onBack: () => void;
@@ -78,7 +78,7 @@ export function WritingSetup({
   countdown,
   userSessions,
   continueSession,
-  onSetPromptTitle,
+  onSetPromptTitle: _onSetPromptTitle,
 }: WritingSetupProps) {
   const { t, language } = useLanguage();
   const timerDuration = useTimerStore(s => s.timerDuration);

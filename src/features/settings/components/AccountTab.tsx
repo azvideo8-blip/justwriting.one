@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { HardDrive, LogIn, User as UserIcon, Lock, Shield } from 'lucide-react';
-import { signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { auth } from '../../../core/firebase/auth';
+import { AuthService } from '../../auth/services/AuthService';
 import { useLanguage } from '../../../core/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../core/errors/reportError';
@@ -164,11 +163,10 @@ export function AccountTab({ userId }: AccountTabProps) {
     setPasswordError(null);
     setPasswordSuccess(false);
     try {
-      const user = auth.currentUser;
+      const user = AuthService.getCurrentUser();
       if (!user || !user.email) throw new Error('Not authenticated');
 
-      const credential = EmailAuthProvider.credential(user.email, currentPassword);
-      await reauthenticateWithCredential(user, credential);
+      await AuthService.reauthenticate(currentPassword);
 
       const { db, mod } = await getClient();
       const { doc, getDoc, setDoc } = mod;
@@ -191,7 +189,7 @@ export function AccountTab({ userId }: AccountTabProps) {
         encryptedDataKey: newWrappedDataKey,
       }, { merge: true });
 
-      await updatePassword(user, newPassword);
+      await AuthService.updatePasswordDirect(newPassword);
 
       setSessionKey(dataKey);
       setPasswordSuccess(true);
@@ -235,9 +233,9 @@ export function AccountTab({ userId }: AccountTabProps) {
       {isAuthenticated ? (
         <Section title={t('me_tab_account')}>
           <div className="flex items-center gap-4 p-4 rounded-xl border border-border-subtle">
-            {auth.currentUser?.photoURL ? (
+            {AuthService.getCurrentUser()?.photoURL ? (
               <img
-                src={auth.currentUser.photoURL}
+                src={AuthService.getCurrentUser()!.photoURL!}
                 alt=""
                 className="w-12 h-12 rounded-full object-cover border border-border-subtle"
                 referrerPolicy="no-referrer"
@@ -249,10 +247,10 @@ export function AccountTab({ userId }: AccountTabProps) {
             )}
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-text-main truncate">
-                {auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || t('common_untitled')}
+                {AuthService.getCurrentUser()?.displayName || AuthService.getCurrentUser()?.email?.split('@')[0] || t('common_untitled')}
               </div>
               <div className="text-xs text-text-main/40 truncate">
-                {auth.currentUser?.email}
+                {AuthService.getCurrentUser()?.email}
               </div>
             </div>
           </div>
@@ -285,7 +283,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                   setShowSignOutConfirm(false);
                   resetAndClear();
                   execute(
-                    () => signOut(auth),
+                    () => AuthService.signOut(),
                     { errorMessage: t('error_signout_failed') }
                   );
                 }}
@@ -308,8 +306,8 @@ export function AccountTab({ userId }: AccountTabProps) {
                   setShowSignOutConfirm(true);
                   return;
                 }
-                execute(
-                  () => signOut(auth),
+                 execute(
+                   () => AuthService.signOut(),
                   { errorMessage: t('error_signout_failed') }
                 );
               }}
@@ -338,7 +336,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                 handleChangePassword();
               }}
               ref={changePasswordRef}
-              hidden={!showChangePassword ? ("until-found" as any) : undefined}
+              hidden={!showChangePassword || undefined}
               style={!showChangePassword ? { contentVisibility: 'hidden' } : undefined}
               className="space-y-3 p-4 rounded-xl border border-border-subtle"
             >
@@ -347,7 +345,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                 type="text"
                 name="username"
                 autoComplete="username"
-                value={auth.currentUser?.email || ''}
+                value={AuthService.getCurrentUser()?.email || ''}
                 readOnly
                 className="hidden"
                 style={{ display: 'none' }}
@@ -411,7 +409,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                     type="text"
                     name="username"
                     autoComplete="username"
-                    value={auth.currentUser?.email || ''}
+                    value={AuthService.getCurrentUser()?.email || ''}
                     readOnly
                     className="hidden"
                     style={{ display: 'none' }}
@@ -466,7 +464,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                     type="text"
                     name="username"
                     autoComplete="username"
-                    value={auth.currentUser?.email || ''}
+                    value={AuthService.getCurrentUser()?.email || ''}
                     readOnly
                     className="hidden"
                     style={{ display: 'none' }}
@@ -585,7 +583,7 @@ export function AccountTab({ userId }: AccountTabProps) {
         </div>
         <div
           ref={resetConfirmRef}
-          hidden={!confirmReset ? ("until-found" as any) : undefined}
+          hidden={!confirmReset || undefined}
           style={!confirmReset ? { contentVisibility: 'hidden' } : undefined}
           className="flex flex-col gap-3 p-4 rounded-xl border border-red-400/20 bg-red-400/5"
         >

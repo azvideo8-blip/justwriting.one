@@ -1,5 +1,5 @@
 import { User } from 'firebase/auth';
-import { LocalDraft } from '../../../shared/lib/localDb';
+import { LocalDraft } from '../../../core/storage/localDb';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { getLocalStorageUsageKB } from '../../../shared/lib/localStorageUtils';
 import { useContentStore } from '../store/useContentStore';

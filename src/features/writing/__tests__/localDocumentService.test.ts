@@ -2,8 +2,8 @@
 import 'fake-indexeddb/auto';
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { resetDbInstance } from '../../../shared/lib/localDb';
-import { LocalDocumentService } from '../services/LocalDocumentService';
+import { resetDbInstance } from '../../../core/storage/localDb';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { LocalVersionService } from '../services/LocalVersionService';
 
 // Reset IDB state between tests

@@ -49,7 +49,7 @@ const { cloudDocs, cloudVersions, MockDocumentService, MockVersionService } = vi
   return { cloudDocs, cloudVersions, MockDocumentService, MockVersionService };
 });
 
-vi.mock('../../../features/writing/services/DocumentService', () => ({
+vi.mock('../../../core/services/DocumentService', () => ({
   DocumentService: MockDocumentService,
 }));
 
@@ -62,9 +62,14 @@ vi.mock('../../../core/crypto/cryptoHelpers', () => ({
   maybeDecrypt: vi.fn(async (doc: Record<string, unknown>) => doc),
 }));
 
+vi.mock('../../../core/firebase/firestore', () => ({
+  isFirestoreConnected: true,
+  onConnectionChange: vi.fn(),
+}));
+
 // Mock localDb — keep everything real but override getOrCreateGuestId
-vi.mock('../../../shared/lib/localDb', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../shared/lib/localDb')>();
+vi.mock('../../../core/storage/localDb', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../core/storage/localDb')>();
   return {
     ...actual,
     getOrCreateGuestId: () => 'guest_test123',
@@ -74,11 +79,11 @@ vi.mock('../../../shared/lib/localDb', async (importOriginal) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // Subject imports (after mocks are registered)
 // ─────────────────────────────────────────────────────────────────────────────
-import { getLocalDb, resetDbInstance } from '../../../shared/lib/localDb';
-import { LocalDocumentService } from '../../../features/writing/services/LocalDocumentService';
+import { getLocalDb, resetDbInstance } from '../../../core/storage/localDb';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { LocalVersionService } from '../../../features/writing/services/LocalVersionService';
-import { SyncService } from '../../../features/writing/services/SyncService';
-import { StorageService } from '../../../features/writing/services/StorageService';
+import { SyncService } from '../../../core/services/SyncService';
+import { StorageService } from '../../../core/services/StorageService';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // migrateDocuments() extracted for direct testing

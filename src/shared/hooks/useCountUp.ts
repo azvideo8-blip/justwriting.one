@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 export function useCountUp(target: number, duration = 800) {
   const [value, setValue] = useState(0);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset animation when target changes
     setValue(0);
     const start = performance.now();
     let rafId: number;

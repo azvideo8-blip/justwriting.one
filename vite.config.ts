@@ -55,6 +55,24 @@ export default defineConfig(() => {
         '**/.git/**',
         '**/.firebase/**',
       ],
+      coverage: {
+        provider: 'istanbul',
+        reporter: ['text', 'html', 'lcov'],
+        include: ['src/**/*.{ts,tsx}'],
+        exclude: [
+          'src/**/*.test.{ts,tsx}',
+          'src/**/*.d.ts',
+          'src/test/**',
+          'src/types/**',
+          'src/**/index.ts',
+        ],
+        thresholds: {
+          statements: 50,
+          branches: 40,
+          functions: 50,
+          lines: 50,
+        },
+      },
     },
   };
 });

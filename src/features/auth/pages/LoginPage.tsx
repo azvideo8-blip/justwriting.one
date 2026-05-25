@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AlertCircle, Mail, Lock, UserPlus, LogIn, X, ShieldAlert } from 'lucide-react';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
+import { AuthService } from '../services/AuthService';
 import { useLanguage } from '../../../core/i18n';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { useToast } from '../../../shared/components/Toast';
@@ -71,7 +72,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         const dataKey = await generateDataKey();
         const wrappedDataKey = await wrapDataKey(dataKey, masterKey);
 
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        const cred = await AuthService.signUpWithEmail(email, password);
 
         try {
           const { db, mod } = await getClient();
@@ -97,11 +98,13 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         setSessionKey(dataKey);
         setEncryptionEnabled(cred.user.uid, true);
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        await AuthService.signInWithEmail(email, password);
 
         const { db, mod } = await getClient();
         const { doc, getDoc, setDoc } = mod;
-        const profileSnap = await getDoc(doc(db, 'users', auth.currentUser!.uid));
+        const currentUid = AuthService.getCurrentUserId();
+        if (!currentUid) throw new Error('Not authenticated after sign-in');
+        const profileSnap = await getDoc(doc(db, 'users', currentUid));
         if (profileSnap.exists()) {
           const profileData = profileSnap.data();
           if (profileData.encryptionSalt && profileData.encryptedDataKey) {
@@ -110,7 +113,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
             try {
               const dataKey = await unwrapDataKey(profileData.encryptedDataKey as string, masterKey);
               setSessionKey(dataKey);
-              setEncryptionEnabled(auth.currentUser!.uid, true);
+              setEncryptionEnabled(currentUid, true);
             } catch (e) {
               if (e instanceof DOMException && e.name === 'OperationError') {
                 setError(t('auth_error_wrong_password_encrypted'));
@@ -120,23 +123,23 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
               throw e;
             }
           } else {
-            const pendingRaw = sessionStorage.getItem(`pending_keys_${auth.currentUser!.uid}`);
+            const pendingRaw = sessionStorage.getItem(`pending_keys_${currentUid}`);
             if (pendingRaw) {
               try {
                 const keys = JSON.parse(pendingRaw);
-                await setDoc(doc(db, 'users', auth.currentUser!.uid), keys, { merge: true });
-                sessionStorage.removeItem(`pending_keys_${auth.currentUser!.uid}`);
+                await setDoc(doc(db, 'users', currentUid), keys, { merge: true });
+                sessionStorage.removeItem(`pending_keys_${currentUid}`);
                 const salt = fromBase64(keys.encryptionSalt);
                 const masterKey = await deriveMasterKey(password, salt);
                 const dataKey = await unwrapDataKey(keys.encryptedDataKey, masterKey);
                 setSessionKey(dataKey);
-                setEncryptionEnabled(auth.currentUser!.uid, true);
+                setEncryptionEnabled(currentUid, true);
               } catch (repairErr) {
                 reportError(repairErr, { action: 'repairEncryptionKeys' });
-                setEncryptionEnabled(auth.currentUser!.uid, false);
+                setEncryptionEnabled(currentUid, false);
               }
             } else {
-              setEncryptionEnabled(auth.currentUser!.uid, false);
+              setEncryptionEnabled(currentUid, false);
             }
           }
         }
@@ -316,7 +319,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                         setForgotLoading(true);
                         setForgotError(null);
                         try {
-                          await sendPasswordResetEmail(auth, forgotEmail);
+                          await AuthService.sendPasswordReset(forgotEmail);
                           setForgotSent(true);
                          } catch (err: unknown) {
                            reportError(err, { action: 'sendPasswordReset' });

@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { MobileLogScreen } from '../components/MobileLogScreen';
 import { Session } from '../../../types';
-import { getOrCreateGuestId } from '../../../shared/lib/localDb';
+import { getOrCreateGuestId } from '../../../core/storage/localDb';
 
 export function MobileLogPage() {
   const { user, isGuest, profile } = useAuthStatus();

@@ -33,7 +33,7 @@ export function ArchiveLabelBar({
   newLabelColor, setNewLabelColor, onAddLabel,
   editingLabelId, setEditingLabelId,
   editLabelName, setEditLabelName,
-  editLabelColor, setEditLabelColor,
+  editLabelColor: _editLabelColor, setEditLabelColor,
   onUpdateLabel, onDeleteLabel,
   showControls, t,
 }: ArchiveLabelBarProps) {

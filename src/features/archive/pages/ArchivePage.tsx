@@ -62,7 +62,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     handleDeleteSession, handleTagsChange, handleTitleChange, handleDateChange, handleLabelChange,
     previewSession, setPreviewSession, deleteConfirm, setDeleteConfirm,
     allTags, filteredByFilters, filteredSessions, searchQuery, setSearchQuery,
-    selectedDate, setSelectedDate, selectedMonth, setSelectedMonth,
+    selectedDate, setSelectedDate, selectedMonth: _selectedMonth, setSelectedMonth,
     selectedTags, setSelectedTags, selectedLabels, toggleLabel,
     statsTitle, hasActiveFilter, resetStatsFilter,
     sessionsByDate, wordCloud, maxCount,

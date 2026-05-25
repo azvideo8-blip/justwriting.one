@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { User } from 'firebase/auth';
 import { WritingDraftService } from '../services/WritingDraftService';
-import { LocalDraft } from '../../../shared/lib/localDb';
+import { LocalDraft } from '../../../core/storage/localDb';
 import { WritingSessionService } from '../services/WritingSessionService';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
@@ -43,7 +43,7 @@ export interface PersistenceActions {
   setActiveSessionId: (id: string | null) => void;
   setHasDraft: (has: boolean) => void;
   resetAndClear: () => void;
-  finishSession: () => void;
+  resetSession: () => void;
   setStatus: (status: TimerStatus) => void;
   setInitialWordCount: (count: number) => void;
   setInitialDuration: (duration: number) => void;
@@ -145,15 +145,13 @@ export function useSessionPersistence(
         timeGoalReached: timerState_.timeGoalReached,
         wordGoalReached: timerState_.wordGoalReached,
       },
-      profile,
-      user,
       userId
     );
 
     if (isLocalOnly) {
       await saveLocalOnly(sessionData, userId);
       actions.setHasDraft(false);
-      actions.finishSession();
+      actions.resetSession();
       return;
     }
 
@@ -163,19 +161,19 @@ export function useSessionPersistence(
         actions.setActiveSessionId(savedId);
       }
       actions.setHasDraft(false);
-      actions.finishSession();
+      actions.resetSession();
     } catch (e) {
       reportError(e, { action: 'sessionPersistence/save' });
       throw e;
     }
-  }, [userId, isOnline, sessionState.activeSessionId, profile, user, actions]);
+  }, [userId, isOnline, sessionState.activeSessionId, actions]);
 
-  const handleCancel = async () => {
+  const handleCancel = useCallback(async () => {
     await WritingDraftService.deleteDraft(userId);
     actions.setHasDraft(false);
     actions.resetAndClear();
     actions.setStatus('idle');
-  };
+  }, [userId, actions]);
 
   const fetchLocalSessions = useCallback(() => fetchLocalSessionsFromLoader(userId), [userId]);
   const loadLocalSession = useCallback((id: string) => loadLocalSessionFromLoader(id), []);

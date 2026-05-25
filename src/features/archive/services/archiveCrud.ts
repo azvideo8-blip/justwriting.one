@@ -1,8 +1,8 @@
 import { User } from 'firebase/auth';
-import { DocumentService } from '../../writing/services/DocumentService';
-import { LocalDocumentService } from '../../writing/services/LocalDocumentService';
-import { SessionService } from '../../writing/services/SessionService';
-import { StorageService } from '../../writing/services/StorageService';
+import { DocumentService } from '../../../core/services/DocumentService';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
+import { SessionService } from '../../../core/services/SessionService';
+import { StorageService } from '../../../core/services/StorageService';
 import { ArchiveSession } from '../types';
 import { reportError } from '../../../core/errors/reportError';
 
@@ -14,7 +14,7 @@ export async function updateArchiveField(
   field: ArchiveField,
   value: ArchiveFieldValue,
   user: User | null,
-  userId: string
+  _userId: string
 ): Promise<void> {
   if (session._isLegacy) {
     const patch: Record<string, unknown> = {};

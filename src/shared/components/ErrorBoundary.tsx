@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { Component, ErrorInfo, ReactNode } from 'react';
 import { reportError } from '../../core/errors/reportError';
 import { translations } from '../../core/i18n';
 

@@ -3,7 +3,8 @@ import { SessionPayload } from '../../../types';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { WritingSessionService } from '../services/WritingSessionService';
-import { randomUUID } from '../../../shared/lib/localDb';
+import { randomUUID } from '../../../core/storage/localDb';
+import { STORAGE_KEYS } from '../../../core/constants/storageKeys';
 
 export async function buildSessionPayload(
   state: {
@@ -19,8 +20,6 @@ export async function buildSessionPayload(
     timeGoalReached: boolean;
     wordGoalReached: boolean;
   },
-  _profile: unknown,
-  _user: unknown,
   userId: string
 ): Promise<SessionPayload> {
   const { mod } = await getClient();
@@ -48,7 +47,7 @@ export async function saveLocalOnly(sessionData: SessionPayload, userId: string)
     const sessionKeys: { key: string; ts: number }[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key?.startsWith('local_session_')) {
+      if (key?.startsWith(STORAGE_KEYS.LOCAL_SESSION_PREFIX)) {
         const ts = parseInt(key.split('_')[2] || '0', 10);
         sessionKeys.push({ key, ts });
       }
@@ -61,9 +60,9 @@ export async function saveLocalOnly(sessionData: SessionPayload, userId: string)
     keysToRemove.forEach(k => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
   } catch { /* ignore */ }
 
-  const sessionKey = `local_session_${Date.now()}_${randomUUID()}`;
+  const sessionKey = STORAGE_KEYS.LOCAL_SESSION(Date.now(), randomUUID());
   try {
-    const { authorName, authorPhoto, nickname, ...safePayload } = sessionData;
+    const { authorName: _authorName, authorPhoto: _authorPhoto, nickname: _nickname, ...safePayload } = sessionData;
     localStorage.setItem(sessionKey, JSON.stringify(safePayload));
   } catch (e) {
     console.error('[saveLocalOnly] localStorage write failed:', e);

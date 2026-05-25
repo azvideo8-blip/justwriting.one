@@ -51,4 +51,6 @@ export const lifelogTranslations: Translations = {
 
   tag_cloud_title: { ru: 'Облако тегов', en: 'Tag Cloud' },
   tag_cloud_empty: { ru: 'Тегов пока нет', en: 'No tags yet' },
+
+  pull_to_refresh: { ru: 'Потяните для обновления', en: 'Pull to refresh' },
 };

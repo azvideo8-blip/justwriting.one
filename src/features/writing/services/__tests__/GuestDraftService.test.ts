@@ -5,7 +5,7 @@ import {
   deleteGuestDraftFromStorage,
 } from '../GuestDraftService';
 
-vi.mock('../../../shared/lib/localDb', () => {
+vi.mock('../../../core/storage/localDb', () => {
   const store: Record<string, any> = {};
   return {
     getLocalDb: vi.fn().mockResolvedValue({

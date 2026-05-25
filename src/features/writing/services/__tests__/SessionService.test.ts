@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SessionService } from '../SessionService';
+import { SessionService } from '../../../../core/services/SessionService';
 import { Session } from '../../../../types';
 
 const mockSetDoc = vi.fn();
