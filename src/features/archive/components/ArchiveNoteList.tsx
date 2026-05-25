@@ -1,4 +1,5 @@
-import { motion, useReducedMotion, LayoutGroup } from 'motion/react';
+import { useReducedMotion } from 'motion/react';
+import { Virtuoso, VirtuosoGrid, GroupedVirtuoso } from 'react-virtuoso';
 import { format, Locale } from 'date-fns';
 import { BookOpen } from 'lucide-react';
 import { GridNoteCard } from './GridNoteCard';
@@ -38,6 +39,9 @@ interface ArchiveNoteListProps {
   allTags?: string[];
   onClearSearch?: () => void;
 }
+
+const gridListClassName = 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-3';
+const gridItemClassName = '';
 
 export function ArchiveNoteList({
   viewMode, loading, error, filteredSessions,
@@ -109,69 +113,66 @@ export function ArchiveNoteList({
   }
 
   if (!isGroupedByDate) {
+    if (viewMode === 'grid') {
+      return (
+        <VirtuosoGrid
+          data={filteredSessions}
+          listClassName={gridListClassName}
+          itemClassName={gridItemClassName}
+          itemContent={(index, session) => (
+            <GridNoteCard
+              session={session}
+              onClick={() => onOpen(session)}
+              searchQuery={searchQuery}
+              labels={labels}
+              allTags={allTags}
+              onTagsChange={onTagsChange}
+              onLabelChange={onLabelChange}
+            />
+          )}
+        />
+      );
+    }
+
     return (
-      <LayoutGroup>
-        {viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-3">
-            {filteredSessions.map((session, index) => (
-              <motion.div
-                key={session.id}
-                layoutId={`archive-${session.id}`}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.18, delay: Math.min(index, 12) * 0.04, ease: 'easeOut' }}
-              >
-                <GridNoteCard
-                  session={session}
-                  onClick={() => onOpen(session)}
-                  searchQuery={searchQuery}
-                  labels={labels}
-                  allTags={allTags}
-                  onTagsChange={onTagsChange}
-                  onLabelChange={onLabelChange}
-                />
-              </motion.div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col">
-            {filteredSessions.map((session, index) => (
-              <motion.div
-                key={session.id}
-                layoutId={`archive-${session.id}`}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.18, delay: Math.min(index, 12) * 0.03, ease: 'easeOut' }}
-              >
-                <NoteRow
-                  session={session}
-                  onOpen={() => onOpen(session)}
-                  t={t}
-                  language={language}
-                  labels={labels}
-                  onDelete={(s) => onDelete(s)}
-                  onTagsChange={onTagsChange}
-                  onStorageChange={onStorageChange}
-                  onTitleChange={onTitleChange}
-                  onDateChange={onDateChange}
-                  onLabelChange={onLabelChange}
-                  userId={userId}
-                  allTags={allTags}
-                  searchQuery={searchQuery}
-                />
-              </motion.div>
-            ))}
-          </div>
+      <Virtuoso
+        data={filteredSessions}
+        itemContent={(index, session) => (
+          <NoteRow
+            session={session}
+            onOpen={() => onOpen(session)}
+            t={t}
+            language={language}
+            labels={labels}
+            onDelete={(s) => onDelete(s)}
+            onTagsChange={onTagsChange}
+            onStorageChange={onStorageChange}
+            onTitleChange={onTitleChange}
+            onDateChange={onDateChange}
+            onLabelChange={onLabelChange}
+            userId={userId}
+            allTags={allTags}
+            searchQuery={searchQuery}
+          />
         )}
-      </LayoutGroup>
+      />
     );
   }
 
+  const groupCounts = sortedDates.map(dateKey => groupedSessions[dateKey].length);
+
+  const flatGroupedSessions = sortedDates.flatMap(
+    dateKey => groupedSessions[dateKey]
+  );
+
   return (
-    <LayoutGroup>
-      <div className="space-y-1">
-        {sortedDates.map(dateKey => (
-          <div key={dateKey}>
+    <GroupedVirtuoso
+      groupCounts={groupCounts}
+      groupContent={(index) => {
+        const dateKey = sortedDates[index];
+        const sessions = groupedSessions[dateKey];
+        return (
+          <div>
             {viewMode !== 'grid' && (
               <div className="flex items-center gap-3 py-5">
                 <span className="font-mono text-label-sm text-text-main/40 uppercase tracking-widest whitespace-nowrap">
@@ -180,72 +181,54 @@ export function ArchiveNoteList({
                 <div className="flex-1 flex items-center gap-2">
                   <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, var(--border-subtle))' }} />
                   <span className="font-mono text-label tracking-[.2em]" style={{ color: 'var(--brand-soft)', opacity: 0.5 }}>
-                    {toRoman(groupedSessions[dateKey].length)}
+                    {toRoman(sessions.length)}
                   </span>
                   <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, var(--border-subtle))' }} />
                 </div>
                 <span className="font-mono text-label-sm text-text-main/30 whitespace-nowrap">
-                  {groupedSessions[dateKey]
+                  {sessions
                     .reduce((sum, s) => sum + (s.wordCount || 0), 0)
                     .toLocaleString()} {t('home_words_short')}
                 </span>
               </div>
             )}
-            {viewMode === 'list' ? (
-              <div className="flex flex-col">
-                {groupedSessions[dateKey].map((session, index) => (
-                  <motion.div
-                    key={session.id}
-                    layoutId={`archive-${session.id}`}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.18, delay: Math.min(index, 12) * 0.03, ease: 'easeOut' }}
-                  >
-                    <NoteRow
-                      session={session}
-                      onOpen={() => onOpen(session)}
-                      t={t}
-                      language={language}
-                      labels={labels}
-                      onDelete={(s) => onDelete(s)}
-                      onTagsChange={onTagsChange}
-                      onStorageChange={onStorageChange}
-                      onTitleChange={onTitleChange}
-                      onDateChange={onDateChange}
-                      onLabelChange={onLabelChange}
-                      userId={userId}
-                      allTags={allTags}
-                      searchQuery={searchQuery}
-                    />
-                  </motion.div>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-3">
-                {groupedSessions[dateKey].map((session, index) => (
-                  <motion.div
-                    key={session.id}
-                    layoutId={`archive-${session.id}`}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.18, delay: Math.min(index, 12) * 0.04, ease: 'easeOut' }}
-                  >
-                    <GridNoteCard
-                      session={session}
-                      onClick={() => onOpen(session)}
-                      searchQuery={searchQuery}
-                      labels={labels}
-                      allTags={allTags}
-                      onTagsChange={onTagsChange}
-                      onLabelChange={onLabelChange}
-                    />
-                  </motion.div>
-                ))}
-              </div>
-            )}
           </div>
-        ))}
-      </div>
-    </LayoutGroup>
+        );
+      }}
+      itemContent={(index) => {
+        const session = flatGroupedSessions[index];
+        if (viewMode === 'grid') {
+          return (
+            <GridNoteCard
+              session={session}
+              onClick={() => onOpen(session)}
+              searchQuery={searchQuery}
+              labels={labels}
+              allTags={allTags}
+              onTagsChange={onTagsChange}
+              onLabelChange={onLabelChange}
+            />
+          );
+        }
+        return (
+          <NoteRow
+            session={session}
+            onOpen={() => onOpen(session)}
+            t={t}
+            language={language}
+            labels={labels}
+            onDelete={(s) => onDelete(s)}
+            onTagsChange={onTagsChange}
+            onStorageChange={onStorageChange}
+            onTitleChange={onTitleChange}
+            onDateChange={onDateChange}
+            onLabelChange={onLabelChange}
+            userId={userId}
+            allTags={allTags}
+            searchQuery={searchQuery}
+          />
+        );
+      }}
+    />
   );
 }

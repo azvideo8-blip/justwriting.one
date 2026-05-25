@@ -5,7 +5,7 @@ import { LocalVersionService } from '../../features/writing/services/LocalVersio
 import { getLocalDb, randomUUID, LocalDocument } from '../storage/localDb';
 import { toDate } from '../utils/dateUtils';
 import { computeWordDelta } from '../../features/writing/services/DiffService';
-import { maybeEncrypt, maybeDecrypt } from '../crypto/cryptoHelpers';
+import { maybeEncrypt, maybeDecrypt, type VersionEncryptPayload } from '../crypto/cryptoHelpers';
 import { reportError } from '../errors/reportError';
 import { isFirestoreConnected } from '../firebase/firestore';
 
@@ -120,7 +120,7 @@ export const StorageService = {
         let startedAt = toDate(ver.sessionStartedAt) ?? toDate(ver.savedAt) ?? new Date();
         if (isNaN(startedAt.getTime())) startedAt = new Date();
 
-        const decryptedVer = await maybeDecrypt(ver as unknown as Record<string, unknown>, ['content'], []);
+        const decryptedVer = await maybeDecrypt(ver, ['content'], []);
         const verContent = (decryptedVer.content as string) ?? ver.content;
 
         await LocalVersionService.addVersion(userId, localId, {
@@ -219,7 +219,7 @@ export const StorageService = {
             goalTime: ver.goalTime,
             goalReached: ver.goalReached,
             sessionStartedAt: startedAt,
-          } as Record<string, unknown>, ['content', 'previousContent'], [], userId);
+          } satisfies VersionEncryptPayload, ['content', 'previousContent'], [], userId);
 
           await withTimeout(VersionService.addVersion(userId, cloudId, {
             content: versionPayload.content as string,
@@ -438,7 +438,7 @@ async function syncVersionToCloud(
         goalReached: data.goalReached,
         sessionStartedAt: startedAt,
         mood: data.mood,
-      } as Record<string, unknown>, ['content', 'previousContent'], [], userId);
+      } satisfies VersionEncryptPayload, ['content', 'previousContent'], [], userId);
       await VersionService.addVersion(userId, linkedCloudId, {
         content: versionPayload.content as string,
         previousContent: versionPayload.previousContent as string,

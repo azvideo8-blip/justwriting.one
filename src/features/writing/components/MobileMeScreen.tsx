@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../../../core/i18n';
-import { UserProfile, Session } from '../../../types';
+import { UserProfile } from '../../../types';
 import { User } from 'firebase/auth';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { getOrCreateGuestId, LocalProfile } from '../../../core/storage/localDb';
@@ -8,9 +8,6 @@ import { MeAccountSection } from './MeAccountSection';
 import { useSettings } from '../../../core/settings/SettingsContext';
 import { Settings } from 'lucide-react';
 import { useUserId } from '../../../shared/hooks/useUserId';
-import { loadAllSessions } from '../services/UnifiedSessionLoader';
-import { calculateStreak } from '../../../core/utils/utils';
-import { toTimestampMs } from '../../../core/utils/dateUtils';
 import { ProfileHero } from '../../profile/components/ProfileHero';
 import { KPIStrip } from '../../profile/components/KPIStrip';
 import { StreakRibbon } from '../../profile/components/StreakRibbon';
@@ -22,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { ProfileService } from '../../profile/services/ProfileService';
 import { MobilePageHeader } from '../../../shared/components/MobilePageHeader';
 import { LoadingSkeleton } from '../../../shared/components/LoadingSkeleton';
+import { useProfileStats } from '../../profile/hooks/useProfileStats';
 
 interface MobileMeScreenProps {
   user: User | null;
@@ -32,12 +30,6 @@ interface MobileMeScreenProps {
 
 type Section = 'stats' | 'account';
 
-interface DocLevelStats {
-  totalWords: number;
-  sessionsCount: number;
-  totalDuration: number;
-}
-
 export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeScreenProps) {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -47,10 +39,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
   const userId = useUserId(user);
   const isGuest = !user;
 
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [docStats, setDocStats] = useState<DocLevelStats>({ totalWords: 0, sessionsCount: 0, totalDuration: 0 });
-  const [loadingSessions, setLoadingSessions] = useState(true);
-  const [fetchKey] = useState(0);
+  const { sessions, kpiStats, loading: loadingSessions, refresh: _refresh } = useProfileStats(userId, user);
   const [achResetKey, setAchResetKey] = useState(0);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
@@ -71,89 +60,6 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
       LocalDocumentService.getProfile(getOrCreateGuestId()).then(p => setLocalProfile(p ?? undefined));
     }
   }, [isGuest]);
-
-  // Load full session history for stats charts and achievements
-  useEffect(() => {
-    let cancelled = false;
-    const fetchProfileData = async () => {
-      setLoadingSessions(true);
-      try {
-        const result = await loadAllSessions(userId, user);
-        if (cancelled) return;
-        let totalWords = 0;
-        let sessionsCount = 0;
-        let totalDuration = 0;
-        for (const s of result.sessions) {
-          totalWords += s._totalWords ?? s.wordCount ?? 0;
-          sessionsCount += s._sessionsCount ?? 1;
-          totalDuration += s._totalDuration ?? s.duration ?? 0;
-        }
-        setSessions(result.sessions);
-        setDocStats({ totalWords, sessionsCount, totalDuration });
-      } catch (err) {
-        if (cancelled) return;
-        reportError(err, { page: 'mobile-me', userId });
-      } finally {
-        if (!cancelled) setLoadingSessions(false);
-      }
-    };
-
-    fetchProfileData();
-    return () => { cancelled = true; };
-  }, [userId, user, fetchKey]);
-
-
-  // Calculate full KPI Statistics
-  const kpiStats = useMemo(() => {
-    try {
-      const dates = new Set<string>();
-      sessions.forEach(s => {
-        try {
-          const ts = s.sessionStartTime ?? toTimestampMs(s.createdAt);
-          if (!ts) return;
-          const d = new Date(ts);
-          if (isNaN(d.getTime())) return;
-          dates.add(d.toDateString());
-        } catch (e) { reportError(e, { action: 'parseSessionDate' }, 'warning'); }
-      });
-
-      const streak = calculateStreak(sessions);
-
-      const avgMins = docStats.sessionsCount
-        ? Math.round(docStats.totalDuration / docStats.sessionsCount / 60)
-        : 0;
-
-      const hours = new Array(24).fill(0) as number[];
-      sessions.forEach(s => {
-        try {
-          const ts = s.sessionStartTime ?? toTimestampMs(s.createdAt);
-          if (!ts) return;
-          const d = new Date(ts);
-          const h = d.getHours();
-          if (!isNaN(h) && h >= 0 && h < 24) hours[h]++;
-        } catch (e) { reportError(e, { action: 'parseSessionHour' }, 'warning'); }
-      });
-      const totalHourHits = hours.reduce((a, b) => a + b, 0);
-      const typicalHour = totalHourHits === 0
-        ? '—'
-        : `${String(hours.indexOf(Math.max(...hours))).padStart(2, '0')}:00`;
-
-      const daysActive = dates.size || 1;
-      const wordsPerDay = Math.round(docStats.totalWords / daysActive);
-
-      return {
-        totalWords: docStats.totalWords,
-        streakDays: streak,
-        sessionsCount: docStats.sessionsCount,
-        avgSessionMins: avgMins,
-        typicalHour,
-        wordsPerDay,
-      };
-    } catch (err) {
-      reportError(err, { action: 'kpiStats' });
-      return { totalWords: 0, streakDays: 0, sessionsCount: 0, avgSessionMins: 0, typicalHour: '—', wordsPerDay: 0 };
-    }
-  }, [sessions, docStats]);
 
   const sections: { id: Section; label: string }[] = [
     { id: 'stats',   label: t('me_tab_stats') },
