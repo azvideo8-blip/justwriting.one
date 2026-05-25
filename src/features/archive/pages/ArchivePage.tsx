@@ -119,9 +119,10 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
 
   return (
     <AdaptiveContainer>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="pb-10">
-        <div className="flex gap-0 min-w-[320px]">
-          <div className="flex-1 min-w-0 pr-0 lg:pr-8">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="h-screen overflow-hidden flex flex-col">
+        <div className="flex gap-0 min-w-[320px] flex-1 min-h-0">
+          <div className="flex-1 min-w-0 pr-0 lg:pr-8 flex flex-col min-h-0">
+            <div className="shrink-0">
             <ArchiveHeader
               title={t('nav_notes')} count={sortedSessions.length} countLabel={t('archive_count')}
               subtitle={t('archive_subtitle')}
@@ -191,7 +192,8 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 <button onClick={() => fetchSessions()} className="underline text-red-400/70 hover:text-red-400">{t('retry')}</button>
               </div>
             )}
-            <div className="mt-4 custom-scrollbar pr-1" style={{ height: 'calc(100vh - 220px)' }}>
+            </div>
+            <div className="mt-4 flex-1 min-h-0 pr-1">
               <ArchiveNoteList
                 viewMode={viewMode} loading={loading} error={error} filteredSessions={sortedSessions}
                 groupedSessions={groupedSessions} sortedDates={sortedDates} dateLocale={dateLocale}

@@ -105,7 +105,7 @@ export function FinishModalStats({
     <>
       {streakDays > 0 ? (
         <div className="text-center">
-          <div className="text-4xl font-mono font-bold text-brand-primary tabular-nums">{streakDays}</div>
+          <div className="text-2xl font-mono font-bold text-brand-primary tabular-nums">{streakDays}</div>
           <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/40 mt-1">{t('finish_streak_days')}</div>
           <StreakDots sessionGroups={sessionGroups} variant="modal" />
         </div>

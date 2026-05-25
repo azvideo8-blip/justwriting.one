@@ -248,12 +248,6 @@ export function WritingFinishModal({
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle shrink-0">
               <h3 className="text-lg font-bold text-text-main">{t('finish_congrats')}</h3>
-              <button
-                onClick={onSkipSave}
-                className="text-sm text-text-main/60 hover:text-text-main/70 transition-colors py-2"
-              >
-                {t('finish_skip_save')}
-              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
@@ -299,20 +293,26 @@ export function WritingFinishModal({
               />
             </div>
 
-            <div className="p-6 border-t border-border-subtle bg-surface-card shrink-0 flex flex-col gap-3"
-              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--bottom-nav-height, 72px) + 8px)' }}>
-              <div className="flex gap-3">
+            <div className="px-4 pb-3 pt-3 border-t border-border-subtle bg-surface-card shrink-0"
+              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
+              <div className="flex gap-2">
                 <button
                   onClick={onCancel}
-                  className="flex-1 px-6 py-3.5 font-bold transition-colors rounded-2xl border border-border-subtle text-text-main hover:bg-white/5 min-h-[44px]"
+                  className="flex-1 px-3 py-3.5 font-bold transition-colors rounded-2xl border border-border-subtle text-text-main hover:bg-white/5 min-h-[44px] text-sm"
                 >
                   {t('finish_back')}
+                </button>
+                <button
+                  onClick={onSkipSave}
+                  className="flex-1 px-3 py-3.5 font-bold transition-colors rounded-2xl border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-white/5 min-h-[44px] text-sm"
+                >
+                  {t('finish_skip_save')}
                 </button>
                 <button
                   onClick={handleSaveClick}
                   disabled={isSaving}
                   className={cn(
-                    "flex-1 px-6 py-3.5 font-bold transition-colors bg-text-main text-surface-base rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30 min-h-[44px]",
+                    "flex-[2] px-3 py-3.5 font-bold transition-colors bg-text-main text-surface-base rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30 min-h-[44px] text-sm",
                     isSaving ? "opacity-60 cursor-not-allowed" : "hover:brightness-110 will-change-transform"
                   )}
                 >
@@ -377,31 +377,30 @@ export function WritingFinishModal({
             setExportExpanded={setExportExpanded}
           />
 
-          <div className="flex gap-3"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--bottom-nav-height, 72px) + 8px)' }}>
+          <div className="flex gap-2">
             <button
               onClick={onCancel}
-              className="flex-1 px-6 py-4 font-bold transition-colors rounded-2xl border border-border-subtle text-text-main hover:bg-white/5"
+              className="flex-1 px-4 py-3.5 font-bold transition-colors rounded-2xl border border-border-subtle text-text-main hover:bg-white/5 text-sm"
             >
               {t('finish_back')}
+            </button>
+            <button
+              onClick={onSkipSave}
+              className="flex-1 px-4 py-3.5 font-bold transition-colors rounded-2xl border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-white/5 text-sm"
+            >
+              {t('finish_skip_save')}
             </button>
             <button
               onClick={handleSaveClick}
               disabled={isSaving}
               className={cn(
-                "flex-1 px-6 py-4 font-bold transition-colors bg-text-main text-surface-base rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30",
+                "flex-[2] px-4 py-3.5 font-bold transition-colors bg-text-main text-surface-base rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30 text-sm",
                 isSaving ? "opacity-60 cursor-not-allowed" : "hover:brightness-110 will-change-transform"
               )}
             >
               {isSaving ? t('finish_saving') : t('common_save')}
             </button>
           </div>
-          <button
-            onClick={onSkipSave}
-            className="w-full text-sm text-text-main/60 hover:text-text-main/70 transition-colors py-2"
-          >
-            {t('finish_skip_save')}
-          </button>
         </motion.div>
         )}
         </AnimatePresence>

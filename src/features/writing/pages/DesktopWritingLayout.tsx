@@ -98,7 +98,7 @@ export function DesktopWritingLayout({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `${showZen ? '0px' : '64px'} 1fr`,
+          gridTemplateColumns: `${showZen ? '0px' : '64px'} 1fr${lifeLogPinned && lifeLogVisible ? ' 380px' : ''}`,
           gridTemplateRows: '48px 1fr 64px',
           height: '100vh',
           width: '100vw',
@@ -199,14 +199,30 @@ export function DesktopWritingLayout({
             onStop={onStop}
           />
         </div>
+
+        {lifeLogVisible && lifeLogPinned && (
+          <div style={{ gridColumn: '3', gridRow: '1 / 4', overflow: 'hidden' }}>
+            <LifeLogPanel
+              userId={userId}
+              onContinueSession={onContinueSessionOrDoc}
+              onClose={() => setLifeLogVisible(false)}
+              activeTab={lifeLogTab}
+              onTabChange={setLifeLogTab}
+              pinned={lifeLogPinned}
+              onTogglePin={() => setLifeLogPinned(!lifeLogPinned)}
+              inGrid={true}
+              streakDays={streakDays}
+            />
+          </div>
+        )}
       </div>
 
       <AnimatePresence>
-        {lifeLogVisible && (
+        {lifeLogVisible && !lifeLogPinned && (
           <LifeLogPanel
             userId={userId}
             onContinueSession={onContinueSessionOrDoc}
-            onClose={() => { if (!lifeLogPinned) setLifeLogVisible(false); }}
+            onClose={() => setLifeLogVisible(false)}
             activeTab={lifeLogTab}
             onTabChange={setLifeLogTab}
             pinned={lifeLogPinned}
