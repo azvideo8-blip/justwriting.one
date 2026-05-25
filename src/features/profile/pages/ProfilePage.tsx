@@ -1,11 +1,8 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
 import { AlertCircle } from 'lucide-react';
-import { Session, UserProfile } from '../../../types';
-import { calculateStreak } from '../../../core/utils/utils';
-import { toTimestampMs } from '../../../core/utils/dateUtils';
-import { loadAllSessions } from '../../writing/services/UnifiedSessionLoader';
+import { UserProfile } from '../../../types';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../core/i18n';
 import { useUserId } from '../../../shared/hooks/useUserId';
@@ -19,16 +16,11 @@ import { HourRhythm } from '../components/HourRhythm';
 import { Achievements } from '../components/Achievements';
 import { ProfileService } from '../services/ProfileService';
 import { useToast } from '../../../shared/components/Toast';
+import { useProfileStats } from '../hooks/useProfileStats';
 
 interface ProfilePageProps {
   user: User | null;
   profile: UserProfile | null;
-}
-
-interface DocLevelStats {
-  totalWords: number;
-  sessionsCount: number;
-  totalDuration: number;
 }
 
 export function ProfilePage({ user, profile }: ProfilePageProps) {
@@ -37,97 +29,9 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   const userId = useUserId(user);
   const navigate = useNavigate();
 
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [docStats, setDocStats] = useState<DocLevelStats>({ totalWords: 0, sessionsCount: 0, totalDuration: 0 });
-  const [loading, setLoading] = useState(true);
+  const { sessions, kpiStats, loading, error, refresh } = useProfileStats(userId, user);
   const [achResetKey, setAchResetKey] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [fetchKey, setFetchKey] = useState(0);
   const { showToast: _showToast } = useToast();
-
-
-  useEffect(() => {
-    let cancelled = false;
-    const fetchProfileData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const result = await loadAllSessions(userId, user);
-        if (cancelled) return;
-        let totalWords = 0;
-        let sessionsCount = 0;
-        let totalDuration = 0;
-        for (const s of result.sessions) {
-          totalWords += s._totalWords ?? s.wordCount ?? 0;
-          sessionsCount += s._sessionsCount ?? 1;
-          totalDuration += s._totalDuration ?? s.duration ?? 0;
-        }
-        setSessions(result.sessions);
-        setDocStats({ totalWords, sessionsCount, totalDuration });
-      } catch (err) {
-        if (cancelled) return;
-        reportError(err, { page: 'profile', userId: user?.uid ?? 'guest' });
-        setError(t('profile_load_error'));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    fetchProfileData();
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, fetchKey]);
-
-  const kpiStats = useMemo(() => {
-    try {
-      const dates = new Set<string>();
-      sessions.forEach(s => {
-        try {
-          const ts = s.sessionStartTime ?? toTimestampMs(s.createdAt);
-          if (!ts) return;
-          const d = new Date(ts);
-          if (isNaN(d.getTime())) return;
-          dates.add(d.toDateString());
-        } catch (e) { reportError(e, { action: 'parseSessionDate' }, 'warning'); }
-      });
-
-      const streak = calculateStreak(sessions);
-
-      const avgMins = docStats.sessionsCount
-        ? Math.round(docStats.totalDuration / docStats.sessionsCount / 60)
-        : 0;
-
-      const hours = new Array(24).fill(0) as number[];
-      sessions.forEach(s => {
-        try {
-          const ts = s.sessionStartTime ?? toTimestampMs(s.createdAt);
-          if (!ts) return;
-          const d = new Date(ts);
-          const h = d.getHours();
-          if (!isNaN(h) && h >= 0 && h < 24) hours[h]++;
-        } catch (e) { reportError(e, { action: 'parseSessionHour' }, 'warning'); }
-      });
-      const totalHourHits = hours.reduce((a, b) => a + b, 0);
-      const typicalHour = totalHourHits === 0
-        ? '—'
-        : `${String(hours.indexOf(Math.max(...hours))).padStart(2, '0')}:00`;
-
-      const daysActive = dates.size || 1;
-      const wordsPerDay = Math.round(docStats.totalWords / daysActive);
-
-      return {
-        totalWords: docStats.totalWords,
-        streakDays: streak,
-        sessionsCount: docStats.sessionsCount,
-        avgSessionMins: avgMins,
-        typicalHour,
-        wordsPerDay,
-      };
-    } catch (err) {
-      reportError(err, { action: 'kpiStats' });
-      return { totalWords: 0, streakDays: 0, sessionsCount: 0, avgSessionMins: 0, typicalHour: '—', wordsPerDay: 0 };
-    }
-  }, [sessions, docStats]);
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
@@ -163,7 +67,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
     return (
       <div className="p-12 text-center rounded-2xl border bg-red-500/10 border-red-500/20">
         <AlertCircle size={24} className="mx-auto mb-3 text-red-400/70" /><p className="text-red-400 text-sm mb-4">{t('profile_load_error')}</p>
-        <button onClick={() => { setError(null); setFetchKey(k => k + 1); }} className="px-4 py-2 rounded-xl text-sm font-medium text-red-400 border border-red-400/30 hover:bg-red-400/10 transition-colors">
+        <button onClick={refresh} className="px-4 py-2 rounded-xl text-sm font-medium text-red-400 border border-red-400/30 hover:bg-red-400/10 transition-colors">
           {t('retry')}
         </button>
       </div>

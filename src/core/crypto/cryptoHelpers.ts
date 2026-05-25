@@ -10,6 +10,21 @@ export function isEncryptionEnabled(userId: string): boolean {
   return useEncryptionStore.getState().isEncryptionEnabled(userId);
 }
 
+export interface VersionEncryptPayload {
+  content: string;
+  previousContent: string;
+  wordCount: number;
+  duration: number;
+  wpm: number;
+  versionNumber: number;
+  goalWords?: number;
+  goalTime?: number;
+  goalReached?: boolean;
+  sessionStartedAt: Date;
+  mood?: string;
+  [key: string]: unknown;
+}
+
 export async function maybeEncrypt(
   doc: Record<string, unknown>,
   fields: string[],

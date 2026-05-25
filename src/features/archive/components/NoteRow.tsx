@@ -7,7 +7,7 @@ import { InlineTags } from './InlineTags';
 import { StorageIcons } from '../../writing/components/StorageIcons';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
-import { highlightText } from '../../../shared/utils/highlightText';
+import { highlightText, getSearchContext } from '../../../shared/utils/highlightText';
 import { MobileNoteActionsSheet } from './MobileNoteActionsSheet';
 import { AnimatePresence } from 'motion/react';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
@@ -246,7 +246,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
         )}
         {session.content && (
           <p className="text-sm text-text-main/60 leading-relaxed line-clamp-1 sm:line-clamp-2 mb-2 cursor-pointer" style={{ textWrap: 'pretty' }} onClick={onOpen}>
-            {highlightText(session.content.slice(0, 200), searchQuery ?? '')}
+            {highlightText(getSearchContext(session.content, searchQuery), searchQuery ?? '')}
           </p>
         )}
         <InlineTags

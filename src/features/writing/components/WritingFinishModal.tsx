@@ -1,21 +1,18 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { Download, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
-import { ExportService } from '../../export/ExportService';
-const WpmChart = React.lazy(() => import('./WpmChart').then(m => ({ default: m.WpmChart })));
 import { Label } from '../../../types';
 import { useLanguage } from '../../../core/i18n';
-import { formatTime } from '../../../core/utils/formatTime';
-import { useServiceAction } from '../../../shared/hooks/useServiceAction';
-
 import { useCountUp } from '../../../shared/hooks/useCountUp';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useModalEscape } from '../../../shared/hooks/useModalEscape';
 import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
-import { StreakDots } from '../../../shared/components/StreakDots';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+import { useServiceAction } from '../../../shared/hooks/useServiceAction';
+import { FinishModalStats } from './FinishModalStats';
+import { FinishModalTags } from './FinishModalTags';
+import { FinishModalExport } from './FinishModalExport';
 
 const STOP_WORDS = new Set([
   'это','что','как','так','все','они','она','он','мы','вы','я','его','её','их',
@@ -92,13 +89,12 @@ export function WritingFinishModal({
 
   useModalEscape(isOpen, onCancel);
   const modalRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(modalRef, isOpen); // [U-06] focus trap — удерживаем фокус внутри модала
+  useFocusTrap(modalRef, isOpen);
 
   const tagInputRef = React.useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<'form' | 'mood'>('form');
   const [saveDataState, setSaveDataState] = useState<SaveData | null>(null);
 
-  // Стейты аккордеона для мобильного
   const [statsExpanded, setStatsExpanded] = useState(true);
   const [formExpanded, setFormExpanded] = useState(true);
   const [tagsExpanded, setTagsExpanded] = useState(false);
@@ -138,21 +134,6 @@ export function WritingFinishModal({
 
   if (!isOpen) return null;
 
-  const toggleTag = (tag: string) => {
-    if (!tags) return;
-    if (tags.includes(tag)) {
-      setTags(tags.filter(t => t !== tag));
-    } else {
-      setTags([...tags, tag]);
-    }
-  };
-
-  const exportPDF = () => ExportService.toPDF(title || 'Untitled', content);
-  const exportMarkdown = () => ExportService.toMarkdown(title || 'Untitled', content);
-  const exportDocx = () => {
-    execute(() => ExportService.toDocx(title || 'Untitled', content), { errorMessage: t('error_export_failed') });
-  };
-
   const finalTitle = titleInputValue.trim() || title || '';
 
   const handleSaveClick = () => {
@@ -183,7 +164,7 @@ export function WritingFinishModal({
         successMessage: t('save_success'),
         errorMessage: t('error_save_failed'),
         onSuccess: () => {
-          onCancel(); // Закрываем модал
+          onCancel();
         },
       }
     );
@@ -255,7 +236,6 @@ export function WritingFinishModal({
             transition={slideTransition}
             className="flex-1 flex flex-col overflow-hidden"
           >
-            {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle shrink-0">
               <h3 className="text-lg font-bold text-text-main">{t('finish_congrats')}</h3>
               <button
@@ -266,213 +246,49 @@ export function WritingFinishModal({
               </button>
             </div>
 
-            {/* Scrollable Accordion Content */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
-              {/* Accordion 1: Stats */}
-              <div className="border border-border-subtle rounded-2xl overflow-hidden bg-surface-base/10">
-                <button
-                  type="button"
-                  onClick={() => setStatsExpanded(!statsExpanded)}
-                  className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-colors font-semibold text-sm"
-                >
-                  <span>{t('finish_wpm_chart') || 'Session Stats'}</span>
-                  {statsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-                
-                {statsExpanded && (
-                  <div className="p-4 space-y-4">
-                    {streakDays > 0 ? (
-                      <div className="text-center">
-                        <div className="text-3xl font-mono font-bold text-brand-primary tabular-nums">{streakDays}</div>
-                        <div className="text-label font-bold uppercase tracking-widest text-text-main/40 mt-0.5">{t('finish_streak_days')}</div>
-                        <StreakDots sessionGroups={sessionGroups} variant="modal" />
-                      </div>
-                    ) : (
-                      <div className="text-center text-xs text-text-main/40">{t('finish_streak_zero')}</div>
-                    )}
-
-                    <div className="grid grid-cols-3 text-center">
-                      <div className="p-1">
-                        <div className="text-label font-bold uppercase tracking-widest mb-0.5 text-text-main/50">{t('writing_words')}</div>
-                        <div className="text-lg font-mono font-bold text-text-main tabular-nums">{animWords}</div>
-                      </div>
-                      <div className="p-1 border-l border-r border-border-subtle">
-                        <div className="text-label font-bold uppercase tracking-widest mb-0.5 text-text-main/50">{t('writing_time')}</div>
-                        <div className="text-lg font-mono font-bold text-text-main tabular-nums">{formatTime(animSeconds)}</div>
-                      </div>
-                      <div className="p-1">
-                        <div className="text-label font-bold uppercase tracking-widest mb-0.5 text-text-main/50">{t('writing_wpm')}</div>
-                        <div className="text-lg font-mono font-bold text-text-main tabular-nums">{animWpm}</div>
-                      </div>
-                    </div>
-
-                    {totalPauseSeconds > 0 && (
-                      <div className="space-y-1 text-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="text-text-main/40">{t('finish_flow_time')}</span>
-                          <span className="font-mono text-text-main tabular-nums">{formatTime(sessionSeconds)}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-text-main/40">{t('finish_distraction_time')}</span>
-                          <span className="font-mono text-accent-warning tabular-nums">{formatTime(totalPauseSeconds)}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {wpmHistory.length >= 2 && (
-                      <div className="rounded-xl bg-surface-base border border-border-subtle px-3 py-2">
-                        <React.Suspense fallback={null}>
-                          <WpmChart data={wpmHistory} avgWpm={avgWpm} height={60} />
-                        </React.Suspense>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Accordion 2: Form */}
-              <div className="border border-border-subtle rounded-2xl overflow-hidden bg-surface-base/10">
-                <button
-                  type="button"
-                  onClick={() => setFormExpanded(!formExpanded)}
-                  className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-colors font-semibold text-sm"
-                >
-                  <span>{t('finish_title_label') || 'Title & Label'}</span>
-                  {formExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-
-                {formExpanded && (
-                  <div className="p-4 space-y-4">
-                    <div className="space-y-1.5">
-                      <input
-                        type="text"
-                        value={titleInputValue}
-                        onChange={e => setEditTitle(e.target.value)}
-                        placeholder={t('editor_title_placeholder')}
-                        maxLength={200}
-                        className="w-full px-4 py-3 rounded-xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-base font-medium placeholder:text-text-main/30 focus:border-text-main/40 min-h-[44px]"
-                      />
-                    </div>
-
-                    {labels.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="text-xs font-bold uppercase tracking-wider text-text-main/50">{t('finish_labels')}</div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {labels.map(label => (
-                            <button
-                              key={label.id}
-                              onClick={() => setLabelId(labelId === label.id ? undefined : label.id)}
-                              className={cn(
-                                "px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 min-h-[40px]",
-                                labelId === label.id
-                                  ? "border-2 border-white scale-105 opacity-100 shadow-lg"
-                                  : labelId !== undefined
-                                    ? "opacity-55 hover:opacity-85 border border-transparent"
-                                    : "hover:opacity-100 border border-transparent"
-                              )}
-                              style={{ backgroundColor: label.color }}
-                            >
-                              {label.name}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Accordion 3: Tags */}
-              <div className="border border-border-subtle rounded-2xl overflow-hidden bg-surface-base/10">
-                <button
-                  type="button"
-                  onClick={() => setTagsExpanded(!tagsExpanded)}
-                  className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-colors font-semibold text-sm"
-                >
-                  <span>{t('finish_tags') || 'Tags'}</span>
-                  {tagsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-
-                {tagsExpanded && (
-                  <div className="p-4 space-y-4">
-                    {allSuggestions.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {allSuggestions.map(tag => (
-                          <button
-                            key={tag}
-                            onClick={() => toggleTag(tag)}
-                            className={cn(
-                              "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-[36px]",
-                              tags && tags.includes(tag)
-                                ? "bg-text-main text-surface-base"
-                                : "bg-surface-base text-text-main/70 hover:bg-text-main/10"
-                            )}
-                          >
-                            #{tag}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <input
-                      ref={tagInputRef}
-                      type="text"
-                      placeholder={t('finish_add_tag')}
-                      className="w-full px-4 py-2 rounded-xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-sm placeholder:text-text-main/60 focus:border-text-main/40 min-h-[44px]"
-                      onBlur={(e) => {
-                        const val = e.currentTarget.value.trim();
-                        if (val && tags && !tags.includes(val)) {
-                          setTags([...tags, val]);
-                          e.currentTarget.value = '';
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          const val = e.currentTarget.value.trim();
-                          if (val && tags && !tags.includes(val)) {
-                            setTags([...tags, val]);
-                            e.currentTarget.value = '';
-                          }
-                          e.preventDefault();
-                        }
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Accordion 4: Export */}
-              <div className="border border-border-subtle rounded-2xl overflow-hidden bg-surface-base/10">
-                <button
-                  type="button"
-                  onClick={() => setExportExpanded(!exportExpanded)}
-                  className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-colors font-semibold text-sm"
-                >
-                  <span>{t('session_export') || 'Export'}</span>
-                  {exportExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-
-                {exportExpanded && (
-                  <div className="p-4">
-                    <div className="grid grid-cols-3 gap-3">
-                      <button onClick={exportPDF} className="flex flex-col items-center justify-center gap-2 p-3 transition-colors rounded-xl bg-surface-base hover:bg-text-main/10 border border-border-subtle min-h-[56px]">
-                        <FileText size={18} className="text-text-main/70" />
-                        <span className="text-label font-bold text-text-main/70">PDF</span>
-                      </button>
-                      <button onClick={exportMarkdown} className="flex flex-col items-center justify-center gap-2 p-3 transition-colors rounded-xl bg-surface-base hover:bg-text-main/10 border border-border-subtle min-h-[56px]">
-                        <FileText size={18} className="text-text-main/70" />
-                        <span className="text-label font-bold text-text-main/70">MD</span>
-                      </button>
-                      <button onClick={exportDocx} className="flex flex-col items-center justify-center gap-2 p-3 transition-colors rounded-xl bg-surface-base hover:bg-text-main/10 border border-border-subtle min-h-[56px]">
-                        <Download size={18} className="text-text-main/70" />
-                        <span className="text-label font-bold text-text-main/70">DOCX</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <FinishModalStats
+                animWords={animWords}
+                animSeconds={animSeconds}
+                animWpm={animWpm}
+                sessionSeconds={sessionSeconds}
+                totalPauseSeconds={totalPauseSeconds}
+                avgWpm={avgWpm}
+                wpmHistory={wpmHistory}
+                streakDays={streakDays}
+                sessionGroups={sessionGroups}
+                t={t}
+                isMobile={isMobile}
+                statsExpanded={statsExpanded}
+                setStatsExpanded={setStatsExpanded}
+              />
+              <FinishModalTags
+                tags={tags}
+                setTags={setTags}
+                allSuggestions={allSuggestions}
+                labelId={labelId}
+                setLabelId={setLabelId}
+                labels={labels}
+                tagInputRef={tagInputRef}
+                t={t}
+                isMobile={isMobile}
+                tagsExpanded={tagsExpanded}
+                setTagsExpanded={setTagsExpanded}
+                formExpanded={formExpanded}
+                setFormExpanded={setFormExpanded}
+                titleInputValue={titleInputValue}
+                setEditTitle={setEditTitle}
+              />
+              <FinishModalExport
+                title={title || 'Untitled'}
+                content={content}
+                t={t}
+                isMobile={isMobile}
+                exportExpanded={exportExpanded}
+                setExportExpanded={setExportExpanded}
+              />
             </div>
 
-            {/* Sticky Save Footer */}
             <div className="p-6 border-t border-border-subtle bg-surface-card shrink-0 flex flex-col gap-3"
               style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--bottom-nav-height, 72px) + 8px)' }}>
               <div className="flex gap-3">
@@ -508,155 +324,48 @@ export function WritingFinishModal({
             <h3 className="text-2xl font-bold text-text-main">{t('finish_congrats')}</h3>
           </div>
 
-          {streakDays > 0 ? (
-            <div className="text-center">
-              <div className="text-4xl font-mono font-bold text-brand-primary tabular-nums">{streakDays}</div>
-              <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/40 mt-1">{t('finish_streak_days')}</div>
-              <StreakDots sessionGroups={sessionGroups} variant="modal" />
-            </div>
-          ) : (
-            <div className="text-center text-sm text-text-main/40">{t('finish_streak_zero')}</div>
-          )}
+          <FinishModalStats
+            animWords={animWords}
+            animSeconds={animSeconds}
+            animWpm={animWpm}
+            sessionSeconds={sessionSeconds}
+            totalPauseSeconds={totalPauseSeconds}
+            avgWpm={avgWpm}
+            wpmHistory={wpmHistory}
+            streakDays={streakDays}
+            sessionGroups={sessionGroups}
+            t={t}
+            isMobile={isMobile}
+            statsExpanded={statsExpanded}
+            setStatsExpanded={setStatsExpanded}
+          />
 
-          <div className="grid grid-cols-3 text-center">
-            <div className="p-2">
-              <div className="text-label-sm font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_words')}</div>
-              <div className="text-xl font-mono font-bold text-text-main tabular-nums">{animWords}</div>
-            </div>
-            <div className="p-2" style={{ borderImage: 'linear-gradient(to bottom, transparent, var(--color-border-subtle), transparent) 1', borderLeft: '1px solid', borderRight: '1px solid' }}>
-              <div className="text-label-sm font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_time')}</div>
-              <div className="text-xl font-mono font-bold text-text-main tabular-nums">{formatTime(animSeconds)}</div>
-            </div>
-            <div className="p-2">
-              <div className="text-label-sm font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_wpm')}</div>
-              <div className="text-xl font-mono font-bold text-text-main tabular-nums">{animWpm}</div>
-            </div>
-          </div>
+          <FinishModalTags
+            tags={tags}
+            setTags={setTags}
+            allSuggestions={allSuggestions}
+            labelId={labelId}
+            setLabelId={setLabelId}
+            labels={labels}
+            tagInputRef={tagInputRef}
+            t={t}
+            isMobile={isMobile}
+            tagsExpanded={tagsExpanded}
+            setTagsExpanded={setTagsExpanded}
+            formExpanded={formExpanded}
+            setFormExpanded={setFormExpanded}
+            titleInputValue={titleInputValue}
+            setEditTitle={setEditTitle}
+          />
 
-          {totalPauseSeconds > 0 && (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-text-main/40">{t('finish_flow_time')}</span>
-                <span className="font-mono text-text-main tabular-nums">{formatTime(sessionSeconds)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-text-main/40">{t('finish_distraction_time')}</span>
-                <span className="font-mono text-accent-warning tabular-nums">{formatTime(totalPauseSeconds)}</span>
-              </div>
-            </div>
-          )}
-
-          {wpmHistory.length >= 2 && (
-            <div className="rounded-2xl bg-surface-base border border-border-subtle px-4 py-3">
-              <div className="text-label font-bold uppercase tracking-widest text-text-main/40 mb-3">
-                {t('finish_wpm_chart')}
-              </div>
-              <React.Suspense fallback={null}>
-                <WpmChart data={wpmHistory} avgWpm={avgWpm} height={72} />
-              </React.Suspense>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <div className="text-xs font-bold uppercase tracking-wider text-text-main/50">
-              {t('finish_title_label')}
-            </div>
-            <input
-              type="text"
-              value={titleInputValue}
-              onChange={e => setEditTitle(e.target.value)}
-              placeholder={t('editor_title_placeholder')}
-              maxLength={200} // [U-04] ограничение в соответствии с Firestore правилами
-              className="w-full px-4 py-3 rounded-2xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-lg font-medium placeholder:text-text-main/30 focus:border-text-main/40"
-              autoFocus
-            />
-          </div>
-
-          {labels.length > 0 && (
-            <div className="space-y-3">
-              <div className="text-xs font-bold uppercase tracking-wider text-text-main/50">{t('finish_labels')}</div>
-              <div className="flex flex-wrap gap-2">
-                {labels.map(label => (
-                  <button
-                    key={label.id}
-                    onClick={() => setLabelId(labelId === label.id ? undefined : label.id)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2",
-                      labelId === label.id
-                        ? "border-2 border-white scale-105 opacity-100 shadow-lg"
-                        : labelId !== undefined
-                          ? "opacity-55 hover:opacity-85 border border-transparent"
-                          : "hover:opacity-100 border border-transparent"
-                    )}
-                    style={{ backgroundColor: label.color }}
-                  >
-                    {label.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            <div className="text-xs font-bold uppercase tracking-wider text-text-main/50">{t('finish_tags')}</div>
-            <div className="flex flex-wrap gap-2">
-              {allSuggestions.map(tag => (
-                <button
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                    tags && tags.includes(tag)
-                      ? "bg-text-main text-surface-base"
-                      : "bg-surface-base text-text-main/70 hover:bg-text-main/10"
-                  )}
-                >
-                  #{tag}
-                </button>
-              ))}
-            </div>
-            <input
-              ref={tagInputRef}
-              type="text"
-              placeholder={t('finish_add_tag')}
-              className="w-full px-4 py-2 rounded-2xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main placeholder:text-text-main/60 focus:border-text-main/40"
-              onBlur={(e) => {
-                const val = e.currentTarget.value.trim();
-                if (val && tags && !tags.includes(val)) {
-                  setTags([...tags, val]);
-                  e.currentTarget.value = '';
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  const val = e.currentTarget.value.trim();
-                  if (val && tags && !tags.includes(val)) {
-                    setTags([...tags, val]);
-                    e.currentTarget.value = '';
-                  }
-                  e.preventDefault();
-                }
-              }}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/50">{t('session_export')}</div>
-            <div className="grid grid-cols-3 gap-3">
-              <button onClick={exportPDF} className="flex flex-col items-center gap-2 p-3 transition-colors rounded-2xl bg-surface-base hover:bg-text-main/10 border border-border-subtle">
-                <FileText size={18} className="text-text-main/70" />
-                <span className="text-label font-bold text-text-main/70">PDF</span>
-              </button>
-              <button onClick={exportMarkdown} className="flex flex-col items-center gap-2 p-3 transition-colors rounded-2xl bg-surface-base hover:bg-text-main/10 border border-border-subtle">
-                <FileText size={18} className="text-text-main/70" />
-                <span className="text-label font-bold text-text-main/70">MD</span>
-              </button>
-              <button onClick={exportDocx} className="flex flex-col items-center gap-2 p-3 transition-colors rounded-2xl bg-surface-base hover:bg-text-main/10 border border-border-subtle">
-                <Download size={18} className="text-text-main/70" />
-                <span className="text-label font-bold text-text-main/70">DOCX</span>
-              </button>
-            </div>
-          </div>
+          <FinishModalExport
+            title={title || 'Untitled'}
+            content={content}
+            t={t}
+            isMobile={isMobile}
+            exportExpanded={exportExpanded}
+            setExportExpanded={setExportExpanded}
+          />
 
           <div className="flex gap-3"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--bottom-nav-height, 72px) + 8px)' }}>
