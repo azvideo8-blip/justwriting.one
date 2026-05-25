@@ -141,7 +141,7 @@ export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog, defau
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-sm"
+            className="fixed inset-0 z-[var(--z-overlay)] bg-black/30 backdrop-blur-sm"
           />
 
           <motion.div
@@ -153,7 +153,7 @@ export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog, defau
             animate={{ x: 0 }}
             exit={{ x: reducedMotion ? 0 : '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="fixed top-0 right-0 bottom-0 w-full max-w-[420px] z-[70] bg-surface-card border-l border-border-subtle flex flex-col shadow-2xl"
+            className="fixed top-0 right-0 bottom-0 w-full max-w-[420px] z-[var(--z-panel)] bg-surface-card border-l border-border-subtle flex flex-col shadow-2xl"
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle shrink-0">
               <h2 id="settings-title" className="text-lg font-bold text-text-main">{t('nav_settings')}</h2>

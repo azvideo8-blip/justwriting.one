@@ -18,7 +18,8 @@ export const lifelogTranslations: Translations = {
   lifelog_group_today:  { ru: 'Сегодня', en: 'Today' },
   lifelog_group_yesterday: { ru: 'Вчера', en: 'Yesterday' },
   lifelog_group_earlier: { ru: 'Раньше', en: 'Earlier' },
-  lifelog_empty:        { ru: 'Нет сессий', en: 'No sessions yet' },
+  lifelog_empty:        { ru: 'Сессий пока нет', en: 'No sessions yet' },
+  lifelog_empty_desc:  { ru: 'Начни писать — сессия появится здесь', en: 'Start writing — your session will appear here' },
   lifelog_search_placeholder: { ru: 'Поиск по заметкам...', en: 'Search notes...' },
   lifelog_continue:    { ru: 'Продолжить', en: 'Continue' },
   lifelog_just_now:    { ru: 'только что', en: 'just now' },
@@ -52,5 +53,5 @@ export const lifelogTranslations: Translations = {
   tag_cloud_title: { ru: 'Облако тегов', en: 'Tag Cloud' },
   tag_cloud_empty: { ru: 'Тегов пока нет', en: 'No tags yet' },
 
-  pull_to_refresh: { ru: 'Потяните для обновления', en: 'Pull to refresh' },
+  pull_to_refresh: { ru: 'Потяни для обновления', en: 'Pull to refresh' },
 };

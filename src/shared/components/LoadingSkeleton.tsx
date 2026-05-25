@@ -1,13 +1,15 @@
-export function LoadingSkeleton() {
+interface LoadingSkeletonProps {
+  lines?: number;
+  className?: string;
+  label?: string;
+}
+
+export function LoadingSkeleton({ lines = 3, className, label = 'Загружается...' }: LoadingSkeletonProps) {
   return (
-    <style>{`
-      @keyframes pulse-bg {
-        0%, 100% { opacity: 0.6; }
-        50% { opacity: 0.35; }
-      }
-      .skeleton-pulse {
-        animation: pulse-bg 1.5s ease-in-out infinite;
-      }
-    `}</style>
+    <div role="progressbar" aria-label={label} aria-busy="true" className={className}>
+      {Array.from({ length: lines }).map((_, i) => (
+        <div key={i} className="h-4 rounded bg-text-main/5 animate-pulse mb-2" />
+      ))}
+    </div>
   );
 }

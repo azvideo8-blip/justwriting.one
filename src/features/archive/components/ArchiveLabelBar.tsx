@@ -41,7 +41,7 @@ export function ArchiveLabelBar({
 
   return (
     <div className="flex items-center gap-2 py-3 flex-wrap" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
-      <span className="font-mono text-label text-text-main/25 uppercase tracking-widest mr-1">
+      <span className="font-mono text-[9px] text-text-main/25 uppercase tracking-widest mr-1">
         {t('archive_labels')}
       </span>
       {labels.map(label => {
@@ -83,12 +83,12 @@ export function ArchiveLabelBar({
             <button
               onClick={() => onToggleLabel(label.id)}
               className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label-sm font-mono transition-colors border",
+                 "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono transition-colors border",
                 active ? "border-transparent text-white" : "bg-transparent border-border-subtle text-text-main/50 hover:text-text-main/70"
               )}
               style={active ? { background: label.color, borderColor: label.color, boxShadow: `0 0 12px color-mix(in srgb, ${label.color} 45%, transparent)` } : {}}
             >
-              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: label.color }} />
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: label.color }} />
               {label.name}
             </button>
             {showControls && (
@@ -115,7 +115,7 @@ export function ArchiveLabelBar({
       {selectedLabels.length > 0 && (
         <button
           onClick={() => selectedLabels.forEach(id => onToggleLabel(id))}
-          className="px-2.5 py-1 rounded-full text-label-sm font-mono border border-dashed border-border-subtle text-text-main/30 hover:text-text-main/50 transition-colors"
+           className="px-2 py-0.5 rounded-full text-[10px] font-mono border border-dashed border-border-subtle text-text-main/30 hover:text-text-main/50 transition-colors"
         >
           {t('archive_tags_reset')} ✕
         </button>
@@ -123,7 +123,7 @@ export function ArchiveLabelBar({
       {showControls && !addingLabel && !editingLabelId && (
         <button
           onClick={() => setAddingLabel(true)}
-          className="flex items-center gap-1 px-2 py-1 rounded-full text-label-sm font-mono text-text-main/30 hover:text-text-main/50 border border-dashed border-border-subtle transition-colors"
+           className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-text-main/30 hover:text-text-main/50 border border-dashed border-border-subtle transition-colors"
         >
           + {t('archive_add_label')}
         </button>

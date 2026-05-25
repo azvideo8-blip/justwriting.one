@@ -6,7 +6,7 @@ type LayoutMode = 'desktop' | 'mobile';
 
 // [U-02] начальное значение определяется по реальному viewport, а не хардкодом 'desktop'
 function getInitialLayoutMode(): LayoutMode {
-  if (typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches) {
+  if (typeof window !== 'undefined' && window.matchMedia('(max-width: 480px)').matches) {
     return 'mobile';
   }
   return 'desktop';
@@ -21,7 +21,7 @@ export function useLayoutMode() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const mediaQuery = window.matchMedia('(max-width: 768px)');
+    const mediaQuery = window.matchMedia('(max-width: 480px)');
     
     let timeoutId: ReturnType<typeof setTimeout>;
     

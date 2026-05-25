@@ -305,7 +305,7 @@ export function MobileWriteToolbar({
 
       <AnimatePresence>
         {showExitConfirm && (
-          <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center bg-black/60 backdrop-blur-sm">
             <div className="absolute inset-0" onClick={() => setShowExitConfirm(false)} />
             <motion.div
               initial={{ y: '100%' }}

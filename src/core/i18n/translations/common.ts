@@ -26,7 +26,7 @@ export const commonTranslations: Translations = {
 
   common_loading: { ru: 'Загрузка...', en: 'Loading...' },
   common_error: { ru: 'Ошибка', en: 'Error' },
-  common_offline: { ru: 'НЕТ СВЯЗИ С БАЗОЙ ДАННЫХ. ПРОВЕРЬТЕ ИНТЕРНЕТ.', en: 'NO CONNECTION TO DATABASE. CHECK YOUR INTERNET.' },
+  common_offline: { ru: 'Нет подключения. Проверь интернет.', en: 'No connection. Check your internet.' },
   common_untitled: { ru: 'Без названия', en: 'Untitled' },
   common_cancel: { ru: 'Отмена', en: 'Cancel' },
   common_save: { ru: 'Сохранить', en: 'Save' },
@@ -37,12 +37,11 @@ export const commonTranslations: Translations = {
   retry: { ru: 'Повторить', en: 'Retry' },
 
   error_generic: { ru: 'Что-то пошло не так', en: 'Something went wrong' },
-  error_generic_action: { ru: 'Что-то пошло не так. Попробуйте ещё раз.', en: 'Something went wrong. Please try again.' },
-  error_permission_denied: { ru: 'У вас нет прав для выполнения этого действия.', en: "You don't have permission to perform this action." },
-  error_unavailable: { ru: 'Сервис временно недоступен. Попробуйте позже.', en: 'Service temporarily unavailable. Please try again later.' },
-  error_invalid_credentials: { ru: 'Неверный email или пароль.', en: 'Invalid email or password.' },
-  error_too_many_requests: { ru: 'Слишком много попыток. Попробуйте позже.', en: 'Too many attempts. Please try again later.' },
-  error_save_failed:    { ru: 'Не удалось сохранить. Попробуйте ещё раз.', en: 'Failed to save. Please try again.' },
+  error_generic_action: { ru: 'Что-то пошло не так. Попробуй ещё раз.', en: 'Something went wrong. Please try again.' },
+  error_permission_denied: { ru: 'У тебя нет прав для выполнения этого действия.', en: "You don't have permission to perform this action." },
+  error_unavailable: { ru: 'Сервис временно недоступен. Попробуй позже.', en: 'Service temporarily unavailable. Please try again later.' },
+  error_too_many_requests: { ru: 'Слишком много попыток. Попробуй позже.', en: 'Too many attempts. Please try again later.' },
+  error_save_failed:    { ru: 'Не удалось сохранить. Попробуй ещё раз.', en: 'Failed to save. Please try again.' },
   error_delete_failed:  { ru: 'Не удалось удалить.', en: 'Failed to delete.' },
   error_load_failed:    { ru: 'Не удалось загрузить данные.', en: 'Failed to load data.' },
   error_nickname_failed:{ ru: 'Не удалось обновить никнейм.', en: 'Failed to update nickname.' },
@@ -52,20 +51,20 @@ export const commonTranslations: Translations = {
   error_continue_session: { ru: 'Ошибка при продолжении сессии', en: 'Error continuing session' },
   error_reload: { ru: 'Перезагрузить', en: 'Reload' },
   error_session_key_missing: {
-    ru: 'Сессия устарела. Введите пароль для разблокировки шифрования.',
+    ru: 'Сессия устарела. Введи пароль для разблокировки шифрования.',
     en: 'Session expired. Enter your password to unlock encryption.',
   },
 
   unlock_title: { ru: 'Разблокировать шифрование', en: 'Unlock Encryption' },
   unlock_subtitle: {
-    ru: 'Введите пароль для восстановления доступа к облачным заметкам.',
+    ru: 'Введи пароль для восстановления доступа к облачным заметкам.',
     en: 'Enter your password to restore access to cloud notes.',
   },
   unlock_submit: { ru: 'Разблокировать', en: 'Unlock' },
   unlock_wrong_password: { ru: 'Неверный пароль', en: 'Wrong password' },
   unlock_success: { ru: 'Шифрование разблокировано', en: 'Encryption unlocked' },
   unlock_no_keys_error: {
-    ru: 'Ключи шифрования не найдены. Выйдите из аккаунта и войдите снова.',
+    ru: 'Ключи шифрования не найдены. Выйди из аккаунта и войди снова.',
     en: 'Encryption keys not found. Please sign out and sign in again.',
   },
 
@@ -96,7 +95,7 @@ export const commonTranslations: Translations = {
   pause:           { ru: 'Пауза',       en: 'Pause' },
   stop:            { ru: 'Стоп',        en: 'Stop' },
 
-  guest_storage_full: { ru: 'Хранилище заполнено. Экспортируйте данные.', en: 'Storage full. Export your data.' },
+  guest_storage_full: { ru: 'Хранилище заполнено. Экспортируй данные.', en: 'Storage full. Export your data.' },
 
   topbar_new:  { ru: 'Новая заметка', en: 'New note' },
   topbar_open: { ru: 'Открыть',       en: 'Open' },

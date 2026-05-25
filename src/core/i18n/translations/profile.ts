@@ -5,11 +5,11 @@ export const profileTranslations: Translations = {
   profile_settings_title: { ru: 'Настройки профиля', en: 'Profile settings' },
   profile_reset_achievements: { ru: 'Сбросить все достижения', en: 'Reset all achievements' },
   profile_reset_achievements_confirm: {
-    ru: 'Вы уверены? Все достижения будут сброшены.',
+    ru: 'Ты уверен? Все достижения будут сброшены.',
     en: 'Are you sure? All achievements will be reset.'
   },
   reset_achievements_confirm: {
-    ru: 'Все достижения будут удалены навсегда. Вы уверены?',
+    ru: 'Все достижения будут удалены навсегда. Ты уверен?',
     en: 'All achievements will be permanently deleted. Are you sure?'
   },
   profile_stats: { ru: 'Статистика', en: 'Statistics' },
@@ -84,7 +84,7 @@ export const profileTranslations: Translations = {
   profile_download_nothing: { ru: 'Все заметки уже есть локально', en: 'All notes already downloaded' },
   profile_download_partial: { ru: 'Скачано {downloaded}, ошибок {failed}', en: 'Downloaded {downloaded}, failed {failed}' },
   profile_download_error: { ru: 'Ошибка при скачивании', en: 'Download failed' },
-  profile_empty_desc: { ru: 'Здесь появится твоя статистика — слова, серии, ритм. Начни первую сессию.', en: 'Your stats will appear here — words, streaks, rhythm. Start your first session.' },
+  profile_empty_desc: { ru: 'Статистика появится после первой сессии', en: 'Stats will appear after your first session' },
   profile_empty_hint: { ru: 'вкладка «Писать»', en: 'go to the Write tab' },
   profile_activity_title:   { ru: 'Активность',             en: 'Activity' },
   profile_sessions_found: { ru: 'Найдено {count} сессий', en: '{count} sessions found' },

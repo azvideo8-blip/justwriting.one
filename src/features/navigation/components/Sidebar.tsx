@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { PenLine, History, User as UserIcon, Shield, LogIn } from 'lucide-react';
+import { PenLine, History, User as UserIcon, Shield, LogIn, Settings } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
@@ -124,9 +124,10 @@ function SidebarActionItem({ icon, label, expanded, onClick, accent }: SidebarAc
 
 interface SidebarProps {
   isAdmin: boolean;
+  onOpenSettings: () => void;
 }
 
-export function Sidebar({ isAdmin }: SidebarProps) {
+export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
   const [hovered, setHovered] = useState(false);
   const { t } = useLanguage();
   const { lifeLogEnabled: _lifeLogEnabled, isZenActive, zenModeEnabled } = useWritingSettings();
@@ -135,7 +136,6 @@ export function Sidebar({ isAdmin }: SidebarProps) {
   const navigate = useNavigate();
   const { isGuest } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
-  const isWritePage = location.pathname === '/';
   const expanded = hovered;
 
   const navItems = [
@@ -153,12 +153,12 @@ export function Sidebar({ isAdmin }: SidebarProps) {
       onMouseLeave={() => setHovered(false)}
       className={cn(
           "h-full z-50 flex flex-col py-4 transition-all duration-300 ease-in-out",
-          "fixed top-0 left-0 bg-surface-card/50 border-r border-border-subtle backdrop-blur-xl",
+          "fixed top-0 left-0 border-r border-border-subtle backdrop-blur-xl",
           expanded && "w-[220px]",
           !expanded && "w-16",
-          showZen && "opacity-0 pointer-events-none -translate-x-4",
-          isWritePage && !hovered && "opacity-25"
+          showZen && "opacity-0 pointer-events-none -translate-x-4"
         )}
+      style={{ background: 'color-mix(in srgb, var(--color-surface-card) 40%, transparent)' }}
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 mb-8 h-10 overflow-hidden">
@@ -215,8 +215,15 @@ export function Sidebar({ isAdmin }: SidebarProps) {
           />
         )}
 
+        <SidebarActionItem
+          icon={<Settings size={20} />}
+          label={t('nav_settings')}
+          expanded={expanded}
+          onClick={onOpenSettings}
+        />
+
         <div className={cn(
-          "px-3 py-2 text-label font-mono text-text-main/25 transition-all duration-300 select-none whitespace-nowrap flex items-center gap-2",
+           "px-3 py-2 text-[9px] font-mono text-text-main/25 transition-all duration-300 select-none whitespace-nowrap flex items-center gap-2",
           expanded ? "opacity-100 pl-3" : "opacity-0 h-0 p-0 overflow-hidden"
         )}>
           <span>{t('common_version')}: {APP_VERSION}</span>

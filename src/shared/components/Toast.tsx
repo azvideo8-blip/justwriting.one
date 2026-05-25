@@ -28,7 +28,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={{ showToast }}>
       {children}
       <div 
-        className="fixed bottom-24 right-4 z-[999] flex flex-col gap-2 pointer-events-none"
+        className="fixed bottom-24 right-4 z-[var(--z-skip)] flex flex-col gap-2 pointer-events-none"
         aria-live="polite"
         aria-atomic="false"
         role="status"
@@ -43,8 +43,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               className={cn(
                 "px-4 py-3 rounded-2xl text-sm font-medium backdrop-blur-xl border shadow-lg pointer-events-auto",
                 toast.type === 'success'
-                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                  : "bg-red-500/10 border-red-500/30 text-red-400"
+                  ? "bg-accent-success/10 border-accent-success/30 text-accent-success"
+                  : "bg-accent-danger/10 border-accent-danger/30 text-accent-danger"
               )}
             >
               {toast.message}

@@ -5,6 +5,7 @@ import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { getFontStack } from '../utils/fontStack';
+import { useToast } from '../../../shared/components/Toast';
 
 interface WritingEditorProps {
   onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
@@ -23,11 +24,22 @@ export const WritingEditor = React.memo(function WritingEditor({
     lifeLogEnabled
   } = useWritingSettings();
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const streamStatusRef = React.useRef<HTMLSpanElement>(null);
+  const { showToast } = useToast();
+  const blockToastShownRef = React.useRef(false);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (streamMode) {
       if (e.key === 'Backspace' || e.key === 'Delete') {
         e.preventDefault();
+        if (streamStatusRef.current) {
+          streamStatusRef.current.textContent = t('stream_mode_blocked');
+        }
+        if (!blockToastShownRef.current) {
+          blockToastShownRef.current = true;
+          showToast(t('stream_mode_blocked'), 'error');
+          setTimeout(() => { blockToastShownRef.current = false; }, 5000);
+        }
       }
       if ((e.ctrlKey || e.metaKey) && (e.key === 'x' || e.key === 'c' || e.key === 'v')) {
         e.preventDefault();
@@ -79,6 +91,12 @@ export const WritingEditor = React.memo(function WritingEditor({
             ? "bg-transparent border-0 shadow-none p-4 md:p-6 overflow-y-auto custom-scrollbar"
             : "min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-3xl border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] shadow-xl focus:shadow-2xl transition-colors custom-scrollbar"
         )}
+      />
+      <span
+        role="status"
+        aria-live="polite"
+        className="sr-only"
+        ref={streamStatusRef}
       />
     </div>
   );

@@ -1,6 +1,8 @@
+import { useRef } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useLanguage } from '../../core/i18n';
 import { useModalEscape } from '../hooks/useModalEscape';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -15,14 +17,17 @@ interface ConfirmModalProps {
 export function ConfirmModal({ isOpen, title, message, confirmLabel, cancelLabel, onConfirm, onCancel }: ConfirmModalProps) {
   const { t } = useLanguage();
   const reducedMotion = useReducedMotion();
+  const modalRef = useRef<HTMLDivElement>(null);
 
   useModalEscape(isOpen, onCancel);
+  useFocusTrap(modalRef, isOpen);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-base/80 backdrop-blur-2xl">
       <motion.div
+        ref={modalRef}
         role="dialog"
         aria-modal="true"
         initial={reducedMotion ? {} : { scale: 0.9, opacity: 0 }}

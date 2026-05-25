@@ -1,3 +1,4 @@
+import { memo, type ComponentPropsWithoutRef } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { Virtuoso, VirtuosoGrid, GroupedVirtuoso } from 'react-virtuoso';
 import { format, Locale } from 'date-fns';
@@ -8,11 +9,16 @@ import { NoteRow } from './NoteRow';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
+import { useLanguage } from '../../../core/i18n';
 
-function toRoman(n: number): string {
-  if (n < 1 || n > 12) return String(n);
-  return ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'][n - 1];
-}
+const GridItem = memo<ComponentPropsWithoutRef<'div'>>(
+  ({ className, children, style, ...props }) => (
+    <div className={cn('archive-grid-item', className)} style={style} {...props}>
+      {children}
+    </div>
+  )
+);
+GridItem.displayName = 'GridItem';
 
 interface ArchiveNoteListProps {
   viewMode: 'list' | 'grid';
@@ -40,8 +46,9 @@ interface ArchiveNoteListProps {
   onClearSearch?: () => void;
 }
 
-const gridListClassName = 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-3';
+const gridListClassName = 'grid gap-4 mt-3 archive-grid-list';
 const gridItemClassName = '';
+const gridComponents = { Item: GridItem };
 
 export function ArchiveNoteList({
   viewMode, loading, error, filteredSessions,
@@ -52,6 +59,7 @@ export function ArchiveNoteList({
   t, language, entriesLabel: _entriesLabel, allTags, onClearSearch,
 }: ArchiveNoteListProps) {
   const reducedMotion = useReducedMotion();
+  const { tp } = useLanguage();
 
   if (loading) {
     return (
@@ -117,6 +125,9 @@ export function ArchiveNoteList({
       return (
         <VirtuosoGrid
           data={filteredSessions}
+          style={{ height: '100%' }}
+          className="custom-scrollbar"
+          components={gridComponents}
           listClassName={gridListClassName}
           itemClassName={gridItemClassName}
           itemContent={(index, session) => (
@@ -137,6 +148,7 @@ export function ArchiveNoteList({
     return (
       <Virtuoso
         data={filteredSessions}
+        style={{ height: '100%' }}
         itemContent={(index, session) => (
           <NoteRow
             session={session}
@@ -165,23 +177,24 @@ export function ArchiveNoteList({
     dateKey => groupedSessions[dateKey]
   );
 
-  return (
-    <GroupedVirtuoso
-      groupCounts={groupCounts}
-      groupContent={(index) => {
-        const dateKey = sortedDates[index];
-        const sessions = groupedSessions[dateKey];
-        return (
-          <div>
-            {viewMode !== 'grid' && (
-              <div className="flex items-center gap-3 py-5">
+  if (viewMode === 'grid') {
+    return (
+      <Virtuoso
+        data={sortedDates}
+        style={{ height: '100%' }}
+        className="custom-scrollbar"
+        itemContent={(index, dateKey) => {
+          const sessions = groupedSessions[dateKey];
+          return (
+            <div className="mb-2">
+              <div className="flex items-center gap-3 py-4 pr-1">
                 <span className="font-mono text-label-sm text-text-main/40 uppercase tracking-widest whitespace-nowrap">
                   {format(new Date(dateKey), 'd MMM', { locale: dateLocale })}
                 </span>
                 <div className="flex-1 flex items-center gap-2">
                   <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, var(--border-subtle))' }} />
-                  <span className="font-mono text-label tracking-[.2em]" style={{ color: 'var(--brand-soft)', opacity: 0.5 }}>
-                    {toRoman(sessions.length)}
+                  <span className="font-mono text-label-sm" style={{ color: 'var(--brand-soft)', opacity: 0.5 }}>
+                    {tp('archive_note_count', sessions.length)}
                   </span>
                   <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, var(--border-subtle))' }} />
                 </div>
@@ -191,25 +204,57 @@ export function ArchiveNoteList({
                     .toLocaleString()} {t('home_words_short')}
                 </span>
               </div>
-            )}
+              <div className="grid gap-4 archive-grid-list">
+                {sessions.map(session => (
+                  <div key={session.id} className="archive-grid-item">
+                    <GridNoteCard
+                      session={session}
+                      onClick={() => onOpen(session)}
+                      searchQuery={searchQuery}
+                      labels={labels}
+                      allTags={allTags}
+                      onTagsChange={onTagsChange}
+                      onLabelChange={onLabelChange}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        }}
+      />
+    );
+  }
+
+  return (
+    <GroupedVirtuoso
+      groupCounts={groupCounts}
+      style={{ height: '100%' }}
+      groupContent={(index) => {
+        const dateKey = sortedDates[index];
+        const sessions = groupedSessions[dateKey];
+        return (
+          <div className="flex items-center gap-3 py-5 pr-1">
+            <span className="font-mono text-label-sm text-text-main/40 uppercase tracking-widest whitespace-nowrap">
+              {format(new Date(dateKey), 'd MMM', { locale: dateLocale })}
+            </span>
+            <div className="flex-1 flex items-center gap-2">
+              <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, var(--border-subtle))' }} />
+              <span className="font-mono text-label-sm" style={{ color: 'var(--brand-soft)', opacity: 0.5 }}>
+                {tp('archive_note_count', sessions.length)}
+              </span>
+              <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, var(--border-subtle))' }} />
+            </div>
+            <span className="font-mono text-label-sm text-text-main/30 whitespace-nowrap">
+              {sessions
+                .reduce((sum, s) => sum + (s.wordCount || 0), 0)
+                .toLocaleString()} {t('home_words_short')}
+            </span>
           </div>
         );
       }}
       itemContent={(index) => {
         const session = flatGroupedSessions[index];
-        if (viewMode === 'grid') {
-          return (
-            <GridNoteCard
-              session={session}
-              onClick={() => onOpen(session)}
-              searchQuery={searchQuery}
-              labels={labels}
-              allTags={allTags}
-              onTagsChange={onTagsChange}
-              onLabelChange={onLabelChange}
-            />
-          );
-        }
         return (
           <NoteRow
             session={session}

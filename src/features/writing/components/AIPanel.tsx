@@ -107,7 +107,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={onClose}
-              className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm"
+              className="fixed inset-0 z-[var(--z-overlay)] bg-black/60 backdrop-blur-sm"
             />
           )}
           <motion.div
@@ -115,7 +115,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
             animate={isMobile ? { y: 0 } : { opacity: 1, x: 0 }}
             exit={isMobile ? { y: '100%' } : { opacity: 0, x: 20 }}
             transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-            className="fixed md:absolute bottom-0 md:bottom-2 left-0 md:left-auto right-0 md:right-2 top-auto md:top-2 h-[80vh] md:h-[calc(100%-16px)] w-full md:w-[340px] z-[100] md:z-50 flex flex-col rounded-t-[28px] md:rounded-2xl border-t md:border border-border-subtle/40 bg-surface-card/95 backdrop-blur-2xl shadow-2xl overflow-hidden"
+            className="fixed md:absolute bottom-0 md:bottom-2 left-0 md:left-auto right-0 md:right-2 top-auto md:top-2 h-[80vh] md:h-[calc(100%-16px)] w-full md:w-[340px] z-[var(--z-sheet)] md:z-50 flex flex-col rounded-t-[28px] md:rounded-2xl border-t md:border border-border-subtle/40 bg-surface-card/95 backdrop-blur-2xl shadow-2xl overflow-hidden"
           >
             {isMobile && (
               <div className="flex justify-center py-2 shrink-0">

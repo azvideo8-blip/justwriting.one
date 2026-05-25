@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Maximize, Minimize, FilePlus, FolderOpen, Save, BookOpen, Settings
+  Maximize, Minimize, FilePlus, FolderOpen, Save, BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
@@ -15,7 +15,6 @@ import { HeaderStats } from './HeaderStats';
 
 interface WritingHeaderProps {
   totalDurationForDeadline?: number | null;
-  onOpenSettings: () => void;
   onNew?: () => void;
   onOpenLog?: () => void;
   onSave?: () => void;
@@ -26,7 +25,6 @@ interface WritingHeaderProps {
 }
 
 export const WritingHeader = React.memo(function WritingHeader({
-  onOpenSettings,
   onNew,
   onOpenLog,
   onSave,
@@ -104,21 +102,20 @@ export const WritingHeader = React.memo(function WritingHeader({
                   className="flex-1 min-w-[120px] bg-transparent outline-none text-[15px] font-medium text-text-main/60 placeholder:text-text-main/25"
                 />
                 <div className="flex items-center gap-1 ml-auto">
-                  <IconButton
-                    icon={<BookOpen size={16} aria-hidden="true" />}
-                    label={t('lifelog_tab_log')}
-                    active={lifeLogVisible && lifeLogTab === 'log'}
-                    onClick={() => {
-                      if (!lifeLogVisible || lifeLogTab !== 'log') {
-                        setLifeLogTab('log');
-                        setLifeLogVisible(true);
-                      } else {
-                        setLifeLogVisible(false);
-                      }
-                    }}
-                  />
-                   <IconButton icon={<Settings size={16} aria-hidden="true" />} label={t('nav_settings')} onClick={onOpenSettings} />
                    <IconButton
+                     icon={<BookOpen size={16} aria-hidden="true" />}
+                     label={t('lifelog_tab_log')}
+                     active={lifeLogVisible && lifeLogTab === 'log'}
+                     onClick={() => {
+                       if (!lifeLogVisible || lifeLogTab !== 'log') {
+                         setLifeLogTab('log');
+                         setLifeLogVisible(true);
+                       } else {
+                         setLifeLogVisible(false);
+                       }
+                     }}
+                   />
+                    <IconButton
                      icon={isFullscreen ? <Minimize size={16} aria-hidden="true" /> : <Maximize size={16} aria-hidden="true" />}
                      label={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
                      onClick={toggleFullscreen}
@@ -141,21 +138,20 @@ export const WritingHeader = React.memo(function WritingHeader({
                   setTitle={setTitle}
                 />
                 <div className="flex items-center gap-1.5 ml-auto">
-                   <IconButton
-                     icon={<BookOpen size={16} aria-hidden="true" />}
-                     label={t('lifelog_tab_log')}
-                     active={lifeLogVisible && lifeLogTab === 'log'}
-                     onClick={() => {
-                       if (!lifeLogVisible || lifeLogTab !== 'log') {
-                         setLifeLogTab('log');
-                         setLifeLogVisible(true);
-                       } else {
-                         setLifeLogVisible(false);
-                       }
-                     }}
-                   />
-                     <IconButton icon={<Settings size={16} aria-hidden="true" />} label={t('nav_settings')} onClick={onOpenSettings} />
                     <IconButton
+                      icon={<BookOpen size={16} aria-hidden="true" />}
+                      label={t('lifelog_tab_log')}
+                      active={lifeLogVisible && lifeLogTab === 'log'}
+                      onClick={() => {
+                        if (!lifeLogVisible || lifeLogTab !== 'log') {
+                          setLifeLogTab('log');
+                          setLifeLogVisible(true);
+                        } else {
+                          setLifeLogVisible(false);
+                        }
+                      }}
+                    />
+                     <IconButton
                       icon={isFullscreen ? <Minimize size={16} aria-hidden="true" /> : <Maximize size={16} aria-hidden="true" />}
                       label={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
                       onClick={toggleFullscreen}

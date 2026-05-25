@@ -123,7 +123,7 @@ export function MobileNoteActionsSheet({
 
   return (
     <div 
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none"
+      className="fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none"
       onTouchMove={e => e.preventDefault()}
     >
       <div className="absolute inset-0" onClick={onClose} />
@@ -193,7 +193,7 @@ export function MobileNoteActionsSheet({
               </button>
 
               {/* 3. Label Selector Toggle */}
-              {labels && labels.length > 0 && (
+              {(labels && labels.length > 0 || session.labelId) && (
                 <button
                   onClick={() => setShowLabelsSelector(true)}
                   className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
@@ -279,6 +279,18 @@ export function MobileNoteActionsSheet({
                 </button>
               </div>
               <div className="grid grid-cols-1 gap-2">
+                {session.labelId && (
+                  <button
+                    onClick={() => {
+                      onLabelChange(undefined);
+                      onClose();
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-left transition-colors border bg-white/[0.01] border-white/[0.04] text-text-main/40 hover:bg-white/[0.03]"
+                  >
+                    <div className="w-3.5 h-3.5 rounded-full border border-dashed border-text-main/20 shrink-0" />
+                    <span className="flex-1">{t('archive_no_label')}</span>
+                  </button>
+                )}
                 {labels?.map(l => (
                   <button
                     key={l.id}

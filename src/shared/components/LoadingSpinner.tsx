@@ -3,6 +3,7 @@ import { cn } from '../../core/utils/utils';
 
 interface LoadingSpinnerProps {
   size?: number;
+  label?: string;
 }
 
 const sizeMap: Record<number, string> = {
@@ -15,22 +16,31 @@ const sizeMap: Record<number, string> = {
   16: 'w-16 h-16',
 };
 
-export function LoadingSpinner({ size = 10 }: LoadingSpinnerProps) {
+export function LoadingSpinner({ size = 10, label }: LoadingSpinnerProps) {
+  const displayLabel = label ?? 'Loading...';
   const sizeClass = sizeMap[size];
   if (sizeClass) {
     return (
       <div 
+        role="status"
+        aria-label={displayLabel}
         className={cn(
           "border-4 rounded-full animate-spin border-surface-base/10 border-t-text-main",
           sizeClass
         )} 
-      />
+      >
+        <span className="sr-only">{displayLabel}</span>
+      </div>
     );
   }
   return (
     <div 
+      role="status"
+      aria-label={displayLabel}
       className="border-4 rounded-full animate-spin border-surface-base/10 border-t-text-main"
       style={{ width: size * 4, height: size * 4 }}
-    />
+    >
+      <span className="sr-only">{displayLabel}</span>
+    </div>
   );
 }

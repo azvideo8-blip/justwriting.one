@@ -142,7 +142,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
 
   return (
     <div
-      className={cn("grid items-start gap-3 px-3 py-4 rounded-xl hover:bg-text-main/[0.025] transition-colors group border border-transparent hover:border-border-subtle border-l-2", label ? "" : "border-l-transparent")}
+      className={cn("grid items-start gap-3 px-3 py-4 pr-5 rounded-xl hover:bg-text-main/[0.025] transition-colors group border border-transparent hover:border-border-subtle border-l-2", label ? "" : "border-l-transparent")}
       style={{ gridTemplateColumns: '72px 1fr auto', ...(label ? { borderLeftColor: label.color, background: `color-mix(in srgb, ${label.color} 4%, transparent)`, boxShadow: `inset 3px 0 8px color-mix(in srgb, ${label.color} 15%, transparent)` } : {}) }}
     >
       <div className="shrink-0 relative">
@@ -230,20 +230,6 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
             {highlightText(session.title || t('session_untitled'), searchQuery ?? '')}
           </div>
         )}
-        {label && (
-          <div
-            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full mt-1"
-            style={{
-              border: `1px solid ${label.color}40`,
-              background: `${label.color}0d`,
-            }}
-          >
-            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: label.color }} />
-            <span className="text-label font-bold uppercase tracking-widest" style={{ color: label.color + 'bb' }}>
-              {label.name}
-            </span>
-          </div>
-        )}
         {session.content && (
           <p className="text-sm text-text-main/60 leading-relaxed line-clamp-1 sm:line-clamp-2 mb-2 cursor-pointer" style={{ textWrap: 'pretty' }} onClick={onOpen}>
             {highlightText(getSearchContext(session.content, searchQuery), searchQuery ?? '')}
@@ -302,7 +288,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                   style={{ background: label?.color ?? 'transparent' }}
                 />
               </button>
-              {labelPopupOpen && labels && labels.length > 0 && (
+              {labelPopupOpen && (labels && labels.length > 0 || session.labelId) && (
                 <div
                   ref={labelPopupRef}
                   className={cn(
@@ -312,7 +298,16 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                   style={{ background: 'color-mix(in srgb, var(--bg-base) 92%, var(--brand-primary) 8%)' }}
                   onClick={e => e.stopPropagation()}
                 >
-                  {labels.map(l => (
+                  {session.labelId && (
+                    <button
+                      onClick={e => { e.stopPropagation(); onLabelChange?.(session, undefined); setLabelPopupOpen(false); }}
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/40 hover:bg-text-main/5 transition-colors"
+                    >
+                      <div className="w-3 h-3 rounded-full border border-dashed border-text-main/20 shrink-0" />
+                      {t('archive_no_label')}
+                    </button>
+                  )}
+                  {labels?.map(l => (
                     <button
                       key={l.id}
                       onClick={e => { e.stopPropagation(); onLabelChange?.(session, session.labelId === l.id ? undefined : l.id); setLabelPopupOpen(false); }}

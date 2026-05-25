@@ -83,7 +83,7 @@ export function MeWritingSection() {
       </SettingRow>
 
       <SettingRow label={t('settings_zen_mode')}>
-        <Toggle checked={zenModeEnabled} onChange={setZenModeEnabled} />
+        <Toggle checked={zenModeEnabled} onChange={setZenModeEnabled} ariaLabel={t('settings_zen_mode')} />
       </SettingRow>
 
       <button

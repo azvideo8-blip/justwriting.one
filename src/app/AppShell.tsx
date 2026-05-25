@@ -12,6 +12,7 @@ import { BottomNav } from '../features/navigation/components/BottomNav';
 import { ConnectionStatusBanner } from '../features/writing/components/ConnectionStatusBanner';
 import { ThemeBackground } from '../core/theme/ThemeBackground';
 import { LoginModalOverlay } from '../features/auth/components/LoginModalOverlay';
+import { useSettings } from '../core/settings/SettingsContext';
 
 import { AppRoutes } from './AppRoutes';
 
@@ -22,6 +23,7 @@ export function AppShell() {
   const { isZenActive, zenModeEnabled } = useWritingSettings();
   const { layoutMode } = useLayoutMode();
   const { loginModalOpen } = useLoginModal();
+  const { openSettings } = useSettings();
 
   const currentPath = location.pathname;
   const showZen = isZenActive && zenModeEnabled && currentPath === '/';
@@ -36,7 +38,7 @@ export function AppShell() {
           const textarea = document.querySelector<HTMLTextAreaElement>('#main-content textarea');
           if (textarea) { textarea.focus(); } else { document.getElementById('main-content')?.focus(); }
         }}
-        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[999] focus:px-4 focus:py-2 focus:bg-surface-card focus:text-text-main focus:rounded-xl focus:border focus:border-border-subtle"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[var(--z-skip)] focus:px-4 focus:py-2 focus:bg-surface-card focus:text-text-main focus:rounded-xl focus:border focus:border-border-subtle"
       >
         {t('skip_to_content')}
       </a>
@@ -44,7 +46,7 @@ export function AppShell() {
 
       <>
         {layoutMode === 'desktop' ? (
-          <Sidebar isAdmin={isAdmin} />
+          <Sidebar isAdmin={isAdmin} onOpenSettings={openSettings} />
         ) : (
           !showZen && <BottomNav isAdmin={isAdmin} />
         )}
