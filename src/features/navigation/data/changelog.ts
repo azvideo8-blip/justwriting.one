@@ -14,6 +14,20 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.6.11',
+    date: '2026-05-26',
+    items: [
+      { category: 'improvement', ru: 'SEO: canonical, hreflang, Open Graph, Twitter Card, JSON-LD во всех страницах', en: 'SEO: canonical, hreflang, Open Graph, Twitter Card, JSON-LD across all pages' },
+      { category: 'new', ru: 'Страница /features с описанием возможностей', en: 'New /features page with product overview' },
+      { category: 'new', ru: 'OG-изображение 1200×630 для превью в соцсетях', en: 'OG image 1200×630 for social media previews' },
+      { category: 'improvement', ru: 'Sitemap.xml и Sitemap-директива в robots.txt', en: 'sitemap.xml and Sitemap directive in robots.txt' },
+      { category: 'improvement', ru: 'Пре-рендер уникальных мета-тегов для каждой публичной страницы', en: 'Per-route meta prerender for all public pages' },
+      { category: 'fix', ru: 'Убран эмодзи ⚠️ из предупреждения о сбросе пароля — добавлена иконка', en: 'Removed ⚠️ emoji from password reset warning — replaced with an icon' },
+      { category: 'improvement', ru: '"Сессия завершена." вместо "Отличная работа!" — тише и честнее', en: '"Session complete." instead of "Great job!" — quieter and more honest' },
+      { category: 'improvement', ru: 'Достижения переименованы: убраны "бог", "воин", "король", "фанатизм"', en: 'Achievements renamed: removed "god", "warrior", "king", "fanatic"' },
+    ],
+  },
+  {
     version: '0.6.10',
     date: '2026-05-25',
     items: [
