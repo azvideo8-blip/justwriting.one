@@ -34,7 +34,7 @@ function buildMailto(error: Error, code: string): string {
     `Описание ошибки:\n${error.message}\n\n` +
     `Стек:\n${error.stack ?? '—'}`
   );
-  return `mailto:z8d8@yandex.ru?subject=${subject}&body=${body}`;
+  return `mailto:${['z8d8','yandex.ru'].join('@')}?subject=${subject}&body=${body}`;
 }
 
 export class ErrorBoundary extends Component<Props, State> {

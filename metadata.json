@@ -1,5 +1,5 @@
 {
   "name": "justwriting.one",
-  "description": "Минималистичная платформа для осознанного письма. Включает динамический фон, меняющийся от скорости печати, Zen-режим для глубокой концентрации, систему закрепления мыслей и подробную аналитику сессий. Поддерживает теги, гибкую фильтрацию в архиве через календарь и ленту публичных записей сообщества.",
+  "description": "A quiet editor for free writing. Stream mode, end-to-end encryption, writing streaks, zen mode. No distractions — just you and your words.",
   "requestFramePermissions": []
 }

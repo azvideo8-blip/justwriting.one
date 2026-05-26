@@ -1,7 +1,7 @@
 {
   "name": "justwriting",
-  "short_name": "jw",
-  "description": "Тихий редактор для свободного письма",
+  "short_name": "justwriting",
+  "description": "A quiet editor for free writing — distraction-free, encrypted, focused",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0E0A18",

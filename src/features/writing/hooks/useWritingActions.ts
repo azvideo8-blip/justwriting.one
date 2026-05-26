@@ -38,7 +38,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
 
   const isGuest = session.isGuest;
   const userId = session.userId;
-  const setSessionStatus = session.setStatus;
+  const _setSessionStatus = session.setStatus;
   const { handleStart: hookHandleStart, fetchLocalSessions, loadLocalSession } = session;
   const savingRef = React.useRef(false);
 

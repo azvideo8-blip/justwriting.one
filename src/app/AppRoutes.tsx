@@ -12,6 +12,7 @@ const AdminPage = React.lazy(() => import('../features/admin/pages/AdminPage').t
 const LoginPage = React.lazy(() => import('../features/auth/pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const AboutPage = React.lazy(() => import('../features/navigation/pages/AboutPage').then(m => ({ default: m.AboutPage })));
 const ChangelogPage = React.lazy(() => import('../features/navigation/pages/ChangelogPage').then(m => ({ default: m.ChangelogPage })));
+const LandingPage = React.lazy(() => import('../features/navigation/pages/LandingPage').then(m => ({ default: m.LandingPage })));
 
 import { Loader2 } from 'lucide-react';
 
@@ -39,6 +40,7 @@ export function AppRoutes() {
         <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/changelog" element={<ChangelogPage />} />
+        <Route path="/features" element={<LandingPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

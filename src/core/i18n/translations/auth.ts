@@ -8,7 +8,7 @@ export const authTranslations: Translations = {
   auth_error_email_in_use: { ru: 'Этот email уже используется.', en: 'This email is already in use.' },
   auth_error_weak_password: { ru: 'Пароль слишком простой.', en: 'Password is too weak.' },
   auth_error_invalid_credential: { ru: 'Неверный email или пароль.', en: 'Invalid email or password.' },
-  auth_error_wrong_password_encrypted: { ru: 'Неверный пароль. Если ты сбрасывал пароль через email — твои зашифрованные данные недоступны с новым паролем. Войди со старым паролем или обратись в поддержку: z8d8@yandex.ru', en: 'Wrong password. If you reset your password via email — your encrypted data is inaccessible with the new password. Sign in with the old password or contact support: z8d8@yandex.ru' },
+  auth_error_wrong_password_encrypted: { ru: 'Неверный пароль. Если ты сбрасывал пароль через email — твои зашифрованные данные недоступны с новым паролем. Войди со старым паролем или обратись в поддержку через страницу «О приложении».', en: 'Wrong password. If you reset your password via email — your encrypted data is inaccessible with the new password. Sign in with the old password or contact support via the About page.' },
   auth_error_operation_not_allowed: { ru: 'Вход по Email не включен в консоли Firebase. Включи провайдера \'Email/Password\' в настройках Authentication.', en: 'Email sign-in is not enabled in Firebase Console. Please enable the \'Email/Password\' provider in Authentication settings.' },
   auth_error_network: { ru: 'Ошибка сети при попытке входа. Проверь соединение или убедись, что провайдер Email включен в консоли Firebase.', en: 'Network error during sign-in. Check your connection or ensure the Email provider is enabled in Firebase Console.' },
   auth_error_internal: { ru: 'Внутренняя ошибка Firebase. Убедись, что провайдер Email/Password включен в консоли Firebase (Authentication -> Sign-in method), или попробуй позже.', en: 'Internal Firebase error. Ensure the Email/Password provider is enabled in Firebase Console (Authentication -> Sign-in method), or try again later.' },
@@ -88,7 +88,7 @@ export const authTranslations: Translations = {
   auth_forgot_password:  { ru: 'Забыли пароль?', en: 'Forgot password?' },
   auth_forgot_title:     { ru: 'Сброс пароля', en: 'Password reset' },
   auth_forgot_warning:   { ru: 'Сброс пароля удалит доступ ко всем зашифрованным заметкам. Они останутся в системе, но будут нечитаемы. Продолжить?', en: 'Resetting your password will revoke access to all encrypted notes. They will remain in the system but become unreadable. Continue?' },
-  auth_forgot_password_encryption_warning: { ru: '⚠️ Внимание: если у тебя есть зашифрованные заметки, после сброса пароля они станут навсегда недоступны. Сброс пароля нельзя отменить.', en: '⚠️ Warning: if you have encrypted notes, they will become permanently inaccessible after password reset. This cannot be undone.' },
+  auth_forgot_password_encryption_warning: { ru: 'Внимание: если у тебя есть зашифрованные заметки, после сброса пароля они станут навсегда недоступны. Сброс пароля нельзя отменить.', en: 'Warning: if you have encrypted notes, they will become permanently inaccessible after password reset. This cannot be undone.' },
   auth_forgot_confirm_anyway:   { ru: 'Всё равно сбросить пароль', en: 'Reset password anyway' },
   auth_forgot_sent:      { ru: 'Письмо для сброса пароля отправлено на ваш email.', en: 'Password reset email has been sent.' },
 };
