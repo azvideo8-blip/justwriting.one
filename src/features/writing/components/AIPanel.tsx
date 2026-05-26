@@ -4,10 +4,7 @@ import { Sparkles, X, Copy, Check, Loader2, Wand2, Lightbulb, Tags, Smile, Arrow
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 import { AIService, type AIAction, type AIResult } from '../../ai/services/AIService';
-import { AIContextService } from '../../ai/services/AIContextService';
 import { useContentStore } from '../store/useContentStore';
-import { useSessionMetaStore } from '../store/useSessionMetaStore';
-import { reportError } from '../../../core/errors/reportError';
 
 const AI_ACTIONS: { action: AIAction; icon: React.ReactNode; labelKey: string }[] = [
   { action: 'shorten', icon: <AlignLeft size={14} />, labelKey: 'ai_action_shorten' },
@@ -29,7 +26,6 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
   const content = useContentStore(s => s.content);
   const setContent = useContentStore(s => s.setContent);
   const setTags = useContentStore(s => s.setTags);
-  const savedDocumentId = useSessionMetaStore(s => s.savedDocumentId);
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -46,18 +42,10 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
     setLastAction(action);
     setApplied(false);
 
-    const history = savedDocumentId
-      ? await AIContextService.get(savedDocumentId).catch(() => [])
-      : [];
-
-    const res: AIResult = await AIService.process(content, action, { history });
+    const res: AIResult = await AIService.process(content, action);
 
     if (res.ok) {
       setResult(res.text);
-      if (savedDocumentId) {
-        AIContextService.append(savedDocumentId, content.slice(0, 2000), res.text)
-          .catch((e) => reportError(e, { action: 'aiContext_append', docId: savedDocumentId }, 'warning'));
-      }
     } else {
       const errorMap: Record<string, string> = {
         AUTH_REQUIRED: t('ai_error_auth'),
@@ -68,7 +56,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
       setError(errorMap[(res as { ok: false; error: string }).error] ?? t('ai_error_server'));
     }
     setLoading(false);
-  }, [content, loading, savedDocumentId, t]);
+  }, [content, loading, t]);
 
   const handleApply = useCallback(() => {
     if (!result || !lastAction) return;

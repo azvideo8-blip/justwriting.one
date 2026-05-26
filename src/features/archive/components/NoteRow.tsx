@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { ExternalLink, Trash2, Pencil, MoreVertical } from 'lucide-react';
+import { ExternalLink, Trash2, Pencil, MoreVertical, Sparkles } from 'lucide-react';
 import { getSessionDate, cn } from '../../../core/utils/utils';
 import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { InlineTags } from './InlineTags';
@@ -27,9 +27,11 @@ interface NoteRowProps {
   labels?: Label[];
   allTags?: string[];
   searchQuery?: string;
+  aiProcessed?: boolean;
+  onAIClick?: () => void;
 }
 
-function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels, allTags, searchQuery }: NoteRowProps) {
+function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels, allTags, searchQuery, aiProcessed, onAIClick }: NoteRowProps) {
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
   const [editingTitle, setEditingTitle] = useState(false);
@@ -240,6 +242,15 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           onChange={(newTags) => onTagsChange?.(session, newTags)}
           allTags={allTags}
         />
+        {aiProcessed && (
+          <button
+            onClick={e => { e.stopPropagation(); onAIClick?.(); }}
+            className="inline-flex items-center gap-1 ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono text-brand-soft/60 border border-brand-soft/15 hover:text-brand-soft hover:border-brand-soft/30 transition-colors"
+          >
+            <Sparkles size={10} />
+            AI
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-1 shrink-0 pt-1" onClick={e => e.stopPropagation()}>

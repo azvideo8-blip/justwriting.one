@@ -26,6 +26,10 @@ export const sessionDbSchema = z.object({
   createdAt: firestoreTimestampSchema,
   sessionStartTime: z.number().nullable().optional(),
   _encrypted: z.boolean().optional(),
+  _aiProcessed: z.boolean().optional(),
+  _aiAction: z.string().optional(),
+  _aiProcessedAt: firestoreTimestampSchema.optional(),
+  _aiResultText: z.string().optional(),
   mood: z.string().optional(),
 });
 

@@ -41,6 +41,7 @@ export const SyncService = {
   },
 
   async syncPending(userId: string): Promise<void> {
+    if (localStorage.getItem('auto_sync_enabled') === 'false') return;
     if (_syncInProgress.get(userId)) return;
     _syncInProgress.set(userId, true);
 

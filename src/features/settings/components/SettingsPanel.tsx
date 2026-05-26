@@ -7,6 +7,8 @@ import { EditorTab } from './EditorTab';
 import { AppTab } from './AppTab';
 import { AccountTab } from './AccountTab';
 import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
+import { useToast } from '../../../shared/components/Toast';
+import { APP_VERSION } from '../../../version';
 
 type Tab = 'editor' | 'app' | 'account';
 
@@ -24,6 +26,20 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog, defaultTab }: {
   const validTab = (defaultTab === 'editor' || defaultTab === 'app' || defaultTab === 'account') ? defaultTab : 'editor';
   const [activeTab, setActiveTab] = useState<Tab>(validTab);
   const { t } = useLanguage();
+  const { showToast } = useToast();
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleVersionTap = () => {
+    tapCountRef.current += 1;
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+    tapTimerRef.current = setTimeout(() => { tapCountRef.current = 0; }, 3000);
+    if (tapCountRef.current >= 5) {
+      tapCountRef.current = 0;
+      sessionStorage.setItem('diagnostics_unlocked', 'true');
+      showToast('Режим диагностики активирован', 'success');
+    }
+  };
 
   useEffect(() => {
     const el = document.getElementById(`settings-tab-${activeTab}`);
@@ -109,6 +125,15 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog, defaultTab }: {
           className="contents"
         >
           <AccountTab userId={userId} />
+        </div>
+
+        <div className="pt-6 text-center">
+          <span
+            onClick={handleVersionTap}
+            className="text-xs text-text-main/20 select-none cursor-default"
+          >
+            v{APP_VERSION}
+          </span>
         </div>
       </div>
     </div>

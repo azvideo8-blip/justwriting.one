@@ -10,6 +10,8 @@ const ArchivePage = React.lazy(() => import('../features/archive/pages/ArchivePa
 const ProfilePage = React.lazy(() => import('../features/profile/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const AdminPage = React.lazy(() => import('../features/admin/pages/AdminPage').then(m => ({ default: m.AdminPage })));
 const LoginPage = React.lazy(() => import('../features/auth/pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const AIPage = React.lazy(() => import('../features/ai/pages/AIPage').then(m => ({ default: m.AIPage })));
+const DiagnosticsPage = React.lazy(() => import('../features/ai/pages/DiagnosticsPage').then(m => ({ default: m.DiagnosticsPage })));
 const AboutPage = React.lazy(() => import('../features/navigation/pages/AboutPage').then(m => ({ default: m.AboutPage })));
 const ChangelogPage = React.lazy(() => import('../features/navigation/pages/ChangelogPage').then(m => ({ default: m.ChangelogPage })));
 const LandingPage = React.lazy(() => import('../features/navigation/pages/LandingPage').then(m => ({ default: m.LandingPage })));
@@ -33,9 +35,11 @@ export function AppRoutes() {
       <Routes>
         <Route path="/" element={<ErrorBoundary><WritingPage user={user} profile={profile} /></ErrorBoundary>} />
         <Route path="/log" element={<Navigate to="/archive" replace />} />
-        <Route path="/me" element={<ProtectedRoute><ErrorBoundary><MobileMePage /></ErrorBoundary></ProtectedRoute>} />
-        <Route path="/archive" element={<ProtectedRoute><ErrorBoundary><ArchivePage user={user} profile={profile} /></ErrorBoundary></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><ErrorBoundary><ProfilePage user={user} profile={profile} /></ErrorBoundary></ProtectedRoute>} />
+        <Route path="/me" element={<ErrorBoundary><MobileMePage /></ErrorBoundary>} />
+        <Route path="/archive" element={<ErrorBoundary><ArchivePage user={user} profile={profile} /></ErrorBoundary>} />
+        <Route path="/profile" element={<ErrorBoundary><ProfilePage user={user} profile={profile} /></ErrorBoundary>} />
+        <Route path="/ai" element={<ProtectedRoute><ErrorBoundary><AIPage /></ErrorBoundary></ProtectedRoute>} />
+        <Route path="/diagnostics" element={<ProtectedRoute><ErrorBoundary><DiagnosticsPage /></ErrorBoundary></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute requireAdmin><ErrorBoundary><AdminPage /></ErrorBoundary></ProtectedRoute>} />
         <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
         <Route path="/about" element={<AboutPage />} />

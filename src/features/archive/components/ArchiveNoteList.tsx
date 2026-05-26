@@ -1,8 +1,9 @@
-import { memo, type ComponentPropsWithoutRef } from 'react';
+import { memo, type ComponentPropsWithoutRef, useState, useEffect } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { Virtuoso, VirtuosoGrid, GroupedVirtuoso } from 'react-virtuoso';
 import { format, Locale } from 'date-fns';
 import { BookOpen } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { GridNoteCard } from './GridNoteCard';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { NoteRow } from './NoteRow';
@@ -10,6 +11,7 @@ import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
+import { AISummaryService } from '../../ai/services/AISummaryService';
 
 const GridItem = memo<ComponentPropsWithoutRef<'div'>>(
   ({ className, children, style, ...props }) => (
@@ -60,6 +62,16 @@ export function ArchiveNoteList({
 }: ArchiveNoteListProps) {
   const reducedMotion = useReducedMotion();
   const { tp } = useLanguage();
+  const navigate = useNavigate();
+  const [aiProcessedMap, setAiProcessedMap] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    AISummaryService.hasAll().then(setAiProcessedMap);
+  }, []);
+
+  const handleAIClick = (documentId: string) => {
+    navigate(`/ai?doc=${documentId}`);
+  };
 
   if (loading) {
     return (
@@ -139,6 +151,8 @@ export function ArchiveNoteList({
               allTags={allTags}
               onTagsChange={onTagsChange}
               onLabelChange={onLabelChange}
+              aiProcessed={!!aiProcessedMap[session.id]}
+              onAIClick={() => handleAIClick(session.id)}
             />
           )}
         />
@@ -165,6 +179,8 @@ export function ArchiveNoteList({
             userId={userId}
             allTags={allTags}
             searchQuery={searchQuery}
+            aiProcessed={!!aiProcessedMap[session.id]}
+            onAIClick={() => handleAIClick(session.id)}
           />
         )}
       />
@@ -215,6 +231,8 @@ export function ArchiveNoteList({
                       allTags={allTags}
                       onTagsChange={onTagsChange}
                       onLabelChange={onLabelChange}
+                      aiProcessed={!!aiProcessedMap[session.id]}
+                      onAIClick={() => handleAIClick(session.id)}
                     />
                   </div>
                 ))}
@@ -271,6 +289,8 @@ export function ArchiveNoteList({
             userId={userId}
             allTags={allTags}
             searchQuery={searchQuery}
+            aiProcessed={!!aiProcessedMap[session.id]}
+            onAIClick={() => handleAIClick(session.id)}
           />
         );
       }}

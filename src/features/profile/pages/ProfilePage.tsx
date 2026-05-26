@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { User } from 'firebase/auth';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Sparkles } from 'lucide-react';
 import { UserProfile } from '../../../types';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../core/i18n';
@@ -34,6 +34,22 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   const { showToast: _showToast } = useToast();
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showProfileConfirm, setShowProfileConfirm] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  const handleGenerateProfile = async () => {
+    setShowProfileConfirm(false);
+    setProfileLoading(true);
+    try {
+      const { AIProfileService } = await import('../../ai/services/AIProfileService');
+      await AIProfileService.exportMarkdown();
+    } catch (e) {
+      reportError(e, { action: 'generateAIProfile' });
+      _showToast('Недостаточно данных для портрета (нужно минимум 3 саммари)', 'error');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
 
   const handleResetAchievements = useCallback(() => {
     localStorage.removeItem(`unlocked_achievements_${user?.uid ?? 'guest'}`);
@@ -120,6 +136,29 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           </div>
       </div>
       <div style={{ padding: '12px 36px 48px', textAlign: 'center' }}>
+        <div className="flex items-center justify-center gap-4 mb-4">
+          <button
+            onClick={() => setShowProfileConfirm(true)}
+            disabled={profileLoading}
+            className="flex items-center gap-1.5 font-mono text-label-sm text-text-main/20 hover:text-brand-soft/50 transition-colors uppercase tracking-widest disabled:opacity-40"
+          >
+            <Sparkles size={12} />
+            {profileLoading ? 'Генерация...' : 'Мой портрет'}
+          </button>
+        </div>
+
+        {showProfileConfirm && (
+          <div className="inline-flex items-center gap-3 bg-brand-soft/10 border border-brand-soft/20 rounded-lg px-4 py-2 mb-3">
+            <span className="text-[12px] text-brand-soft">Для создания портрета ваши тексты будут переданы в ИИ. Продолжить?</span>
+            <button onClick={handleGenerateProfile} className="text-label-sm font-medium text-brand-soft hover:text-brand-soft/80 transition-colors uppercase tracking-widest">
+              Да
+            </button>
+            <button onClick={() => setShowProfileConfirm(false)} className="text-label-sm font-medium text-text-main/40 hover:text-text-main/60 transition-colors uppercase tracking-widest">
+              ✕
+            </button>
+          </div>
+        )}
+
         {showResetConfirm ? (
           <div className="inline-flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
             <span className="text-[12px] text-red-400">{t('profile_ach_reset_confirm')}</span>

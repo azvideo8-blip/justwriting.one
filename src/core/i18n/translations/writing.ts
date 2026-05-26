@@ -175,7 +175,7 @@ export const writingTranslations: Translations = {
   ai_apply_tags: { ru: 'Добавить теги', en: 'Add tags' },
   ai_applied: { ru: 'Применено', en: 'Applied' },
   ai_no_content: { ru: 'Напишите текст, чтобы использовать ИИ', en: 'Write some text to use AI' },
-  ai_error_auth: { ru: 'Нужна авторизация', en: 'Authentication required' },
+  ai_error_auth: { ru: 'Нужна регистрация', en: 'Sign up required' },
   ai_error_rate_limit: { ru: 'Слишком много запросов. Подожди минуту.', en: 'Too many requests. Wait a minute.' },
   ai_error_too_long: { ru: 'Текст слишком длинный', en: 'Text is too long' },
   ai_error_server: { ru: 'Ошибка сервиса. Попробуй позже.', en: 'Service error. Try again later.' },

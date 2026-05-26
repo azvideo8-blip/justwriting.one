@@ -15,4 +15,9 @@ export const STORAGE_KEYS = {
   PENDING_KEYS: (uid: string) => `pending_keys_${uid}`,
   PENDING_SESSIONS: (userId: string) => `pending_sessions_${userId}`,
   ENCRYPTION_MIGRATION_CHECKPOINT: (userId: string) => `encryptionMigration_${userId}_checkpoint`,
+  AI_DAILY_USAGE: 'ai_daily_usage',
+  AI_DAILY_REMAINING: 'ai_daily_remaining',
+  AUTO_SYNC_ENABLED: 'auto_sync_enabled',
+  DIAGNOSTICS_UNLOCKED: 'diagnostics_unlocked',
+  PRIVACY_ACCEPTED: (uid: string) => `privacy_accepted_${uid}`,
 } as const;

@@ -16,6 +16,7 @@ export interface LocalDocument {
   labelId?: string;
   linkedCloudId?: string;
   mood?: string;
+  aiProcessed?: boolean;
 }
 
 export interface LocalVersion {
@@ -71,62 +72,67 @@ interface PendingSession {
   userId: string;
 }
 
-export interface AIContext {
-  documentId: string;
+export interface AIDialogue {
+  id: string;
+  title: string;
+  personaId: string;
+  personaName: string;
+  personaEmoji: string;
+  documentId?: string;
   messages: { role: 'user' | 'assistant'; content: string }[];
+  createdAt: number;
   updatedAt: number;
+  archivedAt?: number;
+}
+
+export interface AIDocumentSummary {
+  documentId: string;
+  tone: string;
+  frequentWords: string[];
+  insights: string[];
+  themes: string[];
+  processedAt: number;
+}
+
+export interface AIPersona {
+  id: string;
+  name: string;
+  emoji: string;
+  systemPrompt: string;
+  isPreset: false;
+  createdAt: number;
 }
 
 interface JustWritingDB extends DBSchema {
   documents: {
     key: string;
     value: LocalDocument;
-    indexes: {
-      'by-guest': string;
-      'by-lastSession': number;
-    };
+    indexes: { 'by-guest': string; 'by-lastSession': number; };
   };
   versions: {
     key: string;
     value: LocalVersion;
-    indexes: {
-      'by-document': string;
-      'by-version': number;
-      'by-doc-version': [string, number];
-    };
+    indexes: { 'by-document': string; 'by-version': number; 'by-doc-version': [string, number]; };
   };
-  profile: {
-    key: string;
-    value: LocalProfile;
-  };
+  profile: { key: string; value: LocalProfile; };
   syncQueue: {
     key: string;
-    value: {
-      id: string;
-      documentId: string;
-      type: 'document' | 'version';
-      createdAt: number;
-    };
+    value: { id: string; documentId: string; type: 'document' | 'version'; createdAt: number; };
   };
-  drafts: {
+  drafts: { key: string; value: LocalDraft; };
+  pending_sessions: { key: number; value: PendingSession; autoIncrement: true; };
+  aiDialogues: {
     key: string;
-    value: LocalDraft;
+    value: AIDialogue;
+    indexes: { 'by-document': string; 'by-updatedAt': number; };
   };
-  pending_sessions: {
-    key: number;
-    value: PendingSession;
-    autoIncrement: true;
-  };
-  aiContexts: {
-    key: string;
-    value: AIContext;
-  };
+  aiSummaries: { key: string; value: AIDocumentSummary; };
+  aiPersonas: { key: string; value: AIPersona; };
 }
 
 let dbInstance: IDBPDatabase<JustWritingDB> | null = null;
 let dbOpenPromise: Promise<IDBPDatabase<JustWritingDB>> | null = null;
 
-/** Reset the module-level singleton — for use in tests only. */
 export function resetDbInstance(): void {
   if (dbInstance) {
     try { dbInstance.close(); } catch { /* ignore */ }
@@ -143,57 +149,46 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   }
   if (dbOpenPromise) return dbOpenPromise;
 
-  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 4, {
+  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 5, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const docStore = db.createObjectStore('documents', { keyPath: 'id' });
         docStore.createIndex('by-guest', 'guestId');
         docStore.createIndex('by-lastSession', 'lastSessionAt');
-
         const verStore = db.createObjectStore('versions', { keyPath: 'id' });
         verStore.createIndex('by-document', 'documentId');
         verStore.createIndex('by-version', 'version');
-
         db.createObjectStore('profile', { keyPath: 'guestId' });
         db.createObjectStore('syncQueue', { keyPath: 'id' });
       }
       if (oldVersion < 2) {
-        if (!db.objectStoreNames.contains('drafts')) {
+        if (!db.objectStoreNames.contains('drafts'))
           db.createObjectStore('drafts', { keyPath: 'userId' });
-        }
-        if (!db.objectStoreNames.contains('pending_sessions')) {
+        if (!db.objectStoreNames.contains('pending_sessions'))
           db.createObjectStore('pending_sessions', { keyPath: 'id', autoIncrement: true });
-        }
       }
       if (oldVersion < 3) {
         const store = transaction!.objectStore('versions');
         store.createIndex('by-doc-version', ['documentId', 'version']);
       }
-      if (oldVersion < 4) {
-        if (!db.objectStoreNames.contains('aiContexts')) {
-          db.createObjectStore('aiContexts');
-        }
+      if (oldVersion < 5) {
+        const dialogueStore = db.createObjectStore('aiDialogues', { keyPath: 'id' });
+        dialogueStore.createIndex('by-document', 'documentId');
+        dialogueStore.createIndex('by-updatedAt', 'updatedAt');
+        db.createObjectStore('aiSummaries', { keyPath: 'documentId' });
+        db.createObjectStore('aiPersonas', { keyPath: 'id' });
       }
     },
-    blocked() {
-      console.warn('[localDb] Database upgrade blocked — close other tabs and reload.');
-    },
+    blocked() { console.warn('[localDb] Database upgrade blocked — close other tabs and reload.'); },
     blocking() {
       console.warn('[localDb] Another tab is trying to upgrade — closing this connection.');
-      if (dbInstance) {
-        dbInstance.close();
-        dbInstance = null;
-        dbOpenPromise = null;
-      }
+      if (dbInstance) { dbInstance.close(); dbInstance = null; dbOpenPromise = null; }
     },
   });
 
   try {
     dbInstance = await dbOpenPromise;
-    dbInstance.addEventListener('close', () => {
-      dbInstance = null;
-      dbOpenPromise = null;
-    });
+    dbInstance.addEventListener('close', () => { dbInstance = null; dbOpenPromise = null; });
     return dbInstance;
   } catch (e) {
     dbOpenPromise = null;
@@ -202,10 +197,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   }
 }
 
-function randomUUID(): string {
-  return crypto.randomUUID();
-}
-
+function randomUUID(): string { return crypto.randomUUID(); }
 export { randomUUID };
 
 export function getOrCreateGuestId(): string {
@@ -213,15 +205,9 @@ export function getOrCreateGuestId(): string {
   let id = localStorage.getItem(KEY);
   if (!id) {
     const saved = sessionStorage.getItem(KEY);
-    if (saved) {
-      id = saved;
-      localStorage.setItem(KEY, id);
-    }
+    if (saved) { id = saved; localStorage.setItem(KEY, id); }
   }
-  if (!id) {
-    id = `guest_${randomUUID()}`;
-    localStorage.setItem(KEY, id);
-  }
+  if (!id) { id = `guest_${randomUUID()}`; localStorage.setItem(KEY, id); }
   sessionStorage.setItem(KEY, id);
   return id;
 }
