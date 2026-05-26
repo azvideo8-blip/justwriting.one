@@ -7,6 +7,7 @@ import { Session, UserProfile } from '../../../types';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { GoalToast } from '../../../shared/components/GoalToast';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { SeoHead } from '../../../core/i18n/SeoHead';
 
 import { WritingFinishModal } from '../components/WritingFinishModal';
 import { FlowPulse } from '../../../core/theme/FlowPulse';
@@ -285,5 +286,16 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
 }
 
 export function WritingPage({ user, profile }: WritingViewProps) {
-  return <WritingPageContent user={user} profile={profile} />;
+  return (
+    <>
+      <SeoHead
+        path="/"
+        titleRu="justwriting — тихий редактор для свободного письма"
+        titleEn="justwriting — a quiet editor for free writing"
+        descriptionRu="Тихий редактор для свободного письма. Без отвлечений. Режим потока, шифрование, серия дней."
+        descriptionEn="A quiet editor for free writing. No distractions. Stream mode, encryption, writing streaks."
+      />
+      <WritingPageContent user={user} profile={profile} />
+    </>
+  );
 }

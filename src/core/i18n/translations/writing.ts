@@ -84,7 +84,7 @@ export const writingTranslations: Translations = {
   goal_words_short:       { ru: 'слов',           en: 'words' },
   goal_time_short:        { ru: 'мин',           en: 'mins' },
 
-  finish_congrats: { ru: 'Отличная работа!', en: 'Great job!' },
+  finish_congrats: { ru: 'Сессия завершена.', en: 'Session complete.' },
   finish_stats: { ru: 'Статистика сессии', en: 'Session Stats' },
   finish_streak_days: { ru: 'дней подряд', en: 'days in a row' },
   finish_streak_zero: { ru: 'Начни сегодня!', en: 'Start today!' },

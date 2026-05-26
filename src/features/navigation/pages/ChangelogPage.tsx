@@ -2,6 +2,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useLanguage } from '../../../core/i18n';
+import { SeoHead } from '../../../core/i18n/SeoHead';
 import { CHANGELOG, type ChangelogCategory } from '../data/changelog';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { cn } from '../../../core/utils/utils';
@@ -20,6 +21,13 @@ export function ChangelogPage() {
 
   return (
     <div className="max-w-lg mx-auto py-8 px-4 pb-24">
+      <SeoHead
+        path="/changelog"
+        titleRu="История обновлений — justwriting"
+        titleEn="Release notes — justwriting"
+        descriptionRu="История обновлений тихого редактора justwriting. Новые функции, исправления, улучшения."
+        descriptionEn="Release notes for justwriting, a quiet writing editor. New features, fixes, improvements."
+      />
       <button
         type="button"
         onClick={() => navigate(-1)}

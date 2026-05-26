@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://justwriting.one/</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.one/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.one/?lang=en"/>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://justwriting.one/about</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.one/about"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.one/about?lang=en"/>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://justwriting.one/changelog</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.one/changelog"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.one/changelog?lang=en"/>
+    <changefreq>weekly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://justwriting.one/login</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.one/login"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.one/login?lang=en"/>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://justwriting.one/features</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.one/features"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.one/features?lang=en"/>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>

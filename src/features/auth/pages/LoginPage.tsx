@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { AlertCircle, Mail, Lock, UserPlus, LogIn, X, ShieldAlert } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Mail, Lock, UserPlus, LogIn, X, ShieldAlert } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { AuthService } from '../services/AuthService';
 import { useLanguage } from '../../../core/i18n';
+import { SeoHead } from '../../../core/i18n/SeoHead';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { useToast } from '../../../shared/components/Toast';
 import { MigrationPrompt, checkGuestDocuments } from '../components/MigrationPrompt';
@@ -170,6 +171,13 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
 
   return (
     <div className={isModal ? "flex flex-col items-center justify-center px-6 py-8" : "h-screen w-screen flex flex-col items-center justify-center px-6 overflow-y-auto py-10 bg-surface-base"}>
+      {!isModal && <SeoHead
+        path="/login"
+        titleRu="Вход — justwriting"
+        titleEn="Sign in — justwriting"
+        descriptionRu="Войди в тихий редактор justwriting, чтобы сохранять заметки в облако и писать каждый день."
+        descriptionEn="Sign in to justwriting, a quiet editor. Save notes to the cloud and write every day."
+      />}
       {isModal && (onClose || onSuccess) && (
         <button onClick={onClose || onSuccess} className="self-end mb-4 p-2 rounded-lg text-text-main/40 hover:text-text-main transition-colors">
           <X size={20} />
@@ -309,8 +317,9 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                       className="w-full px-4 py-3 rounded-xl outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
                     />
                   </div>
-                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-400 mb-3">
-                    {t('auth_forgot_password_encryption_warning')}
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-400 mb-3 flex gap-2">
+                    <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                    <span>{t('auth_forgot_password_encryption_warning')}</span>
                   </div>
                   <div className="flex gap-2">
                     <button
