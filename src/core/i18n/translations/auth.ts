@@ -21,8 +21,8 @@ export const authTranslations: Translations = {
   auth_no_account: { ru: 'Нет аккаунта? Зарегистрироваться', en: "Don't have an account? Sign Up" },
   auth_has_account: { ru: 'Уже есть аккаунт? Войти', en: 'Already have an account? Sign In' },
   auth_tagline: { ru: 'Никаких отвлекающих факторов. Только ты и твои слова.', en: 'No distractions. Just you and your words.' },
-  auth_required_title: { ru: 'Требуется авторизация', en: 'Sign in required' },
-  auth_required_hint: { ru: 'Войди, чтобы получить доступ к этой функции.', en: 'Sign in to access this feature.' },
+  auth_required_title: { ru: 'Требуется регистрация', en: 'Sign up required' },
+  auth_required_hint: { ru: 'Создай аккаунт, чтобы получить доступ к этой функции.', en: 'Create an account to access this feature.' },
   auth_email:               { ru: 'Email',                  en: 'Email' },
   auth_email_placeholder:   { ru: 'ваш@email.com',          en: 'your@email.com' },
 

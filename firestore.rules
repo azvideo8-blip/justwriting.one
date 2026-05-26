@@ -68,7 +68,7 @@ service cloud.firestore {
              data.keys().hasOnly([
                'uid', 'email', 'nickname', 'encryptionSalt', 'encryptedDataKey',
                'labels', 'earnedAchievements', 'totalWordCount', 'sessionsCount',
-               'streakDays', 'totalDuration', 'avgWpm', 'avgSessionWords'
+               'streakDays', 'totalDuration', 'avgWpm', 'avgSessionWords', 'role'
              ]) &&
              data.uid is string && data.uid.size() > 0 &&
              data.email is string && data.email.size() > 0 &&
@@ -79,21 +79,22 @@ service cloud.firestore {
 
     function isValidSession(data) {
       return data.keys().hasAll(['userId', 'content', 'duration', 'createdAt']) &&
-             data.keys().hasOnly([
-               'userId', 'content', 'duration', 'createdAt', 'title',
-               'wordCount', 'charCount', 'wpm', 'tags', 'pinnedThoughts',
-               'sessionType', 'sessionStartTime', 'goalReached', 'updatedAt',
-               '_aiProcessed', '_aiAction', '_aiProcessedAt',
-               'authorName', 'authorPhoto', 'nickname', 'isPublic',
-               '_encrypted'
-             ]) &&
+              data.keys().hasOnly([
+                'userId', 'content', 'duration', 'createdAt', 'title',
+                'wordCount', 'charCount', 'wpm', 'tags', 'pinnedThoughts',
+                'sessionType', 'sessionStartTime', 'goalReached', 'updatedAt',
+                '_aiProcessed', '_aiAction', '_aiProcessedAt', '_aiResultText',
+                'authorName', 'authorPhoto', 'nickname', 'isPublic',
+                '_encrypted'
+              ]) &&
               data.userId == request.auth.uid &&
               data.content is string && data.content.size() <= 700000 &&
              data.duration is number && data.duration >= 0 &&
              data.createdAt is timestamp &&
              (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
-             (!('pinnedThoughts' in data) || (data.pinnedThoughts is list && data.pinnedThoughts.size() <= 20)) &&
-             (!('tags' in data) || (data.tags is list && data.tags.size() <= 10));
+              (!('pinnedThoughts' in data) || (data.pinnedThoughts is list && data.pinnedThoughts.size() <= 20)) &&
+              (!('tags' in data) || (data.tags is list && data.tags.size() <= 10)) &&
+              (!('_aiResultText' in data) || data._aiResultText is string);
     }
 
     function isValidDraft(data) {
@@ -203,8 +204,12 @@ service cloud.firestore {
       }
     }
 
-    // AI rate limit — admin SDK only
-    match /aiRateLimit/{uid} {
+    // AI daily limit + cooldown — admin SDK only
+    match /aiDailyLimit/{uid} {
+      allow read, write: if false;
+    }
+
+    match /aiCooldown/{uid} {
       allow read, write: if false;
     }
 

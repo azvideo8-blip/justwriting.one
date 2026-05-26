@@ -9,6 +9,7 @@ import { highlightText } from '../../../shared/utils/highlightText';
 import { InlineTags } from './InlineTags';
 import { useLanguage } from '../../../core/i18n';
 import { useSessionTags } from '../../writing/hooks/useSessionTags';
+import { Sparkles } from 'lucide-react';
 
 interface GridNoteCardProps {
   session: ArchiveSession;
@@ -18,6 +19,8 @@ interface GridNoteCardProps {
   allTags?: string[];
   onTagsChange?: (session: ArchiveSession, tags: string[]) => void;
   onLabelChange?: (session: ArchiveSession, labelId: string | undefined) => void;
+  aiProcessed?: boolean;
+  onAIClick?: () => void;
 }
 
 export const GridNoteCard = memo<GridNoteCardProps>(({
@@ -28,6 +31,8 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
   allTags,
   onTagsChange,
   onLabelChange,
+  aiProcessed,
+  onAIClick,
 }) => {
   const { t, language } = useLanguage();
   const { tags: _tags } = useSessionTags(session.id, session.tags || []);
@@ -97,6 +102,15 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
           allTags={allTags}
           onChange={newTags => onTagsChange?.(session, newTags)}
         />
+        {aiProcessed && (
+          <button
+            onClick={e => { e.stopPropagation(); onAIClick?.(); }}
+            className="inline-flex items-center gap-1 ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono text-brand-soft/60 border border-brand-soft/15 hover:text-brand-soft hover:border-brand-soft/30 transition-colors"
+          >
+            <Sparkles size={10} />
+            AI
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-2 text-[12px] font-mono text-text-main/40 pt-3 mt-auto border-t border-border-subtle">

@@ -14,6 +14,26 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.0',
+    date: '2026-05-26',
+    items: [
+      { category: 'new', ru: 'Раздел ИИ — чат с персонами на основе твоих заметок', en: 'AI section — chat with personas based on your notes' },
+      { category: 'new', ru: '5 встроенных персон: Группа психологов, КПТ-психолог, Редактор, Коуч, Журналист', en: '5 built-in personas: Psychology Panel, CBT Therapist, Editor, Coach, Journalist' },
+      { category: 'new', ru: 'Создание собственных персон с эмодзи и промптом', en: 'Create custom personas with emoji and a system prompt' },
+      { category: 'new', ru: 'Загрузка заметки в диалог — ИИ видит текст и настроение', en: 'Load a note into the chat — the AI sees your text and mood' },
+      { category: 'new', ru: 'Анализ заметки: тональность, ключевые слова, темы, инсайты', en: 'Note analysis: tone, key words, themes, insights' },
+      { category: 'new', ru: 'AI-бейдж на карточках обработанных заметок в архиве', en: 'AI badge on processed note cards in the archive' },
+      { category: 'new', ru: 'Портрет пользователя — агрегированный анализ всех заметок, экспорт в .md', en: 'User portrait — aggregate analysis of all notes, export to .md' },
+      { category: 'new', ru: 'История диалогов с ИИ: архив, скачивание в .md, удаление', en: 'AI dialogue history: archive, download as .md, delete' },
+      { category: 'new', ru: 'Лимит 5 запросов в день — счётчик виден в интерфейсе', en: '5 requests per day limit — counter visible in the UI' },
+      { category: 'new', ru: 'Политика конфиденциальности — модал при первом входе', en: 'Privacy policy — modal on first login' },
+      { category: 'new', ru: 'Тогл автосинхронизации в настройках — можно синхронизировать вручную', en: 'Auto-sync toggle in settings — manual sync option' },
+      { category: 'new', ru: 'Скрытая страница диагностики — 5 тапов по версии в настройках', en: 'Hidden diagnostics page — tap the version number 5 times in settings' },
+      { category: 'new', ru: 'Раздел AI Usage в админке — статистика токенов по пользователям', en: 'AI Usage section in admin — per-user token statistics' },
+      { category: 'improvement', ru: 'Бэкенд: Node.js 20 → 22, firebase-functions 5 → 7', en: 'Backend: Node.js 20 → 22, firebase-functions 5 → 7' },
+    ],
+  },
+  {
     version: '0.6.11',
     date: '2026-05-26',
     items: [

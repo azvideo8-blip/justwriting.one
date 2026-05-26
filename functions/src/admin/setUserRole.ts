@@ -29,7 +29,7 @@ export const setUserRole = onCall({
     throw new HttpsError('invalid-argument', 'Cannot change your own role.');
   }
 
-  const db = getFirestore();
+  const db = getFirestore('ai-studio-26638cb9-0855-4980-84cb-072afd2a063d');
 
   await db.runTransaction(async (tx) => {
     const callerRef = db.doc(`users/${request.auth!.uid}`);

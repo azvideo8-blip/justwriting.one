@@ -9,6 +9,22 @@ import { LoginModalProvider } from '../features/auth/contexts/LoginModalContext'
 import { AuthProvider } from '../features/auth/contexts/AuthContext';
 import { HelmetProvider } from 'react-helmet-async';
 import { ReactNode } from 'react';
+import { PrivacyModal, usePrivacyCheck } from '../features/auth/components/PrivacyModal';
+import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
+
+function PrivacyGuard({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuthStatus();
+  const { showPrivacy, setShowPrivacy } = usePrivacyCheck();
+
+  return (
+    <>
+      {children}
+      {isAuthenticated && showPrivacy && (
+        <PrivacyModal onAccepted={() => setShowPrivacy(false)} />
+      )}
+    </>
+  );
+}
 
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
@@ -21,7 +37,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
                 <LoginModalProvider>
                   <SettingsProvider renderSettingsPanel={(props) => <SettingsPanel {...props} />}>
                     <HelmetProvider>
-                      {children}
+                      <PrivacyGuard>
+                        {children}
+                      </PrivacyGuard>
                     </HelmetProvider>
                   </SettingsProvider>
                 </LoginModalProvider>

@@ -3,7 +3,7 @@ import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
-import { Shield } from 'lucide-react';
+import { Shield, Sparkles } from 'lucide-react';
 
 const PenIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
@@ -44,6 +44,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
   const tabs = [
     { id: 'write' as const, path: '/',        label: t('nav_write'),          icon: <PenIcon /> },
     { id: 'archive' as const, path: '/archive', label: t('nav_notes_short'),  icon: <ArchiveIcon /> },
+    { id: 'ai' as const, path: '/ai',          label: 'AI',                    icon: <Sparkles size={22} strokeWidth={1.6} /> },
     { id: 'me' as const,   path: '/me',       label: t('nav_profile_short'),  icon: <MeIcon /> },
     ...(isAdmin ? [{ id: 'admin' as const, path: '/admin', label: t('nav_admin'), icon: <Shield size={22} strokeWidth={1.6} /> } as const] : []),
   ];
@@ -59,7 +60,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
       }
     }
     // If guest taps auth-required tab — open login modal
-    if (isGuest && (tab.id === 'archive' || tab.id === 'me' || tab.id === 'admin')) {
+    if (isGuest && (tab.id === 'ai' || tab.id === 'admin')) {
       openLoginModal();
       return;
     }
@@ -87,7 +88,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
             className={cn(
               "flex flex-col items-center gap-[3px] py-1 px-2 bg-transparent border-none cursor-pointer transition-colors duration-150",
               active ? "text-text-main font-semibold" : "text-text-main/30 hover:text-text-main/60",
-              isGuest && ['archive', 'me'].includes(tab.id) ? "opacity-40" : ""
+              isGuest && ['ai'].includes(tab.id) ? "opacity-40" : ""
             )}
           >
             {tab.icon}

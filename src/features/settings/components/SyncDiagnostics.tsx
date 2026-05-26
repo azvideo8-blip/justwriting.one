@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Cloud, HardDrive, RefreshCw, AlertTriangle, CheckCircle2, Upload, Download, Trash2, Loader2, Link2Off, Lock } from 'lucide-react';
+import { Cloud, HardDrive, RefreshCw, AlertTriangle, CheckCircle2, Upload, Download, Trash2, Loader2, Link2Off, Lock, Sparkles, Eye, X } from 'lucide-react';
+import { AIService } from '../../ai/services/AIService';
+import { AISummaryService } from '../../ai/services/AISummaryService';
+import { maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
+import type { AIDocumentSummary } from '../../../core/storage/localDb';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { DocumentService } from '../../../core/services/DocumentService';
 import { SyncService } from '../../../core/services/SyncService';
@@ -14,6 +18,7 @@ import { cn } from '../../../core/utils/utils';
 import { encryptSingleDocument } from '../../../core/crypto/encryptMigration';
 import { Session } from '../../../types';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+
 
 interface SyncDiagnosticsProps {
   userId: string;
@@ -48,6 +53,10 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [items, setItems] = useState<DiagnosticItem[]>([]);
   const [queueCount, setQueueCount] = useState(0);
+
+  const [processedDocs, setProcessedDocs] = useState<Record<string, boolean>>({});
+  const [processingDocId, setProcessingDocId] = useState<string | null>(null);
+  const [readSummary, setReadSummary] = useState<AIDocumentSummary | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!userId || userId.startsWith('guest_')) return;
@@ -155,6 +164,8 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
       }
 
       setItems(Array.from(itemsMap.values()).sort((a, b) => b.title.localeCompare(a.title)));
+
+      await loadAIStatus();
     } catch (e) {
       console.error('[SyncDiagnostics] Error fetching diagnostics:', e);
       showToast(t('error_generic_action') || 'Error fetching status', 'error');
@@ -162,6 +173,15 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
       setLoading(false);
     }
   }, [userId, t, showToast]);
+
+  const loadAIStatus = useCallback(async () => {
+    try {
+      const statusMap = await AISummaryService.hasAll();
+      setProcessedDocs(statusMap);
+    } catch (e) {
+      console.error('[SyncDiagnostics] Failed to load AI status:', e);
+    }
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -286,6 +306,85 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
       showToast(t('error_generic_action') || 'Sync failed', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleProcessDocument = async (item: DiagnosticItem) => {
+    if (!item.localId) {
+      showToast('Документ должен быть сохранен на устройстве для обработки', 'error');
+      return;
+    }
+    setProcessingDocId(item.id);
+    try {
+      const db = await getLocalDb();
+      const versions = await db.getAllFromIndex('versions', 'by-document', item.localId);
+      if (versions.length === 0) {
+        showToast('Не найден контент документа для обработки', 'error');
+        return;
+      }
+      versions.sort((a, b) => b.version - a.version);
+      const latestVersion = versions[0];
+
+      let decryptedVer;
+      try {
+        decryptedVer = await maybeDecrypt(latestVersion as unknown as Record<string, unknown>, ['content'], []);
+      } catch (decryptErr) {
+        if (decryptErr instanceof Error && decryptErr.message.includes('LOCKED')) {
+          showToast('⚠️ Пожалуйста, сначала разблокируйте сейф для расшифровки контента', 'error');
+        } else {
+          showToast('Ошибка расшифровки документа', 'error');
+        }
+        return;
+      }
+
+      const content = decryptedVer.content as string;
+      if (!content || content.trim().length < 50) {
+        showToast('Текст документа слишком короткий для ИИ-анализа (минимум 50 символов)', 'error');
+        return;
+      }
+
+      const result = await AIService.summarize({ content });
+      if (result.ok) {
+        const summary: AIDocumentSummary = {
+          documentId: item.localId,
+          tone: result.summary.tone,
+          frequentWords: result.summary.frequentWords,
+          insights: result.summary.insights,
+          themes: result.summary.themes,
+          processedAt: Date.now(),
+        };
+        await AISummaryService.save(summary);
+
+        const doc = await db.get('documents', item.localId);
+        if (doc) {
+          await db.put('documents', { ...doc, aiProcessed: true });
+        }
+
+        showToast('Анализ ИИ завершен успешно', 'success');
+        await loadAIStatus();
+        await fetchData();
+      } else {
+        showToast('Не удалось обработать: ' + result.error, 'error');
+      }
+    } catch (e) {
+      console.error('[SyncDiagnostics] AI processing failed:', e);
+      showToast('Ошибка при запуске обработки ИИ', 'error');
+    } finally {
+      setProcessingDocId(null);
+    }
+  };
+
+  const handleReadSummary = async (documentId: string) => {
+    try {
+      const summary = await AISummaryService.get(documentId);
+      if (summary) {
+        setReadSummary(summary);
+      } else {
+        showToast('Саммари не найдено', 'error');
+      }
+    } catch (e) {
+      console.error('[SyncDiagnostics] Failed to load summary:', e);
+      showToast('Не удалось прочитать результаты анализа', 'error');
     }
   };
 
@@ -493,6 +592,39 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                     </>
                   )}
                 </div>
+
+                <div className="flex items-center justify-between border-t border-border-subtle/50 pt-2 text-label-sm">
+                  <span className="text-text-main/40 font-medium">AI Analysis</span>
+                  <div>
+                    {processedDocs[item.id] ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-green-400 font-medium">Processed</span>
+                        <button
+                          onClick={() => handleReadSummary(item.id)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-card border border-border-subtle text-text-main/70 text-xs font-medium"
+                        >
+                          <Eye size={14} />
+                          Read Summary
+                        </button>
+                      </div>
+                    ) : processingDocId === item.id ? (
+                      <div className="flex items-center gap-1.5 text-text-main/40">
+                        <Loader2 size={14} className="animate-spin text-brand-soft" />
+                        Processing...
+                      </div>
+                    ) : item.hasLocal ? (
+                      <button
+                        onClick={() => handleProcessDocument(item)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-soft/10 border border-brand-soft/20 text-brand-soft text-xs font-semibold"
+                      >
+                        <Sparkles size={14} />
+                        Analyze with AI
+                      </button>
+                    ) : (
+                      <span className="text-text-main/20 text-xs">Needs Local Copy</span>
+                    )}
+                  </div>
+                </div>
               </div>
             );
           })}
@@ -506,6 +638,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                 <th className="py-2 px-2 text-center">Location</th>
                 <th className="py-2 px-2 text-center">Versions (L/C)</th>
                 <th className="py-2 px-2 text-center">Words (L/C)</th>
+                <th className="py-2 px-2 text-center">AI</th>
                 <th className="py-2 px-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -526,6 +659,35 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                     </td>
                     <td className="py-2.5 px-2 text-center font-mono">
                       {item.hasLocal ? item.localWords : '-'} / {item.hasCloud ? item.cloudWords : '-'}
+                    </td>
+                    <td className="py-2.5 px-2 text-center whitespace-nowrap">
+                      {processedDocs[item.id] ? (
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-green-500/10 text-green-400 border border-green-500/20">
+                            Processed
+                          </span>
+                          <button
+                            onClick={() => handleReadSummary(item.id)}
+                            className="p-1 rounded hover:bg-surface-base/10 text-text-main/50 hover:text-text-main transition-colors"
+                            title="Прочитать саммари"
+                          >
+                            <Eye size={12} />
+                          </button>
+                        </div>
+                      ) : processingDocId === item.id ? (
+                        <Loader2 size={12} className="animate-spin text-brand-soft mx-auto" />
+                      ) : item.hasLocal ? (
+                        <button
+                          onClick={() => handleProcessDocument(item)}
+                          className="flex items-center gap-1 px-2 py-1 rounded bg-brand-soft/10 hover:bg-brand-soft/20 text-brand-soft text-label font-semibold border border-brand-soft/20 transition-colors mx-auto"
+                          title="Обработать ИИ"
+                        >
+                          <Sparkles size={10} />
+                          Analyze
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-text-main/20 font-medium">Needs Local Copy</span>
+                      )}
                     </td>
                     <td className="py-2.5 px-3 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
@@ -611,6 +773,69 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {readSummary !== null && (
+        <div className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center" onClick={() => setReadSummary(null)}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="relative z-10 w-full max-w-lg mx-4 bg-surface-card border border-border-subtle rounded-2xl shadow-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
+              <h3 className="text-base font-bold text-text-main flex items-center gap-2">
+                <Sparkles size={16} className="text-brand-soft" />
+                ИИ Анализ Документа
+              </h3>
+              <button onClick={() => setReadSummary(null)} className="p-2 rounded-lg text-text-main/40 hover:text-text-main transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="px-6 py-4 overflow-y-auto space-y-4 text-sm text-text-main/80">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-text-main/40">Тональность</span>
+                <p className="mt-1 text-sm font-medium text-text-main capitalize">{readSummary.tone}</p>
+              </div>
+
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-text-main/40">Ключевые слова</span>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {readSummary.frequentWords.map(word => (
+                    <span key={word} className="px-2 py-0.5 text-xs bg-surface-base/10 rounded-md border border-border-subtle text-text-main/70">
+                      {word}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-text-main/40">Основные темы</span>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {readSummary.themes.map(theme => (
+                    <span key={theme} className="px-2 py-0.5 text-xs bg-brand-soft/5 rounded-md border border-brand-soft/10 text-brand-soft font-medium">
+                      {theme}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-text-main/40">Ключевые мысли и инсайты</span>
+                <ul className="mt-2 list-disc list-inside space-y-1.5 pl-1">
+                  {readSummary.insights.map((insight, idx) => (
+                    <li key={idx} className="text-xs text-text-main/70 leading-relaxed pl-1">
+                      {insight}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="px-6 py-3.5 border-t border-border-subtle flex justify-end">
+              <button onClick={() => setReadSummary(null)} className="px-4 py-2 rounded-xl bg-text-main text-surface-base text-xs font-medium hover:bg-text-main/90 transition-colors">
+                Закрыть
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

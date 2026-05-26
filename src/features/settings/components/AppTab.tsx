@@ -7,6 +7,8 @@ import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 import { SyncService } from '../../../core/services/SyncService';
 import { useToast } from '../../../shared/components/Toast';
 import { Section } from './SettingsHelpers';
+import { STORAGE_KEYS } from '../../../core/constants/storageKeys';
+import { cn } from '../../../core/utils/utils';
 
 interface AppTabProps {
   userId: string;
@@ -19,6 +21,9 @@ export function AppTab({ userId, onRefreshLifeLog }: AppTabProps) {
   const { isAuthenticated, isGuest } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
   const { showToast } = useToast();
+  const [autoSync, setAutoSync] = React.useState(
+    localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) !== 'false'
+  );
 
   const THEME_ACCENT: Record<string, string> = {
     modern:    '#1e1e22',
@@ -41,12 +46,38 @@ export function AppTab({ userId, onRefreshLifeLog }: AppTabProps) {
     }
   };
 
+  const toggleAutoSync = () => {
+    const newVal = !autoSync;
+    setAutoSync(newVal);
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, String(newVal));
+  };
+
   return (
     <div className="space-y-4 mt-2">
       <Section title={t('settings_section_storage')}>
         <div className="text-label-sm text-text-main/40 mb-3 px-1">
           {t('settings_storage_hint')}
         </div>
+
+        {isAuthenticated && (
+          <div className="flex items-center justify-between px-1 mb-3">
+            <span className="text-sm text-text-main/60">Автосинхронизация с облаком</span>
+            <button
+              onClick={toggleAutoSync}
+              className={cn(
+                "relative w-10 h-5 rounded-full transition-colors",
+                autoSync ? "bg-brand-soft" : "bg-text-main/20"
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform",
+                  autoSync ? "left-5" : "left-0.5"
+                )}
+              />
+            </button>
+          </div>
+        )}
 
         {isAuthenticated && (
           <button

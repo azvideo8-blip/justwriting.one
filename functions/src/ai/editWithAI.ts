@@ -1,12 +1,10 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
-import DOMPurify from 'isomorphic-dompurify';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, getDailyLimitCount, checkRateLimit, GEMINI_MODEL, getGenAI } from '../shared/aiUtils';
 
 const MAX_AI_CONTENT_LENGTH = 50_000;
-const RATE_LIMIT_MAX = 10; // [S-05] снижено с 20 до 10 req/min
-const RATE_LIMIT_WINDOW_MS = 60_000;
 
 const actionSchema = z.enum(['shorten', 'accents', 'ideas', 'summarize', 'tags', 'mood', 'continue']);
 
@@ -18,26 +16,9 @@ const messageSchema = z.object({
 const inputSchema = z.object({
   content: z.string().min(1).max(MAX_AI_CONTENT_LENGTH),
   action: actionSchema,
-  sessionId: z.string().optional(),
-  history: z.array(messageSchema).max(10).optional(),
+  sessionId: z.string().nullish(),
+  history: z.array(messageSchema).max(10).nullish(),
 });
-
-function sanitizeAiInput(content: string): string {
-  let sanitized = content.slice(0, MAX_AI_CONTENT_LENGTH);
-  sanitized = sanitized.replace(/<\|system\|>/gi, '[system]');
-  sanitized = sanitized.replace(/<\|user\|>/gi, '[user]');
-  sanitized = sanitized.replace(/<\|assistant\|>/gi, '[assistant]');
-  return sanitized;
-}
-
-function sanitizeAiResponse(response: string): string {
-  // [S-04] Безопасная XSS-санитизация с помощью DOMPurify: удаляем все HTML-теги и JS-атрибуты
-  return DOMPurify.sanitize(response, {
-    ALLOWED_TAGS: [],
-    ALLOWED_ATTR: [],
-    ALLOW_DATA_ATTR: false,
-  });
-}
 
 const ACTION_PROMPTS: Record<string, string> = {
   shorten: 'Сократи текст, сохранив суть и стиль автора. Без пояснений — только результат.',
@@ -55,13 +36,12 @@ function buildPrompt(action: string, content: string): string {
 }
 
 async function callGemini(
-  apiKey: string,
   content: string,
   action: string,
   history?: { role: 'user' | 'assistant'; content: string }[]
 ): Promise<{ text: string; tokensIn: number; tokensOut: number }> {
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  const ai = getGenAI();
+  const model = ai.getGenerativeModel({ model: GEMINI_MODEL });
 
   const chatHistory = (history ?? []).map(m => ({
     role: m.role === 'assistant' ? 'model' as const : 'user' as const,
@@ -79,49 +59,23 @@ async function callGemini(
   };
 }
 
-async function checkRateLimitFirestore(uid: string): Promise<boolean> {
-  const db = getFirestore();
-  const ref = db.doc(`aiRateLimit/${uid}`);
-  const now = Date.now();
-
-  return db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const data = snap.data();
-
-    if (!data || now > data.resetAt) {
-      tx.set(ref, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-      return true;
-    }
-    if (data.count >= RATE_LIMIT_MAX) return false;
-    tx.update(ref, { count: data.count + 1 });
-    return true;
-  });
-}
-
-async function recordUsage(uid: string, tokensIn: number, tokensOut: number): Promise<void> {
-  const db = getFirestore();
-  const date = new Date().toISOString().slice(0, 10);
-  const ref = db.doc(`aiUsage/${uid}/daily/${date}`);
-  await ref.set({
-    promptTokens: FieldValue.increment(tokensIn),
-    completionTokens: FieldValue.increment(tokensOut),
-    requests: FieldValue.increment(1),
-    updatedAt: FieldValue.serverTimestamp(),
-  }, { merge: true });
-}
-
 export const editWithAI = onCall({
   secrets: ['GEMINI_API_KEY'],
   enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Authentication required.');
+    throw new HttpsError('unauthenticated', 'Registration required.');
   }
 
   const uid = request.auth.uid;
 
-  if (!(await checkRateLimitFirestore(uid))) {
-    throw new HttpsError('resource-exhausted', 'Too many requests. Try again in a minute.');
+  if (!(await checkDailyLimit(uid))) {
+    const { used, date } = await getDailyLimitCount(uid);
+    throw new HttpsError('resource-exhausted', `Daily limit reached. Used ${used}/${process.env.AI_DAILY_LIMIT ?? 50} on ${date}.`);
+  }
+
+  if (!(await checkRateLimit(uid))) {
+    throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
   }
 
   const parsed = inputSchema.safeParse(request.data);
@@ -135,16 +89,18 @@ export const editWithAI = onCall({
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new HttpsError('internal', 'AI service not configured.');
 
-  const { text, tokensIn, tokensOut } = await callGemini(apiKey, sanitizedInput, action, history);
+  const { text, tokensIn, tokensOut } = await callGemini(sanitizedInput, action, history ?? undefined);
   const sanitizedOutput = sanitizeAiResponse(text);
 
   recordUsage(uid, tokensIn, tokensOut).catch(e => console.error('[AI] usage record failed:', e));
 
   if (sessionId) {
-    const db = getFirestore();
+    const db = getFirestore('ai-studio-26638cb9-0855-4980-84cb-072afd2a063d');
+    const userDoc = await db.doc(`users/${uid}`).get();
+    const isAdmin = userDoc.exists && userDoc.data()?.role === 'admin';
     const docRef = db.doc(`sessions/${sessionId}`);
     const doc = await docRef.get();
-    if (!doc.exists || doc.data()?.userId !== uid) {
+    if (!doc.exists || (doc.data()?.userId !== uid && !isAdmin)) {
       throw new HttpsError('permission-denied', 'Session not found or not owned.');
     }
 
@@ -152,6 +108,7 @@ export const editWithAI = onCall({
       _aiProcessed: true,
       _aiAction: action,
       _aiProcessedAt: new Date(),
+      _aiResultText: sanitizedOutput,
     });
   }
 

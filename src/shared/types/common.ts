@@ -55,6 +55,12 @@ export interface Session extends SessionCore {
   sessionStartTime?: number | null;
   createdAt: Timestamp | Date | number;
   _isLocal?: boolean;
+  _isLegacy?: boolean;
+  _hasCloudCopy?: boolean;
+  _aiProcessed?: boolean;
+  _aiAction?: string;
+  _aiProcessedAt?: any;
+  _aiResultText?: string;
 }
 
 export interface SessionPayload extends SessionCore {
