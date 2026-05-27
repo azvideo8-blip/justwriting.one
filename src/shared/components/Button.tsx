@@ -26,6 +26,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = 'ghost', size = 'md', className, ...props }, ref) => (
     <button
       ref={ref}
+      type="button"
       className={cn(
         'font-medium transition-colors disabled:opacity-50',
         variantStyles[variant],

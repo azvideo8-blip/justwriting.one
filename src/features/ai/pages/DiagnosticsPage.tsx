@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { Download, X, RotateCcw, Bug, Cpu } from 'lucide-react';
 import { getLocalDb, getOrCreateGuestId } from '../../../core/storage/localDb';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
+import { useAiLimitStore } from '../store/useAiLimitStore';
 import { APP_VERSION } from '../../../version';
 import { useDailyLimit } from '../../ai/hooks/useDailyLimit';
 import { getAuth } from 'firebase/auth';
@@ -57,7 +58,7 @@ export function DiagnosticsPage() {
 
   const handleResetCounter = () => {
     localStorage.removeItem('ai_daily_usage');
-    window.location.reload();
+    useAiLimitStore.setState({ used: 0, remaining: useAiLimitStore.getState().limit });
   };
 
   const isDev = import.meta.env.DEV;

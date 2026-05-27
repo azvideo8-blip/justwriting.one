@@ -129,9 +129,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setProfileLoaded(user.uid, true);
             } else {
               if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, parsed.error.flatten());
-              profileSetBySnapshotRef.current = true;
-              setProfile(data as UserProfile);
-              setEncryptionEnabled(user.uid, !!(data.encryptionSalt && data.encryptedDataKey));
+              setProfile(null);
+              setEncryptionEnabled(user.uid, false);
               setProfileLoaded(user.uid, true);
             }
           } else {

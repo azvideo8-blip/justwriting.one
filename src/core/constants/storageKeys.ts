@@ -4,6 +4,7 @@ export const STORAGE_KEYS = {
   DRAFT: (userId: string) => `draft-${userId}`,
   DRAFT_DELETED: (userId: string) => `draft-deleted-${userId}`,
   APP_LANGUAGE: 'app_language',
+  APP_THEME: 'app-theme',
   FOCUS_SWIPE_HINT_SHOWN: 'focus_swipe_hint_shown',
   ONBOARDING_DONE: 'onboarding_done',
   ENC_ENABLED: (userId: string) => `enc_enabled_${userId}`,

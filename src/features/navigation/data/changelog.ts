@@ -14,6 +14,26 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.1',
+    date: '2026-05-27',
+    items: [
+      { category: 'improvement', ru: 'ИИ-чат: эффект печатания для ответов — символы появляются постепенно', en: 'AI chat: typewriter effect for responses — characters appear gradually' },
+      { category: 'improvement', ru: 'Ответы ИИ отображаются в Markdown: жирный, курсив, списки, заголовки', en: 'AI responses rendered as Markdown: bold, italic, lists, headings' },
+      { category: 'improvement', ru: 'ИИ-чат без заметки: можно начать разговор без привязки к тексту, прикрепить опционально', en: 'AI chat without a note: start a conversation freely, attach a note optionally' },
+      { category: 'new', ru: 'Кнопка «Отправить в ИИ» в окне завершения сессии', en: '"Send to AI" button in the session finish modal' },
+      { category: 'new', ru: 'Cloud Function getAILimit — счётчик лимита синхронизируется с сервером', en: 'getAILimit Cloud Function — daily limit counter synced from server' },
+      { category: 'improvement', ru: 'AIPanel в редакторе проверяет лимит до запроса и показывает ошибку', en: 'AIPanel in editor checks limit before request and shows error' },
+      { category: 'improvement', ru: 'Описания персон вынесены в i18n — переводятся на оба языка', en: 'Persona descriptions moved to i18n — translated into both languages' },
+      { category: 'improvement', ru: 'Аналитика PostHog: требует явного согласия через localStorage, optIn/optOut API', en: 'PostHog analytics: requires explicit consent via localStorage, optIn/optOut API' },
+      { category: 'improvement', ru: 'Проверка роли админа через ID Token Claims, а не через profile (защита от подмены)', en: 'Admin role verified via ID Token Claims, not profile (prevents spoofing)' },
+      { category: 'fix', ru: 'editWithAI: транзакция Firestore вместо последовательных reads — нет race condition', en: 'editWithAI: Firestore transaction instead of sequential reads — no race condition' },
+      { category: 'fix', ru: 'editWithAI: enforceAppCheck включён; история сообщений санируется перед отправкой в Gemini', en: 'editWithAI: enforceAppCheck enabled; message history sanitised before sending to Gemini' },
+      { category: 'fix', ru: 'Смена пароля: при ошибке Firebase Auth откат ключей шифрования в Firestore', en: 'Password change: encryption keys rolled back in Firestore if Firebase Auth update fails' },
+      { category: 'improvement', ru: 'Service Worker: раздельный кеш для навигации (stale-while-revalidate) и ассетов', en: 'Service Worker: separate navigation cache (stale-while-revalidate) and assets cache' },
+      { category: 'improvement', ru: 'CSP: добавлены object-src none, base-uri self, form-action self; COOP/CORP заголовки', en: 'CSP: added object-src none, base-uri self, form-action self; COOP/CORP headers' },
+    ],
+  },
+  {
     version: '0.7.0',
     date: '2026-05-26',
     items: [

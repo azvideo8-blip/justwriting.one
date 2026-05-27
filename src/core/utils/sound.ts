@@ -1,7 +1,11 @@
+let _audioCtx: AudioContext | null = null;
+
 export function playGoalSound() {
   try {
-    const audioCtx = new (window.AudioContext || (window as Window & typeof globalThis & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const AudioCtx = window.AudioContext || (window as Window & typeof globalThis & { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!_audioCtx) _audioCtx = new AudioCtx();
 
+    const audioCtx = _audioCtx;
     if (audioCtx.state === 'suspended') {
       audioCtx.resume();
     }
@@ -27,8 +31,6 @@ export function playGoalSound() {
       osc.start(startTime);
       osc.stop(startTime + 3.5);
     });
-
-    setTimeout(() => audioCtx.close(), 4000);
   } catch {
     // silent fail — browser may block AudioContext without user gesture
   }

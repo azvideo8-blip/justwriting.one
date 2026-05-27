@@ -7,15 +7,18 @@ export function useStartOfToday(): Date {
   });
 
   useEffect(() => {
-    const update = () => {
+    const scheduleNextMidnight = () => {
       const now = new Date();
-      setStartOfToday(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+      const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      const msUntilMidnight = tomorrow.getTime() - now.getTime();
+      return setTimeout(() => {
+        const n = new Date();
+        setStartOfToday(new Date(n.getFullYear(), n.getMonth(), n.getDate()));
+        timerId = scheduleNextMidnight();
+      }, msUntilMidnight);
     };
-    const now = new Date();
-    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const msUntilMidnight = tomorrow.getTime() - now.getTime();
-    const id = setTimeout(update, msUntilMidnight);
-    return () => clearTimeout(id);
+    let timerId = scheduleNextMidnight();
+    return () => clearTimeout(timerId);
   }, []);
 
   return startOfToday;

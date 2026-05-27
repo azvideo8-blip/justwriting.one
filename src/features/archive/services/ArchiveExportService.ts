@@ -163,10 +163,11 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
       downloadBlob(html, 'text/html;charset=utf-8', getFilename(session, 'html', s));
       return;
     }
+    win.document.open();
     win.document.write(html);
     win.document.close();
     win.focus();
-    setTimeout(() => { win.print(); }, 500);
+    setTimeout(() => { try { win.print(); } catch { /* window may have closed */ } }, 500);
   }
 }
 

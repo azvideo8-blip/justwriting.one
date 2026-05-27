@@ -20,8 +20,18 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, isActive: boole
       }
     };
 
+    const observer = new MutationObserver(() => {
+      if (!document.activeElement || !container.contains(document.activeElement)) {
+        getFocusable()[0]?.focus();
+      }
+    });
+
     getFocusable()[0]?.focus();
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    observer.observe(container, { childList: true, subtree: true });
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      observer.disconnect();
+    };
   }, [isActive, ref]);
 }

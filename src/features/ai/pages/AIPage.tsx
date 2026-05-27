@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { Sparkles, Plus, Archive, Download, Trash2, FileText } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { AIDialogueService } from '../services/AIDialogueService';
-import { AIPersonaService, PRESET_PERSONAS, PRESET_PERSONA_DESCRIPTIONS } from '../services/AIPersonaService';
+import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService';
 import { useAIChat } from '../hooks/useAIChat';
 import { useDailyLimit } from '../hooks/useDailyLimit';
 import { useTypewriter } from '../hooks/useTypewriter';
@@ -13,9 +13,11 @@ import type { AIDialogue, AIPersona } from '../../../core/storage/localDb';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { cn } from '../../../core/utils/utils';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
+import { useLanguage } from '../../../core/i18n';
 
 export function AIPage() {
   const { profile } = useAuthStatus();
+  const { t } = useLanguage();
   const isAdmin = profile?.role === 'admin';
   const [searchParams] = useSearchParams();
   const linkedDocId = searchParams.get('doc') ?? undefined;
@@ -130,8 +132,8 @@ export function AIPage() {
 
   const activeDialogue = dialogue ?? dialogues.find(d => d.id === activeDialogueId) ?? null;
   const displayMessages = activeDialogue?.messages ?? [];
-
-  const lastAssistantIdx = [...displayMessages].map((m, i) => ({ ...m, i })).filter(m => m.role === 'assistant').slice(-1)[0]?.i ?? -1;
+  const lastIdx = displayMessages.length - 1;
+  const lastAssistantIdx = lastIdx >= 0 && displayMessages[lastIdx].role === 'assistant' ? lastIdx : -1;
   const lastAssistantText = lastAssistantIdx >= 0 ? displayMessages[lastAssistantIdx].content : '';
   const { displayed: typewriterText, isTyping } = useTypewriter(lastAssistantText);
 
@@ -246,7 +248,7 @@ export function AIPage() {
                     </button>
                     {infoPersonaId === p.id && (
                       <div className="absolute bottom-full left-0 mb-1 w-48 p-2 rounded-xl bg-surface-card border border-border-subtle text-xs text-text-main/70 shadow-lg z-10">
-                        {PRESET_PERSONA_DESCRIPTIONS[p.id] ?? p.name}
+                        {t(`ai_persona_desc_${p.id}` as `ai_persona_desc_${typeof p.id}`) ?? p.name}
                       </div>
                     )}
                   </>
@@ -392,7 +394,7 @@ export function AIPage() {
                     </button>
                     {infoPersonaId === p.id && (
                       <div className="absolute bottom-full left-0 mb-1 w-44 p-2 rounded-xl bg-surface-card border border-border-subtle text-xs text-text-main/70 shadow-lg z-50">
-                        {PRESET_PERSONA_DESCRIPTIONS[p.id] ?? p.name}
+                        {t(`ai_persona_desc_${p.id}` as `ai_persona_desc_${typeof p.id}`) ?? p.name}
                       </div>
                     )}
                   </>

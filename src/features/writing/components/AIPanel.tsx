@@ -4,6 +4,7 @@ import { Sparkles, X, Copy, Check, Loader2, Wand2, Lightbulb, Tags, Smile, Arrow
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 import { AIService, type AIAction, type AIResult } from '../../ai/services/AIService';
+import { useAiLimitStore } from '../../ai/store/useAiLimitStore';
 import { useContentStore } from '../store/useContentStore';
 
 const AI_ACTIONS: { action: AIAction; icon: React.ReactNode; labelKey: string }[] = [
@@ -36,6 +37,13 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
 
   const handleAction = useCallback(async (action: AIAction) => {
     if (!content.trim() || loading) return;
+
+    const { remaining } = useAiLimitStore.getState();
+    if (remaining <= 0) {
+      setError(t('ai_error_rate_limit'));
+      return;
+    }
+
     setLoading(true);
     setResult(null);
     setError(null);
@@ -49,6 +57,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
     } else {
       const errorMap: Record<string, string> = {
         AUTH_REQUIRED: t('ai_error_auth'),
+        DAILY_LIMIT: t('ai_error_rate_limit'),
         RATE_LIMIT: t('ai_error_rate_limit'),
         TOO_LONG: t('ai_error_too_long'),
         SERVER_ERROR: t('ai_error_server'),

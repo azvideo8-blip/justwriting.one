@@ -9,21 +9,22 @@ interface DailyLimitState {
 }
 
 export function useDailyLimit(): DailyLimitState {
-  const { used, limit, remaining, resetsAt, loadLimit } = useAiLimitStore();
+  const { used, limit, remaining, resetsAt, loaded, loadLimitFromServer } = useAiLimitStore();
 
   useEffect(() => {
-    loadLimit();
-  }, [loadLimit]);
+    if (loaded) return;
+    loadLimitFromServer();
+  }, [loaded, loadLimitFromServer]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       const today = new Date().toISOString().slice(0, 10);
       if (today !== new Date(resetsAt).toISOString().slice(0, 10)) {
-        loadLimit();
+        loadLimitFromServer();
       }
     }, 60_000);
     return () => clearInterval(interval);
-  }, [resetsAt, loadLimit]);
+  }, [resetsAt, loadLimitFromServer]);
 
   return { used, limit, remaining, resetsAt };
 }

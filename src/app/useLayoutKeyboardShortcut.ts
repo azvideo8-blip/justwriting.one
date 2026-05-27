@@ -8,7 +8,9 @@ export function useLayoutKeyboardShortcut() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.code === 'KeyM') {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyM') {
         e.preventDefault();
         setLayoutMode(layoutModeRef.current === 'desktop' ? 'mobile' : 'desktop');
       }

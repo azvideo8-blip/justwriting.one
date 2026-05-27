@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '../../core/utils/utils';
+import { useLanguage } from '../../core/i18n';
 
 interface LoadingSpinnerProps {
   size?: number;
@@ -17,7 +18,8 @@ const sizeMap: Record<number, string> = {
 };
 
 export function LoadingSpinner({ size = 10, label }: LoadingSpinnerProps) {
-  const displayLabel = label ?? 'Loading...';
+  const { t } = useLanguage();
+  const displayLabel = label ?? t('common_loading');
   const sizeClass = sizeMap[size];
   if (sizeClass) {
     return (

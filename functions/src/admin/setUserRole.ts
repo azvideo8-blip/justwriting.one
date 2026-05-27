@@ -11,6 +11,7 @@ const schema = z.object({
 });
 
 export const setUserRole = onCall({
+  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Authentication required.');
@@ -28,36 +29,33 @@ export const setUserRole = onCall({
     throw new HttpsError('invalid-argument', 'Cannot change your own role.');
   }
 
-  const db = getFirestore('ai-studio-26638cb9-0855-4980-84cb-072afd2a063d');
+  const db = getFirestore();
+
+  const callerRef = db.doc(`users/${request.auth.uid}`);
+  const targetRef = db.doc(`users/${targetUid}`);
 
   await db.runTransaction(async (tx) => {
-    const callerRef = db.doc(`users/${request.auth!.uid}`);
-    const targetRef = db.doc(`users/${targetUid}`);
-
     const [callerDoc, targetDoc] = await Promise.all([
       tx.get(callerRef),
       tx.get(targetRef),
     ]);
 
-    // Проверяем роль ВНУТРИ транзакции
     if (!callerDoc.exists || callerDoc.data()?.role !== 'admin') {
       throw new HttpsError('permission-denied', 'Only admins can assign roles.');
     }
 
     if (!targetDoc.exists) {
-      throw new HttpsError('not-found', `User ${targetUid} does not exist.`);
+      throw new HttpsError('not-found', 'Target user does not exist.');
     }
 
     tx.update(targetRef, { role });
   });
 
-  await getAuth().setCustomUserClaims(targetUid, { role });
+  const existingClaims = (await getAuth().getUser(targetUid)).customClaims ?? {};
+  await getAuth().setCustomUserClaims(targetUid, { ...existingClaims, role });
+  await getAuth().revokeRefreshTokens(targetUid);
 
-  logger.info('Role updated', {
-    callerUid: request.auth.uid,
-    targetUid,
-    role,
-  });
+  logger.info('Role updated', { callerUid: request.auth.uid, targetUid, role });
 
   return { success: true };
 });

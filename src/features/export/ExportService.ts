@@ -92,8 +92,12 @@ export class ExportService {
       iframeDoc.write(printContent);
       iframeDoc.close();
 
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch {
+        // iframe may be blocked by browser policy
+      }
 
       setTimeout(() => {
         document.body.removeChild(iframe);

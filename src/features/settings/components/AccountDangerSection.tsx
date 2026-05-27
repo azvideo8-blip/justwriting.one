@@ -23,7 +23,7 @@ export function AccountDangerSection({ userId }: AccountDangerSectionProps) {
   }, []);
 
   return (
-    <Section title={t('profile_achievements')}>
+    <Section title={t('settings_danger_zone')}>
       <div
         hidden={confirmReset ? true : undefined}
         style={confirmReset ? { display: 'none' } : undefined}

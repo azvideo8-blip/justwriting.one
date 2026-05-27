@@ -51,7 +51,7 @@ export function AdminPage() {
   const [aiUsageDate, setAiUsageDate] = useState(new Date().toISOString().slice(0, 10));
   const [aiUsageLoading, setAiUsageLoading] = useState(false);
   const [aiSearchQuery, setAiSearchQuery] = useState('');
-  const [_processingId, setProcessingId] = useState<string | null>(null);
+  const [, setProcessingId] = useState<string | null>(null);
   const [readText, setReadText] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const { t } = useLanguage();

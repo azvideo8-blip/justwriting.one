@@ -20,7 +20,7 @@ export function ProtectedRoute({ children, requireAdmin }: { children: React.Rea
       return;
     }
     user.getIdTokenResult().then(token => {
-      setIsAdmin(token.claims.role === 'admin' || token.claims.admin === true || profile?.role === 'admin');
+      setIsAdmin(token.claims.role === 'admin');
       setCheckingAdmin(false);
     }).catch(e => {
       reportError(e, { action: 'checkAdminClaim' });
