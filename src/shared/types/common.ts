@@ -59,7 +59,7 @@ export interface Session extends SessionCore {
   _hasCloudCopy?: boolean;
   _aiProcessed?: boolean;
   _aiAction?: string;
-  _aiProcessedAt?: any;
+  _aiProcessedAt?: number | string | null;
   _aiResultText?: string;
 }
 

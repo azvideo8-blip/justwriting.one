@@ -1,5 +1,6 @@
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { reportError } from '../../../core/errors/reportError';
+import { analytics } from '../../../core/analytics/analytics';
 
 export type AIAction = 'shorten' | 'accents' | 'ideas' | 'summarize' | 'tags' | 'mood' | 'continue';
 export type AIMessage = { role: 'user' | 'assistant'; content: string };
@@ -12,6 +13,7 @@ export interface AISummaryPayload {
   frequentWords: string[];
   insights: string[];
   themes: string[];
+  extractedFacts: string[];
 }
 
 function mapAIError(e: unknown): 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG' | 'SERVER_ERROR' {
@@ -36,6 +38,7 @@ export const AIService = {
     const fn = httpsCallable<unknown, { result: string }>(functions, 'editWithAI');
     try {
       const { data } = await fn({ content, action, ...opts });
+      analytics.track('ai_action', { action });
       return { ok: true, text: data.result };
     } catch (e: unknown) {
       reportError(e, { action: 'process', aiAction: action });
@@ -58,6 +61,7 @@ export const AIService = {
     const fn = httpsCallable<unknown, { result: string }>(functions, 'chatWithAI');
     try {
       const { data } = await fn(params);
+      analytics.track('ai_chat', { personaId: params.personaId });
       return { ok: true, text: data.result };
     } catch (e: unknown) {
       reportError(e, { action: 'chat', personaId: params.personaId });
@@ -73,6 +77,7 @@ export const AIService = {
     const fn = httpsCallable<unknown, AISummaryPayload>(functions, 'summarizeDocument');
     try {
       const { data } = await fn(params);
+      analytics.track('ai_summarize');
       return { ok: true, summary: data };
     } catch (e: unknown) {
       reportError(e, { action: 'summarize' });

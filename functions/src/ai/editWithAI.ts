@@ -2,7 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, getDailyLimitCount, checkRateLimit, GEMINI_MODEL, getGenAI } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, getDailyLimitCount, checkRateLimit, GEMINI_MODEL, getGenAI, getLangfuse } from '../shared/aiUtils';
 
 const MAX_AI_CONTENT_LENGTH = 50_000;
 
@@ -61,7 +61,6 @@ async function callGemini(
 
 export const editWithAI = onCall({
   secrets: ['GEMINI_API_KEY'],
-  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Registration required.');
@@ -89,10 +88,16 @@ export const editWithAI = onCall({
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new HttpsError('internal', 'AI service not configured.');
 
+  const lf = getLangfuse();
+  const trace = lf?.trace({ name: 'editWithAI', userId: uid, metadata: { action } });
+  const generation = trace?.generation({ name: 'gemini', model: GEMINI_MODEL, input: sanitizedInput });
+
   const { text, tokensIn, tokensOut } = await callGemini(sanitizedInput, action, history ?? undefined);
   const sanitizedOutput = sanitizeAiResponse(text);
 
+  generation?.end({ output: sanitizedOutput, usage: { promptTokens: tokensIn, completionTokens: tokensOut } });
   recordUsage(uid, tokensIn, tokensOut).catch(e => console.error('[AI] usage record failed:', e));
+  if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   if (sessionId) {
     const db = getFirestore('ai-studio-26638cb9-0855-4980-84cb-072afd2a063d');

@@ -30,7 +30,6 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
   const [documentMood, setDocumentMood] = useState<string | null>(null);
   const pendingDocRef = useRef<{ content: string; mood: string | null; documentId: string } | null>(null);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- load dialogue by ID
   useEffect(() => {
     if (!dialogueId) {
       setDialogue(null);
@@ -113,7 +112,7 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
     } finally {
       setIsLoading(false);
     }
-  }, [dialogue, personaId, documentContent, documentMood]);
+  }, [dialogue, personaId, documentContent, documentMood, isAdmin]);
 
   const loadDocument = useCallback(async (documentId: string) => {
     try {

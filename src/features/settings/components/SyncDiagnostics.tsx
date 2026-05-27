@@ -58,6 +58,15 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
   const [processingDocId, setProcessingDocId] = useState<string | null>(null);
   const [readSummary, setReadSummary] = useState<AIDocumentSummary | null>(null);
 
+  const loadAIStatus = useCallback(async () => {
+    try {
+      const statusMap = await AISummaryService.hasAll();
+      setProcessedDocs(statusMap);
+    } catch (e) {
+      console.error('[SyncDiagnostics] Failed to load AI status:', e);
+    }
+  }, []);
+
   const fetchData = useCallback(async () => {
     if (!userId || userId.startsWith('guest_')) return;
     setLoading(true);
@@ -172,16 +181,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
     } finally {
       setLoading(false);
     }
-  }, [userId, t, showToast]);
-
-  const loadAIStatus = useCallback(async () => {
-    try {
-      const statusMap = await AISummaryService.hasAll();
-      setProcessedDocs(statusMap);
-    } catch (e) {
-      console.error('[SyncDiagnostics] Failed to load AI status:', e);
-    }
-  }, []);
+  }, [userId, t, showToast, loadAIStatus]);
 
   useEffect(() => {
     fetchData();
@@ -351,6 +351,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
           frequentWords: result.summary.frequentWords,
           insights: result.summary.insights,
           themes: result.summary.themes,
+          extractedFacts: result.summary.extractedFacts ?? [],
           processedAt: Date.now(),
         };
         await AISummaryService.save(summary);

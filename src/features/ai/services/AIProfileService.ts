@@ -15,13 +15,16 @@ export const AIProfileService = {
       themes: s.themes,
       insights: s.insights,
       frequentWords: s.frequentWords,
+      extractedFacts: s.extractedFacts ?? [],
     }));
+
+    const allFacts = allSummaries.flatMap(s => s.extractedFacts ?? []);
 
     const result = await AIService.chat({
       personaId: 'group_psychology',
       messages: [{
         role: 'user',
-        content: `На основе анализа ${allSummaries.length} текстов пользователя составь его психологический портрет. Вот агрегированные данные:\n\n${JSON.stringify(aggregatedData, null, 2)}\n\nОпиши паттерны мышления, эмоциональные тенденции, сильные стороны и зоны роста. Формат: markdown.`,
+        content: `На основе анализа ${allSummaries.length} текстов пользователя составь его психологический портрет. Вот агрегированные данные:\n\n${JSON.stringify(aggregatedData, null, 2)}\n\nКонкретные факты из текстов:\n${allFacts.map(f => `- ${f}`).join('\n')}\n\nОпиши паттерны мышления, эмоциональные тенденции, сильные стороны и зоны роста. Учитывай конкретные факты и события. Формат: markdown.`,
       }],
     });
 

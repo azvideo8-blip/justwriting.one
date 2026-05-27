@@ -23,7 +23,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { DocumentService } from '../../../core/services/DocumentService';
-import { loadAllSessions } from '../../writing/services/UnifiedSessionLoader';
+import { loadAllSessions as _loadAllSessions } from '../../writing/services/UnifiedSessionLoader';
 import { maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { toDate } from '../../../core/utils/dateUtils';
 import { SessionService } from '../../../core/services/SessionService';
@@ -51,7 +51,7 @@ export function AdminPage() {
   const [aiUsageDate, setAiUsageDate] = useState(new Date().toISOString().slice(0, 10));
   const [aiUsageLoading, setAiUsageLoading] = useState(false);
   const [aiSearchQuery, setAiSearchQuery] = useState('');
-  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [_processingId, setProcessingId] = useState<string | null>(null);
   const [readText, setReadText] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const { t } = useLanguage();
@@ -263,7 +263,7 @@ export function AdminPage() {
 
   const handleDeleteSession = async (id: string) => {
     const session = sessions.find(s => s.id === id);
-    const isLegacy = (session as any)?._isLegacy === true;
+    const isLegacy = (session as unknown as Record<string, unknown>)?._isLegacy === true;
 
     execute(
       async () => {
@@ -272,7 +272,7 @@ export function AdminPage() {
         } else {
           const userId = auth.currentUser!.uid;
           await LocalDocumentService.deleteDocument(id);
-          const hasCloud = (session as any)?._hasCloudCopy || !id.startsWith('local_');
+          const hasCloud = (session as unknown as Record<string, unknown>)?._hasCloudCopy || !id.startsWith('local_');
           if (hasCloud) {
             await DocumentService.deleteDocument(userId, id);
           }
@@ -286,12 +286,10 @@ export function AdminPage() {
     setProcessingId(id);
     try {
       const session = sessions.find(s => s.id === id);
-      const isLegacy = (session as any)?._isLegacy === true;
-
+    const isLegacy = (session as unknown as Record<string, unknown>)?._isLegacy === true;
       if (isLegacy) {
         const result = await AIService.process(content, 'summarize', { sessionId: id });
         if (result.ok) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect -- update local session state after AI processing
           setSessions(prev => prev.map(s => s.id === id ? { ...s, _aiProcessed: true, _aiAction: 'summarize', _aiResultText: result.text } : s));
           showToast('Сессия обработана', 'success');
         } else {
@@ -310,6 +308,7 @@ export function AdminPage() {
             frequentWords: result.summary.frequentWords,
             insights: result.summary.insights,
             themes: result.summary.themes,
+            extractedFacts: result.summary.extractedFacts ?? [],
             processedAt: Date.now(),
           };
           const { AISummaryService } = await import('../../ai/services/AISummaryService');
@@ -321,7 +320,10 @@ export function AdminPage() {
             await db.put('documents', { ...doc, aiProcessed: true });
           }
 
-          const resultText = `Тональность: ${result.summary.tone}\nКлючевые слова: ${result.summary.frequentWords.join(', ')}\nОсновные темы: ${result.summary.themes.join(', ')}\n\nИнсайты:\n${result.summary.insights.map(ins => `- ${ins}`).join('\n')}`;
+          const factsSection = (result.summary.extractedFacts ?? []).length > 0
+            ? `\n\nФакты:\n${result.summary.extractedFacts.map(f => `- ${f}`).join('\n')}`
+            : '';
+          const resultText = `Тональность: ${result.summary.tone}\nКлючевые слова: ${result.summary.frequentWords.join(', ')}\nОсновные темы: ${result.summary.themes.join(', ')}\n\nИнсайты:\n${result.summary.insights.map(ins => `- ${ins}`).join('\n')}${factsSection}`;
 
           setSessions(prev => prev.map(s => s.id === id ? { ...s, _aiProcessed: true, _aiAction: 'summarize', _aiResultText: resultText } : s));
           showToast('Анализ ИИ завершен успешно', 'success');

@@ -1,13 +1,14 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, getDailyLimitCount, checkRateLimit, GEMINI_MODEL, genAI } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, getDailyLimitCount, checkRateLimit, GEMINI_MODEL, genAI, getLangfuse } from '../shared/aiUtils';
 
 const SUMMARY_SYSTEM_PROMPT = `Проанализируй текст и верни JSON-объект со следующими полями:
 - tone: одно слово (нейтральный/задумчивый/тревожный/вдохновляющий/радостный/грустный/злой/усталый)
 - frequentWords: массив из 5-7 наиболее значимых слов из текста (не стоп-слова)
 - insights: массив из 3-5 коротких инсайтов или ключевых мыслей, которые звучат в тексте
 - themes: массив из 2-4 основных тем
+- extractedFacts: массив из 2-5 конкретных фактов, событий или утверждений из текста (что именно произошло, что автор упоминает как реальное событие или утверждение)
 
 Верни ТОЛЬКО валидный JSON без пояснений и markdown-обёртки.`;
 
@@ -18,7 +19,6 @@ const inputSchema = z.object({
 
 export const summarizeDocument = onCall({
   secrets: ['GEMINI_API_KEY'],
-  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Registration required.');
@@ -58,8 +58,9 @@ export const summarizeDocument = onCall({
           frequentWords: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
           insights: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
           themes: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+          extractedFacts: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
         },
-        required: ['tone', 'frequentWords', 'insights', 'themes'],
+        required: ['tone', 'frequentWords', 'insights', 'themes', 'extractedFacts'],
       },
     },
   });
@@ -68,26 +69,35 @@ export const summarizeDocument = onCall({
     ? `[Настроение документа: ${mood}]\n\n${sanitizedContent}`
     : sanitizedContent;
 
+  const lf = getLangfuse();
+  const trace = lf?.trace({ name: 'summarizeDocument', userId: uid });
+  const generation = trace?.generation({ name: 'gemini', model: GEMINI_MODEL, input: prompt });
+
   const result = await model.generateContent(prompt);
   const response = result.response;
   const text = response.text();
 
-  let parsed_json: { tone: string; frequentWords: string[]; insights: string[]; themes: string[] };
+  let parsed_json: { tone: string; frequentWords: string[]; insights: string[]; themes: string[]; extractedFacts: string[] };
   try {
     parsed_json = JSON.parse(text);
   } catch {
+    generation?.end({ output: text, level: 'ERROR' });
+    if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
     throw new HttpsError('internal', 'Failed to parse summary.');
   }
 
   const tokensIn = response.usageMetadata?.promptTokenCount ?? 0;
   const tokensOut = response.usageMetadata?.candidatesTokenCount ?? 0;
 
+  generation?.end({ output: text, usage: { promptTokens: tokensIn, completionTokens: tokensOut } });
   recordUsage(uid, tokensIn, tokensOut).catch(e => console.error('[AI summarize] usage record failed:', e));
+  if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   return {
     tone: sanitizeAiResponse(parsed_json.tone),
     frequentWords: parsed_json.frequentWords.map(sanitizeAiResponse),
     insights: parsed_json.insights.map(sanitizeAiResponse),
     themes: parsed_json.themes.map(sanitizeAiResponse),
+    extractedFacts: (parsed_json.extractedFacts ?? []).map(sanitizeAiResponse),
   };
 });

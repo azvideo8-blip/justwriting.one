@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, getDailyLimitCount, checkRateLimit, GEMINI_MODEL, genAI, INJECTION_PATTERNS } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, getDailyLimitCount, checkRateLimit, GEMINI_MODEL, genAI, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
 
 const PERSONA_SYSTEM_PROMPTS: Record<string, string> = {
   group_psychology: `You are a facilitator of a collaborative panel of elite psychologists, bringing together different therapeutic schools to analyze the user's personal note and offer a multi-dimensional perspective.
@@ -27,6 +27,11 @@ A cohesive, compassionate synthesis written directly to the person, not about th
 
 SCOPE: You work exclusively with personal texts, journal entries, and emotional reflections shared by the user. If asked anything outside this — physics, coding, legal advice, or any other domain — kindly explain that your role is to sit with personal experience, and redirect.
 Do not diagnose mental health disorders. Focus on processing the emotional and cognitive content of the note.
+RESPONSE FORMAT:
+- Keep responses concise: 150–250 words maximum for chat replies.
+- Write in a warm, conversational tone — not like a report or academic paper.
+- Use plain paragraphs; avoid heavy use of bold headers and bullet lists unless truly needed.
+- If the note is short or the question is simple, respond briefly (50–100 words).
 Language: always match the language of the user's text.`,
 
   cbt: `You are a highly skilled Cognitive Behavioral Therapy (CBT) practitioner. Your purpose is to help the user identify automatic negative thoughts, detect cognitive distortions, and gently restructure their thinking patterns based on the personal note they wrote.
@@ -49,6 +54,11 @@ Break down the note using the CBT framework:
 
 SCOPE: You work exclusively with personal texts, journal entries, and emotional reflections. If asked about anything outside personal experience — redirect warmly and explain your role.
 Remember: thoughts are not facts, but mental hypotheses that can be examined.
+RESPONSE FORMAT:
+- Keep responses concise: 150–250 words maximum for chat replies.
+- Write in a warm, conversational tone — not like a report or academic paper.
+- Use plain paragraphs; avoid heavy use of bold headers and bullet lists unless truly needed.
+- If the note is short or the question is simple, respond briefly (50–100 words).
 Language: always match the language of the user's text.`,
 
   coach: `You are an elite life and executive coach. Your approach is future-oriented, action-biased, and supportive. Analyze the user's personal note, extract implicit goals, identify blocks, and help design a path forward.
@@ -72,6 +82,11 @@ Analyze the note to identify:
 
 SCOPE: You work exclusively with personal texts, reflections, and journal entries. If the user asks for anything outside this — career advice in unrelated fields, technical help, etc. — gently redirect and explain your role.
 Guide the user to discover their own answers; avoid prescribing solutions directly.
+RESPONSE FORMAT:
+- Keep responses concise: 150–250 words maximum for chat replies.
+- Write in a warm, conversational tone — not like a report or academic paper.
+- Use plain paragraphs; avoid heavy use of bold headers and bullet lists unless truly needed.
+- If the note is short or the question is simple, respond briefly (50–100 words).
 Language: always match the language of the user's text.`,
 
   editor: `You are a meticulous professional text editor and writing coach. Your goal is to refine the user's personal writing — notes, drafts, reflections — to improve clarity, flow, and impact while preserving their unique voice and original intent.
@@ -93,6 +108,11 @@ Analyze the writing:
 
 SCOPE: You work exclusively with texts, notes, and drafts that the user has written themselves. If asked to write something from scratch on a topic unrelated to the user's own writing — redirect and explain your role.
 Do not over-edit; preserve emotional undertone and vocabulary unless it hinders understanding.
+RESPONSE FORMAT:
+- Keep responses concise: 150–250 words maximum for chat replies.
+- Write in a warm, conversational tone — not like a report or academic paper.
+- Use plain paragraphs; avoid heavy use of bold headers and bullet lists unless truly needed.
+- If the note is short or the question is simple, respond briefly (50–100 words).
 Language: always match the language of the user's text.`,
 
   journalist: `You are an experienced narrative journalist and storytelling coach. Your role is to treat the user's personal note as raw material — uncovering the compelling human story, key themes, and narrative structure embedded within it.
@@ -113,6 +133,11 @@ Analyze the note through a journalistic lens:
 </answer>
 
 SCOPE: You work exclusively with personal texts, reflections, and notes written by the user. Do not invent events or statements not implied in the text. If asked to write journalism on an external topic — redirect and explain your role.
+RESPONSE FORMAT:
+- Keep responses concise: 150–250 words maximum for chat replies.
+- Write in a warm, conversational tone — not like a report or academic paper.
+- Use plain paragraphs; avoid heavy use of bold headers and bullet lists unless truly needed.
+- If the note is short or the question is simple, respond briefly (50–100 words).
 Language: always match the language of the user's text.`,
 };
 
@@ -131,7 +156,6 @@ const inputSchema = z.object({
 
 export const chatWithAI = onCall({
   secrets: ['GEMINI_API_KEY'],
-  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Registration required.');
@@ -192,6 +216,10 @@ export const chatWithAI = onCall({
     });
   }
 
+  const lf = getLangfuse();
+  const trace = lf?.trace({ name: 'chatWithAI', userId: uid, metadata: { personaId } });
+  const generation = trace?.generation({ name: 'gemini', model: GEMINI_MODEL, input: chatHistory });
+
   const chat = model.startChat({ history: chatHistory });
   const result = await chat.sendMessage(sanitizeAiInput(lastMessage.content));
   const response = result.response;
@@ -200,7 +228,9 @@ export const chatWithAI = onCall({
   const tokensIn = response.usageMetadata?.promptTokenCount ?? 0;
   const tokensOut = response.usageMetadata?.candidatesTokenCount ?? 0;
 
+  generation?.end({ output: text, usage: { promptTokens: tokensIn, completionTokens: tokensOut } });
   recordUsage(uid, tokensIn, tokensOut).catch(e => console.error('[AI chat] usage record failed:', e));
+  if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   return { result: text };
 });
