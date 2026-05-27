@@ -1,6 +1,7 @@
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import DOMPurify from 'isomorphic-dompurify';
+import { Langfuse } from 'langfuse';
 
 export const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
 
@@ -33,6 +34,18 @@ export const INJECTION_PATTERNS = [
   /новые\s+инструкции/i,
   /забудь/i,
 ];
+
+let _langfuse: Langfuse | null = null;
+
+export function getLangfuse(): Langfuse | null {
+  const secretKey = process.env.LANGFUSE_SECRET_KEY;
+  const publicKey = process.env.LANGFUSE_PUBLIC_KEY;
+  if (!secretKey || !publicKey) return null;
+  if (!_langfuse) {
+    _langfuse = new Langfuse({ secretKey, publicKey, flushAt: 1, fetchRetryCount: 1 });
+  }
+  return _langfuse;
+}
 
 export function sanitizeAiInput(content: string): string {
   let sanitized = content.slice(0, MAX_AI_CONTENT_LENGTH);

@@ -91,6 +91,7 @@ export interface AIDocumentSummary {
   frequentWords: string[];
   insights: string[];
   themes: string[];
+  extractedFacts: string[];
   processedAt: number;
 }
 

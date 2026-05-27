@@ -34,6 +34,12 @@ export const AISummaryService = {
       '## Инсайты',
       ...summary.insights.map(i => `- ${i}`),
     ];
+
+    const facts = summary.extractedFacts ?? [];
+    if (facts.length > 0) {
+      lines.push('', '## Факты', ...facts.map(f => `- ${f}`));
+    }
+
     return lines.join('\n');
   },
 

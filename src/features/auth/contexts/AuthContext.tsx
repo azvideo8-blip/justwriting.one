@@ -7,6 +7,7 @@ import { UserProfile } from '../../../types';
 import * as Sentry from '@sentry/react';
 import { clearSessionKey } from '../../../core/crypto/encrypt';
 import { reportError } from '../../../core/errors/reportError';
+import { analytics } from '../../../core/analytics/analytics';
 import { setEncryptionEnabled, setProfileLoaded } from '../../../core/crypto/cryptoHelpers';
 import { userProfileDbSchema } from '../../../core/firebase/schemas/firestoreSchemas';
 import { STORAGE_KEYS } from '../../../core/constants/storageKeys';
@@ -75,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!uidChanged) return;
 
       if (u) {
+        analytics.identify(u.uid);
         try {
           const guestId = localStorage.getItem(STORAGE_KEYS.GUEST_ID);
           const keysToRemove: string[] = [];
@@ -89,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           reportError(e, { action: 'cleanupOldSessionKeys', uid: u.uid }, 'warning');
         }
       } else {
+        analytics.reset();
         clearSessionKey();
       }
     });

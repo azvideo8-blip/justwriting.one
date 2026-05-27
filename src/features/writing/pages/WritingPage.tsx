@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { useTimerStore } from '../store/useTimerStore';
 import { useContentStore } from '../store/useContentStore';
+import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { Session, UserProfile } from '../../../types';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { GoalToast } from '../../../shared/components/GoalToast';
@@ -72,6 +73,7 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
   const sessionType = session.sessionType;
   const setSessionType = session.setSessionType;
   const setTitle = useContentStore(s => s.setTitle);
+  const savedDocumentId = useSessionMetaStore(s => s.savedDocumentId);
 
   const {
     targetTime,
@@ -274,6 +276,7 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
         onSkipSave={() => setIsFinishModalOpen(false)}
         streakDays={streakForModal}
         sessionGroups={lifeLogGroups}
+        savedDocumentId={savedDocumentId}
       />
       <FlowPulse isActive={sessionStatus === 'writing'} />
       {import.meta.env.DEV && devKpmStats && (

@@ -63,18 +63,18 @@ service cloud.firestore {
              !('role' in data);
     }
 
-    function isValidUserUpdate(data) {
-      return data.keys().hasAll(['uid', 'email']) &&
-             data.keys().hasOnly([
-               'uid', 'email', 'nickname', 'encryptionSalt', 'encryptedDataKey',
-               'labels', 'earnedAchievements', 'totalWordCount', 'sessionsCount',
-               'streakDays', 'totalDuration', 'avgWpm', 'avgSessionWords', 'role'
-             ]) &&
-             data.uid is string && data.uid.size() > 0 &&
-             data.email is string && data.email.size() > 0 &&
-             (!('nickname' in data) || (data.nickname is string && data.nickname.size() <= 100)) &&
-             (!('encryptionSalt' in data) || data.encryptionSalt is string) &&
-             (!('encryptedDataKey' in data) || data.encryptedDataKey is string);
+    function isValidUserUpdate(data, changedKeys) {
+      // Only validate the keys that are actually being changed.
+      // This avoids rejecting users who have legacy fields in their profile.
+      let allowedWriteKeys = [
+        'nickname', 'encryptionSalt', 'encryptedDataKey',
+        'labels', 'earnedAchievements', 'totalWordCount', 'sessionsCount',
+        'streakDays', 'totalDuration', 'avgWpm', 'avgSessionWords'
+      ];
+      return changedKeys.hasOnly(allowedWriteKeys) &&
+             (!changedKeys.hasAny(['nickname']) || (data.nickname is string && data.nickname.size() <= 100)) &&
+             (!changedKeys.hasAny(['encryptionSalt']) || data.encryptionSalt is string) &&
+             (!changedKeys.hasAny(['encryptedDataKey']) || data.encryptedDataKey is string);
     }
 
     function isValidSession(data) {
@@ -135,9 +135,10 @@ service cloud.firestore {
       
       // Allow updates to a profile.
       // The role field MUST NOT be modified by the client.
-      allow update: if isOwner(userId) && isValidUserUpdate(request.resource.data) && 
-                      !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) &&
-                      request.resource.data.uid == resource.data.uid;
+      // We check only the keys that actually changed (diff-based), not the entire document.
+      allow update: if isOwner(userId) && 
+                      isValidUserUpdate(request.resource.data, request.resource.data.diff(resource.data).affectedKeys()) &&
+                      !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'uid', 'email']);
     }
 
     // Connection test — restricted to specific ping doc only

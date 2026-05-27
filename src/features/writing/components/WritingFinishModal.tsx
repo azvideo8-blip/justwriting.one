@@ -1,5 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '../../../core/utils/utils';
 import { Label } from '../../../types';
 import { useLanguage } from '../../../core/i18n';
@@ -45,6 +47,7 @@ interface WritingFinishModalProps {
   onSkipSave: () => void;
   streakDays?: number;
   sessionGroups?: { date: Date; sessions: unknown[] }[];
+  savedDocumentId?: string | null;
 }
 
 export function WritingFinishModal({
@@ -59,11 +62,13 @@ export function WritingFinishModal({
   onSkipSave,
   streakDays = 0,
   sessionGroups = [],
+  savedDocumentId,
 }: WritingFinishModalProps) {
   const { t } = useLanguage();
   const { execute, isLoading: isSaving } = useServiceAction();
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
+  const navigate = useNavigate();
 
   const wordCount = useContentStore(s => s.wordCount);
   const initialWordCount = useContentStore(s => s.initialWordCount);
@@ -97,7 +102,7 @@ export function WritingFinishModal({
 
   const [statsExpanded, setStatsExpanded] = useState(true);
   const [formExpanded, setFormExpanded] = useState(true);
-  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const [tagsExpanded, setTagsExpanded] = useState(true);
   const [exportExpanded, setExportExpanded] = useState(false);
 
   React.useEffect(() => {
@@ -236,6 +241,16 @@ export function WritingFinishModal({
             >
               {isSaving ? t('finish_saving') : t('mood_checkin_skip')}
             </button>
+
+            {savedDocumentId && !isSaving && (
+              <button
+                onClick={() => navigate(`/ai?doc=${savedDocumentId}`)}
+                className="mt-4 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-soft/10 border border-brand-soft/20 text-brand-soft text-sm font-medium hover:bg-brand-soft/20 transition-colors"
+              >
+                <Sparkles size={14} />
+                Отправить в AI
+              </button>
+            )}
           </motion.div>
         ) : isMobile ? (
           <motion.div

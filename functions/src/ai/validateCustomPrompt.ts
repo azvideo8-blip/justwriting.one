@@ -10,7 +10,6 @@ const inputSchema = z.object({
 
 export const validateCustomPrompt = onCall({
   secrets: ['GEMINI_API_KEY'],
-  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Registration required.');

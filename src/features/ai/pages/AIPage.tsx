@@ -1,12 +1,14 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Sparkles, Plus, Archive, Download, Trash2, FileText, Loader2 } from 'lucide-react';
+import { Sparkles, Plus, Archive, Download, Trash2, FileText } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { AIDialogueService } from '../services/AIDialogueService';
 import { AIPersonaService, PRESET_PERSONAS, PRESET_PERSONA_DESCRIPTIONS } from '../services/AIPersonaService';
 import { useAIChat } from '../hooks/useAIChat';
 import { useDailyLimit } from '../hooks/useDailyLimit';
+import { useTypewriter } from '../hooks/useTypewriter';
 import { DocumentPickerModal } from '../components/DocumentPickerModal';
 import { CreatePersonaModal } from '../components/CreatePersonaModal';
+import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import type { AIDialogue, AIPersona } from '../../../core/storage/localDb';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { cn } from '../../../core/utils/utils';
@@ -30,6 +32,7 @@ export function AIPage() {
   const [docPickerOpen, setDocPickerOpen] = useState(false);
   const [createPersonaOpen, setCreatePersonaOpen] = useState(false);
   const [infoPersonaId, setInfoPersonaId] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const initRef = useRef(false);
 
   const dailyLimit = useDailyLimit();
@@ -79,12 +82,6 @@ export function AIPage() {
     const text = inputText.trim();
     setInputText('');
 
-    if (!activeDialogueId && !documentContent) {
-      setDocPickerOpen(true);
-      setInputText(text);
-      return;
-    }
-
     await sendMessage(text);
     if (!activeDialogueId && dialogue) {
       setActiveDialogueId(dialogue.id);
@@ -133,6 +130,14 @@ export function AIPage() {
 
   const activeDialogue = dialogue ?? dialogues.find(d => d.id === activeDialogueId) ?? null;
   const displayMessages = activeDialogue?.messages ?? [];
+
+  const lastAssistantIdx = [...displayMessages].map((m, i) => ({ ...m, i })).filter(m => m.role === 'assistant').slice(-1)[0]?.i ?? -1;
+  const lastAssistantText = lastAssistantIdx >= 0 ? displayMessages[lastAssistantIdx].content : '';
+  const { displayed: typewriterText, isTyping } = useTypewriter(lastAssistantText);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [displayMessages.length, isLoading, typewriterText]);
 
   return (
     <div className={cn("h-screen bg-surface-base flex", isMobile ? "flex-col" : "flex-row")}>
@@ -235,7 +240,7 @@ export function AIPage() {
                   <>
                     <button
                       onClick={e => { e.stopPropagation(); setInfoPersonaId(infoPersonaId === p.id ? null : p.id); }}
-                      className="absolute top-1 right-1 w-4 h-4 rounded-full text-[10px] text-text-main/30 hover:text-text-main/60 flex items-center justify-center"
+                      className="absolute top-0 right-0 w-8 h-8 rounded-full text-[10px] text-text-main/30 hover:text-text-main/60 flex items-center justify-center"
                     >
                       i
                     </button>
@@ -261,18 +266,28 @@ export function AIPage() {
             <div className="mt-2 flex items-center gap-2">
               <button
                 onClick={() => setDocPickerOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-text-main/5 border border-dashed border-border-subtle text-xs text-text-main/40 hover:text-text-main/60 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-text-main/5 border border-dashed border-border-subtle text-xs text-text-main/40 hover:text-text-main/60 transition-colors"
               >
-                <FileText size={12} />
-                Загрузить заметку
+                <Plus size={12} />
+                Привязать заметку
               </button>
+              <span className="text-[10px] text-text-main/25">необязательно</span>
             </div>
           )}
           {documentContent && (
-            <div className="mt-2 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-brand-soft/5 border border-brand-soft/15 text-xs text-brand-soft">
-              <FileText size={12} />
-              Заметка загружена
-              {documentMood && <span className="ml-1">{documentMood}</span>}
+            <div className="mt-2 flex items-center gap-2">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-brand-soft/5 border border-brand-soft/15 text-xs text-brand-soft">
+                <FileText size={12} />
+                Заметка загружена
+                {documentMood && <span className="ml-1">{documentMood}</span>}
+              </div>
+              <button
+                onClick={() => setDocPickerOpen(true)}
+                className="p-1.5 rounded-lg text-text-main/30 hover:text-text-main/60 transition-colors"
+                title="Заменить заметку"
+              >
+                <Plus size={12} />
+              </button>
             </div>
           )}
         </div>
@@ -300,15 +315,18 @@ export function AIPage() {
                     : "bg-surface-card border border-border-subtle text-text-main/80 rounded-bl-md"
                 )}
               >
-                {msg.content}
+                {msg.role === 'assistant'
+                  ? <MarkdownRenderer content={i === lastAssistantIdx ? typewriterText : msg.content} />
+                  : msg.content
+                }
               </div>
             </div>
           ))}
 
-          {isLoading && (
+          {(isLoading || isTyping) && (
             <div className="flex justify-start">
               <div className="px-4 py-2.5 rounded-2xl bg-surface-card border border-border-subtle rounded-bl-md">
-                <Loader2 size={16} className="animate-spin text-brand-soft/50" />
+                <span className="text-sm text-text-main/40 italic">печатает...</span>
               </div>
             </div>
           )}
@@ -321,6 +339,7 @@ export function AIPage() {
               </div>
             </div>
           )}
+          <div ref={messagesEndRef} />
         </div>
 
         <div className="px-4 py-3 border-t border-border-subtle">
@@ -367,7 +386,7 @@ export function AIPage() {
                   <>
                     <button
                       onClick={e => { e.stopPropagation(); setInfoPersonaId(infoPersonaId === p.id ? null : p.id); }}
-                      className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full text-[8px] text-text-main/30 hover:text-text-main/60 flex items-center justify-center"
+                      className="absolute -top-1 -right-1 w-6 h-6 rounded-full text-[8px] text-text-main/30 hover:text-text-main/60 flex items-center justify-center"
                     >
                       i
                     </button>

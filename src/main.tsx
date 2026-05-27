@@ -4,6 +4,7 @@ import {BrowserRouter} from 'react-router-dom';
 import * as Sentry from "@sentry/react";
 import { reportError } from './core/errors/reportError';
 import App from './App.tsx';
+import './core/analytics/analytics';
 import './index.css';
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
