@@ -39,7 +39,7 @@ export function AppRoutes() {
         <Route path="/archive" element={<ErrorBoundary><ArchivePage user={user} profile={profile} /></ErrorBoundary>} />
         <Route path="/profile" element={<ErrorBoundary><ProfilePage user={user} profile={profile} /></ErrorBoundary>} />
         <Route path="/ai" element={<ProtectedRoute><ErrorBoundary><AIPage /></ErrorBoundary></ProtectedRoute>} />
-        <Route path="/diagnostics" element={<ErrorBoundary><DiagnosticsPage /></ErrorBoundary>} />
+        <Route path="/diagnostics" element={<ProtectedRoute requireAdmin><ErrorBoundary><DiagnosticsPage /></ErrorBoundary></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute requireAdmin><ErrorBoundary><AdminPage /></ErrorBoundary></ProtectedRoute>} />
         <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
         <Route path="/about" element={<AboutPage />} />

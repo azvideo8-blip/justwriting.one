@@ -8,3 +8,4 @@ export { chatWithAI } from './ai/chatWithAI';
 export { summarizeDocument } from './ai/summarizeDocument';
 export { validateCustomPrompt } from './ai/validateCustomPrompt';
 export { getAIUsageStats } from './ai/getAIUsageStats';
+export { getAILimit } from './ai/getAILimit';

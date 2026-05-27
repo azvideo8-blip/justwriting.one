@@ -18,11 +18,7 @@ export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodT
           if (import.meta.env.DEV) {
             console.warn(`Storage schema mismatch for key "${key}":`, result.error);
           }
-          try {
-            localStorage.removeItem(key);
-          } catch (e) {
-            reportError(e, { action: 'useLocalStorage_removeItem', key }, 'warning');
-          }
+          reportError(new Error(`Storage schema mismatch for key "${key}"`), { action: 'useLocalStorage_schemaMismatch', key }, 'warning');
           return initialValueRef.current;
         }
         return result.data;
@@ -56,7 +52,7 @@ export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodT
 
   const setValue = useCallback((value: T | ((val: T) => T)) => {
     setStoredValue(prev => {
-      const valueToStore = value instanceof Function ? value(prev) : value;
+      const valueToStore = typeof value === 'function' ? (value as (val: T) => T)(prev) : value;
       try {
         localStorage.setItem(key, JSON.stringify(valueToStore));
         window.dispatchEvent(new Event('local-storage'));

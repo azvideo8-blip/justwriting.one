@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useToast } from '../components/Toast';
 import { useLanguage } from '../../core/i18n';
 import { reportError } from '../../core/errors/reportError';
@@ -16,18 +16,26 @@ export function useServiceAction() {
   const { showToast } = useToast();
   const { t } = useLanguage();
   const callIdRef = useRef(0);
+  const abortedRef = useRef(false);
+
+  useEffect(() => {
+    return () => { abortedRef.current = true; };
+  }, []);
 
   const execute = useCallback(async <T>(
-    action: () => Promise<T>,
+    action: (signal?: AbortSignal) => Promise<T>,
     options: ServiceActionOptions = {}
   ): Promise<T | null> => {
+    const controller = new AbortController();
     setIsLoading(true);
     setError(null);
     callIdRef.current++;
     const callId = callIdRef.current;
 
     try {
-      const result = await action();
+      const result = await action(controller.signal);
+
+      if (abortedRef.current) return null;
 
       if (options.successMessage) {
         showToast(options.successMessage, 'success');
@@ -37,6 +45,7 @@ export function useServiceAction() {
       return result;
 
     } catch (err) {
+      if (abortedRef.current) return null;
       reportError(err, { action: 'serviceAction/execute' });
       const message = options.errorMessage || t('error_generic_action');
       setError(message);
@@ -45,7 +54,7 @@ export function useServiceAction() {
       return null;
 
     } finally {
-      if (callIdRef.current === callId) setIsLoading(false);
+      if (callIdRef.current === callId && !abortedRef.current) setIsLoading(false);
     }
   }, [showToast, t]);
 

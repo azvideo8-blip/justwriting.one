@@ -25,16 +25,14 @@ function errorCode(message: string): string {
 }
 
 function buildMailto(error: Error, code: string): string {
-  const subject = encodeURIComponent(`Ошибка ERR-${code} в justwriting`);
+  const subject = encodeURIComponent(`Error ERR-${code}`);
   const body = encodeURIComponent(
-    `Код ошибки: ERR-${code}\n` +
-    `Время: ${new Date().toISOString()}\n` +
-    `Страница: ${window.location.href}\n` +
-    `Браузер: ${navigator.userAgent}\n\n` +
-    `Описание ошибки:\n${error.message}\n\n` +
-    `Стек:\n${error.stack ?? '—'}`
+    `Code: ERR-${code}\n` +
+    `Time: ${new Date().toISOString()}\n` +
+    `URL: ${window.location.pathname}\n\n` +
+    `Message:\n${error.message.slice(0, 200)}\n`
   );
-  return `mailto:${['z8d8','yandex.ru'].join('@')}?subject=${subject}&body=${body}`;
+  return `mailto:support@justwriting.one?subject=${subject}&body=${body}`;
 }
 
 export class ErrorBoundary extends Component<Props, State> {

@@ -1,4 +1,5 @@
 import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 
 interface MarkdownRendererProps {
   content: string;
@@ -9,6 +10,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
   return (
     <div className={className}>
       <ReactMarkdown
+        rehypePlugins={[rehypeSanitize]}
         components={{
           p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
           strong: ({ children }) => <strong className="font-semibold text-text-main">{children}</strong>,

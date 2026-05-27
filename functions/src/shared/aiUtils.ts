@@ -16,12 +16,6 @@ export function getGenAI(): GoogleGenerativeAI {
   return _genAI;
 }
 
-export const genAI = new Proxy({} as GoogleGenerativeAI, {
-  get(_target, prop) {
-    return Reflect.get(getGenAI(), prop);
-  },
-});
-
 const MAX_AI_CONTENT_LENGTH = 50_000;
 
 export const INJECTION_PATTERNS = [
@@ -63,26 +57,8 @@ export function sanitizeAiResponse(response: string): string {
   });
 }
 
-export function sanitizeStringFields<T extends Record<string, unknown>>(
-  obj: T,
-  fields: (keyof T)[]
-): T {
-  const result = { ...obj };
-  for (const field of fields) {
-    const value = result[field];
-    if (typeof value === 'string') {
-      (result as Record<string, unknown>)[field as string] = sanitizeAiResponse(value);
-    } else if (Array.isArray(value)) {
-      (result as Record<string, unknown>)[field as string] = value.map(item =>
-        typeof item === 'string' ? sanitizeAiResponse(item) : item
-      );
-    }
-  }
-  return result;
-}
-
 export async function recordUsage(uid: string, tokensIn: number, tokensOut: number): Promise<void> {
-  const db = getFirestore('ai-studio-26638cb9-0855-4980-84cb-072afd2a063d');
+  const db = getFirestore();
   const date = new Date().toISOString().slice(0, 10);
   const ref = db.doc(`aiUsage/${uid}/daily/${date}`);
   await ref.set({
@@ -94,10 +70,15 @@ export async function recordUsage(uid: string, tokensIn: number, tokensOut: numb
   }, { merge: true });
 }
 
-const DAILY_LIMIT = process.env.AI_DAILY_LIMIT ? parseInt(process.env.AI_DAILY_LIMIT, 10) : 50;
+export const DAILY_LIMIT = (() => {
+  const raw = process.env.AI_DAILY_LIMIT;
+  if (!raw) return 50;
+  const parsed = parseInt(raw, 10);
+  return Number.isNaN(parsed) ? 50 : parsed;
+})();
 
 export async function checkDailyLimit(uid: string): Promise<boolean> {
-  const db = getFirestore('ai-studio-26638cb9-0855-4980-84cb-072afd2a063d');
+  const db = getFirestore();
 
   const userSnap = await db.doc(`users/${uid}`).get();
   if (userSnap.exists && userSnap.data()?.role === 'admin') {
@@ -122,7 +103,7 @@ export async function checkDailyLimit(uid: string): Promise<boolean> {
 }
 
 export async function getDailyLimitCount(uid: string): Promise<{ used: number; date: string }> {
-  const db = getFirestore('ai-studio-26638cb9-0855-4980-84cb-072afd2a063d');
+  const db = getFirestore();
   const date = new Date().toISOString().slice(0, 10);
   const ref = db.doc(`aiDailyLimit/${uid}`);
   const snap = await ref.get();
@@ -134,7 +115,7 @@ export async function getDailyLimitCount(uid: string): Promise<{ used: number; d
 const COOLDOWN_MS = 3000;
 
 export async function checkRateLimit(uid: string): Promise<boolean> {
-  const db = getFirestore('ai-studio-26638cb9-0855-4980-84cb-072afd2a063d');
+  const db = getFirestore();
   const ref = db.doc(`aiCooldown/${uid}`);
   const now = Date.now();
 

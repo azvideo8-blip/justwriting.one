@@ -7,12 +7,13 @@ const inputSchema = z.object({
 });
 
 export const getAIUsageStats = onCall({
+  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Registration required.');
   }
 
-  const db = getFirestore('ai-studio-26638cb9-0855-4980-84cb-072afd2a063d');
+  const db = getFirestore();
   const callerDoc = await db.doc(`users/${request.auth.uid}`).get();
   if (!callerDoc.exists || callerDoc.data()?.role !== 'admin') {
     throw new HttpsError('permission-denied', 'Admin access required.');
@@ -25,8 +26,8 @@ export const getAIUsageStats = onCall({
 
   const { date } = parsed.data;
 
-  const collectionRef = db.collectionGroup('daily').where('date', '==', date);
-  const snapshot = await collectionRef.get();
+  const collectionRef = db.collectionGroup('aiUsageDaily').where('date', '==', date);
+  const snapshot = await collectionRef.limit(500).get();
 
   const results: { uid: string; requests: number; promptTokens: number; completionTokens: number }[] = [];
 

@@ -10,13 +10,7 @@ export const PRESET_PERSONAS = [
   { id: 'journalist', name: 'Журналист', emoji: '\u{1F4F0}', isPreset: true },
 ] as const;
 
-export const PRESET_PERSONA_DESCRIPTIONS: Record<string, string> = {
-  group_psychology: 'Панель психологов разных школ — Роджерс, Бек, Франкл, Ялом — обсуждает твой текст с разных точек зрения и предлагает многогранный взгляд.',
-  cbt: 'КПТ-психолог помогает найти автоматические мысли и когнитивные искажения. Мысли — не факты, а гипотезы, которые можно проверить.',
-  editor: 'Опытный редактор улучшает ясность, структуру и поток текста, сохраняя твой авторский голос.',
-  coach: 'Коуч помогает найти скрытую цель, переосмыслить ограничивающие убеждения и сформулировать конкретный следующий шаг.',
-  journalist: 'Журналист превращает твои мысли в compelling narrative — находит угол подачи, структуру и главную историю.',
-};
+export const PRESET_PERSONA_IDS = PRESET_PERSONAS.map(p => p.id);
 
 export type PresetPersona = typeof PRESET_PERSONAS[number];
 

@@ -1,6 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { getFirestore } from 'firebase-admin/firestore';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, getDailyLimitCount, checkRateLimit, GEMINI_MODEL, getGenAI, getLangfuse } from '../shared/aiUtils';
 
@@ -45,12 +44,17 @@ async function callGemini(
 
   const chatHistory = (history ?? []).map(m => ({
     role: m.role === 'assistant' ? 'model' as const : 'user' as const,
-    parts: [{ text: m.content }],
+    parts: [{ text: sanitizeAiInput(m.content) }],
   }));
 
   const chat = model.startChat({ history: chatHistory });
   const prompt = buildPrompt(action, content);
-  const result = await chat.sendMessage(prompt);
+  let result;
+  try {
+    result = await chat.sendMessage(prompt);
+  } catch {
+    throw new HttpsError('internal', 'AI request failed.');
+  }
   const response = result.response;
   return {
     text: response.text(),
@@ -61,6 +65,7 @@ async function callGemini(
 
 export const editWithAI = onCall({
   secrets: ['GEMINI_API_KEY'],
+  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Registration required.');
@@ -85,9 +90,6 @@ export const editWithAI = onCall({
   const { content, action, sessionId, history } = parsed.data;
   const sanitizedInput = sanitizeAiInput(content);
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new HttpsError('internal', 'AI service not configured.');
-
   const lf = getLangfuse();
   const trace = lf?.trace({ name: 'editWithAI', userId: uid, metadata: { action } });
   const generation = trace?.generation({ name: 'gemini', model: GEMINI_MODEL, input: sanitizedInput });
@@ -100,20 +102,23 @@ export const editWithAI = onCall({
   if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   if (sessionId) {
-    const db = getFirestore('ai-studio-26638cb9-0855-4980-84cb-072afd2a063d');
-    const userDoc = await db.doc(`users/${uid}`).get();
-    const isAdmin = userDoc.exists && userDoc.data()?.role === 'admin';
+    const db = getFirestore();
     const docRef = db.doc(`sessions/${sessionId}`);
-    const doc = await docRef.get();
-    if (!doc.exists || (doc.data()?.userId !== uid && !isAdmin)) {
-      throw new HttpsError('permission-denied', 'Session not found or not owned.');
-    }
-
-    await docRef.update({
-      _aiProcessed: true,
-      _aiAction: action,
-      _aiProcessedAt: new Date(),
-      _aiResultText: sanitizedOutput,
+    await db.runTransaction(async (tx) => {
+      const [userDoc, sessionDoc] = await Promise.all([
+        tx.get(db.doc(`users/${uid}`)),
+        tx.get(docRef),
+      ]);
+      const isAdmin = userDoc.exists && userDoc.data()?.role === 'admin';
+      if (!sessionDoc.exists || (sessionDoc.data()?.userId !== uid && !isAdmin)) {
+        throw new HttpsError('permission-denied', 'Session not found or not owned.');
+      }
+      tx.update(docRef, {
+        _aiProcessed: true,
+        _aiAction: action,
+        _aiProcessedAt: FieldValue.serverTimestamp(),
+        _aiResultText: sanitizedOutput,
+      });
     });
   }
 

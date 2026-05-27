@@ -11,11 +11,3 @@ export const badInput = (msg = 'Invalid or missing payload.') =>
 
 export const notFound = (entity: string) =>
   new HttpsError('not-found', `${entity} not found.`);
-
-export function reportError(
-  error: unknown,
-  context: Record<string, string | number | boolean | null | undefined> = {},
-  _level: 'error' | 'warning' = 'error'
-): void {
-  console.error('[reportError]', error, context);
-}

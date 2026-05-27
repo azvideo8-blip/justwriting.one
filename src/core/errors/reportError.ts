@@ -7,7 +7,9 @@ export function reportError(
   context: ErrorContext = {},
   level: 'error' | 'warning' = 'error'
 ): void {
-  console.error('[reportError]', error, context);
+  if (import.meta.env.DEV) {
+    console.error('[reportError]', error, context);
+  }
 
   const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
   if (!sentryDsn || !sentryDsn.startsWith('https://')) return;

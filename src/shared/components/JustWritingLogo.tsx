@@ -1,4 +1,5 @@
 import React from "react";
+import { useLanguage } from "../../core/i18n";
 
 interface TankLogoProps {
   size?: number;
@@ -29,7 +30,8 @@ const RAILWAY_TICKS = Array.from({ length: 28 }, (_, i) => {
 const RN = [{t:"XII",x:100,y:48},{t:"III",x:158,y:100},{t:"VI",x:100,y:158},{t:"IX",x:42,y:100}];
 export function JustWritingLogo({size=32,variant="dark",showRailway=true,showRoman=true,showCrown=true,className}: TankLogoProps) {
   const c = COLORS[variant];
-  return React.createElement("svg",{width:size,height:size,viewBox:"0 0 200 200",fill:"none",xmlns:"http://www.w3.org/2000/svg",className,"aria-label":"justwriting logo",role:"img"},
+  const { t } = useLanguage();
+  return React.createElement("svg",{width:size,height:size,viewBox:"0 0 200 200",fill:"none",xmlns:"http://www.w3.org/2000/svg",className,"aria-label":t('app_name'),role:"img"},
     React.createElement("rect",{x:22,y:22,width:156,height:156,rx:14,stroke:c.ca,strokeWidth:6,fill:"none"}),
     React.createElement("rect",{x:32,y:32,width:136,height:136,rx:10,stroke:c.inn,strokeWidth:2,fill:"none",opacity:.55}),
     showRailway && RAILWAY_TICKS.map((t,i)=>React.createElement("line",{key:"r"+i,x1:t.x1,y1:t.y1,x2:t.x2,y2:t.y2,stroke:c.rw,strokeWidth:1.5,opacity:.6})),

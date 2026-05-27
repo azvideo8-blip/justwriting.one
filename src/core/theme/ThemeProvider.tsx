@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect } from 'react';
 import { z } from 'zod';
 import { useLocalStorage } from '../../shared/hooks/useLocalStorage';
+import { STORAGE_KEYS } from '../constants/storageKeys';
 
 export type ThemeId = 'modern' | 'notion' | 'spotify' | 'amethyst';
 
@@ -48,7 +49,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [themeId, setThemeId] = useLocalStorage<ThemeId>(
-    'app-theme',
+    STORAGE_KEYS.APP_THEME,
     'amethyst',
     z.enum(['modern', 'notion', 'spotify', 'amethyst'])
   );

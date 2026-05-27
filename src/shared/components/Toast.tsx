@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../core/utils/utils';
 
@@ -17,11 +17,24 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const nextIdRef = React.useRef(0);
+  const timersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
   const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     const id = ++nextIdRef.current;
     setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
+    const timer = setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+      timersRef.current.delete(id);
+    }, 3000);
+    timersRef.current.set(id, timer);
+  }, []);
+
+  React.useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      timers.forEach(t => clearTimeout(t));
+      timers.clear();
+    };
   }, []);
 
   return (

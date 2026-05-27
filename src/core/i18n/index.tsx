@@ -29,6 +29,7 @@ interface LanguageContextType {
 }
 
 const _missingKeyWarned = new Set<string>();
+const MAX_MISSING_KEYS = 200;
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
@@ -46,7 +47,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   const t = useCallback((key: string, params?: Record<string, string | number>): string => {
     if (import.meta.env.DEV && !translations[key] && !_missingKeyWarned.has(key)) {
-      _missingKeyWarned.add(key);
+      if (_missingKeyWarned.size < MAX_MISSING_KEYS) _missingKeyWarned.add(key);
       console.warn(`[i18n] Missing translation key: "${key}"`);
     }
     let str = translations[key]?.[language] ?? key;

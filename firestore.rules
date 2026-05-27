@@ -91,10 +91,15 @@ service cloud.firestore {
               data.content is string && data.content.size() <= 700000 &&
              data.duration is number && data.duration >= 0 &&
              data.createdAt is timestamp &&
-             (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
-              (!('pinnedThoughts' in data) || (data.pinnedThoughts is list && data.pinnedThoughts.size() <= 20)) &&
-              (!('tags' in data) || (data.tags is list && data.tags.size() <= 10)) &&
-              (!('_aiResultText' in data) || data._aiResultText is string);
+              (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
+               (!('pinnedThoughts' in data) || (data.pinnedThoughts is list && data.pinnedThoughts.size() <= 20)) &&
+               (!('tags' in data) || (data.tags is list && data.tags.size() <= 10)) &&
+               (!('_aiResultText' in data) || data._aiResultText is string) &&
+               (!('isPublic' in data) || data.isPublic is bool) &&
+               (!('authorName' in data) || (data.authorName is string && data.authorName.size() <= 200)) &&
+               (!('authorPhoto' in data) || (data.authorPhoto is string && data.authorPhoto.size() <= 500)) &&
+               (!('nickname' in data) || (data.nickname is string && data.nickname.size() <= 100)) &&
+               (!('_encrypted' in data) || data._encrypted is bool);
     }
 
     function isValidDraft(data) {

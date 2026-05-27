@@ -1,8 +1,11 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, getDailyLimitCount, checkRateLimit, GEMINI_MODEL, genAI, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, getDailyLimitCount, checkRateLimit, GEMINI_MODEL, getGenAI, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
 
-const PERSONA_SYSTEM_PROMPTS: Record<string, string> = {
+const PRESET_PERSONA_IDS = ['group_psychology', 'cbt', 'editor', 'coach', 'journalist'] as const;
+type PresetPersonaId = typeof PRESET_PERSONA_IDS[number];
+
+const PERSONA_SYSTEM_PROMPTS: Record<PresetPersonaId, string> = {
   group_psychology: `You are a facilitator of a collaborative panel of elite psychologists, bringing together different therapeutic schools to analyze the user's personal note and offer a multi-dimensional perspective.
 
 //<reasoning>
@@ -144,18 +147,22 @@ Language: always match the language of the user's text.`,
 const TOPIC_GUARD = 'Если пользователь просит что-то не связанное с его личными текстами, рефлексией или творческим письмом — вежливо откажи и объясни свою роль.';
 
 const inputSchema = z.object({
-  personaId: z.enum(['group_psychology', 'cbt', 'editor', 'coach', 'journalist', 'custom']),
+  personaId: z.enum([...PRESET_PERSONA_IDS, 'custom'] as [PresetPersonaId, ...string[]]),
   customSystemPrompt: z.string().max(500).nullish(),
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant']),
     content: z.string().max(10_000),
-  })).max(100),
+  })).max(100).refine(msgs => {
+    const totalChars = msgs.reduce((sum, m) => sum + m.content.length, 0);
+    return totalChars <= 200_000;
+  }, 'Total messages content exceeds 200K characters'),
   documentContent: z.string().max(50_000).nullish(),
   documentMood: z.string().max(50).nullish(),
 });
 
 export const chatWithAI = onCall({
   secrets: ['GEMINI_API_KEY'],
+  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Registration required.');
@@ -174,7 +181,7 @@ export const chatWithAI = onCall({
 
   const parsed = inputSchema.safeParse(request.data);
   if (!parsed.success) {
-    console.error('Validation failed for chatWithAI. Errors:', JSON.stringify(parsed.error.format()), 'Payload:', JSON.stringify(request.data));
+    console.error('Validation failed for chatWithAI. Errors:', JSON.stringify(parsed.error.format()));
     throw new HttpsError('invalid-argument', 'Invalid payload.');
   }
 
@@ -189,17 +196,19 @@ export const chatWithAI = onCall({
     }
   }
 
+  const personaPrompt = personaId !== 'custom' ? PERSONA_SYSTEM_PROMPTS[personaId as PresetPersonaId] : '';
   const systemInstruction = personaId === 'custom'
     ? `${customSystemPrompt!}\n\n${TOPIC_GUARD}`
-    : `${PERSONA_SYSTEM_PROMPTS[personaId]}\n\n${TOPIC_GUARD}`;
+    : `${personaPrompt}\n\n${TOPIC_GUARD}`;
 
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL, systemInstruction });
+  const model = getGenAI().getGenerativeModel({ model: GEMINI_MODEL, systemInstruction });
 
   const chatHistory: { role: 'user' | 'model'; parts: [{ text: string }] }[] = [];
   const allMessages = [...messages];
 
   if (documentContent) {
-    const docMessage = `[Документ пользователя]\n${sanitizeAiInput(documentContent)}\n[Настроение: ${documentMood ?? 'не указано'}]`;
+    const safeMood = documentMood ? sanitizeAiInput(documentMood) : 'не указано';
+    const docMessage = `[Документ пользователя]\n${sanitizeAiInput(documentContent)}\n[Настроение: ${safeMood}]`;
     allMessages.unshift({ role: 'user', content: docMessage });
     if (allMessages.length > 1 && allMessages[1].role === 'user') {
       allMessages.splice(1, 0, { role: 'assistant', content: 'Документ получен. Готов обсудить.' });
@@ -221,7 +230,12 @@ export const chatWithAI = onCall({
   const generation = trace?.generation({ name: 'gemini', model: GEMINI_MODEL, input: chatHistory });
 
   const chat = model.startChat({ history: chatHistory });
-  const result = await chat.sendMessage(sanitizeAiInput(lastMessage.content));
+  let result;
+  try {
+    result = await chat.sendMessage(sanitizeAiInput(lastMessage.content));
+  } catch {
+    throw new HttpsError('internal', 'AI request failed.');
+  }
   const response = result.response;
   const text = sanitizeAiResponse(response.text());
 

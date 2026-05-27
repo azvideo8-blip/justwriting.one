@@ -56,12 +56,22 @@ async function changePassword(userId: string, currentPassword: string, newPasswo
   const newMasterKey = await deriveMasterKey(newPassword, newSalt);
   const newWrappedDataKey = await wrapDataKey(dataKey, newMasterKey);
 
+  const oldProfile = {
+    encryptionSalt: profileData.encryptionSalt as string,
+    encryptedDataKey: profileData.encryptedDataKey as string,
+  };
+
   await setDoc(doc(db, 'users', user.uid), {
     encryptionSalt: toBase64(newSalt),
     encryptedDataKey: newWrappedDataKey,
   }, { merge: true });
 
-  await AuthService.updatePasswordDirect(newPassword);
+  try {
+    await AuthService.updatePasswordDirect(newPassword);
+  } catch (pwErr) {
+    await setDoc(doc(db, 'users', user.uid), oldProfile, { merge: true });
+    throw pwErr;
+  }
 
   setSessionKey(dataKey);
 }
