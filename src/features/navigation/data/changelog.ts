@@ -14,6 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.2',
+    date: '2026-05-28',
+    items: [
+      { category: 'new', ru: 'Реальный стриминг ИИ: ответ появляется по словам в реальном времени через Vercel AI SDK + Gemini 2.5 Flash', en: 'Real AI streaming: response appears word by word in real time via Vercel AI SDK + Gemini 2.5 Flash' },
+      { category: 'new', ru: 'Серверная проверка лимита: дневной счётчик хранится в Firestore, подделать нельзя', en: 'Server-side limit enforcement: daily counter stored in Firestore, cannot be faked' },
+      { category: 'improvement', ru: 'Страница диагностики: дерево документов с раскрывающимися версиями и превью контента', en: 'Diagnostics page: document tree with expandable versions and content preview' },
+      { category: 'fix', ru: 'Роль администратора: исправлено исчезновение после смены подхода к проверке прав', en: 'Admin role: fixed disappearing after changing auth verification approach' },
+      { category: 'fix', ru: 'Страница диагностики: исправлен маршрут — теперь открывается корректно', en: 'Diagnostics page: fixed route — now opens correctly' },
+      { category: 'fix', ru: 'Счётчик лимита ИИ: убран вызов устаревшей Cloud Function getAILimit, теперь читается напрямую из Firestore', en: 'AI limit counter: removed outdated getAILimit Cloud Function call, now reads directly from Firestore' },
+    ],
+  },
+  {
     version: '0.7.1',
     date: '2026-05-27',
     items: [

@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth } from 'firebase/auth';
 
 const STORAGE_KEY = 'ai_daily_usage';
@@ -57,12 +56,14 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
       return;
     }
     try {
-      const fn = httpsCallable<unknown, { used: number; limit: number; date: string }>(
-        getFunctions(), 'getAILimit'
-      );
-      const { data } = await fn({});
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ count: data.used, date: data.date }));
-      set({ used: data.used, limit: data.limit, remaining: Math.max(0, data.limit - data.used), resetsAt: getMidnightUtc(), loaded: true });
+      const { getFirestore, doc, getDoc } = await import('firebase/firestore');
+      const db = getFirestore();
+      const date = getUtcDateStr();
+      const snap = await getDoc(doc(db, 'aiDailyLimit', user.uid));
+      const data = snap.data();
+      const used = (data?.date === date) ? (data?.count ?? 0) : 0;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ count: used, date }));
+      set({ used, limit: DEFAULT_LIMIT, remaining: Math.max(0, DEFAULT_LIMIT - used), resetsAt: getMidnightUtc(), loaded: true });
     } catch {
       get().loadLimit();
     }

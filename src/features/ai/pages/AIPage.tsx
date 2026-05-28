@@ -5,7 +5,6 @@ import { AIDialogueService } from '../services/AIDialogueService';
 import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService';
 import { useAIChat } from '../hooks/useAIChat';
 import { useDailyLimit } from '../hooks/useDailyLimit';
-import { useTypewriter } from '../hooks/useTypewriter';
 import { DocumentPickerModal } from '../components/DocumentPickerModal';
 import { CreatePersonaModal } from '../components/CreatePersonaModal';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
@@ -41,6 +40,7 @@ export function AIPage() {
   const {
     dialogue,
     isLoading,
+    streamingMessage,
     error,
     sendMessage,
     loadDocument,
@@ -132,14 +132,10 @@ export function AIPage() {
 
   const activeDialogue = dialogue ?? dialogues.find(d => d.id === activeDialogueId) ?? null;
   const displayMessages = activeDialogue?.messages ?? [];
-  const lastIdx = displayMessages.length - 1;
-  const lastAssistantIdx = lastIdx >= 0 && displayMessages[lastIdx].role === 'assistant' ? lastIdx : -1;
-  const lastAssistantText = lastAssistantIdx >= 0 ? displayMessages[lastAssistantIdx].content : '';
-  const { displayed: typewriterText, isTyping } = useTypewriter(lastAssistantText);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [displayMessages.length, isLoading, typewriterText]);
+  }, [displayMessages.length, streamingMessage]);
 
   return (
     <div className={cn("h-screen bg-surface-base flex", isMobile ? "flex-col" : "flex-row")}>
@@ -317,15 +313,20 @@ export function AIPage() {
                     : "bg-surface-card border border-border-subtle text-text-main/80 rounded-bl-md"
                 )}
               >
-                {msg.role === 'assistant'
-                  ? <MarkdownRenderer content={i === lastAssistantIdx ? typewriterText : msg.content} />
-                  : msg.content
-                }
+                {msg.role === 'assistant' ? <MarkdownRenderer content={msg.content} /> : msg.content}
               </div>
             </div>
           ))}
 
-          {(isLoading || isTyping) && (
+          {streamingMessage !== null && (
+            <div className="flex justify-start">
+              <div className="max-w-[80%] px-4 py-2.5 rounded-2xl bg-surface-card border border-border-subtle text-text-main/80 rounded-bl-md text-sm leading-relaxed">
+                <MarkdownRenderer content={streamingMessage || '…'} />
+              </div>
+            </div>
+          )}
+
+          {isLoading && streamingMessage === null && (
             <div className="flex justify-start">
               <div className="px-4 py-2.5 rounded-2xl bg-surface-card border border-border-subtle rounded-bl-md">
                 <span className="text-sm text-text-main/40 italic">печатает...</span>

@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { useWritingSettings } from '../features/writing/contexts/WritingSettingsContext';
@@ -20,26 +19,15 @@ import { AppRoutes } from './AppRoutes';
 export function AppShell() {
   const location = useLocation();
   const { t } = useLanguage();
-  const { user, profile } = useAuthStatus();
+  const { profile } = useAuthStatus();
   const { isZenActive, zenModeEnabled } = useWritingSettings();
   const { layoutMode } = useLayoutMode();
   const { loginModalOpen } = useLoginModal();
   const { openSettings } = useSettings();
-  const [isAdmin, setIsAdmin] = useState(false);
 
   const currentPath = location.pathname;
   const showZen = isZenActive && zenModeEnabled && currentPath === '/';
-
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    user.getIdTokenResult().then(token => {
-      if (!cancelled) setIsAdmin(token.claims.role === 'admin');
-    }).catch(() => {
-      if (!cancelled) setIsAdmin(false);
-    });
-    return () => { cancelled = true; };
-  }, [user, profile]);
+  const isAdmin = profile?.role === 'admin';
 
   return (
     <AppLayout className="min-h-screen bg-surface-base text-text-main font-sans selection:bg-white/10">
