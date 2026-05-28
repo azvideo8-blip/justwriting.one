@@ -1,35 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
 import { useLanguage } from '../core/i18n';
 import { LogIn, Loader2 } from 'lucide-react';
-import { reportError } from '../core/errors/reportError';
 
 export function ProtectedRoute({ children, requireAdmin }: { children: React.ReactNode; requireAdmin?: boolean }) {
-  const { isAuthenticated, user, profile, loading } = useAuthStatus();
+  const { isAuthenticated, profile, loading } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
   const { t } = useLanguage();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [checkingAdmin, setCheckingAdmin] = useState(requireAdmin);
 
-  useEffect(() => {
-    if (!requireAdmin || !user) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting derived state on condition change
-      setCheckingAdmin(false);
-      return;
-    }
-    user.getIdTokenResult().then(token => {
-      setIsAdmin(token.claims.role === 'admin');
-      setCheckingAdmin(false);
-    }).catch(e => {
-      reportError(e, { action: 'checkAdminClaim' });
-      setIsAdmin(false);
-      setCheckingAdmin(false);
-    });
-  }, [requireAdmin, user, profile]);
-
-  if (loading || checkingAdmin) return null;
+  if (loading) return null;
 
   if (!isAuthenticated) {
     return (
@@ -61,7 +42,7 @@ export function ProtectedRoute({ children, requireAdmin }: { children: React.Rea
     );
   }
 
-  if (requireAdmin && !isAdmin) {
+  if (requireAdmin && profile?.role !== 'admin') {
     return <Navigate to="/" replace />;
   }
 

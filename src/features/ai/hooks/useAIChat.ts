@@ -1,17 +1,68 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { AIDialogue } from '../../../core/storage/localDb';
-import { AIService } from '../services/AIService';
 import { AIDialogueService } from '../services/AIDialogueService';
 import { PRESET_PERSONAS } from '../services/AIPersonaService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { incrementDailyUsage, setDailyLimitExhausted } from './useDailyLimit';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
+import { getAuth } from 'firebase/auth';
 import type { AIMessage } from '../services/AIService';
+
+
+async function streamChat(params: {
+  personaId: string;
+  customSystemPrompt?: string;
+  messages: AIMessage[];
+  documentContent?: string;
+  documentMood?: string;
+  onChunk: (partial: string) => void;
+}): Promise<string> {
+  const user = getAuth().currentUser;
+  if (!user) throw new Error('AUTH_REQUIRED');
+
+  const idToken = await user.getIdToken();
+
+  const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({
+      personaId: params.personaId,
+      customSystemPrompt: params.customSystemPrompt,
+      messages: params.messages,
+      documentContent: params.documentContent,
+      documentMood: params.documentMood,
+    }),
+  });
+
+  if (response.status === 401) throw new Error('AUTH_REQUIRED');
+  if (response.status === 429) throw new Error('DAILY_LIMIT');
+  if (!response.ok) throw new Error('SERVER_ERROR');
+
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let fullText = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const text = decoder.decode(value, { stream: true });
+    if (text) {
+      fullText += text;
+      params.onChunk(fullText);
+    }
+  }
+
+  return fullText;
+}
 
 interface UseAIChatReturn {
   dialogue: AIDialogue | null;
   isLoading: boolean;
+  streamingMessage: string | null;
   error: string | null;
   sendMessage: (text: string) => Promise<void>;
   loadDocument: (documentId: string) => Promise<void>;
@@ -25,16 +76,14 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
   const isAdmin = profile?.role === 'admin';
   const [dialogue, setDialogue] = useState<AIDialogue | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [streamingMessage, setStreamingMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [documentContent, setDocumentContent] = useState<string | null>(null);
   const [documentMood, setDocumentMood] = useState<string | null>(null);
   const pendingDocRef = useRef<{ content: string; mood: string | null; documentId: string } | null>(null);
 
   useEffect(() => {
-    if (!dialogueId) {
-      setDialogue(null);
-      return;
-    }
+    if (!dialogueId) { setDialogue(null); return; }
     AIDialogueService.get(dialogueId).then(d => setDialogue(d ?? null));
   }, [dialogueId]);
 
@@ -51,6 +100,7 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
     }
 
     setIsLoading(true);
+    setStreamingMessage('');
     setError(null);
 
     try {
@@ -58,31 +108,15 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
         ? [...dialogue.messages, { role: 'user' as const, content: text }]
         : [{ role: 'user' as const, content: text }];
 
-      const result = await AIService.chat({
+      const fullText = await streamChat({
         personaId,
         messages,
         documentContent: pendingDocRef.current?.content ?? documentContent ?? undefined,
         documentMood: pendingDocRef.current?.mood ?? documentMood ?? undefined,
+        onChunk: (partial) => setStreamingMessage(partial),
       });
 
-      if (!result.ok) {
-        if (result.error === 'DAILY_LIMIT') {
-          setDailyLimitExhausted();
-          setError('Дневной лимит достигнут');
-        } else if (result.error === 'RATE_LIMIT') {
-          setError('Слишком много запросов. Пожалуйста, подождите несколько секунд.');
-        } else if (result.error === 'AUTH_REQUIRED') {
-          setError('Требуется регистрация');
-        } else {
-          setError(result.error);
-        }
-        setIsLoading(false);
-        return;
-      }
-
-      if (!isAdmin) {
-        incrementDailyUsage();
-      }
+      if (!isAdmin) incrementDailyUsage();
 
       let currentDialogue = dialogue;
       if (!currentDialogue) {
@@ -91,24 +125,26 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
         const personaEmoji = personaId === 'custom' ? '🤖' : (preset?.emoji ?? '🤖');
         const title = text.slice(0, 40) + (text.length > 40 ? '...' : '');
         currentDialogue = await AIDialogueService.create({
-          title,
-          personaId,
-          personaName,
-          personaEmoji,
+          title, personaId, personaName, personaEmoji,
           documentId: pendingDocRef.current?.documentId,
           messages: [],
         });
       }
 
-      await AIDialogueService.appendMessage(currentDialogue.id, text, result.text);
+      await AIDialogueService.appendMessage(currentDialogue.id, text, fullText);
       const updated = await AIDialogueService.get(currentDialogue.id);
       setDialogue(updated ?? null);
+      setStreamingMessage(null);
 
       if (pendingDocRef.current && !currentDialogue.documentId) {
         pendingDocRef.current = null;
       }
-    } catch {
-      setError('Произошла ошибка при отправке сообщения');
+    } catch (e: unknown) {
+      setStreamingMessage(null);
+      const msg = e instanceof Error ? e.message : 'SERVER_ERROR';
+      if (msg === 'DAILY_LIMIT') { setDailyLimitExhausted(); setError('Дневной лимит достигнут'); }
+      else if (msg === 'AUTH_REQUIRED') setError('Требуется регистрация');
+      else setError('Произошла ошибка при отправке сообщения');
     } finally {
       setIsLoading(false);
     }
@@ -118,29 +154,17 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
     try {
       const doc = await LocalDocumentService.getDocument(documentId);
       if (!doc) return;
-
       const db = await (await import('../../../core/storage/localDb')).getLocalDb();
       const versions = await db.getAllFromIndex('versions', 'by-document', documentId);
       if (versions.length === 0) return;
       versions.sort((a, b) => b.version - a.version);
-      const content = versions[0].content;
-
-      setDocumentContent(content);
+      setDocumentContent(versions[0].content);
       setDocumentMood(doc.mood ?? null);
-      pendingDocRef.current = { content, mood: doc.mood ?? null, documentId };
+      pendingDocRef.current = { content: versions[0].content, mood: doc.mood ?? null, documentId };
     } catch {
       setError('Не удалось загрузить документ');
     }
   }, []);
 
-  return {
-    dialogue,
-    isLoading,
-    error,
-    sendMessage,
-    loadDocument,
-    clearError,
-    documentContent,
-    documentMood,
-  };
+  return { dialogue, isLoading, streamingMessage, error, sendMessage, loadDocument, clearError, documentContent, documentMood };
 }
