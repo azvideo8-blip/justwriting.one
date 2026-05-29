@@ -27,7 +27,7 @@ interface DesktopWritingLayoutProps {
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
-  onContinueSession: (session: Session) => void;
+  onContinueSession: (session: LifeLogDocument) => void;
   handlePlayRef: React.MutableRefObject<() => void>;
   keystrokeTrackerRef: React.MutableRefObject<KeystrokeTracker>;
   hasDraft: boolean;

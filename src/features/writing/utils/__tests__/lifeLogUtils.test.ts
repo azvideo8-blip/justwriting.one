@@ -7,7 +7,7 @@ import {
 } from '../lifeLogUtils';
 import { LifeLogDocument } from '../../types/lifeLog';
 import { LocalDocument } from '../../../../core/storage/localDb';
-import { Document, Session } from '../../../../types';
+import { Document } from '../../../../types';
 import { Timestamp } from 'firebase/firestore';
 
 function makeLocalDoc(overrides: Partial<LocalDocument> = {}): LocalDocument {
@@ -125,15 +125,28 @@ describe('groupSessionsByDate', () => {
   const t = (key: string) => key;
   const language = 'en';
 
+  function makeLifeLogDoc(overrides: Partial<LifeLogDocument> = {}): LifeLogDocument {
+    const now = Date.now();
+    return {
+      localId: 's1',
+      title: 'Doc',
+      totalWords: 100,
+      totalDuration: 60,
+      currentVersion: 1,
+      sessionsCount: 1,
+      firstSessionAt: now,
+      lastSessionAt: now,
+      tags: [],
+      storage: { local: true, cloud: false },
+      ...overrides,
+    };
+  }
+
   it('session today → group label = t("lifelog_group_today")', () => {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const session: Session = {
-      id: 's1', userId: 'u1',
-      content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0,
-      title: '', tags: [], createdAt: now,
-    };
-    const groups = groupSessionsByDate([session], [], startOfToday, t, language);
+    const doc = makeLifeLogDoc({ lastSessionAt: now.getTime() });
+    const groups = groupSessionsByDate([doc], startOfToday, t, language);
     expect(groups).toHaveLength(1);
     expect(groups[0].label).toBe('lifelog_group_today');
   });
@@ -142,12 +155,8 @@ describe('groupSessionsByDate', () => {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const yesterday = new Date(startOfToday.getTime() - 86400000);
-    const session: Session = {
-      id: 's1', userId: 'u1',
-      content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0,
-      title: '', tags: [], createdAt: yesterday,
-    };
-    const groups = groupSessionsByDate([session], [], startOfToday, t, language);
+    const doc = makeLifeLogDoc({ lastSessionAt: yesterday.getTime() });
+    const groups = groupSessionsByDate([doc], startOfToday, t, language);
     expect(groups).toHaveLength(1);
     expect(groups[0].label).toBe('lifelog_group_yesterday');
   });
@@ -155,23 +164,18 @@ describe('groupSessionsByDate', () => {
   it('multiple sessions same day → one group, multiple entries', () => {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const s1: Session = { id: 's1', userId: 'u1', content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0, title: '', tags: [], createdAt: now };
-    const s2: Session = { id: 's2', userId: 'u1', content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0, title: '', tags: [], createdAt: now };
-    const groups = groupSessionsByDate([s1, s2], [], startOfToday, t, language);
+    const d1 = makeLifeLogDoc({ localId: 's1', lastSessionAt: now.getTime() });
+    const d2 = makeLifeLogDoc({ localId: 's2', lastSessionAt: now.getTime() });
+    const groups = groupSessionsByDate([d1, d2], startOfToday, t, language);
     expect(groups).toHaveLength(1);
     expect(groups[0].sessions).toHaveLength(2);
   });
 
-  it('deduplicates: session in unifiedDocuments not duplicated from sessions[]', () => {
+  it('deduplicates: single doc not duplicated', () => {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const unifiedDoc: LifeLogDocument = {
-      localId: 's1', title: 'Doc', totalWords: 100, totalDuration: 60,
-      currentVersion: 1, sessionsCount: 1, firstSessionAt: now.getTime(),
-      lastSessionAt: now.getTime(), tags: [], storage: { local: true, cloud: false },
-    };
-    const legacySession: Session = { id: 's1', userId: 'u1', content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0, title: 'Doc', tags: [], createdAt: now };
-    const groups = groupSessionsByDate([legacySession], [unifiedDoc], startOfToday, t, language);
+    const doc = makeLifeLogDoc({ localId: 's1', lastSessionAt: now.getTime() });
+    const groups = groupSessionsByDate([doc], startOfToday, t, language);
     expect(groups).toHaveLength(1);
     expect(groups[0].sessions).toHaveLength(1);
   });
@@ -180,9 +184,9 @@ describe('groupSessionsByDate', () => {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const yesterday = new Date(startOfToday.getTime() - 86400000);
-    const s1: Session = { id: 's1', userId: 'u1', content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0, title: '', tags: [], createdAt: now };
-    const s2: Session = { id: 's2', userId: 'u1', content: '', duration: 60, wordCount: 100, charCount: 0, wpm: 0, title: '', tags: [], createdAt: yesterday };
-    const groups = groupSessionsByDate([s1, s2], [], startOfToday, t, language);
+    const d1 = makeLifeLogDoc({ localId: 's1', lastSessionAt: now.getTime() });
+    const d2 = makeLifeLogDoc({ localId: 's2', lastSessionAt: yesterday.getTime() });
+    const groups = groupSessionsByDate([d1, d2], startOfToday, t, language);
     expect(groups).toHaveLength(2);
     expect(groups[0].label).toBe('lifelog_group_today');
     expect(groups[1].label).toBe('lifelog_group_yesterday');
@@ -191,7 +195,7 @@ describe('groupSessionsByDate', () => {
   it('empty inputs → []', () => {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    expect(groupSessionsByDate([], [], startOfToday, t, language)).toEqual([]);
+    expect(groupSessionsByDate([], startOfToday, t, language)).toEqual([]);
   });
 });
 

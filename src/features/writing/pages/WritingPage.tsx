@@ -106,7 +106,7 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
   const { setSetupMode, setShowCancelConfirm, startCountdown } = flow;
 
   const actions = useWritingActions({ session, flow });
-  const { handleSave, handlePlay, handlePause, handleNew, handleFinish, handleOpen, handleContinueSession, handleContinueSessionOrDoc } = actions;
+  const { handleSave, handlePlay, handlePause, handleNew, handleFinish, handleOpen, handleContinueDocument, handleContinueSessionOrDoc } = actions;
 
   const handlePlayRef = React.useRef(handlePlay);
   const handlePauseRef = React.useRef(handlePause);
@@ -150,9 +150,9 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
     if (sessionToContinue && !continueRef.current) {
       continueRef.current = true;
       navigate(location.pathname, { state: {}, replace: true });
-      handleContinueSession(sessionToContinue);
+      handleContinueSessionOrDoc(sessionToContinue);
     }
-  }, [sessionToContinue, handleContinueSession, navigate, location.pathname]);
+  }, [sessionToContinue, handleContinueSessionOrDoc, navigate, location.pathname]);
 
   const { sessionGroups: lifeLogGroups, summary: lifeLogSummary, refresh: refreshLifeLog } = useLifeLog(userId, isGuest);
   const streakDays = useStreak(lifeLogGroups);
@@ -188,7 +188,7 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
     onPlay: handlePlay,
     onPause: handlePause,
     onStop: onFinishClick,
-    onContinueSession: handleContinueSession,
+    onContinueSession: handleContinueDocument,
     handlePlayRef,
     keystrokeTrackerRef,
     hasDraft,
@@ -208,7 +208,7 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
     saveStatus,
     streakDays,
   }), [profile, flow.setupMode, flow.countdown, flow.totalDurationForDeadline, setSetupMode, startCountdown,
-    handleNew, handleOpen, onFinishClick, handlePlay, handlePause, handleContinueSession,
+    handleNew, handleOpen, onFinishClick, handlePlay, handlePause, handleContinueDocument,
     handlePlayRef, keystrokeTrackerRef, hasDraft, sessionStatus, userId, handleContinueSessionOrDoc,
     session.restoreDraft, session.discardDraft, setTitle, showZen, lifeLogVisible, setLifeLogVisible,
     lifeLogTab, setLifeLogTab, lifeLogPinned, setLifeLogPinned, saveStatus, streakDays]);

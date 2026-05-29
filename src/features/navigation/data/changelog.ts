@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.5',
+    date: '2026-05-29',
+    items: [
+      { category: 'improvement', ru: 'Полное удаление legacy-функционала сессий и очистка кодовой базы от следов коллекции sessions', en: 'Complete removal of legacy sessions functionality and database cleanup of the sessions collection' },
+      { category: 'improvement', ru: 'Удаление неиспользуемых сервисов и хуков: SessionService, WritingSessionService, AdminSessionService, LocalSessionLoader, useSessionList, firestore-migrate-versions', en: 'Removed obsolete services and hooks: SessionService, WritingSessionService, AdminSessionService, LocalSessionLoader, useSessionList, firestore-migrate-versions' },
+      { category: 'improvement', ru: 'Рефакторинг SyncService (удалена миграция старых сессий) и SyncDiagnostics (удалена вкладка legacy сессий)', en: 'Refactored SyncService (removed legacy session migrations) and SyncDiagnostics (removed legacy session listings)' },
+      { category: 'fix', ru: 'Очистка правил базы данных firestore.rules и схемы firebase-blueprint.json от путей /sessions/{sessionId}', en: 'Deleted paths and schemas for /sessions/{sessionId} from firestore.rules and firebase-blueprint.json' },
+      { category: 'fix', ru: 'Удален неиспользуемый параметр sessionId из Cloud Function editWithAI', en: 'Removed unused sessionId parameter from editWithAI Cloud Function' },
+    ],
+  },
+  {
     version: '0.7.4',
     date: '2026-05-29',
     items: [

@@ -1,5 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+
 import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, getDailyLimitCount, checkRateLimit, GEMINI_MODEL, getGenAI, getLangfuse } from '../shared/aiUtils';
 
@@ -15,7 +15,6 @@ const messageSchema = z.object({
 const inputSchema = z.object({
   content: z.string().min(1).max(MAX_AI_CONTENT_LENGTH),
   action: actionSchema,
-  sessionId: z.string().nullish(),
   history: z.array(messageSchema).max(10).nullish(),
 });
 
@@ -93,7 +92,7 @@ export const editWithAI = onCall({
     throw new HttpsError('invalid-argument', 'Invalid payload.');
   }
 
-  const { content, action, sessionId, history } = parsed.data;
+  const { content, action, history } = parsed.data;
   const sanitizedInput = sanitizeAiInput(content);
 
   const lf = getLangfuse();
@@ -106,20 +105,6 @@ export const editWithAI = onCall({
   generation?.end({ output: sanitizedOutput, usage: { promptTokens: tokensIn, completionTokens: tokensOut } });
   recordUsage(uid, tokensIn, tokensOut).catch(e => console.error('[AI] usage record failed:', e));
   if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
-
-  if (sessionId) {
-    const db = getFirestore();
-    const sessionDoc = await db.doc(`sessions/${sessionId}`).get();
-    if (!sessionDoc.exists || sessionDoc.data()?.userId !== uid) {
-      throw new HttpsError('permission-denied', 'Session not found or not owned.');
-    }
-    await db.doc(`sessions/${sessionId}`).update({
-      _aiProcessed: true,
-      _aiAction: action,
-      _aiProcessedAt: FieldValue.serverTimestamp(),
-      _aiResultText: sanitizedOutput,
-    });
-  }
 
   return { result: sanitizedOutput };
 });

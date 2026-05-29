@@ -85,7 +85,6 @@ export function mergeUnifiedDocuments(
 }
 
 export function groupSessionsByDate(
-  sessions: Session[],
   unifiedDocuments: LifeLogDocument[],
   startOfToday: Date,
   t: (key: string) => string,
@@ -111,11 +110,7 @@ export function groupSessionsByDate(
     mood: d.mood,
   } as Session));
 
-  const docSessionIds = new Set(unifiedDocuments.map(d => d.localId || d.cloudId).filter(Boolean));
-  const dedupedSessions = sessions.filter(s => !docSessionIds.has(s.id));
-  const allEntries = [...docSessions, ...dedupedSessions];
-
-  allEntries.forEach(entry => {
+  docSessions.forEach(entry => {
     const date = getSessionDate(entry);
     if (!date) return;
 

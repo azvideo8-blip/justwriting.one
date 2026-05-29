@@ -8,12 +8,6 @@ vi.mock('../../../../core/services/StorageService', () => ({
   },
 }));
 
-vi.mock('../../../../core/services/SessionService', () => ({
-  SessionService: {
-    deleteSession: vi.fn().mockResolvedValue(undefined),
-  },
-}));
-
 vi.mock('../../../../core/services/LocalDocumentService', () => ({
   LocalDocumentService: {
     getDocument: vi.fn().mockResolvedValue(undefined),
@@ -21,11 +15,9 @@ vi.mock('../../../../core/services/LocalDocumentService', () => ({
 }));
 
 import { StorageService } from '../../../../core/services/StorageService';
-import { SessionService } from '../../../../core/services/SessionService';
 import { LocalDocumentService } from '../../../../core/services/LocalDocumentService';
 
 const mockStorageService = vi.mocked(StorageService);
-const mockSessionService = vi.mocked(SessionService);
 const mockLocalDocumentService = vi.mocked(LocalDocumentService);
 
 function createSession(overrides: Partial<Session> = {}): Session {
@@ -64,15 +56,6 @@ describe('SessionDeleteService', () => {
     await deleteSession('user_123', session);
 
     expect(mockStorageService.deleteDocument).toHaveBeenCalledWith('user_123', undefined, 'cloud_session_1');
-  });
-
-  it('calls SessionService.deleteSession for legacy session', async () => {
-    const session = createSession({ id: 'legacy_1', _isLegacy: true } as any);
-
-    await deleteSession('user_123', session);
-
-    expect(mockSessionService.deleteSession).toHaveBeenCalledWith('legacy_1');
-    expect(mockStorageService.deleteDocument).not.toHaveBeenCalled();
   });
 
   it('handles error gracefully and reports it', async () => {

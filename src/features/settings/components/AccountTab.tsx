@@ -8,7 +8,7 @@ import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useTimerStore } from '../../writing/store/useTimerStore';
 import { resetAndClear } from '../../writing/store/storeActions';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
-import { Section, ToggleRow } from './SettingsHelpers';
+import { Section } from './SettingsHelpers';
 import { AccountProfileSection } from './AccountProfileSection';
 import { AccountVaultSection } from './AccountVaultSection';
 import { AccountExportSection } from './AccountExportSection';
@@ -24,7 +24,6 @@ export function AccountTab({ userId }: AccountTabProps) {
   const { execute } = useServiceAction();
 
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
-  const [diagnosticsEnabled, setDiagnosticsEnabled] = useState(() => localStorage.getItem('diagnostics_unlocked') === 'true');
 
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -72,18 +71,6 @@ export function AccountTab({ userId }: AccountTabProps) {
   return (
     <div className="space-y-4 mt-2">
       <AccountProfileSection userId={userId} />
-
-      <ToggleRow
-        emoji="🔧"
-        label="Диагностика"
-        hint={diagnosticsEnabled ? 'Отображается в боковом меню' : 'Включить страницу диагностики'}
-        value={diagnosticsEnabled}
-        onChange={() => {
-          const next = !diagnosticsEnabled;
-          setDiagnosticsEnabled(next);
-          localStorage.setItem('diagnostics_unlocked', String(next));
-        }}
-      />
 
       {isAuthenticated ? (
         <>

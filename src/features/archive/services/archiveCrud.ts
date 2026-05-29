@@ -1,7 +1,6 @@
 import { User } from 'firebase/auth';
 import { DocumentService } from '../../../core/services/DocumentService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
-import { SessionService } from '../../../core/services/SessionService';
 import { StorageService } from '../../../core/services/StorageService';
 import { ArchiveSession } from '../types';
 import { reportError } from '../../../core/errors/reportError';
@@ -16,19 +15,6 @@ export async function updateArchiveField(
   user: User | null,
   _userId: string
 ): Promise<void> {
-  if (session._isLegacy) {
-    const patch: Record<string, unknown> = {};
-    if (field === 'tags') patch.tags = value;
-    else if (field === 'title') patch.title = value;
-    else if (field === 'date') {
-      if (!(value instanceof Date)) throw new Error('Expected Date for date field');
-      patch.sessionStartTime = value.getTime();
-    }
-    else if (field === 'labelId') patch.labelId = value;
-    await SessionService.updateSession(session.id, patch);
-    return;
-  }
-
   if (session._isLocal) {
     if (field === 'tags') {
       await LocalDocumentService.updateTags(session.id, value as string[]);
@@ -74,13 +60,9 @@ export async function deleteArchiveSession(
   session: ArchiveSession,
   userId: string
 ): Promise<void> {
-  if (session._isLegacy) {
-    await SessionService.deleteSession(session.id);
-  } else {
-    await StorageService.deleteDocument(
-      userId,
-      session._isLocal ? session.id : undefined,
-      session._hasCloudCopy ? (session._linkedCloudId || session.id) : undefined
-    );
-  }
+  await StorageService.deleteDocument(
+    userId,
+    session._isLocal ? session.id : undefined,
+    session._hasCloudCopy ? (session._linkedCloudId || session.id) : undefined
+  );
 }

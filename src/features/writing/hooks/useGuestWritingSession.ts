@@ -3,9 +3,7 @@ import { useBaseWritingSession } from './useBaseWritingSession';
 import { useContentStore } from '../store/useContentStore';
 import { applyDraftToStores } from '../utils/draftUtils';
 import { getOrCreateGuestId } from '../../../core/storage/localDb';
-import { fetchLocalSessions, loadLocalSession } from '../services/LocalSessionLoader';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
-import { LocalSessionInfo } from '../types/session';
 import {
   saveGuestDraftToStorage,
   loadGuestDraftFromStorage,
@@ -23,8 +21,6 @@ export interface GuestSessionReturn extends ReturnType<typeof useBaseWritingSess
   lastSavedAt: number | null;
   isOnline: boolean;
   handleCancel: () => Promise<void>;
-  fetchLocalSessions: () => Promise<LocalSessionInfo[]>;
-  loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
   /**
    * Automatically loads the draft if the current store content is empty.
    * If there is a draft but the store already has content, it sets hasDraft to true.
@@ -111,9 +107,6 @@ export function useGuestWritingSession(): GuestSessionReturn {
     base.setStatus('idle');
   }, [base, clearDraft]);
 
-  const fetchLocalSessionsCb = useCallback(() => fetchLocalSessions(guestId), [guestId]);
-  const loadLocalSessionCb = useCallback((id: string) => loadLocalSession(id), []);
-
   return {
     ...base,
     userId: guestId,
@@ -125,8 +118,6 @@ export function useGuestWritingSession(): GuestSessionReturn {
     lastSavedAt: draftManager.lastSavedAt,
     isOnline,
     handleCancel,
-    fetchLocalSessions: fetchLocalSessionsCb,
-    loadLocalSession: loadLocalSessionCb,
     autoLoadDraftIfEmpty,
     restoreDraft,
     discardDraft: clearDraft,
