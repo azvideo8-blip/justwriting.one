@@ -5,6 +5,7 @@ import { getLocalStorageUsageKB } from '../../../shared/lib/localStorageUtils';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
+import { logger } from '../../../core/errors/logger';
 
 export interface DraftPersistResult {
   localOk: boolean;
@@ -45,7 +46,7 @@ export function buildLocalDraft(
 export async function persistDraft(draft: LocalDraft): Promise<DraftPersistResult> {
   const usageKB = getLocalStorageUsageKB();
   if (usageKB > 4500) {
-    console.warn(`localStorage usage: ${usageKB.toFixed(0)}KB — approaching limit`);
+    logger.warn('draftPersistence', `localStorage usage: ${usageKB.toFixed(0)}KB — approaching limit`);
   }
 
   const [localResult, remoteResult] = await Promise.allSettled([
@@ -61,10 +62,10 @@ export async function persistDraft(draft: LocalDraft): Promise<DraftPersistResul
   }
 
   if (!localOk) {
-    console.error('Local save failed:', localResult.reason);
+    logger.error('draftPersistence', 'Local save failed', { reason: String(localResult.reason) });
   }
   if (!remoteOk) {
-    console.warn('Firestore save failed (will retry on next change):', remoteResult.reason);
+    logger.warn('draftPersistence', 'Firestore save failed (will retry on next change)', { reason: String(remoteResult.reason) });
   }
 
   return { localOk, remoteOk };

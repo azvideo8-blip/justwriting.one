@@ -52,7 +52,14 @@ export const validateCustomPrompt = onCall({
 
   let text: string;
   try {
-    const result = await model.generateContent(sanitizedPrompt);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+    let result;
+    try {
+      result = await model.generateContent(sanitizedPrompt, { signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
     text = result.response.text().trim();
     const tokensIn = result.response.usageMetadata?.promptTokenCount ?? 0;
     const tokensOut = result.response.usageMetadata?.candidatesTokenCount ?? 0;

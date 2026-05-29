@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeWordDelta } from '../DiffService';
+import { computeWordDelta } from '../../../../core/services/DiffService';
 
 describe('computeWordDelta', () => {
   it('returns 0 added for identical content', () => {

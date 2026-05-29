@@ -3,7 +3,11 @@ import { handleFirestoreError, OperationType } from '../errors/firestore-errors'
 import { Session } from '../../types';
 import type { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { reportError } from '../errors/reportError';
-import { sessionDbSchema } from '../firebase/schemas/firestoreSchemas';
+import { sessionDbSchema, SessionDb } from '../firebase/schemas/firestoreSchemas';
+
+function toSession(data: SessionDb): Session {
+  return data as unknown as Session;
+}
 
 export const SessionService = {
   async saveSession(session: Session) {
@@ -83,7 +87,7 @@ export const SessionService = {
             reportError(parsed.error, { action: 'getAllSessions_parse', docId: d.id });
             return null;
           }
-          return parsed.data as Session;
+          return toSession(parsed.data);
         })
         .filter((s): s is Session => s !== null);
       const newLastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData> : null;
@@ -113,7 +117,7 @@ export const SessionService = {
             reportError(parsed.error, { action: 'getAllSessionsAdmin_parse', docId: d.id });
             return null;
           }
-          return parsed.data as Session;
+          return toSession(parsed.data);
         })
         .filter((s): s is Session => s !== null);
       const newLastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData> : null;

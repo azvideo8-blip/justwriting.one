@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lock } from 'lucide-react';
-import { EncryptionService } from '../../../core/crypto/EncryptionService';
+import { EncryptionService } from '../../../core/services/EncryptionService';
 import { AuthService } from '../../auth/services/AuthService';
 import { useLanguage } from '../../../core/i18n';
 import { reportError } from '../../../core/errors/reportError';

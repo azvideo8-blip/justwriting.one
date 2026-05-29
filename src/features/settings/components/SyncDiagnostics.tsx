@@ -9,7 +9,7 @@ import { DocumentService } from '../../../core/services/DocumentService';
 import { SyncService } from '../../../core/services/SyncService';
 import { StorageService } from '../../../core/services/StorageService';
 import { SessionService } from '../../../core/services/SessionService';
-import { VersionService } from '../../writing/services/VersionService';
+import { VersionService } from '../../../core/services/VersionService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { useLanguage } from '../../../core/i18n';
 import { useToast } from '../../../shared/components/Toast';

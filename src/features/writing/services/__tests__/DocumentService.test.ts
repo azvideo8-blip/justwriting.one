@@ -209,6 +209,31 @@ describe('DocumentService', () => {
         lastSessionAt: mockTimestampNow,
       });
     });
+
+    it('calls updateDoc with custom sessionsCount and lastSessionAt if provided', async () => {
+      mockUpdateDoc.mockResolvedValue(undefined);
+      const customDate = new Date(1700000000000);
+
+      await DocumentService.updateDocumentAfterSession('user_123', 'doc_123', {
+        totalWords: 1000,
+        totalDuration: 500,
+        currentVersion: 5,
+        mood: 'happy',
+        sessionsCount: 42,
+        lastSessionAt: customDate,
+      });
+
+      expect(mockUpdateDoc).toHaveBeenCalled();
+      const [, payload] = mockUpdateDoc.mock.calls[0];
+      expect(payload).toEqual({
+        totalWords: 1000,
+        totalDuration: 500,
+        currentVersion: 5,
+        mood: 'happy',
+        sessionsCount: 42,
+        lastSessionAt: mockTimestampFromDate(customDate),
+      });
+    });
   });
 
   describe('updateTags', () => {

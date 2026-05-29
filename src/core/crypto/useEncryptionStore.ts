@@ -52,7 +52,7 @@ export const useEncryptionStore = create<EncryptionState>((set, get) => ({
       }
     } catch (e) {
       reportError(e, { action: 'isEncryptionEnabled_read', userId }, 'warning');
-      return !userId.startsWith('guest_') && userId !== 'guest';
+      return false;
     }
     return false;
   },

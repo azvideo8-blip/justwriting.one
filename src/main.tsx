@@ -17,7 +17,7 @@ if (sentryDsn && sentryDsn.startsWith('https://')) {
       Sentry.browserTracingIntegration(),
       Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }),
     ],
-    tracesSampleRate: 0.1,
+    tracesSampleRate: 0.5,
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
     beforeSend(event) {
@@ -27,8 +27,6 @@ if (sentryDsn && sentryDsn.startsWith('https://')) {
     ignoreErrors: [
       'ResizeObserver loop',
       'Network request failed',
-      'Failed to fetch',
-      'Load failed',
     ],
   });
 }

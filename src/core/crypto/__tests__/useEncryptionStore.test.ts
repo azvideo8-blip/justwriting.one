@@ -71,15 +71,15 @@ describe('useEncryptionStore', () => {
     expect(useEncryptionStore.getState().isProfileLoaded('user1')).toBe(true);
   });
 
-  it('handles localStorage read exception by falling back to conservative default for auth user', () => {
+  it('handles localStorage read exception by falling back to false (conservative)', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('access denied');
     });
 
     const isEnc = useEncryptionStore.getState().isEncryptionEnabled('authenticated_user');
-    expect(isEnc).toBe(true); // default true for non-guest authenticated users
+    expect(isEnc).toBe(false);
 
     const isGuestEnc = useEncryptionStore.getState().isEncryptionEnabled('guest_user');
-    expect(isGuestEnc).toBe(false); // guest is always false
+    expect(isGuestEnc).toBe(false);
   });
 });

@@ -1,10 +1,10 @@
 import { DocumentService } from './DocumentService';
-import { VersionService } from '../../features/writing/services/VersionService';
+import { VersionService } from './VersionService';
 import { LocalDocumentService } from './LocalDocumentService';
-import { LocalVersionService } from '../../features/writing/services/LocalVersionService';
+import { LocalVersionService } from './LocalVersionService';
 import { getLocalDb, randomUUID, LocalDocument } from '../storage/localDb';
 import { toDate } from '../utils/dateUtils';
-import { computeWordDelta } from '../../features/writing/services/DiffService';
+import { computeWordDelta } from './DiffService';
 import { maybeEncrypt, maybeDecrypt, type VersionEncryptPayload } from '../crypto/cryptoHelpers';
 import { reportError } from '../errors/reportError';
 import { isFirestoreConnected } from '../firebase/firestore';
@@ -41,7 +41,24 @@ function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): P
   ]).finally(() => clearTimeout(timer));
 }
 
-const _saveVersionLocks = new Map<string, Promise<void>>();
+class LockManager {
+  private locks = new Map<string, Promise<void>>();
+
+  async acquire(key: string, fn: () => Promise<void>): Promise<void> {
+    const prev = this.locks.get(key) || Promise.resolve();
+    const next = prev.then(() => fn(), () => fn());
+    this.locks.set(key, next);
+    try {
+      await next;
+    } finally {
+      if (this.locks.get(key) === next) {
+        this.locks.delete(key);
+      }
+    }
+  }
+}
+
+const _lockManager = new LockManager();
 
 export const StorageService = {
   async saveNew(
@@ -80,19 +97,7 @@ export const StorageService = {
     documentId: string,
     data: SaveDocumentData
   ): Promise<void> {
-    const prevPromise = _saveVersionLocks.get(documentId);
-    if (prevPromise) {
-      try { await prevPromise; } catch (prevErr) { reportError(prevErr, { action: 'saveVersion', documentId }); }
-    }
-    const promise = _doSaveVersion(userId, documentId, data);
-    _saveVersionLocks.set(documentId, promise);
-    try {
-      await withTimeout(promise, 60_000);
-    } finally {
-      if (_saveVersionLocks.get(documentId) === promise) {
-        _saveVersionLocks.delete(documentId);
-      }
-    }
+    await _lockManager.acquire(documentId, () => withTimeout(_doSaveVersion(userId, documentId, data), 60_000));
   },
 
   async addLocalCopy(userId: string, cloudDocumentId: string): Promise<string> {
@@ -120,7 +125,7 @@ export const StorageService = {
         let startedAt = toDate(ver.sessionStartedAt) ?? toDate(ver.savedAt) ?? new Date();
         if (isNaN(startedAt.getTime())) startedAt = new Date();
 
-        const decryptedVer = await maybeDecrypt(ver, ['content'], []);
+        const decryptedVer = await maybeDecrypt(ver as unknown as Record<string, unknown>, ['content'], []);
         const verContent = (decryptedVer.content as string) ?? ver.content;
 
         await LocalVersionService.addVersion(userId, localId, {
@@ -134,6 +139,7 @@ export const StorageService = {
           goalTime: ver.goalTime,
           goalReached: ver.goalReached,
           sessionStartedAt: startedAt,
+          savedAt: ver.savedAt ? toDate(ver.savedAt) ?? undefined : undefined,
         });
         prevContent = verContent;
       }
@@ -232,6 +238,7 @@ export const StorageService = {
             goalTime: ver.goalTime,
             goalReached: ver.goalReached,
             sessionStartedAt: startedAt,
+            savedAt: ver.savedAt ? new Date(ver.savedAt) : undefined,
             _encrypted: versionPayload._encrypted as boolean | undefined,
           }));
           prevContent = ver.content;
@@ -241,6 +248,8 @@ export const StorageService = {
           totalWords: localDoc.totalWords,
           totalDuration: localDoc.totalDuration,
           currentVersion: localDoc.currentVersion,
+          sessionsCount: localDoc.sessionsCount,
+          lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
         }));
       } catch (e) {
         if (cloudId) {
@@ -421,6 +430,40 @@ async function syncVersionToCloud(
         type: 'document' as const,
         createdAt: Date.now(),
       });
+    } else if (cloudDoc.currentVersion >= newVersion) {
+      const conflictTitle = `${data.title || 'Untitled'} (Conflict ${new Date().toLocaleDateString()})`;
+      const forkedDocId = await LocalDocumentService.createDocument(userId, {
+        title: conflictTitle,
+        tags: data.tags,
+        labelId: data.labelId,
+        firstSessionAt: data.sessionStartedAt.getTime(),
+        lastSessionAt: Date.now(),
+      });
+      await LocalVersionService.addVersion(userId, forkedDocId, {
+        content: data.content,
+        previousContent: '',
+        wordCount: data.wordCount,
+        duration: data.duration,
+        wpm: data.wpm,
+        versionNumber: 1,
+        sessionStartedAt: data.sessionStartedAt,
+        mood: data.mood,
+      });
+      await LocalDocumentService.updateAfterSession(forkedDocId, {
+        totalWords: data.wordCount,
+        totalDuration: data.duration,
+        currentVersion: 1,
+        mood: data.mood,
+      });
+      reportError(new Error('Sync conflict: document forked'), { action: 'syncVersionToCloud_conflict', documentId, linkedCloudId, cloudVersion: cloudDoc.currentVersion, localVersion: newVersion }, 'warning');
+      const syncDb = await getLocalDb();
+      await syncDb.put('syncQueue', {
+        id: `sync_${forkedDocId}_${Date.now()}`,
+        documentId: forkedDocId,
+        type: 'document' as const,
+        createdAt: Date.now(),
+      });
+      return;
     } else {
       const startedAt = data.sessionStartedAt;
       if (isNaN(startedAt.getTime())) {

@@ -86,3 +86,9 @@ export const versionDbSchema = z.object({
   _encrypted: z.boolean().optional(),
   mood: z.string().optional(),
 });
+
+export type SessionDb = z.infer<typeof sessionDbSchema>;
+export type DocumentDb = z.infer<typeof documentDbSchema>;
+export type VersionDb = z.infer<typeof versionDbSchema>;
+export type EncryptionMetaDb = z.infer<typeof encryptionMetaSchema>;
+export type UserProfileDb = z.infer<typeof userProfileDbSchema>;

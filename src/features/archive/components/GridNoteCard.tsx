@@ -102,15 +102,19 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
           allTags={allTags}
           onChange={newTags => onTagsChange?.(session, newTags)}
         />
-        {aiProcessed && (
-          <button
-            onClick={e => { e.stopPropagation(); onAIClick?.(); }}
-            className="inline-flex items-center gap-1 ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono text-brand-soft/60 border border-brand-soft/15 hover:text-brand-soft hover:border-brand-soft/30 transition-colors"
-          >
-            <Sparkles size={10} />
-            AI
-          </button>
-        )}
+        <button
+          onClick={e => { e.stopPropagation(); onAIClick?.(); }}
+          className={cn(
+            "inline-flex items-center gap-1 ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono border transition-colors",
+            aiProcessed
+              ? "bg-brand-soft/10 text-brand-soft border-brand-soft/30 hover:bg-brand-soft/20"
+              : "bg-text-main/3 text-text-main/40 border-border-subtle hover:text-brand-soft hover:bg-brand-soft/5 hover:border-brand-soft/30"
+          )}
+          title={aiProcessed ? 'Обработано ИИ (посмотреть чат)' : 'Обработать с помощью ИИ'}
+        >
+          <Sparkles size={10} />
+          AI
+        </button>
       </div>
 
       <div className="flex items-center gap-2 text-[12px] font-mono text-text-main/40 pt-3 mt-auto border-t border-border-subtle">

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { VersionService } from '../VersionService';
+import { VersionService } from '../../../../core/services/VersionService';
 
 const mockAddDoc = vi.fn();
 const mockGetDocs = vi.fn();
@@ -25,7 +25,7 @@ vi.mock('../../../../core/firebase/firestoreClient', () => ({
 }));
 
 // Mock DiffService
-vi.mock('../DiffService', () => ({
+vi.mock('../../../../core/services/DiffService', () => ({
   computeWordDelta: (_prev: string, _curr: string) => ({
     wordsAdded: 10,
     charsAdded: 50,
@@ -124,6 +124,19 @@ describe('VersionService', () => {
 
       const [, docPayload] = mockAddDoc.mock.calls[0];
       expect(docPayload._encrypted).toBe(true);
+    });
+
+    it('uses custom savedAt date if provided', async () => {
+      mockAddDoc.mockResolvedValue({ id: 'new_ver_id' });
+      const customSavedAt = new Date(1700000005000);
+
+      await VersionService.addVersion('user_123', 'doc_123', {
+        ...dummyVersionData,
+        savedAt: customSavedAt,
+      });
+
+      const [, docPayload] = mockAddDoc.mock.calls[0];
+      expect(docPayload.savedAt).toEqual(mockTimestampFromDate(customSavedAt));
     });
 
     it('rethrows write error', async () => {

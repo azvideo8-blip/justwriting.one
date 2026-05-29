@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/react';
 import { STORAGE_KEYS } from '../../../core/constants/storageKeys';
+import { logger } from '../../../core/errors/logger';
 
 export function reportKeystrokeStats(
   stats: { kpm: number; ikiMedian: number; ikiCv: number; sampleSize: number; kpmWpmRatio?: number },
@@ -28,12 +29,12 @@ export async function cleanupDraftsAfterSave(
       const { WritingDraftService } = await import('../services/WritingDraftService');
       await WritingDraftService.deleteDraft(userId);
     } catch (delErr) {
-      console.warn('[cleanupDraftsAfterSave] Failed to delete draft:', delErr);
+      logger.warn('sessionActions', 'Failed to delete draft', { error: String(delErr) });
     }
     if (docIdToSync) {
       const { SyncService } = await import('../../../core/services/SyncService');
       SyncService.syncOne(userId, docIdToSync).catch(e => {
-        console.warn('[cleanupDraftsAfterSave] Cloud sync failed:', e);
+        logger.warn('sessionActions', 'Cloud sync failed', { error: String(e) });
       });
     }
   }
@@ -48,6 +49,6 @@ async function clearGuestDraft() {
       await db.delete('drafts', 'guest_draft');
     }
   } catch (idbErr) {
-    console.warn('[clearGuestDraft] Failed to delete guest IDB draft:', idbErr);
+    logger.warn('sessionActions', 'Failed to delete guest IDB draft', { error: String(idbErr) });
   }
 }

@@ -27,7 +27,7 @@ import { loadAllSessions as _loadAllSessions } from '../../writing/services/Unif
 import { maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { toDate } from '../../../core/utils/dateUtils';
 import { SessionService } from '../../../core/services/SessionService';
-import { VersionService } from '../../writing/services/VersionService';
+import { VersionService } from '../../../core/services/VersionService';
 
 interface AIUsageRow {
   uid: string;
@@ -35,6 +35,10 @@ interface AIUsageRow {
   promptTokens: number;
   completionTokens: number;
 }
+
+const ADMIN_PAGE_LIMIT = 50;
+const ADMIN_SESSION_LIMIT = 500;
+const ADMIN_AI_USERS_LIMIT = 150;
 
 export function AdminPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -72,7 +76,7 @@ export function AdminPage() {
     
     try {
       if (activeTab === 'users') {
-        const usersData = await AdminUserService.getUsers(50);
+        const usersData = await AdminUserService.getUsers(ADMIN_PAGE_LIMIT);
         setUsers(usersData);
       } else if (activeTab === 'sessions') {
         const db = await getLocalDb();
@@ -146,7 +150,7 @@ export function AdminPage() {
             })
         );
 
-        const { sessions: legacySessions } = await SessionService.getAllSessions(auth.currentUser!.uid, 500).catch(() => ({ sessions: [] }));
+        const { sessions: legacySessions } = await SessionService.getAllSessions(auth.currentUser!.uid, ADMIN_SESSION_LIMIT).catch(() => ({ sessions: [] }));
         const seenIds = new Set([
           ...mappedLocal.map(s => s.id),
           ...mappedCloud.map(s => s.id)
@@ -343,7 +347,7 @@ export function AdminPage() {
     setAiUsageLoading(true);
     try {
       if (users.length === 0) {
-        const usersData = await AdminUserService.getUsers(150);
+        const usersData = await AdminUserService.getUsers(ADMIN_AI_USERS_LIMIT);
         setUsers(usersData);
       }
       const functions = getFunctions();

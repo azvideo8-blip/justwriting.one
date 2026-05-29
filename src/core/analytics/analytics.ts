@@ -44,3 +44,21 @@ export const analytics = {
     if (key) posthog.reset();
   },
 };
+
+export function trackEvent(name: string, properties?: Record<string, unknown>): void {
+  if (typeof posthog !== 'undefined' && posthog) {
+    posthog.capture(name, properties);
+  }
+}
+
+export const AnalyticsEvents = {
+  SESSION_STARTED: 'session_started',
+  SESSION_SAVED: 'session_saved',
+  DOCUMENT_CREATED: 'document_created',
+  DOCUMENT_EXPORTED: 'document_exported',
+  ENCRYPTION_ENABLED: 'encryption_enabled',
+  ENCRYPTION_UNLOCKED: 'encryption_unlocked',
+  AI_CHAT_SENT: 'ai_chat_sent',
+  AI_EDIT_USED: 'ai_edit_used',
+  SYNC_COMPLETED: 'sync_completed',
+} as const;

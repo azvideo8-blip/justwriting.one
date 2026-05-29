@@ -1,6 +1,7 @@
 /* eslint-env worker */
-const CACHE = 'jw-v1';
-const NAV_CACHE = 'jw-nav-v1';
+const CACHE_VERSION = 'v0.7.4';
+const CACHE = `jw-${CACHE_VERSION}`;
+const NAV_CACHE = `jw-nav-${CACHE_VERSION}`;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

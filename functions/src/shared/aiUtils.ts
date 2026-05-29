@@ -72,18 +72,13 @@ export async function recordUsage(uid: string, tokensIn: number, tokensOut: numb
 
 export const DAILY_LIMIT = (() => {
   const raw = process.env.AI_DAILY_LIMIT;
-  if (!raw) return 50;
+  if (!raw) return 5;
   const parsed = parseInt(raw, 10);
-  return Number.isNaN(parsed) ? 50 : parsed;
+  return Number.isNaN(parsed) ? 5 : parsed;
 })();
 
 export async function checkDailyLimit(uid: string): Promise<boolean> {
   const db = getFirestore();
-
-  const userSnap = await db.doc(`users/${uid}`).get();
-  if (userSnap.exists && userSnap.data()?.role === 'admin') {
-    return true;
-  }
 
   const date = new Date().toISOString().slice(0, 10);
   const ref = db.doc(`aiDailyLimit/${uid}`);
@@ -112,7 +107,7 @@ export async function getDailyLimitCount(uid: string): Promise<{ used: number; d
   return { used: data.count, date };
 }
 
-const COOLDOWN_MS = 3000;
+const COOLDOWN_MS = 10000;
 
 export async function checkRateLimit(uid: string): Promise<boolean> {
   const db = getFirestore();

@@ -10,7 +10,7 @@ import { useLifeLog } from './useLifeLog';
 import { useDocuments } from './useDocuments';
 import { useSessionList } from './useSessionList';
 import { StorageService } from '../../../core/services/StorageService';
-import { LocalVersionService } from '../services/LocalVersionService';
+import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { useToast } from '../../../shared/components/Toast';
 import { useLanguage } from '../../../core/i18n';
 import { SaveData } from '../components/WritingFinishModal';
@@ -20,6 +20,7 @@ import { CloudSessionReturn } from './useCloudWritingSession';
 import { cleanupDraftsAfterSave, reportKeystrokeStats } from '../utils/sessionActions';
 import { SetupMode } from '../components/WritingSetup';
 import { reportError } from '../../../core/errors/reportError';
+import { logger } from '../../../core/errors/logger';
 
 export type AnySessionReturn = GuestSessionReturn | CloudSessionReturn;
 
@@ -115,7 +116,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         await handleContinueSession(sessionOrDoc as Session);
       }
     } catch (err) {
-      console.error('[LifeLog] continue failed:', err);
+      logger.error('writingActions', 'LifeLog continue failed', { error: String(err) });
       reportError(err, { action: 'writingActions/continueSessionOrDoc' });
       showToast(t('error_continue_session'), 'error');
     }

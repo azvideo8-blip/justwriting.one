@@ -79,7 +79,7 @@ export interface AIDialogue {
   personaName: string;
   personaEmoji: string;
   documentId?: string;
-  messages: { role: 'user' | 'assistant'; content: string }[];
+  messages: { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' }[];
   createdAt: number;
   updatedAt: number;
   archivedAt?: number;

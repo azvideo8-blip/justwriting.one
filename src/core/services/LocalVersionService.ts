@@ -1,4 +1,4 @@
-import { getLocalDb, LocalVersion, randomUUID } from '../../../core/storage/localDb';
+import { getLocalDb, LocalVersion, randomUUID } from '../storage/localDb';
 import { computeWordDelta } from './DiffService';
 
 export const LocalVersionService = {
@@ -16,6 +16,7 @@ export const LocalVersionService = {
       goalTime?: number;
       goalReached?: boolean;
       sessionStartedAt: Date;
+      savedAt?: Date;
       mood?: string;
     }
   ): Promise<string> {
@@ -37,7 +38,7 @@ export const LocalVersionService = {
       goalWords: data.goalWords,
       goalTime: data.goalTime,
       goalReached: data.goalReached ?? false,
-      savedAt: Date.now(),
+      savedAt: data.savedAt ? data.savedAt.getTime() : Date.now(),
       sessionStartedAt: data.sessionStartedAt.getTime(),
       mood: data.mood,
     });

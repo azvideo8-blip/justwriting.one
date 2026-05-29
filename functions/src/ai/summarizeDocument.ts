@@ -76,7 +76,14 @@ export const summarizeDocument = onCall({
   let tokensIn = 0;
   let tokensOut = 0;
   try {
-    const result = await model.generateContent(prompt);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+    let result;
+    try {
+      result = await model.generateContent(prompt, { signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
     const response = result.response;
     text = response.text();
     tokensIn = response.usageMetadata?.promptTokenCount ?? 0;

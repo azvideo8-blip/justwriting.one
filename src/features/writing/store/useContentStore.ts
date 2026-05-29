@@ -35,6 +35,10 @@ export function clearWordCalcTimer() {
   _wordCalcIsScheduled = false;
 }
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', clearWordCalcTimer);
+}
+
 export const useContentStore = create<ContentState>((set, get) => ({
   content: '', title: '', pinnedThoughts: [],
   wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],

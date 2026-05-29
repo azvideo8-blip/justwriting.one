@@ -78,6 +78,8 @@ export function DiagnosticsPage() {
   const [docs, setDocs] = useState<DocWithVersions[]>([]);
   const [dbLoaded, setDbLoaded] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [portraitText, setPortraitText] = useState<string | null>(null);
+  const [summaryLogs, setSummaryLogs] = useState<{ id: string; title: string; processedAt: number; tone: string }[]>([]);
   const dailyLimit = useDailyLimit();
 
   const unlocked = localStorage.getItem('diagnostics_unlocked') === 'true';
@@ -128,9 +130,44 @@ export function DiagnosticsPage() {
     })();
   }, [tab, dbLoaded]);
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- guard above is stable
+  useEffect(() => {
+    if (tab !== 'ai') return;
+    (async () => {
+      try {
+        try {
+          const { AIProfileService } = await import('../../ai/services/AIProfileService');
+          const portrait = await AIProfileService.getPortrait();
+          setPortraitText(portrait);
+        } catch {
+          const local = localStorage.getItem('ai_user_portrait');
+          setPortraitText(local);
+        }
+
+        const db = await getLocalDb();
+        const summaries = await db.getAll('aiSummaries');
+        const uid = getAuth().currentUser?.uid ?? getOrCreateGuestId();
+        const localDocs = await LocalDocumentService.getGuestDocuments(uid);
+
+        const logs = summaries.map(s => {
+          const doc = localDocs.find(d => d.id === s.documentId);
+          return {
+            id: s.documentId,
+            title: doc?.title ?? '(без названия)',
+            processedAt: s.processedAt,
+            tone: s.tone,
+          };
+        });
+        logs.sort((a, b) => b.processedAt - a.processedAt);
+        setSummaryLogs(logs);
+      } catch { /* ignore */ }
+    })();
+  }, [tab]);
+
   const handleExportProfile = async () => {
     const { AIProfileService } = await import('../../ai/services/AIProfileService');
-    await AIProfileService.exportMarkdown();
+    const result = await AIProfileService.exportMarkdown();
+    if (!result) alert('Портрет ещё не создан');
   };
 
   const handleResetCounter = () => {
@@ -218,6 +255,34 @@ export function DiagnosticsPage() {
               <span className="text-xs font-mono text-text-main">{r.value}</span>
             </div>
           ))}
+
+          {portraitText !== null && (
+            <div className="mt-4 rounded-xl bg-surface-card border border-border-subtle overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-border-subtle">
+                <span className="text-xs font-medium text-text-main/60">Психологический портрет пользователя</span>
+              </div>
+              <div className="px-4 py-3 max-h-60 overflow-y-auto text-xs text-text-main/50 whitespace-pre-wrap">
+                {portraitText || <span className="italic text-text-main/25">Портрет ещё не создан</span>}
+              </div>
+            </div>
+          )}
+
+          {summaryLogs.length > 0 && (
+            <div className="rounded-xl bg-surface-card border border-border-subtle overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-border-subtle">
+                <span className="text-xs font-medium text-text-main/60">История обработки заметок ИИ</span>
+              </div>
+              <div className="divide-y divide-border-subtle/50">
+                {summaryLogs.map(log => (
+                  <div key={log.id} className="px-4 py-2 flex items-center gap-3">
+                    <span className="text-[10px] font-mono text-text-main/30">{formatDate(log.processedAt)}</span>
+                    <span className="text-xs text-text-main/50 truncate flex-1">«{log.title}»</span>
+                    <span className="text-[10px] text-brand-soft/60 shrink-0">{log.tone}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="mt-4 space-y-2">
             <button

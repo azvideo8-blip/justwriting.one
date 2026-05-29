@@ -1,4 +1,5 @@
 import { getLocalDb, randomUUID } from '../storage/localDb';
+import { logger } from '../errors/logger';
 import { StorageService } from './StorageService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService } from './DocumentService';
@@ -117,7 +118,7 @@ export const SyncService = {
     let failed = 0;
     for (const r of results) {
       if (r.status === 'fulfilled') downloaded++;
-      else { failed++; console.error('[downloadAllFromCloud]', r.reason); }
+      else { failed++; logger.error('downloadAllFromCloud', 'Download failed', { reason: String(r.reason) }); }
     }
 
     return { downloaded, skipped: linkedCloudIds.size, failed };
@@ -242,7 +243,7 @@ async function _drainPendingQueue(userId: string): Promise<void> {
   const syncedIds: string[] = [];
   for (const r of results) {
     if (r.status === 'fulfilled') syncedIds.push(...r.value);
-    else console.error(`Sync failed:`, r.reason);
+    else logger.error('drainPendingQueue', 'Sync failed', { reason: String(r.reason) });
   }
 
   if (syncedIds.length > 0) {

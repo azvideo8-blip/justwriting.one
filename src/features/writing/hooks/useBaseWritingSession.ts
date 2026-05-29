@@ -120,10 +120,16 @@ export function useBaseWritingSession(): BaseSessionReturn {
 
   useEffect(() => {
     if (status !== 'writing') return;
+    let isVisible = !document.hidden;
+    const onVisibility = () => { isVisible = !document.hidden; };
+    document.addEventListener('visibilitychange', onVisibility);
     const id = setInterval(() => {
-      useTimerStore.getState().checkGoals();
+      if (isVisible) useTimerStore.getState().checkGoals();
     }, 500);
-    return () => clearInterval(id);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [status]);
 
   return {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { X, ArrowRight, Download, ChevronDown } from 'lucide-react';
+import { X, ArrowRight, Download, ChevronDown, Sparkles, ChevronUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { Label } from '../../../types';
 import { ArchiveSession } from '../types';
@@ -11,6 +11,9 @@ import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx, ExportStrings } fro
 import { InlineTags } from './InlineTags';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+import { AISummaryService } from '../../ai/services/AISummaryService';
+import { AIService } from '../../ai/services/AIService';
+import type { AIDocumentSummary } from '../../../core/storage/localDb';
 
 export function DocumentPreview({ session, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags }: {
   session: ArchiveSession | null;
@@ -38,8 +41,17 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
   const [newLabelName, setNewLabelName] = useState('');
   const [newLabelColor, setNewLabelColor] = useState(LABEL_PRESET_COLORS[0]);
 
+  const [summary, setSummary] = useState<AIDocumentSummary | null>(null);
+  const [summaryExpanded, setSummaryExpanded] = useState(true);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
+
+  useEffect(() => {
+    if (!session?.id) { setSummary(null); return; }
+    AISummaryService.get(session.id).then(s => setSummary(s ?? null));
+  }, [session?.id]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isMobile) return;
@@ -357,6 +369,78 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
           onChange={(newTags) => onTagsChange?.(session, newTags)}
           allTags={allTags}
         />
+      </div>
+
+      {/* AI Analysis */}
+      <div className="px-6 py-3 border-b border-border-subtle">
+        {summary ? (
+          <div className="rounded-xl bg-brand-soft/5 border border-brand-soft/15 p-3">
+            <button
+              onClick={() => setSummaryExpanded(v => !v)}
+              className="w-full flex items-center justify-between text-xs font-medium text-brand-soft"
+            >
+              <span className="flex items-center gap-1.5"><Sparkles size={12} /> Анализ ИИ</span>
+              {summaryExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+            {summaryExpanded && (
+              <div className="mt-2 space-y-1.5 text-xs text-text-main/70">
+                <div><span className="text-text-main/40">Тональность:</span> {summary.tone}</div>
+                {summary.insights.length > 0 && (
+                  <div>
+                    <span className="text-text-main/40">Инсайты:</span>
+                    <ul className="mt-0.5 ml-3 list-disc space-y-0.5">
+                      {summary.insights.map((ins, i) => <li key={i}>{ins}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {summary.extractedFacts.length > 0 && (
+                  <div>
+                    <span className="text-text-main/40">Факты:</span>
+                    <ul className="mt-0.5 ml-3 list-disc space-y-0.5">
+                      {summary.extractedFacts.map((f, i) => <li key={i}>{f}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={async () => {
+              if (!session?.id || !session.content || summaryLoading) return;
+              setSummaryLoading(true);
+              try {
+                const res = await AIService.summarize({ content: session.content, mood: session.mood });
+                if (res.ok) {
+                  const s: AIDocumentSummary = {
+                    documentId: session.id,
+                    tone: res.summary.tone,
+                    frequentWords: res.summary.frequentWords,
+                    insights: res.summary.insights,
+                    themes: res.summary.themes,
+                    extractedFacts: res.summary.extractedFacts,
+                    processedAt: Date.now(),
+                  };
+                  await AISummaryService.save(s);
+                  setSummary(s);
+                  const { getLocalDb } = await import('../../../core/storage/localDb');
+                  const db = await getLocalDb();
+                  const doc = await db.get('documents', session.id);
+                  if (doc) await db.put('documents', { ...doc, aiProcessed: true });
+
+                  const { AIProfileService } = await import('../../ai/services/AIProfileService');
+                  AIProfileService.generate().catch(e => console.error('[manual-portrait] failed:', e));
+                }
+              } catch { /* ignore */ }
+              setSummaryLoading(false);
+            }}
+            disabled={summaryLoading}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-brand-soft/5 border border-brand-soft/15 text-xs text-brand-soft hover:bg-brand-soft/10 transition-colors disabled:opacity-40"
+          >
+            <Sparkles size={12} />
+            {summaryLoading ? 'Генерация...' : 'Сгенерировать анализ ИИ'}
+          </button>
+        )}
       </div>
 
       {/* Content */}

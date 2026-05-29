@@ -1,7 +1,49 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import { AIService } from './AIService';
+import { getAuth } from 'firebase/auth';
+import { getClient } from '../../../core/firebase/firestoreClient';
+import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
+
+const PORTRAIT_LS_KEY = 'ai_user_portrait';
 
 export const AIProfileService = {
+  async savePortrait(portraitMarkdown: string): Promise<void> {
+    localStorage.setItem(PORTRAIT_LS_KEY, portraitMarkdown);
+
+    const uid = getAuth().currentUser?.uid;
+    if (uid) {
+      const encrypted = await maybeEncrypt(
+        { aiPortrait: portraitMarkdown },
+        ['aiPortrait'],
+        [],
+        true,
+      );
+      const { db, mod } = await getClient();
+      await mod.setDoc(mod.doc(db, 'users', uid), encrypted, { merge: true });
+    }
+  },
+
+  async getPortrait(): Promise<string | null> {
+    const local = localStorage.getItem(PORTRAIT_LS_KEY);
+    if (local) return local;
+
+    const uid = getAuth().currentUser?.uid;
+    if (uid) {
+      const { db, mod } = await getClient();
+      const snap = await mod.getDoc(mod.doc(db, 'users', uid));
+      if (snap.exists()) {
+        const data = snap.data() as Record<string, unknown>;
+        if (data.aiPortrait) {
+          const decrypted = await maybeDecrypt(data, ['aiPortrait'], []);
+          const portrait = decrypted.aiPortrait as string;
+          localStorage.setItem(PORTRAIT_LS_KEY, portrait);
+          return portrait;
+        }
+      }
+    }
+    return null;
+  },
+
   async generate(): Promise<{ ok: true; markdown: string } | { ok: false; error: string }> {
     const db = await getLocalDb();
     const allSummaries = await db.getAll('aiSummaries');
@@ -32,20 +74,21 @@ export const AIProfileService = {
       return { ok: false, error: result.error };
     }
 
+    await this.savePortrait(result.text);
     return { ok: true, markdown: result.text };
   },
 
   async exportMarkdown(): Promise<string | null> {
-    const result = await this.generate();
-    if (!result.ok) return null;
+    const portrait = localStorage.getItem(PORTRAIT_LS_KEY);
+    if (!portrait) return null;
 
-    const blob = new Blob([result.markdown], { type: 'text/markdown' });
+    const blob = new Blob([portrait], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `ai-profile-${new Date().toISOString().slice(0, 10)}.md`;
     a.click();
     URL.revokeObjectURL(url);
-    return result.markdown;
+    return portrait;
   },
 };

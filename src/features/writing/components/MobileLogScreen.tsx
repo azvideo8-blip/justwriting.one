@@ -13,6 +13,7 @@ import { MobilePageHeader } from '../../../shared/components/MobilePageHeader';
 import { Settings } from 'lucide-react';
 import { useSettings } from '../../../core/settings/SettingsContext';
 import { LoadingSkeleton } from '../../../shared/components/LoadingSkeleton';
+import { logger } from '../../../core/errors/logger';
 
 interface MobileLogScreenProps {
   userId: string;
@@ -44,7 +45,7 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
       }
       refresh();
     } catch (e) {
-      console.error('Failed to update labelId:', e);
+      logger.error('mobileLogScreen', 'Failed to update labelId', { error: String(e) });
     }
   };
 
@@ -283,7 +284,7 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
                 setPreviewSession(prev => prev ? { ...prev, tags } : null);
                 refresh();
               } catch (e) {
-                console.error('Failed to update tags:', e);
+                logger.error('mobileLogScreen', 'Failed to update tags', { error: String(e) });
               }
             }}
             labels={labels}
