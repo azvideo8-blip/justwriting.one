@@ -4,6 +4,7 @@ import { loadAllSessions } from '../../writing/services/UnifiedSessionLoader';
 import { ArchiveSession } from '../types';
 import { updateArchiveField, deleteArchiveSession } from '../services/archiveCrud';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
+import { logger } from '../../../core/errors/logger';
 
 export function useArchiveSessions(user: User | null, userId: string, t: (key: string) => string) {
   const [sessions, setSessions] = useState<ArchiveSession[]>([]);
@@ -27,7 +28,7 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
       setCloudLoadFailed(result.cloudLoadFailed);
     } catch (err) {
       if (!mountedRef.current) return;
-      console.error('Archive load error:', err);
+      logger.error('archive', 'Archive load error', { error: String(err) });
       setError(t('archive_load_error'));
     } finally {
       if (mountedRef.current) setLoading(false);
@@ -61,7 +62,7 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
       setSessions(prev => prev.filter(x => x.id !== s.id));
       if (previewSession?.id === s.id) setPreviewSession(null);
     } catch (e) {
-      console.error('Failed to delete session:', e);
+      logger.error('archive', 'Failed to delete session', { error: String(e) });
     }
   };
 
@@ -81,7 +82,7 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
       } else if (field === 'labelId') patch.labelId = value as string | undefined;
       updateSession(session.id, patch);
     } catch (e) {
-      console.error(`Failed to update ${field}:`, e);
+      logger.error('archive', `Failed to update ${field}`, { error: String(e) });
     }
   };
 

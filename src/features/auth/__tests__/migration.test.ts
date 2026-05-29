@@ -53,7 +53,7 @@ vi.mock('../../../core/services/DocumentService', () => ({
   DocumentService: MockDocumentService,
 }));
 
-vi.mock('../../../features/writing/services/VersionService', () => ({
+vi.mock('../../../core/services/VersionService', () => ({
   VersionService: MockVersionService,
 }));
 
@@ -81,7 +81,7 @@ vi.mock('../../../core/storage/localDb', async (importOriginal) => {
 // ─────────────────────────────────────────────────────────────────────────────
 import { getLocalDb, resetDbInstance } from '../../../core/storage/localDb';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
-import { LocalVersionService } from '../../../features/writing/services/LocalVersionService';
+import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { SyncService } from '../../../core/services/SyncService';
 import { StorageService } from '../../../core/services/StorageService';
 

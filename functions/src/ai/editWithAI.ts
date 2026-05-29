@@ -51,7 +51,13 @@ async function callGemini(
   const prompt = buildPrompt(action, content);
   let result;
   try {
-    result = await chat.sendMessage(prompt);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+    try {
+      result = await chat.sendMessage(prompt, { signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
   } catch {
     throw new HttpsError('internal', 'AI request failed.');
   }
@@ -103,22 +109,15 @@ export const editWithAI = onCall({
 
   if (sessionId) {
     const db = getFirestore();
-    const docRef = db.doc(`sessions/${sessionId}`);
-    await db.runTransaction(async (tx) => {
-      const [userDoc, sessionDoc] = await Promise.all([
-        tx.get(db.doc(`users/${uid}`)),
-        tx.get(docRef),
-      ]);
-      const isAdmin = userDoc.exists && userDoc.data()?.role === 'admin';
-      if (!sessionDoc.exists || (sessionDoc.data()?.userId !== uid && !isAdmin)) {
-        throw new HttpsError('permission-denied', 'Session not found or not owned.');
-      }
-      tx.update(docRef, {
-        _aiProcessed: true,
-        _aiAction: action,
-        _aiProcessedAt: FieldValue.serverTimestamp(),
-        _aiResultText: sanitizedOutput,
-      });
+    const sessionDoc = await db.doc(`sessions/${sessionId}`).get();
+    if (!sessionDoc.exists || sessionDoc.data()?.userId !== uid) {
+      throw new HttpsError('permission-denied', 'Session not found or not owned.');
+    }
+    await db.doc(`sessions/${sessionId}`).update({
+      _aiProcessed: true,
+      _aiAction: action,
+      _aiProcessedAt: FieldValue.serverTimestamp(),
+      _aiResultText: sanitizedOutput,
     });
   }
 

@@ -14,6 +14,22 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.4',
+    date: '2026-05-29',
+    items: [
+      { category: 'new', ru: 'Ленивая клиентская миграция легаси-сессий с сохранением исторических меток времени и количества сессий в IndexedDB/Firestore', en: 'Client-side lazy migration of legacy sessions with strict preservation of original timestamps and session counts in IndexedDB/Firestore' },
+      { category: 'new', ru: 'Разрешение конфликтов оффлайн/онлайн синхронизации через форкинг конфликтных копий', en: 'Offline sync conflict resolution via cloning/forking of conflict-marked copies' },
+      { category: 'new', ru: 'Очередь промисов (Mutex Lock) в StorageService для сериализации параллельных сохранений', en: 'Promise Queue (Mutex Lock) in StorageService to serialize concurrent saves' },
+      { category: 'improvement', ru: 'Общая папка src/shared/ai/ с Zod-схемами и промптами для совместного использования на бэкенде и фронтенде; обновление Zod до v4', en: 'Shared src/shared/ai/ folder with Zod schemas and prompts shared across Cloud Functions and Edge routes; backend Zod upgraded to v4' },
+      { category: 'improvement', ru: 'Инфраструктурные сервисы (VersionService, LocalVersionService, DiffService) перенесены в core/services для устранения циклических импортов', en: 'Versioning and diff services (VersionService, LocalVersionService, DiffService) moved to core/services to eliminate circular imports' },
+      { category: 'improvement', ru: 'Декомпозиция WritingPageUI на EditorPanel и TimerDisplay, стабилизация коллбеков play/pause таймера', en: 'Decomposed WritingPageUI into EditorPanel and TimerDisplay, stabilizing play/pause callbacks to avoid stale closures' },
+      { category: 'improvement', ru: 'Интеграция Feature Flags на базе Firebase Remote Config и добавление регламентов эксплуатации (ops runbooks)', en: 'Added Firebase Remote Config Feature Flags integration and operations runbooks' },
+      { category: 'improvement', ru: 'Оптимизация сборки Vite (manualChunks разделение кода) и динамическое хеширование кэша Service Worker', en: 'Optimized Vite bundling with manualChunks splitting and dynamic Service Worker cache versions' },
+      { category: 'fix', ru: 'Обработка исключений в useEncryptionStore при недоступности localStorage с возвратом false', en: 'Improved exception handling in useEncryptionStore with a safe false fallback on localStorage errors' },
+      { category: 'fix', ru: 'Устранено дублирование логирования Sentry (reportError) в DocumentService.ts', en: 'Removed double error logging to Sentry in DocumentService.ts' },
+    ],
+  },
+  {
     version: '0.7.3',
     date: '2026-05-29',
     items: [

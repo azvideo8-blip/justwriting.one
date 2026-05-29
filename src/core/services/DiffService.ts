@@ -1,4 +1,4 @@
-import { countWords } from '../../../shared/utils/countWords';
+import { countWords } from '../../shared/utils/countWords';
 
 export function computeWordDelta(oldContent: string, newContent: string): {
   wordsAdded: number;

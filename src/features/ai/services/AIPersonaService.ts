@@ -20,6 +20,11 @@ export const AIPersonaService = {
     return db.getAll('aiPersonas');
   },
 
+  async getCustom(id: string): Promise<AIPersona | undefined> {
+    const db = await getLocalDb();
+    return db.get('aiPersonas', id);
+  },
+
   async create(data: { name: string; emoji: string; systemPrompt: string }): Promise<AIPersona> {
     const db = await getLocalDb();
     const persona: AIPersona = {

@@ -1,9 +1,9 @@
-import { getClient } from '../../../core/firebase/firestoreClient';
-import { Version } from '../../../types';
-import { handleFirestoreError, OperationType } from '../../../core/errors/firestore-errors';
+import { getClient } from '../firebase/firestoreClient';
+import { Version } from '../../types';
+import { handleFirestoreError, OperationType } from '../errors/firestore-errors';
 import { computeWordDelta } from './DiffService';
-import { reportError } from '../../../core/errors/reportError';
-import { versionDbSchema } from '../../../core/firebase/schemas/firestoreSchemas';
+import { reportError } from '../errors/reportError';
+import { versionDbSchema } from '../firebase/schemas/firestoreSchemas';
 
 export const VersionService = {
   async addVersion(
@@ -20,6 +20,7 @@ export const VersionService = {
       goalTime?: number;
       goalReached?: boolean;
       sessionStartedAt: Date;
+      savedAt?: Date;
       _encrypted?: boolean;
       mood?: string;
     }
@@ -47,7 +48,7 @@ export const VersionService = {
         goalWords: data.goalWords ?? null,
         goalTime: data.goalTime ?? null,
         goalReached: data.goalReached ?? false,
-        savedAt: Timestamp.now(),
+        savedAt: data.savedAt ? Timestamp.fromDate(data.savedAt) : Timestamp.now(),
         sessionStartedAt: Timestamp.fromDate(data.sessionStartedAt),
       };
       if (data._encrypted) doc._encrypted = true;

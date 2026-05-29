@@ -13,3 +13,4 @@ _archive/
 .vercel
 functions/*.js
 .agents/skills/
+bundle-stats.html

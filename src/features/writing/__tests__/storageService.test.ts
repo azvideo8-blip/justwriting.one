@@ -40,7 +40,7 @@ vi.mock('../../../core/services/DocumentService', () => ({
   DocumentService: MockDocumentService,
 }));
 
-vi.mock('../services/VersionService', () => ({
+vi.mock('../../../core/services/VersionService', () => ({
   VersionService: MockVersionService,
 }));
 
@@ -58,7 +58,7 @@ vi.mock('../../../core/firebase/firestore', () => ({
 
 import { resetDbInstance } from '../../../core/storage/localDb';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
-import { LocalVersionService } from '../services/LocalVersionService';
+import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { StorageService } from '../../../core/services/StorageService';
 
 const GUEST = 'guest_storage_test';
@@ -163,7 +163,7 @@ describe('StorageService.saveVersion', () => {
     expect(typeof versions[1].wordsAdded).toBe('number');
   });
 
-  it('_saveVersionLocks serializes concurrent calls: two parallel saveVersion calls result in versions 2 and 3', async () => {
+  it('LockManager serializes concurrent calls: two parallel saveVersion calls result in versions 2 and 3', async () => {
     const { localId } = await StorageService.saveNew(GUEST, BASE_DATA);
 
     // Fire two saveVersion calls simultaneously
@@ -286,5 +286,110 @@ describe('StorageService.addCloudCopy', () => {
 
     // Neither call should throw
     expect(error).toBeNull();
+  });
+
+  it('preserves version savedAt and document sessionsCount/lastSessionAt when copying to cloud', async () => {
+    const customFirstSessionAt = 1700000000000;
+    const customLastSessionAt = 1700000010000;
+    const customSavedAt = new Date(1700000020000);
+    const customSessionStartedAt = new Date(1700000000000);
+
+    const localId = await LocalDocumentService.createDocument(GUEST, {
+      title: 'Manual Legacy doc',
+      tags: ['fiction'],
+      firstSessionAt: customFirstSessionAt,
+      lastSessionAt: customLastSessionAt,
+    });
+
+    await LocalVersionService.addVersion(GUEST, localId, {
+      content: 'Version Content',
+      previousContent: '',
+      wordCount: 2,
+      duration: 10,
+      wpm: 12,
+      versionNumber: 1,
+      sessionStartedAt: customSessionStartedAt,
+      savedAt: customSavedAt,
+    });
+
+    await LocalDocumentService.updateDocument(localId, {
+      totalWords: 2,
+      totalDuration: 10,
+      currentVersion: 1,
+      sessionsCount: 5,
+    });
+
+    const cloudId = await StorageService.addCloudCopy(GUEST, localId);
+
+    expect(MockDocumentService.createDocument).toHaveBeenCalledWith(
+      GUEST,
+      expect.objectContaining({
+        firstSessionAt: new Date(customFirstSessionAt),
+        lastSessionAt: new Date(customLastSessionAt),
+      })
+    );
+
+    expect(MockVersionService.addVersion).toHaveBeenCalledWith(
+      GUEST,
+      cloudId,
+      expect.objectContaining({
+        savedAt: customSavedAt,
+      })
+    );
+
+    expect(MockDocumentService.updateDocumentAfterSession).toHaveBeenCalledWith(
+      GUEST,
+      cloudId,
+      expect.objectContaining({
+        sessionsCount: 5,
+        lastSessionAt: new Date(customLastSessionAt),
+      })
+    );
+  });
+
+  it('preserves cloud version savedAt and doc metadata when copying to local', async () => {
+    const cloudId = 'cloud_to_local_123';
+    const customSavedAt = new Date(1700000005000);
+    const customSessionStartedAt = new Date(1700000000000);
+    const customFirstSessionAt = new Date(1700000000000);
+    const customLastSessionAt = new Date(1700000010000);
+
+    cloudDocs.set(cloudId, {
+      id: cloudId,
+      userId: GUEST,
+      title: 'Cloud Doc',
+      totalWords: 10,
+      totalDuration: 100,
+      currentVersion: 1,
+      sessionsCount: 3,
+      firstSessionAt: customFirstSessionAt,
+      lastSessionAt: customLastSessionAt,
+    });
+
+    cloudVersions.set(cloudId, [
+      {
+        id: 'ver_cloud_1',
+        documentId: cloudId,
+        version: 1,
+        content: 'Hello world',
+        wordCount: 2,
+        duration: 30,
+        wpm: 4,
+        sessionStartedAt: customSessionStartedAt,
+        savedAt: customSavedAt,
+      },
+    ]);
+
+    const localId = await StorageService.addLocalCopy(GUEST, cloudId);
+
+    const versions = await LocalVersionService.getVersions(localId);
+    expect(versions).toHaveLength(1);
+    expect(versions[0].savedAt).toBe(customSavedAt.getTime());
+
+    const doc = await LocalDocumentService.getDocument(localId);
+    expect(doc).not.toBeUndefined();
+    expect(doc!.firstSessionAt).toBe(customFirstSessionAt.getTime());
+    expect(doc!.lastSessionAt).toBe(customLastSessionAt.getTime());
+    expect(doc!.sessionsCount).toBe(3);
   });
 });

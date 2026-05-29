@@ -1,6 +1,15 @@
 import { initializeApp } from 'firebase-admin/app';
+import { getLangfuse } from './shared/aiUtils';
 
 initializeApp();
+
+process.on('SIGTERM', async () => {
+  const lf = getLangfuse();
+  if (lf) {
+    try { await lf.flushAsync(); } catch {}
+  }
+  process.exit(0);
+});
 
 export { setUserRole } from './admin/setUserRole';
 export { editWithAI } from './ai/editWithAI';

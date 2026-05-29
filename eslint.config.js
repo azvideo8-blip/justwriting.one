@@ -43,7 +43,7 @@ export default [
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
       'import/no-duplicates': 'error',
-      'no-console': ['warn', { allow: ['error', 'warn'] }],
+      'no-console': ['error', { allow: ['error', 'warn', 'info'] }],
     },
     settings: {
       react: { version: 'detect' },
@@ -68,6 +68,7 @@ export default [
     },
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
+      'no-console': 'off',
     },
   },
   prettier,

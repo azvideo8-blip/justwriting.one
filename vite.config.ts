@@ -9,7 +9,7 @@ export default defineConfig(() => {
     plugins: [
       react(),
       tailwindcss(),
-      visualizer({ open: false, gzipSize: true, filename: 'bundle-stats.html' }),
+      ...(process.env.ANALYZE ? [visualizer({ open: true, gzipSize: true, filename: 'bundle-stats.html' })] : []),
     ],
     define: {
     },
@@ -30,7 +30,7 @@ export default defineConfig(() => {
     },
     build: {
       target: 'es2022',
-      sourcemap: false,
+      sourcemap: true,
       chunkSizeWarningLimit: 600,
       rollupOptions: {
         output: {
@@ -40,6 +40,9 @@ export default defineConfig(() => {
             'vendor-motion': ['motion/react'],
             'vendor-charts': ['recharts'],
             'vendor-docx': ['docx'],
+            'vendor-router': ['react-router-dom'],
+            'vendor-markdown': ['react-markdown', 'rehype-sanitize'],
+            'vendor-ui': ['lucide-react', 'clsx', 'tailwind-merge'],
           },
         },
       },
@@ -68,10 +71,10 @@ export default defineConfig(() => {
           'src/**/index.ts',
         ],
         thresholds: {
-          statements: 50,
-          branches: 40,
-          functions: 50,
-          lines: 50,
+          statements: 75,
+          branches: 70,
+          functions: 75,
+          lines: 75,
         },
       },
     },

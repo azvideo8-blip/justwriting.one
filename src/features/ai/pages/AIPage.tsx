@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { Sparkles, Plus, Archive, Download, Trash2, FileText } from 'lucide-react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { Sparkles, Plus, Archive, Download, Trash2, FileText, Paperclip, ChevronDown, ChevronUp, File } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { AIDialogueService } from '../services/AIDialogueService';
 import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService';
@@ -11,13 +11,87 @@ import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import type { AIDialogue, AIPersona } from '../../../core/storage/localDb';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { cn } from '../../../core/utils/utils';
-import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLanguage } from '../../../core/i18n';
 
+const MAX_INPUT_CHARS = 10_000;
+const ATTACHED_NOTE_RE = /^\[Прикреплена заметка: "([^"]+)"\]/;
+const ATTACHED_NOTE_SUMMARY_RE = /^\[Прикреплено саммари заметки: "([^"]+)"\]/;
+const ATTACHED_FILE_RE = /^\[Прикреплен файл: "([^"]+)"\]/;
+
+function AttachedNoteCard({ content }: { content: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const match = content.match(ATTACHED_NOTE_RE);
+  const title = match?.[1] ?? 'Заметка';
+  const noteContent = content.replace(ATTACHED_NOTE_RE, '').trim();
+
+  return (
+    <div className="rounded-xl bg-brand-soft/5 border border-brand-soft/15 p-2.5">
+      <button
+        onClick={() => setExpanded(v => !v)}
+        className="w-full flex items-center justify-between text-xs font-medium text-brand-soft"
+      >
+        <span className="flex items-center gap-1.5"><Paperclip size={12} /> {title}</span>
+        {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+      </button>
+      {expanded && (
+        <div className="mt-2 text-xs text-text-main/60 whitespace-pre-wrap max-h-60 overflow-y-auto">
+          {noteContent}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AttachedFileCard({ content }: { content: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const match = content.match(ATTACHED_FILE_RE);
+  const fileName = match?.[1] ?? 'Файл';
+  const fileContent = content.replace(ATTACHED_FILE_RE, '').trim();
+
+  return (
+    <div className="rounded-xl bg-text-main/5 border border-border-subtle p-2.5">
+      <button
+        onClick={() => setExpanded(v => !v)}
+        className="w-full flex items-center justify-between text-xs font-medium text-text-main/60"
+      >
+        <span className="flex items-center gap-1.5"><File size={12} /> {fileName}</span>
+        {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+      </button>
+      {expanded && (
+        <div className="mt-2 text-xs text-text-main/60 whitespace-pre-wrap max-h-60 overflow-y-auto">
+          {fileContent}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AttachedSummaryCard({ content }: { content: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const match = content.match(ATTACHED_NOTE_SUMMARY_RE);
+  const title = match?.[1] ?? 'Заметка';
+  const summaryContent = content.replace(ATTACHED_NOTE_SUMMARY_RE, '').trim();
+
+  return (
+    <div className="rounded-xl bg-brand-soft/5 border border-brand-soft/15 p-2.5">
+      <button
+        onClick={() => setExpanded(v => !v)}
+        className="w-full flex items-center justify-between text-xs font-medium text-brand-soft"
+      >
+        <span className="flex items-center gap-1.5"><Sparkles size={12} /> Саммари: {title}</span>
+        {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+      </button>
+      {expanded && (
+        <div className="mt-2 text-xs text-text-main/60 whitespace-pre-wrap max-h-40 overflow-y-auto">
+          {summaryContent}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AIPage() {
-  const { profile } = useAuthStatus();
   const { t } = useLanguage();
-  const isAdmin = profile?.role === 'admin';
   const [searchParams] = useSearchParams();
   const linkedDocId = searchParams.get('doc') ?? undefined;
   const { layoutMode } = useLayoutMode();
@@ -33,8 +107,12 @@ export function AIPage() {
   const [docPickerOpen, setDocPickerOpen] = useState(false);
   const [createPersonaOpen, setCreatePersonaOpen] = useState(false);
   const [infoPersonaId, setInfoPersonaId] = useState<string | null>(null);
+  const [infoPromptText, setInfoPromptText] = useState<string | null>(null);
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachMenuRef = useRef<HTMLDivElement>(null);
 
   const dailyLimit = useDailyLimit();
   const {
@@ -43,10 +121,8 @@ export function AIPage() {
     streamingMessage,
     error,
     sendMessage,
-    loadDocument,
+    attachDocument,
     clearError,
-    documentContent,
-    documentMood,
   } = useAIChat(activeDialogueId, selectedPersonaId);
 
   const loadDialogues = useCallback(async () => {
@@ -66,24 +142,39 @@ export function AIPage() {
   useEffect(() => {
     if (initRef.current) return;
     initRef.current = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load
-    loadDialogues();
-    loadCustomPersonas();
-    if (linkedDocId) loadDocument(linkedDocId);
-  }, [loadDialogues, loadCustomPersonas, linkedDocId, loadDocument]);
+    setTimeout(() => {
+      loadDialogues();
+      loadCustomPersonas();
+    }, 0);
+    if (linkedDocId) attachDocument(linkedDocId);
+  }, [loadDialogues, loadCustomPersonas, linkedDocId, attachDocument]);
 
   useEffect(() => {
     if (infoPersonaId === null) return;
-    const dismiss = () => setInfoPersonaId(null);
+    const dismiss = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('.info-trigger')) return;
+      setInfoPersonaId(null);
+    };
     document.addEventListener('mousedown', dismiss);
     return () => document.removeEventListener('mousedown', dismiss);
   }, [infoPersonaId]);
+
+  useEffect(() => {
+    if (!attachMenuOpen) return;
+    const dismiss = (e: MouseEvent) => {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) {
+        setAttachMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', dismiss);
+    return () => document.removeEventListener('mousedown', dismiss);
+  }, [attachMenuOpen]);
 
   const handleSendMessage = async () => {
     if (!inputText.trim() || isLoading) return;
     const text = inputText.trim();
     setInputText('');
-
     await sendMessage(text);
     if (!activeDialogueId && dialogue) {
       setActiveDialogueId(dialogue.id);
@@ -125,10 +216,62 @@ export function AIPage() {
   };
 
   const handleDocSelect = async (documentId: string) => {
-    await loadDocument(documentId);
+    await attachDocument(documentId);
   };
 
-  const allPersonas = [...PRESET_PERSONAS, ...customPersonas.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, isPreset: false as const }))];
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const text = ev.target?.result as string;
+      if (text.length > MAX_INPUT_CHARS) {
+        alert(`Файл слишком большой (более ${MAX_INPUT_CHARS.toLocaleString()} символов)`);
+        return;
+      }
+      const formatted = `[Прикреплен файл: "${file.name}"]\n\n${text}`;
+      await sendMessage(formatted);
+      if (!activeDialogueId && dialogue) {
+        setActiveDialogueId(dialogue.id);
+      }
+      loadDialogues();
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+    setAttachMenuOpen(false);
+  };
+
+  const allPersonas = [
+    ...PRESET_PERSONAS.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, isPreset: true as const, systemPrompt: undefined as string | undefined })),
+    ...customPersonas.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, isPreset: false as const, systemPrompt: p.systemPrompt })),
+  ];
+
+  const handleInfoClick = (persona: typeof allPersonas[number]) => {
+    if (infoPersonaId === persona.id) {
+      setInfoPersonaId(null);
+      return;
+    }
+    setInfoPersonaId(persona.id);
+    setInfoPromptText(persona.isPreset ? null : (persona.systemPrompt ?? null));
+  };
+
+  const renderInfoTooltip = (persona: typeof allPersonas[number]) => {
+    if (infoPersonaId !== persona.id) return null;
+    return (
+      <div
+        className="absolute bottom-full left-0 mb-1 w-56 max-h-48 overflow-y-auto p-2 rounded-xl bg-surface-card border border-border-subtle text-xs text-text-main/70 shadow-lg z-10"
+        onClick={e => e.stopPropagation()}
+      >
+        {persona.isPreset
+          ? (t(`ai_persona_desc_${persona.id}` as `ai_persona_desc_${typeof persona.id}`) ?? persona.name)
+          : (infoPromptText
+            ? <span className="whitespace-pre-wrap break-words">{infoPromptText}</span>
+            : <span className="text-text-main/40">Нет описания</span>
+          )
+        }
+      </div>
+    );
+  };
 
   const activeDialogue = dialogue ?? dialogues.find(d => d.id === activeDialogueId) ?? null;
   const displayMessages = activeDialogue?.messages ?? [];
@@ -221,12 +364,12 @@ export function AIPage() {
 
           <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 no-scrollbar">
             {allPersonas.map(p => (
-              <div key={p.id} className="relative shrink-0">
+              <div key={p.id} className="relative shrink-0 flex items-center gap-1">
                 <button
-                  onClick={() => setSelectedPersonaId(p.isPreset ? p.id : 'custom')}
+                  onClick={() => setSelectedPersonaId(p.id)}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border",
-                    (p.isPreset && selectedPersonaId === p.id) || (!p.isPreset && selectedPersonaId === 'custom')
+                    selectedPersonaId === p.id
                       ? "bg-brand-soft/10 border-brand-soft/30 text-brand-soft"
                       : "bg-text-main/3 border-border-subtle text-text-main/50 hover:text-text-main/70"
                   )}
@@ -234,21 +377,13 @@ export function AIPage() {
                   <span>{p.emoji}</span>
                   <span>{p.name}</span>
                 </button>
-                {p.isPreset && (
-                  <>
-                    <button
-                      onClick={e => { e.stopPropagation(); setInfoPersonaId(infoPersonaId === p.id ? null : p.id); }}
-                      className="absolute top-0 right-0 w-8 h-8 rounded-full text-[10px] text-text-main/30 hover:text-text-main/60 flex items-center justify-center"
-                    >
-                      i
-                    </button>
-                    {infoPersonaId === p.id && (
-                      <div className="absolute bottom-full left-0 mb-1 w-48 p-2 rounded-xl bg-surface-card border border-border-subtle text-xs text-text-main/70 shadow-lg z-10">
-                        {t(`ai_persona_desc_${p.id}` as `ai_persona_desc_${typeof p.id}`) ?? p.name}
-                      </div>
-                    )}
-                  </>
-                )}
+                <button
+                  onClick={e => { e.stopPropagation(); handleInfoClick(p); }}
+                  className="info-trigger w-5 h-5 rounded-full text-[9px] text-text-main/30 hover:text-text-main/60 flex items-center justify-center shrink-0"
+                >
+                  i
+                </button>
+                {renderInfoTooltip(p)}
               </div>
             ))}
             <button
@@ -260,32 +395,16 @@ export function AIPage() {
             </button>
           </div>
 
-          {!documentContent && !activeDialogueId && (
+          {!activeDialogueId && (
             <div className="mt-2 flex items-center gap-2">
               <button
                 onClick={() => setDocPickerOpen(true)}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-text-main/5 border border-dashed border-border-subtle text-xs text-text-main/40 hover:text-text-main/60 transition-colors"
               >
-                <Plus size={12} />
-                Привязать заметку
+                <Paperclip size={12} />
+                Прикрепить заметку
               </button>
               <span className="text-[10px] text-text-main/25">необязательно</span>
-            </div>
-          )}
-          {documentContent && (
-            <div className="mt-2 flex items-center gap-2">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-brand-soft/5 border border-brand-soft/15 text-xs text-brand-soft">
-                <FileText size={12} />
-                Заметка загружена
-                {documentMood && <span className="ml-1">{documentMood}</span>}
-              </div>
-              <button
-                onClick={() => setDocPickerOpen(true)}
-                className="p-1.5 rounded-lg text-text-main/30 hover:text-text-main/60 transition-colors"
-                title="Заменить заметку"
-              >
-                <Plus size={12} />
-              </button>
             </div>
           )}
         </div>
@@ -303,20 +422,46 @@ export function AIPage() {
             </div>
           )}
 
-          {displayMessages.map((msg, i) => (
-            <div key={i} className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}>
-              <div
-                className={cn(
-                  "max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed",
-                  msg.role === 'user'
-                    ? "bg-brand-soft/10 text-text-main rounded-br-md"
-                    : "bg-surface-card border border-border-subtle text-text-main/80 rounded-bl-md"
-                )}
-              >
-                {msg.role === 'assistant' ? <MarkdownRenderer content={msg.content} /> : msg.content}
+          {displayMessages.map((msg, i) => {
+            const isAttachedNote = msg.role === 'user' && ATTACHED_NOTE_RE.test(msg.content);
+            const isAttachedSummary = msg.role === 'user' && ATTACHED_NOTE_SUMMARY_RE.test(msg.content);
+            const isAttachedFile = msg.role === 'user' && ATTACHED_FILE_RE.test(msg.content);
+            const isSystemMessage = msg.type === 'system';
+
+            if (isSystemMessage) {
+              return (
+                <div key={i} className="flex justify-center">
+                  <div className="px-4 py-1.5 rounded-xl bg-text-main/5 border border-border-subtle text-[11px] text-text-main/40 font-mono">
+                    {msg.content}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={i} className={cn("flex", msg.role === 'user' ? "justify-end" : "justify-start")}>
+                <div
+                  className={cn(
+                    "max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed",
+                    msg.role === 'user'
+                      ? "bg-brand-soft/10 text-text-main rounded-br-md"
+                      : "bg-surface-card border border-border-subtle text-text-main/80 rounded-bl-md"
+                  )}
+                >
+                  {isAttachedNote
+                    ? <AttachedNoteCard content={msg.content} />
+                    : isAttachedSummary
+                      ? <AttachedSummaryCard content={msg.content} />
+                      : isAttachedFile
+                        ? <AttachedFileCard content={msg.content} />
+                        : msg.role === 'assistant'
+                          ? <MarkdownRenderer content={msg.content} />
+                          : msg.content
+                  }
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {streamingMessage !== null && (
             <div className="flex justify-start">
@@ -347,17 +492,51 @@ export function AIPage() {
 
         <div className="px-4 py-3 border-t border-border-subtle">
           <div className="flex items-center gap-2">
+            <div className="relative" ref={attachMenuRef}>
+              <button
+                onClick={() => setAttachMenuOpen(v => !v)}
+                className="w-10 h-10 flex items-center justify-center rounded-xl bg-text-main/5 border border-border-subtle text-text-main/40 hover:text-text-main/60 transition-colors shrink-0"
+                title="Прикрепить"
+              >
+                <Plus size={16} />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".txt,.md"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              {attachMenuOpen && (
+                <div className="absolute bottom-full left-0 mb-2 w-48 border border-border-subtle rounded-xl shadow-xl overflow-hidden z-50" style={{ background: 'var(--bg-elevated)' }}>
+                  <button
+                    onClick={() => { setAttachMenuOpen(false); setDocPickerOpen(true); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors flex items-center gap-2"
+                  >
+                    <Paperclip size={14} />
+                    Прикрепить заметку
+                  </button>
+                  <button
+                    onClick={() => { setAttachMenuOpen(false); fileInputRef.current?.click(); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors flex items-center gap-2"
+                  >
+                    <File size={14} />
+                    Загрузить файл
+                  </button>
+                </div>
+              )}
+            </div>
             <input
               value={inputText}
               onChange={e => setInputText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
               placeholder="Написать сообщение..."
-              disabled={isLoading || (dailyLimit.remaining === 0 && !isAdmin)}
+              disabled={isLoading || dailyLimit.remaining === 0}
               className="flex-1 px-4 py-2.5 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40 disabled:opacity-40"
             />
             <button
               onClick={handleSendMessage}
-              disabled={isLoading || !inputText.trim() || (dailyLimit.remaining === 0 && !isAdmin)}
+              disabled={isLoading || !inputText.trim() || dailyLimit.remaining === 0}
               className="px-4 py-2.5 rounded-xl bg-brand-soft text-surface-base text-sm font-medium disabled:opacity-40 transition-colors"
             >
               Отправить
@@ -365,7 +544,15 @@ export function AIPage() {
           </div>
           <div className="flex items-center justify-between mt-1.5">
             <span className="text-[10px] font-mono text-text-main/25">
-              {isAdmin ? "Безлимитно для администратора" : `Осталось ${dailyLimit.remaining}/${dailyLimit.limit} сегодня`}
+              {`Осталось ${dailyLimit.remaining}/${dailyLimit.limit} сегодня`}
+            </span>
+            <span className={cn(
+              "text-[10px] font-mono",
+              inputText.length > MAX_INPUT_CHARS * 0.9
+                ? "text-red-400"
+                : "text-text-main/20"
+            )}>
+              {inputText.length.toLocaleString()}/{MAX_INPUT_CHARS.toLocaleString()}
             </span>
           </div>
         </div>
@@ -375,9 +562,9 @@ export function AIPage() {
         <div className="fixed bottom-16 left-0 right-0 z-40 bg-surface-card/85 backdrop-blur-xl border-t border-white/[0.06]">
           <div className="flex gap-1 overflow-x-auto px-3 py-2 no-scrollbar">
             {allPersonas.slice(0, 5).map(p => (
-              <div key={p.id} className="relative shrink-0">
+              <div key={p.id} className="relative shrink-0 flex items-center gap-0.5">
                 <button
-                  onClick={() => setSelectedPersonaId(p.isPreset ? p.id : 'custom')}
+                  onClick={() => setSelectedPersonaId(p.id)}
                   className={cn(
                     "px-2.5 py-1 rounded-full text-xs",
                     selectedPersonaId === p.id ? "bg-brand-soft/10 text-brand-soft" : "text-text-main/40"
@@ -385,21 +572,13 @@ export function AIPage() {
                 >
                   {p.emoji} {p.name}
                 </button>
-                {p.isPreset && (
-                  <>
-                    <button
-                      onClick={e => { e.stopPropagation(); setInfoPersonaId(infoPersonaId === p.id ? null : p.id); }}
-                      className="absolute -top-1 -right-1 w-6 h-6 rounded-full text-[8px] text-text-main/30 hover:text-text-main/60 flex items-center justify-center"
-                    >
-                      i
-                    </button>
-                    {infoPersonaId === p.id && (
-                      <div className="absolute bottom-full left-0 mb-1 w-44 p-2 rounded-xl bg-surface-card border border-border-subtle text-xs text-text-main/70 shadow-lg z-50">
-                        {t(`ai_persona_desc_${p.id}` as `ai_persona_desc_${typeof p.id}`) ?? p.name}
-                      </div>
-                    )}
-                  </>
-                )}
+                <button
+                  onClick={e => { e.stopPropagation(); handleInfoClick(p); }}
+                  className="info-trigger w-5 h-5 rounded-full text-[8px] text-text-main/30 hover:text-text-main/60 flex items-center justify-center"
+                >
+                  i
+                </button>
+                {renderInfoTooltip(p)}
               </div>
             ))}
           </div>

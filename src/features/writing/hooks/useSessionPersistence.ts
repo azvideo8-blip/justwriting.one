@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { User } from 'firebase/auth';
 import { WritingDraftService } from '../services/WritingDraftService';
-import { LocalDraft } from '../../../core/storage/localDb';
+import { LocalDraft, getLocalDb } from '../../../core/storage/localDb';
 import { WritingSessionService } from '../services/WritingSessionService';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
@@ -14,6 +14,7 @@ import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 import { buildSessionPayload, saveLocalOnly, saveToCloud } from '../utils/sessionPersistence';
 import { TimerStatus, SessionType } from '../store/types';
 import { reportError } from '../../../core/errors/reportError';
+
 
 export interface SessionStateSlice {
   title: string;
@@ -162,6 +163,36 @@ export function useSessionPersistence(
       }
       actions.setHasDraft(false);
       actions.resetSession();
+
+      if (isOnline && savedId) {
+        const docId = sessionState.activeSessionId ?? savedId;
+        Promise.all([
+          import('../../ai/services/AIService'),
+          import('../../ai/services/AISummaryService'),
+          import('../../ai/services/AIProfileService'),
+        ]).then(([{ AIService }, { AISummaryService }, { AIProfileService }]) => {
+          AIService.summarize({ content: sessionData.content, mood: sessionData.mood })
+            .then(async (res) => {
+              if (res.ok) {
+                await AISummaryService.save({
+                  documentId: docId,
+                  tone: res.summary.tone,
+                  frequentWords: res.summary.frequentWords,
+                  insights: res.summary.insights,
+                  themes: res.summary.themes,
+                  extractedFacts: res.summary.extractedFacts,
+                  processedAt: Date.now(),
+                });
+                const db = await getLocalDb();
+                const doc = await db.get('documents', docId);
+                if (doc) await db.put('documents', { ...doc, aiProcessed: true });
+              }
+            })
+            .catch(e => console.error('[auto-summary] failed:', e));
+
+          AIProfileService.generate().catch(e => console.error('[auto-profile] failed:', e));
+        }).catch(() => {});
+      }
     } catch (e) {
       reportError(e, { action: 'sessionPersistence/save' });
       throw e;

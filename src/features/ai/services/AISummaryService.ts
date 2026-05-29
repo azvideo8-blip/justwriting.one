@@ -1,15 +1,69 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIDocumentSummary } from '../../../core/storage/localDb';
+import { getAuth } from 'firebase/auth';
+import { getClient } from '../../../core/firebase/firestoreClient';
+import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
+
+const STRING_FIELDS = ['tone'] as const;
+const ARRAY_FIELDS = ['frequentWords', 'insights', 'themes', 'extractedFacts'] as const;
+const STRING_FIELDS_LIST: string[] = [...STRING_FIELDS];
+const ARRAY_FIELDS_LIST: string[] = [...ARRAY_FIELDS];
+
+async function saveSummaryToCloud(userId: string, summary: AIDocumentSummary): Promise<void> {
+  const encrypted = await maybeEncrypt(
+    { ...summary },
+    STRING_FIELDS_LIST,
+    ARRAY_FIELDS_LIST,
+    true,
+  );
+  const { db, mod } = await getClient();
+  await mod.setDoc(mod.doc(db, 'users', userId, 'summaries', summary.documentId), encrypted, { merge: true });
+}
+
+async function fetchSummaryFromCloud(userId: string, documentId: string): Promise<AIDocumentSummary | undefined> {
+  const { db, mod } = await getClient();
+  const snap = await mod.getDoc(mod.doc(db, 'users', userId, 'summaries', documentId));
+  if (!snap.exists()) return undefined;
+  const data = snap.data() as Record<string, unknown>;
+  const decrypted = await maybeDecrypt(data, STRING_FIELDS_LIST, ARRAY_FIELDS_LIST);
+  return {
+    documentId: decrypted.documentId as string,
+    tone: decrypted.tone as string,
+    frequentWords: decrypted.frequentWords as string[],
+    insights: decrypted.insights as string[],
+    themes: decrypted.themes as string[],
+    extractedFacts: decrypted.extractedFacts as string[],
+    processedAt: decrypted.processedAt as number,
+  };
+}
 
 export const AISummaryService = {
   async get(documentId: string): Promise<AIDocumentSummary | undefined> {
     const db = await getLocalDb();
-    return db.get('aiSummaries', documentId) ?? undefined;
+    const local = await db.get('aiSummaries', documentId);
+    if (local) return local;
+
+    const uid = getAuth().currentUser?.uid;
+    if (uid) {
+      const cloud = await fetchSummaryFromCloud(uid, documentId);
+      if (cloud) {
+        await db.put('aiSummaries', cloud);
+        return cloud;
+      }
+    }
+    return undefined;
   },
 
   async save(summary: AIDocumentSummary): Promise<void> {
     const db = await getLocalDb();
     await db.put('aiSummaries', summary);
+
+    const uid = getAuth().currentUser?.uid;
+    if (uid) {
+      await saveSummaryToCloud(uid, summary).catch(e => {
+        console.error('[AISummaryService] cloud save failed:', e);
+      });
+    }
   },
 
   async delete(documentId: string): Promise<void> {

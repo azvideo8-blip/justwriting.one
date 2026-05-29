@@ -1,5 +1,5 @@
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
-import { LocalVersionService } from './LocalVersionService';
+import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { LocalSessionInfo } from '../types/session';
 
 export async function fetchLocalSessions(userId: string): Promise<LocalSessionInfo[]> {

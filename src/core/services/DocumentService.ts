@@ -31,7 +31,6 @@ export const DocumentService = {
       });
       return ref.id;
     } catch (e) {
-      reportError(e, { action: 'createDocument', userId });
       handleFirestoreError(e, OperationType.WRITE, `users/${userId}/documents`);
       throw e;
     }
@@ -50,7 +49,6 @@ export const DocumentService = {
       }
       return parsed.data as Document;
     } catch (e) {
-      reportError(e, { action: 'getDocument', userId, documentId });
       handleFirestoreError(e, OperationType.GET, `users/${userId}/documents/${documentId}`);
       throw e;
     }
@@ -74,7 +72,6 @@ export const DocumentService = {
       docs.sort((a, b) => (toTimestampMs(b.lastSessionAt) ?? 0) - (toTimestampMs(a.lastSessionAt) ?? 0));
       return docs;
     } catch (e) {
-      reportError(e, { action: 'getUserDocuments', userId });
       handleFirestoreError(e, OperationType.GET, `users/${userId}/documents`);
       throw e;
     }
@@ -88,18 +85,31 @@ export const DocumentService = {
       totalDuration: number;
       currentVersion: number;
       mood?: string;
+      sessionsCount?: number;
+      lastSessionAt?: Date;
     }
   ): Promise<void> {
     try {
       const { db, mod } = await getClient();
       const { doc, updateDoc, Timestamp, increment } = mod;
-      await updateDoc(doc(db, 'users', userId, 'documents', documentId), {
-        ...data,
-        sessionsCount: increment(1),
-        lastSessionAt: Timestamp.now(),
-      });
+      const updateData: Record<string, number | string | boolean | ReturnType<typeof increment> | ReturnType<typeof Timestamp.now>> = {
+        totalWords: data.totalWords,
+        totalDuration: data.totalDuration,
+        currentVersion: data.currentVersion,
+      };
+      if (data.mood) updateData.mood = data.mood;
+      if (data.sessionsCount !== undefined) {
+        updateData.sessionsCount = data.sessionsCount;
+      } else {
+        updateData.sessionsCount = increment(1);
+      }
+      if (data.lastSessionAt !== undefined) {
+        updateData.lastSessionAt = Timestamp.fromDate(data.lastSessionAt);
+      } else {
+        updateData.lastSessionAt = Timestamp.now();
+      }
+      await updateDoc(doc(db, 'users', userId, 'documents', documentId), updateData);
     } catch (e) {
-      reportError(e, { action: 'updateDocumentAfterSession', userId, documentId });
       handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents/${documentId}`);
       throw e;
     }
@@ -111,7 +121,6 @@ export const DocumentService = {
       const { doc, updateDoc } = mod;
       await updateDoc(doc(db, 'users', userId, 'documents', documentId), { tags });
     } catch (e) {
-      reportError(e, { action: 'updateTags', userId, documentId });
       handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents/${documentId}`);
       throw e;
     }
@@ -123,7 +132,6 @@ export const DocumentService = {
       const { doc, updateDoc } = mod;
       await updateDoc(doc(db, 'users', userId, 'documents', documentId), { title });
     } catch (e) {
-      reportError(e, { action: 'updateTitle', userId, documentId });
       handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents/${documentId}`);
       throw e;
     }
@@ -138,7 +146,6 @@ export const DocumentService = {
         lastSessionAt: Timestamp.fromDate(lastSessionAt),
       });
     } catch (e) {
-      reportError(e, { action: 'updateDate', userId, documentId });
       handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents/${documentId}`);
       throw e;
     }
@@ -150,7 +157,6 @@ export const DocumentService = {
       const { doc, updateDoc } = mod;
       await updateDoc(doc(db, 'users', userId, 'documents', documentId), { labelId: labelId ?? null });
     } catch (e) {
-      reportError(e, { action: 'updateLabelId', userId, documentId });
       handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents/${documentId}`);
       throw e;
     }
@@ -172,7 +178,6 @@ export const DocumentService = {
       finalBatch.delete(ref);
       await finalBatch.commit();
     } catch (e) {
-      reportError(e, { action: 'deleteDocument', userId, documentId });
       handleFirestoreError(e, OperationType.DELETE, `users/${userId}/documents/${documentId}`);
       throw e;
     }
@@ -191,7 +196,6 @@ export const DocumentService = {
         await batch.commit();
       }
     } catch (e) {
-      reportError(e, { action: 'clearLabelFromAllDocs', userId, labelId });
       handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents`);
     }
   },
@@ -212,7 +216,6 @@ export const DocumentService = {
         await batch.commit();
       }
     } catch (e) {
-      reportError(e, { action: 'renameTagInAllDocs', userId });
       handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents`);
     }
   },
@@ -233,7 +236,6 @@ export const DocumentService = {
         await batch.commit();
       }
     } catch (e) {
-      reportError(e, { action: 'removeTagFromAllDocs', userId });
       handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents`);
     }
   },

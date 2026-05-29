@@ -3,7 +3,7 @@ import { reportError } from '../../../core/errors/reportError';
 import { analytics } from '../../../core/analytics/analytics';
 
 export type AIAction = 'shorten' | 'accents' | 'ideas' | 'summarize' | 'tags' | 'mood' | 'continue';
-export type AIMessage = { role: 'user' | 'assistant'; content: string };
+export type AIMessage = { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' };
 export type AIResult =
   | { ok: true; text: string }
   | { ok: false; error: 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG' | 'SERVER_ERROR' };
@@ -56,6 +56,7 @@ export const AIService = {
     messages: AIMessage[];
     documentContent?: string;
     documentMood?: string;
+    userPortrait?: string | null;
   }): Promise<AIResult> {
     const functions = getFunctions();
     const fn = httpsCallable<unknown, { result: string }>(functions, 'chatWithAI');

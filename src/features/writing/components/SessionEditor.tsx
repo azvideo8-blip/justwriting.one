@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { SessionService } from '../../../core/services/SessionService';
 import { countWords } from '../../../shared/utils/countWords';
-import { LocalVersionService } from '../services/LocalVersionService';
+import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { Session } from '../../../types';
 import { useLanguage } from '../../../core/i18n';

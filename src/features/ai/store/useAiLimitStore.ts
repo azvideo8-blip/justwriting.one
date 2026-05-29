@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { getAuth } from 'firebase/auth';
 
 const STORAGE_KEY = 'ai_daily_usage';
-const DEFAULT_LIMIT = 50;
+const DEFAULT_LIMIT = 5;
 
 function getUtcDateStr(): string {
   return new Date().toISOString().slice(0, 10);

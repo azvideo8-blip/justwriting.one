@@ -4,7 +4,7 @@ import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { SetupMode } from '../components/WritingSetup';
-import { LocalVersionService } from '../services/LocalVersionService';
+import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { countWords } from '../../../shared/utils/countWords';
 import { reportError } from '../../../core/errors/reportError';

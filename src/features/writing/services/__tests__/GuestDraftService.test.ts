@@ -4,8 +4,9 @@ import {
   loadGuestDraftFromStorage,
   deleteGuestDraftFromStorage,
 } from '../GuestDraftService';
+import { getLocalDb } from '../../../../core/storage/localDb';
 
-vi.mock('../../../core/storage/localDb', () => {
+vi.mock('../../../../core/storage/localDb', () => {
   const store: Record<string, any> = {};
   return {
     getLocalDb: vi.fn().mockResolvedValue({
@@ -20,6 +21,11 @@ vi.mock('../../../core/storage/localDb', () => {
     }),
   };
 });
+
+async function clearIdb() {
+  const db = await getLocalDb();
+  try { await db.delete('drafts', 'guest_draft'); } catch { /* ok */ }
+}
 
 describe('saveGuestDraftToStorage', () => {
   beforeEach(() => {
@@ -42,8 +48,9 @@ describe('saveGuestDraftToStorage', () => {
 });
 
 describe('loadGuestDraftFromStorage', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
+    await clearIdb();
   });
 
   it('loads from localStorage if present', async () => {
@@ -68,8 +75,9 @@ describe('loadGuestDraftFromStorage', () => {
 });
 
 describe('deleteGuestDraftFromStorage', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
+    await clearIdb();
   });
 
   it('removes jw_guest_draft from localStorage', async () => {

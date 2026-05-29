@@ -96,7 +96,6 @@ export interface Document {
 }
 
 export interface Version {
-  [key: string]: unknown;
   id: string;
   documentId: string;
   userId: string;
