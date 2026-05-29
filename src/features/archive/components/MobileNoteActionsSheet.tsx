@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { X, ExternalLink, Pencil, Tag, Trash2, Cloud, HardDrive, Loader2, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { StorageService } from '../../../core/services/StorageService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { SyncService } from '../../../core/services/SyncService';
-
+import { getSessionKey } from '../../../core/crypto/encrypt';
+import { UnlockPrompt } from '../../auth/components/UnlockPrompt';
+import { EncryptionPasswordModal } from '../../encryption/components/EncryptionPasswordModal';
+import { useAuthStatus } from '../../auth/contexts/AuthContext';
 import { reportError } from '../../../core/errors/reportError';
 import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
@@ -46,8 +49,12 @@ export function MobileNoteActionsSheet({
 }: MobileNoteActionsSheetProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
+  const { profile } = useAuthStatus();
+  const hasEncryption = !!(profile?.encryptionMeta || (profile?.encryptionSalt && profile?.encryptedDataKey));
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [showLabelsSelector, setShowLabelsSelector] = useState(false);
+  const [showUnlock, setShowUnlock] = useState(false);
+  const [showEncryptionSetup, setShowEncryptionSetup] = useState(false);
 
   if (!isOpen) return null;
 
@@ -61,13 +68,21 @@ export function MobileNoteActionsSheet({
 
   const handleUploadOrSync = async () => {
     if (!doc.localId || !userId || userId.startsWith('guest_')) return;
+    if (!getSessionKey()) {
+      if (hasEncryption) {
+        setShowUnlock(true);
+      } else {
+        setShowEncryptionSetup(true);
+      }
+      return;
+    }
     setLoadingAction('upload');
     try {
       if (doc.hasPendingSync) {
-        await SyncService.syncDocument(userId, doc.localId, false);
+        await SyncService.syncDocument(userId, doc.localId, true);
         showToast(t('storage_uploaded_cloud'), 'success');
       } else {
-        const cloudId = await StorageService.addCloudCopy(userId, doc.localId, false);
+        const cloudId = await StorageService.addCloudCopy(userId, doc.localId, true);
         if (cloudId) {
           showToast(t('storage_uploaded_cloud'), 'success');
         } else {
@@ -315,6 +330,26 @@ export function MobileNoteActionsSheet({
           )}
         </div>
       </motion.div>
+
+      <AnimatePresence>
+        {showUnlock && hasEncryption && userId && !userId.startsWith('guest_') && (
+          <UnlockPrompt
+            uid={userId}
+            onUnlocked={() => { setShowUnlock(false); handleUploadOrSync(); }}
+            onClose={() => setShowUnlock(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {showEncryptionSetup && userId && !userId.startsWith('guest_') && (
+        <EncryptionPasswordModal
+          mode="setup"
+          userId={userId}
+          context="cloud-sync"
+          onDone={() => { setShowEncryptionSetup(false); handleUploadOrSync(); }}
+          onClose={() => setShowEncryptionSetup(false)}
+        />
+      )}
     </div>
   );
 }

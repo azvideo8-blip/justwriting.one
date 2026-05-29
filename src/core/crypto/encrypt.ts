@@ -132,4 +132,8 @@ export function clearSessionKey(): void {
   useEncryptionStore.getState().lockVault();
 }
 
+export function isVaultUnlocked(): boolean {
+  return useEncryptionStore.getState().isVaultUnlocked;
+}
+
 export { toBase64, fromBase64, SALT_LENGTH };

@@ -9,6 +9,7 @@ import { DocumentService } from '../../../core/services/DocumentService';
 import { SyncService } from '../../../core/services/SyncService';
 import { StorageService } from '../../../core/services/StorageService';
 import { SessionService } from '../../../core/services/SessionService';
+import { VersionService } from '../../writing/services/VersionService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { useLanguage } from '../../../core/i18n';
 import { useToast } from '../../../shared/components/Toast';
@@ -39,6 +40,7 @@ interface DiagnosticItem {
   queueItemId?: string;
   status: 'synced' | 'pending' | 'mismatch' | 'local_only' | 'cloud_only' | 'cloud_missing' | 'legacy_session';
   rawSession?: Session;
+  cloudEncrypted?: boolean;
 }
 
 export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
@@ -46,7 +48,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
   const { showToast } = useToast();
   const { profile } = useAuthStatus();
   const { layoutMode } = useLayoutMode();
-  const hasEncryption = !!(profile?.encryptionSalt && profile?.encryptedDataKey);
+  const hasEncryption = !!(profile?.encryptionMeta || (profile?.encryptionSalt && profile?.encryptedDataKey));
 
 
   const [loading, setLoading] = useState(false);
@@ -172,7 +174,25 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
         }
       }
 
-      setItems(Array.from(itemsMap.values()).sort((a, b) => b.title.localeCompare(a.title)));
+      const builtItems = Array.from(itemsMap.values());
+
+      // Determine cloud encryption state per item
+      await Promise.all(builtItems.map(async (item) => {
+        if (item.status === 'legacy_session') {
+          item.cloudEncrypted = !!(item.rawSession as unknown as { _encrypted?: boolean })?._encrypted;
+          return;
+        }
+        if (item.hasCloud && item.cloudId) {
+          try {
+            const latest = await VersionService.getLatestVersion(userId, item.cloudId);
+            item.cloudEncrypted = !!(latest as unknown as { _encrypted?: boolean })?._encrypted;
+          } catch (e) {
+            console.error('[SyncDiagnostics] Encryption check failed:', e);
+          }
+        }
+      }));
+
+      setItems(builtItems.sort((a, b) => b.title.localeCompare(a.title)));
 
       await loadAIStatus();
     } catch (e) {
@@ -573,13 +593,20 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                         </button>
                       )}
                       {hasEncryption && item.hasCloud && item.cloudId && (
-                        <button
-                          onClick={() => handleEncryptItem(item)}
-                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold border border-amber-500/20 transition-colors min-h-[44px]"
-                        >
-                          <Lock size={14} />
-                          Encrypt
-                        </button>
+                        item.cloudEncrypted ? (
+                          <span className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-green-500/10 text-green-400 text-xs font-semibold border border-green-500/20 min-h-[44px]">
+                            <Lock size={14} />
+                            Encrypted
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleEncryptItem(item)}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold border border-amber-500/20 transition-colors min-h-[44px]"
+                          >
+                            <Lock size={14} />
+                            Encrypt
+                          </button>
+                        )
                       )}
                       {item.inQueue && (
                         <button
@@ -747,14 +774,24 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                               </button>
                             )}
                             {hasEncryption && item.hasCloud && item.cloudId && (
-                              <button
-                                onClick={() => handleEncryptItem(item)}
-                                className="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-label font-semibold border border-amber-500/20 transition-colors"
-                                title="Encrypt cloud versions"
-                              >
-                                <Lock size={10} />
-                                Encrypt
-                              </button>
+                              item.cloudEncrypted ? (
+                                <span
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 text-green-400 text-label font-semibold border border-green-500/20"
+                                  title="Already encrypted in cloud"
+                                >
+                                  <Lock size={10} />
+                                  Encrypted
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => handleEncryptItem(item)}
+                                  className="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-label font-semibold border border-amber-500/20 transition-colors"
+                                  title="Encrypt cloud versions"
+                                >
+                                  <Lock size={10} />
+                                  Encrypt
+                                </button>
+                              )
                             )}
                             {item.inQueue && (
                               <button

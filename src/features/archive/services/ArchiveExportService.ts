@@ -25,12 +25,32 @@ function buildHeader(session: ArchiveSession, s: ExportStrings): string {
   ].filter(Boolean).join('\n');
 }
 
-function getFilename(session: ArchiveSession, ext: string, s: ExportStrings): string {
-  const title = (session.title || s.untitledFilename)
+export function getFilenameBase(session: ArchiveSession, s: ExportStrings): string {
+  return (session.title || s.untitledFilename)
     .replace(/[^\w\sа-яёА-ЯЁ-]/gi, '')
     .trim()
-    .slice(0, 50);
-  return `${title}.${ext}`;
+    .slice(0, 50) || s.untitledFilename;
+}
+
+function getFilename(session: ArchiveSession, ext: string, s: ExportStrings): string {
+  return `${getFilenameBase(session, s)}.${ext}`;
+}
+
+export function buildMarkdownContent(session: ArchiveSession, s: ExportStrings): string {
+  const date = toDate(session.createdAt) ?? new Date();
+  const locOpts = getLocale();
+  return [
+    `# ${session.title || s.untitled}`,
+    '',
+    `**${s.date}:** ${date.toLocaleDateString(locOpts, { day: 'numeric', month: 'long', year: 'numeric' })}  `,
+    `**${s.words}:** ${session.wordCount}  `,
+    `**${s.time}:** ${Math.round((session.duration || 0) / 60)} ${s.time}  `,
+    session.tags?.length ? `**${s.tags}:** ${session.tags.map(t => '#' + t).join(' ')}` : '',
+    '',
+    '---',
+    '',
+    session.content || '',
+  ].filter(line => line !== undefined).join('\n');
 }
 
 async function downloadBlob(content: string | Blob, type: string, filename: string): Promise<void> {
@@ -73,20 +93,7 @@ export function exportAsTxt(session: ArchiveSession, s: ExportStrings): void {
 }
 
 export function exportAsMd(session: ArchiveSession, s: ExportStrings): void {
-  const date = toDate(session.createdAt) ?? new Date();
-  const locOpts = getLocale();
-  const content = [
-    `# ${session.title || s.untitled}`,
-    '',
-    `**${s.date}:** ${date.toLocaleDateString(locOpts, { day: 'numeric', month: 'long', year: 'numeric' })}  `,
-    `**${s.words}:** ${session.wordCount}  `,
-    `**${s.time}:** ${Math.round((session.duration || 0) / 60)} ${s.time}  `,
-    session.tags?.length ? `**${s.tags}:** ${session.tags.map(t => '#' + t).join(' ')}` : '',
-    '',
-    '---',
-    '',
-    session.content || '',
-  ].filter(line => line !== undefined).join('\n');
+  const content = buildMarkdownContent(session, s);
   downloadBlob(content, 'text/markdown;charset=utf-8', getFilename(session, 'md', s));
 }
 

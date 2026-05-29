@@ -10,6 +10,7 @@ import { SyncService } from '../../../core/services/SyncService';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { reportError } from '../../../core/errors/reportError';
 import { UnlockPrompt } from '../../auth/components/UnlockPrompt';
+import { EncryptionPasswordModal } from '../../encryption/components/EncryptionPasswordModal';
 import { useAuthStatus } from '../../auth/contexts/AuthContext';
 
 interface MobileStorageActionsSheetProps {
@@ -37,9 +38,10 @@ export function MobileStorageActionsSheet({
   const { t } = useLanguage();
   const { showToast } = useToast();
   const { profile } = useAuthStatus();
-  const hasEncryption = !!(profile?.encryptionSalt && profile?.encryptedDataKey);
+  const hasEncryption = !!(profile?.encryptionMeta || (profile?.encryptionSalt && profile?.encryptedDataKey));
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [showUnlock, setShowUnlock] = useState(false);
+  const [showEncryptionSetup, setShowEncryptionSetup] = useState(false);
 
   if (!isOpen) return null;
 
@@ -63,9 +65,12 @@ export function MobileStorageActionsSheet({
 
   const handleUploadOrSync = async () => {
     if (!doc.localId || !userId || userId.startsWith('guest_')) return;
-    if (!getSessionKey() && hasEncryption) {
-      reportError('ENCRYPT_REQUIRED: session key missing on cloud upload', { userId });
-      setShowUnlock(true);
+    if (!getSessionKey()) {
+      if (hasEncryption) {
+        setShowUnlock(true);
+      } else {
+        setShowEncryptionSetup(true);
+      }
       return;
     }
 
@@ -73,10 +78,10 @@ export function MobileStorageActionsSheet({
     triggerVibration();
     try {
       if (doc.hasPendingSync) {
-        await SyncService.syncDocument(userId, doc.localId, hasEncryption);
+        await SyncService.syncDocument(userId, doc.localId, true);
         showToast(t('storage_uploaded_cloud'), 'success');
       } else {
-        const cloudId = await StorageService.addCloudCopy(userId, doc.localId, hasEncryption);
+        const cloudId = await StorageService.addCloudCopy(userId, doc.localId, true);
         if (cloudId) {
           showToast(t('storage_uploaded_cloud'), 'success');
         } else {
@@ -303,6 +308,16 @@ export function MobileStorageActionsSheet({
           />
         )}
       </AnimatePresence>
+
+      {showEncryptionSetup && userId && !userId.startsWith('guest_') && (
+        <EncryptionPasswordModal
+          mode="setup"
+          userId={userId}
+          context="cloud-sync"
+          onDone={() => { setShowEncryptionSetup(false); handleUploadOrSync(); }}
+          onClose={() => setShowEncryptionSetup(false)}
+        />
+      )}
     </div>
   );
 }

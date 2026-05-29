@@ -13,17 +13,20 @@ import { ConnectionStatusBanner } from '../features/writing/components/Connectio
 import { ThemeBackground } from '../core/theme/ThemeBackground';
 import { LoginModalOverlay } from '../features/auth/components/LoginModalOverlay';
 import { useSettings } from '../core/settings/SettingsContext';
+import { EncryptionPasswordModal } from '../features/encryption/components/EncryptionPasswordModal';
+import { useEncryptionSetup } from '../features/encryption/hooks/useEncryptionSetup';
 
 import { AppRoutes } from './AppRoutes';
 
 export function AppShell() {
   const location = useLocation();
   const { t } = useLanguage();
-  const { profile } = useAuthStatus();
+  const { profile, user } = useAuthStatus();
   const { isZenActive, zenModeEnabled } = useWritingSettings();
   const { layoutMode } = useLayoutMode();
   const { loginModalOpen } = useLoginModal();
   const { openSettings } = useSettings();
+  const { mode: encryptionMode, check: recheckEncryption } = useEncryptionSetup();
 
   const currentPath = location.pathname;
   const showZen = isZenActive && zenModeEnabled && currentPath === '/';
@@ -63,6 +66,13 @@ export function AppShell() {
 
       {/* [U-03] спейсер h-28 убран: pb-20 на main уже компенсирует высоту BottomNav */}
       <LoginModalOverlay open={loginModalOpen} />
+      {encryptionMode !== 'none' && user && (
+        <EncryptionPasswordModal
+          mode={encryptionMode}
+          userId={user.uid}
+          onDone={recheckEncryption}
+        />
+      )}
     </AppLayout>
   );
 }

@@ -14,6 +14,22 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.3',
+    date: '2026-05-29',
+    items: [
+      { category: 'new', ru: 'Отдельный пароль-сейф для шифрования, независимый от пароля аккаунта (envelope-шифрование: мастер-ключ оборачивает ключ данных)', en: 'Separate vault password for encryption, independent of the account password (envelope encryption: master key wraps the data key)' },
+      { category: 'new', ru: 'Миграция со старого формата ключей на новый — заметки перешифровываются без потери данных', en: 'Migration from the legacy key format — notes are re-encrypted with no data loss' },
+      { category: 'new', ru: 'Массовый экспорт всех заметок в ZIP (отдельные .md-файлы) в «Настройки → Аккаунт»', en: 'Bulk export of all notes to a ZIP of separate .md files in Settings → Account' },
+      { category: 'new', ru: 'Диагностика: бейдж «Encrypted» для уже зашифрованных облачных заметок и кнопка шифрования отдельного документа', en: 'Diagnostics: "Encrypted" badge for already-encrypted cloud notes and a per-document encrypt button' },
+      { category: 'fix', ru: 'Зашифрованные облачные заметки больше не экспортируются и не показываются в архиве как шифротекст — расшифровываются при разблокированном сейфе', en: 'Encrypted cloud-only notes no longer export or appear in the archive as ciphertext — they are decrypted when the vault is unlocked' },
+      { category: 'fix', ru: 'Архив автоматически обновляется после разблокировки сейфа', en: 'Archive refreshes automatically after the vault is unlocked' },
+      { category: 'fix', ru: 'Принятие политики конфиденциальности: исправлена ошибка прав Firestore (privacyAcceptedAt / privacyVersion)', en: 'Privacy policy acceptance: fixed Firestore permission error (privacyAcceptedAt / privacyVersion)' },
+      { category: 'fix', ru: 'Вход для аккаунтов со старым форматом шифрования', en: 'Login fixed for accounts on the legacy encryption format' },
+      { category: 'improvement', ru: 'Минимальная длина пароля-сейфа увеличена до 8 символов', en: 'Vault password minimum length raised to 8 characters' },
+      { category: 'improvement', ru: 'Включение облачной синхронизации предлагает настроить шифрование', en: 'Enabling cloud sync prompts you to set up encryption' },
+    ],
+  },
+  {
     version: '0.7.2',
     date: '2026-05-28',
     items: [

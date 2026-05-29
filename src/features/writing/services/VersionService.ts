@@ -105,4 +105,25 @@ export const VersionService = {
       throw e;
     }
   },
+
+  async getLatestVersion(userId: string, documentId: string): Promise<Version | null> {
+    try {
+      const { db, mod } = await getClient();
+      const { collection, getDocs, query, orderBy, limit } = mod;
+      const q = query(collection(db, 'users', userId, 'documents', documentId, 'versions'), orderBy('version', 'desc'), limit(1));
+      const snap = await getDocs(q);
+      if (snap.docs.length === 0) return null;
+      const raw = snap.docs[0];
+      const parsed = versionDbSchema.safeParse({ id: raw.id, ...raw.data() });
+      if (!parsed.success) {
+        reportError(parsed.error, { action: 'getLatestVersion_parse', docId: documentId });
+        return null;
+      }
+      return parsed.data as Version;
+    } catch (e) {
+      reportError(e, { action: 'getLatestVersion', userId, documentId });
+      handleFirestoreError(e, OperationType.LIST, `users/${userId}/documents/${documentId}/versions`);
+      throw e;
+    }
+  },
 };

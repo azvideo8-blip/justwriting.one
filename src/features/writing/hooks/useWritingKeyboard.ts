@@ -50,7 +50,7 @@ export function useWritingKeyboard({ sessionStatus, handlePlayRef, handlePauseRe
     const handleAutoStartKey = (e: KeyboardEvent) => {
       if (sessionStatus !== 'idle') return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key.length !== 1) return;
+      if (!e.key || e.key.length !== 1) return;
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
       if (target.closest('[data-modal]')) return;

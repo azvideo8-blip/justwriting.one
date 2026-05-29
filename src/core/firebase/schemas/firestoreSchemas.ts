@@ -33,6 +33,13 @@ export const sessionDbSchema = z.object({
   mood: z.string().optional(),
 });
 
+export const encryptionMetaSchema = z.object({
+  salt: z.string(),
+  version: z.number().default(1),
+  wrappedDataKey: z.string(),
+  verification: z.string().default(''),
+});
+
 export const userProfileDbSchema = z.object({
   uid: z.string(),
   email: z.string().default(''),
@@ -40,6 +47,7 @@ export const userProfileDbSchema = z.object({
   role: z.enum(['admin', 'user']).optional(),
   encryptionSalt: z.string().optional(),
   encryptedDataKey: z.string().optional(),
+  encryptionMeta: encryptionMetaSchema.optional(),
   earnedAchievements: z.array(z.string()).default([]),
 });
 

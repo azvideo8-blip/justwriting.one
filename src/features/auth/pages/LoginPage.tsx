@@ -9,7 +9,7 @@ import { SeoHead } from '../../../core/i18n/SeoHead';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { useToast } from '../../../shared/components/Toast';
 import { MigrationPrompt, checkGuestDocuments } from '../components/MigrationPrompt';
-import { deriveMasterKey, generateDataKey, wrapDataKey, unwrapDataKey, setSessionKey, clearSessionKey, toBase64, fromBase64, SALT_LENGTH } from '../../../core/crypto/encrypt';
+import { deriveMasterKey, unwrapDataKey, setSessionKey, clearSessionKey, fromBase64 } from '../../../core/crypto/encrypt';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { reportError } from '../../../core/errors/reportError';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
@@ -68,47 +68,22 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
     setError(null);
     try {
       if (mode === 'register') {
-        const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
-        const masterKey = await deriveMasterKey(password, salt);
-        const dataKey = await generateDataKey();
-        const wrappedDataKey = await wrapDataKey(dataKey, masterKey);
-
         const cred = await AuthService.signUpWithEmail(email, password);
 
-        try {
-          const { db, mod } = await getClient();
-          const { doc, setDoc } = mod;
-          await setDoc(doc(db, 'users', cred.user.uid), {
-            encryptionSalt: toBase64(salt),
-            encryptedDataKey: wrappedDataKey,
-          }, { merge: true });
-        } catch (firestoreErr) {
-          reportError(firestoreErr, { action: 'saveEncryptionKeys' });
-          try {
-            sessionStorage.setItem(`pending_keys_${cred.user.uid}`, JSON.stringify({
-              encryptionSalt: toBase64(salt),
-              encryptedDataKey: wrappedDataKey,
-            }));
-          } catch (storageErr) {
-            reportError(storageErr, { action: 'saveEncryptionKeys_fallback', userId: cred.user.uid });
-            setError(t('auth_error_encryption_key_save_failed'));
-            return;
-          }
-        }
-
-        setSessionKey(dataKey);
-        setEncryptionEnabled(cred.user.uid, true);
+        setEncryptionEnabled(cred.user.uid, false);
       } else {
         await AuthService.signInWithEmail(email, password);
 
         const { db, mod } = await getClient();
-        const { doc, getDoc, setDoc } = mod;
+        const { doc, getDoc } = mod;
         const currentUid = AuthService.getCurrentUserId();
         if (!currentUid) throw new Error('Not authenticated after sign-in');
         const profileSnap = await getDoc(doc(db, 'users', currentUid));
         if (profileSnap.exists()) {
           const profileData = profileSnap.data();
-          if (profileData.encryptionSalt && profileData.encryptedDataKey) {
+          if (profileData.encryptionMeta) {
+            setEncryptionEnabled(currentUid, true);
+          } else if (profileData.encryptionSalt && profileData.encryptedDataKey) {
             const salt = fromBase64(profileData.encryptionSalt as string);
             const masterKey = await deriveMasterKey(password, salt);
             try {
@@ -117,17 +92,21 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
               setEncryptionEnabled(currentUid, true);
             } catch (e) {
               if (e instanceof DOMException && e.name === 'OperationError') {
-                setError(t('auth_error_wrong_password_encrypted'));
-                setLoading(false);
-                return;
+                // Account password is correct (sign-in passed) but the legacy
+                // data key could not be unwrapped. Keep encryption required so
+                // cloud writes stay encrypted; the migrate modal will recover it.
+                reportError(e, { action: 'legacyUnwrapDataKey', userId: currentUid });
+                setEncryptionEnabled(currentUid, true);
+              } else {
+                throw e;
               }
-              throw e;
             }
           } else {
             const pendingRaw = sessionStorage.getItem(`pending_keys_${currentUid}`);
             if (pendingRaw) {
               try {
                 const keys = JSON.parse(pendingRaw);
+                const { setDoc } = mod;
                 await setDoc(doc(db, 'users', currentUid), keys, { merge: true });
                 sessionStorage.removeItem(`pending_keys_${currentUid}`);
                 const salt = fromBase64(keys.encryptionSalt);
