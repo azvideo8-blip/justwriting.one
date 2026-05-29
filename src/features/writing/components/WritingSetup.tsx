@@ -2,9 +2,9 @@ import React from 'react';
 import { motion, Variants } from 'motion/react';
 import { Zap, Timer, Target, PenLine, Clock } from 'lucide-react';
 import { format } from 'date-fns';
-import { Session } from '../../../types';
+import { LifeLogDocument } from '../types/lifeLog';
 import { cn } from '../../../core/utils/utils';
-import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
+import { getDateLocale } from '../../../core/utils/dateUtils';
 import { useLanguage } from '../../../core/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
 import { useTimerStore } from '../store/useTimerStore';
@@ -66,8 +66,8 @@ interface WritingSetupProps {
   setSetupMode: (mode: SetupMode) => void;
   startCountdown: (type: 'stopwatch' | 'timer' | 'words' | 'finish-by') => void;
   countdown: number | null;
-  userSessions: Session[];
-  continueSession: (session: Session) => void;
+  userSessions: LifeLogDocument[];
+  continueSession: (session: LifeLogDocument) => void;
   onSetPromptTitle?: (title: string) => void;
 }
 
@@ -277,7 +277,7 @@ export function WritingSetup({
                     ) : (
                       userSessions.map(session => (
                         <button 
-                          key={session.id}
+                          key={session.localId || session.cloudId}
                           onClick={() => continueSession(session)}
                           className="group flex flex-col gap-2 p-3 md:p-4 border rounded-2xl transition-all duration-300 text-left bg-white/5 border-border-subtle hover:bg-white/10 hover:border-white/20"
                         >
@@ -291,20 +291,14 @@ export function WritingSetup({
                                   {session.title || t('common_untitled')}
                                 </div>
                                 <div className="text-label-sm font-bold uppercase tracking-wider text-text-main/50">
-                                  {session.wordCount} {t('writing_words')} · {formatTime(session.duration)}
+                                  {session.totalWords} {t('writing_words')} · {formatTime(session.totalDuration)}
                                 </div>
                               </div>
                             </div>
                             <div className="text-label-sm font-black uppercase tracking-widest px-2 py-1 rounded-full bg-white/10 text-text-main/50">
-                              {session.createdAt ? format(toDate(session.createdAt) ?? new Date(), 'd MMM', { locale: dateLocale }) : ''}
+                              {session.lastSessionAt ? format(new Date(session.lastSessionAt), 'd MMM', { locale: dateLocale }) : ''}
                             </div>
                           </div>
-                          
-                          {session.content && (
-                            <div className="text-xs line-clamp-1 italic font-serif leading-relaxed border-l-2 pl-2 py-0.5 text-text-main/50 border-border-subtle">
-                              {session.content}
-                            </div>
-                          )}
                         </button>
                       ))
                     )}

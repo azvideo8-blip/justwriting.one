@@ -1,19 +1,9 @@
-import { getLocalDb, randomUUID } from '../storage/localDb';
+import { getLocalDb } from '../storage/localDb';
 import { logger } from '../errors/logger';
 import { StorageService } from './StorageService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService } from './DocumentService';
-import { SessionService } from './SessionService';
-import { Session } from '../../types';
-import { maybeDecrypt } from '../crypto/cryptoHelpers';
-import { toDate } from '../utils/dateUtils';
 import pLimit from 'p-limit';
-
-interface LegacySession extends Session {
-  _locked?: boolean;
-  _decryptionError?: boolean;
-  _encrypted?: boolean;
-}
 
 const _syncInProgress = new Map<string, boolean>();
 const limit = pLimit(5);
@@ -33,7 +23,7 @@ export const SyncService = {
   async getPendingCount(): Promise<number> {
     const db = await getLocalDb();
     const all = await db.getAll('syncQueue');
-    return all.filter(item => !item.id.startsWith('migrated_')).length;
+    return all.length;
   },
 
   async getUnsyncedCount(userId: string): Promise<number> {
@@ -124,87 +114,6 @@ export const SyncService = {
     return { downloaded, skipped: linkedCloudIds.size, failed };
   },
 
-  async migrateLegacySession(userId: string, legacySessionInput: Session, hasEncryption: boolean): Promise<void> {
-    const legacySession = legacySessionInput as LegacySession;
-    if (legacySession._locked || legacySession._decryptionError) {
-      throw new Error('Cannot migrate encrypted session without unlocking vault');
-    }
-
-    let decryptedSession = legacySession;
-    if (legacySession._encrypted) {
-      const decrypted = await maybeDecrypt(
-        legacySession as unknown as Record<string, unknown>,
-        ['content'],
-        ['pinnedThoughts', 'tags']
-      );
-      decryptedSession = decrypted as unknown as LegacySession;
-    }
-
-    const now = Date.now();
-    const parsedDate = toDate(decryptedSession.createdAt);
-    const createdAtMs = parsedDate ? parsedDate.getTime() : now;
-
-    if (isNaN(createdAtMs)) {
-      throw new Error('Invalid legacy session creation date');
-    }
-
-    const db = await getLocalDb();
-    const localDocId = `local_${randomUUID()}`;
-    const localVerId = `ver_${randomUUID()}`;
-
-    const tx = db.transaction(['documents', 'versions'], 'readwrite');
-    try {
-      await tx.objectStore('documents').put({
-        id: localDocId,
-        guestId: userId,
-        title: decryptedSession.title || '',
-        currentVersion: 1,
-        totalWords: decryptedSession.wordCount || 0,
-        totalDuration: decryptedSession.duration || 0,
-        sessionsCount: 1,
-        firstSessionAt: createdAtMs,
-        lastSessionAt: createdAtMs,
-        tags: decryptedSession.tags || [],
-        labelId: decryptedSession.labelId || undefined,
-      });
-
-      await tx.objectStore('versions').put({
-        id: localVerId,
-        documentId: localDocId,
-        guestId: userId,
-        version: 1,
-        content: decryptedSession.content || '',
-        wordCount: decryptedSession.wordCount || 0,
-        wordsAdded: decryptedSession.wordCount || 0,
-        charsAdded: decryptedSession.content?.length || 0,
-        duration: decryptedSession.duration || 0,
-        wpm: decryptedSession.wpm || 0,
-        savedAt: createdAtMs,
-        sessionStartedAt: createdAtMs,
-      });
-      await tx.done;
-    } catch (err) {
-      try { await tx.done; } catch { /* ignore */ }
-      throw err;
-    }
-
-    let cloudId: string | null = null;
-    try {
-      cloudId = await StorageService.addCloudCopy(userId, localDocId, hasEncryption);
-    } catch (err) {
-      const cleanupTx = db.transaction(['documents', 'versions'], 'readwrite');
-      await cleanupTx.objectStore('documents').delete(localDocId);
-      await cleanupTx.objectStore('versions').delete(localVerId);
-      await cleanupTx.done;
-      throw err;
-    }
-
-    if (!cloudId) {
-      throw new Error('Cloud sync failed to return document ID');
-    }
-
-    await SessionService.deleteSession(decryptedSession.id);
-  },
 };
 
 async function _drainPendingQueue(userId: string): Promise<void> {
@@ -215,7 +124,6 @@ async function _drainPendingQueue(userId: string): Promise<void> {
   const expiredIds: string[] = [];
   const pending = queue.filter(item => {
     if (item.id.startsWith('lock_cloud_')) return false;
-    if (item.id.startsWith('migrated_')) return false;
     if (now - item.createdAt > MAX_QUEUE_AGE_MS) {
       expiredIds.push(item.id);
       return false;

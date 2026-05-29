@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { PenLine, History, User as UserIcon, Shield, LogIn, Settings, Sparkles, Bug } from 'lucide-react';
+import { PenLine, History, User as UserIcon, LogIn, Settings, Sparkles, Bug } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
@@ -137,15 +137,13 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
   const { isGuest } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
   const expanded = hovered;
-  const diagnosticsEnabled = localStorage.getItem('diagnostics_unlocked') === 'true';
 
   const navItems = [
     { id: 'write',   path: '/',       icon: <PenLine size={20} />,   label: t('nav_write') },
     { id: 'archive', path: '/archive', icon: <History size={20} />,   label: t('nav_notes') },
     { id: 'ai',      path: '/ai',     icon: <Sparkles size={20} />,  label: 'AI' },
     { id: 'profile', path: '/profile', icon: <UserIcon size={20} />,  label: t('nav_profile') },
-    ...(diagnosticsEnabled ? [{ id: 'diagnostics', path: '/diagnostics', icon: <Bug size={20} className="text-text-main/40" />, label: 'Диагностика' }] : []),
-    ...(isAdmin ? [{ id: 'admin', path: '/admin', icon: <Shield size={20} className="text-red-400" />, label: t('nav_admin') }] : []),
+    ...(isAdmin ? [{ id: 'diagnostics', path: '/diagnostics', icon: <Bug size={20} className="text-red-400" />, label: 'Диагностика' }] : []),
   ];
 
   return (

@@ -55,7 +55,8 @@ service cloud.firestore {
                'encryptionMeta',
                'labels', 'earnedAchievements', 'totalWordCount', 'sessionsCount',
                'streakDays', 'totalDuration', 'avgWpm', 'avgSessionWords',
-               'privacyAcceptedAt', 'privacyVersion'
+               'privacyAcceptedAt', 'privacyVersion',
+               'aiPortrait', '_encrypted'
              ]) &&
              data.uid is string && data.uid.size() > 0 &&
              data.email is string && data.email.size() > 0 &&
@@ -65,6 +66,8 @@ service cloud.firestore {
              (!('encryptionMeta' in data) || data.encryptionMeta is map) &&
              (!('privacyAcceptedAt' in data) || data.privacyAcceptedAt is timestamp) &&
              (!('privacyVersion' in data) || data.privacyVersion is number) &&
+             (!('aiPortrait' in data) || data.aiPortrait is string) &&
+             (!('_encrypted' in data) || data._encrypted is bool) &&
              !('role' in data);
     }
 
@@ -76,7 +79,8 @@ service cloud.firestore {
         'encryptionMeta',
         'labels', 'earnedAchievements', 'totalWordCount', 'sessionsCount',
         'streakDays', 'totalDuration', 'avgWpm', 'avgSessionWords',
-        'privacyAcceptedAt', 'privacyVersion'
+        'privacyAcceptedAt', 'privacyVersion',
+        'aiPortrait', '_encrypted'
       ];
       return changedKeys.hasOnly(allowedWriteKeys) &&
              (!changedKeys.hasAny(['nickname']) || (data.nickname is string && data.nickname.size() <= 100)) &&
@@ -84,7 +88,9 @@ service cloud.firestore {
              (!changedKeys.hasAny(['encryptedDataKey']) || data.encryptedDataKey is string) &&
              (!changedKeys.hasAny(['encryptionMeta']) || data.encryptionMeta is map) &&
              (!changedKeys.hasAny(['privacyAcceptedAt']) || data.privacyAcceptedAt is timestamp) &&
-             (!changedKeys.hasAny(['privacyVersion']) || data.privacyVersion is number);
+             (!changedKeys.hasAny(['privacyVersion']) || data.privacyVersion is number) &&
+             (!changedKeys.hasAny(['aiPortrait']) || data.aiPortrait is string) &&
+             (!changedKeys.hasAny(['_encrypted']) || data._encrypted is bool);
     }
 
     function isValidSession(data) {
@@ -161,15 +167,6 @@ service cloud.firestore {
       allow read: if isAuthenticated();
     }
 
-    // Sessions
-    match /sessions/{sessionId} {
-      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
-      
-      allow create: if isAuthenticated() && isValidSession(request.resource.data);
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && isValidSession(request.resource.data);
-      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-    }
-
     // Drafts
     match /drafts/{userId} {
       allow read: if isOwner(userId) || isAdmin();
@@ -218,6 +215,10 @@ service cloud.firestore {
         allow update: if isOwner(userId) && isValidVersion(request.resource.data);
         allow delete: if isOwner(userId);
       }
+    }
+
+    match /users/{userId}/summaries/{documentId} {
+      allow read, write: if isOwner(userId);
     }
 
     // AI daily limit + cooldown — admin SDK only

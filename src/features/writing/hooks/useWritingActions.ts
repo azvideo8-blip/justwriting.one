@@ -4,11 +4,9 @@ import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { resetAndClear, resetSession, loadDraftIntoStore } from '../store/storeActions';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
-import { useSessionContinue } from './useSessionContinue';
 import { LifeLogDocument } from '../types/lifeLog';
 import { useLifeLog } from './useLifeLog';
 import { useDocuments } from './useDocuments';
-import { useSessionList } from './useSessionList';
 import { StorageService } from '../../../core/services/StorageService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { useToast } from '../../../shared/components/Toast';
@@ -40,19 +38,11 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
   const isGuest = session.isGuest;
   const userId = session.userId;
   const _setSessionStatus = session.setStatus;
-  const { handleStart: hookHandleStart, fetchLocalSessions, loadLocalSession } = session;
+  const { handleStart: hookHandleStart } = session;
   const savingRef = React.useRef(false);
-
-  const { continueSession } = useSessionContinue({
-    setSetupMode: flow.setSetupMode,
-    setTags: session.setTags,
-    loadLocalSession,
-    userId,
-  });
 
   const { refresh: refreshDocuments } = useDocuments(userId, isGuest);
   const { refresh: refreshLifeLog } = useLifeLog(userId, isGuest);
-  const { fetchAllSessions: fetchSessions } = useSessionList(userId, fetchLocalSessions, loadLocalSession);
 
   const handleContinueDocument = React.useCallback(async (doc: LifeLogDocument) => {
     const currentStatus = useTimerStore.getState().status;
@@ -96,31 +86,19 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
     }
   }, [userId, setLifeLogVisible, showToast, t, flow]);
 
-  const handleContinueSession = React.useCallback(async (s: Session) => {
-    try {
-      await continueSession(s);
-      setLifeLogVisible(false);
-      flow.setSetupMode(null);
-      // Stay idle — user clicks Start to begin writing
-    } catch (err) {
-      reportError(err, { action: 'writingActions/continueSession' });
-      showToast(t('error_continue_session'));
-    }
-  }, [continueSession, flow, showToast, t, setLifeLogVisible]);
-
   const handleContinueSessionOrDoc = React.useCallback(async (sessionOrDoc: Session | LifeLogDocument) => {
     try {
       if ('totalWords' in sessionOrDoc) {
         await handleContinueDocument(sessionOrDoc as LifeLogDocument);
       } else {
-        await handleContinueSession(sessionOrDoc as Session);
+        await handleContinueDocument(sessionOrDoc as unknown as LifeLogDocument);
       }
     } catch (err) {
       logger.error('writingActions', 'LifeLog continue failed', { error: String(err) });
       reportError(err, { action: 'writingActions/continueSessionOrDoc' });
       showToast(t('error_continue_session'), 'error');
     }
-  }, [handleContinueDocument, handleContinueSession, showToast, t]);
+  }, [handleContinueDocument, showToast, t]);
 
   const handleSave = React.useCallback(async (data: SaveData) => {
     if (savingRef.current) return;
@@ -215,9 +193,8 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
   }, []);
 
   const handleOpen = React.useCallback(async () => {
-    await fetchSessions();
     setLifeLogVisible(true);
-  }, [fetchSessions, setLifeLogVisible]);
+  }, [setLifeLogVisible]);
 
   return {
     handleSave,
@@ -226,7 +203,6 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
     handleNew,
     handleFinish,
     handleOpen,
-    handleContinueSession,
     handleContinueDocument,
     handleContinueSessionOrDoc,
     savingRef,

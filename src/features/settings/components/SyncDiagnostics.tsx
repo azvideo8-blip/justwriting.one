@@ -8,7 +8,6 @@ import { LocalDocumentService } from '../../../core/services/LocalDocumentServic
 import { DocumentService } from '../../../core/services/DocumentService';
 import { SyncService } from '../../../core/services/SyncService';
 import { StorageService } from '../../../core/services/StorageService';
-import { SessionService } from '../../../core/services/SessionService';
 import { VersionService } from '../../../core/services/VersionService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { useLanguage } from '../../../core/i18n';
@@ -17,7 +16,6 @@ import { useAuthStatus } from '../../auth/contexts/AuthContext';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { cn } from '../../../core/utils/utils';
 import { encryptSingleDocument } from '../../../core/crypto/encryptMigration';
-import { Session } from '../../../types';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 
 
@@ -38,8 +36,7 @@ interface DiagnosticItem {
   cloudWords?: number;
   inQueue: boolean;
   queueItemId?: string;
-  status: 'synced' | 'pending' | 'mismatch' | 'local_only' | 'cloud_only' | 'cloud_missing' | 'legacy_session';
-  rawSession?: Session;
+  status: 'synced' | 'pending' | 'mismatch' | 'local_only' | 'cloud_only' | 'cloud_missing';
   cloudEncrypted?: boolean;
 }
 
@@ -73,7 +70,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
     if (!userId || userId.startsWith('guest_')) return;
     setLoading(true);
     try {
-      const [localDocs, cloudDocs, queue, legacyResult] = await Promise.all([
+      const [localDocs, cloudDocs, queue] = await Promise.all([
         getLocalDb().then(db => db.getAll('documents')).catch(e => {
           console.error('[SyncDiagnostics] Local docs fetch failed:', e);
           return [];
@@ -86,10 +83,6 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
           console.error('[SyncDiagnostics] Queue fetch failed:', e);
           return [];
         }),
-        SessionService.getAllSessions(userId, 500).catch(e => {
-          console.error('[SyncDiagnostics] Legacy sessions fetch failed:', e);
-          return { sessions: [] };
-        })
       ]);
 
       const filteredQueue = queue.filter(item => !item.id.startsWith('migrated_') && !item.id.startsWith('lock_cloud_'));
@@ -157,31 +150,10 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
         }
       }
 
-      // 3. Process legacy cloud sessions
-      const legacySessions = legacyResult.sessions;
-      for (const s of legacySessions) {
-        if (!itemsMap.has(s.id)) {
-          itemsMap.set(s.id, {
-            id: s.id,
-            title: s.title || t('common_untitled') || 'Untitled',
-            hasLocal: false,
-            hasCloud: true,
-            cloudWords: s.wordCount,
-            inQueue: false,
-            status: 'legacy_session',
-            rawSession: s,
-          });
-        }
-      }
-
       const builtItems = Array.from(itemsMap.values());
 
       // Determine cloud encryption state per item
       await Promise.all(builtItems.map(async (item) => {
-        if (item.status === 'legacy_session') {
-          item.cloudEncrypted = !!(item.rawSession as unknown as { _encrypted?: boolean })?._encrypted;
-          return;
-        }
         if (item.hasCloud && item.cloudId) {
           try {
             const latest = await VersionService.getLatestVersion(userId, item.cloudId);
@@ -256,25 +228,6 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
     } catch (e) {
       console.error('[SyncDiagnostics] Unlink failed:', e);
       showToast(t('error_generic_action') || 'Unlink failed', 'error');
-    } finally {
-      setSyncingId(null);
-    }
-  };
-
-  const handleMigrateLegacySession = async (item: DiagnosticItem) => {
-    if (!item.rawSession) return;
-    if (hasEncryption && !getSessionKey()) {
-      showToast('⚠️ Please unlock your vault first to decrypt and migrate', 'error');
-      return;
-    }
-    setSyncingId(item.id);
-    try {
-      await SyncService.migrateLegacySession(userId, item.rawSession, hasEncryption);
-      showToast('Legacy session successfully migrated to versioned document', 'success');
-      await fetchData();
-    } catch (e) {
-      console.error('[SyncDiagnostics] Migration failed:', e);
-      showToast('Migration failed. Make sure your vault is unlocked.', 'error');
     } finally {
       setSyncingId(null);
     }
@@ -453,13 +406,6 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
             Cloud Copy Lost
           </span>
         );
-      case 'legacy_session':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">
-            <Cloud size={10} />
-            Legacy Cloud Session
-          </span>
-        );
     }
   };
 
@@ -581,15 +527,6 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                         >
                           <Link2Off size={14} />
                           Unlink
-                        </button>
-                      )}
-                      {item.status === 'legacy_session' && (
-                        <button
-                          onClick={() => handleMigrateLegacySession(item)}
-                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-xs font-semibold border border-purple-500/20 transition-colors min-h-[44px]"
-                        >
-                          <RefreshCw size={14} />
-                          Migrate
                         </button>
                       )}
                       {hasEncryption && item.hasCloud && item.cloudId && (
@@ -761,16 +698,6 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                               >
                                 <Link2Off size={10} />
                                 Unlink
-                              </button>
-                            )}
-                            {item.status === 'legacy_session' && (
-                              <button
-                                onClick={() => handleMigrateLegacySession(item)}
-                                className="flex items-center gap-1 px-2 py-1 rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-label font-semibold border border-purple-500/20 transition-colors"
-                                title="Migrate legacy session to modern document structure"
-                              >
-                                <RefreshCw size={10} />
-                                Migrate
                               </button>
                             )}
                             {hasEncryption && item.hasCloud && item.cloudId && (

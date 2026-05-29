@@ -8,7 +8,6 @@ const WritingPage = React.lazy(() => import('../features/writing/pages/WritingPa
 const MobileMePage = React.lazy(() => import('../features/writing/pages/MobileMePage').then(m => ({ default: m.MobileMePage })));
 const ArchivePage = React.lazy(() => import('../features/archive/pages/ArchivePage').then(m => ({ default: m.ArchivePage })));
 const ProfilePage = React.lazy(() => import('../features/profile/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
-const AdminPage = React.lazy(() => import('../features/admin/pages/AdminPage').then(m => ({ default: m.AdminPage })));
 const LoginPage = React.lazy(() => import('../features/auth/pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const AIPage = React.lazy(() => import('../features/ai/pages/AIPage').then(m => ({ default: m.AIPage })));
 const DiagnosticsPage = React.lazy(() => import('../features/ai/pages/DiagnosticsPage').then(m => ({ default: m.DiagnosticsPage })));
@@ -18,7 +17,7 @@ const LandingPage = React.lazy(() => import('../features/navigation/pages/Landin
 
 import { Loader2 } from 'lucide-react';
 
-// [U-05] \u0437\u0430\u043c\u0435\u043d\u0438\u043b\u0438 "..." \u043d\u0430 \u0430\u043d\u0438\u043c\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u044b\u0439 \u0441\u043f\u0438\u043d\u043d\u0435\u0440
+// [U-05] заменили "..." на анимированный спиннер
 function PageLoader() {
   return (
     <div className="flex items-center justify-center h-full min-h-[200px]">
@@ -39,8 +38,8 @@ export function AppRoutes() {
         <Route path="/archive" element={<ErrorBoundary><ArchivePage user={user} profile={profile} /></ErrorBoundary>} />
         <Route path="/profile" element={<ErrorBoundary><ProfilePage user={user} profile={profile} /></ErrorBoundary>} />
         <Route path="/ai" element={<ProtectedRoute><ErrorBoundary><AIPage /></ErrorBoundary></ProtectedRoute>} />
-        <Route path="/diagnostics" element={<ProtectedRoute><ErrorBoundary><DiagnosticsPage /></ErrorBoundary></ProtectedRoute>} />
-        <Route path="/admin" element={<ProtectedRoute requireAdmin><ErrorBoundary><AdminPage /></ErrorBoundary></ProtectedRoute>} />
+        <Route path="/diagnostics" element={<ProtectedRoute requireAdmin><ErrorBoundary><DiagnosticsPage /></ErrorBoundary></ProtectedRoute>} />
+        <Route path="/admin" element={<Navigate to="/diagnostics" replace />} />
         <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/changelog" element={<ChangelogPage />} />

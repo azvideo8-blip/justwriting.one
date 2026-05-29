@@ -4,7 +4,6 @@ import { useBaseWritingSession, BaseSessionReturn } from './useBaseWritingSessio
 import { useSessionPersistence } from './useSessionPersistence';
 import { useState, useCallback } from 'react';
 
-import { LocalSessionInfo } from '../types/session';
 import { WritingDraftService } from '../services/WritingDraftService';
 
 export interface CloudSessionReturn extends BaseSessionReturn {
@@ -16,8 +15,6 @@ export interface CloudSessionReturn extends BaseSessionReturn {
   lastSavedAt: number | null;
   isOnline: boolean;
   handleCancel: () => Promise<void>;
-  fetchLocalSessions: () => Promise<LocalSessionInfo[]>;
-  loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
   /**
    * Automatically loads the draft if the current store content is empty.
    * If there is a draft but the store already has content, it sets hasDraft to true.
@@ -85,8 +82,6 @@ export function useCloudWritingSession(user: User, profile: UserProfile | null):
     lastSavedAt: persistence.lastSavedAt,
     isOnline: persistence.isOnline,
     handleCancel: persistence.handleCancel,
-    fetchLocalSessions: persistence.fetchLocalSessions,
-    loadLocalSession: persistence.loadLocalSession,
     autoLoadDraftIfEmpty: persistence.autoLoadDraftIfEmpty,
     restoreDraft: persistence.restoreDraft,
     discardDraft,

@@ -20,20 +20,12 @@ vi.mock('../../../../core/services/LocalDocumentService', () => ({
   },
 }));
 
-vi.mock('../../../../core/services/SessionService', () => ({
-  SessionService: {
-    updateSession: vi.fn().mockResolvedValue(undefined),
-    deleteSession: vi.fn().mockResolvedValue(undefined),
-  },
-}));
-
 vi.mock('../../../../core/services/StorageService', () => ({
   StorageService: {
     deleteDocument: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
-import { SessionService } from '../../../../core/services/SessionService';
 import { LocalDocumentService } from '../../../../core/services/LocalDocumentService';
 import { DocumentService } from '../../../../core/services/DocumentService';
 
@@ -56,31 +48,6 @@ function makeSession(overrides: Partial<ArchiveSession> = {}): ArchiveSession {
     ...overrides,
   };
 }
-
-describe('updateArchiveField — legacy session', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('tags → SessionService.updateSession({ tags })', async () => {
-    await updateArchiveField(makeSession({ _isLegacy: true }), 'tags', ['t1'], mockUser, 'user1');
-    expect(SessionService.updateSession).toHaveBeenCalledWith('s1', { tags: ['t1'] });
-  });
-
-  it('title → SessionService.updateSession({ title })', async () => {
-    await updateArchiveField(makeSession({ _isLegacy: true }), 'title', 'New Title', mockUser, 'user1');
-    expect(SessionService.updateSession).toHaveBeenCalledWith('s1', { title: 'New Title' });
-  });
-
-  it('date → SessionService.updateSession({ sessionStartTime })', async () => {
-    const d = new Date('2024-06-15T10:30:00');
-    await updateArchiveField(makeSession({ _isLegacy: true }), 'date', d, mockUser, 'user1');
-    expect(SessionService.updateSession).toHaveBeenCalledWith('s1', { sessionStartTime: d.getTime() });
-  });
-
-  it('labelId → SessionService.updateSession({ labelId })', async () => {
-    await updateArchiveField(makeSession({ _isLegacy: true }), 'labelId', 'lbl1', mockUser, 'user1');
-    expect(SessionService.updateSession).toHaveBeenCalledWith('s1', { labelId: 'lbl1' });
-  });
-});
 
 describe('updateArchiveField — local session', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -120,11 +87,6 @@ describe('updateArchiveField — cloud-only session', () => {
 
 describe('deleteArchiveSession', () => {
   beforeEach(() => vi.clearAllMocks());
-
-  it('legacy → SessionService.deleteSession', async () => {
-    await deleteArchiveSession(makeSession({ _isLegacy: true }), 'user1');
-    expect(SessionService.deleteSession).toHaveBeenCalledWith('s1');
-  });
 
   it('local → StorageService.deleteDocument with localId', async () => {
     const { StorageService } = await import('../../../../core/services/StorageService');

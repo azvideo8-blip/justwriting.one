@@ -3,17 +3,15 @@ import { Session, Document } from '../../../types';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { DocumentService } from '../../../core/services/DocumentService';
 import { VersionService } from '../../../core/services/VersionService';
-import { SessionService } from '../../../core/services/SessionService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { toDate } from '../../../core/utils/dateUtils';
-import { maybeDecrypt, DecryptionError } from '../../../core/crypto/cryptoHelpers';
+import { maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../core/errors/reportError';
 import { getLocalDb } from '../../../core/storage/localDb';
 
 interface LoadedSession extends Session {
   _linkedCloudId?: string;
   _hasCloudCopy?: boolean;
-  _isLegacy?: boolean;
   _totalWords?: number;
   _totalDuration?: number;
   _sessionsCount?: number;
@@ -38,7 +36,7 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
     const db = await getLocalDb();
     const queue = await db.getAll('syncQueue');
     for (const item of queue) {
-      if (item.documentId && !item.id.startsWith('migrated_') && !item.id.startsWith('lock_cloud_')) {
+      if (item.documentId && !item.id.startsWith('lock_cloud_')) {
         pendingDocIds.add(item.documentId);
       }
     }
@@ -153,30 +151,6 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
     }
   }
 
-  if (user) {
-    try {
-      const { sessions: legacySessions } = await SessionService.getAllSessions(user.uid, 500);
-      for (const s of legacySessions) {
-        if (seenIds.has(s.id)) continue;
-        seenIds.add(s.id);
-        try {
-          const decrypted = await maybeDecrypt(s as unknown as Record<string, unknown>, ['content'], ['pinnedThoughts', 'tags']);
-          allSessions.push({ ...(decrypted as unknown as Session), _isLocal: false, _isLegacy: true });
-        } catch (decryptErr) {
-          if (decryptErr instanceof Error && decryptErr.message.startsWith('LOCKED')) {
-            allSessions.push({ ...s, _isLocal: false, _isLegacy: true, _locked: true });
-          } else if (decryptErr instanceof DecryptionError) {
-            allSessions.push({ ...s, _isLocal: false, _isLegacy: true, _decryptionError: true });
-          } else {
-            reportError(decryptErr, { action: 'loadAllSessions_decrypt', sessionId: s.id });
-            throw decryptErr;
-          }
-        }
-      }
-    } catch (e) {
-      reportError(e, { action: 'loadAllSessions_legacy' });
-    }
-  }
 
   allSessions.sort((a, b) => (toDate(b.createdAt)?.getTime() ?? 0) - (toDate(a.createdAt)?.getTime() ?? 0));
 

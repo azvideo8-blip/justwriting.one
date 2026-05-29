@@ -78,49 +78,6 @@ export async function encryptAllExistingNotes(
   const { db, mod } = await getClient();
   const { collection, getDocs, query, where, doc } = mod;
 
-  // Sessions
-  try {
-    const sessionsSnap = await getDocs(query(collection(db, 'sessions'), where('userId', '==', userId)));
-    progress.total += sessionsSnap.docs.length;
-    report();
-
-    const pending: PendingOp[] = [];
-    const flush = async () => {
-      if (pending.length === 0) return;
-      const keys = await flushPending(mod.writeBatch(db), pending.splice(0, pending.length));
-      for (const k of keys) checkpoint.add(k);
-      saveCheckpoint(userId, checkpoint);
-    };
-
-    for (const d of sessionsSnap.docs) {
-      if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError'); // [A-09]
-      try {
-        const ck = `s_${d.id}`;
-        if (checkpoint.has(ck) || d.data()._encrypted) {
-          checkpoint.add(ck);
-          progress.processed++;
-          report();
-          continue;
-        }
-        const encrypted = await maybeEncrypt(d.data() as Record<string, unknown>, ['content'], ['pinnedThoughts', 'tags']);
-        const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
-        pending.push({ ref: doc(db, 'sessions', d.id), data: clean, checkKey: ck });
-        if (pending.length >= BATCH_SIZE) await flush();
-        progress.encrypted++;
-       } catch (e) {
-         if (e instanceof DOMException && e.name === 'AbortError') throw e;
-         progress.errors++;
-         reportError(e, { action: 'encryptAllExistingNotes_session', sessionId: d.id });
-       }
-      progress.processed++;
-      report();
-    }
-    await flush();
-  } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') throw e;
-    reportError(e, { action: 'encryptAllExistingNotes_sessionsQuery', userId });
-  }
-
   // Document versions
   try {
     const docsSnap = await getDocs(collection(db, 'users', userId, 'documents'));

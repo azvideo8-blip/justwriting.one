@@ -28,6 +28,17 @@ export function toDate(v: unknown): Date | null {
       const d = new Date(obj['seconds'] * 1000);
       return isNaN(d.getTime()) ? null : d;
     }
+    if (typeof obj['_seconds'] === 'number') {
+      const d = new Date(obj['_seconds'] * 1000);
+      return isNaN(d.getTime()) ? null : d;
+    }
+  }
+  if (typeof v === 'string' && v.trim() !== '') {
+    const num = Number(v);
+    if (!isNaN(num)) {
+      const d = new Date(num);
+      if (!isNaN(d.getTime())) return d;
+    }
   }
   try {
     const d = new Date(v as string | number);

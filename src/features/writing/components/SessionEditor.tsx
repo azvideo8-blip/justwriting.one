@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
-import { SessionService } from '../../../core/services/SessionService';
 import { countWords } from '../../../shared/utils/countWords';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
@@ -44,17 +43,6 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
             currentVersion: (await LocalDocumentService.getDocument(docId))?.currentVersion ?? 1,
           });
         },
-        { successMessage: t('save_success'), errorMessage: t('error_save_failed'), onSuccess: onSave }
-      );
-    } else {
-      execute(
-        () => SessionService.updateSession(session.id, {
-          content: editContent,
-          title: editTitle,
-          tags: editTags,
-          wordCount,
-          charCount: editContent.length
-        }),
         { successMessage: t('save_success'), errorMessage: t('error_save_failed'), onSuccess: onSave }
       );
     }

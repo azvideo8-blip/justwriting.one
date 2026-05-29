@@ -12,14 +12,12 @@ import { reportError } from '../../../core/errors/reportError';
 interface UseSessionContinueParams {
   setSetupMode: (mode: SetupMode) => void;
   setTags: (tags: string[]) => void;
-  loadLocalSession: (id: string) => Promise<Record<string, unknown> | null>;
   userId: string;
 }
 
 export function useSessionContinue({
   setSetupMode,
   setTags,
-  loadLocalSession,
   userId,
 }: UseSessionContinueParams) {
   const continueSession = useCallback(async (session: Session) => {
@@ -30,13 +28,13 @@ export function useSessionContinue({
 
     const isLocal = session._isLocal;
     if (isLocal) {
-      const loaded = await loadLocalSession(session.id);
+      const doc = await LocalDocumentService.getDocument(session.id);
+      const content = await LocalVersionService.getLatestContent(session.id);
 
-      if (!loaded) {
-        const content = await LocalVersionService.getLatestContent(session.id);
+      if (!doc) {
         const wc = countWords(content || '');
         useContentStore.setState({
-          content,
+          content: content || '',
           title: session.title || '',
           initialWordCount: wc,
           wordCount: wc,
@@ -53,22 +51,21 @@ export function useSessionContinue({
         return;
       }
 
-      const loadedContent = (loaded.content as string) || '';
-      const wc = countWords(loadedContent);
+      const wc = countWords(content || '');
       useContentStore.setState({
-        content: loadedContent,
-        title: (loaded.title as string) || '',
+        content: content || '',
+        title: doc.title || '',
         initialWordCount: wc,
         wordCount: wc,
       });
       useTimerStore.setState({
         seconds: 0,
-        accumulatedDuration: (loaded.duration as number) || 0,
+        accumulatedDuration: doc.totalDuration || 0,
       });
       useSessionMetaStore.setState({
         savedDocumentId: session.id,
       });
-      setTags((loaded.tags as string[]) || []);
+      setTags(doc.tags || []);
       setSetupMode('selection');
       return;
     }
@@ -100,7 +97,7 @@ export function useSessionContinue({
     });
     setTags(session.tags || []);
     setSetupMode('selection');
-  }, [setSetupMode, setTags, loadLocalSession, userId]);
+  }, [setSetupMode, setTags, userId]);
 
   return { continueSession };
 }

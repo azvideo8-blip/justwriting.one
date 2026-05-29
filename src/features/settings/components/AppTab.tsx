@@ -1,11 +1,9 @@
 import React from 'react';
-import { Cloud, LogIn } from 'lucide-react';
+import { LogIn } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme/ThemeProvider';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
-import { SyncService } from '../../../core/services/SyncService';
-import { useToast } from '../../../shared/components/Toast';
 import { Section } from './SettingsHelpers';
 import { STORAGE_KEYS } from '../../../core/constants/storageKeys';
 import { cn } from '../../../core/utils/utils';
@@ -15,12 +13,11 @@ interface AppTabProps {
   onRefreshLifeLog?: () => void;
 }
 
-export function AppTab({ userId, onRefreshLifeLog }: AppTabProps) {
+export function AppTab({ userId: _userId, onRefreshLifeLog: _onRefreshLifeLog }: AppTabProps) {
   const { t, language, setLanguage } = useLanguage();
   const { themeId, setThemeId, themes } = useTheme();
   const { isAuthenticated, isGuest } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
-  const { showToast } = useToast();
   const [autoSync, setAutoSync] = React.useState(
     localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) !== 'false'
   );
@@ -30,20 +27,6 @@ export function AppTab({ userId, onRefreshLifeLog }: AppTabProps) {
     notion:    '#e8dfc0',
     spotify:   '#1ed760',
     amethyst:  '#7c3aed',
-  };
-
-  const handleSyncNow = async () => {
-    try {
-      const result = await SyncService.syncAllUnlinked(userId);
-      if (result.failed > 0) {
-        showToast(t('admin_import_failed', { count: result.failed }), 'error');
-      } else {
-        showToast(t('offline_synced'), 'success');
-      }
-      onRefreshLifeLog?.();
-    } catch {
-      showToast(t('error_generic_action'), 'error');
-    }
   };
 
   const toggleAutoSync = () => {
@@ -77,16 +60,6 @@ export function AppTab({ userId, onRefreshLifeLog }: AppTabProps) {
               />
             </button>
           </div>
-        )}
-
-        {isAuthenticated && (
-          <button
-            onClick={handleSyncNow}
-            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors"
-          >
-            <Cloud size={14} />
-            {t('settings_upload_to_cloud')}
-          </button>
         )}
 
         {isGuest && (

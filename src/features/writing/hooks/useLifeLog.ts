@@ -1,13 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { DocumentService } from '../../../core/services/DocumentService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
-import { Session, Document } from '../../../types';
-import { SessionService } from '../../../core/services/SessionService';
+import { Document } from '../../../types';
 import { useLanguage } from '../../../core/i18n';
 import { useStartOfToday } from '../../../shared/hooks/useStartOfToday';
 import {
-  localDocToSession,
-  getLatestContentForDoc,
   localDocToLifeLog,
   mergeUnifiedDocuments,
   groupSessionsByDate,
@@ -26,7 +23,6 @@ interface UseLifeLogReturn {
 }
 
 export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
-  const [sessions, setSessions] = useState<Session[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [unifiedDocuments, setUnifiedDocuments] = useState<LifeLogDocument[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,28 +37,16 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
     try {
       if (isGuest) {
         const localDocs = await LocalDocumentService.getGuestDocuments(userId);
-        const sessionResults = await Promise.allSettled(
-          localDocs.map(async d => {
-            const content = await getLatestContentForDoc(d.id);
-            return localDocToSession(d, content);
-          })
-        );
-        const sessionsWithContent = sessionResults
-          .filter((r): r is PromiseFulfilledResult<Session> => r.status === 'fulfilled')
-          .map(r => r.value);
         if (!mountedRef.current) return;
-        setSessions(sessionsWithContent);
         setDocuments([]);
         setUnifiedDocuments(localDocs.map(d => localDocToLifeLog(d, false)));
       } else {
-        const [sessionResult, cloudDocs, localDocs] = await Promise.all([
-          SessionService.getAllSessions(userId, 100),
+        const [cloudDocs, localDocs] = await Promise.all([
           DocumentService.getUserDocuments(userId).catch(e => { reportError(e, { action: 'lifeLog/fetchCloudDocs' }); return [] as Document[]; }),
           LocalDocumentService.getGuestDocuments(userId).catch(e => { reportError(e, { action: 'lifeLog/fetchLocalDocs' }); return []; }),
         ]);
 
         if (!mountedRef.current) return;
-        setSessions(sessionResult.sessions);
         setDocuments(cloudDocs);
         setUnifiedDocuments(mergeUnifiedDocuments(localDocs, cloudDocs));
       }
@@ -83,8 +67,8 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
   );
 
   const sessionGroups = useMemo(
-    () => groupSessionsByDate(sessions, unifiedDocuments, startOfToday, t, language),
-    [sessions, unifiedDocuments, startOfToday, t, language]
+    () => groupSessionsByDate(unifiedDocuments, startOfToday, t, language),
+    [unifiedDocuments, startOfToday, t, language]
   );
 
   return {

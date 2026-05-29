@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { SessionService } from '../../../core/services/SessionService';
 
 export function useSessionTags(sessionId: string, initialTags: string[] = []) {
   const [tags, setTags] = useState<string[]>(initialTags);
@@ -8,7 +7,6 @@ export function useSessionTags(sessionId: string, initialTags: string[] = []) {
   const updateTags = async (newTags: string[]) => {
     setLoading(true);
     try {
-      await SessionService.updateSessionTags(sessionId, newTags);
       setTags(newTags);
     } catch (error) {
       console.error('Error updating session tags:', error);
