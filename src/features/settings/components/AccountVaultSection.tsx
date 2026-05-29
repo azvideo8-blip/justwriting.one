@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, Shield } from 'lucide-react';
-import { EncryptionService } from '../../../core/crypto/EncryptionService';
-import { AuthService } from '../../auth/services/AuthService';
+import { EncryptionService, WrongPasswordError } from '../../../core/services/EncryptionService';
 import { useLanguage } from '../../../core/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../core/errors/reportError';
@@ -9,6 +8,7 @@ import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { type MigrationProgress } from '../../../core/crypto/encryptMigration';
 import { Section } from './SettingsHelpers';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
+import { ChangeEncryptionPasswordButton, EncryptionPasswordModal } from '../../encryption/components/EncryptionPasswordModal';
 
 interface AccountVaultSectionProps {
   userId: string;
@@ -24,11 +24,16 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
   const [confirmVaultPassword, setConfirmVaultPassword] = useState('');
   const [vaultLoading, setVaultLoading] = useState(false);
   const [vaultError, setVaultError] = useState<string | null>(null);
+  const [showMigrate, setShowMigrate] = useState(false);
 
   const [migrationRunning, setMigrationRunning] = useState(false);
   const [migrationProgress, setMigrationProgress] = useState<MigrationProgress | null>(null);
   const [migrationDone, setMigrationDone] = useState(false);
   const migrationAbortRef = React.useRef<AbortController | null>(null);
+
+  const hasNewMeta = !!profile?.encryptionMeta;
+  const isLegacyOnly = !hasNewMeta && !!(profile?.encryptionSalt && profile?.encryptedDataKey);
+  const hasEncryption = hasNewMeta || isLegacyOnly;
 
   const handleUnlockVault = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,19 +42,11 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
     setVaultError(null);
 
     try {
-      if (!profile?.encryptionSalt || !profile?.encryptedDataKey) {
-        setVaultError(t('unlock_no_keys_error'));
-        setVaultLoading(false);
-        return;
-      }
-      await EncryptionService.unlockVault(userId, vaultPassword, {
-        encryptionSalt: profile.encryptionSalt,
-        encryptedDataKey: profile.encryptedDataKey,
-      });
+      await EncryptionService.unlockVault(userId, vaultPassword);
       setVaultPassword('');
       showToast(t('unlock_success'), 'success');
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'OperationError') {
+      if (err instanceof WrongPasswordError) {
         setVaultError(t('unlock_wrong_password'));
       } else {
         reportError(err, { action: 'unlockVaultInSettings', userId });
@@ -62,8 +59,8 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
 
   const handleInitializeEncryption = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!vaultPassword || vaultPassword.length < 6) {
-      setVaultError(t('auth_error_weak_password'));
+    if (!vaultPassword || vaultPassword.length < 8) {
+      setVaultError(t('enc_password_min_length', { min: 8 }));
       return;
     }
     if (vaultPassword !== confirmVaultPassword) {
@@ -119,7 +116,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
 
   return (
     <Section title={t('settings_encryption')}>
-      {!profile?.encryptionSalt ? (
+      {!hasEncryption ? (
         <div className="p-4 rounded-xl border border-border-subtle space-y-4">
           <div className="flex items-start gap-3">
             <Shield size={18} className="text-text-main/40 mt-0.5" />
@@ -132,15 +129,6 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
             <div className="p-3 rounded-lg text-xs bg-red-500/10 border border-red-500/30 text-red-400">{vaultError}</div>
           )}
           <form onSubmit={handleInitializeEncryption} className="space-y-3 pt-1">
-            <input
-              type="text"
-              name="username"
-              autoComplete="username"
-              value={AuthService.getCurrentUser()?.email || ''}
-              readOnly
-              className="hidden"
-              style={{ display: 'none' }}
-            />
             <input
               type="password"
               value={vaultPassword}
@@ -173,6 +161,31 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
             </button>
           </form>
         </div>
+      ) : isLegacyOnly ? (
+        <div className="p-4 rounded-xl border border-border-subtle space-y-4">
+          <div className="flex items-start gap-3">
+            <Shield size={18} className="text-text-main/40 mt-0.5" />
+            <div className="flex-1 space-y-1">
+              <div className="text-sm font-medium text-text-main">{t('enc_migrate_title')}</div>
+              <div className="text-xs text-text-main/60 leading-relaxed">{t('enc_migrate_subtitle')}</div>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowMigrate(true)}
+            className="w-full py-2.5 rounded-xl text-sm font-bold text-white hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-brand-primary"
+          >
+            <Shield size={14} />
+            {t('enc_migrate_submit')}
+          </button>
+          {showMigrate && (
+            <EncryptionPasswordModal
+              mode="migrate"
+              userId={userId}
+              onDone={() => setShowMigrate(false)}
+              onClose={() => setShowMigrate(false)}
+            />
+          )}
+        </div>
       ) : !isVaultUnlocked ? (
         <div className="p-4 rounded-xl border border-border-subtle space-y-4">
           <div className="flex items-start gap-3">
@@ -186,15 +199,6 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
             <div className="p-3 rounded-lg text-xs bg-red-500/10 border border-red-500/30 text-red-400">{vaultError}</div>
           )}
           <form onSubmit={handleUnlockVault} className="space-y-3 pt-1">
-            <input
-              type="text"
-              name="username"
-              autoComplete="username"
-              value={AuthService.getCurrentUser()?.email || ''}
-              readOnly
-              className="hidden"
-              style={{ display: 'none' }}
-            />
             <input
               type="password"
               value={vaultPassword}
@@ -238,6 +242,8 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
               {t('settings_lock_vault')}
             </button>
           </div>
+
+          <ChangeEncryptionPasswordButton userId={userId} />
 
           {!migrationRunning && !migrationDone ? (
             <button

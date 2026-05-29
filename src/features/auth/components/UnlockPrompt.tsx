@@ -3,8 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Lock, AlertCircle, Loader2 } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { useToast } from '../../../shared/components/Toast';
-import { deriveMasterKey, unwrapDataKey, setSessionKey, fromBase64 } from '../../../core/crypto/encrypt';
-import { getClient } from '../../../core/firebase/firestoreClient';
+import { WrongPasswordError, unlockVault } from '../../../core/services/EncryptionService';
 import { reportError } from '../../../core/errors/reportError';
 
 interface UnlockPromptProps {
@@ -27,28 +26,11 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
     setError(null);
 
     try {
-      const { db, mod } = await getClient();
-      const { doc, getDoc } = mod;
-      const snap = await getDoc(doc(db, 'users', uid));
-      if (!snap.exists()) {
-        setError(t('error_generic'));
-        setLoading(false);
-        return;
-      }
-      const data = snap.data();
-      if (!data.encryptionSalt || !data.encryptedDataKey) {
-        setError(t('unlock_no_keys_error'));
-        setLoading(false);
-        return;
-      }
-      const salt = fromBase64(data.encryptionSalt as string);
-      const masterKey = await deriveMasterKey(password, salt);
-      const dataKey = await unwrapDataKey(data.encryptedDataKey as string, masterKey);
-      setSessionKey(dataKey);
+      await unlockVault(uid, password);
       showToast(t('unlock_success'), 'success');
       onUnlocked();
     } catch (e) {
-      if (e instanceof DOMException && e.name === 'OperationError') {
+      if (e instanceof WrongPasswordError) {
         setError(t('unlock_wrong_password'));
       } else {
         reportError(e, { action: 'unlockEncryption', uid });

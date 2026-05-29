@@ -3,6 +3,7 @@ import { User } from 'firebase/auth';
 import { loadAllSessions } from '../../writing/services/UnifiedSessionLoader';
 import { ArchiveSession } from '../types';
 import { updateArchiveField, deleteArchiveSession } from '../services/archiveCrud';
+import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 
 export function useArchiveSessions(user: User | null, userId: string, t: (key: string) => string) {
   const [sessions, setSessions] = useState<ArchiveSession[]>([]);
@@ -12,6 +13,8 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
   const [previewSession, setPreviewSession] = useState<ArchiveSession | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<ArchiveSession | null>(null);
   const mountedRef = useRef(true);
+  const isVaultUnlocked = useEncryptionStore(s => s.isVaultUnlocked);
+  const prevVaultUnlockedRef = useRef(isVaultUnlocked);
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
@@ -39,6 +42,13 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
   useEffect(() => {
     fetchSessions();
   }, [fetchSessions]);
+
+  useEffect(() => {
+    if (isVaultUnlocked && !prevVaultUnlockedRef.current) {
+      fetchSessions();
+    }
+    prevVaultUnlockedRef.current = isVaultUnlocked;
+  }, [isVaultUnlocked, fetchSessions]);
 
   const updateSession = (id: string, patch: Partial<ArchiveSession>) => {
     setSessions(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s));

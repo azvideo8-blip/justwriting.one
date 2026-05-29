@@ -6,6 +6,13 @@ export interface Label {
   color: string;
 }
 
+export interface EncryptionMeta {
+  salt: string;
+  version: number;
+  wrappedDataKey: string;
+  verification: string;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -21,6 +28,7 @@ export interface UserProfile {
   avgSessionWords?: number;
   encryptionSalt?: string;
   encryptedDataKey?: string;
+  encryptionMeta?: EncryptionMeta;
 }
 
 export type AchievementTier = 'common' | 'rare' | 'legendary';

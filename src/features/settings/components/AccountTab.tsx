@@ -11,6 +11,7 @@ import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { Section, ToggleRow } from './SettingsHelpers';
 import { AccountProfileSection } from './AccountProfileSection';
 import { AccountVaultSection } from './AccountVaultSection';
+import { AccountExportSection } from './AccountExportSection';
 import { AccountDangerSection } from './AccountDangerSection';
 
 interface AccountTabProps {
@@ -200,6 +201,8 @@ export function AccountTab({ userId }: AccountTabProps) {
           </Section>
 
           <AccountVaultSection userId={userId} />
+
+          <AccountExportSection userId={userId} />
         </>
       ) : null}
 

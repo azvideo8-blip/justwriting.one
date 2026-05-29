@@ -100,8 +100,24 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
           const created = toDate(cloudDoc.lastSessionAt) ?? new Date();
           let cloudContent = '';
           let cloudContentError = false;
+          let cloudLocked = false;
+          let cloudDecryptError = false;
           try {
-            cloudContent = await VersionService.getLatestContent(uid, cloudDoc.id);
+            const latest = await VersionService.getLatestVersion(uid, cloudDoc.id);
+            if (latest) {
+              try {
+                const decrypted = await maybeDecrypt(latest as unknown as Record<string, unknown>, ['content'], []);
+                cloudContent = (decrypted.content as string) ?? '';
+                if (decrypted._decryptionError) cloudDecryptError = true;
+              } catch (decErr) {
+                if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) {
+                  cloudLocked = true;
+                  cloudContent = latest.content ?? '';
+                } else {
+                  throw decErr;
+                }
+              }
+            }
           } catch (contentErr) {
             reportError(contentErr, { action: 'loadAllSessions_cloudContent', documentId: cloudDoc.id });
             cloudContentError = true;
@@ -127,6 +143,8 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
             _sessionsCount: cloudDoc.sessionsCount,
             _firstSessionAt: toDate(cloudDoc.firstSessionAt)?.getTime(),
             ...(cloudContentError ? { _contentError: true } : {}),
+            ...(cloudLocked ? { _locked: true } : {}),
+            ...(cloudDecryptError ? { _decryptionError: true } : {}),
           };
         });
 

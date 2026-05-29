@@ -10,6 +10,7 @@ import { SyncService } from '../../../core/services/SyncService';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { reportError } from '../../../core/errors/reportError';
 import { UnlockPrompt } from '../../auth/components/UnlockPrompt';
+import { EncryptionPasswordModal } from '../../encryption/components/EncryptionPasswordModal';
 import { useAuthStatus } from '../../auth/contexts/AuthContext';
 
 interface StorageDoc {
@@ -41,10 +42,11 @@ export function StorageIcons({
   const { t } = useLanguage();
   const { showToast } = useToast();
   const { profile } = useAuthStatus();
-  const hasEncryption = !!(profile?.encryptionSalt && profile?.encryptedDataKey);
+  const hasEncryption = !!(profile?.encryptionMeta || (profile?.encryptionSalt && profile?.encryptedDataKey));
   const [confirmState, setConfirmState] = useState<ConfirmState>(IDLE);
   const [uploading, setUploading] = useState(false);
   const [showUnlock, setShowUnlock] = useState(false);
+  const [showEncryptionSetup, setShowEncryptionSetup] = useState(false);
 
   const handleLocalClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -61,18 +63,24 @@ export function StorageIcons({
     if (!doc.localId || !userId || userId.startsWith('guest_')) return;
     if (!getSessionKey()) {
       if (hasEncryption) {
-        reportError('ENCRYPT_REQUIRED: session key missing on cloud upload', { userId });
         setShowUnlock(true);
-        return;
+      } else {
+        setShowEncryptionSetup(true);
       }
+      return;
     }
+    void doUpload();
+  };
+
+  const doUpload = async () => {
+    if (!doc.localId || !userId || userId.startsWith('guest_')) return;
     setUploading(true);
     try {
       if (doc.hasPendingSync) {
-        await SyncService.syncDocument(userId, doc.localId, hasEncryption);
+        await SyncService.syncDocument(userId, doc.localId, true);
         showToast(t('storage_uploaded_cloud'), 'success');
       } else {
-        const cloudId = await StorageService.addCloudCopy(userId, doc.localId, hasEncryption);
+        const cloudId = await StorageService.addCloudCopy(userId, doc.localId, true);
         if (cloudId) {
           showToast(t('storage_uploaded_cloud'), 'success');
         } else {
@@ -235,11 +243,21 @@ export function StorageIcons({
         {showUnlock && hasEncryption && userId && !userId.startsWith('guest_') && (
           <UnlockPrompt
             uid={userId}
-            onUnlocked={() => { setShowUnlock(false); }}
+            onUnlocked={() => { setShowUnlock(false); void doUpload(); }}
             onClose={() => setShowUnlock(false)}
           />
         )}
       </AnimatePresence>
+
+      {showEncryptionSetup && userId && !userId.startsWith('guest_') && (
+        <EncryptionPasswordModal
+          mode="setup"
+          userId={userId}
+          context="cloud-sync"
+          onDone={() => { setShowEncryptionSetup(false); void doUpload(); }}
+          onClose={() => setShowEncryptionSetup(false)}
+        />
+      )}
     </div>
   );
 }
