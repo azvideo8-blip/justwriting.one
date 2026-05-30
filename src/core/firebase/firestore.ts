@@ -36,7 +36,7 @@ export function getDb(): Promise<Firestore> {
     } = await import('firebase/firestore');
 
     _db = initializeFirestore(app, {
-      ...(import.meta.env.DEV && { experimentalForceLongPolling: true }),
+      experimentalForceLongPolling: true,
       localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
     }, import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
 
