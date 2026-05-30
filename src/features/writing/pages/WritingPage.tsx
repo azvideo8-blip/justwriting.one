@@ -21,6 +21,7 @@ import { MobileSessionSetupSheet } from '../components/MobileSessionSetupSheet';
 import { useLifeLog } from '../hooks/useLifeLog';
 import { useStreak } from '../hooks/useStreak';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+import { useSettings } from '../../../core/settings/SettingsContext';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 import { SyncService } from '../../../core/services/SyncService';
 
@@ -173,6 +174,18 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
   }, [handleFinish]);
 
   const isMobile = useLayoutMode().layoutMode !== 'desktop';
+
+  // On the desktop editor, route the gear to the dockable LifeLog "settings" tab
+  // (which carries the pin), instead of the global overlay panel.
+  const { registerOpenOverride } = useSettings();
+  useEffect(() => {
+    if (isMobile) return;
+    registerOpenOverride(() => {
+      setLifeLogTab('settings');
+      setLifeLogVisible(true);
+    });
+    return () => registerOpenOverride(null);
+  }, [isMobile, registerOpenOverride, setLifeLogTab, setLifeLogVisible]);
 
   // [L-09] desktopProps мемоизированы — не пересоздаются при мобильном рендере
   const desktopProps = React.useMemo(() => ({

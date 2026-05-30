@@ -14,6 +14,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.6',
+    date: '2026-05-30',
+    items: [
+      { category: 'improvement', ru: 'Полный редизайн экрана «Собеседник» (ИИ-чат) в фирменном стиле: монограммы-аватары в цвете персоны, шапка с ролью персоны, ответы ИИ в формате письма с цветной линейкой, градиентные сообщения пользователя, обновлённый список диалогов', en: 'Full redesign of the AI "Companion" (chat) screen in brand style: persona-coloured monogram avatars, header with the persona’s role, letter-style AI replies with a coloured rule, gradient user bubbles, refreshed dialogue list' },
+      { category: 'new', ru: 'Кнопка ⓘ на персонах открывает описание и системный промпт; свои персоны можно редактировать (промпт/имя) и удалять, встроенные — только просмотр', en: 'An ⓘ button on personas opens their description and system prompt; custom personas can be edited (prompt/name) and deleted, built-in ones are read-only' },
+      { category: 'improvement', ru: 'Поле ввода ИИ-чата растянуто на всю ширину; убрана дублирующая кнопка «Прикрепить заметку» (доступна в меню «+»)', en: 'AI chat input now spans the full width; removed the duplicate "Attach note" button (still available in the "+" menu)' },
+      { category: 'fix', ru: 'На экране письма шестерёнка «Настройки» открывает закрепляемую панель (вкладка в Life Log): при закреплении редактор сдвигается, а панель больше не перекрывает текст', en: 'On the writing screen, the Settings gear opens the pinnable panel (Life Log tab): when pinned the editor shifts aside instead of being covered by the panel' },
+      { category: 'fix', ru: 'ИИ-эндпойнт /api/chat: исправлена ошибка ESM-импорта firebase-admin, обновлены модель и ключ Gemini', en: 'AI endpoint /api/chat: fixed the firebase-admin ESM import error, updated the Gemini model and API key' },
+      { category: 'fix', ru: 'Надёжный разбор ключа сервисного аккаунта Firebase: поддержка обёрнутых кавычек и ключей без внешних фигурных скобок', en: 'Robust parsing of the Firebase service-account key: handles wrapped quotes and keys missing the outer curly braces' },
+      { category: 'fix', ru: 'Firestore переведён на long-polling в продакшене — убраны ошибки ERR_QUIC_PROTOCOL_ERROR в консоли', en: 'Firestore forced to long-polling in production — removes ERR_QUIC_PROTOCOL_ERROR console noise' },
+    ],
+  },
+  {
     version: '0.7.5',
     date: '2026-05-29',
     items: [
