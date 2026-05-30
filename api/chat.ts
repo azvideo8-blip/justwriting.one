@@ -1,18 +1,27 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { streamText } from 'ai';
-import { google } from '@ai-sdk/google';
-import * as admin from 'firebase-admin';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { initializeApp, getApps, cert, applicationDefault } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 import { z } from 'zod';
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
-if (!admin.apps.length) {
+if (getApps().length === 0) {
   const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
-  admin.initializeApp({
+  initializeApp({
     credential: sa
-      ? admin.credential.cert(JSON.parse(sa) as admin.ServiceAccount)
-      : admin.credential.applicationDefault(),
+      ? cert(JSON.parse(sa))
+      : applicationDefault(),
   });
 }
+
+// Initialize Google AI SDK with GEMINI_API_KEY as fallback
+const google = createGoogleGenerativeAI({
+  apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+});
+
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
 
 // NOTE: Prompts are canonicalized in src/shared/ai/prompts.ts and functions/src/shared/prompts.ts
 
@@ -196,7 +205,7 @@ const DAILY_LIMIT = (() => {
 const COOLDOWN_MS = 10_000;
 
 async function checkAndIncrementLimit(uid: string): Promise<boolean> {
-  const db = admin.firestore();
+  const db = getFirestore();
   const now = Date.now();
 
   const cooldownRef = db.doc(`aiCooldown/${uid}`);
@@ -246,7 +255,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   let uid: string;
   try {
-    const decoded = await admin.auth().verifyIdToken(idToken);
+    const decoded = await getAuth().verifyIdToken(idToken);
     uid = decoded.uid;
   } catch {
     res.status(401).json({ error: 'Unauthorized' }); return;
@@ -273,7 +282,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Stream
   const result = streamText({
-    model: google('gemini-2.5-flash-preview-04-17'),
+    model: google(GEMINI_MODEL),
     system: systemPrompt,
     messages: messages.map(m => ({ role: m.role, content: m.content })),
     maxOutputTokens: 1024,
