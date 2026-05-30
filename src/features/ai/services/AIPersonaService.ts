@@ -39,6 +39,13 @@ export const AIPersonaService = {
     return persona;
   },
 
+  async update(id: string, data: { name?: string; emoji?: string; systemPrompt?: string }): Promise<void> {
+    const db = await getLocalDb();
+    const existing = await db.get('aiPersonas', id);
+    if (!existing) return;
+    await db.put('aiPersonas', { ...existing, ...data });
+  },
+
   async delete(id: string): Promise<void> {
     const db = await getLocalDb();
     await db.delete('aiPersonas', id);
