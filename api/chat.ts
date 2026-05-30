@@ -9,9 +9,28 @@ import { z } from 'zod';
 // ── Firebase Admin init ───────────────────────────────────────────────────────
 if (getApps().length === 0) {
   const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
+  let credentialConfig: any;
+  if (sa) {
+    try {
+      const trimmed = sa.trim();
+      const parsed = JSON.parse(trimmed);
+      credentialConfig = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+    } catch (err) {
+      if (sa.trim().startsWith('"') && sa.trim().endsWith('"')) {
+        try {
+          credentialConfig = JSON.parse(sa.trim().slice(1, -1));
+        } catch (innerErr) {
+          console.error('Failed to parse unwrapped service account key:', innerErr);
+        }
+      } else {
+        console.error('Failed to parse service account key:', err);
+      }
+    }
+  }
+
   initializeApp({
-    credential: sa
-      ? cert(JSON.parse(sa))
+    credential: credentialConfig
+      ? cert(credentialConfig)
       : applicationDefault(),
   });
 }
