@@ -12,19 +12,38 @@ if (getApps().length === 0) {
   let credentialConfig: any;
   if (sa) {
     try {
-      const trimmed = sa.trim();
-      const parsed = JSON.parse(trimmed);
-      credentialConfig = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
-    } catch (err) {
-      if (sa.trim().startsWith('"') && sa.trim().endsWith('"')) {
+      let trimmed = sa.trim();
+      
+      // Handle outer quotes
+      if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
         try {
-          credentialConfig = JSON.parse(sa.trim().slice(1, -1));
-        } catch (innerErr) {
-          console.error('Failed to parse unwrapped service account key:', innerErr);
+          const unwrapped = JSON.parse(trimmed);
+          if (typeof unwrapped === 'string') {
+            trimmed = unwrapped.trim();
+          } else {
+            credentialConfig = unwrapped;
+          }
+        } catch {
+          trimmed = trimmed.slice(1, -1).trim();
         }
-      } else {
-        console.error('Failed to parse service account key:', err);
       }
+
+      if (!credentialConfig) {
+        // Handle missing curly braces
+        if (!trimmed.startsWith('{') && (trimmed.includes('"type"') || trimmed.includes('type:'))) {
+          try {
+            credentialConfig = JSON.parse(`{${trimmed}}`);
+          } catch {
+            // fallback to standard parsing
+          }
+        }
+      }
+
+      if (!credentialConfig) {
+        credentialConfig = JSON.parse(trimmed);
+      }
+    } catch (err) {
+      console.error('Failed to parse service account key:', err);
     }
   }
 
