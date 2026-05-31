@@ -2,7 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getDailyLimitCount, DAILY_LIMIT } from '../shared/aiUtils';
 
 export const getAILimit = onCall({
-  enforceAppCheck: true,
+  enforceAppCheck: false,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Registration required.');

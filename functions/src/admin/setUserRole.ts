@@ -11,7 +11,7 @@ const schema = z.object({
 });
 
 export const setUserRole = onCall({
-  enforceAppCheck: true,
+  enforceAppCheck: false,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Authentication required.');
