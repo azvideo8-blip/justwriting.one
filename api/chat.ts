@@ -2,9 +2,15 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { streamText } from 'ai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { initializeApp, getApps, cert, applicationDefault } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { z } from 'zod';
+
+// Must match the database the Cloud Functions and frontend use (shared/firestore.ts,
+// VITE_FIREBASE_FIRESTORE_DATABASE_ID). Bare getFirestore() targets "(default)", which
+// is a different, empty database — that mismatch hid usage stats and broke limit resets.
+const FIRESTORE_DATABASE_ID = 'ai-studio-26638cb9-0855-4980-84cb-072afd2a063d';
+const db = () => getFirestore(FIRESTORE_DATABASE_ID);
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
 if (getApps().length === 0) {
@@ -243,11 +249,11 @@ const DAILY_LIMIT = (() => {
 const COOLDOWN_MS = 10_000;
 
 async function checkAndIncrementLimit(uid: string): Promise<boolean> {
-  const db = getFirestore();
+  const fs = db();
   const now = Date.now();
 
-  const cooldownRef = db.doc(`aiCooldown/${uid}`);
-  const cooldownAllowed = await db.runTransaction(async (tx) => {
+  const cooldownRef = fs.doc(`aiCooldown/${uid}`);
+  const cooldownAllowed = await fs.runTransaction(async (tx) => {
     const snap = await tx.get(cooldownRef);
     const data = snap.data();
     if (data && now - data.lastRequestAt < COOLDOWN_MS) return false;
@@ -257,9 +263,9 @@ async function checkAndIncrementLimit(uid: string): Promise<boolean> {
   if (!cooldownAllowed) return false;
 
   const date = new Date().toISOString().slice(0, 10);
-  const ref = db.doc(`aiDailyLimit/${uid}`);
+  const ref = fs.doc(`aiDailyLimit/${uid}`);
 
-  return db.runTransaction(async (tx) => {
+  return fs.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const data = snap.data();
     if (!data || data.date !== date) { tx.set(ref, { count: 1, date }); return true; }
@@ -267,6 +273,19 @@ async function checkAndIncrementLimit(uid: string): Promise<boolean> {
     tx.update(ref, { count: data.count + 1 });
     return true;
   });
+}
+
+// Mirror functions/src/shared/aiUtils.ts recordUsage so streamed chats show up in
+// admin AI stats (getAIUsageStats reads the `daily` collection group).
+async function recordUsage(uid: string, tokensIn: number, tokensOut: number): Promise<void> {
+  const date = new Date().toISOString().slice(0, 10);
+  await db().doc(`aiUsage/${uid}/daily/${date}`).set({
+    date,
+    promptTokens: FieldValue.increment(tokensIn),
+    completionTokens: FieldValue.increment(tokensOut),
+    requests: FieldValue.increment(1),
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
 }
 
 // ── Input schema ──────────────────────────────────────────────────────────────
@@ -318,12 +337,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const systemPrompt = buildSystemPrompt(personaId, customSystemPrompt, documentContent, documentMood, userPortrait);
 
-  // Stream
+  // Stream. maxOutputTokens caps total output INCLUDING gemini-2.5 thinking tokens;
+  // at 1024 the thinking budget could consume it all and truncate the reply
+  // mid-sentence. 8192 leaves ample room for a complete answer.
   const result = streamText({
     model: google(GEMINI_MODEL),
     system: systemPrompt,
     messages: messages.map(m => ({ role: m.role, content: m.content })),
-    maxOutputTokens: 1024,
+    maxOutputTokens: 8192,
+    onFinish: async ({ totalUsage }) => {
+      try {
+        await recordUsage(uid, totalUsage?.inputTokens ?? 0, totalUsage?.outputTokens ?? 0);
+      } catch (e) {
+        console.error('[api/chat] usage record failed:', e);
+      }
+    },
   });
 
   result.pipeTextStreamToResponse(res);
