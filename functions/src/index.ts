@@ -12,6 +12,7 @@ process.on('SIGTERM', async () => {
 });
 
 export { setUserRole } from './admin/setUserRole';
+export { resetUserLimit } from './admin/resetUserLimit';
 export { editWithAI } from './ai/editWithAI';
 export { chatWithAI } from './ai/chatWithAI';
 export { summarizeDocument } from './ai/summarizeDocument';

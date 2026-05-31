@@ -158,7 +158,7 @@ function AssistantTurn({
   onCopy?: () => void;
 }) {
   return (
-    <div className="flex gap-4">
+    <div className="flex gap-4 w-full self-start">
       <Monogram color={color} mono={mono} size={36} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2.5 mb-2">

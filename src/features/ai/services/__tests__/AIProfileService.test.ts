@@ -168,7 +168,7 @@ describe('AIProfileService', () => {
       const res = await AIProfileService.generate();
       expect(res).toEqual({ ok: true, markdown: 'Generated portrait markdown text' });
       expect(AIService.chat).toHaveBeenCalledWith(expect.objectContaining({
-        personaId: 'group_psychology',
+        personaId: 'custom',
       }));
       expect(localStorage.getItem('ai_user_portrait')).toBe('Generated portrait markdown text');
     });

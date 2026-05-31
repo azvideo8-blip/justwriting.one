@@ -238,7 +238,9 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
             onChunk: (partial) => setStreamingMessage(partial),
           });
         } catch (e: unknown) {
-          if (e instanceof Error && e.message === 'STREAM_FALLBACK') {
+          console.warn('Streaming chat failed, falling back to callable chat:', e);
+          const errMsg = e instanceof Error ? e.message : '';
+          if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED') {
             fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, userPortrait });
           } else {
             throw e;

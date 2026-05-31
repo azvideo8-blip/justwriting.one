@@ -26,7 +26,7 @@ export const getAIUsageStats = onCall({
 
   const { date } = parsed.data;
 
-  const collectionRef = db.collectionGroup('aiUsageDaily').where('date', '==', date);
+  const collectionRef = db.collectionGroup('daily').where('date', '==', date);
   const snapshot = await collectionRef.limit(500).get();
 
   const results: { uid: string; requests: number; promptTokens: number; completionTokens: number }[] = [];
