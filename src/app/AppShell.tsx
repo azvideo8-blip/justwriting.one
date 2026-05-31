@@ -31,6 +31,10 @@ export function AppShell() {
   const currentPath = location.pathname;
   const showZen = isZenActive && zenModeEnabled && currentPath === '/';
   const isAdmin = profile?.role === 'admin';
+  // The AI chat manages its own full-height layout; on desktop it must fill the
+  // viewport edge-to-edge (only clearing the fixed nav rail) instead of inheriting
+  // the padded, scrolling <main> used by the other pages.
+  const isChatPageDesktop = currentPath === '/ai' && layoutMode === 'desktop';
 
   return (
     <AppLayout className="min-h-screen bg-surface-base text-text-main font-sans selection:bg-white/10">
@@ -57,9 +61,14 @@ export function AppShell() {
       </>
 
       <main id="main-content" tabIndex={-1} className={cn(
-        "w-full relative z-10 min-h-screen pt-8",
-        layoutMode === 'desktop' && "pl-20 pr-4",
-        layoutMode !== 'desktop' && (showZen ? "pb-4 px-4" : "pb-20 px-4")
+        "w-full relative z-10",
+        isChatPageDesktop
+          ? "h-screen overflow-hidden pl-16"
+          : cn(
+              "min-h-screen pt-8",
+              layoutMode === 'desktop' && "pl-20 pr-4",
+              layoutMode !== 'desktop' && (showZen ? "pb-4 px-4" : "pb-20 px-4")
+            )
       )}>
         <AppRoutes />
       </main>
