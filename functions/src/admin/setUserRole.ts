@@ -1,5 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getDb } from '../shared/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import * as logger from 'firebase-functions/logger';
 import { z } from 'zod';
@@ -29,7 +29,7 @@ export const setUserRole = onCall({
     throw new HttpsError('invalid-argument', 'Cannot change your own role.');
   }
 
-  const db = getFirestore();
+  const db = getDb();
 
   const callerRef = db.doc(`users/${request.auth.uid}`);
   const targetRef = db.doc(`users/${targetUid}`);

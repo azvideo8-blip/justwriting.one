@@ -1,4 +1,5 @@
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { getDb } from './firestore';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import DOMPurify from 'isomorphic-dompurify';
 import { Langfuse } from 'langfuse';
@@ -58,7 +59,7 @@ export function sanitizeAiResponse(response: string): string {
 }
 
 export async function recordUsage(uid: string, tokensIn: number, tokensOut: number): Promise<void> {
-  const db = getFirestore();
+  const db = getDb();
   const date = new Date().toISOString().slice(0, 10);
   const ref = db.doc(`aiUsage/${uid}/daily/${date}`);
   await ref.set({
@@ -78,7 +79,7 @@ export const DAILY_LIMIT = (() => {
 })();
 
 export async function checkDailyLimit(uid: string): Promise<boolean> {
-  const db = getFirestore();
+  const db = getDb();
 
   const date = new Date().toISOString().slice(0, 10);
   const ref = db.doc(`aiDailyLimit/${uid}`);
@@ -98,7 +99,7 @@ export async function checkDailyLimit(uid: string): Promise<boolean> {
 }
 
 export async function getDailyLimitCount(uid: string): Promise<{ used: number; date: string }> {
-  const db = getFirestore();
+  const db = getDb();
   const date = new Date().toISOString().slice(0, 10);
   const ref = db.doc(`aiDailyLimit/${uid}`);
   const snap = await ref.get();
@@ -110,7 +111,7 @@ export async function getDailyLimitCount(uid: string): Promise<{ used: number; d
 const COOLDOWN_MS = 10000;
 
 export async function checkRateLimit(uid: string): Promise<boolean> {
-  const db = getFirestore();
+  const db = getDb();
   const ref = db.doc(`aiCooldown/${uid}`);
   const now = Date.now();
 

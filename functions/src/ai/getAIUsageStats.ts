@@ -1,5 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getDb } from '../shared/firestore';
 import { z } from 'zod';
 
 const inputSchema = z.object({
@@ -13,7 +13,7 @@ export const getAIUsageStats = onCall({
     throw new HttpsError('unauthenticated', 'Registration required.');
   }
 
-  const db = getFirestore();
+  const db = getDb();
   const callerDoc = await db.doc(`users/${request.auth.uid}`).get();
   if (!callerDoc.exists || callerDoc.data()?.role !== 'admin') {
     throw new HttpsError('permission-denied', 'Admin access required.');

@@ -1,5 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getDb } from '../shared/firestore';
 import * as logger from 'firebase-functions/logger';
 import { z } from 'zod';
 import { userIdSchema } from '../shared/validators';
@@ -27,7 +27,7 @@ export const resetUserLimit = onCall({
   }
 
   const { targetUid } = parsed.data;
-  const db = getFirestore();
+  const db = getDb();
 
   // Verify caller is admin
   const callerDoc = await db.doc(`users/${request.auth.uid}`).get();
