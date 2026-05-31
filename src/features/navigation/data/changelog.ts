@@ -14,6 +14,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.7',
+    date: '2026-05-31',
+    items: [
+      { category: 'fix', ru: 'ИИ-чат «Собеседник» теперь раскрывается на весь экран: убраны лишние отступы, диалог и поле ввода занимают всю высоту и ширину окна, исправлено выравнивание сообщений', en: 'The AI "Companion" chat now opens full-screen: removed stray padding so the conversation and input fill the viewport height and width, and fixed message alignment' },
+      { category: 'fix', ru: 'Ответы ИИ больше не обрываются на полуслове: увеличен лимит вывода модели, а Service Worker перестал «резать» потоковую передачу (устранены обрывы стрима и ошибки «failed to fetch»)', en: 'AI replies no longer get cut off mid-sentence: raised the model output limit and stopped the Service Worker from interrupting the response stream (fixes truncated streams and "failed to fetch" errors)' },
+      { category: 'new', ru: 'Дашборд расхода ИИ в админ-диагностике: статистика запросов и токенов по пользователям за день, суммарные итоги и сравнение с лимитами тарифа Gemini API Tier 1 (RPD / RPM / TPM) с прогресс-барами и индикатором превышения', en: 'Admin AI-usage dashboard: per-user daily request/token stats, totals, and a comparison against Gemini API Tier 1 limits (RPD / RPM / TPM) with progress bars and an over-limit indicator' },
+      { category: 'new', ru: 'Глобальные суточные лимиты ИИ на бэкенде — общий потолок запросов и токенов по всем пользователям (с учётом сбросов), настроенный под тариф Gemini Tier 1, чтобы не превышать лимиты модели; настраивается через переменные окружения', en: 'Global daily AI caps on the backend — a project-wide ceiling on requests and tokens across all users (including resets), tuned to the Gemini Tier 1 plan so the model limits are never exceeded; configurable via environment variables' },
+      { category: 'fix', ru: 'Статистика и лимиты ИИ теперь корректно записываются и читаются: потоковый чат (/api/chat) и облачные функции переведены на одну базу данных Firestore, расход токенов фиксируется для всех запросов, добавлен надёжный откат на облачную функцию при сбое стриминга', en: 'AI stats and limits are now recorded and read correctly: the streaming chat (/api/chat) and the Cloud Functions were unified onto a single Firestore database, token usage is recorded for every request, and a robust fallback to the Cloud Function was added when streaming fails' },
+      { category: 'fix', ru: 'Сброс суточного лимита ИИ снова работает — и в таблице пользователей, и вручную по UID; добавлен защитный бюджет, блокирующий сброс при аномально высоком общем расходе; отключена принудительная проверка App Check на ИИ-функциях (вызывала ложные internal-ошибки)', en: 'Resetting the daily AI limit works again — both from the users table and manually by UID; a safety budget now blocks resets when overall usage is abnormally high; enforced App Check on the AI functions was disabled (it caused spurious internal errors)' },
+      { category: 'fix', ru: 'Психологический портрет пользователя: исправлена генерация (раньше сохранялся «отказ» старой персоны) и добавлена кнопка «Сгенерировать / Обновить» в диагностике', en: 'User psychological portrait: fixed generation (it used to save an old persona’s "refusal") and added a "Generate / Refresh" button in diagnostics' },
+    ],
+  },
+  {
     version: '0.7.6',
     date: '2026-05-30',
     items: [
