@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getDb } from '../shared/firestore';
+import { FREE_TIER, DAILY_LIMIT } from '../shared/aiUtils';
 import { z } from 'zod';
 
 const inputSchema = z.object({
@@ -30,19 +31,25 @@ export const getAIUsageStats = onCall({
   const snapshot = await collectionRef.limit(500).get();
 
   const results: { uid: string; requests: number; promptTokens: number; completionTokens: number }[] = [];
+  const totals = { requests: 0, promptTokens: 0, completionTokens: 0 };
 
   snapshot.forEach(doc => {
     const parentPath = doc.ref.parent.parent;
     if (!parentPath) return;
     const uid = parentPath.id;
     const data = doc.data();
-    results.push({
-      uid,
-      requests: data.requests ?? 0,
-      promptTokens: data.promptTokens ?? 0,
-      completionTokens: data.completionTokens ?? 0,
-    });
+    const requests = data.requests ?? 0;
+    const promptTokens = data.promptTokens ?? 0;
+    const completionTokens = data.completionTokens ?? 0;
+    results.push({ uid, requests, promptTokens, completionTokens });
+    totals.requests += requests;
+    totals.promptTokens += promptTokens;
+    totals.completionTokens += completionTokens;
   });
 
-  return { stats: results };
+  return {
+    stats: results,
+    totals,
+    limits: { ...FREE_TIER, perUserDaily: DAILY_LIMIT },
+  };
 });
