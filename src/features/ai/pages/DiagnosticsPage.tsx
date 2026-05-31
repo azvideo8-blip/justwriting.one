@@ -545,13 +545,13 @@ export function DiagnosticsPage() {
                 const totalTokens = totals.promptTokens + totals.completionTokens;
                 const isToday = aiUsageDate === new Date().toISOString().slice(0, 10);
                 const metrics = [
-                  { label: 'Запросов за день (RPD)', used: totals.requests, cap: aiLimits.requestsPerDay },
-                  { label: 'Токенов за день (TPD)', used: totalTokens, cap: aiLimits.tokensPerDay },
+                  { label: 'Запросов за день (RPD, лимит Tier 1)', used: totals.requests, cap: aiLimits.requestsPerDay },
+                  { label: 'Токенов за день (бюджет затрат)', used: totalTokens, cap: aiLimits.tokensPerDay },
                 ];
                 return (
                   <div className="p-5 rounded-2xl border border-border-subtle bg-surface-base/5 space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold text-text-main">Лимиты бесплатного тарифа Gemini {isToday ? '— сегодня' : `— ${aiUsageDate}`}</h4>
+                      <h4 className="text-xs font-bold text-text-main">Лимиты Gemini API · Tier 1 (gemini-2.5-flash) {isToday ? '— сегодня' : `— ${aiUsageDate}`}</h4>
                       <span className="text-[10px] text-text-main/35">контролируется в бэкэнде</span>
                     </div>
                     {metrics.map(m => {
@@ -578,7 +578,7 @@ export function DiagnosticsPage() {
                     })}
                     <div className="flex flex-wrap gap-x-5 gap-y-1 text-[10px] text-text-main/40 pt-1">
                       <span>Лимит на пользователя: <b className="text-text-main/60">{aiLimits.perUserDaily}/день</b></span>
-                      <span>Burst-лимиты (инфо): <b className="text-text-main/60">{aiLimits.requestsPerMinute} RPM</b>, <b className="text-text-main/60">{aiLimits.tokensPerMinute.toLocaleString()} TPM</b></span>
+                      <span>Лимиты в минуту (Tier 1): <b className="text-text-main/60">{aiLimits.requestsPerMinute.toLocaleString()} RPM</b>, <b className="text-text-main/60">{aiLimits.tokensPerMinute.toLocaleString()} TPM</b></span>
                     </div>
                   </div>
                 );

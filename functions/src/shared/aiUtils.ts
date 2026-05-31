@@ -85,14 +85,17 @@ function envInt(name: string, fallback: number): number {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
-// Project-wide Gemini free-tier guardrails (defaults are conservative; verify
-// against current Google AI Studio limits for the model and override via env).
+// Project-wide Gemini rate-limit guardrails. Defaults are Google's documented
+// Tier 1 limits for gemini-2.5-flash (RPM 1,000 / TPM 1,000,000 / RPD 10,000);
+// verify against your live limits at https://aistudio.google.com/rate-limit and
+// override via env. tokensPerDay is a cost guard (no daily token cap exists on
+// Tier 1) sized so it doesn't bind before RPD under normal use.
 // Keep these numbers in sync with the mirror in api/chat.ts.
-export const FREE_TIER = {
-  requestsPerDay: envInt('AI_FREE_TIER_RPD', 200),
-  tokensPerDay: envInt('AI_FREE_TIER_TPD', 1_000_000),
-  requestsPerMinute: envInt('AI_FREE_TIER_RPM', 10),
-  tokensPerMinute: envInt('AI_FREE_TIER_TPM', 250_000),
+export const TIER_LIMITS = {
+  requestsPerDay: envInt('AI_TIER_RPD', 10_000),
+  tokensPerDay: envInt('AI_TIER_TPD', 25_000_000),
+  requestsPerMinute: envInt('AI_TIER_RPM', 1_000),
+  tokensPerMinute: envInt('AI_TIER_TPM', 1_000_000),
 };
 
 // Sums today's usage across ALL users (same `daily` collection group the admin
@@ -114,8 +117,8 @@ export async function getGlobalDailyUsage(): Promise<{ requests: number; promptT
 // True when one more request would still stay within the free-tier daily caps.
 export async function withinGlobalDailyLimit(): Promise<boolean> {
   const u = await getGlobalDailyUsage();
-  return u.requests < FREE_TIER.requestsPerDay
-    && (u.promptTokens + u.completionTokens) < FREE_TIER.tokensPerDay;
+  return u.requests < TIER_LIMITS.requestsPerDay
+    && (u.promptTokens + u.completionTokens) < TIER_LIMITS.tokensPerDay;
 }
 
 export async function checkDailyLimit(uid: string): Promise<boolean> {

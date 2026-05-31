@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getDb } from '../shared/firestore';
-import { FREE_TIER, DAILY_LIMIT } from '../shared/aiUtils';
+import { TIER_LIMITS, DAILY_LIMIT } from '../shared/aiUtils';
 import { z } from 'zod';
 
 const inputSchema = z.object({
@@ -50,6 +50,6 @@ export const getAIUsageStats = onCall({
   return {
     stats: results,
     totals,
-    limits: { ...FREE_TIER, perUserDaily: DAILY_LIMIT },
+    limits: { ...TIER_LIMITS, perUserDaily: DAILY_LIMIT },
   };
 });
