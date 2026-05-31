@@ -70,6 +70,7 @@ export function DiagnosticsPage() {
   // Reference to force diagnostic component reload
   const [diagnosticsKey, setDiagnosticsKey] = useState(0);
   const [resettingUid, setResettingUid] = useState<string | null>(null);
+  const [manualResetUid, setManualResetUid] = useState('');
 
   const fetchAIUsage = useCallback(async () => {
     setAiUsageLoading(true);
@@ -443,6 +444,34 @@ export function DiagnosticsPage() {
           const totalCost = filtered.reduce((s, r) => s + r.promptTokens * COST_IN + r.completionTokens * COST_OUT, 0);
           return (
             <div className="space-y-4">
+              {/* Manual reset section */}
+              <div className="p-5 rounded-2xl border border-border-subtle bg-surface-base/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-text-main">Сбросить лимит вручную по UID</h4>
+                  <p className="text-[10px] text-text-main/40">Сбрасывает суточный лимит запросов, если пользователя нет в таблице.</p>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto min-w-[280px]">
+                  <input
+                    type="text"
+                    value={manualResetUid}
+                    onChange={e => setManualResetUid(e.target.value)}
+                    placeholder="Введите UID пользователя..."
+                    className="flex-1 px-3 py-1.5 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main placeholder:text-text-main/30 outline-none"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!manualResetUid.trim()) return;
+                      await handleResetUserLimit(manualResetUid.trim(), manualResetUid.trim());
+                      setManualResetUid('');
+                    }}
+                    disabled={resettingUid !== null || !manualResetUid.trim()}
+                    className="px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors text-xs font-bold whitespace-nowrap"
+                  >
+                    {resettingUid === manualResetUid.trim() ? 'Сброс...' : 'Сбросить'}
+                  </button>
+                </div>
+              </div>
+
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <h3 className="text-sm font-semibold text-text-main">Использование Gemini API</h3>
                 <div className="flex items-center gap-2">

@@ -19,7 +19,7 @@ const inputSchema = z.object({
 
 export const summarizeDocument = onCall({
   secrets: ['GEMINI_API_KEY'],
-  enforceAppCheck: true,
+  enforceAppCheck: false,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Registration required.');
