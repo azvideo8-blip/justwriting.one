@@ -89,13 +89,19 @@ AES-256-GCM encryption with PBKDF2 key derivation:
 
 | Function | Trigger | Auth | Purpose |
 |----------|---------|------|---------|
-| `chatWithAI` | HTTPS Call | Firebase Auth + App Check | AI chat with persona system |
-| `editWithAI` | HTTPS Call | Firebase Auth + App Check | AI text editing actions |
-| `summarizeDocument` | HTTPS Call | Firebase Auth + App Check | AI document summarization |
-| `validateCustomPrompt` | HTTPS Call | Firebase Auth + App Check | Validate custom AI persona prompt |
-| `getAILimit` | HTTPS Call | Firebase Auth + App Check | Get user's AI usage limit |
-| `getAIUsageStats` | HTTPS Call | Firebase Auth + App Check (Admin) | Admin AI usage statistics |
-| `setUserRole` | HTTPS Call | Firebase Auth + App Check (Admin) | Set user role |
+| `chatWithAI` | HTTPS Call | Firebase Auth | AI chat with persona system |
+| `editWithAI` | HTTPS Call | Firebase Auth | AI text editing actions |
+| `summarizeDocument` | HTTPS Call | Firebase Auth | AI document summarization |
+| `validateCustomPrompt` | HTTPS Call | Firebase Auth | Validate custom AI persona prompt |
+| `getAILimit` | HTTPS Call | Firebase Auth | Get user's AI usage limit |
+| `getAIUsageStats` | HTTPS Call | Firebase Auth (Admin) | Admin AI usage statistics |
+| `setUserRole` | HTTPS Call | Firebase Auth (Admin) | Set user role |
+
+> **App Check status:** Client-side App Check is wired up, but all callable functions
+> and the Vercel `/api/chat` endpoint currently run with enforcement **off**
+> (`enforceAppCheck: false`). Endpoints are protected by Firebase Auth (verified ID
+> token) + per-user/global rate limits only. Enabling enforcement is tracked separately
+> (see hardening sub-task below).
 
 All AI functions enforce: daily limit (5-50 requests/day), cooldown (10s between calls), prompt injection guard.
 
@@ -104,3 +110,5 @@ All AI functions enforce: daily limit (5-50 requests/day), cooldown (10s between
 | Endpoint | Method | Auth | Purpose |
 |----------|--------|------|---------|
 | `/api/chat` | POST | Bearer token (Firebase ID) | Streaming AI chat (Vercel Edge) |
+
+See [AI Endpoints API Reference](api/ai-endpoints.md) for full request/response schemas and error codes.

@@ -3,6 +3,7 @@
   "main": "lib/index.js",
   "scripts": {
     "build": "tsc",
+    "test": "vitest run",
     "serve": "npm run build && firebase emulators:start --only functions",
     "deploy": "firebase deploy --only functions"
   },
@@ -15,6 +16,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vitest": "^4.1.7"
   }
 }

@@ -66,7 +66,7 @@ service cloud.firestore {
              (!('encryptionMeta' in data) || data.encryptionMeta is map) &&
              (!('privacyAcceptedAt' in data) || data.privacyAcceptedAt is timestamp) &&
              (!('privacyVersion' in data) || data.privacyVersion is number) &&
-             (!('aiPortrait' in data) || data.aiPortrait is string) &&
+             (!('aiPortrait' in data) || (data.aiPortrait is string && data.aiPortrait.size() <= 100000)) &&
              (!('_encrypted' in data) || data._encrypted is bool) &&
              !('role' in data);
     }
@@ -89,7 +89,7 @@ service cloud.firestore {
              (!changedKeys.hasAny(['encryptionMeta']) || data.encryptionMeta is map) &&
              (!changedKeys.hasAny(['privacyAcceptedAt']) || data.privacyAcceptedAt is timestamp) &&
              (!changedKeys.hasAny(['privacyVersion']) || data.privacyVersion is number) &&
-             (!changedKeys.hasAny(['aiPortrait']) || data.aiPortrait is string) &&
+             (!changedKeys.hasAny(['aiPortrait']) || (data.aiPortrait is string && data.aiPortrait.size() <= 100000)) &&
              (!changedKeys.hasAny(['_encrypted']) || data._encrypted is bool);
     }
 
@@ -234,6 +234,11 @@ service cloud.firestore {
     match /aiUsage/{uid}/daily/{date} {
       allow read: if isOwner(uid);
       allow write: if false;
+    }
+
+    // Project-wide AI usage aggregate — admin SDK only
+    match /aiGlobalDaily/{date} {
+      allow read, write: if false;
     }
   }
 }

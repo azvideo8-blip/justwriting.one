@@ -105,7 +105,8 @@ export const chatWithAI = onCall({
     } finally {
       clearTimeout(timeout);
     }
-  } catch {
+  } catch (e) {
+    console.error('[chatWithAI] Gemini request failed:', e);
     throw new HttpsError('internal', 'AI request failed.');
   }
   const response = result.response;

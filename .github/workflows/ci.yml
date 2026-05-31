@@ -20,6 +20,8 @@ jobs:
     - run: npm run lint
     - run: npm run test:ci
     - run: npm run build
+    - name: Functions build & test
+      run: cd functions && npm ci && npm run build && npm test
   deploy-functions:
     needs: build
     runs-on: ubuntu-latest
