@@ -1,5 +1,5 @@
 /* eslint-env worker */
-const CACHE_VERSION = 'v0.7.4';
+const CACHE_VERSION = 'v0.7.6';
 const CACHE = `jw-${CACHE_VERSION}`;
 const NAV_CACHE = `jw-nav-${CACHE_VERSION}`;
 
@@ -26,6 +26,9 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin !== self.location.origin) return;
 
+  // Bypass non-GET requests and API calls to prevent fetch errors and stream truncation
+  if (event.request.method !== 'GET' || url.pathname.startsWith('/api/')) return;
+
   if (event.request.mode === 'navigate' || event.request.destination === 'document') {
     event.respondWith(
       caches.open(NAV_CACHE).then((cache) =>
@@ -47,6 +50,4 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
-
-  event.respondWith(fetch(event.request));
 });
