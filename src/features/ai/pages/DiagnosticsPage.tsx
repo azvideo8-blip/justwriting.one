@@ -69,6 +69,7 @@ export function DiagnosticsPage() {
 
   // Reference to force diagnostic component reload
   const [diagnosticsKey, setDiagnosticsKey] = useState(0);
+  const [resettingUid, setResettingUid] = useState<string | null>(null);
 
   const fetchAIUsage = useCallback(async () => {
     setAiUsageLoading(true);
@@ -225,10 +226,54 @@ export function DiagnosticsPage() {
     if (!result) showToast('Портрет ещё не создан', 'error');
   };
 
-  const handleResetCounter = () => {
-    localStorage.removeItem('ai_daily_usage');
-    useAiLimitStore.setState({ used: 0, remaining: useAiLimitStore.getState().limit });
-    showToast('Счетчик использования AI сброшен', 'success');
+  const handleResetCounter = async () => {
+    const user = getAuth().currentUser;
+    if (!user) {
+      showToast('Пользователь не авторизован', 'error');
+      return;
+    }
+    setResettingUid(user.uid);
+    try {
+      const functions = getFunctions();
+      const fn = httpsCallable<{ targetUid: string }, { success: boolean }>(functions, 'resetUserLimit');
+      await fn({ targetUid: user.uid });
+      
+      localStorage.removeItem('ai_daily_usage');
+      useAiLimitStore.setState({ used: 0, remaining: useAiLimitStore.getState().limit });
+      showToast('Счетчик использования AI сброшен в БД и локально', 'success');
+    } catch (e: any) {
+      console.error('Failed to reset counter:', e);
+      const errMsg = e.message || 'Ошибка сервера';
+      showToast(`Не удалось сбросить лимит: ${errMsg}`, 'error');
+    } finally {
+      setResettingUid(null);
+    }
+  };
+
+  const handleResetUserLimit = async (targetUid: string, displayName: string) => {
+    if (!window.confirm(`Сбросить суточный счетчик запросов ИИ для пользователя ${displayName}?`)) return;
+    setResettingUid(targetUid);
+    try {
+      const functions = getFunctions();
+      const fn = httpsCallable<{ targetUid: string }, { success: boolean }>(functions, 'resetUserLimit');
+      await fn({ targetUid });
+      
+      // If resetting own limit, clear local too
+      const currentUser = getAuth().currentUser;
+      if (currentUser && currentUser.uid === targetUid) {
+        localStorage.removeItem('ai_daily_usage');
+        useAiLimitStore.setState({ used: 0, remaining: useAiLimitStore.getState().limit });
+      }
+      
+      showToast(`Суточный счетчик для ${displayName} успешно сброшен`, 'success');
+      fetchAIUsage();
+    } catch (e: any) {
+      console.error('Failed to reset user limit:', e);
+      const errMsg = e.message || 'Ошибка сервера';
+      showToast(`Не удалось сбросить лимит: ${errMsg}`, 'error');
+    } finally {
+      setResettingUid(null);
+    }
   };
 
   if (authLoading) {
@@ -436,6 +481,7 @@ export function DiagnosticsPage() {
                       <th className="py-3 px-4 text-right">Tokens Out</th>
                       <th className="py-3 px-4 text-right">Итого токенов</th>
                       <th className="py-3 px-4 text-right">Стоимость (USD)</th>
+                      <th className="py-3 px-4 text-center">Действие</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -453,6 +499,15 @@ export function DiagnosticsPage() {
                           <td className="py-2.5 px-4 text-right text-text-main/60">{row.completionTokens.toLocaleString()}</td>
                           <td className="py-2.5 px-4 text-right text-text-main/60">{(row.promptTokens + row.completionTokens).toLocaleString()}</td>
                           <td className="py-2.5 px-4 text-right text-text-main/80 font-mono">${cost.toFixed(5)}</td>
+                          <td className="py-2.5 px-4 text-center">
+                            <button
+                              onClick={() => handleResetUserLimit(row.uid, displayName)}
+                              disabled={resettingUid !== null}
+                              className="px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors text-[10px] font-bold"
+                            >
+                              {resettingUid === row.uid ? 'Сброс...' : 'Сбросить'}
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -466,6 +521,7 @@ export function DiagnosticsPage() {
                         <td className="py-3 px-4 text-right">{filtered.reduce((s, r) => s + r.completionTokens, 0).toLocaleString()}</td>
                         <td className="py-3 px-4 text-right">{filtered.reduce((s, r) => s + r.promptTokens + r.completionTokens, 0).toLocaleString()}</td>
                         <td className="py-3 px-4 text-right font-mono">${totalCost.toFixed(5)}</td>
+                        <td className="py-3 px-4"></td>
                       </tr>
                     </tfoot>
                   )}
