@@ -509,7 +509,7 @@ export function AIPage() {
         </div>
 
         <div className="relative z-[1] flex-1 overflow-y-auto px-6 py-7">
-          <div className="max-w-[720px] mx-auto flex flex-col gap-7">
+          <div className="max-w-[1600px] mx-auto flex flex-col gap-7">
             {displayMessages.length === 0 && !activeDialogueId && (
               <div className="flex flex-col items-center justify-center gap-4 text-center py-24">
                 <Monogram color={headerVisual.color} mono={headerVisual.mono} size={56} />

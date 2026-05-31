@@ -56,8 +56,9 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
       return;
     }
     try {
-      const { getFirestore, doc, getDoc } = await import('firebase/firestore');
-      const db = getFirestore();
+      const { doc, getDoc } = await import('firebase/firestore');
+      const { getDb } = await import('../../../core/firebase/firestore');
+      const db = await getDb();
       const date = getUtcDateStr();
       const snap = await getDoc(doc(db, 'aiDailyLimit', user.uid));
       const data = snap.data();
