@@ -12,6 +12,32 @@ import { z } from 'zod';
 const FIRESTORE_DATABASE_ID = 'ai-studio-26638cb9-0855-4980-84cb-072afd2a063d';
 const db = () => getFirestore(FIRESTORE_DATABASE_ID);
 
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = parseInt(raw, 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+// Mirror of functions/src/shared/aiUtils.ts FREE_TIER — keep in sync.
+const FREE_TIER = {
+  requestsPerDay: envInt('AI_FREE_TIER_RPD', 200),
+  tokensPerDay: envInt('AI_FREE_TIER_TPD', 1_000_000),
+};
+
+// True when one more request stays within the project-wide free-tier daily caps.
+async function withinGlobalDailyLimit(): Promise<boolean> {
+  const date = new Date().toISOString().slice(0, 10);
+  const snap = await db().collectionGroup('daily').where('date', '==', date).get();
+  let requests = 0, tokens = 0;
+  snap.forEach(d => {
+    const x = d.data();
+    requests += x.requests ?? 0;
+    tokens += (x.promptTokens ?? 0) + (x.completionTokens ?? 0);
+  });
+  return requests < FREE_TIER.requestsPerDay && tokens < FREE_TIER.tokensPerDay;
+}
+
 // ── Firebase Admin init ───────────────────────────────────────────────────────
 if (getApps().length === 0) {
   const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
@@ -317,6 +343,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch {
     res.status(401).json({ error: 'Unauthorized' }); return;
   }
+
+  // Project-wide free-tier guard (across all users + resets)
+  if (!(await withinGlobalDailyLimit())) { res.status(429).json({ error: 'GLOBAL_LIMIT' }); return; }
 
   // Daily limit
   const allowed = await checkAndIncrementLimit(uid);

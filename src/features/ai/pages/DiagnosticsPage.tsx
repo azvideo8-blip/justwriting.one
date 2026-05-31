@@ -33,6 +33,22 @@ interface AIUsageRow {
   completionTokens: number;
 }
 
+interface AIUsageTotals {
+  requests: number;
+  promptTokens: number;
+  completionTokens: number;
+}
+
+interface FreeTierLimits {
+  requestsPerDay: number;
+  tokensPerDay: number;
+  requestsPerMinute: number;
+  tokensPerMinute: number;
+  perUserDaily: number;
+}
+
+type AIUsageResponse = { stats: AIUsageRow[]; totals?: AIUsageTotals; limits?: FreeTierLimits };
+
 const ADMIN_PAGE_LIMIT = 50;
 const ADMIN_AI_USERS_LIMIT = 150;
 
@@ -55,12 +71,15 @@ export function DiagnosticsPage() {
   
   // AI Usage tab states
   const [aiUsage, setAiUsage] = useState<AIUsageRow[]>([]);
+  const [aiTotals, setAiTotals] = useState<AIUsageTotals | null>(null);
+  const [aiLimits, setAiLimits] = useState<FreeTierLimits | null>(null);
   const [aiUsageDate, setAiUsageDate] = useState(new Date().toISOString().slice(0, 10));
   const [aiUsageLoading, setAiUsageLoading] = useState(false);
   const [aiSearchQuery, setAiSearchQuery] = useState('');
 
   // AI Profile tab states
   const [portraitText, setPortraitText] = useState<string | null>(null);
+  const [portraitGenerating, setPortraitGenerating] = useState(false);
   const [summaryLogs, setSummaryLogs] = useState<{ id: string; title: string; processedAt: number; tone: string }[]>([]);
 
   // Statistics tab states
@@ -80,9 +99,11 @@ export function DiagnosticsPage() {
         setUsers(usersData);
       }
       const functions = getFunctions();
-      const fn = httpsCallable<{ date: string }, { stats: AIUsageRow[] }>(functions, 'getAIUsageStats');
+      const fn = httpsCallable<{ date: string }, AIUsageResponse>(functions, 'getAIUsageStats');
       const { data } = await fn({ date: aiUsageDate });
       setAiUsage(data.stats);
+      setAiTotals(data.totals ?? null);
+      setAiLimits(data.limits ?? null);
     } catch (e) {
       console.error('Failed to fetch AI usage:', e);
       showToast('Не удалось загрузить статистику AI', 'error');
@@ -225,6 +246,29 @@ export function DiagnosticsPage() {
     const { AIProfileService } = await import('../services/AIProfileService');
     const result = await AIProfileService.exportMarkdown();
     if (!result) showToast('Портрет ещё не создан', 'error');
+  };
+
+  const handleGeneratePortrait = async () => {
+    setPortraitGenerating(true);
+    try {
+      const { AIProfileService } = await import('../services/AIProfileService');
+      const result = await AIProfileService.generate();
+      if (result.ok) {
+        setPortraitText(result.markdown);
+        showToast('Психологический портрет обновлён', 'success');
+      } else if (result.error === 'NOT_ENOUGH_DATA') {
+        showToast('Нужно минимум 3 проанализированных заметки', 'error');
+      } else if (result.error === 'DAILY_LIMIT') {
+        showToast('Достигнут дневной лимит ИИ — сбросьте счётчик и попробуйте снова', 'error');
+      } else {
+        showToast(`Не удалось создать портрет: ${result.error}`, 'error');
+      }
+    } catch (e) {
+      console.error('Failed to generate portrait:', e);
+      showToast('Ошибка при создании портрета', 'error');
+    } finally {
+      setPortraitGenerating(false);
+    }
   };
 
   const handleResetCounter = async () => {
@@ -492,6 +536,54 @@ export function DiagnosticsPage() {
                 </div>
               </div>
 
+              {aiLimits && (() => {
+                const totals = aiTotals ?? {
+                  requests: filtered.reduce((s, r) => s + r.requests, 0),
+                  promptTokens: filtered.reduce((s, r) => s + r.promptTokens, 0),
+                  completionTokens: filtered.reduce((s, r) => s + r.completionTokens, 0),
+                };
+                const totalTokens = totals.promptTokens + totals.completionTokens;
+                const isToday = aiUsageDate === new Date().toISOString().slice(0, 10);
+                const metrics = [
+                  { label: 'Запросов за день (RPD)', used: totals.requests, cap: aiLimits.requestsPerDay },
+                  { label: 'Токенов за день (TPD)', used: totalTokens, cap: aiLimits.tokensPerDay },
+                ];
+                return (
+                  <div className="p-5 rounded-2xl border border-border-subtle bg-surface-base/5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-text-main">Лимиты бесплатного тарифа Gemini {isToday ? '— сегодня' : `— ${aiUsageDate}`}</h4>
+                      <span className="text-[10px] text-text-main/35">контролируется в бэкэнде</span>
+                    </div>
+                    {metrics.map(m => {
+                      const pct = m.cap > 0 ? Math.min(100, (m.used / m.cap) * 100) : 0;
+                      const over = m.used >= m.cap;
+                      const warn = pct >= 80;
+                      const color = over ? '#f87171' : warn ? '#fbbf24' : '#7d4fd1';
+                      return (
+                        <div key={m.label} className="space-y-1">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-text-main/60">{m.label}</span>
+                            <span className="font-mono text-text-main/80">
+                              {m.used.toLocaleString()} / {m.cap.toLocaleString()}{' '}
+                              <span className={cn(over ? 'text-red-400' : warn ? 'text-amber-400' : 'text-text-main/40')}>
+                                ({pct < 10 ? pct.toFixed(1) : pct.toFixed(0)}%{over ? ' — превышено' : ''})
+                              </span>
+                            </span>
+                          </div>
+                          <div className="h-2 rounded-full bg-border-subtle overflow-hidden">
+                            <div className="h-full rounded-full transition-[width]" style={{ width: `${pct}%`, background: color }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div className="flex flex-wrap gap-x-5 gap-y-1 text-[10px] text-text-main/40 pt-1">
+                      <span>Лимит на пользователя: <b className="text-text-main/60">{aiLimits.perUserDaily}/день</b></span>
+                      <span>Burst-лимиты (инфо): <b className="text-text-main/60">{aiLimits.requestsPerMinute} RPM</b>, <b className="text-text-main/60">{aiLimits.tokensPerMinute.toLocaleString()} TPM</b></span>
+                    </div>
+                  </div>
+                );
+              })()}
+
               <input
                 type="text"
                 value={aiSearchQuery}
@@ -569,23 +661,32 @@ export function DiagnosticsPage() {
           <div className="space-y-6">
             <h3 className="text-sm font-semibold text-text-main mb-3">Профиль автора & AI логи</h3>
             
-            {portraitText !== null && (
-              <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden">
-                <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between">
-                  <span className="text-xs font-bold text-text-main/50 uppercase tracking-wider">Психологический портрет пользователя</span>
+            <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden">
+              <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
+                <span className="text-xs font-bold text-text-main/50 uppercase tracking-wider">Психологический портрет пользователя</span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={handleGeneratePortrait}
+                    disabled={portraitGenerating}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-brand-soft/20 bg-brand-soft/10 text-brand-soft text-[10px] font-bold disabled:opacity-50"
+                  >
+                    {portraitGenerating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                    {portraitGenerating ? 'Генерация…' : (portraitText ? 'Обновить' : 'Сгенерировать')}
+                  </button>
                   <button
                     onClick={handleExportProfile}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-brand-soft/20 bg-brand-soft/10 text-brand-soft text-[10px] font-bold"
+                    disabled={!portraitText}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-subtle text-text-main/60 text-[10px] font-bold disabled:opacity-40"
                   >
                     <Download size={12} />
                     Экспорт .md
                   </button>
                 </div>
-                <div className="px-5 py-4 max-h-60 overflow-y-auto text-xs text-text-main/60 whitespace-pre-wrap leading-relaxed">
-                  {portraitText || <span className="italic text-text-main/25">Портрет ещё не создан</span>}
-                </div>
               </div>
-            )}
+              <div className="px-5 py-4 max-h-60 overflow-y-auto text-xs text-text-main/60 whitespace-pre-wrap leading-relaxed">
+                {portraitText || <span className="italic text-text-main/25">Портрет ещё не создан — нажмите «Сгенерировать» (нужно ≥3 проанализированных заметок)</span>}
+              </div>
+            </div>
 
             {summaryLogs.length > 0 && (
               <div className="rounded-2xl border border-border-subtle overflow-hidden">

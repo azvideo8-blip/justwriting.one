@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, getDailyLimitCount, checkRateLimit, GEMINI_MODEL, getGenAI, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, getDailyLimitCount, checkRateLimit, withinGlobalDailyLimit, GEMINI_MODEL, getGenAI, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
 import { PERSONA_PROMPTS, TOPIC_GUARD, PRESET_PERSONA_IDS, type PersonaId } from '../shared/prompts';
 
 const inputSchema = z.object({
@@ -35,6 +35,10 @@ export const chatWithAI = onCall({
 
   if (!(await checkRateLimit(uid))) {
     throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
+  }
+
+  if (!(await withinGlobalDailyLimit())) {
+    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
   const parsed = inputSchema.safeParse(request.data);
