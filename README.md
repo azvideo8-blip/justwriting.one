@@ -84,6 +84,12 @@ React 19 · TypeScript · Vite · Tailwind CSS v4 · Framer Motion · Firebase �
 
 ---
 
+## API Documentation
+
+- [AI Endpoints](docs/api/ai-endpoints.md) — Streaming chat, callable functions, rate limits
+
+---
+
 ## Local setup
 
 **Prerequisites:** Node.js v20+

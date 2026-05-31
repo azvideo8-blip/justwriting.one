@@ -61,14 +61,22 @@ export function sanitizeAiResponse(response: string): string {
 export async function recordUsage(uid: string, tokensIn: number, tokensOut: number): Promise<void> {
   const db = getDb();
   const date = new Date().toISOString().slice(0, 10);
-  const ref = db.doc(`aiUsage/${uid}/daily/${date}`);
-  await ref.set({
+  const batch = db.batch();
+  batch.set(db.doc(`aiUsage/${uid}/daily/${date}`), {
     date,
     promptTokens: FieldValue.increment(tokensIn),
     completionTokens: FieldValue.increment(tokensOut),
     requests: FieldValue.increment(1),
     updatedAt: FieldValue.serverTimestamp(),
   }, { merge: true });
+  batch.set(db.doc(`aiGlobalDaily/${date}`), {
+    date,
+    promptTokens: FieldValue.increment(tokensIn),
+    completionTokens: FieldValue.increment(tokensOut),
+    requests: FieldValue.increment(1),
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
+  await batch.commit();
 }
 
 export const DAILY_LIMIT = (() => {
@@ -116,9 +124,13 @@ export async function getGlobalDailyUsage(): Promise<{ requests: number; promptT
 
 // True when one more request would still stay within the free-tier daily caps.
 export async function withinGlobalDailyLimit(): Promise<boolean> {
-  const u = await getGlobalDailyUsage();
-  return u.requests < TIER_LIMITS.requestsPerDay
-    && (u.promptTokens + u.completionTokens) < TIER_LIMITS.tokensPerDay;
+  const db = getDb();
+  const date = new Date().toISOString().slice(0, 10);
+  const snap = await db.doc(`aiGlobalDaily/${date}`).get();
+  const d = snap.data();
+  const requests = d?.requests ?? 0;
+  const tokens = (d?.promptTokens ?? 0) + (d?.completionTokens ?? 0);
+  return requests < TIER_LIMITS.requestsPerDay && tokens < TIER_LIMITS.tokensPerDay;
 }
 
 export async function checkDailyLimit(uid: string): Promise<boolean> {

@@ -1,190 +1,15 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Sparkles, Plus, Archive, Download, Trash2, FileText, Paperclip, ChevronDown, ChevronUp, File, Copy, ArrowRight, Info } from 'lucide-react';
+import React from 'react';
+import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { AIDialogueService } from '../services/AIDialogueService';
-import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService';
-import { useAIChat } from '../hooks/useAIChat';
-import { useDailyLimit } from '../hooks/useDailyLimit';
 import { DocumentPickerModal } from '../components/DocumentPickerModal';
 import { CreatePersonaModal } from '../components/CreatePersonaModal';
-import { PersonaDetailModal, type PersonaDetailTarget } from '../components/PersonaDetailModal';
+import { PersonaDetailModal } from '../components/PersonaDetailModal';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
-import { personaVisual, usePersonaRole } from '../constants/personaVisuals';
-import type { AIDialogue, AIPersona } from '../../../core/storage/localDb';
+import { personaVisual } from '../constants/personaVisuals';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { cn } from '../../../core/utils/utils';
-
-const MAX_INPUT_CHARS = 10_000;
-const ATTACHED_NOTE_RE = /^\[Прикреплена заметка: "([^"]+)"\]/;
-const ATTACHED_NOTE_SUMMARY_RE = /^\[Прикреплено саммари заметки: "([^"]+)"\]/;
-const ATTACHED_FILE_RE = /^\[Прикреплен файл: "([^"]+)"\]/;
-
-// Serif monogram tile in a persona's colour — the avatar used across header, threads and messages.
-function Monogram({ color, mono, size = 36, dim = false }: { color: string; mono: string; size?: number; dim?: boolean }) {
-  return (
-    <span
-      style={{
-        width: size,
-        height: size,
-        flexShrink: 0,
-        borderRadius: size * 0.28,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: dim ? `${color}14` : `linear-gradient(180deg, ${color}30, ${color}14)`,
-        border: `1px solid ${color}${dim ? '2a' : '55'}`,
-        boxShadow: dim ? 'none' : `0 0 14px ${color}26`,
-        fontWeight: 600,
-        fontSize: size * 0.38,
-        color,
-        letterSpacing: '-0.02em',
-        lineHeight: 1,
-      }}
-    >
-      {mono}
-    </span>
-  );
-}
-
-function threadPreview(d: AIDialogue): string {
-  const last = d.messages[d.messages.length - 1];
-  if (!last) return '';
-  const c = last.content.replace(/^\[[^\]]*\]\s*/, '').trim();
-  return c.length > 64 ? `${c.slice(0, 64)}…` : c;
-}
-
-function AttachedNoteCard({ content }: { content: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const match = content.match(ATTACHED_NOTE_RE);
-  const title = match?.[1] ?? 'Заметка';
-  const noteContent = content.replace(ATTACHED_NOTE_RE, '').trim();
-
-  return (
-    <div className="flex gap-3 items-stretch rounded-xl bg-surface-card border border-border-subtle p-2.5 pl-2">
-      <span className="w-[3px] rounded-full bg-brand-soft shadow-[0_0_8px_rgba(165,131,232,0.5)]" />
-      <div className="min-w-0 flex-1">
-        <button
-          onClick={() => setExpanded(v => !v)}
-          className="w-full flex items-center justify-between gap-2"
-        >
-          <span className="flex items-center gap-2 min-w-0">
-            <Paperclip size={12} className="text-text-main/40 shrink-0" />
-            <span className="text-sm font-medium text-text-main truncate">{title}</span>
-          </span>
-          {expanded ? <ChevronUp size={12} className="text-text-main/40 shrink-0" /> : <ChevronDown size={12} className="text-text-main/40 shrink-0" />}
-        </button>
-        {expanded && (
-          <div className="mt-2 text-xs text-text-main/60 whitespace-pre-wrap max-h-60 overflow-y-auto">
-            {noteContent}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function AttachedFileCard({ content }: { content: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const match = content.match(ATTACHED_FILE_RE);
-  const fileName = match?.[1] ?? 'Файл';
-  const fileContent = content.replace(ATTACHED_FILE_RE, '').trim();
-
-  return (
-    <div className="flex gap-3 items-stretch rounded-xl bg-surface-card border border-border-subtle p-2.5 pl-2">
-      <span className="w-[3px] rounded-full bg-text-main/30" />
-      <div className="min-w-0 flex-1">
-        <button
-          onClick={() => setExpanded(v => !v)}
-          className="w-full flex items-center justify-between gap-2"
-        >
-          <span className="flex items-center gap-2 min-w-0">
-            <File size={12} className="text-text-main/40 shrink-0" />
-            <span className="text-sm font-medium text-text-main truncate">{fileName}</span>
-          </span>
-          {expanded ? <ChevronUp size={12} className="text-text-main/40 shrink-0" /> : <ChevronDown size={12} className="text-text-main/40 shrink-0" />}
-        </button>
-        {expanded && (
-          <div className="mt-2 text-xs text-text-main/60 whitespace-pre-wrap max-h-60 overflow-y-auto">
-            {fileContent}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function AttachedSummaryCard({ content }: { content: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const match = content.match(ATTACHED_NOTE_SUMMARY_RE);
-  const title = match?.[1] ?? 'Заметка';
-  const summaryContent = content.replace(ATTACHED_NOTE_SUMMARY_RE, '').trim();
-
-  return (
-    <div className="flex gap-3 items-stretch rounded-xl bg-surface-card border border-border-subtle p-2.5 pl-2">
-      <span className="w-[3px] rounded-full bg-brand-soft shadow-[0_0_8px_rgba(165,131,232,0.5)]" />
-      <div className="min-w-0 flex-1">
-        <button
-          onClick={() => setExpanded(v => !v)}
-          className="w-full flex items-center justify-between gap-2"
-        >
-          <span className="flex items-center gap-2 min-w-0">
-            <Sparkles size={12} className="text-brand-soft shrink-0" />
-            <span className="text-sm font-medium text-text-main truncate">Саммари: {title}</span>
-          </span>
-          {expanded ? <ChevronUp size={12} className="text-text-main/40 shrink-0" /> : <ChevronDown size={12} className="text-text-main/40 shrink-0" />}
-        </button>
-        {expanded && (
-          <div className="mt-2 text-xs text-text-main/60 whitespace-pre-wrap max-h-40 overflow-y-auto">
-            {summaryContent}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Letter-style assistant turn: monogram, name, serif body framed by a persona-coloured rule.
-function AssistantTurn({
-  name,
-  color,
-  mono,
-  children,
-  onCopy,
-}: {
-  name: string;
-  color: string;
-  mono: string;
-  children: React.ReactNode;
-  onCopy?: () => void;
-}) {
-  return (
-    <div className="flex gap-4 w-full self-start">
-      <Monogram color={color} mono={mono} size={36} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2.5 mb-2">
-          <span className="text-[13px] font-semibold text-text-main">{name}</span>
-        </div>
-        <div
-          className="text-[15px] leading-[1.65] text-text-main/90 pl-[18px]"
-          style={{ borderLeft: `2px solid ${color}40` }}
-        >
-          {children}
-        </div>
-        {onCopy && (
-          <div className="flex gap-1 mt-3 -ml-2">
-            <button
-              onClick={onCopy}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-text-main/35 hover:text-text-main/70 hover:bg-text-main/5 transition-colors font-mono text-[10px] tracking-wide"
-            >
-              <Copy size={11} />
-              копировать
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+import { Monogram, threadPreview, AttachedNoteCard, AttachedFileCard, AttachedSummaryCard, AssistantTurn, ATTACHED_NOTE_RE, ATTACHED_NOTE_SUMMARY_RE, ATTACHED_FILE_RE } from '../components/AIChatPresentational';
+import { useAIPageData } from '../hooks/useAIPageData';
 
 export function AIPage() {
   const [searchParams] = useSearchParams();
@@ -192,173 +17,27 @@ export function AIPage() {
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
 
-  const [dialogues, setDialogues] = useState<AIDialogue[]>([]);
-  const [archivedDialogues, setArchivedDialogues] = useState<AIDialogue[]>([]);
-  const [activeDialogueId, setActiveDialogueId] = useState<string | null>(null);
-  const [selectedPersonaId, setSelectedPersonaId] = useState<string>('group_psychology');
-  const [showArchived, setShowArchived] = useState(false);
-  const [customPersonas, setCustomPersonas] = useState<AIPersona[]>([]);
-  const [inputText, setInputText] = useState('');
-  const [docPickerOpen, setDocPickerOpen] = useState(false);
-  const [createPersonaOpen, setCreatePersonaOpen] = useState(false);
-  const [detailPersona, setDetailPersona] = useState<PersonaDetailTarget | null>(null);
-  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const initRef = useRef(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const attachMenuRef = useRef<HTMLDivElement>(null);
-
-  const dailyLimit = useDailyLimit();
   const {
-    dialogue,
-    isLoading,
-    streamingMessage,
-    error,
-    sendMessage,
-    attachDocument,
-    clearError,
-  } = useAIChat(activeDialogueId, selectedPersonaId);
-
-  const loadDialogues = useCallback(async () => {
-    const [active, archived] = await Promise.all([
-      AIDialogueService.list({ includeArchived: false }),
-      AIDialogueService.list({ includeArchived: true }),
-    ]);
-    setDialogues(active);
-    setArchivedDialogues(archived.filter(d => d.archivedAt));
-  }, []);
-
-  const loadCustomPersonas = useCallback(async () => {
-    const list = await AIPersonaService.listCustom();
-    setCustomPersonas(list);
-  }, []);
-
-  useEffect(() => {
-    if (initRef.current) return;
-    initRef.current = true;
-    setTimeout(() => {
-      loadDialogues();
-      loadCustomPersonas();
-    }, 0);
-    if (linkedDocId) attachDocument(linkedDocId);
-  }, [loadDialogues, loadCustomPersonas, linkedDocId, attachDocument]);
-
-  useEffect(() => {
-    if (!attachMenuOpen) return;
-    const dismiss = (e: MouseEvent) => {
-      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) {
-        setAttachMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', dismiss);
-    return () => document.removeEventListener('mousedown', dismiss);
-  }, [attachMenuOpen]);
-
-  const handleSendMessage = async () => {
-    if (!inputText.trim() || isLoading) return;
-    const text = inputText.trim();
-    setInputText('');
-    await sendMessage(text);
-    if (!activeDialogueId && dialogue) {
-      setActiveDialogueId(dialogue.id);
-    }
-    loadDialogues();
-  };
-
-  const handleNewDialogue = () => {
-    setActiveDialogueId(null);
-    setInputText('');
-  };
-
-  const handleArchive = async () => {
-    if (activeDialogueId) {
-      await AIDialogueService.archive(activeDialogueId);
-      setActiveDialogueId(null);
-      loadDialogues();
-    }
-  };
-
-  const handleDelete = async () => {
-    if (activeDialogueId) {
-      await AIDialogueService.delete(activeDialogueId);
-      setActiveDialogueId(null);
-      loadDialogues();
-    }
-  };
-
-  const handleExport = async () => {
-    if (!activeDialogueId) return;
-    const md = await AIDialogueService.exportAsMarkdown(activeDialogueId);
-    const blob = new Blob([md], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `dialogue-${activeDialogueId.slice(0, 8)}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleDocSelect = async (documentId: string) => {
-    await attachDocument(documentId);
-  };
-
-  const handleCopyMessage = (text: string) => {
-    navigator.clipboard?.writeText(text);
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const text = ev.target?.result as string;
-      if (text.length > MAX_INPUT_CHARS) {
-        alert(`Файл слишком большой (более ${MAX_INPUT_CHARS.toLocaleString()} символов)`);
-        return;
-      }
-      const formatted = `[Прикреплен файл: "${file.name}"]\n\n${text}`;
-      await sendMessage(formatted);
-      if (!activeDialogueId && dialogue) {
-        setActiveDialogueId(dialogue.id);
-      }
-      loadDialogues();
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-    setAttachMenuOpen(false);
-  };
-
-  const allPersonas = [
-    ...PRESET_PERSONAS.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, isPreset: true as const, systemPrompt: undefined as string | undefined })),
-    ...customPersonas.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, isPreset: false as const, systemPrompt: p.systemPrompt })),
-  ];
-
-  const openPersonaDetail = (persona: typeof allPersonas[number]) => {
-    const v = personaVisual(persona.id, persona.name);
-    setDetailPersona({
-      id: persona.id,
-      name: persona.name,
-      isPreset: persona.isPreset,
-      systemPrompt: persona.systemPrompt,
-      color: v.color,
-      mono: v.mono,
-    });
-  };
-
-  const activeDialogue = dialogue ?? dialogues.find(d => d.id === activeDialogueId) ?? null;
-  const displayMessages = activeDialogue?.messages ?? [];
-
-  const activePersona = allPersonas.find(p => p.id === selectedPersonaId) ?? allPersonas[0];
-  const activeRole = usePersonaRole(selectedPersonaId, activePersona?.name ?? '');
-  const headerVisual = personaVisual(selectedPersonaId, activePersona?.name ?? '');
-  // The persona that actually authored the open dialogue (falls back to the picker for a fresh chat).
-  const convPersonaId = activeDialogue?.personaId ?? selectedPersonaId;
-  const convPersonaName = activeDialogue?.personaName ?? activePersona?.name ?? '';
-  const convVisual = personaVisual(convPersonaId, convPersonaName);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [displayMessages.length, streamingMessage]);
+    dialogues, archivedDialogues, activeDialogueId, setActiveDialogueId,
+    selectedPersonaId, setSelectedPersonaId,
+    showArchived, setShowArchived,
+    inputText, setInputText,
+    docPickerOpen, setDocPickerOpen,
+    createPersonaOpen, setCreatePersonaOpen,
+    detailPersona, setDetailPersona,
+    attachMenuOpen, setAttachMenuOpen,
+    messagesEndRef, fileInputRef, attachMenuRef,
+    isLoading, streamingMessage, error, clearError,
+    dailyLimit,
+    loadCustomPersonas,
+    handleSendMessage, handleNewDialogue, handleArchive, handleDelete, handleExport,
+    handleDocSelect, handleCopyMessage, handleFileUpload,
+    allPersonas, openPersonaDetail,
+    displayMessages,
+    activePersona, activeRole, headerVisual,
+    convPersonaName, convVisual,
+    MAX_INPUT_CHARS,
+  } = useAIPageData(linkedDocId);
 
   return (
     <div className={cn("h-screen bg-surface-base flex", isMobile ? "flex-col" : "flex-row")}>

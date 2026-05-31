@@ -58,6 +58,8 @@ export default defineConfig(() => {
         '**/coverage/**',
         '**/.git/**',
         '**/.firebase/**',
+        '**/functions/lib/**',
+        '**/functions/src/**',
       ],
       coverage: {
         provider: 'istanbul',
