@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.8',
+    date: '2026-05-31',
+    items: [
+      { category: 'improvement', ru: 'Технический аудит и наведение порядка под капотом: исправлены все ошибки линтера, крупные экраны (Диагностика, ИИ, Синхронизация) разбиты на части, добавлены тесты бэкенда и их автоматический прогон в CI', en: 'Technical audit and under-the-hood cleanup: fixed all linter errors, split the large screens (Diagnostics, AI, Sync) into smaller pieces, and added backend tests that now run automatically in CI' },
+      { category: 'improvement', ru: 'Усилена защита ИИ-эндпойнта: входящие сообщения и текст документа очищаются от служебных маркеров перед отправкой в модель; ограничен размер поля психологического портрета в правилах базы', en: 'Hardened the AI endpoint: incoming messages and document text are stripped of control markers before reaching the model; the psychological-portrait field size is now capped in the database rules' },
+      { category: 'improvement', ru: 'Глобальный суточный лимит ИИ теперь считается по одному агрегатному счётчику вместо сканирования всех записей на каждый запрос — быстрее и дешевле', en: 'The global daily AI limit is now computed from a single aggregate counter instead of scanning every record on each request — faster and cheaper' },
+      { category: 'improvement', ru: 'Промпты персон сведены к единому источнику — устранён риск рассинхрона между потоковым чатом и облачной функцией; синхронизированы схемы проверки запросов', en: 'Persona prompts unified into a single source — removes drift between the streaming chat and the Cloud Function; request validation schemas were synced' },
+      { category: 'fix', ru: 'Улучшена диагностика сбоев ИИ-запросов — ошибки модели теперь логируются для быстрого разбора', en: 'Improved diagnosis of AI request failures — model errors are now logged for quick triage' },
+    ],
+  },
+  {
     version: '0.7.7',
     date: '2026-05-31',
     items: [
