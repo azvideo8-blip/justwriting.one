@@ -19,10 +19,11 @@ function envInt(name: string, fallback: number): number {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
-// Mirror of functions/src/shared/aiUtils.ts FREE_TIER — keep in sync.
-const FREE_TIER = {
-  requestsPerDay: envInt('AI_FREE_TIER_RPD', 200),
-  tokensPerDay: envInt('AI_FREE_TIER_TPD', 1_000_000),
+// Mirror of functions/src/shared/aiUtils.ts TIER_LIMITS (Gemini Tier 1 for
+// gemini-2.5-flash) — keep in sync.
+const TIER_LIMITS = {
+  requestsPerDay: envInt('AI_TIER_RPD', 10_000),
+  tokensPerDay: envInt('AI_TIER_TPD', 25_000_000),
 };
 
 // True when one more request stays within the project-wide free-tier daily caps.
@@ -35,7 +36,7 @@ async function withinGlobalDailyLimit(): Promise<boolean> {
     requests += x.requests ?? 0;
     tokens += (x.promptTokens ?? 0) + (x.completionTokens ?? 0);
   });
-  return requests < FREE_TIER.requestsPerDay && tokens < FREE_TIER.tokensPerDay;
+  return requests < TIER_LIMITS.requestsPerDay && tokens < TIER_LIMITS.tokensPerDay;
 }
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
