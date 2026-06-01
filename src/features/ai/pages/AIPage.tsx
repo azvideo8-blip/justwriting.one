@@ -10,12 +10,14 @@ import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { cn } from '../../../core/utils/utils';
 import { Monogram, threadPreview, AttachedNoteCard, AttachedFileCard, AttachedSummaryCard, AssistantTurn, ATTACHED_NOTE_RE, ATTACHED_NOTE_SUMMARY_RE, ATTACHED_FILE_RE } from '../components/AIChatPresentational';
 import { useAIPageData } from '../hooks/useAIPageData';
+import { useLanguage } from '../../../core/i18n';
 
 export function AIPage() {
   const [searchParams] = useSearchParams();
   const linkedDocId = searchParams.get('doc') ?? undefined;
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
+  const { t } = useLanguage();
 
   const {
     dialogues, archivedDialogues, activeDialogueId, setActiveDialogueId,
@@ -49,7 +51,7 @@ export function AIPage() {
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-soft/10 border border-brand-soft/25 text-brand-soft text-sm font-semibold hover:bg-brand-soft/20 transition-colors"
             >
               <Plus size={15} />
-              Новый диалог
+              {t('ai_new_dialogue')}
             </button>
           </div>
 
@@ -58,13 +60,13 @@ export function AIPage() {
               onClick={() => setShowArchived(false)}
               className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", !showArchived ? "bg-surface-elevated text-text-main" : "text-text-main/40 hover:text-text-main/60")}
             >
-              Активные
+              {t('ai_active')}
             </button>
             <button
               onClick={() => setShowArchived(true)}
               className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", showArchived ? "bg-surface-elevated text-text-main" : "text-text-main/40 hover:text-text-main/60")}
             >
-              Архив
+              {t('ai_archive')}
             </button>
           </div>
 
@@ -104,7 +106,7 @@ export function AIPage() {
             })}
             {((showArchived ? archivedDialogues : dialogues).length === 0) && (
               <div className="py-8 text-center text-xs text-text-main/25">
-                {showArchived ? 'Нет архивных диалогов' : 'Нет активных диалогов'}
+                {showArchived ? t('ai_no_archived_dialogues') : t('ai_no_active_dialogues')}
               </div>
             )}
           </div>
@@ -121,7 +123,7 @@ export function AIPage() {
           <div className="flex items-center gap-3.5">
             {!isMobile && <Monogram color={headerVisual.color} mono={headerVisual.mono} size={40} />}
             <div className="min-w-0">
-              <div className="text-[10.5px] font-mono uppercase tracking-[0.18em] text-text-main/30 mb-1">собеседник</div>
+              <div className="text-[10.5px] font-mono uppercase tracking-[0.18em] text-text-main/30 mb-1">{t('ai_interlocutor')}</div>
               <div className="flex items-baseline gap-2.5">
                 <h1 className="text-[22px] font-bold tracking-tight text-text-main truncate">{activePersona?.name}</h1>
                 {activeRole && <span className="text-xs font-medium shrink-0" style={{ color: headerVisual.color }}>{activeRole}</span>}
@@ -130,13 +132,13 @@ export function AIPage() {
             <div className="flex-1" />
             {activeDialogueId && (
               <div className="flex items-center gap-1">
-                <button onClick={handleExport} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title="Скачать .md">
+                 <button onClick={handleExport} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_download_md')}>
                   <Download size={15} />
                 </button>
-                <button onClick={handleArchive} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title="В архив">
+                 <button onClick={handleArchive} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_to_archive')}>
                   <Archive size={15} />
                 </button>
-                <button onClick={handleDelete} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/35 hover:text-red-400 transition-colors flex items-center justify-center" title="Удалить">
+                 <button onClick={handleDelete} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/35 hover:text-red-400 transition-colors flex items-center justify-center" title={t('ai_delete')}>
                   <Trash2 size={15} />
                 </button>
               </div>
@@ -170,7 +172,7 @@ export function AIPage() {
                   <button
                     onClick={() => openPersonaDetail(p)}
                     className="w-5 h-5 rounded-full text-text-main/35 hover:text-text-main/70 hover:bg-text-main/10 flex items-center justify-center shrink-0 transition-colors"
-                    title="Описание и промпт"
+                     title={t('ai_description_prompt')}
                   >
                     <Info size={13} />
                   </button>
@@ -182,7 +184,7 @@ export function AIPage() {
               className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-border-subtle text-text-main/30 hover:text-text-main/50 transition-colors"
             >
               <Plus size={12} />
-              Создать
+               {t('ai_create')}
             </button>
           </div>
         </div>
@@ -193,8 +195,8 @@ export function AIPage() {
               <div className="flex flex-col items-center justify-center gap-4 text-center py-24">
                 <Monogram color={headerVisual.color} mono={headerVisual.mono} size={56} />
                 <div>
-                  <p className="text-base font-medium text-text-main/70">Начните диалог с {activePersona?.name}</p>
-                  <p className="text-xs text-text-main/30 mt-1.5">Выберите персону и напишите сообщение</p>
+                  <p className="text-base font-medium text-text-main/70">{t('ai_start_dialogue', { name: activePersona?.name ?? '' })}</p>
+                  <p className="text-xs text-text-main/30 mt-1.5">{t('ai_select_persona')}</p>
                 </div>
               </div>
             )}
@@ -249,7 +251,7 @@ export function AIPage() {
                   <div className="max-w-[78%] px-4 py-3 rounded-2xl rounded-br-md bg-gradient-to-b from-brand-primary/25 to-brand-primary/15 border border-brand-primary/30 text-text-main text-[14.5px] leading-relaxed">
                     {msg.content}
                   </div>
-                  <span className="text-[9px] font-mono uppercase tracking-[0.14em] text-text-main/25 mr-1">вы</span>
+                   <span className="text-[9px] font-mono uppercase tracking-[0.14em] text-text-main/25 mr-1">{t('ai_you')}</span>
                 </div>
               );
             })}
@@ -262,7 +264,7 @@ export function AIPage() {
 
             {isLoading && streamingMessage === null && (
               <AssistantTurn name={convPersonaName} color={convVisual.color} mono={convVisual.mono}>
-                <span className="text-text-main/40">печатает…</span>
+                 <span className="text-text-main/40">{t('ai_typing')}</span>
               </AssistantTurn>
             )}
 
@@ -270,7 +272,7 @@ export function AIPage() {
               <div className="flex justify-center">
                 <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
                   {error}
-                  <button onClick={clearError} className="ml-2 underline">Закрыть</button>
+                   <button onClick={clearError} className="ml-2 underline">{t('ai_close')}</button>
                 </div>
               </div>
             )}
@@ -285,7 +287,7 @@ export function AIPage() {
                 <button
                   onClick={() => setAttachMenuOpen(v => !v)}
                   className="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-elevated border border-border-subtle text-text-main/45 hover:text-text-main/70 transition-colors shrink-0"
-                  title="Прикрепить"
+                  title={t('ai_attach')}
                 >
                   <Plus size={15} />
                 </button>
@@ -303,14 +305,14 @@ export function AIPage() {
                       className="w-full text-left px-4 py-2.5 text-sm text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors flex items-center gap-2"
                     >
                       <Paperclip size={14} />
-                      Прикрепить заметку
+                      {t('ai_attach_note')}
                     </button>
                     <button
                       onClick={() => { setAttachMenuOpen(false); fileInputRef.current?.click(); }}
                       className="w-full text-left px-4 py-2.5 text-sm text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors flex items-center gap-2"
                     >
                       <File size={14} />
-                      Загрузить файл
+                      {t('ai_upload_file')}
                     </button>
                   </div>
                 )}
@@ -319,7 +321,7 @@ export function AIPage() {
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                placeholder={`Напишите ${(activePersona?.name ?? '').toLowerCase()}…`}
+                placeholder={t('ai_write_placeholder', { name: (activePersona?.name ?? '').toLowerCase() })}
                 disabled={isLoading || dailyLimit.remaining === 0}
                 className="flex-1 bg-transparent py-1.5 text-[14.5px] text-text-main placeholder:text-text-main/30 outline-none disabled:opacity-40"
               />
@@ -328,14 +330,14 @@ export function AIPage() {
                 disabled={isLoading || !inputText.trim() || dailyLimit.remaining === 0}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl shrink-0 bg-gradient-to-b from-brand-soft to-brand-primary text-white text-[13.5px] font-semibold shadow-[0_4px_16px_rgba(125,79,209,0.35)] disabled:opacity-40 disabled:shadow-none transition-all"
               >
-                Отправить
+                {t('ai_send')}
                 <ArrowRight size={14} />
               </button>
             </div>
 
             <div className="flex items-center gap-3.5 mt-2.5">
               <span className="text-[10px] font-mono text-text-main/30">
-                осталось <b className="text-text-main/50">{dailyLimit.remaining}/{dailyLimit.limit}</b> сегодня
+                {t('ai_remaining_today')} <b className="text-text-main/50">{dailyLimit.remaining}/{dailyLimit.limit}</b> {t('ai_today')}
               </span>
               <div className="flex-1" />
               <span className={cn(

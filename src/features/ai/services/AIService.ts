@@ -21,11 +21,16 @@ function mapAIError(e: unknown): 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' 
   const message = (e as { message?: string }).message ?? '';
   if (code === 'functions/unauthenticated') return 'AUTH_REQUIRED';
   if (code === 'functions/resource-exhausted') {
-    if (message.toLowerCase().includes('daily limit')) return 'DAILY_LIMIT';
+    const errData = (e as { details?: { errorType?: string } }).details;
+    if (errData?.errorType === 'DAILY_LIMIT' || message.toLowerCase().includes('daily limit')) return 'DAILY_LIMIT';
     return 'RATE_LIMIT';
   }
   if (code === 'functions/invalid-argument') return 'TOO_LONG';
   return 'SERVER_ERROR';
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([promise, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))]);
 }
 
 export const AIService = {
@@ -37,8 +42,8 @@ export const AIService = {
     const functions = getFunctions();
     const fn = httpsCallable<unknown, { result: string }>(functions, 'editWithAI');
     try {
-      const { data } = await fn({ content, action, ...opts });
-      analytics.track('ai_action', { action });
+      const { data } = await withTimeout(fn({ content, action, ...opts }), 60_000);
+      try { analytics.track('ai_action', { action }); } catch { /* non-critical */ }
       return { ok: true, text: data.result };
     } catch (e: unknown) {
       reportError(e, { action: 'process', aiAction: action });
@@ -61,8 +66,8 @@ export const AIService = {
     const functions = getFunctions();
     const fn = httpsCallable<unknown, { result: string }>(functions, 'chatWithAI');
     try {
-      const { data } = await fn(params);
-      analytics.track('ai_chat', { personaId: params.personaId });
+      const { data } = await withTimeout(fn(params), 60_000);
+      try { analytics.track('ai_chat', { personaId: params.personaId }); } catch { /* non-critical */ }
       return { ok: true, text: data.result };
     } catch (e: unknown) {
       reportError(e, { action: 'chat', personaId: params.personaId });
@@ -77,8 +82,8 @@ export const AIService = {
     const functions = getFunctions();
     const fn = httpsCallable<unknown, AISummaryPayload>(functions, 'summarizeDocument');
     try {
-      const { data } = await fn(params);
-      analytics.track('ai_summarize');
+      const { data } = await withTimeout(fn(params), 60_000);
+      try { analytics.track('ai_summarize'); } catch { /* non-critical */ }
       return { ok: true, summary: data };
     } catch (e: unknown) {
       reportError(e, { action: 'summarize' });

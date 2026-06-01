@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { SchemaType } from '@google/generative-ai';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, getDailyLimitCount, checkRateLimit, GEMINI_MODEL, getGenAI, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, GEMINI_MODEL, getGenAI, getLangfuse } from '../shared/aiUtils';
 
 const SUMMARY_SYSTEM_PROMPT = `Проанализируй текст и верни JSON-объект со следующими полями:
 - tone: одно слово (нейтральный/задумчивый/тревожный/вдохновляющий/радостный/грустный/злой/усталый)
@@ -27,9 +27,12 @@ export const summarizeDocument = onCall({
 
   const uid = request.auth.uid;
 
+  if (!(await withinGlobalDailyLimit())) {
+    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
+  }
+
   if (!(await checkDailyLimit(uid))) {
-    const { used, date } = await getDailyLimitCount(uid);
-    throw new HttpsError('resource-exhausted', `Daily limit reached. Used ${used}/${process.env.AI_DAILY_LIMIT ?? 50} on ${date}.`);
+    throw new HttpsError('resource-exhausted', 'Daily limit reached.');
   }
 
   if (!(await checkRateLimit(uid))) {
@@ -96,7 +99,11 @@ export const summarizeDocument = onCall({
 
   let parsed_json: { tone: string; frequentWords: string[]; insights: string[]; themes: string[]; extractedFacts: string[] };
   try {
-    parsed_json = JSON.parse(text);
+    let textToParse = text.trim();
+    if (textToParse.startsWith('```')) {
+      textToParse = textToParse.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
+    }
+    parsed_json = JSON.parse(textToParse);
   } catch {
     generation?.end({ output: text, level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
@@ -108,7 +115,7 @@ export const summarizeDocument = onCall({
   if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   return {
-    tone: sanitizeAiResponse(parsed_json.tone),
+    tone: sanitizeAiResponse(parsed_json.tone ?? 'neutral'),
     frequentWords: (parsed_json.frequentWords ?? []).map(sanitizeAiResponse),
     insights: (parsed_json.insights ?? []).map(sanitizeAiResponse),
     themes: (parsed_json.themes ?? []).map(sanitizeAiResponse),

@@ -45,7 +45,8 @@ export const DocumentService = {
       const parsed = documentDbSchema.safeParse({ id: snap.id, ...snap.data() });
       if (!parsed.success) {
         reportError(parsed.error, { action: 'getDocument_parse', docId: documentId });
-        return null;
+        const rawData = snap.data() as Record<string, unknown>;
+        return { id: snap.id, userId, title: rawData.title ?? '', currentVersion: rawData.currentVersion ?? 0, totalWords: rawData.totalWords ?? 0, totalDuration: rawData.totalDuration ?? 0, sessionsCount: rawData.sessionsCount ?? 0, firstSessionAt: rawData.firstSessionAt ?? null, lastSessionAt: rawData.lastSessionAt ?? null, tags: (rawData.tags as string[]) ?? [] } as Document;
       }
       return parsed.data as Document;
     } catch (e) {
@@ -64,7 +65,8 @@ export const DocumentService = {
           const parsed = documentDbSchema.safeParse({ id: d.id, ...d.data() });
           if (!parsed.success) {
             reportError(parsed.error, { action: 'getUserDocuments_parse', docId: d.id });
-            return null;
+            const rawData = d.data() as Record<string, unknown>;
+            return { id: d.id, userId, title: rawData.title ?? '', currentVersion: rawData.currentVersion ?? 0, totalWords: rawData.totalWords ?? 0, totalDuration: rawData.totalDuration ?? 0, sessionsCount: rawData.sessionsCount ?? 0, firstSessionAt: rawData.firstSessionAt ?? null, lastSessionAt: rawData.lastSessionAt ?? null, tags: (rawData.tags as string[]) ?? [] } as Document;
           }
           return parsed.data as Document;
         })
@@ -197,6 +199,7 @@ export const DocumentService = {
       }
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents`);
+      throw e;
     }
   },
 
@@ -217,6 +220,7 @@ export const DocumentService = {
       }
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents`);
+      throw e;
     }
   },
 
@@ -237,6 +241,7 @@ export const DocumentService = {
       }
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents`);
+      throw e;
     }
   },
 };

@@ -27,7 +27,7 @@ describe('useDraftManager', () => {
     vi.useRealTimers();
   });
 
-  it('saves draft periodically (every 30s) during writing session', async () => {
+  it('saves draft after 3s leading-edge debounce, then every 30s during writing session', async () => {
     mockOnSaveDraft.mockResolvedValue(undefined);
 
     const { result } = renderHook(() =>
@@ -36,13 +36,20 @@ describe('useDraftManager', () => {
 
     expect(mockOnSaveDraft).not.toHaveBeenCalled();
 
-    // Advance 30s
+    // Leading-edge autosave fires at 3s
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(30000);
+      await vi.advanceTimersByTimeAsync(3000);
     });
 
     expect(mockOnSaveDraft).toHaveBeenCalledTimes(1);
     expect(result.current.saveStatus).toBe('saved');
+
+    // Next interval save fires at 33s (3s + 30s)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30000);
+    });
+
+    expect(mockOnSaveDraft).toHaveBeenCalledTimes(2);
   });
 
   it('does not save when status is idle', async () => {

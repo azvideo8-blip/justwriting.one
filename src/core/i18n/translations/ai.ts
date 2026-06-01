@@ -1,0 +1,27 @@
+import { Translations } from '../types';
+
+export const aiTranslations: Translations = {
+  ai_new_dialogue: { ru: 'Новый диалог', en: 'New dialogue' },
+  ai_active: { ru: 'Активные', en: 'Active' },
+  ai_archive: { ru: 'Архив', en: 'Archive' },
+  ai_no_active_dialogues: { ru: 'Нет активных диалогов', en: 'No active dialogues' },
+  ai_no_archived_dialogues: { ru: 'Нет архивных диалогов', en: 'No archived dialogues' },
+  ai_interlocutor: { ru: 'собеседник', en: 'interlocutor' },
+  ai_download_md: { ru: 'Скачать .md', en: 'Download .md' },
+  ai_to_archive: { ru: 'В архив', en: 'To archive' },
+  ai_delete: { ru: 'Удалить', en: 'Delete' },
+  ai_create: { ru: 'Создать', en: 'Create' },
+  ai_start_dialogue: { ru: 'Начните диалог с {name}', en: 'Start a dialogue with {name}' },
+  ai_select_persona: { ru: 'Выберите персону и напишите сообщение', en: 'Select a persona and write a message' },
+  ai_you: { ru: 'вы', en: 'you' },
+  ai_typing: { ru: 'печатает…', en: 'typing…' },
+  ai_close: { ru: 'Закрыть', en: 'Close' },
+  ai_attach: { ru: 'Прикрепить', en: 'Attach' },
+  ai_attach_note: { ru: 'Прикрепить заметку', en: 'Attach note' },
+  ai_upload_file: { ru: 'Загрузить файл', en: 'Upload file' },
+  ai_write_placeholder: { ru: 'Напишите {name}…', en: 'Write to {name}…' },
+  ai_send: { ru: 'Отправить', en: 'Send' },
+  ai_remaining_today: { ru: 'осталось', en: 'remaining' },
+  ai_today: { ru: 'сегодня', en: 'today' },
+  ai_description_prompt: { ru: 'Описание и промпт', en: 'Description and prompt' },
+};

@@ -72,7 +72,8 @@ export const VersionService = {
           const parsed = versionDbSchema.safeParse({ id: d.id, ...d.data() });
           if (!parsed.success) {
             reportError(parsed.error, { action: 'getVersions_parse', docId: d.id });
-            return null;
+            const rawData = d.data() as Record<string, unknown>;
+            return { id: d.id, documentId: rawData.documentId ?? documentId, version: rawData.version ?? 0, content: rawData.content ?? '', wordCount: rawData.wordCount ?? 0, duration: rawData.duration ?? 0, wpm: rawData.wpm ?? 0 } as Version;
           }
           return parsed.data as Version;
         })

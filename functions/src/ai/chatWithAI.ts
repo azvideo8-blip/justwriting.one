@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, getDailyLimitCount, checkRateLimit, withinGlobalDailyLimit, GEMINI_MODEL, getGenAI, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, GEMINI_MODEL, getGenAI, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
 import { PERSONA_PROMPTS, TOPIC_GUARD, PRESET_PERSONA_IDS, type PersonaId } from '../shared/prompts';
 
 const inputSchema = z.object({
@@ -28,17 +28,16 @@ export const chatWithAI = onCall({
 
   const uid = request.auth.uid;
 
+  if (!(await withinGlobalDailyLimit())) {
+    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
+  }
+
   if (!(await checkDailyLimit(uid))) {
-    const { used, date } = await getDailyLimitCount(uid);
-    throw new HttpsError('resource-exhausted', `Daily limit reached. Used ${used}/${process.env.AI_DAILY_LIMIT ?? 50} on ${date}.`);
+    throw new HttpsError('resource-exhausted', 'Daily limit reached.');
   }
 
   if (!(await checkRateLimit(uid))) {
     throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
-  }
-
-  if (!(await withinGlobalDailyLimit())) {
-    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
   const parsed = inputSchema.safeParse(request.data);
@@ -60,7 +59,7 @@ export const chatWithAI = onCall({
 
   const personaPrompt = personaId !== 'custom' ? PERSONA_PROMPTS[personaId as PersonaId] : '';
   let systemInstruction = personaId === 'custom'
-    ? `${customSystemPrompt!}\n\n${TOPIC_GUARD}`
+    ? `${TOPIC_GUARD}\n\n${customSystemPrompt!}`
     : `${personaPrompt}\n\n${TOPIC_GUARD}`;
 
   if (userPortrait) {

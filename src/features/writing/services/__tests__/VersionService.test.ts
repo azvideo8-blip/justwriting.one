@@ -168,7 +168,7 @@ describe('VersionService', () => {
       expect(versions[1].version).toBe(2);
     });
 
-    it('filters out versions failing validation', async () => {
+    it('returns fallback objects for versions failing validation', async () => {
       mockGetDocs.mockResolvedValue({
         docs: [
           {
@@ -183,8 +183,10 @@ describe('VersionService', () => {
       });
 
       const versions = await VersionService.getVersions('user_123', 'doc_123');
-      expect(versions).toHaveLength(1);
-      expect(versions[0].version).toBe(1);
+      expect(versions).toHaveLength(2);
+      const corrupted = versions.find(v => v.id === 'ver_corrupted');
+      expect(corrupted).toBeDefined();
+      expect(corrupted?.version).toBe('not-a-number');
     });
   });
 

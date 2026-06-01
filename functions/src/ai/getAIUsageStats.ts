@@ -4,7 +4,10 @@ import { TIER_LIMITS, DAILY_LIMIT } from '../shared/aiUtils';
 import { z } from 'zod';
 
 const inputSchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(val => {
+    const [y, m, d] = val.split('-').map(Number);
+    return m >= 1 && m <= 12 && d >= 1 && d <= 31;
+  }, 'Invalid date: month must be 1-12, day must be 1-31'),
 });
 
 export const getAIUsageStats = onCall({
@@ -28,24 +31,34 @@ export const getAIUsageStats = onCall({
   const { date } = parsed.data;
 
   const collectionRef = db.collectionGroup('daily').where('date', '==', date);
-  const snapshot = await collectionRef.limit(500).get();
-
   const results: { uid: string; requests: number; promptTokens: number; completionTokens: number }[] = [];
   const totals = { requests: 0, promptTokens: 0, completionTokens: 0 };
+  let lastDoc: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+  let hasMore = true;
 
-  snapshot.forEach(doc => {
-    const parentPath = doc.ref.parent.parent;
-    if (!parentPath) return;
-    const uid = parentPath.id;
-    const data = doc.data();
-    const requests = data.requests ?? 0;
-    const promptTokens = data.promptTokens ?? 0;
-    const completionTokens = data.completionTokens ?? 0;
-    results.push({ uid, requests, promptTokens, completionTokens });
-    totals.requests += requests;
-    totals.promptTokens += promptTokens;
-    totals.completionTokens += completionTokens;
-  });
+  while (hasMore) {
+    let q = collectionRef.limit(500);
+    if (lastDoc) q = q.startAfter(lastDoc);
+    const snapshot = await q.get();
+    if (snapshot.empty) break;
+
+    snapshot.forEach(doc => {
+      const parentPath = doc.ref.parent.parent;
+      if (!parentPath) return;
+      const uid = parentPath.id;
+      const data = doc.data();
+      const requests = data.requests ?? 0;
+      const promptTokens = data.promptTokens ?? 0;
+      const completionTokens = data.completionTokens ?? 0;
+      results.push({ uid, requests, promptTokens, completionTokens });
+      totals.requests += requests;
+      totals.promptTokens += promptTokens;
+      totals.completionTokens += completionTokens;
+      lastDoc = doc;
+    });
+
+    hasMore = snapshot.size === 500;
+  }
 
   return {
     stats: results,

@@ -14,32 +14,34 @@ export async function updateArchiveField(
   value: ArchiveFieldValue,
   user: User | null,
   _userId: string
-): Promise<void> {
+): Promise<{ success: boolean; cloudSyncFailed?: boolean }> {
+  let cloudSyncFailed = false;
+
   if (session._isLocal) {
     if (field === 'tags') {
       await LocalDocumentService.updateTags(session.id, value as string[]);
       if (session._linkedCloudId && user) {
-        await DocumentService.updateTags(user.uid, session._linkedCloudId, value as string[]).catch(e => { reportError(e, { action: 'updateArchiveField_tags', documentId: session._linkedCloudId }); });
+        await DocumentService.updateTags(user.uid, session._linkedCloudId, value as string[]).catch(e => { cloudSyncFailed = true; reportError(e, { action: 'updateArchiveField_tags', documentId: session._linkedCloudId }); });
       }
     } else if (field === 'title') {
       await LocalDocumentService.updateTitle(session.id, value as string);
       if (session._linkedCloudId && user) {
-        await DocumentService.updateTitle(user.uid, session._linkedCloudId, value as string).catch(e => { reportError(e, { action: 'updateArchiveField_title', documentId: session._linkedCloudId }); });
+        await DocumentService.updateTitle(user.uid, session._linkedCloudId, value as string).catch(e => { cloudSyncFailed = true; reportError(e, { action: 'updateArchiveField_title', documentId: session._linkedCloudId }); });
       }
     } else if (field === 'date') {
       if (!(value instanceof Date)) throw new Error('Expected Date for date field');
       const ts = value.getTime();
       await LocalDocumentService.updateDate(session.id, ts, ts);
       if (session._linkedCloudId && user) {
-        await DocumentService.updateDate(user.uid, session._linkedCloudId, value, value).catch(e => { reportError(e, { action: 'updateArchiveField_date', documentId: session._linkedCloudId }); });
+        await DocumentService.updateDate(user.uid, session._linkedCloudId, value, value).catch(e => { cloudSyncFailed = true; reportError(e, { action: 'updateArchiveField_date', documentId: session._linkedCloudId }); });
       }
     } else if (field === 'labelId') {
       await LocalDocumentService.updateLabelId(session.id, value as string | undefined);
       if (session._linkedCloudId && user) {
-        await DocumentService.updateLabelId(user.uid, session._linkedCloudId, value as string | undefined).catch(e => { reportError(e, { action: 'updateArchiveField_labelId', documentId: session._linkedCloudId }); });
+        await DocumentService.updateLabelId(user.uid, session._linkedCloudId, value as string | undefined).catch(e => { cloudSyncFailed = true; reportError(e, { action: 'updateArchiveField_labelId', documentId: session._linkedCloudId }); });
       }
     }
-    return;
+    return cloudSyncFailed ? { success: true, cloudSyncFailed } : { success: true };
   }
 
   if (user) {
@@ -54,6 +56,7 @@ export async function updateArchiveField(
       await DocumentService.updateLabelId(user.uid, session.id, value as string | undefined);
     }
   }
+  return { success: true };
 }
 
 export async function deleteArchiveSession(

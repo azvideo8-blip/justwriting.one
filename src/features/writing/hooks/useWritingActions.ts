@@ -134,7 +134,10 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       const existingDocId = metaState.savedDocumentId;
 
       if (existingDocId) {
-        await StorageService.saveVersion(userId, existingDocId, saveData);
+        const saveResult = await StorageService.saveVersion(userId, existingDocId, saveData);
+        if (saveResult.forked) {
+          showToast(t('sync_conflict_forked'), 'error');
+        }
       } else {
         const result = await StorageService.saveNew(userId, saveData);
         useSessionMetaStore.getState().setSavedDocumentId(result.localId);
@@ -153,7 +156,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
     } finally {
       savingRef.current = false;
     }
-  }, [userId, isGuest, refreshDocuments, refreshLifeLog]);
+  }, [userId, isGuest, refreshDocuments, refreshLifeLog, showToast, t]);
 
   const handlePlay = React.useCallback(() => {
     const currentStatus = useTimerStore.getState().status;

@@ -269,8 +269,8 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
     } catch (e: unknown) {
       setStreamingMessage(null);
       const db = await getLocalDb();
-      const real = dialogue ? await db.get('aiDialogues', dialogue.id) : null;
-      setDialogue(real ?? dialogue);
+      const fresh = dialogueId ? await db.get('aiDialogues', dialogueId) : null;
+      setDialogue(fresh ?? dialogue);
       const msg = e instanceof Error ? e.message : 'SERVER_ERROR';
       if (msg === 'DAILY_LIMIT') { setDailyLimitExhausted(); setError('Дневной лимит достигнут'); }
       else if (msg === 'AUTH_REQUIRED') setError('Требуется регистрация');
@@ -278,7 +278,7 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
     } finally {
       setIsLoading(false);
     }
-  }, [dialogue, personaId]);
+  }, [dialogue, dialogueId, personaId]);
 
   const attachDocument = useCallback(async (documentId: string) => {
     try {

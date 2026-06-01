@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getDb } from '../shared/firestore';
 import { getAuth } from 'firebase-admin/auth';
+import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { z } from 'zod';
 import { roleSchema, userIdSchema } from '../shared/validators';
@@ -34,26 +35,43 @@ export const setUserRole = onCall({
   const callerRef = db.doc(`users/${request.auth.uid}`);
   const targetRef = db.doc(`users/${targetUid}`);
 
-  await db.runTransaction(async (tx) => {
-    const [callerDoc, targetDoc] = await Promise.all([
-      tx.get(callerRef),
-      tx.get(targetRef),
-    ]);
+  try {
+    await db.runTransaction(async (tx) => {
+      const [callerDoc, targetDoc] = await Promise.all([
+        tx.get(callerRef),
+        tx.get(targetRef),
+      ]);
 
-    if (!callerDoc.exists || callerDoc.data()?.role !== 'admin') {
-      throw new HttpsError('permission-denied', 'Only admins can assign roles.');
+      if (!callerDoc.exists || callerDoc.data()?.role !== 'admin') {
+        throw new Error('PERMISSION_DENIED');
+      }
+
+      if (!targetDoc.exists) {
+        throw new Error('NOT_FOUND');
+      }
+
+      tx.update(targetRef, { role });
+    });
+  } catch (e: any) {
+    const msg = e?.message ?? '';
+    if (msg === 'PERMISSION_DENIED') throw new HttpsError('permission-denied', 'Only admins can assign roles.');
+    if (msg === 'NOT_FOUND') throw new HttpsError('not-found', 'Target user does not exist.');
+    throw new HttpsError('internal', 'Transaction failed.');
+  }
+
+  try {
+    const existingUser = await getAuth().getUser(targetUid);
+    const existingClaims = existingUser.customClaims ?? {};
+    const previousRole = existingClaims.role as string | undefined;
+    await getAuth().setCustomUserClaims(targetUid, { ...existingClaims, role });
+    if (previousRole === 'admin') {
+      await getAuth().revokeRefreshTokens(targetUid);
     }
-
-    if (!targetDoc.exists) {
-      throw new HttpsError('not-found', 'Target user does not exist.');
-    }
-
-    tx.update(targetRef, { role });
-  });
-
-  const existingClaims = (await getAuth().getUser(targetUid)).customClaims ?? {};
-  await getAuth().setCustomUserClaims(targetUid, { ...existingClaims, role });
-  await getAuth().revokeRefreshTokens(targetUid);
+  } catch (authError) {
+    logger.error('Auth claims update failed, rolling back Firestore role', { targetUid, role, authError });
+    await db.doc(`users/${targetUid}`).update({ role: admin.firestore.FieldValue.delete() });
+    throw new HttpsError('internal', 'Failed to update auth claims. Firestore role has been rolled back.');
+  }
 
   logger.info('Role updated', { callerUid: request.auth.uid, targetUid, role });
 

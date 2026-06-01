@@ -111,7 +111,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     if (s.sessionType === 'timer' && s.timerDuration > 0 && sessionSeconds >= s.timerDuration) {
       timeGoalReached = true;
     }
-    if (s.targetTime) {
+    if (s.targetTime && /^\d{1,2}:\d{2}$/.test(s.targetTime)) {
       const [hours, minutes] = s.targetTime.split(':').map(Number);
       const now = new Date();
       const target = new Date(now);
