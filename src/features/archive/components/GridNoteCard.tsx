@@ -35,7 +35,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
   onAIClick,
 }) => {
   const { t, language } = useLanguage();
-  const { tags: _tags } = useSessionTags(session.id, session.tags || []);
+  const { tags: _tags } = useSessionTags(session.tags || []);
   const sessionDate = getSessionDate(session) ?? new Date();
   const [labelPopupOpen, setLabelPopupOpen] = useState(false);
   const [labelOpenUp, setLabelOpenUp] = useState(false);

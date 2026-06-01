@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn } from '../../core/utils/utils';
+import { cn } from '../../shared/utils/cn';
 import { useLanguage } from '../../core/i18n';
 
 interface LoadingSpinnerProps {

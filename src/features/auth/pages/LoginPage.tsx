@@ -9,7 +9,7 @@ import { SeoHead } from '../../../core/i18n/SeoHead';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { useToast } from '../../../shared/components/Toast';
 import { MigrationPrompt, checkGuestDocuments } from '../components/MigrationPrompt';
-import { deriveMasterKey, unwrapDataKey, setSessionKey, clearSessionKey, fromBase64 } from '../../../core/crypto/encrypt';
+import { clearSessionKey } from '../../../core/crypto/encrypt';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { reportError } from '../../../core/errors/reportError';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
@@ -81,27 +81,8 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         const profileSnap = await getDoc(doc(db, 'users', currentUid));
         if (profileSnap.exists()) {
           const profileData = profileSnap.data();
-          if (profileData.encryptionMeta) {
-            setEncryptionEnabled(currentUid, true);
-          } else if (profileData.encryptionSalt && profileData.encryptedDataKey) {
-            const salt = fromBase64(profileData.encryptionSalt as string);
-            const masterKey = await deriveMasterKey(password, salt);
-            try {
-              const dataKey = await unwrapDataKey(profileData.encryptedDataKey as string, masterKey);
-              setSessionKey(dataKey);
-              setEncryptionEnabled(currentUid, true);
-            } catch (e) {
-              if (e instanceof DOMException && e.name === 'OperationError') {
-                // Account password is correct (sign-in passed) but the legacy
-                // data key could not be unwrapped. Keep encryption required so
-                // cloud writes stay encrypted; the migrate modal will recover it.
-                reportError(e, { action: 'legacyUnwrapDataKey', userId: currentUid });
-                setEncryptionEnabled(currentUid, true);
-              } else {
-                throw e;
-              }
-            }
-          } else {
+          const unlocked = await AuthService.unlockVaultFromProfile(profileData, password, currentUid);
+          if (!unlocked) {
             const pendingRaw = sessionStorage.getItem(`pending_keys_${currentUid}`);
             if (pendingRaw) {
               try {
@@ -109,11 +90,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                 const { setDoc } = mod;
                 await setDoc(doc(db, 'users', currentUid), keys, { merge: true });
                 sessionStorage.removeItem(`pending_keys_${currentUid}`);
-                const salt = fromBase64(keys.encryptionSalt);
-                const masterKey = await deriveMasterKey(password, salt);
-                const dataKey = await unwrapDataKey(keys.encryptedDataKey, masterKey);
-                setSessionKey(dataKey);
-                setEncryptionEnabled(currentUid, true);
+                await AuthService.unlockVaultFromPendingKeys(keys, password, currentUid);
               } catch (repairErr) {
                 reportError(repairErr, { action: 'repairEncryptionKeys' });
                 setEncryptionEnabled(currentUid, false);

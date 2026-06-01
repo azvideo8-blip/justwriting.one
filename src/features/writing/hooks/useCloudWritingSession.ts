@@ -2,9 +2,7 @@ import { User } from 'firebase/auth';
 import { UserProfile } from '../../../types';
 import { useBaseWritingSession, BaseSessionReturn } from './useBaseWritingSession';
 import { useSessionPersistence } from './useSessionPersistence';
-import { useState, useCallback } from 'react';
-
-import { WritingDraftService } from '../services/WritingDraftService';
+import { useDraftSession } from './useDraftSession';
 
 export interface CloudSessionReturn extends BaseSessionReturn {
   userId: string;
@@ -24,17 +22,12 @@ export interface CloudSessionReturn extends BaseSessionReturn {
    * Forcefully restores the draft, overwriting any current content in the store.
    */
   restoreDraft: () => Promise<void>;
-  discardDraft: () => void;
+  discardDraft: () => Promise<void>;
 }
 
 export function useCloudWritingSession(user: User, profile: UserProfile | null): CloudSessionReturn {
   const base = useBaseWritingSession();
-  const [hasDraft, setHasDraft] = useState(false);
-
-  const discardDraft = useCallback(async () => {
-    await WritingDraftService.deleteDraft(user.uid);
-    setHasDraft(false);
-  }, [user.uid]);
+  const draft = useDraftSession(user.uid, false);
 
   const persistence = useSessionPersistence(
     user,
@@ -63,7 +56,7 @@ export function useCloudWritingSession(user: User, profile: UserProfile | null):
       setTitle: base.setTitle,
       setPinnedThoughts: base.setPinnedThoughts,
       setActiveSessionId: base.setActiveSessionId,
-      setHasDraft,
+      setHasDraft: draft.setHasDraft,
       resetAndClear: base.resetAndClear,
       resetSession: base.resetSession,
       setStatus: base.setStatus,
@@ -76,14 +69,14 @@ export function useCloudWritingSession(user: User, profile: UserProfile | null):
     ...base,
     userId: user.uid,
     isGuest: false as const,
-    hasDraft,
-    setHasDraft,
+    hasDraft: draft.hasDraft,
+    setHasDraft: draft.setHasDraft,
     saveStatus: persistence.saveStatus,
     lastSavedAt: persistence.lastSavedAt,
     isOnline: persistence.isOnline,
-    handleCancel: persistence.handleCancel,
-    autoLoadDraftIfEmpty: persistence.autoLoadDraftIfEmpty,
-    restoreDraft: persistence.restoreDraft,
-    discardDraft,
+    handleCancel: draft.handleCancel,
+    autoLoadDraftIfEmpty: draft.autoLoadDraftIfEmpty,
+    restoreDraft: draft.restoreDraft,
+    discardDraft: draft.discardDraft,
   };
 }

@@ -41,9 +41,10 @@ export default [
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_' }],
       'react-hooks/rules-of-hooks': 'error',
-      'react-hooks/exhaustive-deps': 'warn',
+      'react-hooks/exhaustive-deps': 'error',
       'import/no-duplicates': 'error',
-      'no-console': ['error', { allow: ['error', 'warn', 'info'] }],
+      'import/no-cycle': 'error',
+      'no-console': ['error', { allow: ['error', 'warn'] }],
     },
     settings: {
       react: { version: 'detect' },

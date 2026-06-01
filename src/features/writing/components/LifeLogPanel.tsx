@@ -122,6 +122,7 @@ export function LifeLogPanel({
 }: LifeLogPanelProps) {
   const [deleteTarget, setDeleteTarget] = useState<Session | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [settingsTab, setSettingsTab] = useState<'editor' | 'app' | 'account'>('editor');
 
   const { t, language } = useLanguage();
   const { execute } = useServiceAction();
@@ -351,7 +352,7 @@ export function LifeLogPanel({
 
       {activeTab === 'settings' && (
         <div className="flex-1 overflow-hidden w-[380px]">
-          <SettingsPanelContent userId={userId} onRefreshLifeLog={refresh} />
+          <SettingsPanelContent userId={userId} onRefreshLifeLog={refresh} activeTab={settingsTab} setActiveTab={setSettingsTab} />
         </div>
       )}
 

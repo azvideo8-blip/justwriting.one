@@ -1,38 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
-import { useTimerStore } from '../store/useTimerStore';
-import { useContentStore } from '../store/useContentStore';
-import { useSessionMetaStore } from '../store/useSessionMetaStore';
-import { Session, UserProfile } from '../../../types';
-import { useWritingSettings } from '../contexts/WritingSettingsContext';
+import { UserProfile } from '../../../types';
 import { GoalToast } from '../../../shared/components/GoalToast';
-import { useLocation, useNavigate } from 'react-router-dom';
 import { SeoHead } from '../../../core/i18n/SeoHead';
 
 import { WritingFinishModal } from '../components/WritingFinishModal';
 import { FlowPulse } from '../../../core/theme/FlowPulse';
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
 
-import { useSessionFlow } from '../hooks/useSessionFlow';
 import { MobileWriteScreen } from '../components/MobileWriteScreen';
 import { MobileHomeScreen } from '../components/MobileHomeScreen';
 import { MobileSessionSetupSheet } from '../components/MobileSessionSetupSheet';
-import { useLifeLog } from '../hooks/useLifeLog';
-import { useStreak } from '../hooks/useStreak';
-import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
-import { useSettings } from '../../../core/settings/SettingsContext';
-import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
-import { SyncService } from '../../../core/services/SyncService';
 
 import { useGuestWritingSession } from '../hooks/useGuestWritingSession';
 import { useCloudWritingSession } from '../hooks/useCloudWritingSession';
-import { useWritingActions, AnySessionReturn } from '../hooks/useWritingActions';
-import { useWritingKeyboard } from '../hooks/useWritingKeyboard';
-import { KeystrokeTracker, KeystrokeStats } from '../utils/keystrokeTracker';
+
+import { WritingSessionProvider, useWritingSessionContext } from '../contexts/WritingSessionContext';
 import { DesktopWritingLayout } from './DesktopWritingLayout';
 
-export type { AnySessionReturn };
+export type { AnySessionReturn } from '../hooks/useWritingActions';
 
 interface WritingViewProps {
   user: User | null;
@@ -41,211 +28,98 @@ interface WritingViewProps {
 
 function AuthenticatedWritingPage({ user, profile }: { user: User; profile: UserProfile | null }) {
   const session = useCloudWritingSession(user, profile);
-  return <WritingPageUI session={session} profile={profile} user={user} />;
+  return (
+    <WritingSessionProvider session={session} profile={profile} user={user}>
+      <WritingPageUI />
+    </WritingSessionProvider>
+  );
 }
 
-function GuestWritingPageInner() {
+function GuestWritingPage() {
   const session = useGuestWritingSession();
-  return <WritingPageUI session={session} profile={null} user={null} />;
+  return (
+    <WritingSessionProvider session={session} profile={null} user={null}>
+      <WritingPageUI />
+    </WritingSessionProvider>
+  );
 }
 
 function WritingPageContent({ user, profile }: WritingViewProps) {
   if (user) {
     return <AuthenticatedWritingPage user={user} profile={profile} />;
   }
-  return <GuestWritingPageInner />;
+  return <GuestWritingPage />;
 }
 
-function WritingPageUI({ session, profile, user: _user }: { session: AnySessionReturn; profile: UserProfile | null; user: User | null }) {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const sessionToContinue = (location.state as { sessionToContinue?: Session | null } | null)?.sessionToContinue || null;
-  const isGuest = session.isGuest;
-  const userId = session.userId;
+function WritingPageUI() {
+  const {
+    session,
+    profile,
+    flow,
+    actions,
+    lifeLogGroups,
+    lifeLogSummary,
+    refreshLifeLog,
+    streakDays,
+    streakForModal,
+    isFinishModalOpen,
+    setIsFinishModalOpen,
+    devKpmStats,
+    keystrokeTrackerRef,
+    isMobile,
+    onFinishClick,
+    savedDocumentId,
+  } = useWritingSessionContext();
 
-  const timeGoalReached = useTimerStore(s => s.timeGoalReached);
-  const wordGoalReached = useTimerStore(s => s.wordGoalReached);
+  const {
+    setSetupMode,
+    setShowCancelConfirm,
+  } = flow;
+
+  const {
+    handleSave,
+    handlePlay,
+    handlePause,
+    handleNew,
+    handleCancel,
+    handleContinueSessionOrDoc,
+  } = { ...actions, handleCancel: session.handleCancel };
 
   const sessionStatus = session.status;
   const tags = session.tags;
   const setTags = session.setTags;
   const labelId = session.labelId;
   const setLabelId = session.setLabelId;
-  const sessionType = session.sessionType;
-  const setSessionType = session.setSessionType;
-  const setTitle = useContentStore(s => s.setTitle);
-  const savedDocumentId = useSessionMetaStore(s => s.savedDocumentId);
-
-  const {
-    targetTime,
-    hasDraft,
-    saveStatus,
-    handleStart: hookHandleStart, handleCancel,
-  } = session;
-
-  const {
-    isZenActive, zenModeEnabled,
-    setStatus: setUIStatus,
-    lifeLogVisible, setLifeLogVisible,
-    lifeLogTab, setLifeLogTab,
-    lifeLogPinned, setLifeLogPinned,
-  } = useWritingSettings();
-  const isBrowserOnline = useOnlineStatus();
-
-  useEffect(() => {
-    if (isBrowserOnline && !isGuest) {
-      SyncService.syncPending(userId).catch(console.error);
-    }
-  }, [isBrowserOnline, isGuest, userId]);
-
-  const showZen = isZenActive && zenModeEnabled;
-
-  const flow = useSessionFlow(
-    hookHandleStart, sessionStatus, sessionType, setSessionType,
-    targetTime, session.seconds, timeGoalReached, wordGoalReached
-  );
-  const { setSetupMode, setShowCancelConfirm, startCountdown } = flow;
-
-  const actions = useWritingActions({ session, flow });
-  const { handleSave, handlePlay, handlePause, handleNew, handleFinish, handleOpen, handleContinueDocument, handleContinueSessionOrDoc } = actions;
-
-  const handlePlayRef = React.useRef(handlePlay);
-  const handlePauseRef = React.useRef(handlePause);
-
-  useEffect(() => {
-    handlePlayRef.current = handlePlay;
-    handlePauseRef.current = handlePause;
-  }, [handlePlay, handlePause]);
-
-  useWritingKeyboard({ sessionStatus, handlePlayRef, handlePauseRef });
-
-  const keystrokeTrackerRef = React.useRef(new KeystrokeTracker());
-  const [devKpmStats, setDevKpmStats] = React.useState<KeystrokeStats | null>(null);
-  const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
-
-  React.useEffect(() => {
-    if (!import.meta.env.DEV) return;
-    const interval = setInterval(() => {
-      setDevKpmStats(keystrokeTrackerRef.current.getStats());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    setUIStatus(sessionStatus);
-  }, [sessionStatus, setUIStatus]);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && sessionStatus === 'writing') {
-        handlePause();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [sessionStatus, handlePause]);
-
-  const continueRef = useRef(false);
-  useEffect(() => { continueRef.current = false; }, [userId]);
-  useEffect(() => {
-    if (sessionToContinue && !continueRef.current) {
-      continueRef.current = true;
-      navigate(location.pathname, { state: {}, replace: true });
-      handleContinueSessionOrDoc(sessionToContinue);
-    }
-  }, [sessionToContinue, handleContinueSessionOrDoc, navigate, location.pathname]);
-
-  const { sessionGroups: lifeLogGroups, summary: lifeLogSummary, refresh: refreshLifeLog } = useLifeLog(userId, isGuest);
-  const streakDays = useStreak(lifeLogGroups);
-
-  const streakForModal = React.useMemo(() => {
-    if (!isFinishModalOpen) return streakDays;
-    const todayStr = new Date().toDateString();
-    const hasSessionToday = lifeLogGroups.some(g =>
-      new Date(g.date).toDateString() === todayStr
-    );
-    return hasSessionToday ? streakDays : streakDays + 1;
-  }, [streakDays, lifeLogGroups, isFinishModalOpen]);
-
-
-  const onFinishClick = React.useCallback(() => {
-    handleFinish(keystrokeTrackerRef);
-    setIsFinishModalOpen(true);
-  }, [handleFinish]);
-
-  const isMobile = useLayoutMode().layoutMode !== 'desktop';
-
-  // On the desktop editor, route the gear to the dockable LifeLog "settings" tab
-  // (which carries the pin), instead of the global overlay panel.
-  const { registerOpenOverride } = useSettings();
-  useEffect(() => {
-    if (isMobile) return;
-    registerOpenOverride(() => {
-      setLifeLogTab('settings');
-      setLifeLogVisible(true);
-    });
-    return () => registerOpenOverride(null);
-  }, [isMobile, registerOpenOverride, setLifeLogTab, setLifeLogVisible]);
-
-  // [L-09] desktopProps мемоизированы — не пересоздаются при мобильном рендере
-  const desktopProps = React.useMemo(() => ({
-    profile,
-    setupMode: flow.setupMode,
-    setSetupMode: setSetupMode,
-    startCountdown,
-    countdown: flow.countdown,
-    totalDurationForDeadline: flow.totalDurationForDeadline,
-    onNew: handleNew,
-    onOpenLog: handleOpen,
-    onSave: onFinishClick,
-    onPlay: handlePlay,
-    onPause: handlePause,
-    onStop: onFinishClick,
-    onContinueSession: handleContinueDocument,
-    handlePlayRef,
-    keystrokeTrackerRef,
-    hasDraft,
-    sessionStatus,
-    userId,
-    onContinueSessionOrDoc: handleContinueSessionOrDoc,
-    restoreDraft: session.restoreDraft,
-    discardDraft: session.discardDraft,
-    onSetPromptTitle: setTitle,
-    showZen,
-    lifeLogVisible,
-    setLifeLogVisible,
-    lifeLogTab,
-    setLifeLogTab,
-    lifeLogPinned,
-    setLifeLogPinned,
-    saveStatus,
-    streakDays,
-  }), [profile, flow.setupMode, flow.countdown, flow.totalDurationForDeadline, setSetupMode, startCountdown,
-    handleNew, handleOpen, onFinishClick, handlePlay, handlePause, handleContinueDocument,
-    handlePlayRef, keystrokeTrackerRef, hasDraft, sessionStatus, userId, handleContinueSessionOrDoc,
-    session.restoreDraft, session.discardDraft, setTitle, showZen, lifeLogVisible, setLifeLogVisible,
-    lifeLogTab, setLifeLogTab, lifeLogPinned, setLifeLogPinned, saveStatus, streakDays]);
 
   const mainContent = (() => {
     if (isMobile) {
       if (sessionStatus === 'idle')
         return (
           <MobileHomeScreen
-            userId={userId}
+            userId={session.userId}
             streakDays={streakDays}
             sessionGroups={lifeLogGroups}
             summary={lifeLogSummary}
             onStart={() => setSetupMode('selection')}
             onContinue={handleContinueSessionOrDoc}
-            hasDraft={hasDraft}
+            hasDraft={session.hasDraft}
             restoreDraft={session.restoreDraft}
             discardDraft={session.discardDraft}
             onRefresh={refreshLifeLog}
           />
         );
-      return <MobileWriteScreen onPlay={handlePlay} onPause={handlePause} onStop={onFinishClick} onNew={handleNew} saveStatus={saveStatus} keystrokeTrackerRef={keystrokeTrackerRef} />;
+      return (
+        <MobileWriteScreen
+          onPlay={handlePlay}
+          onPause={handlePause}
+          onStop={onFinishClick}
+          onNew={handleNew}
+          saveStatus={session.saveStatus}
+          keystrokeTrackerRef={keystrokeTrackerRef}
+        />
+      );
     }
-    return <DesktopWritingLayout {...desktopProps} />;
+    return <DesktopWritingLayout />;
   })();
 
   return (
@@ -254,7 +128,7 @@ function WritingPageUI({ session, profile, user: _user }: { session: AnySessionR
       <MobileSessionSetupSheet
         setupMode={flow.setupMode}
         setSetupMode={setSetupMode}
-        startCountdown={startCountdown}
+        startCountdown={flow.startCountdown}
         countdown={flow.countdown}
       />
       <GoalToast visible={flow.goalToastVisible} type={flow.goalToastType} />

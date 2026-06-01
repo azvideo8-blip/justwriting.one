@@ -114,13 +114,5 @@ export function setSessionConfig(config: Record<string, unknown>) {
   if (Object.keys(metaPart).length > 0) useSessionMetaStore.setState(metaPart as Partial<typeof META_DEFAULTS>);
 }
 
-// Automatically update wordGoalReached when content store wordCount changes
-useContentStore.subscribe((state) => {
-  const { wordCount } = state;
-  const { sessionStartWords, wordGoal } = useTimerStore.getState();
-  const sessionWords = wordCount - sessionStartWords;
-  const wordGoalReached = wordGoal > 0 && sessionWords >= wordGoal;
-  if (useTimerStore.getState().wordGoalReached !== wordGoalReached) {
-    useTimerStore.setState({ wordGoalReached });
-  }
-});
+// wordGoalReached is now computed inside checkGoals() in useTimerStore
+// to avoid cross-store subscription side-effects at module level.

@@ -11,6 +11,10 @@ import { StorageService } from '../../../core/services/StorageService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { useToast } from '../../../shared/components/Toast';
 import { useLanguage } from '../../../core/i18n';
+
+function isLifeLogDocument(doc: Session | LifeLogDocument): doc is LifeLogDocument {
+  return 'totalWords' in doc && 'totalDuration' in doc;
+}
 import { SaveData } from '../components/WritingFinishModal';
 import { Session } from '../../../types';
 import { GuestSessionReturn } from './useGuestWritingSession';
@@ -88,10 +92,11 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
 
   const handleContinueSessionOrDoc = React.useCallback(async (sessionOrDoc: Session | LifeLogDocument) => {
     try {
-      if ('totalWords' in sessionOrDoc) {
-        await handleContinueDocument(sessionOrDoc as LifeLogDocument);
+      if (isLifeLogDocument(sessionOrDoc)) {
+        await handleContinueDocument(sessionOrDoc);
       } else {
-        await handleContinueDocument(sessionOrDoc as unknown as LifeLogDocument);
+        logger.error('writingActions', 'Cannot continue: item is not a LifeLogDocument', { sessionOrDoc });
+        showToast(t('error_continue_session'), 'error');
       }
     } catch (err) {
       logger.error('writingActions', 'LifeLog continue failed', { error: String(err) });
@@ -199,7 +204,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
     setLifeLogVisible(true);
   }, [setLifeLogVisible]);
 
-  return {
+  return React.useMemo(() => ({
     handleSave,
     handlePlay,
     handlePause,
@@ -209,5 +214,5 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
     handleContinueDocument,
     handleContinueSessionOrDoc,
     savingRef,
-  };
+  }), [handleSave, handlePlay, handlePause, handleNew, handleFinish, handleOpen, handleContinueDocument, handleContinueSessionOrDoc]);
 }

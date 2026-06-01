@@ -1,15 +1,12 @@
-import { useCallback, useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useBaseWritingSession } from './useBaseWritingSession';
-import { useContentStore } from '../store/useContentStore';
-import { applyDraftToStores } from '../utils/draftUtils';
 import { getOrCreateGuestId } from '../../../core/storage/localDb';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 import {
   saveGuestDraftToStorage,
-  loadGuestDraftFromStorage,
-  deleteGuestDraftFromStorage,
 } from '../services/GuestDraftService';
 import { useDraftManager, DraftData } from './useDraftManager';
+import { useDraftSession } from './useDraftSession';
 
 export interface GuestSessionReturn extends ReturnType<typeof useBaseWritingSession> {
   userId: string;
@@ -30,13 +27,13 @@ export interface GuestSessionReturn extends ReturnType<typeof useBaseWritingSess
    * Forcefully restores the draft, overwriting any current content in the store.
    */
   restoreDraft: () => Promise<void>;
-  discardDraft: () => void;
+  discardDraft: () => Promise<void>;
 }
 
 export function useGuestWritingSession(): GuestSessionReturn {
   const base = useBaseWritingSession();
   const guestId = getOrCreateGuestId();
-  const [hasDraft, setHasDraft] = useState(false);
+  const draft = useDraftSession(guestId, true);
   const isOnline = useOnlineStatus();
 
   const draftDataRef = useRef<DraftData>({
@@ -52,7 +49,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
       wpm: base.wpm,
       wordCount: base.wordCount,
     };
-  });
+  }, [base.content, base.title, base.pinnedThoughts, base.seconds, base.wpm, base.wordCount]);
 
   const getDraftData = useCallback(() => draftDataRef.current, []);
 
@@ -69,57 +66,24 @@ export function useGuestWritingSession(): GuestSessionReturn {
 
   const draftManager = useDraftManager(guestId, getDraftData, { onSaveDraft });
 
-  const clearDraft = useCallback(async () => {
-    await deleteGuestDraftFromStorage();
-    setHasDraft(false);
-  }, []);
-
-  const autoLoadDraftIfEmpty = useCallback(async () => {
-    const draft = await loadGuestDraftFromStorage();
-    if (!draft?.content) return;
-
-    const currentContent = useContentStore.getState().content;
-    if (currentContent.length > 0) {
-      setHasDraft(true);
-      return;
-    }
-
-    applyDraftToStores(draft);
-    setHasDraft(false);
-  }, []);
-
+  const { autoLoadDraftIfEmpty } = draft;
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     autoLoadDraftIfEmpty();
   }, [autoLoadDraftIfEmpty]);
-
-  const restoreDraft = useCallback(async () => {
-    const draft = await loadGuestDraftFromStorage();
-    if (!draft?.content) { setHasDraft(false); return; }
-
-    applyDraftToStores(draft);
-    setHasDraft(false);
-  }, []);
-
-  const handleCancel = useCallback(async () => {
-    await clearDraft();
-    base.resetAndClear();
-    base.setStatus('idle');
-  }, [base, clearDraft]);
 
   return {
     ...base,
     userId: guestId,
     isGuest: true as const,
-    hasDraft,
-    setHasDraft,
+    hasDraft: draft.hasDraft,
+    setHasDraft: draft.setHasDraft,
     saveStatus: draftManager.saveStatus,
     saveErrorKind: draftManager.saveErrorKind,
     lastSavedAt: draftManager.lastSavedAt,
     isOnline,
-    handleCancel,
-    autoLoadDraftIfEmpty,
-    restoreDraft,
-    discardDraft: clearDraft,
+    handleCancel: draft.handleCancel,
+    autoLoadDraftIfEmpty: draft.autoLoadDraftIfEmpty,
+    restoreDraft: draft.restoreDraft,
+    discardDraft: draft.discardDraft,
   };
 }

@@ -1,8 +1,11 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { defineConfig } from 'vite';
 import { visualizer } from 'rollup-plugin-visualizer';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(() => {
   return {
@@ -30,8 +33,8 @@ export default defineConfig(() => {
     },
     build: {
       target: 'es2022',
-      sourcemap: true,
-      chunkSizeWarningLimit: 600,
+      sourcemap: process.env.NODE_ENV !== 'production',
+      chunkSizeWarningLimit: 300,
       rollupOptions: {
         output: {
           manualChunks: {
@@ -43,6 +46,10 @@ export default defineConfig(() => {
             'vendor-router': ['react-router-dom'],
             'vendor-markdown': ['react-markdown', 'rehype-sanitize'],
             'vendor-ui': ['lucide-react', 'clsx', 'tailwind-merge'],
+            'vendor-ai': ['ai', '@ai-sdk/google', '@ai-sdk/openai'],
+            'vendor-sentry': ['@sentry/react'],
+            'vendor-analytics': ['posthog-js'],
+            'vendor-virtuoso': ['react-virtuoso'],
           },
         },
       },
