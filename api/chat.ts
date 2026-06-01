@@ -5,7 +5,7 @@ import { initializeApp, getApps, cert, applicationDefault, type ServiceAccount }
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { z } from 'zod';
-import { PERSONA_PROMPTS, TOPIC_GUARD } from '../src/shared/ai/prompts';
+import { PERSONA_PROMPTS, TOPIC_GUARD } from '../src/shared/ai/prompts.js';
 
 // Must match the database the Cloud Functions and frontend use (shared/firestore.ts,
 // VITE_FIREBASE_FIRESTORE_DATABASE_ID). Bare getFirestore() targets "(default)", which
