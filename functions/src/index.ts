@@ -6,7 +6,7 @@ initializeApp();
 process.on('SIGTERM', async () => {
   const lf = getLangfuse();
   if (lf) {
-    try { await lf.flushAsync(); } catch {}
+    try { await lf.flushAsync(); } catch (e) { console.error('[shutdown] flush error', e); }
   }
   process.exit(0);
 });

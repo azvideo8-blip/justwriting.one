@@ -10,7 +10,7 @@ interface EncryptionState {
   setKey: (key: CryptoKey | null) => void;
   lockVault: () => void;
   setEncryptionEnabled: (userId: string, enabled: boolean) => void;
-  isEncryptionEnabled: (userId: string) => boolean;
+  getEncryptionEnabled: (userId: string) => boolean;
   setProfileLoaded: (userId: string, loaded: boolean) => void;
   isProfileLoaded: (userId: string) => boolean;
 }
@@ -36,7 +36,7 @@ export const useEncryptionStore = create<EncryptionState>((set, get) => ({
     }
   },
 
-  isEncryptionEnabled: (userId) => {
+  getEncryptionEnabled: (userId) => {
     if (!userId) return false;
     if (userId.startsWith('guest_') || userId === 'guest') return false;
     const state = get();
@@ -51,7 +51,7 @@ export const useEncryptionStore = create<EncryptionState>((set, get) => ({
         }
       }
     } catch (e) {
-      reportError(e, { action: 'isEncryptionEnabled_read', userId }, 'warning');
+      reportError(e, { action: 'getEncryptionEnabled_read', userId }, 'warning');
       return false;
     }
     return false;

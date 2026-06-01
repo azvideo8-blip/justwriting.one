@@ -12,6 +12,10 @@ const MAX_QUEUE_AGE_MS = 24 * 60 * 60 * 1000;
 export const SyncService = {
   async addToQueue(documentId: string): Promise<void> {
     const db = await getLocalDb();
+    const existing = await db.getAll('syncQueue');
+    const cutoff = Date.now() - 60_000;
+    const hasRecent = existing.some(item => item.documentId === documentId && item.createdAt >= cutoff);
+    if (hasRecent) return;
     await db.put('syncQueue', {
       id: `sync_${documentId}_${Date.now()}`,
       documentId,

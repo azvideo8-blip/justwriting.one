@@ -17,7 +17,7 @@ export function getGenAI(): GoogleGenerativeAI {
   return _genAI;
 }
 
-const MAX_AI_CONTENT_LENGTH = 50_000;
+export const MAX_AI_CONTENT_LENGTH = 50_000;
 
 export const INJECTION_PATTERNS = [
   /ignore\s+previous/i,
@@ -28,6 +28,13 @@ export const INJECTION_PATTERNS = [
   /forget\s+your/i,
   /новые\s+инструкции/i,
   /забудь/i,
+  /system\s*:/i,
+  /as\s+an\s+AI/i,
+  /developer\s*:/i,
+  /<\|im_start\|>/i,
+  /\[INST\]/i,
+  /<developer>/i,
+  /<end_of_turn>/i,
 ];
 
 let _langfuse: Langfuse | null = null;
@@ -47,9 +54,21 @@ export function sanitizeAiInput(content: string): string {
   sanitized = sanitized.replace(/<\|system\|>/gi, '[system]');
   sanitized = sanitized.replace(/<\|user\|>/gi, '[user]');
   sanitized = sanitized.replace(/<\|assistant\|>/gi, '[assistant]');
+  sanitized = sanitized.replace(/<\|im_start\|>/gi, '[im_start]');
+  sanitized = sanitized.replace(/<\|im_end\|>/gi, '[im_end]');
+  sanitized = sanitized.replace(/\[INST\]/gi, '[inst]');
+  sanitized = sanitized.replace(/<\/?developer>/gi, '[developer]');
+  sanitized = sanitized.replace(/<end_of_turn>/gi, '[end_of_turn]');
+  sanitized = sanitized.replace(/[\u200B\u200C\u200D\uFEFF\u00AD]/g, '');
+  sanitized = sanitized.replace(/[\u2000-\u200A\u2028\u2029\u202F\u205F]/g, ' ');
   return sanitized;
 }
 
+// Strips ALL HTML tags and attributes from AI responses using DOMPurify.
+// This is intentional: AI output is rendered as plain text, never as HTML,
+// so any markup the model emits (including safe formatting) is removed to
+// prevent XSS. If formatted AI output is needed in the future, switch to
+// an allowlist (e.g. ALLOWED_TAGS: ['b','i','em','strong','code','pre']).
 export function sanitizeAiResponse(response: string): string {
   return DOMPurify.sanitize(response, {
     ALLOWED_TAGS: [],

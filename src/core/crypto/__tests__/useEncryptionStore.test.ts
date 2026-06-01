@@ -50,17 +50,17 @@ describe('useEncryptionStore', () => {
     expect(localStorage.getItem('enc_enabled_user1')).toBe('0');
   });
 
-  it('isEncryptionEnabled reads from localStorage cache', () => {
+  it('getEncryptionEnabled reads from localStorage cache', () => {
     localStorage.setItem('enc_enabled_user2', '1');
-    const enabled = useEncryptionStore.getState().isEncryptionEnabled('user2');
+    const enabled = useEncryptionStore.getState().getEncryptionEnabled('user2');
 
     expect(enabled).toBe(true);
     expect(useEncryptionStore.getState().encryptionEnabled['user2']).toBe(true);
   });
 
-  it('isEncryptionEnabled returns false for guest users', () => {
-    expect(useEncryptionStore.getState().isEncryptionEnabled('guest')).toBe(false);
-    expect(useEncryptionStore.getState().isEncryptionEnabled('guest_123')).toBe(false);
+  it('getEncryptionEnabled returns false for guest users', () => {
+    expect(useEncryptionStore.getState().getEncryptionEnabled('guest')).toBe(false);
+    expect(useEncryptionStore.getState().getEncryptionEnabled('guest_123')).toBe(false);
   });
 
   it('setProfileLoaded and isProfileLoaded behave correctly', () => {
@@ -76,10 +76,10 @@ describe('useEncryptionStore', () => {
       throw new Error('access denied');
     });
 
-    const isEnc = useEncryptionStore.getState().isEncryptionEnabled('authenticated_user');
+    const isEnc = useEncryptionStore.getState().getEncryptionEnabled('authenticated_user');
     expect(isEnc).toBe(false);
 
-    const isGuestEnc = useEncryptionStore.getState().isEncryptionEnabled('guest_user');
+    const isGuestEnc = useEncryptionStore.getState().getEncryptionEnabled('guest_user');
     expect(isGuestEnc).toBe(false);
   });
 });

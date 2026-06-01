@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   maybeEncrypt,
   setEncryptionEnabled,
-  isEncryptionEnabled
+  getEncryptionEnabled
 } from '../crypto/cryptoHelpers';
 import { getSessionKey, encryptContent } from '../crypto/encrypt';
 
@@ -19,12 +19,12 @@ describe('cryptoHelpers', () => {
     vi.clearAllMocks();
   });
 
-  it('handles isEncryptionEnabled / setEncryptionEnabled caching', () => {
+  it('handles getEncryptionEnabled / setEncryptionEnabled caching', () => {
     setEncryptionEnabled('user1', true);
-    expect(isEncryptionEnabled('user1')).toBe(true);
+    expect(getEncryptionEnabled('user1')).toBe(true);
 
     setEncryptionEnabled('user1', false);
-    expect(isEncryptionEnabled('user1')).toBe(false);
+    expect(getEncryptionEnabled('user1')).toBe(false);
   });
 
   it('maybeEncrypt bypasses encryption when disabled for user', async () => {

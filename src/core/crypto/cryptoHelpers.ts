@@ -6,8 +6,8 @@ export function setEncryptionEnabled(userId: string, enabled: boolean): void {
   useEncryptionStore.getState().setEncryptionEnabled(userId, enabled);
 }
 
-export function isEncryptionEnabled(userId: string): boolean {
-  return useEncryptionStore.getState().isEncryptionEnabled(userId);
+export function getEncryptionEnabled(userId: string): boolean {
+  return useEncryptionStore.getState().getEncryptionEnabled(userId);
 }
 
 export interface VersionEncryptPayload {
@@ -37,7 +37,7 @@ export async function maybeEncrypt(
   if (typeof userIdOrRequired === 'boolean') {
     required = userIdOrRequired;
   } else if (typeof userIdOrRequired === 'string') {
-    const enabled = isEncryptionEnabled(userIdOrRequired);
+    const enabled = getEncryptionEnabled(userIdOrRequired);
     required = enabled;
     shouldEncrypt = enabled;
   }

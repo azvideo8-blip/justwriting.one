@@ -36,13 +36,15 @@ export const AIDialogueService = {
   },
 
   async appendMessage(id: string, userMsg: string, assistantMsg: string): Promise<void> {
+    const MAX_MSG_LENGTH = 100_000;
+    const truncate = (s: string) => s.length > MAX_MSG_LENGTH ? s.slice(0, MAX_MSG_LENGTH) + '\n[...truncated]' : s;
     const db = await getLocalDb();
     const existing = await db.get('aiDialogues', id);
     if (!existing) return;
     const now = Date.now();
     existing.messages.push(
-      { role: 'user', content: userMsg },
-      { role: 'assistant', content: assistantMsg },
+      { role: 'user', content: truncate(userMsg) },
+      { role: 'assistant', content: truncate(assistantMsg) },
     );
     existing.updatedAt = now;
     await db.put('aiDialogues', existing);
@@ -77,12 +79,12 @@ export const AIDialogueService = {
     if (!dialogue) return '';
 
     const dateStr = new Date(dialogue.createdAt).toLocaleString();
-    const docLine = dialogue.documentId ? `\nДокумент: ${dialogue.documentId}` : '';
-    const header = `# Диалог с ${dialogue.personaName} ${dialogue.personaEmoji}\nДата: ${dateStr}${docLine}\n\n---\n\n`;
+    const docLine = dialogue.documentId ? `\nDocument: ${dialogue.documentId}` : '';
+    const header = `# Dialogue with ${dialogue.personaName} ${dialogue.personaEmoji}\nDate: ${dateStr}${docLine}\n\n---\n\n`;
 
     const messages = dialogue.messages.map(m =>
       m.role === 'user'
-        ? `**Вы:** ${m.content}`
+        ? `**You:** ${m.content}`
         : `**${dialogue.personaName}:** ${m.content}`
     ).join('\n\n');
 

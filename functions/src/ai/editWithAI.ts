@@ -1,9 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, getDailyLimitCount, checkRateLimit, GEMINI_MODEL, getGenAI, getLangfuse } from '../shared/aiUtils';
-
-const MAX_AI_CONTENT_LENGTH = 50_000;
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, GEMINI_MODEL, getGenAI, getLangfuse, INJECTION_PATTERNS, MAX_AI_CONTENT_LENGTH } from '../shared/aiUtils';
 
 const actionSchema = z.enum(['shorten', 'accents', 'ideas', 'summarize', 'tags', 'mood', 'continue']);
 
@@ -78,9 +76,12 @@ export const editWithAI = onCall({
 
   const uid = request.auth.uid;
 
+  if (!(await withinGlobalDailyLimit())) {
+    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
+  }
+
   if (!(await checkDailyLimit(uid))) {
-    const { used, date } = await getDailyLimitCount(uid);
-    throw new HttpsError('resource-exhausted', `Daily limit reached. Used ${used}/${process.env.AI_DAILY_LIMIT ?? 50} on ${date}.`);
+    throw new HttpsError('resource-exhausted', 'Daily limit reached.');
   }
 
   if (!(await checkRateLimit(uid))) {
@@ -94,6 +95,14 @@ export const editWithAI = onCall({
 
   const { content, action, history } = parsed.data;
   const sanitizedInput = sanitizeAiInput(content);
+
+  if (history) {
+    for (const m of history) {
+      if (INJECTION_PATTERNS.some(p => p.test(m.content))) {
+        throw new HttpsError('invalid-argument', 'History contains disallowed patterns.');
+      }
+    }
+  }
 
   const lf = getLangfuse();
   const trace = lf?.trace({ name: 'editWithAI', userId: uid, metadata: { action } });

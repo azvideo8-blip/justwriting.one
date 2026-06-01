@@ -8,6 +8,7 @@ import { toDate } from '../../../core/utils/dateUtils';
 import { maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../core/errors/reportError';
 import { getLocalDb } from '../../../core/storage/localDb';
+import pLimit from 'p-limit';
 
 interface LoadedSession extends Session {
   _linkedCloudId?: string;
@@ -91,9 +92,10 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
         reportError(e, { action: 'loadAllSessions_cloudDocs', uid });
       }
 
+      const limiter = pLimit(5);
       const cloudSessionsPromises = cloudDocs
         .filter(cloudDoc => !localByCloudId.has(cloudDoc.id) && !seenIds.has(cloudDoc.id))
-        .map(async (cloudDoc) => {
+        .map(cloudDoc => limiter(async () => {
           seenIds.add(cloudDoc.id);
           const created = toDate(cloudDoc.lastSessionAt) ?? new Date();
           let cloudContent = '';
@@ -144,7 +146,7 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
             ...(cloudLocked ? { _locked: true } : {}),
             ...(cloudDecryptError ? { _decryptionError: true } : {}),
           };
-        });
+        }));
 
       const cloudSessions = await Promise.all(cloudSessionsPromises);
       allSessions.push(...cloudSessions);

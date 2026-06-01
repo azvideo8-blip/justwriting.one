@@ -8,6 +8,10 @@ import { STORAGE_KEYS } from '../../../core/constants/storageKeys';
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const _abortControllers = new Map<string, AbortController>();
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([promise, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))]);
+}
+
 function isDraftExpired(draft: LocalDraft): boolean {
   const updated = toTimestampMs(draft.updatedAt) ?? 0;
   return updated > 0 && Date.now() - updated > DRAFT_MAX_AGE_MS;
@@ -41,7 +45,7 @@ export const WritingDraftService = {
         }
         return null;
       })(),
-      (async () => {
+      withTimeout((async () => {
         const { db, mod } = await getClient();
         const { doc, getDoc } = mod;
         const docRef = doc(db, 'drafts', userId);
@@ -50,7 +54,7 @@ export const WritingDraftService = {
           return (await maybeDecrypt(docSnap.data() as Record<string, unknown>, ['content'], ['pinnedThoughts'])) as unknown as LocalDraft;
         }
         return null;
-      })(),
+      })(), 10000),
     ]);
 
     const localDraft: LocalDraft | null = localResult.status === 'fulfilled' ? localResult.value : null;
@@ -130,9 +134,10 @@ export const WritingDraftService = {
       if (ac.signal.aborted) return;
       reportError(e, { action: 'saveToFirestore', userId: draft.userId });
       throw new Error('Draft save aborted');
-    }
-    if (_abortControllers.get(draft.userId) === ac) {
-      _abortControllers.delete(draft.userId);
+    } finally {
+      if (_abortControllers.get(draft.userId) === ac) {
+        _abortControllers.delete(draft.userId);
+      }
     }
   },
 

@@ -1,4 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, type MutableRefObject } from 'react';
+import { User } from 'firebase/auth';
+import { useContentStore } from '../store/useContentStore';
+import { useTimerStore } from '../store/useTimerStore';
 import { reportError } from '../../../core/errors/reportError';
 
 export type DraftSaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -98,4 +101,47 @@ export function useVisibilitySave(doSave: () => Promise<void>, getContent: () =>
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [doSave, getContent]);
+}
+
+export function useSyncUnloadSave(
+  user: User | null,
+  draftDataRef: MutableRefObject<{
+    pinnedThoughts: string[];
+    sessionStartTime?: number;
+    activeSessionId: string | null;
+    [key: string]: unknown;
+  }>
+) {
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const contentState = useContentStore.getState();
+      const timerState_ = useTimerStore.getState();
+      if (user && contentState.content.trim() && (timerState_.status === 'writing' || timerState_.status === 'paused')) {
+        try {
+          const key = `draft-${user.uid}`;
+          localStorage.setItem(key, JSON.stringify({
+            content: contentState.content,
+            title: contentState.title,
+            seconds: timerState_.seconds,
+            wordCount: contentState.wordCount,
+            pinnedThoughts: draftDataRef.current.pinnedThoughts ?? [],
+            sessionStartTime: draftDataRef.current.sessionStartTime ?? null,
+            activeSessionId: draftDataRef.current.activeSessionId ?? null,
+            tags: contentState.tags ?? [],
+            labelId: contentState.labelId ?? undefined,
+            updatedAt: Date.now(),
+          }));
+        } catch (e) {
+          reportError(e, { action: 'autosave_beforeunload', userId: user.uid }, 'warning');
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+    };
+  }, [user, draftDataRef]);
 }

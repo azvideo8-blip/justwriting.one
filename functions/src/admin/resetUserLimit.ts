@@ -11,6 +11,8 @@ const schema = z.object({
 const MAX_DAILY_REQUESTS_SAFETY = 500;
 const MAX_DAILY_COST_SAFETY = 5.0; // USD safety limit to prevent runaways
 
+// Gemini 2.5 Flash pricing (as of 2025-06). Input: $0.075/1M tokens,
+// Output: $0.30/1M tokens. Verify at https://ai.google.dev/pricing
 const COST_IN = 0.000000075;
 const COST_OUT = 0.00000030;
 
@@ -37,16 +39,10 @@ export const resetUserLimit = onCall({
 
   const date = new Date().toISOString().slice(0, 10);
 
-  // Check safety budget across all users
-  const snapshot = await db.collectionGroup('daily').where('date', '==', date).get();
-  let totalRequests = 0;
-  let totalCost = 0;
-
-  snapshot.forEach(doc => {
-    const data = doc.data();
-    totalRequests += data.requests ?? 0;
-    totalCost += (data.promptTokens ?? 0) * COST_IN + (data.completionTokens ?? 0) * COST_OUT;
-  });
+  const globalSnap = await db.doc(`aiGlobalDaily/${date}`).get();
+  const globalData = globalSnap.data();
+  const totalRequests = globalData?.requests ?? 0;
+  const totalCost = (globalData?.promptTokens ?? 0) * COST_IN + (globalData?.completionTokens ?? 0) * COST_OUT;
 
   if (totalRequests >= MAX_DAILY_REQUESTS_SAFETY || totalCost >= MAX_DAILY_COST_SAFETY) {
     throw new HttpsError(

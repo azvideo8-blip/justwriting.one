@@ -130,18 +130,21 @@ describe('DocumentService', () => {
       expect(doc).toBeNull();
     });
 
-    it('returns null if validation fails', async () => {
+    it('returns fallback object if validation fails', async () => {
       mockGetDoc.mockResolvedValue({
         exists: () => true,
         id: 'doc_123',
         data: () => ({
           ...dummyDocRaw,
-          currentVersion: 'not-a-number', // breaks schema
+          currentVersion: 'not-a-number',
         }),
       });
 
       const doc = await DocumentService.getDocument('user_123', 'doc_123');
-      expect(doc).toBeNull();
+      expect(doc).not.toBeNull();
+      expect(doc?.id).toBe('doc_123');
+      expect(doc?.title).toBe('My Document');
+      expect(doc?.currentVersion).toBe('not-a-number');
     });
   });
 
@@ -167,7 +170,7 @@ describe('DocumentService', () => {
       expect(docs[1].id).toBe('doc_1');
     });
 
-    it('filters out documents that fail Zod validation', async () => {
+    it('returns fallback objects for documents that fail Zod validation', async () => {
       mockGetDocs.mockResolvedValue({
         docs: [
           {
@@ -182,8 +185,10 @@ describe('DocumentService', () => {
       });
 
       const docs = await DocumentService.getUserDocuments('user_123');
-      expect(docs).toHaveLength(1);
-      expect(docs[0].id).toBe('doc_1');
+      expect(docs).toHaveLength(2);
+      const corrupted = docs.find(d => d.id === 'doc_corrupted');
+      expect(corrupted).toBeDefined();
+      expect(corrupted?.totalWords).toBe('not-a-number');
     });
   });
 

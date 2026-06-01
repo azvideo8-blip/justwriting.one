@@ -6,6 +6,7 @@ import { LocalDocumentService } from '../../../core/services/LocalDocumentServic
 import { Session } from '../../../types';
 import { useLanguage } from '../../../core/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
+import { reportError } from '../../../core/errors/reportError';
 
 interface SessionEditorProps {
   session: Session;
@@ -24,10 +25,10 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
   const handleSave = () => {
     const wordCount = countWords(editContent);
 
-    if (session._isLocal) {
-      execute(
-        async () => {
-          const docId = session.id;
+    execute(
+      async () => {
+        const docId = session.id;
+        if (session._isLocal) {
           await LocalVersionService.addVersion(session.userId, docId, {
             content: editContent,
             previousContent: session.content,
@@ -42,10 +43,16 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
             totalDuration: session.duration,
             currentVersion: (await LocalDocumentService.getDocument(docId))?.currentVersion ?? 1,
           });
-        },
-        { successMessage: t('save_success'), errorMessage: t('error_save_failed'), onSuccess: onSave }
-      );
-    }
+          if (editTitle !== (session.title || '')) {
+            await LocalDocumentService.updateTitle(docId, editTitle);
+          }
+          await LocalDocumentService.updateTags(docId, editTags);
+        } else if (!session._isLocal) {
+          reportError(new Error('SessionEditor: cloud tag update not yet supported'), { action: 'SessionEditor_cloudSave', sessionId: session.id }, 'warning');
+        }
+      },
+      { successMessage: t('save_success'), errorMessage: t('error_save_failed'), onSuccess: onSave }
+    );
   };
 
   const addTag = () => {

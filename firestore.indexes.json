@@ -1,0 +1,12 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "daily",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

@@ -14,6 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.9',
+    date: '2026-06-01',
+    items: [
+      { category: 'fix', ru: 'ИИ-чат снова работает: потоковый эндпойнт /api/chat падал с ошибкой 500 на каждый запрос (сломанный ESM-импорт промптов после рефактора), из-за чего чат уходил в запасной режим и упирался в лимит — импорт исправлен, стриминг восстановлен', en: 'AI chat works again: the streaming /api/chat endpoint was returning 500 on every request (a broken ESM prompt import after refactoring), forcing the chat into fallback mode and into the rate limit — the import is fixed and streaming is restored' },
+      { category: 'fix', ru: 'Исправлены ошибки «Недостаточно прав» при сохранении анализа заметки, психологического портрета и части операций в архиве — в продакшене были устаревшие правила доступа к базе; актуальные правила выкачены заново', en: 'Fixed "Missing or insufficient permissions" errors when saving a note analysis, the psychological portrait, and some archive operations — production had stale database access rules; the current rules were redeployed' },
+      { category: 'improvement', ru: 'Безопасность ИИ: общий суточный лимит теперь проверяется во всех ИИ-функциях (редактирование, анализ, проверка промпта), а не только в чате; усилена защита от инъекций (нейтрализация служебных маркеров и невидимых Unicode-символов); смена роли пользователя стала согласованной между базой и токеном с откатом при сбое', en: 'AI security: the global daily cap is now enforced across all AI functions (edit, summarize, prompt validation), not just chat; input is hardened against more injection vectors (control markers and zero-width Unicode); changing a user role is now consistent between the database and the auth token, with rollback on failure' },
+      { category: 'fix', ru: 'Целостность данных: при переполнении локального хранилища версия больше не «теряется» с отметкой об успешном сохранении; редактор заметки теперь действительно сохраняет изменённые теги; устранён бесконечный индикатор загрузки в списке документов', en: 'Data integrity: when local storage is full, a version is no longer "lost" while the session is marked saved; the note editor now actually persists edited tags; fixed an infinite loading spinner in the documents list' },
+      { category: 'improvement', ru: 'Надёжность: чтение документов и версий устойчиво к рассинхрону схемы (записи больше не пропадают молча), массовые операции с тегами/лейблами больше не «съедают» ошибки; добавлен индекс базы для статистики ИИ (теперь в репозитории и деплоится автоматически)', en: 'Reliability: document and version reads tolerate schema drift (records no longer vanish silently), bulk tag/label operations no longer swallow errors; added the database index for AI usage stats (now version-controlled and auto-deployed)' },
+      { category: 'improvement', ru: 'Под капотом: ремедиация внешнего аудита кода (с отсевом ложных срабатываний) — ограничение параллельной загрузки из облака, таймауты и единый механизм автосохранения черновика, аналитика убрана с критического пути ИИ, удалён мёртвый код, добавлены переводы и тесты; вся проверочная батарея зелёная (линт, типы, сборка функций, 399 тестов)', en: 'Under the hood: external code-audit remediation (with false positives filtered out) — bounded concurrency for cloud loading, timeouts and a unified draft-autosave mechanism, analytics moved off the AI critical path, dead code removed, translations and tests added; the full check suite is green (lint, types, functions build, 399 tests)' },
+    ],
+  },
+  {
     version: '0.7.8',
     date: '2026-05-31',
     items: [

@@ -65,9 +65,11 @@ export function useArchiveData(user: User | null, userId: string, t: (key: strin
   const dateLocale = getDateLocale(language);
 
   const entriesLabel = (n: number) =>
-    n === 1 ? t('archive_entry_1') :
-    n >= 2 && n <= 4 ? t('archive_entry_2') :
-    t('archive_entry_5');
+    language === 'ru'
+      ? n === 1 ? t('archive_entry_1') :
+        n >= 2 && n <= 4 ? t('archive_entry_2') :
+        t('archive_entry_5')
+      : n === 1 ? t('archive_entry_1') : t('archive_entry_2');
 
   return {
     ...sessionsData,

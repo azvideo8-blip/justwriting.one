@@ -6,6 +6,7 @@ import { profileTranslations } from './translations/profile';
 import { settingsTranslations } from './translations/settings';
 import { authTranslations } from './translations/auth';
 import { lifelogTranslations } from './translations/lifelog';
+import { aiTranslations } from './translations/ai';
 import { Language, Translations } from './types';
 import { STORAGE_KEYS } from '../constants/storageKeys';
 
@@ -19,6 +20,7 @@ export const translations: Translations = {
   ...settingsTranslations,
   ...authTranslations,
   ...lifelogTranslations,
+  ...aiTranslations,
 };
 
 interface LanguageContextType {

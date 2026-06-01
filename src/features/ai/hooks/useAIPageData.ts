@@ -127,6 +127,22 @@ export function useAIPageData(linkedDocId?: string) {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const MAX_FILE_SIZE = 1_048_576;
+    if (file.size > MAX_FILE_SIZE) {
+      alert(`Файл слишком большой (максимум 1 МБ)`);
+      e.target.value = '';
+      setAttachMenuOpen(false);
+      return;
+    }
+    const allowedTypes = ['text/plain', 'text/markdown', 'text/csv', 'application/json', 'text/html'];
+    const allowedExts = ['.txt', '.md', '.csv', '.json', '.html', '.xml'];
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    if (!allowedTypes.includes(file.type) && !allowedExts.includes(ext)) {
+      alert(`Неподдерживаемый тип файла. Допустимы: ${allowedExts.join(', ')}`);
+      e.target.value = '';
+      setAttachMenuOpen(false);
+      return;
+    }
     const reader = new FileReader();
     reader.onload = async (ev) => {
       const text = ev.target?.result as string;

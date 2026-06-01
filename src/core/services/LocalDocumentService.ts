@@ -52,18 +52,20 @@ export const LocalDocumentService = {
       totalWords: data.totalWords,
       totalDuration: data.totalDuration,
       currentVersion: data.currentVersion,
-      sessionsCount: (existing.sessionsCount || 0) + 1,
+      sessionsCount: data.currentVersion,
       lastSessionAt: now,
       mood: data.mood,
     });
 
     const profile = await tx.objectStore('profile').get(existing.guestId);
     if (profile) {
+      const allDocs = await tx.objectStore('documents').getAll();
+      const totalSessions = allDocs.reduce((sum, d) => sum + (d.sessionsCount || 0), 0);
       await tx.objectStore('profile').put({
         ...profile,
         totalWords: profile.totalWords - existing.totalWords + data.totalWords,
         totalDuration: profile.totalDuration - existing.totalDuration + data.totalDuration,
-        sessionsCount: profile.sessionsCount + 1,
+        sessionsCount: totalSessions,
         lastSessionAt: now,
       });
       await tx.done;

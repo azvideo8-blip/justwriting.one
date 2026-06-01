@@ -229,7 +229,7 @@ describe('StorageService.saveVersion', () => {
         content: 'Should not throw',
         wordCount: 3,
       })
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ forked: false });
   });
 });
 

@@ -184,4 +184,6 @@ export const writingTranslations: Translations = {
   ai_persona_desc_editor: { ru: 'Опытный редактор улучшает ясность, структуру и поток текста, сохраняя твой авторский голос.', en: 'An experienced editor improves clarity, structure, and flow while preserving your voice.' },
   ai_persona_desc_coach: { ru: 'Коуч помогает найти скрытую цель, переосмыслить ограничивающие убеждения и сформулировать конкретный следующий шаг.', en: 'A coach helps uncover hidden goals, reframe limiting beliefs, and define a concrete next step.' },
   ai_persona_desc_journalist: { ru: 'Журналист превращает твои мысли в compelling narrative — находит угол подачи, структуру и главную историю.', en: 'A journalist turns your thoughts into compelling narrative — finding the angle, structure, and core story.' },
+
+  sync_conflict_forked: { ru: 'Конфликт синхронизации: локальная версия сохранена как копия', en: 'Sync conflict: local version saved as a separate copy' },
 };

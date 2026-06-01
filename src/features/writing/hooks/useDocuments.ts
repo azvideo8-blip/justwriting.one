@@ -28,8 +28,48 @@ export function useDocuments(userId: string, isGuest?: boolean) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDocs = useCallback(async () => {
-    if (!userId) return;
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!userId) {
+        if (!cancelled) { setLoading(false); setDocuments([]); }
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        if (isGuest) {
+          const localDocs = await LocalDocumentService.getGuestDocuments(userId);
+          if (!cancelled) setDocuments(localDocs.map(localDocToDocument));
+        } else {
+          const [cloudDocs, localDocs] = await Promise.all([
+            DocumentService.getUserDocuments(userId).catch((err) => {
+              reportError(err, { action: 'fetchDocuments_cloud_partial', userId }, 'warning');
+              return [] as Document[];
+            }),
+            LocalDocumentService.getGuestDocuments(userId),
+          ]);
+          if (!cancelled) {
+            const localMapped = localDocs.map(localDocToDocument);
+            const seenIds = new Set(localMapped.map(d => d.id));
+            const dedupedCloud = cloudDocs.filter(d => !seenIds.has(d.id));
+            setDocuments([...localMapped, ...dedupedCloud]);
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          reportError(err, { action: 'fetchDocuments', userId });
+          setError(t('archive_load_error') || 'Error loading documents');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userId, isGuest, t]);
+
+  const refresh = useCallback(async () => {
+    if (!userId) { setLoading(false); setDocuments([]); return; }
     setLoading(true);
     setError(null);
     try {
@@ -56,14 +96,6 @@ export function useDocuments(userId: string, isGuest?: boolean) {
       setLoading(false);
     }
   }, [userId, isGuest, t]);
-
-  useEffect(() => {
-    fetchDocs();
-  }, [userId, fetchDocs]);
-
-  const refresh = useCallback(async () => {
-    await fetchDocs();
-  }, [fetchDocs]);
 
   return { documents, loading, refresh, error };
 }

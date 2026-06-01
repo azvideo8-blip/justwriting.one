@@ -8,6 +8,7 @@ import { computeWordDelta } from './DiffService';
 import { maybeEncrypt, maybeDecrypt, type VersionEncryptPayload } from '../crypto/cryptoHelpers';
 import { reportError } from '../errors/reportError';
 import { isFirestoreConnected } from '../firebase/firestore';
+import pLimit from 'p-limit';
 
 export interface StorageState {
   local: boolean;
@@ -44,17 +45,21 @@ function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): P
 class LockManager {
   private locks = new Map<string, Promise<void>>();
 
-  async acquire(key: string, fn: () => Promise<void>): Promise<void> {
+  async acquire<T>(key: string, fn: () => Promise<T>): Promise<T> {
     const prev = this.locks.get(key) || Promise.resolve();
-    const next = prev.then(() => fn(), () => fn());
-    this.locks.set(key, next);
+    let result: T | undefined;
+    let settled = false;
+    const next = prev.then(
+      async () => { result = await fn(); settled = true; },
+      async () => { result = await fn(); settled = true; },
+    );
+    this.locks.set(key, next.then(() => {}, () => {}));
     try {
       await next;
     } finally {
-      if (this.locks.get(key) === next) {
-        this.locks.delete(key);
-      }
+      if (settled) this.locks.delete(key);
     }
+    return result!;
   }
 }
 
@@ -96,8 +101,8 @@ export const StorageService = {
     userId: string,
     documentId: string,
     data: SaveDocumentData
-  ): Promise<void> {
-    await _lockManager.acquire(documentId, () => withTimeout(_doSaveVersion(userId, documentId, data), 60_000));
+  ): Promise<{ forked: boolean }> {
+    return _lockManager.acquire(documentId, () => withTimeout(_doSaveVersion(userId, documentId, data), 60_000));
   },
 
   async addLocalCopy(userId: string, cloudDocumentId: string): Promise<string> {
@@ -205,8 +210,9 @@ export const StorageService = {
           lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
         }));
 
-        let prevContent = '';
-        for (const ver of versions) {
+        const limiter = pLimit(3);
+        await Promise.all(versions.map((ver, i) => limiter(async () => {
+          const prevContent = i === 0 ? '' : versions[i - 1].content;
           const startedAt = ver.sessionStartedAt != null
             ? new Date(ver.sessionStartedAt)
             : new Date(ver.savedAt || Date.now());
@@ -227,7 +233,7 @@ export const StorageService = {
             sessionStartedAt: startedAt,
           } satisfies VersionEncryptPayload, ['content', 'previousContent'], [], userId);
 
-          await withTimeout(VersionService.addVersion(userId, cloudId, {
+          await withTimeout(VersionService.addVersion(userId, cloudId!, {
             content: versionPayload.content as string,
             previousContent: versionPayload.previousContent as string,
             wordCount: ver.wordCount,
@@ -241,8 +247,7 @@ export const StorageService = {
             savedAt: ver.savedAt ? new Date(ver.savedAt) : undefined,
             _encrypted: versionPayload._encrypted as boolean | undefined,
           }));
-          prevContent = ver.content;
-        }
+        })));
 
         await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
           totalWords: localDoc.totalWords,
@@ -315,7 +320,7 @@ async function saveVersionToLocal(
   newVersion: number,
   prevContent: string,
   now: number
-): Promise<void> {
+): Promise<boolean> {
   const tx = db.transaction(['documents', 'versions'], 'readwrite');
   const docStore = tx.objectStore('documents');
   const verStore = tx.objectStore('versions');
@@ -358,11 +363,13 @@ async function saveVersionToLocal(
   } catch (localErr) {
     if (localErr instanceof DOMException && localErr.name === 'QuotaExceededError') {
       reportError(localErr, { action: 'saveVersionToLocal', documentId, quotaExceeded: true }, 'warning');
+      return false;
     } else {
       reportError(localErr, { action: 'saveVersionToLocal_localSave', documentId });
       throw localErr;
     }
   }
+  return true;
 }
 
 async function updateLocalProfile(
@@ -409,7 +416,7 @@ async function syncVersionToCloud(
   data: SaveDocumentData,
   newVersion: number,
   prevContent: string
-): Promise<void> {
+): Promise<{ forked: boolean }> {
   if (!isFirestoreConnected) {
     const syncDb = await getLocalDb();
     await syncDb.put('syncQueue', {
@@ -418,7 +425,7 @@ async function syncVersionToCloud(
       type: 'document' as const,
       createdAt: Date.now(),
     });
-    return;
+    return { forked: false };
   }
   try {
     const cloudDoc = await DocumentService.getDocument(userId, linkedCloudId);
@@ -463,7 +470,7 @@ async function syncVersionToCloud(
         type: 'document' as const,
         createdAt: Date.now(),
       });
-      return;
+      return { forked: true };
     } else {
       const startedAt = data.sessionStartedAt;
       if (isNaN(startedAt.getTime())) {
@@ -517,13 +524,14 @@ async function syncVersionToCloud(
       reportError(queueErr, { action: 'syncVersionToCloud_queueSync', documentId });
     }
   }
+  return { forked: false };
 }
 
 async function _doSaveVersion(
   userId: string,
   documentId: string,
   data: SaveDocumentData
-): Promise<void> {
+): Promise<{ forked: boolean }> {
   const db = await getLocalDb();
   const tx = db.transaction(['documents', 'versions'], 'readonly');
   const docStore = tx.objectStore('documents');
@@ -543,19 +551,21 @@ async function _doSaveVersion(
   const totalWords = data.documentWordCount ?? data.wordCount;
   const now = Date.now();
 
-  await saveVersionToLocal(db, documentId, data, existing, newVersion, prevContent, now);
+  const localSaveOk = await saveVersionToLocal(db, documentId, data, existing, newVersion, prevContent, now);
 
-  await updateLocalProfile(
-    existing.guestId,
-    existing.totalWords,
-    totalWords,
-    existing.totalDuration,
-    data.duration,
-    now
-  );
+  if (localSaveOk) {
+    await updateLocalProfile(
+      existing.guestId,
+      existing.totalWords,
+      totalWords,
+      existing.totalDuration,
+      data.duration,
+      now
+    );
+  }
 
   if (existing.linkedCloudId) {
-    await syncVersionToCloud(
+    const result = await syncVersionToCloud(
       userId,
       documentId,
       existing.linkedCloudId,
@@ -563,5 +573,7 @@ async function _doSaveVersion(
       newVersion,
       prevContent
     );
+    if (result.forked) return { forked: true };
   }
+  return { forked: false };
 }
