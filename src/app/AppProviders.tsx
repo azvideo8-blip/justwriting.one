@@ -7,6 +7,8 @@ import { ToastProvider } from '../shared/components/Toast';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
 import { LoginModalProvider } from '../features/auth/contexts/LoginModalContext';
 import { AuthProvider } from '../features/auth/contexts/AuthContext';
+import { ProfileProvider } from '../features/auth/contexts/ProfileContext';
+import { AnalyticsProvider } from '../features/auth/contexts/AnalyticsContext';
 import { HelmetProvider } from 'react-helmet-async';
 import { ReactNode } from 'react';
 import { PrivacyModal, usePrivacyCheck } from '../features/auth/components/PrivacyModal';
@@ -30,23 +32,27 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <LanguageProvider>
-          <ThemeProvider>
-            <WritingSettingsProvider>
-              <ToastProvider>
-                <LoginModalProvider>
-                  <SettingsProvider renderSettingsPanel={(props) => <SettingsPanel {...props} />}>
-                    <HelmetProvider>
-                      <PrivacyGuard>
-                        {children}
-                      </PrivacyGuard>
-                    </HelmetProvider>
-                  </SettingsProvider>
-                </LoginModalProvider>
-              </ToastProvider>
-            </WritingSettingsProvider>
-          </ThemeProvider>
-        </LanguageProvider>
+        <ProfileProvider>
+          <AnalyticsProvider>
+            <LanguageProvider>
+              <ThemeProvider>
+                <WritingSettingsProvider>
+                  <ToastProvider>
+                    <LoginModalProvider>
+                      <SettingsProvider renderSettingsPanel={(props) => <SettingsPanel {...props} />}>
+                        <HelmetProvider>
+                          <PrivacyGuard>
+                            {children}
+                          </PrivacyGuard>
+                        </HelmetProvider>
+                      </SettingsProvider>
+                    </LoginModalProvider>
+                  </ToastProvider>
+                </WritingSettingsProvider>
+              </ThemeProvider>
+            </LanguageProvider>
+          </AnalyticsProvider>
+        </ProfileProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

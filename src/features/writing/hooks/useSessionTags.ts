@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export function useSessionTags(sessionId: string, initialTags: string[] = []) {
+export function useSessionTags(initialTags: string[] = []) {
   const [tags, setTags] = useState<string[]>(initialTags);
   const [loading, setLoading] = useState(false);
 

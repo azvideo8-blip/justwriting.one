@@ -4,6 +4,8 @@ import { auth } from '../../../core/firebase/auth';
 import { Session } from '../../../types';
 import { useLanguage } from '../../../core/i18n';
 import { useSessionTags } from '../hooks/useSessionTags';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 interface TagsSectionProps {
   session: Session;
@@ -14,7 +16,7 @@ export function TagsSection({ session, isEditing: _isEditing }: TagsSectionProps
   const { t } = useLanguage();
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTag, setNewTag] = useState('');
-  const { tags, addTag, removeTag } = useSessionTags(session.id, session.tags || []);
+  const { tags, addTag, removeTag } = useSessionTags(session.tags || []);
 
   const handleAddTag = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,22 +38,25 @@ export function TagsSection({ session, isEditing: _isEditing }: TagsSectionProps
           >
             #{tag}
             {auth.currentUser?.uid === session.userId && (
-              <button
+              <IconButton
+                icon={<X size={10} />}
+                label={t('session_remove_tag')}
+                size="sm"
                 onClick={() => removeTag(tag)}
                 className="opacity-0 group-hover/tag:opacity-100 hover:text-red-500 transition-colors"
-              >
-                <X size={10} />
-              </button>
+              />
             )}
           </span>
         ))
       ) : (
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setIsAddingTag(true)}
-          className="text-xs italic transition-colors text-text-main/40 hover:text-text-main/50"
+          className="text-xs italic"
         >
           + {t('session_add_tags')}
-        </button>
+        </Button>
       )}
 
       {isAddingTag ? (
@@ -67,12 +72,13 @@ export function TagsSection({ session, isEditing: _isEditing }: TagsSectionProps
           />
         </form>
       ) : session.tags && session.tags.length > 0 && (
-        <button
+        <IconButton
+          icon={<Plus size={12} />}
+          label={t('session_add_tag')}
+          size="sm"
           onClick={() => setIsAddingTag(true)}
-          className="p-1 transition-colors text-text-main/40 hover:text-text-main/50"
-        >
-          <Plus size={12} />
-        </button>
+          className="p-1 text-text-main/40 hover:text-text-main/50"
+        />
       )}
     </div>
   );

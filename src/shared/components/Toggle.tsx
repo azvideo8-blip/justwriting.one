@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { cn } from '../../core/utils/utils';
+import { cn } from '../../shared/utils/cn';
 
 interface ToggleProps {
   checked: boolean;

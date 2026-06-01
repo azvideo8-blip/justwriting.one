@@ -37,7 +37,7 @@ interface TimerState {
   setInitialDuration: (duration: number) => void;
   setAccumulatedDuration: (d: number) => void;
   startFreeSession: (wordCount: number) => void;
-  checkGoals: () => void;
+  checkGoals: (wordCount?: number) => void;
 }
 
 export const useTimerStore = create<TimerState>((set, get) => ({
@@ -100,31 +100,40 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     };
   }),
 
-  checkGoals: () => {
+  checkGoals: (wordCount?: number) => {
     const s = get();
     const newSeconds = s.getElapsedSeconds();
     const sessionSeconds = newSeconds - s.sessionStartSeconds;
 
-    if (newSeconds === s.seconds && s.timeGoalReached === (s.sessionType === 'timer' && s.timerDuration > 0 && sessionSeconds >= s.timerDuration)) return;
-
     let timeGoalReached = s.timeGoalReached;
-    if (s.sessionType === 'timer' && s.timerDuration > 0 && sessionSeconds >= s.timerDuration) {
-      timeGoalReached = true;
-    }
-    if (s.targetTime && /^\d{1,2}:\d{2}$/.test(s.targetTime)) {
-      const [hours, minutes] = s.targetTime.split(':').map(Number);
-      const now = new Date();
-      const target = new Date(now);
-      target.setHours(hours, minutes, 0, 0);
-      if (now >= target) timeGoalReached = true;
+    let wordGoalReached = s.wordGoalReached;
+    let overtimeSeconds = s.overtimeSeconds;
+
+    if (newSeconds !== s.seconds ||
+      s.timeGoalReached !== (s.sessionType === 'timer' && s.timerDuration > 0 && sessionSeconds >= s.timerDuration)) {
+      if (s.sessionType === 'timer' && s.timerDuration > 0 && sessionSeconds >= s.timerDuration) {
+        timeGoalReached = true;
+      }
+      if (s.targetTime && /^\d{1,2}:\d{2}$/.test(s.targetTime)) {
+        const [hours, minutes] = s.targetTime.split(':').map(Number);
+        const now = new Date();
+        const target = new Date(now);
+        target.setHours(hours, minutes, 0, 0);
+        if (now >= target) timeGoalReached = true;
+      }
+
+      overtimeSeconds = 0;
+      if (timeGoalReached && s.sessionType === 'timer' && s.timerDuration > 0) {
+        overtimeSeconds = Math.max(0, sessionSeconds - s.timerDuration);
+      }
     }
 
-    let overtimeSeconds = 0;
-    if (timeGoalReached && s.sessionType === 'timer' && s.timerDuration > 0) {
-      overtimeSeconds = Math.max(0, sessionSeconds - s.timerDuration);
+    if (wordCount !== undefined && s.wordGoal > 0) {
+      const sessionWords = wordCount - s.sessionStartWords;
+      wordGoalReached = sessionWords >= s.wordGoal;
     }
 
-    set({ seconds: newSeconds, timeGoalReached, overtimeSeconds });
+    set({ seconds: newSeconds, timeGoalReached, wordGoalReached, overtimeSeconds });
   },
 
   setTimerDuration: (timerDuration) => set((state) => {

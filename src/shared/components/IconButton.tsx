@@ -1,5 +1,5 @@
 import { type ButtonHTMLAttributes, forwardRef, type ReactNode } from 'react';
-import { cn } from '../../core/utils/utils';
+import { cn } from '../../shared/utils/cn';
 
 type IconButtonSize = 'sm' | 'md';
 

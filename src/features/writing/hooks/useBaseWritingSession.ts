@@ -103,20 +103,21 @@ export function useBaseWritingSession(): BaseSessionReturn {
 
   const handleStart = useCallback(() => {
     const currentStatus = useTimerStore.getState().status;
+    const currentWordCount = useContentStore.getState().wordCount;
     setStatus('writing');
     setTimeGoalReached(false);
     setWordGoalReached(false);
     if (!sessionStartTime) {
-      setInitialWordCount(wordCount);
+      setInitialWordCount(currentWordCount);
       setSessionStartTime(Date.now());
     }
     if (currentStatus === 'idle') {
       useTimerStore.setState({ _startWallMs: performance.now(), _accumulatedMs: 0, seconds: 0, sessionStartSeconds: 0 });
-      setSessionStart(wordCount);
+      setSessionStart(currentWordCount);
     } else if (currentStatus === 'paused') {
       useTimerStore.getState().resumeSession();
     }
-  }, [setStatus, setTimeGoalReached, setWordGoalReached, sessionStartTime, setInitialWordCount, wordCount, setSessionStartTime, setSessionStart]);
+  }, [setStatus, setTimeGoalReached, setWordGoalReached, sessionStartTime, setInitialWordCount, setSessionStartTime, setSessionStart]);
 
   useEffect(() => {
     if (status !== 'writing') return;
@@ -124,7 +125,7 @@ export function useBaseWritingSession(): BaseSessionReturn {
     const onVisibility = () => { isVisible = !document.hidden; };
     document.addEventListener('visibilitychange', onVisibility);
     const id = setInterval(() => {
-      if (isVisible) useTimerStore.getState().checkGoals();
+      if (isVisible) useTimerStore.getState().checkGoals(useContentStore.getState().wordCount);
     }, 500);
     return () => {
       clearInterval(id);

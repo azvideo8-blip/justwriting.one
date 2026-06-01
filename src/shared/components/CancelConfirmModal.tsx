@@ -4,7 +4,7 @@ import { X, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '../../core/i18n';
 import { useModalEscape } from '../hooks/useModalEscape';
 import { useFocusTrap } from '../hooks/useFocusTrap';
-import { cn } from '../../core/utils/utils';
+import { cn } from '../../shared/utils/cn';
 
 interface CancelConfirmModalProps {
   isOpen: boolean;
@@ -53,6 +53,7 @@ export function CancelConfirmModal({
         className="w-full max-w-sm rounded-3xl p-8 shadow-2xl space-y-6 text-center border bg-surface-card backdrop-blur-2xl border-border-subtle shadow-[0_0_40px_rgba(255,255,255,0.05)] relative"
       >
         <button 
+          type="button"
           onClick={onCancel}
           className="absolute top-4 right-4 p-3 rounded-full text-text-main/50 hover:text-text-main hover:bg-text-main/10 transition-colors"
           aria-label={t('common_close')}
@@ -72,12 +73,14 @@ export function CancelConfirmModal({
         </div>
         <div className="flex gap-3">
           <button 
+            type="button"
             onClick={onCancel}
             className="flex-1 px-4 py-3 rounded-xl font-bold transition-colors border border-border-subtle text-text-main hover:bg-white/5"
           >
             {cancelLabel || t('writing_back')}
           </button>
           <button 
+            type="button"
             onClick={onConfirm}
             className={cn(
               "flex-1 px-4 py-3 rounded-xl font-bold transition-colors",

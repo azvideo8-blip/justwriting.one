@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { cn } from '../../core/utils/utils';
+import { cn } from '../../shared/utils/cn';
 import { useLanguage } from '../../core/i18n';
 
 interface StreakDotsProps {
@@ -29,7 +29,7 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
 
   if (variant === 'mobile') {
     return (
-      <div style={{ display: 'flex', gap: 6, justifyContent: 'space-between' }}>
+      <div role="group" aria-label="Writing streak calendar" style={{ display: 'flex', gap: 6, justifyContent: 'space-between' }}>
         {days.map((day, i) => (
           <div key={i} style={{
             display: 'flex',
@@ -38,33 +38,36 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
             gap: 4,
             flex: 1,
           }}>
-            <div style={{
-              width: 28,
-              height: 28,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 11,
-              fontWeight: 700,
-              fontFamily: 'JetBrains Mono, monospace',
-              background: day.hasSession
-                ? day.isToday
-                  ? 'var(--brand-primary)'
-                  : 'rgba(255,255,255,0.12)'
-                : 'rgba(255,255,255,0.04)',
-              color: day.hasSession
-                ? day.isToday
-                  ? 'var(--color-surface-base, #0b0d0c)'
-                  : 'rgba(232,236,233,0.85)'
-                : 'rgba(255,255,255,0.20)',
-              border: day.isToday && !day.hasSession
-                ? '1px solid rgba(255,255,255,0.15)'
-                : '1px solid transparent',
-              boxShadow: day.isToday && day.hasSession
-                ? '0 0 8px color-mix(in srgb, var(--brand-primary) 40%, transparent)'
-                : 'none',
-            }}>
+            <div
+              role="gridcell"
+              aria-label={day.hasSession ? `${day.date.toLocaleDateString()}: session written` : `${day.date.toLocaleDateString()}: no session`}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 11,
+                fontWeight: 700,
+                fontFamily: 'JetBrains Mono, monospace',
+                background: day.hasSession
+                  ? day.isToday
+                    ? 'var(--brand-primary)'
+                    : 'rgba(255,255,255,0.12)'
+                  : 'rgba(255,255,255,0.04)',
+                color: day.hasSession
+                  ? day.isToday
+                    ? 'var(--color-surface-base, #0b0d0c)'
+                    : 'rgba(232,236,233,0.85)'
+                  : 'rgba(255,255,255,0.20)',
+                border: day.isToday && !day.hasSession
+                  ? '1px solid rgba(255,255,255,0.15)'
+                  : '1px solid transparent',
+                boxShadow: day.isToday && day.hasSession
+                  ? '0 0 8px color-mix(in srgb, var(--brand-primary) 40%, transparent)'
+                  : 'none',
+              }}>
               {day.date.getDate()}
             </div>
             <span style={{
@@ -84,7 +87,7 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
   }
 
   return (
-    <div className="flex justify-center gap-2">
+    <div className="flex justify-center gap-2" role="group" aria-label="Writing streak calendar">
       {days.map((day, i) => (
         <motion.div
           key={i}
@@ -99,6 +102,8 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
           }}
         >
           <div
+            role="gridcell"
+            aria-label={day.hasSession ? `${day.date.toLocaleDateString()}: session written` : `${day.date.toLocaleDateString()}: no session`}
             className={cn(
               "w-8 h-8 rounded-full flex items-center justify-center text-label-sm font-bold transition-colors",
               day.hasSession

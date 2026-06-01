@@ -2,6 +2,7 @@ import React from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { formatTime } from '../../../core/utils/formatTime';
 import { StreakDots } from '../../../shared/components/StreakDots';
+import { Button } from '../../../shared/components/Button';
 
 const WpmChart = React.lazy(() => import('./WpmChart').then(m => ({ default: m.WpmChart })));
 
@@ -39,14 +40,15 @@ export function FinishModalStats({
   if (isMobile) {
     return (
       <div className="border border-border-subtle rounded-2xl overflow-hidden bg-surface-base/10">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="md"
           onClick={() => setStatsExpanded(!statsExpanded)}
-          className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-colors font-semibold text-sm"
+          className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 font-semibold text-sm"
         >
           <span>{t('finish_wpm_chart') || 'Session Stats'}</span>
           {statsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </button>
+        </Button>
 
         {statsExpanded && (
           <div className="p-4 space-y-4">

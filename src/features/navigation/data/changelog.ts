@@ -14,6 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.10',
+    date: '2026-06-01',
+    items: [
+      { category: 'improvement', ru: 'Большой внутренний рефакторинг архитектуры (поведение не изменилось): крупные модули распилены на части — хранилище разделено на сервисы локального сохранения, облачной синхронизации и разрешения конфликтов; экран письма и контекст авторизации разбиты на отдельные провайдеры/контексты; продублированная логика черновиков сведена к одному хуку', en: 'Large internal architecture refactor (no behavior change): big modules split apart — storage decomposed into local-save, cloud-sync and conflict-resolution services; the writing screen and auth context split into focused providers/contexts; duplicated draft logic unified into a single hook' },
+      { category: 'accessibility', ru: 'Доступность: кнопкам в диалогах добавлен корректный type="button" (не сабмитят форму по ошибке), календарю серий письма добавлены ARIA-метки для скринридеров', en: 'Accessibility: dialog buttons now have a proper type="button" (no accidental form submits), and the writing-streak calendar got ARIA labels for screen readers' },
+      { category: 'improvement', ru: 'Единый набор UI-компонентов (поля ввода, кнопки, карточки, бейджи) и семантические токены вместо захардкоженных цветов — основа для дальнейшей унификации интерфейса', en: 'A unified set of UI primitives (inputs, buttons, cards, badges) and semantic color tokens instead of hardcoded colors — groundwork for further UI consistency' },
+      { category: 'improvement', ru: 'Оптимизация сборки и качество кода: новые vendor-чанки (AI/Sentry/аналитика/списки), sourcemaps убраны из продакшен-бандла; ужесточён линтинг (запрет циклических импортов, строгие зависимости хуков); граница слоёв приведена в порядок', en: 'Build optimization and code quality: new vendor chunks (AI/Sentry/analytics/lists), sourcemaps removed from the production bundle; stricter linting (no circular imports, strict hook deps); layer boundaries tidied up' },
+      { category: 'fix', ru: 'Облачный автосейв черновика для вошедших пользователей больше не падает с ошибкой прав: в облако теперь отправляются только разрешённые правилами поля (исчезли ошибки «Недостаточно прав» в консоли при письме)', en: 'Cloud draft autosave for signed-in users no longer fails with a permissions error: only schema-allowed fields are sent to the cloud (removes the "Missing or insufficient permissions" console errors while writing)' },
+      { category: 'fix', ru: 'Мелкие исправления: убраны лишние ре-рендеры в сессии письма, защита от гонки при инициализации локальной базы, чистка неиспользуемых параметров', en: 'Minor fixes: removed unnecessary re-renders in the writing session, guarded against a race on local database init, cleaned up unused parameters' },
+    ],
+  },
+  {
     version: '0.7.9',
     date: '2026-06-01',
     items: [

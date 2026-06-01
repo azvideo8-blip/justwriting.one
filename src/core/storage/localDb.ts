@@ -133,8 +133,10 @@ interface JustWritingDB extends DBSchema {
 
 let dbInstance: IDBPDatabase<JustWritingDB> | null = null;
 let dbOpenPromise: Promise<IDBPDatabase<JustWritingDB>> | null = null;
+let dbGeneration = 0;
 
 export function resetDbInstance(): void {
+  dbGeneration++;
   if (dbInstance) {
     try { dbInstance.close(); } catch { /* ignore */ }
     dbInstance = null;
@@ -150,6 +152,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   }
   if (dbOpenPromise) return dbOpenPromise;
 
+  const currentGeneration = dbGeneration;
   dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 5, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
@@ -189,6 +192,12 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
 
   try {
     dbInstance = await dbOpenPromise;
+    if (dbGeneration !== currentGeneration) {
+      dbInstance.close();
+      dbInstance = null;
+      dbOpenPromise = null;
+      return getLocalDb();
+    }
     dbInstance.addEventListener('close', () => { dbInstance = null; dbOpenPromise = null; });
     return dbInstance;
   } catch (e) {

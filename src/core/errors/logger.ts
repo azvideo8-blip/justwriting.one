@@ -6,6 +6,7 @@ function log(level: LogLevel, context: string, message: string, data?: Record<st
   if (import.meta.env.DEV) {
     if (level === 'error') console.error(`[${context}] ${message}`, data ?? '');
     else if (level === 'warn') console.warn(`[${context}] ${message}`, data ?? '');
+    // eslint-disable-next-line no-console
     else console.info(`[${context}] ${message}`, data ?? '');
   }
 

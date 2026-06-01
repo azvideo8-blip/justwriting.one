@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../../core/utils/utils';
+import { cn } from '../../shared/utils/cn';
 
 interface ToastItem {
   id: number;

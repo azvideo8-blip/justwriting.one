@@ -1,72 +1,51 @@
 import React from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { Session, UserProfile } from '../../../types';
-import { LifeLogDocument } from '../types/lifeLog';
 import { cn } from '../../../core/utils/utils';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useLanguage } from '../../../core/i18n';
+import { useWritingSessionContext } from '../contexts/WritingSessionContext';
 
 import { WritingHeader } from '../components/WritingHeader';
 import { WritingEditor } from '../components/WritingEditor';
-import { WritingSetup, SetupMode } from '../components/WritingSetup';
+import { WritingSetup } from '../components/WritingSetup';
 import { LifeLogPanel } from '../components/LifeLogPanel';
 import { BottomStats } from '../components/BottomStats';
 import { ConnectionStatusBanner } from '../components/ConnectionStatusBanner';
-import { KeystrokeTracker } from '../utils/keystrokeTracker';
 
-interface DesktopWritingLayoutProps {
-  profile: UserProfile | null;
-  setupMode: SetupMode | null;
-  setSetupMode: (mode: SetupMode | null) => void;
-  startCountdown: (type: 'stopwatch' | 'timer' | 'words' | 'finish-by') => void;
-  countdown: number | null;
-  totalDurationForDeadline: number | null;
-  onNew: () => void;
-  onOpenLog: () => void;
-  onSave: () => void;
-  onPlay: () => void;
-  onPause: () => void;
-  onStop: () => void;
-  onContinueSession: (session: LifeLogDocument) => void;
-  handlePlayRef: React.MutableRefObject<() => void>;
-  keystrokeTrackerRef: React.MutableRefObject<KeystrokeTracker>;
-  hasDraft: boolean;
-  sessionStatus: string;
-  userId: string;
-  onContinueSessionOrDoc: (session: Session | LifeLogDocument) => void;
-  restoreDraft: () => void;
-  discardDraft: () => void;
-  onSetPromptTitle: (title: string) => void;
-  showZen: boolean;
-  lifeLogVisible: boolean;
-  setLifeLogVisible: (v: boolean) => void;
-  lifeLogTab: 'log' | 'settings';
-  setLifeLogTab: (t: 'log' | 'settings') => void;
-  lifeLogPinned: boolean;
-  setLifeLogPinned: (v: boolean) => void;
-  saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
-  streakDays?: number;
-}
-
-export function DesktopWritingLayout({
-  profile: _profile,
-  setupMode, setSetupMode, startCountdown,
-  countdown, totalDurationForDeadline,
-  onNew, onOpenLog, onSave, onPlay, onPause, onStop,
-  onContinueSession, handlePlayRef, keystrokeTrackerRef,
-  hasDraft, sessionStatus, userId,
-  onContinueSessionOrDoc, restoreDraft, discardDraft,
-  onSetPromptTitle,
-  showZen, lifeLogVisible, setLifeLogVisible,
-  lifeLogTab, setLifeLogTab, lifeLogPinned, setLifeLogPinned,
-  saveStatus,
-  streakDays,
-}: DesktopWritingLayoutProps) {
+export function DesktopWritingLayout() {
   const { t } = useLanguage();
   const editorColRef = React.useRef<HTMLDivElement>(null);
   const [isCompact, setIsCompact] = React.useState(false);
   const { editorWidth, zenSeenOnce } = useWritingSettings();
   const reducedMotion = useReducedMotion();
+
+  const {
+    flow,
+    actions,
+    session,
+    streakDays,
+    handlePlayRef,
+    keystrokeTrackerRef,
+    showZen,
+  } = useWritingSessionContext();
+
+  const {
+    setupMode,
+    setSetupMode,
+    startCountdown,
+    countdown,
+    totalDurationForDeadline,
+  } = flow;
+
+  const { onFinishClick } = useWritingSessionContext();
+
+  const onNew = actions.handleNew;
+  const onOpenLog = actions.handleOpen;
+  const onPlay = actions.handlePlay;
+  const onPause = actions.handlePause;
+  const onContinueSession = actions.handleContinueDocument;
+  const onSave = onFinishClick;
+  const onStop = onFinishClick;
 
   React.useEffect(() => {
     const el = editorColRef.current;
@@ -86,6 +65,8 @@ export function DesktopWritingLayout({
       if (rafId !== null) cancelAnimationFrame(rafId);
     };
   }, []);
+
+  const { lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, lifeLogPinned, setLifeLogPinned } = useWritingSettings();
 
   return (
     <motion.div
@@ -118,7 +99,7 @@ export function DesktopWritingLayout({
             onPlay={onPlay}
             onPause={onPause}
             onStop={onStop}
-            saveStatus={saveStatus}
+            saveStatus={session.saveStatus}
           />
         </div>
 
@@ -132,7 +113,7 @@ export function DesktopWritingLayout({
           justifyContent: 'center',
         }}>
           <AnimatePresence>
-            {hasDraft && sessionStatus === 'idle' && !setupMode && (
+            {session.hasDraft && session.status === 'idle' && !setupMode && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -143,10 +124,10 @@ export function DesktopWritingLayout({
                 <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-text-main/10 bg-surface-card/90 backdrop-blur-xl shadow-lg text-sm text-text-main/60 whitespace-nowrap">
                   <span>{t('draft_restore_prompt')}</span>
                   <div className="flex gap-2">
-                    <button onClick={restoreDraft} className="text-text-main font-medium hover:opacity-70 transition-opacity">
+                    <button onClick={session.restoreDraft} className="text-text-main font-medium hover:opacity-70 transition-opacity">
                       {t('draft_restore')}
                     </button>
-                    <button onClick={discardDraft}
+                    <button onClick={session.discardDraft}
                       className="text-text-main/40 hover:text-text-main/60 transition-colors">
                       {t('draft_discard')}
                     </button>
@@ -174,7 +155,7 @@ export function DesktopWritingLayout({
                 countdown={countdown}
                 userSessions={[]}
                 continueSession={onContinueSession}
-                onSetPromptTitle={onSetPromptTitle}
+                onSetPromptTitle={session.setTitle}
               />
             ) : (
             <WritingEditor
@@ -182,7 +163,7 @@ export function DesktopWritingLayout({
                 if (!e.metaKey && !e.ctrlKey && !e.altKey) {
                   keystrokeTrackerRef.current.record();
                 }
-                if ((sessionStatus === 'idle' || sessionStatus === 'paused') && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+                if ((session.status === 'idle' || session.status === 'paused') && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
                   handlePlayRef.current();
                 }
               }}
@@ -203,8 +184,8 @@ export function DesktopWritingLayout({
         {lifeLogVisible && lifeLogPinned && (
           <div style={{ gridColumn: '3', gridRow: '1 / 4', overflow: 'hidden' }}>
             <LifeLogPanel
-              userId={userId}
-              onContinueSession={onContinueSessionOrDoc}
+              userId={session.userId}
+              onContinueSession={actions.handleContinueSessionOrDoc}
               onClose={() => setLifeLogVisible(false)}
               activeTab={lifeLogTab}
               onTabChange={setLifeLogTab}
@@ -220,8 +201,8 @@ export function DesktopWritingLayout({
       <AnimatePresence>
         {lifeLogVisible && !lifeLogPinned && (
           <LifeLogPanel
-            userId={userId}
-            onContinueSession={onContinueSessionOrDoc}
+            userId={session.userId}
+            onContinueSession={actions.handleContinueSessionOrDoc}
             onClose={() => setLifeLogVisible(false)}
             activeTab={lifeLogTab}
             onTabChange={setLifeLogTab}

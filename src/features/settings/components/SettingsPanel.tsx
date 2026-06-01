@@ -22,9 +22,7 @@ interface SettingsPanelProps {
   defaultTab?: Tab;
 }
 
-export function SettingsPanelContent({ userId, onRefreshLifeLog, defaultTab }: { userId: string; onRefreshLifeLog?: () => void; defaultTab?: Tab }) {
-  const validTab = (defaultTab === 'editor' || defaultTab === 'app' || defaultTab === 'account') ? defaultTab : 'editor';
-  const [activeTab, setActiveTab] = useState<Tab>(validTab);
+export function SettingsPanelContent({ userId, onRefreshLifeLog, activeTab, setActiveTab }: { userId: string; onRefreshLifeLog?: () => void; activeTab: Tab; setActiveTab: (tab: Tab) => void }) {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const tapCountRef = useRef(0);
@@ -144,6 +142,8 @@ export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog, defau
   const { t } = useLanguage();
   const panelRef = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
+  const validTab = (defaultTab === 'editor' || defaultTab === 'app' || defaultTab === 'account') ? defaultTab : 'editor';
+  const [activeTab, setActiveTab] = useState<Tab>(validTab);
 
   useFocusTrap(panelRef, isOpen);
 
@@ -183,6 +183,7 @@ export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog, defau
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle shrink-0">
               <h2 id="settings-title" className="text-lg font-bold text-text-main">{t('nav_settings')}</h2>
               <button
+                type="button"
                 onClick={onClose}
                 aria-label={t('common_close')}
                 className="p-3 rounded-xl text-text-main/50 hover:text-text-main hover:bg-text-main/8 transition-colors"
@@ -191,7 +192,7 @@ export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog, defau
               </button>
             </div>
 
-            <SettingsPanelContent key={defaultTab ?? 'editor'} userId={userId} onRefreshLifeLog={onRefreshLifeLog} defaultTab={defaultTab} />
+            <SettingsPanelContent userId={userId} onRefreshLifeLog={onRefreshLifeLog} activeTab={activeTab} setActiveTab={setActiveTab} />
           </motion.div>
         </>
       )}

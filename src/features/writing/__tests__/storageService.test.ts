@@ -393,3 +393,146 @@ describe('StorageService.addCloudCopy', () => {
     expect(doc!.sessionsCount).toBe(3);
   });
 });
+
+// ─── deleteDocument ────────────────────────────────────────────────────────────
+
+describe('StorageService.deleteDocument', () => {
+  it('deletes local document and all its versions', async () => {
+    const { localId } = await StorageService.saveNew(GUEST, BASE_DATA);
+    await StorageService.saveVersion(GUEST, localId, { ...BASE_DATA, content: 'V2', wordCount: 5 });
+
+    await StorageService.deleteDocument(GUEST, localId);
+
+    const doc = await LocalDocumentService.getDocument(localId);
+    expect(doc).toBeUndefined();
+    const versions = await LocalVersionService.getVersions(localId);
+    expect(versions).toHaveLength(0);
+  });
+
+  it('deletes cloud document when cloudId provided', async () => {
+    const { localId } = await StorageService.saveNew(GUEST, BASE_DATA);
+    const cloudId = await StorageService.addCloudCopy(GUEST, localId);
+
+    await StorageService.deleteDocument(GUEST, localId, cloudId);
+
+    expect(MockDocumentService.deleteDocument).toHaveBeenCalledWith(GUEST, cloudId);
+    const doc = await LocalDocumentService.getDocument(localId);
+    expect(doc).toBeUndefined();
+  });
+});
+
+// ─── getStorageState ─────────────────────────────────────────────────────────
+
+describe('StorageService.getStorageState', () => {
+  it('returns local=true when local document exists', async () => {
+    const { localId } = await StorageService.saveNew(GUEST, BASE_DATA);
+    const state = await StorageService.getStorageState(GUEST, localId);
+    expect(state).toEqual({ local: true, cloud: false });
+  });
+
+  it('returns cloud=true when cloud document exists', async () => {
+    const { localId } = await StorageService.saveNew(GUEST, BASE_DATA);
+    const cloudId = await StorageService.addCloudCopy(GUEST, localId);
+    const state = await StorageService.getStorageState(GUEST, localId, cloudId);
+    expect(state).toEqual({ local: true, cloud: true });
+  });
+
+  it('returns both false when neither exists', async () => {
+    const state = await StorageService.getStorageState(GUEST, 'nonexistent');
+    expect(state).toEqual({ local: false, cloud: false });
+  });
+});
+
+// ─── syncVersionToCloud conflict fork ──────────────────────────────────────────
+
+describe('StorageService.saveVersion — cloud conflict fork', () => {
+  it('forks local document when cloud version is >= local version', async () => {
+    const { localId } = await StorageService.saveNew(GUEST, BASE_DATA);
+    const cloudId = await StorageService.addCloudCopy(GUEST, localId);
+
+    // Simulate cloud having a newer version
+    cloudDocs.set(cloudId, {
+      id: cloudId,
+      userId: GUEST,
+      title: 'Test',
+      totalWords: 4,
+      totalDuration: 120,
+      currentVersion: 5, // Higher than local version 1
+    });
+
+    const result = await StorageService.saveVersion(GUEST, localId, {
+      ...BASE_DATA,
+      content: 'Updated content',
+      wordCount: 8,
+    });
+
+    expect(result.forked).toBe(true);
+
+    // Original document should still exist
+    const originalDoc = await LocalDocumentService.getDocument(localId);
+    expect(originalDoc).not.toBeNull();
+
+    // A forked document should have been created
+    const allDocs = await LocalDocumentService.getGuestDocuments(GUEST);
+    const forked = allDocs.find(d => d.title.includes('Conflict'));
+    expect(forked).toBeDefined();
+    expect(forked!.totalWords).toBe(8);
+  });
+});
+
+// ─── offline sync queue ───────────────────────────────────────────────────────
+
+describe('StorageService.saveVersion — offline queue', () => {
+  it('adds to syncQueue when Firestore is disconnected', async () => {
+    const { localId } = await StorageService.saveNew(GUEST, BASE_DATA);
+    await LocalDocumentService.updateLinkedCloudId(localId, 'cloud_offline_123');
+
+    // Mock Firestore as disconnected
+    vi.doMock('../../../core/firebase/firestore', () => ({
+      isFirestoreConnected: false,
+      onConnectionChange: vi.fn(),
+    }));
+
+    const result = await StorageService.saveVersion(GUEST, localId, {
+      ...BASE_DATA,
+      content: 'Offline content',
+      wordCount: 3,
+    });
+
+    expect(result.forked).toBe(false);
+
+    // Check syncQueue
+    const db = await (await import('../../../core/storage/localDb')).getLocalDb();
+    const queue = await db.getAll('syncQueue');
+    const docQueue = queue.filter(q => q.documentId === localId);
+    expect(docQueue.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── profile update ───────────────────────────────────────────────────────────
+
+describe('StorageService.saveNew — profile update', () => {
+  it('updates local profile after save', async () => {
+    await StorageService.saveNew(GUEST, { ...BASE_DATA, wordCount: 100, duration: 600 });
+
+    const db = await (await import('../../../core/storage/localDb')).getLocalDb();
+    const profile = await db.get('profile', GUEST);
+
+    expect(profile).not.toBeUndefined();
+    expect(profile!.totalWords).toBe(100);
+    expect(profile!.totalDuration).toBe(600);
+    expect(profile!.sessionsCount).toBe(1);
+  });
+
+  it('increments profile stats on subsequent saves', async () => {
+    const { localId } = await StorageService.saveNew(GUEST, { ...BASE_DATA, wordCount: 100, duration: 600 });
+    await StorageService.saveVersion(GUEST, localId, { ...BASE_DATA, wordCount: 50, duration: 300 });
+
+    const db = await (await import('../../../core/storage/localDb')).getLocalDb();
+    const profile = await db.get('profile', GUEST);
+
+    expect(profile).not.toBeUndefined();
+    expect(profile!.totalWords).toBe(50); // documentWordCount replaced
+    expect(profile!.sessionsCount).toBe(2);
+  });
+});

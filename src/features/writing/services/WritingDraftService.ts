@@ -8,6 +8,17 @@ import { STORAGE_KEYS } from '../../../core/constants/storageKeys';
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const _abortControllers = new Map<string, AbortController>();
 
+// Fields allowed by the `drafts/{uid}` Firestore rule (isValidDraft). The local
+// draft carries extra transient state (e.g. `status`) that the rule rejects via
+// hasOnly(), so only schema fields are sent to the cloud. `updatedAt` is set
+// separately with a server timestamp.
+const DRAFT_CLOUD_FIELDS = new Set([
+  'userId', 'content', 'title', 'pinnedThoughts', 'tags', '_encrypted',
+  'seconds', 'wpm', 'wordCount', 'initialWordCount', 'activeSessionId',
+  'sessionStartTime', 'accumulatedDuration', 'totalPauseSeconds',
+  'savedDocumentId', 'labelId',
+]);
+
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([promise, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))]);
 }
@@ -127,7 +138,9 @@ export const WritingDraftService = {
     const { doc, setDoc, serverTimestamp } = mod;
     const docRef = doc(db, 'drafts', draft.userId);
     const encrypted = await maybeEncrypt(draft as unknown as Record<string, unknown>, ['content'], ['pinnedThoughts'], draft.userId);
-    const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
+    const clean = Object.fromEntries(
+      Object.entries(encrypted).filter(([k, v]) => v !== undefined && DRAFT_CLOUD_FIELDS.has(k))
+    );
     try {
       await setDoc(docRef, { ...clean, updatedAt: serverTimestamp() }, { merge: true });
     } catch (e) {
