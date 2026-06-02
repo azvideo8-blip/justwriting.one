@@ -74,7 +74,9 @@ export const SessionCard = React.memo(function SessionCard({
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (isEditing) return;
-    setTouchStart(e.touches[0].clientX);
+    const touch = e.touches[0];
+    if (!touch) return;
+    setTouchStart(touch.clientX);
 
     if (isMobile && userId && !userId.startsWith('guest_')) {
       longPressTimer.current = setTimeout(() => {
@@ -86,7 +88,9 @@ export const SessionCard = React.memo(function SessionCard({
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (touchStart === null || isEditing) return;
-    const current = e.touches[0].clientX;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const current = touch.clientX;
     const diff = current - touchStart;
 
     if (Math.abs(diff) > 10 && longPressTimer.current) {

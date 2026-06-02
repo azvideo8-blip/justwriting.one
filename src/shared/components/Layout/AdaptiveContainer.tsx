@@ -9,12 +9,13 @@ interface AdaptiveContainerProps {
 }
 
 export function AdaptiveContainer({ children, maxWidth, widthPercent, className }: AdaptiveContainerProps) {
+  const containerStyle = {
+    maxWidth: widthPercent && widthPercent < 100 ? `${widthPercent}%` : (maxWidth != null && maxWidth > 0 ? `${maxWidth}px` : '100%'),
+  };
   return (
     <div
       className={cn("mx-auto w-full px-4", className)}
-      style={{
-        maxWidth: widthPercent && widthPercent < 100 ? `${widthPercent}%` : (maxWidth != null && maxWidth > 0 ? `${maxWidth}px` : '100%'),
-      }}
+      style={containerStyle}
     >
       {children}
     </div>

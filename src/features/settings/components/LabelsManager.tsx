@@ -17,7 +17,7 @@ interface LabelsManagerProps {
 export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerProps) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
-  const [selectedColor, setSelectedColor] = useState(LABEL_PRESET_COLORS[0]);
+  const [selectedColor, setSelectedColor] = useState<string>(LABEL_PRESET_COLORS[0]!);
 
   const handleAdd = () => {
     const trimmed = name.trim();
@@ -31,7 +31,7 @@ export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerPr
     <>
       {labels.map(label => (
         <div key={label.id} className="flex items-center gap-3 py-2 px-4 rounded-xl border border-border-subtle">
-          <div className="w-3 h-3 rounded-full shrink-0" style={{ background: label.color }} />
+          <div className="w-3 h-3 rounded-full shrink-0" style={label.color ? { background: label.color } : undefined} />
           <span className="text-sm text-text-main flex-1">{label.name}</span>
           <IconButton onClick={() => removeLabel(label.id)} className="p-1" label="Remove label" icon={<X size={14} className="text-text-main/30 hover:text-accent-danger transition-colors" />} />
         </div>
@@ -52,7 +52,7 @@ export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerPr
               <div key={c} className="w-11 h-11 flex items-center justify-center">
                 <button
                   type="button"
-                  style={{ background: c }}
+                  style={c ? { background: c } : undefined}
                   className={cn("w-6 h-6 rounded-full transition-colors", selectedColor === c && "ring-2 ring-offset-2 ring-offset-surface-card")}
                   onClick={() => setSelectedColor(c)}
                 />

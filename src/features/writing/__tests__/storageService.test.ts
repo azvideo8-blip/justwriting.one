@@ -104,7 +104,7 @@ describe('StorageService.saveNew', () => {
     const { localId } = await StorageService.saveNew(GUEST, BASE_DATA);
     const versions = await LocalVersionService.getVersions(localId);
     expect(versions).toHaveLength(1);
-    expect(versions[0].version).toBe(1);
+    expect(versions[0]?.version).toBe(1);
   });
 
   it('document has correct totalWords after save', async () => {
@@ -139,9 +139,9 @@ describe('StorageService.saveVersion', () => {
 
     const versions = await LocalVersionService.getVersions(localId);
     expect(versions).toHaveLength(3);
-    expect(versions[0].version).toBe(1);
-    expect(versions[1].version).toBe(2);
-    expect(versions[2].version).toBe(3);
+    expect(versions[0]?.version).toBe(1);
+    expect(versions[1]?.version).toBe(2);
+    expect(versions[2]?.version).toBe(3);
   });
 
   it('stores previousContent correctly', async () => {
@@ -158,9 +158,9 @@ describe('StorageService.saveVersion', () => {
 
     const versions = await LocalVersionService.getVersions(localId);
     // Version 2's previousContent should be the content of version 1
-    expect(versions[1].content).toBe('Second content');
+    expect(versions[1]?.content).toBe('Second content');
     // Note: wordsAdded is computed from the diff
-    expect(typeof versions[1].wordsAdded).toBe('number');
+    expect(typeof versions[1]?.wordsAdded).toBe('number');
   });
 
   it('LockManager serializes concurrent calls: two parallel saveVersion calls result in versions 2 and 3', async () => {
@@ -384,7 +384,7 @@ describe('StorageService.addCloudCopy', () => {
 
     const versions = await LocalVersionService.getVersions(localId);
     expect(versions).toHaveLength(1);
-    expect(versions[0].savedAt).toBe(customSavedAt.getTime());
+    expect(versions[0]?.savedAt).toBe(customSavedAt.getTime());
 
     const doc = await LocalDocumentService.getDocument(localId);
     expect(doc).not.toBeUndefined();

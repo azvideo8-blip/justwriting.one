@@ -95,14 +95,10 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
   return (
     <div
       className={cn(
-        "border-t border-border-subtle bg-surface-card/50 backdrop-blur-xl flex items-center flex-nowrap h-[64px]",
-        compact ? "px-3" : "px-6"
+        "border-t border-border-subtle bg-surface-card/50 backdrop-blur-xl flex items-center flex-nowrap h-[64px] transition-opacity duration-[400ms] ease",
+        compact ? "px-3" : "px-6",
+        showZen ? "opacity-[0.08] pointer-events-none" : "opacity-100 pointer-events-auto"
       )}
-      style={{
-        opacity: showZen ? 0.08 : 1,
-        transition: 'opacity .4s ease',
-        pointerEvents: showZen ? 'none' : undefined,
-      }}
     >
 
       <div className="flex items-center gap-0 flex-1 min-w-0 overflow-hidden">

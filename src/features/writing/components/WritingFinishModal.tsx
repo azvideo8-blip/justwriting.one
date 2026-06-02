@@ -313,8 +313,7 @@ export function WritingFinishModal({
               />
             </div>
 
-            <div className="px-4 pb-3 pt-3 border-t border-border-subtle bg-surface-card shrink-0"
-              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
+            <div className="px-4 pt-3 border-t border-border-subtle bg-surface-card shrink-0 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
               <div className="flex gap-2">
                 <Button
                   variant="ghost"

@@ -133,6 +133,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
     if (!dateDraft || !timeDraft) return;
     const [y, mo, d] = dateDraft.split('-').map(Number);
     const [h, min] = timeDraft.split(':').map(Number);
+    if (y == null || mo == null || d == null || h == null || min == null) return;
     const newDate = new Date(y, mo - 1, d, h, min, 0, 0);
     if (isNaN(newDate.getTime())) return;
     const originalMs = session.sessionStartTime
@@ -146,8 +147,8 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
 
   return (
     <div
-      className={cn("grid items-start gap-3 px-3 py-4 pr-5 rounded-xl hover:bg-text-main/[0.025] transition-colors group border border-transparent hover:border-border-subtle border-l-2", label ? "" : "border-l-transparent")}
-      style={{ gridTemplateColumns: '72px 1fr auto', ...(label ? { borderLeftColor: label.color, background: `color-mix(in srgb, ${label.color} 4%, transparent)`, boxShadow: `inset 3px 0 8px color-mix(in srgb, ${label.color} 15%, transparent)` } : {}) }}
+      className={cn("grid items-start gap-3 px-3 py-4 pr-5 rounded-xl hover:bg-text-main/[0.025] transition-colors group border border-transparent hover:border-border-subtle border-l-2 grid-cols-[72px_1fr_auto]", label ? "" : "border-l-transparent")}
+      style={label ? { borderLeftColor: label.color, background: `color-mix(in srgb, ${label.color} 4%, transparent)`, boxShadow: `inset 3px 0 8px color-mix(in srgb, ${label.color} 15%, transparent)` } : undefined}
     >
       <div className="shrink-0 relative">
         <div
@@ -165,8 +166,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
         {editingDateTime && (
           <div
             ref={dtRef}
-            className="absolute top-full left-0 z-50 mt-1 border border-border-subtle rounded-xl p-3 shadow-xl w-[200px]"
-            style={{ background: 'color-mix(in srgb, var(--bg-base) 95%, var(--brand-primary) 5%)' }}
+            className={cn("absolute top-full left-0 z-50 mt-1 border border-border-subtle rounded-xl p-3 shadow-xl w-[200px]", "bg-[color-mix(in_srgb,var(--bg-base)_95%,var(--brand-primary)_5%)]")}
           >
             <div className="space-y-2">
               <div>
@@ -235,7 +235,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           </div>
         )}
         {session.content && (
-          <p className="text-sm text-text-main/60 leading-relaxed line-clamp-1 sm:line-clamp-2 mb-2 cursor-pointer" style={{ textWrap: 'pretty' }} onClick={onOpen}>
+          <p className="text-sm text-text-main/60 leading-relaxed line-clamp-1 sm:line-clamp-2 mb-2 cursor-pointer text-pretty"  onClick={onOpen}>
             {highlightText(getSearchContext(session.content, searchQuery), searchQuery ?? '')}
           </p>
         )}
@@ -309,9 +309,9 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                   ref={labelPopupRef}
                   className={cn(
                     "absolute right-0 z-50 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[150px] backdrop-blur-xl",
-                    labelOpenUp ? "bottom-full mb-1" : "top-full mt-1"
+                    labelOpenUp ? "bottom-full mb-1" : "top-full mt-1",
+                    "bg-[color-mix(in_srgb,var(--bg-base)_92%,var(--brand-primary)_8%)]"
                   )}
-                  style={{ background: 'color-mix(in srgb, var(--bg-base) 92%, var(--brand-primary) 8%)' }}
                   onClick={e => e.stopPropagation()}
                 >
                   {session.labelId && (

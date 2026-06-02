@@ -14,7 +14,7 @@ export function AppRouter() {
       <motion.div
         animate={reducedMotion ? {} : { opacity: [0.7, 1, 0.7] }}
         {...(reducedMotion ? {} : { transition: { repeat: Infinity, duration: 3, ease: "easeInOut" } })}
-        style={{ filter: "drop-shadow(0 0 24px color-mix(in srgb, var(--brand-soft) 40%, transparent))" }}
+        className="drop-shadow-[0_0_24px_color-mix(in_srgb,var(--brand-soft)_40%,transparent)]"
       >
         <JustWritingLogo size={160} variant="dark" showRailway={true} showRoman={true} showCrown={true} />
       </motion.div>

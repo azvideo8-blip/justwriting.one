@@ -137,8 +137,7 @@ export function ArchiveNoteList({
       return (
         <VirtuosoGrid
           data={filteredSessions}
-          style={{ height: '100%' }}
-          className="custom-scrollbar"
+          className="custom-scrollbar h-full"
           components={gridComponents}
           listClassName={gridListClassName}
           itemClassName={gridItemClassName}
@@ -162,7 +161,7 @@ export function ArchiveNoteList({
     return (
       <Virtuoso
         data={filteredSessions}
-        style={{ height: '100%' }}
+        className="h-full"
         itemContent={(index, session) => (
           <NoteRow
             session={session}
@@ -187,20 +186,20 @@ export function ArchiveNoteList({
     );
   }
 
-  const groupCounts = sortedDates.map(dateKey => groupedSessions[dateKey].length);
+  const groupCounts = sortedDates.map(dateKey => groupedSessions[dateKey]!.length);
 
   const flatGroupedSessions = sortedDates.flatMap(
-    dateKey => groupedSessions[dateKey]
+    dateKey => groupedSessions[dateKey]!
   );
 
   if (viewMode === 'grid') {
     return (
       <Virtuoso
         data={sortedDates}
-        style={{ height: '100%' }}
-        className="custom-scrollbar"
+        
+        className="custom-scrollbar h-full"
         itemContent={(index, dateKey) => {
-          const sessions = groupedSessions[dateKey];
+          const sessions = groupedSessions[dateKey]!;
           return (
             <div className="mb-2">
               <div className="flex items-center gap-3 py-4 pr-1">
@@ -208,11 +207,11 @@ export function ArchiveNoteList({
                   {format(new Date(dateKey), 'd MMM', { locale: dateLocale })}
                 </span>
                 <div className="flex-1 flex items-center gap-2">
-                  <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, var(--border-subtle))' }} />
-                  <span className="font-mono text-label-sm" style={{ color: 'var(--brand-soft)', opacity: 0.5 }}>
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent to-[var(--border-subtle)]" />
+                  <span className="font-mono text-label-sm text-[var(--brand-soft)] opacity-50">
                     {tp('archive_note_count', sessions.length)}
                   </span>
-                  <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, var(--border-subtle))' }} />
+                  <div className="flex-1 h-px bg-gradient-to-l from-transparent to-[var(--border-subtle)]" />
                 </div>
                 <span className="font-mono text-label-sm text-text-main/30 whitespace-nowrap">
                   {sessions
@@ -247,32 +246,32 @@ export function ArchiveNoteList({
   return (
     <GroupedVirtuoso
       groupCounts={groupCounts}
-      style={{ height: '100%' }}
+      
       groupContent={(index) => {
-        const dateKey = sortedDates[index];
-        const sessions = groupedSessions[dateKey];
+        const dateKey = sortedDates[index]!;
+        const sessions = groupedSessions[dateKey]!;
         return (
-          <div className="flex items-center gap-3 py-5 pr-1">
+          <div className="flex items-center gap-3 py-5 pr-1 h-full">
             <span className="font-mono text-label-sm text-text-main/40 uppercase tracking-widest whitespace-nowrap">
               {format(new Date(dateKey), 'd MMM', { locale: dateLocale })}
             </span>
             <div className="flex-1 flex items-center gap-2">
-              <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, var(--border-subtle))' }} />
-              <span className="font-mono text-label-sm" style={{ color: 'var(--brand-soft)', opacity: 0.5 }}>
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent to-[var(--border-subtle)]" />
+              <span className="font-mono text-label-sm text-[var(--brand-soft)] opacity-50">
                 {tp('archive_note_count', sessions.length)}
               </span>
-              <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, var(--border-subtle))' }} />
+              <div className="flex-1 h-px bg-gradient-to-l from-transparent to-[var(--border-subtle)]" />
             </div>
             <span className="font-mono text-label-sm text-text-main/30 whitespace-nowrap">
               {sessions
-                .reduce((sum, s) => sum + (s.wordCount || 0), 0)
+                .reduce((sum: number, s: ArchiveSession) => sum + (s.wordCount || 0), 0)
                 .toLocaleString()} {t('home_words_short')}
             </span>
           </div>
         );
       }}
       itemContent={(index) => {
-        const session = flatGroupedSessions[index];
+        const session = flatGroupedSessions[index]!;
         return (
           <NoteRow
             session={session}

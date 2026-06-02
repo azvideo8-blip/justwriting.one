@@ -112,7 +112,9 @@ export function useSessionFlow(
   useEffect(() => {
     if (sessionStatus === 'writing' && sessionType === 'finish-by' && targetTime) {
       if (totalDurationRef.current === null) {
-        const [hours, minutes] = targetTime.split(':').map(Number);
+        const parts = targetTime.split(':').map(Number);
+        const hours = parts[0] ?? 0;
+        const minutes = parts[1] ?? 0;
         const target = new Date();
         target.setHours(hours, minutes, 0, 0);
         const now = new Date();

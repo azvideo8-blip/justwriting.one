@@ -26,14 +26,21 @@ async function fetchSummaryFromCloud(userId: string, documentId: string): Promis
   if (!snap.exists()) return undefined;
   const data = snap.data() as Record<string, unknown>;
   const decrypted = await maybeDecrypt(data, STRING_FIELDS_LIST, ARRAY_FIELDS_LIST);
+  const docId = typeof decrypted.documentId === 'string' ? decrypted.documentId : documentId;
+  const tone = typeof decrypted.tone === 'string' ? decrypted.tone : '';
+  const frequentWords = Array.isArray(decrypted.frequentWords) ? decrypted.frequentWords.map(String) : [];
+  const insights = Array.isArray(decrypted.insights) ? decrypted.insights.map(String) : [];
+  const themes = Array.isArray(decrypted.themes) ? decrypted.themes.map(String) : [];
+  const extractedFacts = Array.isArray(decrypted.extractedFacts) ? decrypted.extractedFacts.map(String) : [];
+  const processedAt = typeof decrypted.processedAt === 'number' ? decrypted.processedAt : Date.now();
   return {
-    documentId: decrypted.documentId as string,
-    tone: decrypted.tone as string,
-    frequentWords: decrypted.frequentWords as string[],
-    insights: decrypted.insights as string[],
-    themes: decrypted.themes as string[],
-    extractedFacts: decrypted.extractedFacts as string[],
-    processedAt: decrypted.processedAt as number,
+    documentId: docId,
+    tone,
+    frequentWords,
+    insights,
+    themes,
+    extractedFacts,
+    processedAt,
   };
 }
 

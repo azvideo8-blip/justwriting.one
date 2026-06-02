@@ -159,7 +159,6 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
           !expanded && "w-16",
           showZen && "opacity-0 pointer-events-none -translate-x-4"
         )}
-      style={{ background: 'color-mix(in srgb, var(--color-surface-card) 40%, transparent)' }}
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 mb-8 h-10 overflow-hidden">

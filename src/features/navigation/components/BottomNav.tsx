@@ -74,8 +74,8 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-50 bg-surface-card/85 backdrop-blur-xl border-t border-white/[0.06] flex justify-around pt-2"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}
+      className="fixed bottom-0 left-0 right-0 z-50 bg-surface-card/85 backdrop-blur-xl border-t border-white/[0.06] flex justify-around pt-2 pb-safe"
+      
     >
       {tabs.map(tab => {
         const active = isActive(tab);

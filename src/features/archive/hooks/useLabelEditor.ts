@@ -12,7 +12,7 @@ export function useLabelEditor({
 }) {
   const [addingLabel, setAddingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
-  const [newLabelColor, setNewLabelColor] = useState(LABEL_PRESET_COLORS[0]);
+  const [newLabelColor, setNewLabelColor] = useState(LABEL_PRESET_COLORS[0] ?? '#7BA9F0');
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
   const [editLabelName, setEditLabelName] = useState('');
   const [editLabelColor, setEditLabelColor] = useState('');
@@ -24,7 +24,7 @@ export function useLabelEditor({
       addLabel({ name: trimmed, color: newLabelColor });
       setNewLabelName('');
       setAddingLabel(false);
-      setNewLabelColor(LABEL_PRESET_COLORS[0]);
+      setNewLabelColor(LABEL_PRESET_COLORS[0] ?? '#7BA9F0');
     }
   };
 

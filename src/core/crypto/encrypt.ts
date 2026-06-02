@@ -6,7 +6,12 @@ const IV_LENGTH = 12;
 function toBase64(buf: Uint8Array): string {
   let binary = '';
   const len = buf.length;
-  for (let i = 0; i < len; i++) binary += String.fromCharCode(buf[i]);
+  for (let i = 0; i < len; i++) {
+    const val = buf[i];
+    if (val !== undefined) {
+      binary += String.fromCharCode(val);
+    }
+  }
   return btoa(binary);
 }
 

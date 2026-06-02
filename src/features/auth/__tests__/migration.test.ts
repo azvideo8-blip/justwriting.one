@@ -147,9 +147,10 @@ async function seedGuestData(docs: SeedDoc[]): Promise<{ docIds: string[] }> {
 
     for (let i = 0; i < docSpec.versions.length; i++) {
       const ver = docSpec.versions[i];
+      if (!ver) continue;
       await LocalVersionService.addVersion(GUEST_ID, docId, {
         content: ver.content,
-        previousContent: i === 0 ? '' : docSpec.versions[i - 1].content,
+        previousContent: i === 0 ? '' : (docSpec.versions[i - 1]?.content ?? ''),
         wordCount: ver.wordCount,
         duration: 60,
         wpm: ver.wordCount,
@@ -160,11 +161,13 @@ async function seedGuestData(docs: SeedDoc[]): Promise<{ docIds: string[] }> {
 
     if (docSpec.versions.length > 0) {
       const lastVer = docSpec.versions[docSpec.versions.length - 1];
-      await LocalDocumentService.updateAfterSession(docId, {
-        totalWords: lastVer.wordCount,
-        totalDuration: 60 * docSpec.versions.length,
-        currentVersion: docSpec.versions.length,
-      });
+      if (lastVer) {
+        await LocalDocumentService.updateAfterSession(docId, {
+          totalWords: lastVer.wordCount,
+          totalDuration: 60 * docSpec.versions.length,
+          currentVersion: docSpec.versions.length,
+        });
+      }
     }
   }
 
@@ -212,13 +215,13 @@ describe('GROUP A — Base data states', () => {
 
     const userDocs = await LocalDocumentService.getGuestDocuments(USER_ID);
     expect(userDocs).toHaveLength(1);
-    expect(userDocs[0].title).toBe('My First Doc');
-    expect(userDocs[0].guestId).toBe(USER_ID);
+    expect(userDocs[0]?.title).toBe('My First Doc');
+    expect(userDocs[0]?.guestId).toBe(USER_ID);
 
     const db = await getLocalDb();
     const versions = await db.getAll('versions');
     expect(versions).toHaveLength(1);
-    expect(versions[0].guestId).toBe(USER_ID);
+    expect(versions[0]?.guestId).toBe(USER_ID);
   });
 
   it('A03: 5 docs with varying version counts — all re-keyed', async () => {
@@ -281,7 +284,7 @@ describe('GROUP A — Base data states', () => {
     await migrateDocuments(GUEST_ID, USER_ID);
 
     const userDocs = await LocalDocumentService.getGuestDocuments(USER_ID);
-    expect(userDocs[0].tags).toEqual(['tag1', 'tag2']);
+    expect(userDocs[0]?.tags).toEqual(['tag1', 'tag2']);
   });
 
   it('A05: doc with empty title and no tags — empty strings/arrays handled', async () => {
@@ -293,8 +296,8 @@ describe('GROUP A — Base data states', () => {
     expect(count).toBe(1);
 
     const userDocs = await LocalDocumentService.getGuestDocuments(USER_ID);
-    expect(userDocs[0].title).toBe('');
-    expect(userDocs[0].tags).toEqual([]);
+    expect(userDocs[0]?.title).toBe('');
+    expect(userDocs[0]?.tags).toEqual([]);
   });
 
   it('A06: doc with very large content (100KB) — transaction handles it', async () => {
@@ -308,8 +311,8 @@ describe('GROUP A — Base data states', () => {
 
     const db = await getLocalDb();
     const versions = await db.getAll('versions');
-    expect(versions[0].content).toBe(largeContent);
-    expect(versions[0].guestId).toBe(USER_ID);
+    expect(versions[0]?.content).toBe(largeContent);
+    expect(versions[0]?.guestId).toBe(USER_ID);
   });
 
   it('A07: doc with 20+ versions — all versions re-keyed', async () => {
@@ -391,6 +394,7 @@ describe('GROUP B — Error/interruption scenarios', () => {
     ]);
     await migrateDocuments(GUEST_ID, USER_ID);
     const docId = docIds[0];
+    if (!docId) throw new Error('Seeding failed');
 
     // Simulate a lock already in syncQueue for this doc
     const db = await getLocalDb();
@@ -450,9 +454,11 @@ describe('GROUP C — Concurrent scenarios', () => {
       { title: 'Already Linked', versions: [{ content: 'hi', wordCount: 1 }] },
     ]);
     await migrateDocuments(GUEST_ID, USER_ID);
+    const docId = docIds[0];
+    if (!docId) throw new Error('Seeding failed');
 
     // Pre-set linked cloud ID
-    await LocalDocumentService.updateLinkedCloudId(docIds[0], 'cloud_already_linked_xyz');
+    await LocalDocumentService.updateLinkedCloudId(docId, 'cloud_already_linked_xyz');
 
     const result = await SyncService.syncAllUnlinked(USER_ID);
 
@@ -492,6 +498,8 @@ describe('GROUP D — Idempotency', () => {
       { title: 'Pre-linked', versions: [{ content: 'content', wordCount: 1 }] },
     ]);
     await migrateDocuments(GUEST_ID, USER_ID);
+    const docId = docIds[0];
+    if (!docId) throw new Error('Seeding failed');
 
     const existingCloudId = 'cloud_pre_existing_123';
     cloudDocs.set(existingCloudId, {
@@ -504,12 +512,12 @@ describe('GROUP D — Idempotency', () => {
     });
 
     // Set linked cloud id on local doc
-    await LocalDocumentService.updateLinkedCloudId(docIds[0], existingCloudId);
+    await LocalDocumentService.updateLinkedCloudId(docId, existingCloudId);
 
     // MockDocumentService.getDocument returns the pre-existing doc
     MockDocumentService.getDocument.mockResolvedValueOnce(cloudDocs.get(existingCloudId) ?? null);
 
-    const returnedId = await StorageService.addCloudCopy(USER_ID, docIds[0]);
+    const returnedId = await StorageService.addCloudCopy(USER_ID, docId);
 
     expect(returnedId).toBe(existingCloudId);
     // createDocument should NOT have been called (returned the existing one)
@@ -523,12 +531,15 @@ describe('GROUP D — Idempotency', () => {
     // through to the fallback (savedAt / Date.now()) instead of triggering
     // the isNaN guard.  Both docs therefore "succeed" — the bad timestamp
     // is swallowed rather than rejected.  This test documents the actual behavior.
-    const { docIds: [badDocId] } = await seedGuestData([
+    const { docIds: badDocIds } = await seedGuestData([
       { title: 'Bad Date Doc', versions: [{ content: 'text', wordCount: 1 }] },
     ]);
-    const { docIds: [goodDocId] } = await seedGuestData([
+    const { docIds: goodDocIds } = await seedGuestData([
       { title: 'Good Date Doc', versions: [{ content: 'text', wordCount: 1 }] },
     ]);
+    const badDocId = badDocIds[0];
+    const goodDocId = goodDocIds[0];
+    if (!badDocId || !goodDocId) throw new Error('Seeding failed');
 
     await migrateDocuments(GUEST_ID, USER_ID);
 
@@ -616,9 +627,12 @@ describe('GROUP E — Post-migration state', () => {
     const userDocs = await LocalDocumentService.getGuestDocuments(USER_ID);
     expect(userDocs).toHaveLength(1);
 
+    const firstUserDoc = userDocs[0];
+    if (!firstUserDoc) throw new Error('No user docs found');
+
     const db = await getLocalDb();
-    const versions = await db.getAllFromIndex('versions', 'by-document', userDocs[0].id);
+    const versions = await db.getAllFromIndex('versions', 'by-document', firstUserDoc.id);
     expect(versions).toHaveLength(1);
-    expect(versions[0].content).toBe(uniqueContent);
+    expect(versions[0]?.content).toBe(uniqueContent);
   });
 });

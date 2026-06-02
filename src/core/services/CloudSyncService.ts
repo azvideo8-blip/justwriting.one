@@ -5,7 +5,7 @@ import { LocalVersionService } from './LocalVersionService';
 import { getLocalDb } from '../storage/localDb';
 import { toDate } from '../utils/dateUtils';
 import { maybeEncrypt, maybeDecrypt, type VersionEncryptPayload } from '../crypto/cryptoHelpers';
-import { reportError } from '../errors/reportError';
+import { reportError } from '../../core/errors/reportError';
 import { isFirestoreConnected } from '../firebase/firestore';
 import pLimit from 'p-limit';
 import { SaveDocumentData } from './storageTypes';
@@ -48,8 +48,9 @@ export const CloudSyncService = {
         let startedAt = toDate(ver.sessionStartedAt) ?? toDate(ver.savedAt) ?? new Date();
         if (isNaN(startedAt.getTime())) startedAt = new Date();
 
-        const decryptedVer = await maybeDecrypt(ver as unknown as Record<string, unknown>, ['content'], []);
-        const verContent = (decryptedVer.content as string) ?? ver.content;
+        const verRecord: Record<string, unknown> = { ...ver };
+        const decryptedVer = await maybeDecrypt(verRecord, ['content'], []);
+        const verContent = (typeof decryptedVer.content === 'string' ? decryptedVer.content : '') || ver.content;
 
         await LocalVersionService.addVersion(userId, localId, {
           content: verContent,
@@ -129,7 +130,7 @@ export const CloudSyncService = {
 
         const limiter = pLimit(3);
         await Promise.all(versions.map((ver, i) => limiter(async () => {
-          const prevContent = i === 0 ? '' : versions[i - 1].content;
+          const prevContent = i === 0 ? '' : (versions[i - 1]?.content ?? '');
           const startedAt = ver.sessionStartedAt != null
             ? new Date(ver.sessionStartedAt)
             : new Date(ver.savedAt || Date.now());
@@ -150,9 +151,12 @@ export const CloudSyncService = {
             sessionStartedAt: startedAt,
           } satisfies VersionEncryptPayload, ['content', 'previousContent'], [], userId);
 
+          const content = typeof versionPayload.content === 'string' ? versionPayload.content : '';
+          const previousContent = typeof versionPayload.previousContent === 'string' ? versionPayload.previousContent : '';
+          const _encrypted = typeof versionPayload._encrypted === 'boolean' ? versionPayload._encrypted : undefined;
           await withTimeout(VersionService.addVersion(userId, cloudId!, {
-            content: versionPayload.content as string,
-            previousContent: versionPayload.previousContent as string,
+            content,
+            previousContent,
             wordCount: ver.wordCount,
             duration: ver.duration,
             wpm: ver.wpm,
@@ -162,7 +166,7 @@ export const CloudSyncService = {
             goalReached: ver.goalReached,
             sessionStartedAt: startedAt,
             savedAt: ver.savedAt ? new Date(ver.savedAt) : undefined,
-            _encrypted: versionPayload._encrypted as boolean | undefined,
+            _encrypted,
           }));
         })));
 
@@ -252,9 +256,12 @@ export const CloudSyncService = {
           sessionStartedAt: startedAt,
           mood: data.mood,
         } satisfies VersionEncryptPayload, ['content', 'previousContent'], [], userId);
+        const content = typeof versionPayload.content === 'string' ? versionPayload.content : '';
+        const previousContent = typeof versionPayload.previousContent === 'string' ? versionPayload.previousContent : '';
+        const _encrypted = typeof versionPayload._encrypted === 'boolean' ? versionPayload._encrypted : undefined;
         await VersionService.addVersion(userId, linkedCloudId, {
-          content: versionPayload.content as string,
-          previousContent: versionPayload.previousContent as string,
+          content,
+          previousContent,
           wordCount: data.wordCount,
           duration: data.duration,
           wpm: data.wpm,
@@ -264,7 +271,7 @@ export const CloudSyncService = {
           goalReached: data.goalReached,
           sessionStartedAt: startedAt,
           mood: data.mood,
-          _encrypted: versionPayload._encrypted as boolean | undefined,
+          _encrypted,
         });
         await DocumentService.updateDocumentAfterSession(userId, linkedCloudId, {
           totalWords: data.documentWordCount ?? data.wordCount,

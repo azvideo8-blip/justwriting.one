@@ -185,7 +185,6 @@ export function LifeLogPanel({
         "glass-panel flex flex-col h-full border-l border-white/[0.04] bg-surface-card backdrop-blur-xl custom-scrollbar",
         inGrid ? "w-full" : "fixed top-0 right-0 bottom-0 w-[380px] z-50 shadow-2xl"
       )}
-      style={{ boxShadow: '-12px 0 40px rgba(0,0,0,0.35)' }}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
@@ -261,7 +260,7 @@ export function LifeLogPanel({
               </div>
               {streakDays !== undefined && (
                 <div>
-                  <div className="text-lg font-bold" style={{ color: 'var(--flow-pulse-color)' }}>
+                  <div className="text-lg font-bold text-[var(--flow-pulse-color)]">
                     {streakDays}
                   </div>
                   <div className="text-label-sm text-text-subtle">{t('home_streak_days')}</div>
@@ -301,7 +300,7 @@ export function LifeLogPanel({
           </div>
 
           {/* Sessions list grouped by date */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar" style={{ overscrollBehavior: 'contain' }}>
+          <div className="flex-1 overflow-y-auto custom-scrollbar overscroll-contain">
             {loading ? (
               <div className="px-3 py-2 text-label-sm text-text-subtle font-medium">{t('lifelog_loading')}</div>
             ) : (

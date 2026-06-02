@@ -30,3 +30,15 @@ global.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}
 } as any;
+
+global.requestAnimationFrame = vi.fn((cb: FrameRequestCallback) => {
+  return setTimeout(() => cb(Date.now()), 16) as unknown as number;
+});
+
+global.cancelAnimationFrame = vi.fn((id: number) => {
+  clearTimeout(id);
+});
+
+global.performance = {
+  now: () => Date.now(),
+} as Performance;

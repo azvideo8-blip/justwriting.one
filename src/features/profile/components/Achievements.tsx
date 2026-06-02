@@ -239,14 +239,14 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
   };
 
   return (
-    <div style={{ padding: '24px 36px' }}>
+    <div className="px-9 py-6">
       <h2 className="text-[18px] font-medium text-text-main mb-1">
         {t('profile_achievements_title')}
       </h2>
       <div className="flex gap-4 mb-6 font-mono text-label-sm text-text-muted uppercase tracking-widest">
         <span>{unlockedCount} / {totalAchievements} {t('profile_ach_opened')}</span>
         {legendaryCount > 0 && (
-          <span style={{ color: RARITY_COLORS.legendary }}>
+          <span className="text-[#f5c518]">
             {legendaryCount} {t('profile_ach_legendary')}
           </span>
         )}
@@ -273,12 +273,12 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
               </div>
             </div>
 
-            <div style={{ height: 3, borderRadius: 2, background: 'var(--surface-elevated)', marginBottom: 12, overflow: 'hidden' }}>
+            <div className="h-[3px] rounded-sm bg-[var(--surface-elevated)] mb-3 overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${groupProgress * 100}%` }}
                 transition={{ duration: 0.6, delay: gi * 0.08 + 0.1, ease: 'easeOut' }}
-                style={{ height: '100%', borderRadius: 2, background: 'var(--flow-pulse-color)' }}
+                className="h-full rounded-sm bg-[var(--flow-pulse-color)]"
               />
             </div>
 
@@ -287,7 +287,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
             >
               {group.achievements.map((ach, i) => {
                 const unlocked = unlockedIds.has(ach.id);
-                const rarity = group.rarities[i];
+                const rarity = group.rarities[i]!;
 
                 return (
                   <div
@@ -300,39 +300,17 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
                     )}
                   >
                     {!unlocked && !reducedMotion && (
-                      <div style={{
-                        position: 'absolute', inset: 0,
-                        background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 5%, transparent), transparent)',
-                        animation: 'shimmer 3s infinite',
-                      }} />
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_5%,transparent)] to-transparent animate-[shimmer_3s_infinite]" />
                     )}
-                    <div style={{
-                      fontSize: 24,
-                      filter: unlocked ? 'none' : 'grayscale(1) opacity(0.3)',
-                      lineHeight: 1,
-                    }}>
+                    <div className="text-2xl leading-none" style={{ filter: unlocked ? 'none' : 'grayscale(1) opacity(0.3)' }}>
                       {ach.icon}
                     </div>
 
-                    <div style={{
-                      fontSize: 11,
-                      fontWeight: 500,
-                      color: unlocked ? 'var(--text-main)' : 'var(--text-subtle)',
-                      lineHeight: 1.3,
-                      minHeight: 28,
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}>
+                    <div className="text-[11px] font-medium leading-tight min-h-[28px] flex items-center" style={{ color: unlocked ? 'var(--text-main)' : 'var(--text-subtle)' }}>
                       {t(ach.title)}
                     </div>
 
-                    <div style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: 9,
-                      letterSpacing: '.08em',
-                      textTransform: 'uppercase',
-                      color: unlocked ? RARITY_COLORS[rarity] : 'var(--text-subtle)',
-                    }}>
+                    <div className="font-mono text-[9px] tracking-[0.08em] uppercase" style={{ color: unlocked ? RARITY_COLORS[rarity] : 'var(--text-subtle)' }}>
                       {getRarityLabel(rarity, t)}
                     </div>
 

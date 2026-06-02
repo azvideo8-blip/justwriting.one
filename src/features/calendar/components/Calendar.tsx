@@ -71,8 +71,7 @@ export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate,
                   {Array.from({ length: Math.min(sessionCount, 3) }).map((_, i) => (
                     <div
                       key={i}
-                      className="w-1 h-1 rounded-full opacity-70"
-                      style={{ background: 'var(--flow-pulse-color, oklch(0.72 0.13 155))' }}
+                      className="w-1 h-1 rounded-full opacity-70 bg-[var(--flow-pulse-color,oklch(0.72_0.13_155))]"
                     />
                   ))}
                 </div>

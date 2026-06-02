@@ -143,9 +143,9 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
                 ref={labelPopupRef}
                 className={cn(
                   "absolute right-0 z-50 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[150px] backdrop-blur-xl",
-                  labelOpenUp ? "bottom-full mb-1" : "top-full mt-1"
+                  labelOpenUp ? "bottom-full mb-1" : "top-full mt-1",
+                  "bg-[color-mix(in_srgb,var(--bg-base)_92%,var(--brand-primary)_8%)]"
                 )}
-                style={{ background: 'color-mix(in srgb, var(--bg-base) 92%, var(--brand-primary) 8%)' }}
                 onClick={e => e.stopPropagation()}
               >
                 {session.labelId && (

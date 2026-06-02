@@ -89,7 +89,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
 
         const docQueueItems = filteredQueue.filter(q => q.documentId === localDoc.id);
         const inQueue = docQueueItems.length > 0;
-        const queueItemId = inQueue ? docQueueItems[0].id : undefined;
+        const queueItemId = inQueue ? docQueueItems[0]!.id : undefined;
 
         let status: DiagnosticItem['status'] = 'local_only';
         if (localDoc.linkedCloudId) {

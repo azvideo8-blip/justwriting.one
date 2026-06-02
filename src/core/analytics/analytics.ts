@@ -1,6 +1,6 @@
 import posthog from 'posthog-js';
 
-const key = import.meta.env.VITE_POSTHOG_KEY as string | undefined;
+const key = import.meta.env.VITE_POSTHOG_KEY;
 
 function hasConsent(): boolean {
   try {
@@ -12,7 +12,7 @@ function hasConsent(): boolean {
 
 if (key && hasConsent()) {
   posthog.init(key, {
-    api_host: (import.meta.env.VITE_POSTHOG_HOST as string | undefined) ?? 'https://eu.i.posthog.com',
+    api_host: import.meta.env.VITE_POSTHOG_HOST ?? 'https://eu.i.posthog.com',
     person_profiles: 'identified_only',
     capture_pageview: true,
     autocapture: false,
@@ -33,7 +33,7 @@ export const analytics = {
     if (!key) return;
     localStorage.setItem('analytics_consent', 'true');
     posthog.init(key, {
-      api_host: (import.meta.env.VITE_POSTHOG_HOST as string | undefined) ?? 'https://eu.i.posthog.com',
+      api_host: import.meta.env.VITE_POSTHOG_HOST ?? 'https://eu.i.posthog.com',
       person_profiles: 'identified_only',
       capture_pageview: true,
       autocapture: false,

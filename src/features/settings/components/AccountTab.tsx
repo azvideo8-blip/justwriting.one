@@ -144,8 +144,8 @@ export function AccountTab({ userId }: AccountTabProps) {
                 autoComplete="username"
                 value={AuthService.getCurrentUser()?.email || ''}
                 readOnly
-                className="hidden"
-                style={{ display: 'none' }}
+                className="hidden hidden"
+                
               />
               {passwordError && (
                 <div className="p-3 rounded-lg text-xs bg-accent-danger/10 border border-accent-danger/30 text-accent-danger">{passwordError}</div>

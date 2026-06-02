@@ -41,7 +41,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
 
   const [creatingLabel, setCreatingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
-  const [newLabelColor, setNewLabelColor] = useState(LABEL_PRESET_COLORS[0]);
+  const [newLabelColor, setNewLabelColor] = useState<string>(LABEL_PRESET_COLORS[0]!);
 
   const [summary, setSummary] = useState<AIDocumentSummary | null>(null);
   const [summaryExpanded, setSummaryExpanded] = useState(true);
@@ -127,13 +127,13 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!isMobile) return;
-    touchStartX.current = e.touches[0].clientX;
-    touchCurrentX.current = e.touches[0].clientX;
+    touchStartX.current = e.touches[0]!.clientX;
+    touchCurrentX.current = e.touches[0]!.clientX;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isMobile) return;
-    touchCurrentX.current = e.touches[0].clientX;
+    touchCurrentX.current = e.touches[0]!.clientX;
     const deltaX = touchCurrentX.current - touchStartX.current;
     if (deltaX > 0 && panelRef.current) {
       panelRef.current.style.transform = `translateX(${deltaX}px)`;
@@ -177,7 +177,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
     if (trimmed) {
       onAddLabel?.({ name: trimmed, color: newLabelColor });
       setNewLabelName('');
-      setNewLabelColor(LABEL_PRESET_COLORS[0]);
+      setNewLabelColor(LABEL_PRESET_COLORS[0]!);
     }
     setCreatingLabel(false);
   };
@@ -189,53 +189,33 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
       animate={{ opacity: 1, x: 0, y: 0 }}
       exit={{ opacity: 0, x: isMobile ? 0 : 20, y: isMobile ? '100%' : 0 }}
       transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-      className="glass-panel custom-scrollbar"
-      style={{
-        position: 'fixed',
-        ...(isMobile ? {
-          left: 0,
-          right: 0,
-          bottom: 0,
-          top: 'auto',
-          height: '92dvh',
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-        } : {
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: width,
-        }),
-        zIndex: 50,
-        display: 'flex',
-        flexDirection: 'column',
+      className="glass-panel custom-scrollbar fixed z-50 flex flex-col"
+      style={isMobile ? {
+        left: 0,
+        right: 0,
+        bottom: 0,
+        top: 'auto',
+        height: '92dvh',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+      } : {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: width,
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
       {isMobile && (
-        <div style={{
-          width: 36,
-          height: 4,
-          borderRadius: 2,
-          background: 'rgba(255,255,255,0.15)',
-          margin: '10px auto 0',
-          flexShrink: 0,
-        }} />
+        <div className="w-9 h-1 rounded-sm bg-white/15 mt-2.5 mx-auto shrink-0" />
       )}
       {/* Drag handle (Disabled on mobile) */}
       {!isMobile && (
         <div
           onMouseDown={handleMouseDown}
-          style={{
-            position: 'absolute',
-            left: 0, top: 0, bottom: 0,
-            width: 6,
-            cursor: 'ew-resize',
-            zIndex: 10,
-          }}
-          className="group"
+          className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize z-10 group"
         >
           <div className="absolute inset-y-0 left-0 w-[2px] bg-transparent group-hover:bg-text-main/20 transition-colors" />
         </div>
@@ -276,8 +256,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
               {labelPopupOpen && (
                 <div
                   ref={labelPopupRef}
-                  className="absolute left-0 top-full z-50 mt-1 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[160px] backdrop-blur-xl"
-                  style={{ background: 'color-mix(in srgb, var(--bg-base) 92%, var(--brand-primary) 8%)' }}
+                  className="absolute left-0 top-full z-50 mt-1 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[160px] backdrop-blur-xl bg-[color-mix(in_srgb,var(--bg-base)_92%,var(--brand-primary)_8%)]"
                   onClick={e => e.stopPropagation()}
                 >
               {currentLabel && (
@@ -449,7 +428,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5">
-        <p className="text-[15px] text-text-main/80 leading-[1.8] whitespace-pre-wrap" style={{ textWrap: 'pretty' }}>
+        <p className="text-[15px] text-text-main/80 leading-[1.8] whitespace-pre-wrap text-pretty" >
           {session.content || (
             <span className="text-text-main/25 italic">{t('archive_no_content')}</span>
           )}
@@ -457,7 +436,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
       </div>
 
       {/* Actions */}
-      <div className="p-5 border-t border-border-subtle flex gap-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--bottom-nav-height, 72px) + 8px)' }}>
+        <div className="p-5 border-t border-border-subtle flex gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+var(--bottom-nav-height,72px)+8px)]">
         <Button
           onClick={() => onContinue(session)}
           className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-text-main text-surface-base text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
@@ -482,8 +461,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                 initial={{ opacity: 0, y: -4, scale: 0.97 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -4, scale: 0.97 }}
-                className="absolute bottom-full mb-2 right-0 border border-border-subtle rounded-xl shadow-xl overflow-hidden w-48 z-50"
-                style={{ background: 'var(--bg-elevated)' }}
+                className={cn("absolute bottom-full mb-2 right-0 border border-border-subtle rounded-xl shadow-xl overflow-hidden w-48 z-50", "bg-[var(--bg-elevated)]")}
               >
                 {exportFormats.map(fmt => (
                   <Button

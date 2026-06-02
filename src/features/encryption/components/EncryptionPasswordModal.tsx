@@ -273,8 +273,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
             <button
               type="submit"
               disabled={loading || !password || (!isUnlock && !confirmPassword)}
-              className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2"
-              style={{ background: 'var(--brand-primary)' }}
+              className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-[var(--brand-primary)]"
             >
               {loading ? (
                 <Loader2 size={16} className="animate-spin" />

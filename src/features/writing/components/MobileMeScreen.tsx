@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 import { UserProfile } from '../../../types';
 import { User } from 'firebase/auth';
@@ -69,15 +70,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
   ];
 
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'var(--color-surface-base, #0b0d0c)',
-      zIndex: 30,
-      display: 'flex',
-      flexDirection: 'column',
-      paddingTop: 0,
-    }}>
+    <div className="fixed inset-0 bg-[var(--color-surface-base,#0b0d0c)] z-30 flex flex-col pt-0">
       {/* Top Header with title and Settings gear icon */}
       <MobilePageHeader
         title={t('nav_profile_short')}
@@ -92,41 +85,20 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
         }
       />
 
-      <div style={{ padding: '12px 20px 0' }}>
+      <div className="px-5 pt-3">
         {/* Navigation Tabs Selector */}
-        <div style={{
-          display: 'flex',
-          background: 'rgba(255,255,255,0.04)',
-          borderRadius: 10,
-          padding: 3,
-          gap: 2,
-          marginBottom: 12,
-        }}>
+        <div className="flex bg-white/[0.04] rounded-lg p-0.5 gap-0.5 mb-3">
           {sections.map(s => (
             <button
               type="button"
               key={s.id}
               onClick={() => setActiveSection(s.id)}
-              style={{
-                flex: 1,
-                minHeight: 44,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 8,
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: 12,
-                fontWeight: 500,
-                fontFamily: 'Inter, system-ui, sans-serif',
-                background: activeSection === s.id
-                  ? 'rgba(255,255,255,0.08)'
-                  : 'transparent',
-                color: activeSection === s.id
-                  ? 'var(--color-text-main, var(--text-main))'
-                  : 'var(--color-text-subtle, var(--text-subtle))',
-                transition: 'all 0.15s',
-              }}
+              className={cn(
+                "flex-1 min-h-[44px] inline-flex items-center justify-center rounded-lg border-none cursor-pointer text-xs font-medium font-sans transition-all duration-150",
+                activeSection === s.id
+                  ? "bg-white/[0.08] text-[var(--color-text-main,var(--text-main))]"
+                  : "bg-transparent text-[var(--color-text-subtle,var(--text-subtle))]"
+              )}
             >
               {s.label}
             </button>
@@ -134,13 +106,10 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
         </div>
       </div>
 
-      <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        padding: activeSection === 'stats' ? '0' : '0 20px',
-        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)',
-        WebkitOverflowScrolling: 'touch',
-      }}>
+      <div className={cn(
+        "flex-1 overflow-y-auto touch-pan-y pb-[calc(env(safe-area-inset-bottom,0px)+80px)]",
+        activeSection === 'stats' ? "px-0" : "px-5"
+      )}>
         {activeSection === 'stats' && (
           loadingSessions ? (
             <div className="space-y-4 px-4 pt-4">
@@ -197,7 +166,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
                 </div>
 
                 {/* Reset achievements button */}
-                <div style={{ padding: '12px 0 24px', textAlign: 'center' }}>
+                <div className="py-3 pb-6 text-center">
                   {showResetConfirm ? (
                     <div className="inline-flex items-center gap-3 bg-accent-danger/10 border border-accent-danger/20 rounded-lg px-4 py-2">
                       <span className="text-[12px] text-accent-danger">{t('profile_ach_reset_confirm')}</span>

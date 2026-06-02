@@ -1,5 +1,6 @@
 import React from 'react';
 import { User } from 'firebase/auth';
+import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 import { SettingRow } from './MeScreenHelpers';
 import { useSettings } from '../../../core/settings/SettingsContext';
@@ -20,32 +21,18 @@ export function MeAccountSection({ user, onSignOut, onSignIn }: MeAccountSection
   return (
     <div>
       <SettingRow label={t('settings_language')}>
-        <div style={{
-          display: 'flex',
-          background: 'rgba(255,255,255,0.04)',
-          borderRadius: 8,
-          padding: 2,
-          gap: 2,
-        }}>
+        <div className="flex bg-white/[0.04] rounded-lg p-0.5 gap-0.5">
           {(['ru', 'en'] as const).map(lang => (
             <button
               type="button"
               key={lang}
               onClick={() => setLanguage(lang)}
-              style={{
-                padding: '5px 12px',
-                borderRadius: 6,
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: 12,
-                fontWeight: 500,
-                background: language === lang
-                  ? 'rgba(255,255,255,0.08)'
-                  : 'transparent',
-                color: language === lang
-                  ? 'rgba(232,236,233,0.9)'
-                  : 'rgba(74,81,77,1)',
-              }}
+              className={cn(
+                "px-3 py-1 rounded-md border-none cursor-pointer text-xs font-medium",
+                language === lang
+                  ? "bg-white/[0.08] text-[rgba(232,236,233,0.9)]"
+                  : "bg-transparent text-[rgba(74,81,77,1)]"
+              )}
             >
               {lang.toUpperCase()}
             </button>
@@ -55,15 +42,7 @@ export function MeAccountSection({ user, onSignOut, onSignIn }: MeAccountSection
 
       {user?.email && (
         <SettingRow label={t('me_account_email')}>
-          <span style={{
-            fontSize: 12,
-            color: 'rgba(74,81,77,1)',
-            fontFamily: 'JetBrains Mono, monospace',
-            maxWidth: 180,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}>
+          <span className="text-xs text-[rgba(74,81,77,1)] font-mono max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap">
             {user.email}
           </span>
         </SettingRow>

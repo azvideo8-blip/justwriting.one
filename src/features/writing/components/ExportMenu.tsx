@@ -44,6 +44,13 @@ export function ExportMenu({ session, buttonRef, onClose }: ExportMenuProps) {
 
   if (!menuPos) return null;
 
+  const menuStyle = {
+    position: 'fixed' as const,
+    top: menuPos.top,
+    right: menuPos.right,
+    zIndex: 9999,
+  };
+
   const exportToTxt = () => {
     ExportService.toTxt(session.title || 'session', session.content, new Date());
     onClose();
@@ -68,12 +75,7 @@ export function ExportMenu({ session, buttonRef, onClose }: ExportMenuProps) {
       ref={menuRef}
       initial={{ opacity: 0, y: 10, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      style={{
-        position: 'fixed',
-        top: menuPos.top,
-        right: menuPos.right,
-        zIndex: 9999
-      }}
+      style={menuStyle}
       className="w-48 rounded-2xl shadow-xl border p-2 bg-surface-card backdrop-blur-xl border-border-subtle"
     >
       <Button onClick={exportToTxt} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-colors text-text-main/70 hover:bg-white/10 hover:text-text-main">

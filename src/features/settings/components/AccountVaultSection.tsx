@@ -268,7 +268,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
                 <div className="w-full bg-text-main/10 rounded-full h-2">
                   <div
                     className="bg-[var(--brand-primary)] h-2 rounded-full transition-colors"
-                    style={{ width: `${migrationProgress.total > 0 ? (migrationProgress.processed / migrationProgress.total * 100) : 0}%` }}
+                    style={migrationProgress.total > 0 ? { width: `${(migrationProgress.processed / migrationProgress.total * 100)}%` } : undefined}
                   />
                 </div>
               )}

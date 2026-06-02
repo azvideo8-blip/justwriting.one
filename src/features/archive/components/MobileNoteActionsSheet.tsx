@@ -150,8 +150,8 @@ export function MobileNoteActionsSheet({
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-        className="relative z-10 w-full max-w-lg bg-surface-card border-t border-white/[0.06] rounded-t-[28px] overflow-hidden flex flex-col max-h-[85vh] shadow-[0_-8px_32px_rgba(0,0,0,0.4)]"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}
+        className="relative z-10 w-full max-w-lg bg-surface-card border-t border-white/[0.06] rounded-t-[28px] overflow-hidden flex flex-col max-h-[85vh] shadow-[0_-8px_32px_rgba(0,0,0,0.4)] pb-safe"
+        
       >
         {/* Grab Handle */}
         <div className="flex justify-center py-3">
@@ -187,8 +187,7 @@ export function MobileNoteActionsSheet({
         </div>
 
         {/* Action Options List */}
-        <div className="px-6 py-5 overflow-y-auto no-scrollbar space-y-2"
-          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}>
+        <div className="px-6 py-5 overflow-y-auto no-scrollbar space-y-2 pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
           {!showLabelsSelector ? (
             <>
               {/* 1. Preview Option */}

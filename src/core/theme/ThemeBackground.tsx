@@ -43,30 +43,33 @@ export function ThemeBackground() {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
-  const config = GRADIENT_THEMES[themeId];
   if (!(themeId in GRADIENT_THEMES)) return null;
+  const config = GRADIENT_THEMES[themeId]!;
 
   const shouldAnimate = !reducedMotion && isVisible && isWritingPage;
+
+  const baseStyle = { zIndex: 0, background: config.base };
+  const layerStyle = (layer: { gradient: string; origin: string }, i: number, shouldAnimate: boolean) => ({
+    position: 'absolute' as const,
+    inset: 0,
+    background: layer.gradient,
+    transformOrigin: layer.origin,
+    opacity: shouldAnimate ? 1 : 0,
+    animation: shouldAnimate
+      ? `themeBgPulse${i} ${8 + i * 1.5}s ease-in-out infinite alternate`
+      : 'none',
+    willChange: shouldAnimate ? 'opacity, transform' : 'auto',
+  });
 
   return (
     <div
       className="fixed inset-0 pointer-events-none"
-      style={{ zIndex: 0, background: config.base }}
+      style={baseStyle}
     >
       {config.layers.map((layer, i) => (
         <div
           key={i}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: layer.gradient,
-            transformOrigin: layer.origin,
-            opacity: shouldAnimate ? 1 : 0,
-            animation: shouldAnimate
-              ? `themeBgPulse${i} ${8 + i * 1.5}s ease-in-out infinite alternate`
-              : 'none',
-            willChange: shouldAnimate ? 'opacity, transform' : 'auto',
-          }}
+          style={layerStyle(layer, i, shouldAnimate)}
         />
       ))}
     </div>

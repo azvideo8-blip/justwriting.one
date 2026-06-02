@@ -13,6 +13,7 @@ import { getFontStack } from '../utils/fontStack';
 import { KeystrokeTracker } from '../utils/keystrokeTracker';
 import { ConnectionStatusBanner } from './ConnectionStatusBanner';
 import { getWpmHex } from '../utils/wpmColors';
+import { cn } from '../../../core/utils/utils';
 
 interface MobileWriteScreenProps {
   onPlay: () => void;
@@ -175,13 +176,17 @@ export function MobileWriteScreen({
   }, []);
 
   const handleEditorTouchStart = (e: React.TouchEvent) => {
-    swipeTouchStartY.current = e.touches[0].clientY;
-    swipeTouchStartX.current = e.touches[0].clientX;
+    const touch = e.touches[0];
+    if (!touch) return;
+    swipeTouchStartY.current = touch.clientY;
+    swipeTouchStartX.current = touch.clientX;
   };
 
   const handleEditorTouchEnd = (e: React.TouchEvent) => {
-    const deltaY = e.changedTouches[0].clientY - swipeTouchStartY.current;
-    const deltaX = Math.abs(e.changedTouches[0].clientX - swipeTouchStartX.current);
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const deltaY = touch.clientY - swipeTouchStartY.current;
+    const deltaX = Math.abs(touch.clientX - swipeTouchStartX.current);
     if (deltaY > 60 && deltaX < 40 && isRunning) {
       setFocusMode(true);
     }
@@ -190,14 +195,7 @@ export function MobileWriteScreen({
   const fontFamilyStr = getFontStack(fontFamily);
 
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'var(--color-surface-base, #0b0d0c)',
-      display: 'flex',
-      flexDirection: 'column',
-      zIndex: 30,
-    }}>
+    <div className="fixed inset-0 bg-[var(--color-surface-base,#0b0d0c)] flex flex-col z-30">
       <ConnectionStatusBanner showZen={showZen} />
 
       <AnimatePresence>
@@ -206,42 +204,17 @@ export function MobileWriteScreen({
             initial={{ opacity: 1 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '12px 20px 8px',
-              paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)',
-              gap: 12,
-            }}
+            className="flex items-center justify-between px-5 pt-3 pb-2 gap-3 pt-[calc(env(safe-area-inset-top,0px)+12px)]"
           >
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '5px 12px',
-              borderRadius: 999,
-              background: isRunning
-                ? 'var(--surface-elevated)'
-                : 'var(--surface-card)',
-              border: `1px solid ${isRunning ? 'var(--border-light)' : 'var(--border-light)'}`,
-            }}>
-              <div style={{
-                width: 6, height: 6,
-                borderRadius: '50%',
-                background: isRunning
-                  ? 'var(--brand-primary)'
-                   : isPaused ? 'var(--accent-warning)' : 'var(--text-subtle)',
-                boxShadow: isRunning ? '0 0 6px oklch(0.72 0.13 155 / 0.6)' : 'none',
-              }} />
-              <span style={{
-                fontFamily: 'JetBrains Mono, ui-monospace, monospace',
-                fontSize: 13,
-                fontWeight: 500,
-                color: 'var(--text-main)',
-                letterSpacing: '.02em',
-                fontVariantNumeric: 'tabular-nums',
-              }}>
+            <div className={cn(
+              "flex items-center gap-1.5 py-1 px-3 rounded-full border border-[var(--border-light)]",
+              isRunning ? "bg-[var(--surface-elevated)]" : "bg-[var(--surface-card)]"
+            )}>
+              <div className={cn(
+                "w-1.5 h-1.5 rounded-full",
+                isRunning ? "bg-[var(--brand-primary)] shadow-[0_0_6px_oklch(0.72_0.13_155/0.6)]" : isPaused ? "bg-[var(--accent-warning)]" : "bg-[var(--text-subtle)]"
+              )} />
+              <span className="font-mono text-[13px] font-medium text-[var(--text-main)] tracking-wide tabular-nums">
                 {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
               </span>
             </div>
@@ -252,29 +225,10 @@ export function MobileWriteScreen({
               placeholder={t('topbar_title_placeholder')}
               inputMode="text"
               enterKeyHint="done"
-              style={{
-                flex: 1,
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                fontSize: 14,
-                fontWeight: 500,
-                color: 'var(--text-muted)',
-                textAlign: 'center',
-                fontFamily: 'Inter, system-ui, sans-serif',
-              }}
+              className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-[var(--text-muted)] text-center font-sans"
             />
 
-            <div style={{
-              fontSize: 10,
-              fontFamily: 'JetBrains Mono, monospace',
-              color: 'var(--text-subtle)',
-              letterSpacing: '.06em',
-              textTransform: 'uppercase',
-              minWidth: 60,
-              textAlign: 'right',
-              fontVariantNumeric: 'tabular-nums',
-            }}>
+            <div className="text-[10px] font-mono text-[var(--text-subtle)] tracking-[0.06em] uppercase min-w-[60px] text-right tabular-nums">
               {saveStatus === 'saving' ? t('save_status_saving') :
                saveStatus === 'saved'  ? t('save_status_saved')  : ''}
             </div>
@@ -283,7 +237,7 @@ export function MobileWriteScreen({
       </AnimatePresence>
 
       <div
-        style={{ flex: 1, overflow: 'hidden', position: 'relative' }}
+        className="flex-1 overflow-hidden relative"
         onTouchStart={handleEditorTouchStart}
         onTouchEnd={handleEditorTouchEnd}
       >
@@ -317,60 +271,51 @@ export function MobileWriteScreen({
           }}
         />
 
-        <div style={{
-          position: 'absolute',
-          left: 0, right: 0, bottom: 0,
-          height: 2,
-          pointerEvents: 'none',
-          overflow: 'hidden',
-        }}>
+        <div className="absolute left-0 right-0 bottom-0 h-0.5 pointer-events-none overflow-hidden">
           <div
             ref={glowBarRef}
-            style={{
-              height: '100%',
-              background: 'linear-gradient(90deg, transparent, var(--flow-pulse-color, var(--brand-primary)) 50%, transparent)',
-              width: '60%',
-              marginLeft: '20%',
-              opacity: isRunning ? 0.3 : 0,
-              transition: 'opacity 0.6s, margin-left 0.6s cubic-bezier(.4,.2,.2,1)',
-              filter: 'blur(1px)',
-            }}
+            className={cn(
+              "h-full w-[60%] ml-[20%] transition-[opacity,margin-left] duration-[600ms] ease-[cubic-bezier(.4,.2,.2,1)] blur-[1px] bg-[linear-gradient(90deg,transparent,var(--flow-pulse-color,var(--brand-primary))_50%,transparent)]",
+              isRunning ? "opacity-30" : "opacity-0"
+            )}
           />
         </div>
       </div>
 
       {keyboardHeight > 130 && !showZen && (
-        <div style={{
-          position: 'absolute',
-          left: 0, right: 0,
+        <div className="absolute left-0 right-0 flex items-center justify-center gap-4 h-7 bg-[rgba(14,10,24,0.85)] backdrop-blur-sm z-[35] px-4" style={{
           bottom: keyboardHeight,
-          height: 28,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 16,
-          background: 'rgba(14, 10, 24, 0.85)',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
           borderTop: '1px solid rgba(165, 131, 232, 0.08)',
-          zIndex: 35,
-          paddingInline: 16,
         }}>
-          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'rgba(240,235,250,0.6)', fontVariantNumeric: 'tabular-nums' }}>
+          <span className="font-mono text-[11px] text-[rgba(240,235,250,0.6)] tabular-nums">
             {sessionWords} {t('home_words_short')}
           </span>
-          <span style={{ width: 1, height: 12, background: 'rgba(165,131,232,0.2)' }} />
-          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'rgba(240,235,250,0.6)', fontVariantNumeric: 'tabular-nums' }}>
+          <span className="w-px h-3 bg-[rgba(165,131,232,0.2)]" />
+          <span className="font-mono text-[11px] text-[rgba(240,235,250,0.6)] tabular-nums">
             {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
           </span>
-          <span style={{ width: 1, height: 12, background: 'rgba(165,131,232,0.2)' }} />
-          <span style={{
-            width: 6, height: 6, borderRadius: '50%',
+          <span className="w-px h-3 bg-[rgba(165,131,232,0.2)]" />
+          <span className="w-1.5 h-1.5 rounded-full" style={{
             background: getWpmHex(wpm),
             boxShadow: status === 'writing' && wpm > 0 ? `0 0 6px ${getWpmHex(wpm)}` : 'none',
           }} />
         </div>
       )}
+
+      <AnimatePresence>
+        {showSwipeHint && isRunning && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="absolute bottom-[100px] left-6 right-6 z-40 bg-[var(--surface-card)] backdrop-blur-md border border-white/10 rounded-xl p-3 flex justify-center pointer-events-none"
+          >
+            <span className="text-xs text-[var(--text-muted)] font-medium">
+              {t('swipe_down_hint')}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {!showZen && (
@@ -384,21 +329,6 @@ export function MobileWriteScreen({
             onToggleStreamMode={toggleStreamMode}
             keyboardHeight={keyboardHeight}
           />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showSwipeHint && isRunning && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            style={{ position: 'absolute', bottom: 100, left: 24, right: 24, zIndex: 40, background: 'var(--surface-card)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: 12, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}
-          >
-            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>
-              {t('swipe_down_hint')}
-            </span>
-          </motion.div>
         )}
       </AnimatePresence>
 

@@ -79,8 +79,8 @@ describe('getGuestDocuments', () => {
 
     const docs = await LocalDocumentService.getGuestDocuments(GUEST);
     // id1 was updated more recently, should come first
-    expect(docs[0].id).toBe(id1);
-    expect(docs[1].id).toBe(id2);
+    expect(docs[0]?.id).toBe(id1);
+    expect(docs[1]?.id).toBe(id2);
   });
 });
 

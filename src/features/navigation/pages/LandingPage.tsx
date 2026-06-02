@@ -86,8 +86,7 @@ export function LandingPage() {
         </p>
         <button
           onClick={() => void navigate('/')}
-          className="mt-8 px-8 py-3.5 rounded-xl font-bold text-white hover:brightness-110 active:scale-[0.98] transition-all"
-          style={{ background: 'var(--brand-primary)' }}
+          className="mt-8 px-8 py-3.5 rounded-xl font-bold text-white hover:brightness-110 active:scale-[0.98] transition-all bg-[var(--brand-primary)]"
         >
           {isRu ? 'Начать писать' : 'Start writing'}
         </button>
@@ -123,8 +122,7 @@ export function LandingPage() {
         </p>
         <button
           onClick={() => void navigate('/')}
-          className="px-8 py-3.5 rounded-xl font-bold text-white hover:brightness-110 active:scale-[0.98] transition-all"
-          style={{ background: 'var(--brand-primary)' }}
+          className="px-8 py-3.5 rounded-xl font-bold text-white hover:brightness-110 active:scale-[0.98] transition-all bg-[var(--brand-primary)]"
         >
           {isRu ? 'Открыть редактор' : 'Open editor'}
         </button>

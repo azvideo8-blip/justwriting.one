@@ -35,7 +35,7 @@ export const AIProfileService = {
         const data = snap.data() as Record<string, unknown>;
         if (data.aiPortrait) {
           const decrypted = await maybeDecrypt(data, ['aiPortrait'], []);
-          const portrait = decrypted.aiPortrait as string;
+          const portrait = typeof decrypted.aiPortrait === 'string' ? decrypted.aiPortrait : '';
           localStorage.setItem(PORTRAIT_LS_KEY, portrait);
           return portrait;
         }

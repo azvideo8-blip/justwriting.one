@@ -13,6 +13,7 @@ for (const file of translationFiles) {
   for (const match of keyMatches) {
     const key = match[1];
     const body = match[2];
+    if (!key || !body) continue;
     definedKeys.add(key);
     if (!body.includes("ru:")) missingLocale.push({ key, missing: 'ru' });
     if (!body.includes("en:")) missingLocale.push({ key, missing: 'en' });
@@ -27,14 +28,20 @@ const usedKeys = new Set<string>();
 for (const file of srcFiles) {
   const src = readFileSync(file, 'utf-8');
   const tMatches = [...src.matchAll(/\bt\(['"]([a-z][a-zA-Z_0-9]*)['"]/g)];
-  for (const m of tMatches) usedKeys.add(m[1]);
+  for (const m of tMatches) {
+    const key = m[1];
+    if (key) usedKeys.add(key);
+  }
   const arrayMatches = [...src.matchAll(/['"]([a-z][a-zA-Z_0-9]+)['"]/g)];
   for (const m of arrayMatches) {
-    if (m[1].includes('_') && definedKeys.has(m[1])) usedKeys.add(m[1]);
+    const key = m[1];
+    if (key && key.includes('_') && definedKeys.has(key)) usedKeys.add(key);
   }
   const templateMatches = [...src.matchAll(/t\(`([a-z][a-zA-Z_]*)_\$\{/g)];
   for (const m of templateMatches) {
-    const prefix = m[1] + '_';
+    const key = m[1];
+    if (!key) continue;
+    const prefix = key + '_';
     for (const k of definedKeys) {
       if (k.startsWith(prefix)) usedKeys.add(k);
     }

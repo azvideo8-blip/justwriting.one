@@ -113,8 +113,8 @@ describe('useDocuments', () => {
     expect(mocks.mockGetUserDocuments).not.toHaveBeenCalled();
     expect(result.current.loading).toBe(false);
     expect(result.current.documents).toHaveLength(2);
-    expect(result.current.documents[0].id).toBe('doc_local_1');
-    expect(result.current.documents[1].id).toBe('doc_cloud_1');
+    expect(result.current.documents[0]?.id).toBe('doc_local_1');
+    expect(result.current.documents[1]?.id).toBe('doc_cloud_1');
   });
 
   it('fetches cloud and local documents and deduplicates them when authenticated', async () => {

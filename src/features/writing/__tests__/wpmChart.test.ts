@@ -10,8 +10,8 @@ const WIDTH = 400;
 const PAD = { top: 6, bottom: 6, left: 0, right: 0 };
 
 function buildChartFns(data: { timestamp: number; wpm: number }[], height = 72) {
-  const minT = data[0].timestamp;
-  const maxT = data[data.length - 1].timestamp;
+  const minT = data[0]?.timestamp ?? 0;
+  const maxT = data[data.length - 1]?.timestamp ?? 0;
   const maxWpm = Math.max(...data.map(d => d.wpm), 10);
 
   const toX = (t: number) =>
@@ -29,6 +29,7 @@ function buildPath(data: { timestamp: number; wpm: number }[], height = 72): str
   return points.reduce((acc, p, i) => {
     if (i === 0) return 'M ' + p.x + ',' + p.y;
     const prev = points[i - 1];
+    if (!prev) return acc;
     const cpX = (prev.x + p.x) / 2;
     return acc + ' C ' + cpX + ',' + prev.y + ' ' + cpX + ',' + p.y + ' ' + p.x + ',' + p.y;
   }, '');
@@ -40,10 +41,14 @@ function buildFillPath(data: { timestamp: number; wpm: number }[], height = 72):
   const pathD = points.reduce((acc, p, i) => {
     if (i === 0) return 'M ' + p.x + ',' + p.y;
     const prev = points[i - 1];
+    if (!prev) return acc;
     const cpX = (prev.x + p.x) / 2;
     return acc + ' C ' + cpX + ',' + prev.y + ' ' + cpX + ',' + p.y + ' ' + p.x + ',' + p.y;
   }, '');
-  return pathD + ' L ' + points[points.length - 1].x + ',' + height + ' L ' + points[0].x + ',' + height + ' Z';
+  const lastPoint = points[points.length - 1];
+  const firstPoint = points[0];
+  if (!lastPoint || !firstPoint) return pathD;
+  return pathD + ' L ' + lastPoint.x + ',' + height + ' L ' + firstPoint.x + ',' + height + ' Z';
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

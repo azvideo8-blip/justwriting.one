@@ -70,7 +70,7 @@ export function calculateBestStreak(sessions: Session[]): number {
   if (sorted.length === 0) return 0;
   let max = 1, cur = 1;
   for (let i = 1; i < sorted.length; i++) {
-    const diffDays = Math.round((sorted[i] - sorted[i - 1]) / 86400000);
+    const diffDays = Math.round((sorted[i]! - sorted[i - 1]!) / 86400000);
     if (diffDays === 1) { cur++; max = Math.max(max, cur); }
     else if (diffDays > 1) { cur = 1; }
   }

@@ -10,7 +10,7 @@ interface TankLogoProps {
   className?: string;
 }
 
-const COLORS: Record<string, Record<string, string>> = {
+const COLORS: Record<"dark" | "light" | "white", Record<string, string>> = {
   dark:  { ca:"var(--brand-soft)", inn:"var(--brand-primary)", kf:"#fff", kt:"var(--brand-deep)", rm:"var(--brand-soft)", cr:"var(--brand-soft)", rw:"var(--brand-soft)"},
   light: { ca:"var(--brand-deep)", inn:"var(--brand-primary)", kf:"var(--brand-primary)", kt:"#fff", rm:"var(--brand-deep)", cr:"var(--brand-primary)", rw:"var(--brand-primary)"},
   white: { ca:"#fff", inn:"#fff", kf:"#fff", kt:"var(--brand-deep)", rm:"#fff", cr:"#fff", rw:"#fff"},

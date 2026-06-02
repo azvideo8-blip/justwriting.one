@@ -37,6 +37,11 @@ export function FinishModalStats({
   statsExpanded,
   setStatsExpanded,
 }: FinishModalStatsProps) {
+  const borderStyle = {
+    borderImage: 'linear-gradient(to bottom, transparent, var(--color-border-subtle), transparent) 1',
+    borderLeft: '1px solid',
+    borderRight: '1px solid',
+  };
   if (isMobile) {
     return (
       <div className="border border-border-subtle rounded-2xl overflow-hidden bg-surface-base/10">
@@ -120,7 +125,7 @@ export function FinishModalStats({
           <div className="text-label-sm font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_words')}</div>
           <div className="text-xl font-mono font-bold text-text-main tabular-nums">{animWords}</div>
         </div>
-        <div className="p-2" style={{ borderImage: 'linear-gradient(to bottom, transparent, var(--color-border-subtle), transparent) 1', borderLeft: '1px solid', borderRight: '1px solid' }}>
+        <div className="p-2" style={borderStyle}>
           <div className="text-label-sm font-bold uppercase tracking-widest mb-1 text-text-main/50">{t('writing_time')}</div>
           <div className="text-xl font-mono font-bold text-text-main tabular-nums">{formatTime(animSeconds)}</div>
         </div>

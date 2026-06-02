@@ -20,6 +20,7 @@ function pruneMessages(messages: AIMessage[]): AIMessage[] {
   const chatOnly = messages.filter(m => m.type !== 'system');
   if (chatOnly.length <= CONTEXT_WINDOW) return chatOnly;
   const first = chatOnly[0];
+  if (!first) return chatOnly;
   const rest = chatOnly.slice(-CONTEXT_WINDOW);
   if (first === rest[0]) return rest;
   return [first, ...rest];
@@ -288,7 +289,9 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
       const versions = await db.getAllFromIndex('versions', 'by-document', documentId);
       if (versions.length === 0) return;
       versions.sort((a, b) => b.version - a.version);
-      const content = versions[0].content;
+      const firstVersion = versions[0];
+      if (!firstVersion) return;
+      const content = firstVersion.content;
       const title = doc.title || 'Без названия';
 
       if (content.length > MAX_ATTACHMENT_CHARS) {

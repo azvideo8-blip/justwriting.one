@@ -24,7 +24,7 @@ const CUSTOM_COLOR = '#A583E8';
 function deriveMono(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) return '·';
-  return [...trimmed][0].toUpperCase();
+  return [...trimmed][0]?.toUpperCase() ?? '·';
 }
 
 export function personaVisual(id: string, name: string): PersonaVisual {

@@ -8,7 +8,7 @@ const mockTimestampFromDate = (date: Date) => ({ seconds: Math.floor(date.getTim
 
 vi.mock('../../../../core/firebase/firestoreClient', () => ({
   getClient: async () => ({
-    db: { type: 'db' } as any,
+    db: { type: 'db' } as unknown,
     mod: {
       collection: (db: any, ...paths: string[]) => ({ type: 'collection', paths }),
       addDoc: mockAddDoc,
@@ -77,7 +77,7 @@ describe('VersionService', () => {
 
       expect(id).toBe('new_ver_id');
       expect(mockAddDoc).toHaveBeenCalled();
-      const [colRef, docPayload] = mockAddDoc.mock.calls[0];
+      const [colRef, docPayload] = mockAddDoc.mock.calls[0]!;
       expect(colRef).toEqual({
         type: 'collection',
         paths: ['users', 'user_123', 'documents', 'doc_123', 'versions'],
@@ -122,8 +122,8 @@ describe('VersionService', () => {
         _encrypted: true,
       });
 
-      const [, docPayload] = mockAddDoc.mock.calls[0];
-      expect(docPayload._encrypted).toBe(true);
+      const [, docPayload1] = mockAddDoc.mock.calls[0]!;
+      expect(docPayload1._encrypted).toBe(true);
     });
 
     it('uses custom savedAt date if provided', async () => {
@@ -135,8 +135,8 @@ describe('VersionService', () => {
         savedAt: customSavedAt,
       });
 
-      const [, docPayload] = mockAddDoc.mock.calls[0];
-      expect(docPayload.savedAt).toEqual(mockTimestampFromDate(customSavedAt));
+      const [, docPayload2] = mockAddDoc.mock.calls[0]!;
+      expect(docPayload2.savedAt).toEqual(mockTimestampFromDate(customSavedAt));
     });
 
     it('rethrows write error', async () => {
@@ -164,8 +164,8 @@ describe('VersionService', () => {
 
       const versions = await VersionService.getVersions('user_123', 'doc_123');
       expect(versions).toHaveLength(2);
-      expect(versions[0].version).toBe(1);
-      expect(versions[1].version).toBe(2);
+      expect(versions[0]?.version).toBe(1);
+      expect(versions[1]?.version).toBe(2);
     });
 
     it('returns fallback objects for versions failing validation', async () => {
@@ -226,6 +226,47 @@ describe('VersionService', () => {
 
       const content = await VersionService.getLatestContent('user_123', 'doc_123');
       expect(content).toBe('');
+    });
+  });
+
+  describe('getLatestVersion', () => {
+    it('returns the latest version object', async () => {
+      mockGetDocs.mockResolvedValue({
+        docs: [
+          {
+            id: 'ver_latest',
+            data: () => ({ ...dummyRawVersion, content: 'latest content', version: 10 }),
+          },
+        ],
+      });
+
+      const version = await VersionService.getLatestVersion('user_123', 'doc_123');
+      expect(version).not.toBeNull();
+      expect(version?.content).toBe('latest content');
+      expect(version?.version).toBe(10);
+    });
+
+    it('returns null if no versions exist', async () => {
+      mockGetDocs.mockResolvedValue({
+        docs: [],
+      });
+
+      const version = await VersionService.getLatestVersion('user_123', 'doc_123');
+      expect(version).toBeNull();
+    });
+
+    it('returns null if parsing fails', async () => {
+      mockGetDocs.mockResolvedValue({
+        docs: [
+          {
+            id: 'ver_invalid',
+            data: () => ({ ...dummyRawVersion, version: 'invalid' }),
+          },
+        ],
+      });
+
+      const version = await VersionService.getLatestVersion('user_123', 'doc_123');
+      expect(version).toBeNull();
     });
   });
 });

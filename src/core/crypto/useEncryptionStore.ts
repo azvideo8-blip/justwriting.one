@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { reportError } from '../errors/reportError';
-import { STORAGE_KEYS } from '../constants/storageKeys';
+import { reportError } from '../../core/errors/reportError';
+import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 
 interface EncryptionState {
   dataKey: CryptoKey | null;

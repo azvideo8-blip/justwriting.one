@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { updateArchiveField, deleteArchiveSession } from '../archiveCrud';
 import { ArchiveSession } from '../../types';
+import { User } from 'firebase/auth';
 
 vi.mock('../../../../core/services/DocumentService', () => ({
   DocumentService: {
@@ -29,7 +30,7 @@ vi.mock('../../../../core/services/StorageService', () => ({
 import { LocalDocumentService } from '../../../../core/services/LocalDocumentService';
 import { DocumentService } from '../../../../core/services/DocumentService';
 
-const mockUser = { uid: 'user1' } as any;
+const mockUser = { uid: 'user1' } as unknown as User;
 
 function makeSession(overrides: Partial<ArchiveSession> = {}): ArchiveSession {
   return {
@@ -57,6 +58,27 @@ describe('updateArchiveField — local session', () => {
     expect(LocalDocumentService.updateTags).toHaveBeenCalledWith('s1', ['t1']);
   });
 
+  it('title → LocalDocumentService.updateTitle', async () => {
+    await updateArchiveField(makeSession({ _isLocal: true }), 'title', 'New Title', mockUser, 'user1');
+    expect(LocalDocumentService.updateTitle).toHaveBeenCalledWith('s1', 'New Title');
+  });
+
+  it('date → LocalDocumentService.updateDate with timestamp', async () => {
+    const d = new Date(2024, 0, 1);
+    await updateArchiveField(makeSession({ _isLocal: true }), 'date', d, mockUser, 'user1');
+    expect(LocalDocumentService.updateDate).toHaveBeenCalledWith('s1', d.getTime(), d.getTime());
+  });
+
+  it('labelId → LocalDocumentService.updateLabelId', async () => {
+    await updateArchiveField(makeSession({ _isLocal: true }), 'labelId', 'label1', mockUser, 'user1');
+    expect(LocalDocumentService.updateLabelId).toHaveBeenCalledWith('s1', 'label1');
+  });
+
+  it('labelId undefined → LocalDocumentService.updateLabelId with undefined', async () => {
+    await updateArchiveField(makeSession({ _isLocal: true }), 'labelId', undefined, mockUser, 'user1');
+    expect(LocalDocumentService.updateLabelId).toHaveBeenCalledWith('s1', undefined);
+  });
+
   it('also syncs to cloud if linkedCloudId present', async () => {
     await updateArchiveField(
       makeSession({ _isLocal: true, _linkedCloudId: 'cloud1' }),
@@ -69,6 +91,15 @@ describe('updateArchiveField — local session', () => {
     await updateArchiveField(makeSession({ _isLocal: true }), 'tags', ['t1'], mockUser, 'user1');
     expect(DocumentService.updateTags).not.toHaveBeenCalled();
   });
+
+  it('returns cloudSyncFailed=true when cloud sync rejects', async () => {
+    vi.mocked(DocumentService.updateTags).mockRejectedValueOnce(new Error('network'));
+    const result = await updateArchiveField(
+      makeSession({ _isLocal: true, _linkedCloudId: 'cloud1' }),
+      'tags', ['t1'], mockUser, 'user1'
+    );
+    expect(result).toEqual({ success: true, cloudSyncFailed: true });
+  });
 });
 
 describe('updateArchiveField — cloud-only session', () => {
@@ -79,9 +110,31 @@ describe('updateArchiveField — cloud-only session', () => {
     expect(DocumentService.updateTags).toHaveBeenCalledWith('user1', 's1', ['t1']);
   });
 
+  it('title → DocumentService.updateTitle', async () => {
+    await updateArchiveField(makeSession(), 'title', 'Cloud Title', mockUser, 'user1');
+    expect(DocumentService.updateTitle).toHaveBeenCalledWith('user1', 's1', 'Cloud Title');
+  });
+
+  it('date → DocumentService.updateDate', async () => {
+    const d = new Date(2024, 0, 1);
+    await updateArchiveField(makeSession(), 'date', d, mockUser, 'user1');
+    expect(DocumentService.updateDate).toHaveBeenCalledWith('user1', 's1', d, d);
+  });
+
+  it('labelId → DocumentService.updateLabelId', async () => {
+    await updateArchiveField(makeSession(), 'labelId', 'label2', mockUser, 'user1');
+    expect(DocumentService.updateLabelId).toHaveBeenCalledWith('user1', 's1', 'label2');
+  });
+
   it('does nothing if user is null', async () => {
     await updateArchiveField(makeSession(), 'tags', ['t1'], null, 'user1');
     expect(DocumentService.updateTags).not.toHaveBeenCalled();
+  });
+
+  it('throws if date value is not a Date', async () => {
+    await expect(
+      updateArchiveField(makeSession(), 'date', 'not-a-date', mockUser, 'user1')
+    ).rejects.toThrow('Expected Date for date field');
   });
 });
 
@@ -98,5 +151,11 @@ describe('deleteArchiveSession', () => {
     const { StorageService } = await import('../../../../core/services/StorageService');
     await deleteArchiveSession(makeSession({ _isLocal: false, _hasCloudCopy: true, _linkedCloudId: 'cloud1' }), 'user1');
     expect(StorageService.deleteDocument).toHaveBeenCalledWith('user1', undefined, 'cloud1');
+  });
+
+  it('local with cloud copy → StorageService.deleteDocument with both ids', async () => {
+    const { StorageService } = await import('../../../../core/services/StorageService');
+    await deleteArchiveSession(makeSession({ _isLocal: true, _hasCloudCopy: true, _linkedCloudId: 'cloud1' }), 'user1');
+    expect(StorageService.deleteDocument).toHaveBeenCalledWith('user1', 's1', 'cloud1');
   });
 });

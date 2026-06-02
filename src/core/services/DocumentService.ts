@@ -2,7 +2,7 @@ import { getClient } from '../firebase/firestoreClient';
 import { Document } from '../../types';
 import { handleFirestoreError, OperationType } from '../errors/firestore-errors';
 import { toTimestampMs } from '../utils/dateUtils';
-import { reportError } from '../errors/reportError';
+import { reportError } from '../../core/errors/reportError';
 import { documentDbSchema } from '../firebase/schemas/firestoreSchemas';
 import { documentFromDb } from './mappers';
 

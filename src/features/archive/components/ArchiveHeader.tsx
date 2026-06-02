@@ -46,7 +46,7 @@ export function ArchiveHeader({
   }, [sortOpen]);
 
   return (
-    <div style={{ padding: '24px 0 18px', borderBottom: '1px solid var(--color-border-subtle)' }}>
+    <div className="py-6 pb-[18px] border-b border-[var(--color-border-subtle)]">
       <div className="flex items-baseline gap-3 mb-1">
         <h1 className="text-3xl font-medium tracking-tight text-text-main">
           {title}

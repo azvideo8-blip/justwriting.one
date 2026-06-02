@@ -1,5 +1,5 @@
 import { getLocalDb } from '../storage/localDb';
-import { logger } from '../errors/logger';
+import { logger } from '../../core/errors/logger';
 import { StorageService } from './StorageService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService } from './DocumentService';

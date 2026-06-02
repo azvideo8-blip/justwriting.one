@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { useLanguage } from '../../../core/i18n';
 import { Session } from '../../../types';
 import { toDate } from '../../../core/utils/dateUtils';
+import { cn } from '../../../core/utils/utils';
 
 function getSessionHour(s: Session): number | null {
   const d = s.sessionStartTime ? new Date(s.sessionStartTime) : toDate(s.createdAt);
@@ -42,20 +43,20 @@ export function HourRhythm({ sessions }: { sessions: Session[] }) {
   const isPeak = (h: number) => h === peakHour && counts[h] > 0;
 
   return (
-    <div className="px-4 py-6 md:px-9 md:py-8" style={{ borderBottom: '1px solid var(--border-light)' }}>
+    <div className="px-4 py-6 md:px-9 md:py-8 border-b border-border-subtle" >
       <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3 mb-4">
         <h2 className="text-[18px] font-medium text-text-main">
           {t('profile_rhythm_title')}
         </h2>
         <div className="font-mono text-label-sm text-text-main/40">
           {t('profile_rhythm_peak')}{' '}
-          <span style={{ color: 'var(--flow-pulse-color)' }}>
+          <span className="text-[var(--flow-pulse-color)]">
             {String(peakHour).padStart(2, '0')}:00
           </span>
         </div>
       </div>
 
-      <div className="flex gap-0.5 items-end overflow-visible" style={{ height: 72 }}>
+      <div className="flex gap-0.5 items-end overflow-visible h-[72px]">
         {data.map((v, h) => {
           const isLeftEdge = h < 3;
           const isRightEdge = h > 20;
@@ -81,36 +82,19 @@ export function HourRhythm({ sessions }: { sessions: Session[] }) {
               onMouseLeave={() => setHoveredHour(null)}
             >
               <div
-                style={{
-                  height: '100%',
-                  borderRadius: 2,
-                  background: isPeak(h)
-                    ? 'var(--flow-pulse-color)'
-                    : v > 0.1
-                      ? 'var(--text-subtle)'
-                      : 'var(--surface-elevated)',
-                  transition: 'background 0.15s',
-                  ...(hoveredHour === h ? { background: 'var(--flow-pulse-color)', filter: 'brightness(1.15)' } : {}),
-                }}
+                className={cn(
+                  "h-full rounded-[2px] transition-colors duration-150",
+                  hoveredHour === h ? "bg-[var(--flow-pulse-color)]" : isPeak(h) ? "bg-[var(--flow-pulse-color)]" : v > 0.1 ? "bg-[var(--text-subtle)]" : "bg-[var(--surface-elevated)]"
+                )}
+                style={hoveredHour === h ? { filter: 'brightness(1.15)' } : undefined}
               />
               {hoveredHour === h && (
-                <div style={{
-                  position: 'absolute', bottom: '100%',
-                  marginBottom: 6, whiteSpace: 'nowrap',
-                  background: 'var(--surface-elevated)', border: '1px solid var(--border-light)',
-                  borderRadius: 6, padding: '3px 8px', fontSize: 10,
-                  fontFamily: 'var(--font-mono)', color: 'var(--text-main)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)', pointerEvents: 'none', zIndex: 50,
-                  ...tooltipAlignStyle
-                }}>
+                <div className="absolute bottom-full mb-1.5 whitespace-nowrap bg-[var(--surface-elevated)] border border-[var(--border-light)] rounded-md py-0.5 px-2 text-[10px] font-mono text-[var(--text-main)] shadow-[0_4px_12px_rgba(0,0,0,0.3)] pointer-events-none z-50" style={tooltipAlignStyle}>
                   {String(h).padStart(2, '0')}:00 · {counts[h]}
                 </div>
               )}
               {isPeak(h) && (
-                <div style={{
-                  position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)',
-                  fontSize: 8, lineHeight: 1, color: 'var(--flow-pulse-color)', pointerEvents: 'none',
-                }}>▲</div>
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-[8px] leading-none text-[var(--flow-pulse-color)] pointer-events-none">▲</div>
               )}
             </motion.div>
           );

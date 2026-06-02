@@ -292,6 +292,7 @@ export function DiagnosticsPage() {
                       const over = m.used >= m.cap;
                       const warn = pct >= 80;
                       const color = over ? '#f87171' : warn ? '#fbbf24' : '#7d4fd1';
+                      const progressStyle = { width: `${pct}%`, background: color };
                       return (
                         <div key={m.label} className="space-y-1">
                           <div className="flex items-center justify-between text-[11px]">
@@ -304,7 +305,7 @@ export function DiagnosticsPage() {
                             </span>
                           </div>
                           <div className="h-2 rounded-full bg-border-subtle overflow-hidden">
-                            <div className="h-full rounded-full transition-[width]" style={{ width: `${pct}%`, background: color }} />
+                            <div className="h-full rounded-full transition-[width]" style={progressStyle} />
                           </div>
                         </div>
                       );

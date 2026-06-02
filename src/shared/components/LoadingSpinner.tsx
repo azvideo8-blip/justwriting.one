@@ -35,12 +35,13 @@ export function LoadingSpinner({ size = 10, label }: LoadingSpinnerProps) {
       </div>
     );
   }
+  const spinnerStyle = { width: size * 4, height: size * 4 };
   return (
     <div 
       role="status"
       aria-label={displayLabel}
       className="border-4 rounded-full animate-spin border-surface-base/10 border-t-text-main"
-      style={{ width: size * 4, height: size * 4 }}
+      style={spinnerStyle}
     >
       <span className="sr-only">{displayLabel}</span>
     </div>
