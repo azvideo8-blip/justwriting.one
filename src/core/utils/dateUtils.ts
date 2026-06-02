@@ -41,7 +41,7 @@ export function toDate(v: unknown): Date | null {
     }
   }
   try {
-    const d = new Date(v as string | number);
+    const d = new Date(typeof v === 'string' || typeof v === 'number' ? v : String(v));
     return isNaN(d.getTime()) ? null : d;
   } catch { /* ignore */ }
   return null;

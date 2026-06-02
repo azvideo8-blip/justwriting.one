@@ -56,7 +56,7 @@ export const HeaderStats = memo(function HeaderStats({
   const timeDone = timerDuration > 0 && sessionSeconds >= timerDuration;
 
   return (
-    <div className="flex items-center border-t border-border-subtle" style={{ borderRadius: 0 }}>
+    <div className="flex items-center border-t border-border-subtle rounded-none">
       {visibility.totalWords && (
         <div className="hidden sm:flex flex-col px-4 py-3 shrink-0">
           <span className="text-2xl font-medium text-text-main leading-none tabular-nums">{wordCount}</span>

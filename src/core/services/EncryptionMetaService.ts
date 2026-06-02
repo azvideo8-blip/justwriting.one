@@ -35,11 +35,15 @@ export async function getEncryptionMeta(uid: string): Promise<EncryptionMeta | n
   const meta = data.encryptionMeta;
   if (!meta || typeof meta !== 'object') return null;
   if (!meta.salt || !meta.wrappedDataKey) return null;
+  const salt = String(meta.salt);
+  const wrappedDataKey = String(meta.wrappedDataKey);
+  const verification = typeof meta.verification === 'string' ? meta.verification : '';
+  const version = typeof meta.version === 'number' ? meta.version : ENCRYPTION_META_VERSION;
   return {
-    salt: meta.salt as string,
-    version: (meta.version as number) ?? ENCRYPTION_META_VERSION,
-    wrappedDataKey: meta.wrappedDataKey as string,
-    verification: (meta.verification as string) ?? '',
+    salt,
+    version,
+    wrappedDataKey,
+    verification,
   };
 }
 

@@ -106,8 +106,9 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
             const latest = await VersionService.getLatestVersion(uid, cloudDoc.id);
             if (latest) {
               try {
-                const decrypted = await maybeDecrypt(latest as unknown as Record<string, unknown>, ['content'], []);
-                cloudContent = (decrypted.content as string) ?? '';
+                const latestRecord: Record<string, unknown> = { ...latest };
+                const decrypted = await maybeDecrypt(latestRecord, ['content'], []);
+                cloudContent = typeof decrypted.content === 'string' ? decrypted.content : '';
                 if (decrypted._decryptionError) cloudDecryptError = true;
               } catch (decErr) {
                 if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) {

@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/react';
-import { STORAGE_KEYS } from '../../../core/constants/storageKeys';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { logger } from '../../../core/errors/logger';
 
 export function reportKeystrokeStats(

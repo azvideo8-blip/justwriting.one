@@ -69,7 +69,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
         <motion.div
           animate={{ opacity: [0.7, 1, 0.7] }}
           transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-          style={{ filter: "drop-shadow(0 0 24px color-mix(in srgb, var(--brand-soft) 40%, transparent))" }}
+          className="drop-shadow-[0_0_24px_color-mix(in_srgb,var(--brand-soft)_40%,transparent)]"
         >
           <JustWritingLogo size={120} variant="dark" showRailway={true} showRoman={true} showCrown={true} />
         </motion.div>
@@ -117,24 +117,24 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden">
             <KPIStrip stats={kpiStats} />
           </div>
-          <div className="hidden md:block" style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
+          <div className="hidden md:block h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_30%,var(--border-light))] to-transparent" />
           <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden">
             <Heatmap sessions={sessions} />
           </div>
-          <div className="hidden md:block" style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
+          <div className="hidden md:block h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_30%,var(--border-light))] to-transparent" />
           <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden">
             <HourRhythm sessions={sessions} />
           </div>
-          <div className="hidden md:block" style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
+          <div className="hidden md:block h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_30%,var(--border-light))] to-transparent" />
           <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden">
             <StreakRibbon sessions={sessions} />
           </div>
-          <div className="hidden md:block" style={{ height: 1, background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--flow-pulse-color) 30%, var(--border-light)), transparent)' }} />
+          <div className="hidden md:block h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_30%,var(--border-light))] to-transparent" />
           <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden animate-none">
             <Achievements key={achResetKey} stats={kpiStats} sessions={sessions} />
           </div>
       </div>
-      <div style={{ padding: '12px 36px 48px', textAlign: 'center' }}>
+      <div className="px-9 pt-3 pb-12 text-center">
         <div className="flex items-center justify-center gap-4 mb-4">
           <Button
             onClick={() => setShowProfileConfirm(true)}

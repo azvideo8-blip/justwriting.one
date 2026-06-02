@@ -5,6 +5,7 @@ import * as Sentry from "@sentry/react";
 import { reportError } from './core/errors/reportError';
 import App from './App.tsx';
 import './core/analytics/analytics';
+import { initWebVitals } from './core/analytics/webVitals';
 import './index.css';
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
@@ -34,6 +35,8 @@ if (sentryDsn && sentryDsn.startsWith('https://')) {
 window.addEventListener('unhandledrejection', (event) => {
   reportError(event.reason, { source: 'unhandledrejection' });
 });
+
+initWebVitals();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

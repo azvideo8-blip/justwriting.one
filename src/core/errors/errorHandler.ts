@@ -10,15 +10,15 @@ export const mapFirebaseError = (error: unknown, language: 'ru' | 'en' = 'ru'): 
   
   switch (code) {
     case 'permission-denied':
-      return translations['error_permission_denied'][language];
+      return translations['error_permission_denied']![language];
     case 'unavailable':
-      return translations['error_unavailable'][language];
+      return translations['error_unavailable']![language];
     case 'auth/user-not-found':
     case 'auth/wrong-password':
-      return translations['auth_error_invalid_credential'][language];
+      return translations['auth_error_invalid_credential']![language];
     case 'auth/too-many-requests':
-      return translations['error_too_many_requests'][language];
+      return translations['error_too_many_requests']![language];
     default:
-      return translations['error_generic'][language];
+      return translations['error_generic']![language];
   }
 };

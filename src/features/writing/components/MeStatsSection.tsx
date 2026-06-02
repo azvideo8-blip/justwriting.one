@@ -18,8 +18,8 @@ export function MeStatsSection({ profile }: MeStatsSectionProps) {
   const { t } = useLanguage();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', gap: 8 }}>
+    <div className="flex flex-col gap-3" >
+      <div className="flex gap-2" >
         <StatCard
           value={(profile?.totalWordCount || 0).toLocaleString()}
           label={t('me_stat_total_words')}
@@ -30,7 +30,7 @@ export function MeStatsSection({ profile }: MeStatsSectionProps) {
           label={t('me_stat_sessions')}
         />
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div className="flex gap-2" >
         <StatCard
           value={profile?.streakDays || 0}
           label={t('me_stat_streak')}
@@ -40,7 +40,7 @@ export function MeStatsSection({ profile }: MeStatsSectionProps) {
           label={t('me_stat_total_time')}
         />
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div className="flex gap-2" >
         <StatCard
           value={profile?.avgWpm || 0}
           label={t('me_stat_avg_wpm')}

@@ -2,7 +2,7 @@ import { getSessionKey } from './encrypt';
 import { maybeEncrypt } from './cryptoHelpers';
 import { getClient } from '../firebase/firestoreClient';
 import type { DocumentReference, WriteBatch, FieldValue } from 'firebase/firestore';
-import { reportError } from '../errors/reportError';
+import { reportError } from '../../core/errors/reportError';
 
 export interface MigrationProgress {
   total: number;
@@ -20,7 +20,10 @@ function getCheckpointKey(userId: string) {
 function loadCheckpoint(userId: string): Set<string> {
   try {
     const raw = localStorage.getItem(getCheckpointKey(userId));
-    if (raw) return new Set(JSON.parse(raw) as string[]);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return new Set(parsed.map(String));
+    }
   } catch { /* ignore */ }
   return new Set();
 }

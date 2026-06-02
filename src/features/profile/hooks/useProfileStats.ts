@@ -60,7 +60,7 @@ function computeDocStats(sessions: StatsSession[]): DocLevelStats {
 function computeKPIStats(sessions: Session[], docStats: DocLevelStats): KPIStats {
   try {
     const dates = new Set<string>();
-    const hours = new Array(24).fill(0) as number[];
+    const hours: number[] = Array.from({ length: 24 }, () => 0);
 
     sessions.forEach(s => {
       try {
@@ -70,7 +70,10 @@ function computeKPIStats(sessions: Session[], docStats: DocLevelStats): KPIStats
         if (isNaN(d.getTime())) return;
         dates.add(d.toDateString());
         const h = d.getHours();
-        if (!isNaN(h) && h >= 0 && h < 24) hours[h]++;
+        if (!isNaN(h) && h >= 0 && h < 24) {
+          const val = hours[h];
+          if (val !== undefined) hours[h] = val + 1;
+        }
       } catch (e) { reportError(e, { action: 'parseSessionDate' }, 'warning'); }
     });
 

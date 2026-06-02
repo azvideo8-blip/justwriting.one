@@ -242,7 +242,13 @@ export function WritingSetup({
                         onClick={() => {
                           // [L-08] валидация времени finish-by: должно быть в будущем
                           if (setupMode === 'finish-by-config' && targetTime) {
-                            const [hours, minutes] = targetTime.split(':').map(Number);
+                            const [hoursStr, minutesStr] = targetTime.split(':');
+                            const hours = Number(hoursStr);
+                            const minutes = Number(minutesStr);
+                            if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+                              setFinishByError(true);
+                              return;
+                            }
                             const target = new Date();
                             target.setHours(hours, minutes, 0, 0);
                             if (target <= new Date()) {

@@ -29,7 +29,7 @@ export function ArchiveTagBar({
   if (allTags.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-2 py-3 flex-wrap" style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
+    <div className="flex items-center gap-2 py-3 flex-wrap border-b border-border-subtle" >
       <span className="font-mono text-[9px] text-text-main/25 uppercase tracking-widest mr-1">
         {t('archive_tags_label')}
       </span>

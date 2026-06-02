@@ -46,7 +46,13 @@ export function MobileSessionSetupSheet({
 
   const handleStartWithValidation = () => {
     if (setupMode === 'finish-by-config' && targetTime) {
-      const [hours, minutes] = targetTime.split(':').map(Number);
+      const [hoursStr, minutesStr] = targetTime.split(':');
+      const hours = Number(hoursStr);
+      const minutes = Number(minutesStr);
+      if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+        setFinishByError(true);
+        return;
+      }
       const target = new Date();
       target.setHours(hours, minutes, 0, 0);
       if (target <= new Date()) {
@@ -101,8 +107,8 @@ export function MobileSessionSetupSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-            className="relative z-10 w-full max-w-lg bg-surface-card border-t border-white/[0.06] rounded-t-[28px] overflow-hidden flex flex-col max-h-[90vh] shadow-[0_-8px_32px_rgba(0,0,0,0.4)]"
-            style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}
+            className="relative z-10 w-full max-w-lg bg-surface-card border-t border-white/[0.06] rounded-t-[28px] overflow-hidden flex flex-col max-h-[90vh] shadow-[0_-8px_32px_rgba(0,0,0,0.4)] pb-safe"
+            
           >
             {/* Grab Handle */}
             <div className="flex justify-center py-3">
@@ -132,8 +138,7 @@ export function MobileSessionSetupSheet({
               />
             </div>
 
-            <div className="px-6 overflow-y-auto no-scrollbar flex-1"
-              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}>
+            <div className="px-6 overflow-y-auto no-scrollbar flex-1 pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
               {/* Selection Screen */}
               {setupMode === 'selection' && (
                 <div className="space-y-4">
@@ -153,8 +158,7 @@ export function MobileSessionSetupSheet({
                       <Button
                         key={mode.id}
                         onClick={() => mode.id === 'stopwatch' ? startCountdown('stopwatch') : setSetupMode(mode.id as SetupMode)}
-                        className="p-4 rounded-2xl border border-white/[0.05] bg-white/[0.02] flex items-center gap-4 text-left w-full active:bg-white/[0.07] active:scale-[0.99] transition-colors cursor-pointer"
-                        style={{ minHeight: 64 }}
+                        className="p-4 rounded-2xl border border-white/[0.05] bg-white/[0.02] flex items-center gap-4 text-left w-full active:bg-white/[0.07] active:scale-[0.99] transition-colors cursor-pointer min-h-[64px]"
                       >
                         <div className={cn("p-2.5 rounded-xl shrink-0", mode.bg, mode.color)}>
                           <mode.icon size={20} strokeWidth={2.2} />

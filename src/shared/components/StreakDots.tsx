@@ -35,40 +35,20 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
             <div
               role="gridcell"
               aria-label={day.hasSession ? `${day.date.toLocaleDateString()}: session written` : `${day.date.toLocaleDateString()}: no session`}
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 11,
-                fontWeight: 700,
-                fontFamily: 'JetBrains Mono, monospace',
-                background: day.hasSession
+              className={cn(
+                "w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold font-mono",
+                day.hasSession
                   ? day.isToday
-                    ? 'var(--brand-primary)'
-                    : 'rgba(255,255,255,0.12)'
-                  : 'rgba(255,255,255,0.04)',
-                color: day.hasSession
-                  ? day.isToday
-                    ? 'var(--color-surface-base, #0b0d0c)'
-                    : 'rgba(232,236,233,0.85)'
-                  : 'rgba(255,255,255,0.20)',
-                border: day.isToday && !day.hasSession
-                  ? '1px solid rgba(255,255,255,0.15)'
-                  : '1px solid transparent',
-                boxShadow: day.isToday && day.hasSession
-                  ? '0 0 8px color-mix(in srgb, var(--brand-primary) 40%, transparent)'
-                  : 'none',
-              }}>
+                    ? "bg-[var(--brand-primary)] text-[var(--color-surface-base,#0b0d0c)]"
+                    : "bg-[rgba(255,255,255,0.12)] text-[rgba(232,236,233,0.85)]"
+                  : "bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.20)]",
+                day.isToday && !day.hasSession ? "border border-[rgba(255,255,255,0.15)]" : "border border-transparent"
+              )}
+            >
               {day.date.getDate()}
             </div>
-            <span className={cn(
-              "text-[9px] font-mono tracking-[0.04em]",
-              day.isToday ? "text-text-main/70" : "text-text-main/30"
-            )}>
-              {day.date.toLocaleDateString(language, { weekday: 'narrow' }).toUpperCase()}
+            <span className="text-[9px] font-mono text-text-main/30 uppercase">
+              {day.date.toLocaleDateString(language, { weekday: 'narrow' })}
             </span>
           </div>
         ))}
@@ -77,19 +57,14 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
   }
 
   return (
-    <div className="flex justify-center gap-2" role="group" aria-label="Writing streak calendar">
+    <div role="group" aria-label="Writing streak calendar" className="flex justify-between gap-1.5">
       {days.map((day, i) => (
         <motion.div
           key={i}
-          className="flex flex-col items-center gap-1"
-          initial={reducedMotion ? {} : { scale: 0.5, opacity: 0 }}
+          initial={reducedMotion ? false : { scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={reducedMotion ? { duration: 0 } : {
-            type: 'spring',
-            stiffness: day.isToday ? 500 : 350,
-            damping: day.isToday ? 18 : 20,
-            delay: i * 0.04,
-          }}
+          transition={{ duration: 0.3, delay: i * 0.05, type: 'spring', stiffness: 300, damping: 20 }}
+          className="flex flex-col items-center gap-1 flex-1"
         >
           <div
             role="gridcell"

@@ -12,20 +12,30 @@ const CONTENT_INITIAL = {
   tags: [], labelId: undefined,
 };
 
-const TIMER_INITIAL = {
-  seconds: 0, sessionStartSeconds: 0, status: 'idle' as const, sessionType: 'free' as const,
+const TIMER_INITIAL: {
+  seconds: number; sessionStartSeconds: number; status: 'idle'; sessionType: 'free';
+  timerDuration: number; targetTime: null; wordGoal: number;
+  timeGoalReached: boolean; wordGoalReached: boolean; overtimeSeconds: number;
+  sessionStartWords: number;
+  _startWallMs: number | null; _accumulatedMs: number;
+  sessionStartWallMs: number | null; sessionStartAccMs: number;
+  accumulatedDuration: number;
+  totalPauseSeconds: number; _pauseWallStart: number | null;
+  initialDuration: number;
+} = {
+  seconds: 0, sessionStartSeconds: 0, status: 'idle', sessionType: 'free',
   timerDuration: 30 * 60, targetTime: null, wordGoal: 1000,
   timeGoalReached: false, wordGoalReached: false, overtimeSeconds: 0,
   sessionStartWords: 0,
-  _startWallMs: null as number | null, _accumulatedMs: 0,
-  sessionStartWallMs: null as number | null, sessionStartAccMs: 0,
+  _startWallMs: null, _accumulatedMs: 0,
+  sessionStartWallMs: null, sessionStartAccMs: 0,
   accumulatedDuration: 0,
-  totalPauseSeconds: 0, _pauseWallStart: null as number | null,
+  totalPauseSeconds: 0, _pauseWallStart: null,
   initialDuration: 0,
 };
 
-const META_INITIAL = {
-  activeSessionId: null, savedDocumentId: null, sessionStartTime: null as number | null,
+const META_INITIAL: { activeSessionId: null; savedDocumentId: null; sessionStartTime: number | null } = {
+  activeSessionId: null, savedDocumentId: null, sessionStartTime: null,
 };
 
 beforeEach(() => {
@@ -328,8 +338,8 @@ describe('wpmHistory', () => {
     useContentStore.getState().pushWpmHistory({ timestamp: 1000, wpm: 60 });
     useContentStore.getState().pushWpmHistory({ timestamp: 2000, wpm: 80 });
     expect(useContentStore.getState().wpmHistory).toHaveLength(2);
-    expect(useContentStore.getState().wpmHistory[0].wpm).toBe(60);
-    expect(useContentStore.getState().wpmHistory[1].wpm).toBe(80);
+    expect(useContentStore.getState().wpmHistory[0]?.wpm).toBe(60);
+    expect(useContentStore.getState().wpmHistory[1]?.wpm).toBe(80);
   });
 
   it('resetSession clears wpmHistory', () => {

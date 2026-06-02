@@ -87,8 +87,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
               <button
                 type="submit"
                 disabled={loading || !password}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2"
-                style={{ background: 'var(--brand-primary)' }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-[var(--brand-primary)]"
               >
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <Lock size={14} />}
                 {t('unlock_submit')}

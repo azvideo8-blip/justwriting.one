@@ -3,7 +3,7 @@ import { getLocalDb, LocalDraft } from '../../../core/storage/localDb';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
 import { maybeEncrypt, maybeDecrypt, isProfileLoaded } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../core/errors/reportError';
-import { STORAGE_KEYS } from '../../../core/constants/storageKeys';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const _abortControllers = new Map<string, AbortController>();
@@ -62,7 +62,8 @@ export const WritingDraftService = {
         const docRef = doc(db, 'drafts', userId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          return (await maybeDecrypt(docSnap.data() as Record<string, unknown>, ['content'], ['pinnedThoughts'])) as unknown as LocalDraft;
+          const decrypted: unknown = await maybeDecrypt(docSnap.data() as Record<string, unknown>, ['content'], ['pinnedThoughts']);
+          return decrypted as LocalDraft;
         }
         return null;
       })(), 10000),
@@ -137,7 +138,8 @@ export const WritingDraftService = {
     if (ac.signal.aborted) return;
     const { doc, setDoc, serverTimestamp } = mod;
     const docRef = doc(db, 'drafts', draft.userId);
-    const encrypted = await maybeEncrypt(draft as unknown as Record<string, unknown>, ['content'], ['pinnedThoughts'], draft.userId);
+    const draftRecord: Record<string, unknown> = { ...draft };
+    const encrypted = await maybeEncrypt(draftRecord, ['content'], ['pinnedThoughts'], draft.userId);
     const clean = Object.fromEntries(
       Object.entries(encrypted).filter(([k, v]) => v !== undefined && DRAFT_CLOUD_FIELDS.has(k))
     );

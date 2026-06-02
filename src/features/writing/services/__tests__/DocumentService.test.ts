@@ -74,7 +74,9 @@ describe('DocumentService', () => {
 
       expect(id).toBe('new_doc_id');
       expect(mockAddDoc).toHaveBeenCalled();
-      const [colRef, docPayload] = mockAddDoc.mock.calls[0];
+      const call0 = mockAddDoc.mock.calls[0];
+      expect(call0).toBeDefined();
+      const [colRef, docPayload] = call0!;
       expect(colRef).toEqual({ type: 'collection', paths: ['users', 'user_123', 'documents'] });
       expect(docPayload.title).toBe('My Document');
       expect(docPayload.firstSessionAt).toEqual(mockTimestampNow);
@@ -96,7 +98,7 @@ describe('DocumentService', () => {
         lastSessionAt: last,
       });
 
-      const [, docPayload] = mockAddDoc.mock.calls[0];
+      const [, docPayload] = mockAddDoc.mock.calls[0]!;
       expect(docPayload.firstSessionAt).toEqual(mockTimestampFromDate(first));
       expect(docPayload.lastSessionAt).toEqual(mockTimestampFromDate(last));
     });
@@ -163,8 +165,8 @@ describe('DocumentService', () => {
       const docs = await DocumentService.getUserDocuments('user_123');
       expect(docs).toHaveLength(2);
       // Sorted descending by lastSessionAt
-      expect(docs[0].id).toBe('doc_2');
-      expect(docs[1].id).toBe('doc_1');
+      expect(docs[0]?.id).toBe('doc_2');
+      expect(docs[1]?.id).toBe('doc_1');
     });
 
     it('returns fallback objects for documents that fail Zod validation', async () => {
@@ -199,7 +201,7 @@ describe('DocumentService', () => {
       });
 
       expect(mockUpdateDoc).toHaveBeenCalled();
-      const [, payload] = mockUpdateDoc.mock.calls[0];
+      const [, payload] = mockUpdateDoc.mock.calls[0]!;
       expect(payload).toEqual({
         totalWords: 1000,
         totalDuration: 500,
@@ -224,8 +226,8 @@ describe('DocumentService', () => {
       });
 
       expect(mockUpdateDoc).toHaveBeenCalled();
-      const [, payload] = mockUpdateDoc.mock.calls[0];
-      expect(payload).toEqual({
+      const [, payload2] = mockUpdateDoc.mock.calls[0]!;
+      expect(payload2).toEqual({
         totalWords: 1000,
         totalDuration: 500,
         currentVersion: 5,
@@ -240,8 +242,8 @@ describe('DocumentService', () => {
     it('updates tags list on document', async () => {
       mockUpdateDoc.mockResolvedValue(undefined);
       await DocumentService.updateTags('user_123', 'doc_123', ['tagA', 'tagB']);
-      const [, payload] = mockUpdateDoc.mock.calls[0];
-      expect(payload).toEqual({ tags: ['tagA', 'tagB'] });
+      const [, payload3] = mockUpdateDoc.mock.calls[0]!;
+      expect(payload3).toEqual({ tags: ['tagA', 'tagB'] });
     });
   });
 
@@ -249,8 +251,8 @@ describe('DocumentService', () => {
     it('updates title on document', async () => {
       mockUpdateDoc.mockResolvedValue(undefined);
       await DocumentService.updateTitle('user_123', 'doc_123', 'New Title');
-      const [, payload] = mockUpdateDoc.mock.calls[0];
-      expect(payload).toEqual({ title: 'New Title' });
+      const [, payload4] = mockUpdateDoc.mock.calls[0]!;
+      expect(payload4).toEqual({ title: 'New Title' });
     });
   });
 
@@ -260,8 +262,8 @@ describe('DocumentService', () => {
       const d1 = new Date(1700000000000);
       const d2 = new Date(1700000010000);
       await DocumentService.updateDate('user_123', 'doc_123', d1, d2);
-      const [, payload] = mockUpdateDoc.mock.calls[0];
-      expect(payload).toEqual({
+      const [, payload5] = mockUpdateDoc.mock.calls[0]!;
+      expect(payload5).toEqual({
         firstSessionAt: mockTimestampFromDate(d1),
         lastSessionAt: mockTimestampFromDate(d2),
       });
@@ -272,12 +274,12 @@ describe('DocumentService', () => {
     it('updates labelId or sets it to null if undefined', async () => {
       mockUpdateDoc.mockResolvedValue(undefined);
       await DocumentService.updateLabelId('user_123', 'doc_123', 'label_abc');
-      let [, payload] = mockUpdateDoc.mock.calls[0];
-      expect(payload).toEqual({ labelId: 'label_abc' });
+      let [, payload6] = mockUpdateDoc.mock.calls[0]!;
+      expect(payload6).toEqual({ labelId: 'label_abc' });
 
       await DocumentService.updateLabelId('user_123', 'doc_123', undefined);
-      [, payload] = mockUpdateDoc.mock.calls[1];
-      expect(payload).toEqual({ labelId: null });
+      [, payload6] = mockUpdateDoc.mock.calls[1]!;
+      expect(payload6).toEqual({ labelId: null });
     });
   });
 
@@ -315,7 +317,7 @@ describe('DocumentService', () => {
       expect(mockGetDocs).toHaveBeenCalled();
       expect(mockWriteBatch).toHaveBeenCalledTimes(1);
       expect(mockBatchUpdate).toHaveBeenCalledTimes(50);
-      const [, updatePayload] = mockBatchUpdate.mock.calls[0];
+      const [, updatePayload] = mockBatchUpdate.mock.calls[0]!;
       expect(updatePayload).toEqual({ labelId: null });
     });
   });
@@ -343,10 +345,10 @@ describe('DocumentService', () => {
       expect(mockWriteBatch).toHaveBeenCalledTimes(1);
       expect(mockBatchUpdate).toHaveBeenCalledTimes(2);
 
-      const [, update1] = mockBatchUpdate.mock.calls[0];
+      const [, update1] = mockBatchUpdate.mock.calls[0]!;
       expect(update1).toEqual({ tags: ['draft', 'romance'] });
 
-      const [, update2] = mockBatchUpdate.mock.calls[1];
+      const [, update2] = mockBatchUpdate.mock.calls[1]!;
       expect(update2).toEqual({ tags: ['romance', 'scifi'] });
     });
   });
@@ -370,7 +372,7 @@ describe('DocumentService', () => {
       expect(mockWriteBatch).toHaveBeenCalledTimes(1);
       expect(mockBatchUpdate).toHaveBeenCalledTimes(1);
 
-      const [, update] = mockBatchUpdate.mock.calls[0];
+      const [, update] = mockBatchUpdate.mock.calls[0]!;
       expect(update).toEqual({ tags: ['draft'] });
     });
   });

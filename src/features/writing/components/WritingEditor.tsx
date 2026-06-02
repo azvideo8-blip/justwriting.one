@@ -27,6 +27,12 @@ export const WritingEditor = React.memo(function WritingEditor({
   const streamStatusRef = React.useRef<HTMLSpanElement>(null);
   const { showToast } = useToast();
   const blockToastShownRef = React.useRef(false);
+  const editorStyle = {
+    fontSize: `${fontSize}px`,
+    lineHeight: `${fontSize * 1.2}px`,
+    fontFamily: getFontStack(fontFamily),
+    userSelect: 'text' as const,
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (streamMode) {
@@ -79,12 +85,7 @@ export const WritingEditor = React.memo(function WritingEditor({
         readOnly={isPaused}
         aria-label={t('writing_placeholder')}
         placeholder={t('writing_placeholder')}
-        style={{
-          fontSize: `${fontSize}px`,
-          lineHeight: `${fontSize * 1.2}px`,
-          fontFamily: getFontStack(fontFamily),
-          userSelect: 'text'
-        }}
+        style={editorStyle}
         className={cn(
           "w-full outline-none resize-none leading-[1.8] text-text-main placeholder:text-text-main/40 flex-1 min-h-0",
           lifeLogEnabled

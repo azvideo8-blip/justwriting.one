@@ -7,25 +7,26 @@ const ATTACHED_FILE_RE = /^\[Прикреплен файл: "([^"]+)"\]/;
 
 // Serif monogram tile in a persona's colour — the avatar used across header, threads and messages.
 export function Monogram({ color, mono, size = 36, dim = false }: { color: string; mono: string; size?: number; dim?: boolean }) {
+  const monogramStyle = (size: number, color: string, dim: boolean) => ({
+    width: size,
+    height: size,
+    flexShrink: 0,
+    borderRadius: size * 0.28,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: dim ? `${color}14` : `linear-gradient(180deg, ${color}30, ${color}14)`,
+    border: `1px solid ${color}${dim ? '2a' : '55'}`,
+    boxShadow: dim ? 'none' : `0 0 14px ${color}26`,
+    fontWeight: 600,
+    fontSize: size * 0.38,
+    color,
+    letterSpacing: '-0.02em',
+    lineHeight: 1,
+  });
   return (
     <span
-      style={{
-        width: size,
-        height: size,
-        flexShrink: 0,
-        borderRadius: size * 0.28,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: dim ? `${color}14` : `linear-gradient(180deg, ${color}30, ${color}14)`,
-        border: `1px solid ${color}${dim ? '2a' : '55'}`,
-        boxShadow: dim ? 'none' : `0 0 14px ${color}26`,
-        fontWeight: 600,
-        fontSize: size * 0.38,
-        color,
-        letterSpacing: '-0.02em',
-        lineHeight: 1,
-      }}
+      style={monogramStyle(size, color, dim)}
     >
       {mono}
     </span>
@@ -144,6 +145,7 @@ export function AssistantTurn({
   children: React.ReactNode;
   onCopy?: () => void;
 }) {
+  const borderStyle = { borderLeft: `2px solid ${color}40` };
   return (
     <div className="flex gap-4 w-full self-start">
       <Monogram color={color} mono={mono} size={36} />
@@ -153,7 +155,7 @@ export function AssistantTurn({
         </div>
         <div
           className="text-[15px] leading-[1.65] text-text-main/90 pl-[18px]"
-          style={{ borderLeft: `2px solid ${color}40` }}
+          style={borderStyle}
         >
           {children}
         </div>

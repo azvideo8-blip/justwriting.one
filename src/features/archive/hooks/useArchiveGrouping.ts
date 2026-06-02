@@ -8,8 +8,12 @@ export function useArchiveGrouping(filteredSessions: ArchiveSession[]) {
       const d = session.sessionStartTime ? new Date(session.sessionStartTime) : (session.createdAt instanceof Date ? session.createdAt : null);
       if (d == null) return acc;
       const dateKey = format(d, 'yyyy-MM-dd');
-      if (!(dateKey in acc)) acc[dateKey] = [];
-      acc[dateKey].push(session);
+      let group = acc[dateKey];
+      if (!group) {
+        group = [];
+        acc[dateKey] = group;
+      }
+      group.push(session);
       return acc;
     }, {} as Record<string, ArchiveSession[]>);
   }, [filteredSessions]);

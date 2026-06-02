@@ -33,6 +33,7 @@ export function EditorTab() {
                   ? "border-text-main bg-text-main text-surface-base"
                   : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
               )}
+              style={{ fontFamily: font }}
             >
               <div className="text-sm font-medium" style={{ fontFamily: font }}>
                 {font.split(' ')[0]}

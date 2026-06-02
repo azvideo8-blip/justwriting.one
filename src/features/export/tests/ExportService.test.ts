@@ -79,14 +79,18 @@ describe('ExportService', () => {
       ExportService.toMarkdown('My Markdown Title', 'Some MD content');
 
       expect(saveAs).toHaveBeenCalled();
-      const [blob, filename] = vi.mocked(saveAs).mock.calls[0];
+      const call = vi.mocked(saveAs).mock.calls[0];
+      if (!call) throw new Error('saveAs not called');
+      const [blob, filename] = call;
       expect(filename).toBe('My Markdown Title.md');
       expect(blob).toBeInstanceOf(Blob);
     });
 
     it('handles empty title', () => {
       ExportService.toMarkdown('', 'Some MD content');
-      const [, filename] = vi.mocked(saveAs).mock.calls[0];
+      const call = vi.mocked(saveAs).mock.calls[0];
+      if (!call) throw new Error('saveAs not called');
+      const [, filename] = call;
       expect(filename).toBe('session.md');
     });
   });
@@ -96,14 +100,18 @@ describe('ExportService', () => {
       await ExportService.toDocx('My Docx Title', 'Hello Word document');
       
       expect(saveAs).toHaveBeenCalled();
-      const [blob, filename] = vi.mocked(saveAs).mock.calls[0];
+      const call = vi.mocked(saveAs).mock.calls[0];
+      if (!call) throw new Error('saveAs not called');
+      const [blob, filename] = call;
       expect(filename).toBe('My Docx Title.docx');
       expect(blob).toBeInstanceOf(Blob);
     });
 
     it('handles empty title', async () => {
       await ExportService.toDocx('', 'Hello Word document');
-      const [, filename] = vi.mocked(saveAs).mock.calls[0];
+      const call = vi.mocked(saveAs).mock.calls[0];
+      if (!call) throw new Error('saveAs not called');
+      const [, filename] = call;
       expect(filename).toBe('session.docx');
     });
   });

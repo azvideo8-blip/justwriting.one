@@ -58,32 +58,20 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
 
   return (
     <div
-      className="px-6 py-6 md:px-9 md:py-8"
-      style={{
-        background: 'radial-gradient(ellipse 60% 80% at 20% 30%, color-mix(in srgb, var(--flow-pulse-color) 12%, transparent), transparent 60%)',
-        borderBottom: '1px solid var(--border-light)',
-      }}
+      className="px-6 py-6 md:px-9 md:py-8 bg-[radial-gradient(ellipse_60%_80%_at_20%_30%,color-mix(in_srgb,var(--flow-pulse-color)_12%,transparent),transparent_60%)] border-b border-[var(--border-light)]"
     >
       <div className="flex flex-col md:flex-row items-center md:items-start gap-6 text-center md:text-left">
         <div className="relative shrink-0">
           <motion.div
             animate={{ boxShadow: ['0 0 0px color-mix(in srgb, var(--flow-pulse-color) 0%, transparent)', '0 0 40px color-mix(in srgb, var(--flow-pulse-color) 25%, transparent)', '0 0 0px color-mix(in srgb, var(--flow-pulse-color) 0%, transparent)'] }}
             transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
-            style={{ borderRadius: '50%' }}
+            className="rounded-full" 
           >
             {user?.photoURL ? (
               <img src={user.photoURL} alt={name}
                 className="w-16 h-16 md:w-24 md:h-24 rounded-full object-cover border border-white/10" />
             ) : (
-              <div style={{
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, color-mix(in srgb, var(--flow-pulse-color) 60%, #000), color-mix(in srgb, var(--flow-pulse-color) 20%, #000))',
-                border: '1px solid var(--border-light)',
-                boxShadow: '0 0 60px color-mix(in srgb, var(--flow-pulse-color) 15%, transparent)',
-                display: 'grid', placeItems: 'center',
-                fontFamily: 'Inter, sans-serif', fontWeight: 500, color: 'var(--text-main)',
-              }}
-              className="w-16 h-16 md:w-24 md:h-24 text-2xl md:text-4xl"
+              <div className="w-16 h-16 md:w-24 md:h-24 text-2xl md:text-4xl rounded-full bg-gradient-to-br from-[color-mix(in_srgb,var(--flow-pulse-color)_60%,#000)] to-[color-mix(in_srgb,var(--flow-pulse-color)_20%,#000)] border border-[var(--border-light)] shadow-[0_0_60px_color-mix(in_srgb,var(--flow-pulse-color)_15%,transparent)] grid place-items-center font-sans font-medium text-[var(--text-main)]"
               >
                 {initials}
               </div>
@@ -131,7 +119,7 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.35 }}
               >
-                «{t(QUOTE_KEYS[quoteIdx])}»
+                «{t(QUOTE_KEYS[quoteIdx]!)}»
               </motion.span>
             </AnimatePresence>
           </div>

@@ -477,4 +477,11 @@ textarea {
   .shadow-card { box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
   .shadow-panel { box-shadow: -12px 0 40px rgba(0,0,0,0.35); }
   .shadow-modal { box-shadow: 0 0 60px rgba(0,0,0,0.8); }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pb-safe-nav {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 56px);
+  }
 }
+

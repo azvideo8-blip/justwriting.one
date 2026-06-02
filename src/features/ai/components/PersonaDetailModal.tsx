@@ -24,14 +24,15 @@ interface PersonaDetailModalProps {
 }
 
 function Mono({ color, mono }: { color: string; mono: string }) {
+  const monoStyle = (color: string) => ({
+    width: 36, height: 36, borderRadius: 10,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: `linear-gradient(180deg, ${color}30, ${color}14)`,
+    border: `1px solid ${color}55`, color, fontWeight: 600, fontSize: 14,
+  });
   return (
     <span
-      style={{
-        width: 36, height: 36, borderRadius: 10,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: `linear-gradient(180deg, ${color}30, ${color}14)`,
-        border: `1px solid ${color}55`, color, fontWeight: 600, fontSize: 14,
-      }}
+      style={monoStyle(color)}
     >
       {mono}
     </span>

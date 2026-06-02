@@ -91,7 +91,7 @@ export function DesktopWritingLayout() {
           overflow: 'hidden',
         }}
       >
-        <div style={{ gridColumn: '2', gridRow: '1', overflow: 'hidden' }}>
+        <div className="col-start-2 row-start-1 overflow-hidden">
           <WritingHeader
             totalDurationForDeadline={totalDurationForDeadline}
             onNew={() => void onNew()}
@@ -104,15 +104,7 @@ export function DesktopWritingLayout() {
           />
         </div>
 
-        <div ref={editorColRef} style={{
-          gridColumn: '2',
-          gridRow: '2',
-          overflow: 'hidden',
-          position: 'relative',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-        }}>
+        <div ref={editorColRef} className="col-start-2 row-start-2 overflow-hidden relative flex flex-col justify-center">
           <AnimatePresence>
             {session.hasDraft && session.status === 'idle' && !setupMode && (
               <motion.div
@@ -173,7 +165,7 @@ export function DesktopWritingLayout() {
           </div>
         </div>
 
-        <div style={{ gridColumn: '2', gridRow: '3', overflow: 'hidden' }}>
+        <div className="col-start-2 row-start-3 overflow-hidden">
           <BottomStats
             compact={isCompact}
             onPlay={() => void onPlay()}
@@ -183,7 +175,7 @@ export function DesktopWritingLayout() {
         </div>
 
         {lifeLogVisible && lifeLogPinned && (
-          <div style={{ gridColumn: '3', gridRow: '1 / 4', overflow: 'hidden' }}>
+          <div className="col-start-3 row-span-3 overflow-hidden">
             <LifeLogPanel
               userId={session.userId}
               onContinueSession={(s) => void actions.handleContinueSessionOrDoc(s)}

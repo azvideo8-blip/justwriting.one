@@ -54,16 +54,16 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog, activeTab, setA
     const idx = TAB_IDS.indexOf(activeTab);
     if (e.key === 'ArrowRight') {
       e.preventDefault();
-      setActiveTab(TAB_IDS[(idx + 1) % TAB_IDS.length]);
+      setActiveTab(TAB_IDS[(idx + 1) % TAB_IDS.length]!);
     } else if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      setActiveTab(TAB_IDS[(idx - 1 + TAB_IDS.length) % TAB_IDS.length]);
+      setActiveTab(TAB_IDS[(idx - 1 + TAB_IDS.length) % TAB_IDS.length]!);
     } else if (e.key === 'Home') {
       e.preventDefault();
-      setActiveTab(TAB_IDS[0]);
+      setActiveTab(TAB_IDS[0]!);
     } else if (e.key === 'End') {
       e.preventDefault();
-      setActiveTab(TAB_IDS[TAB_IDS.length - 1]);
+      setActiveTab(TAB_IDS[TAB_IDS.length - 1]!);
     }
   };
 

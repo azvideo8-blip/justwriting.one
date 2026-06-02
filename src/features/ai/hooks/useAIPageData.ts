@@ -145,7 +145,7 @@ export function useAIPageData(linkedDocId?: string) {
     }
     const reader = new FileReader();
     reader.onload = async (ev) => {
-      const text = ev.target?.result as string;
+      const text = typeof ev.target?.result === 'string' ? ev.target.result : '';
       if (text.length > MAX_INPUT_CHARS) {
         alert(`Файл слишком большой (более ${MAX_INPUT_CHARS.toLocaleString()} символов)`);
         return;
@@ -162,9 +162,9 @@ export function useAIPageData(linkedDocId?: string) {
     setAttachMenuOpen(false);
   };
 
-  const allPersonas = [
-    ...PRESET_PERSONAS.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, isPreset: true as const, systemPrompt: undefined as string | undefined })),
-    ...customPersonas.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, isPreset: false as const, systemPrompt: p.systemPrompt })),
+  const allPersonas: { id: string; name: string; emoji: string; isPreset: boolean; systemPrompt?: string }[] = [
+    ...PRESET_PERSONAS.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, isPreset: true })),
+    ...customPersonas.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, isPreset: false, systemPrompt: p.systemPrompt })),
   ];
 
   const openPersonaDetail = (persona: typeof allPersonas[number]) => {

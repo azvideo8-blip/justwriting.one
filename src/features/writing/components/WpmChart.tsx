@@ -13,11 +13,14 @@ export function WpmChart({ data, avgWpm, height = 72 }: WpmChartProps) {
   const reducedMotion = useReducedMotion();
   if (data.length < 2) return null;
 
+  const svgStyle = { height };
   const width = 400;
   const pad = { top: 6, bottom: 6, left: 0, right: 0 };
 
-  const minT = data[0].timestamp;
-  const maxT = data[data.length - 1].timestamp;
+  const first = data[0]!;
+  const last = data[data.length - 1]!;
+  const minT = first.timestamp;
+  const maxT = last.timestamp;
   const maxWpm = Math.max(...data.map(d => d.wpm), 10);
 
   const toX = (ts: number) => pad.left + ((ts - minT) / (maxT - minT || 1)) * (width - pad.left - pad.right);
@@ -27,17 +30,19 @@ export function WpmChart({ data, avgWpm, height = 72 }: WpmChartProps) {
 
   const pathD = points.reduce((acc, p, i) => {
     if (i === 0) return `M ${p.x},${p.y}`;
-    const prev = points[i - 1];
+    const prev = points[i - 1]!;
     const cpX = (prev.x + p.x) / 2;
     return `${acc} C ${cpX},${prev.y} ${cpX},${p.y} ${p.x},${p.y}`;
   }, "");
 
-  const fillD = `${pathD} L ${points[points.length - 1].x},${height} L ${points[0].x},${height} Z`;
+  const lastPoint = points[points.length - 1]!;
+  const firstPoint = points[0]!;
+  const fillD = `${pathD} L ${lastPoint.x},${height} L ${firstPoint.x},${height} Z`;
 
   const peakWpm = Math.max(...data.map(d => d.wpm));
   const displayAvg = avgWpm ?? Math.round(data.reduce((s, d) => s + d.wpm, 0) / data.length);
   const peakIdx = data.findIndex(d => d.wpm === peakWpm);
-  const peakPoint = points[peakIdx];
+  const peakPoint = peakIdx >= 0 ? points[peakIdx] : null;
 
   return (
     <div className="w-full space-y-2">
@@ -45,7 +50,7 @@ export function WpmChart({ data, avgWpm, height = 72 }: WpmChartProps) {
         <span>{t('wpm_peak')} {peakWpm} {t('wpm_unit')}</span>
         <span>{t('wpm_avg')} {displayAvg} {t('wpm_unit')}</span>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="w-full" style={{ height }} aria-hidden="true">
+      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="w-full" style={svgStyle} aria-hidden="true">
         <defs>
           <linearGradient id="wpm-fill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--flow-pulse-color)" stopOpacity="0.25" />
@@ -70,7 +75,7 @@ export function WpmChart({ data, avgWpm, height = 72 }: WpmChartProps) {
           animate={{ pathLength: 1, opacity: 1 }}
           transition={{ duration: 1.2, ease: 'easeOut', delay: 0.1 }}
         />
-        {
+        {peakPoint && (
           <>
             <motion.circle
               cx={peakPoint.x}
@@ -109,7 +114,7 @@ export function WpmChart({ data, avgWpm, height = 72 }: WpmChartProps) {
               </text>
             </motion.g>
           </>
-        }
+        )}
       </svg>
     </div>
   );

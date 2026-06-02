@@ -5,7 +5,8 @@ import { useTimerStore } from '../store/useTimerStore';
 export function applyWpmDecay() {
   const snapshots = useContentStore.getState().wordSnapshots;
   if (snapshots.length > 0) {
-    const lastActive = snapshots[snapshots.length - 1].timestamp;
+    const lastSnap = snapshots[snapshots.length - 1];
+    const lastActive = lastSnap?.timestamp ?? Date.now();
     const idleSeconds = (Date.now() - lastActive) / 1000;
     if (idleSeconds > 5) {
       const currentWpm = useContentStore.getState().wpm;

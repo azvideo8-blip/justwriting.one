@@ -1,5 +1,4 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { STORAGE_KEYS } from '../constants/storageKeys';
 
 export interface LocalDocument {
   id: string;
@@ -144,10 +143,14 @@ export function resetDbInstance(): void {
   dbOpenPromise = null;
 }
 
+interface DatabaseWithClosed {
+  closed?: boolean;
+}
+
 export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   if (dbInstance) {
     try {
-      if (!(dbInstance as unknown as { closed?: boolean }).closed) return dbInstance;
+      if (!(dbInstance as DatabaseWithClosed).closed) return dbInstance;
     } catch { /* ignore */ }
   }
   if (dbOpenPromise) return dbOpenPromise;
@@ -207,17 +210,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   }
 }
 
-function randomUUID(): string { return crypto.randomUUID(); }
-export { randomUUID };
+import { getOrCreateGuestId } from '../../shared/utils/guestId';
+export { getOrCreateGuestId };
+export function randomUUID(): string { return crypto.randomUUID(); }
 
-export function getOrCreateGuestId(): string {
-  const KEY = STORAGE_KEYS.GUEST_ID;
-  let id = localStorage.getItem(KEY);
-  if (!id) {
-    const saved = sessionStorage.getItem(KEY);
-    if (saved) { id = saved; localStorage.setItem(KEY, id); }
-  }
-  if (!id) { id = `guest_${randomUUID()}`; localStorage.setItem(KEY, id); }
-  sessionStorage.setItem(KEY, id);
-  return id;
-}

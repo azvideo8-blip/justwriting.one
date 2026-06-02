@@ -19,19 +19,28 @@ const createContentDefaults = () => ({
   tags: [], labelId: undefined,
 });
 
-const TIMER_DEFAULTS = {
+const TIMER_DEFAULTS: {
+  seconds: number; sessionStartSeconds: number;
+  status: TimerStatus;
+  _startWallMs: number | null; _accumulatedMs: number;
+  sessionStartWallMs: number | null; sessionStartAccMs: number;
+  timeGoalReached: boolean; wordGoalReached: boolean;
+  overtimeSeconds: number; sessionStartWords: number;
+  accumulatedDuration: number; totalPauseSeconds: number; _pauseWallStart: number | null;
+  initialDuration: number; sessionType: SessionType;
+} = {
   seconds: 0, sessionStartSeconds: 0,
-  status: 'idle' as TimerStatus,
-  _startWallMs: null as number | null, _accumulatedMs: 0,
-  sessionStartWallMs: null as number | null, sessionStartAccMs: 0,
+  status: 'idle',
+  _startWallMs: null, _accumulatedMs: 0,
+  sessionStartWallMs: null, sessionStartAccMs: 0,
   timeGoalReached: false, wordGoalReached: false,
   overtimeSeconds: 0, sessionStartWords: 0,
-  accumulatedDuration: 0, totalPauseSeconds: 0, _pauseWallStart: null as number | null,
-  initialDuration: 0, sessionType: 'free' as SessionType,
+  accumulatedDuration: 0, totalPauseSeconds: 0, _pauseWallStart: null,
+  initialDuration: 0, sessionType: 'free',
 };
 
-const META_DEFAULTS = {
-  activeSessionId: null, savedDocumentId: null, sessionStartTime: null as number | null,
+const META_DEFAULTS: { activeSessionId: null; savedDocumentId: null; sessionStartTime: number | null } = {
+  activeSessionId: null, savedDocumentId: null, sessionStartTime: null,
 };
 
 function resetSession() {

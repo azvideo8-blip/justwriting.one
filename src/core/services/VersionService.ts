@@ -2,7 +2,7 @@ import { getClient } from '../firebase/firestoreClient';
 import { Version } from '../../types';
 import { handleFirestoreError, OperationType } from '../errors/firestore-errors';
 import { computeWordDelta } from './DiffService';
-import { reportError } from '../errors/reportError';
+import { reportError } from '../../core/errors/reportError';
 import { versionDbSchema } from '../firebase/schemas/firestoreSchemas';
 
 export const VersionService = {
@@ -95,6 +95,7 @@ export const VersionService = {
       const snap = await getDocs(q);
       if (snap.docs.length === 0) return '';
       const raw = snap.docs[0];
+      if (!raw) return '';
       const parsed = versionDbSchema.safeParse({ id: raw.id, ...raw.data() });
       if (!parsed.success) {
         reportError(parsed.error, { action: 'getLatestContent_parse', docId: documentId });
@@ -116,6 +117,7 @@ export const VersionService = {
       const snap = await getDocs(q);
       if (snap.docs.length === 0) return null;
       const raw = snap.docs[0];
+      if (!raw) return null;
       const parsed = versionDbSchema.safeParse({ id: raw.id, ...raw.data() });
       if (!parsed.success) {
         reportError(parsed.error, { action: 'getLatestVersion_parse', docId: documentId });

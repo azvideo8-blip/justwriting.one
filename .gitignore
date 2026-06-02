@@ -14,3 +14,6 @@ _archive/
 functions/*.js
 .agents/skills/
 bundle-stats.html
+playwright-report/
+test-results/
+/e2e-results/

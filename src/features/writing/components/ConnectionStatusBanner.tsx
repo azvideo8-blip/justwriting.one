@@ -52,9 +52,8 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
-          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
           className={cn(
-            "fixed left-1/2 -translate-x-1/2 z-[var(--z-overlay)]",
+            "fixed left-1/2 -translate-x-1/2 z-[var(--z-overlay)] top-[calc(env(safe-area-inset-top,0px)+12px)]",
             "flex items-center gap-2 backdrop-blur-xl border font-medium whitespace-nowrap",
             isMobile
               ? "px-3 py-1.5 rounded-xl text-xs bg-amber-500/15 border-amber-500/30 text-amber-400"
@@ -73,9 +72,8 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
-          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
           className={cn(
-            "fixed left-1/2 -translate-x-1/2 z-[var(--z-overlay)]",
+            "fixed left-1/2 -translate-x-1/2 z-[var(--z-overlay)] top-[calc(env(safe-area-inset-top,0px)+12px)]",
             "flex items-center gap-2 backdrop-blur-xl border font-medium whitespace-nowrap",
             isMobile
               ? "px-3 py-1.5 rounded-xl text-xs bg-emerald-500/15 border-emerald-500/30 text-emerald-400"

@@ -40,6 +40,13 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
   }, []);
 
   const [intensity, setIntensity] = useState(0);
+  const glowStyle = {
+    background: 'linear-gradient(90deg, transparent, var(--flow-pulse-color, var(--brand-primary)) 50%, transparent)',
+    marginLeft: `${20 + intensity * 20}%`,
+    opacity: intensity > 0 ? 0.3 + intensity * 0.5 : 0,
+    transitionTimingFunction: 'cubic-bezier(.4,.2,.2,1)' as const,
+    filter: 'blur(1px)',
+  };
   useEffect(() => {
     const decay = setInterval(() => setIntensity(i => Math.max(0, i - 0.04)), 200);
     return () => clearInterval(decay);
@@ -49,13 +56,15 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
   const touchStartX = useRef<number>(0);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0]!.clientY;
+    touchStartX.current = e.touches[0]!.clientX;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    const deltaY = touchStartY.current - e.changedTouches[0].clientY;
-    const deltaX = Math.abs(touchStartX.current - e.changedTouches[0].clientX);
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const deltaY = touchStartY.current - touch.clientY;
+    const deltaX = Math.abs(touchStartX.current - touch.clientX);
     if (deltaY > 60 && deltaX < 40) {
       onExit();
     }
@@ -65,6 +74,11 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
   };
 
   const fontStack = getFontStack(fontFamily);
+  const textareaStyle = {
+    fontFamily: fontStack,
+    fontSize: fontSize || 18,
+    lineHeight: 1.75,
+  };
 
   return (
     <motion.div
@@ -72,14 +86,7 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'var(--color-surface-base, #0b0d0c)',
-        zIndex: 40,
-        display: 'flex',
-        flexDirection: 'column',
-      }}
+      className="fixed inset-0 bg-[var(--color-surface-base,#0b0d0c)] z-40 flex flex-col"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -91,21 +98,8 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
           showTimerBriefly();
         }}
         autoFocus
-        style={{
-          flex: 1,
-          width: '100%',
-          padding: '60px 28px 40px',
-          background: 'transparent',
-          border: 'none',
-          outline: 'none',
-          resize: 'none',
-          fontFamily: fontStack,
-          fontSize: fontSize || 18,
-          lineHeight: 1.75,
-          color: 'rgba(232,236,233,0.92)',
-          caretColor: 'var(--brand-primary)',
-          WebkitOverflowScrolling: 'touch',
-        }}
+        className="flex-1 w-full py-[60px] px-7 pb-10 bg-transparent border-none outline-none resize-none text-[rgba(232,236,233,0.92)] caret-[var(--brand-primary)] touch-pan-y"
+        style={textareaStyle}
       />
 
       <AnimatePresence>
@@ -115,17 +109,7 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4 }}
-            style={{
-              position: 'absolute',
-              top: 'calc(env(safe-area-inset-top, 0px) + 16px)',
-              right: 20,
-              fontFamily: 'JetBrains Mono, monospace',
-              fontSize: 12,
-              color: 'rgba(74,81,77,1)',
-              letterSpacing: '.04em',
-              pointerEvents: 'none',
-              fontVariantNumeric: 'tabular-nums',
-            }}
+            className="absolute right-5 font-mono text-xs text-[rgba(74,81,77,1)] tracking-wider pointer-events-none tabular-nums top-[calc(env(safe-area-inset-top,0px)+16px)]"
           >
             {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
           </motion.div>
@@ -139,24 +123,9 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4 }}
-            style={{
-              position: 'absolute',
-              bottom: 'calc(env(safe-area-inset-bottom, 0px) + 90px)',
-              left: 0, right: 0,
-              display: 'flex',
-              justifyContent: 'center',
-              pointerEvents: 'none',
-            }}
+            className="absolute left-0 right-0 flex justify-center pointer-events-none bottom-[calc(env(safe-area-inset-bottom,0px)+90px)]"
           >
-            <div style={{
-              fontSize: 11,
-              color: 'rgba(74,81,77,0.7)',
-              fontFamily: 'JetBrains Mono, monospace',
-              letterSpacing: '.04em',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-            }}>
+            <div className="text-[11px] text-[rgba(74,81,77,0.7)] font-mono tracking-wider flex items-center gap-2">
               <span>↑</span>
               <span>{t('focus_exit_hint')}</span>
             </div>
@@ -164,22 +133,11 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
         )}
       </AnimatePresence>
 
-      <div style={{
-        position: 'absolute',
-        left: 0, right: 0, bottom: 0,
-        height: 2,
-        pointerEvents: 'none',
-        overflow: 'hidden',
-      }}>
-        <div style={{
-          height: '100%',
-          background: 'linear-gradient(90deg, transparent, var(--flow-pulse-color, var(--brand-primary)) 50%, transparent)',
-          width: '60%',
-          marginLeft: `${20 + intensity * 20}%`,
-          opacity: intensity > 0 ? 0.3 + intensity * 0.5 : 0,
-          transition: 'opacity 0.5s, margin-left 0.5s cubic-bezier(.4,.2,.2,1)',
-          filter: 'blur(1px)',
-        }} />
+      <div className="absolute left-0 right-0 bottom-0 h-0.5 pointer-events-none overflow-hidden">
+        <div
+          className="h-full w-[60%] transition-[opacity,margin-left] duration-500"
+          style={glowStyle}
+        />
       </div>
     </motion.div>
   );

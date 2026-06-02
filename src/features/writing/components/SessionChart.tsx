@@ -63,11 +63,12 @@ export function SessionChart({ sessions, startDate, endDate }: SessionChartProps
             cursor={{ fill: 'var(--color-text-main)', opacity: 0.05 }}
             content={({ active, payload }) => {
               if (active && payload.length > 0) {
+                const p = payload[0]!;
                 return (
                   <div className="p-3 rounded-xl shadow-xl border bg-surface-card backdrop-blur-xl border-border-subtle text-text-main">
-                    <p className="font-bold text-sm mb-1">{payload[0].payload.date}</p>
-                    <p className="text-xs text-text-main/70">{t('chart_time')} {Math.round(payload[0].value as number)} {t('unit_min')}</p>
-                    <p className="text-xs text-text-main/70">{t('chart_words')} {payload[0].payload.wordCount}</p>
+                    <p className="font-bold text-sm mb-1">{p.payload.date}</p>
+                    <p className="text-xs text-text-main/70">{t('chart_time')} {Math.round(p.value as number)} {t('unit_min')}</p>
+                    <p className="text-xs text-text-main/70">{t('chart_words')} {p.payload.wordCount}</p>
                   </div>
                 );
               }

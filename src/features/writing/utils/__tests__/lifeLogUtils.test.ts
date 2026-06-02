@@ -76,7 +76,7 @@ describe('mergeUnifiedDocuments', () => {
   it('local-only doc → storage: { local: true, cloud: false }', () => {
     const result = mergeUnifiedDocuments([makeLocalDoc()], []);
     expect(result).toHaveLength(1);
-    expect(result[0].storage).toEqual({ local: true, cloud: false });
+    expect(result[0]?.storage).toEqual({ local: true, cloud: false });
   });
 
   it('local doc linked to cloud → storage: { local: true, cloud: true }', () => {
@@ -85,13 +85,13 @@ describe('mergeUnifiedDocuments', () => {
       [makeCloudDoc({ id: 'cloud1' })]
     );
     expect(result).toHaveLength(1);
-    expect(result[0].storage).toEqual({ local: true, cloud: true });
+    expect(result[0]?.storage).toEqual({ local: true, cloud: true });
   });
 
   it('cloud-only doc (no local match) → storage: { local: false, cloud: true }', () => {
     const result = mergeUnifiedDocuments([], [makeCloudDoc()]);
     expect(result).toHaveLength(1);
-    expect(result[0].storage).toEqual({ local: false, cloud: true });
+    expect(result[0]?.storage).toEqual({ local: false, cloud: true });
   });
 
   it('same doc in local and cloud (via linkedCloudId) → one entry, not two', () => {
@@ -106,8 +106,8 @@ describe('mergeUnifiedDocuments', () => {
     const early = makeLocalDoc({ id: 'early', lastSessionAt: 1000 });
     const late = makeLocalDoc({ id: 'late', lastSessionAt: 2000 });
     const result = mergeUnifiedDocuments([early, late], []);
-    expect(result[0].localId).toBe('late');
-    expect(result[1].localId).toBe('early');
+    expect(result[0]?.localId).toBe('late');
+    expect(result[1]?.localId).toBe('early');
   });
 
   it('empty localDocs + empty cloudDocs → []', () => {
@@ -117,7 +117,7 @@ describe('mergeUnifiedDocuments', () => {
   it('empty localDocs + cloudDocs → only cloud entries', () => {
     const result = mergeUnifiedDocuments([], [makeCloudDoc()]);
     expect(result).toHaveLength(1);
-    expect(result[0].cloudId).toBe('cloud1');
+    expect(result[0]?.cloudId).toBe('cloud1');
   });
 });
 
@@ -148,7 +148,7 @@ describe('groupSessionsByDate', () => {
     const doc = makeLifeLogDoc({ lastSessionAt: now.getTime() });
     const groups = groupSessionsByDate([doc], startOfToday, t, language);
     expect(groups).toHaveLength(1);
-    expect(groups[0].label).toBe('lifelog_group_today');
+    expect(groups[0]?.label).toBe('lifelog_group_today');
   });
 
   it('session yesterday → group label = t("lifelog_group_yesterday")', () => {
@@ -158,7 +158,7 @@ describe('groupSessionsByDate', () => {
     const doc = makeLifeLogDoc({ lastSessionAt: yesterday.getTime() });
     const groups = groupSessionsByDate([doc], startOfToday, t, language);
     expect(groups).toHaveLength(1);
-    expect(groups[0].label).toBe('lifelog_group_yesterday');
+    expect(groups[0]?.label).toBe('lifelog_group_yesterday');
   });
 
   it('multiple sessions same day → one group, multiple entries', () => {
@@ -168,7 +168,7 @@ describe('groupSessionsByDate', () => {
     const d2 = makeLifeLogDoc({ localId: 's2', lastSessionAt: now.getTime() });
     const groups = groupSessionsByDate([d1, d2], startOfToday, t, language);
     expect(groups).toHaveLength(1);
-    expect(groups[0].sessions).toHaveLength(2);
+    expect(groups[0]?.sessions).toHaveLength(2);
   });
 
   it('deduplicates: single doc not duplicated', () => {
@@ -177,7 +177,7 @@ describe('groupSessionsByDate', () => {
     const doc = makeLifeLogDoc({ localId: 's1', lastSessionAt: now.getTime() });
     const groups = groupSessionsByDate([doc], startOfToday, t, language);
     expect(groups).toHaveLength(1);
-    expect(groups[0].sessions).toHaveLength(1);
+    expect(groups[0]?.sessions).toHaveLength(1);
   });
 
   it('groups sorted desc by date', () => {
@@ -188,8 +188,8 @@ describe('groupSessionsByDate', () => {
     const d2 = makeLifeLogDoc({ localId: 's2', lastSessionAt: yesterday.getTime() });
     const groups = groupSessionsByDate([d1, d2], startOfToday, t, language);
     expect(groups).toHaveLength(2);
-    expect(groups[0].label).toBe('lifelog_group_today');
-    expect(groups[1].label).toBe('lifelog_group_yesterday');
+    expect(groups[0]?.label).toBe('lifelog_group_today');
+    expect(groups[1]?.label).toBe('lifelog_group_yesterday');
   });
 
   it('empty inputs → []', () => {

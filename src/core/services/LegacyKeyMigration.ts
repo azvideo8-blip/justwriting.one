@@ -32,12 +32,14 @@ export async function migrateFromLegacy(
     throw new Error('No legacy encryption data found');
   }
 
-  const oldSalt = fromBase64(profileData.encryptionSalt as string);
+  const encryptionSalt = String(profileData.encryptionSalt);
+  const encryptedDataKey = String(profileData.encryptedDataKey);
+  const oldSalt = fromBase64(encryptionSalt);
   const oldMasterKey = await deriveMasterKey(firebasePassword, oldSalt);
 
   let dataKey: CryptoKey;
   try {
-    dataKey = await unwrapDataKey(profileData.encryptedDataKey as string, oldMasterKey);
+    dataKey = await unwrapDataKey(encryptedDataKey, oldMasterKey);
   } catch {
     throw new Error('LEGACY_MIGRATION_WRONG_PASSWORD');
   }

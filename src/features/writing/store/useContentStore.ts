@@ -87,11 +87,13 @@ export const useContentStore = create<ContentState>((set, get) => ({
     if (timerState.status === 'writing' && newSnapshots.length > 1) {
       const oldest = newSnapshots[0];
       const newest = newSnapshots[newSnapshots.length - 1];
-      const timeDiffMins = (newest.timestamp - oldest.timestamp) / 60000;
+      if (oldest && newest) {
+        const timeDiffMins = (newest.timestamp - oldest.timestamp) / 60000;
 
-      if (timeDiffMins > 0) {
-        const rawWpm = Math.max(0, (newest.wordCount - oldest.wordCount) / timeDiffMins);
-        currentWpm = Math.round(0.3 * rawWpm + 0.7 * state.wpm);
+        if (timeDiffMins > 0) {
+          const rawWpm = Math.max(0, (newest.wordCount - oldest.wordCount) / timeDiffMins);
+          currentWpm = Math.round(0.3 * rawWpm + 0.7 * state.wpm);
+        }
       }
     }
 

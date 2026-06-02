@@ -74,12 +74,14 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
     try {
       await updateArchiveField(session, field, value, user, userId);
       const patch: Partial<ArchiveSession> = {};
-      if (field === 'tags') patch.tags = value as string[];
-      else if (field === 'title') patch.title = value as string;
-      else if (field === 'date') {
-        patch.createdAt = value as Date;
-        patch.sessionStartTime = (value as Date).getTime();
-      } else if (field === 'labelId') patch.labelId = value as string | undefined;
+      if (field === 'tags' && Array.isArray(value)) patch.tags = value;
+      else if (field === 'title' && typeof value === 'string') patch.title = value;
+      else if (field === 'date' && value instanceof Date) {
+        patch.createdAt = value;
+        patch.sessionStartTime = value.getTime();
+      } else if (field === 'labelId' && (typeof value === 'string' || value === undefined)) {
+        patch.labelId = value;
+      }
       updateSession(session.id, patch);
     } catch (e) {
       logger.error('archive', `Failed to update ${field}`, { error: String(e) });

@@ -1,7 +1,7 @@
 import { LocalStorageService } from './LocalStorageService';
 import { LocalVersionService } from './LocalVersionService';
 import { getLocalDb } from '../storage/localDb';
-import { reportError } from '../errors/reportError';
+import { reportError } from '../../core/errors/reportError';
 import { SaveDocumentData } from './storageTypes';
 
 export const ConflictResolver = {

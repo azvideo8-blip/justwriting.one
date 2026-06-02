@@ -26,10 +26,12 @@ export class KeystrokeTracker {
     const now = performance.now();
     const cutoff = now - this.windowMs;
     const result: number[] = [];
-    // \u043e\u0431\u0445\u043e\u0434\u0438\u043c \u043a\u043e\u043b\u044c\u0446\u043e \u043e\u0442 \u0441\u0430\u043c\u043e\u0433\u043e \u0441\u0442\u0430\u0440\u043e\u0433\u043e \u043a \u0441\u0430\u043c\u043e\u043c\u0443 \u043d\u043e\u0432\u043e\u043c\u0443
+    // обходим кольцо от самого старого к самому новому
     const start = (this.head - this.size + RING_SIZE) % RING_SIZE;
     for (let i = 0; i < this.size; i++) {
+      // Float64Array[i] може вернуть undefined при noUncheckedIndexedAccess — добавляем guard
       const t = this.ring[(start + i) % RING_SIZE];
+      if (t === undefined) continue;
       if (t >= cutoff) result.push(t);
     }
     return result;
@@ -43,15 +45,18 @@ export class KeystrokeTracker {
 
     const intervals: number[] = [];
     for (let i = 1; i < timestamps.length; i++) {
-      const iki = timestamps[i] - timestamps[i - 1];
+      const ts = timestamps[i];
+      const prev = timestamps[i - 1];
+      if (ts === undefined || prev === undefined) continue;
+      const iki = ts - prev;
       if (iki < 2000) intervals.push(iki);
     }
 
     if (intervals.length < 5) return null;
 
     intervals.sort((a, b) => a - b);
-    const median = intervals[Math.floor(intervals.length / 2)];
-    const p95 = intervals[Math.floor(intervals.length * 0.95)];
+    const median = intervals[Math.floor(intervals.length / 2)] ?? 0;
+    const p95 = intervals[Math.floor(intervals.length * 0.95)] ?? 0;
     const mean = intervals.reduce((s, v) => s + v, 0) / intervals.length;
     const variance = intervals.reduce((s, v) => s + (v - mean) ** 2, 0) / intervals.length;
     const cv = mean > 0 ? Math.sqrt(variance) / mean : 0;

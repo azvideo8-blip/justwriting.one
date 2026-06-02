@@ -62,8 +62,8 @@ export function MobileArchiveSidebarSheet({
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-        className="relative z-10 w-full max-w-lg bg-surface-card border-t border-white/[0.06] rounded-t-[28px] overflow-hidden flex flex-col max-h-[85vh] shadow-[0_-8px_32px_rgba(0,0,0,0.4)]"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}
+        className="relative z-10 w-full max-w-lg bg-surface-card border-t border-white/[0.06] rounded-t-[28px] overflow-hidden flex flex-col max-h-[85vh] shadow-[0_-8px_32px_rgba(0,0,0,0.4)] pb-safe"
+        
       >
         {/* Grab Handle */}
         <div className="flex justify-center py-3">
@@ -85,8 +85,7 @@ export function MobileArchiveSidebarSheet({
         </div>
 
         {/* Content */}
-        <div className="px-6 pb-8 overflow-y-auto no-scrollbar flex-1 space-y-6"
-          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}>
+        <div className="px-6 overflow-y-auto no-scrollbar flex-1 space-y-6 pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
           {/* Stats section */}
           <div className="bg-white/[0.01] border border-white/[0.04] rounded-2xl p-4">
             <ArchiveStats
@@ -168,8 +167,7 @@ export function MobileArchiveSidebarSheet({
           <div className="pt-2">
             <button
               onClick={onClose}
-              style={{ background: 'var(--brand-primary)' }}
-              className="w-full py-3.5 rounded-2xl font-bold text-sm text-surface-base border-none cursor-pointer text-center active:scale-[0.98] transition-colors"
+              className="w-full py-3.5 rounded-2xl font-bold text-sm text-surface-base border-none cursor-pointer text-center active:scale-[0.98] transition-colors bg-[var(--brand-primary)]"
             >
               {t('common_close') || 'Закрыть'}
             </button>

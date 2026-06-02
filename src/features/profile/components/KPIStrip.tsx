@@ -2,6 +2,7 @@ import { Type, Flame, BookOpen, Clock } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useLanguage } from '../../../core/i18n';
 import { useCountUp } from '../../../shared/hooks/useCountUp';
+import { cn } from '../../../core/utils/utils';
 
 interface KPIStats {
   totalWords: number;
@@ -36,10 +37,10 @@ export function KPIStrip({ stats }: { stats: KPIStats }) {
           key={i}
           whileHover={{ y: -2, scale: 1.02 }}
           transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-          style={{ padding: '16px 20px', background: 'var(--surface-card)', cursor: 'default' }}
+          className="p-4 px-5 bg-[var(--surface-card)] cursor-default"
         >
           <div className="flex items-center gap-2 mb-2">
-            <span style={{ color: item.accent ? 'var(--flow-pulse-color)' : 'var(--text-muted)' }}>
+            <span className={item.accent ? "text-[var(--flow-pulse-color)]" : "text-[var(--text-muted)]"}>
               {item.icon}
             </span>
             <span className="text-label text-text-muted uppercase tracking-wider leading-tight">
@@ -47,8 +48,10 @@ export function KPIStrip({ stats }: { stats: KPIStats }) {
             </span>
           </div>
           <div
-            className="text-[24px] font-medium tracking-tight tabular-nums"
-            style={{ fontFamily: 'var(--font-sans)', color: item.accent ? 'var(--flow-pulse-color)' : item.dim ? 'var(--text-muted)' : 'var(--text-main)' }}
+            className={cn(
+              "text-[24px] font-medium tracking-tight tabular-nums font-[var(--font-sans)]",
+              item.accent ? "text-[var(--flow-pulse-color)]" : item.dim ? "text-[var(--text-muted)]" : "text-[var(--text-main)]"
+            )}
           >
             {item.countUp !== undefined
               ? <><CountUpValue target={item.countUp} />{item.suffix ?? ''}</>

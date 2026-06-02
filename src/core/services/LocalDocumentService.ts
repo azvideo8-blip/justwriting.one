@@ -131,8 +131,10 @@ export const LocalDocumentService = {
     if (versions.length > 0) {
       versions.sort((a, b) => a.version - b.version);
       const first = versions[0];
-      first.sessionStartedAt = firstSessionAt;
-      await db.put('versions', first);
+      if (first) {
+        first.sessionStartedAt = firstSessionAt;
+        await db.put('versions', first);
+      }
     }
   },
 

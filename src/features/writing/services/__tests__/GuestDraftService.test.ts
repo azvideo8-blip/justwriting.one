@@ -1,92 +1,153 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-  saveGuestDraftToStorage,
-  loadGuestDraftFromStorage,
-  deleteGuestDraftFromStorage,
-} from '../GuestDraftService';
+import { saveGuestDraftToStorage, loadGuestDraftFromStorage, deleteGuestDraftFromStorage } from '../GuestDraftService';
 import { getLocalDb } from '../../../../core/storage/localDb';
+import { reportError } from '../../../../core/errors/reportError';
 
-vi.mock('../../../../core/storage/localDb', () => {
-  const store: Record<string, any> = {};
-  return {
-    getLocalDb: vi.fn().mockResolvedValue({
-      objectStoreNames: { contains: (name: string) => name === 'drafts' },
-      put: vi.fn().mockImplementation((_store: string, val: any) => {
-        store[val.userId] = val;
-      }),
-      get: vi.fn().mockImplementation((_store: string, key: string) => store[key] ?? undefined),
-      delete: vi.fn().mockImplementation((_store: string, key: string) => {
-        delete store[key];
-      }),
-    }),
-  };
-});
+vi.mock('../../../../core/storage/localDb', () => ({
+  getLocalDb: vi.fn(),
+  LocalDraft: {} as unknown,
+}));
 
-async function clearIdb() {
-  const db = await getLocalDb();
-  try { await db.delete('drafts', 'guest_draft'); } catch { /* ok */ }
+vi.mock('../../../../core/errors/reportError', () => ({
+  reportError: vi.fn(),
+}));
+
+vi.mock('../../../../shared/constants/storageKeys', () => ({
+  STORAGE_KEYS: {
+    GUEST_DRAFT: 'jw_guest_draft',
+  },
+}));
+
+function mockDb(overrides: Record<string, unknown> = {}) {
+  const db = {
+    objectStoreNames: {
+      contains: vi.fn(() => true),
+    } as unknown as DOMStringList,
+    put: vi.fn().mockResolvedValue(undefined),
+    get: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  } as unknown as Awaited<ReturnType<typeof getLocalDb>>;
+  vi.mocked(getLocalDb).mockResolvedValue(db);
+  return db;
 }
 
 describe('saveGuestDraftToStorage', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     localStorage.clear();
   });
 
-  it('saves to localStorage under key jw_guest_draft', async () => {
-    await saveGuestDraftToStorage({ content: 'hello' });
-    const stored = localStorage.getItem('jw_guest_draft');
-    expect(stored).toBeTruthy();
-    expect(JSON.parse(stored!)).toEqual(expect.objectContaining({ content: 'hello' }));
+  it('saves to IDB and localStorage when both succeed', async () => {
+    const db = mockDb();
+    const draft = { content: 'hello', title: 'Test' };
+    await saveGuestDraftToStorage(draft);
+    expect(db.put).toHaveBeenCalled();
+    expect(localStorage.getItem('jw_guest_draft')).not.toBeNull();
   });
 
-  it('overwrites previous draft', async () => {
-    await saveGuestDraftToStorage({ content: 'first' });
-    await saveGuestDraftToStorage({ content: 'second' });
-    const stored = JSON.parse(localStorage.getItem('jw_guest_draft')!);
-    expect(stored.content).toBe('second');
+  it('throws when both IDB and localStorage fail', async () => {
+    mockDb({
+      objectStoreNames: { contains: vi.fn(() => false) } as unknown as DOMStringList,
+      put: vi.fn().mockRejectedValue(new Error('idb fail')),
+    });
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota exceeded');
+    });
+    await expect(saveGuestDraftToStorage({ content: 'x' })).rejects.toThrow('GUEST_DRAFT_SAVE_FAILED');
+    setItemSpy.mockRestore();
+  });
+
+  it('succeeds if only localStorage works', async () => {
+    mockDb({
+      objectStoreNames: { contains: vi.fn(() => false) } as unknown as DOMStringList,
+    });
+    const draft = { content: 'hello' };
+    await saveGuestDraftToStorage(draft);
+    expect(localStorage.getItem('jw_guest_draft')).not.toBeNull();
   });
 });
 
 describe('loadGuestDraftFromStorage', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
     localStorage.clear();
-    await clearIdb();
   });
 
-  it('loads from localStorage if present', async () => {
-    localStorage.setItem('jw_guest_draft', JSON.stringify({ content: 'cached' }));
-    const draft = await loadGuestDraftFromStorage();
-    expect(draft?.content).toBe('cached');
+  it('returns IDB draft when IDB is newer', async () => {
+    const idbDraft = { content: 'idb', updatedAt: 2000 };
+    mockDb({ get: vi.fn().mockResolvedValue({ ...idbDraft, userId: 'guest_draft' }) });
+    localStorage.setItem('jw_guest_draft', JSON.stringify({ content: 'ls', updatedAt: 1000 }));
+    const result = await loadGuestDraftFromStorage();
+    expect(result).toEqual(expect.objectContaining({ content: 'idb' }));
   });
 
-  it('returns null if both empty', async () => {
-    const draft = await loadGuestDraftFromStorage();
-    expect(draft).toBeNull();
+  it('returns localStorage draft when LS is newer and syncs back to IDB', async () => {
+    const lsDraft = { content: 'ls', updatedAt: 3000 };
+    const db = mockDb({ get: vi.fn().mockResolvedValue({ content: 'idb', updatedAt: 2000, userId: 'guest_draft' }) });
+    localStorage.setItem('jw_guest_draft', JSON.stringify(lsDraft));
+    const result = await loadGuestDraftFromStorage();
+    expect(result).toEqual(expect.objectContaining({ content: 'ls' }));
+    expect(db.put).toHaveBeenCalledWith(
+      'drafts',
+      expect.objectContaining({ content: 'ls', userId: 'guest_draft' })
+    );
   });
 
-  it('removes corrupted localStorage entry and returns null', async () => {
-    localStorage.setItem('jw_guest_draft', '{invalid json');
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const draft = await loadGuestDraftFromStorage();
-    expect(draft).toBeNull();
+  it('restores localStorage draft to IDB when IDB is missing', async () => {
+    const lsDraft = { content: 'ls', updatedAt: 1000 };
+    const db = mockDb({ get: vi.fn().mockResolvedValue(undefined) });
+    localStorage.setItem('jw_guest_draft', JSON.stringify(lsDraft));
+    const result = await loadGuestDraftFromStorage();
+    expect(result).toEqual(expect.objectContaining({ content: 'ls' }));
+    expect(db.put).toHaveBeenCalledWith(
+      'drafts',
+      expect.objectContaining({ content: 'ls', userId: 'guest_draft' })
+    );
+  });
+
+  it('returns IDB draft when localStorage is missing', async () => {
+    const idbDraft = { content: 'idb', updatedAt: 1000 };
+    mockDb({ get: vi.fn().mockResolvedValue({ ...idbDraft, userId: 'guest_draft' }) });
+    const result = await loadGuestDraftFromStorage();
+    expect(result).toEqual(expect.objectContaining({ content: 'idb' }));
+  });
+
+  it('returns null when both stores are empty', async () => {
+    mockDb({ get: vi.fn().mockResolvedValue(undefined) });
+    const result = await loadGuestDraftFromStorage();
+    expect(result).toBeNull();
+  });
+
+  it('clears localStorage on JSON parse error', async () => {
+    mockDb();
+    localStorage.setItem('jw_guest_draft', 'not-json');
+    const result = await loadGuestDraftFromStorage();
+    expect(result).toBeNull();
     expect(localStorage.getItem('jw_guest_draft')).toBeNull();
-    warnSpy.mockRestore();
   });
 });
 
 describe('deleteGuestDraftFromStorage', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
     localStorage.clear();
-    await clearIdb();
   });
 
-  it('removes jw_guest_draft from localStorage', async () => {
-    localStorage.setItem('jw_guest_draft', JSON.stringify({ content: 'test' }));
+  it('removes from localStorage and IDB', async () => {
+    const db = mockDb();
+    localStorage.setItem('jw_guest_draft', JSON.stringify({ content: 'x' }));
     await deleteGuestDraftFromStorage();
     expect(localStorage.getItem('jw_guest_draft')).toBeNull();
+    expect(db.delete).toHaveBeenCalledWith('drafts', 'guest_draft');
   });
 
-  it('does not throw if entries not found', async () => {
-    await expect(deleteGuestDraftFromStorage()).resolves.not.toThrow();
+  it('reports errors but does not throw', async () => {
+    mockDb({
+      objectStoreNames: { contains: vi.fn(() => true) } as unknown as DOMStringList,
+      delete: vi.fn().mockRejectedValue(new Error('idb error')),
+    });
+    await expect(deleteGuestDraftFromStorage()).resolves.toBeUndefined();
+    expect(reportError).toHaveBeenCalled();
   });
 });

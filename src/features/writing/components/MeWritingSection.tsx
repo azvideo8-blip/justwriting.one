@@ -17,25 +17,22 @@ export function MeWritingSection() {
 
   const { openSettings } = useSettings();
 
+  const buttonStyle = (id: string) => ({
+    borderColor: fontFamily === id
+      ? 'oklch(0.72 0.13 155 / 0.5)'
+      : 'rgba(255,255,255,0.07)',
+    background: fontFamily === id
+      ? 'oklch(0.72 0.13 155 / 0.08)'
+      : 'rgba(255,255,255,0.03)',
+  });
+
   return (
     <div>
-      <div style={{
-        fontSize: 10,
-        color: 'rgba(74,81,77,1)',
-        textTransform: 'uppercase',
-        letterSpacing: '.08em',
-        fontFamily: 'JetBrains Mono, monospace',
-        marginBottom: 8,
-      }}>
+      <div className="text-[10px] text-[rgba(74,81,77,1)] uppercase tracking-[0.08em] font-mono mb-2">
         {t('settings_section_font')}
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: 6,
-        marginBottom: 20,
-      }}>
+      <div className="grid grid-cols-2 gap-1.5 mb-5">
         {[
           { id: 'Inter',  label: 'Inter',         sample: 'Aa 123' },
           { id: 'Lora',   label: 'Lora',          sample: 'Aa 123' },
@@ -45,29 +42,13 @@ export function MeWritingSection() {
             type="button"
             key={f.id}
             onClick={() => setFontFamily(f.id)}
-            style={{
-              padding: '12px 14px',
-              borderRadius: 12,
-              border: `1px solid ${fontFamily === f.id
-                ? 'oklch(0.72 0.13 155 / 0.5)'
-                : 'rgba(255,255,255,0.07)'}`,
-              background: fontFamily === f.id
-                ? 'oklch(0.72 0.13 155 / 0.08)'
-                : 'rgba(255,255,255,0.03)',
-              cursor: 'pointer',
-              textAlign: 'left',
-              WebkitTapHighlightColor: 'transparent',
-            }}
+            className="p-3 rounded-xl border cursor-pointer text-left"
+            style={buttonStyle(f.id)}
           >
-            <div style={{
-              fontSize: 15,
-              fontFamily: getFontStack(f.id),
-              color: 'rgba(232,236,233,0.9)',
-              marginBottom: 2,
-            }}>
+            <div className="text-[15px] text-[rgba(232,236,233,0.9)] mb-0.5" style={{ fontFamily: getFontStack(f.id) }}>
               {f.sample}
             </div>
-            <div style={{ fontSize: 11, color: 'rgba(138,145,141,1)' }}>
+            <div className="text-[11px] text-[rgba(138,145,141,1)]">
               {f.label}
             </div>
           </button>
@@ -80,7 +61,7 @@ export function MeWritingSection() {
           min={14} max={28}
           value={fontSize}
           onChange={e => setFontSize(Number(e.target.value))}
-          style={{ width: 100 }}
+          className="w-[100px]" 
         />
       </SettingRow>
 

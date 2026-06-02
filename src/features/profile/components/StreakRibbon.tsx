@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { getSessionDate, calculateStreak, calculateBestStreak } from '../../../core/utils/utils';
+import { getSessionDate, calculateStreak, calculateBestStreak, cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 import { Session } from '../../../types';
 import { IconButton } from '../../../shared/components/IconButton';
@@ -53,7 +53,7 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
     : days[0]?.date.toLocaleDateString(language, { month: 'long', year: 'numeric' });
 
   return (
-    <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-light)' }}>
+    <div className="px-6 py-5 border-b border-[var(--border-light)]">
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-[16px] font-medium text-text-main">
           {t('profile_streak_title')}
@@ -75,12 +75,7 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
         <span className="text-label uppercase tracking-widest">{periodLabel}</span>
         <span className="ml-auto">
           {t('profile_streak_now')}{' '}
-          <span style={{
-            color: 'var(--flow-pulse-color)',
-            fontSize: 16,
-            fontWeight: 600,
-            textShadow: '0 0 12px var(--flow-pulse-color)',
-          }}>
+          <span className="text-[16px] font-semibold text-[var(--flow-pulse-color)] drop-shadow-[0_0_12px_var(--flow-pulse-color)]">
             {currentStreak}
           </span>
         </span>
@@ -89,7 +84,7 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
         </span>
       </div>
 
-      <div className="flex gap-1 items-end" style={{ height: 64 }}>
+      <div className="flex gap-1 items-end h-16" >
         {days.map((day, i) => {
           const heightPct = day.words > 0 ? Math.max(16, (day.words / maxWords) * 100) : 16;
           const isCurrentStreak = day.hasSession && offset === 0 &&
@@ -106,20 +101,12 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
               title={`${day.date.toLocaleDateString(language)} — ${day.words} ${t('writing_words')}`}
             >
               <div
-                style={{
-                  height: '100%',
-                  borderRadius: 2,
-                  background: isCurrentStreak
-                    ? 'var(--flow-pulse-color)'
-                    : day.hasSession
-                      ? 'var(--text-subtle)'
-                      : 'var(--surface-elevated)',
-                  outline: day.isToday ? '1px solid var(--text-subtle)' : 'none',
-                  outlineOffset: 1,
-                  boxShadow: isCurrentStreak && i === days.length - 1
-                    ? '0 0 8px var(--flow-pulse-color)'
-                    : 'none',
-                }}
+                className={cn(
+                  "h-full rounded-[2px]",
+                  isCurrentStreak ? "bg-[var(--flow-pulse-color)]" : day.hasSession ? "bg-[var(--text-subtle)]" : "bg-[var(--surface-elevated)]",
+                  day.isToday ? "outline outline-[1px] outline-[var(--text-subtle)] outline-offset-1" : "outline-none"
+                )}
+                style={isCurrentStreak && i === days.length - 1 ? { boxShadow: '0 0 8px var(--flow-pulse-color)' } : undefined}
               />
             </motion.div>
           );
