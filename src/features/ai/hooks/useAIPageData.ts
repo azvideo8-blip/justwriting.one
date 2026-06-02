@@ -55,10 +55,10 @@ export function useAIPageData(linkedDocId?: string) {
     if (initRef.current) return;
     initRef.current = true;
     setTimeout(() => {
-      loadDialogues();
-      loadCustomPersonas();
+      void loadDialogues();
+      void loadCustomPersonas();
     }, 0);
-    if (linkedDocId) attachDocument(linkedDocId);
+    if (linkedDocId) void attachDocument(linkedDocId);
   }, [loadDialogues, loadCustomPersonas, linkedDocId, attachDocument]);
 
   useEffect(() => {
@@ -80,7 +80,7 @@ export function useAIPageData(linkedDocId?: string) {
     if (!activeDialogueId && dialogue) {
       setActiveDialogueId(dialogue.id);
     }
-    loadDialogues();
+    await loadDialogues();
   };
 
   const handleNewDialogue = () => {
@@ -92,7 +92,7 @@ export function useAIPageData(linkedDocId?: string) {
     if (activeDialogueId) {
       await AIDialogueService.archive(activeDialogueId);
       setActiveDialogueId(null);
-      loadDialogues();
+      await loadDialogues();
     }
   };
 
@@ -100,7 +100,7 @@ export function useAIPageData(linkedDocId?: string) {
     if (activeDialogueId) {
       await AIDialogueService.delete(activeDialogueId);
       setActiveDialogueId(null);
-      loadDialogues();
+      await loadDialogues();
     }
   };
 
@@ -121,7 +121,7 @@ export function useAIPageData(linkedDocId?: string) {
   };
 
   const handleCopyMessage = (text: string) => {
-    navigator.clipboard?.writeText(text);
+    void navigator.clipboard?.writeText(text);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -155,7 +155,7 @@ export function useAIPageData(linkedDocId?: string) {
       if (!activeDialogueId && dialogue) {
         setActiveDialogueId(dialogue.id);
       }
-      loadDialogues();
+      await loadDialogues();
     };
     reader.readAsText(file);
     e.target.value = '';

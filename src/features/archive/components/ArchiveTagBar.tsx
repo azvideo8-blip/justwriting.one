@@ -1,6 +1,8 @@
 import { Pencil, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 interface ArchiveTagBarProps {
   allTags: string[];
@@ -42,12 +44,12 @@ export function ArchiveTagBar({
                 onChange={e => setRenameTagValue(e.target.value)}
                 autoFocus
                 className="w-20 bg-transparent text-[12px] text-text-main outline-none"
-                onKeyDown={async e => {
-                  if (e.key === 'Enter') onRenameSubmit(tag, renameTagValue);
+                onKeyDown={e => {
+                  if (e.key === 'Enter') void onRenameSubmit(tag, renameTagValue);
                   if (e.key === 'Escape') onRenameCancel();
                 }}
               />
-              <button onClick={onRenameCancel} className="text-label text-text-main/30 hover:text-text-main/50">✕</button>
+              <Button onClick={onRenameCancel} className="text-label text-text-main/30 hover:text-text-main/50">✕</Button>
             </div>
           );
         }
@@ -68,32 +70,30 @@ export function ArchiveTagBar({
             </motion.button>
             {showControls && (
               <span className="hidden md:flex absolute -top-1.5 -right-1.5 opacity-0 group-hover/tag:opacity-100 transition-opacity gap-0.5">
-                <button
+                <IconButton
                   onClick={e => { e.stopPropagation(); onStartRename(tag); }}
                   className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/50 hover:text-text-main"
-                  title="Rename"
-                >
-                  <Pencil className="w-1.5 h-1.5" />
-                </button>
-                <button
+                  label="Rename"
+                  icon={<Pencil className="w-1.5 h-1.5" />}
+                />
+                <IconButton
                   onClick={e => { e.stopPropagation(); onDeleteTag(tag); }}
-                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/50 hover:text-red-400"
-                  title="Delete"
-                >
-                  <X className="w-1.5 h-1.5" />
-                </button>
+                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/50 hover:text-accent-danger"
+                  label="Delete"
+                  icon={<X className="w-1.5 h-1.5" />}
+                />
               </span>
             )}
           </div>
         );
       })}
       {selectedTags.length > 0 && (
-        <button
+        <Button
           onClick={onResetTags}
            className="px-2 py-0.5 rounded-full text-[10px] font-mono border border-dashed border-border-subtle text-text-main/30 hover:text-text-main/50 transition-colors"
         >
           {t('archive_tags_reset')} ✕
-        </button>
+        </Button>
       )}
     </div>
   );

@@ -5,12 +5,14 @@ import { AIPersonaService } from '../services/AIPersonaService';
 import { hasInjectionAttempt } from '../shared/injectionPatterns';
 import { PERSONA_PROMPTS } from '../../../shared/ai/prompts';
 import { useLanguage } from '../../../core/i18n';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 export interface PersonaDetailTarget {
   id: string;
   name: string;
   isPreset: boolean;
-  systemPrompt?: string;
+  systemPrompt?: string | undefined;
   color: string;
   mono: string;
 }
@@ -102,9 +104,7 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
               {persona.isPreset ? 'Встроенная персона' : 'Ваша персона'}
             </span>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-text-main/40 hover:text-text-main transition-colors">
-            <X size={18} />
-          </button>
+          <IconButton onClick={onClose} className="p-1.5 rounded-lg text-text-main/40 hover:text-text-main transition-colors" label={t('close')} icon={<X size={18} />} />
         </div>
 
         <div className="p-5 space-y-4">
@@ -148,23 +148,23 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
                   rows={5}
                   className="w-full px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40 resize-none"
                 />
-                {(clientError || error) && <p className="text-xs text-red-400 mt-1">{clientError || error}</p>}
+                {(clientError || error) && <p className="text-xs text-accent-danger mt-1">{clientError || error}</p>}
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={handleDelete}
-                  className="px-3 py-2.5 rounded-xl border border-border-subtle text-text-main/50 hover:text-red-400 hover:border-red-400/30 transition-colors flex items-center justify-center"
+                <IconButton
+                  onClick={() => void handleDelete()}
+                  className="px-3 py-2.5 rounded-xl border border-border-subtle text-text-main/50 hover:text-accent-danger hover:border-accent-danger/30 transition-colors flex items-center justify-center"
                   title="Удалить персону"
-                >
-                  <Trash2 size={16} />
-                </button>
-                <button
-                  onClick={handleSave}
+                  label="Удалить персону"
+                  icon={<Trash2 size={16} />}
+                />
+                <Button
+                  onClick={() => void handleSave()}
                   disabled={!name.trim() || !prompt.trim() || !!clientError || validating}
                   className="flex-1 py-2.5 rounded-xl bg-brand-soft text-surface-base text-sm font-bold disabled:opacity-40 transition-colors"
                 >
                   {validating ? 'Валидация…' : 'Сохранить'}
-                </button>
+                </Button>
               </div>
             </>
           )}

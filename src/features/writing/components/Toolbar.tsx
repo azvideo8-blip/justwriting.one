@@ -3,6 +3,7 @@ import { FilePlus, FolderOpen, Save, Square, Flag } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
+import { IconButton } from '../../../shared/components/IconButton';
 
 const PLAY_PATH = "M8 5v14l11-7z";
 const PAUSE_PATH = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
@@ -20,12 +21,12 @@ function PlayPauseIcon({ isPlaying }: { isPlaying: boolean }) {
 }
 
 interface ToolbarProps {
-  onNew?: () => void;
-  onOpenLog?: () => void;
-  onSave?: () => void;
-  onPlay?: () => void;
-  onPause?: () => void;
-  onStop?: () => void;
+  onNew?: (() => void) | undefined;
+  onOpenLog?: (() => void) | undefined;
+  onSave?: (() => void) | undefined;
+  onPlay?: (() => void) | undefined;
+  onPause?: (() => void) | undefined;
+  onStop?: (() => void) | undefined;
   status: string;
   wordCount: number;
   title: string;
@@ -57,25 +58,22 @@ export function Toolbar({
   return (
     <div className="flex items-center gap-1.5 py-1 w-full">
       <div className="flex items-center gap-1.5 shrink-0">
-        <button
+        <IconButton
+          icon={<FilePlus size={16} />}
+          label={t('topbar_new')}
           onClick={onNew}
-          title={t('topbar_new')}
-          aria-label={t('topbar_new')}
-          className="w-9 h-9 flex items-center justify-center rounded-lg text-text-main/50 hover:text-text-main hover:bg-text-main/5 transition-colors"
-        >
-          <FilePlus size={16} />
-        </button>
+          className="rounded-lg text-text-main/50 hover:text-text-main hover:bg-text-main/5"
+        />
 
-        <button
+        <IconButton
+          icon={<FolderOpen size={16} />}
+          label={t('topbar_open')}
           onClick={onOpenLog}
-          title={t('topbar_open')}
-          aria-label={t('topbar_open')}
-          className="w-9 h-9 flex items-center justify-center rounded-lg text-text-main/50 hover:text-text-main hover:bg-text-main/5 transition-colors"
-        >
-          <FolderOpen size={16} />
-        </button>
+          className="rounded-lg text-text-main/50 hover:text-text-main hover:bg-text-main/5"
+        />
 
         <motion.button
+          type="button"
           onClick={onSave}
           disabled={status === 'idle' || wordCount === 0}
           title={t('topbar_save')}
@@ -102,6 +100,7 @@ export function Toolbar({
         <div className="w-px h-5 bg-border-subtle mx-0.5" />
 
         <motion.button
+          type="button"
           onClick={status === 'writing' ? onPause : onPlay}
           disabled={status === 'writing' && !onPause}
           title={status === 'writing' ? t('pause') : t('play')}
@@ -119,6 +118,7 @@ export function Toolbar({
         </motion.button>
 
         <motion.button
+          type="button"
           onClick={onStop}
           disabled={status === 'idle'}
           title={status !== 'idle' ? t('header_finish') : t('stop')}

@@ -79,7 +79,7 @@ export function AppShell() {
         <EncryptionPasswordModal
           mode={encryptionMode}
           userId={user.uid}
-          onDone={recheckEncryption}
+          onDone={() => void recheckEncryption()}
         />
       )}
     </AppLayout>

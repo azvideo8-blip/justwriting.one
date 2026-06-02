@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
 import { useLanguage } from '../../../core/i18n';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '../../../shared/components/Button';
 import { useUserId } from '../../../shared/hooks/useUserId';
 import { ArchiveHeader, type SortMode } from '../components/ArchiveHeader';
 import { ArchiveTagBar } from '../components/ArchiveTagBar';
@@ -70,7 +71,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   } = useArchiveData(user, userId, t, language, profileLabels);
 
   const tagEditor = useTagEditor(userId, fetchSessions);
-  const labelEditor = useLabelEditor({ addLabel, updateLabel, removeLabel });
+  const labelEditor = useLabelEditor({ addLabel, updateLabel, removeLabel: (id) => void removeLabel(id) });
 
   const filteredStreakDays = useMemo(() => calculateStreak(filteredByFilters), [filteredByFilters]);
 
@@ -142,7 +143,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                     onToggleTag={tag => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
                     renamingTag={tagEditor.renamingTag} renameTagValue={tagEditor.renameTagValue}
                     setRenameTagValue={tagEditor.setRenameTagValue}
-                    onStartRename={tagEditor.startRenameTag} onRenameSubmit={tagEditor.handleRenameTag}
+                    onStartRename={(tag) => void tagEditor.startRenameTag(tag)} onRenameSubmit={(tag, newName) => void tagEditor.handleRenameTag(tag, newName)}
                     onRenameCancel={() => tagEditor.setRenamingTag(null)} onDeleteTag={tagEditor.setTagDeleteConfirm}
                     onResetTags={() => setSelectedTags([])} showControls={false} t={t}
                   />
@@ -168,7 +169,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                   onToggleTag={tag => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
                   renamingTag={tagEditor.renamingTag} renameTagValue={tagEditor.renameTagValue}
                   setRenameTagValue={tagEditor.setRenameTagValue}
-                  onStartRename={tagEditor.startRenameTag} onRenameSubmit={tagEditor.handleRenameTag}
+                  onStartRename={(tag) => void tagEditor.startRenameTag(tag)} onRenameSubmit={(tag, newName) => void tagEditor.handleRenameTag(tag, newName)}
                   onRenameCancel={() => tagEditor.setRenamingTag(null)} onDeleteTag={tagEditor.setTagDeleteConfirm}
                   onResetTags={() => setSelectedTags([])} showControls={!!user} t={t}
                 />
@@ -187,9 +188,9 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               </>
             )}
             {cloudLoadFailed && (
-              <div className="px-4 py-3 rounded-2xl text-sm bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-between mt-4">
+              <div className="px-4 py-3 rounded-2xl text-sm bg-accent-danger/10 border border-accent-danger/30 text-accent-danger flex items-center justify-between mt-4">
                 <span>{t('archive_cloud_load_error')}</span>
-                <button onClick={() => fetchSessions()} className="underline text-red-400/70 hover:text-red-400">{t('retry')}</button>
+                <Button onClick={() => void fetchSessions()} className="underline text-accent-danger/70 hover:text-accent-danger">{t('retry')}</Button>
               </div>
             )}
             </div>
@@ -200,9 +201,9 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 labels={profileLabels} userId={userId} searchQuery={searchQuery}
                 isGroupedByDate={isGroupedByDate}
                 onOpen={s => setPreviewSession(s)} onDelete={s => setDeleteConfirm(s)}
-                onTagsChange={handleTagsChange} onTitleChange={handleTitleChange}
-                onDateChange={handleDateChange} onLabelChange={handleLabelChange}
-                onStorageChange={() => fetchSessions()} t={t} language={language} entriesLabel={entriesLabel}
+                onTagsChange={(s, tags) => void handleTagsChange(s, tags)} onTitleChange={(s, title) => void handleTitleChange(s, title)}
+                onDateChange={(s, date) => void handleDateChange(s, date)} onLabelChange={(s, label) => void handleLabelChange(s, label)}
+                onStorageChange={() => void fetchSessions()} t={t} language={language} entriesLabel={entriesLabel}
                 allTags={allTags} onClearSearch={() => setSearchQuery('')}
               />
             </div>
@@ -223,9 +224,9 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               <Suspense fallback={null}>
                 <DocumentPreview
                 session={previewSession} onClose={() => setPreviewSession(null)}
-                onContinue={s => navigate('/', { state: { sessionToContinue: s } })}
-                onTagsChange={handleTagsChange} onLabelChange={handleLabelChange}
-                onAddLabel={addLabel} labels={profileLabels} allTags={allTags}
+                onContinue={s => void navigate('/', { state: { sessionToContinue: s } })}
+                onTagsChange={(s, tags) => void handleTagsChange(s, tags)} onLabelChange={(s, label) => void handleLabelChange(s, label)}
+                onAddLabel={(label) => void addLabel(label)} labels={profileLabels} allTags={allTags}
               />
               </Suspense>
             )}

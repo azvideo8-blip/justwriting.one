@@ -12,12 +12,12 @@ export const LocalVersionService = {
       duration: number;
       wpm: number;
       versionNumber: number;
-      goalWords?: number;
-      goalTime?: number;
-      goalReached?: boolean;
+      goalWords?: number | undefined;
+      goalTime?: number | undefined;
+      goalReached?: boolean | undefined;
       sessionStartedAt: Date;
-      savedAt?: Date;
-      mood?: string;
+      savedAt?: Date | undefined;
+      mood?: string | undefined;
     }
   ): Promise<string> {
     const db = await getLocalDb();

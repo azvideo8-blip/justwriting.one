@@ -1,4 +1,5 @@
 import React from 'react';
+import { cn } from '../utils/cn';
 
 export function StatCard({ value, label, accent }: {
   value: string | number;
@@ -6,32 +7,18 @@ export function StatCard({ value, label, accent }: {
   accent?: boolean;
 }) {
   return (
-    <div style={{
-      flex: 1,
-      padding: '14px 16px',
-      background: 'rgba(255,255,255,0.03)',
-      border: `1px solid ${accent ? 'oklch(0.72 0.13 155 / 0.3)' : 'rgba(255,255,255,0.07)'}`,
-      borderRadius: 14,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 4,
-    }}>
-      <div style={{
-        fontSize: 24,
-        fontWeight: 500,
-        color: accent ? 'var(--brand-primary)' : 'rgba(232,236,233,0.95)',
-        lineHeight: 1,
-        fontVariantNumeric: 'tabular-nums',
-      }}>
+    <div className={cn(
+      'flex-1 flex flex-col gap-1 p-3.5 px-4 rounded-[14px]',
+      'bg-white/[0.03] border',
+      accent ? 'border-[oklch(0.72_0.13_155/0.3)]' : 'border-white/[0.07]'
+    )}>
+      <div className={cn(
+        'text-2xl font-medium leading-none tabular-nums',
+        accent ? 'text-brand-primary' : 'text-text-main/95'
+      )}>
         {value}
       </div>
-      <div style={{
-        fontSize: 11,
-        color: 'rgba(74,81,77,1)',
-        textTransform: 'uppercase',
-        letterSpacing: '.06em',
-        fontFamily: 'JetBrains Mono, monospace',
-      }}>
+      <div className="text-[11px] font-mono uppercase tracking-[0.06em] text-text-main/30">
         {label}
       </div>
     </div>
@@ -44,26 +31,13 @@ export function SettingRow({ label, children, hint }: {
   hint?: string;
 }) {
   return (
-    <div style={{
-      padding: '14px 0',
-      borderBottom: '1px solid rgba(255,255,255,0.05)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 4,
-    }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 12,
-      }}>
-        <span style={{ fontSize: 14, color: 'rgba(232,236,233,0.8)' }}>
-          {label}
-        </span>
+    <div className="py-3.5 border-b border-white/[0.05] flex flex-col gap-1">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm text-text-main/80">{label}</span>
         {children}
       </div>
       {hint && (
-        <div style={{ fontSize: 11, color: 'rgba(74,81,77,1)' }}>{hint}</div>
+        <div className="text-[11px] text-text-main/30">{hint}</div>
       )}
     </div>
   );

@@ -17,11 +17,11 @@ export interface VersionEncryptPayload {
   duration: number;
   wpm: number;
   versionNumber: number;
-  goalWords?: number;
-  goalTime?: number;
-  goalReached?: boolean;
+  goalWords?: number | undefined;
+  goalTime?: number | undefined;
+  goalReached?: boolean | undefined;
   sessionStartedAt: Date;
-  mood?: string;
+  mood?: string | undefined;
   [key: string]: unknown;
 }
 

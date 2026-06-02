@@ -5,6 +5,8 @@ import { LocalDocumentService } from '../../../core/services/LocalDocumentServic
 import { getLocalDb, getOrCreateGuestId } from '../../../core/storage/localDb';
 import { useLanguage } from '../../../core/i18n';
 import { getAuth } from 'firebase/auth';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 interface DocumentPickerModalProps {
   isOpen: boolean;
@@ -17,7 +19,7 @@ interface DocEntry {
   title: string;
   lastSessionAt: number;
   preview: string;
-  mood?: string;
+  mood?: string | undefined;
 }
 
 export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPickerModalProps) {
@@ -31,7 +33,7 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
 
   if (!loaded) {
     setLoaded(true);
-    (async () => {
+    void (async () => {
       try {
         const guestId = getAuth().currentUser?.uid ?? getOrCreateGuestId();
         const allDocs = await LocalDocumentService.getGuestDocuments(guestId);
@@ -69,9 +71,7 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
           <h3 className="text-sm font-bold text-text-main">Какую заметку разберём?</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-text-main/40 hover:text-text-main transition-colors">
-            <X size={18} />
-          </button>
+          <IconButton onClick={onClose} className="p-1.5 rounded-lg text-text-main/40 hover:text-text-main transition-colors" label={t('close')} icon={<X size={18} />} />
         </div>
 
         <div className="px-4 py-3 border-b border-border-subtle">
@@ -89,7 +89,7 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
 
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {filtered.map(doc => (
-            <button
+            <Button
               key={doc.id}
               onClick={() => { onSelect(doc.id); onClose(); }}
               className="w-full text-left px-4 py-3 rounded-xl hover:bg-text-main/5 transition-colors group"
@@ -99,7 +99,7 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
                 <span className="text-sm font-medium text-text-main truncate">{doc.title}</span>
               </div>
               <p className="text-xs text-text-main/40 mt-1 line-clamp-2">{doc.preview}</p>
-            </button>
+            </Button>
           ))}
           {filtered.length === 0 && (
             <div className="py-8 text-center text-sm text-text-main/30">Ничего не найдено</div>

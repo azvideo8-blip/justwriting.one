@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getSessionDate, calculateStreak, calculateBestStreak } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
 import { Session } from '../../../types';
+import { IconButton } from '../../../shared/components/IconButton';
 
 interface StreakDay {
   date: Date;
@@ -58,14 +59,16 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
           {t('profile_streak_title')}
         </h2>
         <div className="flex items-center gap-1">
-          <button onClick={() => setOffset(o => o + 1)}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-colors">
-            <ChevronLeft size={14} />
-          </button>
-          <button onClick={() => setOffset(o => Math.max(0, o - 1))} disabled={offset === 0}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-colors disabled:opacity-20 disabled:cursor-default">
-            <ChevronRight size={14} />
-          </button>
+          <IconButton onClick={() => setOffset(o => o + 1)}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-colors"
+            label="Previous"
+            icon={<ChevronLeft size={14} />}
+          />
+          <IconButton onClick={() => setOffset(o => Math.max(0, o - 1))} disabled={offset === 0}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-colors disabled:opacity-20 disabled:cursor-default"
+            label="Next"
+            icon={<ChevronRight size={14} />}
+          />
         </div>
       </div>
       <div className="flex items-baseline gap-4 mb-4 font-mono text-label-sm text-text-main/40">

@@ -113,7 +113,7 @@ export function useSessionPersistence(
   }, [userId, setHasDraft, applyDraftToStore]);
 
   useEffect(() => {
-    autoLoadDraftIfEmpty();
+    void autoLoadDraftIfEmpty();
   }, [autoLoadDraftIfEmpty]);
 
   const handleCancel = useCallback(async () => {

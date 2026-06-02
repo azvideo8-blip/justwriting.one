@@ -155,7 +155,7 @@ export function useProfileStats(userId: string, user: User | null) {
       }
     };
 
-    load();
+    void load();
     return () => { cancelled = true; };
   }, [userId, user, fetchKey]);
 

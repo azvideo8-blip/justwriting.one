@@ -18,11 +18,11 @@ export function TagsSection({ session, isEditing: _isEditing }: TagsSectionProps
   const [newTag, setNewTag] = useState('');
   const { tags, addTag, removeTag } = useSessionTags(session.tags || []);
 
-  const handleAddTag = async (e: React.FormEvent) => {
+  const handleAddTag = (e: React.FormEvent) => {
     e.preventDefault();
     const tag = newTag.trim().toLowerCase();
     if (tag) {
-      addTag(tag);
+      void addTag(tag);
       setNewTag('');
       setIsAddingTag(false);
     }
@@ -30,7 +30,7 @@ export function TagsSection({ session, isEditing: _isEditing }: TagsSectionProps
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {tags && tags.length > 0 ? (
+      {tags.length > 0 ? (
         tags.map(tag => (
           <span
             key={tag}
@@ -43,7 +43,7 @@ export function TagsSection({ session, isEditing: _isEditing }: TagsSectionProps
                 label={t('session_remove_tag')}
                 size="sm"
                 onClick={() => removeTag(tag)}
-                className="opacity-0 group-hover/tag:opacity-100 hover:text-red-500 transition-colors"
+                className="opacity-0 group-hover/tag:opacity-100 hover:text-accent-danger transition-colors"
               />
             )}
           </span>
@@ -60,7 +60,7 @@ export function TagsSection({ session, isEditing: _isEditing }: TagsSectionProps
       )}
 
       {isAddingTag ? (
-        <form onSubmit={handleAddTag} className="flex items-center gap-1">
+        <form onSubmit={(e) => handleAddTag(e)} className="flex items-center gap-1">
           <input
             autoFocus
             type="text"

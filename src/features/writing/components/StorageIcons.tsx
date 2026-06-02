@@ -12,13 +12,15 @@ import { reportError } from '../../../core/errors/reportError';
 import { UnlockPrompt } from '../../auth/components/UnlockPrompt';
 import { EncryptionPasswordModal } from '../../encryption/components/EncryptionPasswordModal';
 import { useAuthStatus } from '../../auth/contexts/AuthContext';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 interface StorageDoc {
-  localId?: string;
-  cloudId?: string;
+  localId?: string | undefined;
+  cloudId?: string | undefined;
   hasLocal: boolean;
   hasCloud: boolean;
-  hasPendingSync?: boolean;
+  hasPendingSync?: boolean | undefined;
 }
 
 type ConfirmState =
@@ -167,39 +169,39 @@ export function StorageIcons({
 
   return (
     <div className="flex items-center gap-1.5 shrink-0">
-      <button
+      <IconButton
+        icon={<HardDrive size={14} />}
+        label={doc.hasLocal ? t('storage_remove_local') : t('storage_no_local')}
         onClick={handleLocalClick}
-        title={doc.hasLocal ? t('storage_remove_local') : t('storage_no_local')}
+        size="sm"
         className={cn(
-          "w-6 h-6 rounded-lg flex items-center justify-center transition-colors",
+          "w-6 h-6 rounded-lg",
           doc.hasLocal
-            ? "text-text-main/70 hover:text-red-400 hover:bg-red-400/10"
+            ? "text-text-main/70 hover:text-accent-danger hover:bg-accent-danger/10"
             : "text-text-main/20 cursor-default"
         )}
-      >
-        <HardDrive size={14} />
-      </button>
+      />
 
-      <button
-        onClick={handleCloudClick}
-        disabled={uploading}
-        title={cloudTitle}
-        className={cn(
-          "w-6 h-6 rounded-lg flex items-center justify-center transition-colors",
-          uploading && "animate-pulse text-blue-400",
-          !uploading && isUnsynced && "text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 cursor-pointer",
-          !uploading && !isUnsynced && doc.hasCloud && "text-blue-400 hover:text-red-400 hover:bg-red-400/10",
-          !uploading && !isUnsynced && !doc.hasCloud && canUpload && "text-text-main/30 hover:text-blue-400 hover:bg-blue-400/10 cursor-pointer",
-          !uploading && !isUnsynced && !doc.hasCloud && !canUpload && "text-text-main/20 cursor-default"
-        )}
-      >
-        {uploading ? <Loader2 size={14} className="animate-spin" /> : <Cloud size={14} style={{
+      <IconButton
+        icon={uploading ? <Loader2 size={14} className="animate-spin" /> : <Cloud size={14} style={{
           ...(isUnsynced && !uploading ? {
             filter: 'drop-shadow(0 0 6px var(--accent-warning))',
             transition: 'filter 0.4s ease, color 0.4s ease',
           } : {}),
         }} />}
-      </button>
+        label={cloudTitle}
+        onClick={(e) => void handleCloudClick(e)}
+        disabled={uploading}
+        size="sm"
+        className={cn(
+          "w-6 h-6 rounded-lg",
+          uploading && "animate-pulse text-blue-400",
+          !uploading && isUnsynced && "text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 cursor-pointer",
+          !uploading && !isUnsynced && doc.hasCloud && "text-blue-400 hover:text-accent-danger hover:bg-accent-danger/10",
+          !uploading && !isUnsynced && !doc.hasCloud && canUpload && "text-text-main/30 hover:text-blue-400 hover:bg-blue-400/10 cursor-pointer",
+          !uploading && !isUnsynced && !doc.hasCloud && !canUpload && "text-text-main/20 cursor-default"
+        )}
+      />
 
       <AnimatePresence>
         {confirmState.kind !== 'idle' && (
@@ -221,18 +223,22 @@ export function StorageIcons({
                 {confirmHint}
               </div>
               <div className="flex gap-2">
-                <button
-                  onClick={handleConfirmDelete}
-                  className="flex-1 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-colors"
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => void handleConfirmDelete()}
+                  className="flex-1 py-2 rounded-xl bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-sm font-medium hover:bg-accent-danger/20"
                 >
                   {t('storage_delete_confirm')}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setConfirmState(IDLE)}
-                  className="flex-1 py-2 rounded-xl border border-border-subtle text-text-main/50 text-sm hover:text-text-main transition-colors"
+                  className="flex-1 py-2 rounded-xl border border-border-subtle text-text-main/50 text-sm hover:text-text-main"
                 >
                   {t('common_cancel')}
-                </button>
+                </Button>
               </div>
             </motion.div>
           </motion.div>

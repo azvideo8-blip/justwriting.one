@@ -8,7 +8,7 @@ import {
 import { LifeLogDocument } from '../../types/lifeLog';
 import { LocalDocument } from '../../../../core/storage/localDb';
 import { Document } from '../../../../types';
-import { Timestamp } from 'firebase/firestore';
+// Timestamp import removed — we now use Date instead of Timestamp
 
 function makeLocalDoc(overrides: Partial<LocalDocument> = {}): LocalDocument {
   return {
@@ -37,8 +37,8 @@ function makeCloudDoc(overrides: Partial<Document> = {}): Document {
     totalDuration: 1200,
     currentVersion: 2,
     sessionsCount: 2,
-    firstSessionAt: Timestamp.fromDate(new Date(Date.now() - 7200000)),
-    lastSessionAt: Timestamp.fromDate(new Date(Date.now() - 3600000)),
+    firstSessionAt: new Date(Date.now() - 7200000),
+    lastSessionAt: new Date(Date.now() - 3600000),
     tags: [],
     labelId: undefined,
     ...overrides,

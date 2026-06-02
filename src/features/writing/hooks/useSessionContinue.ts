@@ -65,7 +65,7 @@ export function useSessionContinue({
       useSessionMetaStore.setState({
         savedDocumentId: session.id,
       });
-      setTags(doc.tags || []);
+      setTags(doc.tags);
       setSetupMode('selection');
       return;
     }

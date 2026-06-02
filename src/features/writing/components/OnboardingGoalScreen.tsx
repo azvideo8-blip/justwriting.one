@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
+import { Button } from '../../../shared/components/Button';
 
 interface OnboardingGoalScreenProps {
   onComplete: (wordGoal: number) => void;
@@ -52,8 +53,10 @@ export function OnboardingGoalScreen({ onComplete, setWordGoal }: OnboardingGoal
 
         <div className="grid grid-cols-2 gap-4">
           {PRESETS.map(preset => (
-            <button
+            <Button
               key={preset.key}
+              variant={selected === preset.words && !isCustom ? 'brand' : 'ghost'}
+              size="lg"
               onClick={() => handleSelect(preset.words)}
               className={cn(
                 "flex flex-col items-center gap-2 p-5 rounded-2xl border transition-colors",
@@ -69,10 +72,12 @@ export function OnboardingGoalScreen({ onComplete, setWordGoal }: OnboardingGoal
               <div className="text-label text-text-main/30">
                 ≈ {preset.mins} {t('goal_time_min')}
               </div>
-            </button>
+            </Button>
           ))}
 
-          <button
+          <Button
+            variant={isCustom ? 'brand' : 'ghost'}
+            size="lg"
             onClick={handleCustom}
             className={cn(
               "flex flex-col items-center gap-2 p-5 rounded-2xl border transition-colors",
@@ -97,17 +102,19 @@ export function OnboardingGoalScreen({ onComplete, setWordGoal }: OnboardingGoal
             <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/50">
               {t('onboarding_goal_custom')}
             </div>
-          </button>
+          </Button>
         </div>
 
         <div className="text-center">
-          <button
+          <Button
+            variant="primary"
+            size="lg"
             onClick={handleStart}
             disabled={!goal || goal <= 0}
-            className="px-8 py-3.5 rounded-2xl font-bold text-sm bg-text-main text-surface-base hover:brightness-110 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-8 py-3.5 rounded-2xl font-bold text-sm"
           >
             {t('onboarding_goal_cta')}
-          </button>
+          </Button>
         </div>
       </motion.div>
     </div>

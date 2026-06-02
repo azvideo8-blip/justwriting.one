@@ -52,7 +52,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
   type Tab = typeof tabs[number];
 
   const handleTabPress = (tab: Tab) => {
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
       try {
         navigator.vibrate(8);
       } catch {
@@ -64,7 +64,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
       openLoginModal();
       return;
     }
-    navigate(tab.path);
+    void navigate(tab.path);
   };
 
   const isActive = (tab: Tab) => {

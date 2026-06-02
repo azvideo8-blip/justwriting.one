@@ -48,7 +48,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const t = useCallback((key: string, params?: Record<string, string | number>): string => {
-    if (import.meta.env.DEV && !translations[key] && !_missingKeyWarned.has(key)) {
+    if (import.meta.env.DEV && !(key in translations) && !_missingKeyWarned.has(key)) {
       if (_missingKeyWarned.size < MAX_MISSING_KEYS) _missingKeyWarned.add(key);
       console.warn(`[i18n] Missing translation key: "${key}"`);
     }

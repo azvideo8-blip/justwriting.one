@@ -2,6 +2,8 @@ import { Pencil, X } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { Label } from '../../../types';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 interface ArchiveLabelBarProps {
   labels: Label[];
@@ -69,18 +71,18 @@ export function ArchiveLabelBar({
                   />
                 ))}
               </div>
-              <button onClick={() => onUpdateLabel(label.id)}
+              <Button onClick={() => onUpdateLabel(label.id)}
                 disabled={!editLabelName.trim()}
                 className="text-label font-medium text-text-main/60 hover:text-text-main disabled:opacity-30">
                 {t('common_save')}
-              </button>
-              <button onClick={() => setEditingLabelId(null)} className="text-label text-text-main/30 hover:text-text-main/50">✕</button>
+              </Button>
+              <Button onClick={() => setEditingLabelId(null)} className="text-label text-text-main/30 hover:text-text-main/50">✕</Button>
             </div>
           );
         }
         return (
           <div key={label.id} className="group/label relative flex items-center">
-            <button
+            <Button
               onClick={() => onToggleLabel(label.id)}
               className={cn(
                  "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono transition-colors border",
@@ -90,43 +92,41 @@ export function ArchiveLabelBar({
             >
               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: label.color }} />
               {label.name}
-            </button>
+            </Button>
             {showControls && (
               <span className="hidden md:flex absolute -top-1.5 -right-1.5 opacity-0 group-hover/label:opacity-100 transition-opacity gap-0.5">
-                <button
+                <IconButton
                   onClick={e => { e.stopPropagation(); setEditingLabelId(label.id); setEditLabelName(label.name); setEditLabelColor(label.color); }}
                   className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/50 hover:text-text-main"
-                  title="Rename"
-                >
-                  <Pencil className="w-1.5 h-1.5" />
-                </button>
-                <button
+                  label="Rename"
+                  icon={<Pencil className="w-1.5 h-1.5" />}
+                />
+                <IconButton
                   onClick={e => { e.stopPropagation(); onDeleteLabel(label.id); }}
-                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/50 hover:text-red-400"
-                  title="Delete"
-                >
-                  <X className="w-1.5 h-1.5" />
-                </button>
+                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/50 hover:text-accent-danger"
+                  label="Delete"
+                  icon={<X className="w-1.5 h-1.5" />}
+                />
               </span>
             )}
           </div>
         );
       })}
       {selectedLabels.length > 0 && (
-        <button
+        <Button
           onClick={() => selectedLabels.forEach(id => onToggleLabel(id))}
            className="px-2 py-0.5 rounded-full text-[10px] font-mono border border-dashed border-border-subtle text-text-main/30 hover:text-text-main/50 transition-colors"
         >
           {t('archive_tags_reset')} ✕
-        </button>
+        </Button>
       )}
       {showControls && !addingLabel && !editingLabelId && (
-        <button
+        <Button
           onClick={() => setAddingLabel(true)}
            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-text-main/30 hover:text-text-main/50 border border-dashed border-border-subtle transition-colors"
         >
           + {t('archive_add_label')}
-        </button>
+        </Button>
       )}
       {showControls && addingLabel && (
         <div className="flex items-center gap-2 px-2 py-1 rounded-xl border border-border-subtle bg-surface-card">
@@ -162,17 +162,17 @@ export function ArchiveLabelBar({
               </label>
             </div>
           </div>
-          <button
+          <Button
             onClick={onAddLabel}
             disabled={!newLabelName.trim()}
             className="text-label-sm font-medium text-text-main/60 hover:text-text-main disabled:opacity-30 transition-colors"
           >
             {t('common_save')}
-          </button>
-          <button onClick={() => { setAddingLabel(false); setNewLabelName(''); }}
+          </Button>
+          <Button onClick={() => { setAddingLabel(false); setNewLabelName(''); }}
             className="text-label-sm text-text-main/30 hover:text-text-main/50 transition-colors">
             ✕
-          </button>
+          </Button>
         </div>
       )}
     </div>

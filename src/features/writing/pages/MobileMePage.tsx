@@ -12,9 +12,9 @@ export function MobileMePage() {
   const { openLoginModal } = useLoginModal();
 
   const handleSignOut = () => {
-    execute(
+    void execute(
       () => AuthService.signOut(),
-      { onSuccess: () => navigate('/login') }
+      { onSuccess: () => void navigate('/login') }
     );
   };
 

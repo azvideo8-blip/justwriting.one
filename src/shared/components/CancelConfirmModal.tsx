@@ -5,6 +5,8 @@ import { useLanguage } from '../../core/i18n';
 import { useModalEscape } from '../hooks/useModalEscape';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { cn } from '../../shared/utils/cn';
+import { Button } from './Button';
+import { IconButton } from './IconButton';
 
 interface CancelConfirmModalProps {
   isOpen: boolean;
@@ -52,14 +54,13 @@ export function CancelConfirmModal({
         animate={{ scale: 1, opacity: 1 }}
         className="w-full max-w-sm rounded-3xl p-8 shadow-2xl space-y-6 text-center border bg-surface-card backdrop-blur-2xl border-border-subtle shadow-[0_0_40px_rgba(255,255,255,0.05)] relative"
       >
-        <button 
+        <IconButton
           type="button"
           onClick={onCancel}
           className="absolute top-4 right-4 p-3 rounded-full text-text-main/50 hover:text-text-main hover:bg-text-main/10 transition-colors"
-          aria-label={t('common_close')}
-        >
-          <X size={20} />
-        </button>
+          label={t('common_close')}
+          icon={<X size={20} />}
+        />
         <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mx-auto", v.bg, v.text)}>
           {v.icon}
         </div>
@@ -72,14 +73,14 @@ export function CancelConfirmModal({
           </p>
         </div>
         <div className="flex gap-3">
-          <button 
+          <Button
             type="button"
             onClick={onCancel}
             className="flex-1 px-4 py-3 rounded-xl font-bold transition-colors border border-border-subtle text-text-main hover:bg-white/5"
           >
             {cancelLabel || t('writing_back')}
-          </button>
-          <button 
+          </Button>
+          <Button
             type="button"
             onClick={onConfirm}
             className={cn(
@@ -90,7 +91,7 @@ export function CancelConfirmModal({
             )}
           >
             {confirmLabel || t('finish_discard')}
-          </button>
+          </Button>
         </div>
       </motion.div>
     </div>

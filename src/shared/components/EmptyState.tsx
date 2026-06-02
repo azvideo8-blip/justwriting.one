@@ -14,7 +14,7 @@ export function EmptyState({ icon: Icon, title, description, action }: EmptyStat
     <motion.div
       initial={reducedMotion ? {} : { opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={reducedMotion ? { duration: 0 } : undefined}
+      {...(reducedMotion ? { transition: { duration: 0 } } : {})}
       className="flex flex-col items-center justify-center py-16 px-6 text-center space-y-4"
     >
       <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-surface-card text-text-subtle">

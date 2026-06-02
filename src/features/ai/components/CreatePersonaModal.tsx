@@ -3,6 +3,8 @@ import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { AIPersonaService } from '../services/AIPersonaService';
 import { hasInjectionAttempt } from '../shared/injectionPatterns';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 const SUGGESTED_EMOJIS = [
   '\u{1F9D1}', '\u{1F468}\u200D\u{1F4BC}', '\u{1F469}\u200D\u{1F4BC}',
@@ -66,31 +68,29 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
           <h3 className="text-sm font-bold text-text-main">Создать персону</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-text-main/40 hover:text-text-main transition-colors">
-            <X size={18} />
-          </button>
+          <IconButton onClick={onClose} className="p-1.5 rounded-lg text-text-main/40 hover:text-text-main transition-colors" label="Close" icon={<X size={18} />} />
         </div>
 
         <div className="p-5 space-y-4">
           <div>
             <label className="text-xs font-medium text-text-main/50 uppercase tracking-wide mb-1.5 block">Эмодзи</label>
             <div className="relative">
-              <button
+              <Button
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                 className="w-12 h-12 rounded-xl bg-text-main/5 border border-border-subtle text-2xl flex items-center justify-center hover:bg-text-main/10 transition-colors"
               >
                 {emoji}
-              </button>
+              </Button>
               {showEmojiPicker && (
                 <div className="absolute top-full left-0 mt-2 p-2 bg-surface-card border border-border-subtle rounded-xl shadow-xl grid grid-cols-10 gap-1 z-50">
                   {SUGGESTED_EMOJIS.map(e => (
-                    <button
+                    <Button
                       key={e}
                       onClick={() => { setEmoji(e); setShowEmojiPicker(false); }}
                       className="w-8 h-8 text-lg rounded-lg hover:bg-text-main/10 flex items-center justify-center"
                     >
                       {e}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
@@ -123,17 +123,17 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
               className="w-full px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40 resize-none"
             />
             {(clientValidationError || validationError) && (
-              <p className="text-xs text-red-400 mt-1">{clientValidationError || validationError}</p>
+              <p className="text-xs text-accent-danger mt-1">{clientValidationError || validationError}</p>
             )}
           </div>
 
-          <button
-            onClick={handleSubmit}
+          <Button
+            onClick={() => void handleSubmit()}
             disabled={!name.trim() || !prompt.trim() || !!clientValidationError || validating}
             className="w-full py-2.5 rounded-xl bg-brand-soft text-surface-base text-sm font-bold disabled:opacity-40 transition-colors"
           >
             {validating ? 'Валидация...' : 'Создать'}
-          </button>
+          </Button>
         </div>
       </motion.div>
     </div>

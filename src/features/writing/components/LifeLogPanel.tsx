@@ -12,18 +12,20 @@ import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { X, Pin, Trash2, ArrowRight } from 'lucide-react';
 import { highlightText } from '../../../shared/utils/highlightText';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 interface SessionItemProps {
   session: Session;
-  doc?: LifeLogDocument;
+  doc?: LifeLogDocument | undefined;
   isActive: boolean;
   onClick: () => void;
-  onDelete?: (session: Session) => void;
+  onDelete?: ((session: Session) => void) | undefined;
   t: (key: string) => string;
   language: string;
   userId: string;
   onStorageChange: () => void;
-  searchQuery?: string;
+  searchQuery?: string | undefined;
 }
 
 const SessionItem = React.memo(function SessionItem({ session, doc: _doc, isActive, onClick, onDelete, t, language, userId: _userId, onStorageChange: _onStorageChange, searchQuery }: SessionItemProps) {
@@ -60,21 +62,21 @@ const SessionItem = React.memo(function SessionItem({ session, doc: _doc, isActi
           ) : (
             <span className="text-label-sm text-text-subtle shrink-0">{timeStr}</span>
           )}
-          <button
+          <IconButton
+            icon={<ArrowRight size={12} />}
+            label={t('lifelog_continue')}
             onClick={(e) => { e.stopPropagation(); onClick(); }}
-            className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-text-main/30 hover:text-text-main transition-colors"
-            aria-label={t('lifelog_continue')}
-          >
-            <ArrowRight size={12} />
-          </button>
+            size="sm"
+            className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-text-main/30 hover:text-text-main"
+          />
           {onDelete && session.id && (
-            <button
+            <IconButton
+              icon={<Trash2 size={12} />}
+              label={t('session_delete')}
               onClick={(e) => { e.stopPropagation(); onDelete(session); }}
-              className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-text-main/30 hover:text-accent-danger transition-colors"
-              aria-label={t('session_delete')}
-            >
-              <Trash2 size={12} />
-            </button>
+              size="sm"
+              className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-text-main/30 hover:text-accent-danger"
+            />
           )}
         </div>
       </div>
@@ -101,11 +103,11 @@ interface LifeLogPanelProps {
   onClose: () => void;
   activeTab: 'log' | 'settings';
   onTabChange: (tab: 'log' | 'settings') => void;
-  pinned?: boolean;
-  onTogglePin?: () => void;
-  inGrid?: boolean;
-  onRefreshDocuments?: () => void;
-  streakDays?: number;
+  pinned?: boolean | undefined;
+  onTogglePin?: (() => void) | undefined;
+  inGrid?: boolean | undefined;
+  onRefreshDocuments?: (() => void) | undefined;
+  streakDays?: number | undefined;
 }
 
 export function LifeLogPanel({
@@ -188,50 +190,43 @@ export function LifeLogPanel({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
         <div className="flex gap-1">
-          <button
+          <Button
+            variant={activeTab === 'log' ? 'primary' : 'ghost'}
+            size="sm"
             onClick={() => onTabChange('log')}
-            className={cn(
-              "px-3 py-1.5 rounded-xl text-sm transition-colors",
-              activeTab === 'log'
-                ? "bg-text-main text-surface-base"
-                : "text-text-main/50 hover:text-text-main"
-            )}
+            className="px-3 py-1.5 rounded-xl text-sm"
           >
             {t('lifelog_tab_log')}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant={activeTab === 'settings' ? 'primary' : 'ghost'}
+            size="sm"
             onClick={() => onTabChange('settings')}
-            className={cn(
-              "px-3 py-1.5 rounded-xl text-sm transition-colors",
-              activeTab === 'settings'
-                ? "bg-text-main text-surface-base"
-                : "text-text-main/50 hover:text-text-main"
-            )}
+            className="px-3 py-1.5 rounded-xl text-sm"
           >
             {t('lifelog_tab_settings')}
-          </button>
+          </Button>
         </div>
-        
+
         <div className="flex items-center gap-1">
-          <button
+          <IconButton
+            icon={<Pin size={14} />}
+            label={pinned ? t('lifelog_unpin') : t('lifelog_pin')}
             onClick={onTogglePin}
-            title={pinned ? t('lifelog_unpin') : t('lifelog_pin')}
             className={cn(
-              "w-8 h-8 rounded-xl border transition-colors flex items-center justify-center",
+              "w-8 h-8 rounded-xl border",
               pinned
                 ? "border-text-main/30 bg-text-main/10 text-text-main"
                 : "border-border-subtle text-text-main/40 hover:text-text-main"
             )}
-          >
-            <Pin size={14} />
-          </button>
+          />
 
-          <button
+          <IconButton
+            icon={<X size={14} />}
+            label={t('lifelog_close')}
             onClick={onClose}
-            className="w-8 h-8 rounded-xl text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-colors flex items-center justify-center"
-          >
-            <X size={14} />
-          </button>
+            className="w-8 h-8 rounded-xl text-text-main/40 hover:text-text-main hover:bg-text-main/5"
+          />
         </div>
       </div>
 
@@ -332,7 +327,7 @@ export function LifeLogPanel({
                           t={t}
                           language={language}
                           userId={userId}
-                          onStorageChange={() => { refresh(); onRefreshDocuments?.(); }}
+                          onStorageChange={() => { void refresh(); void onRefreshDocuments?.(); }}
                           searchQuery={searchQuery}
                         />
                       ))}
@@ -352,7 +347,7 @@ export function LifeLogPanel({
 
       {activeTab === 'settings' && (
         <div className="flex-1 overflow-hidden w-[380px]">
-          <SettingsPanelContent userId={userId} onRefreshLifeLog={refresh} activeTab={settingsTab} setActiveTab={setSettingsTab} />
+          <SettingsPanelContent userId={userId} onRefreshLifeLog={() => void refresh()} activeTab={settingsTab} setActiveTab={setSettingsTab} />
         </div>
       )}
 
@@ -363,13 +358,12 @@ export function LifeLogPanel({
         description={t('admin_confirm_delete_session')}
         confirmLabel={t('session_delete')}
         cancelLabel={t('common_cancel')}
-        onConfirm={async () => {
+        onConfirm={() => {
           if (deleteTarget?.id) {
-            await execute(
+            void execute(
               () => deleteSession(userId, deleteTarget),
               { successMessage: t('session_deleted'), errorMessage: t('error_delete_failed') }
-            );
-            refresh();
+            ).then(() => void refresh());
           }
           setDeleteTarget(null);
         }}

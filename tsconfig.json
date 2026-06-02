@@ -9,6 +9,8 @@
     ],
     "skipLibCheck": true,
     "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "exactOptionalPropertyTypes": true,
     "moduleResolution": "bundler",
     "isolatedModules": true,
     "moduleDetection": "force",

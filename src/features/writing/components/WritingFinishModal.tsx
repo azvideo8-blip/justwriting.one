@@ -15,6 +15,7 @@ import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { FinishModalStats } from './FinishModalStats';
 import { FinishModalTags } from './FinishModalTags';
 import { FinishModalExport } from './FinishModalExport';
+import { Button } from '../../../shared/components/Button';
 
 const STOP_WORDS = new Set([
   'это','что','как','так','все','они','она','он','мы','вы','я','его','её','их',
@@ -31,23 +32,23 @@ const STOP_WORDS = new Set([
 export interface SaveData {
   title: string;
   tags: string[];
-  labelId?: string;
-  mood?: string;
+  labelId?: string | undefined;
+  mood?: string | undefined;
 }
 
 interface WritingFinishModalProps {
   isOpen: boolean;
   tags: string[];
   setTags: (tags: string[]) => void;
-  labelId?: string;
+  labelId?: string | undefined;
   setLabelId: (labelId?: string) => void;
   labels: Label[];
   onSave: (data: SaveData) => Promise<void>;
   onCancel: () => void;
   onSkipSave: () => void;
-  streakDays?: number;
-  sessionGroups?: { date: Date; sessions: unknown[] }[];
-  savedDocumentId?: string | null;
+  streakDays?: number | undefined;
+  sessionGroups?: { date: Date; sessions: unknown[] }[] | undefined;
+  savedDocumentId?: string | null | undefined;
 }
 
 export function WritingFinishModal({
@@ -143,7 +144,7 @@ export function WritingFinishModal({
 
   const handleSaveClick = () => {
     const pendingTag = tagInputRef.current?.value.trim();
-    const finalTags = pendingTag && tags && !tags.includes(pendingTag)
+    const finalTags = pendingTag && !tags.includes(pendingTag)
       ? [...tags, pendingTag]
       : tags;
     if (tagInputRef.current) tagInputRef.current.value = '';
@@ -155,7 +156,7 @@ export function WritingFinishModal({
 
     setSaveDataState({
       title: finalTitle,
-      tags: finalTags || [],
+      tags: finalTags,
       labelId,
     });
     setStep('mood');
@@ -163,7 +164,7 @@ export function WritingFinishModal({
 
   const handleMoodSelect = (selectedMood?: string) => {
     if (!saveDataState) return;
-    execute(
+    void execute(
       () => onSave({ ...saveDataState, mood: selectedMood }),
       {
         successMessage: t('save_success'),
@@ -234,22 +235,26 @@ export function WritingFinishModal({
               );
               })}
             </div>
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               disabled={isSaving}
               onClick={() => handleMoodSelect(undefined)}
-              className="text-xs text-text-main/30 hover:text-text-main/50 transition-colors disabled:opacity-50 mt-4"
+              className="text-xs text-text-main/30 hover:text-text-main/50 mt-4"
             >
               {isSaving ? t('finish_saving') : t('mood_checkin_skip')}
-            </button>
+            </Button>
 
             {savedDocumentId && !isSaving && (
-              <button
-                onClick={() => navigate(`/ai?doc=${savedDocumentId}`)}
-                className="mt-4 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-soft/10 border border-brand-soft/20 text-brand-soft text-sm font-medium hover:bg-brand-soft/20 transition-colors"
+              <Button
+                variant="brand"
+                size="md"
+                onClick={() => void navigate(`/ai?doc=${savedDocumentId}`)}
+                className="mt-4 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-soft/10 border border-brand-soft/20 text-brand-soft text-sm font-medium hover:bg-brand-soft/20"
               >
                 <Sparkles size={14} />
                 Отправить в AI
-              </button>
+              </Button>
             )}
           </motion.div>
         ) : isMobile ? (
@@ -311,28 +316,31 @@ export function WritingFinishModal({
             <div className="px-4 pb-3 pt-3 border-t border-border-subtle bg-surface-card shrink-0"
               style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
               <div className="flex gap-2">
-                <button
+                <Button
+                  variant="ghost"
+                  size="md"
                   onClick={onCancel}
-                  className="flex-1 px-3 py-3.5 font-bold transition-colors rounded-2xl border border-border-subtle text-text-main hover:bg-white/5 min-h-[44px] text-sm"
+                  className="flex-1 px-3 py-3.5 font-bold rounded-2xl border border-border-subtle text-text-main hover:bg-white/5 min-h-[44px] text-sm"
                 >
                   {t('finish_back')}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="md"
                   onClick={onSkipSave}
-                  className="flex-1 px-3 py-3.5 font-bold transition-colors rounded-2xl border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-white/5 min-h-[44px] text-sm"
+                  className="flex-1 px-3 py-3.5 font-bold rounded-2xl border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-white/5 min-h-[44px] text-sm"
                 >
                   {t('finish_skip_save')}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
                   onClick={handleSaveClick}
-                  disabled={isSaving}
-                  className={cn(
-                    "flex-[2] px-3 py-3.5 font-bold transition-colors bg-text-main text-surface-base rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30 min-h-[44px] text-sm",
-                    isSaving ? "opacity-60 cursor-not-allowed" : "hover:brightness-110 will-change-transform"
-                  )}
+                  isLoading={isSaving}
+                  className="flex-[2] px-3 py-3.5 font-bold rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30 min-h-[44px] text-sm"
                 >
                   {isSaving ? t('finish_saving') : t('common_save')}
-                </button>
+                </Button>
               </div>
             </div>
           </motion.div>
@@ -393,28 +401,31 @@ export function WritingFinishModal({
           />
 
           <div className="flex gap-2">
-            <button
+            <Button
+              variant="ghost"
+              size="md"
               onClick={onCancel}
-              className="flex-1 px-4 py-3.5 font-bold transition-colors rounded-2xl border border-border-subtle text-text-main hover:bg-white/5 text-sm"
+              className="flex-1 px-4 py-3.5 font-bold rounded-2xl border border-border-subtle text-text-main hover:bg-white/5 text-sm"
             >
               {t('finish_back')}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="md"
               onClick={onSkipSave}
-              className="flex-1 px-4 py-3.5 font-bold transition-colors rounded-2xl border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-white/5 text-sm"
+              className="flex-1 px-4 py-3.5 font-bold rounded-2xl border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-white/5 text-sm"
             >
               {t('finish_skip_save')}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
               onClick={handleSaveClick}
-              disabled={isSaving}
-              className={cn(
-                "flex-[2] px-4 py-3.5 font-bold transition-colors bg-text-main text-surface-base rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30 text-sm",
-                isSaving ? "opacity-60 cursor-not-allowed" : "hover:brightness-110 will-change-transform"
-              )}
+              isLoading={isSaving}
+              className="flex-[2] px-4 py-3.5 font-bold rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30 text-sm"
             >
               {isSaving ? t('finish_saving') : t('common_save')}
-            </button>
+            </Button>
           </div>
         </motion.div>
         )}

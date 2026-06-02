@@ -11,15 +11,15 @@ import { getLocalDb } from '../../../core/storage/localDb';
 import pLimit from 'p-limit';
 
 interface LoadedSession extends Session {
-  _linkedCloudId?: string;
-  _hasCloudCopy?: boolean;
-  _totalWords?: number;
-  _totalDuration?: number;
-  _sessionsCount?: number;
-  _firstSessionAt?: number;
-  _locked?: boolean;
-  _decryptionError?: boolean;
-  _hasPendingSync?: boolean;
+  _linkedCloudId?: string | undefined;
+  _hasCloudCopy?: boolean | undefined;
+  _totalWords?: number | undefined;
+  _totalDuration?: number | undefined;
+  _sessionsCount?: number | undefined;
+  _firstSessionAt?: number | undefined;
+  _locked?: boolean | undefined;
+  _decryptionError?: boolean | undefined;
+  _hasPendingSync?: boolean | undefined;
 }
 
 interface LoadResult {

@@ -100,7 +100,7 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
 
           <div className="flex flex-col gap-2">
             <button
-              onClick={handleMigrate}
+              onClick={() => void handleMigrate()}
               className="w-full py-2.5 rounded-xl bg-text-main text-surface-base text-sm font-medium hover:opacity-90 transition-opacity"
             >
               {t('migration_move_to_account')}

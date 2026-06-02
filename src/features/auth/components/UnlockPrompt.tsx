@@ -68,13 +68,13 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
           </p>
 
           {error && (
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs mb-3 flex items-center gap-2">
+            <div className="p-3 rounded-lg bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-xs mb-3 flex items-center gap-2">
               <AlertCircle size={14} className="shrink-0" />
               {error}
             </div>
           )}
 
-          <form onSubmit={handleUnlock} className="space-y-3">
+          <form onSubmit={(e) => { e.preventDefault(); void handleUnlock(e); }} className="space-y-3">
             <input
               type="password"
               autoFocus

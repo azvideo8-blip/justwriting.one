@@ -8,7 +8,7 @@ import {
 } from './EncryptionMetaService';
 import { getClient } from '../firebase/firestoreClient';
 
-export function hasLegacyEncryption(profile: { encryptionSalt?: string; encryptedDataKey?: string } | null): boolean {
+export function hasLegacyEncryption(profile: { encryptionSalt?: string | undefined; encryptedDataKey?: string | undefined } | null): boolean {
   return !!(profile?.encryptionSalt && profile?.encryptedDataKey);
 }
 

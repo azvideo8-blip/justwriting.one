@@ -13,6 +13,7 @@ import { MobilePageHeader } from '../../../shared/components/MobilePageHeader';
 import { Settings } from 'lucide-react';
 import { useSettings } from '../../../core/settings/SettingsContext';
 import { LoadingSkeleton } from '../../../shared/components/LoadingSkeleton';
+import { IconButton } from '../../../shared/components/IconButton';
 import { logger } from '../../../core/errors/logger';
 
 interface MobileLogScreenProps {
@@ -43,7 +44,7 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
       if (previewSession && previewSession.id === s.id) {
         setPreviewSession(prev => prev ? { ...prev, labelId } : null);
       }
-      refresh();
+      await refresh();
     } catch (e) {
       logger.error('mobileLogScreen', 'Failed to update labelId', { error: String(e) });
     }
@@ -93,21 +94,12 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
         title={t('lifelog_tab_log')}
         titleFont="serif"
         right={
-          <button
+          <IconButton
+            icon={<Settings size={20} />}
+            label={t('nav_settings')}
             onClick={() => openSettings()}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              padding: 10,
-              display: 'flex',
-              alignItems: 'center',
-            }}
-            aria-label={t('nav_settings')}
-          >
-            <Settings size={20} />
-          </button>
+            className="p-2 text-text-muted"
+          />
         }
       />
 
@@ -260,10 +252,10 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
                     labels={labels}
                     userId={userId}
                     onDeleteSuccess={() => {
-                      refresh();
+                      void refresh();
                     }}
                     onPreview={() => setPreviewSession(session)}
-                    onLabelChange={handleLabelChange}
+                    onLabelChange={(s, labelId) => void handleLabelChange(s, labelId)}
                   />
                 ))}
               </div>
@@ -277,15 +269,17 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
             session={previewSession}
             onClose={() => setPreviewSession(null)}
             onContinue={onContinue}
-            onLabelChange={handleLabelChange}
-            onTagsChange={async (s, tags) => {
-              try {
-                await updateArchiveField(s, 'tags', tags, auth.currentUser, userId);
-                setPreviewSession(prev => prev ? { ...prev, tags } : null);
-                refresh();
-              } catch (e) {
-                logger.error('mobileLogScreen', 'Failed to update tags', { error: String(e) });
-              }
+            onLabelChange={(s, labelId) => void handleLabelChange(s, labelId)}
+            onTagsChange={(s, tags) => {
+              void (async () => {
+                try {
+                  await updateArchiveField(s, 'tags', tags, auth.currentUser, userId);
+                  setPreviewSession(prev => prev ? { ...prev, tags } : null);
+                  await refresh();
+                } catch (e) {
+                  logger.error('mobileLogScreen', 'Failed to update tags', { error: String(e) });
+                }
+              })();
             }}
             labels={labels}
           />

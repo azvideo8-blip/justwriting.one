@@ -71,7 +71,7 @@ export async function loadGuestDraftFromStorage(): Promise<GuestDraftData | null
     const idbTs = idbDraft.updatedAt ?? idbDraft.timestamp ?? 0;
     const lsTs = lsDraft.updatedAt ?? lsDraft.timestamp ?? 0;
     const winner = idbTs >= lsTs ? idbDraft : lsDraft;
-    if (winner === lsDraft && idbDraft) {
+    if (winner === lsDraft) {
       try {
         const db = await getLocalDb();
         await db.put('drafts', { ...lsDraft, userId: GUEST_IDB_KEY } as LocalDraft);

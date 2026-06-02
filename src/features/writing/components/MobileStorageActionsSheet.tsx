@@ -4,6 +4,8 @@ import { Cloud, HardDrive, Loader2, Trash2, X, Upload, RefreshCw } from 'lucide-
 
 import { useLanguage } from '../../../core/i18n';
 import { useToast } from '../../../shared/components/Toast';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 import { StorageService } from '../../../core/services/StorageService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { SyncService } from '../../../core/services/SyncService';
@@ -54,7 +56,7 @@ export function MobileStorageActionsSheet({
   };
 
   const triggerVibration = () => {
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
       try {
         navigator.vibrate(60);
       } catch {
@@ -176,12 +178,12 @@ export function MobileStorageActionsSheet({
           <span className="text-sm font-bold text-text-main/30 uppercase tracking-widest">
             {t('storage_title') || 'Управление хранилищем'}
           </span>
-          <button
+          <IconButton
+            icon={<X size={18} />}
+            label={t('common_close')}
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/[0.04] border-none flex items-center justify-center text-text-main/40 hover:text-text-main/70 cursor-pointer"
-          >
-            <X size={18} />
-          </button>
+            className="w-8 h-8 rounded-full bg-white/[0.04] text-text-main/40 hover:text-text-main/70"
+          />
         </div>
 
         {/* Details Summary */}
@@ -211,10 +213,12 @@ export function MobileStorageActionsSheet({
         <div className="px-6 py-6 overflow-y-auto no-scrollbar space-y-3">
           {/* 1. Upload or Sync Button */}
           {(canUpload || doc.hasPendingSync) && (
-            <button
-              onClick={handleUploadOrSync}
-              disabled={!!loadingAction}
-              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm border-none cursor-pointer bg-brand-primary text-surface-base active:scale-[0.98] transition-colors disabled:opacity-50"
+            <Button
+              variant="brand"
+              size="md"
+              onClick={() => void handleUploadOrSync()}
+              isLoading={loadingAction === 'upload'}
+              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm active:scale-[0.98]"
             >
               {loadingAction === 'upload' ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -229,15 +233,17 @@ export function MobileStorageActionsSheet({
                   <span>{t('storage_upload_to_cloud') || 'Загрузить в облако'}</span>
                 </>
               )}
-            </button>
+            </Button>
           )}
 
           {/* 2. Delete Local Copy Button */}
           {doc.hasLocal && doc.hasCloud && (
-            <button
-              onClick={handleDeleteLocalOnly}
-              disabled={!!loadingAction}
-              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm cursor-pointer bg-white/[0.02] border border-white/[0.06] text-text-main/70 hover:text-red-400 active:scale-[0.98] transition-colors disabled:opacity-50"
+            <Button
+              variant="ghost"
+              size="md"
+              onClick={() => void handleDeleteLocalOnly()}
+              isLoading={loadingAction === 'delete-local'}
+              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm border border-white/[0.06] text-text-main/70 hover:text-accent-danger active:scale-[0.98]"
             >
               {loadingAction === 'delete-local' ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -247,15 +253,17 @@ export function MobileStorageActionsSheet({
                   <span>{t('storage_remove_local') || 'Удалить локальную копию'}</span>
                 </>
               )}
-            </button>
+            </Button>
           )}
 
           {/* 3. Delete Cloud Copy Button */}
           {doc.hasLocal && doc.hasCloud && (
-            <button
-              onClick={handleDeleteCloudOnly}
-              disabled={!!loadingAction}
-              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm cursor-pointer bg-white/[0.02] border border-white/[0.06] text-text-main/70 hover:text-red-400 active:scale-[0.98] transition-colors disabled:opacity-50"
+            <Button
+              variant="ghost"
+              size="md"
+              onClick={() => void handleDeleteCloudOnly()}
+              isLoading={loadingAction === 'delete-cloud'}
+              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm border border-white/[0.06] text-text-main/70 hover:text-accent-danger active:scale-[0.98]"
             >
               {loadingAction === 'delete-cloud' ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -265,15 +273,17 @@ export function MobileStorageActionsSheet({
                   <span>{t('storage_remove_cloud') || 'Удалить из облака'}</span>
                 </>
               )}
-            </button>
+            </Button>
           )}
 
           {/* 4. Delete Completely Button */}
           {(doc.hasLocal || doc.hasCloud) && (
-            <button
-              onClick={handleDeleteCompletely}
-              disabled={!!loadingAction}
-              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm cursor-pointer bg-red-500/10 border border-red-500/20 text-red-400 active:scale-[0.98] transition-colors disabled:opacity-50"
+            <Button
+              variant="danger"
+              size="md"
+              onClick={() => void handleDeleteCompletely()}
+              isLoading={loadingAction === 'delete-complete'}
+              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm bg-accent-danger/10 border border-accent-danger/20 text-accent-danger active:scale-[0.98]"
             >
               {loadingAction === 'delete-complete' ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -283,17 +293,19 @@ export function MobileStorageActionsSheet({
                   <span>{t('storage_delete_completely') || 'Удалить полностью'}</span>
                 </>
               )}
-            </button>
+            </Button>
           )}
 
           {/* Cancel / Close Button */}
           <div className="pt-2">
-            <button
+            <Button
+              variant="ghost"
+              size="md"
               onClick={onClose}
-              className="w-full min-h-[48px] py-3 rounded-2xl font-semibold text-sm bg-white/[0.04] border-none text-text-main/50 cursor-pointer text-center active:scale-[0.98] transition-colors"
+              className="w-full min-h-[48px] py-3 rounded-2xl font-semibold text-sm bg-white/[0.04] text-text-main/50 text-center active:scale-[0.98]"
             >
               {t('common_cancel') || 'Отмена'}
-            </button>
+            </Button>
           </div>
         </div>
       </motion.div>
@@ -303,7 +315,7 @@ export function MobileStorageActionsSheet({
         {showUnlock && hasEncryption && userId && !userId.startsWith('guest_') && (
           <UnlockPrompt
             uid={userId}
-            onUnlocked={() => { setShowUnlock(false); handleUploadOrSync(); }}
+            onUnlocked={() => { setShowUnlock(false); void handleUploadOrSync(); }}
             onClose={() => setShowUnlock(false)}
           />
         )}
@@ -314,7 +326,7 @@ export function MobileStorageActionsSheet({
           mode="setup"
           userId={userId}
           context="cloud-sync"
-          onDone={() => { setShowEncryptionSetup(false); handleUploadOrSync(); }}
+          onDone={() => { setShowEncryptionSetup(false); void handleUploadOrSync(); }}
           onClose={() => setShowEncryptionSetup(false)}
         />
       )}

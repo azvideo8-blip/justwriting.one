@@ -24,7 +24,7 @@ export function ArchiveConfirmModals({
         message={t('archive_tag_delete_confirm', { tag: tagEditor.tagDeleteConfirm ?? '' })}
         confirmLabel={t('storage_delete_confirm')}
         cancelLabel={t('common_cancel')}
-        onConfirm={tagEditor.handleDeleteTag}
+        onConfirm={() => void tagEditor.handleDeleteTag()}
         onCancel={() => tagEditor.setTagDeleteConfirm(null)}
       />
       <ConfirmModal
@@ -33,7 +33,7 @@ export function ArchiveConfirmModals({
         message={t('archive_label_delete_confirm')}
         confirmLabel={t('storage_delete_confirm')}
         cancelLabel={t('common_cancel')}
-        onConfirm={labelEditor.confirmDeleteLabel}
+        onConfirm={() => void labelEditor.confirmDeleteLabel()}
         onCancel={() => labelEditor.setLabelDeleteConfirm(null)}
       />
       <ConfirmModal
@@ -42,7 +42,7 @@ export function ArchiveConfirmModals({
         message={`«${deleteConfirm?.title || t('session_untitled')}»`}
         confirmLabel={t('storage_delete_confirm')}
         cancelLabel={t('common_cancel')}
-        onConfirm={onDeleteConfirm}
+        onConfirm={() => void onDeleteConfirm()}
         onCancel={onDeleteCancel}
       />
     </>

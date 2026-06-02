@@ -5,6 +5,7 @@ import { Toggle } from '../../../shared/components/Toggle';
 import { getFontStack } from '../utils/fontStack';
 import { SettingRow } from './MeScreenHelpers';
 import { useSettings } from '../../../core/settings/SettingsContext';
+import { Button } from '../../../shared/components/Button';
 
 export function MeWritingSection() {
   const { t } = useLanguage();
@@ -41,6 +42,7 @@ export function MeWritingSection() {
           { id: 'JetBrains Mono', label: 'JetBrains Mono', sample: 'Aa 123' },
         ].map(f => (
           <button
+            type="button"
             key={f.id}
             onClick={() => setFontFamily(f.id)}
             style={{
@@ -86,26 +88,14 @@ export function MeWritingSection() {
         <Toggle checked={zenModeEnabled} onChange={setZenModeEnabled} ariaLabel={t('settings_zen_mode')} />
       </SettingRow>
 
-      <button
+      <Button
+        variant="ghost"
+        size="md"
         onClick={() => openSettings('editor')}
-        style={{
-          marginTop: 20,
-          width: '100%',
-          padding: '12px',
-          borderRadius: 12,
-          border: '1px solid rgba(255,255,255,0.07)',
-          background: 'rgba(255,255,255,0.03)',
-          color: 'rgba(232,236,233,0.8)',
-          fontSize: 13,
-          fontWeight: 500,
-          cursor: 'pointer',
-          textAlign: 'center',
-          fontFamily: 'Inter, system-ui, sans-serif',
-          WebkitTapHighlightColor: 'transparent',
-        }}
+        className="mt-5 w-full py-3 rounded-xl border border-white/[0.07] bg-white/[0.03] text-white/80 text-sm font-medium text-center"
       >
         {t('settings_all_editor_settings') || 'Все настройки редактора →'}
-      </button>
+      </Button>
     </div>
   );
 }

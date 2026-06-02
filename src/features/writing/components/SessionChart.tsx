@@ -62,7 +62,7 @@ export function SessionChart({ sessions, startDate, endDate }: SessionChartProps
           <Tooltip 
             cursor={{ fill: 'var(--color-text-main)', opacity: 0.05 }}
             content={({ active, payload }) => {
-              if (active && payload && payload.length) {
+              if (active && payload.length > 0) {
                 return (
                   <div className="p-3 rounded-xl shadow-xl border bg-surface-card backdrop-blur-xl border-border-subtle text-text-main">
                     <p className="font-bold text-sm mb-1">{payload[0].payload.date}</p>

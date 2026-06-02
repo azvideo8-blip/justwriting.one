@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getSessionDate } from '../../../core/utils/utils';
+import { IconButton } from '../../../shared/components/IconButton';
 
 function getDayLabels(locale: string): string[] {
   const mon = new Date(2024, 0, 1);
@@ -86,7 +87,7 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
     const labels: { col: number; label: string }[] = [];
     weeks.forEach((week, wi) => {
       const firstDay = week[0]?.date;
-      if (firstDay && firstDay.getDate() <= 7) {
+      if (firstDay != null && firstDay.getDate() <= 7) {
         labels.push({
           col: wi,
           label: firstDay.toLocaleDateString(language, { month: 'short' }),
@@ -127,14 +128,16 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
           </div>
 
           <div className="flex items-center gap-1">
-            <button onClick={() => setOffset(o => o + 1)}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-colors">
-              <ChevronLeft size={14} />
-            </button>
-            <button onClick={() => setOffset(o => Math.max(0, o - 1))} disabled={offset === 0}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-colors disabled:opacity-20 disabled:cursor-default">
-              <ChevronRight size={14} />
-            </button>
+          <IconButton onClick={() => setOffset(o => o + 1)}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-colors"
+            label="Previous"
+            icon={<ChevronLeft size={14} />}
+          />
+          <IconButton onClick={() => setOffset(o => Math.max(0, o - 1))} disabled={offset === 0}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-colors disabled:opacity-20 disabled:cursor-default"
+            label="Next"
+            icon={<ChevronRight size={14} />}
+          />
           </div>
         </div>
       </div>

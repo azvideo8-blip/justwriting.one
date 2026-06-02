@@ -5,6 +5,8 @@ import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useTimerStore } from '../store/useTimerStore';
 import { SetupMode } from './WritingSetup';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 
 interface MobileSessionSetupSheetProps {
@@ -31,7 +33,7 @@ export function MobileSessionSetupSheet({
 
   // Vibration on countdown ticks
   useEffect(() => {
-    if (countdown !== null && countdown > 0 && typeof navigator !== 'undefined' && navigator.vibrate) {
+    if (countdown !== null && countdown > 0 && typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
       try {
         navigator.vibrate(80);
       } catch {
@@ -110,24 +112,24 @@ export function MobileSessionSetupSheet({
             {/* Back / Close Actions */}
             <div className="flex justify-between items-center px-6 pb-2">
               {setupMode !== 'selection' ? (
-                <button
+                <Button
                   onClick={() => setSetupMode('selection')}
                   className="flex items-center gap-1.5 text-xs font-semibold text-text-main/60 bg-transparent border-none cursor-pointer py-2 pr-4 pl-0"
                 >
                   <ChevronLeft size={16} />
                   {t('writing_back')}
-                </button>
+                </Button>
               ) : (
                 <span className="text-sm font-bold text-text-main/30 uppercase tracking-widest">
                   {t('writing_select_mode')}
                 </span>
               )}
-              <button
+              <IconButton
                 onClick={() => setSetupMode(null)}
                 className="w-8 h-8 rounded-full bg-white/[0.04] border-none flex items-center justify-center text-text-main/40 hover:text-text-main/70 cursor-pointer"
-              >
-                <X size={18} />
-              </button>
+                label={t('close')}
+                icon={<X size={18} />}
+              />
             </div>
 
             <div className="px-6 overflow-y-auto no-scrollbar flex-1"
@@ -148,7 +150,7 @@ export function MobileSessionSetupSheet({
                       { id: 'words-config', icon: Target, label: 'writing_mode_words', desc: 'writing_mode_words_desc', color: 'text-rose-400', bg: 'bg-rose-400/8' },
                       { id: 'finish-by-config', icon: Clock, label: 'writing_mode_deadline', desc: 'writing_mode_deadline_desc', color: 'text-emerald-400', bg: 'bg-emerald-400/8' },
                     ].map((mode) => (
-                      <button
+                      <Button
                         key={mode.id}
                         onClick={() => mode.id === 'stopwatch' ? startCountdown('stopwatch') : setSetupMode(mode.id as SetupMode)}
                         className="p-4 rounded-2xl border border-white/[0.05] bg-white/[0.02] flex items-center gap-4 text-left w-full active:bg-white/[0.07] active:scale-[0.99] transition-colors cursor-pointer"
@@ -165,7 +167,7 @@ export function MobileSessionSetupSheet({
                             {t(mode.desc)}
                           </div>
                         </div>
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>
@@ -206,7 +208,7 @@ export function MobileSessionSetupSheet({
                           {/* Quick presets for timer */}
                           <div className="flex gap-2.5 mt-5">
                             {[5, 10, 15, 25, 45].map((mins) => (
-                              <button
+                              <Button
                                 key={mins}
                                 onClick={() => setTimerDuration(mins * 60)}
                                 className={cn(
@@ -217,7 +219,7 @@ export function MobileSessionSetupSheet({
                                 )}
                               >
                                 {mins} {t('goal_time_min')}
-                              </button>
+                              </Button>
                             ))}
                           </div>
                         </>
@@ -245,7 +247,7 @@ export function MobileSessionSetupSheet({
                           {/* Quick presets for words */}
                           <div className="flex flex-wrap justify-center gap-2.5 mt-5">
                             {[100, 250, 500, 750, 1000].map((words) => (
-                              <button
+                              <Button
                                 key={words}
                                 onClick={() => setWordGoal(words)}
                                 className={cn(
@@ -256,7 +258,7 @@ export function MobileSessionSetupSheet({
                                 )}
                               >
                                 {words} {t('home_words_short')}
-                              </button>
+                              </Button>
                             ))}
                           </div>
                         </>
@@ -271,7 +273,7 @@ export function MobileSessionSetupSheet({
                               onChange={(e) => { setTargetTime(e.target.value); setFinishByError(false); }}
                               className={cn(
                                 "w-52 text-center text-5xl font-black bg-transparent border-b border-white/10 py-1 outline-none",
-                                finishByError ? "text-red-400 border-red-500/50" : "text-text-main"
+                                finishByError ? "text-accent-danger border-accent-danger/50" : "text-text-main"
                               )}
                               autoFocus
                             />
@@ -280,7 +282,7 @@ export function MobileSessionSetupSheet({
                             {t('writing_time')}
                           </span>
                           {finishByError && (
-                            <div className="text-xs text-red-400 mt-2 font-medium">
+                            <div className="text-xs text-accent-danger mt-2 font-medium">
                               {t('error_target_time_in_past') || 'Выберите время в будущем'}
                             </div>
                           )}
@@ -290,12 +292,12 @@ export function MobileSessionSetupSheet({
 
                     {/* Launch Action */}
                     <div className="w-full pt-4">
-                      <button
+                      <Button
                         onClick={handleStartWithValidation}
                         className="w-full py-4 rounded-2xl font-bold text-sm bg-text-main text-surface-base active:scale-[0.98] transition-colors cursor-pointer shadow-[0_4px_16px_rgba(255,255,255,0.08)]"
                       >
                         {t('writing_start')}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>

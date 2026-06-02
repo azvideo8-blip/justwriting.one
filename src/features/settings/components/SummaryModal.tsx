@@ -1,5 +1,7 @@
 import { Sparkles, X } from 'lucide-react';
 import type { AIDocumentSummary } from '../../../core/storage/localDb';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 interface SummaryModalProps {
   summary: AIDocumentSummary | null;
@@ -18,9 +20,7 @@ export function SummaryModal({ summary, onClose }: SummaryModalProps) {
             <Sparkles size={16} className="text-brand-soft" />
             ИИ Анализ Документа
           </h3>
-          <button onClick={onClose} className="p-2 rounded-lg text-text-main/40 hover:text-text-main transition-colors">
-            <X size={18} />
-          </button>
+          <IconButton onClick={onClose} className="p-2 rounded-lg text-text-main/40 hover:text-text-main transition-colors" label={"Close"} icon={<X size={18} />} />
         </div>
 
         <div className="px-6 py-4 overflow-y-auto space-y-4 text-sm text-text-main/80">
@@ -64,9 +64,9 @@ export function SummaryModal({ summary, onClose }: SummaryModalProps) {
         </div>
 
         <div className="px-6 py-3.5 border-t border-border-subtle flex justify-end">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-text-main text-surface-base text-xs font-medium hover:bg-text-main/90 transition-colors">
+          <Button onClick={onClose} className="px-4 py-2 rounded-xl bg-text-main text-surface-base text-xs font-medium hover:bg-text-main/90 transition-colors">
             Закрыть
-          </button>
+          </Button>
         </div>
       </div>
     </div>

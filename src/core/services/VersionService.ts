@@ -16,13 +16,13 @@ export const VersionService = {
       duration: number;
       wpm: number;
       versionNumber: number;
-      goalWords?: number;
-      goalTime?: number;
-      goalReached?: boolean;
+      goalWords?: number | undefined;
+      goalTime?: number | undefined;
+      goalReached?: boolean | undefined;
       sessionStartedAt: Date;
-      savedAt?: Date;
-      _encrypted?: boolean;
-      mood?: string;
+      savedAt?: Date | undefined;
+      _encrypted?: boolean | undefined;
+      mood?: string | undefined;
     }
   ): Promise<string> {
     const contentSize = new TextEncoder().encode(data.content).length;

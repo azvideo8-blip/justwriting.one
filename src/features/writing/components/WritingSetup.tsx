@@ -8,6 +8,7 @@ import { getDateLocale } from '../../../core/utils/dateUtils';
 import { useLanguage } from '../../../core/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
 import { useTimerStore } from '../store/useTimerStore';
+import { Button } from '../../../shared/components/Button';
 
 const PROMPT_KEYS = [
   { key: 'morning', promptKeys: ['prompt_morning_1', 'prompt_morning_2', 'prompt_morning_3'] },
@@ -36,25 +37,29 @@ function _PromptsScreen({ t, onSelect, onBack }: {
             </div>
             <div className="space-y-2">
               {cat.promptKeys.map((promptKey, i) => (
-                <button
+                <Button
                   key={i}
+                  variant="ghost"
+                  size="md"
                   onClick={() => onSelect(t(promptKey))}
-                  className="w-full text-left px-4 py-3 rounded-xl border border-border-subtle hover:border-brand-primary/30 hover:bg-brand-primary/5 transition-colors text-sm text-text-main/70 hover:text-text-main"
+                  className="w-full text-left px-4 py-3 rounded-xl border border-border-subtle hover:border-brand-primary/30 hover:bg-brand-primary/5 text-sm text-text-main/70 hover:text-text-main"
                 >
                   {t(promptKey)}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
         ))}
       </div>
 
-      <button
+      <Button
+        variant="ghost"
+        size="md"
         onClick={onBack}
-        className="w-full py-2 text-xs md:text-sm font-bold transition-colors text-text-main/50 hover:text-text-main"
+        className="w-full py-2 text-xs md:text-sm font-bold text-text-main/50 hover:text-text-main"
       >
         {t('writing_back')}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -145,7 +150,8 @@ export function WritingSetup({
                       { id: 'words-config', icon: Target, label: 'writing_mode_words', desc: 'writing_mode_words_desc', color: 'text-rose-400', bg: 'bg-rose-400/10' },
                       { id: 'finish-by-config', icon: Clock, label: 'writing_mode_deadline', desc: 'writing_mode_deadline_desc', color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
                     ].map((mode) => (
-                      <motion.button 
+                      <motion.button
+                        type="button"
                         key={mode.id}
                         onClick={() => mode.id === 'stopwatch' ? startCountdown('stopwatch') : setSetupMode(mode.id as SetupMode)}
                         whileHover={{ y: -2, scale: 1.01 }}
@@ -215,13 +221,13 @@ export function WritingSetup({
                             value={targetTime || ''}
                             onChange={(e) => { setTargetTime(e.target.value); setFinishByError(false); }}
                             className={`w-56 md:w-64 text-center text-5xl md:text-7xl font-black bg-transparent outline-none transition-colors focus:scale-110 ${
-                              finishByError ? 'text-red-400' : 'text-text-main'
+                              finishByError ? 'text-accent-danger' : 'text-text-main'
                             }`}
                             autoFocus
                           />
                           <div className="text-label-sm md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/50">{t('writing_time')}</div>
                           {finishByError && (
-                            <div className="text-xs text-red-400 mt-2 font-medium">
+                            <div className="text-xs text-accent-danger mt-2 font-medium">
                               {t('error_target_time_in_past') || 'Выберите время в будущем'}
                             </div>
                           )}
@@ -230,7 +236,9 @@ export function WritingSetup({
                     </div>
 
                     <div className="w-full flex flex-col gap-2 md:gap-3">
-                      <button 
+                      <Button
+                        variant="primary"
+                        size="lg"
                         onClick={() => {
                           // [L-08] валидация времени finish-by: должно быть в будущем
                           if (setupMode === 'finish-by-config' && targetTime) {
@@ -245,16 +253,18 @@ export function WritingSetup({
                           setFinishByError(false);
                           startCountdown(setupMode === 'timer-config' ? 'timer' : setupMode === 'words-config' ? 'words' : 'finish-by');
                         }}
-                        className="w-full py-4 md:py-5 rounded-2xl md:rounded-[1.5rem] font-black text-base md:text-lg hover:scale-[1.02] active:scale-[0.98] transition-colors bg-text-main text-surface-base shadow-[0_0_20px_var(--brand-soft)]/30"
+                        className="w-full py-4 md:py-5 rounded-2xl md:rounded-[1.5rem] font-black text-base md:text-lg hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_20px_var(--brand-soft)]/30"
                       >
                         {t('writing_start')}
-                      </button>
-                      <button 
-                        onClick={() => setSetupMode('selection')} 
-                        className="w-full py-2 text-xs md:text-sm font-bold transition-colors text-text-main/50 hover:text-text-main"
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="md"
+                        onClick={() => setSetupMode('selection')}
+                        className="w-full py-2 text-xs md:text-sm font-bold text-text-main/50 hover:text-text-main"
                       >
                         {t('writing_back')}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -276,7 +286,8 @@ export function WritingSetup({
                       </div>
                     ) : (
                       userSessions.map(session => (
-                        <button 
+                        <button
+                          type="button"
                           key={session.localId || session.cloudId}
                           onClick={() => continueSession(session)}
                           className="group flex flex-col gap-2 p-3 md:p-4 border rounded-2xl transition-all duration-300 text-left bg-white/5 border-border-subtle hover:bg-white/10 hover:border-white/20"
@@ -303,12 +314,14 @@ export function WritingSetup({
                       ))
                     )}
                   </div>
-                  <button 
-                    onClick={() => setSetupMode(null)} 
-                    className="w-full py-3 md:py-4 text-xs md:text-sm font-bold transition-colors text-text-main/50 hover:text-text-main"
+                  <Button
+                    variant="ghost"
+                    size="md"
+                    onClick={() => setSetupMode(null)}
+                    className="w-full py-3 md:py-4 text-xs md:text-sm font-bold text-text-main/50 hover:text-text-main"
                   >
                     {t('writing_cancel')}
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -317,12 +330,14 @@ export function WritingSetup({
 
             {setupMode === 'selection' && (
               <div className="px-10 py-6 border-t flex justify-center bg-white/5 border-border-subtle">
-                <button 
-                  onClick={() => setSetupMode(null)} 
-                  className="text-xs font-black uppercase tracking-[0.2em] transition-colors hover:tracking-[0.3em] text-text-main/50 hover:text-text-main"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSetupMode(null)}
+                  className="text-xs font-black uppercase tracking-[0.2em] transition-[letter-spacing] hover:tracking-[0.3em] text-text-main/50 hover:text-text-main"
                 >
                   {t('writing_cancel')}
-                </button>
+                </Button>
               </div>
             )}
           </motion.div>

@@ -4,13 +4,14 @@ import { handleFirestoreError, OperationType } from '../errors/firestore-errors'
 import { toTimestampMs } from '../utils/dateUtils';
 import { reportError } from '../errors/reportError';
 import { documentDbSchema } from '../firebase/schemas/firestoreSchemas';
+import { documentFromDb } from './mappers';
 
 export const DocumentService = {
   async createDocument(
     userId: string,
     data: Pick<Document, 'title' | 'tags' | 'labelId'> & {
-      firstSessionAt?: Date;
-      lastSessionAt?: Date;
+      firstSessionAt?: Date | undefined;
+      lastSessionAt?: Date | undefined;
     }
   ): Promise<string> {
     try {
@@ -45,10 +46,9 @@ export const DocumentService = {
       const parsed = documentDbSchema.safeParse({ id: snap.id, ...snap.data() });
       if (!parsed.success) {
         reportError(parsed.error, { action: 'getDocument_parse', docId: documentId });
-        const rawData = snap.data() as Record<string, unknown>;
-        return { id: snap.id, userId, title: rawData.title ?? '', currentVersion: rawData.currentVersion ?? 0, totalWords: rawData.totalWords ?? 0, totalDuration: rawData.totalDuration ?? 0, sessionsCount: rawData.sessionsCount ?? 0, firstSessionAt: rawData.firstSessionAt ?? null, lastSessionAt: rawData.lastSessionAt ?? null, tags: (rawData.tags as string[]) ?? [] } as Document;
+        return null;
       }
-      return parsed.data as Document;
+      return documentFromDb(parsed.data);
     } catch (e) {
       handleFirestoreError(e, OperationType.GET, `users/${userId}/documents/${documentId}`);
       throw e;
@@ -62,13 +62,12 @@ export const DocumentService = {
       const snap = await getDocs(collection(db, 'users', userId, 'documents'));
       const docs = snap.docs
         .map(d => {
-          const parsed = documentDbSchema.safeParse({ id: d.id, ...d.data() });
-          if (!parsed.success) {
-            reportError(parsed.error, { action: 'getUserDocuments_parse', docId: d.id });
-            const rawData = d.data() as Record<string, unknown>;
-            return { id: d.id, userId, title: rawData.title ?? '', currentVersion: rawData.currentVersion ?? 0, totalWords: rawData.totalWords ?? 0, totalDuration: rawData.totalDuration ?? 0, sessionsCount: rawData.sessionsCount ?? 0, firstSessionAt: rawData.firstSessionAt ?? null, lastSessionAt: rawData.lastSessionAt ?? null, tags: (rawData.tags as string[]) ?? [] } as Document;
-          }
-          return parsed.data as Document;
+        const parsed = documentDbSchema.safeParse({ id: d.id, ...d.data() });
+        if (!parsed.success) {
+          reportError(parsed.error, { action: 'getUserDocuments_parse', docId: d.id });
+          return null;
+        }
+        return documentFromDb(parsed.data);
         })
         .filter((d): d is Document => d !== null);
       docs.sort((a, b) => (toTimestampMs(b.lastSessionAt) ?? 0) - (toTimestampMs(a.lastSessionAt) ?? 0));
@@ -86,9 +85,9 @@ export const DocumentService = {
       totalWords: number;
       totalDuration: number;
       currentVersion: number;
-      mood?: string;
-      sessionsCount?: number;
-      lastSessionAt?: Date;
+      mood?: string | undefined;
+      sessionsCount?: number | undefined;
+      lastSessionAt?: Date | undefined;
     }
   ): Promise<void> {
     try {

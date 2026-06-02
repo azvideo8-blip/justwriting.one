@@ -55,12 +55,12 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
 
   const addLabel = (label: Omit<Label, 'id'>) => {
     const newLabel: Label = { ...label, id: randomUUID() };
-    updateLabels([...labels, newLabel]);
+    void updateLabels([...labels, newLabel]);
   };
 
   const updateLabel = (labelId: string, updates: Partial<Omit<Label, 'id'>>) => {
     const newLabels = labels.map(l => l.id === labelId ? { ...l, ...updates } : l);
-    updateLabels(newLabels);
+    void updateLabels(newLabels);
   };
 
   const removeLabel = async (labelId: string) => {

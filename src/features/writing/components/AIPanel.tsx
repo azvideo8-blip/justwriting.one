@@ -7,6 +7,8 @@ import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { AIService, type AIAction, type AIResult } from '../../ai/services/AIService';
 import { useAiLimitStore } from '../../ai/store/useAiLimitStore';
 import { useContentStore } from '../store/useContentStore';
+import { IconButton } from '../../../shared/components/IconButton';
+import { Button } from '../../../shared/components/Button';
 
 const AI_ACTIONS: { action: AIAction; icon: React.ReactNode; labelKey: string }[] = [
   { action: 'shorten', icon: <AlignLeft size={14} />, labelKey: 'ai_action_shorten' },
@@ -92,8 +94,8 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
     setTimeout(() => setCopied(false), 1500);
   }, [result]);
 
-  const canApply = result && lastAction && !applied && ['shorten', 'summarize', 'continue'].includes(lastAction);
-  const canApplyTags = result && lastAction === 'tags' && !applied;
+  const canApply = Boolean(result && lastAction && !applied && ['shorten', 'summarize', 'continue'].includes(lastAction));
+  const canApplyTags = Boolean(result && lastAction === 'tags' && !applied);
 
   return (
     <AnimatePresence>
@@ -125,12 +127,13 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
               <Sparkles size={16} className="text-brand-soft" />
               <span className="text-sm font-medium">{t('ai_panel_title')}</span>
             </div>
-            <button
+            <IconButton
+              icon={<X size={14} />}
+              label={t('ai_close')}
+              size="sm"
               onClick={onClose}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-colors"
-            >
-              <X size={14} />
-            </button>
+              className="rounded-lg text-text-main/40 hover:text-text-main hover:bg-text-main/5"
+            />
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4">
@@ -138,7 +141,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
               {AI_ACTIONS.map(({ action, icon, labelKey }) => (
                 <button
                   key={action}
-                  onClick={() => handleAction(action)}
+                  onClick={() => void handleAction(action)}
                   disabled={loading || !content.trim()}
                   className={cn(
                     "flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors",
@@ -180,21 +183,25 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
                     {result}
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      onClick={handleCopy}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-text-main/[0.05] text-text-main/60 hover:bg-text-main/[0.1] hover:text-text-main/80 transition-colors"
-                    >
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void handleCopy()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-text-main/[0.05] text-text-main/60 hover:bg-text-main/[0.1] hover:text-text-main/80"
+              >
                       {copied ? <Check size={12} /> : <Copy size={12} />}
                       {copied ? t('ai_copied') : t('ai_copy')}
-                    </button>
+                    </Button>
                     {(canApply || canApplyTags) && (
-                      <button
+                      <Button
+                        variant="brand"
+                        size="sm"
                         onClick={handleApply}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30 transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30"
                       >
                         <Check size={12} />
                         {lastAction === 'tags' ? t('ai_apply_tags') : t('ai_apply')}
-                      </button>
+                      </Button>
                     )}
                     {applied && (
                       <span className="flex items-center gap-1 text-xs text-accent-success">
@@ -223,18 +230,17 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
 export function AIToggleButton({ onClick, active }: { onClick: () => void; active: boolean }) {
   const { t } = useLanguage();
   return (
-    <button
+    <IconButton
+      icon={<Sparkles size={16} />}
+      label={t('ai_toggle')}
       onClick={onClick}
-      title={t('ai_toggle')}
-      aria-label={t('ai_toggle')}
+      active={active}
       className={cn(
-        "w-9 h-9 rounded-lg flex items-center justify-center transition-colors",
+        "rounded-lg",
         active
           ? "bg-brand-soft/20 text-brand-soft"
           : "text-text-main/40 hover:text-text-main hover:bg-text-main/5"
       )}
-    >
-      <Sparkles size={16} />
-    </button>
+    />
   );
 }

@@ -23,11 +23,11 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
-    const isSentryInitialized = sentryDsn && sentryDsn.startsWith('https://');
+    const isSentryInitialized = Boolean(sentryDsn && typeof sentryDsn === 'string' && sentryDsn.startsWith('https://'));
 
-    if (user && isSentryInitialized) {
+    if (user != null && isSentryInitialized) {
       Sentry.setUser({ id: user.uid });
-    } else if (!user && isSentryInitialized) {
+    } else if (user == null && isSentryInitialized) {
       Sentry.setUser(null);
     }
   }, [user]);

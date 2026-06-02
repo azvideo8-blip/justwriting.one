@@ -17,12 +17,12 @@ export function useSessionTags(initialTags: string[] = []) {
 
   const addTag = (tag: string) => {
     if (tag && !tags.includes(tag)) {
-      updateTags([...tags, tag]);
+      void updateTags([...tags, tag]);
     }
   };
 
   const removeTag = (tag: string) => {
-    updateTags(tags.filter(t => t !== tag));
+    void updateTags(tags.filter(t => t !== tag));
   };
 
   return { tags, addTag, removeTag, loading };

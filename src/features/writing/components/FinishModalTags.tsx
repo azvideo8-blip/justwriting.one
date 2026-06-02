@@ -2,12 +2,13 @@ import React from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { Label } from '../../../types';
+import { Button } from '../../../shared/components/Button';
 
 interface FinishModalTagsProps {
   tags: string[];
   setTags: (tags: string[]) => void;
   allSuggestions: string[];
-  labelId?: string;
+  labelId?: string | undefined;
   setLabelId: (id?: string) => void;
   labels: Label[];
   tagInputRef: React.RefObject<HTMLInputElement | null>;
@@ -39,7 +40,6 @@ export function FinishModalTags({
   setEditTitle,
 }: FinishModalTagsProps) {
   const toggleTag = (tag: string) => {
-    if (!tags) return;
     if (tags.includes(tag)) {
       setTags(tags.filter(t2 => t2 !== tag));
     } else {
@@ -51,14 +51,15 @@ export function FinishModalTags({
     return (
       <>
         <div className="border border-border-subtle rounded-2xl overflow-hidden bg-surface-base/10">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="md"
             onClick={() => setFormExpanded(!formExpanded)}
-            className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-colors font-semibold text-sm"
+            className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 font-semibold text-sm"
           >
             <span>{t('finish_title_label') || 'Title & Label'}</span>
             {formExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
+          </Button>
 
           {formExpanded && (
             <div className="p-4 space-y-4">
@@ -79,6 +80,7 @@ export function FinishModalTags({
                   <div className="flex flex-wrap gap-1.5">
                     {labels.map(label => (
                       <button
+                        type="button"
                         key={label.id}
                         onClick={() => setLabelId(labelId === label.id ? undefined : label.id)}
                         className={cn(
@@ -102,14 +104,15 @@ export function FinishModalTags({
         </div>
 
         <div className="border border-border-subtle rounded-2xl overflow-hidden bg-surface-base/10">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="md"
             onClick={() => setTagsExpanded(!tagsExpanded)}
-            className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 transition-colors font-semibold text-sm"
+            className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 font-semibold text-sm"
           >
             <span>{t('finish_tags') || 'Tags'}</span>
             {tagsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
+          </Button>
 
           {tagsExpanded && (
             <div className="p-4 space-y-4">
@@ -117,11 +120,12 @@ export function FinishModalTags({
                 <div className="flex flex-wrap gap-1.5">
                   {allSuggestions.map(tag => (
                     <button
+                      type="button"
                       key={tag}
                       onClick={() => toggleTag(tag)}
                       className={cn(
                         "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-[36px]",
-                        tags && tags.includes(tag)
+                        tags.includes(tag)
                           ? "bg-text-main text-surface-base"
                           : "bg-surface-base text-text-main/70 hover:bg-text-main/10"
                       )}
@@ -138,7 +142,7 @@ export function FinishModalTags({
                 className="w-full px-4 py-2 rounded-xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-sm placeholder:text-text-main/60 focus:border-text-main/40 min-h-[44px]"
                 onBlur={(e) => {
                   const val = e.currentTarget.value.trim();
-                  if (val && tags && !tags.includes(val)) {
+                  if (val && !tags.includes(val)) {
                     setTags([...tags, val]);
                     e.currentTarget.value = '';
                   }
@@ -146,7 +150,7 @@ export function FinishModalTags({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     const val = e.currentTarget.value.trim();
-                    if (val && tags && !tags.includes(val)) {
+                    if (val && !tags.includes(val)) {
                       setTags([...tags, val]);
                       e.currentTarget.value = '';
                     }
@@ -184,6 +188,7 @@ export function FinishModalTags({
           <div className="flex flex-wrap gap-2">
             {labels.map(label => (
               <button
+                type="button"
                 key={label.id}
                 onClick={() => setLabelId(labelId === label.id ? undefined : label.id)}
                 className={cn(
@@ -208,11 +213,12 @@ export function FinishModalTags({
         <div className="flex flex-wrap gap-2">
           {allSuggestions.map(tag => (
             <button
+              type="button"
               key={tag}
               onClick={() => toggleTag(tag)}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                tags && tags.includes(tag)
+                tags.includes(tag)
                   ? "bg-text-main text-surface-base"
                   : "bg-surface-base text-text-main/70 hover:bg-text-main/10"
               )}
@@ -228,21 +234,21 @@ export function FinishModalTags({
           className="w-full px-4 py-2 rounded-2xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main placeholder:text-text-main/60 focus:border-text-main/40"
           onBlur={(e) => {
             const val = e.currentTarget.value.trim();
-            if (val && tags && !tags.includes(val)) {
-              setTags([...tags, val]);
-              e.currentTarget.value = '';
-            }
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              const val = e.currentTarget.value.trim();
-              if (val && tags && !tags.includes(val)) {
-                setTags([...tags, val]);
-                e.currentTarget.value = '';
-              }
-              e.preventDefault();
-            }
-          }}
+                  if (val && !tags.includes(val)) {
+                    setTags([...tags, val]);
+                    e.currentTarget.value = '';
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const val = e.currentTarget.value.trim();
+                    if (val && !tags.includes(val)) {
+                      setTags([...tags, val]);
+                      e.currentTarget.value = '';
+                    }
+                    e.preventDefault();
+                  }
+                }}
         />
       </div>
     </>

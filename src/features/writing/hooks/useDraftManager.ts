@@ -47,8 +47,8 @@ export function useDraftManager(
 
   useEffect(() => {
     if (timerStatus !== 'writing' && timerStatus !== 'paused') return;
-    const timeout = setTimeout(doAutosave, 3_000);
-    const interval = setInterval(doAutosave, 30_000);
+    const timeout = setTimeout(() => void doAutosave(), 3_000);
+    const interval = setInterval(() => void doAutosave(), 30_000);
     return () => { clearTimeout(timeout); clearInterval(interval); };
   }, [doAutosave, timerStatus]);
 

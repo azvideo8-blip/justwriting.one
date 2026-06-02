@@ -79,7 +79,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
 
       // Reset goals so no false "goal reached" toast fires when loading a large doc
       useTimerStore.setState({ wordGoal: 0, timerDuration: 0, sessionStartWords: doc.totalWords });
-      useContentStore.getState().setTags(doc.tags || []);
+      useContentStore.getState().setTags(doc.tags);
       useContentStore.getState().setLabelId(doc.labelId);
       flow.setSetupMode(null);
       // Stay idle — user clicks Start to begin writing (same as Archive continue)

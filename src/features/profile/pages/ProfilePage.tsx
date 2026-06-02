@@ -17,6 +17,7 @@ import { Achievements } from '../components/Achievements';
 import { ProfileService } from '../services/ProfileService';
 import { useToast } from '../../../shared/components/Toast';
 import { useProfileStats } from '../hooks/useProfileStats';
+import { Button } from '../../../shared/components/Button';
 
 interface ProfilePageProps {
   user: User | null;
@@ -81,11 +82,11 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
 
   if (error) {
     return (
-      <div className="p-12 text-center rounded-2xl border bg-red-500/10 border-red-500/20">
-        <AlertCircle size={24} className="mx-auto mb-3 text-red-400/70" /><p className="text-red-400 text-sm mb-4">{t('profile_load_error')}</p>
-        <button onClick={refresh} className="px-4 py-2 rounded-xl text-sm font-medium text-red-400 border border-red-400/30 hover:bg-red-400/10 transition-colors">
-          {t('retry')}
-        </button>
+      <div className="p-12 text-center rounded-2xl border bg-accent-danger/10 border-accent-danger/20">
+        <AlertCircle size={24} className="mx-auto mb-3 text-accent-danger/70" /><p className="text-accent-danger text-sm mb-4">{t('profile_load_error')}</p>
+          <Button onClick={() => void refresh()} className="px-4 py-2 rounded-xl text-sm font-medium text-accent-danger border border-accent-danger/30 hover:bg-accent-danger/10 transition-colors">
+           {t('retry')}
+         </Button>
       </div>
     );
   }
@@ -93,7 +94,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   if (!loading && sessions.length === 0) {
     return (
       <div className="min-h-screen bg-surface-base flex flex-col items-center justify-center gap-8 px-6 text-center">
-        <ProfileHero user={user} profile={profile} isGuest={isGuest} onStartSession={() => navigate('/')} />
+        <ProfileHero user={user} profile={profile} isGuest={isGuest} onStartSession={() => void navigate('/')} />
         <div className="max-w-sm space-y-3">
           <p className="text-[15px] text-text-main/50 leading-relaxed">
             {t('profile_empty_desc')}
@@ -108,12 +109,10 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
 
   return (
     <div className="min-h-screen bg-surface-base">
-      <>
         <ProfileHero
-          user={user} profile={profile} isGuest={isGuest}
-          onStartSession={() => navigate('/')}
-        />
-      </>
+        user={user} profile={profile} isGuest={isGuest}
+        onStartSession={() => void navigate('/')}
+      />
       <div className="px-4 md:px-9 pt-6 flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible scroll-snap-x-container gap-6 md:gap-0 pb-6 md:pb-0">
           <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden">
             <KPIStrip stats={kpiStats} />
@@ -137,43 +136,44 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       </div>
       <div style={{ padding: '12px 36px 48px', textAlign: 'center' }}>
         <div className="flex items-center justify-center gap-4 mb-4">
-          <button
+          <Button
             onClick={() => setShowProfileConfirm(true)}
             disabled={profileLoading}
             className="flex items-center gap-1.5 font-mono text-label-sm text-text-main/20 hover:text-brand-soft/50 transition-colors uppercase tracking-widest disabled:opacity-40"
           >
             <Sparkles size={12} />
             {profileLoading ? 'Генерация...' : 'Мой портрет'}
-          </button>
+          </Button>
         </div>
 
         {showProfileConfirm && (
           <div className="inline-flex items-center gap-3 bg-brand-soft/10 border border-brand-soft/20 rounded-lg px-4 py-2 mb-3">
             <span className="text-[12px] text-brand-soft">Для создания портрета ваши тексты будут переданы в ИИ. Продолжить?</span>
-            <button onClick={handleGenerateProfile} className="text-label-sm font-medium text-brand-soft hover:text-brand-soft/80 transition-colors uppercase tracking-widest">
+            <Button onClick={() => void handleGenerateProfile()} className="text-label-sm font-medium text-brand-soft hover:text-brand-soft/80 transition-colors uppercase tracking-widest">
               Да
-            </button>
-            <button onClick={() => setShowProfileConfirm(false)} className="text-label-sm font-medium text-text-main/40 hover:text-text-main/60 transition-colors uppercase tracking-widest">
+            </Button>
+            <Button onClick={() => setShowProfileConfirm(false)} className="text-label-sm font-medium text-text-main/40 hover:text-text-main/60 transition-colors uppercase tracking-widest">
               ✕
-            </button>
+            </Button>
           </div>
         )}
 
         {showResetConfirm ? (
-          <div className="inline-flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
-            <span className="text-[12px] text-red-400">{t('profile_ach_reset_confirm')}</span>
-            <button onClick={handleResetAchievements} className="text-label-sm font-medium text-red-400 hover:text-red-300 transition-colors uppercase tracking-widest">
+          <div className="inline-flex items-center gap-3 bg-accent-danger/10 border border-accent-danger/20 rounded-lg px-4 py-2">
+            <span className="text-[12px] text-accent-danger">{t('profile_ach_reset_confirm')}</span>
+            <Button onClick={handleResetAchievements} className="text-label-sm font-medium text-accent-danger hover:text-red-300 transition-colors uppercase tracking-widest">
               {t('profile_ach_reset')}
-            </button>
-            <button onClick={() => setShowResetConfirm(false)} className="text-label-sm font-medium text-text-main/40 hover:text-text-main/60 transition-colors uppercase tracking-widest">
+            </Button>
+            <Button onClick={() => setShowResetConfirm(false)} className="text-label-sm font-medium text-text-main/40 hover:text-text-main/60 transition-colors uppercase tracking-widest">
               ✕
-            </button>
+            </Button>
           </div>
         ) : (
-          <button onClick={() => setShowResetConfirm(true)} className="font-mono text-label-sm text-text-main/20 hover:text-red-400/50 transition-colors uppercase tracking-widest">
+          <Button onClick={() => setShowResetConfirm(true)} className="font-mono text-label-sm text-text-main/20 hover:text-accent-danger/50 transition-colors uppercase tracking-widest">
             {t('profile_ach_reset')}
-          </button>
+          </Button>
         )}
+
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { reportError } from '../../core/errors/reportError';
 import { translations } from '../../core/i18n';
+import { Button } from './Button';
 
 interface Props {
   children: ReactNode;
@@ -57,6 +58,10 @@ export class ErrorBoundary extends Component<Props, State> {
     this.setState(prev => ({ showStack: !prev.showStack }));
   };
 
+  private handleReload = () => {
+    window.location.reload();
+  };
+
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
     reportError(error, { componentStack: errorInfo.componentStack });
@@ -66,7 +71,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       const lang = (() => { try { return (localStorage.getItem('app_language') as 'ru' | 'en') || 'ru'; } catch { return 'ru'; } })();
       const code = errorCode(this.state.errorMessage || 'unknown');
-      const mailtoLink = this.state.error ? buildMailto(this.state.error, code) : '#';
+      const _mailtoLink = this.state.error ? buildMailto(this.state.error, code) : '#';
       return (
         <div key={this.state.errorKey} className="min-h-screen flex items-center justify-center bg-surface-base p-6">
           <div className="max-w-md w-full bg-surface-card p-8 rounded-3xl border border-border-subtle shadow-xl text-center space-y-6">
@@ -75,29 +80,25 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
             <h2 className="text-2xl font-bold text-text-main">{translations['error_generic'][lang]}</h2>
             <p className="font-mono text-xs text-text-muted">ERR-{code}</p>
-            <button type="button" onClick={this.toggleStack} className="text-label-sm text-text-main/30 hover:text-text-main/60 transition-colors">{this.state.showStack ? (lang === 'ru' ? 'Скрыть детали' : 'Hide details') : (lang === 'ru' ? 'Показать детали' : 'Show details')}</button>
-            {this.state.showStack && import.meta.env.DEV && <pre className="text-left text-accent-danger text-[12px] whitespace-pre-wrap break-all max-h-40 overflow-auto bg-black/30 p-3 rounded-lg">{this.state.errorMessage}\n\n{this.state.errorStack?.slice(0, 500)}</pre>}
+            <Button type="button" onClick={this.toggleStack} className="text-label-sm text-text-main/30 hover:text-text-main/60 transition-colors">{this.state.showStack ? (lang === 'ru' ? 'Скрыть детали' : 'Hide details') : (lang === 'ru' ? 'Показать детали' : 'Show details')}</Button>
+            {this.state.showStack && import.meta.env.DEV && <pre className="text-left text-accent-danger text-[12px] whitespace-pre-wrap break-all max-h-40 overflow-auto bg-black/30 p-3 rounded-lg">{this.state.errorMessage}
+
+{this.state.errorStack?.slice(0, 500)}</pre>}
             <div className="space-y-3">
-              <button
+              <Button
                 type="button"
                 onClick={this.handleRetry}
                 className="w-full bg-text-main text-surface-base py-3 rounded-xl font-bold hover:scale-[1.02] transition-transform"
               >
-                {lang === 'ru' ? 'Попробовать снова' : 'Try again'}
-              </button>
-              <button
+                {translations['error_retry'][lang]}
+              </Button>
+              <Button
                 type="button"
-                onClick={() => window.location.reload()}
-                className="w-full py-3 rounded-xl font-bold border border-border-subtle text-text-main hover:bg-white/5 transition-colors"
+                onClick={this.handleReload}
+                className="w-full border border-border-subtle text-text-main py-3 rounded-xl font-bold hover:bg-white/5 transition-colors"
               >
                 {translations['error_reload'][lang]}
-              </button>
-              <a
-                href={mailtoLink}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold border border-border-subtle text-text-main hover:bg-white/5 transition-colors"
-              >
-                ✉ {lang === 'ru' ? 'Отправить разработчику' : 'Send to developer'}
-              </a>
+              </Button>
             </div>
           </div>
         </div>

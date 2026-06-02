@@ -6,6 +6,7 @@ import { UserProfile } from '../../../types';
 import { ProfileService } from '../services/ProfileService';
 import { useLanguage } from '../../../core/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
+import { IconButton } from '../../../shared/components/IconButton';
 
 const QUOTE_KEYS = [
   'profile_quote_1',  'profile_quote_2',  'profile_quote_3',
@@ -36,7 +37,7 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
   const handleSaveName = () => {
     setEditingName(false);
     if (user && name.trim()) {
-      execute(() => ProfileService.updateNickname(user.uid, name), {
+      void execute(() => ProfileService.updateNickname(user.uid, name), {
         successMessage: t('save_success'),
         errorMessage: t('error_nickname_failed'),
       });
@@ -107,10 +108,11 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
               </h1>
             )}
             {!isGuest && (
-              <button onClick={() => setEditingName(true)}
-                className="text-text-main/20 hover:text-text-main/50 transition-colors">
-                <Pencil size={14} />
-              </button>
+              <IconButton onClick={() => setEditingName(true)}
+                className="text-text-main/20 hover:text-text-main/50 transition-colors"
+                label="Edit name"
+                icon={<Pencil size={14} />}
+              />
             )}
           </div>
 

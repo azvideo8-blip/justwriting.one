@@ -2,7 +2,7 @@ import { type LabelHTMLAttributes, forwardRef } from 'react';
 import { cn } from '../../shared/utils/cn';
 
 interface LabelProps extends LabelHTMLAttributes<HTMLLabelElement> {
-  required?: boolean;
+  required?: boolean | undefined;
 }
 
 export const Label = forwardRef<HTMLLabelElement, LabelProps>(

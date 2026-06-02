@@ -21,8 +21,8 @@ export function buildLocalDraft(
     seconds: number;
     wpm: number;
     wordCount: number;
-    initialWordCount?: number;
-    sessionStartTime?: number;
+    initialWordCount?: number | undefined;
+    sessionStartTime?: number | undefined;
     activeSessionId: string | null;
     status: string;
   }

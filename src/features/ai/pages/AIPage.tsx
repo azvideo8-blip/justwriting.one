@@ -11,6 +11,8 @@ import { cn } from '../../../core/utils/utils';
 import { Monogram, threadPreview, AttachedNoteCard, AttachedFileCard, AttachedSummaryCard, AssistantTurn, ATTACHED_NOTE_RE, ATTACHED_NOTE_SUMMARY_RE, ATTACHED_FILE_RE } from '../components/AIChatPresentational';
 import { useAIPageData } from '../hooks/useAIPageData';
 import { useLanguage } from '../../../core/i18n';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 export function AIPage() {
   const [searchParams] = useSearchParams();
@@ -46,28 +48,28 @@ export function AIPage() {
       {!isMobile && (
         <div className="w-[286px] border-r border-border-subtle flex flex-col bg-surface-card/30">
           <div className="p-4 pb-3.5">
-            <button
+            <Button
               onClick={handleNewDialogue}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-soft/10 border border-brand-soft/25 text-brand-soft text-sm font-semibold hover:bg-brand-soft/20 transition-colors"
             >
               <Plus size={15} />
               {t('ai_new_dialogue')}
-            </button>
+            </Button>
           </div>
 
           <div className="flex gap-1 px-4 pb-3.5">
-            <button
+            <Button
               onClick={() => setShowArchived(false)}
               className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", !showArchived ? "bg-surface-elevated text-text-main" : "text-text-main/40 hover:text-text-main/60")}
             >
               {t('ai_active')}
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setShowArchived(true)}
               className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", showArchived ? "bg-surface-elevated text-text-main" : "text-text-main/40 hover:text-text-main/60")}
             >
               {t('ai_archive')}
-            </button>
+            </Button>
           </div>
 
           <div className="h-px bg-border-subtle mx-4 mb-1.5" />
@@ -78,7 +80,7 @@ export function AIPage() {
               const isActive = activeDialogueId === d.id;
               const preview = threadPreview(d);
               return (
-                <button
+                <Button
                   key={d.id}
                   onClick={() => { setActiveDialogueId(d.id); setSelectedPersonaId(d.personaId); }}
                   className="w-full text-left relative flex gap-3 px-3 py-3 rounded-xl transition-colors"
@@ -101,7 +103,7 @@ export function AIPage() {
                       <span className="truncate">{preview}</span>
                     </span>
                   </span>
-                </button>
+                </Button>
               );
             })}
             {((showArchived ? archivedDialogues : dialogues).length === 0) && (
@@ -132,15 +134,9 @@ export function AIPage() {
             <div className="flex-1" />
             {activeDialogueId && (
               <div className="flex items-center gap-1">
-                 <button onClick={handleExport} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_download_md')}>
-                  <Download size={15} />
-                </button>
-                 <button onClick={handleArchive} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_to_archive')}>
-                  <Archive size={15} />
-                </button>
-                 <button onClick={handleDelete} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/35 hover:text-red-400 transition-colors flex items-center justify-center" title={t('ai_delete')}>
-                  <Trash2 size={15} />
-                </button>
+                 <IconButton onClick={() => void handleExport()} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_download_md')} label={t('ai_download_md')} icon={<Download size={15} />} />
+                 <IconButton onClick={() => void handleArchive()} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_to_archive')} label={t('ai_to_archive')} icon={<Archive size={15} />} />
+                 <IconButton onClick={() => void handleDelete()} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/35 hover:text-accent-danger transition-colors flex items-center justify-center" title={t('ai_delete')} label={t('ai_delete')} icon={<Trash2 size={15} />} />
               </div>
             )}
           </div>
@@ -160,7 +156,7 @@ export function AIPage() {
                     ? { background: `${v.color}1c`, borderColor: `${v.color}55` }
                     : { borderColor: 'var(--color-border-subtle)' }}
                 >
-                  <button
+                  <Button
                     onClick={() => setSelectedPersonaId(p.id)}
                     className="flex items-center gap-2 py-1 pr-1 hover:text-text-main/70 transition-colors"
                   >
@@ -168,24 +164,24 @@ export function AIPage() {
                       ? <Monogram color={v.color} mono={v.mono} size={20} />
                       : <span className="w-[7px] h-[7px] rounded-full" style={{ background: v.color, opacity: 0.85 }} />}
                     <span>{p.name}</span>
-                  </button>
-                  <button
+                  </Button>
+                  <IconButton
                     onClick={() => openPersonaDetail(p)}
                     className="w-5 h-5 rounded-full text-text-main/35 hover:text-text-main/70 hover:bg-text-main/10 flex items-center justify-center shrink-0 transition-colors"
-                     title={t('ai_description_prompt')}
-                  >
-                    <Info size={13} />
-                  </button>
+                    title={t('ai_description_prompt')}
+                    label={t('ai_description_prompt')}
+                    icon={<Info size={13} />}
+                  />
                 </div>
               );
             })}
-            <button
+            <Button
               onClick={() => setCreatePersonaOpen(true)}
               className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-border-subtle text-text-main/30 hover:text-text-main/50 transition-colors"
             >
               <Plus size={12} />
                {t('ai_create')}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -270,9 +266,9 @@ export function AIPage() {
 
             {error && (
               <div className="flex justify-center">
-                <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+                <div className="px-4 py-2 rounded-xl bg-accent-danger/10 border border-accent-danger/20 text-xs text-accent-danger">
                   {error}
-                   <button onClick={clearError} className="ml-2 underline">{t('ai_close')}</button>
+                   <Button onClick={clearError} className="ml-2 underline">{t('ai_close')}</Button>
                 </div>
               </div>
             )}
@@ -284,13 +280,13 @@ export function AIPage() {
           <div>
             <div className="flex items-end gap-2.5 p-2.5 pl-3.5 rounded-2xl bg-surface-card border border-border-subtle focus-within:border-brand-soft/40 transition-colors">
               <div className="relative" ref={attachMenuRef}>
-                <button
+                <IconButton
                   onClick={() => setAttachMenuOpen(v => !v)}
                   className="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-elevated border border-border-subtle text-text-main/45 hover:text-text-main/70 transition-colors shrink-0"
                   title={t('ai_attach')}
-                >
-                  <Plus size={15} />
-                </button>
+                  label={t('ai_attach')}
+                  icon={<Plus size={15} />}
+                />
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -300,39 +296,39 @@ export function AIPage() {
                 />
                 {attachMenuOpen && (
                   <div className="absolute bottom-full left-0 mb-2 w-48 border border-border-subtle rounded-xl shadow-xl overflow-hidden z-50" style={{ background: 'var(--bg-elevated)' }}>
-                    <button
+                    <Button
                       onClick={() => { setAttachMenuOpen(false); setDocPickerOpen(true); }}
                       className="w-full text-left px-4 py-2.5 text-sm text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors flex items-center gap-2"
                     >
                       <Paperclip size={14} />
                       {t('ai_attach_note')}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       onClick={() => { setAttachMenuOpen(false); fileInputRef.current?.click(); }}
                       className="w-full text-left px-4 py-2.5 text-sm text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors flex items-center gap-2"
                     >
                       <File size={14} />
                       {t('ai_upload_file')}
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
               <input
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSendMessage(); } }}
                 placeholder={t('ai_write_placeholder', { name: (activePersona?.name ?? '').toLowerCase() })}
                 disabled={isLoading || dailyLimit.remaining === 0}
                 className="flex-1 bg-transparent py-1.5 text-[14.5px] text-text-main placeholder:text-text-main/30 outline-none disabled:opacity-40"
               />
-              <button
-                onClick={handleSendMessage}
+              <Button
+                onClick={() => void handleSendMessage()}
                 disabled={isLoading || !inputText.trim() || dailyLimit.remaining === 0}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl shrink-0 bg-gradient-to-b from-brand-soft to-brand-primary text-white text-[13.5px] font-semibold shadow-[0_4px_16px_rgba(125,79,209,0.35)] disabled:opacity-40 disabled:shadow-none transition-all"
               >
                 {t('ai_send')}
                 <ArrowRight size={14} />
-              </button>
+              </Button>
             </div>
 
             <div className="flex items-center gap-3.5 mt-2.5">
@@ -342,7 +338,7 @@ export function AIPage() {
               <div className="flex-1" />
               <span className={cn(
                 "text-[10px] font-mono",
-                inputText.length > MAX_INPUT_CHARS * 0.9 ? "text-red-400" : "text-text-main/25"
+                inputText.length > MAX_INPUT_CHARS * 0.9 ? "text-accent-danger" : "text-text-main/25"
               )}>
                 {inputText.length.toLocaleString()}/{MAX_INPUT_CHARS.toLocaleString()}
               </span>
@@ -364,7 +360,7 @@ export function AIPage() {
               const v = personaVisual(p.id, p.name);
               return (
                 <div key={p.id} className="relative shrink-0 flex items-center gap-0.5">
-                  <button
+                  <Button
                     onClick={() => setSelectedPersonaId(p.id)}
                     className={cn(
                       "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs",
@@ -374,13 +370,13 @@ export function AIPage() {
                   >
                     <span className="w-[7px] h-[7px] rounded-full" style={{ background: v.color, opacity: 0.85 }} />
                     {p.name}
-                  </button>
-                  <button
+                  </Button>
+                  <IconButton
                     onClick={e => { e.stopPropagation(); openPersonaDetail(p); }}
                     className="w-5 h-5 rounded-full text-text-main/30 hover:text-text-main/60 flex items-center justify-center"
-                  >
-                    <Info size={12} />
-                  </button>
+                    label={t('ai_description_prompt')}
+                    icon={<Info size={12} />}
+                  />
                 </div>
               );
             })}
@@ -388,9 +384,9 @@ export function AIPage() {
         </div>
       )}
 
-      <DocumentPickerModal isOpen={docPickerOpen} onClose={() => setDocPickerOpen(false)} onSelect={handleDocSelect} />
-      <CreatePersonaModal isOpen={createPersonaOpen} onClose={() => setCreatePersonaOpen(false)} onCreated={loadCustomPersonas} />
-      <PersonaDetailModal persona={detailPersona} onClose={() => setDetailPersona(null)} onChanged={loadCustomPersonas} />
+      <DocumentPickerModal isOpen={docPickerOpen} onClose={() => setDocPickerOpen(false)} onSelect={(doc) => void handleDocSelect(doc)} />
+      <CreatePersonaModal isOpen={createPersonaOpen} onClose={() => setCreatePersonaOpen(false)} onCreated={() => void loadCustomPersonas()} />
+      <PersonaDetailModal persona={detailPersona} onClose={() => setDetailPersona(null)} onChanged={() => void loadCustomPersonas()} />
     </div>
   );
 }

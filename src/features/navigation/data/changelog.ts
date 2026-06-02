@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.11',
+    date: '2026-06-01',
+    items: [
+      { category: 'improvement', ru: 'Продолжение технического рефакторинга (поведение не меняется): интерфейс переведён на единый набор UI-компонентов (кнопки, поля ввода, карточки) вместо сотен разрозненных вёрсток — основа для последовательного и предсказуемого вида', en: 'Continued technical refactor (no behavior change): the UI now uses a unified set of components (buttons, inputs, cards) instead of hundreds of one-off markups — groundwork for a consistent, predictable look' },
+      { category: 'improvement', ru: 'Повышена надёжность кода: строгая типизация данных из базы через мапперы, более строгие проверки TypeScript и линтера (ловят целые классы потенциальных ошибок ещё до запуска)', en: 'Hardened code reliability: strict typing of database data via mappers, stricter TypeScript and linter checks (catching whole classes of potential bugs before runtime)' },
+      { category: 'improvement', ru: 'Добавлены дизайн-токены для отступов и типографики; в CI добавлена проверка зависимостей на уязвимости', en: 'Added design tokens for spacing and typography; CI now runs a dependency vulnerability audit' },
+    ],
+  },
+  {
     version: '0.7.10',
     date: '2026-06-01',
     items: [

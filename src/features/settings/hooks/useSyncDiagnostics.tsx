@@ -19,18 +19,18 @@ import { encryptSingleDocument } from '../../../core/crypto/encryptMigration';
 export interface DiagnosticItem {
   id: string;
   title: string;
-  localId?: string;
-  cloudId?: string;
+  localId?: string | undefined;
+  cloudId?: string | undefined;
   hasLocal: boolean;
   hasCloud: boolean;
-  localVersion?: number;
-  cloudVersion?: number;
-  localWords?: number;
-  cloudWords?: number;
+  localVersion?: number | undefined;
+  cloudVersion?: number | undefined;
+  localWords?: number | undefined;
+  cloudWords?: number | undefined;
   inQueue: boolean;
-  queueItemId?: string;
+  queueItemId?: string | undefined;
   status: 'synced' | 'pending' | 'mismatch' | 'local_only' | 'cloud_only' | 'cloud_missing';
-  cloudEncrypted?: boolean;
+  cloudEncrypted?: boolean | undefined;
 }
 
 export function useSyncDiagnostics({ userId }: { userId: string }) {
@@ -167,7 +167,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
   }, [userId, t, showToast, loadAIStatus]);
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, [fetchData]);
 
   const handleSyncItem = async (item: DiagnosticItem) => {
@@ -392,7 +392,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         );
       case 'cloud_missing':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-accent-danger/10 text-accent-danger border border-accent-danger/20">
             <AlertTriangle size={10} />
             Cloud Copy Lost
           </span>

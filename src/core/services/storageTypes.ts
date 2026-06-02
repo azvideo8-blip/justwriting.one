@@ -7,14 +7,14 @@ export interface SaveDocumentData {
   title: string;
   content: string;
   wordCount: number;
-  documentWordCount?: number;
+  documentWordCount?: number | undefined;
   duration: number;
   wpm: number;
   tags: string[];
-  labelId?: string;
-  goalWords?: number;
-  goalTime?: number;
-  goalReached?: boolean;
+  labelId?: string | undefined;
+  goalWords?: number | undefined;
+  goalTime?: number | undefined;
+  goalReached?: boolean | undefined;
   sessionStartedAt: Date;
-  mood?: string;
+  mood?: string | undefined;
 }

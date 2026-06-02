@@ -85,7 +85,7 @@ export function LandingPage() {
             : 'A quiet editor for free writing. One sign, one letter, one minute.'}
         </p>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => void navigate('/')}
           className="mt-8 px-8 py-3.5 rounded-xl font-bold text-white hover:brightness-110 active:scale-[0.98] transition-all"
           style={{ background: 'var(--brand-primary)' }}
         >
@@ -122,7 +122,7 @@ export function LandingPage() {
             : 'No sign-up required to try. Open the editor and write. Cloud and encryption — when you are ready.'}
         </p>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => void navigate('/')}
           className="px-8 py-3.5 rounded-xl font-bold text-white hover:brightness-110 active:scale-[0.98] transition-all"
           style={{ background: 'var(--brand-primary)' }}
         >

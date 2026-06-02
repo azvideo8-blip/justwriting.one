@@ -4,6 +4,7 @@ import { cn } from '../../../core/utils/utils';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { useLanguage } from '../../../core/i18n';
 import { useWritingSessionContext } from '../contexts/WritingSessionContext';
+import { Button } from '../../../shared/components/Button';
 
 import { WritingHeader } from '../components/WritingHeader';
 import { WritingEditor } from '../components/WritingEditor';
@@ -93,12 +94,12 @@ export function DesktopWritingLayout() {
         <div style={{ gridColumn: '2', gridRow: '1', overflow: 'hidden' }}>
           <WritingHeader
             totalDurationForDeadline={totalDurationForDeadline}
-            onNew={onNew}
-            onOpenLog={onOpenLog}
-            onSave={onSave}
-            onPlay={onPlay}
-            onPause={onPause}
-            onStop={onStop}
+            onNew={() => void onNew()}
+            onOpenLog={() => void onOpenLog()}
+            onSave={() => void onSave()}
+            onPlay={() => void onPlay()}
+            onPause={() => void onPause()}
+            onStop={() => void onStop()}
             saveStatus={session.saveStatus}
           />
         </div>
@@ -124,13 +125,13 @@ export function DesktopWritingLayout() {
                 <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-text-main/10 bg-surface-card/90 backdrop-blur-xl shadow-lg text-sm text-text-main/60 whitespace-nowrap">
                   <span>{t('draft_restore_prompt')}</span>
                   <div className="flex gap-2">
-                    <button onClick={session.restoreDraft} className="text-text-main font-medium hover:opacity-70 transition-opacity">
+                    <Button onClick={() => void session.restoreDraft()} className="text-text-main font-medium hover:opacity-70 transition-opacity">
                       {t('draft_restore')}
-                    </button>
-                    <button onClick={session.discardDraft}
+                    </Button>
+                    <Button onClick={() => void session.discardDraft()}
                       className="text-text-main/40 hover:text-text-main/60 transition-colors">
                       {t('draft_discard')}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </motion.div>
@@ -154,7 +155,7 @@ export function DesktopWritingLayout() {
                 startCountdown={startCountdown}
                 countdown={countdown}
                 userSessions={[]}
-                continueSession={onContinueSession}
+                continueSession={(s) => void onContinueSession(s)}
                 onSetPromptTitle={session.setTitle}
               />
             ) : (
@@ -175,9 +176,9 @@ export function DesktopWritingLayout() {
         <div style={{ gridColumn: '2', gridRow: '3', overflow: 'hidden' }}>
           <BottomStats
             compact={isCompact}
-            onPlay={onPlay}
-            onPause={onPause}
-            onStop={onStop}
+            onPlay={() => void onPlay()}
+            onPause={() => void onPause()}
+            onStop={() => void onStop()}
           />
         </div>
 
@@ -185,7 +186,7 @@ export function DesktopWritingLayout() {
           <div style={{ gridColumn: '3', gridRow: '1 / 4', overflow: 'hidden' }}>
             <LifeLogPanel
               userId={session.userId}
-              onContinueSession={actions.handleContinueSessionOrDoc}
+              onContinueSession={(s) => void actions.handleContinueSessionOrDoc(s)}
               onClose={() => setLifeLogVisible(false)}
               activeTab={lifeLogTab}
               onTabChange={setLifeLogTab}
@@ -202,7 +203,7 @@ export function DesktopWritingLayout() {
         {lifeLogVisible && !lifeLogPinned && (
           <LifeLogPanel
             userId={session.userId}
-            onContinueSession={actions.handleContinueSessionOrDoc}
+            onContinueSession={(s) => void actions.handleContinueSessionOrDoc(s)}
             onClose={() => setLifeLogVisible(false)}
             activeTab={lifeLogTab}
             onTabChange={setLifeLogTab}

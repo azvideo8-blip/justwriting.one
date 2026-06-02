@@ -77,15 +77,15 @@ export function AccountTab({ userId }: AccountTabProps) {
           {showSignOutConfirm ? (
             <div className="flex gap-2">
               <button
-                onClick={() => {
-                  setShowSignOutConfirm(false);
-                  resetAndClear();
-                  execute(
-                    () => AuthService.signOut(),
-                    { errorMessage: t('error_signout_failed') }
-                  );
-                }}
-                className="flex-1 px-4 py-3 rounded-xl border border-red-400/40 text-sm text-red-400 hover:bg-red-400/10 transition-colors text-left"
+              onClick={() => {
+                setShowSignOutConfirm(false);
+                resetAndClear();
+                void execute(
+                  () => AuthService.signOut(),
+                  { errorMessage: t('error_signout_failed') }
+                );
+              }}
+                className="flex-1 px-4 py-3 rounded-xl border border-accent-danger/40 text-sm text-accent-danger hover:bg-accent-danger/10 transition-colors text-left"
               >
                 {t('writing_cancel_confirm') || 'Да, выйти'}
               </button>
@@ -104,12 +104,12 @@ export function AccountTab({ userId }: AccountTabProps) {
                   setShowSignOutConfirm(true);
                   return;
                 }
-                execute(
+                void execute(
                   () => AuthService.signOut(),
                   { errorMessage: t('error_signout_failed') }
                 );
               }}
-              className="w-full px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-red-400 hover:border-red-400/30 transition-colors text-left"
+              className="w-full px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-accent-danger hover:border-accent-danger/30 transition-colors text-left"
             >
               {t('me_sign_out')}
             </button>
@@ -131,7 +131,7 @@ export function AccountTab({ userId }: AccountTabProps) {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                handleChangePassword();
+                void handleChangePassword();
               }}
               ref={changePasswordRef}
               hidden={!showChangePassword || undefined}
@@ -148,7 +148,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                 style={{ display: 'none' }}
               />
               {passwordError && (
-                <div className="p-3 rounded-lg text-xs bg-red-500/10 border border-red-500/30 text-red-400">{passwordError}</div>
+                <div className="p-3 rounded-lg text-xs bg-accent-danger/10 border border-accent-danger/30 text-accent-danger">{passwordError}</div>
               )}
               {passwordSuccess && (
                 <div className="p-3 rounded-lg text-xs bg-green-500/10 border border-green-500/30 text-green-400">{t('settings_password_changed')}</div>

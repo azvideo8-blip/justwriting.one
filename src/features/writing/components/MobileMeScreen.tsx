@@ -8,6 +8,8 @@ import { MeAccountSection } from './MeAccountSection';
 import { useSettings } from '../../../core/settings/SettingsContext';
 import { Settings } from 'lucide-react';
 import { useUserId } from '../../../shared/hooks/useUserId';
+import { IconButton } from '../../../shared/components/IconButton';
+import { Button } from '../../../shared/components/Button';
 import { ProfileHero } from '../../profile/components/ProfileHero';
 import { KPIStrip } from '../../profile/components/KPIStrip';
 import { StreakRibbon } from '../../profile/components/StreakRibbon';
@@ -57,7 +59,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
   // Load local profile metadata for guest fallback
   useEffect(() => {
     if (isGuest) {
-      LocalDocumentService.getProfile(getOrCreateGuestId()).then(p => setLocalProfile(p ?? undefined));
+      void LocalDocumentService.getProfile(getOrCreateGuestId()).then(p => setLocalProfile(p ?? undefined));
     }
   }, [isGuest]);
 
@@ -81,24 +83,12 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
         title={t('nav_profile_short')}
         titleFont="sans"
         right={
-          <button
+          <IconButton
+            icon={<Settings size={20} />}
+            label={t('nav_settings')}
             onClick={() => openSettings()}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'rgba(232,236,233,0.6)',
-              cursor: 'pointer',
-              padding: 12,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minWidth: 44,
-              minHeight: 44,
-            }}
-            aria-label={t('nav_settings')}
-          >
-            <Settings size={20} />
-          </button>
+            className="p-3 text-text-muted/60"
+          />
         }
       />
 
@@ -114,6 +104,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
         }}>
           {sections.map(s => (
             <button
+              type="button"
               key={s.id}
               onClick={() => setActiveSection(s.id)}
               style={{
@@ -177,7 +168,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
                 user={user}
                 profile={profile}
                 isGuest={isGuest}
-                onStartSession={() => navigate('/')}
+                onStartSession={() => void navigate('/')}
               />
               <div className="px-4 flex flex-col gap-5 pt-2">
                 {/* KPI stats strip card */}
@@ -208,19 +199,19 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
                 {/* Reset achievements button */}
                 <div style={{ padding: '12px 0 24px', textAlign: 'center' }}>
                   {showResetConfirm ? (
-                    <div className="inline-flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
-                      <span className="text-[12px] text-red-400">{t('profile_ach_reset_confirm')}</span>
-                      <button onClick={handleResetAchievements} className="text-label-sm font-medium text-red-400 hover:text-red-300 transition-colors uppercase tracking-widest">
+                    <div className="inline-flex items-center gap-3 bg-accent-danger/10 border border-accent-danger/20 rounded-lg px-4 py-2">
+                      <span className="text-[12px] text-accent-danger">{t('profile_ach_reset_confirm')}</span>
+                      <Button variant="danger" size="sm" onClick={handleResetAchievements} className="text-label-sm font-medium uppercase tracking-widest">
                         {t('profile_ach_reset')}
-                      </button>
-                      <button onClick={() => setShowResetConfirm(false)} className="text-label-sm font-medium text-text-main/40 hover:text-text-main/60 transition-colors uppercase tracking-widest">
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setShowResetConfirm(false)} className="text-label-sm font-medium uppercase tracking-widest">
                         ✕
-                      </button>
+                      </Button>
                     </div>
                   ) : (
-                    <button onClick={() => setShowResetConfirm(true)} className="font-mono text-label-sm text-text-main/20 hover:text-red-400/50 transition-colors uppercase tracking-widest">
+                    <Button variant="ghost" size="sm" onClick={() => setShowResetConfirm(true)} className="font-mono text-label-sm text-text-main/20 hover:text-accent-danger/50 uppercase tracking-widest">
                       {t('profile_ach_reset')}
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>

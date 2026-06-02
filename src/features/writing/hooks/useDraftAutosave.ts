@@ -14,8 +14,8 @@ export function useDraftAutosave(
     seconds: number;
     wpm: number;
     wordCount: number;
-    initialWordCount?: number;
-    sessionStartTime?: number;
+    initialWordCount?: number | undefined;
+    sessionStartTime?: number | undefined;
     activeSessionId: string | null;
     status: 'idle' | 'writing' | 'paused';
   }
@@ -71,7 +71,7 @@ export function useDraftAutosave(
     const currentStatus = useTimerStore.getState().status;
     if ((currentStatus === 'writing' || currentStatus === 'paused') && user) {
       const debounceDelay = layoutMode === 'mobile' ? 5000 : 500;
-      const timeout = setTimeout(wrappedAutosave, debounceDelay);
+      const timeout = setTimeout(() => void wrappedAutosave(), debounceDelay);
       return () => clearTimeout(timeout);
     }
   }, [draftData.status, draftData.content, draftData.title, draftData.wordCount, user, wrappedAutosave, layoutMode]);

@@ -162,10 +162,10 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   useEffect(() => {
     if (authLoading) return;
     if (profile?.role === 'admin') {
-      fetchData();
-      if (activeTab === 'ai_usage') fetchAIUsage();
-      if (activeTab === 'ai_profile') loadAIProfileData();
-      if (activeTab === 'stats') loadSystemStats();
+      void fetchData();
+      if (activeTab === 'ai_usage') void fetchAIUsage();
+      if (activeTab === 'ai_profile') void loadAIProfileData();
+      if (activeTab === 'stats') void loadSystemStats();
     }
   }, [activeTab, authLoading, profile, fetchData, fetchAIUsage, loadAIProfileData, loadSystemStats]);
 
@@ -285,7 +285,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       }
       
       showToast(`Суточный счетчик для ${displayName} успешно сброшен`, 'success');
-      fetchAIUsage();
+      await fetchAIUsage();
     } catch (e: unknown) {
       console.error('Failed to reset user limit:', e);
       const errMsg = e instanceof Error ? e.message : 'Ошибка сервера';

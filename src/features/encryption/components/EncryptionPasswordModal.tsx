@@ -204,7 +204,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
           </p>
 
           {error && (
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs mb-3 flex items-center gap-2">
+            <div className="p-3 rounded-lg bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-xs mb-3 flex items-center gap-2">
               <AlertCircle size={14} className="shrink-0" />
               {error}
             </div>
@@ -225,12 +225,13 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
           )}
 
           <form
-            onSubmit={
-              isUnlock ? handleUnlock :
-              isSetup ? handleSetup :
-              isChange ? handleChangePassword :
-              handleMigrate
-            }
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (isUnlock) void handleUnlock(e);
+              else if (isSetup) void handleSetup(e);
+              else if (isChange) void handleChangePassword(e);
+              else void handleMigrate(e);
+            }}
             className="space-y-3"
           >
             {(isChange || isMigrate) && (

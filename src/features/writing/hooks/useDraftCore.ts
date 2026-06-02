@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, type MutableRefObject } from 'react';
+import { useState, useCallback, useRef, useEffect, type RefObject } from 'react';
 import { User } from 'firebase/auth';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
@@ -96,7 +96,7 @@ export function useVisibilitySave(doSave: () => Promise<void>, getContent: () =>
     const handleVisibility = () => {
       if (document.visibilityState !== 'hidden') return;
       if (!getContent()) return;
-      doSave();
+      void doSave();
     };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
@@ -105,9 +105,9 @@ export function useVisibilitySave(doSave: () => Promise<void>, getContent: () =>
 
 export function useSyncUnloadSave(
   user: User | null,
-  draftDataRef: MutableRefObject<{
+  draftDataRef: RefObject<{
     pinnedThoughts: string[];
-    sessionStartTime?: number;
+    sessionStartTime?: number | undefined;
     activeSessionId: string | null;
     [key: string]: unknown;
   }>

@@ -90,7 +90,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
   }, [source, selectedTable, userId, showToast]);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
 
   const handleDeleteRecord = async (record: RecordType) => {
@@ -117,7 +117,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
         }
       }
       setSelectedRecord(null);
-      loadData();
+      await loadData();
     } catch (e) {
       console.error(e);
       showToast('Ошибка при удалении записи', 'error');
@@ -136,7 +136,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
   });
 
   const getRecordTitle = (r: RecordType) => {
-    if (!r) return 'Пустая запись';
+    if (r == null) return 'Пустая запись';
     
     const id = typeof r.id === 'string' ? r.id : typeof r.id === 'number' ? String(r.id) : '';
     const title = typeof r.title === 'string' ? r.title : '';
@@ -185,7 +185,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
   };
 
   const getRecordId = (r: RecordType) => {
-    if (!r) return 'Нет ID';
+    if (r == null) return 'Нет ID';
     const id = typeof r.id === 'string' || typeof r.id === 'number' ? String(r.id) : '';
     const documentId = typeof r.documentId === 'string' ? r.documentId : '';
     const guestId = typeof r.guestId === 'string' ? r.guestId : '';
@@ -293,8 +293,8 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
                 <p className="text-[10px] font-mono text-text-main/30 mt-0.5 break-all">ID: {getRecordId(selectedRecord)}</p>
               </div>
               <button
-                onClick={() => handleDeleteRecord(selectedRecord)}
-                className="p-2 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
+                onClick={() => void handleDeleteRecord(selectedRecord)}
+                className="p-2 rounded-lg border border-accent-danger/20 text-accent-danger hover:bg-accent-danger/10 transition-colors shrink-0"
                 title="Удалить документ"
               >
                 <Trash2 size={14} />

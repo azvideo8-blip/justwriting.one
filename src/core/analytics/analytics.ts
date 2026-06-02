@@ -46,7 +46,7 @@ export const analytics = {
 };
 
 export function trackEvent(name: string, properties?: Record<string, unknown>): void {
-  if (typeof posthog !== 'undefined' && posthog) {
+  if (typeof posthog !== 'undefined') {
     posthog.capture(name, properties);
   }
 }
