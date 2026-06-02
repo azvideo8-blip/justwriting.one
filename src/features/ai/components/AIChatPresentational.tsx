@@ -33,8 +33,9 @@ export function Monogram({ color, mono, size = 36, dim = false }: { color: strin
 }
 
 export function threadPreview(d: { messages: { content: string }[] }): string {
+  if (d.messages.length === 0) return '';
   const last = d.messages[d.messages.length - 1];
-  if (!last) return '';
+  if (last == null) return '';
   const c = last.content.replace(/^\[[^\]]*\]\s*/, '').trim();
   return c.length > 64 ? `${c.slice(0, 64)}…` : c;
 }

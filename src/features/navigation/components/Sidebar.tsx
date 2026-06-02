@@ -143,7 +143,7 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
     { id: 'archive', path: '/archive', icon: <History size={20} />,   label: t('nav_notes') },
     { id: 'ai',      path: '/ai',     icon: <Sparkles size={20} />,  label: 'AI' },
     { id: 'profile', path: '/profile', icon: <UserIcon size={20} />,  label: t('nav_profile') },
-    ...(isAdmin ? [{ id: 'diagnostics', path: '/diagnostics', icon: <Bug size={20} className="text-red-400" />, label: 'Диагностика' }] : []),
+    ...(isAdmin ? [{ id: 'diagnostics', path: '/diagnostics', icon: <Bug size={20} className="text-accent-danger" />, label: 'Диагностика' }] : []),
   ];
 
   return (
@@ -198,7 +198,7 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
             label={item.label}
             isActive={location.pathname === item.path}
             expanded={expanded}
-            onClick={() => navigate(item.path)}
+            onClick={() => void navigate(item.path)}
           />
         ))}
         </LayoutGroup>
@@ -207,20 +207,20 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
       {/* Bottom section */}
       <div className="flex flex-col gap-1 px-2 mt-auto">
         {isGuest && (
-          <SidebarActionItem
-            icon={<LogIn size={20} />}
-            label={t('auth_sign_in')}
-            expanded={expanded}
-            onClick={openLoginModal}
-            accent
-          />
+        <SidebarActionItem
+          icon={<LogIn size={20} />}
+          label={t('auth_sign_in')}
+          expanded={expanded}
+          onClick={() => void openLoginModal()}
+          accent
+        />
         )}
 
         <SidebarActionItem
           icon={<Settings size={20} />}
           label={t('nav_settings')}
           expanded={expanded}
-          onClick={onOpenSettings}
+          onClick={() => void onOpenSettings()}
         />
 
         <div className={cn(
@@ -229,14 +229,14 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
         )}>
           <button
             type="button"
-            onClick={() => navigate('/changelog')}
+            onClick={() => void navigate('/changelog')}
             className="hover:text-text-main/50 transition-colors"
           >
             v{APP_VERSION}
           </button>
           <span className="text-text-main/25">·</span>
           <button
-            onClick={() => navigate('/about')}
+            onClick={() => void navigate('/about')}
             className="hover:text-text-main/50 transition-colors underline underline-offset-2 decoration-dotted"
           >
             {t('nav_about')}

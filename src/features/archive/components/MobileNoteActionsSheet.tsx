@@ -13,21 +13,23 @@ import { useAuthStatus } from '../../auth/contexts/AuthContext';
 import { reportError } from '../../../core/errors/reportError';
 import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 interface MobileNoteActionsSheetProps {
   isOpen: boolean;
   onClose: () => void;
   session: {
     id: string;
-    title?: string;
-    labelId?: string;
-    _isLocal?: boolean;
-    _linkedCloudId?: string;
-    _hasCloudCopy?: boolean;
-    _hasPendingSync?: boolean;
+    title?: string | undefined;
+    labelId?: string | undefined;
+    _isLocal?: boolean | undefined;
+    _linkedCloudId?: string | undefined;
+    _hasCloudCopy?: boolean | undefined;
+    _hasPendingSync?: boolean | undefined;
   };
   userId: string;
-  labels?: Label[];
+  labels?: Label[] | undefined;
   onOpen: () => void;
   onRename: () => void;
   onDelete: () => void;
@@ -161,12 +163,12 @@ export function MobileNoteActionsSheet({
           <span className="text-sm font-bold text-text-main/30 uppercase tracking-widest">
             {t('archive_note_actions') || 'Действия с заметкой'}
           </span>
-          <button
+          <IconButton
             onClick={onClose}
             className="w-8 h-8 rounded-full bg-white/[0.04] border-none flex items-center justify-center text-text-main/40 hover:text-text-main/70 cursor-pointer"
-          >
-            <X size={18} />
-          </button>
+            label={t('close')}
+            icon={<X size={18} />}
+          />
         </div>
 
         {/* Document Title Header */}
@@ -190,13 +192,95 @@ export function MobileNoteActionsSheet({
           {!showLabelsSelector ? (
             <>
               {/* 1. Preview Option */}
-              <button
+              <Button
                 onClick={() => { onOpen(); onClose(); }}
                 className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
               >
                 <ExternalLink size={18} className="text-text-main/40" />
                 <span>{t('archive_preview') || 'Открыть превью'}</span>
-              </button>
+              </Button>
+
+              <Button
+                onClick={() => { onRename(); onClose(); }}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
+              >
+                <Pencil size={18} className="text-text-main/40" />
+                <span>{t('archive_rename_title') || 'Переименовать'}</span>
+              </Button>
+
+              {(labels && labels.length > 0 || session.labelId) && (
+                <Button
+                  onClick={() => setShowLabelsSelector(true)}
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
+                >
+                  <Tag size={18} className="text-text-main/40" />
+                  <span>{t('archive_assign_label') || 'Назначить ярлык'}</span>
+                </Button>
+              )}
+
+              {(canUpload || doc.hasPendingSync) && (
+                <Button
+                  onClick={() => void handleUploadOrSync()}
+                  disabled={!!loadingAction}
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold text-brand-primary bg-brand-primary/10 border border-brand-primary/20 active:bg-brand-primary/20 transition-colors text-left"
+                >
+                  {loadingAction === 'upload' ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : doc.hasPendingSync ? (
+                    <>
+                      <RefreshCw size={18} />
+                      <span>{t('storage_sync_pending') || 'Синхронизировать изменения'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Cloud size={18} />
+                      <span>{t('storage_upload_to_cloud') || 'Загрузить в облако'}</span>
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {doc.hasLocal && doc.hasCloud && (
+                <Button
+                  onClick={() => void handleDeleteLocalOnly()}
+                  disabled={!!loadingAction}
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/70 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
+                >
+                  {loadingAction === 'delete-local' ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <>
+                      <HardDrive size={18} className="text-text-main/40" />
+                      <span>{t('storage_remove_local') || 'Удалить локальную копию'}</span>
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {doc.hasLocal && doc.hasCloud && (
+                <Button
+                  onClick={() => void handleDeleteCloudOnly()}
+                  disabled={!!loadingAction}
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/70 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
+                >
+                  {loadingAction === 'delete-cloud' ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <>
+                      <Cloud size={18} className="text-text-main/40" />
+                      <span>{t('storage_remove_cloud') || 'Удалить из облака'}</span>
+                    </>
+                  )}
+                </Button>
+              )}
+
+              <Button
+                onClick={() => { onDelete(); onClose(); }}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-accent-danger bg-accent-danger/10 border border-accent-danger/20 active:bg-accent-danger/20 transition-colors text-left"
+              >
+                <Trash2 size={18} />
+                <span>{t('archive_delete') || 'Удалить полностью'}</span>
+              </Button>
 
               {/* 2. Rename Option */}
               <button
@@ -221,7 +305,7 @@ export function MobileNoteActionsSheet({
               {/* 4. Storage Actions */}
               {(canUpload || doc.hasPendingSync) && (
                 <button
-                  onClick={handleUploadOrSync}
+                  onClick={() => void handleUploadOrSync()}
                   disabled={!!loadingAction}
                   className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold text-brand-primary bg-brand-primary/10 border border-brand-primary/20 active:bg-brand-primary/20 transition-colors text-left"
                 >
@@ -243,7 +327,7 @@ export function MobileNoteActionsSheet({
 
               {doc.hasLocal && doc.hasCloud && (
                 <button
-                  onClick={handleDeleteLocalOnly}
+                  onClick={() => void handleDeleteLocalOnly()}
                   disabled={!!loadingAction}
                   className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/70 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
                 >
@@ -260,7 +344,7 @@ export function MobileNoteActionsSheet({
 
               {doc.hasLocal && doc.hasCloud && (
                 <button
-                  onClick={handleDeleteCloudOnly}
+                  onClick={() => void handleDeleteCloudOnly()}
                   disabled={!!loadingAction}
                   className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/70 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
                 >
@@ -278,7 +362,7 @@ export function MobileNoteActionsSheet({
               {/* 5. Delete Completely Option */}
               <button
                 onClick={() => { onDelete(); onClose(); }}
-                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-red-400 bg-red-500/10 border border-red-500/20 active:bg-red-500/20 transition-colors text-left"
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-accent-danger bg-accent-danger/10 border border-accent-danger/20 active:bg-accent-danger/20 transition-colors text-left"
               >
                 <Trash2 size={18} />
                 <span>{t('archive_delete') || 'Удалить полностью'}</span>
@@ -289,13 +373,13 @@ export function MobileNoteActionsSheet({
             <div className="space-y-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-text-main/40 uppercase tracking-wider">{t('archive_assign_label')}</span>
-                <button onClick={() => setShowLabelsSelector(false)} className="text-xs text-brand-soft hover:underline">
+                <Button onClick={() => setShowLabelsSelector(false)} className="text-xs text-brand-soft hover:underline">
                   {t('writing_back') || 'Назад'}
-                </button>
+                </Button>
               </div>
               <div className="grid grid-cols-1 gap-2">
                 {session.labelId && (
-                  <button
+                  <Button
                     onClick={() => {
                       onLabelChange(undefined);
                       onClose();
@@ -304,10 +388,10 @@ export function MobileNoteActionsSheet({
                   >
                     <div className="w-3.5 h-3.5 rounded-full border border-dashed border-text-main/20 shrink-0" />
                     <span className="flex-1">{t('archive_no_label')}</span>
-                  </button>
+                  </Button>
                 )}
                 {labels?.map(l => (
-                  <button
+                  <Button
                     key={l.id}
                     onClick={() => {
                       onLabelChange(session.labelId === l.id ? undefined : l.id);
@@ -323,7 +407,7 @@ export function MobileNoteActionsSheet({
                     <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: l.color }} />
                     <span className="flex-1">{l.name}</span>
                     {session.labelId === l.id && <span className="text-xs text-brand-soft">✓</span>}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -335,7 +419,7 @@ export function MobileNoteActionsSheet({
         {showUnlock && hasEncryption && userId && !userId.startsWith('guest_') && (
           <UnlockPrompt
             uid={userId}
-            onUnlocked={() => { setShowUnlock(false); handleUploadOrSync(); }}
+            onUnlocked={() => { setShowUnlock(false); void handleUploadOrSync(); }}
             onClose={() => setShowUnlock(false)}
           />
         )}
@@ -346,7 +430,7 @@ export function MobileNoteActionsSheet({
           mode="setup"
           userId={userId}
           context="cloud-sync"
-          onDone={() => { setShowEncryptionSetup(false); handleUploadOrSync(); }}
+          onDone={() => { setShowEncryptionSetup(false); void handleUploadOrSync(); }}
           onClose={() => setShowEncryptionSetup(false)}
         />
       )}

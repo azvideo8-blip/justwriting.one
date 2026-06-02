@@ -13,6 +13,8 @@ import { clearSessionKey } from '../../../core/crypto/encrypt';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { reportError } from '../../../core/errors/reportError';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 interface LoginPageProps {
   isModal?: boolean;
@@ -39,7 +41,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
   const [forgotError, setForgotError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
+    const unsub = onAuthStateChanged(auth, (u) => {
       if (!u) {
         clearSessionKey();
         return;
@@ -49,11 +51,12 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         onSuccess();
         return;
       }
-      const result = await checkGuestDocuments();
-      if (result) {
-        setMigrationDocCount(result.docs.length);
-        setMigrationUserId(u.uid);
-      }
+      void checkGuestDocuments().then(result => {
+        if (result) {
+          setMigrationDocCount(result.docs.length);
+          setMigrationUserId(u.uid);
+        }
+      });
     });
     return unsub;
   }, [onSuccess]);
@@ -135,9 +138,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         descriptionEn="Sign in to justwriting, a quiet editor. Save notes to the cloud and write every day."
       />}
       {isModal && (onClose || onSuccess) && (
-        <button onClick={onClose || onSuccess} className="self-end mb-4 p-2 rounded-lg text-text-main/40 hover:text-text-main transition-colors">
-          <X size={20} />
-        </button>
+        <IconButton onClick={onClose || onSuccess} className="self-end mb-4 p-2 rounded-lg text-text-main/40 hover:text-text-main transition-colors" label={t('close')} icon={<X size={20} />} />
       )}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
@@ -158,13 +159,13 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
           )}
         </div>
 
-        {error && (
+        {error != null && (
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             role="alert"
             aria-live="assertive"
-            className="p-4 rounded-xl flex items-center gap-3 text-sm text-left border bg-red-500/10 border-red-500/30 text-red-400"
+            className="p-4 rounded-xl flex items-center gap-3 text-sm text-left border bg-accent-danger/10 border-accent-danger/30 text-accent-danger"
           >
             <AlertCircle size={20} className="shrink-0" />
             <div className="break-words">{error}</div>
@@ -172,7 +173,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         )}
 
         <div className="p-8 rounded-3xl shadow-xl space-y-6 border bg-surface-card border-border-subtle backdrop-blur-2xl">
-          <form onSubmit={handleEmailAuth} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); void handleEmailAuth(e); }} className="space-y-4">
             <div className="space-y-2 text-left">
               <label className="text-xs font-bold uppercase tracking-widest ml-1 text-text-main/50">{t('auth_email')}</label>
               <div className="relative">
@@ -203,7 +204,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
               </div>
             </div>
 
-            <button 
+            <Button 
               type="submit"
               disabled={loading}
               className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold hover:brightness-110 active:scale-[0.98] transition-colors disabled:opacity-50 text-white" style={{ background: 'var(--brand-primary)' }}
@@ -214,25 +215,26 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                 mode === 'login' ? <LogIn size={18} /> : <UserPlus size={18} />
               )}
               {mode === 'login' ? t('auth_sign_in') : t('auth_sign_up')}
-            </button>
-          </form>
+            </Button>
 
-          <button 
+          <Button 
             onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
             className="text-sm font-medium transition-colors text-text-main/50 hover:text-text-main"
           >
             {mode === 'login' ? t('auth_no_account') : t('auth_has_account')}
-          </button>
+          </Button>
 
           {mode === 'login' && (
-            <button
+            <Button
               type="button"
               onClick={() => { setForgotEmail(email); setShowForgotPassword(true); setForgotSent(false); setForgotError(null); }}
               className="text-xs transition-colors text-text-main/30 hover:text-text-main/50"
             >
               {t('auth_forgot_password')}
-            </button>
+            </Button>
           )}
+          </form>
+
         </div>
 
         {showForgotPassword && (
@@ -262,7 +264,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
               ) : (
                 <>
                   {forgotError && (
-                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs mb-3">{forgotError}</div>
+                    <div className="p-3 rounded-lg bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-xs mb-3">{forgotError}</div>
                   )}
                   <div className="space-y-2 text-left mb-3">
                     <input
@@ -278,34 +280,33 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                     <span>{t('auth_forgot_password_encryption_warning')}</span>
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      onClick={async () => {
+                    <Button
+                      onClick={() => {
                         if (!forgotEmail) return;
                         setForgotLoading(true);
                         setForgotError(null);
-                        try {
-                          await AuthService.sendPasswordReset(forgotEmail);
+                        void AuthService.sendPasswordReset(forgotEmail).then(() => {
                           setForgotSent(true);
-                         } catch (err: unknown) {
-                           reportError(err, { action: 'sendPasswordReset' });
-                           const fe = err as { code?: string };
+                        }).catch((err: unknown) => {
+                          reportError(err, { action: 'sendPasswordReset' });
+                          const fe = err as { code?: string };
                           setForgotError(fe.code === 'auth/user-not-found' ? t('auth_error_user_not_found') : t('auth_error_generic'));
-                        } finally {
+                        }).finally(() => {
                           setForgotLoading(false);
-                        }
+                        });
                       }}
                       disabled={forgotLoading || !forgotEmail}
                       className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors"
                       style={{ background: 'var(--brand-primary)' }}
                     >
                       {forgotLoading ? <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white mx-auto" /> : t('auth_forgot_confirm_anyway')}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       onClick={() => setShowForgotPassword(false)}
                       className="px-4 py-2.5 rounded-xl text-sm text-text-main/40 hover:text-text-main/60 transition-colors"
                     >
                       {t('writing_cancel')}
-                    </button>
+                    </Button>
                   </div>
                 </>
               )}

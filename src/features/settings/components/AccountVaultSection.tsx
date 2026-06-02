@@ -126,9 +126,9 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
             </div>
           </div>
           {vaultError && (
-            <div className="p-3 rounded-lg text-xs bg-red-500/10 border border-red-500/30 text-red-400">{vaultError}</div>
+            <div className="p-3 rounded-lg text-xs bg-accent-danger/10 border border-accent-danger/30 text-accent-danger">{vaultError}</div>
           )}
-          <form onSubmit={handleInitializeEncryption} className="space-y-3 pt-1">
+          <form onSubmit={(e) => { e.preventDefault(); void handleInitializeEncryption(e); }} className="space-y-3 pt-1">
             <input
               type="password"
               value={vaultPassword}
@@ -196,9 +196,9 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
             </div>
           </div>
           {vaultError && (
-            <div className="p-3 rounded-lg text-xs bg-red-500/10 border border-red-500/30 text-red-400">{vaultError}</div>
+            <div className="p-3 rounded-lg text-xs bg-accent-danger/10 border border-accent-danger/30 text-accent-danger">{vaultError}</div>
           )}
-          <form onSubmit={handleUnlockVault} className="space-y-3 pt-1">
+          <form onSubmit={(e) => { e.preventDefault(); void handleUnlockVault(e); }} className="space-y-3 pt-1">
             <input
               type="password"
               value={vaultPassword}
@@ -236,7 +236,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
             
             <button
               onClick={handleLockVault}
-              className="mt-2 text-xs font-semibold text-text-main/40 hover:text-red-400 transition-colors flex items-center gap-1.5"
+              className="mt-2 text-xs font-semibold text-text-main/40 hover:text-accent-danger transition-colors flex items-center gap-1.5"
             >
               <Lock size={12} />
               {t('settings_lock_vault')}
@@ -246,10 +246,10 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
           <ChangeEncryptionPasswordButton userId={userId} />
 
           {!migrationRunning && !migrationDone ? (
-            <button
-              onClick={handleEncryptAll}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors text-left"
-            >
+          <button
+            onClick={() => void handleEncryptAll()}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors text-left"
+          >
               <Shield size={16} className="text-text-main/40" />
               {t('settings_encrypt_all')}
             </button>
@@ -259,7 +259,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
                 <div className="text-sm text-text-main/60">{t('settings_encrypting_progress')}</div>
                 <button
                   onClick={handleAbortEncryption}
-                  className="text-xs text-text-main/40 hover:text-red-400 transition-colors"
+                  className="text-xs text-text-main/40 hover:text-accent-danger transition-colors"
                 >
                   {t('cancel') || 'Отмена'}
                 </button>

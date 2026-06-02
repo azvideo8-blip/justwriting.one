@@ -4,20 +4,20 @@ import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { loadDraftIntoStore } from '../store/storeActions';
 
 export interface DraftDataToApply {
-  content?: string;
-  title?: string;
-  pinnedThoughts?: string[];
-  seconds?: number;
-  wpm?: number;
-  wordCount?: number;
-  initialWordCount?: number;
-  activeSessionId?: string | null;
-  sessionStartTime?: number | null;
-  accumulatedDuration?: number;
-  totalPauseSeconds?: number;
-  savedDocumentId?: string | null;
-  tags?: string[];
-  labelId?: string;
+  content?: string | undefined;
+  title?: string | undefined;
+  pinnedThoughts?: string[] | undefined;
+  seconds?: number | undefined;
+  wpm?: number | undefined;
+  wordCount?: number | undefined;
+  initialWordCount?: number | undefined;
+  activeSessionId?: string | null | undefined;
+  sessionStartTime?: number | null | undefined;
+  accumulatedDuration?: number | undefined;
+  totalPauseSeconds?: number | undefined;
+  savedDocumentId?: string | null | undefined;
+  tags?: string[] | undefined;
+  labelId?: string | undefined;
 }
 
 export function applyDraftToStores(draft: DraftDataToApply) {

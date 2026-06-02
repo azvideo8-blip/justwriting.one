@@ -18,11 +18,11 @@ interface SettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
   userId: string;
-  onRefreshLifeLog?: () => void;
-  defaultTab?: Tab;
+  onRefreshLifeLog?: (() => void) | undefined;
+  defaultTab?: Tab | undefined;
 }
 
-export function SettingsPanelContent({ userId, onRefreshLifeLog, activeTab, setActiveTab }: { userId: string; onRefreshLifeLog?: () => void; activeTab: Tab; setActiveTab: (tab: Tab) => void }) {
+export function SettingsPanelContent({ userId, onRefreshLifeLog, activeTab, setActiveTab }: { userId: string; onRefreshLifeLog?: (() => void) | undefined; activeTab: Tab; setActiveTab: (tab: Tab) => void }) {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const tapCountRef = useRef(0);
@@ -144,6 +144,10 @@ export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog, defau
   const reducedMotion = useReducedMotion();
   const validTab = (defaultTab === 'editor' || defaultTab === 'app' || defaultTab === 'account') ? defaultTab : 'editor';
   const [activeTab, setActiveTab] = useState<Tab>(validTab);
+
+  useEffect(() => {
+    setActiveTab(validTab);
+  }, [validTab]);
 
   useFocusTrap(panelRef, isOpen);
 

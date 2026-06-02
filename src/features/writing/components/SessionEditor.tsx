@@ -7,6 +7,8 @@ import { Session } from '../../../types';
 import { useLanguage } from '../../../core/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { reportError } from '../../../core/errors/reportError';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 interface SessionEditorProps {
   session: Session;
@@ -25,7 +27,7 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
   const handleSave = () => {
     const wordCount = countWords(editContent);
 
-    execute(
+    void execute(
       async () => {
         const docId = session.id;
         if (session._isLocal) {
@@ -85,11 +87,11 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
           {editTags.map(tag => (
             <span key={tag} className="flex items-center gap-1 px-2 py-1 bg-surface-card text-text-main/60 rounded-lg text-xs font-medium border border-border-subtle">
               #{tag}
-              <button onClick={() => removeTag(tag)} className="hover:text-red-500"><X size={10} /></button>
+              <IconButton icon={<X size={10} />} label={t('session_remove_tag')} size="sm" onClick={() => removeTag(tag)} className="hover:text-accent-danger" />
             </span>
           ))}
         </div>
-        <input 
+        <input
           type="text"
           value={tagInput}
           onChange={(e) => setTagInput(e.target.value)}
@@ -100,8 +102,8 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
       </div>
       <div className="flex items-center justify-end">
         <div className="flex gap-2">
-          <button onClick={onCancel} className="px-4 py-2 text-text-main/50 hover:text-text-main font-medium">{t('common_cancel')}</button>
-          <button onClick={handleSave} className="px-6 py-2 bg-text-main text-surface-base rounded-2xl font-bold">{t('common_save')}</button>
+          <Button variant="ghost" size="md" onClick={onCancel} className="px-4 py-2 text-text-main/50 hover:text-text-main font-medium">{t('common_cancel')}</Button>
+          <Button variant="primary" size="md" onClick={handleSave} className="px-6 py-2 rounded-2xl font-bold">{t('common_save')}</Button>
         </div>
       </div>
     </div>

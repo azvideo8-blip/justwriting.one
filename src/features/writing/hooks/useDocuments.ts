@@ -5,7 +5,7 @@ import { Document } from '../../../types';
 import { reportError } from '../../../core/errors/reportError';
 import { useLanguage } from '../../../core/i18n';
 
-function localDocToDocument(doc: { id: string; title: string; currentVersion: number; totalWords: number; totalDuration: number; sessionsCount: number; firstSessionAt: number; lastSessionAt: number; tags: string[]; linkedCloudId?: string }): Document {
+function localDocToDocument(doc: { id: string; title: string; currentVersion: number; totalWords: number; totalDuration: number; sessionsCount: number; firstSessionAt: number; lastSessionAt: number; tags: string[]; linkedCloudId?: string | undefined }): Document {
   const firstMs = doc.firstSessionAt || doc.lastSessionAt || Date.now();
   const lastMs = doc.lastSessionAt || doc.firstSessionAt || Date.now();
   return {
@@ -16,8 +16,8 @@ function localDocToDocument(doc: { id: string; title: string; currentVersion: nu
     totalWords: doc.totalWords,
     totalDuration: doc.totalDuration,
     sessionsCount: doc.sessionsCount,
-    firstSessionAt: new Date(firstMs) as unknown as Document['firstSessionAt'],
-    lastSessionAt: new Date(lastMs) as unknown as Document['lastSessionAt'],
+    firstSessionAt: new Date(firstMs),
+    lastSessionAt: new Date(lastMs),
     tags: doc.tags,
   };
 }
@@ -30,7 +30,7 @@ export function useDocuments(userId: string, isGuest?: boolean) {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    void (async () => {
       if (!userId) {
         if (!cancelled) { setLoading(false); setDocuments([]); }
         return;

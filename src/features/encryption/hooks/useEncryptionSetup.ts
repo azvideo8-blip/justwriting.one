@@ -10,7 +10,7 @@ export function useEncryptionSetup(): {
   mode: EncryptionModalMode;
   isLegacy: boolean;
   loading: boolean;
-  check: () => void;
+  check: () => Promise<void>;
 } {
   const { user, profile } = useAuthStatus();
   const [mode, setMode] = useState<EncryptionModalMode>('none');

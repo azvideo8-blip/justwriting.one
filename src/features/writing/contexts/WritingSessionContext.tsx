@@ -173,8 +173,8 @@ export function WritingSessionProvider({
   useEffect(() => {
     if (sessionToContinue && !continueRef.current) {
       continueRef.current = true;
-      navigate(location.pathname, { state: {}, replace: true });
-      actions.handleContinueSessionOrDoc(sessionToContinue);
+      void navigate(location.pathname, { state: {}, replace: true });
+      void actions.handleContinueSessionOrDoc(sessionToContinue);
     }
   }, [sessionToContinue, actions, navigate, location.pathname]);
 

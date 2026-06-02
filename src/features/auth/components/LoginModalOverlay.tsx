@@ -50,7 +50,7 @@ export function LoginModalOverlay({ open }: { open: boolean }) {
               onClick={e => e.stopPropagation()}
             >
               <React.Suspense fallback={<div className="h-48" />}>
-                <LoginPage isModal onSuccess={handleAuthSuccess} onClose={closeLoginModal} />
+                <LoginPage isModal onSuccess={() => void handleAuthSuccess()} onClose={closeLoginModal} />
               </React.Suspense>
             </motion.div>
           </motion.div>

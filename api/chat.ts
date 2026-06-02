@@ -86,9 +86,12 @@ if (getApps().length === 0) {
 }
 
 // Initialize Google AI SDK with GEMINI_API_KEY as fallback
-const google = createGoogleGenerativeAI({
-  apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-});
+const googleApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+const googleOptions: { apiKey?: string } = {};
+if (googleApiKey) {
+  googleOptions.apiKey = googleApiKey;
+}
+const google = createGoogleGenerativeAI(googleOptions);
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
 

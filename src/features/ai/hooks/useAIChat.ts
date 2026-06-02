@@ -27,11 +27,11 @@ function pruneMessages(messages: AIMessage[]): AIMessage[] {
 
 async function streamChat(params: {
   personaId: string;
-  customSystemPrompt?: string;
+  customSystemPrompt?: string | undefined;
   messages: AIMessage[];
-  documentContent?: string;
-  documentMood?: string;
-  userPortrait?: string | null;
+  documentContent?: string | undefined;
+  documentMood?: string | undefined;
+  userPortrait?: string | null | undefined;
   onChunk: (partial: string) => void;
 }): Promise<string> {
   const user = getAuth().currentUser;
@@ -85,9 +85,9 @@ async function streamChat(params: {
 
 async function callableChat(params: {
   personaId: string;
-  customSystemPrompt?: string;
+  customSystemPrompt?: string | undefined;
   messages: AIMessage[];
-  userPortrait?: string | null;
+  userPortrait?: string | null | undefined;
 }): Promise<string> {
   const result = await AIService.chat({
     personaId: params.personaId,
@@ -124,7 +124,7 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
 
   useEffect(() => {
     if (!dialogueId) { setDialogue(null); return; }
-    AIDialogueService.get(dialogueId).then(d => setDialogue(d ?? null));
+    void AIDialogueService.get(dialogueId).then(d => setDialogue(d ?? null));
   }, [dialogueId]);
 
   useEffect(() => {
@@ -133,7 +133,7 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
 
     let active = true;
 
-    (async () => {
+    void (async () => {
       let newPersonaName = 'Custom';
       let newPersonaEmoji = '\u{1F916}';
 

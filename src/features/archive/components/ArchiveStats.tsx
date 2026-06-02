@@ -8,7 +8,7 @@ interface ArchiveStatsProps {
   sessions: ArchiveSession[];
   streakDays: number;
   title: string;
-  onReset?: () => void;
+  onReset?: (() => void) | undefined;
 }
 
 export function ArchiveStats({ sessions, streakDays, title, onReset }: ArchiveStatsProps) {

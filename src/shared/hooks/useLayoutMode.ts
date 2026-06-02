@@ -33,7 +33,7 @@ export function useLayoutMode() {
     };
 
     // Modern browsers support addEventListener, older use addListener
-    if (mediaQuery.addEventListener) {
+    if (typeof mediaQuery.addEventListener === 'function') {
       mediaQuery.addEventListener('change', handleChange);
       return () => {
         clearTimeout(timeoutId);

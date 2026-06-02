@@ -53,7 +53,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
       <div className="p-4 rounded-xl border border-border-subtle space-y-3">
         <div className="text-xs text-text-main/60 leading-relaxed">{t('settings_export_all_desc')}</div>
         <button
-          onClick={handleExportAll}
+          onClick={() => void handleExportAll()}
           disabled={loading}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors disabled:opacity-50"
         >

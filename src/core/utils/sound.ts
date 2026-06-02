@@ -2,12 +2,12 @@ let _audioCtx: AudioContext | null = null;
 
 export function playGoalSound() {
   try {
-    const AudioCtx = window.AudioContext || (window as Window & typeof globalThis & { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!_audioCtx) _audioCtx = new AudioCtx();
+    const AudioCtx = typeof window.AudioContext === 'function' ? window.AudioContext : (window as Window & typeof globalThis & { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (_audioCtx == null) _audioCtx = new AudioCtx();
 
     const audioCtx = _audioCtx;
     if (audioCtx.state === 'suspended') {
-      audioCtx.resume();
+      void audioCtx.resume();
     }
 
     const frequencies = [396, 528];

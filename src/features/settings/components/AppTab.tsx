@@ -10,7 +10,7 @@ import { cn } from '../../../core/utils/utils';
 
 interface AppTabProps {
   userId: string;
-  onRefreshLifeLog?: () => void;
+  onRefreshLifeLog?: (() => void) | undefined;
 }
 
 export function AppTab({ userId: _userId, onRefreshLifeLog: _onRefreshLifeLog }: AppTabProps) {

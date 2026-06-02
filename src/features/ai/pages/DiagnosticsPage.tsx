@@ -13,6 +13,8 @@ import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useDiagnosticsData, type Tab } from '../hooks/useDiagnosticsData';
 import { DatabaseExplorer } from '../components/DatabaseExplorer';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 export function DiagnosticsPage() {
   const navigate = useNavigate();
@@ -69,20 +71,20 @@ export function DiagnosticsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold flex items-center gap-3 text-text-main">
-          <Bug className="text-red-400" />
+          <Bug className="text-accent-danger" />
           Диагностика и администрирование
         </h2>
-        <button 
-          onClick={() => navigate('/')} 
+        <IconButton 
+          onClick={() => void navigate('/')} 
           className="p-2 rounded-lg text-text-main/40 hover:text-text-main hover:bg-surface-base/10 transition-colors"
-        >
-          <X size={18} />
-        </button>
+          label="Close"
+          icon={<X size={18} />}
+        />
       </div>
 
       {/* Tabs list */}
       <div className="flex flex-wrap gap-1 p-1 bg-surface-card/40 border border-border-subtle rounded-2xl w-fit">
-        <button
+        <Button
           onClick={() => setActiveTab('sync')}
           className={cn(
             "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
@@ -90,8 +92,8 @@ export function DiagnosticsPage() {
           )}
         >
           Синхронизация
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => setActiveTab('db')}
           className={cn(
             "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
@@ -99,8 +101,8 @@ export function DiagnosticsPage() {
           )}
         >
           База данных
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => setActiveTab('users')}
           className={cn(
             "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
@@ -108,8 +110,8 @@ export function DiagnosticsPage() {
           )}
         >
           Пользователи
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => setActiveTab('ai_usage')}
           className={cn(
             "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
@@ -117,8 +119,8 @@ export function DiagnosticsPage() {
           )}
         >
           Статистика AI
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => setActiveTab('ai_profile')}
           className={cn(
             "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
@@ -126,8 +128,8 @@ export function DiagnosticsPage() {
           )}
         >
           Профиль AI
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => setActiveTab('stats')}
           className={cn(
             "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
@@ -135,7 +137,7 @@ export function DiagnosticsPage() {
           )}
         >
           Система
-        </button>
+        </Button>
       </div>
 
       {/* Tab Panels */}
@@ -152,7 +154,7 @@ export function DiagnosticsPage() {
                   <p className="text-xs text-text-main/40 mt-1">Отправляет все локальные несинхронизированные заметки в Cloud Firestore.</p>
                 </div>
                 <button
-                  onClick={handleSyncAllToCloud}
+                  onClick={() => void handleSyncAllToCloud()}
                   disabled={bulkSyncing}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-text-main text-surface-base text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-colors min-h-[38px]"
                 >
@@ -167,7 +169,7 @@ export function DiagnosticsPage() {
                   <p className="text-xs text-text-main/40 mt-1">Скачивает все резервные копии заметок из облака в локальный кэш IndexedDB.</p>
                 </div>
                 <button
-                  onClick={handleImportAllFromCloud}
+                  onClick={() => void handleImportAllFromCloud()}
                   disabled={bulkImporting}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-text-main text-surface-base text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-colors min-h-[38px]"
                 >
@@ -234,13 +236,13 @@ export function DiagnosticsPage() {
                     className="flex-1 px-3 py-1.5 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main placeholder:text-text-main/30 outline-none"
                   />
                   <button
-                    onClick={async () => {
+                    onClick={() => {
                       if (!manualResetUid.trim()) return;
-                      await handleResetUserLimit(manualResetUid.trim(), manualResetUid.trim());
+                      void handleResetUserLimit(manualResetUid.trim(), manualResetUid.trim());
                       setManualResetUid('');
                     }}
                     disabled={resettingUid !== null || !manualResetUid.trim()}
-                    className="px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors text-xs font-bold whitespace-nowrap"
+                    className="px-3 py-1.5 rounded-xl bg-accent-danger/10 border border-accent-danger/20 text-accent-danger hover:bg-accent-danger/20 disabled:opacity-50 transition-colors text-xs font-bold whitespace-nowrap"
                   >
                     {resettingUid === manualResetUid.trim() ? 'Сброс...' : 'Сбросить'}
                   </button>
@@ -257,7 +259,7 @@ export function DiagnosticsPage() {
                     className="px-3 py-1.5 rounded-xl bg-surface-base/5 border border-border-subtle text-xs text-text-main outline-none"
                   />
                   <button
-                    onClick={fetchAIUsage}
+                    onClick={() => void fetchAIUsage()}
                     disabled={aiUsageLoading}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-text-main text-surface-base text-xs font-semibold disabled:opacity-50 transition-colors"
                   >
@@ -296,7 +298,7 @@ export function DiagnosticsPage() {
                             <span className="text-text-main/60">{m.label}</span>
                             <span className="font-mono text-text-main/80">
                               {m.used.toLocaleString()} / {m.cap.toLocaleString()}{' '}
-                              <span className={cn(over ? 'text-red-400' : warn ? 'text-amber-400' : 'text-text-main/40')}>
+                              <span className={cn(over ? 'text-accent-danger' : warn ? 'text-amber-400' : 'text-text-main/40')}>
                                 ({pct < 10 ? pct.toFixed(1) : pct.toFixed(0)}%{over ? ' — превышено' : ''})
                               </span>
                             </span>
@@ -353,9 +355,9 @@ export function DiagnosticsPage() {
                           <td className="py-2.5 px-4 text-right text-text-main/80 font-mono">${cost.toFixed(5)}</td>
                           <td className="py-2.5 px-4 text-center">
                             <button
-                              onClick={() => handleResetUserLimit(row.uid, displayName)}
+                              onClick={() => void handleResetUserLimit(row.uid, displayName)}
                               disabled={resettingUid !== null}
-                              className="px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors text-[10px] font-bold"
+                              className="px-2 py-1 rounded-lg bg-accent-danger/10 border border-accent-danger/20 text-accent-danger hover:bg-accent-danger/20 disabled:opacity-50 transition-colors text-[10px] font-bold"
                             >
                               {resettingUid === row.uid ? 'Сброс...' : 'Сбросить'}
                             </button>
@@ -397,7 +399,7 @@ export function DiagnosticsPage() {
                 <span className="text-xs font-bold text-text-main/50 uppercase tracking-wider">Психологический портрет пользователя</span>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button
-                    onClick={handleGeneratePortrait}
+                    onClick={() => void handleGeneratePortrait()}
                     disabled={portraitGenerating}
                     className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-brand-soft/20 bg-brand-soft/10 text-brand-soft text-[10px] font-bold disabled:opacity-50"
                   >
@@ -405,7 +407,7 @@ export function DiagnosticsPage() {
                     {portraitGenerating ? 'Генерация…' : (portraitText ? 'Обновить' : 'Сгенерировать')}
                   </button>
                   <button
-                    onClick={handleExportProfile}
+                    onClick={() => void handleExportProfile()}
                     disabled={!portraitText}
                     className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-subtle text-text-main/60 text-[10px] font-bold disabled:opacity-40"
                   >
@@ -438,8 +440,8 @@ export function DiagnosticsPage() {
 
             <div className="pt-2">
               <button
-                onClick={handleResetCounter}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-colors"
+                onClick={() => void handleResetCounter()}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-xs font-semibold hover:bg-accent-danger/20 transition-colors"
               >
                 <RotateCcw size={13} />
                 Сбросить суточный счетчик ИИ

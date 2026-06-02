@@ -14,16 +14,18 @@ import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { AISummaryService } from '../../ai/services/AISummaryService';
 import { AIService } from '../../ai/services/AIService';
 import type { AIDocumentSummary } from '../../../core/storage/localDb';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 export function DocumentPreview({ session, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags }: {
   session: ArchiveSession | null;
   onClose: () => void;
   onContinue: (session: ArchiveSession) => void;
-  onTagsChange?: (session: ArchiveSession, tags: string[]) => void;
-  onLabelChange?: (session: ArchiveSession, labelId: string | undefined) => void;
-  onAddLabel?: (label: { name: string; color: string }) => void;
-  labels?: Label[];
-  allTags?: string[];
+  onTagsChange?: ((session: ArchiveSession, tags: string[]) => void) | undefined;
+  onLabelChange?: ((session: ArchiveSession, labelId: string | undefined) => void) | undefined;
+  onAddLabel?: ((label: { name: string; color: string }) => void) | undefined;
+  labels?: Label[] | undefined;
+  allTags?: string[] | undefined;
 }) {
   const { t, language } = useLanguage();
   const [exportOpen, setExportOpen] = useState(false);
@@ -50,7 +52,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
 
   useEffect(() => {
     if (!session?.id) { setSummary(null); return; }
-    AISummaryService.get(session.id).then(s => setSummary(s ?? null));
+    void AISummaryService.get(session.id).then(s => setSummary(s ?? null));
   }, [session?.id]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -278,85 +280,85 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                   style={{ background: 'color-mix(in srgb, var(--bg-base) 92%, var(--brand-primary) 8%)' }}
                   onClick={e => e.stopPropagation()}
                 >
-                  {currentLabel && (
-                    <button
-                      onClick={() => { onLabelChange?.(session!, undefined); setLabelPopupOpen(false); }}
-                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/40 hover:bg-text-main/5 transition-colors"
-                    >
-                      <div className="w-3 h-3 rounded-full border border-dashed border-text-main/20 shrink-0" />
-                      {t('archive_no_label')}
-                    </button>
+              {currentLabel && (
+                <Button
+                  onClick={() => { onLabelChange?.(session!, undefined); setLabelPopupOpen(false); }}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/40 hover:bg-text-main/5 transition-colors"
+                >
+                  <div className="w-3 h-3 rounded-full border border-dashed border-text-main/20 shrink-0" />
+                  {t('archive_no_label')}
+                </Button>
+              )}
+              {labels?.map(l => (
+                <Button
+                  key={l.id}
+                  onClick={() => {
+                    onLabelChange?.(session!, session!.labelId === l.id ? undefined : l.id);
+                    setLabelPopupOpen(false);
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left transition-colors",
+                    session?.labelId === l.id
+                      ? "bg-text-main/10 text-text-main"
+                      : "text-text-main/60 hover:bg-text-main/5"
                   )}
-                  {labels?.map(l => (
-                    <button
-                      key={l.id}
-                      onClick={() => {
-                        onLabelChange?.(session!, session!.labelId === l.id ? undefined : l.id);
-                        setLabelPopupOpen(false);
-                      }}
-                      className={cn(
-                        "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left transition-colors",
-                        session?.labelId === l.id
-                          ? "bg-text-main/10 text-text-main"
-                          : "text-text-main/60 hover:bg-text-main/5"
-                      )}
-                    >
-                      <div className="w-3 h-3 rounded-full shrink-0" style={{ background: l.color }} />
-                      {l.name}
-                    </button>
-                  ))}
-                  {onAddLabel && !creatingLabel && (
-                    <button
-                      onClick={() => setCreatingLabel(true)}
-                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/30 hover:text-text-main/50 hover:bg-text-main/5 transition-colors border-t border-border-subtle mt-1 pt-2.5"
-                    >
-                      + {t('archive_add_label')}
-                    </button>
-                  )}
-                  {onAddLabel && creatingLabel && (
-                    <div className="flex items-center gap-1.5 px-2 py-1.5 border-t border-border-subtle mt-1 pt-2">
-                      <input
-                        value={newLabelName}
-                        onChange={e => setNewLabelName(e.target.value)}
-                        autoFocus
-                        placeholder={t('archive_label_name_placeholder')}
-                        className="w-24 bg-transparent text-label-sm text-text-main outline-none placeholder:text-text-main/25"
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') handleCreateLabel();
-                          if (e.key === 'Escape') setCreatingLabel(false);
-                        }}
-                      />
-                      <div className="flex gap-0.5">
-                        {LABEL_PRESET_COLORS.slice(0, 6).map(c => (
-                          <button
-                            key={c}
-                            style={{ background: c }}
-                            className={cn("w-3 h-3 rounded-full transition-colors", newLabelColor === c && "ring-1 ring-offset-1 ring-offset-surface-card ring-white/40")}
-                            onClick={() => setNewLabelColor(c)}
-                          />
-                        ))}
-                      </div>
+                >
+                  <div className="w-3 h-3 rounded-full shrink-0" style={{ background: l.color }} />
+                  {l.name}
+                </Button>
+              ))}
+              {onAddLabel && !creatingLabel && (
+                <Button
+                  onClick={() => setCreatingLabel(true)}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/30 hover:text-text-main/50 hover:bg-text-main/5 transition-colors border-t border-border-subtle mt-1 pt-2.5"
+                >
+                  + {t('archive_add_label')}
+                </Button>
+              )}
+              {onAddLabel && creatingLabel && (
+                <div className="flex items-center gap-1.5 px-2 py-1.5 border-t border-border-subtle mt-1 pt-2">
+                  <input
+                    value={newLabelName}
+                    onChange={e => setNewLabelName(e.target.value)}
+                    autoFocus
+                    placeholder={t('archive_label_name_placeholder')}
+                    className="w-24 bg-transparent text-label-sm text-text-main outline-none placeholder:text-text-main/25"
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleCreateLabel();
+                      if (e.key === 'Escape') setCreatingLabel(false);
+                    }}
+                  />
+                  <div className="flex gap-0.5">
+                    {LABEL_PRESET_COLORS.slice(0, 6).map(c => (
                       <button
-                        onClick={handleCreateLabel}
-                        disabled={!newLabelName.trim()}
-                        className="text-label font-medium text-text-main/60 hover:text-text-main disabled:opacity-30"
-                      >
-                        {t('common_save')}
-                      </button>
-                      <button onClick={() => setCreatingLabel(false)} className="text-label text-text-main/30 hover:text-text-main/50">✕</button>
-                    </div>
-                  )}
+                        key={c}
+                        style={{ background: c }}
+                        className={cn("w-3 h-3 rounded-full transition-colors", newLabelColor === c && "ring-1 ring-offset-1 ring-offset-surface-card ring-white/40")}
+                        onClick={() => setNewLabelColor(c)}
+                      />
+                    ))}
+                  </div>
+                  <Button
+                    onClick={handleCreateLabel}
+                    disabled={!newLabelName.trim()}
+                    className="text-label font-medium text-text-main/60 hover:text-text-main disabled:opacity-30"
+                  >
+                    {t('common_save')}
+                  </Button>
+                  <Button onClick={() => setCreatingLabel(false)} className="text-label text-text-main/30 hover:text-text-main/50">✕</Button>
+                </div>
+              )}
                 </div>
               )}
             </div>
           )}
         </div>
-        <button
+        <IconButton
           onClick={onClose}
           className="w-10 h-10 md:w-8 md:h-8 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-colors shrink-0 cursor-pointer"
-        >
-          <X size={18} className="md:w-4 md:h-4" />
-        </button>
+          label={t('close')}
+          icon={<X size={18} className="md:w-4 md:h-4" />}
+        />
       </div>
 
       {/* Tags */}
@@ -375,13 +377,13 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
       <div className="px-6 py-3 border-b border-border-subtle">
         {summary ? (
           <div className="rounded-xl bg-brand-soft/5 border border-brand-soft/15 p-3">
-            <button
-              onClick={() => setSummaryExpanded(v => !v)}
-              className="w-full flex items-center justify-between text-xs font-medium text-brand-soft"
-            >
-              <span className="flex items-center gap-1.5"><Sparkles size={12} /> Анализ ИИ</span>
-              {summaryExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-            </button>
+        <Button
+          onClick={() => setSummaryExpanded(v => !v)}
+          className="w-full flex items-center justify-between text-xs font-medium text-brand-soft"
+        >
+          <span className="flex items-center gap-1.5"><Sparkles size={12} /> Анализ ИИ</span>
+          {summaryExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        </Button>
             {summaryExpanded && (
               <div className="mt-2 space-y-1.5 text-xs text-text-main/70">
                 <div><span className="text-text-main/40">Тональность:</span> {summary.tone}</div>
@@ -405,41 +407,43 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
             )}
           </div>
         ) : (
-          <button
-            onClick={async () => {
+          <Button
+            onClick={() => {
               if (!session?.id || !session.content || summaryLoading) return;
-              setSummaryLoading(true);
-              try {
-                const res = await AIService.summarize({ content: session.content, mood: session.mood });
-                if (res.ok) {
-                  const s: AIDocumentSummary = {
-                    documentId: session.id,
-                    tone: res.summary.tone,
-                    frequentWords: res.summary.frequentWords,
-                    insights: res.summary.insights,
-                    themes: res.summary.themes,
-                    extractedFacts: res.summary.extractedFacts,
-                    processedAt: Date.now(),
-                  };
-                  await AISummaryService.save(s);
-                  setSummary(s);
-                  const { getLocalDb } = await import('../../../core/storage/localDb');
-                  const db = await getLocalDb();
-                  const doc = await db.get('documents', session.id);
-                  if (doc) await db.put('documents', { ...doc, aiProcessed: true });
+              void (async () => {
+                setSummaryLoading(true);
+                try {
+                  const res = await AIService.summarize({ content: session.content, mood: session.mood });
+                  if (res.ok) {
+                    const s: AIDocumentSummary = {
+                      documentId: session.id,
+                      tone: res.summary.tone,
+                      frequentWords: res.summary.frequentWords,
+                      insights: res.summary.insights,
+                      themes: res.summary.themes,
+                      extractedFacts: res.summary.extractedFacts,
+                      processedAt: Date.now(),
+                    };
+                    await AISummaryService.save(s);
+                    setSummary(s);
+                    const { getLocalDb } = await import('../../../core/storage/localDb');
+                    const db = await getLocalDb();
+                    const doc = await db.get('documents', session.id);
+                    if (doc) await db.put('documents', { ...doc, aiProcessed: true });
 
-                  const { AIProfileService } = await import('../../ai/services/AIProfileService');
-                  AIProfileService.generate().catch(e => console.error('[manual-portrait] failed:', e));
-                }
-              } catch { /* ignore */ }
-              setSummaryLoading(false);
+                    const { AIProfileService } = await import('../../ai/services/AIProfileService');
+                    AIProfileService.generate().catch(e => console.error('[manual-portrait] failed:', e));
+                  }
+                } catch { /* ignore */ }
+                setSummaryLoading(false);
+              })();
             }}
             disabled={summaryLoading}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-brand-soft/5 border border-brand-soft/15 text-xs text-brand-soft hover:bg-brand-soft/10 transition-colors disabled:opacity-40"
           >
             <Sparkles size={12} />
             {summaryLoading ? 'Генерация...' : 'Сгенерировать анализ ИИ'}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -454,23 +458,23 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
 
       {/* Actions */}
       <div className="p-5 border-t border-border-subtle flex gap-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--bottom-nav-height, 72px) + 8px)' }}>
-        <button
+        <Button
           onClick={() => onContinue(session)}
           className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-text-main text-surface-base text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
         >
           <ArrowRight size={14} />
           {t('archive_continue_writing')}
-        </button>
+        </Button>
 
         <div className="relative" ref={exportRef}>
-          <button
+          <Button
             onClick={() => setExportOpen(!exportOpen)}
             className="flex items-center gap-1.5 px-3.5 h-11 rounded-xl bg-surface-card border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-surface-elevated transition-colors text-sm cursor-pointer"
             title={t('archive_export')}
           >
             <Download size={14} />
             <ChevronDown size={12} className={cn("transition-transform", exportOpen && "rotate-180")} />
-          </button>
+          </Button>
 
           <AnimatePresence>
             {exportOpen && (
@@ -482,16 +486,16 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                 style={{ background: 'var(--bg-elevated)' }}
               >
                 {exportFormats.map(fmt => (
-                  <button
+                  <Button
                     key={fmt.label}
-                    onClick={async () => {
+                    onClick={() => {
                       setExportOpen(false);
-                      await fmt.action();
+                      void fmt.action();
                     }}
                     className="w-full text-left px-4 py-2.5 text-sm text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors cursor-pointer"
                   >
                     {fmt.label}
-                  </button>
+                  </Button>
                 ))}
               </motion.div>
             )}

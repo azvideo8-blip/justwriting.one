@@ -56,7 +56,7 @@ export function buildMarkdownContent(session: ArchiveSession, s: ExportStrings):
 async function downloadBlob(content: string | Blob, type: string, filename: string): Promise<void> {
   const blob = content instanceof Blob ? content : new Blob([content], { type });
   
-  if (typeof navigator !== 'undefined' && navigator.canShare && navigator.share) {
+  if (typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && typeof navigator.share === 'function') {
     try {
       const file = new File([blob], filename, { type });
       if (navigator.canShare({ files: [file] })) {
@@ -89,12 +89,12 @@ export function exportAsTxt(session: ArchiveSession, s: ExportStrings): void {
     '',
     session.content || '',
   ].join('\n');
-  downloadBlob(content, 'text/plain;charset=utf-8', getFilename(session, 'txt', s));
+  void downloadBlob(content, 'text/plain;charset=utf-8', getFilename(session, 'txt', s));
 }
 
 export function exportAsMd(session: ArchiveSession, s: ExportStrings): void {
   const content = buildMarkdownContent(session, s);
-  downloadBlob(content, 'text/markdown;charset=utf-8', getFilename(session, 'md', s));
+  void downloadBlob(content, 'text/markdown;charset=utf-8', getFilename(session, 'md', s));
 }
 
 export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
@@ -143,14 +143,14 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
 
   if (isMobile) {
     const filename = getFilename(session, 'html', s);
-    if (typeof navigator !== 'undefined' && navigator.share) {
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
       const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
       const file = new File([blob], filename, { type: 'text/html' });
       const shareData: { title: string; files?: File[]; text?: string } = {
         title: session.title || s.untitled,
       };
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
         shareData.files = [file];
       } else {
         shareData.text = session.content || '';
@@ -158,16 +158,16 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
 
       navigator.share(shareData).catch(err => {
         console.error('[ArchiveExportService] Share failed, falling back to download:', err);
-        downloadBlob(html, 'text/html;charset=utf-8', filename);
+        void downloadBlob(html, 'text/html;charset=utf-8', filename);
       });
     } else {
-      downloadBlob(html, 'text/html;charset=utf-8', filename);
+      void downloadBlob(html, 'text/html;charset=utf-8', filename);
     }
   } else {
     const win = window.open('', '_blank', 'noopener,noreferrer');
     if (!win) {
       console.warn('Popup blocked — falling back to html download');
-      downloadBlob(html, 'text/html;charset=utf-8', getFilename(session, 'html', s));
+      void downloadBlob(html, 'text/html;charset=utf-8', getFilename(session, 'html', s));
       return;
     }
     win.document.open();
@@ -222,5 +222,5 @@ export async function exportAsDocx(session: ArchiveSession, s: ExportStrings): P
   });
 
   const buffer = await Packer.toBlob(doc);
-  downloadBlob(buffer, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', getFilename(session, 'docx', s));
+  await downloadBlob(buffer, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', getFilename(session, 'docx', s));
 }

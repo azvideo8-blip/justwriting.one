@@ -8,12 +8,18 @@ import { visualizer } from 'rollup-plugin-visualizer';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(() => {
+  const plugins: import('vite').PluginOption[] = [
+    react() as import('vite').PluginOption,
+    tailwindcss() as import('vite').PluginOption,
+    ...(process.env.ANALYZE ? [visualizer({ open: true, gzipSize: true, filename: 'bundle-stats.html' }) as import('vite').PluginOption] : []),
+  ];
+  const serverHmr = process.env.DISABLE_HMR !== 'true'
+    ? (process.env.VITE_HMR_SECURE === 'true'
+      ? { clientPort: 443, protocol: 'wss' as const }
+      : true)
+    : false;
   return {
-    plugins: [
-      react(),
-      tailwindcss(),
-      ...(process.env.ANALYZE ? [visualizer({ open: true, gzipSize: true, filename: 'bundle-stats.html' })] : []),
-    ],
+    plugins,
     define: {
     },
     resolve: {
@@ -25,11 +31,7 @@ export default defineConfig(() => {
       include: ['lucide-react'],
     },
     server: {
-      hmr: process.env.DISABLE_HMR !== 'true'
-        ? (process.env.VITE_HMR_SECURE === 'true'
-          ? { clientPort: 443, protocol: 'wss' }
-          : true)
-        : false,
+      hmr: serverHmr,
     },
     build: {
       target: 'es2022',

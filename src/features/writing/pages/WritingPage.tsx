@@ -101,19 +101,19 @@ function WritingPageUI() {
             sessionGroups={lifeLogGroups}
             summary={lifeLogSummary}
             onStart={() => setSetupMode('selection')}
-            onContinue={handleContinueSessionOrDoc}
+            onContinue={(s) => void handleContinueSessionOrDoc(s)}
             hasDraft={session.hasDraft}
-            restoreDraft={session.restoreDraft}
-            discardDraft={session.discardDraft}
+            restoreDraft={() => void session.restoreDraft()}
+            discardDraft={() => void session.discardDraft()}
             onRefresh={refreshLifeLog}
           />
         );
       return (
         <MobileWriteScreen
-          onPlay={handlePlay}
-          onPause={handlePause}
-          onStop={onFinishClick}
-          onNew={handleNew}
+          onPlay={() => void handlePlay()}
+          onPause={() => void handlePause()}
+          onStop={() => void onFinishClick()}
+          onNew={() => void handleNew()}
           saveStatus={session.saveStatus}
           keystrokeTrackerRef={keystrokeTrackerRef}
         />
@@ -145,7 +145,7 @@ function WritingPageUI() {
       </AnimatePresence>
       <CancelConfirmModal
         isOpen={flow.showCancelConfirm}
-        onConfirm={() => { handleCancel(); setShowCancelConfirm(false); }}
+        onConfirm={() => { void handleCancel(); setShowCancelConfirm(false); }}
         onCancel={() => setShowCancelConfirm(false)}
       />
       <WritingFinishModal
@@ -156,7 +156,7 @@ function WritingPageUI() {
         onSave={handleSave}
         onCancel={() => {
           if (sessionStatus === 'paused' && session.content) {
-            handlePlay();
+            void handlePlay();
           }
           setIsFinishModalOpen(false);
         }}

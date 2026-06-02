@@ -3,6 +3,7 @@ import { User } from 'firebase/auth';
 import { useLanguage } from '../../../core/i18n';
 import { SettingRow } from './MeScreenHelpers';
 import { useSettings } from '../../../core/settings/SettingsContext';
+import { Button } from '../../../shared/components/Button';
 
 interface MeAccountSectionProps {
   user: User | null;
@@ -28,6 +29,7 @@ export function MeAccountSection({ user, onSignOut, onSignIn }: MeAccountSection
         }}>
           {(['ru', 'en'] as const).map(lang => (
             <button
+              type="button"
               key={lang}
               onClick={() => setLanguage(lang)}
               style={{
@@ -68,67 +70,33 @@ export function MeAccountSection({ user, onSignOut, onSignIn }: MeAccountSection
       )}
 
       {isGuest ? (
-        <button
+        <Button
+          variant="brand"
+          size="md"
           onClick={onSignIn}
-          style={{
-            marginTop: 24,
-            width: '100%',
-            padding: '14px',
-            borderRadius: 14,
-            border: '1px solid oklch(0.72 0.13 155 / 0.3)',
-            background: 'oklch(0.72 0.13 155 / 0.08)',
-            color: 'var(--brand-primary)',
-            fontSize: 14,
-            fontWeight: 500,
-            cursor: 'pointer',
-            fontFamily: 'Inter, system-ui, sans-serif',
-            WebkitTapHighlightColor: 'transparent',
-          }}
+          className="mt-6 w-full py-3.5 rounded-xl border border-brand-primary/30 bg-brand-primary/8 text-brand-primary text-sm font-medium"
         >
           {t('auth_sign_in')}
-        </button>
+        </Button>
       ) : (
-        <button
+        <Button
+          variant="danger"
+          size="md"
           onClick={onSignOut}
-          style={{
-            marginTop: 24,
-            width: '100%',
-            padding: '14px',
-            borderRadius: 14,
-            border: '1px solid rgba(239,68,68,0.25)',
-            background: 'rgba(239,68,68,0.06)',
-            color: 'rgba(239,68,68,0.8)',
-            fontSize: 14,
-            fontWeight: 500,
-            cursor: 'pointer',
-            fontFamily: 'Inter, system-ui, sans-serif',
-            WebkitTapHighlightColor: 'transparent',
-          }}
+          className="mt-6 w-full py-3.5 rounded-xl border border-accent-danger/25 bg-accent-danger/6 text-accent-danger/80 text-sm font-medium"
         >
           {t('me_sign_out')}
-        </button>
+        </Button>
       )}
 
-      <button
+      <Button
+        variant="ghost"
+        size="md"
         onClick={() => openSettings('account')}
-        style={{
-          marginTop: 16,
-          width: '100%',
-          padding: '12px',
-          borderRadius: 12,
-          border: '1px solid rgba(255,255,255,0.07)',
-          background: 'rgba(255,255,255,0.03)',
-          color: 'rgba(232,236,233,0.8)',
-          fontSize: 13,
-          fontWeight: 500,
-          cursor: 'pointer',
-          textAlign: 'center',
-          fontFamily: 'Inter, system-ui, sans-serif',
-          WebkitTapHighlightColor: 'transparent',
-        }}
+        className="mt-4 w-full py-3 rounded-xl border border-white/[0.07] bg-white/[0.03] text-white/80 text-sm font-medium text-center"
       >
         {t('settings_encryption_management') || 'Настройки шифрования и аккаунта →'}
-      </button>
+      </Button>
     </div>
   );
 }

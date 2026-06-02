@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useLanguage } from '../../core/i18n';
+import { Button } from './Button';
 import { useModalEscape } from '../hooks/useModalEscape';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 
@@ -38,12 +39,12 @@ export function ConfirmModal({ isOpen, title, message, confirmLabel, cancelLabel
         <div id="confirm-modal-title" className="text-lg font-bold mb-2">{title}</div>
         <p className="text-sm text-text-main/60 mb-6">{message}</p>
         <div className="flex gap-3">
-          <button type="button" onClick={onCancel} className="flex-1 px-4 py-3 text-sm font-bold rounded-xl border border-border-subtle text-text-main hover:bg-white/5">
+          <Button type="button" onClick={onCancel} className="flex-1 px-4 py-3 text-sm font-bold rounded-xl border border-border-subtle text-text-main hover:bg-white/5">
             {cancelLabel || t('common_cancel')}
-          </button>
-          <button type="button" onClick={onConfirm} className="flex-1 px-4 py-3 text-sm font-bold rounded-xl bg-accent-danger text-white hover:bg-accent-danger/90">
+          </Button>
+          <Button type="button" onClick={onConfirm} className="flex-1 px-4 py-3 text-sm font-bold rounded-xl bg-accent-danger text-white hover:bg-accent-danger/90">
             {confirmLabel || t('finish_discard')}
-          </button>
+          </Button>
         </div>
       </motion.div>
     </div>

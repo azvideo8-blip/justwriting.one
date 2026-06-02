@@ -29,15 +29,9 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
 
   if (variant === 'mobile') {
     return (
-      <div role="group" aria-label="Writing streak calendar" style={{ display: 'flex', gap: 6, justifyContent: 'space-between' }}>
+      <div role="group" aria-label="Writing streak calendar" className="flex justify-between gap-1.5">
         {days.map((day, i) => (
-          <div key={i} style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 4,
-            flex: 1,
-          }}>
+          <div key={i} className="flex flex-col items-center gap-1 flex-1">
             <div
               role="gridcell"
               aria-label={day.hasSession ? `${day.date.toLocaleDateString()}: session written` : `${day.date.toLocaleDateString()}: no session`}
@@ -70,14 +64,10 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
               }}>
               {day.date.getDate()}
             </div>
-            <span style={{
-              fontSize: 9,
-              color: day.isToday
-                ? 'rgba(232,236,233,0.7)'
-                : 'rgba(74,81,77,1)',
-              fontFamily: 'JetBrains Mono, monospace',
-              letterSpacing: '.04em',
-            }}>
+            <span className={cn(
+              "text-[9px] font-mono tracking-[0.04em]",
+              day.isToday ? "text-text-main/70" : "text-text-main/30"
+            )}>
               {day.date.toLocaleDateString(language, { weekday: 'narrow' }).toUpperCase()}
             </span>
           </div>

@@ -3,6 +3,7 @@ import { useLanguage } from '../../../core/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { ProfileService } from '../../profile/services/ProfileService';
 import { Section } from './SettingsHelpers';
+import { Button } from '../../../shared/components/Button';
 
 interface AccountDangerSectionProps {
   userId: string;
@@ -28,37 +29,39 @@ export function AccountDangerSection({ userId }: AccountDangerSectionProps) {
         hidden={confirmReset ? true : undefined}
         style={confirmReset ? { display: 'none' } : undefined}
       >
-        <button
+        <Button
           onClick={() => setConfirmReset(true)}
-          className="w-full px-4 py-3 rounded-xl border border-red-400/25 text-sm text-red-400/70 hover:text-red-400 hover:border-red-400/40 transition-colors text-left"
+          className="w-full px-4 py-3 rounded-xl border border-accent-danger/25 text-sm text-accent-danger/70 hover:text-accent-danger hover:border-accent-danger/40 transition-colors text-left"
         >
           {t('profile_reset_achievements')}
-        </button>
+        </Button>
       </div>
       <div
         ref={resetConfirmRef}
         hidden={!confirmReset || undefined}
         style={!confirmReset ? { contentVisibility: 'hidden' } : undefined}
-        className="flex flex-col gap-3 p-4 rounded-xl border border-red-400/20 bg-red-400/5"
+        className="flex flex-col gap-3 p-4 rounded-xl border border-accent-danger/20 bg-accent-danger/5"
       >
         <span className="text-sm text-text-main/70">{t('reset_achievements_confirm')}</span>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => execute(
-              async () => {
-                await ProfileService.resetAchievements(userId);
-                localStorage.removeItem(`unlocked_achievements_${userId}`);
-                window.dispatchEvent(new Event('achievements-reset'));
-              },
-              { successMessage: t('save_success'), errorMessage: t('error_generic_action'), onSuccess: () => setConfirmReset(false) }
-            )}
-            className="px-4 py-2 rounded-xl text-sm font-bold text-red-400 border border-red-400/30 hover:bg-red-400/10 transition-colors"
+          <Button
+            onClick={() => {
+              void execute(
+                async () => {
+                  await ProfileService.resetAchievements(userId);
+                  localStorage.removeItem(`unlocked_achievements_${userId}`);
+                  window.dispatchEvent(new Event('achievements-reset'));
+                },
+                { successMessage: t('save_success'), errorMessage: t('error_generic_action'), onSuccess: () => setConfirmReset(false) }
+              );
+            }}
+            className="px-4 py-2 rounded-xl text-sm font-bold text-accent-danger border border-accent-danger/30 hover:bg-accent-danger/10 transition-colors"
           >
             {t('finish_discard')}
-          </button>
-          <button onClick={() => setConfirmReset(false)} className="text-sm text-text-main/40 hover:text-text-main/60 transition-colors">
+          </Button>
+          <Button onClick={() => setConfirmReset(false)} className="text-sm text-text-main/40 hover:text-text-main/60 transition-colors">
             {t('writing_cancel')}
-          </button>
+          </Button>
         </div>
       </div>
     </Section>

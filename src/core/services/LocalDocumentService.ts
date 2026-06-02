@@ -3,7 +3,7 @@ import { getLocalDb, LocalDocument, randomUUID } from '../storage/localDb';
 export const LocalDocumentService = {
   async createDocument(
     guestId: string,
-    data: { title: string; tags?: string[]; labelId?: string; firstSessionAt?: number; lastSessionAt?: number }
+    data: { title: string; tags?: string[] | undefined; labelId?: string | undefined; firstSessionAt?: number | undefined; lastSessionAt?: number | undefined }
   ): Promise<string> {
     const db = await getLocalDb();
     const id = `local_${randomUUID()}`;
@@ -39,7 +39,7 @@ export const LocalDocumentService = {
 
   async updateAfterSession(
     id: string,
-    data: { totalWords: number; totalDuration: number; currentVersion: number; mood?: string }
+    data: { totalWords: number; totalDuration: number; currentVersion: number; mood?: string | undefined }
   ): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction(['documents', 'profile'], 'readwrite');

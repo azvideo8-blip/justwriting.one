@@ -3,6 +3,8 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday
 import { ru, enUS } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn, getSessionDate } from '../../../core/utils/utils';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 import { Session } from '../../../types';
 import { useLanguage } from '../../../core/i18n';
 
@@ -30,10 +32,10 @@ export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate,
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <button onClick={() => onSelectMonth?.(currentMonth)} className="text-sm font-medium text-text-main px-1 capitalize transition-colors hover:text-text-main/70">{format(currentMonth, 'LLLL yyyy', { locale })}</button>
+        <Button onClick={() => onSelectMonth?.(currentMonth)} className="text-sm font-medium text-text-main px-1 capitalize transition-colors hover:text-text-main/70">{format(currentMonth, 'LLLL yyyy', { locale })}</Button>
         <div className="flex items-center gap-1">
-          <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1 rounded transition-colors text-text-main/50 hover:bg-text-main/5 hover:text-text-main"><ChevronLeft size={18} /></button>
-          <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1 rounded transition-colors text-text-main/50 hover:bg-text-main/5 hover:text-text-main"><ChevronRight size={18} /></button>
+          <IconButton onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1 rounded transition-colors text-text-main/50 hover:bg-text-main/5 hover:text-text-main" label="Previous month" icon={<ChevronLeft size={18} />} />
+          <IconButton onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1 rounded transition-colors text-text-main/50 hover:bg-text-main/5 hover:text-text-main" label="Next month" icon={<ChevronRight size={18} />} />
         </div>
       </div>
 
@@ -51,13 +53,13 @@ export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate,
           const isSelected = isSameDay(day, selectedDate);
           const today = isToday(day);
           return (
-            <button 
+            <Button
               key={day.toString()}
               onClick={() => onSelectDate(day)}
               className={cn(
                 "aspect-square rounded-lg flex items-center justify-center text-sm transition-colors relative flex-col gap-0",
-                hasSessions 
-                  ? "text-text-main/80 font-medium" 
+                hasSessions
+                  ? "text-text-main/80 font-medium"
                   : "text-text-main/20 hover:text-text-main/40",
                 today && !hasSessions && "bg-text-main/10 border border-text-main/20 rounded-lg text-text-main",
                 isSelected && "ring-2 ring-text-main/30"
@@ -75,7 +77,7 @@ export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate,
                   ))}
                 </div>
               )}
-            </button>
+            </Button>
           );
         })}
       </div>

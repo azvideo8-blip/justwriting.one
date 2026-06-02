@@ -28,7 +28,7 @@ export function AdminUsersTable({ users }: AdminUsersTableProps) {
               <span className={cn(
                 "px-2 py-1 rounded-lg text-label-sm font-bold uppercase tracking-wider",
                 u.role === 'admin' 
-                  ? "bg-red-500/20 text-red-400" 
+                  ? "bg-accent-danger/20 text-accent-danger" 
                   : "bg-text-main/10 text-text-main/50"
               )}>
                 {u.role || 'user'}

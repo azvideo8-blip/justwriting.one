@@ -11,12 +11,12 @@ export interface LocalDocument {
   sessionsCount: number;
   firstSessionAt: number;
   lastSessionAt: number;
-  isPublic?: boolean;
+  isPublic?: boolean | undefined;
   tags: string[];
-  labelId?: string;
-  linkedCloudId?: string;
-  mood?: string;
-  aiProcessed?: boolean;
+  labelId?: string | undefined;
+  linkedCloudId?: string | undefined;
+  mood?: string | undefined;
+  aiProcessed?: boolean | undefined;
 }
 
 export interface LocalVersion {
@@ -30,12 +30,12 @@ export interface LocalVersion {
   charsAdded: number;
   duration: number;
   wpm: number;
-  goalWords?: number;
-  goalTime?: number;
-  goalReached?: boolean;
+  goalWords?: number | undefined;
+  goalTime?: number | undefined;
+  goalReached?: boolean | undefined;
   savedAt: number;
   sessionStartedAt: number;
-  mood?: string;
+  mood?: string | undefined;
 }
 
 export interface LocalProfile {
@@ -53,15 +53,15 @@ export interface LocalDraft {
   seconds: number;
   wpm: number;
   wordCount: number;
-  initialWordCount?: number;
-  activeSessionId?: string | null;
-  pinnedThoughts?: string[];
-  sessionStartTime?: number | null;
-  accumulatedDuration?: number;
-  totalPauseSeconds?: number;
-  savedDocumentId?: string | null;
-  tags?: string[];
-  labelId?: string;
+  initialWordCount?: number | undefined;
+  activeSessionId?: string | null | undefined;
+  pinnedThoughts?: string[] | undefined;
+  sessionStartTime?: number | null | undefined;
+  accumulatedDuration?: number | undefined;
+  totalPauseSeconds?: number | undefined;
+  savedDocumentId?: string | null | undefined;
+  tags?: string[] | undefined;
+  labelId?: string | undefined;
   updatedAt: number;
 }
 
@@ -78,11 +78,11 @@ export interface AIDialogue {
   personaId: string;
   personaName: string;
   personaEmoji: string;
-  documentId?: string;
-  messages: { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' }[];
+  documentId?: string | undefined;
+  messages: { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' | undefined }[];
   createdAt: number;
   updatedAt: number;
-  archivedAt?: number;
+  archivedAt?: number | undefined;
 }
 
 export interface AIDocumentSummary {

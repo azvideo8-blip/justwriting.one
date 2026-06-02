@@ -16,6 +16,7 @@ import { ExportMenu } from './ExportMenu';
 import { TagsSection } from './TagsSection';
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
 import { MobileNoteActionsSheet } from '../../archive/components/MobileNoteActionsSheet';
+import { Button } from '../../../shared/components/Button';
 
 export const SessionCard = React.memo(function SessionCard({
   session,
@@ -30,20 +31,20 @@ export const SessionCard = React.memo(function SessionCard({
   onLabelChange,
 }: {
   session: Session & {
-    _isLocal?: boolean;
-    _linkedCloudId?: string;
-    _hasCloudCopy?: boolean;
-    _hasPendingSync?: boolean;
+    _isLocal?: boolean | undefined;
+    _linkedCloudId?: string | undefined;
+    _hasCloudCopy?: boolean | undefined;
+    _hasPendingSync?: boolean | undefined;
   },
-  onContinue?: () => void,
-  labels?: Label[],
-  searchQuery?: string,
-  onDeleteSuccess?: (sessionId: string) => void,
-  userId?: string,
-  linkedCloudId?: string,
-  hasCloudCopy?: boolean,
-  onPreview?: () => void,
-  onLabelChange?: (session: Session, labelId: string | undefined) => void,
+  onContinue?: (() => void) | undefined,
+  labels?: Label[] | undefined,
+  searchQuery?: string | undefined,
+  onDeleteSuccess?: ((sessionId: string) => void) | undefined,
+  userId?: string | undefined,
+  linkedCloudId?: string | undefined,
+  hasCloudCopy?: boolean | undefined,
+  onPreview?: (() => void) | undefined,
+  onLabelChange?: ((session: Session, labelId: string | undefined) => void) | undefined,
 }) {
   const { t } = useLanguage();
   const { execute } = useServiceAction();
@@ -58,7 +59,7 @@ export const SessionCard = React.memo(function SessionCard({
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const triggerVibration = () => {
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
       try {
         navigator.vibrate(60);
       } catch {
@@ -127,7 +128,7 @@ export const SessionCard = React.memo(function SessionCard({
   const label = labels?.find(l => l.id === session.labelId);
 
   const handleDelete = () => {
-    execute(
+    void execute(
       () => deleteSession(userId || '', session),
       {
         successMessage: t('session_deleted'),
@@ -233,11 +234,13 @@ export const SessionCard = React.memo(function SessionCard({
             )}
 
             <div className="flex items-center flex-wrap gap-2 relative">
-              <button
+              <Button
+                variant={showExportMenu ? 'primary' : 'ghost'}
+                size="sm"
                 ref={exportButtonRef}
                 onClick={() => setShowExportMenu(!showExportMenu)}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label-sm font-bold uppercase tracking-wider transition-colors",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label-sm font-bold uppercase tracking-wider",
                   showExportMenu
                     ? "bg-text-main text-surface-base"
                     : "bg-surface-base text-text-main/70 hover:bg-white/10"
@@ -245,7 +248,7 @@ export const SessionCard = React.memo(function SessionCard({
               >
                 <Share2 size={12} />
                 {t('session_export')}
-              </button>
+              </Button>
 
               {showExportMenu && (
                 <ExportMenu
@@ -257,31 +260,37 @@ export const SessionCard = React.memo(function SessionCard({
 
               {(auth.currentUser?.uid === session.userId || session._isLocal) && (
                 <>
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setIsEditing(!isEditing)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label-sm font-bold uppercase tracking-wider transition-colors bg-surface-base text-text-main/70 hover:bg-white/10"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label-sm font-bold uppercase tracking-wider bg-surface-base text-text-main/70 hover:bg-white/10"
                   >
                     <PenLine size={12} />
                     {t('session_edit')}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setShowDeleteConfirm(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label-sm font-bold uppercase tracking-wider transition-colors hover:text-red-500 bg-surface-base text-text-main/70 hover:bg-white/10"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label-sm font-bold uppercase tracking-wider hover:text-accent-danger bg-surface-base text-text-main/70 hover:bg-white/10"
                   >
                     <Trash2 size={12} />
                     {t('session_delete')}
-                  </button>
+                  </Button>
                 </>
               )}
 
               {!isMobile && session.content.length > 200 && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setExpanded(!expanded)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label-sm font-bold uppercase tracking-wider transition-colors bg-surface-base text-text-main/70 hover:bg-white/10"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-label-sm font-bold uppercase tracking-wider bg-surface-base text-text-main/70 hover:bg-white/10"
                 >
                   {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                   {expanded ? t('session_collapse') : t('session_expand')}
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -319,13 +328,15 @@ export const SessionCard = React.memo(function SessionCard({
           <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t relative z-10 border-border-subtle">
             <TagsSection session={session} isEditing={isEditing} />
             {onContinue && (auth.currentUser?.uid === session.userId || session._isLocal) && (
-              <button
+              <Button
+                variant="primary"
+                size="md"
                 onClick={onContinue}
-                className="flex items-center gap-2 px-6 py-2 rounded-2xl font-bold transition-opacity text-sm bg-text-main text-surface-base hover:opacity-90"
+                className="flex items-center gap-2 px-6 py-2 rounded-2xl font-bold text-sm"
               >
                 <PenLine size={16} />
                 {t('session_continue')}
-              </button>
+              </Button>
             )}
           </div>
         )}

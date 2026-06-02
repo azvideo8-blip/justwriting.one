@@ -14,13 +14,13 @@ import { Sparkles } from 'lucide-react';
 interface GridNoteCardProps {
   session: ArchiveSession;
   onClick: () => void;
-  searchQuery?: string;
-  labels?: Label[];
-  allTags?: string[];
-  onTagsChange?: (session: ArchiveSession, tags: string[]) => void;
-  onLabelChange?: (session: ArchiveSession, labelId: string | undefined) => void;
-  aiProcessed?: boolean;
-  onAIClick?: () => void;
+  searchQuery?: string | undefined;
+  labels?: Label[] | undefined;
+  allTags?: string[] | undefined;
+  onTagsChange?: ((session: ArchiveSession, tags: string[]) => void) | undefined;
+  onLabelChange?: ((session: ArchiveSession, labelId: string | undefined) => void) | undefined;
+  aiProcessed?: boolean | undefined;
+  onAIClick?: (() => void) | undefined;
 }
 
 export const GridNoteCard = memo<GridNoteCardProps>(({

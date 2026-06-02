@@ -9,7 +9,7 @@ interface ArchiveSidebarProps {
   filteredByFilters: ArchiveSession[];
   streakDays: number;
   statsTitle: string;
-  onReset?: () => void;
+  onReset?: (() => void) | undefined;
   sessions: ArchiveSession[];
   sessionsByDate: Record<string, number>;
   selectedDate: Date | null;

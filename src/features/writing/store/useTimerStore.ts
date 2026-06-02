@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { TimerStatus, SessionType } from './types';
 
-interface TimerState {
+export interface TimerStateData {
   status: TimerStatus;
   seconds: number;
   sessionStartSeconds: number;
@@ -21,23 +21,25 @@ interface TimerState {
   sessionType: SessionType;
   initialDuration: number;
   sessionStartWords: number;
+}
 
+interface TimerState extends TimerStateData {
   getElapsedSeconds: () => number;
   getSessionSeconds: () => number;
   setStatus: (status: TimerStatus) => void;
   setSessionStart: (wordCount: number) => void;
   pauseSession: () => void;
   resumeSession: () => void;
+  checkGoals: (wordCount?: number) => void;
   setTimerDuration: (duration: number) => void;
   setWordGoal: (goal: number, wordCount?: number) => void;
-  setTargetTime: (time: string | null) => void;
+  setTargetTime: (targetTime: string | null) => void;
   setTimeGoalReached: (reached: boolean) => void;
   setWordGoalReached: (reached: boolean) => void;
   setSessionType: (type: SessionType) => void;
-  setInitialDuration: (duration: number) => void;
-  setAccumulatedDuration: (d: number) => void;
+  setInitialDuration: (seconds: number) => void;
+  setAccumulatedDuration: (seconds: number) => void;
   startFreeSession: (wordCount: number) => void;
-  checkGoals: (wordCount?: number) => void;
 }
 
 export const useTimerStore = create<TimerState>((set, get) => ({

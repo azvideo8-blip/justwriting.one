@@ -4,6 +4,8 @@ import { Target, Timer, X, Check } from 'lucide-react';
 import { useLanguage } from '../../../core/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useTimerStore } from '../store/useTimerStore';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 interface MobileGoalSheetProps {
   isOpen: boolean;
@@ -23,7 +25,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
   if (!isOpen) return null;
 
   const triggerVibration = () => {
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
       try {
         navigator.vibrate(60);
       } catch {
@@ -86,12 +88,12 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
           <span className="text-sm font-bold text-text-main/30 uppercase tracking-widest">
             {t('settings_goals') || 'Цели'}
           </span>
-          <button
+          <IconButton
             onClick={onClose}
             className="w-8 h-8 rounded-full bg-white/[0.04] border-none flex items-center justify-center text-text-main/40 hover:text-text-main/70 cursor-pointer"
-          >
-            <X size={18} />
-          </button>
+            label={t('close')}
+            icon={<X size={18} />}
+          />
         </div>
 
         <div className="px-6 pb-8 overflow-y-auto no-scrollbar flex-1 space-y-6">
@@ -105,7 +107,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
             {/* Presets Grid */}
             <div className="grid grid-cols-4 gap-2">
               {WORD_PRESETS.map((words) => (
-                <button
+                <Button
                   key={words}
                   onClick={() => handleSelectWords(words)}
                   className={cn(
@@ -116,7 +118,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                   )}
                 >
                   {words === 0 ? t('archive_stats_reset') || 'Без цели' : `${words} сл.`}
-                </button>
+                </Button>
               ))}
             </div>
 
@@ -134,12 +136,12 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                 className="flex-1 bg-transparent border-none outline-none py-2 text-sm text-text-main"
               />
               {customWords && (
-                <button
+                <IconButton
                   onClick={handleApplyCustomWords}
                   className="w-7 h-7 rounded-lg bg-rose-400/10 text-rose-400 flex items-center justify-center border-none cursor-pointer"
-                >
-                  <Check size={14} />
-                </button>
+                  label={t('apply') || 'Apply'}
+                  icon={<Check size={14} />}
+                />
               )}
             </div>
           </div>
@@ -154,7 +156,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
             {/* Presets Grid */}
             <div className="grid grid-cols-4 gap-2">
               {TIME_PRESETS.map((mins) => (
-                <button
+                <Button
                   key={mins}
                   onClick={() => handleSelectMins(mins)}
                   className={cn(
@@ -165,7 +167,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                   )}
                 >
                   {mins === 0 ? t('archive_stats_reset') || 'Без цели' : `${mins} мин.`}
-                </button>
+                </Button>
               ))}
             </div>
 
@@ -183,25 +185,25 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                 className="flex-1 bg-transparent border-none outline-none py-2 text-sm text-text-main"
               />
               {customMins && (
-                <button
+                <IconButton
                   onClick={handleApplyCustomMins}
                   className="w-7 h-7 rounded-lg bg-blue-400/10 text-blue-400 flex items-center justify-center border-none cursor-pointer"
-                >
-                  <Check size={14} />
-                </button>
+                  label={t('apply') || 'Apply'}
+                  icon={<Check size={14} />}
+                />
               )}
             </div>
           </div>
 
           {/* Close Button */}
           <div className="pt-2">
-            <button
+            <Button
               onClick={onClose}
               style={{ background: 'var(--brand-primary)' }}
               className="w-full py-3.5 rounded-2xl font-bold text-sm text-surface-base border-none cursor-pointer text-center active:scale-[0.98] transition-colors"
             >
               {t('save_success') || 'Готово'}
-            </button>
+            </Button>
           </div>
         </div>
       </motion.div>

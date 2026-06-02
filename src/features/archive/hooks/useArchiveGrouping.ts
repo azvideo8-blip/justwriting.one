@@ -6,9 +6,9 @@ export function useArchiveGrouping(filteredSessions: ArchiveSession[]) {
   const groupedSessions = useMemo(() => {
     return filteredSessions.reduce((acc, session) => {
       const d = session.sessionStartTime ? new Date(session.sessionStartTime) : (session.createdAt instanceof Date ? session.createdAt : null);
-      if (!d) return acc;
+      if (d == null) return acc;
       const dateKey = format(d, 'yyyy-MM-dd');
-      if (!acc[dateKey]) acc[dateKey] = [];
+      if (!(dateKey in acc)) acc[dateKey] = [];
       acc[dateKey].push(session);
       return acc;
     }, {} as Record<string, ArchiveSession[]>);

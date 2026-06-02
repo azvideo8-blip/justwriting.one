@@ -1,8 +1,8 @@
 import { Session } from '../../../shared/types/common';
 
 export interface LifeLogDocument {
-  localId?: string;
-  cloudId?: string;
+  localId?: string | undefined;
+  cloudId?: string | undefined;
   title: string;
   totalWords: number;
   totalDuration: number;
@@ -11,9 +11,9 @@ export interface LifeLogDocument {
   firstSessionAt: number;
   lastSessionAt: number;
   tags: string[];
-  labelId?: string;
+  labelId?: string | undefined;
   storage: { local: boolean; cloud: boolean };
-  mood?: string;
+  mood?: string | undefined;
 }
 
 export interface DailySummary {

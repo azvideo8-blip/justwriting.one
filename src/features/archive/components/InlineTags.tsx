@@ -6,7 +6,7 @@ import { cn } from '../../../core/utils/utils';
 interface InlineTagsProps {
   tags: string[];
   onChange: (tags: string[]) => void;
-  allTags?: string[];
+  allTags?: string[] | undefined;
 }
 
 export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
@@ -53,7 +53,7 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
           #{tag}
           <button
             onClick={e => removeTag(e, tag)}
-            className="text-text-main/40 hover:text-red-400 transition-colors opacity-100 md:opacity-0 md:group-hover/tag:opacity-100 -mr-0.5 p-1.5 md:p-0.5 flex items-center justify-center"
+            className="text-text-main/40 hover:text-accent-danger transition-colors opacity-100 md:opacity-0 md:group-hover/tag:opacity-100 -mr-0.5 p-1.5 md:p-0.5 flex items-center justify-center"
             style={{ touchAction: 'manipulation' }}
             title="Remove Tag"
           >

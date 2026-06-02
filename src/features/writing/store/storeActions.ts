@@ -2,6 +2,9 @@ import { useContentStore, clearWordCalcTimer } from './useContentStore';
 import { useTimerStore } from './useTimerStore';
 import { useSessionMetaStore } from './useSessionMetaStore';
 import { TimerStatus, SessionType } from './types';
+import type { ContentStateData } from './useContentStore';
+import type { TimerStateData } from './useTimerStore';
+import type { SessionMetaStateData } from './useSessionMetaStore';
 
 export function getContentState() { return useContentStore.getState(); }
 export function getTimerState() { return useTimerStore.getState(); }
@@ -42,7 +45,7 @@ export { resetSession, resetSession as resetAndClear };
 
 export function loadDraftIntoStore(draft: {
   content: string; title: string; wordCount: number;
-  savedDocumentId?: string; accumulatedDuration?: number;
+  savedDocumentId?: string | undefined; accumulatedDuration?: number | undefined;
 }) {
   useContentStore.setState({
     content: draft.content,
@@ -78,40 +81,40 @@ export function resetAllSessionMetadata() {
 }
 
 export function setSessionConfig(config: Record<string, unknown>) {
-  const contentKeys = new Set(['content', 'title', 'pinnedThoughts', 'wordCount',
+  const contentKeys = new Set<keyof ContentStateData>(['content', 'title', 'pinnedThoughts', 'wordCount',
     'initialWordCount', 'wpm', 'wordSnapshots', 'lastWordCount', 'wpmHistory', 'tags', 'labelId']);
-  const timerKeys = new Set(['status', 'seconds', 'sessionStartSeconds', '_startWallMs', '_accumulatedMs', 'sessionStartWallMs', 'sessionStartAccMs', 'sessionStartWords',
+  const timerKeys = new Set<keyof TimerStateData>(['status', 'seconds', 'sessionStartSeconds', '_startWallMs', '_accumulatedMs', 'sessionStartWallMs', 'sessionStartAccMs', 'sessionStartWords',
     'timerDuration', 'wordGoal', 'targetTime', 'timeGoalReached', 'wordGoalReached',
     'overtimeSeconds', 'accumulatedDuration', 'totalPauseSeconds', '_pauseWallStart',
     'sessionType', 'initialDuration']);
-  const metaKeys = new Set(['activeSessionId', 'savedDocumentId', 'sessionStartTime']);
+  const metaKeys = new Set<keyof SessionMetaStateData>(['activeSessionId', 'savedDocumentId', 'sessionStartTime']);
 
   if (import.meta.env.DEV) {
-    const allKnown = new Set([...contentKeys, ...timerKeys, ...metaKeys]);
+    const allKnown = new Set<string>([...contentKeys, ...timerKeys, ...metaKeys]);
     const unknown = Object.keys(config).filter(k => !allKnown.has(k));
     if (unknown.length > 0) {
       console.warn('[setSessionConfig] Unknown keys dropped:', unknown);
     }
   }
 
-  const contentPart: Record<string, unknown> = {};
-  const timerPart: Record<string, unknown> = {};
-  const metaPart: Record<string, unknown> = {};
+  const contentPart: Partial<ContentStateData> = {};
+  const timerPart: Partial<TimerStateData> = {};
+  const metaPart: Partial<SessionMetaStateData> = {};
 
   for (const [key, value] of Object.entries(config)) {
-    if (contentKeys.has(key)) contentPart[key] = value;
-    else if (timerKeys.has(key)) timerPart[key] = value;
-    else if (metaKeys.has(key)) metaPart[key] = value;
+    if (contentKeys.has(key as keyof ContentStateData)) (contentPart as Record<string, unknown>)[key] = value;
+    else if (timerKeys.has(key as keyof TimerStateData)) (timerPart as Record<string, unknown>)[key] = value;
+    else if (metaKeys.has(key as keyof SessionMetaStateData)) (metaPart as Record<string, unknown>)[key] = value;
   }
 
   if (Object.keys(contentPart).length > 0) {
     if (contentPart.pinnedThoughts && !Array.isArray(contentPart.pinnedThoughts)) contentPart.pinnedThoughts = [];
     if (contentPart.tags && !Array.isArray(contentPart.tags)) contentPart.tags = [];
-    if (Array.isArray(contentPart.tags)) contentPart.tags = (contentPart.tags as string[]).slice(0, 10).map(t => String(t).slice(0, 50));
-    useContentStore.setState(contentPart as Partial<ReturnType<typeof createContentDefaults>>);
+    if (Array.isArray(contentPart.tags)) contentPart.tags = contentPart.tags.slice(0, 10).map(t => String(t).slice(0, 50));
+    useContentStore.setState(contentPart);
   }
-  if (Object.keys(timerPart).length > 0) useTimerStore.setState(timerPart as Partial<typeof TIMER_DEFAULTS>);
-  if (Object.keys(metaPart).length > 0) useSessionMetaStore.setState(metaPart as Partial<typeof META_DEFAULTS>);
+  if (Object.keys(timerPart).length > 0) useTimerStore.setState(timerPart);
+  if (Object.keys(metaPart).length > 0) useSessionMetaStore.setState(metaPart);
 }
 
 // wordGoalReached is now computed inside checkGoals() in useTimerStore

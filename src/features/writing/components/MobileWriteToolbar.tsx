@@ -7,6 +7,7 @@ import { formatTime } from '../../../core/utils/formatTime';
 import { getWpmHex } from '../utils/wpmColors';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { motion, AnimatePresence } from 'motion/react';
+import { Button } from '../../../shared/components/Button';
 
 function DottedProgress({ pct, color }: { pct: number; color: string }) {
   const n = 16;
@@ -57,12 +58,12 @@ interface MobileWriteToolbarProps {
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
-  onGoalClick?: () => void;
-  streamMode?: boolean;
-  onToggleStreamMode?: () => void;
-  onNew?: () => void;
-  isRunning?: boolean;
-  keyboardHeight?: number;
+  onGoalClick?: (() => void) | undefined;
+  streamMode?: boolean | undefined;
+  onToggleStreamMode?: (() => void) | undefined;
+  onNew?: (() => void) | undefined;
+  isRunning?: boolean | undefined;
+  keyboardHeight?: number | undefined;
 }
 
 export function MobileWriteToolbar({
@@ -238,6 +239,7 @@ export function MobileWriteToolbar({
       <div style={{ display: 'flex', gap: 6 }}>
 
         <button
+          type="button"
           onClick={isRunning ? onPause : onPlay}
           style={{
             width: 44, height: 44,
@@ -263,6 +265,7 @@ export function MobileWriteToolbar({
         </button>
 
         <button
+          type="button"
           onClick={onStop}
           disabled={isIdle}
           style={{
@@ -282,6 +285,7 @@ export function MobileWriteToolbar({
 
         {onNew && isIdle && (
           <button
+            type="button"
             onClick={onNew}
             style={{
               width: 44, height: 44,
@@ -327,21 +331,25 @@ export function MobileWriteToolbar({
                 </p>
               </div>
               <div className="flex gap-3">
-                <button
+                <Button
+                  variant="ghost"
+                  size="md"
                   onClick={() => setShowExitConfirm(false)}
-                  className="flex-1 py-3.5 rounded-2xl border border-border-subtle text-text-main font-bold text-sm bg-transparent cursor-pointer active:scale-98 transition-colors min-h-[44px]"
+                  className="flex-1 py-3.5 rounded-2xl border border-border-subtle text-text-main font-bold text-sm min-h-[44px]"
                 >
                   {t('writing_cancel') || 'Cancel'}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="danger"
+                  size="md"
                   onClick={() => {
                     setShowExitConfirm(false);
                     onToggleStreamMode?.();
                   }}
-                  className="flex-1 py-3.5 rounded-2xl bg-accent-danger text-white font-bold text-sm border-none cursor-pointer active:scale-98 transition-colors min-h-[44px]"
+                  className="flex-1 py-3.5 rounded-2xl font-bold text-sm text-white min-h-[44px]"
                 >
                   {t('storage_delete_confirm') || 'Exit'}
-                </button>
+                </Button>
               </div>
             </motion.div>
           </div>

@@ -44,7 +44,7 @@ export function ThemeBackground() {
   }, []);
 
   const config = GRADIENT_THEMES[themeId];
-  if (!config) return null;
+  if (!(themeId in GRADIENT_THEMES)) return null;
 
   const shouldAnimate = !reducedMotion && isVisible && isWritingPage;
 

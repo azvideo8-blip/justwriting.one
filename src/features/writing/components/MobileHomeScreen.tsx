@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '../../../core/utils/utils';
 import { Settings } from 'lucide-react';
 import { useSettings } from '../../../core/settings/SettingsContext';
+import { IconButton } from '../../../shared/components/IconButton';
+import { Button } from '../../../shared/components/Button';
 
 interface MobileHomeScreenProps {
   userId: string;
@@ -81,15 +83,19 @@ export function MobileHomeScreen({
     }
   };
 
-  const handleTouchEnd = async () => {
+  const handleTouchEnd = () => {
     if (touchStartY === null || refreshing) return;
     if (pullOffset > 50 && onRefresh) {
       setRefreshing(true);
-      try {
-        await onRefresh();
-      } catch (e) {
-        console.error('Refresh failed:', e);
-      } finally {
+      const refreshResult = onRefresh();
+      if (refreshResult) {
+        refreshResult.then(() => {
+          setRefreshing(false);
+        }).catch((e: unknown) => {
+          console.error('Refresh failed:', e);
+          setRefreshing(false);
+        });
+      } else {
         setRefreshing(false);
       }
     }
@@ -171,60 +177,46 @@ export function MobileHomeScreen({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <button
+          <IconButton
+            icon={
+              <div style={{
+                width: 32, height: 32,
+                borderRadius: '50%',
+                background: 'var(--surface-elevated)',
+                border: '1px solid var(--border-light)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--text-muted)',
+              }}>
+                <Settings size={15} />
+              </div>
+            }
+            label={t('nav_settings')}
             onClick={() => openSettings()}
-            style={{
-              width: 44, height: 44,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'transparent',
-              border: 'none',
-              padding: 0,
-              cursor: 'pointer',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-            aria-label={t('nav_settings')}
-          >
-            <div style={{
-              width: 32, height: 32,
-              borderRadius: '50%',
-              background: 'var(--surface-elevated)',
-              border: '1px solid var(--border-light)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--text-muted)',
-            }}>
-              <Settings size={15} />
-            </div>
-          </button>
+            className="w-11 h-11"
+          />
 
-          <button
-            onClick={() => navigate('/me')}
-            style={{
-              width: 44, height: 44,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'transparent',
-              border: 'none',
-              padding: 0,
-              cursor: 'pointer',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-            aria-label={t('nav_me')}
-          >
-            <div style={{
-              width: 32, height: 32,
-              borderRadius: '50%',
-              background: 'var(--surface-elevated)',
-              border: '1px solid var(--border-light)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--text-muted)',
-            }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="1.6"
-                strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="8" r="4"/>
-                <path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>
-              </svg>
-            </div>
-          </button>
+          <IconButton
+            icon={
+              <div style={{
+                width: 32, height: 32,
+                borderRadius: '50%',
+                background: 'var(--surface-elevated)',
+                border: '1px solid var(--border-light)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--text-muted)',
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="1.6"
+                  strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="8" r="4"/>
+                  <path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>
+                </svg>
+              </div>
+            }
+            label={t('nav_me')}
+            onClick={() => void navigate('/me')}
+            className="w-11 h-11"
+          />
         </div>
       </div>
 
@@ -243,35 +235,26 @@ export function MobileHomeScreen({
             {t('draft_restore_prompt')}
           </span>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={restoreDraft}
+              className="rounded-xl font-semibold text-xs text-accent-warning"
               style={{
                 background: 'color-mix(in srgb, var(--accent-warning) 15%, transparent)',
                 border: '1px solid color-mix(in srgb, var(--accent-warning) 30%, transparent)',
-                borderRadius: 10,
-                padding: '6px 14px',
-                fontSize: 12,
-                fontWeight: 600,
-                color: 'var(--accent-warning)',
-                cursor: 'pointer',
               }}
             >
               {t('draft_restore')}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={discardDraft}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                padding: '6px 12px',
-                fontSize: 12,
-                fontWeight: 500,
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-              }}
+              className="text-xs text-text-muted"
             >
               {t('draft_discard')}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -309,6 +292,7 @@ export function MobileHomeScreen({
         gap: 16,
       }}>
         <button
+          type="button"
           onClick={onStart}
           style={{
             width: 140, height: 140,
@@ -357,7 +341,7 @@ export function MobileHomeScreen({
       <div style={{
         paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)',
       }}>
-        {summary && (summary.totalWords > 0 || summary.totalMinutes > 0) && (
+        {(summary.totalWords > 0 || summary.totalMinutes > 0) && (
           <div style={{
             display: 'flex',
             gap: 20,
@@ -429,6 +413,7 @@ export function MobileHomeScreen({
             }}>
               {recentSessions.map(session => (
                 <button
+                  type="button"
                   key={session.id}
                   onClick={() => onContinue(session)}
                   style={{

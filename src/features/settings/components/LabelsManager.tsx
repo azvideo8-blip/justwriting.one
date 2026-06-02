@@ -3,6 +3,8 @@ import { X } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { Label } from '../../../types';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 
 
@@ -31,9 +33,7 @@ export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerPr
         <div key={label.id} className="flex items-center gap-3 py-2 px-4 rounded-xl border border-border-subtle">
           <div className="w-3 h-3 rounded-full shrink-0" style={{ background: label.color }} />
           <span className="text-sm text-text-main flex-1">{label.name}</span>
-          <button onClick={() => removeLabel(label.id)} className="p-1">
-            <X size={14} className="text-text-main/30 hover:text-red-400 transition-colors" />
-          </button>
+          <IconButton onClick={() => removeLabel(label.id)} className="p-1" label="Remove label" icon={<X size={14} className="text-text-main/30 hover:text-accent-danger transition-colors" />} />
         </div>
       ))}
 
@@ -83,28 +83,28 @@ export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerPr
             </div>
           </div>
           <div className="flex gap-2">
-            <button
+            <Button
               onClick={handleAdd}
               disabled={!name.trim()}
               className="px-4 py-2 rounded-lg bg-text-main text-surface-base text-sm font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Add
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => { setAdding(false); setName(''); }}
               className="px-4 py-2 rounded-lg text-sm text-text-main/50 hover:text-text-main transition-colors"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
-        <button
+        <Button
           onClick={() => setAdding(true)}
           className="w-full px-4 py-3 rounded-xl border border-dashed border-border-subtle text-sm text-text-main/40 hover:text-text-main/60 hover:border-border-subtle/80 transition-colors"
         >
           + Add label
-        </button>
+        </Button>
       )}
     </>
   );

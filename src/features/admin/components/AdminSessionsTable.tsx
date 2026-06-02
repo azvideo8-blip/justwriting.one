@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { Trash2, Check, Eye, Loader2, Sparkles } from 'lucide-react';
 import { parseFirestoreDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../core/i18n';
+import { IconButton } from '../../../shared/components/IconButton';
 
 import { Session } from '../../../types';
 
@@ -43,7 +44,7 @@ export function AdminSessionsTable({ sessions, onDelete, onProcess, onRead }: Ad
             <td className="px-6 py-4 text-sm font-medium text-text-main">{s.title || t('common_untitled')}</td>
              <td className="px-6 py-4 text-sm text-text-main/70">{s.userId?.slice(0, 8) || t('common_anonymous')}</td>
             <td className="px-6 py-4 text-sm text-text-main/50">
-              {s.createdAt ? format(parseFirestoreDate(s.createdAt)!, 'dd.MM.yyyy HH:mm') : '-'}
+              {s.createdAt != null ? format(parseFirestoreDate(s.createdAt)!, 'dd.MM.yyyy HH:mm') : '-'}
             </td>
             <td className="px-6 py-4">
               {s._aiProcessed ? (
@@ -62,7 +63,7 @@ export function AdminSessionsTable({ sessions, onDelete, onProcess, onRead }: Ad
                 <Loader2 size={14} className="animate-spin text-brand-soft/50" />
               ) : (
                 <button
-                  onClick={() => handleProcess(s.id, s.content)}
+                  onClick={() => void handleProcess(s.id, s.content)}
                   className="p-1 rounded text-text-main/30 hover:text-brand-soft transition-colors"
                   title="Обработать"
                 >
@@ -71,12 +72,12 @@ export function AdminSessionsTable({ sessions, onDelete, onProcess, onRead }: Ad
               )}
             </td>
             <td className="px-6 py-4">
-              <button 
+              <IconButton
                 onClick={() => onDelete(s.id)}
-                className="p-3 transition-colors text-text-main/40 hover:text-red-400"
-              >
-                <Trash2 size={18} />
-              </button>
+                className="p-3 transition-colors text-text-main/40 hover:text-accent-danger"
+                label="Delete session"
+                icon={<Trash2 size={18} />}
+              />
             </td>
           </tr>
         ))}

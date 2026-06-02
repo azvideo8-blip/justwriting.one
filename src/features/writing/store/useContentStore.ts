@@ -3,7 +3,7 @@ import { WordSnapshot } from './types';
 import { countWords } from '../../../shared/utils/countWords';
 import { useTimerStore } from './useTimerStore';
 
-interface ContentState {
+export interface ContentStateData {
   content: string;
   title: string;
   pinnedThoughts: string[];
@@ -14,8 +14,10 @@ interface ContentState {
   lastWordCount: number;
   wpmHistory: { timestamp: number; wpm: number }[];
   tags: string[];
-  labelId?: string;
+  labelId?: string | undefined;
+}
 
+interface ContentState extends ContentStateData {
   setContent: (content: string) => void;
   setTitle: (title: string) => void;
   setPinnedThoughts: (thoughts: string[]) => void;
@@ -94,8 +96,8 @@ export const useContentStore = create<ContentState>((set, get) => ({
     }
 
     const history = Array.isArray(state.wpmHistory) ? state.wpmHistory : [];
-    const lastHistoryEntry = history[history.length - 1];
-    if (currentWpm > 0 && (!lastHistoryEntry || now - lastHistoryEntry.timestamp >= 30_000)) {
+    const lastHistoryEntry = history.at(-1);
+    if (currentWpm > 0 && (lastHistoryEntry == null || now - lastHistoryEntry.timestamp >= 30_000)) {
       get().pushWpmHistory({ timestamp: now, wpm: currentWpm });
     }
 

@@ -1,10 +1,12 @@
 import { create } from 'zustand';
 
-interface SessionMetaState {
+export interface SessionMetaStateData {
   activeSessionId: string | null;
   savedDocumentId: string | null;
   sessionStartTime: number | null;
+}
 
+interface SessionMetaState extends SessionMetaStateData {
   setActiveSessionId: (id: string | null) => void;
   setSavedDocumentId: (id: string | null) => void;
   setSessionStartTime: (time: number | null) => void;

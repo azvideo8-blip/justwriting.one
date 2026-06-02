@@ -70,7 +70,7 @@ export function WpmChart({ data, avgWpm, height = 72 }: WpmChartProps) {
           animate={{ pathLength: 1, opacity: 1 }}
           transition={{ duration: 1.2, ease: 'easeOut', delay: 0.1 }}
         />
-        {peakPoint && (
+        {
           <>
             <motion.circle
               cx={peakPoint.x}
@@ -109,7 +109,7 @@ export function WpmChart({ data, avgWpm, height = 72 }: WpmChartProps) {
               </text>
             </motion.g>
           </>
-        )}
+        }
       </svg>
     </div>
   );

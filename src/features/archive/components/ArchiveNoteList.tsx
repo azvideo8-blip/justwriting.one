@@ -66,11 +66,11 @@ export function ArchiveNoteList({
   const [aiProcessedMap, setAiProcessedMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    AISummaryService.hasAll().then(setAiProcessedMap);
+    void AISummaryService.hasAll().then(setAiProcessedMap);
   }, []);
 
   const handleAIClick = (documentId: string) => {
-    navigate(`/ai?doc=${documentId}`);
+    void navigate(`/ai?doc=${documentId}`);
   };
 
   if (loading) {
@@ -98,8 +98,8 @@ export function ArchiveNoteList({
 
   if (error) {
     return (
-      <div className="p-12 text-center rounded-3xl border bg-red-500/10 border-red-500/30">
-        <p className="text-red-400">{error}</p>
+      <div className="p-12 text-center rounded-3xl border bg-accent-danger/10 border-accent-danger/30">
+        <p className="text-accent-danger">{error}</p>
       </div>
     );
   }

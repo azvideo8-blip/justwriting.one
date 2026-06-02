@@ -41,12 +41,12 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
   }, []);
 
   useEffect(() => {
-    fetchSessions();
+    void fetchSessions();
   }, [fetchSessions]);
 
   useEffect(() => {
     if (isVaultUnlocked && !prevVaultUnlockedRef.current) {
-      fetchSessions();
+      void fetchSessions();
     }
     prevVaultUnlockedRef.current = isVaultUnlocked;
   }, [isVaultUnlocked, fetchSessions]);

@@ -11,24 +11,26 @@ import { highlightText, getSearchContext } from '../../../shared/utils/highlight
 import { MobileNoteActionsSheet } from './MobileNoteActionsSheet';
 import { AnimatePresence } from 'motion/react';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 interface NoteRowProps {
   session: ArchiveSession;
   onOpen: () => void;
   t: (key: string) => string;
   language: string;
-  onDelete?: (session: ArchiveSession) => void;
-  onTagsChange?: (session: ArchiveSession, tags: string[]) => void;
-  onStorageChange?: () => void;
-  onTitleChange?: (session: ArchiveSession, title: string) => void;
-  onDateChange?: (session: ArchiveSession, date: Date) => void;
-  onLabelChange?: (session: ArchiveSession, labelId: string | undefined) => void;
+  onDelete?: ((session: ArchiveSession) => void) | undefined;
+  onTagsChange?: ((session: ArchiveSession, tags: string[]) => void) | undefined;
+  onStorageChange?: (() => void) | undefined;
+  onTitleChange?: ((session: ArchiveSession, title: string) => void) | undefined;
+  onDateChange?: ((session: ArchiveSession, date: Date) => void) | undefined;
+  onLabelChange?: ((session: ArchiveSession, labelId: string | undefined) => void) | undefined;
   userId: string;
-  labels?: Label[];
-  allTags?: string[];
-  searchQuery?: string;
-  aiProcessed?: boolean;
-  onAIClick?: () => void;
+  labels?: Label[] | undefined;
+  allTags?: string[] | undefined;
+  searchQuery?: string | undefined;
+  aiProcessed?: boolean | undefined;
+  onAIClick?: (() => void) | undefined;
 }
 
 function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels, allTags, searchQuery, aiProcessed, onAIClick }: NoteRowProps) {
@@ -49,7 +51,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
   const handleTouchStart = (e: React.TouchEvent) => {
     e.stopPropagation();
     longPressTimerRef.current = setTimeout(() => {
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
         try {
           navigator.vibrate(60);
         } catch {
@@ -190,18 +192,18 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                 />
               </div>
               <div className="flex gap-2 pt-1">
-                <button
-                  onClick={commitDateTime}
-                  className="flex-1 text-label-sm font-medium px-2 py-1.5 rounded-lg bg-brand-soft/15 text-brand-soft hover:bg-brand-soft/25 transition-colors"
-                >
-                  {t('common_save')}
-                </button>
-                <button
-                  onClick={() => setEditingDateTime(false)}
-                  className="flex-1 text-label-sm font-medium px-2 py-1.5 rounded-lg border border-border-subtle text-text-main/40 hover:text-text-main/60 transition-colors"
-                >
-                  {t('common_cancel')}
-                </button>
+              <Button
+                onClick={commitDateTime}
+                className="flex-1 text-label-sm font-medium px-2 py-1.5 rounded-lg bg-brand-soft/15 text-brand-soft hover:bg-brand-soft/25 transition-colors"
+              >
+                {t('common_save')}
+              </Button>
+              <Button
+                onClick={() => setEditingDateTime(false)}
+                className="flex-1 text-label-sm font-medium px-2 py-1.5 rounded-lg border border-border-subtle text-text-main/40 hover:text-text-main/60 transition-colors"
+              >
+                {t('common_cancel')}
+              </Button>
               </div>
             </div>
           </div>
@@ -242,7 +244,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           onChange={(newTags) => onTagsChange?.(session, newTags)}
           allTags={allTags}
         />
-        <button
+        <Button
           onClick={e => { e.stopPropagation(); onAIClick?.(); }}
           className={cn(
             "inline-flex items-center gap-1 ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono border transition-colors",
@@ -254,19 +256,18 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
         >
           <Sparkles size={10} />
           AI
-        </button>
+        </Button>
       </div>
 
       <div className="flex items-center gap-1 shrink-0 pt-1" onClick={e => e.stopPropagation()}>
         {isMobile ? (
           <>
-            <button
+            <IconButton
               onClick={e => { e.stopPropagation(); setActionsSheetOpen(true); }}
               className="w-9 h-9 flex items-center justify-center rounded-lg text-text-main/60 hover:bg-text-main/5 active:bg-text-main/10"
-              title={t('archive_note_actions') || 'Actions'}
-            >
-              <MoreVertical size={18} />
-            </button>
+              label={t('archive_note_actions') || 'Actions'}
+              icon={<MoreVertical size={18} />}
+            />
             <AnimatePresence>
               {actionsSheetOpen && (
                 <MobileNoteActionsSheet
@@ -314,37 +315,37 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                   onClick={e => e.stopPropagation()}
                 >
                   {session.labelId && (
-                    <button
+                    <Button
                       onClick={e => { e.stopPropagation(); onLabelChange?.(session, undefined); setLabelPopupOpen(false); }}
                       className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/40 hover:bg-text-main/5 transition-colors"
                     >
                       <div className="w-3 h-3 rounded-full border border-dashed border-text-main/20 shrink-0" />
                       {t('archive_no_label')}
-                    </button>
+                    </Button>
                   )}
                   {labels?.map(l => (
-                    <button
+                    <Button
                       key={l.id}
                       onClick={e => { e.stopPropagation(); onLabelChange?.(session, session.labelId === l.id ? undefined : l.id); setLabelPopupOpen(false); }}
                       className={cn("w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left transition-colors", session.labelId === l.id ? "bg-text-main/10 text-text-main" : "text-text-main/60 hover:bg-text-main/5")}
                     >
                       <div className="w-3 h-3 rounded-full shrink-0" style={{ background: l.color }} />
                       {l.name}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
             </div>
-            <button onClick={e => { e.stopPropagation(); setTitleDraft(session.title || ''); setEditingTitle(true); }}
+            <IconButton onClick={e => { e.stopPropagation(); setTitleDraft(session.title || ''); setEditingTitle(true); }}
               className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/40 md:text-text-main/20 hover:text-text-main/60 hover:bg-text-main/5 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
-              title={t('archive_rename_title')}>
-              <Pencil size={14} />
-            </button>
-            <button onClick={e => { e.stopPropagation(); onOpen(); }}
+              label={t('archive_rename_title')}
+              icon={<Pencil size={14} />}
+            />
+            <IconButton onClick={e => { e.stopPropagation(); onOpen(); }}
               className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/40 md:text-text-main/20 hover:text-text-main/60 hover:bg-text-main/5 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
-              title={t('archive_preview')}>
-              <ExternalLink size={14} />
-            </button>
+              label={t('archive_preview')}
+              icon={<ExternalLink size={14} />}
+            />
             <StorageIcons
               doc={{
                 localId: session._isLocal ? session.id : undefined,
@@ -356,11 +357,11 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
               userId={userId}
               onStorageChange={() => onStorageChange?.()}
             />
-            <button onClick={e => { e.stopPropagation(); onDelete?.(session); }}
-              className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/30 md:text-text-main/25 hover:text-red-400 hover:bg-red-400/5 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
-              title={t('archive_delete')}>
-              <Trash2 size={14} />
-            </button>
+            <IconButton onClick={e => { e.stopPropagation(); onDelete?.(session); }}
+              className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/30 md:text-text-main/25 hover:text-accent-danger hover:bg-accent-danger/5 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
+              label={t('archive_delete')}
+              icon={<Trash2 size={14} />}
+            />
           </>
         )}
       </div>

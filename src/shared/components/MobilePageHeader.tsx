@@ -23,7 +23,7 @@ export function MobilePageHeader({ title, right, className, titleFont = 'serif' 
       )}>
         {title}
       </h1>
-      {right && <div className="flex items-center gap-2 shrink-0">{right}</div>}
+      {right != null && <div className="flex items-center gap-2 shrink-0">{right}</div>}
     </header>
   );
 }

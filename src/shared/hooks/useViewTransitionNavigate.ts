@@ -5,22 +5,22 @@ export function useViewTransitionNavigate() {
 
   return (to: To | number, options?: NavigateOptions) => {
     if (typeof to === 'number') {
-      if (document.startViewTransition) {
-        document.startViewTransition(() => {
-          navigate(to);
+      if (typeof document.startViewTransition === 'function') {
+        void document.startViewTransition(() => {
+          void navigate(to);
         });
       } else {
-        navigate(to);
+        void navigate(to);
       }
       return;
     }
 
-    if (document.startViewTransition) {
-      document.startViewTransition(() => {
-        navigate(to, options);
+    if (typeof document.startViewTransition === 'function') {
+      void document.startViewTransition(() => {
+        void navigate(to, options);
       });
     } else {
-      navigate(to, options);
+      void navigate(to, options);
     }
   };
 }

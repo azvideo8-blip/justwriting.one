@@ -10,7 +10,7 @@ export function MobileLogPage() {
   const userId = user?.uid ?? getOrCreateGuestId();
 
   const handleContinue = (session: Session) => {
-    navigate('/', { state: { sessionToContinue: session } });
+    void navigate('/', { state: { sessionToContinue: session } });
   };
 
   return (

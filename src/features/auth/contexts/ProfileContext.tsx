@@ -35,81 +35,83 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     let unsubscribe: (() => void) | null = null;
 
-    (async () => {
+    void (async () => {
       const { db, mod } = await getClient();
       const { onSnapshot, doc, setDoc, getDoc } = mod;
       if (cancelled) return;
 
       const userDoc = doc(db, 'users', user.uid);
-      unsubscribe = onSnapshot(userDoc, async (snap) => {
+      unsubscribe = onSnapshot(userDoc, (snap) => {
         if (cancelled) return;
-        if (snap.exists()) {
-          const data = snap.data();
-          if (data && typeof data === 'object' && 'uid' in data) {
-            const parsed = userProfileDbSchema.safeParse(data);
-            if (parsed.success) {
-              profileSetBySnapshotRef.current = true;
-              setProfile(parsed.data as UserProfile);
-              setEncryptionEnabled(user.uid, !!(parsed.data.encryptionSalt && parsed.data.encryptedDataKey) || !!parsed.data.encryptionMeta);
-              setProfileLoaded(user.uid, true);
+        void (async () => {
+          if (snap.exists()) {
+            const data = snap.data();
+            if (typeof data === 'object' && data != null && 'uid' in data) {
+              const parsed = userProfileDbSchema.safeParse(data);
+              if (parsed.success) {
+                profileSetBySnapshotRef.current = true;
+                setProfile(parsed.data as UserProfile);
+                setEncryptionEnabled(user.uid, !!(parsed.data.encryptionSalt && parsed.data.encryptedDataKey) || !!parsed.data.encryptionMeta);
+                setProfileLoaded(user.uid, true);
+              } else {
+                if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, parsed.error.flatten());
+                setProfile(null);
+                setEncryptionEnabled(user.uid, false);
+                setProfileLoaded(user.uid, true);
+              }
             } else {
-              if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, parsed.error.flatten());
+              if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, data);
               setProfile(null);
               setEncryptionEnabled(user.uid, false);
               setProfileLoaded(user.uid, true);
             }
           } else {
-            if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, data);
-            setProfile(null);
             setEncryptionEnabled(user.uid, false);
-            setProfileLoaded(user.uid, true);
-          }
-        } else {
-          setEncryptionEnabled(user.uid, false);
-          if (creationAttemptedRef.current) return;
-          creationAttemptedRef.current = true;
+            if (creationAttemptedRef.current) return;
+            creationAttemptedRef.current = true;
 
-          try {
-            const existingSnap = await getDoc(userDoc);
-            if (existingSnap.exists()) {
+            try {
+              const existingSnap = await getDoc(userDoc);
+              if (existingSnap.exists()) {
+                creationAttemptedRef.current = false;
+                return;
+              }
+            } catch (e) {
+              reportError(e, { action: 'checkProfileExists', uid: user.uid });
               creationAttemptedRef.current = false;
               return;
             }
-          } catch (e) {
-            reportError(e, { action: 'checkProfileExists', uid: user.uid });
-            creationAttemptedRef.current = false;
-            return;
-          }
 
-          const initialProfile: UserProfile = {
-            uid: user.uid,
-            email: user.email || '',
-            nickname: user.displayName || user.email?.split('@')[0] || 'User'
-          };
+            const initialProfile: UserProfile = {
+              uid: user.uid,
+              email: user.email || '',
+              nickname: user.displayName || user.email?.split('@')[0] || 'User'
+            };
 
-          if (import.meta.env.DEV) {
-            console.warn('Creating initial user profile:', JSON.stringify(initialProfile));
-          }
-
-          setDoc(userDoc, initialProfile, { merge: true }).then(() => {
-            creationAttemptedRef.current = false;
-            if (!cancelled && !profileSetBySnapshotRef.current) {
-              setProfile(initialProfile);
-              setProfileLoaded(user.uid, true);
+            if (import.meta.env.DEV) {
+              console.warn('Creating initial user profile:', JSON.stringify(initialProfile));
             }
-          }).catch(err => {
-            console.error('Error creating user profile:', err);
-            Sentry.captureException(err, {
-              tags: { context: 'profile_creation' },
-              extra: { uid: user.uid },
+
+            void setDoc(userDoc, initialProfile, { merge: true }).then(() => {
+              creationAttemptedRef.current = false;
+              if (!cancelled && !profileSetBySnapshotRef.current) {
+                setProfile(initialProfile);
+                setProfileLoaded(user.uid, true);
+              }
+            }).catch(err => {
+              console.error('Error creating user profile:', err);
+              Sentry.captureException(err, {
+                tags: { context: 'profile_creation' },
+                extra: { uid: user.uid },
+              });
+              creationAttemptedRef.current = false;
+              if (!cancelled) {
+                setProfile(null);
+                setProfileLoaded(user.uid, true);
+              }
             });
-            creationAttemptedRef.current = false;
-            if (!cancelled) {
-              setProfile(null);
-              setProfileLoaded(user.uid, true);
-            }
-          });
-        }
+          }
+        })();
       }, (err) => {
         console.error('Firestore snapshot error:', err);
         reportError(err, { action: 'profileSnapshot', uid: user.uid });

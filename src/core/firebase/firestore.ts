@@ -44,7 +44,7 @@ export function getDb(): Promise<Firestore> {
       console.warn("Firestore initialized with Database ID:", import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
     }
 
-    testConnection(0);
+    void testConnection(0);
 
     return _db;
   })();
@@ -73,14 +73,14 @@ async function testConnection(retryCount = 0) {
         console.error("Firestore connection truly failed or timed out:", errorCode, error.message);
         updateConnectionStatus(false);
         if (retryCount < 3) {
-          _retryTimer = setTimeout(() => testConnection(retryCount + 1), 5000 * (retryCount + 1));
+          _retryTimer = setTimeout(() => void testConnection(retryCount + 1), 5000 * (retryCount + 1));
         }
       }
     } else {
       console.error("Firestore connection truly failed or timed out:", error);
       updateConnectionStatus(false);
       if (retryCount < 3) {
-        _retryTimer = setTimeout(() => testConnection(retryCount + 1), 5000 * (retryCount + 1));
+        _retryTimer = setTimeout(() => void testConnection(retryCount + 1), 5000 * (retryCount + 1));
       }
     }
   }

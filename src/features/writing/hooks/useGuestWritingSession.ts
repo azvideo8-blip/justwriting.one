@@ -68,7 +68,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
 
   const { autoLoadDraftIfEmpty } = draft;
   useEffect(() => {
-    autoLoadDraftIfEmpty();
+    void autoLoadDraftIfEmpty();
   }, [autoLoadDraftIfEmpty]);
 
   return {

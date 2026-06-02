@@ -13,14 +13,14 @@ export function useDailyLimit(): DailyLimitState {
 
   useEffect(() => {
     if (loaded) return;
-    loadLimitFromServer();
+    void loadLimitFromServer();
   }, [loaded, loadLimitFromServer]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       const today = new Date().toISOString().slice(0, 10);
       if (today !== new Date(resetsAt).toISOString().slice(0, 10)) {
-        loadLimitFromServer();
+        void loadLimitFromServer();
       }
     }, 60_000);
     return () => clearInterval(interval);

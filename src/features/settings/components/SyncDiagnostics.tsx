@@ -38,7 +38,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
         <div className="flex items-center gap-2">
           {queueCount > 0 && (
             <button
-              onClick={handleSyncAllQueue}
+              onClick={() => void handleSyncAllQueue()}
               disabled={loading}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 transition-colors"
             >
@@ -46,7 +46,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
             </button>
           )}
           <button
-            onClick={fetchData}
+            onClick={() => void fetchData()}
             disabled={loading}
             className="p-1.5 rounded-lg border border-border-subtle hover:bg-surface-base/10 text-text-main/60 hover:text-text-main transition-colors disabled:opacity-50"
             title="Refresh diagnostics"
@@ -107,7 +107,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                     <>
                       {item.status === 'local_only' && (
                         <button
-                          onClick={() => handleSyncItem(item)}
+                          onClick={() => void handleSyncItem(item)}
                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-semibold border border-blue-500/20 transition-colors min-h-[44px]"
                         >
                           <Upload size={14} />
@@ -116,7 +116,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       )}
                       {item.status === 'cloud_only' && (
                         <button
-                          onClick={() => handleDownloadItem(item)}
+                          onClick={() => void handleDownloadItem(item)}
                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-400 text-xs font-semibold border border-green-500/20 transition-colors min-h-[44px]"
                         >
                           <Download size={14} />
@@ -125,7 +125,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       )}
                       {(item.status === 'pending' || item.status === 'mismatch') && (
                         <button
-                          onClick={() => handleSyncItem(item)}
+                          onClick={() => void handleSyncItem(item)}
                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold border border-amber-500/20 transition-colors min-h-[44px]"
                         >
                           <RefreshCw size={14} />
@@ -134,8 +134,8 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       )}
                       {item.status === 'cloud_missing' && (
                         <button
-                          onClick={() => handleUnlinkItem(item)}
-                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-red-500/20 transition-colors min-h-[44px]"
+                          onClick={() => void handleUnlinkItem(item)}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-accent-danger/10 hover:bg-accent-danger/20 text-accent-danger text-xs font-semibold border border-accent-danger/20 transition-colors min-h-[44px]"
                         >
                           <Link2Off size={14} />
                           Unlink
@@ -149,7 +149,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                           </span>
                         ) : (
                           <button
-                            onClick={() => handleEncryptItem(item)}
+                            onClick={() => void handleEncryptItem(item)}
                             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold border border-amber-500/20 transition-colors min-h-[44px]"
                           >
                             <Lock size={14} />
@@ -159,8 +159,8 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       )}
                       {item.inQueue && (
                         <button
-                          onClick={() => handleClearQueueItem(item)}
-                          className="px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-colors min-h-[44px] flex items-center justify-center"
+                          onClick={() => void handleClearQueueItem(item)}
+                          className="px-3 py-2 rounded-lg bg-accent-danger/10 hover:bg-accent-danger/20 text-accent-danger border border-accent-danger/20 transition-colors min-h-[44px] flex items-center justify-center"
                           title="Remove item from sync queue"
                         >
                           <Trash2 size={14} />
@@ -177,7 +177,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       <div className="flex items-center gap-2">
                         <span className="text-green-400 font-medium">Processed</span>
                         <button
-                          onClick={() => handleReadSummary(item.id)}
+                          onClick={() => void handleReadSummary(item.id)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-card border border-border-subtle text-text-main/70 text-xs font-medium"
                         >
                           <Eye size={14} />
@@ -191,7 +191,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       </div>
                     ) : item.hasLocal ? (
                       <button
-                        onClick={() => handleProcessDocument(item)}
+                        onClick={() => void handleProcessDocument(item)}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-soft/10 border border-brand-soft/20 text-brand-soft text-xs font-semibold"
                       >
                         <Sparkles size={14} />
@@ -244,7 +244,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             Processed
                           </span>
                           <button
-                            onClick={() => handleReadSummary(item.id)}
+                            onClick={() => void handleReadSummary(item.id)}
                             className="p-1 rounded hover:bg-surface-base/10 text-text-main/50 hover:text-text-main transition-colors"
                             title="Прочитать саммари"
                           >
@@ -255,7 +255,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                         <Loader2 size={12} className="animate-spin text-brand-soft mx-auto" />
                       ) : item.hasLocal ? (
                         <button
-                          onClick={() => handleProcessDocument(item)}
+                          onClick={() => void handleProcessDocument(item)}
                           className="flex items-center gap-1 px-2 py-1 rounded bg-brand-soft/10 hover:bg-brand-soft/20 text-brand-soft text-label font-semibold border border-brand-soft/20 transition-colors mx-auto"
                           title="Обработать ИИ"
                         >
@@ -274,7 +274,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                           <>
                             {item.status === 'local_only' && (
                               <button
-                                onClick={() => handleSyncItem(item)}
+                                onClick={() => void handleSyncItem(item)}
                                 className="flex items-center gap-1 px-2 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-label font-semibold border border-blue-500/20 transition-colors"
                                 title="Upload to cloud"
                               >
@@ -284,7 +284,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             )}
                             {item.status === 'cloud_only' && (
                               <button
-                                onClick={() => handleDownloadItem(item)}
+                                onClick={() => void handleDownloadItem(item)}
                                 className="flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 hover:bg-green-500/20 text-green-400 text-label font-semibold border border-green-500/20 transition-colors"
                                 title="Download to device"
                               >
@@ -294,7 +294,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             )}
                             {(item.status === 'pending' || item.status === 'mismatch') && (
                               <button
-                                onClick={() => handleSyncItem(item)}
+                                onClick={() => void handleSyncItem(item)}
                                 className="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-label font-semibold border border-amber-500/20 transition-colors"
                                 title="Sync pending edits to cloud"
                               >
@@ -304,8 +304,8 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             )}
                             {item.status === 'cloud_missing' && (
                               <button
-                                onClick={() => handleUnlinkItem(item)}
-                                className="flex items-center gap-1 px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 text-label font-semibold border border-red-500/20 transition-colors"
+                                onClick={() => void handleUnlinkItem(item)}
+                                className="flex items-center gap-1 px-2 py-1 rounded bg-accent-danger/10 hover:bg-accent-danger/20 text-accent-danger text-label font-semibold border border-accent-danger/20 transition-colors"
                                 title="Cloud document has been deleted. Unlink local document to allow re-upload."
                               >
                                 <Link2Off size={10} />
@@ -323,7 +323,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                                 </span>
                               ) : (
                                 <button
-                                  onClick={() => handleEncryptItem(item)}
+                                  onClick={() => void handleEncryptItem(item)}
                                   className="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-label font-semibold border border-amber-500/20 transition-colors"
                                   title="Encrypt cloud versions"
                                 >
@@ -334,8 +334,8 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             )}
                             {item.inQueue && (
                               <button
-                                onClick={() => handleClearQueueItem(item)}
-                                className="p-1 rounded hover:bg-red-500/10 text-text-main/30 hover:text-red-400 transition-colors"
+                                onClick={() => void handleClearQueueItem(item)}
+                                className="p-1 rounded hover:bg-accent-danger/10 text-text-main/30 hover:text-accent-danger transition-colors"
                                 title="Remove item from sync queue"
                               >
                                 <Trash2 size={10} />

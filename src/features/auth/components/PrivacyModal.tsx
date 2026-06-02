@@ -59,7 +59,7 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
           </label>
 
           <button
-            onClick={handleAccept}
+            onClick={() => void handleAccept()}
             disabled={!checked}
             className="w-full mt-4 py-2.5 rounded-xl bg-brand-soft text-surface-base text-sm font-bold disabled:opacity-40 transition-colors"
           >
@@ -95,7 +95,7 @@ export function usePrivacyCheck() {
         setShowPrivacy(true);
       }
     };
-    check();
+    void check();
   }, []);
 
   return { showPrivacy, setShowPrivacy };

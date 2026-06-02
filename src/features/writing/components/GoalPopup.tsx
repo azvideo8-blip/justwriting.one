@@ -2,6 +2,7 @@ import React, { useState, useLayoutEffect, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
+import { Button } from '../../../shared/components/Button';
 
 interface GoalPopupProps {
   open: boolean;
@@ -136,16 +137,17 @@ export function GoalPopup({
                 : p.value === current;
                 
               return (
-                <button
-                  key={p.value}
-                  onClick={() => { onSelect(p.value); onClose(); }}
-                  className={cn(
-                    "px-2 py-1 rounded-lg text-xs border transition-colors font-bold",
-                    isActive
-                      ? "border-text-main bg-text-main text-surface-base"
-                      : "border-border-subtle text-text-main/60 hover:text-text-main hover:bg-white/5"
-                  )}
-                >{p.label}</button>
+            <button
+              type="button"
+              key={p.value}
+              onClick={() => { onSelect(p.value); onClose(); }}
+              className={cn(
+                "px-2 py-1 rounded-lg text-xs border transition-colors font-bold",
+                isActive
+                  ? "border-text-main bg-text-main text-surface-base"
+                  : "border-border-subtle text-text-main/60 hover:text-text-main hover:bg-white/5"
+              )}
+            >{p.label}</button>
               );
             })}
           </div>
@@ -166,10 +168,12 @@ export function GoalPopup({
               autoFocus={true}
             />
             {current > 0 && (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => { onClear(); onClose(); }}
                 className="text-xs text-text-main/40 hover:text-text-main/70 p-1 shrink-0"
-              >{onClearLabel}</button>
+              >{onClearLabel}</Button>
             )}
           </div>
         </motion.div>

@@ -58,7 +58,7 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
   }, [userId, isGuest]);
 
   useEffect(() => {
-    fetchSessions();
+    void fetchSessions();
   }, [fetchSessions]);
 
   const summary = useMemo(

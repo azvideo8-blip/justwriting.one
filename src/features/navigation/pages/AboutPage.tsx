@@ -17,7 +17,7 @@ export function AboutPage() {
         descriptionEn="justwriting is a minimalist editor for freewriting and stream-of-consciousness writing. Everything saves locally, cloud is optional."
       />
       <button
-        onClick={() => navigate(-1)}
+        onClick={() => void navigate(-1)}
         className="flex items-center gap-2 text-text-main/40 hover:text-text-main/60 text-sm mb-8 transition-colors"
       >
         <ArrowLeft size={16} />
