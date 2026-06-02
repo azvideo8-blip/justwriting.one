@@ -1,5 +1,5 @@
 import React from "react";
-import { useLanguage } from "../../core/i18n";
+import { useLanguage } from "../../shared/i18n";
 
 interface TankLogoProps {
   size?: number;

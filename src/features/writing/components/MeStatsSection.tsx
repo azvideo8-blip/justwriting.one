@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { StatCard } from './MeScreenHelpers';
 interface StatsProfile {
   totalWordCount?: number;

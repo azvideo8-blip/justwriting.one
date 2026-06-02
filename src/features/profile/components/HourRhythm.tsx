@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { Session } from '../../../types';
 import { toDate } from '../../../core/utils/dateUtils';
 import { cn } from '../../../core/utils/utils';

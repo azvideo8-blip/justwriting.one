@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { PenLine, History, User as UserIcon, LogIn, Settings, Sparkles, Bug } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';

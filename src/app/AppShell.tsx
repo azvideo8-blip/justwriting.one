@@ -2,7 +2,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { useWritingSettings } from '../features/writing/contexts/WritingSettingsContext';
 import { useLayoutMode } from '../shared/hooks/useLayoutMode';
-import { useLanguage } from '../core/i18n';
+import { useLanguage } from '../shared/i18n';
 import { cn } from '../core/utils/utils';
 import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
 

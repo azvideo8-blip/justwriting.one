@@ -1,4 +1,4 @@
-import { translations } from '../i18n';
+import { translations } from '../../shared/i18n';
 
 export const mapFirebaseError = (error: unknown, language: 'ru' | 'en' = 'ru'): string => {
   const code =

@@ -1,8 +1,8 @@
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { useLanguage } from '../../../core/i18n';
-import { SeoHead } from '../../../core/i18n/SeoHead';
+import { useLanguage } from '../../../shared/i18n';
+import { SeoHead } from '../../../shared/i18n/SeoHead';
 import { CHANGELOG, type ChangelogCategory } from '../data/changelog';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { cn } from '../../../core/utils/utils';

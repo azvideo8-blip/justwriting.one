@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect } from 'react';
 import { z } from 'zod';
 import { useLocalStorage } from '../../shared/hooks/useLocalStorage';
-import { STORAGE_KEYS } from '../constants/storageKeys';
+import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 
 export type ThemeId = 'modern' | 'notion' | 'spotify' | 'amethyst';
 

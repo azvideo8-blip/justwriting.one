@@ -4,7 +4,7 @@ import { loadAllSessions } from '../../writing/services/UnifiedSessionLoader';
 import { ArchiveSession } from '../types';
 import { updateArchiveField, deleteArchiveSession } from '../services/archiveCrud';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
-import { logger } from '../../../core/errors/logger';
+import { logger } from '../../../shared/errors/logger';
 
 export function useArchiveSessions(user: User | null, userId: string, t: (key: string) => string) {
   const [sessions, setSessions] = useState<ArchiveSession[]>([]);

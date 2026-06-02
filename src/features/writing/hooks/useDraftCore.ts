@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect, type RefObject } from 'react'
 import { User } from 'firebase/auth';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 
 export type DraftSaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export type DraftErrorKind = 'quota' | 'unknown' | null;

@@ -5,7 +5,7 @@ import { LocalVersionService } from './LocalVersionService';
 import { getLocalDb } from '../storage/localDb';
 import { toDate } from '../utils/dateUtils';
 import { maybeEncrypt, maybeDecrypt, type VersionEncryptPayload } from '../crypto/cryptoHelpers';
-import { reportError } from '../../core/errors/reportError';
+import { reportError } from '../../shared/errors/reportError';
 import { isFirestoreConnected } from '../firebase/firestore';
 import pLimit from 'p-limit';
 import { SaveDocumentData } from './storageTypes';

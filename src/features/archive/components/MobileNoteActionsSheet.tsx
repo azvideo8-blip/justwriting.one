@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ExternalLink, Pencil, Tag, Trash2, Cloud, HardDrive, Loader2, RefreshCw } from 'lucide-react';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { StorageService } from '../../../core/services/StorageService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
@@ -10,7 +10,7 @@ import { getSessionKey } from '../../../core/crypto/encrypt';
 import { UnlockPrompt } from '../../auth/components/UnlockPrompt';
 import { EncryptionPasswordModal } from '../../encryption/components/EncryptionPasswordModal';
 import { useAuthStatus } from '../../auth/contexts/AuthContext';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';

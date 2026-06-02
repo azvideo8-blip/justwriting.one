@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useToast } from '../components/Toast';
-import { useLanguage } from '../../core/i18n';
-import { reportError } from '../../core/errors/reportError';
+import { useLanguage } from '../../shared/i18n';
+import { reportError } from '../../shared/errors/reportError';
 
 interface ServiceActionOptions {
   successMessage?: string;

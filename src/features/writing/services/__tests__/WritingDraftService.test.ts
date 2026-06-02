@@ -3,7 +3,7 @@ import { WritingDraftService } from '../WritingDraftService';
 import { getLocalDb, LocalDraft } from '../../../../core/storage/localDb';
 import { getClient } from '../../../../core/firebase/firestoreClient';
 import { maybeEncrypt, maybeDecrypt, isProfileLoaded } from '../../../../core/crypto/cryptoHelpers';
-import { reportError } from '../../../../core/errors/reportError';
+import { reportError } from '../../../../shared/errors/reportError';
 import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 
 vi.mock('../../../../core/storage/localDb', () => ({
@@ -20,7 +20,7 @@ vi.mock('../../../../core/crypto/cryptoHelpers', () => ({
   isProfileLoaded: vi.fn(() => true),
 }));
 
-vi.mock('../../../../core/errors/reportError', () => ({
+vi.mock('../../../../shared/errors/reportError', () => ({
   reportError: vi.fn(),
 }));
 

@@ -1,6 +1,6 @@
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { CheckCircle2 } from 'lucide-react';
-import { useLanguage } from '../../core/i18n';
+import { useLanguage } from '../../shared/i18n';
 
 interface GoalToastProps {
   visible: boolean;

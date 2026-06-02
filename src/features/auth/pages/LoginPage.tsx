@@ -4,14 +4,14 @@ import { AlertCircle, AlertTriangle, Mail, Lock, UserPlus, LogIn, X, ShieldAlert
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
 import { AuthService } from '../services/AuthService';
-import { useLanguage } from '../../../core/i18n';
-import { SeoHead } from '../../../core/i18n/SeoHead';
+import { useLanguage } from '../../../shared/i18n';
+import { SeoHead } from '../../../shared/i18n/SeoHead';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { useToast } from '../../../shared/components/Toast';
 import { MigrationPrompt, checkGuestDocuments } from '../components/MigrationPrompt';
 import { clearSessionKey } from '../../../core/crypto/encrypt';
 import { getClient } from '../../../core/firebase/firestoreClient';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';

@@ -2,7 +2,7 @@ import { getSessionKey } from './encrypt';
 import { maybeEncrypt } from './cryptoHelpers';
 import { getClient } from '../firebase/firestoreClient';
 import type { DocumentReference, WriteBatch, FieldValue } from 'firebase/firestore';
-import { reportError } from '../../core/errors/reportError';
+import { reportError } from '../../shared/errors/reportError';
 
 export interface MigrationProgress {
   total: number;

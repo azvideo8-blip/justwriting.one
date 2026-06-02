@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { cn, parseFirestoreDate } from '../../../core/utils/utils';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useLifeLog } from '../hooks/useLifeLog';
 import { LifeLogDocument } from '../types/lifeLog';
 import { Session } from '../../../types';

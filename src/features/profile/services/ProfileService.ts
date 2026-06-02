@@ -1,7 +1,7 @@
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { handleFirestoreError, OperationType } from '../../../core/errors/firestore-errors';
 import { Label } from '../../../types';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 import { userProfileDbSchema } from '../../../core/firebase/schemas/firestoreSchemas';
 
 export const ProfileService = {

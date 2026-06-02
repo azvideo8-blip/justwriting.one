@@ -10,7 +10,7 @@ import { useDocuments } from './useDocuments';
 import { StorageService } from '../../../core/services/StorageService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { useToast } from '../../../shared/components/Toast';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 
 function isLifeLogDocument(doc: Session | LifeLogDocument): doc is LifeLogDocument {
   return 'totalWords' in doc && 'totalDuration' in doc;
@@ -21,8 +21,8 @@ import { GuestSessionReturn } from './useGuestWritingSession';
 import { CloudSessionReturn } from './useCloudWritingSession';
 import { cleanupDraftsAfterSave, reportKeystrokeStats } from '../utils/sessionActions';
 import { SetupMode } from '../components/WritingSetup';
-import { reportError } from '../../../core/errors/reportError';
-import { logger } from '../../../core/errors/logger';
+import { reportError } from '../../../shared/errors/reportError';
+import { logger } from '../../../shared/errors/logger';
 
 export type AnySessionReturn = GuestSessionReturn | CloudSessionReturn;
 

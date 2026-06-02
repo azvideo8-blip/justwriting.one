@@ -2,7 +2,7 @@ import { LocalDocumentService } from './LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
 import { getLocalDb, randomUUID, LocalDocument } from '../storage/localDb';
 import { computeWordDelta } from './DiffService';
-import { reportError } from '../../core/errors/reportError';
+import { reportError } from '../../shared/errors/reportError';
 import { SaveDocumentData } from './storageTypes';
 
 export const LocalStorageService = {

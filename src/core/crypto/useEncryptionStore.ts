@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { reportError } from '../../core/errors/reportError';
+import { reportError } from '../../shared/errors/reportError';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 
 interface EncryptionState {

@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/react';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
-import { logger } from '../../../core/errors/logger';
+import { logger } from '../../../shared/errors/logger';
 
 export function reportKeystrokeStats(
   stats: { kpm: number; ikiMedian: number; ikiCv: number; sampleSize: number; kpmWpmRatio?: number },

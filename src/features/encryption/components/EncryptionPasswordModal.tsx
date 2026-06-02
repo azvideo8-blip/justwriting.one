@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Lock, Shield, AlertTriangle, AlertCircle, Loader2, KeyRound, Cloud } from 'lucide-react';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import {
   initializeEncryption,

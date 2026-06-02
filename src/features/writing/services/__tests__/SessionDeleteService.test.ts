@@ -60,7 +60,7 @@ describe('SessionDeleteService', () => {
 
   it('handles error gracefully and reports it', async () => {
     const session = createSession({ id: 'cloud_err' });
-    const reportErrorSpy = vi.spyOn(await import('../../../../core/errors/reportError'), 'reportError').mockImplementation(() => {});
+    const reportErrorSpy = vi.spyOn(await import('../../../../shared/errors/reportError'), 'reportError').mockImplementation(() => {});
     mockStorageService.deleteDocument.mockRejectedValueOnce(new Error('Delete failed'));
 
     await expect(deleteSession('user_123', session)).rejects.toThrow('Delete failed');

@@ -2,7 +2,7 @@ import { getClient } from '../../../core/firebase/firestoreClient';
 import { getLocalDb, LocalDraft } from '../../../core/storage/localDb';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
 import { maybeEncrypt, maybeDecrypt, isProfileLoaded } from '../../../core/crypto/cryptoHelpers';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;

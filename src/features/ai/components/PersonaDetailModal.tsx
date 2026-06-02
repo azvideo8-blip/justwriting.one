@@ -4,7 +4,7 @@ import { X, Trash2 } from 'lucide-react';
 import { AIPersonaService } from '../services/AIPersonaService';
 import { hasInjectionAttempt } from '../shared/injectionPatterns';
 import { PERSONA_PROMPTS } from '../../../shared/ai/prompts';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 

@@ -3,8 +3,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MobileWriteScreen } from '../components/MobileWriteScreen';
 
-// Mock core/i18n
-vi.mock('../../../core/i18n', () => ({
+// Mock shared/i18n
+vi.mock('../../../shared/i18n', () => ({
   useLanguage: () => ({
     t: (key: string) => key,
   }),

@@ -1,5 +1,5 @@
 import { cn } from '../../../core/utils/utils';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { Rarity } from './Achievements';
 
 const TIER_STYLES: Record<Rarity, string> = {

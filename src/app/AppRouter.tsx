@@ -2,7 +2,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { AnimatedRoutes } from './AnimatedRoutes';
 import { JustWritingLogo } from '../shared/components/JustWritingLogo';
-import { useLanguage } from '../core/i18n';
+import { useLanguage } from '../shared/i18n';
 
 export function AppRouter() {
   const { loading } = useAuthStatus();

@@ -5,7 +5,7 @@ import { getLocalStorageUsageKB } from '../../../shared/lib/localStorageUtils';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
-import { logger } from '../../../core/errors/logger';
+import { logger } from '../../../shared/errors/logger';
 
 export interface DraftPersistResult {
   localOk: boolean;

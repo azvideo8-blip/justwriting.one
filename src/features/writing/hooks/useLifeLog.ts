@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { DocumentService } from '../../../core/services/DocumentService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { Document } from '../../../types';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useStartOfToday } from '../../../shared/hooks/useStartOfToday';
 import {
   localDocToLifeLog,
@@ -11,7 +11,7 @@ import {
   computeDailySummary,
 } from '../utils/lifeLogUtils';
 import { LifeLogDocument, DailySummary, SessionGroup } from '../types/lifeLog';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 
 interface UseLifeLogReturn {
   sessionGroups: SessionGroup[];

@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useWritingSessionContext } from '../contexts/WritingSessionContext';
 import { Button } from '../../../shared/components/Button';
 

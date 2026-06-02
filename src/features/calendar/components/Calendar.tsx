@@ -6,7 +6,7 @@ import { cn, getSessionDate } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Session } from '../../../types';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 
 interface CalendarProps {
   sessions: Session[];

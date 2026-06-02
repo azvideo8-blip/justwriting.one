@@ -10,7 +10,7 @@ import { NoteRow } from './NoteRow';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { AISummaryService } from '../../ai/services/AISummaryService';
 
 const GridItem = memo<ComponentPropsWithoutRef<'div'>>(

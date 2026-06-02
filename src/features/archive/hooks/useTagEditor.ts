@@ -2,8 +2,8 @@ import { useState, useCallback } from 'react';
 import { DocumentService } from '../../../core/services/DocumentService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { useToast } from '../../../shared/components/Toast';
-import { useLanguage } from '../../../core/i18n';
-import { reportError } from '../../../core/errors/reportError';
+import { useLanguage } from '../../../shared/i18n';
+import { reportError } from '../../../shared/errors/reportError';
 
 export function useTagEditor(userId: string, fetchSessions: () => Promise<void>) {
   const { showToast } = useToast();

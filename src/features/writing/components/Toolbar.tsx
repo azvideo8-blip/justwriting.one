@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { FilePlus, FolderOpen, Save, Square, Flag } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { IconButton } from '../../../shared/components/IconButton';
 
 const PLAY_PATH = "M8 5v14l11-7z";

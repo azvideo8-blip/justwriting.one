@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { ProfileService } from '../../profile/services/ProfileService';
 import { Section } from './SettingsHelpers';

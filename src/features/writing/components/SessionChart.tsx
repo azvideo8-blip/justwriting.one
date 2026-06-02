@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import { Session } from '../../../types';
 import { parseFirestoreDate } from '../../../core/utils/utils';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 
 interface SessionChartProps {
   sessions: Session[];

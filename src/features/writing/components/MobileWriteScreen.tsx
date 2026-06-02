@@ -3,7 +3,7 @@ import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
 import { AnimatePresence, motion } from 'motion/react';
 import { MobileFocusScreen } from './MobileFocusScreen';

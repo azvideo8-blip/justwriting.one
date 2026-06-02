@@ -4,7 +4,7 @@ import { randomUUID } from '../../../core/storage/localDb';
 import { Label } from '../../../types';
 import { DocumentService } from '../../../core/services/DocumentService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 
 const labelCache = new Map<string, Label[]>();
 const fetchedSet = new Set<string>();

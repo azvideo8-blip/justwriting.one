@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
 import { cn } from '../../../core/utils/utils';
 import { Section, ToggleRow } from './SettingsHelpers';

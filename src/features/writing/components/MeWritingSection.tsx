@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { Toggle } from '../../../shared/components/Toggle';
 import { getFontStack } from '../utils/fontStack';

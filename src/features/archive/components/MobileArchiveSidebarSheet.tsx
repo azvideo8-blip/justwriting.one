@@ -5,7 +5,7 @@ import { SlidersHorizontal, X } from 'lucide-react';
 import { ArchiveSession } from '../types';
 import { ArchiveStats } from './ArchiveStats';
 import { Calendar } from '../../calendar/components/Calendar';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 
 interface MobileArchiveSidebarSheetProps {
   isOpen: boolean;

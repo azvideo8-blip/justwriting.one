@@ -1,6 +1,6 @@
 import { encryptContent, decryptContent, getSessionKey } from './encrypt';
 import { useEncryptionStore } from './useEncryptionStore';
-import { reportError } from '../../core/errors/reportError';
+import { reportError } from '../../shared/errors/reportError';
 
 export function setEncryptionEnabled(userId: string, enabled: boolean): void {
   useEncryptionStore.getState().setEncryptionEnabled(userId, enabled);

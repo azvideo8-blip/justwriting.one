@@ -6,7 +6,7 @@ vi.mock('firebase/functions', () => ({
   httpsCallable: vi.fn(() => vi.fn()),
 }));
 
-vi.mock('../../../../core/errors/reportError', () => ({
+vi.mock('../../../../shared/errors/reportError', () => ({
   reportError: vi.fn(),
 }));
 

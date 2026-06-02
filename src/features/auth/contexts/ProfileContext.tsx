@@ -3,7 +3,7 @@ import { getClient } from '../../../core/firebase/firestoreClient';
 import { UserProfile } from '../../../types';
 import { userProfileDbSchema } from '../../../core/firebase/schemas/firestoreSchemas';
 import { setEncryptionEnabled, setProfileLoaded } from '../../../core/crypto/cryptoHelpers';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 import * as Sentry from '@sentry/react';
 import { useAuth } from './AuthContext';
 

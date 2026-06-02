@@ -10,7 +10,7 @@ import {
 import { auth } from '../../../core/firebase/auth';
 import { deriveMasterKey, unwrapDataKey, setSessionKey, fromBase64 } from '../../../core/crypto/encrypt';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 
 async function signUpWithEmail(email: string, password: string) {
   return createUserWithEmailAndPassword(auth, email, password);

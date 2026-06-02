@@ -1,11 +1,11 @@
 import React from 'react';
 import { LogIn } from 'lucide-react';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useTheme } from '../../../core/theme/ThemeProvider';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 import { Section } from './SettingsHelpers';
-import { STORAGE_KEYS } from '../../../core/constants/storageKeys';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { cn } from '../../../core/utils/utils';
 
 interface AppTabProps {

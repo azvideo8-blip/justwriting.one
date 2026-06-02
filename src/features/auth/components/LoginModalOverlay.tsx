@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 const LoginPage = React.lazy(() => import('../pages/LoginPage').then(m => ({ default: m.LoginPage })));
 import { useLoginModal } from '../contexts/LoginModalContext';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { auth } from '../../../core/firebase/auth';
 import { MigrationPrompt, checkGuestDocuments } from './MigrationPrompt';

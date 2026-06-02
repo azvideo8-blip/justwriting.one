@@ -2,7 +2,7 @@ import { ThemeProvider } from '../core/theme/ThemeProvider';
 import { WritingSettingsProvider } from '../features/writing/contexts/WritingSettingsContext';
 import { SettingsProvider } from '../core/settings/SettingsProvider';
 import { SettingsPanel } from '../features/settings/components/SettingsPanel';
-import { LanguageProvider } from '../core/i18n';
+import { LanguageProvider } from '../shared/i18n';
 import { ToastProvider } from '../shared/components/Toast';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
 import { LoginModalProvider } from '../features/auth/contexts/LoginModalContext';

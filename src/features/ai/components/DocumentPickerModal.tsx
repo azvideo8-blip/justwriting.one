@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { X, Search } from 'lucide-react';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { getLocalDb, getOrCreateGuestId } from '../../../core/storage/localDb';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { getAuth } from 'firebase/auth';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';

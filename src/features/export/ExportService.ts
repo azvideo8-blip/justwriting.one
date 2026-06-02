@@ -1,6 +1,6 @@
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
-import { reportError } from '../../core/errors/reportError';
+import { reportError } from '../../shared/errors/reportError';
 import { escapeHtml } from '../../shared/utils/exportUtils';
 
 export class ExportService {

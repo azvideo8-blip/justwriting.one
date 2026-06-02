@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getSessionDate, calculateStreak, calculateBestStreak, cn } from '../../../core/utils/utils';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { Session } from '../../../types';
 import { IconButton } from '../../../shared/components/IconButton';
 
