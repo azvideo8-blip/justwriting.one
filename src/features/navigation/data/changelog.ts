@@ -14,6 +14,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.12',
+    date: '2026-06-02',
+    items: [
+      { category: 'fix', ru: 'Исправлены дублирующиеся кнопки в мобильном меню действий с заметкой: каждое действие (переименовать, ярлык, синхронизация, удаление) по ошибке отображалось дважды', en: 'Fixed duplicated buttons in the mobile note-actions menu: each action (rename, label, sync, delete) was mistakenly shown twice' },
+      { category: 'improvement', ru: 'Безопасность: устранены все уязвимости в зависимостях (npm audit — 0, включая Cloud Functions)', en: 'Security: resolved all dependency vulnerabilities (npm audit — 0, including Cloud Functions)' },
+      { category: 'improvement', ru: 'Надёжность кода: включена строгая проверка доступа по индексу в TypeScript, добавлены type-aware правила линтера, наведён порядок в границах слоёв (i18n и обработка ошибок вынесены в общий слой)', en: 'Code reliability: enabled strict index-access checking in TypeScript, added type-aware lint rules, and tidied layer boundaries (i18n and error reporting moved to the shared layer)' },
+      { category: 'improvement', ru: 'Качество: добавлены end-to-end тесты (Playwright), мониторинг производительности у пользователей (web-vitals), проверка размера бандла в CI и 100+ новых модульных тестов', en: 'Quality: added end-to-end tests (Playwright), real-user performance monitoring (web-vitals), a CI bundle-size check, and 100+ new unit tests' },
+    ],
+  },
+  {
     version: '0.7.11',
     date: '2026-06-01',
     items: [
