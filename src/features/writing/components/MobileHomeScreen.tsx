@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { Session } from '../../../types';
 import type { SessionGroup, DailySummary, LifeLogDocument } from '../types/lifeLog';
 import { ConnectionStatusBanner } from './ConnectionStatusBanner';

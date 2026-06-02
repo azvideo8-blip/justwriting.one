@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { Trash2, Check, Eye, Loader2, Sparkles } from 'lucide-react';
 import { parseFirestoreDate } from '../../../core/utils/utils';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { IconButton } from '../../../shared/components/IconButton';
 
 import { Session } from '../../../types';

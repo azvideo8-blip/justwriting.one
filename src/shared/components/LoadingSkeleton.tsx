@@ -1,4 +1,4 @@
-import { useLanguage } from '../../core/i18n';
+import { useLanguage } from '../../shared/i18n';
 
 interface LoadingSkeletonProps {
   lines?: number;

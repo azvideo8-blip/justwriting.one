@@ -1,6 +1,6 @@
 import { Type, Flame, BookOpen, Clock } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useCountUp } from '../../../shared/hooks/useCountUp';
 import { cn } from '../../../core/utils/utils';
 

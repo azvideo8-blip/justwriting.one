@@ -10,7 +10,7 @@ import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { cn } from '../../../core/utils/utils';
 import { Monogram, threadPreview, AttachedNoteCard, AttachedFileCard, AttachedSummaryCard, AssistantTurn, ATTACHED_NOTE_RE, ATTACHED_NOTE_SUMMARY_RE, ATTACHED_FILE_RE } from '../components/AIChatPresentational';
 import { useAIPageData } from '../hooks/useAIPageData';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useShallow } from 'zustand/react/shallow';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
 import { getWpmHex } from '../utils/wpmColors';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';

@@ -4,9 +4,9 @@ import { countWords } from '../../../shared/utils/countWords';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { Session } from '../../../types';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 

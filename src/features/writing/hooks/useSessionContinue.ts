@@ -7,7 +7,7 @@ import { SetupMode } from '../components/WritingSetup';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { countWords } from '../../../shared/utils/countWords';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 
 interface UseSessionContinueParams {
   setSetupMode: (mode: SetupMode) => void;

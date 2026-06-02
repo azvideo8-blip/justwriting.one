@@ -1,6 +1,6 @@
 import { getLocalDb } from '../storage/localDb';
 import { LocalDocumentService } from './LocalDocumentService';
-import { reportError } from '../../core/errors/reportError';
+import { reportError } from '../../shared/errors/reportError';
 
 export const ProfileUpdater = {
   async updateLocalProfile(

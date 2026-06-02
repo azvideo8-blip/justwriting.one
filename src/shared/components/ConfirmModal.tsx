@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { useLanguage } from '../../core/i18n';
+import { useLanguage } from '../../shared/i18n';
 import { Button } from './Button';
 import { useModalEscape } from '../hooks/useModalEscape';
 import { useFocusTrap } from '../hooks/useFocusTrap';

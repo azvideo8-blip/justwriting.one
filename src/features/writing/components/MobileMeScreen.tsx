@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { cn } from '../../../core/utils/utils';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { UserProfile } from '../../../types';
 import { User } from 'firebase/auth';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
@@ -17,7 +17,7 @@ import { StreakRibbon } from '../../profile/components/StreakRibbon';
 import { Heatmap } from '../../profile/components/Heatmap';
 import { HourRhythm } from '../../profile/components/HourRhythm';
 import { Achievements } from '../../profile/components/Achievements';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 import { useNavigate } from 'react-router-dom';
 import { ProfileService } from '../../profile/services/ProfileService';
 import { MobilePageHeader } from '../../../shared/components/MobilePageHeader';

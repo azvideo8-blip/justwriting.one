@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { UserProfile } from '../../../types';
 import { GoalToast } from '../../../shared/components/GoalToast';
-import { SeoHead } from '../../../core/i18n/SeoHead';
+import { SeoHead } from '../../../shared/i18n/SeoHead';
 
 import { WritingFinishModal } from '../components/WritingFinishModal';
 import { FlowPulse } from '../../../core/theme/FlowPulse';

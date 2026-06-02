@@ -3,7 +3,7 @@ import { DocumentService } from '../../../core/services/DocumentService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { StorageService } from '../../../core/services/StorageService';
 import { ArchiveSession } from '../types';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 
 type ArchiveField = 'tags' | 'title' | 'date' | 'labelId';
 type ArchiveFieldValue = string[] | string | Date | undefined;

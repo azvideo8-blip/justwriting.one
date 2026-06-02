@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { WifiOff, Check } from 'lucide-react';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';

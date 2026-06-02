@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProfileUpdater } from '../ProfileUpdater';
 import { getLocalDb } from '../../storage/localDb';
 import { LocalDocumentService } from '../LocalDocumentService';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 
 vi.mock('../../storage/localDb', () => ({
   getLocalDb: vi.fn(),
@@ -14,7 +14,7 @@ vi.mock('../LocalDocumentService', () => ({
   },
 }));
 
-vi.mock('../../../core/errors/reportError', () => ({
+vi.mock('../../../shared/errors/reportError', () => ({
   reportError: vi.fn(),
 }));
 

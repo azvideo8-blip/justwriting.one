@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { DocumentService } from '../../../core/services/DocumentService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { Document } from '../../../types';
-import { reportError } from '../../../core/errors/reportError';
-import { useLanguage } from '../../../core/i18n';
+import { reportError } from '../../../shared/errors/reportError';
+import { useLanguage } from '../../../shared/i18n';
 
 function localDocToDocument(doc: { id: string; title: string; currentVersion: number; totalWords: number; totalDuration: number; sessionsCount: number; firstSessionAt: number; lastSessionAt: number; tags: string[]; linkedCloudId?: string | undefined }): Document {
   const firstMs = doc.firstSessionAt || doc.lastSessionAt || Date.now();

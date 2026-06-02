@@ -3,7 +3,7 @@ import { ConflictResolver } from '../ConflictResolver';
 import { LocalStorageService } from '../LocalStorageService';
 import { LocalVersionService } from '../LocalVersionService';
 import { getLocalDb } from '../../storage/localDb';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 
 vi.mock('../LocalStorageService', () => ({
   LocalStorageService: {
@@ -22,7 +22,7 @@ vi.mock('../../storage/localDb', () => ({
   getLocalDb: vi.fn(),
 }));
 
-vi.mock('../../../core/errors/reportError', () => ({
+vi.mock('../../../shared/errors/reportError', () => ({
   reportError: vi.fn(),
 }));
 

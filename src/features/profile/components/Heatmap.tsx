@@ -18,7 +18,7 @@ function getDayLabels(locale: string): string[] {
     '',
   ];
 }
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { Session } from '../../../types';
 
 interface HeatCell {

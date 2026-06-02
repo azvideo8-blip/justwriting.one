@@ -2,8 +2,8 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import * as Sentry from '@sentry/react';
 import { clearSessionKey } from '../../../core/crypto/encrypt';
 import { analytics } from '../../../core/analytics/analytics';
-import { STORAGE_KEYS } from '../../../core/constants/storageKeys';
-import { reportError } from '../../../core/errors/reportError';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+import { reportError } from '../../../shared/errors/reportError';
 import { onConnectionChange } from '../../../core/firebase/firestore';
 import { useAuth } from './AuthContext';
 

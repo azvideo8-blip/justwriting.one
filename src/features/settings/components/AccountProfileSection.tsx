@@ -1,7 +1,7 @@
 import React from 'react';
 import { HardDrive, LogIn, User as UserIcon } from 'lucide-react';
 import { AuthService } from '../../auth/services/AuthService';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 import { Section } from './SettingsHelpers';

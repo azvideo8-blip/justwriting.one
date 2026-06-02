@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import React from 'react';
 import { render } from '@testing-library/react';
 import { WpmChart } from '../components/WpmChart';
-import { LanguageProvider } from '../../../core/i18n';
+import { LanguageProvider } from '../../../shared/i18n';
 
 // ─── Replicate the chart math from WpmChart.tsx ───────────────────────────────
 

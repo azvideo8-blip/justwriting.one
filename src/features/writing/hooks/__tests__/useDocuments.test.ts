@@ -22,7 +22,7 @@ vi.mock('../../../../core/services/LocalDocumentService', () => ({
 
 // Return a stable translation function to prevent infinite re-renders
 const stableT = (key: string) => key;
-vi.mock('../../../../core/i18n', () => ({
+vi.mock('../../../../shared/i18n', () => ({
   useLanguage: () => ({
     t: stableT,
     language: 'ru',
@@ -31,7 +31,7 @@ vi.mock('../../../../core/i18n', () => ({
   }),
 }));
 
-vi.mock('../../../../core/errors/reportError', () => ({
+vi.mock('../../../../shared/errors/reportError', () => ({
   reportError: vi.fn(),
 }));
 

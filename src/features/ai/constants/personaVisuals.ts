@@ -2,7 +2,7 @@
 // Mirrors the "Собеседник" design language (ai-chat mockup). Preset personas get a
 // fixed palette; custom personas derive a monogram from their name and reuse the brand soft.
 
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 
 export interface PersonaVisual {
   color: string;

@@ -4,7 +4,7 @@ import { Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../../../core/utils/utils';
 import { Label } from '../../../types';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useCountUp } from '../../../shared/hooks/useCountUp';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';

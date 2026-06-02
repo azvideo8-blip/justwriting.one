@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '../../shared/utils/cn';
-import { useLanguage } from '../../core/i18n';
+import { useLanguage } from '../../shared/i18n';
 
 interface StreakDotsProps {
   sessionGroups: { date: Date; sessions: unknown[] }[];

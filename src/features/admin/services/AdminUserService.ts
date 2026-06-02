@@ -2,7 +2,7 @@ import { getClient } from '../../../core/firebase/firestoreClient';
 import { handleFirestoreError, OperationType } from '../../../core/errors/firestore-errors';
 import { ProfileService } from '../../profile/services/ProfileService';
 import { UserProfile } from '../../../types';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 
 export const AdminUserService = {
   async getUsers(limitCount: number = 50) {

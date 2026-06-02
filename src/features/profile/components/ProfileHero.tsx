@@ -4,7 +4,7 @@ import { User } from 'firebase/auth';
 import { Pencil, PenLine } from 'lucide-react';
 import { UserProfile } from '../../../types';
 import { ProfileService } from '../services/ProfileService';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { IconButton } from '../../../shared/components/IconButton';
 

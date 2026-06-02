@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, memo } from 'react';
 import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
 import { GoalPopup } from './GoalPopup';
 import { getWpmColor } from '../utils/wpmColors';

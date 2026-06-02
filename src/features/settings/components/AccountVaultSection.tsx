@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Lock, Shield } from 'lucide-react';
 import { EncryptionService, WrongPasswordError } from '../../../core/services/EncryptionService';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { type MigrationProgress } from '../../../core/crypto/encryptMigration';
 import { Section } from './SettingsHelpers';

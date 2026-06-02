@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
 import { getFontStack } from '../utils/fontStack';
 

@@ -4,7 +4,7 @@ import { Session } from '../../../types';
 import { loadAllSessions } from '../../writing/services/UnifiedSessionLoader';
 import { calculateStreak } from '../../../core/utils/utils';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 
 interface StatsSession extends Session {
   _totalWords?: number;

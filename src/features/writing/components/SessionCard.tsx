@@ -7,7 +7,7 @@ import { deleteSession } from '../services/SessionDeleteService';
 import { Session, Label } from '../../../types';
 import { parseFirestoreDate, cn } from '../../../core/utils/utils';
 import { highlightText } from '../../../shared/utils/highlightText';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 

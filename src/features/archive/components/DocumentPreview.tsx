@@ -4,7 +4,7 @@ import { X, ArrowRight, Download, ChevronDown, Sparkles, ChevronUp } from 'lucid
 import { format } from 'date-fns';
 import { Label } from '../../../types';
 import { ArchiveSession } from '../types';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
 import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx, ExportStrings } from '../services/ArchiveExportService';

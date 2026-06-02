@@ -6,7 +6,7 @@ import { VersionService } from '../../../core/services/VersionService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { toDate } from '../../../core/utils/dateUtils';
 import { maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 import { getLocalDb } from '../../../core/storage/localDb';
 import pLimit from 'p-limit';
 

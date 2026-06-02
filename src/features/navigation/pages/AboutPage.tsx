@@ -1,7 +1,7 @@
 import { ArrowLeft, Heart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useLanguage } from '../../../core/i18n';
-import { SeoHead } from '../../../core/i18n/SeoHead';
+import { useLanguage } from '../../../shared/i18n';
+import { SeoHead } from '../../../shared/i18n/SeoHead';
 
 export function AboutPage() {
   const { t } = useLanguage();

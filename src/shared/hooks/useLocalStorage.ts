@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { z } from 'zod';
-import { reportError } from '../../core/errors/reportError';
+import { reportError } from '../../shared/errors/reportError';
 
 export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodType<T>) {
   const initialValueRef = useRef(initialValue);

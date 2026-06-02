@@ -1,6 +1,6 @@
 import { auth } from '../firebase/auth';
-import { OperationType, FirestoreErrorInfo } from '../../core/errors/errorTypes';
-import { reportError } from '../../core/errors/reportError';
+import { OperationType, FirestoreErrorInfo } from '../../shared/errors/errorTypes';
+import { reportError } from '../../shared/errors/reportError';
 
 export { OperationType };
 export type { FirestoreErrorInfo };

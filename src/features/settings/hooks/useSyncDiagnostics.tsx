@@ -10,7 +10,7 @@ import { SyncService } from '../../../core/services/SyncService';
 import { StorageService } from '../../../core/services/StorageService';
 import { VersionService } from '../../../core/services/VersionService';
 import { getLocalDb } from '../../../core/storage/localDb';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { useAuthStatus } from '../../auth/contexts/AuthContext';
 import { getSessionKey } from '../../../core/crypto/encrypt';

@@ -6,7 +6,7 @@ import { calculateStreak } from '../../../core/utils/utils';
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
 import { z } from 'zod';
 import { AdaptiveContainer } from '../../../shared/components/Layout/AdaptiveContainer';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../shared/components/Button';
 import { useUserId } from '../../../shared/hooks/useUserId';

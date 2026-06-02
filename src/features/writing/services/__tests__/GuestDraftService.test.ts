@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { saveGuestDraftToStorage, loadGuestDraftFromStorage, deleteGuestDraftFromStorage } from '../GuestDraftService';
 import { getLocalDb } from '../../../../core/storage/localDb';
-import { reportError } from '../../../../core/errors/reportError';
+import { reportError } from '../../../../shared/errors/reportError';
 
 vi.mock('../../../../core/storage/localDb', () => ({
   getLocalDb: vi.fn(),
   LocalDraft: {} as unknown,
 }));
 
-vi.mock('../../../../core/errors/reportError', () => ({
+vi.mock('../../../../shared/errors/reportError', () => ({
   reportError: vi.fn(),
 }));
 

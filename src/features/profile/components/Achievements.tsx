@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, startTransition } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { useLanguage } from '../../../core/i18n';
-import { reportError } from '../../../core/errors/reportError';
+import { useLanguage } from '../../../shared/i18n';
+import { reportError } from '../../../shared/errors/reportError';
 import { Session, Achievement } from '../../../types';
 import { ACHIEVEMENTS as ACH_DATA } from '../constants/achievements';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';

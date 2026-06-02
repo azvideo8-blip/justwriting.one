@@ -1,5 +1,5 @@
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 import { analytics } from '../../../core/analytics/analytics';
 
 export type AIAction = 'shorten' | 'accents' | 'ideas' | 'summarize' | 'tags' | 'mood' | 'continue';

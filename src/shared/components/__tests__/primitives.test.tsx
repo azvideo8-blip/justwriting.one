@@ -8,7 +8,7 @@ import { FormField } from '../FormField';
 import { Card } from '../Card';
 import { Badge } from '../Badge';
 
-vi.mock('../../../core/i18n', () => ({
+vi.mock('../../../shared/i18n', () => ({
   useLanguage: () => ({ t: (key: string) => key, language: 'en' }),
 }));
 

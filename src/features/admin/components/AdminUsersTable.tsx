@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '../../../core/utils/utils';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 
 import { UserProfile } from '../../../types';
 

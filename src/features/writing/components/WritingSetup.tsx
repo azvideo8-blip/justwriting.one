@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { LifeLogDocument } from '../types/lifeLog';
 import { cn } from '../../../core/utils/utils';
 import { getDateLocale } from '../../../core/utils/dateUtils';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
 import { useTimerStore } from '../store/useTimerStore';
 import { Button } from '../../../shared/components/Button';

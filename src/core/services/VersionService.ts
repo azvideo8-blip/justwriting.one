@@ -2,7 +2,7 @@ import { getClient } from '../firebase/firestoreClient';
 import { Version } from '../../types';
 import { handleFirestoreError, OperationType } from '../errors/firestore-errors';
 import { computeWordDelta } from './DiffService';
-import { reportError } from '../../core/errors/reportError';
+import { reportError } from '../../shared/errors/reportError';
 import { versionDbSchema } from '../firebase/schemas/firestoreSchemas';
 
 export const VersionService = {

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useLifeLog } from '../hooks/useLifeLog';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { Session, Label } from '../../../types';
 import { parseFirestoreDate as _parseFirestoreDate } from '../../../core/utils/utils';
 import { StreakDots } from '../../../shared/components/StreakDots';
@@ -14,7 +14,7 @@ import { Settings } from 'lucide-react';
 import { useSettings } from '../../../core/settings/SettingsContext';
 import { LoadingSkeleton } from '../../../shared/components/LoadingSkeleton';
 import { IconButton } from '../../../shared/components/IconButton';
-import { logger } from '../../../core/errors/logger';
+import { logger } from '../../../shared/errors/logger';
 
 interface MobileLogScreenProps {
   userId: string;

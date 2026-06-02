@@ -2,7 +2,7 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
-import { useLanguage } from '../core/i18n';
+import { useLanguage } from '../shared/i18n';
 import { LogIn, Loader2 } from 'lucide-react';
 
 export function ProtectedRoute({ children, requireAdmin }: { children: React.ReactNode; requireAdmin?: boolean }) {

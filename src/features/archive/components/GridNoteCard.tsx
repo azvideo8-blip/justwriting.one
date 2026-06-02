@@ -7,7 +7,7 @@ import { getSessionDate, cn } from '../../../core/utils/utils';
 import { getDateLocale } from '../../../core/utils/dateUtils';
 import { highlightText } from '../../../shared/utils/highlightText';
 import { InlineTags } from './InlineTags';
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useSessionTags } from '../../writing/hooks/useSessionTags';
 import { Sparkles } from 'lucide-react';
 

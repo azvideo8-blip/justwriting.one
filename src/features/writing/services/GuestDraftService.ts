@@ -1,5 +1,5 @@
 import { getLocalDb, LocalDraft } from '../../../core/storage/localDb';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
 const DRAFT_KEY = STORAGE_KEYS.GUEST_DRAFT;

@@ -1,6 +1,6 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
-import { reportError } from '../../core/errors/reportError';
-import { translations } from '../../core/i18n';
+import { reportError } from '../../shared/errors/reportError';
+import { translations } from '../../shared/i18n';
 import { Button } from './Button';
 
 interface Props {

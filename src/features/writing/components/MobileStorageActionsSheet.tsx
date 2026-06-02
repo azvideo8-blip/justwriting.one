@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Cloud, HardDrive, Loader2, Trash2, X, Upload, RefreshCw } from 'lucide-react';
 
-import { useLanguage } from '../../../core/i18n';
+import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
@@ -10,7 +10,7 @@ import { StorageService } from '../../../core/services/StorageService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { SyncService } from '../../../core/services/SyncService';
 import { getSessionKey } from '../../../core/crypto/encrypt';
-import { reportError } from '../../../core/errors/reportError';
+import { reportError } from '../../../shared/errors/reportError';
 import { UnlockPrompt } from '../../auth/components/UnlockPrompt';
 import { EncryptionPasswordModal } from '../../encryption/components/EncryptionPasswordModal';
 import { useAuthStatus } from '../../auth/contexts/AuthContext';
