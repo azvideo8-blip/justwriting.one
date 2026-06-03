@@ -1,7 +1,8 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, GEMINI_MODEL, getGenAI, getLangfuse, INJECTION_PATTERNS, MAX_AI_CONTENT_LENGTH } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, getLangfuse, INJECTION_PATTERNS, MAX_AI_CONTENT_LENGTH } from '../shared/aiUtils';
+import { generate, AI_MODEL_LABEL } from '../shared/aiProvider';
 
 const actionSchema = z.enum(['shorten', 'accents', 'ideas', 'summarize', 'tags', 'mood', 'continue']);
 
@@ -31,43 +32,28 @@ function buildPrompt(action: string, content: string): string {
   return `${task}\n\nЯзык ответа должен совпадать с языком входного текста.\n\n${content}`;
 }
 
-async function callGemini(
+async function callModel(
   content: string,
   action: string,
   history?: { role: 'user' | 'assistant'; content: string }[]
 ): Promise<{ text: string; tokensIn: number; tokensOut: number }> {
-  const ai = getGenAI();
-  const model = ai.getGenerativeModel({ model: GEMINI_MODEL });
-
-  const chatHistory = (history ?? []).map(m => ({
-    role: m.role === 'assistant' ? 'model' as const : 'user' as const,
-    parts: [{ text: sanitizeAiInput(m.content) }],
+  const messages = (history ?? []).map(m => ({
+    role: m.role,
+    content: sanitizeAiInput(m.content),
   }));
+  messages.push({ role: 'user', content: buildPrompt(action, content) });
 
-  const chat = model.startChat({ history: chatHistory });
-  const prompt = buildPrompt(action, content);
-  let result;
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
-    try {
-      result = await chat.sendMessage(prompt, { signal: controller.signal });
-    } finally {
-      clearTimeout(timeout);
-    }
-  } catch {
+    return await generate({ messages, maxTokens: 4096, abortMs: 110_000 });
+  } catch (e) {
+    console.error('[editWithAI] AI request failed:', e);
     throw new HttpsError('internal', 'AI request failed.');
   }
-  const response = result.response;
-  return {
-    text: response.text(),
-    tokensIn: response.usageMetadata?.promptTokenCount ?? 0,
-    tokensOut: response.usageMetadata?.candidatesTokenCount ?? 0,
-  };
 }
 
 export const editWithAI = onCall({
-  secrets: ['GEMINI_API_KEY'],
+  secrets: ['GEMINI_API_KEY', 'FIREWORKS_API_KEY'],
+  timeoutSeconds: 120,
   enforceAppCheck: false,
 }, async (request) => {
   if (!request.auth) {
@@ -106,9 +92,9 @@ export const editWithAI = onCall({
 
   const lf = getLangfuse();
   const trace = lf?.trace({ name: 'editWithAI', userId: uid, metadata: { action } });
-  const generation = trace?.generation({ name: 'gemini', model: GEMINI_MODEL, input: sanitizedInput });
+  const generation = trace?.generation({ name: AI_MODEL_LABEL, model: AI_MODEL_LABEL, input: sanitizedInput });
 
-  const { text, tokensIn, tokensOut } = await callGemini(sanitizedInput, action, history ?? undefined);
+  const { text, tokensIn, tokensOut } = await callModel(sanitizedInput, action, history ?? undefined);
   const sanitizedOutput = sanitizeAiResponse(text);
 
   generation?.end({ output: sanitizedOutput, usage: { promptTokens: tokensIn, completionTokens: tokensOut } });

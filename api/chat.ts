@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { streamText } from 'ai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createOpenAI } from '@ai-sdk/openai';
 import { initializeApp, getApps, cert, applicationDefault, type ServiceAccount } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
@@ -94,6 +95,25 @@ if (googleApiKey) {
 const google = createGoogleGenerativeAI(googleOptions);
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
+
+// Provider seam: switch the streaming chat model via AI_PROVIDER. Fireworks is
+// OpenAI-compatible, so a Fireworks-hosted model (e.g. DeepSeek v4 pro) runs
+// through the OpenAI provider pointed at Fireworks' /chat/completions endpoint.
+// Keep in sync with functions/src/shared/aiProvider.ts.
+const AI_PROVIDER = (process.env.AI_PROVIDER ?? 'fireworks').toLowerCase();
+const FIREWORKS_MODEL = process.env.FIREWORKS_MODEL ?? 'accounts/fireworks/models/deepseek-v4-pro';
+const fireworksOptions: { baseURL: string; apiKey?: string } = {
+  baseURL: 'https://api.fireworks.ai/inference/v1',
+};
+if (process.env.FIREWORKS_API_KEY) {
+  fireworksOptions.apiKey = process.env.FIREWORKS_API_KEY;
+}
+const fireworks = createOpenAI(fireworksOptions);
+
+function getChatModel() {
+  if (AI_PROVIDER === 'fireworks') return fireworks.chat(FIREWORKS_MODEL);
+  return google(GEMINI_MODEL);
+}
 
 const INJECTION_PATTERNS = [
   /ignore\s+previous/i, /ignore\s+instructions/i, /jailbreak/i,
@@ -242,7 +262,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // at 1024 the thinking budget could consume it all and truncate the reply
   // mid-sentence. 8192 leaves ample room for a complete answer.
   const result = streamText({
-    model: google(GEMINI_MODEL),
+    model: getChatModel(),
     system: systemPrompt,
     messages: messages.map(m => ({ role: m.role, content: sanitizeAiInput(m.content) })),
     maxOutputTokens: 8192,

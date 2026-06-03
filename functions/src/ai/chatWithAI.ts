@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, GEMINI_MODEL, getGenAI, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
+import { generate, AI_MODEL_LABEL } from '../shared/aiProvider';
 import { PERSONA_PROMPTS, TOPIC_GUARD, PRESET_PERSONA_IDS, type PersonaId } from '../shared/prompts';
 
 const inputSchema = z.object({
@@ -19,7 +20,8 @@ const inputSchema = z.object({
 });
 
 export const chatWithAI = onCall({
-  secrets: ['GEMINI_API_KEY'],
+  secrets: ['GEMINI_API_KEY', 'FIREWORKS_API_KEY'],
+  timeoutSeconds: 120,
   enforceAppCheck: false,
 }, async (request) => {
   if (!request.auth) {
@@ -66,9 +68,6 @@ export const chatWithAI = onCall({
     systemInstruction = `${systemInstruction}\n\n---\n[Портрет пользователя (личность, темы, контекст)]\n${userPortrait}`;
   }
 
-  const model = getGenAI().getGenerativeModel({ model: GEMINI_MODEL, systemInstruction });
-
-  const chatHistory: { role: 'user' | 'model'; parts: [{ text: string }] }[] = [];
   const allMessages = [...messages];
 
   if (documentContent) {
@@ -80,42 +79,29 @@ export const chatWithAI = onCall({
     }
   }
 
-  const lastMessage = allMessages[allMessages.length - 1];
-  const historyMessages = allMessages.slice(0, -1);
-
-  for (const m of historyMessages) {
-    chatHistory.push({
-      role: m.role === 'assistant' ? 'model' as const : 'user' as const,
-      parts: [{ text: sanitizeAiInput(m.content) }],
-    });
-  }
+  const providerMessages = allMessages.map(m => ({
+    role: m.role,
+    content: sanitizeAiInput(m.content),
+  }));
 
   const lf = getLangfuse();
   const trace = lf?.trace({ name: 'chatWithAI', userId: uid, metadata: { personaId } });
-  const generation = trace?.generation({ name: 'gemini', model: GEMINI_MODEL, input: chatHistory });
+  const generation = trace?.generation({ name: AI_MODEL_LABEL, model: AI_MODEL_LABEL, input: providerMessages });
 
-  const chat = model.startChat({ history: chatHistory });
-  let result;
+  let gen;
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
-    try {
-      result = await chat.sendMessage(sanitizeAiInput(lastMessage.content), { signal: controller.signal });
-    } finally {
-      clearTimeout(timeout);
-    }
+    gen = await generate({ system: systemInstruction, messages: providerMessages, maxTokens: 8192, abortMs: 110_000 });
   } catch (e) {
-    console.error('[chatWithAI] Gemini request failed:', e);
+    console.error('[chatWithAI] AI request failed:', e);
+    generation?.end({ output: String(e), level: 'ERROR' });
+    if (lf) await lf.flushAsync().catch(() => {});
     throw new HttpsError('internal', 'AI request failed.');
   }
-  const response = result.response;
-  const text = sanitizeAiResponse(response.text());
 
-  const tokensIn = response.usageMetadata?.promptTokenCount ?? 0;
-  const tokensOut = response.usageMetadata?.candidatesTokenCount ?? 0;
+  const text = sanitizeAiResponse(gen.text);
 
-  generation?.end({ output: text, usage: { promptTokens: tokensIn, completionTokens: tokensOut } });
-  recordUsage(uid, tokensIn, tokensOut).catch(e => console.error('[AI chat] usage record failed:', e));
+  generation?.end({ output: text, usage: { promptTokens: gen.tokensIn, completionTokens: gen.tokensOut } });
+  recordUsage(uid, gen.tokensIn, gen.tokensOut).catch(e => console.error('[AI chat] usage record failed:', e));
   if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   return { result: text };
