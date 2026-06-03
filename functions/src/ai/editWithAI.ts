@@ -2,7 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 
 import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, getLangfuse, INJECTION_PATTERNS, MAX_AI_CONTENT_LENGTH } from '../shared/aiUtils';
-import { generate, AI_MODEL_LABEL } from '../shared/aiProvider';
+import { generate, getActiveModel } from '../shared/aiProvider';
 
 const actionSchema = z.enum(['shorten', 'accents', 'ideas', 'summarize', 'tags', 'mood', 'continue']);
 
@@ -36,7 +36,7 @@ async function callModel(
   content: string,
   action: string,
   history?: { role: 'user' | 'assistant'; content: string }[]
-): Promise<{ text: string; tokensIn: number; tokensOut: number }> {
+): Promise<{ text: string; tokensIn: number; tokensOut: number; model: string }> {
   const messages = (history ?? []).map(m => ({
     role: m.role,
     content: sanitizeAiInput(m.content),
@@ -91,14 +91,15 @@ export const editWithAI = onCall({
   }
 
   const lf = getLangfuse();
+  const activeModel = await getActiveModel();
   const trace = lf?.trace({ name: 'editWithAI', userId: uid, metadata: { action } });
-  const generation = trace?.generation({ name: AI_MODEL_LABEL, model: AI_MODEL_LABEL, input: sanitizedInput });
+  const generation = trace?.generation({ name: activeModel, model: activeModel, input: sanitizedInput });
 
-  const { text, tokensIn, tokensOut } = await callModel(sanitizedInput, action, history ?? undefined);
-  const sanitizedOutput = sanitizeAiResponse(text);
+  const result = await callModel(sanitizedInput, action, history ?? undefined);
+  const sanitizedOutput = sanitizeAiResponse(result.text);
 
-  generation?.end({ output: sanitizedOutput, usage: { promptTokens: tokensIn, completionTokens: tokensOut } });
-  recordUsage(uid, tokensIn, tokensOut, { model: AI_MODEL_LABEL, fn: 'edit' }).catch(e => console.error('[AI] usage record failed:', e));
+  generation?.end({ output: sanitizedOutput, usage: { promptTokens: result.tokensIn, completionTokens: result.tokensOut } });
+  recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'edit' }).catch(e => console.error('[AI] usage record failed:', e));
   if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   return { result: sanitizedOutput };
