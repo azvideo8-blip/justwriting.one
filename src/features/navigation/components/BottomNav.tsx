@@ -4,6 +4,7 @@ import { cn } from '../../../core/utils/utils';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 import { Shield, Sparkles } from 'lucide-react';
+import { Button } from '../../../shared/components/Button';
 
 const PenIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
@@ -80,7 +81,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
       {tabs.map(tab => {
         const active = isActive(tab);
         return (
-          <button
+          <Button
             key={tab.id}
             onClick={() => handleTabPress(tab)}
             aria-label={tab.label}
@@ -95,7 +96,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
             <span className="text-label-sm font-sans tracking-[0.02em]">
               {tab.label}
             </span>
-          </button>
+          </Button>
         );
       })}
     </div>

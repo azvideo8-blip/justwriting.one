@@ -292,9 +292,11 @@ export function WritingSetup({
                       </div>
                     ) : (
                       userSessions.map(session => (
-                        <button
+                        <Button
                           type="button"
                           key={session.localId || session.cloudId}
+                          variant="ghost"
+                          size="sm"
                           onClick={() => continueSession(session)}
                           className="group flex flex-col gap-2 p-3 md:p-4 border rounded-2xl transition-all duration-300 text-left bg-white/5 border-border-subtle hover:bg-white/10 hover:border-white/20"
                         >
@@ -316,7 +318,7 @@ export function WritingSetup({
                               {session.lastSessionAt ? format(new Date(session.lastSessionAt), 'd MMM', { locale: dateLocale }) : ''}
                             </div>
                           </div>
-                        </button>
+                        </Button>
                       ))
                     )}
                   </div>

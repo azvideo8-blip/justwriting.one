@@ -15,6 +15,7 @@ import { useDiagnosticsData, type Tab } from '../hooks/useDiagnosticsData';
 import { DatabaseExplorer } from '../components/DatabaseExplorer';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { Input } from '../../../shared/components/Input';
 
 export function DiagnosticsPage() {
   const navigate = useNavigate();
@@ -153,14 +154,14 @@ export function DiagnosticsPage() {
                   <h3 className="text-sm font-semibold text-text-main">Выгрузка всех данных</h3>
                   <p className="text-xs text-text-main/40 mt-1">Отправляет все локальные несинхронизированные заметки в Cloud Firestore.</p>
                 </div>
-                <button
+                <Button
                   onClick={() => void handleSyncAllToCloud()}
                   disabled={bulkSyncing}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-text-main text-surface-base text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-colors min-h-[38px]"
                 >
                   {bulkSyncing ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
                   Загрузить всё в облако
-                </button>
+                </Button>
               </div>
 
               <div className="p-5 rounded-2xl border border-border-subtle bg-surface-base/5 space-y-3">
@@ -168,14 +169,14 @@ export function DiagnosticsPage() {
                   <h3 className="text-sm font-semibold text-text-main">Импорт из облака</h3>
                   <p className="text-xs text-text-main/40 mt-1">Скачивает все резервные копии заметок из облака в локальный кэш IndexedDB.</p>
                 </div>
-                <button
+                <Button
                   onClick={() => void handleImportAllFromCloud()}
                   disabled={bulkImporting}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-text-main text-surface-base text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-colors min-h-[38px]"
                 >
                   {bulkImporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
                   Скачать всё из облака
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -228,14 +229,14 @@ export function DiagnosticsPage() {
                   <p className="text-[10px] text-text-main/40">Сбрасывает суточный лимит запросов, если пользователя нет в таблице.</p>
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto min-w-[280px]">
-                  <input
+                  <Input
                     type="text"
                     value={manualResetUid}
                     onChange={e => setManualResetUid(e.target.value)}
                     placeholder="Введите UID пользователя..."
                     className="flex-1 px-3 py-1.5 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main placeholder:text-text-main/30 outline-none"
                   />
-                  <button
+                  <Button
                     onClick={() => {
                       if (!manualResetUid.trim()) return;
                       void handleResetUserLimit(manualResetUid.trim(), manualResetUid.trim());
@@ -245,27 +246,27 @@ export function DiagnosticsPage() {
                     className="px-3 py-1.5 rounded-xl bg-accent-danger/10 border border-accent-danger/20 text-accent-danger hover:bg-accent-danger/20 disabled:opacity-50 transition-colors text-xs font-bold whitespace-nowrap"
                   >
                     {resettingUid === manualResetUid.trim() ? 'Сброс...' : 'Сбросить'}
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <h3 className="text-sm font-semibold text-text-main">Использование Gemini API</h3>
                 <div className="flex items-center gap-2">
-                  <input
+                  <Input
                     type="date"
                     value={aiUsageDate}
                     onChange={e => setAiUsageDate(e.target.value)}
                     className="px-3 py-1.5 rounded-xl bg-surface-base/5 border border-border-subtle text-xs text-text-main outline-none"
                   />
-                  <button
+                  <Button
                     onClick={() => void fetchAIUsage()}
                     disabled={aiUsageLoading}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-text-main text-surface-base text-xs font-semibold disabled:opacity-50 transition-colors"
                   >
                     {aiUsageLoading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
                     Обновить
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -318,12 +319,12 @@ export function DiagnosticsPage() {
                 );
               })()}
 
-              <input
+              <Input
                 type="text"
                 value={aiSearchQuery}
                 onChange={e => setAiSearchQuery(e.target.value)}
                 placeholder="Поиск по email / никнейму / uid..."
-                className="w-full px-4 py-2.5 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/30"
+                className="px-4 py-2.5 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/30"
               />
 
               <div className="overflow-x-auto rounded-2xl border border-border-subtle bg-surface-card/10">
@@ -355,13 +356,13 @@ export function DiagnosticsPage() {
                           <td className="py-2.5 px-4 text-right text-text-main/60">{(row.promptTokens + row.completionTokens).toLocaleString()}</td>
                           <td className="py-2.5 px-4 text-right text-text-main/80 font-mono">${cost.toFixed(5)}</td>
                           <td className="py-2.5 px-4 text-center">
-                            <button
+                            <Button
                               onClick={() => void handleResetUserLimit(row.uid, displayName)}
                               disabled={resettingUid !== null}
                               className="px-2 py-1 rounded-lg bg-accent-danger/10 border border-accent-danger/20 text-accent-danger hover:bg-accent-danger/20 disabled:opacity-50 transition-colors text-[10px] font-bold"
                             >
                               {resettingUid === row.uid ? 'Сброс...' : 'Сбросить'}
-                            </button>
+                            </Button>
                           </td>
                         </tr>
                       );
@@ -399,22 +400,22 @@ export function DiagnosticsPage() {
               <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
                 <span className="text-xs font-bold text-text-main/50 uppercase tracking-wider">Психологический портрет пользователя</span>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <button
+                  <Button
                     onClick={() => void handleGeneratePortrait()}
                     disabled={portraitGenerating}
                     className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-brand-soft/20 bg-brand-soft/10 text-brand-soft text-[10px] font-bold disabled:opacity-50"
                   >
                     {portraitGenerating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
                     {portraitGenerating ? 'Генерация…' : (portraitText ? 'Обновить' : 'Сгенерировать')}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => void handleExportProfile()}
                     disabled={!portraitText}
                     className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-subtle text-text-main/60 text-[10px] font-bold disabled:opacity-40"
                   >
                     <Download size={12} />
                     Экспорт .md
-                  </button>
+                  </Button>
                 </div>
               </div>
               <div className="px-5 py-4 max-h-60 overflow-y-auto text-xs text-text-main/60 whitespace-pre-wrap leading-relaxed">
@@ -440,13 +441,13 @@ export function DiagnosticsPage() {
             )}
 
             <div className="pt-2">
-              <button
+              <Button
                 onClick={() => void handleResetCounter()}
                 className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-xs font-semibold hover:bg-accent-danger/20 transition-colors"
               >
                 <RotateCcw size={13} />
                 Сбросить суточный счетчик ИИ
-              </button>
+              </Button>
             </div>
           </div>
         )}

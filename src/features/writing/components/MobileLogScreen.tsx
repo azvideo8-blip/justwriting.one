@@ -14,6 +14,7 @@ import { Settings } from 'lucide-react';
 import { useSettings } from '../../../core/settings/SettingsContext';
 import { LoadingSkeleton } from '../../../shared/components/LoadingSkeleton';
 import { IconButton } from '../../../shared/components/IconButton';
+import { Input } from '../../../shared/components/Input';
 import { logger } from '../../../shared/errors/logger';
 
 interface MobileLogScreenProps {
@@ -135,13 +136,13 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
             <circle cx="11" cy="11" r="7"/>
             <path d="m20 20-3.5-3.5"/>
           </svg>
-          <input
+          <Input
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder={t('lifelog_search_placeholder')}
             inputMode="search"
             enterKeyHint="search"
-            className="w-full py-2 px-3 pl-8 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-[var(--color-text-main,var(--text-main))] outline-none font-sans"
+            className="py-2 px-3 pl-8 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-[var(--color-text-main,var(--text-main))] outline-none font-sans"
           />
         </div>
       </div>

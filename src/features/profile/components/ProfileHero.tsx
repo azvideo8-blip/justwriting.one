@@ -7,6 +7,7 @@ import { ProfileService } from '../services/ProfileService';
 import { useLanguage } from '../../../shared/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { IconButton } from '../../../shared/components/IconButton';
+import { Button } from '../../../shared/components/Button';
 
 const QUOTE_KEYS = [
   'profile_quote_1',  'profile_quote_2',  'profile_quote_3',
@@ -125,13 +126,13 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-stretch sm:items-center">
-            <button
+            <Button
               onClick={onStartSession}
               className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium text-text-main/60 hover:text-text-main border border-border-subtle hover:border-text-main/30 transition-colors w-full sm:w-auto"
             >
               <PenLine size={13} />
               {t('profile_cta')}
-            </button>
+            </Button>
           </div>
         </div>
 

@@ -236,7 +236,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
           </div>
           {(labels || onAddLabel) && (
             <div className="relative mt-2">
-              <button
+              <Button
                 onClick={() => setLabelPopupOpen(v => !v)}
                 className="flex items-center gap-1.5 text-label-sm font-mono"
                 title={currentLabel?.name ?? t('archive_assign_label')}
@@ -251,7 +251,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                 <span className="text-text-main/40 hover:text-text-main/60 transition-colors">
                   {currentLabel?.name ?? t('archive_assign_label')}
                 </span>
-              </button>
+              </Button>
 
               {labelPopupOpen && (
                 <div
@@ -262,7 +262,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
               {currentLabel && (
                 <Button
                   onClick={() => { onLabelChange?.(session!, undefined); setLabelPopupOpen(false); }}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/40 hover:bg-text-main/5 transition-colors"
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap text-text-main/40 hover:bg-text-main/5 transition-colors"
                 >
                   <div className="w-3 h-3 rounded-full border border-dashed border-text-main/20 shrink-0" />
                   {t('archive_no_label')}
@@ -276,7 +276,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                     setLabelPopupOpen(false);
                   }}
                   className={cn(
-                    "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left transition-colors",
+                    "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap transition-colors",
                     session?.labelId === l.id
                       ? "bg-text-main/10 text-text-main"
                       : "text-text-main/60 hover:bg-text-main/5"
@@ -289,7 +289,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
               {onAddLabel && !creatingLabel && (
                 <Button
                   onClick={() => setCreatingLabel(true)}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/30 hover:text-text-main/50 hover:bg-text-main/5 transition-colors border-t border-border-subtle mt-1 pt-2.5"
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap text-text-main/30 hover:text-text-main/50 hover:bg-text-main/5 transition-colors border-t border-border-subtle mt-1 pt-2.5"
                 >
                   + {t('archive_add_label')}
                 </Button>
@@ -309,11 +309,12 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                   />
                   <div className="flex gap-0.5">
                     {LABEL_PRESET_COLORS.slice(0, 6).map(c => (
-                      <button
+                      <Button
                         key={c}
                         style={{ background: c }}
-                        className={cn("w-3 h-3 rounded-full transition-colors", newLabelColor === c && "ring-1 ring-offset-1 ring-offset-surface-card ring-white/40")}
+                        className={cn("w-3 h-3 rounded-full transition-colors p-0 min-w-0", newLabelColor === c && "ring-1 ring-offset-1 ring-offset-surface-card ring-white/40")}
                         onClick={() => setNewLabelColor(c)}
+                        aria-label={`Select color ${c}`}
                       />
                     ))}
                   </div>

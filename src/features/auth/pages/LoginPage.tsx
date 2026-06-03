@@ -15,6 +15,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { Input } from '../../../shared/components/Input';
 
 interface LoginPageProps {
   isModal?: boolean;
@@ -178,13 +179,13 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
               <label className="text-xs font-bold uppercase tracking-widest ml-1 text-text-main/50">{t('auth_email')}</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/40" size={18} />
-                <input 
+                <Input 
                   type="email"
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t('auth_email_placeholder')}
-                  className="w-full pl-12 pr-4 py-3 rounded-xl outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
+                  className="pl-12 pr-4 py-3 outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
                 />
               </div>
             </div>
@@ -193,13 +194,13 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
               <label className="text-xs font-bold uppercase tracking-widest ml-1 text-text-main/50">{t('auth_password')}</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/40" size={18} />
-                <input 
+                <Input 
                   type="password"
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-12 pr-4 py-3 rounded-xl outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
+                  className="pl-12 pr-4 py-3 outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
                 />
               </div>
             </div>
@@ -267,12 +268,12 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                     <div className="p-3 rounded-lg bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-xs mb-3">{forgotError}</div>
                   )}
                   <div className="space-y-2 text-left mb-3">
-                    <input
+                    <Input
                       type="email"
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
                       placeholder={t('auth_email_placeholder')}
-                      className="w-full px-4 py-3 rounded-xl outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
+                      className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
                     />
                   </div>
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-400 mb-3 flex gap-2">

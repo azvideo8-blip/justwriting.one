@@ -5,6 +5,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { SeoHead } from '../../../shared/i18n/SeoHead';
 import { CHANGELOG, type ChangelogCategory } from '../data/changelog';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
+import { Button } from '../../../shared/components/Button';
 import { cn } from '../../../core/utils/utils';
 
 const categoryConfig: Record<ChangelogCategory, { label: { ru: string; en: string }; className: string }> = {
@@ -28,14 +29,14 @@ export function ChangelogPage() {
         descriptionRu="История обновлений тихого редактора justwriting. Новые функции, исправления, улучшения."
         descriptionEn="Release notes for justwriting, a quiet writing editor. New features, fixes, improvements."
       />
-      <button
+      <Button
         type="button"
         onClick={() => void navigate(-1)}
         className="flex items-center gap-2 text-text-main/40 hover:text-text-main/60 text-sm mb-8 transition-colors"
       >
         <ArrowLeft size={16} />
         {t('writing_back')}
-      </button>
+      </Button>
 
       <div className="flex items-center gap-3 mb-10">
         <JustWritingLogo size={32} variant="dark" showRailway showCrown className="shrink-0" />

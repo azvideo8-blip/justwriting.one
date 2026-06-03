@@ -138,9 +138,11 @@ export function GoalPopup({
                 : p.value === current;
                 
               return (
-            <button
+            <Button
               type="button"
               key={p.value}
+              variant="ghost"
+              size="sm"
               onClick={() => { onSelect(p.value); onClose(); }}
               className={cn(
                 "px-2 py-1 rounded-lg text-xs border transition-colors font-bold",
@@ -148,7 +150,7 @@ export function GoalPopup({
                   ? "border-text-main bg-text-main text-surface-base"
                   : "border-border-subtle text-text-main/60 hover:text-text-main hover:bg-white/5"
               )}
-            >{p.label}</button>
+            >{p.label}</Button>
               );
             })}
           </div>

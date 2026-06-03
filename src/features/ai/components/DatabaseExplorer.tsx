@@ -6,6 +6,9 @@ import { VersionService } from '../../../core/services/VersionService';
 import { AdminUserService } from '../../admin/services/AdminUserService';
 import { cn } from '../../../core/utils/utils';
 import { useToast } from '../../../shared/components/Toast';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
+import { Input } from '../../../shared/components/Input';
 
 const LOCAL_TABLES = [
   { name: 'documents', label: 'documents (Заметки)' },
@@ -201,7 +204,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
         
         {/* Source Switcher */}
         <div className="flex gap-1 p-1 bg-surface-base/10 rounded-xl border border-border-subtle text-[11px] font-bold">
-          <button
+          <Button
             onClick={() => setSource('local')}
             className={cn(
               "flex-1 py-1.5 rounded-lg transition-all duration-200",
@@ -209,8 +212,8 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
             )}
           >
             Локальная БД (IndexedDB)
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => setSource('firestore')}
             className={cn(
               "flex-1 py-1.5 rounded-lg transition-all duration-200",
@@ -218,7 +221,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
             )}
           >
             Firestore
-          </button>
+          </Button>
         </div>
 
         {/* Dropdown */}
@@ -240,12 +243,12 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
         {/* Search */}
         <div className="space-y-1">
           <label className="text-[10px] uppercase font-bold text-text-main/40 tracking-wider">Поиск по тексту</label>
-          <input
+          <Input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Фильтр по содержимому..."
-            className="w-full px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main outline-none placeholder:text-text-main/30"
+            className="px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main outline-none placeholder:text-text-main/30"
           />
         </div>
 
@@ -263,7 +266,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
               const id = getRecordId(r);
               const isSelected = selectedRecord === r;
               return (
-                <button
+                <Button
                   key={`${id}-${idx}`}
                   onClick={() => setSelectedRecord(r)}
                   className={cn(
@@ -273,7 +276,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
                 >
                   <span className="font-semibold truncate">{getRecordTitle(r)}</span>
                   <span className="text-[9px] font-mono text-text-main/30 truncate">{id}</span>
-                </button>
+                </Button>
               );
             })
           )}
@@ -292,13 +295,12 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
                 <h4 className="text-sm font-bold text-text-main truncate mt-1">{getRecordTitle(selectedRecord)}</h4>
                 <p className="text-[10px] font-mono text-text-main/30 mt-0.5 break-all">ID: {getRecordId(selectedRecord)}</p>
               </div>
-              <button
+              <IconButton
                 onClick={() => void handleDeleteRecord(selectedRecord)}
                 className="p-2 rounded-lg border border-accent-danger/20 text-accent-danger hover:bg-accent-danger/10 transition-colors shrink-0"
-                title="Удалить документ"
-              >
-                <Trash2 size={14} />
-              </button>
+                label="Удалить документ"
+                icon={<Trash2 size={14} />}
+              />
             </div>
 
             {/* Preformatted JSON block */}

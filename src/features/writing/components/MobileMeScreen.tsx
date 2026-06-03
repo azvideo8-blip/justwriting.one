@@ -89,9 +89,11 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
         {/* Navigation Tabs Selector */}
         <div className="flex bg-white/[0.04] rounded-lg p-0.5 gap-0.5 mb-3">
           {sections.map(s => (
-            <button
+            <Button
               type="button"
               key={s.id}
+              variant="ghost"
+              size="sm"
               onClick={() => setActiveSection(s.id)}
               className={cn(
                 "flex-1 min-h-[44px] inline-flex items-center justify-center rounded-lg border-none cursor-pointer text-xs font-medium font-sans transition-all duration-150",
@@ -101,7 +103,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
               )}
             >
               {s.label}
-            </button>
+            </Button>
           ))}
         </div>
       </div>

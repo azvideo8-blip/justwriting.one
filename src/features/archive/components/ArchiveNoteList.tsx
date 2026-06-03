@@ -12,6 +12,9 @@ import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { AISummaryService } from '../../ai/services/AISummaryService';
+import { AIService } from '../../ai/services/AIService';
+import { useToast } from '../../../shared/components/Toast';
+import { Button } from '../../../shared/components/Button';
 
 const GridItem = memo<ComponentPropsWithoutRef<'div'>>(
   ({ className, children, style, ...props }) => (
@@ -63,14 +66,57 @@ export function ArchiveNoteList({
   const reducedMotion = useReducedMotion();
   const { tp } = useLanguage();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [aiProcessedMap, setAiProcessedMap] = useState<Record<string, boolean>>({});
+  const [aiLoadingMap, setAiLoadingMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     void AISummaryService.hasAll().then(setAiProcessedMap);
   }, []);
 
-  const handleAIClick = (documentId: string) => {
-    void navigate(`/ai?doc=${documentId}`);
+  // First click on a note's AI button generates its summary; once a summary
+  // exists, the button opens the AI chat for that document.
+  const handleAIClick = async (session: ArchiveSession) => {
+    if (aiProcessedMap[session.id]) {
+      void navigate(`/ai?doc=${session.id}`);
+      return;
+    }
+    if (!session.id || !session.content || aiLoadingMap[session.id]) return;
+    setAiLoadingMap(m => ({ ...m, [session.id]: true }));
+    try {
+      const res = await AIService.summarize({ content: session.content, mood: session.mood });
+      if (res.ok) {
+        await AISummaryService.save({
+          documentId: session.id,
+          tone: res.summary.tone,
+          frequentWords: res.summary.frequentWords,
+          insights: res.summary.insights,
+          themes: res.summary.themes,
+          extractedFacts: res.summary.extractedFacts,
+          processedAt: Date.now(),
+        });
+        setAiProcessedMap(m => ({ ...m, [session.id]: true }));
+        const { getLocalDb } = await import('../../../core/storage/localDb');
+        const db = await getLocalDb();
+        const doc = await db.get('documents', session.id);
+        if (doc) await db.put('documents', { ...doc, aiProcessed: true });
+        const { AIProfileService } = await import('../../ai/services/AIProfileService');
+        AIProfileService.generate().catch(e => console.error('[archive-summary] portrait failed:', e));
+      } else {
+        const errMap: Record<string, string> = {
+          AUTH_REQUIRED: t('ai_error_auth'),
+          DAILY_LIMIT: t('ai_error_rate_limit'),
+          RATE_LIMIT: t('ai_error_rate_limit'),
+          TOO_LONG: t('ai_error_too_long'),
+          SERVER_ERROR: t('ai_error_server'),
+        };
+        showToast(errMap[res.error] ?? t('ai_error_server'), 'error');
+      }
+    } catch {
+      showToast(t('ai_error_server'), 'error');
+    } finally {
+      setAiLoadingMap(m => ({ ...m, [session.id]: false }));
+    }
   };
 
   if (loading) {
@@ -114,12 +160,12 @@ export function ArchiveNoteList({
           <p className="text-[13px] text-text-main/40">
             {t('archive_search_no_results', { query: searchQuery })}
           </p>
-          <button
+          <Button
             onClick={() => onClearSearch?.()}
             className="text-sm text-brand-soft hover:underline"
           >
             {t('archive_search_clear')}
-          </button>
+          </Button>
         </div>
       );
     }
@@ -151,7 +197,8 @@ export function ArchiveNoteList({
               onTagsChange={onTagsChange}
               onLabelChange={onLabelChange}
               aiProcessed={!!aiProcessedMap[session.id]}
-              onAIClick={() => handleAIClick(session.id)}
+              aiLoading={!!aiLoadingMap[session.id]}
+              onAIClick={() => void handleAIClick(session)}
             />
           )}
         />
@@ -179,29 +226,31 @@ export function ArchiveNoteList({
             allTags={allTags}
             searchQuery={searchQuery}
             aiProcessed={!!aiProcessedMap[session.id]}
-            onAIClick={() => handleAIClick(session.id)}
+            aiLoading={!!aiLoadingMap[session.id]}
+            onAIClick={() => void handleAIClick(session)}
           />
         )}
       />
     );
   }
 
-  const groupCounts = sortedDates.map(dateKey => groupedSessions[dateKey]!.length);
+  const groupCounts = sortedDates.map(dateKey => groupedSessions[dateKey]?.length ?? 0);
 
   const flatGroupedSessions = sortedDates.flatMap(
-    dateKey => groupedSessions[dateKey]!
+    dateKey => groupedSessions[dateKey] ?? []
   );
 
   if (viewMode === 'grid') {
+    // Grouped grid is rendered without Virtuoso: nesting variable-height card
+    // grids inside a vertical virtualizer desynced on sort/filter/view changes,
+    // leaving phantom empty groups and missing cards. A plain map is robust.
     return (
-      <Virtuoso
-        data={sortedDates}
-        
-        className="custom-scrollbar h-full"
-        itemContent={(index, dateKey) => {
-          const sessions = groupedSessions[dateKey]!;
+      <div className="custom-scrollbar h-full overflow-y-auto">
+        {sortedDates.map(dateKey => {
+          const sessions = groupedSessions[dateKey] ?? [];
+          if (sessions.length === 0) return null;
           return (
-            <div className="mb-2">
+            <div key={dateKey} className="mb-2">
               <div className="flex items-center gap-3 py-4 pr-1">
                 <span className="font-mono text-label-sm text-text-main/40 uppercase tracking-widest whitespace-nowrap">
                   {format(new Date(dateKey), 'd MMM', { locale: dateLocale })}
@@ -231,15 +280,16 @@ export function ArchiveNoteList({
                       onTagsChange={onTagsChange}
                       onLabelChange={onLabelChange}
                       aiProcessed={!!aiProcessedMap[session.id]}
-                      onAIClick={() => handleAIClick(session.id)}
+                      aiLoading={!!aiLoadingMap[session.id]}
+                      onAIClick={() => void handleAIClick(session)}
                     />
                   </div>
                 ))}
               </div>
             </div>
           );
-        }}
-      />
+        })}
+      </div>
     );
   }
 
@@ -248,8 +298,9 @@ export function ArchiveNoteList({
       groupCounts={groupCounts}
       
       groupContent={(index) => {
-        const dateKey = sortedDates[index]!;
-        const sessions = groupedSessions[dateKey]!;
+        const dateKey = sortedDates[index];
+        if (!dateKey) return null;
+        const sessions = groupedSessions[dateKey] ?? [];
         return (
           <div className="flex items-center gap-3 py-5 pr-1 h-full">
             <span className="font-mono text-label-sm text-text-main/40 uppercase tracking-widest whitespace-nowrap">
@@ -271,7 +322,8 @@ export function ArchiveNoteList({
         );
       }}
       itemContent={(index) => {
-        const session = flatGroupedSessions[index]!;
+        const session = flatGroupedSessions[index];
+        if (!session) return null;
         return (
           <NoteRow
             session={session}
@@ -289,7 +341,8 @@ export function ArchiveNoteList({
             allTags={allTags}
             searchQuery={searchQuery}
             aiProcessed={!!aiProcessedMap[session.id]}
-            onAIClick={() => handleAIClick(session.id)}
+            aiLoading={!!aiLoadingMap[session.id]}
+            onAIClick={() => void handleAIClick(session)}
           />
         );
       }}

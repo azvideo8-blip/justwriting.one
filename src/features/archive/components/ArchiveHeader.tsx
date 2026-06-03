@@ -2,6 +2,9 @@ import { type RefObject, useState, useEffect, useRef } from 'react';
 import { Search, LayoutGrid, LayoutList, ArrowUpDown, SlidersHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
+import { Input } from '../../../shared/components/Input';
 
 export type SortMode = 'newest' | 'oldest' | 'longest' | 'shortest' | 'title_az' | 'title_za';
 
@@ -61,12 +64,12 @@ export function ArchiveHeader({
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-[440px]">
           <Search size={14} className="absolute left-3 top-2.5 text-text-main/30" />
-          <input
+          <Input
             ref={searchInputRef}
             value={searchQuery}
             onChange={e => onSearchChange(e.target.value)}
             placeholder={searchPlaceholder}
-            className="w-full pl-8 pr-12 py-2 bg-text-main/[0.03] border border-border-subtle rounded-lg text-sm text-text-main placeholder:text-text-main/25 outline-none focus:border-border-subtle/60 transition-colors"
+            className="pl-8 pr-12 py-2 bg-text-main/[0.03] border border-border-subtle rounded-lg text-sm text-text-main placeholder:text-text-main/25 outline-none focus:border-border-subtle/60 transition-colors"
           />
           <AnimatePresence>
             {!searchQuery && (
@@ -83,10 +86,10 @@ export function ArchiveHeader({
         </div>
         <div className="flex bg-text-main/[0.03] border border-border-subtle rounded-lg p-0.5">
           {(['list', 'grid'] as const).map(v => (
-            <button
+            <Button
               key={v}
               onClick={() => onViewModeChange(v)}
-              className="relative w-8 h-7 rounded-md flex items-center justify-center transition-colors z-10"
+              className="relative w-8 h-7 p-0 rounded-md flex items-center justify-center transition-colors z-10"
               title={v === 'list' ? listLabel : gridLabel}
               aria-label={v === 'list' ? listLabel : gridLabel}
             >
@@ -100,11 +103,11 @@ export function ArchiveHeader({
               <span className={cn("relative z-10", viewMode === v ? "text-text-main" : "text-text-main/30")}>
                 {v === 'list' ? <LayoutList size={14} /> : <LayoutGrid size={14} />}
               </span>
-            </button>
+            </Button>
           ))}
         </div>
         <div ref={sortRef} className="relative">
-          <button
+          <Button
             onClick={() => setSortOpen(o => !o)}
             className={cn(
               "h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-sm transition-colors border",
@@ -118,11 +121,11 @@ export function ArchiveHeader({
           >
             <ArrowUpDown size={14} />
             <span className="hidden sm:inline">{sortLabels[sortMode]}</span>
-          </button>
+          </Button>
           {sortOpen && (
             <div className="absolute right-0 top-full mt-1 py-1 w-48 bg-surface-elevated border border-border-subtle rounded-lg shadow-xl z-30">
               {SORT_OPTIONS.map(mode => (
-                <button
+                <Button
                   key={mode}
                   onClick={() => { onSortModeChange(mode); setSortOpen(false); }}
                   className={cn(
@@ -133,19 +136,18 @@ export function ArchiveHeader({
                   )}
                 >
                   {sortLabels[mode]}
-                </button>
+                </Button>
               ))}
             </div>
           )}
         </div>
         {onFilterClick && (
-          <button
+          <IconButton
             onClick={onFilterClick}
             className="md:hidden h-8 px-2.5 rounded-lg flex items-center justify-center border border-border-subtle bg-text-main/[0.03] text-text-main/40 hover:text-text-main/60 active:scale-[0.98] transition-colors cursor-pointer"
-            title="Filters"
-          >
-            <SlidersHorizontal size={14} />
-          </button>
+            label="Filters"
+            icon={<SlidersHorizontal size={14} />}
+          />
         )}
       </div>
     </div>

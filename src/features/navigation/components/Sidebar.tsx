@@ -223,22 +223,21 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
         />
 
         <div className={cn(
-           "px-3 py-2 text-[9px] font-mono text-text-main/25 transition-all duration-300 select-none whitespace-nowrap flex items-center gap-2",
+           "px-3 py-2 text-[9px] font-mono text-text-main/25 transition-all duration-300 select-none whitespace-nowrap flex flex-col items-start gap-1.5",
           expanded ? "opacity-100 pl-3" : "opacity-0 h-0 p-0 overflow-hidden"
         )}>
+          <button
+            onClick={() => void navigate('/about')}
+            className="hover:text-text-main/50 transition-colors underline underline-offset-2 decoration-dotted"
+          >
+            {t('nav_about')}
+          </button>
           <button
             type="button"
             onClick={() => void navigate('/changelog')}
             className="hover:text-text-main/50 transition-colors"
           >
             v{APP_VERSION}
-          </button>
-          <span className="text-text-main/25">·</span>
-          <button
-            onClick={() => void navigate('/about')}
-            className="hover:text-text-main/50 transition-colors underline underline-offset-2 decoration-dotted"
-          >
-            {t('nav_about')}
           </button>
         </div>
       </div>

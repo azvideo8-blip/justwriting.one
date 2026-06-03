@@ -7,6 +7,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { getAuth } from 'firebase/auth';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { Input } from '../../../shared/components/Input';
 
 interface DocumentPickerModalProps {
   isOpen: boolean;
@@ -77,12 +78,12 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
         <div className="px-4 py-3 border-b border-border-subtle">
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-main/30" />
-            <input
+            <Input
               ref={inputRef}
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Поиск по названию..."
-              className="w-full pl-9 pr-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40"
+              className="pl-9 pr-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40"
             />
           </div>
         </div>

@@ -9,6 +9,7 @@ import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 function DottedProgress({ pct, color }: { pct: number; color: string }) {
   const n = 16;
@@ -210,15 +211,14 @@ export function MobileWriteToolbar({
 
       <div className="flex gap-1.5" >
 
-        <button
-          type="button"
+        <IconButton
           onClick={isRunning ? onPause : onPlay}
+          label={isRunning ? t('pause') : t('play')}
           className={cn(
             "w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer border",
             isRunning ? "border-[var(--border-light)] bg-[var(--surface-card)] text-[var(--text-main)] opacity-70" : "border-[var(--flow-pulse-color,var(--brand-primary)/0.4)] bg-[var(--flow-pulse-color,var(--brand-primary)/0.12)] text-[var(--flow-pulse-color,var(--brand-primary))] opacity-100"
           )}
-        >
-          {isRunning ? (
+          icon={isRunning ? (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <rect x="7" y="5" width="4" height="14" rx="1"/>
               <rect x="13" y="5" width="4" height="14" rx="1"/>
@@ -228,34 +228,35 @@ export function MobileWriteToolbar({
               <path d="M8 5v14l11-7z"/>
             </svg>
           )}
-        </button>
+        />
 
-        <button
-          type="button"
+        <IconButton
           onClick={onStop}
           disabled={isIdle}
+          label={t('stop')}
           className={cn(
             "w-11 h-11 rounded-xl border border-[var(--border-light)] bg-transparent flex items-center justify-center",
             isIdle ? "text-[var(--text-subtle)] cursor-default" : "text-[var(--text-muted)] cursor-pointer"
           )}
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-            <rect x="6" y="6" width="12" height="12" rx="1.5"/>
-          </svg>
-        </button>
+          icon={
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="6" width="12" height="12" rx="1.5"/>
+            </svg>
+          }
+        />
 
         {onNew && isIdle && (
-          <button
-            type="button"
+          <IconButton
             onClick={onNew}
+            label={t('topbar_new') || "Новая заметка"}
             className="w-11 h-11 rounded-xl border border-[var(--border-light)] bg-transparent text-[var(--text-muted)] flex items-center justify-center cursor-pointer ml-1"
-            title={t('topbar_new') || "Новая заметка"}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="12" y1="5" x2="12" y2="19"/>
-              <line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-          </button>
+            icon={
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            }
+          />
         )}
       </div>
 

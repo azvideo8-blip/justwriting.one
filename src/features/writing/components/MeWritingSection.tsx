@@ -38,9 +38,11 @@ export function MeWritingSection() {
           { id: 'Lora',   label: 'Lora',          sample: 'Aa 123' },
           { id: 'JetBrains Mono', label: 'JetBrains Mono', sample: 'Aa 123' },
         ].map(f => (
-          <button
+          <Button
             type="button"
             key={f.id}
+            variant="ghost"
+            size="sm"
             onClick={() => setFontFamily(f.id)}
             className="p-3 rounded-xl border cursor-pointer text-left"
             style={buttonStyle(f.id)}
@@ -51,7 +53,7 @@ export function MeWritingSection() {
             <div className="text-[11px] text-[rgba(138,145,141,1)]">
               {f.label}
             </div>
-          </button>
+          </Button>
         ))}
       </div>
 

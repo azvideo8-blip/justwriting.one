@@ -63,12 +63,13 @@ export function ArchiveLabelBar({
               />
               <div className="flex gap-1.5 md:gap-1">
                 {LABEL_PRESET_COLORS.map(c => (
-                  <button
-                    key={c}
-                    style={{ background: c }}
-                    className={cn("w-6 h-6 md:w-4 md:h-4 rounded-full transition-colors cursor-pointer")}
-                    onClick={() => setEditLabelColor(c)}
-                  />
+                <Button
+                  key={c}
+                  style={{ background: c }}
+                  className={cn("w-6 h-6 md:w-4 md:h-4 rounded-full transition-colors cursor-pointer p-0 min-w-0")}
+                  onClick={() => setEditLabelColor(c)}
+                  aria-label={`Select color ${c}`}
+                />
                 ))}
               </div>
               <Button onClick={() => onUpdateLabel(label.id)}
@@ -143,11 +144,12 @@ export function ArchiveLabelBar({
           />
           <div className="flex gap-1">
             {LABEL_PRESET_COLORS.map(c => (
-              <button
+              <Button
                 key={c}
                 style={{ background: c }}
-                className={cn("w-4 h-4 rounded-full transition-colors", newLabelColor === c && "ring-2 ring-offset-1 ring-offset-surface-card ring-white/40")}
+                className={cn("w-4 h-4 rounded-full transition-colors p-0 min-w-0", newLabelColor === c && "ring-2 ring-offset-1 ring-offset-surface-card ring-white/40")}
                 onClick={() => setNewLabelColor(c)}
+                aria-label={`Select color ${c}`}
               />
             ))}
             <div className="relative">

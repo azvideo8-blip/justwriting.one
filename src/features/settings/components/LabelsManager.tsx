@@ -5,6 +5,7 @@ import { Label } from '../../../types';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { Input } from '../../../shared/components/Input';
 
 
 
@@ -39,22 +40,22 @@ export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerPr
 
       {adding ? (
         <div className="mt-2 space-y-3 p-4 rounded-xl border border-border-subtle">
-          <input
+          <Input
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder="Label name"
-            className="w-full px-3 py-2 rounded-lg border border-border-subtle bg-surface-base text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-text-main/40 transition-colors"
+            className="px-3 py-2 rounded-lg border border-border-subtle bg-surface-base text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-text-main/40 transition-colors"
             autoFocus
             onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
           />
           <div className="flex flex-wrap gap-1 -m-2">
             {LABEL_PRESET_COLORS.map(c => (
               <div key={c} className="w-11 h-11 flex items-center justify-center">
-                <button
-                  type="button"
+                <Button
                   style={c ? { background: c } : undefined}
-                  className={cn("w-6 h-6 rounded-full transition-colors", selectedColor === c && "ring-2 ring-offset-2 ring-offset-surface-card")}
+                  className={cn("w-6 h-6 rounded-full transition-colors p-0 min-w-0", selectedColor === c && "ring-2 ring-offset-2 ring-offset-surface-card")}
                   onClick={() => setSelectedColor(c)}
+                  aria-label={c ? `Select color ${c}` : 'Select default color'}
                 />
               </div>
             ))}

@@ -9,7 +9,8 @@ import { highlightText } from '../../../shared/utils/highlightText';
 import { InlineTags } from './InlineTags';
 import { useLanguage } from '../../../shared/i18n';
 import { useSessionTags } from '../../writing/hooks/useSessionTags';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Loader2 } from 'lucide-react';
+import { Button } from '../../../shared/components/Button';
 
 interface GridNoteCardProps {
   session: ArchiveSession;
@@ -20,6 +21,7 @@ interface GridNoteCardProps {
   onTagsChange?: ((session: ArchiveSession, tags: string[]) => void) | undefined;
   onLabelChange?: ((session: ArchiveSession, labelId: string | undefined) => void) | undefined;
   aiProcessed?: boolean | undefined;
+  aiLoading?: boolean | undefined;
   onAIClick?: (() => void) | undefined;
 }
 
@@ -32,6 +34,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
   onTagsChange,
   onLabelChange,
   aiProcessed,
+  aiLoading,
   onAIClick,
 }) => {
   const { t, language } = useLanguage();
@@ -102,19 +105,20 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
           allTags={allTags}
           onChange={newTags => onTagsChange?.(session, newTags)}
         />
-        <button
+        <Button
           onClick={e => { e.stopPropagation(); onAIClick?.(); }}
+          disabled={aiLoading}
           className={cn(
-            "inline-flex items-center gap-1 ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono border transition-colors",
+            "inline-flex items-center gap-1 ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono border transition-colors disabled:opacity-60",
             aiProcessed
               ? "bg-brand-soft/10 text-brand-soft border-brand-soft/30 hover:bg-brand-soft/20"
               : "bg-text-main/3 text-text-main/40 border-border-subtle hover:text-brand-soft hover:bg-brand-soft/5 hover:border-brand-soft/30"
           )}
           title={aiProcessed ? 'Обработано ИИ (посмотреть чат)' : 'Обработать с помощью ИИ'}
         >
-          <Sparkles size={10} />
+          {aiLoading ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
           AI
-        </button>
+        </Button>
       </div>
 
       <div className="flex items-center gap-2 text-[12px] font-mono text-text-main/40 pt-3 mt-auto border-t border-border-subtle">
@@ -123,7 +127,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
         <span>{Math.floor(session.duration / 60)} {t('goal_time_short')}</span>
         {labels && onLabelChange && (
           <div className="relative ml-auto" onClick={e => e.stopPropagation()}>
-            <button
+            <Button
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const spaceBelow = window.innerHeight - rect.bottom;
@@ -137,7 +141,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
                 style={label ? { background: label.color, borderColor: label.color } : {}}
               />
               {label?.name ?? t('archive_assign_label')}
-            </button>
+            </Button>
             {labelPopupOpen && (
               <div
                 ref={labelPopupRef}
@@ -149,23 +153,23 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
                 onClick={e => e.stopPropagation()}
               >
                 {session.labelId && (
-                  <button
+                  <Button
                     onClick={() => { onLabelChange(session, undefined); setLabelPopupOpen(false); }}
-                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/40 hover:bg-text-main/5 transition-colors"
+                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap text-text-main/40 hover:bg-text-main/5 transition-colors"
                   >
                     <div className="w-3 h-3 rounded-full border border-dashed border-text-main/20 shrink-0" />
                     {t('archive_no_label')}
-                  </button>
+                  </Button>
                 )}
                 {labels.map(l => (
-                  <button
+                  <Button
                     key={l.id}
                     onClick={() => { onLabelChange(session, session.labelId === l.id ? undefined : l.id); setLabelPopupOpen(false); }}
-                    className={cn("w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left transition-colors", session.labelId === l.id ? "bg-text-main/10 text-text-main" : "text-text-main/60 hover:bg-text-main/5")}
+                    className={cn("w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap transition-colors", session.labelId === l.id ? "bg-text-main/10 text-text-main" : "text-text-main/60 hover:bg-text-main/5")}
                   >
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ background: l.color }} />
                     {l.name}
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}

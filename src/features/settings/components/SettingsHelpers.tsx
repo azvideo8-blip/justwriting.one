@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '../../../core/utils/utils';
+import { Button } from '../../../shared/components/Button';
 
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -18,7 +19,7 @@ export function ToggleRow({ emoji, label, hint, value, onChange }: {
   onChange: () => void;
 }) {
   return (
-    <button
+    <Button
       onClick={onChange}
       className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle hover:bg-text-main/5 transition-colors w-full"
     >
@@ -36,6 +37,6 @@ export function ToggleRow({ emoji, label, hint, value, onChange }: {
           value ? "translate-x-4" : "translate-x-0"
         )} />
       </div>
-    </button>
+    </Button>
   );
 }

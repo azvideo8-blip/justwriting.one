@@ -4,6 +4,7 @@ import { ArchiveSession } from '../types';
 import { ArchiveStats } from './ArchiveStats';
 import { Calendar } from '../../calendar/components/Calendar';
 import { useLanguage } from '../../../shared/i18n';
+import { Button } from '../../../shared/components/Button';
 
 interface ArchiveSidebarProps {
   filteredByFilters: ArchiveSession[];
@@ -46,12 +47,12 @@ export function ArchiveSidebar({
       </div>
 
       {selectedDate && (
-        <button
+        <Button
           onClick={() => onSelectDate(null)}
           className="text-label-sm font-mono text-brand-soft/70 hover:text-brand-soft flex items-center gap-1 transition-colors"
         >
           ✕ {format(selectedDate, 'd MMM yyyy')}
-        </button>
+        </Button>
       )}
 
       <Calendar
@@ -81,14 +82,14 @@ export function ArchiveSidebar({
               const size = 10 + Math.round((count / maxCount) * 8);
               const opacity = 0.3 + (count / maxCount) * 0.7;
               return (
-                <button
+                <Button
                   key={word}
                   onClick={() => onWordClick(word)}
                   style={{ fontSize: size, opacity }}
-                  className="text-text-main/70 hover:opacity-100 hover:text-brand-primary transition-all duration-200 leading-tight cursor-pointer"
+                  className="text-text-main/70 hover:opacity-100 hover:text-brand-primary transition-all duration-200 leading-tight cursor-pointer p-0 min-w-0"
                 >
                   {word}
-                </button>
+                </Button>
               );
             })}
           </div>

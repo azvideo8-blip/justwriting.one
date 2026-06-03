@@ -39,16 +39,16 @@ export function ArchiveTagBar({
           return (
             <div key={tag} className="flex items-center gap-1 px-2 py-1 rounded-xl border border-border-subtle bg-surface-card">
                <span className="text-[9px] font-mono text-text-main/40">#</span>
-              <input
-                value={renameTagValue}
-                onChange={e => setRenameTagValue(e.target.value)}
-                autoFocus
-                className="w-20 bg-transparent text-[12px] text-text-main outline-none"
-                onKeyDown={e => {
-                  if (e.key === 'Enter') void onRenameSubmit(tag, renameTagValue);
-                  if (e.key === 'Escape') onRenameCancel();
-                }}
-              />
+               <input
+                 value={renameTagValue}
+                 onChange={e => setRenameTagValue(e.target.value)}
+                 autoFocus
+                 className="w-20 bg-transparent text-[12px] text-text-main outline-none"
+                 onKeyDown={e => {
+                   if (e.key === 'Enter') void onRenameSubmit(tag, renameTagValue);
+                   if (e.key === 'Escape') onRenameCancel();
+                 }}
+               />
               <Button onClick={onRenameCancel} className="text-label text-text-main/30 hover:text-text-main/50">✕</Button>
             </div>
           );

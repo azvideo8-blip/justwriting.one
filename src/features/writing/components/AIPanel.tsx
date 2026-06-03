@@ -139,8 +139,10 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-2">
               {AI_ACTIONS.map(({ action, icon, labelKey }) => (
-                <button
+                <Button
                   key={action}
+                  variant="ghost"
+                  size="sm"
                   onClick={() => void handleAction(action)}
                   disabled={loading || !content.trim()}
                   className={cn(
@@ -153,7 +155,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
                 >
                   {loading && lastAction === action ? <Loader2 size={14} className="animate-spin" /> : icon}
                   {t(labelKey)}
-                </button>
+                </Button>
               ))}
             </div>
 

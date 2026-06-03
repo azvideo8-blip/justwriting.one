@@ -9,6 +9,8 @@ import { AccountTab } from './AccountTab';
 import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
 import { useToast } from '../../../shared/components/Toast';
 import { APP_VERSION } from '../../../version';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 type Tab = 'editor' | 'app' | 'account';
 
@@ -76,7 +78,7 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog, activeTab, setA
         onKeyDown={handleTabKeyDown}
       >
         {tabs.map(tab => (
-          <button
+          <Button
             key={tab.id}
             role="tab"
             id={`settings-tab-${tab.id}`}
@@ -92,7 +94,7 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog, activeTab, setA
             )}
           >
             {tab.label}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -186,14 +188,12 @@ export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog, defau
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle shrink-0">
               <h2 id="settings-title" className="text-lg font-bold text-text-main">{t('nav_settings')}</h2>
-              <button
-                type="button"
+              <IconButton
                 onClick={onClose}
-                aria-label={t('common_close')}
+                label={t('common_close')}
                 className="p-3 rounded-xl text-text-main/50 hover:text-text-main hover:bg-text-main/8 transition-colors"
-              >
-                <X size={20} aria-hidden="true" />
-              </button>
+                icon={<X size={20} aria-hidden="true" />}
+              />
             </div>
 
             <SettingsPanelContent userId={userId} onRefreshLifeLog={onRefreshLifeLog} activeTab={activeTab} setActiveTab={setActiveTab} />

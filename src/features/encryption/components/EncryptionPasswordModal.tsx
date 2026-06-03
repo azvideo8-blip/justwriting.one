@@ -4,6 +4,8 @@ import { Lock, Shield, AlertTriangle, AlertCircle, Loader2, KeyRound, Cloud } fr
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
+import { Button } from '../../../shared/components/Button';
+import { Input } from '../../../shared/components/Input';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import {
   initializeEncryption,
@@ -235,42 +237,42 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
             className="space-y-3"
           >
             {(isChange || isMigrate) && (
-              <input
+              <Input
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder={isMigrate ? t('enc_migrate_current_password') : t('enc_current_password')}
-                className="w-full px-4 py-3 rounded-xl outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/20"
+                className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/20"
                 required
                 autoFocus={isChange || isMigrate}
               />
             )}
 
-            <input
+            <Input
               ref={passwordRef}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder={isUnlock ? '••••••••' : t('enc_new_password_placeholder')}
-              className="w-full px-4 py-3 rounded-xl outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/20"
+              className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/20"
               required
               autoFocus={isUnlock || isSetup}
               minLength={isUnlock ? undefined : MIN_PASSWORD_LENGTH}
             />
 
             {!isUnlock && (
-              <input
+              <Input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder={t('enc_confirm_password')}
-                className="w-full px-4 py-3 rounded-xl outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/20"
+                className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/20"
                 required
                 minLength={MIN_PASSWORD_LENGTH}
               />
             )}
 
-            <button
+            <Button
               type="submit"
               disabled={loading || !password || (!isUnlock && !confirmPassword)}
               className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-[var(--brand-primary)]"
@@ -286,7 +288,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
               {isSetup && t('enc_setup_submit')}
               {isChange && t('enc_change_submit')}
               {isMigrate && t('enc_migrate_submit')}
-            </button>
+            </Button>
           </form>
 
           {isMigrate && (
@@ -309,13 +311,13 @@ export function ChangeEncryptionPasswordButton({ userId }: { userId: string }) {
 
   return (
     <>
-      <button
+      <Button
         onClick={() => setOpen(true)}
         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors text-left"
       >
         <KeyRound size={16} className="text-text-main/40" />
         {t('enc_change_password_btn')}
-      </button>
+      </Button>
       {open && (
         <EncryptionPasswordModal
           mode="change"

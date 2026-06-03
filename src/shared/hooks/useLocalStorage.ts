@@ -36,6 +36,13 @@ export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodT
   // eslint-disable-next-line react-hooks/refs -- parseStoredValue reads from ref but is a lazy initializer, not a render-time read
   const [storedValue, setStoredValue] = useState<T>(parseStoredValue);
 
+  // Keep latest value in a ref so setValue's functional-update form can read it
+  // without doing side effects inside the state updater (see setValue below).
+  const storedValueRef = useRef(storedValue);
+  useEffect(() => {
+    storedValueRef.current = storedValue;
+  }, [storedValue]);
+
   useEffect(() => {
     setStoredValue(parseStoredValue());
   }, [key, parseStoredValue]);
@@ -51,20 +58,24 @@ export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodT
   }, [parseStoredValue]);
 
   const setValue = useCallback((value: T | ((val: T) => T)) => {
-    setStoredValue(prev => {
-      const valueToStore = typeof value === 'function' ? (value as (val: T) => T)(prev) : value;
-      try {
-        localStorage.setItem(key, JSON.stringify(valueToStore));
-        window.dispatchEvent(new Event('local-storage'));
-      } catch (e) {
-        if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-          reportError(e, { action: 'useLocalStorage_quota', key }, 'warning');
-        } else {
-          reportError(e, { action: 'useLocalStorage_write', key });
-        }
+    const valueToStore = typeof value === 'function'
+      ? (value as (val: T) => T)(storedValueRef.current)
+      : value;
+    storedValueRef.current = valueToStore;
+    // Keep the state update pure — no side effects inside the updater, otherwise
+    // the synchronous dispatchEvent below would fire other instances' listeners
+    // mid-render and trigger React's "setState while rendering" warning.
+    setStoredValue(valueToStore);
+    try {
+      localStorage.setItem(key, JSON.stringify(valueToStore));
+      window.dispatchEvent(new Event('local-storage'));
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+        reportError(e, { action: 'useLocalStorage_quota', key }, 'warning');
+      } else {
+        reportError(e, { action: 'useLocalStorage_write', key });
       }
-      return valueToStore;
-    });
+    }
   }, [key]);
 
   return [storedValue, setValue] as const;

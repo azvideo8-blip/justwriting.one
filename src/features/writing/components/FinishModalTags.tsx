@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { Label } from '../../../types';
 import { Button } from '../../../shared/components/Button';
+import { Input } from '../../../shared/components/Input';
 
 interface FinishModalTagsProps {
   tags: string[];
@@ -64,13 +65,13 @@ export function FinishModalTags({
           {formExpanded && (
             <div className="p-4 space-y-4">
               <div className="space-y-1.5">
-                <input
+                <Input
                   type="text"
                   value={titleInputValue}
                   onChange={e => setEditTitle(e.target.value)}
                   placeholder={t('editor_title_placeholder')}
                   maxLength={200}
-                  className="w-full px-4 py-3 rounded-xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-base font-medium placeholder:text-text-main/30 focus:border-text-main/40 min-h-[44px]"
+                  className="px-4 py-3 rounded-xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-base font-medium placeholder:text-text-main/30 focus:border-text-main/40 min-h-[44px]"
                 />
               </div>
 
@@ -79,9 +80,11 @@ export function FinishModalTags({
                   <div className="text-xs font-bold uppercase tracking-wider text-text-main/50">{t('finish_labels')}</div>
                   <div className="flex flex-wrap gap-1.5">
                     {labels.map(label => (
-                      <button
+                      <Button
                         type="button"
                         key={label.id}
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setLabelId(labelId === label.id ? undefined : label.id)}
                         className={cn(
                           "px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 min-h-[40px]",
@@ -94,7 +97,7 @@ export function FinishModalTags({
                         style={{ backgroundColor: label.color }}
                       >
                         {label.name}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>
@@ -119,9 +122,11 @@ export function FinishModalTags({
               {allSuggestions.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {allSuggestions.map(tag => (
-                    <button
+                    <Button
                       type="button"
                       key={tag}
+                      variant="ghost"
+                      size="sm"
                       onClick={() => toggleTag(tag)}
                       className={cn(
                         "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-[36px]",
@@ -131,15 +136,15 @@ export function FinishModalTags({
                       )}
                     >
                       #{tag}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
-              <input
+              <Input
                 ref={tagInputRef}
                 type="text"
                 placeholder={t('finish_add_tag')}
-                className="w-full px-4 py-2 rounded-xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-sm placeholder:text-text-main/60 focus:border-text-main/40 min-h-[44px]"
+                className="px-4 py-2 rounded-xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-sm placeholder:text-text-main/60 focus:border-text-main/40 min-h-[44px]"
                 onBlur={(e) => {
                   const val = e.currentTarget.value.trim();
                   if (val && !tags.includes(val)) {
@@ -171,13 +176,13 @@ export function FinishModalTags({
         <div className="text-xs font-bold uppercase tracking-wider text-text-main/50">
           {t('finish_title_label')}
         </div>
-        <input
+        <Input
           type="text"
           value={titleInputValue}
           onChange={e => setEditTitle(e.target.value)}
           placeholder={t('editor_title_placeholder')}
           maxLength={200}
-          className="w-full px-4 py-3 rounded-2xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-lg font-medium placeholder:text-text-main/30 focus:border-text-main/40"
+          className="px-4 py-3 rounded-2xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-lg font-medium placeholder:text-text-main/30 focus:border-text-main/40"
           autoFocus
         />
       </div>
@@ -187,9 +192,11 @@ export function FinishModalTags({
           <div className="text-xs font-bold uppercase tracking-wider text-text-main/50">{t('finish_labels')}</div>
           <div className="flex flex-wrap gap-2">
             {labels.map(label => (
-              <button
+              <Button
                 type="button"
                 key={label.id}
+                variant="ghost"
+                size="sm"
                 onClick={() => setLabelId(labelId === label.id ? undefined : label.id)}
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2",
@@ -202,7 +209,7 @@ export function FinishModalTags({
                 style={{ backgroundColor: label.color }}
               >
                 {label.name}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -212,9 +219,11 @@ export function FinishModalTags({
         <div className="text-xs font-bold uppercase tracking-wider text-text-main/50">{t('finish_tags')}</div>
         <div className="flex flex-wrap gap-2">
           {allSuggestions.map(tag => (
-            <button
+            <Button
               type="button"
               key={tag}
+              variant="ghost"
+              size="sm"
               onClick={() => toggleTag(tag)}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
@@ -224,14 +233,14 @@ export function FinishModalTags({
               )}
             >
               #{tag}
-            </button>
+            </Button>
           ))}
         </div>
-        <input
+        <Input
           ref={tagInputRef}
           type="text"
           placeholder={t('finish_add_tag')}
-          className="w-full px-4 py-2 rounded-2xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main placeholder:text-text-main/60 focus:border-text-main/40"
+          className="px-4 py-2 rounded-2xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main placeholder:text-text-main/60 focus:border-text-main/40"
           onBlur={(e) => {
             const val = e.currentTarget.value.trim();
                   if (val && !tags.includes(val)) {
