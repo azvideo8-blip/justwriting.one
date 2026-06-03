@@ -77,24 +77,34 @@ export function sanitizeAiResponse(response: string): string {
   });
 }
 
-export async function recordUsage(uid: string, tokensIn: number, tokensOut: number): Promise<void> {
+export async function recordUsage(
+  uid: string,
+  tokensIn: number,
+  tokensOut: number,
+  options?: { model?: string; fn?: string }
+): Promise<void> {
   const db = getDb();
   const date = new Date().toISOString().slice(0, 10);
   const batch = db.batch();
-  batch.set(db.doc(`aiUsage/${uid}/daily/${date}`), {
+  const dailyPayload = {
     date,
     promptTokens: FieldValue.increment(tokensIn),
     completionTokens: FieldValue.increment(tokensOut),
     requests: FieldValue.increment(1),
     updatedAt: FieldValue.serverTimestamp(),
-  }, { merge: true });
-  batch.set(db.doc(`aiGlobalDaily/${date}`), {
+  };
+  batch.set(db.doc(`aiUsage/${uid}/daily/${date}`), dailyPayload, { merge: true });
+  batch.set(db.doc(`aiGlobalDaily/${date}`), dailyPayload, { merge: true });
+  // Per-request event for admin breakdown view
+  const eventRef = db.collection(`aiUsage/${uid}/events`).doc();
+  batch.set(eventRef, {
     date,
-    promptTokens: FieldValue.increment(tokensIn),
-    completionTokens: FieldValue.increment(tokensOut),
-    requests: FieldValue.increment(1),
-    updatedAt: FieldValue.serverTimestamp(),
-  }, { merge: true });
+    ts: FieldValue.serverTimestamp(),
+    tokensIn,
+    tokensOut,
+    model: options?.model ?? 'unknown',
+    fn: options?.fn ?? 'unknown',
+  });
   await batch.commit();
 }
 

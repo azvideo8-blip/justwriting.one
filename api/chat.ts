@@ -110,6 +110,8 @@ if (process.env.FIREWORKS_API_KEY) {
 }
 const fireworks = createOpenAI(fireworksOptions);
 
+const AI_MODEL_LABEL = AI_PROVIDER === 'fireworks' ? FIREWORKS_MODEL : GEMINI_MODEL;
+
 function getChatModel() {
   if (AI_PROVIDER === 'fireworks') return fireworks.chat(FIREWORKS_MODEL);
   return google(GEMINI_MODEL);
@@ -187,7 +189,7 @@ async function checkAndIncrementLimit(uid: string): Promise<boolean> {
 
 // Mirror functions/src/shared/aiUtils.ts recordUsage so streamed chats show up in
 // admin AI stats (getAIUsageStats reads the `daily` collection group).
-async function recordUsage(uid: string, tokensIn: number, tokensOut: number): Promise<void> {
+async function recordUsage(uid: string, tokensIn: number, tokensOut: number, model: string): Promise<void> {
   const date = new Date().toISOString().slice(0, 10);
   const fs = db();
   const batch = fs.batch();
@@ -200,6 +202,9 @@ async function recordUsage(uid: string, tokensIn: number, tokensOut: number): Pr
   };
   batch.set(fs.doc(`aiUsage/${uid}/daily/${date}`), payload, { merge: true });
   batch.set(fs.doc(`aiGlobalDaily/${date}`), payload, { merge: true });
+  // Per-request event for admin breakdown
+  const eventRef = fs.collection(`aiUsage/${uid}/events`).doc();
+  batch.set(eventRef, { date, ts: FieldValue.serverTimestamp(), tokensIn, tokensOut, model, fn: 'chat-stream' });
   await batch.commit();
 }
 
@@ -268,7 +273,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     maxOutputTokens: 8192,
     onFinish: async ({ totalUsage }) => {
       try {
-        await recordUsage(uid, totalUsage?.inputTokens ?? 0, totalUsage?.outputTokens ?? 0);
+        await recordUsage(uid, totalUsage?.inputTokens ?? 0, totalUsage?.outputTokens ?? 0, AI_MODEL_LABEL);
       } catch (e) {
         console.error('[api/chat] usage record failed:', e);
       }

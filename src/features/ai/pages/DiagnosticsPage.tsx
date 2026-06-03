@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { 
-  Download, X, RotateCcw, Bug, 
-  RefreshCw, Loader2, Upload 
+import {
+  Download, X, RotateCcw, Bug,
+  RefreshCw, Loader2, Upload, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { useDailyLimit } from '../hooks/useDailyLimit';
 import { cn } from '../../../core/utils/utils';
@@ -24,6 +24,8 @@ export function DiagnosticsPage() {
 
   const [activeTab, setActiveTab] = useState<Tab>('sync');
 
+  const [aiPricingModel, setAiPricingModel] = useState<'deepseek' | 'gemini'>('deepseek');
+
   const {
     loadingData,
     users,
@@ -37,6 +39,10 @@ export function DiagnosticsPage() {
     aiUsageLoading,
     aiSearchQuery,
     setAiSearchQuery,
+    expandedUid,
+    userEvents,
+    userEventsLoading,
+    fetchUserEvents,
     portraitText,
     portraitGenerating,
     summaryLogs,
@@ -208,8 +214,26 @@ export function DiagnosticsPage() {
 
         {/* Tab 5: AI Stats */}
         {activeTab === 'ai_usage' && (() => {
-          const COST_IN = 0.000000075;
-          const COST_OUT = 0.00000030;
+          // Pricing per token (USD)
+          const PRICING = {
+            deepseek: { label: 'DeepSeek v4 Pro (Fireworks)', in: 1.74 / 1_000_000, out: 3.48 / 1_000_000 },
+            gemini:   { label: 'Gemini 2.5 Flash',            in: 0.15 / 1_000_000, out: 0.60 / 1_000_000 },
+          };
+          const pricing = PRICING[aiPricingModel];
+
+          function calcCost(tokensIn: number, tokensOut: number) {
+            return tokensIn * pricing.in + tokensOut * pricing.out;
+          }
+          function modelLabel(model: string) {
+            if (model.includes('deepseek') || model.includes('fireworks')) return 'DeepSeek';
+            if (model.includes('gemini')) return 'Gemini';
+            return model.split('/').pop()?.slice(0, 20) ?? model.slice(0, 20);
+          }
+          function fnLabel(fn: string) {
+            const map: Record<string, string> = { chat: 'Чат', 'chat-stream': 'Чат', summarize: 'Саммари', edit: 'Редактура', validate: 'Валидация' };
+            return map[fn] ?? fn;
+          }
+
           const q = aiSearchQuery.toLowerCase();
           const filtered = q
             ? aiUsage.filter(row => {
@@ -219,41 +243,23 @@ export function DiagnosticsPage() {
                 return row.uid.toLowerCase().includes(q) || email.includes(q) || nick.includes(q);
               })
             : aiUsage;
-          const totalCost = filtered.reduce((s, r) => s + r.promptTokens * COST_IN + r.completionTokens * COST_OUT, 0);
+          const totalCost = filtered.reduce((s, r) => s + calcCost(r.promptTokens, r.completionTokens), 0);
+
           return (
             <div className="space-y-4">
-              {/* Manual reset section */}
-              <div className="p-5 rounded-2xl border border-border-subtle bg-surface-base/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-text-main">Сбросить лимит вручную по UID</h4>
-                  <p className="text-[10px] text-text-main/40">Сбрасывает суточный лимит запросов, если пользователя нет в таблице.</p>
-                </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto min-w-[280px]">
-                  <Input
-                    type="text"
-                    value={manualResetUid}
-                    onChange={e => setManualResetUid(e.target.value)}
-                    placeholder="Введите UID пользователя..."
-                    className="flex-1 px-3 py-1.5 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main placeholder:text-text-main/30 outline-none"
-                  />
-                  <Button
-                    onClick={() => {
-                      if (!manualResetUid.trim()) return;
-                      void handleResetUserLimit(manualResetUid.trim(), manualResetUid.trim());
-                      setManualResetUid('');
-                    }}
-                    disabled={resettingUid !== null || !manualResetUid.trim()}
-                    className="px-3 py-1.5 rounded-xl bg-accent-danger/10 border border-accent-danger/20 text-accent-danger hover:bg-accent-danger/20 disabled:opacity-50 transition-colors text-xs font-bold whitespace-nowrap"
-                  >
-                    {resettingUid === manualResetUid.trim() ? 'Сброс...' : 'Сбросить'}
-                  </Button>
-                </div>
-              </div>
-
+              {/* Header: date + model selector + refresh */}
               <div className="flex items-center justify-between flex-wrap gap-3">
-                <h3 className="text-sm font-semibold text-text-main">Использование Gemini API</h3>
-                <div className="flex items-center gap-2">
-                  <Input
+                <h3 className="text-sm font-semibold text-text-main">Статистика AI</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <select
+                    value={aiPricingModel}
+                    onChange={e => setAiPricingModel(e.target.value as 'deepseek' | 'gemini')}
+                    className="px-3 py-1.5 rounded-xl bg-surface-base/5 border border-border-subtle text-xs text-text-main outline-none cursor-pointer"
+                  >
+                    <option value="deepseek">DeepSeek v4 Pro (Fireworks)</option>
+                    <option value="gemini">Gemini 2.5 Flash</option>
+                  </select>
+                  <input
                     type="date"
                     value={aiUsageDate}
                     onChange={e => setAiUsageDate(e.target.value)}
@@ -270,6 +276,39 @@ export function DiagnosticsPage() {
                 </div>
               </div>
 
+              {/* Pricing table */}
+              <div className="p-4 rounded-2xl border border-border-subtle bg-surface-base/5">
+                <h4 className="text-[10px] font-bold text-text-main/40 uppercase tracking-wider mb-3">Тарифы моделей (цены актуальны на дату поставки)</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="text-text-main/40 text-[10px] uppercase tracking-wider">
+                        <th className="text-left pb-2 pr-4 font-bold">Модель</th>
+                        <th className="text-right pb-2 pr-4 font-bold">Вход / 1M токенов</th>
+                        <th className="text-right pb-2 pr-4 font-bold">Выход / 1M токенов</th>
+                        <th className="text-right pb-2 font-bold">Источник</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className={cn("border-t border-border-subtle/40", aiPricingModel === 'deepseek' && "bg-brand-soft/5")}>
+                        <td className="py-2 pr-4 text-text-main/80 font-medium">DeepSeek v4 Pro <span className="text-text-main/30">(Fireworks)</span></td>
+                        <td className="py-2 pr-4 text-right font-mono text-text-main/70">$1.74</td>
+                        <td className="py-2 pr-4 text-right font-mono text-text-main/70">$3.48</td>
+                        <td className="py-2 text-right text-text-main/30 text-[10px]">docs.fireworks.ai</td>
+                      </tr>
+                      <tr className={cn("border-t border-border-subtle/40", aiPricingModel === 'gemini' && "bg-brand-soft/5")}>
+                        <td className="py-2 pr-4 text-text-main/80 font-medium">Gemini 2.5 Flash <span className="text-text-main/30">(Google)</span></td>
+                        <td className="py-2 pr-4 text-right font-mono text-text-main/70">$0.15</td>
+                        <td className="py-2 pr-4 text-right font-mono text-text-main/70">$0.60</td>
+                        <td className="py-2 text-right text-text-main/30 text-[10px]">ai.google.dev</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[10px] text-text-main/30 mt-2">Выбранная модель используется для расчёта стоимости в таблице. Для новых запросов модель определяется автоматически из события.</p>
+              </div>
+
+              {/* Usage limits bar */}
               {aiLimits && (() => {
                 const totals = aiTotals ?? {
                   requests: filtered.reduce((s, r) => s + r.requests, 0),
@@ -279,64 +318,83 @@ export function DiagnosticsPage() {
                 const totalTokens = totals.promptTokens + totals.completionTokens;
                 const isToday = aiUsageDate === new Date().toISOString().slice(0, 10);
                 const metrics = [
-                  { label: 'Запросов за день (RPD, лимит Tier 1)', used: totals.requests, cap: aiLimits.requestsPerDay },
+                  { label: 'Запросов за день (суточный лимит)', used: totals.requests, cap: aiLimits.requestsPerDay },
                   { label: 'Токенов за день (бюджет затрат)', used: totalTokens, cap: aiLimits.tokensPerDay },
                 ];
                 return (
-                  <div className="p-5 rounded-2xl border border-border-subtle bg-surface-base/5 space-y-4">
+                  <div className="p-4 rounded-2xl border border-border-subtle bg-surface-base/5 space-y-3">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold text-text-main">Лимиты Gemini API · Tier 1 (gemini-2.5-flash) {isToday ? '— сегодня' : `— ${aiUsageDate}`}</h4>
-                      <span className="text-[10px] text-text-main/35">контролируется в бэкэнде</span>
+                      <h4 className="text-[10px] font-bold text-text-main/40 uppercase tracking-wider">Лимиты {isToday ? '— сегодня' : `— ${aiUsageDate}`}</h4>
+                      <span className="text-[10px] text-text-main/30">лимит на пользователя: {aiLimits.perUserDaily}/день</span>
                     </div>
                     {metrics.map(m => {
                       const pct = m.cap > 0 ? Math.min(100, (m.used / m.cap) * 100) : 0;
                       const over = m.used >= m.cap;
                       const warn = pct >= 80;
                       const color = over ? '#f87171' : warn ? '#fbbf24' : '#7d4fd1';
-                      const progressStyle = { width: `${pct}%`, background: color };
                       return (
                         <div key={m.label} className="space-y-1">
                           <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-text-main/60">{m.label}</span>
-                            <span className="font-mono text-text-main/80">
+                            <span className="text-text-main/50">{m.label}</span>
+                            <span className="font-mono text-text-main/70">
                               {m.used.toLocaleString()} / {m.cap.toLocaleString()}{' '}
                               <span className={cn(over ? 'text-accent-danger' : warn ? 'text-amber-400' : 'text-text-main/40')}>
-                                ({pct < 10 ? pct.toFixed(1) : pct.toFixed(0)}%{over ? ' — превышено' : ''})
+                                ({pct < 10 ? pct.toFixed(1) : pct.toFixed(0)}%{over ? ' !' : ''})
                               </span>
                             </span>
                           </div>
-                          <div className="h-2 rounded-full bg-border-subtle overflow-hidden">
-                            <div className="h-full rounded-full transition-[width]" style={progressStyle} />
+                          <div className="h-1.5 rounded-full bg-border-subtle overflow-hidden">
+                            <div className="h-full rounded-full transition-[width]" style={{ width: `${pct}%`, background: color }} />
                           </div>
                         </div>
                       );
                     })}
-                    <div className="flex flex-wrap gap-x-5 gap-y-1 text-[10px] text-text-main/40 pt-1">
-                      <span>Лимит на пользователя: <b className="text-text-main/60">{aiLimits.perUserDaily}/день</b></span>
-                      <span>Лимиты в минуту (Tier 1): <b className="text-text-main/60">{aiLimits.requestsPerMinute.toLocaleString()} RPM</b>, <b className="text-text-main/60">{aiLimits.tokensPerMinute.toLocaleString()} TPM</b></span>
-                    </div>
                   </div>
                 );
               })()}
 
-              <Input
-                type="text"
-                value={aiSearchQuery}
-                onChange={e => setAiSearchQuery(e.target.value)}
-                placeholder="Поиск по email / никнейму / uid..."
-                className="px-4 py-2.5 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/30"
-              />
+              {/* Search + manual reset */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  type="text"
+                  value={aiSearchQuery}
+                  onChange={e => setAiSearchQuery(e.target.value)}
+                  placeholder="Поиск по email / никнейму / uid..."
+                  className="flex-1 min-w-[200px] px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main placeholder:text-text-main/30 outline-none"
+                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={manualResetUid}
+                    onChange={e => setManualResetUid(e.target.value)}
+                    placeholder="UID для сброса лимита..."
+                    className="px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main placeholder:text-text-main/30 outline-none w-52"
+                  />
+                  <Button
+                    onClick={() => {
+                      if (!manualResetUid.trim()) return;
+                      void handleResetUserLimit(manualResetUid.trim(), manualResetUid.trim());
+                      setManualResetUid('');
+                    }}
+                    disabled={resettingUid !== null || !manualResetUid.trim()}
+                    className="px-3 py-2 rounded-xl bg-accent-danger/10 border border-accent-danger/20 text-accent-danger hover:bg-accent-danger/20 disabled:opacity-50 transition-colors text-xs font-bold whitespace-nowrap"
+                  >
+                    {resettingUid === manualResetUid.trim() ? 'Сброс...' : 'Сбросить'}
+                  </Button>
+                </div>
+              </div>
 
-              <div className="overflow-x-auto rounded-2xl border border-border-subtle bg-surface-card/10">
+              {/* Users table */}
+              <div className="rounded-2xl border border-border-subtle bg-surface-card/10 overflow-hidden">
                 <table className="w-full text-xs text-left border-collapse">
                   <thead>
-                    <tr className="border-b bg-surface-base/5 border-border-subtle text-text-main/50 font-bold uppercase tracking-wider text-[10px]">
+                    <tr className="border-b bg-surface-base/5 border-border-subtle text-text-main/40 font-bold uppercase tracking-wider text-[10px]">
+                      <th className="py-3 px-4 w-6"></th>
                       <th className="py-3 px-4">Пользователь</th>
                       <th className="py-3 px-4 text-right">Запросы</th>
-                      <th className="py-3 px-4 text-right">Tokens In</th>
-                      <th className="py-3 px-4 text-right">Tokens Out</th>
-                      <th className="py-3 px-4 text-right">Итого токенов</th>
-                      <th className="py-3 px-4 text-right">Стоимость (USD)</th>
+                      <th className="py-3 px-4 text-right">Токены ↓</th>
+                      <th className="py-3 px-4 text-right">Токены ↑</th>
+                      <th className="py-3 px-4 text-right">Стоимость</th>
                       <th className="py-3 px-4 text-center">Действие</th>
                     </tr>
                   </thead>
@@ -345,38 +403,91 @@ export function DiagnosticsPage() {
                       const uProfile = users.find(u => u.uid === row.uid);
                       const displayName = uProfile
                         ? `${uProfile.nickname ?? ''} (${uProfile.email ?? ''})`
-                        : row.uid.slice(0, 8) + '...';
-                      const cost = row.promptTokens * COST_IN + row.completionTokens * COST_OUT;
+                        : row.uid.slice(0, 8) + '…';
+                      const cost = calcCost(row.promptTokens, row.completionTokens);
+                      const isExpanded = expandedUid === row.uid;
                       return (
-                        <tr key={row.uid} className="border-b border-border-subtle/40 last:border-0 hover:bg-text-main/[0.01]">
-                          <td className="py-2.5 px-4 text-text-main/80 font-medium" title={row.uid}>{displayName}</td>
-                          <td className="py-2.5 px-4 text-right text-text-main/60">{row.requests}</td>
-                          <td className="py-2.5 px-4 text-right text-text-main/60">{row.promptTokens.toLocaleString()}</td>
-                          <td className="py-2.5 px-4 text-right text-text-main/60">{row.completionTokens.toLocaleString()}</td>
-                          <td className="py-2.5 px-4 text-right text-text-main/60">{(row.promptTokens + row.completionTokens).toLocaleString()}</td>
-                          <td className="py-2.5 px-4 text-right text-text-main/80 font-mono">${cost.toFixed(5)}</td>
-                          <td className="py-2.5 px-4 text-center">
-                            <Button
-                              onClick={() => void handleResetUserLimit(row.uid, displayName)}
-                              disabled={resettingUid !== null}
-                              className="px-2 py-1 rounded-lg bg-accent-danger/10 border border-accent-danger/20 text-accent-danger hover:bg-accent-danger/20 disabled:opacity-50 transition-colors text-[10px] font-bold"
-                            >
-                              {resettingUid === row.uid ? 'Сброс...' : 'Сбросить'}
-                            </Button>
-                          </td>
-                        </tr>
+                        <React.Fragment key={row.uid}>
+                          {/* User row */}
+                          <tr
+                            className="border-b border-border-subtle/40 hover:bg-text-main/[0.02] cursor-pointer"
+                            onClick={() => void fetchUserEvents(row.uid)}
+                          >
+                            <td className="py-2.5 px-4 text-text-main/30">
+                              {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                            </td>
+                            <td className="py-2.5 px-4 text-text-main/80 font-medium" title={row.uid}>{displayName}</td>
+                            <td className="py-2.5 px-4 text-right text-text-main/60">{row.requests}</td>
+                            <td className="py-2.5 px-4 text-right text-text-main/60">{row.promptTokens.toLocaleString()}</td>
+                            <td className="py-2.5 px-4 text-right text-text-main/60">{row.completionTokens.toLocaleString()}</td>
+                            <td className="py-2.5 px-4 text-right font-mono text-text-main/80">${cost.toFixed(4)}</td>
+                            <td className="py-2.5 px-4 text-center" onClick={e => e.stopPropagation()}>
+                              <Button
+                                onClick={() => void handleResetUserLimit(row.uid, displayName)}
+                                disabled={resettingUid !== null}
+                                className="px-2 py-1 rounded-lg bg-accent-danger/10 border border-accent-danger/20 text-accent-danger hover:bg-accent-danger/20 disabled:opacity-50 transition-colors text-[10px] font-bold"
+                              >
+                                {resettingUid === row.uid ? '…' : 'Сброс'}
+                              </Button>
+                            </td>
+                          </tr>
+                          {/* Expanded events */}
+                          {isExpanded && (
+                            <tr className="border-b border-border-subtle/40 bg-surface-base/5">
+                              <td colSpan={7} className="px-4 py-3">
+                                {userEventsLoading ? (
+                                  <div className="flex items-center gap-2 text-text-main/40 text-xs py-1">
+                                    <Loader2 size={12} className="animate-spin" /> Загрузка событий…
+                                  </div>
+                                ) : userEvents.length === 0 ? (
+                                  <p className="text-text-main/30 text-xs py-1 italic">Нет событий за выбранную дату (данные записываются с текущей версии)</p>
+                                ) : (
+                                  <table className="w-full text-[11px] border-collapse">
+                                    <thead>
+                                      <tr className="text-text-main/30 text-[10px] uppercase tracking-wider">
+                                        <th className="text-left pb-1.5 pr-4 font-bold">Время</th>
+                                        <th className="text-left pb-1.5 pr-4 font-bold">Функция</th>
+                                        <th className="text-left pb-1.5 pr-4 font-bold">Модель</th>
+                                        <th className="text-right pb-1.5 pr-4 font-bold">Токены ↓</th>
+                                        <th className="text-right pb-1.5 pr-4 font-bold">Токены ↑</th>
+                                        <th className="text-right pb-1.5 font-bold">Стоимость</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {userEvents.map(ev => {
+                                        const evCost = ev.tokensIn * pricing.in + ev.tokensOut * pricing.out;
+                                        return (
+                                          <tr key={ev.id} className="border-t border-border-subtle/20">
+                                            <td className="py-1.5 pr-4 font-mono text-text-main/40">
+                                              {ev.ts ? new Date(ev.ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'}
+                                            </td>
+                                            <td className="py-1.5 pr-4 text-text-main/60">{fnLabel(ev.fn)}</td>
+                                            <td className="py-1.5 pr-4 text-text-main/50">{modelLabel(ev.model)}</td>
+                                            <td className="py-1.5 pr-4 text-right font-mono text-text-main/60">{ev.tokensIn.toLocaleString()}</td>
+                                            <td className="py-1.5 pr-4 text-right font-mono text-text-main/60">{ev.tokensOut.toLocaleString()}</td>
+                                            <td className="py-1.5 text-right font-mono text-text-main/70">${evCost.toFixed(5)}</td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
                   {filtered.length > 0 && (
                     <tfoot>
-                      <tr className="border-t bg-surface-base/5 border-border-subtle font-bold text-text-main">
+                      <tr className="border-t bg-surface-base/5 border-border-subtle font-bold text-text-main text-xs">
+                        <td className="py-3 px-4"></td>
                         <td className="py-3 px-4">Итого</td>
                         <td className="py-3 px-4 text-right">{filtered.reduce((s, r) => s + r.requests, 0)}</td>
                         <td className="py-3 px-4 text-right">{filtered.reduce((s, r) => s + r.promptTokens, 0).toLocaleString()}</td>
                         <td className="py-3 px-4 text-right">{filtered.reduce((s, r) => s + r.completionTokens, 0).toLocaleString()}</td>
-                        <td className="py-3 px-4 text-right">{filtered.reduce((s, r) => s + r.promptTokens + r.completionTokens, 0).toLocaleString()}</td>
-                        <td className="py-3 px-4 text-right font-mono">${totalCost.toFixed(5)}</td>
+                        <td className="py-3 px-4 text-right font-mono">${totalCost.toFixed(4)}</td>
                         <td className="py-3 px-4"></td>
                       </tr>
                     </tfoot>

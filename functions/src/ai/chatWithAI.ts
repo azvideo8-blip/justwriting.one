@@ -101,7 +101,7 @@ export const chatWithAI = onCall({
   const text = sanitizeAiResponse(gen.text);
 
   generation?.end({ output: text, usage: { promptTokens: gen.tokensIn, completionTokens: gen.tokensOut } });
-  recordUsage(uid, gen.tokensIn, gen.tokensOut).catch(e => console.error('[AI chat] usage record failed:', e));
+  recordUsage(uid, gen.tokensIn, gen.tokensOut, { model: AI_MODEL_LABEL, fn: 'chat' }).catch(e => console.error('[AI chat] usage record failed:', e));
   if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   return { result: text };

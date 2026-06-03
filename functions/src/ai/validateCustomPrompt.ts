@@ -61,7 +61,7 @@ export const validateCustomPrompt = onCall({
     });
     text = result.text.trim();
     generation?.end({ output: text, usage: { promptTokens: result.tokensIn, completionTokens: result.tokensOut } });
-    recordUsage(uid, result.tokensIn, result.tokensOut).catch(e => console.error('[AI validate] usage record failed:', e));
+    recordUsage(uid, result.tokensIn, result.tokensOut, { model: AI_MODEL_LABEL, fn: 'validate' }).catch(e => console.error('[AI validate] usage record failed:', e));
   } catch (e) {
     generation?.end({ output: String(e), level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});
