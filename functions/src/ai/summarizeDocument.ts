@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { SchemaType } from '@google/generative-ai';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, refundDailyLimit, GEMINI_MODEL, getGenAI, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, refundDailyLimit, getLangfuse } from '../shared/aiUtils';
+import { generate, AI_MODEL_LABEL } from '../shared/aiProvider';
 
 const SUMMARY_SYSTEM_PROMPT = `Проанализируй текст и верни JSON-объект со следующими полями:
 - tone: одно слово (нейтральный/задумчивый/тревожный/вдохновляющий/радостный/грустный/злой/усталый)
@@ -18,7 +18,8 @@ const inputSchema = z.object({
 });
 
 export const summarizeDocument = onCall({
-  secrets: ['GEMINI_API_KEY'],
+  secrets: ['GEMINI_API_KEY', 'FIREWORKS_API_KEY'],
+  timeoutSeconds: 120,
   enforceAppCheck: false,
 }, async (request) => {
   if (!request.auth) {
@@ -47,25 +48,6 @@ export const summarizeDocument = onCall({
   const { content, mood } = parsed.data;
   const sanitizedContent = sanitizeAiInput(content);
 
-  const model = getGenAI().getGenerativeModel({
-    model: GEMINI_MODEL,
-    systemInstruction: SUMMARY_SYSTEM_PROMPT,
-    generationConfig: {
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: SchemaType.OBJECT,
-        properties: {
-          tone: { type: SchemaType.STRING },
-          frequentWords: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-          insights: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-          themes: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-          extractedFacts: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-        },
-        required: ['tone', 'frequentWords', 'insights', 'themes', 'extractedFacts'],
-      },
-    },
-  });
-
   const safeMood = mood ? sanitizeAiInput(mood) : null;
   const prompt = safeMood
     ? `[Настроение документа: ${safeMood}]\n\n${sanitizedContent}`
@@ -73,24 +55,22 @@ export const summarizeDocument = onCall({
 
   const lf = getLangfuse();
   const trace = lf?.trace({ name: 'summarizeDocument', userId: uid });
-  const generation = trace?.generation({ name: 'gemini', model: GEMINI_MODEL, input: prompt });
+  const generation = trace?.generation({ name: AI_MODEL_LABEL, model: AI_MODEL_LABEL, input: prompt });
 
   let text: string;
   let tokensIn = 0;
   let tokensOut = 0;
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
-    let result;
-    try {
-      result = await model.generateContent(prompt, { signal: controller.signal });
-    } finally {
-      clearTimeout(timeout);
-    }
-    const response = result.response;
-    text = response.text();
-    tokensIn = response.usageMetadata?.promptTokenCount ?? 0;
-    tokensOut = response.usageMetadata?.candidatesTokenCount ?? 0;
+    const result = await generate({
+      system: SUMMARY_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: prompt }],
+      json: true,
+      maxTokens: 4096,
+      abortMs: 110_000,
+    });
+    text = result.text;
+    tokensIn = result.tokensIn;
+    tokensOut = result.tokensOut;
   } catch (e) {
     console.error('[AI summarize] generation failed:', e);
     generation?.end({ output: String(e), level: 'ERROR' });

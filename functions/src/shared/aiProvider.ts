@@ -1,0 +1,133 @@
+import { GEMINI_MODEL, getGenAI } from './aiUtils';
+
+// Provider seam: lets the same call sites run against Gemini (Google) or a
+// Fireworks-hosted OpenAI-compatible model (e.g. DeepSeek). Switch via the
+// AI_PROVIDER env var; Gemini stays available as a fallback.
+export const AI_PROVIDER = (process.env.AI_PROVIDER ?? 'fireworks').toLowerCase();
+export const FIREWORKS_MODEL =
+  process.env.FIREWORKS_MODEL ?? 'accounts/fireworks/models/deepseek-v4-pro';
+const FIREWORKS_BASE_URL = 'https://api.fireworks.ai/inference/v1';
+
+// Label used for tracing/observability so traces show the model actually used.
+export const AI_MODEL_LABEL = AI_PROVIDER === 'fireworks' ? FIREWORKS_MODEL : GEMINI_MODEL;
+
+export type ProviderRole = 'user' | 'assistant';
+export interface ProviderMessage {
+  role: ProviderRole;
+  content: string;
+}
+
+export interface GenerateParams {
+  // Optional system instruction.
+  system?: string | undefined;
+  // Conversation turns; the last entry is the prompt to answer. For single-shot
+  // tasks pass a single { role: 'user', content } entry.
+  messages: ProviderMessage[];
+  // Request a JSON object response (uses the provider's JSON mode).
+  json?: boolean;
+  // Output token budget. Reasoning models (DeepSeek v4 pro) spend tokens on
+  // hidden reasoning, so keep this generous.
+  maxTokens?: number;
+  // Abort the request after this many ms.
+  abortMs?: number;
+}
+
+export interface GenerateResult {
+  text: string;
+  tokensIn: number;
+  tokensOut: number;
+}
+
+export async function generate(params: GenerateParams): Promise<GenerateResult> {
+  if (AI_PROVIDER === 'fireworks') return generateFireworks(params);
+  return generateGemini(params);
+}
+
+async function generateGemini(params: GenerateParams): Promise<GenerateResult> {
+  const { system, messages, json, maxTokens, abortMs } = params;
+
+  const generationConfig: Record<string, unknown> = {};
+  if (json) generationConfig.responseMimeType = 'application/json';
+  if (maxTokens) generationConfig.maxOutputTokens = maxTokens;
+
+  const model = getGenAI().getGenerativeModel({
+    model: GEMINI_MODEL,
+    ...(system ? { systemInstruction: system } : {}),
+    ...(Object.keys(generationConfig).length ? { generationConfig } : {}),
+  });
+
+  const history = messages.slice(0, -1).map(m => ({
+    role: m.role === 'assistant' ? ('model' as const) : ('user' as const),
+    parts: [{ text: m.content }],
+  }));
+  const last = messages[messages.length - 1];
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), abortMs ?? 30_000);
+  try {
+    const chat = model.startChat({ history });
+    const result = await chat.sendMessage(last.content, { signal: controller.signal });
+    const response = result.response;
+    return {
+      text: response.text(),
+      tokensIn: response.usageMetadata?.promptTokenCount ?? 0,
+      tokensOut: response.usageMetadata?.candidatesTokenCount ?? 0,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function generateFireworks(params: GenerateParams): Promise<GenerateResult> {
+  const { system, messages, json, maxTokens, abortMs } = params;
+
+  const apiKey = process.env.FIREWORKS_API_KEY;
+  if (!apiKey) throw new Error('FIREWORKS_API_KEY not set');
+
+  const oaMessages: { role: string; content: string }[] = [];
+  if (system) oaMessages.push({ role: 'system', content: system });
+  for (const m of messages) oaMessages.push({ role: m.role, content: m.content });
+
+  const body: Record<string, unknown> = {
+    model: FIREWORKS_MODEL,
+    messages: oaMessages,
+    max_tokens: maxTokens ?? 4096,
+  };
+  if (json) body.response_format = { type: 'json_object' };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), abortMs ?? 110_000);
+  let res: Response;
+  try {
+    res = await fetch(`${FIREWORKS_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Fireworks ${res.status}: ${errText.slice(0, 300)}`);
+  }
+
+  const data = (await res.json()) as {
+    choices?: { message?: { content?: string } }[];
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
+
+  // DeepSeek reasoning lands in a separate `reasoning_content` field which we
+  // intentionally drop — only the final answer in `content` is returned.
+  const text = data.choices?.[0]?.message?.content ?? '';
+  return {
+    text,
+    tokensIn: data.usage?.prompt_tokens ?? 0,
+    tokensOut: data.usage?.completion_tokens ?? 0,
+  };
+}
