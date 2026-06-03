@@ -23,7 +23,7 @@ export function DiagnosticsPage() {
 
   const [activeTab, setActiveTab] = useState<Tab>('sync');
 
-  const [aiPricingModel, setAiPricingModel] = useState<'deepseek' | 'gemini'>('deepseek');
+  const [aiPricingModel, setAiPricingModel] = useState<'deepseek-v4-flash' | 'deepseek' | 'gemini'>('deepseek-v4-flash');
 
   const {
     loadingData,

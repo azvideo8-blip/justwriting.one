@@ -14,6 +14,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.15',
+    date: '2026-06-03',
+    items: [
+      { category: 'new', ru: 'AI переключён на DeepSeek v4 Flash (Fireworks) — в 12 раз дешевле прежнего DeepSeek v4 Pro, без паузы на «обдумывание»', en: 'AI switched to DeepSeek v4 Flash (Fireworks) — 12× cheaper than the previous DeepSeek v4 Pro, no reasoning delay' },
+      { category: 'new', ru: 'Переключатель модели в панели администратора (Диагностика → Статистика AI): DeepSeek v4 Flash / Pro / GPT OSS 120B — без перезапуска, вступает в силу за 60 сек', en: 'Model switcher in the admin panel (Diagnostics → AI Stats): DeepSeek v4 Flash / Pro / GPT OSS 120B — no restart needed, takes effect within 60 s' },
+      { category: 'improvement', ru: 'Детальная статистика AI: кликни на строку пользователя — раскрывается список запросов за день с временем, функцией (чат/саммари/редактура), моделью, токенами и стоимостью каждого', en: 'Detailed AI stats: click a user row to expand their daily requests with time, function (chat/summary/edit), model, tokens and per-request cost' },
+      { category: 'improvement', ru: 'Таблица тарифов с реальными ценами Fireworks и Google (DeepSeek v4 Flash $0.14/$0.28, Gemini 2.5 Flash $0.15/$0.60, DeepSeek v4 Pro $1.74/$3.48 за 1M токенов) и ориентировочной стоимостью запроса', en: 'Pricing table with real Fireworks and Google rates (DeepSeek v4 Flash $0.14/$0.28, Gemini 2.5 Flash $0.15/$0.60, DeepSeek v4 Pro $1.74/$3.48 per 1M tokens) plus an estimated cost-per-request column' },
+    ],
+  },
+  {
     version: '0.7.14',
     date: '2026-06-03',
     items: [
