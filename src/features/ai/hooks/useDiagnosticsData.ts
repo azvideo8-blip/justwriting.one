@@ -34,7 +34,17 @@ export interface FreeTierLimits {
   perUserDaily: number;
 }
 
+export interface AIRequestEvent {
+  id: string;
+  ts: number;
+  tokensIn: number;
+  tokensOut: number;
+  model: string;
+  fn: string;
+}
+
 type AIUsageResponse = { stats: AIUsageRow[]; totals?: AIUsageTotals; limits?: FreeTierLimits };
+type AIEventsResponse = { events: AIRequestEvent[] };
 
 const ADMIN_PAGE_LIMIT = 50;
 const ADMIN_AI_USERS_LIMIT = 150;
@@ -54,6 +64,9 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   const [aiUsageDate, setAiUsageDate] = useState(new Date().toISOString().slice(0, 10));
   const [aiUsageLoading, setAiUsageLoading] = useState(false);
   const [aiSearchQuery, setAiSearchQuery] = useState('');
+  const [expandedUid, setExpandedUid] = useState<string | null>(null);
+  const [userEvents, setUserEvents] = useState<AIRequestEvent[]>([]);
+  const [userEventsLoading, setUserEventsLoading] = useState(false);
 
   const [portraitText, setPortraitText] = useState<string | null>(null);
   const [portraitGenerating, setPortraitGenerating] = useState(false);
@@ -79,6 +92,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       setAiUsage(data.stats);
       setAiTotals(data.totals ?? null);
       setAiLimits(data.limits ?? null);
+      setExpandedUid(null);
+      setUserEvents([]);
     } catch (e) {
       console.error('Failed to fetch AI usage:', e);
       showToast('Не удалось загрузить статистику AI', 'error');
@@ -86,6 +101,29 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       setAiUsageLoading(false);
     }
   }, [aiUsageDate, users.length, showToast]);
+
+  const fetchUserEvents = useCallback(async (uid: string) => {
+    if (expandedUid === uid) {
+      setExpandedUid(null);
+      setUserEvents([]);
+      return;
+    }
+    setExpandedUid(uid);
+    setUserEventsLoading(true);
+    setUserEvents([]);
+    try {
+      const functions = getFunctions();
+      const fn = httpsCallable<{ date: string; targetUid: string }, AIEventsResponse>(functions, 'getAIUsageStats');
+      const { data } = await fn({ date: aiUsageDate, targetUid: uid });
+      setUserEvents(data.events ?? []);
+    } catch (e) {
+      console.error('Failed to fetch user events:', e);
+      showToast('Не удалось загрузить события пользователя', 'error');
+      setExpandedUid(null);
+    } finally {
+      setUserEventsLoading(false);
+    }
+  }, [expandedUid, aiUsageDate, showToast]);
 
   const loadAIProfileData = useCallback(async () => {
     try {
@@ -308,6 +346,10 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     aiUsageLoading,
     aiSearchQuery,
     setAiSearchQuery,
+    expandedUid,
+    userEvents,
+    userEventsLoading,
+    fetchUserEvents,
     portraitText,
     portraitGenerating,
     summaryLogs,

@@ -98,7 +98,7 @@ export const editWithAI = onCall({
   const sanitizedOutput = sanitizeAiResponse(text);
 
   generation?.end({ output: sanitizedOutput, usage: { promptTokens: tokensIn, completionTokens: tokensOut } });
-  recordUsage(uid, tokensIn, tokensOut).catch(e => console.error('[AI] usage record failed:', e));
+  recordUsage(uid, tokensIn, tokensOut, { model: AI_MODEL_LABEL, fn: 'edit' }).catch(e => console.error('[AI] usage record failed:', e));
   if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   return { result: sanitizedOutput };
