@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { SchemaType } from '@google/generative-ai';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, GEMINI_MODEL, getGenAI, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, refundDailyLimit, GEMINI_MODEL, getGenAI, getLangfuse } from '../shared/aiUtils';
 
 const SUMMARY_SYSTEM_PROMPT = `Проанализируй текст и верни JSON-объект со следующими полями:
 - tone: одно слово (нейтральный/задумчивый/тревожный/вдохновляющий/радостный/грустный/злой/усталый)
@@ -92,8 +92,14 @@ export const summarizeDocument = onCall({
     tokensIn = response.usageMetadata?.promptTokenCount ?? 0;
     tokensOut = response.usageMetadata?.candidatesTokenCount ?? 0;
   } catch (e) {
+    console.error('[AI summarize] generation failed:', e);
     generation?.end({ output: String(e), level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});
+    await refundDailyLimit(uid);
+    const msg = String((e as { message?: string })?.message ?? e);
+    if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
+      throw new HttpsError('resource-exhausted', 'AI service is temporarily unavailable (quota/spend limit). Try again later.');
+    }
     throw new HttpsError('internal', 'AI summarization failed.');
   }
 
@@ -105,8 +111,10 @@ export const summarizeDocument = onCall({
     }
     parsed_json = JSON.parse(textToParse);
   } catch {
+    console.error('[AI summarize] failed to parse model output:', text.slice(0, 500));
     generation?.end({ output: text, level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
+    await refundDailyLimit(uid);
     throw new HttpsError('internal', 'Failed to parse summary.');
   }
 

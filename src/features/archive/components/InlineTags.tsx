@@ -55,7 +55,7 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
           #{tag}
           <IconButton
             onClick={e => removeTag(e, tag)}
-            className="text-text-main/40 hover:text-accent-danger transition-colors opacity-100 md:opacity-0 md:group-hover/tag:opacity-100 -mr-0.5 p-1.5 md:p-0.5 flex items-center justify-center touch-manipulation"
+            className="w-auto h-auto rounded text-text-main/40 hover:text-accent-danger transition-colors opacity-100 md:opacity-0 md:group-hover/tag:opacity-100 -mr-0.5 p-1.5 md:p-0.5 flex items-center justify-center touch-manipulation"
             label="Remove Tag"
             icon={<X className="w-2.5 h-2.5 md:w-2 md:h-2" />}
           />

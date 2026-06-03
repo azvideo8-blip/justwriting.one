@@ -10,6 +10,7 @@ import { SyncService } from '../../../core/services/SyncService';
 import { StorageService } from '../../../core/services/StorageService';
 import { VersionService } from '../../../core/services/VersionService';
 import { getLocalDb } from '../../../core/storage/localDb';
+import { toDate } from '../../../core/utils/dateUtils';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { useAuthStatus } from '../../auth/contexts/AuthContext';
@@ -31,6 +32,7 @@ export interface DiagnosticItem {
   queueItemId?: string | undefined;
   status: 'synced' | 'pending' | 'mismatch' | 'local_only' | 'cloud_only' | 'cloud_missing';
   cloudEncrypted?: boolean | undefined;
+  date?: number | undefined;
 }
 
 export function useSyncDiagnostics({ userId }: { userId: string }) {
@@ -120,6 +122,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
           inQueue,
           queueItemId,
           status,
+          date: localDoc.lastSessionAt || localDoc.firstSessionAt || undefined,
         });
       }
 
@@ -137,6 +140,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
             cloudWords: cloudDoc.totalWords,
             inQueue: false,
             status: 'cloud_only',
+            date: toDate(cloudDoc.lastSessionAt)?.getTime(),
           });
         }
       }

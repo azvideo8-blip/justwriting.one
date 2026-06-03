@@ -172,6 +172,22 @@ export async function checkDailyLimit(uid: string): Promise<boolean> {
   });
 }
 
+// Refund one unit of today's per-user daily count. Call this when an AI request
+// passed the limit checks (which already incremented the count) but then failed —
+// otherwise transient/server errors silently burn the user's daily quota.
+export async function refundDailyLimit(uid: string): Promise<void> {
+  const db = getDb();
+  const date = new Date().toISOString().slice(0, 10);
+  const ref = db.doc(`aiDailyLimit/${uid}`);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.data();
+    if (!data || data.date !== date) return;
+    const next = Math.max(0, (data.count ?? 1) - 1);
+    tx.update(ref, { count: next });
+  }).catch(e => console.error('[AI] refundDailyLimit failed:', e));
+}
+
 export async function getDailyLimitCount(uid: string): Promise<{ used: number; date: string }> {
   const db = getDb();
   const date = new Date().toISOString().slice(0, 10);
