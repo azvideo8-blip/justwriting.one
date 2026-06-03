@@ -8,11 +8,6 @@ export function FlowPulse({ isActive }: FlowPulseProps) {
   const [spike, setSpike] = useState(false);
   const decayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const barStyle = {
-    transform: spike ? 'translateX(40%)' : 'translateX(-40%)',
-    opacity: isActive ? (spike ? 0.85 : 0.3) : 0,
-  };
-
   useEffect(() => {
     if (!isActive) return;
     const handleKey = () => {
@@ -28,11 +23,23 @@ export function FlowPulse({ isActive }: FlowPulseProps) {
   }, [isActive]);
 
   return (
-    <div className="fixed left-0 right-0 bottom-0 h-[2px] pointer-events-none z-[100] overflow-hidden">
-      <div
-        className="h-full w-[60%] blur-[1px] bg-[linear-gradient(90deg,transparent,var(--flow-pulse-color)_50%,transparent)] transition-[opacity,transform] duration-[0.6s,1.2s] ease-[ease,cubic-bezier(.25,.1,.25,1)]"
-        style={barStyle}
-      />
+    <div style={{
+      position: 'fixed',
+      left: 0, right: 0, bottom: 0,
+      height: 3,
+      pointerEvents: 'none',
+      zIndex: 100,
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        height: '100%',
+        background: 'linear-gradient(90deg, transparent, var(--flow-pulse-color) 50%, transparent)',
+        width: '60%',
+        transform: spike ? 'translateX(40%)' : 'translateX(-40%)',
+        opacity: isActive ? (spike ? 0.9 : 0.35) : 0,
+        transition: 'opacity 0.6s ease, transform 1.2s cubic-bezier(.25,.1,.25,1)',
+        filter: 'blur(1px)',
+      }} />
     </div>
   );
 }
