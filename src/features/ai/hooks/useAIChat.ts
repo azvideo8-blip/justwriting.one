@@ -189,6 +189,13 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
     setStreamingMessage('');
     setError(null);
 
+    // Build API messages from the ORIGINAL dialogue before the optimistic update.
+    // Using optimisticDialogue here would duplicate the user message because
+    // optimisticDialogue.messages already contains it after the update below.
+    const allMessages: AIMessage[] = dialogue
+      ? [...dialogue.messages, { role: 'user' as const, content: text, type: 'chat' as const }]
+      : [{ role: 'user' as const, content: text, type: 'chat' as const }];
+
     let optimisticDialogue = dialogue;
     if (optimisticDialogue) {
       const optimistic = { ...optimisticDialogue, messages: [...optimisticDialogue.messages, { role: 'user' as const, content: text, type: 'chat' as const }] };
@@ -197,9 +204,6 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
     }
 
     try {
-      const allMessages: AIMessage[] = optimisticDialogue
-        ? [...optimisticDialogue.messages, { role: 'user' as const, content: text, type: 'chat' as const }]
-        : [{ role: 'user' as const, content: text, type: 'chat' as const }];
 
       const apiMessages = pruneMessages(allMessages.filter(m => m.type !== 'system'));
 
