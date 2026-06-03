@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
-import { generate, AI_MODEL_LABEL } from '../shared/aiProvider';
+import { generate, getActiveModel } from '../shared/aiProvider';
 import { PERSONA_PROMPTS, TOPIC_GUARD, PRESET_PERSONA_IDS, type PersonaId } from '../shared/prompts';
 
 const inputSchema = z.object({
@@ -85,8 +85,9 @@ export const chatWithAI = onCall({
   }));
 
   const lf = getLangfuse();
+  const activeModel = await getActiveModel();
   const trace = lf?.trace({ name: 'chatWithAI', userId: uid, metadata: { personaId } });
-  const generation = trace?.generation({ name: AI_MODEL_LABEL, model: AI_MODEL_LABEL, input: providerMessages });
+  const generation = trace?.generation({ name: activeModel, model: activeModel, input: providerMessages });
 
   let gen;
   try {
@@ -101,7 +102,7 @@ export const chatWithAI = onCall({
   const text = sanitizeAiResponse(gen.text);
 
   generation?.end({ output: text, usage: { promptTokens: gen.tokensIn, completionTokens: gen.tokensOut } });
-  recordUsage(uid, gen.tokensIn, gen.tokensOut, { model: AI_MODEL_LABEL, fn: 'chat' }).catch(e => console.error('[AI chat] usage record failed:', e));
+  recordUsage(uid, gen.tokensIn, gen.tokensOut, { model: gen.model, fn: 'chat' }).catch(e => console.error('[AI chat] usage record failed:', e));
   if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   return { result: text };

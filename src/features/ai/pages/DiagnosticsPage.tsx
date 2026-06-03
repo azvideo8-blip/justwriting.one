@@ -15,7 +15,6 @@ import { useDiagnosticsData, type Tab } from '../hooks/useDiagnosticsData';
 import { DatabaseExplorer } from '../components/DatabaseExplorer';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
-import { Input } from '../../../shared/components/Input';
 
 export function DiagnosticsPage() {
   const navigate = useNavigate();
@@ -43,6 +42,9 @@ export function DiagnosticsPage() {
     userEvents,
     userEventsLoading,
     fetchUserEvents,
+    currentAIModel,
+    modelSwitching,
+    switchAIModel,
     portraitText,
     portraitGenerating,
     summaryLogs,
@@ -216,10 +218,20 @@ export function DiagnosticsPage() {
         {activeTab === 'ai_usage' && (() => {
           // Pricing per token (USD)
           const PRICING = {
-            deepseek: { label: 'DeepSeek v4 Pro (Fireworks)', in: 1.74 / 1_000_000, out: 3.48 / 1_000_000 },
-            gemini:   { label: 'Gemini 2.5 Flash',            in: 0.15 / 1_000_000, out: 0.60 / 1_000_000 },
+            'deepseek-v4-flash': { label: 'DeepSeek v4 Flash', in: 0.14 / 1_000_000, out: 0.28 / 1_000_000 },
+            deepseek:            { label: 'DeepSeek v4 Pro',    in: 1.74 / 1_000_000, out: 3.48 / 1_000_000 },
+            gemini:              { label: 'Gemini 2.5 Flash',   in: 0.15 / 1_000_000, out: 0.60 / 1_000_000 },
           };
-          const pricing = PRICING[aiPricingModel];
+
+          // Resolve pricing key from active model string
+          function pricingKeyFromModel(model: string): keyof typeof PRICING {
+            if (model.includes('deepseek-v4-flash')) return 'deepseek-v4-flash';
+            if (model.includes('deepseek')) return 'deepseek';
+            return 'gemini';
+          }
+          // If currentAIModel is known, auto-select its pricing; user can still override via dropdown
+          const resolvedPricingKey = currentAIModel ? pricingKeyFromModel(currentAIModel) : aiPricingModel;
+          const pricing = PRICING[aiPricingModel] ?? PRICING[resolvedPricingKey];
 
           function calcCost(tokensIn: number, tokensOut: number) {
             return tokensIn * pricing.in + tokensOut * pricing.out;
@@ -253,10 +265,11 @@ export function DiagnosticsPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <select
                     value={aiPricingModel}
-                    onChange={e => setAiPricingModel(e.target.value as 'deepseek' | 'gemini')}
+                    onChange={e => setAiPricingModel(e.target.value as keyof typeof PRICING)}
                     className="px-3 py-1.5 rounded-xl bg-surface-base/5 border border-border-subtle text-xs text-text-main outline-none cursor-pointer"
                   >
-                    <option value="deepseek">DeepSeek v4 Pro (Fireworks)</option>
+                    <option value="deepseek-v4-flash">DeepSeek v4 Flash ⭐</option>
+                    <option value="deepseek">DeepSeek v4 Pro</option>
                     <option value="gemini">Gemini 2.5 Flash</option>
                   </select>
                   <input
@@ -276,36 +289,83 @@ export function DiagnosticsPage() {
                 </div>
               </div>
 
+              {/* Model switcher */}
+              <div className="p-4 rounded-2xl border border-border-subtle bg-surface-base/5">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-[10px] font-bold text-text-main/40 uppercase tracking-wider">Активная модель</h4>
+                  {currentAIModel && (
+                    <span className="text-[10px] font-mono text-brand-soft bg-brand-soft/10 px-2 py-0.5 rounded-full">
+                      {currentAIModel.split('/').pop()}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { id: 'accounts/fireworks/models/deepseek-v4-flash', label: 'DeepSeek v4 Flash', badge: '⭐ дешевле в 12×', price: '$0.14/$0.28' },
+                    { id: 'accounts/fireworks/models/deepseek-v4-pro',   label: 'DeepSeek v4 Pro',  badge: 'reasoning',    price: '$1.74/$3.48' },
+                    { id: 'accounts/fireworks/models/gpt-oss-120b',      label: 'GPT OSS 120B',     badge: 'OpenAI',       price: '$0.15/$0.60' },
+                  ] as const).map(m => {
+                    const isActive = currentAIModel === m.id;
+                    return (
+                      <Button
+                        key={m.id}
+                        onClick={() => void switchAIModel(m.id)}
+                        disabled={modelSwitching || isActive}
+                        className={cn(
+                          "flex flex-col items-start gap-0.5 px-3 py-2 rounded-xl border text-left transition-all text-[10px] disabled:cursor-default",
+                          isActive
+                            ? "border-brand-soft/40 bg-brand-soft/10 text-text-main"
+                            : "border-border-subtle bg-surface-base/5 text-text-main/60 hover:border-brand-soft/20 hover:text-text-main hover:bg-surface-base/10"
+                        )}
+                      >
+                        <span className="font-bold text-xs">{m.label}</span>
+                        <span className={cn("font-mono", isActive ? "text-brand-soft" : "text-text-main/40")}>{m.price} / 1M</span>
+                        <span className={cn(isActive ? "text-text-main/50" : "text-text-main/30")}>{m.badge}{isActive ? ' · активна' : ''}</span>
+                      </Button>
+                    );
+                  })}
+                  {modelSwitching && <Loader2 size={14} className="animate-spin self-center text-text-main/30" />}
+                </div>
+                <p className="text-[10px] text-text-main/30 mt-2">Применяется ко всем AI-функциям (чат, саммари, редактура). Vercel /api/chat обновится в течение 60 сек.</p>
+              </div>
+
               {/* Pricing table */}
               <div className="p-4 rounded-2xl border border-border-subtle bg-surface-base/5">
-                <h4 className="text-[10px] font-bold text-text-main/40 uppercase tracking-wider mb-3">Тарифы моделей (цены актуальны на дату поставки)</h4>
+                <h4 className="text-[10px] font-bold text-text-main/40 uppercase tracking-wider mb-3">Тарифы (цены актуальны на дату поставки · docs.fireworks.ai, ai.google.dev)</h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs border-collapse">
                     <thead>
                       <tr className="text-text-main/40 text-[10px] uppercase tracking-wider">
                         <th className="text-left pb-2 pr-4 font-bold">Модель</th>
-                        <th className="text-right pb-2 pr-4 font-bold">Вход / 1M токенов</th>
-                        <th className="text-right pb-2 pr-4 font-bold">Выход / 1M токенов</th>
-                        <th className="text-right pb-2 font-bold">Источник</th>
+                        <th className="text-right pb-2 pr-4 font-bold">Вход / 1M</th>
+                        <th className="text-right pb-2 pr-4 font-bold">Выход / 1M</th>
+                        <th className="text-right pb-2 font-bold">Примерно / запрос</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr className={cn("border-t border-border-subtle/40", aiPricingModel === 'deepseek' && "bg-brand-soft/5")}>
-                        <td className="py-2 pr-4 text-text-main/80 font-medium">DeepSeek v4 Pro <span className="text-text-main/30">(Fireworks)</span></td>
-                        <td className="py-2 pr-4 text-right font-mono text-text-main/70">$1.74</td>
-                        <td className="py-2 pr-4 text-right font-mono text-text-main/70">$3.48</td>
-                        <td className="py-2 text-right text-text-main/30 text-[10px]">docs.fireworks.ai</td>
-                      </tr>
-                      <tr className={cn("border-t border-border-subtle/40", aiPricingModel === 'gemini' && "bg-brand-soft/5")}>
-                        <td className="py-2 pr-4 text-text-main/80 font-medium">Gemini 2.5 Flash <span className="text-text-main/30">(Google)</span></td>
-                        <td className="py-2 pr-4 text-right font-mono text-text-main/70">$0.15</td>
-                        <td className="py-2 pr-4 text-right font-mono text-text-main/70">$0.60</td>
-                        <td className="py-2 text-right text-text-main/30 text-[10px]">ai.google.dev</td>
-                      </tr>
+                      {([
+                        { key: 'deepseek-v4-flash', name: 'DeepSeek v4 Flash', provider: 'Fireworks', inP: 0.14, outP: 0.28 },
+                        { key: 'gemini',            name: 'Gemini 2.5 Flash',  provider: 'Google',    inP: 0.15, outP: 0.60 },
+                        { key: 'deepseek',          name: 'DeepSeek v4 Pro',   provider: 'Fireworks', inP: 1.74, outP: 3.48 },
+                      ] as const).map(r => {
+                        // Estimate: ~4k in tokens, ~800 out tokens per average request
+                        const estCost = (4000 * r.inP + 800 * r.outP) / 1_000_000;
+                        const isSelected = aiPricingModel === r.key;
+                        return (
+                          <tr key={r.key} className={cn("border-t border-border-subtle/40", isSelected && "bg-brand-soft/5")}>
+                            <td className="py-2 pr-4 text-text-main/80 font-medium">
+                              {r.name} <span className="text-text-main/30">({r.provider})</span>
+                            </td>
+                            <td className="py-2 pr-4 text-right font-mono text-text-main/70">${r.inP}</td>
+                            <td className="py-2 pr-4 text-right font-mono text-text-main/70">${r.outP}</td>
+                            <td className="py-2 text-right font-mono text-text-main/50">≈${estCost.toFixed(4)}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
-                <p className="text-[10px] text-text-main/30 mt-2">Выбранная модель используется для расчёта стоимости в таблице. Для новых запросов модель определяется автоматически из события.</p>
+                <p className="text-[10px] text-text-main/30 mt-2">Выбранная модель выше используется для расчёта стоимости в таблице пользователей. Для новых запросов модель определяется из события.</p>
               </div>
 
               {/* Usage limits bar */}

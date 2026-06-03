@@ -110,10 +110,22 @@ if (process.env.FIREWORKS_API_KEY) {
 }
 const fireworks = createOpenAI(fireworksOptions);
 
-const AI_MODEL_LABEL = AI_PROVIDER === 'fireworks' ? FIREWORKS_MODEL : GEMINI_MODEL;
+// Active model config: read from Firestore appConfig/ai with 60s in-memory cache.
+// Falls back to FIREWORKS_MODEL env var if Firestore read fails or doc is absent.
+let _modelCache: { model: string; expiresAt: number } | null = null;
+async function getActiveModel(): Promise<string> {
+  const now = Date.now();
+  if (_modelCache && now < _modelCache.expiresAt) return _modelCache.model;
+  try {
+    const snap = await db().doc('appConfig/ai').get();
+    const m = snap.data()?.model as string | undefined;
+    if (m && m.length > 0) { _modelCache = { model: m, expiresAt: now + 60_000 }; return m; }
+  } catch { /* fall through */ }
+  return FIREWORKS_MODEL;
+}
 
-function getChatModel() {
-  if (AI_PROVIDER === 'fireworks') return fireworks.chat(FIREWORKS_MODEL);
+async function getChatModel() {
+  if (AI_PROVIDER === 'fireworks') return fireworks.chat(await getActiveModel());
   return google(GEMINI_MODEL);
 }
 
@@ -266,14 +278,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Stream. maxOutputTokens caps total output INCLUDING gemini-2.5 thinking tokens;
   // at 1024 the thinking budget could consume it all and truncate the reply
   // mid-sentence. 8192 leaves ample room for a complete answer.
+  const activeModel = await getActiveModel();
   const result = streamText({
-    model: getChatModel(),
+    model: await getChatModel(),
     system: systemPrompt,
     messages: messages.map(m => ({ role: m.role, content: sanitizeAiInput(m.content) })),
     maxOutputTokens: 8192,
     onFinish: async ({ totalUsage }) => {
       try {
-        await recordUsage(uid, totalUsage?.inputTokens ?? 0, totalUsage?.outputTokens ?? 0, AI_MODEL_LABEL);
+        await recordUsage(uid, totalUsage?.inputTokens ?? 0, totalUsage?.outputTokens ?? 0, activeModel);
       } catch (e) {
         console.error('[api/chat] usage record failed:', e);
       }

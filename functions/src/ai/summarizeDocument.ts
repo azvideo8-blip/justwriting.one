@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, refundDailyLimit, getLangfuse } from '../shared/aiUtils';
-import { generate, AI_MODEL_LABEL } from '../shared/aiProvider';
+import { generate, getActiveModel } from '../shared/aiProvider';
 
 const SUMMARY_SYSTEM_PROMPT = `Проанализируй текст и верни JSON-объект со следующими полями:
 - tone: одно слово (нейтральный/задумчивый/тревожный/вдохновляющий/радостный/грустный/злой/усталый)
@@ -54,12 +54,14 @@ export const summarizeDocument = onCall({
     : sanitizedContent;
 
   const lf = getLangfuse();
+  const activeModel = await getActiveModel();
   const trace = lf?.trace({ name: 'summarizeDocument', userId: uid });
-  const generation = trace?.generation({ name: AI_MODEL_LABEL, model: AI_MODEL_LABEL, input: prompt });
+  const generation = trace?.generation({ name: activeModel, model: activeModel, input: prompt });
 
   let text: string;
   let tokensIn = 0;
   let tokensOut = 0;
+  let usedModel = activeModel;
   try {
     const result = await generate({
       system: SUMMARY_SYSTEM_PROMPT,
@@ -71,6 +73,7 @@ export const summarizeDocument = onCall({
     text = result.text;
     tokensIn = result.tokensIn;
     tokensOut = result.tokensOut;
+    usedModel = result.model;
   } catch (e) {
     console.error('[AI summarize] generation failed:', e);
     generation?.end({ output: String(e), level: 'ERROR' });
@@ -99,7 +102,7 @@ export const summarizeDocument = onCall({
   }
 
   generation?.end({ output: text, usage: { promptTokens: tokensIn, completionTokens: tokensOut } });
-  recordUsage(uid, tokensIn, tokensOut, { model: AI_MODEL_LABEL, fn: 'summarize' }).catch(e => console.error('[AI summarize] usage record failed:', e));
+  recordUsage(uid, tokensIn, tokensOut, { model: usedModel, fn: 'summarize' }).catch(e => console.error('[AI summarize] usage record failed:', e));
   if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   return {

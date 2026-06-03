@@ -1,15 +1,45 @@
 import { GEMINI_MODEL, getGenAI } from './aiUtils';
+import { getDb } from './firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 
 // Provider seam: lets the same call sites run against Gemini (Google) or a
 // Fireworks-hosted OpenAI-compatible model (e.g. DeepSeek). Switch via the
 // AI_PROVIDER env var; Gemini stays available as a fallback.
 export const AI_PROVIDER = (process.env.AI_PROVIDER ?? 'fireworks').toLowerCase();
-export const FIREWORKS_MODEL =
-  process.env.FIREWORKS_MODEL ?? 'accounts/fireworks/models/deepseek-v4-pro';
+// Env-var default for the Fireworks model (used if Firestore config is absent).
+const FIREWORKS_MODEL_ENV = process.env.FIREWORKS_MODEL ?? 'accounts/fireworks/models/deepseek-v4-flash';
 const FIREWORKS_BASE_URL = 'https://api.fireworks.ai/inference/v1';
 
-// Label used for tracing/observability so traces show the model actually used.
-export const AI_MODEL_LABEL = AI_PROVIDER === 'fireworks' ? FIREWORKS_MODEL : GEMINI_MODEL;
+// ── Active model config (Firestore-backed, env-var fallback) ──────────────────
+// Firestore doc `appConfig/ai` stores { model: string }. The admin panel writes
+// to this doc via the `setAIModel` Cloud Function. We cache the result for 60s
+// so hot-path requests pay no extra Firestore read cost.
+let _modelCache: { model: string; expiresAt: number } | null = null;
+
+export async function getActiveModel(): Promise<string> {
+  const now = Date.now();
+  if (_modelCache && now < _modelCache.expiresAt) return _modelCache.model;
+  try {
+    const snap = await getDb().doc('appConfig/ai').get();
+    const model = snap.data()?.model as string | undefined;
+    if (model && model.length > 0) {
+      _modelCache = { model, expiresAt: now + 60_000 };
+      return model;
+    }
+  } catch (e) {
+    console.warn('[aiProvider] failed to read appConfig/ai, using env fallback:', e);
+  }
+  return FIREWORKS_MODEL_ENV;
+}
+
+/** Write the active model to Firestore and invalidate the local cache. */
+export async function setActiveModel(model: string): Promise<void> {
+  await getDb().doc('appConfig/ai').set(
+    { model, updatedAt: FieldValue.serverTimestamp() },
+    { merge: true }
+  );
+  _modelCache = null; // force next request to re-read
+}
 
 export type ProviderRole = 'user' | 'assistant';
 export interface ProviderMessage {
@@ -18,17 +48,10 @@ export interface ProviderMessage {
 }
 
 export interface GenerateParams {
-  // Optional system instruction.
   system?: string | undefined;
-  // Conversation turns; the last entry is the prompt to answer. For single-shot
-  // tasks pass a single { role: 'user', content } entry.
   messages: ProviderMessage[];
-  // Request a JSON object response (uses the provider's JSON mode).
   json?: boolean;
-  // Output token budget. Reasoning models (DeepSeek v4 pro) spend tokens on
-  // hidden reasoning, so keep this generous.
   maxTokens?: number;
-  // Abort the request after this many ms.
   abortMs?: number;
 }
 
@@ -36,6 +59,8 @@ export interface GenerateResult {
   text: string;
   tokensIn: number;
   tokensOut: number;
+  /** The model string actually used for this request (e.g. for recordUsage). */
+  model: string;
 }
 
 export async function generate(params: GenerateParams): Promise<GenerateResult> {
@@ -66,12 +91,13 @@ async function generateGemini(params: GenerateParams): Promise<GenerateResult> {
   const timeout = setTimeout(() => controller.abort(), abortMs ?? 30_000);
   try {
     const chat = model.startChat({ history });
-    const result = await chat.sendMessage(last.content, { signal: controller.signal });
+    const result = await chat.sendMessage(last!.content, { signal: controller.signal });
     const response = result.response;
     return {
       text: response.text(),
       tokensIn: response.usageMetadata?.promptTokenCount ?? 0,
       tokensOut: response.usageMetadata?.candidatesTokenCount ?? 0,
+      model: GEMINI_MODEL,
     };
   } finally {
     clearTimeout(timeout);
@@ -84,12 +110,14 @@ async function generateFireworks(params: GenerateParams): Promise<GenerateResult
   const apiKey = process.env.FIREWORKS_API_KEY;
   if (!apiKey) throw new Error('FIREWORKS_API_KEY not set');
 
+  const activeModel = await getActiveModel();
+
   const oaMessages: { role: string; content: string }[] = [];
   if (system) oaMessages.push({ role: 'system', content: system });
   for (const m of messages) oaMessages.push({ role: m.role, content: m.content });
 
   const body: Record<string, unknown> = {
-    model: FIREWORKS_MODEL,
+    model: activeModel,
     messages: oaMessages,
     max_tokens: maxTokens ?? 4096,
   };
@@ -129,5 +157,6 @@ async function generateFireworks(params: GenerateParams): Promise<GenerateResult
     text,
     tokensIn: data.usage?.prompt_tokens ?? 0,
     tokensOut: data.usage?.completion_tokens ?? 0,
+    model: activeModel,
   };
 }
