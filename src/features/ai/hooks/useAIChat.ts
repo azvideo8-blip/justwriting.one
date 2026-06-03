@@ -249,6 +249,13 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
         }
       }
 
+      // An empty stream (e.g. the model errored mid-stream on a quota/spend cap)
+      // resolves without throwing — surface it as an error instead of saving a
+      // blank assistant bubble.
+      if (!fullText || !fullText.trim()) {
+        throw new Error('EMPTY_RESPONSE');
+      }
+
       incrementDailyUsage();
 
       let currentDialogue = dialogue;
@@ -275,6 +282,7 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
       const msg = e instanceof Error ? e.message : 'SERVER_ERROR';
       if (msg === 'DAILY_LIMIT') { setDailyLimitExhausted(); setError('Дневной лимит достигнут'); }
       else if (msg === 'AUTH_REQUIRED') setError('Требуется регистрация');
+      else if (msg === 'EMPTY_RESPONSE') setError('ИИ не ответил — сервис временно недоступен (возможно, исчерпан лимит). Попробуйте позже.');
       else setError('Произошла ошибка при отправке сообщения');
     } finally {
       setIsLoading(false);

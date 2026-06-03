@@ -14,6 +14,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.14',
+    date: '2026-06-03',
+    items: [
+      { category: 'new', ru: 'Таблица «Синхронизация»: добавлена колонка «Дата», сортировка по любой колонке (клик по заголовку) и поиск по названию заметки', en: 'Sync table: added a "Date" column, click-to-sort on any column header, and search by note title' },
+      { category: 'fix', ru: 'Чип добавленного тега больше не раздувается (крестик удаления навязывал размер 36px) — теперь по размеру соседней кнопки', en: 'The added-tag chip is no longer oversized (the remove “×” forced a 36px size) — it now matches the adjacent button' },
+      { category: 'fix', ru: 'AI-чат при сбое ответа больше не показывает пустой пузырь — выводится понятное сообщение об ошибке', en: 'The AI chat no longer shows an empty bubble when a response fails — a clear error message is shown instead' },
+      { category: 'improvement', ru: 'AI-саммари: неудачные запросы больше не списывают дневной лимит, реальная ошибка пишется в логи, при исчерпании квоты — понятное сообщение', en: 'AI summary: failed requests no longer consume the daily limit, the real error is logged, and quota exhaustion shows a clear message' },
+    ],
+  },
+  {
     version: '0.7.13',
     date: '2026-06-03',
     items: [

@@ -1,8 +1,9 @@
+import { useState, useMemo } from 'react';
 import { RefreshCw, AlertTriangle, Upload, Download, Trash2, Loader2, Link2Off, Lock, Sparkles, Eye } from 'lucide-react';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { cn } from '../../../core/utils/utils';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
-import { useSyncDiagnostics } from '../hooks/useSyncDiagnostics';
+import { useSyncDiagnostics, type DiagnosticItem } from '../hooks/useSyncDiagnostics';
 import { SummaryModal } from './SummaryModal';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
@@ -22,6 +23,48 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
     handleProcessDocument, handleReadSummary,
     getStatusBadge,
   } = useSyncDiagnostics({ userId });
+
+  type SortKey = 'title' | 'date' | 'status' | 'versions' | 'words' | 'ai';
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'title' ? 'asc' : 'desc');
+    }
+  };
+  const sortArrow = (key: SortKey) => (sortKey === key ? (sortDir === 'asc' ? ' ↑' : ' ↓') : '');
+
+  const displayItems = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const filtered = q
+      ? items.filter(i => i.title.toLowerCase().includes(q) || i.id.toLowerCase().includes(q))
+      : items;
+    const val = (i: DiagnosticItem): string | number => {
+      switch (sortKey) {
+        case 'title': return i.title.toLowerCase();
+        case 'date': return i.date ?? 0;
+        case 'status': return i.status;
+        case 'versions': return i.localVersion ?? i.cloudVersion ?? 0;
+        case 'words': return i.localWords ?? i.cloudWords ?? 0;
+        case 'ai': return processedDocs[i.id] ? 1 : 0;
+      }
+    };
+    return [...filtered].sort((a, b) => {
+      const va = val(a), vb = val(b);
+      const cmp = typeof va === 'string' && typeof vb === 'string'
+        ? va.localeCompare(vb)
+        : (va as number) - (vb as number);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [items, search, sortKey, sortDir, processedDocs]);
+
+  const formatDate = (ms?: number) =>
+    ms ? new Date(ms).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
 
   return (
     <div className="space-y-4 p-4 rounded-xl border border-border-subtle bg-surface-card/30">
@@ -57,6 +100,16 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
         </div>
       </div>
 
+      {items.length > 0 && (
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Поиск по названию…"
+          className="w-full px-3 py-2 rounded-lg bg-surface-base/5 border border-border-subtle text-xs text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40"
+        />
+      )}
+
       {loading && items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 gap-2">
           <Loader2 size={24} className="animate-spin text-text-main/30" />
@@ -68,7 +121,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
         </div>
       ) : layoutMode === 'mobile' ? (
         <div className="space-y-3">
-          {items.map(item => {
+          {displayItems.map(item => {
             const isSyncing = syncingId === item.id;
             return (
               <div key={item.id} className="p-3 rounded-lg border border-border-subtle bg-surface-base/5 space-y-3">
@@ -79,8 +132,9 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                     </h4>
                     <span className="text-label text-text-main/30 font-mono block truncate mt-0.5">{item.id}</span>
                   </div>
-                  <div className="shrink-0">
+                  <div className="shrink-0 flex flex-col items-end gap-1">
                     {getStatusBadge(item.status)}
+                    <span className="text-label text-text-main/40 font-mono whitespace-nowrap">{formatDate(item.date)}</span>
                   </div>
                 </div>
 
@@ -211,22 +265,26 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
           <table className="w-full border-collapse text-left text-xs">
             <thead>
               <tr className="border-b border-border-subtle text-text-main/40 font-medium">
-                <th className="py-2 px-3">Note Title</th>
-                <th className="py-2 px-2 text-center">Location</th>
-                <th className="py-2 px-2 text-center">Versions (L/C)</th>
-                <th className="py-2 px-2 text-center">Words (L/C)</th>
-                <th className="py-2 px-2 text-center">AI</th>
+                <th className="py-2 px-3"><button type="button" onClick={() => toggleSort('title')} className="hover:text-text-main transition-colors">Note Title{sortArrow('title')}</button></th>
+                <th className="py-2 px-2 text-center"><button type="button" onClick={() => toggleSort('date')} className="hover:text-text-main transition-colors">Date{sortArrow('date')}</button></th>
+                <th className="py-2 px-2 text-center"><button type="button" onClick={() => toggleSort('status')} className="hover:text-text-main transition-colors">Location{sortArrow('status')}</button></th>
+                <th className="py-2 px-2 text-center"><button type="button" onClick={() => toggleSort('versions')} className="hover:text-text-main transition-colors">Versions (L/C){sortArrow('versions')}</button></th>
+                <th className="py-2 px-2 text-center"><button type="button" onClick={() => toggleSort('words')} className="hover:text-text-main transition-colors">Words (L/C){sortArrow('words')}</button></th>
+                <th className="py-2 px-2 text-center"><button type="button" onClick={() => toggleSort('ai')} className="hover:text-text-main transition-colors">AI{sortArrow('ai')}</button></th>
                 <th className="py-2 px-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {items.map(item => {
+              {displayItems.map(item => {
                 const isSyncing = syncingId === item.id;
                 return (
                   <tr key={item.id} className="border-b border-border-subtle/50 hover:bg-surface-base/5 text-text-main/80">
                     <td className="py-2.5 px-3 max-w-[150px] truncate" title={item.title}>
                       <span className="font-medium text-text-main">{item.title}</span>
                       <div className="text-[9px] text-text-main/20 font-mono truncate">{item.id}</div>
+                    </td>
+                    <td className="py-2.5 px-2 text-center whitespace-nowrap font-mono text-[11px] text-text-main/50">
+                      {formatDate(item.date)}
                     </td>
                     <td className="py-2.5 px-2 text-center whitespace-nowrap">
                       {getStatusBadge(item.status)}
