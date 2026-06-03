@@ -208,8 +208,10 @@ export function MobileHomeScreen({
       </div>
 
       <div className="flex-1 flex items-center justify-center flex-col gap-4" >
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={onStart}
           className="w-[140px] h-[140px] rounded-full bg-[var(--brand-primary)] border-none cursor-pointer flex flex-col items-center justify-center gap-1 transition-[box-shadow,transform] duration-[1.8s,0.15s] ease-in-out"
           style={{
@@ -226,7 +228,7 @@ export function MobileHomeScreen({
           <span className="text-xs font-semibold text-[var(--bg-base)] font-sans tracking-wide">
             {t('home_cta')}
           </span>
-        </button>
+        </Button>
 
         <div className="text-[11px] text-[var(--text-subtle)] font-mono tracking-wider">
           {t('home_cta_hint')}
@@ -265,9 +267,11 @@ export function MobileHomeScreen({
             </div>
             <div className="flex gap-2 px-6 overflow-x-auto touch-pan-x scrollbar-none">
               {recentSessions.map(session => (
-                <button
+                <Button
                   type="button"
                   key={session.id}
+                  variant="ghost"
+                  size="sm"
                   onClick={() => onContinue(session)}
                   className="shrink-0 py-2.5 px-3.5 rounded-xl border border-[var(--border-light)] bg-[var(--surface-card)] text-left cursor-pointer max-w-[180px]"
                 >
@@ -278,7 +282,7 @@ export function MobileHomeScreen({
                     {session.wordCount} {t('home_words_short')} ·{' '}
                     {Math.floor(session.duration / 60)}{t('goal_time_min')}
                   </div>
-                </button>
+                </Button>
               ))}
             </div>
           </div>

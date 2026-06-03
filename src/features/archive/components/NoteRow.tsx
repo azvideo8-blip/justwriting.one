@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { ExternalLink, Trash2, Pencil, MoreVertical, Sparkles } from 'lucide-react';
+import { ExternalLink, Trash2, Pencil, MoreVertical, Sparkles, Loader2 } from 'lucide-react';
 import { getSessionDate, cn } from '../../../core/utils/utils';
 import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { InlineTags } from './InlineTags';
@@ -13,6 +13,7 @@ import { AnimatePresence } from 'motion/react';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { Input } from '../../../shared/components/Input';
 
 interface NoteRowProps {
   session: ArchiveSession;
@@ -30,10 +31,11 @@ interface NoteRowProps {
   allTags?: string[] | undefined;
   searchQuery?: string | undefined;
   aiProcessed?: boolean | undefined;
+  aiLoading?: boolean | undefined;
   onAIClick?: (() => void) | undefined;
 }
 
-function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels, allTags, searchQuery, aiProcessed, onAIClick }: NoteRowProps) {
+function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels, allTags, searchQuery, aiProcessed, aiLoading, onAIClick }: NoteRowProps) {
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
   const [editingTitle, setEditingTitle] = useState(false);
@@ -173,22 +175,22 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                 <label className="text-label font-mono text-text-main/40 uppercase tracking-wide">
                   {t('archive_edit_date')}
                 </label>
-                <input
+                <Input
                   type="date"
                   value={dateDraft}
                   onChange={e => setDateDraft(e.target.value)}
-                  className="w-full text-[12px] font-mono bg-text-main/5 border border-border-subtle rounded px-2 py-1 outline-none mt-0.5"
+                  className="text-[12px] font-mono bg-text-main/5 border border-border-subtle rounded px-2 py-1 outline-none mt-0.5"
                 />
               </div>
               <div>
                 <label className="text-label font-mono text-text-main/40 uppercase tracking-wide">
                   {t('archive_edit_time')}
                 </label>
-                <input
+                <Input
                   type="time"
                   value={timeDraft}
                   onChange={e => setTimeDraft(e.target.value)}
-                  className="w-full text-[12px] font-mono bg-text-main/5 border border-border-subtle rounded px-2 py-1 outline-none mt-0.5"
+                  className="text-[12px] font-mono bg-text-main/5 border border-border-subtle rounded px-2 py-1 outline-none mt-0.5"
                 />
               </div>
               <div className="flex gap-2 pt-1">
@@ -212,15 +214,15 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
 
       <div className="min-w-0">
         {editingTitle ? (
-          <input
-            value={titleDraft}
-            onChange={e => setTitleDraft(e.target.value)}
-            onBlur={commitTitle}
-            onKeyDown={e => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') setEditingTitle(false); }}
-            autoFocus
-            onClick={e => e.stopPropagation()}
-            className="text-[15px] font-medium text-text-main bg-text-main/5 border border-border-subtle rounded px-2 py-0.5 outline-none w-full"
-          />
+           <Input
+             value={titleDraft}
+             onChange={e => setTitleDraft(e.target.value)}
+             onBlur={commitTitle}
+             onKeyDown={e => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') setEditingTitle(false); }}
+             autoFocus
+             onClick={e => e.stopPropagation()}
+             className="text-[15px] font-medium text-text-main bg-text-main/5 border border-border-subtle rounded px-2 py-0.5 outline-none"
+           />
         ) : (
           <div
             className="text-[15px] font-medium text-text-main leading-snug truncate hover:text-brand-soft transition-colors"
@@ -246,15 +248,16 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
         />
         <Button
           onClick={e => { e.stopPropagation(); onAIClick?.(); }}
+          disabled={aiLoading}
           className={cn(
-            "inline-flex items-center gap-1 ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono border transition-colors",
+            "inline-flex items-center gap-1 ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono border transition-colors disabled:opacity-60",
             aiProcessed
               ? "bg-brand-soft/10 text-brand-soft border-brand-soft/30 hover:bg-brand-soft/20"
               : "bg-text-main/3 text-text-main/40 border-border-subtle hover:text-brand-soft hover:bg-brand-soft/5 hover:border-brand-soft/30"
           )}
           title={aiProcessed ? 'Обработано ИИ (посмотреть чат)' : 'Обработать с помощью ИИ'}
         >
-          <Sparkles size={10} />
+          {aiLoading ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
           AI
         </Button>
       </div>
@@ -288,7 +291,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
         ) : (
           <>
             <div className="relative">
-              <button
+              <Button
                 onClick={e => {
                   e.stopPropagation();
                   e.preventDefault();
@@ -297,13 +300,13 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                   setLabelOpenUp(spaceBelow < 220);
                   setLabelPopupOpen(!labelPopupOpen);
                 }}
-                className={cn("w-7 h-7 flex items-center justify-center rounded-lg transition-colors", label ? "" : "hover:bg-text-main/5")}
+                className={cn("w-7 h-7 p-0 flex items-center justify-center rounded-lg transition-colors", label ? "" : "hover:bg-text-main/5")}
                 title={label?.name ?? t('archive_assign_label')}
               >
-                <div className={cn("w-4 h-4 rounded-full border-2 transition-colors", label ? "border-transparent" : "border-border-subtle group-hover:border-text-main/20")}
+                <div className={cn("w-4 h-4 rounded-full border-2 shrink-0 transition-colors", label ? "border-transparent" : "border-border-subtle group-hover:border-text-main/20")}
                   style={{ background: label?.color ?? 'transparent' }}
                 />
-              </button>
+              </Button>
               {labelPopupOpen && (labels && labels.length > 0 || session.labelId) && (
                 <div
                   ref={labelPopupRef}

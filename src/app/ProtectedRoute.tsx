@@ -4,6 +4,7 @@ import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
 import { useLanguage } from '../shared/i18n';
 import { LogIn, Loader2 } from 'lucide-react';
+import { Button } from '../shared/components/Button';
 
 export function ProtectedRoute({ children, requireAdmin }: { children: React.ReactNode; requireAdmin?: boolean }) {
   const { isAuthenticated, profile, loading } = useAuthStatus();
@@ -24,12 +25,12 @@ export function ProtectedRoute({ children, requireAdmin }: { children: React.Rea
         <div className="text-sm text-text-main/40 text-center max-w-xs">
           {t('auth_required_hint')}
         </div>
-        <button
+        <Button
           onClick={openLoginModal}
           className="px-6 py-2.5 rounded-xl bg-text-main text-surface-base text-sm font-medium hover:scale-105 transition-transform"
         >
           {t('auth_sign_in')}
-        </button>
+        </Button>
       </div>
     );
   }

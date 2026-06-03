@@ -8,6 +8,7 @@ import { loadAllSessions } from '../../writing/services/UnifiedSessionLoader';
 import { exportAllAsZip } from '../../export/ExportAllService';
 import { ExportStrings } from '../../archive/services/ArchiveExportService';
 import { Section } from './SettingsHelpers';
+import { Button } from '../../../shared/components/Button';
 
 interface AccountExportSectionProps {
   userId: string;
@@ -52,7 +53,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
     <Section title={t('settings_export_all_title')}>
       <div className="p-4 rounded-xl border border-border-subtle space-y-3">
         <div className="text-xs text-text-main/60 leading-relaxed">{t('settings_export_all_desc')}</div>
-        <button
+        <Button
           onClick={() => void handleExportAll()}
           disabled={loading}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors disabled:opacity-50"
@@ -68,7 +69,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
               {t('settings_export_all_button')}
             </>
           )}
-        </button>
+        </Button>
       </div>
     </Section>
   );

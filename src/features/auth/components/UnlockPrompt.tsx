@@ -5,6 +5,8 @@ import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { WrongPasswordError, unlockVault } from '../../../core/services/EncryptionService';
 import { reportError } from '../../../shared/errors/reportError';
+import { Button } from '../../../shared/components/Button';
+import { Input } from '../../../shared/components/Input';
 
 interface UnlockPromptProps {
   uid: string;
@@ -75,30 +77,30 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
           )}
 
           <form onSubmit={(e) => { e.preventDefault(); void handleUnlock(e); }} className="space-y-3">
-            <input
+            <Input
               type="password"
               autoFocus
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full px-4 py-3 rounded-xl outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/20"
+              className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/20"
             />
             <div className="flex gap-2">
-              <button
+              <Button
                 type="submit"
                 disabled={loading || !password}
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-[var(--brand-primary)]"
               >
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <Lock size={14} />}
                 {t('unlock_submit')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={onClose}
                 className="px-4 py-2.5 rounded-xl text-sm text-text-main/40 hover:text-text-main/60 transition-colors"
               >
                 {t('common_cancel')}
-              </button>
+              </Button>
             </div>
           </form>
         </motion.div>

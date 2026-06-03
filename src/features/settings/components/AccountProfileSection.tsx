@@ -5,6 +5,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 import { Section } from './SettingsHelpers';
+import { Button } from '../../../shared/components/Button';
 
 interface AccountProfileSectionProps {
   userId: string;
@@ -61,13 +62,13 @@ export function AccountProfileSection({ userId: _userId }: AccountProfileSection
           </div>
         </div>
       </Section>
-      <button
+      <Button
         onClick={openLoginModal}
         className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-text-main bg-text-main text-surface-base text-sm font-bold hover:opacity-90 transition-colors"
       >
         <LogIn size={16} />
         {t('auth_sign_in')}
-      </button>
+      </Button>
     </>
   );
 }

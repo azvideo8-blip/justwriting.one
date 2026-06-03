@@ -7,6 +7,8 @@ import { PERSONA_PROMPTS } from '../../../shared/ai/prompts';
 import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { Input } from '../../../shared/components/Input';
+import { Textarea } from '../../../shared/components/Textarea';
 
 export interface PersonaDetailTarget {
   id: string;
@@ -132,10 +134,10 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
                   <label className="text-xs font-medium text-text-main/50 uppercase tracking-wide">Имя</label>
                   <span className="text-[10px] font-mono text-text-main/25">{name.length}/30</span>
                 </div>
-                <input
+                <Input
                   value={name}
                   onChange={e => setName(e.target.value.slice(0, 30))}
-                  className="w-full px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40"
+                  className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40"
                 />
               </div>
               <div>
@@ -143,11 +145,11 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
                   <label className="text-xs font-medium text-text-main/50 uppercase tracking-wide">System prompt</label>
                   <span className="text-[10px] font-mono text-text-main/25">{prompt.length}/500</span>
                 </div>
-                <textarea
+                <Textarea
                   value={prompt}
                   onChange={e => setPrompt(e.target.value.slice(0, 500))}
                   rows={5}
-                  className="w-full px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40 resize-none"
+                  className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40 resize-none"
                 />
                 {(clientError || error) && <p className="text-xs text-accent-danger mt-1">{clientError || error}</p>}
               </div>

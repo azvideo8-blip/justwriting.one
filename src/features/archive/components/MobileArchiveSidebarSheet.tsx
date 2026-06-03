@@ -6,6 +6,8 @@ import { ArchiveSession } from '../types';
 import { ArchiveStats } from './ArchiveStats';
 import { Calendar } from '../../calendar/components/Calendar';
 import { useLanguage } from '../../../shared/i18n';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 interface MobileArchiveSidebarSheetProps {
   isOpen: boolean;
@@ -76,12 +78,12 @@ export function MobileArchiveSidebarSheet({
             <SlidersHorizontal size={16} />
             <span>{t('archive_stats_title') || 'Фильтры'}</span>
           </div>
-          <button
+          <IconButton
             onClick={onClose}
             className="w-8 h-8 rounded-full bg-white/[0.04] border-none flex items-center justify-center text-text-main/40 hover:text-text-main/70 cursor-pointer"
-          >
-            <X size={18} />
-          </button>
+            label={t('common_close')}
+            icon={<X size={18} />}
+          />
         </div>
 
         {/* Content */}
@@ -105,12 +107,12 @@ export function MobileArchiveSidebarSheet({
                 {t('archive_calendar_title')}
               </span>
               {selectedDate && (
-                <button
+                <Button
                   onClick={() => onSelectDate(null)}
                   className="text-label font-mono text-brand-soft/80 hover:text-brand-soft flex items-center gap-1 bg-brand-soft/10 border border-brand-soft/20 rounded-lg px-2 py-0.5"
                 >
                   ✕ {format(selectedDate, 'd MMM yyyy')}
-                </button>
+                </Button>
               )}
             </div>
 
@@ -148,14 +150,14 @@ export function MobileArchiveSidebarSheet({
                     const size = 11 + Math.round((count / maxCount) * 8);
                     const opacity = 0.4 + (count / maxCount) * 0.6;
                     return (
-                      <button
+                      <Button
                         key={word}
                         onClick={() => handleSelectWord(word)}
                         style={{ fontSize: size, opacity }}
-                        className="text-text-main/70 active:text-brand-primary active:opacity-100 transition-colors leading-tight cursor-pointer py-1"
+                        className="text-text-main/70 active:text-brand-primary active:opacity-100 transition-colors leading-tight cursor-pointer py-1 p-0 min-w-0"
                       >
                         {word}
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
@@ -165,12 +167,12 @@ export function MobileArchiveSidebarSheet({
 
           {/* Close Button */}
           <div className="pt-2">
-            <button
+            <Button
               onClick={onClose}
               className="w-full py-3.5 rounded-2xl font-bold text-sm text-surface-base border-none cursor-pointer text-center active:scale-[0.98] transition-colors bg-[var(--brand-primary)]"
             >
               {t('common_close') || 'Закрыть'}
-            </button>
+            </Button>
           </div>
         </div>
       </motion.div>

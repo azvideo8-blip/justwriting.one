@@ -1,10 +1,21 @@
 import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { extendTailwindMerge } from "tailwind-merge";
 import { format, subDays } from 'date-fns';
 import { Session } from '../../types';
 import { toDate } from './dateUtils';
 
 export const parseFirestoreDate = toDate;
+
+// Register the design-system's custom font-size utilities (defined in index.css)
+// so tailwind-merge treats them as font sizes (e.g. a bespoke `text-label` must
+// override a primitive's default `text-sm`). Mirrors shared/utils/cn.ts.
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      "font-size": [{ text: ["label", "label-sm"] }],
+    },
+  },
+});
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));

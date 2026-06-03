@@ -3,6 +3,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
 import { ArchiveSession } from '../types';
 import { X } from 'lucide-react';
+import { IconButton } from '../../../shared/components/IconButton';
 
 interface ArchiveStatsProps {
   sessions: ArchiveSession[];
@@ -32,13 +33,12 @@ export function ArchiveStats({ sessions, streakDays, title, onReset }: ArchiveSt
           {title}
         </div>
         {onReset && (
-          <button
+          <IconButton
             onClick={onReset}
             className="w-5 h-5 flex items-center justify-center rounded text-text-main/25 hover:text-text-main/60 hover:bg-text-main/5 transition-colors shrink-0 ml-2"
-            title={t('archive_stats_reset')}
-          >
-            <X size={12} />
-          </button>
+            label={t('archive_stats_reset')}
+            icon={<X size={12} />}
+          />
         )}
       </div>
       <div className="grid grid-cols-2 gap-2">

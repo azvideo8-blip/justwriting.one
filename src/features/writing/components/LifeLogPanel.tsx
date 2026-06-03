@@ -14,6 +14,7 @@ import { X, Pin, Trash2, ArrowRight } from 'lucide-react';
 import { highlightText } from '../../../shared/utils/highlightText';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { Input } from '../../../shared/components/Input';
 
 interface SessionItemProps {
   session: Session;
@@ -233,12 +234,12 @@ export function LifeLogPanel({
         <div className="flex flex-col h-full overflow-hidden">
           {/* Search */}
           <div className="px-3 py-2 border-b border-border-subtle">
-            <input
+            <Input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder={t('lifelog_search_placeholder')}
-              className="w-full bg-surface-base rounded-xl px-3 py-2 text-sm text-text-main placeholder:text-text-main/30 outline-none border border-border-subtle focus:border-text-main/30"
+              className="bg-surface-base rounded-xl px-3 py-2 text-sm text-text-main placeholder:text-text-main/30 outline-none border border-border-subtle focus:border-text-main/30"
             />
           </div>
 

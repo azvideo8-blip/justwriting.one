@@ -5,6 +5,8 @@ import { AIPersonaService } from '../services/AIPersonaService';
 import { hasInjectionAttempt } from '../shared/injectionPatterns';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { Input } from '../../../shared/components/Input';
+import { Textarea } from '../../../shared/components/Textarea';
 
 const SUGGESTED_EMOJIS = [
   '\u{1F9D1}', '\u{1F468}\u200D\u{1F4BC}', '\u{1F469}\u200D\u{1F4BC}',
@@ -77,7 +79,7 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
             <div className="relative">
               <Button
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="w-12 h-12 rounded-xl bg-text-main/5 border border-border-subtle text-2xl flex items-center justify-center hover:bg-text-main/10 transition-colors"
+                className="w-12 h-12 p-0 rounded-xl bg-text-main/5 border border-border-subtle text-2xl flex items-center justify-center hover:bg-text-main/10 transition-colors"
               >
                 {emoji}
               </Button>
@@ -87,7 +89,7 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
                     <Button
                       key={e}
                       onClick={() => { setEmoji(e); setShowEmojiPicker(false); }}
-                      className="w-8 h-8 text-lg rounded-lg hover:bg-text-main/10 flex items-center justify-center"
+                      className="w-8 h-8 p-0 text-lg rounded-lg hover:bg-text-main/10 flex items-center justify-center"
                     >
                       {e}
                     </Button>
@@ -102,11 +104,11 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
               <label className="text-xs font-medium text-text-main/50 uppercase tracking-wide">Имя</label>
               <span className="text-[10px] font-mono text-text-main/25">{name.length}/30</span>
             </div>
-            <input
+            <Input
               value={name}
               onChange={e => setName(e.target.value.slice(0, 30))}
               placeholder="Мудрый друг"
-              className="w-full px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40"
+              className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40"
             />
           </div>
 
@@ -115,12 +117,12 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
               <label className="text-xs font-medium text-text-main/50 uppercase tracking-wide">System prompt</label>
               <span className="text-[10px] font-mono text-text-main/25">{prompt.length}/500</span>
             </div>
-            <textarea
+            <Textarea
               value={prompt}
               onChange={e => setPrompt(e.target.value.slice(0, 500))}
               placeholder="Опишите роль персоны. Пример: 'Ты — мудрый друг, который...'"
               rows={4}
-              className="w-full px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40 resize-none"
+              className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40 resize-none"
             />
             {(clientValidationError || validationError) && (
               <p className="text-xs text-accent-danger mt-1">{clientValidationError || validationError}</p>

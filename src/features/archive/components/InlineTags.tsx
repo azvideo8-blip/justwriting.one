@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
 import { X } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 
 interface InlineTagsProps {
   tags: string[];
@@ -51,14 +53,12 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
           className="group/tag flex items-center gap-1 font-mono text-label text-text-main/40 border border-border-subtle rounded px-1.5 py-0.5 hover:border-text-main/20 transition-colors"
         >
           #{tag}
-          <button
+          <IconButton
             onClick={e => removeTag(e, tag)}
             className="text-text-main/40 hover:text-accent-danger transition-colors opacity-100 md:opacity-0 md:group-hover/tag:opacity-100 -mr-0.5 p-1.5 md:p-0.5 flex items-center justify-center touch-manipulation"
-            
-            title="Remove Tag"
-          >
-            <X className="w-2.5 h-2.5 md:w-2 md:h-2" />
-          </button>
+            label="Remove Tag"
+            icon={<X className="w-2.5 h-2.5 md:w-2 md:h-2" />}
+          />
         </span>
       ))}
 
@@ -105,7 +105,7 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
           {suggestions.length > 0 && (
             <div className="absolute top-full left-0 mt-0.5 z-50 bg-surface-card border border-border-subtle rounded-lg shadow-lg py-1 min-w-[120px]">
               {suggestions.map((s, i) => (
-                <button
+                <Button
                   key={s}
                    onMouseDown={e => { e.preventDefault(); if (blurTimerRef.current) clearTimeout(blurTimerRef.current); selectSuggestion(s); }}
                   className={cn(
@@ -114,19 +114,19 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
                   )}
                 >
                   #{s}
-                </button>
+                </Button>
               ))}
             </div>
           )}
         </div>
       ) : (
-        <button
+        <Button
           onClick={e => { e.stopPropagation(); setAdding(true); }}
           className="font-mono text-label text-text-main/40 border border-dashed border-text-main/25 rounded px-1.5 py-0.5 hover:text-brand-soft hover:border-brand-soft/40 transition-colors flex items-center gap-0.5"
         >
           <span className="text-[9px] leading-none">+</span>
           {t('archive_tag_add_short')}
-        </button>
+        </Button>
       )}
     </div>
   );

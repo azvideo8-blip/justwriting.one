@@ -6,6 +6,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { getOrCreateGuestId, getLocalDb } from '../../../core/storage/localDb';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { SyncService } from '../../../core/services/SyncService';
+import { Button } from '../../../shared/components/Button';
 
 async function migrateDocuments(userId: string): Promise<number> {
   const guestId = getOrCreateGuestId();
@@ -99,18 +100,18 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
           </p>
 
           <div className="flex flex-col gap-2">
-            <button
+            <Button
               onClick={() => void handleMigrate()}
               className="w-full py-2.5 rounded-xl bg-text-main text-surface-base text-sm font-medium hover:opacity-90 transition-opacity"
             >
               {t('migration_move_to_account')}
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={onDone}
               className="w-full py-2.5 rounded-xl text-text-main/40 text-sm hover:text-text-main/60 transition-colors"
             >
               {t('migration_keep_local')}
-            </button>
+            </Button>
           </div>
         </motion.div>
       </motion.div>

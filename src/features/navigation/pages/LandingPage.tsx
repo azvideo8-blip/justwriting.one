@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../shared/i18n';
 import { SeoHead } from '../../../shared/i18n/SeoHead';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
+import { Button } from '../../../shared/components/Button';
 
 const features = [
   {
@@ -84,12 +85,12 @@ export function LandingPage() {
             ? 'Тихий редактор для свободного письма. Один знак, одна буква, одна минута.'
             : 'A quiet editor for free writing. One sign, one letter, one minute.'}
         </p>
-        <button
+        <Button
           onClick={() => void navigate('/')}
           className="mt-8 px-8 py-3.5 rounded-xl font-bold text-white hover:brightness-110 active:scale-[0.98] transition-all bg-[var(--brand-primary)]"
         >
           {isRu ? 'Начать писать' : 'Start writing'}
-        </button>
+        </Button>
       </header>
 
       <section className="max-w-4xl mx-auto px-6 pb-20">
@@ -120,12 +121,12 @@ export function LandingPage() {
             ? 'Не нужно регистрироваться, чтобы попробовать. Открой редактор и пиши. Облако и шифрование — когда будешь готов.'
             : 'No sign-up required to try. Open the editor and write. Cloud and encryption — when you are ready.'}
         </p>
-        <button
+        <Button
           onClick={() => void navigate('/')}
           className="px-8 py-3.5 rounded-xl font-bold text-white hover:brightness-110 active:scale-[0.98] transition-all bg-[var(--brand-primary)]"
         >
           {isRu ? 'Открыть редактор' : 'Open editor'}
-        </button>
+        </Button>
       </section>
 
       <footer className="max-w-3xl mx-auto px-6 py-8 border-t border-border-subtle text-center">

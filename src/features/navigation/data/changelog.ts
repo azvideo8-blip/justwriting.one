@@ -14,6 +14,20 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.13',
+    date: '2026-06-03',
+    items: [
+      { category: 'fix', ru: 'Сетка заметок («Заметки» → вид сеткой) могла падать или показывать пустые группы дат без карточек после смены сортировки/фильтра — переписан рендеринг сгруппированной сетки, карточки больше не пропадают', en: 'The notes grid (Notes → grid view) could crash or show empty date groups with no cards after changing sort/filter — the grouped-grid rendering was rewritten, cards no longer disappear' },
+      { category: 'new', ru: 'Кнопка «AI» на карточке заметки теперь по первому клику генерирует AI-саммари заметки (тон, темы, инсайты, факты); повторный клик открывает чат с ИИ', en: 'The "AI" button on a note card now generates an AI summary on first click (tone, themes, insights, facts); clicking again opens the AI chat' },
+      { category: 'fix', ru: 'Метки в выпадающем списке заметки больше не разъезжаются при длинных названиях', en: 'Note labels in the picker no longer misalign with long names' },
+      { category: 'fix', ru: 'Цветной индикатор метки больше не схлопывается в тонкую полоску', en: 'The colored label indicator no longer collapses into a thin strip' },
+      { category: 'fix', ru: 'Устранён поток предупреждений React в консоли и лишние перерисовки на экране письма (исправлен побочный эффект в хранилище localStorage)', en: 'Eliminated a stream of React console warnings and unnecessary re-renders on the writing screen (fixed a side effect in the localStorage store)' },
+      { category: 'improvement', ru: 'Единый интерфейс: кнопки и поля ввода переведены на дизайн-систему (консистентный фокус, согласованный вид); кастомные размеры шрифтов теперь корректно сохраняются', en: 'Unified UI: buttons and inputs migrated to the design system (consistent focus and look); custom font sizes are now preserved correctly' },
+      { category: 'accessibility', ru: 'Улучшена доступность кнопок и полей: явный тип кнопок, aria-подписи, видимая фокус-рамка', en: 'Improved button and field accessibility: explicit button type, aria-labels, visible focus ring' },
+      { category: 'improvement', ru: 'Футер боковой панели переупорядочен: Настройки → О приложении → версия', en: 'Sidebar footer reordered: Settings → About → version' },
+    ],
+  },
+  {
     version: '0.7.12',
     date: '2026-06-02',
     items: [

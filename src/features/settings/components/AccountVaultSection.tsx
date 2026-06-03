@@ -9,6 +9,8 @@ import { type MigrationProgress } from '../../../core/crypto/encryptMigration';
 import { Section } from './SettingsHelpers';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { ChangeEncryptionPasswordButton, EncryptionPasswordModal } from '../../encryption/components/EncryptionPasswordModal';
+import { Button } from '../../../shared/components/Button';
+import { Input } from '../../../shared/components/Input';
 
 interface AccountVaultSectionProps {
   userId: string;
@@ -129,23 +131,23 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
             <div className="p-3 rounded-lg text-xs bg-accent-danger/10 border border-accent-danger/30 text-accent-danger">{vaultError}</div>
           )}
           <form onSubmit={(e) => { e.preventDefault(); void handleInitializeEncryption(e); }} className="space-y-3 pt-1">
-            <input
+            <Input
               type="password"
               value={vaultPassword}
               onChange={(e) => setVaultPassword(e.target.value)}
               placeholder={t('settings_initialize_password')}
-              className="w-full px-4 py-3 rounded-xl outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
+              className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
               required
             />
-            <input
+            <Input
               type="password"
               value={confirmVaultPassword}
               onChange={(e) => setConfirmVaultPassword(e.target.value)}
               placeholder={t('settings_initialize_confirm')}
-              className="w-full px-4 py-3 rounded-xl outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
+              className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
               required
             />
-            <button
+            <Button
               type="submit"
               disabled={vaultLoading}
               className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-brand-primary"
@@ -158,7 +160,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
                   {t('settings_initialize_submit')}
                 </>
               )}
-            </button>
+            </Button>
           </form>
         </div>
       ) : isLegacyOnly ? (
@@ -170,13 +172,13 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
               <div className="text-xs text-text-main/60 leading-relaxed">{t('enc_migrate_subtitle')}</div>
             </div>
           </div>
-          <button
+          <Button
             onClick={() => setShowMigrate(true)}
             className="w-full py-2.5 rounded-xl text-sm font-bold text-white hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-brand-primary"
           >
             <Shield size={14} />
             {t('enc_migrate_submit')}
-          </button>
+          </Button>
           {showMigrate && (
             <EncryptionPasswordModal
               mode="migrate"
@@ -199,15 +201,15 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
             <div className="p-3 rounded-lg text-xs bg-accent-danger/10 border border-accent-danger/30 text-accent-danger">{vaultError}</div>
           )}
           <form onSubmit={(e) => { e.preventDefault(); void handleUnlockVault(e); }} className="space-y-3 pt-1">
-            <input
+            <Input
               type="password"
               value={vaultPassword}
               onChange={(e) => setVaultPassword(e.target.value)}
               placeholder={t('auth_password') || 'Password'}
-              className="w-full px-4 py-3 rounded-xl outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
+              className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
               required
             />
-            <button
+            <Button
               type="submit"
               disabled={vaultLoading}
               className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-brand-primary"
@@ -220,7 +222,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
                   {t('settings_unlock_submit')}
                 </>
               )}
-            </button>
+            </Button>
           </form>
         </div>
       ) : (
@@ -234,35 +236,35 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
               </div>
             </div>
             
-            <button
+            <Button
               onClick={handleLockVault}
               className="mt-2 text-xs font-semibold text-text-main/40 hover:text-accent-danger transition-colors flex items-center gap-1.5"
             >
               <Lock size={12} />
               {t('settings_lock_vault')}
-            </button>
+            </Button>
           </div>
 
           <ChangeEncryptionPasswordButton userId={userId} />
 
           {!migrationRunning && !migrationDone ? (
-          <button
+          <Button
             onClick={() => void handleEncryptAll()}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors text-left"
           >
-              <Shield size={16} className="text-text-main/40" />
-              {t('settings_encrypt_all')}
-            </button>
+            <Shield size={16} className="text-text-main/40" />
+            {t('settings_encrypt_all')}
+          </Button>
           ) : migrationRunning ? (
             <div className="p-4 rounded-xl border border-border-subtle space-y-3">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-text-main/60">{t('settings_encrypting_progress')}</div>
-                <button
+                <Button
                   onClick={handleAbortEncryption}
                   className="text-xs text-text-main/40 hover:text-accent-danger transition-colors"
                 >
                   {t('cancel') || 'Отмена'}
-                </button>
+                </Button>
               </div>
               {migrationProgress && (
                 <div className="w-full bg-text-main/10 rounded-full h-2">

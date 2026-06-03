@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Shield } from 'lucide-react';
 import { auth } from '../../../core/firebase/auth';
 import { getClient } from '../../../core/firebase/firestoreClient';
+import { Button } from '../../../shared/components/Button';
 
 interface PrivacyModalProps {
   onAccepted: () => void;
@@ -58,13 +59,13 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
             <span className="text-xs text-text-main/60">Я прочитал и согласен с политикой конфиденциальности</span>
           </label>
 
-          <button
+          <Button
             onClick={() => void handleAccept()}
             disabled={!checked}
             className="w-full mt-4 py-2.5 rounded-xl bg-brand-soft text-surface-base text-sm font-bold disabled:opacity-40 transition-colors"
           >
             Продолжить
-          </button>
+          </Button>
         </div>
       </motion.div>
     </div>

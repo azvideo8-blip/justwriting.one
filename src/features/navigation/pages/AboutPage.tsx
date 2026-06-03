@@ -2,6 +2,7 @@ import { ArrowLeft, Heart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../shared/i18n';
 import { SeoHead } from '../../../shared/i18n/SeoHead';
+import { Button } from '../../../shared/components/Button';
 
 export function AboutPage() {
   const { t } = useLanguage();
@@ -16,13 +17,13 @@ export function AboutPage() {
         descriptionRu="justwriting — минималистичный редактор для фрирайтинга и потокового письма. Всё сохраняется локально, облако — опционально."
         descriptionEn="justwriting is a minimalist editor for freewriting and stream-of-consciousness writing. Everything saves locally, cloud is optional."
       />
-      <button
+      <Button
         onClick={() => void navigate(-1)}
         className="flex items-center gap-2 text-text-main/40 hover:text-text-main/60 text-sm mb-8 transition-colors"
       >
         <ArrowLeft size={16} />
         {t('writing_back')}
-      </button>
+      </Button>
 
       <div className="text-center mb-8">
         <div className="w-16 h-16 rounded-2xl flex items-center justify-center font-black text-2xl bg-text-main text-surface-base mx-auto mb-4">

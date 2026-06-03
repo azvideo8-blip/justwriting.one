@@ -13,6 +13,8 @@ import { AccountProfileSection } from './AccountProfileSection';
 import { AccountVaultSection } from './AccountVaultSection';
 import { AccountExportSection } from './AccountExportSection';
 import { AccountDangerSection } from './AccountDangerSection';
+import { Button } from '../../../shared/components/Button';
+import { Input } from '../../../shared/components/Input';
 
 interface AccountTabProps {
   userId: string;
@@ -76,7 +78,7 @@ export function AccountTab({ userId }: AccountTabProps) {
         <>
           {showSignOutConfirm ? (
             <div className="flex gap-2">
-              <button
+              <Button
               onClick={() => {
                 setShowSignOutConfirm(false);
                 resetAndClear();
@@ -88,16 +90,16 @@ export function AccountTab({ userId }: AccountTabProps) {
                 className="flex-1 px-4 py-3 rounded-xl border border-accent-danger/40 text-sm text-accent-danger hover:bg-accent-danger/10 transition-colors text-left"
               >
                 {t('writing_cancel_confirm') || 'Да, выйти'}
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => setShowSignOutConfirm(false)}
                 className="px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors"
               >
                 {t('cancel') || 'Отмена'}
-              </button>
+              </Button>
             </div>
           ) : (
-            <button
+            <Button
               onClick={() => {
                 const s = useTimerStore.getState();
                 if (s.status === 'writing' || s.status === 'paused') {
@@ -112,7 +114,7 @@ export function AccountTab({ userId }: AccountTabProps) {
               className="w-full px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-accent-danger hover:border-accent-danger/30 transition-colors text-left"
             >
               {t('me_sign_out')}
-            </button>
+            </Button>
           )}
 
           <Section title={t('settings_change_password')}>
@@ -120,13 +122,13 @@ export function AccountTab({ userId }: AccountTabProps) {
               hidden={showChangePassword ? true : undefined}
               style={showChangePassword ? { display: 'none' } : undefined}
             >
-              <button
+              <Button
                 onClick={() => setShowChangePassword(true)}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors text-left"
               >
                 <Lock size={16} className="text-text-main/40" />
                 {t('settings_change_password')}
-              </button>
+              </Button>
             </div>
             <form
               onSubmit={(e) => {
@@ -153,36 +155,36 @@ export function AccountTab({ userId }: AccountTabProps) {
               {passwordSuccess && (
                 <div className="p-3 rounded-lg text-xs bg-green-500/10 border border-green-500/30 text-green-400">{t('settings_password_changed')}</div>
               )}
-              <input
+              <Input
                 type="password"
                 autoComplete="current-password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder={t('settings_current_password')}
-                className="w-full px-4 py-3 rounded-xl outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
+                className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
               />
-              <input
+              <Input
                 type="password"
                 autoComplete="new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder={t('settings_new_password')}
-                className="w-full px-4 py-3 rounded-xl outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
+                className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
               />
               <div className="flex gap-2">
-                <button
+                <Button
                   type="submit"
                   disabled={passwordLoading}
                   className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors bg-brand-primary"
                 >
                   {passwordLoading ? <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white mx-auto" /> : t('settings_change_password')}
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => { setShowChangePassword(false); setPasswordError(null); setPasswordSuccess(false); }}
                   className="px-4 py-2.5 rounded-xl text-sm text-text-main/40 hover:text-text-main/60 transition-colors"
                 >
                   {t('writing_cancel')}
-                </button>
+                </Button>
               </div>
             </form>
           </Section>

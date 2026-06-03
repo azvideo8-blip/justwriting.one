@@ -51,24 +51,22 @@ export function AdminSessionsTable({ sessions, onDelete, onProcess, onRead }: Ad
                 <div className="flex items-center gap-1.5">
                   <Check size={14} className="text-emerald-500" />
                   <span className="text-[10px] text-text-main/40">{s._aiAction}</span>
-                  <button
+                  <IconButton
                     onClick={() => onRead(s._aiResultText ?? '')}
                     className="p-1 rounded text-text-main/40 hover:text-text-main transition-colors"
-                    title="Прочитать"
-                  >
-                    <Eye size={14} />
-                  </button>
+                    label="Прочитать"
+                    icon={<Eye size={14} />}
+                  />
                 </div>
               ) : processingId === s.id ? (
                 <Loader2 size={14} className="animate-spin text-brand-soft/50" />
               ) : (
-                <button
+                <IconButton
                   onClick={() => void handleProcess(s.id, s.content)}
                   className="p-1 rounded text-text-main/30 hover:text-brand-soft transition-colors"
-                  title="Обработать"
-                >
-                  <Sparkles size={14} />
-                </button>
+                  label="Обработать"
+                  icon={<Sparkles size={14} />}
+                />
               )}
             </td>
             <td className="px-6 py-4">

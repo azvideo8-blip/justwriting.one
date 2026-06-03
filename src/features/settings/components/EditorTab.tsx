@@ -4,6 +4,7 @@ import { useWritingSettings } from '../../writing/contexts/WritingSettingsContex
 import { cn } from '../../../core/utils/utils';
 import { Section, ToggleRow } from './SettingsHelpers';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+import { Button } from '../../../shared/components/Button';
 
 export function EditorTab() {
   const { t } = useLanguage();
@@ -24,7 +25,7 @@ export function EditorTab() {
       <Section title={t('settings_font')}>
         <div className="grid grid-cols-2 gap-2">
           {fonts.map(font => (
-            <button
+            <Button
               key={font}
               onClick={() => setFontFamily(font)}
               className={cn(
@@ -41,7 +42,7 @@ export function EditorTab() {
               <div className="text-xs opacity-50 mt-0.5" style={{ fontFamily: font }}>
                 Аа 123
               </div>
-            </button>
+            </Button>
           ))}
         </div>
       </Section>
@@ -92,7 +93,7 @@ export function EditorTab() {
             { key: 'totalWords',   label: t('header_totalWords'),   emoji: '📊' },
             { key: 'wpm',          label: t('header_wpm'),          emoji: '💨' },
           ] as const).map(item => (
-            <button
+            <Button
               key={item.key}
               onClick={() => toggleVisibility(item.key)}
               className={cn(
@@ -110,7 +111,7 @@ export function EditorTab() {
               )}>
                 {headerVisibility[item.key] ? '✓' : '○'}
               </span>
-            </button>
+            </Button>
           ))}
         </div>
       </Section>

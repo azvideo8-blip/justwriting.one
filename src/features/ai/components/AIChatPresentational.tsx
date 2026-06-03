@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Sparkles, ChevronDown, ChevronUp, File, Paperclip, Copy } from 'lucide-react';
+import { Button } from '../../../shared/components/Button';
 
 const ATTACHED_NOTE_RE = /^\[Прикреплена заметка: "([^"]+)"\]/;
 const ATTACHED_NOTE_SUMMARY_RE = /^\[Прикреплено саммари заметки: "([^"]+)"\]/;
@@ -51,7 +52,7 @@ export function AttachedNoteCard({ content }: { content: string }) {
     <div className="flex gap-3 items-stretch rounded-xl bg-surface-card border border-border-subtle p-2.5 pl-2">
       <span className="w-[3px] rounded-full bg-brand-soft shadow-[0_0_8px_rgba(165,131,232,0.5)]" />
       <div className="min-w-0 flex-1">
-        <button
+        <Button
           onClick={() => setExpanded(v => !v)}
           className="w-full flex items-center justify-between gap-2"
         >
@@ -60,7 +61,7 @@ export function AttachedNoteCard({ content }: { content: string }) {
             <span className="text-sm font-medium text-text-main truncate">{title}</span>
           </span>
           {expanded ? <ChevronUp size={12} className="text-text-main/40 shrink-0" /> : <ChevronDown size={12} className="text-text-main/40 shrink-0" />}
-        </button>
+        </Button>
         {expanded && (
           <div className="mt-2 text-xs text-text-main/60 whitespace-pre-wrap max-h-60 overflow-y-auto">
             {noteContent}
@@ -81,7 +82,7 @@ export function AttachedFileCard({ content }: { content: string }) {
     <div className="flex gap-3 items-stretch rounded-xl bg-surface-card border border-border-subtle p-2.5 pl-2">
       <span className="w-[3px] rounded-full bg-text-main/30" />
       <div className="min-w-0 flex-1">
-        <button
+        <Button
           onClick={() => setExpanded(v => !v)}
           className="w-full flex items-center justify-between gap-2"
         >
@@ -90,7 +91,7 @@ export function AttachedFileCard({ content }: { content: string }) {
             <span className="text-sm font-medium text-text-main truncate">{fileName}</span>
           </span>
           {expanded ? <ChevronUp size={12} className="text-text-main/40 shrink-0" /> : <ChevronDown size={12} className="text-text-main/40 shrink-0" />}
-        </button>
+        </Button>
         {expanded && (
           <div className="mt-2 text-xs text-text-main/60 whitespace-pre-wrap max-h-60 overflow-y-auto">
             {fileContent}
@@ -111,7 +112,7 @@ export function AttachedSummaryCard({ content }: { content: string }) {
     <div className="flex gap-3 items-stretch rounded-xl bg-surface-card border border-border-subtle p-2.5 pl-2">
       <span className="w-[3px] rounded-full bg-brand-soft shadow-[0_0_8px_rgba(165,131,232,0.5)]" />
       <div className="min-w-0 flex-1">
-        <button
+        <Button
           onClick={() => setExpanded(v => !v)}
           className="w-full flex items-center justify-between gap-2"
         >
@@ -120,7 +121,7 @@ export function AttachedSummaryCard({ content }: { content: string }) {
             <span className="text-sm font-medium text-text-main truncate">Саммари: {title}</span>
           </span>
           {expanded ? <ChevronUp size={12} className="text-text-main/40 shrink-0" /> : <ChevronDown size={12} className="text-text-main/40 shrink-0" />}
-        </button>
+        </Button>
         {expanded && (
           <div className="mt-2 text-xs text-text-main/60 whitespace-pre-wrap max-h-40 overflow-y-auto">
             {summaryContent}
@@ -161,13 +162,13 @@ export function AssistantTurn({
         </div>
         {onCopy && (
           <div className="flex gap-1 mt-3 -ml-2">
-            <button
+            <Button
               onClick={onCopy}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-text-main/35 hover:text-text-main/70 hover:bg-text-main/5 transition-colors font-mono text-[10px] tracking-wide"
             >
               <Copy size={11} />
               копировать
-            </button>
+            </Button>
           </div>
         )}
       </div>

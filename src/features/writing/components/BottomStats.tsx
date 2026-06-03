@@ -11,6 +11,7 @@ import { getWpmColor, getWpmHex } from '../utils/wpmColors';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { GoalPopup } from './GoalPopup';
 import { IconButton } from '../../../shared/components/IconButton';
+import { Button } from '../../../shared/components/Button';
 
 const PLAY_PATH = "M8 5v14l11-7z";
 const PAUSE_PATH = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
@@ -120,8 +121,10 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         )}
 
         {headerVisibility.sessionWords && (
-        <button
+        <Button
           ref={wordRef}
+          variant="ghost"
+          size="sm"
           onClick={() => { setWordPopupOpen(!wordPopupOpen); setTimePopupOpen(false); }}
           aria-label={t('goal_popup_words_title')}
           aria-expanded={wordPopupOpen}
@@ -162,7 +165,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
               {t('header_sessionWords')}
             </span>
           )}
-        </button>
+        </Button>
         )}
 
         {headerVisibility.sessionWords && headerVisibility.sessionTime && (
@@ -170,8 +173,10 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         )}
 
         {headerVisibility.sessionTime && (
-        <button
+        <Button
           ref={timeRef}
+          variant="ghost"
+          size="sm"
           onClick={() => { setTimePopupOpen(!timePopupOpen); setWordPopupOpen(false); }}
           aria-label={t('goal_popup_time_title')}
           aria-expanded={timePopupOpen}
@@ -208,7 +213,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
                 : t('header_time')}
             </span>
           )}
-        </button>
+        </Button>
         )}
 
         {headerVisibility.sessionTime && headerVisibility.wpm && (

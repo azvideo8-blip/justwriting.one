@@ -23,9 +23,11 @@ export function MeAccountSection({ user, onSignOut, onSignIn }: MeAccountSection
       <SettingRow label={t('settings_language')}>
         <div className="flex bg-white/[0.04] rounded-lg p-0.5 gap-0.5">
           {(['ru', 'en'] as const).map(lang => (
-            <button
+            <Button
               type="button"
               key={lang}
+              variant="ghost"
+              size="sm"
               onClick={() => setLanguage(lang)}
               className={cn(
                 "px-3 py-1 rounded-md border-none cursor-pointer text-xs font-medium",
@@ -35,7 +37,7 @@ export function MeAccountSection({ user, onSignOut, onSignIn }: MeAccountSection
               )}
             >
               {lang.toUpperCase()}
-            </button>
+            </Button>
           ))}
         </div>
       </SettingRow>

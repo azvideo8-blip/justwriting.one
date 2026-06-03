@@ -7,6 +7,7 @@ import { useLoginModal } from '../../auth/contexts/LoginModalContext';
 import { Section } from './SettingsHelpers';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { cn } from '../../../core/utils/utils';
+import { Button } from '../../../shared/components/Button';
 
 interface AppTabProps {
   userId: string;
@@ -47,6 +48,8 @@ export function AppTab({ userId: _userId, onRefreshLifeLog: _onRefreshLifeLog }:
             <span className="text-sm text-text-main/60">Автосинхронизация с облаком</span>
             <button
               onClick={toggleAutoSync}
+              role="switch"
+              aria-checked={autoSync}
               className={cn(
                 "relative w-10 h-5 rounded-full transition-colors",
                 autoSync ? "bg-brand-soft" : "bg-text-main/20"
@@ -63,13 +66,13 @@ export function AppTab({ userId: _userId, onRefreshLifeLog: _onRefreshLifeLog }:
         )}
 
         {isGuest && (
-          <button
+          <Button
             onClick={openLoginModal}
             className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-border-subtle text-sm text-text-main/40 hover:text-text-main transition-colors"
           >
             <LogIn size={14} />
             {t('storage_sign_in_for_cloud')}
-          </button>
+          </Button>
         )}
       </Section>
 
@@ -79,7 +82,7 @@ export function AppTab({ userId: _userId, onRefreshLifeLog: _onRefreshLifeLog }:
         </p>
         <div className="grid grid-cols-2 gap-2">
           {Object.values(themes).map(theme => (
-            <button
+            <Button
               key={theme.id}
               onClick={() => setThemeId(theme.id)}
               className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left ${
@@ -95,7 +98,7 @@ export function AppTab({ userId: _userId, onRefreshLifeLog: _onRefreshLifeLog }:
                 />
                 <span>{language === 'ru' ? theme.nameRu : theme.nameEn}</span>
               </div>
-            </button>
+            </Button>
           ))}
         </div>
       </Section>
@@ -103,7 +106,7 @@ export function AppTab({ userId: _userId, onRefreshLifeLog: _onRefreshLifeLog }:
       <Section title={t('settings_language')}>
         <div className="grid grid-cols-2 gap-2">
           {(['ru', 'en'] as const).map(lang => (
-            <button
+            <Button
               key={lang}
               onClick={() => setLanguage(lang)}
               className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
@@ -113,7 +116,7 @@ export function AppTab({ userId: _userId, onRefreshLifeLog: _onRefreshLifeLog }:
               }`}
             >
               {lang === 'ru' ? '🇷🇺 Русский' : '🇺🇸 English'}
-            </button>
+            </Button>
           ))}
         </div>
       </Section>
