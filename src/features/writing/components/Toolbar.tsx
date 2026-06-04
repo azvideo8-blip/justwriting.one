@@ -143,7 +143,7 @@ export function Toolbar({
           value={title}
           onChange={e => setTitle(e.target.value)}
           placeholder={t('topbar_title_placeholder')}
-          className="w-full bg-transparent border-0 px-0 py-1 text-[15px] font-medium text-text-main/50 placeholder:text-text-main/25 outline-none focus:ring-0 font-sans focus:font-serif focus:text-text-main transition-all duration-300"
+          className="w-full bg-transparent border-0 px-0 py-1 text-[15px] font-medium font-sans text-text-main/50 placeholder:text-text-main/25 outline-none focus:ring-0 focus:text-text-main focus:shadow-[0_0_25px_color-mix(in_srgb,var(--brand-soft)_15%,transparent)] transition-all duration-500"
         />
       </div>
     </div>

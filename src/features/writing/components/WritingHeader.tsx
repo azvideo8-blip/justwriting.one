@@ -99,7 +99,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                   onChange={e => setTitle(e.target.value)}
                   placeholder={t('topbar_title_placeholder')}
                   maxLength={200}
-                  className="flex-1 min-w-[120px] bg-transparent outline-none text-[15px] font-medium font-sans focus:font-serif text-text-main/50 focus:text-text-main placeholder:text-text-main/25 transition-all duration-300"
+                  className="flex-1 min-w-[120px] bg-transparent outline-none text-[15px] font-medium font-sans text-text-main/50 focus:text-text-main focus:shadow-[0_0_25px_color-mix(in_srgb,var(--brand-soft)_15%,transparent)] placeholder:text-text-main/25 transition-all duration-500"
                 />
                 <div className="flex items-center gap-1 ml-auto">
                    <IconButton
