@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Maximize, Minimize, FilePlus, FolderOpen, Save, BookOpen
 } from 'lucide-react';
@@ -34,14 +34,6 @@ export const WritingHeader = React.memo(function WritingHeader({
   saveStatus,
 }: WritingHeaderProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [titleFocused, setTitleFocused] = useState(false);
-  const [titleTyping, setTitleTyping] = useState(false);
-  const titleDecayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleTitleKey = useCallback(() => {
-    setTitleTyping(true);
-    if (titleDecayRef.current) clearTimeout(titleDecayRef.current);
-    titleDecayRef.current = setTimeout(() => setTitleTyping(false), 1000);
-  }, []);
   const { t } = useLanguage();
   const { 
     isZenActive, zenModeEnabled, 
@@ -105,18 +97,9 @@ export const WritingHeader = React.memo(function WritingHeader({
                   aria-label={t('topbar_title_placeholder')}
                   value={title}
                   onChange={e => setTitle(e.target.value)}
-                  onFocus={() => setTitleFocused(true)}
-                  onBlur={() => setTitleFocused(false)}
-                  onKeyDown={handleTitleKey}
                   placeholder={t('topbar_title_placeholder')}
                   maxLength={200}
-                  style={{
-                    boxShadow: (titleFocused || titleTyping)
-                      ? `0 2px 0 0 color-mix(in srgb, var(--flow-pulse-color) ${titleTyping ? '60%' : '30%'}, transparent), 0 4px 20px color-mix(in srgb, var(--flow-pulse-color) ${titleTyping ? '12%' : '5%'}, transparent)`
-                      : 'none',
-                    transition: 'box-shadow 0.4s ease',
-                  }}
-                  className="flex-1 min-w-[120px] bg-transparent outline-none text-[15px] font-medium text-text-main/60 placeholder:text-text-main/25"
+                  className="flex-1 min-w-[120px] bg-transparent outline-none text-[15px] font-medium font-sans focus:font-serif text-text-main/50 focus:text-text-main placeholder:text-text-main/25 transition-all duration-300"
                 />
                 <div className="flex items-center gap-1 ml-auto">
                    <IconButton
