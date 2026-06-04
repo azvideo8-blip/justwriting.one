@@ -1,53 +1,19 @@
-import { useEffect } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 import { z } from 'zod';
 
 type LayoutMode = 'desktop' | 'mobile';
 
-// [U-02] начальное значение определяется по реальному viewport, а не хардкодом 'desktop'
-function getInitialLayoutMode(): LayoutMode {
-  if (typeof window !== 'undefined' && window.matchMedia('(max-width: 480px)').matches) {
-    return 'mobile';
-  }
-  return 'desktop';
-}
-
+// Layout mode is MANUAL-ONLY — no auto-detection from viewport width.
+// This was intentionally reverted from auto-detect (5d3d69a "layoutMode manual-only").
+// The v0.7.11 refactor accidentally re-introduced media query auto-switching;
+// this restores the manual-only behaviour.
+// Key bumped to 'layout-mode-v3' so any stuck 'mobile' value from the old key is ignored.
 export function useLayoutMode() {
   const [layoutMode, setLayoutMode] = useLocalStorage<LayoutMode>(
-    'layout-mode',
-    getInitialLayoutMode(),
+    'layout-mode-v3',
+    'desktop',
     z.enum(['desktop', 'mobile'])
   );
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mediaQuery = window.matchMedia('(max-width: 480px)');
-    
-    let timeoutId: ReturnType<typeof setTimeout>;
-    
-    const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        setLayoutMode(e.matches ? 'mobile' : 'desktop');
-      }, 150);
-    };
-
-    // Modern browsers support addEventListener, older use addListener
-    if (typeof mediaQuery.addEventListener === 'function') {
-      mediaQuery.addEventListener('change', handleChange);
-      return () => {
-        clearTimeout(timeoutId);
-        mediaQuery.removeEventListener('change', handleChange);
-      };
-    } else {
-      mediaQuery.addListener(handleChange);
-      return () => {
-        clearTimeout(timeoutId);
-        mediaQuery.removeListener(handleChange);
-      };
-    }
-  }, [setLayoutMode]);
-
   return { layoutMode, setLayoutMode };
 }
-
