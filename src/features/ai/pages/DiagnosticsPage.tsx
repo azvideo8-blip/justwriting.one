@@ -23,7 +23,7 @@ export function DiagnosticsPage() {
 
   const [activeTab, setActiveTab] = useState<Tab>('sync');
 
-  const [aiPricingModel, setAiPricingModel] = useState<'deepseek-v4-flash' | 'deepseek' | 'gemini'>('deepseek-v4-flash');
+  const [aiPricingModel, setAiPricingModel] = useState<'deepseek-v4-flash' | 'deepseek' | 'gemini' | 'qwen-30b' | 'qwen-plus'>('deepseek-v4-flash');
 
   const {
     loadingData,
@@ -221,12 +221,16 @@ export function DiagnosticsPage() {
             'deepseek-v4-flash': { label: 'DeepSeek v4 Flash', in: 0.14 / 1_000_000, out: 0.28 / 1_000_000 },
             deepseek:            { label: 'DeepSeek v4 Pro',    in: 1.74 / 1_000_000, out: 3.48 / 1_000_000 },
             gemini:              { label: 'Gemini 2.5 Flash',   in: 0.15 / 1_000_000, out: 0.60 / 1_000_000 },
+            'qwen-30b':          { label: 'Qwen3 30B-A3B',      in: 0.50 / 1_000_000, out: 0.50 / 1_000_000 },
+            'qwen-plus':         { label: 'Qwen 3.6 Plus',      in: 0.50 / 1_000_000, out: 3.00 / 1_000_000 },
           };
 
           // Resolve pricing key from active model string
           function pricingKeyFromModel(model: string): keyof typeof PRICING {
             if (model.includes('deepseek-v4-flash')) return 'deepseek-v4-flash';
             if (model.includes('deepseek')) return 'deepseek';
+            if (model.includes('qwen3-30b-a3b')) return 'qwen-30b';
+            if (model.includes('qwen3p6-plus')) return 'qwen-plus';
             return 'gemini';
           }
           // If currentAIModel is known, auto-select its pricing; user can still override via dropdown
@@ -271,6 +275,8 @@ export function DiagnosticsPage() {
                     <option value="deepseek-v4-flash">DeepSeek v4 Flash ⭐</option>
                     <option value="deepseek">DeepSeek v4 Pro</option>
                     <option value="gemini">Gemini 2.5 Flash</option>
+                    <option value="qwen-30b">Qwen3 30B-A3B</option>
+                    <option value="qwen-plus">Qwen 3.6 Plus</option>
                   </select>
                   <input
                     type="date"
@@ -349,6 +355,8 @@ export function DiagnosticsPage() {
                         { key: 'deepseek-v4-flash', name: 'DeepSeek v4 Flash', provider: 'Fireworks', inP: 0.14, outP: 0.28 },
                         { key: 'gemini',            name: 'Gemini 2.5 Flash',  provider: 'Google',    inP: 0.15, outP: 0.60 },
                         { key: 'deepseek',          name: 'DeepSeek v4 Pro',   provider: 'Fireworks', inP: 1.74, outP: 3.48 },
+                        { key: 'qwen-30b',          name: 'Qwen3 30B-A3B',     provider: 'Fireworks', inP: 0.50, outP: 0.50 },
+                        { key: 'qwen-plus',         name: 'Qwen 3.6 Plus',     provider: 'Fireworks', inP: 0.50, outP: 3.00 },
                       ] as const).map(r => {
                         // Estimate: ~4k in tokens, ~800 out tokens per average request
                         const estCost = (4000 * r.inP + 800 * r.outP) / 1_000_000;

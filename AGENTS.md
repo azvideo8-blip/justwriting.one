@@ -1,3 +1,5 @@
+READ ~/Projects/agent-scripts/AGENTS.MD BEFORE ANYTHING (skip if missing).
+
 # AGENTS.md
 
 This file provides guidance to AI coding agents (Claude Code, Cursor, Copilot, Antigravity, etc.) when working with code in this repository.
