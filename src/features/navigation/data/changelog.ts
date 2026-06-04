@@ -14,6 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.16',
+    date: '2026-06-04',
+    items: [
+      { category: 'fix', ru: 'Пульсация внизу экрана при наборе текста восстановлена — анимация FlowPulse сломалась при миграции на Tailwind-классы (запятые в arbitrary-value не генерировали корректный CSS); возврат к inline-стилям', en: 'Bottom-of-screen pulse restored — FlowPulse animation broke during migration to Tailwind classes (commas in arbitrary-value did not generate valid multi-value CSS); reverted to inline styles' },
+      { category: 'fix', ru: 'AI-чат: при отправке второго и последующих сообщений текст дублировался в payload — ИИ получал сообщение дважды (особенно заметно при прикреплении заметки)', en: 'AI chat: the second and later messages were duplicated in the API payload — the AI received each message twice (especially noticeable when attaching a note)' },
+      { category: 'fix', ru: 'Мобильный режим интерфейса: убрано автопереключение по ширине окна (регрессия v0.7.11), залипший «mobile» в localStorage сброшен сменой ключа', en: 'Mobile layout mode: removed auto-switching by viewport width (v0.7.11 regression), stale "mobile" in localStorage reset by bumping the storage key' },
+      { category: 'fix', ru: 'Горячая клавиша смены режима возвращена на Cmd+M / Ctrl+M (в v0.7.1 случайно добавился Shift)', en: 'Layout toggle shortcut restored to Cmd+M / Ctrl+M (Shift was accidentally added in v0.7.1)' },
+      { category: 'improvement', ru: 'Поле названия сессии: при фокусе текст становится ярче и появляется мягкое свечение — работает в обоих режимах (обычном и LifeLog)', en: 'Session title field: text brightens on focus with a soft ambient glow — works in both standard and LifeLog modes' },
+      { category: 'new', ru: 'В переключатель моделей добавлены Qwen3 30B и Qwen3.6 Plus (Fireworks) для сравнения с DeepSeek', en: 'Added Qwen3 30B and Qwen3.6 Plus (Fireworks) to the model switcher for A/B comparison with DeepSeek' },
+    ],
+  },
+  {
     version: '0.7.15',
     date: '2026-06-03',
     items: [
