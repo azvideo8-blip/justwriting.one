@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { FilePlus, FolderOpen, Save, Square, Flag } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
@@ -48,6 +48,15 @@ export function Toolbar({
   const { t } = useLanguage();
 
   const titleRef = useRef<HTMLInputElement>(null);
+  const [titleFocused, setTitleFocused] = useState(false);
+  const [titleTyping, setTitleTyping] = useState(false);
+  const titleDecayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTitleKey = useCallback(() => {
+    setTitleTyping(true);
+    if (titleDecayRef.current) clearTimeout(titleDecayRef.current);
+    titleDecayRef.current = setTimeout(() => setTitleTyping(false), 1000);
+  }, []);
 
   useEffect(() => {
     if (titleRef.current) {
@@ -142,7 +151,16 @@ export function Toolbar({
           type="text"
           value={title}
           onChange={e => setTitle(e.target.value)}
+          onFocus={() => setTitleFocused(true)}
+          onBlur={() => setTitleFocused(false)}
+          onKeyDown={handleTitleKey}
           placeholder={t('topbar_title_placeholder')}
+          style={{
+            boxShadow: (titleFocused || titleTyping)
+              ? `0 2px 0 0 color-mix(in srgb, var(--flow-pulse-color) ${titleTyping ? '60%' : '30%'}, transparent), 0 4px 20px color-mix(in srgb, var(--flow-pulse-color) ${titleTyping ? '12%' : '5%'}, transparent)`
+              : 'none',
+            transition: 'box-shadow 0.4s ease',
+          }}
           className="w-full bg-transparent border-0 border-b border-transparent px-0 py-1 text-[15px] font-medium text-text-main/60 placeholder:text-text-main/25 outline-none focus:ring-0 focus:border-brand-soft/30 font-sans focus:font-serif transition-all duration-300"
         />
       </div>
