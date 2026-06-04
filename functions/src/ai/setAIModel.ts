@@ -9,6 +9,8 @@ const ALLOWED_MODELS = [
   'accounts/fireworks/models/deepseek-v4-pro',
   'accounts/fireworks/models/gpt-oss-120b',
   'accounts/fireworks/models/gpt-oss-20b',
+  'accounts/fireworks/models/qwen3-30b-a3b',
+  'accounts/fireworks/models/qwen3p6-plus',
 ] as const;
 
 const inputSchema = z.object({
