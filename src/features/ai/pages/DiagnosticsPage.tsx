@@ -304,6 +304,8 @@ export function DiagnosticsPage() {
                     { id: 'accounts/fireworks/models/deepseek-v4-flash', label: 'DeepSeek v4 Flash', badge: '⭐ дешевле в 12×', price: '$0.14/$0.28' },
                     { id: 'accounts/fireworks/models/deepseek-v4-pro',   label: 'DeepSeek v4 Pro',  badge: 'reasoning',    price: '$1.74/$3.48' },
                     { id: 'accounts/fireworks/models/gpt-oss-120b',      label: 'GPT OSS 120B',     badge: 'OpenAI',       price: '$0.15/$0.60' },
+                    { id: 'accounts/fireworks/models/qwen3-30b-a3b',     label: 'Qwen3 30B-A3B',    badge: 'дёшево',       price: '$0.50/$0.50' },
+                    { id: 'accounts/fireworks/models/qwen3p6-plus',      label: 'Qwen 3.6 Plus',    badge: 'флагман',      price: '$0.50/$3.00' },
                   ] as const).map(m => {
                     const isActive = currentAIModel === m.id;
                     return (
