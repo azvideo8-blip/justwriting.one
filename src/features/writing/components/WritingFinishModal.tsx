@@ -209,31 +209,29 @@ export function WritingFinishModal({
               <div className="text-sm text-text-main/40 mt-1">{t('mood_checkin_subtitle')}</div>
             </div>
             <div className="flex justify-center gap-4">
-              {(['😊', '🙂', '😐', '😔', '😤'] as const).map((emoji, i) => {
-                const moodLabels: Record<string, string> = {
-                  '😊': t('mood_happy'),
-                  '🙂': t('mood_good'),
-                  '😐': t('mood_neutral'),
-                  '😔': t('mood_sad'),
-                  '😤': t('mood_frustrated'),
-                };
-                return (
+              {([
+                { emoji: '😊', key: 'mood_happy' },
+                { emoji: '😢', key: 'mood_sad' },
+                { emoji: '😠', key: 'mood_anger' },
+                { emoji: '😨', key: 'mood_fear' },
+                { emoji: '🤢', key: 'mood_disgust' },
+                { emoji: '🤔', key: 'mood_interest' },
+              ]).map((item, i) => (
                 <motion.button
-                  key={i}
-                  aria-label={moodLabels[emoji]}
+                  key={item.key}
+                  aria-label={t(item.key)}
                   whileHover={reducedMotion ? {} : { scale: 1.3 }}
                   whileTap={reducedMotion ? {} : { scale: 0.85 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 15 }}
                   initial={reducedMotion ? {} : { opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0, transition: { delay: i * 0.06 } }}
                   disabled={isSaving}
-                  onClick={() => handleMoodSelect(emoji)}
+                  onClick={() => handleMoodSelect(item.emoji)}
                   className={cn("text-4xl", isSaving && "opacity-50 cursor-not-allowed")}
                 >
-                  {emoji}
+                  {item.emoji}
                 </motion.button>
-              );
-              })}
+              ))}
             </div>
             <Button
               variant="ghost"

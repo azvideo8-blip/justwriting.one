@@ -1,5 +1,5 @@
 import { type RefObject, useState, useEffect, useRef } from 'react';
-import { Search, LayoutGrid, LayoutList, ArrowUpDown, SlidersHorizontal } from 'lucide-react';
+import { Search, LayoutGrid, LayoutList, ArrowUpDown, SlidersHorizontal, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
@@ -27,6 +27,9 @@ interface ArchiveHeaderProps {
   onSortModeChange: (m: SortMode) => void;
   sortLabels: Record<SortMode, string>;
   onFilterClick?: () => void;
+  showFilters?: boolean;
+  onToggleFilters?: () => void;
+  toggleFiltersLabel?: string;
 }
 
 export function ArchiveHeader({
@@ -35,6 +38,9 @@ export function ArchiveHeader({
   viewMode, onViewModeChange, listLabel, gridLabel,
   sortMode, onSortModeChange, sortLabels,
   onFilterClick,
+  showFilters,
+  onToggleFilters,
+  toggleFiltersLabel = 'Тэги',
 }: ArchiveHeaderProps) {
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
@@ -141,6 +147,20 @@ export function ArchiveHeader({
             </div>
           )}
         </div>
+        {onToggleFilters && (
+          <Button
+            onClick={onToggleFilters}
+            className={cn(
+              "h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-sm transition-colors border",
+              showFilters
+                ? "bg-brand-soft/20 border-brand-soft/40 text-brand-soft"
+                : "bg-text-main/[0.03] border-border-subtle text-text-main/40 hover:text-text-main/60"
+            )}
+          >
+            <Tag size={14} />
+            <span className="hidden sm:inline">{toggleFiltersLabel}</span>
+          </Button>
+        )}
         {onFilterClick && (
           <IconButton
             onClick={onFilterClick}

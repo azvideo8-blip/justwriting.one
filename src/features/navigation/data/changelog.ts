@@ -14,6 +14,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.17',
+    date: '2026-06-10',
+    items: [
+      { category: 'fix', ru: 'Сохранение заметки больше не зависает после выбора эмоции — окно завершения корректно закрывается с подтверждением', en: 'Saving a note no longer hangs after picking an emotion — the finish modal now closes properly with a confirmation' },
+      { category: 'fix', ru: 'Выбранная эмоция теперь сохраняется и в облако (правила безопасности отклоняли поле настроения)', en: 'The selected emotion is now saved to the cloud as well (security rules were rejecting the mood field)' },
+      { category: 'improvement', ru: 'Чек-ин настроения: вместо 5 смайлов — 6 базовых эмоций (радость, грусть, злость, страх, отвращение, интерес)', en: 'Mood check-in: 6 basic emotions (joy, sadness, anger, fear, disgust, interest) instead of 5 smileys' },
+      { category: 'fix', ru: 'Выпадающий список меток больше не обрезается краями списка заметок, а все пункты выровнены по левому краю', en: 'The label picker is no longer clipped by the notes list edges, and all items are left-aligned' },
+      { category: 'improvement', ru: 'Панели тегов и меток в архиве скрыты по умолчанию — включаются кнопкой «теги» в шапке', en: 'Tag and label bars in the archive are hidden by default — toggle them with the "tags" button in the header' },
+      { category: 'fix', ru: 'Карточки в сетке заметок показывают дату и время сессии письма, а не дату документа', en: 'Notes grid cards show the writing session date and time instead of the document date' },
+      { category: 'fix', ru: 'Кнопка «Вернуться» в окне завершения снова корректно возобновляет письмо после паузы', en: 'The "Back" button in the finish modal correctly resumes writing after a pause again' },
+    ],
+  },
+  {
     version: '0.7.16',
     date: '2026-06-04',
     items: [

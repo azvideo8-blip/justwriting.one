@@ -19,6 +19,9 @@ export function useServiceAction() {
   const abortedRef = useRef(false);
 
   useEffect(() => {
+    // re-arm on mount: StrictMode runs mount → cleanup → mount, and without
+    // this reset the ref stays true forever, silently swallowing onSuccess
+    abortedRef.current = false;
     return () => { abortedRef.current = true; };
   }, []);
 

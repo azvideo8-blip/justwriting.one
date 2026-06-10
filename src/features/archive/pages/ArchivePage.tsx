@@ -41,6 +41,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const userId = useUserId(user);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [showTagLabelBars, setShowTagLabelBars] = useState(false);
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
 
@@ -133,9 +134,12 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               listLabel={t('archive_list')} gridLabel={t('archive_grid')}
               sortMode={sortMode} onSortModeChange={setSortMode} sortLabels={sortLabels}
               onFilterClick={() => setIsFilterOpen(true)}
+              showFilters={showTagLabelBars}
+              onToggleFilters={() => setShowTagLabelBars(v => !v)}
+              toggleFiltersLabel={showTagLabelBars ? t('archive_tags_hide') : t('archive_tags_label')}
             />
             {isMobile ? (
-              (allTags.length > 0 || profileLabels.length > 0) && (
+              showTagLabelBars && (allTags.length > 0 || profileLabels.length > 0) && (
                 <div className="bg-surface-card/25 backdrop-blur-md border border-white/[0.04] rounded-2xl px-4 py-1 shadow-md flex flex-col mt-4 [&>div:last-child]:!border-b-0">
                   <ArchiveTagBar
                     allTags={allTags}
@@ -162,30 +166,32 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 </div>
               )
             ) : (
-              <>
-                <ArchiveTagBar
-                  allTags={allTags}
-                  selectedTags={selectedTags}
-                  onToggleTag={tag => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
-                  renamingTag={tagEditor.renamingTag} renameTagValue={tagEditor.renameTagValue}
-                  setRenameTagValue={tagEditor.setRenameTagValue}
-                  onStartRename={(tag) => void tagEditor.startRenameTag(tag)} onRenameSubmit={(tag, newName) => void tagEditor.handleRenameTag(tag, newName)}
-                  onRenameCancel={() => tagEditor.setRenamingTag(null)} onDeleteTag={tagEditor.setTagDeleteConfirm}
-                  onResetTags={() => setSelectedTags([])} showControls={!!user} t={t}
-                />
-                <ArchiveLabelBar
-                  labels={profileLabels} selectedLabels={selectedLabels} onToggleLabel={toggleLabel}
-                  addingLabel={labelEditor.addingLabel} setAddingLabel={labelEditor.setAddingLabel}
-                  newLabelName={labelEditor.newLabelName} setNewLabelName={labelEditor.setNewLabelName}
-                  newLabelColor={labelEditor.newLabelColor} setNewLabelColor={labelEditor.setNewLabelColor}
-                  onAddLabel={labelEditor.handleAddLabel}
-                  editingLabelId={labelEditor.editingLabelId} setEditingLabelId={labelEditor.setEditingLabelId}
-                  editLabelName={labelEditor.editLabelName} setEditLabelName={labelEditor.setEditLabelName}
-                  editLabelColor={labelEditor.editLabelColor} setEditLabelColor={labelEditor.setEditLabelColor}
-                  onUpdateLabel={labelEditor.handleUpdateLabel} onDeleteLabel={labelEditor.setLabelDeleteConfirm}
-                  showControls={!!user} t={t}
-                />
-              </>
+              showTagLabelBars && (
+                <>
+                  <ArchiveTagBar
+                    allTags={allTags}
+                    selectedTags={selectedTags}
+                    onToggleTag={tag => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
+                    renamingTag={tagEditor.renamingTag} renameTagValue={tagEditor.renameTagValue}
+                    setRenameTagValue={tagEditor.setRenameTagValue}
+                    onStartRename={(tag) => void tagEditor.startRenameTag(tag)} onRenameSubmit={(tag, newName) => void tagEditor.handleRenameTag(tag, newName)}
+                    onRenameCancel={() => tagEditor.setRenamingTag(null)} onDeleteTag={tagEditor.setTagDeleteConfirm}
+                    onResetTags={() => setSelectedTags([])} showControls={!!user} t={t}
+                  />
+                  <ArchiveLabelBar
+                    labels={profileLabels} selectedLabels={selectedLabels} onToggleLabel={toggleLabel}
+                    addingLabel={labelEditor.addingLabel} setAddingLabel={labelEditor.setAddingLabel}
+                    newLabelName={labelEditor.newLabelName} setNewLabelName={labelEditor.setNewLabelName}
+                    newLabelColor={labelEditor.newLabelColor} setNewLabelColor={labelEditor.setNewLabelColor}
+                    onAddLabel={labelEditor.handleAddLabel}
+                    editingLabelId={labelEditor.editingLabelId} setEditingLabelId={labelEditor.setEditingLabelId}
+                    editLabelName={labelEditor.editLabelName} setEditLabelName={labelEditor.setEditLabelName}
+                    editLabelColor={labelEditor.editLabelColor} setEditLabelColor={labelEditor.setEditLabelColor}
+                    onUpdateLabel={labelEditor.handleUpdateLabel} onDeleteLabel={labelEditor.setLabelDeleteConfirm}
+                    showControls={!!user} t={t}
+                  />
+                </>
+              )
             )}
             {cloudLoadFailed && (
               <div className="px-4 py-3 rounded-2xl text-sm bg-accent-danger/10 border border-accent-danger/30 text-accent-danger flex items-center justify-between mt-4">
