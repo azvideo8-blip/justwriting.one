@@ -195,11 +195,12 @@ service cloud.firestore {
                'documentId', 'content', 'wordCount', 'userId', 'version',
                'wordsAdded', 'charsAdded', 'duration', 'wpm',
                'goalWords', 'goalTime', 'goalReached',
-               'savedAt', 'sessionStartedAt', '_encrypted'
+               'savedAt', 'sessionStartedAt', '_encrypted', 'mood'
              ]) &&
               data.documentId is string &&
               data.content is string && data.content.size() <= 700000 &&
              data.wordCount is number && data.wordCount >= 0 &&
+             (!('mood' in data) || (data.mood is string && data.mood.size() <= 50)) &&
          (!('userId' in data) || data.userId == request.auth.uid);
     }
 

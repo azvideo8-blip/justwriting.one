@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, memo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
-import { getSessionDate, cn } from '../../../core/utils/utils';
+import { cn } from '../../../core/utils/utils';
 import { getDateLocale } from '../../../core/utils/dateUtils';
 import { highlightText } from '../../../shared/utils/highlightText';
 import { InlineTags } from './InlineTags';
@@ -39,9 +40,13 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
 }) => {
   const { t, language } = useLanguage();
   const { tags: _tags } = useSessionTags(session.tags || []);
-  const sessionDate = getSessionDate(session) ?? new Date();
+  const sessionTime = session.sessionStartTime
+    ? new Date(session.sessionStartTime)
+    : session.createdAt instanceof Date ? session.createdAt : new Date();
   const [labelPopupOpen, setLabelPopupOpen] = useState(false);
-  const [labelOpenUp, setLabelOpenUp] = useState(false);
+  // fixed-position coords: popup renders in a portal so the archive scroll
+  // container (overflow-y-auto) can't clip it
+  const [labelPopupPos, setLabelPopupPos] = useState<{ left: number; top?: number; bottom?: number; maxHeight: number } | null>(null);
   const labelPopupRef = useRef<HTMLDivElement>(null);
 
   const label = labels?.find(l => l.id === session.labelId);
@@ -53,15 +58,22 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
         setLabelPopupOpen(false);
       }
     };
+    const close = () => setLabelPopupOpen(false);
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
   }, [labelPopupOpen]);
 
-  const formattedDate = format(sessionDate, 'd MMM yy • HH:mm', {
+  const formattedDate = format(sessionTime, 'd MMM yy • HH:mm', {
     locale: getDateLocale(language),
   }).toUpperCase();
 
-  const relativeDate = formatDistanceToNow(sessionDate, {
+  const relativeDate = formatDistanceToNow(sessionTime, {
     locale: getDateLocale(language),
     addSuffix: true,
   });
@@ -131,7 +143,13 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const spaceBelow = window.innerHeight - rect.bottom;
-                setLabelOpenUp(spaceBelow < 220);
+                const openUp = spaceBelow < 220 && rect.top > spaceBelow;
+                setLabelPopupPos({
+                  left: Math.max(8, Math.min(rect.left, window.innerWidth - 166)),
+                  ...(openUp
+                    ? { bottom: window.innerHeight - rect.top + 4, maxHeight: rect.top - 12 }
+                    : { top: rect.bottom + 4, maxHeight: spaceBelow - 12 }),
+                });
                 setLabelPopupOpen(v => !v);
               }}
               className="flex items-center gap-1 font-mono text-label-sm text-text-main/30 hover:text-text-main/60 transition-colors"
@@ -142,12 +160,12 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
               />
               {label?.name ?? t('archive_assign_label')}
             </Button>
-            {labelPopupOpen && (
+            {labelPopupOpen && labelPopupPos && createPortal(
               <div
                 ref={labelPopupRef}
+                style={{ position: 'fixed', ...labelPopupPos }}
                 className={cn(
-                  "absolute right-0 z-50 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[150px] backdrop-blur-xl",
-                  labelOpenUp ? "bottom-full mb-1" : "top-full mt-1",
+                  "z-50 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[150px] backdrop-blur-xl overflow-y-auto",
                   "bg-[color-mix(in_srgb,var(--bg-base)_92%,var(--brand-primary)_8%)]"
                 )}
                 onClick={e => e.stopPropagation()}
@@ -171,7 +189,8 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
                     {l.name}
                   </Button>
                 ))}
-              </div>
+              </div>,
+              document.body
             )}
           </div>
         )}

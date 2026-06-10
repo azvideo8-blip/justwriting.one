@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
 import { ExternalLink, Trash2, Pencil, MoreVertical, Sparkles, Loader2 } from 'lucide-react';
 import { getSessionDate, cn } from '../../../core/utils/utils';
@@ -46,7 +47,9 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
   const dtRef = React.useRef<HTMLDivElement>(null);
   const labelPopupRef = React.useRef<HTMLDivElement>(null);
   const [labelPopupOpen, setLabelPopupOpen] = useState(false);
-  const [labelOpenUp, setLabelOpenUp] = useState(false);
+  // fixed-position coords: popup renders in a portal so the archive scroll
+  // container (Virtuoso / overflow-y-auto) can't clip it
+  const [labelPopupPos, setLabelPopupPos] = useState<{ left: number; top?: number; bottom?: number; maxHeight: number } | null>(null);
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
   const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -107,8 +110,15 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
         setLabelPopupOpen(false);
       }
     };
+    const close = () => setLabelPopupOpen(false);
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
   }, [labelPopupOpen]);
 
   const commitTitle = () => {
@@ -297,7 +307,13 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                   e.preventDefault();
                   const rect = e.currentTarget.getBoundingClientRect();
                   const spaceBelow = window.innerHeight - rect.bottom;
-                  setLabelOpenUp(spaceBelow < 220);
+                  const openUp = spaceBelow < 220 && rect.top > spaceBelow;
+                  setLabelPopupPos({
+                    left: Math.max(8, Math.min(rect.left, window.innerWidth - 166)),
+                    ...(openUp
+                      ? { bottom: window.innerHeight - rect.top + 4, maxHeight: rect.top - 12 }
+                      : { top: rect.bottom + 4, maxHeight: spaceBelow - 12 }),
+                  });
                   setLabelPopupOpen(!labelPopupOpen);
                 }}
                 className={cn("w-7 h-7 p-0 flex items-center justify-center rounded-lg transition-colors", label ? "" : "hover:bg-text-main/5")}
@@ -307,12 +323,12 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                   style={{ background: label?.color ?? 'transparent' }}
                 />
               </Button>
-              {labelPopupOpen && (labels && labels.length > 0 || session.labelId) && (
+              {labelPopupOpen && (labels && labels.length > 0 || session.labelId) && labelPopupPos && createPortal(
                 <div
                   ref={labelPopupRef}
+                  style={{ position: 'fixed', ...labelPopupPos }}
                   className={cn(
-                    "absolute right-0 z-50 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[150px] backdrop-blur-xl",
-                    labelOpenUp ? "bottom-full mb-1" : "top-full mt-1",
+                    "z-50 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[150px] backdrop-blur-xl overflow-y-auto",
                     "bg-[color-mix(in_srgb,var(--bg-base)_92%,var(--brand-primary)_8%)]"
                   )}
                   onClick={e => e.stopPropagation()}
@@ -320,7 +336,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                   {session.labelId && (
                     <Button
                       onClick={e => { e.stopPropagation(); onLabelChange?.(session, undefined); setLabelPopupOpen(false); }}
-                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left text-text-main/40 hover:bg-text-main/5 transition-colors"
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap text-text-main/40 hover:bg-text-main/5 transition-colors"
                     >
                       <div className="w-3 h-3 rounded-full border border-dashed border-text-main/20 shrink-0" />
                       {t('archive_no_label')}
@@ -330,13 +346,14 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                     <Button
                       key={l.id}
                       onClick={e => { e.stopPropagation(); onLabelChange?.(session, session.labelId === l.id ? undefined : l.id); setLabelPopupOpen(false); }}
-                      className={cn("w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left transition-colors", session.labelId === l.id ? "bg-text-main/10 text-text-main" : "text-text-main/60 hover:bg-text-main/5")}
+                      className={cn("w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap transition-colors", session.labelId === l.id ? "bg-text-main/10 text-text-main" : "text-text-main/60 hover:bg-text-main/5")}
                     >
                       <div className="w-3 h-3 rounded-full shrink-0" style={{ background: l.color }} />
                       {l.name}
                     </Button>
                   ))}
-                </div>
+                </div>,
+                document.body
               )}
             </div>
             <IconButton onClick={e => { e.stopPropagation(); setTitleDraft(session.title || ''); setEditingTitle(true); }}

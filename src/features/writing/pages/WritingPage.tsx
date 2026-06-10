@@ -18,6 +18,8 @@ import { useCloudWritingSession } from '../hooks/useCloudWritingSession';
 
 import { WritingSessionProvider, useWritingSessionContext } from '../contexts/WritingSessionContext';
 import { DesktopWritingLayout } from './DesktopWritingLayout';
+import { useTimerStore } from '../store/useTimerStore';
+import { useContentStore } from '../store/useContentStore';
 
 export type { AnySessionReturn } from '../hooks/useWritingActions';
 
@@ -155,7 +157,9 @@ function WritingPageUI() {
         labels={profile?.labels || []}
         onSave={handleSave}
         onCancel={() => {
-          if (sessionStatus === 'paused' && session.content) {
+          const currentStatus = useTimerStore.getState().status;
+          const currentContent = useContentStore.getState().content;
+          if (currentStatus === 'paused' && currentContent) {
             void handlePlay();
           }
           setIsFinishModalOpen(false);

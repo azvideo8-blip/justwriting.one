@@ -11,7 +11,7 @@ describe('JustWritingLogo', () => {
 
   it('has aria-label from translation', () => {
     renderWithProviders(<JustWritingLogo />);
-    expect(screen.getByRole('img')).toHaveAttribute('aria-label', 'app_name');
+    expect(screen.getByRole('img')).toHaveAttribute('aria-label', 'justwriting');
   });
 
   it('uses default size of 32', () => {

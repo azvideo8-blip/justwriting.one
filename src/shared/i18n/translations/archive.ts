@@ -19,6 +19,7 @@ export const archiveTranslations: Translations = {
   archive_subtitle: { ru: 'Архив свободного письма. Каждая запись — слепок одного дня.', en: 'Archive of free writing. Each entry is a snapshot of one day.' },
   archive_count: { ru: 'записей', en: 'entries' },
   archive_tags_label: { ru: 'теги', en: 'tags' },
+  archive_tags_hide: { ru: 'скрыть', en: 'hide' },
   archive_tags_reset: { ru: 'сбросить', en: 'reset' },
   archive_continue_writing: { ru: 'Продолжить писать', en: 'Continue writing' },
   archive_export: { ru: 'Экспортировать', en: 'Export' },
