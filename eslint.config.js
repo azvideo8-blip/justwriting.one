@@ -50,10 +50,23 @@ export default [
       'react-hooks/exhaustive-deps': 'error',
       'import/no-duplicates': 'error',
       'import/no-cycle': 'error',
+      // Layer boundaries (ARCHITECTURE.md). Cross-feature imports between the
+      // remaining features are grandfathered (~80 as of 2026-06) — extend the
+      // zones as features get untangled.
+      'import/no-restricted-paths': ['error', {
+        zones: [
+          { target: './src/core', from: './src/features', message: 'core must not import from features/ (ARCHITECTURE.md)' },
+          { target: './src/shared', from: './src/features', message: 'shared must not import from features/ (ARCHITECTURE.md)' },
+          { target: './src/shared', from: './src/core', message: 'shared must stay dependency-free of core (ARCHITECTURE.md)' },
+          { target: './src/features/auth', from: './src/features', except: ['./auth'], message: 'auth is feature-import-free — keep it that way (ARCHITECTURE.md)' },
+          { target: './src/features/calendar', from: './src/features', except: ['./calendar'], message: 'calendar is feature-import-free — keep it that way (ARCHITECTURE.md)' },
+        ],
+      }],
       'no-console': ['error', { allow: ['error', 'warn'] }],
     },
     settings: {
       react: { version: 'detect' },
+      'import/resolver': { node: { extensions: ['.js', '.jsx', '.ts', '.tsx'] } },
     },
   },
   {
@@ -76,6 +89,7 @@ export default [
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       'no-console': 'off',
+      'import/no-restricted-paths': 'off',
     },
   },
   prettier,

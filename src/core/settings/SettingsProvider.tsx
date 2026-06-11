@@ -1,18 +1,15 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { SettingsContext } from './SettingsContext';
-import { useAuthStatus } from '../../features/auth/hooks/useAuthStatus';
-import { getOrCreateGuestId } from '../storage/localDb';
 
 interface SettingsProviderProps {
   children: React.ReactNode;
+  userId: string;
   renderSettingsPanel: (props: { isOpen: boolean; onClose: () => void; userId: string; defaultTab: 'editor' | 'app' | 'account' | undefined }) => React.ReactNode;
 }
 
-export function SettingsProvider({ children, renderSettingsPanel }: SettingsProviderProps) {
+export function SettingsProvider({ children, userId, renderSettingsPanel }: SettingsProviderProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [defaultTab, setDefaultTab] = useState<'editor' | 'app' | 'account' | undefined>(undefined);
-  const { user } = useAuthStatus();
-  const userId = user?.uid ?? getOrCreateGuestId();
   const triggerRef = useRef<Element | null>(null);
   const openOverrideRef = useRef<((tab?: 'editor' | 'app' | 'account') => void) | null>(null);
 
