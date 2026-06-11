@@ -13,6 +13,7 @@ _archive/
 .vercel
 functions/*.js
 .agents/skills/
+.mimocode/
 bundle-stats.html
 playwright-report/
 test-results/
