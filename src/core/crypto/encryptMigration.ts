@@ -49,6 +49,14 @@ interface PendingOp {
   useSet?: boolean;
 }
 
+function makeFlush(pending: PendingOp[], newBatch: () => WriteBatch, onFlushed?: (keys: string[]) => void) {
+  return async () => {
+    if (pending.length === 0) return;
+    const keys = await flushPending(newBatch(), pending.splice(0, pending.length));
+    onFlushed?.(keys);
+  };
+}
+
 async function flushPending(batch: WriteBatch, ops: PendingOp[]): Promise<string[]> {
   const keys: string[] = [];
   for (const op of ops) {
@@ -92,12 +100,10 @@ export async function encryptAllExistingNotes(
         report();
 
         const pending: PendingOp[] = [];
-        const flush = async () => {
-          if (pending.length === 0) return;
-          const keys = await flushPending(mod.writeBatch(db), pending.splice(0, pending.length));
+        const flush = makeFlush(pending, () => mod.writeBatch(db), (keys) => {
           for (const k of keys) checkpoint.add(k);
           saveCheckpoint(userId, checkpoint);
-        };
+        });
 
         for (const v of versionsSnap.docs) {
           if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError'); // [A-09]
@@ -140,12 +146,10 @@ export async function encryptAllExistingNotes(
     report();
 
     const pending: PendingOp[] = [];
-    const flush = async () => {
-      if (pending.length === 0) return;
-      const keys = await flushPending(mod.writeBatch(db), pending.splice(0, pending.length));
+    const flush = makeFlush(pending, () => mod.writeBatch(db), (keys) => {
       for (const k of keys) checkpoint.add(k);
       saveCheckpoint(userId, checkpoint);
-    };
+    });
 
     for (const d of draftSnap.docs) {
       if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError'); // [A-09]
@@ -195,11 +199,7 @@ export async function encryptSingleDocument(
   try {
     const versionsSnap = await getDocs(collection(db, 'users', userId, 'documents', documentId, 'versions'));
     const pending: PendingOp[] = [];
-
-    const flush = async () => {
-      if (pending.length === 0) return;
-      await flushPending(mod.writeBatch(db), pending.splice(0, pending.length));
-    };
+    const flush = makeFlush(pending, () => mod.writeBatch(db));
 
     for (const v of versionsSnap.docs) {
       try {

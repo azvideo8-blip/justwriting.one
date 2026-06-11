@@ -130,8 +130,8 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
   <h1>${escapeHtml(session.title || untitled)}</h1>
   <div class="meta">
     ${date.toLocaleDateString(locOpts, { day: 'numeric', month: 'long', year: 'numeric' })} &nbsp;·&nbsp;
-    ${session.wordCount} ${s.words} &nbsp;·&nbsp;
-    ${Math.round((session.duration || 0) / 60)} ${s.time}
+    ${session.wordCount} ${escapeHtml(s.words)} &nbsp;·&nbsp;
+    ${Math.round((session.duration || 0) / 60)} ${escapeHtml(s.time)}
   </div>
   <hr class="divider">
   <div class="content">${escapeHtml(session.content || '')}</div>
