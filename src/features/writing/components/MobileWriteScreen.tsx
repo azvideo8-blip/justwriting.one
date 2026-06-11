@@ -115,21 +115,26 @@ export function MobileWriteScreen({
   const [showGoalSheet, setShowGoalSheet] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lighthouseHideRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lighthouseActive, setLighthouseActive] = useState(false);
 
   const resetIdleTimer = () => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    if (lighthouseHideRef.current) clearTimeout(lighthouseHideRef.current);
     setLighthouseActive(false);
     if (status === 'writing') {
       idleTimerRef.current = setTimeout(() => {
         setLighthouseActive(true);
-        setTimeout(() => setLighthouseActive(false), 1500);
+        lighthouseHideRef.current = setTimeout(() => setLighthouseActive(false), 1500);
       }, 5000);
     }
   };
 
   useEffect(() => {
-    return () => { if (idleTimerRef.current) clearTimeout(idleTimerRef.current); };
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      if (lighthouseHideRef.current) clearTimeout(lighthouseHideRef.current);
+    };
   }, []);
   const swipeTouchStartY = useRef<number>(0);
   const swipeTouchStartX = useRef<number>(0);
@@ -149,17 +154,21 @@ export function MobileWriteScreen({
 
   useEffect(() => {
     const hintShown = localStorage.getItem('focus_swipe_hint_shown');
-    if (!hintShown) {
-      const showTimer = setTimeout(() => {
-        setShowSwipeHint(true);
-        const hideTimer = setTimeout(() => {
-          setShowSwipeHint(false);
-          localStorage.setItem('focus_swipe_hint_shown', 'true');
-        }, 4000);
-        return () => clearTimeout(hideTimer);
-      }, 0);
-      return () => clearTimeout(showTimer);
-    }
+    if (hintShown) return;
+    // hideTimer must be cleared from the effect cleanup — a function returned
+    // from inside a setTimeout callback is discarded, not run on unmount
+    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    const showTimer = setTimeout(() => {
+      setShowSwipeHint(true);
+      hideTimer = setTimeout(() => {
+        setShowSwipeHint(false);
+        localStorage.setItem('focus_swipe_hint_shown', 'true');
+      }, 4000);
+    }, 0);
+    return () => {
+      clearTimeout(showTimer);
+      if (hideTimer) clearTimeout(hideTimer);
+    };
   }, []);
 
   useEffect(() => {
