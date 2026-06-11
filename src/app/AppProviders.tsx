@@ -13,6 +13,19 @@ import { HelmetProvider } from 'react-helmet-async';
 import { ReactNode } from 'react';
 import { PrivacyModal, usePrivacyCheck } from '../features/auth/components/PrivacyModal';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
+import { getOrCreateGuestId } from '../core/storage/localDb';
+
+// Resolves the auth-aware userId here so core's SettingsProvider stays free of
+// feature imports (core must not import from features/).
+function AuthAwareSettingsProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuthStatus();
+  const userId = user?.uid ?? getOrCreateGuestId();
+  return (
+    <SettingsProvider userId={userId} renderSettingsPanel={(props) => <SettingsPanel {...props} />}>
+      {children}
+    </SettingsProvider>
+  );
+}
 
 function PrivacyGuard({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuthStatus();
@@ -39,13 +52,13 @@ export function AppProviders({ children }: { children: ReactNode }) {
                 <WritingSettingsProvider>
                   <ToastProvider>
                     <LoginModalProvider>
-                      <SettingsProvider renderSettingsPanel={(props) => <SettingsPanel {...props} />}>
+                      <AuthAwareSettingsProvider>
                         <HelmetProvider>
                           <PrivacyGuard>
                             {children}
                           </PrivacyGuard>
                         </HelmetProvider>
-                      </SettingsProvider>
+                      </AuthAwareSettingsProvider>
                     </LoginModalProvider>
                   </ToastProvider>
                 </WritingSettingsProvider>
