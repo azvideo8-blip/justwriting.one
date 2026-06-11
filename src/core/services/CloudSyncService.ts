@@ -6,6 +6,7 @@ import { getLocalDb } from '../storage/localDb';
 import { toDate } from '../utils/dateUtils';
 import { maybeEncrypt, maybeDecrypt, type VersionEncryptPayload } from '../crypto/cryptoHelpers';
 import { reportError } from '../../shared/errors/reportError';
+import { withTimeout as withTimeoutBase } from '../../shared/utils/withTimeout';
 import { isFirestoreConnected } from '../firebase/firestore';
 import pLimit from 'p-limit';
 import { SaveDocumentData } from './storageTypes';
@@ -15,11 +16,7 @@ const CLOUD_SYNC_TIMEOUT = 30_000;
 const LOCK_TTL_MS = 30_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): Promise<T> {
-  let timer: ReturnType<typeof setTimeout>;
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Sync timeout')), ms); }),
-  ]).finally(() => clearTimeout(timer));
+  return withTimeoutBase(promise, ms, 'Sync timeout');
 }
 
 export const CloudSyncService = {

@@ -1,5 +1,6 @@
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { reportError } from '../../../shared/errors/reportError';
+import { withTimeout } from '../../../shared/utils/withTimeout';
 import { analytics } from '../../../core/analytics/analytics';
 
 export type AIAction = 'shorten' | 'accents' | 'ideas' | 'summarize' | 'tags' | 'mood' | 'continue';
@@ -27,10 +28,6 @@ function mapAIError(e: unknown): 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' 
   }
   if (code === 'functions/invalid-argument') return 'TOO_LONG';
   return 'SERVER_ERROR';
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([promise, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))]);
 }
 
 export const AIService = {

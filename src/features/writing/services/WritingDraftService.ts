@@ -3,6 +3,7 @@ import { getLocalDb, LocalDraft } from '../../../core/storage/localDb';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
 import { maybeEncrypt, maybeDecrypt, isProfileLoaded } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
+import { withTimeout } from '../../../shared/utils/withTimeout';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -18,10 +19,6 @@ const DRAFT_CLOUD_FIELDS = new Set([
   'sessionStartTime', 'accumulatedDuration', 'totalPauseSeconds',
   'savedDocumentId', 'labelId',
 ]);
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([promise, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))]);
-}
 
 function isDraftExpired(draft: LocalDraft): boolean {
   const updated = toTimestampMs(draft.updatedAt) ?? 0;

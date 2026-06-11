@@ -3,6 +3,7 @@ import { LocalStorageService } from './LocalStorageService';
 import { CloudSyncService } from './CloudSyncService';
 import { ProfileUpdater } from './ProfileUpdater';
 import { SaveDocumentData, StorageState } from './storageTypes';
+import { withTimeout } from '../../shared/utils/withTimeout';
 
 export type { StorageState, SaveDocumentData } from './storageTypes';
 
@@ -29,21 +30,13 @@ class LockManager {
 
 const _lockManager = new LockManager();
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  let timer: ReturnType<typeof setTimeout>;
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Sync timeout')), ms); }),
-  ]).finally(() => clearTimeout(timer));
-}
-
 export const StorageService = {
   async saveNew(userId: string, data: SaveDocumentData): Promise<{ localId: string }> {
     return LocalStorageService.saveNew(userId, data);
   },
 
   async saveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<{ forked: boolean }> {
-    return _lockManager.acquire(documentId, () => withTimeout(_doSaveVersion(userId, documentId, data), 60_000));
+    return _lockManager.acquire(documentId, () => withTimeout(_doSaveVersion(userId, documentId, data), 60_000, 'Sync timeout'));
   },
 
   async addLocalCopy(userId: string, cloudDocumentId: string): Promise<string> {
