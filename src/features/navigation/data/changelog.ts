@@ -17,6 +17,7 @@ export const CHANGELOG: ChangelogRelease[] = [
     version: '0.7.18',
     date: '2026-06-12',
     items: [
+      { category: 'fix', ru: '«Продолжить писать» из архива снова работает — раньше всплывала «Ошибка при продолжении сессии», т.к. путь продолжения обрабатывал только документы лайфлога; теперь заметка из архива корректно открывается в редакторе', en: '"Continue writing" from the archive works again — it used to show "Error continuing session" because the continue path only handled LifeLog documents; an archived note now opens correctly in the editor' },
       { category: 'fix', ru: 'Убрана ошибка CSP в консоли при открытии заметки из архива и нажатии «Продолжить писать» — отключён JIT-путь zod (new Function), который блокировался политикой безопасности', en: 'Fixed the CSP console error when opening a note from the archive and clicking "Continue writing" — disabled zod’s JIT path (new Function), which was blocked by the security policy' },
     ],
   },

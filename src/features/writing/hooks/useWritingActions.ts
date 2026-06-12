@@ -95,11 +95,36 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       if (isLifeLogDocument(sessionOrDoc)) {
         await handleContinueDocument(sessionOrDoc);
       } else {
-        logger.error('writingActions', 'Cannot continue: item is not a LifeLogDocument', { sessionOrDoc });
-        showToast(t('error_continue_session'), 'error');
+        // Archive passes an ArchiveSession (a Session carrying document storage
+        // flags). Map it onto a LifeLogDocument and reuse the same continue path.
+        const s = sessionOrDoc as Session & {
+          _isLocal?: boolean;
+          _linkedCloudId?: string;
+          _hasCloudCopy?: boolean;
+          _totalWords?: number;
+          _totalDuration?: number;
+          _sessionsCount?: number;
+          _firstSessionAt?: number;
+        };
+        const isLocal = !!s._isLocal;
+        const doc: LifeLogDocument = {
+          localId: isLocal ? s.id : undefined,
+          cloudId: isLocal ? s._linkedCloudId : s.id,
+          title: s.title || '',
+          totalWords: s._totalWords ?? s.wordCount ?? 0,
+          totalDuration: s._totalDuration ?? s.duration ?? 0,
+          currentVersion: 0,
+          sessionsCount: s._sessionsCount ?? 0,
+          firstSessionAt: s._firstSessionAt ?? s.sessionStartTime ?? 0,
+          lastSessionAt: s.sessionStartTime ?? 0,
+          tags: s.tags || [],
+          labelId: s.labelId,
+          storage: { local: isLocal, cloud: !!(s._hasCloudCopy || s._linkedCloudId || !isLocal) },
+        };
+        await handleContinueDocument(doc);
       }
     } catch (err) {
-      logger.error('writingActions', 'LifeLog continue failed', { error: String(err) });
+      logger.error('writingActions', 'Continue failed', { error: String(err) });
       reportError(err, { action: 'writingActions/continueSessionOrDoc' });
       showToast(t('error_continue_session'), 'error');
     }
