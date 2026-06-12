@@ -14,6 +14,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.18',
+    date: '2026-06-12',
+    items: [
+      { category: 'fix', ru: 'Убрана ошибка CSP в консоли при открытии заметки из архива и нажатии «Продолжить писать» — отключён JIT-путь zod (new Function), который блокировался политикой безопасности', en: 'Fixed the CSP console error when opening a note from the archive and clicking "Continue writing" — disabled zod’s JIT path (new Function), which was blocked by the security policy' },
+    ],
+  },
+  {
     version: '0.7.17',
     date: '2026-06-10',
     items: [
