@@ -2,11 +2,17 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import {BrowserRouter} from 'react-router-dom';
 import * as Sentry from "@sentry/react";
+import { z } from 'zod';
 import { reportError } from './shared/errors/reportError';
 import App from './App.tsx';
 import './core/analytics/analytics';
 import { initWebVitals } from './core/analytics/webVitals';
 import './index.css';
+
+// Disable zod's JIT path: it probes `new Function("")`, which our CSP
+// (script-src without unsafe-eval) blocks and reports as a violation.
+// jitless keeps the interpreted parser and avoids the eval entirely.
+z.config({ jitless: true });
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
 if (sentryDsn && sentryDsn.startsWith('https://')) {
