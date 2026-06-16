@@ -94,6 +94,15 @@ export interface AIDocumentSummary {
   processedAt: number;
 }
 
+export interface AIDocumentEmbedding {
+  documentId: string;
+  vector: number[];
+  model: string;
+  dim: number;
+  contentHash: string;
+  processedAt: number;
+}
+
 export interface AIPersona {
   id: string;
   name: string;
@@ -127,6 +136,7 @@ interface JustWritingDB extends DBSchema {
     indexes: { 'by-document': string; 'by-updatedAt': number; };
   };
   aiSummaries: { key: string; value: AIDocumentSummary; };
+  aiEmbeddings: { key: string; value: AIDocumentEmbedding; };
   aiPersonas: { key: string; value: AIPersona; };
 }
 
@@ -156,7 +166,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   if (dbOpenPromise) return dbOpenPromise;
 
   const currentGeneration = dbGeneration;
-  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 5, {
+  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 6, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const docStore = db.createObjectStore('documents', { keyPath: 'id' });
@@ -184,6 +194,9 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
         dialogueStore.createIndex('by-updatedAt', 'updatedAt');
         db.createObjectStore('aiSummaries', { keyPath: 'documentId' });
         db.createObjectStore('aiPersonas', { keyPath: 'id' });
+      }
+      if (oldVersion < 6) {
+        db.createObjectStore('aiEmbeddings', { keyPath: 'documentId' });
       }
     },
     blocked() { console.warn('[localDb] Database upgrade blocked — close other tabs and reload.'); },
