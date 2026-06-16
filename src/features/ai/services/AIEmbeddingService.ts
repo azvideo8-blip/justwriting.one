@@ -73,17 +73,46 @@ export const AIEmbeddingService = {
 
     const uid = getAuth().currentUser?.uid;
     if (uid) {
-      await saveEmbeddingToCloud(uid, emb).catch(e => {
-        // ENCRYPT_REQUIRED = E2E locked (no session key). Expected for
-        // background indexing while locked — the embedding is saved locally and
-        // will sync on a later run when the key is available. Don't alarm.
+      try {
+        await saveEmbeddingToCloud(uid, emb);
+        await db.put('aiEmbeddings', { ...emb, cloudSyncedAt: Date.now() });
+      } catch (e) {
+        // ENCRYPT_REQUIRED = E2E locked (no session key). Expected for background
+        // indexing while locked — the embedding stays local (cloudSyncedAt unset)
+        // and a later syncPendingToCloud() pass uploads it. Don't alarm.
         const msg = e instanceof Error ? e.message : String(e);
-        // ENCRYPT_REQUIRED is expected when E2E is locked — stay silent.
         if (!msg.includes('ENCRYPT_REQUIRED')) {
           console.warn('[AIEmbeddingService] cloud save failed:', e);
         }
-      });
+      }
     }
+  },
+
+  /** Uploads local embeddings not yet in the cloud (e.g. saved while E2E was
+   *  locked). Makes NO AI calls — pure Firestore writes, so no quota/rate cost.
+   *  Stops early if E2E is locked; the rest retry on a later pass. */
+  async syncPendingToCloud(): Promise<{ synced: number; pending: number; locked: boolean }> {
+    const uid = getAuth().currentUser?.uid;
+    const db = await getLocalDb();
+    const all = await db.getAll('aiEmbeddings');
+    const pending = all.filter(e => !e.cloudSyncedAt);
+    if (!uid || pending.length === 0) return { synced: 0, pending: pending.length, locked: false };
+
+    let synced = 0;
+    for (const emb of pending) {
+      try {
+        await saveEmbeddingToCloud(uid, emb);
+        await db.put('aiEmbeddings', { ...emb, cloudSyncedAt: Date.now() });
+        synced++;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.includes('ENCRYPT_REQUIRED')) {
+          return { synced, pending: pending.length, locked: true };
+        }
+        console.warn('[AIEmbeddingService] cloud sync failed for', emb.documentId, e);
+      }
+    }
+    return { synced, pending: pending.length, locked: false };
   },
 
   async getAll(): Promise<AIDocumentEmbedding[]> {

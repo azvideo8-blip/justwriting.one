@@ -101,6 +101,9 @@ export interface AIDocumentEmbedding {
   dim: number;
   contentHash: string;
   processedAt: number;
+  /** Set when the embedding has been successfully written to the cloud. Absent
+   *  = local-only (e.g. saved while E2E was locked); a later sync pass uploads it. */
+  cloudSyncedAt?: number;
 }
 
 export interface AIPersona {
