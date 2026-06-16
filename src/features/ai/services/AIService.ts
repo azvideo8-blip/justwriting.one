@@ -108,4 +108,20 @@ export const AIService = {
       return { ok: false, error: errType };
     }
   },
+
+  async rerank(params: {
+    query: string;
+    candidates: { documentId: string; card: string }[];
+    maxResults?: number;
+  }): Promise<{ ok: true; documentIds: string[] } | { ok: false; error: string }> {
+    const functions = getFunctions();
+    const fn = httpsCallable<unknown, { documentIds: string[] }>(functions, 'rerankNotes');
+    try {
+      const { data } = await withTimeout(fn(params), 60_000);
+      return { ok: true, documentIds: data.documentIds };
+    } catch (e: unknown) {
+      reportError(e, { action: 'rerank' });
+      return { ok: false, error: mapAIError(e) };
+    }
+  },
 };

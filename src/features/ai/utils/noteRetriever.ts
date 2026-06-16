@@ -45,38 +45,18 @@ export async function searchNotes(query: string, maxResults = 5): Promise<Retrie
     }
   }
 
-  const cardsText = cards.map((c, i) => `[${i + 1}] docId=${c.documentId} score=${c.score.toFixed(3)}\n${c.card}`).join('\n\n');
-
-  // Rerank via the chat function. There is no dedicated persona for this, so we
-  // pass personaId 'custom' (the only one accepting a customSystemPrompt) — the
-  // backend z.enum rejects any other id. On failure we fall back to raw vector order.
-  const llmResult = await AIService.chat({
-    personaId: 'custom',
-    customSystemPrompt: 'Ты — модуль ранжирования заметок. По запросу пользователя и списку заметок-кандидатов выбери самые релевантные. Верни ТОЛЬКО JSON-массив documentId, без пояснений и markdown. Пример: ["id1","id2"].',
-    messages: [
-      { role: 'user', content: `Запрос пользователя: "${query}"\n\nКандидаты-заметки:\n${cardsText}\n\nВыбери до ${maxResults} самых релевантных заметок для этого запроса. Верни ТОЛЬКО массив documentId в JSON, без пояснений. Пример: ["id1","id2"]` },
-    ],
+  // Rerank via the dedicated rerankNotes endpoint — NOT the chat function, which
+  // is rate/daily-limited (every search would burn the user's chat quota and 429).
+  // On any failure, fall back to raw vector (cosine) order.
+  const fallbackIds = matches.slice(0, maxResults).map(m => m.id);
+  const rr = await AIService.rerank({
+    query,
+    candidates: cards.map(c => ({ documentId: c.documentId, card: c.card })),
+    maxResults,
   });
 
-  const fallbackIds = matches.slice(0, maxResults).map(m => m.id);
-  if (!llmResult.ok) {
-    return loadNotes(fallbackIds, matches);
-  }
-
-  let selectedIds: string[];
-  try {
-    let text = llmResult.text.trim();
-    if (text.startsWith('```')) {
-      text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
-    }
-    selectedIds = JSON.parse(text);
-    if (!Array.isArray(selectedIds)) selectedIds = [];
-  } catch {
-    return loadNotes(fallbackIds, matches);
-  }
-
-  const ids = selectedIds.slice(0, maxResults);
-  return loadNotes(ids.length > 0 ? ids : fallbackIds, matches);
+  const ids = rr.ok && rr.documentIds.length > 0 ? rr.documentIds.slice(0, maxResults) : fallbackIds;
+  return loadNotes(ids, matches);
 }
 
 /** Loads title + latest content for the given document ids, preserving order. */
