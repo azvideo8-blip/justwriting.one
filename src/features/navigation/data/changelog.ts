@@ -14,6 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.21',
+    date: '2026-06-16',
+    items: [
+      { category: 'improvement', ru: 'Поиск по заметкам стал точнее: теперь находит даже краткие упоминания (например, имени) внутри длинных заметок — каждая заметка разбивается на куски и ищется по самому подходящему', en: 'Note search is more accurate: it now finds even brief mentions (e.g. a name) inside long notes — each note is split into chunks and matched on its most relevant part' },
+      { category: 'fix', ru: 'Поиск в чате больше не выдумывает: отвечает только по реально найденным заметкам, а если ничего не нашёл — честно так и говорит (раньше мог сочинить несуществующие факты)', en: 'In-chat search no longer makes things up: it answers only from actually found notes and says so honestly when nothing is found (previously it could invent facts)' },
+      { category: 'fix', ru: 'Поиск в чате срабатывает на больше формулировок («где про … пишу», уточняющие вопросы), и ассистент больше не отвечает «у меня нет доступа к твоим заметкам»', en: 'In-chat search triggers on more phrasings ("where do I write about …", follow-up questions), and the assistant no longer replies "I have no access to your notes"' },
+      { category: 'fix', ru: 'В окне выбора заметки для разбора теперь видны все заметки, а не только последние — поиск по названию идёт по всему архиву', en: 'The note picker now shows all notes, not just the recent ones — title search covers the whole archive' },
+      { category: 'improvement', ru: 'Эмбеддинги, посчитанные при заблокированном шифровании, теперь дозагружаются в облако (фоном и кнопкой «В облако» в диагностике)', en: 'Embeddings computed while encryption was locked are now back-synced to the cloud (in the background and via the "To cloud" button in diagnostics)' },
+      { category: 'fix', ru: 'Массовая индексация заметок больше не упирается в дневной лимит ИИ и ошибки доступа; для админа дневной лимит ИИ поднят до 100', en: 'Bulk note indexing no longer hits the AI daily limit or permission errors; the admin AI daily limit is raised to 100' },
+    ],
+  },
+  {
     version: '0.7.20',
     date: '2026-06-16',
     items: [
