@@ -43,7 +43,12 @@ export async function indexDocument(documentId: string): Promise<IndexResult> {
   if (!content || content.trim().length === 0) return 'skip';
 
   const hash = await sha256Hex(content);
-  const existing = await AIEmbeddingService.get(documentId);
+  // Local-only freshness check: never hit the cloud in the indexing loop — a
+  // cloud read can throw (permissions before rules deploy, or LOCKED decrypt
+  // when E2E is locked) and would break the whole batch. findStaleDocuments
+  // already works off the local store.
+  const db = await getLocalDb();
+  const existing = await db.get('aiEmbeddings', documentId);
   if (existing && existing.contentHash === hash && existing.model === CURRENT_EMBED_MODEL && existing.dim === CURRENT_EMBED_DIM) {
     return 'skip';
   }
