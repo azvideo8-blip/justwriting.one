@@ -39,27 +39,34 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
         const guestId = getAuth().currentUser?.uid ?? getOrCreateGuestId();
         const allDocs = await LocalDocumentService.getGuestDocuments(guestId);
         const db = await getLocalDb();
-        const entries: DocEntry[] = [];
-        for (const doc of allDocs.slice(0, 20)) {
-          const versions = await db.getAllFromIndex('versions', 'by-document', doc.id);
-          const latest = versions.sort((a, b) => b.version - a.version)[0];
-          entries.push({
-            id: doc.id,
-            title: doc.title || t('common_untitled'),
-            lastSessionAt: doc.lastSessionAt,
-            preview: latest?.content?.slice(0, 100) ?? '',
-            mood: doc.mood,
-          });
+        // Build a latest-version-per-document map in one bulk read instead of an
+        // index query per doc — lets us list/search ALL notes (was capped at 20,
+        // so older notes were invisible to the picker's title search).
+        const allVersions = await db.getAll('versions');
+        const latestByDoc = new Map<string, { version: number; content: string }>();
+        for (const v of allVersions) {
+          const cur = latestByDoc.get(v.documentId);
+          if (!cur || v.version > cur.version) {
+            latestByDoc.set(v.documentId, { version: v.version, content: v.content });
+          }
         }
+        const entries: DocEntry[] = allDocs.map(doc => ({
+          id: doc.id,
+          title: doc.title || t('common_untitled'),
+          lastSessionAt: doc.lastSessionAt,
+          preview: latestByDoc.get(doc.id)?.content?.slice(0, 100) ?? '',
+          mood: doc.mood,
+        }));
         entries.sort((a, b) => b.lastSessionAt - a.lastSessionAt);
         setDocs(entries);
       } catch { /* ignore */ }
     })();
   }
 
-  const filtered = search
+  const filtered = (search
     ? docs.filter(d => d.title.toLowerCase().includes(search.toLowerCase()))
-    : docs;
+    : docs
+  ).slice(0, 100);
 
   return (
     <div className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center bg-black/50 backdrop-blur-sm">
