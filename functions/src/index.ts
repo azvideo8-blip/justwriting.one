@@ -17,6 +17,7 @@ export { editWithAI } from './ai/editWithAI';
 export { chatWithAI } from './ai/chatWithAI';
 export { summarizeDocument } from './ai/summarizeDocument';
 export { embedDocument } from './ai/embedDocument';
+export { rerankNotes } from './ai/rerankNotes';
 export { validateCustomPrompt } from './ai/validateCustomPrompt';
 export { getAIUsageStats } from './ai/getAIUsageStats';
 export { getAILimit } from './ai/getAILimit';
