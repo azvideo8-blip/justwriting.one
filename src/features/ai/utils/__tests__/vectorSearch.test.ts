@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cosineSimilarity, topK } from '../vectorSearch';
+import { cosineSimilarity, topK, topKMulti } from '../vectorSearch';
 
 describe('cosineSimilarity', () => {
   it('identical vectors → score ≈ 1', () => {
@@ -52,5 +52,26 @@ describe('topK', () => {
     for (let i = 1; i < result.length; i++) {
       expect(result[i - 1]!.score).toBeGreaterThanOrEqual(result[i]!.score);
     }
+  });
+});
+
+describe('topKMulti', () => {
+  it('scores an item by its best-matching chunk', () => {
+    const items = [
+      // mostly off-topic chunks, but one chunk matches the query strongly
+      { id: 'brief-mention', vectors: [[0, 1, 0], [0, 0, 1], [1, 0, 0]] },
+      // single chunk, moderate match
+      { id: 'moderate', vectors: [[0.7, 0.7, 0]] },
+    ];
+    const result = topKMulti([1, 0, 0], items, 2);
+    expect(result[0]!.id).toBe('brief-mention');
+    expect(result[0]!.score).toBeCloseTo(1, 10);
+    expect(result[1]!.id).toBe('moderate');
+  });
+
+  it('handles items with no vectors', () => {
+    const result = topKMulti([1, 0, 0], [{ id: 'empty', vectors: [] }], 5);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.score).toBe(0);
   });
 });

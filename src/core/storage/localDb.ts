@@ -96,14 +96,19 @@ export interface AIDocumentSummary {
 
 export interface AIDocumentEmbedding {
   documentId: string;
-  vector: number[];
+  /** One vector per chunk of the note (chunked schema, schemaV >= 2). */
+  vectors: number[][];
   model: string;
   dim: number;
   contentHash: string;
   processedAt: number;
+  /** Embedding pipeline version. Bump to force a full re-index (e.g. chunking). */
+  schemaV?: number;
   /** Set when the embedding has been successfully written to the cloud. Absent
    *  = local-only (e.g. saved while E2E was locked); a later sync pass uploads it. */
   cloudSyncedAt?: number;
+  /** Legacy single mean-pooled vector (schemaV 1, pre-chunking). Read-only fallback. */
+  vector?: number[];
 }
 
 export interface AIPersona {

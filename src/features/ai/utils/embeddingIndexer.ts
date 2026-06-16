@@ -4,8 +4,16 @@ import { AIService } from '../services/AIService';
 
 export const CURRENT_EMBED_MODEL = 'fireworks/qwen3-embedding-8b';
 export const CURRENT_EMBED_DIM = 1024;
+// Embedding pipeline version. v2 = per-chunk vectors (was v1: one mean-pooled
+// vector per note). Bumping forces a full re-index into the new format.
+export const CURRENT_EMBED_SCHEMA = 2;
 
 export type IndexResult = 'ok' | 'skip' | 'rate' | 'daily' | 'error';
+
+/** True when a stored embedding matches the current model/dim/schema. */
+function isFresh(emb: { model: string; dim: number; schemaV?: number } | undefined): boolean {
+  return !!emb && emb.model === CURRENT_EMBED_MODEL && emb.dim === CURRENT_EMBED_DIM && emb.schemaV === CURRENT_EMBED_SCHEMA;
+}
 
 export async function sha256Hex(text: string): Promise<string> {
   const encoded = new TextEncoder().encode(text);
@@ -30,8 +38,7 @@ export async function findStaleDocuments(): Promise<string[]> {
 
   const stale: string[] = [];
   for (const doc of documents) {
-    const emb = embMap.get(doc.id);
-    if (!emb || emb.model !== CURRENT_EMBED_MODEL || emb.dim !== CURRENT_EMBED_DIM) {
+    if (!isFresh(embMap.get(doc.id))) {
       stale.push(doc.id);
     }
   }
@@ -49,7 +56,7 @@ export async function indexDocument(documentId: string): Promise<IndexResult> {
   // already works off the local store.
   const db = await getLocalDb();
   const existing = await db.get('aiEmbeddings', documentId);
-  if (existing && existing.contentHash === hash && existing.model === CURRENT_EMBED_MODEL && existing.dim === CURRENT_EMBED_DIM) {
+  if (existing && existing.contentHash === hash && isFresh(existing)) {
     return 'skip';
   }
 
@@ -62,11 +69,12 @@ export async function indexDocument(documentId: string): Promise<IndexResult> {
 
   await AIEmbeddingService.save({
     documentId,
-    vector: result.vector,
+    vectors: result.vectors,
     model: result.model,
     dim: result.dim,
     contentHash: hash,
     processedAt: Date.now(),
+    schemaV: CURRENT_EMBED_SCHEMA,
   });
   return 'ok';
 }
@@ -87,7 +95,7 @@ export async function getIndexCoverage(): Promise<IndexCoverage> {
   const db = await getLocalDb();
   const documents = await db.getAll('documents');
   const embeddings = await AIEmbeddingService.getAll();
-  const current = embeddings.filter(e => e.model === CURRENT_EMBED_MODEL && e.dim === CURRENT_EMBED_DIM);
+  const current = embeddings.filter(isFresh);
   const lastProcessedAt = current.length > 0 ? Math.max(...current.map(e => e.processedAt)) : null;
   const stale = await findStaleDocuments();
   const unsynced = embeddings.filter(e => !e.cloudSyncedAt).length;

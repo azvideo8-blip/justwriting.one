@@ -2,7 +2,7 @@ import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { AIService } from '../services/AIService';
 import { AISummaryService } from '../services/AISummaryService';
 import { getLocalDb } from '../../../core/storage/localDb';
-import { topK } from '../utils/vectorSearch';
+import { topKMulti } from '../utils/vectorSearch';
 
 export interface RetrievedNote {
   documentId: string;
@@ -17,13 +17,19 @@ export async function searchNotes(query: string, maxResults = 5): Promise<Retrie
     console.warn('[searchNotes] embed failed:', embedResult.error);
     return [];
   }
+  const queryVec = embedResult.vectors[0];
+  if (!queryVec) return [];
 
   const allEmbeddings = await AIEmbeddingService.getAll();
   if (allEmbeddings.length === 0) return [];
 
-  const matches = topK(
-    embedResult.vector,
-    allEmbeddings.map(e => ({ id: e.documentId, vector: e.vector })),
+  const matches = topKMulti(
+    queryVec,
+    // Each note has per-chunk vectors; fall back to the legacy single vector.
+    allEmbeddings.map(e => ({
+      id: e.documentId,
+      vectors: e.vectors?.length ? e.vectors : (e.vector ? [e.vector] : []),
+    })),
     40,
   );
 

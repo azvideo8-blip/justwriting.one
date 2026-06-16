@@ -7,38 +7,27 @@ const inputSchema = z.object({
   content: z.string().min(1).max(50_000),
 });
 
-function meanPool(vectors: number[][]): number[] {
-  if (vectors.length === 0) return [];
-  const dim = vectors[0].length;
-  const result = new Array(dim).fill(0);
-  for (const vec of vectors) {
-    for (let i = 0; i < dim; i++) {
-      result[i] += vec[i];
-    }
-  }
-  for (let i = 0; i < dim; i++) {
-    result[i] /= vectors.length;
-  }
-  return result;
-}
-
-const CHUNK_CHAR_LIMIT = 6000;
+// Small overlapping chunks so a brief mention inside a long note still produces
+// a strongly-matching vector (one mean-pooled vector per note diluted those).
+const CHUNK_CHAR_LIMIT = 1_000;
+const CHUNK_OVERLAP = 150;
+const MAX_CHUNKS = 40;
 
 function chunkText(text: string): string[] {
   if (text.length <= CHUNK_CHAR_LIMIT) return [text];
   const chunks: string[] = [];
   let start = 0;
-  while (start < text.length) {
+  while (start < text.length && chunks.length < MAX_CHUNKS) {
     let end = Math.min(start + CHUNK_CHAR_LIMIT, text.length);
     if (end < text.length) {
       const lastSpace = text.lastIndexOf(' ', end);
-      if (lastSpace > start) end = lastSpace;
+      if (lastSpace > start + CHUNK_CHAR_LIMIT / 2) end = lastSpace;
     }
-    chunks.push(text.slice(start, end));
-    start = end;
-    while (start < text.length && text[start] === ' ') start++;
+    chunks.push(text.slice(start, end).trim());
+    if (end >= text.length) break;
+    start = Math.max(end - CHUNK_OVERLAP, start + 1);
   }
-  return chunks;
+  return chunks.filter(c => c.length > 0);
 }
 
 export const embedDocument = onCall({
@@ -72,18 +61,13 @@ export const embedDocument = onCall({
     const chunks = chunkText(sanitized);
     const result = await embed(chunks);
 
-    let vector: number[];
-    if (result.vectors.length === 1) {
-      vector = result.vectors[0];
-    } else {
-      vector = meanPool(result.vectors);
-    }
-
     recordUsage(uid, result.tokens, 0, { model: result.model, fn: 'embed' }).catch(e =>
       console.error('[AI embed] usage record failed:', e),
     );
 
-    return { vector, model: result.model, dim: result.dim };
+    // Return one vector per chunk (no mean-pool). The client stores them all and
+    // scores a note by its best-matching chunk.
+    return { vectors: result.vectors, model: result.model, dim: result.dim };
   } catch (e) {
     console.error('[AI embed] generation failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
