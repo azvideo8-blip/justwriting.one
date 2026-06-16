@@ -51,10 +51,17 @@ export const AIEmbeddingService = {
 
     const uid = getAuth().currentUser?.uid;
     if (uid) {
-      const cloud = await fetchEmbeddingFromCloud(uid, documentId);
-      if (cloud) {
-        await db.put('aiEmbeddings', cloud);
-        return cloud;
+      // Cloud is best-effort: a read can throw on permissions, offline, or a
+      // LOCKED decrypt (E2E session key absent). Never let that break callers —
+      // fall back to "not found" and rely on the local store / re-indexing.
+      try {
+        const cloud = await fetchEmbeddingFromCloud(uid, documentId);
+        if (cloud) {
+          await db.put('aiEmbeddings', cloud);
+          return cloud;
+        }
+      } catch (e) {
+        console.warn('[AIEmbeddingService] cloud read skipped:', e);
       }
     }
     return undefined;
@@ -67,7 +74,14 @@ export const AIEmbeddingService = {
     const uid = getAuth().currentUser?.uid;
     if (uid) {
       await saveEmbeddingToCloud(uid, emb).catch(e => {
-        console.error('[AIEmbeddingService] cloud save failed:', e);
+        // ENCRYPT_REQUIRED = E2E locked (no session key). Expected for
+        // background indexing while locked — the embedding is saved locally and
+        // will sync on a later run when the key is available. Don't alarm.
+        const msg = e instanceof Error ? e.message : String(e);
+        // ENCRYPT_REQUIRED is expected when E2E is locked — stay silent.
+        if (!msg.includes('ENCRYPT_REQUIRED')) {
+          console.warn('[AIEmbeddingService] cloud save failed:', e);
+        }
       });
     }
   },
