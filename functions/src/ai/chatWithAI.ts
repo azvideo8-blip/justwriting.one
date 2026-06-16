@@ -2,7 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
 import { generate, getActiveModel } from '../shared/aiProvider';
-import { PERSONA_PROMPTS, TOPIC_GUARD, PRESET_PERSONA_IDS, type PersonaId } from '../shared/prompts';
+import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD, PRESET_PERSONA_IDS, type PersonaId } from '../shared/prompts';
 
 const inputSchema = z.object({
   personaId: z.enum(['group_psychology', 'cbt', 'coach', 'editor', 'journalist', 'custom']),
@@ -61,8 +61,8 @@ export const chatWithAI = onCall({
 
   const personaPrompt = personaId !== 'custom' ? PERSONA_PROMPTS[personaId as PersonaId] : '';
   let systemInstruction = personaId === 'custom'
-    ? `${TOPIC_GUARD}\n\n${customSystemPrompt!}`
-    : `${personaPrompt}\n\n${TOPIC_GUARD}`;
+    ? `${TOPIC_GUARD}\n\n${customSystemPrompt!}\n\n${NOTES_GUARD}`
+    : `${personaPrompt}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}`;
 
   if (userPortrait) {
     systemInstruction = `${systemInstruction}\n\n---\n[Портрет пользователя (личность, темы, контекст)]\n${userPortrait}`;
