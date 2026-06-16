@@ -74,7 +74,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   const [portraitGenerating, setPortraitGenerating] = useState(false);
   const [summaryLogs, setSummaryLogs] = useState<{ id: string; title: string; processedAt: number; tone: string }[]>([]);
 
-  const [stats, setStats] = useState({ localDocs: 0, cloudDocs: 0, aiProcessed: 0, dialogues: 0, summaries: 0, customPersonas: 0 });
+  const [stats, setStats] = useState({ localDocs: 0, cloudDocs: 0, aiProcessed: 0, dialogues: 0, summaries: 0, embeddings: 0, customPersonas: 0 });
   const [statsLoaded, setStatsLoaded] = useState(false);
 
   const [diagnosticsKey, setDiagnosticsKey] = useState(0);
@@ -193,6 +193,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       const db = await getLocalDb();
       const dialogues = await db.getAll('aiDialogues');
       const summaries = await db.getAll('aiSummaries');
+      const embeddings = await db.getAll('aiEmbeddings');
       const personas = await db.getAll('aiPersonas');
       setStats({
         localDocs: localDocs.length,
@@ -200,6 +201,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
         aiProcessed: localDocs.filter(d => d.aiProcessed).length,
         dialogues: dialogues.length,
         summaries: summaries.length,
+        embeddings: embeddings.length,
         customPersonas: personas.length,
       });
       setStatsLoaded(true);
