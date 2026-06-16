@@ -24,7 +24,7 @@ export async function searchNotes(query: string, maxResults = 5): Promise<Retrie
   const matches = topK(
     embedResult.vector,
     allEmbeddings.map(e => ({ id: e.documentId, vector: e.vector })),
-    15,
+    40,
   );
 
   const cards: { documentId: string; score: number; card: string }[] = [];
