@@ -14,6 +14,22 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.20',
+    date: '2026-06-16',
+    items: [
+      { category: 'fix', ru: 'После обновления приложение всегда подгружает свежую версию — раньше service worker мог отдать старый кэш, и интерфейс «терял» заметки до ручной очистки кэша (заметки при этом были целы). Загрузка страницы теперь идёт network-first, кэш — только офлайн-резерв', en: 'After an update the app always loads the fresh version — previously the service worker could serve a stale cache and the UI appeared to "lose" notes until the cache was cleared manually (the notes were always safe). Page loads are now network-first, with cache only as an offline fallback' },
+    ],
+  },
+  {
+    version: '0.7.19',
+    date: '2026-06-16',
+    items: [
+      { category: 'new', ru: 'Семантический поиск по заметкам: спроси в ИИ-чате «что я писал про…» или «какие заметки годятся в пост» — он находит подходящие по смыслу заметки, не загружая весь архив (быстрее и дешевле по токенам). Работает на русском', en: 'Semantic note search: ask the AI chat "what did I write about…" or "which notes could become a post" — it finds the relevant notes by meaning without loading your whole archive (faster and cheaper on tokens). Works in Russian' },
+      { category: 'new', ru: 'Заметки индексируются в фоне (когда устройство простаивает) — поиск готов к работе без ожидания', en: 'Notes are indexed in the background (while the device is idle) — search is ready without waiting' },
+      { category: 'new', ru: 'Админ-панель (Диагностика → «База данных»): статус индексации — покрытие, сколько проиндексировано/ожидает, кнопка «Индексировать сейчас» с прогрессом и тестовый поиск по заметкам', en: 'Admin panel (Diagnostics → "Database"): indexing status — coverage, indexed/pending counts, an "Index now" button with progress, and a test note search' },
+    ],
+  },
+  {
     version: '0.7.18',
     date: '2026-06-12',
     items: [
