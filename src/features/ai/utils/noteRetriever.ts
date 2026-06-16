@@ -1,6 +1,5 @@
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { AIService } from '../services/AIService';
-import { AISummaryService } from '../services/AISummaryService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { topKMulti } from '../utils/vectorSearch';
 
@@ -33,22 +32,22 @@ export async function searchNotes(query: string, maxResults = 5): Promise<Retrie
     40,
   );
 
+  // Build rerank cards from LOCAL summaries only. Never cloud-fetch here: a cloud
+  // read can throw (LOCKED decrypt when E2E is locked, permissions) and would
+  // break the whole search → the chat would silently fall back to a no-context
+  // answer ("I have no access to your notes"). A missing summary is just a
+  // placeholder; the reranker still has the note id + vector score.
+  const cardsDb = await getLocalDb();
   const cards: { documentId: string; score: number; card: string }[] = [];
   for (const m of matches) {
-    const summary = await AISummaryService.get(m.id);
-    if (summary) {
-      cards.push({
-        documentId: m.id,
-        score: m.score,
-        card: `Тональность: ${summary.tone}\nТемы: ${summary.themes.join(', ')}\nИнсайты: ${summary.insights.join('; ')}\nФакты: ${summary.extractedFacts.join('; ')}`,
-      });
-    } else {
-      cards.push({
-        documentId: m.id,
-        score: m.score,
-        card: '(саммари недоступно)',
-      });
-    }
+    let card = '(саммари недоступно)';
+    try {
+      const summary = await cardsDb.get('aiSummaries', m.id);
+      if (summary) {
+        card = `Тональность: ${summary.tone}\nТемы: ${summary.themes.join(', ')}\nИнсайты: ${summary.insights.join('; ')}\nФакты: ${summary.extractedFacts.join('; ')}`;
+      }
+    } catch { /* keep placeholder */ }
+    cards.push({ documentId: m.id, score: m.score, card });
   }
 
   // Rerank via the dedicated rerankNotes endpoint — NOT the chat function, which
