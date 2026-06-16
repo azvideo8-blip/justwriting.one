@@ -1,5 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { getDailyLimitCount, DAILY_LIMIT } from '../shared/aiUtils';
+import { getDailyLimitCount, getUserDailyLimit } from '../shared/aiUtils';
 
 export const getAILimit = onCall({
   enforceAppCheck: false,
@@ -9,11 +9,14 @@ export const getAILimit = onCall({
   }
 
   const uid = request.auth.uid;
-  const { used, date } = await getDailyLimitCount(uid);
+  const [{ used, date }, limit] = await Promise.all([
+    getDailyLimitCount(uid),
+    getUserDailyLimit(uid),
+  ]);
 
   return {
     used,
-    limit: DAILY_LIMIT,
+    limit,
     date,
   };
 });
