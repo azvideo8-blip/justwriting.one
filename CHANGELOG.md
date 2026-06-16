@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- **[RU]** Поиск в чате больше не проваливается молча в ответ «у меня нет доступа к заметкам». Сборка карточек для рерэнка читала саммари из облака, и при заблокированном E2E `maybeDecrypt` бросал `LOCKED` → весь `searchNotes` падал, контекст не подмешивался, и персона отвечала как без поиска. Теперь карточки читаются только из локальной базы с `try/catch` (нет саммари — плейсхолдер), а если поиск всё же падает — в контекст идёт guard «поиск не сработал, не выдумывай», а не пустота.
+- **[EN]** In-chat search no longer silently falls back to "I have no access to your notes". Rerank-card building read summaries from the cloud, and with E2E locked `maybeDecrypt` threw `LOCKED` → all of `searchNotes` failed, no context was injected, and the persona answered as if no search ran. Cards are now read local-only with `try/catch` (missing summary → placeholder), and if search still fails a "search failed, don't fabricate" guard is injected instead of nothing.
 
 ## 2026-06-16 (v0.7.21)
 - **[RU]** Качество ответов поиска в чате. Запрос-поиск определяется регексом, а не фиксированным списком фраз — ловит «где про X пишу», уточняющие follow-up'ы и т.п. (не срабатывает на «напиши …»). Контекст подаётся как «результаты автопоиска по архиву», а не одна прикреплённая заметка — персона больше не отвечает «у меня нет доступа к заметкам». Добавлен запрет на выдумывание: модель опирается ИСКЛЮЧИТЕЛЬНО на найденные заметки, а при пустом поиске честно говорит «не нашёл» (фикс галлюцинаций, когда выдумывались несуществующие факты).

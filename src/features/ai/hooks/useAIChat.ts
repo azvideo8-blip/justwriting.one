@@ -285,6 +285,12 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
           }
         } catch (e) {
           console.warn('[useAIChat] note search failed:', e);
+          // Search itself errored — still guard against fabrication / false
+          // "no access" replies rather than silently answering with no context.
+          searchContext =
+            `Поиск по архиву заметок пользователя по запросу "${text}" временно не сработал (техническая ошибка). ` +
+            `Скажи пользователю, что не удалось выполнить поиск по заметкам, и предложи повторить. ` +
+            `Не выдумывай содержание его заметок.`;
         }
       }
 
