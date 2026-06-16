@@ -14,6 +14,7 @@ const LOCAL_TABLES = [
   { name: 'documents', label: 'documents (Заметки)' },
   { name: 'versions', label: 'versions (Версии)' },
   { name: 'aiSummaries', label: 'aiSummaries (AI Саммари)' },
+  { name: 'aiEmbeddings', label: 'aiEmbeddings (AI Эмбеддинги)' },
   { name: 'aiDialogues', label: 'aiDialogues (AI Диалоги)' },
   { name: 'aiPersonas', label: 'aiPersonas (AI Персоны)' },
   { name: 'syncQueue', label: 'syncQueue (Очередь выгрузки)' },
@@ -103,6 +104,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
         const db = await getLocalDb();
         let key: string | number = record.id as string;
         if (selectedTable === 'aiSummaries') key = record.documentId as string;
+        if (selectedTable === 'aiEmbeddings') key = record.documentId as string;
         if (selectedTable === 'profile') key = record.guestId as string;
         if (selectedTable === 'drafts') key = record.userId as string;
         if (selectedTable === 'pending_sessions') key = record.id as number;
@@ -165,6 +167,10 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
     }
     if (selectedTable === 'aiSummaries') {
       return `Саммари: ${documentId.slice(0, 8) || 'без ID'} (${tone || 'без тона'})`;
+    }
+    if (selectedTable === 'aiEmbeddings') {
+      const dim = typeof r.dim === 'number' ? `${r.dim}d` : '';
+      return `Эмбеддинг: ${documentId.slice(0, 8) || 'без ID'}${dim ? ` (${dim})` : ''}`;
     }
     if (selectedTable === 'aiDialogues') {
       return title || `Диалог: ${personaName || 'без имени'}`;

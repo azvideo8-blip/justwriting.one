@@ -13,6 +13,7 @@ import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
 import { useDiagnosticsData, type Tab } from '../hooks/useDiagnosticsData';
 import { DatabaseExplorer } from '../components/DatabaseExplorer';
+import { EmbeddingDiagnostics } from '../components/EmbeddingDiagnostics';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 
@@ -197,7 +198,10 @@ export function DiagnosticsPage() {
 
         {/* Tab 2: Database Explorer */}
         {activeTab === 'db' && (
-          <DatabaseExplorer userId={profile.uid} />
+          <div>
+            <EmbeddingDiagnostics />
+            <DatabaseExplorer userId={profile.uid} />
+          </div>
         )}
 
         {/* Tab 3: Users */}
@@ -643,11 +647,12 @@ export function DiagnosticsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
                   { label: 'Версия приложения', value: APP_VERSION },
-                  { label: 'Локальная база (IndexedDB) версия', value: '5' },
+                  { label: 'Локальная база (IndexedDB) версия', value: '6' },
                   { label: 'Локальных документов на устройстве', value: stats.localDocs },
                   { label: 'Документов в облаке (Firestore)', value: stats.cloudDocs },
                   { label: 'Только на этом устройстве (local only)', value: stats.localDocs - stats.cloudDocs },
                   { label: 'Саммари ИИ сохранено', value: stats.summaries },
+                  { label: 'Эмбеддингов сохранено', value: stats.embeddings },
                   { label: 'Диалогов ИИ записано', value: stats.dialogues },
                   { label: 'Кастомных персон создано', value: stats.customPersonas },
                   { label: 'Лимит ИИ за сутки', value: `${dailyLimit.used} / ${dailyLimit.limit} запросов` }
