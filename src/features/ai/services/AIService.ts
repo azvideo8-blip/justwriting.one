@@ -90,4 +90,22 @@ export const AIService = {
       return { ok: false, error: errType };
     }
   },
+
+  async embed(params: {
+    content: string;
+  }): Promise<{ ok: true; vector: number[]; model: string; dim: number } | { ok: false; error: string }> {
+    const functions = getFunctions();
+    const fn = httpsCallable<unknown, { vector: number[]; model: string; dim: number }>(functions, 'embedDocument');
+    try {
+      const { data } = await withTimeout(fn(params), 60_000);
+      try { analytics.track('ai_embed'); } catch { /* non-critical */ }
+      return { ok: true, vector: data.vector, model: data.model, dim: data.dim };
+    } catch (e: unknown) {
+      reportError(e, { action: 'embed' });
+      const errType = mapAIError(e);
+      if (errType === 'DAILY_LIMIT') return { ok: false, error: 'DAILY_LIMIT' };
+      if (errType === 'RATE_LIMIT') return { ok: false, error: 'RATE_LIMIT' };
+      return { ok: false, error: errType };
+    }
+  },
 };

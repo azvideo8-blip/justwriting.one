@@ -11,10 +11,23 @@ import type { AIMessage } from '../services/AIService';
 import { AIService } from '../services/AIService';
 import { AIProfileService } from '../services/AIProfileService';
 import { AISummaryService } from '../services/AISummaryService';
+import { searchNotes } from '../utils/noteRetriever';
 
 let _streamAvailable: boolean | null = null;
 const MAX_ATTACHMENT_CHARS = 9_500;
 const CONTEXT_WINDOW = 14;
+
+const NOTE_SEARCH_TRIGGERS = [
+  'что я писал', 'что я думал', 'найди заметк', 'найди запис', 'поиск по заметк',
+  'что годится в пост', 'где я писал', 'что я писа', 'напомни что', 'о чём я писал',
+  'о чем я писал', 'что я говорил', 'ищу заметк', 'найди мне', 'найди среди',
+  'что есть про', 'что у меня про', 'что я писал про',
+];
+
+function looksLikeNoteSearch(text: string): boolean {
+  const lower = text.toLowerCase();
+  return NOTE_SEARCH_TRIGGERS.some(t => lower.includes(t));
+}
 
 function pruneMessages(messages: AIMessage[]): AIMessage[] {
   const chatOnly = messages.filter(m => m.type !== 'system');
@@ -229,16 +242,34 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
 
       const userPortrait = await AIProfileService.getPortrait();
 
+      let searchContext = '';
+      if (looksLikeNoteSearch(text)) {
+        try {
+          const notes = await searchNotes(text, 5);
+          if (notes.length > 0) {
+            const contextParts = notes.map(n => {
+              const snippet = n.content.length > MAX_ATTACHMENT_CHARS
+                ? n.content.slice(0, MAX_ATTACHMENT_CHARS) + '…'
+                : n.content;
+              return `[Заметка: "${n.title}" (релевантность ${n.score.toFixed(2)})]\n${snippet}`;
+            });
+            searchContext = '\n\n[Контекст из заметок пользователя]:\n' + contextParts.join('\n\n');
+          }
+        } catch (e) {
+          console.warn('[useAIChat] note search failed:', e);
+        }
+      }
+
       let fullText: string;
 
       if (_streamAvailable === false) {
-        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, userPortrait });
+        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages.map(m => ({ ...m, content: m.role === 'user' ? m.content + searchContext : m.content })), userPortrait });
       } else {
         try {
           fullText = await streamChat({
             personaId: effectivePersonaId,
             customSystemPrompt,
-            messages: apiMessages,
+            messages: apiMessages.map(m => ({ ...m, content: m.role === 'user' ? m.content + searchContext : m.content })),
             userPortrait,
             onChunk: (partial) => setStreamingMessage(partial),
           });
@@ -246,7 +277,7 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
           console.warn('Streaming chat failed, falling back to callable chat:', e);
           const errMsg = e instanceof Error ? e.message : '';
           if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED') {
-            fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, userPortrait });
+            fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages.map(m => ({ ...m, content: m.role === 'user' ? m.content + searchContext : m.content })), userPortrait });
           } else {
             throw e;
           }

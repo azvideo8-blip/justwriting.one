@@ -14,6 +14,7 @@ import { ReactNode } from 'react';
 import { PrivacyModal, usePrivacyCheck } from '../features/auth/components/PrivacyModal';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { getOrCreateGuestId } from '../core/storage/localDb';
+import { useEmbeddingIndexer } from '../features/ai/hooks/useEmbeddingIndexer';
 
 // Resolves the auth-aware userId here so core's SettingsProvider stays free of
 // feature imports (core must not import from features/).
@@ -30,6 +31,7 @@ function AuthAwareSettingsProvider({ children }: { children: ReactNode }) {
 function PrivacyGuard({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuthStatus();
   const { showPrivacy, setShowPrivacy } = usePrivacyCheck();
+  useEmbeddingIndexer();
 
   return (
     <>
