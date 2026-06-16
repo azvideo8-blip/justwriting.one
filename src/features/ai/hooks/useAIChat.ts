@@ -253,13 +253,20 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
           const notes = await searchNotes(text, 5);
           if (notes.length > 0) {
             const PER_NOTE_CHARS = 6_000;
-            const parts = notes.map(n => {
+            const parts = notes.map((n, i) => {
               const snippet = n.content.length > PER_NOTE_CHARS
                 ? n.content.slice(0, PER_NOTE_CHARS) + '…'
                 : n.content;
-              return `[Заметка: "${n.title}" (релевантность ${n.score.toFixed(2)})]\n${snippet}`;
+              return `Заметка ${i + 1}: "${n.title}"\n${snippet}`;
             });
-            searchContext = ('Релевантные заметки пользователя по его запросу:\n\n' + parts.join('\n\n')).slice(0, 45_000);
+            searchContext = (
+              `Это результаты автоматического семантического поиска по личному архиву заметок пользователя по запросу: "${text}". ` +
+              `Система нашла эти заметки в его архиве и предоставила их тебе — это собственные тексты пользователя, у тебя есть к ним доступ. ` +
+              `Не отвечай, что у тебя нет доступа к заметкам и что ты видишь только прикреплённое. ` +
+              `Опираясь на эти заметки, ответь на вопрос пользователя — что он обычно пишет на эту тему, какие темы, детали и чувства повторяются. ` +
+              `Найдено заметок: ${notes.length}.\n\n` +
+              parts.join('\n\n')
+            ).slice(0, 45_000);
           }
         } catch (e) {
           console.warn('[useAIChat] note search failed:', e);
