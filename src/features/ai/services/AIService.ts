@@ -93,13 +93,13 @@ export const AIService = {
 
   async embed(params: {
     content: string;
-  }): Promise<{ ok: true; vector: number[]; model: string; dim: number } | { ok: false; error: string }> {
+  }): Promise<{ ok: true; vectors: number[][]; model: string; dim: number } | { ok: false; error: string }> {
     const functions = getFunctions();
-    const fn = httpsCallable<unknown, { vector: number[]; model: string; dim: number }>(functions, 'embedDocument');
+    const fn = httpsCallable<unknown, { vectors: number[][]; model: string; dim: number }>(functions, 'embedDocument');
     try {
       const { data } = await withTimeout(fn(params), 60_000);
       try { analytics.track('ai_embed'); } catch { /* non-critical */ }
-      return { ok: true, vector: data.vector, model: data.model, dim: data.dim };
+      return { ok: true, vectors: data.vectors, model: data.model, dim: data.dim };
     } catch (e: unknown) {
       reportError(e, { action: 'embed' });
       const errType = mapAIError(e);

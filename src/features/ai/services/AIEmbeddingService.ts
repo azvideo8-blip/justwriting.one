@@ -4,22 +4,44 @@ import { getAuth } from 'firebase/auth';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 
-const STRING_FIELDS = ['vectorJson', 'model', 'contentHash'] as const;
+// Encrypt fields on save: only the chunked vectorsJson. Decrypt accepts the
+// legacy single-vector vectorJson too, so old cloud docs still read.
+const ENCRYPT_FIELDS = ['vectorsJson', 'model', 'contentHash'];
+const DECRYPT_FIELDS = ['vectorsJson', 'vectorJson', 'model', 'contentHash'];
 const ARRAY_FIELDS: string[] = [];
-const STRING_FIELDS_LIST: string[] = [...STRING_FIELDS];
 
 async function saveEmbeddingToCloud(userId: string, emb: AIDocumentEmbedding): Promise<void> {
   const payload = {
     documentId: emb.documentId,
-    vectorJson: JSON.stringify(emb.vector),
+    vectorsJson: JSON.stringify(emb.vectors),
     model: emb.model,
     dim: emb.dim,
     contentHash: emb.contentHash,
     processedAt: emb.processedAt,
+    schemaV: emb.schemaV ?? null,
   };
-  const encrypted = await maybeEncrypt(payload, STRING_FIELDS_LIST, ARRAY_FIELDS, true);
+  const encrypted = await maybeEncrypt(payload, ENCRYPT_FIELDS, ARRAY_FIELDS, true);
   const { db, mod } = await getClient();
   await mod.setDoc(mod.doc(db, 'users', userId, 'embeddings', emb.documentId), encrypted, { merge: true });
+}
+
+function parseVectors(decrypted: Record<string, unknown>): number[][] {
+  // New chunked format.
+  if (typeof decrypted.vectorsJson === 'string') {
+    try {
+      const v = JSON.parse(decrypted.vectorsJson);
+      if (Array.isArray(v) && Array.isArray(v[0])) return v as number[][];
+      if (Array.isArray(v)) return [v as number[]];
+    } catch { /* fall through */ }
+  }
+  // Legacy single-vector format.
+  if (typeof decrypted.vectorJson === 'string') {
+    try {
+      const v = JSON.parse(decrypted.vectorJson);
+      if (Array.isArray(v)) return [v as number[]];
+    } catch { /* fall through */ }
+  }
+  return [];
 }
 
 async function fetchEmbeddingFromCloud(userId: string, documentId: string): Promise<AIDocumentEmbedding | undefined> {
@@ -27,20 +49,16 @@ async function fetchEmbeddingFromCloud(userId: string, documentId: string): Prom
   const snap = await mod.getDoc(mod.doc(db, 'users', userId, 'embeddings', documentId));
   if (!snap.exists()) return undefined;
   const data = snap.data() as Record<string, unknown>;
-  const decrypted = await maybeDecrypt(data, STRING_FIELDS_LIST, ARRAY_FIELDS);
+  const decrypted = await maybeDecrypt(data, DECRYPT_FIELDS, ARRAY_FIELDS);
   const docId = typeof decrypted.documentId === 'string' ? decrypted.documentId : documentId;
-  const vectorJson = typeof decrypted.vectorJson === 'string' ? decrypted.vectorJson : '[]';
-  let vector: number[];
-  try {
-    vector = JSON.parse(vectorJson);
-  } catch {
-    vector = [];
-  }
+  const vectors = parseVectors(decrypted);
   const model = typeof decrypted.model === 'string' ? decrypted.model : '';
-  const dim = typeof decrypted.dim === 'number' ? decrypted.dim : vector.length;
+  const dim = typeof decrypted.dim === 'number' ? decrypted.dim : (vectors[0]?.length ?? 0);
   const contentHash = typeof decrypted.contentHash === 'string' ? decrypted.contentHash : '';
   const processedAt = typeof decrypted.processedAt === 'number' ? decrypted.processedAt : Date.now();
-  return { documentId: docId, vector, model, dim, contentHash, processedAt };
+  const base: AIDocumentEmbedding = { documentId: docId, vectors, model, dim, contentHash, processedAt };
+  if (typeof decrypted.schemaV === 'number') base.schemaV = decrypted.schemaV;
+  return base;
 }
 
 export const AIEmbeddingService = {

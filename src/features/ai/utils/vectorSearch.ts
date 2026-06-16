@@ -26,3 +26,25 @@ export function topK(
   scored.sort((a, b) => b.score - a.score);
   return scored.slice(0, k);
 }
+
+/**
+ * Multi-vector ranking: each item has several chunk vectors; its score is the
+ * best (max) cosine over its chunks, so a brief on-topic chunk in an otherwise
+ * unrelated note still ranks the note highly.
+ */
+export function topKMulti(
+  query: number[],
+  items: { id: string; vectors: number[][] }[],
+  k: number,
+): { id: string; score: number }[] {
+  const scored = items.map(item => {
+    let best = 0;
+    for (const v of item.vectors) {
+      const s = cosineSimilarity(query, v);
+      if (s > best) best = s;
+    }
+    return { id: item.id, score: best };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, k);
+}
