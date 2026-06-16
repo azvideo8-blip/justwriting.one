@@ -170,6 +170,21 @@ const DAILY_LIMIT = (() => {
   return Number.isNaN(n) ? 5 : n;
 })();
 
+// Admins (role 'admin') get a higher personal cap. Mirror of
+// functions/src/shared/aiUtils.ts getUserDailyLimit.
+const ADMIN_DAILY_LIMIT = (() => {
+  const n = parseInt(process.env.AI_ADMIN_DAILY_LIMIT ?? '100', 10);
+  return Number.isNaN(n) ? 100 : n;
+})();
+
+async function userDailyLimit(uid: string): Promise<number> {
+  try {
+    const snap = await db().doc(`users/${uid}`).get();
+    if (snap.data()?.role === 'admin') return ADMIN_DAILY_LIMIT;
+  } catch { /* fall through to default */ }
+  return DAILY_LIMIT;
+}
+
 const COOLDOWN_MS = 10_000;
 
 async function checkAndIncrementLimit(uid: string): Promise<boolean> {
@@ -186,6 +201,7 @@ async function checkAndIncrementLimit(uid: string): Promise<boolean> {
   });
   if (!cooldownAllowed) return false;
 
+  const limit = await userDailyLimit(uid);
   const date = new Date().toISOString().slice(0, 10);
   const ref = fs.doc(`aiDailyLimit/${uid}`);
 
@@ -193,7 +209,7 @@ async function checkAndIncrementLimit(uid: string): Promise<boolean> {
     const snap = await tx.get(ref);
     const data = snap.data();
     if (!data || data.date !== date) { tx.set(ref, { count: 1, date }); return true; }
-    if (data.count >= DAILY_LIMIT) return false;
+    if (data.count >= limit) return false;
     tx.update(ref, { count: data.count + 1 });
     return true;
   });

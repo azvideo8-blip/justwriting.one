@@ -162,9 +162,22 @@ export async function withinGlobalDailyLimit(): Promise<boolean> {
   return requests < TIER_LIMITS.requestsPerDay && tokens < TIER_LIMITS.tokensPerDay;
 }
 
+// Per-user daily cap with an admin bump: users with role 'admin' get
+// AI_ADMIN_DAILY_LIMIT (default 100), everyone else keeps DAILY_LIMIT (5).
+export const ADMIN_DAILY_LIMIT = envInt('AI_ADMIN_DAILY_LIMIT', 100);
+
+export async function getUserDailyLimit(uid: string): Promise<number> {
+  try {
+    const snap = await getDb().doc(`users/${uid}`).get();
+    if (snap.data()?.role === 'admin') return ADMIN_DAILY_LIMIT;
+  } catch { /* fall through to default */ }
+  return DAILY_LIMIT;
+}
+
 export async function checkDailyLimit(uid: string): Promise<boolean> {
   const db = getDb();
 
+  const limit = await getUserDailyLimit(uid);
   const date = new Date().toISOString().slice(0, 10);
   const ref = db.doc(`aiDailyLimit/${uid}`);
 
@@ -176,7 +189,7 @@ export async function checkDailyLimit(uid: string): Promise<boolean> {
       tx.set(ref, { count: 1, date });
       return true;
     }
-    if (data.count >= DAILY_LIMIT) return false;
+    if (data.count >= limit) return false;
     tx.update(ref, { count: data.count + 1 });
     return true;
   });
