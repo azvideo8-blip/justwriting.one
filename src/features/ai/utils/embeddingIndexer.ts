@@ -75,6 +75,8 @@ export interface IndexCoverage {
   totalDocs: number;
   indexed: number;
   stale: number;
+  /** Local embeddings not yet written to the cloud (e.g. made while E2E locked). */
+  unsynced: number;
   model: string;
   dim: number;
   lastProcessedAt: number | null;
@@ -88,10 +90,12 @@ export async function getIndexCoverage(): Promise<IndexCoverage> {
   const current = embeddings.filter(e => e.model === CURRENT_EMBED_MODEL && e.dim === CURRENT_EMBED_DIM);
   const lastProcessedAt = current.length > 0 ? Math.max(...current.map(e => e.processedAt)) : null;
   const stale = await findStaleDocuments();
+  const unsynced = embeddings.filter(e => !e.cloudSyncedAt).length;
   return {
     totalDocs: documents.length,
     indexed: current.length,
     stale: stale.length,
+    unsynced,
     model: CURRENT_EMBED_MODEL,
     dim: CURRENT_EMBED_DIM,
     lastProcessedAt,
@@ -128,6 +132,11 @@ export async function indexPending(opts?: {
       break;
     }
     opts?.onProgress?.(i + 1, targets.length, result);
+    // Gentle spacing between real embed calls so a large backlog doesn't burst
+    // the provider (skips are local and instant — no need to wait).
+    if (result === 'ok' && i < targets.length - 1) {
+      await new Promise(r => setTimeout(r, 150));
+    }
   }
   return summary;
 }

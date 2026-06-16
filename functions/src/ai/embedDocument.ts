@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, refundDailyLimit } from '../shared/aiUtils';
+import { sanitizeAiInput, recordUsage, withinGlobalDailyLimit } from '../shared/aiUtils';
 import { embed } from '../shared/aiProvider';
 
 const inputSchema = z.object({
@@ -52,16 +52,12 @@ export const embedDocument = onCall({
 
   const uid = request.auth.uid;
 
+  // Embeddings are cheap bulk infrastructure, not user-facing AI calls — they
+  // are NOT subject to the per-user daily cap (AI_DAILY_LIMIT, default 5) or the
+  // 10s chat cooldown (checkRateLimit), which made bulk indexing impossible
+  // (429 / "Daily limit reached"). Only the project-wide cost guard applies.
   if (!(await withinGlobalDailyLimit())) {
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
-  }
-
-  if (!(await checkDailyLimit(uid))) {
-    throw new HttpsError('resource-exhausted', 'Daily limit reached.');
-  }
-
-  if (!(await checkRateLimit(uid))) {
-    throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
   }
 
   const parsed = inputSchema.safeParse(request.data);
@@ -90,7 +86,6 @@ export const embedDocument = onCall({
     return { vector, model: result.model, dim: result.dim };
   } catch (e) {
     console.error('[AI embed] generation failed:', e);
-    await refundDailyLimit(uid);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
       throw new HttpsError('resource-exhausted', 'AI service is temporarily unavailable (quota/spend limit). Try again later.');

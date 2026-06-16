@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2, RefreshCw, Sparkles, Search } from 'lucide-react';
+import { Loader2, RefreshCw, Sparkles, Search, CloudUpload } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
 import { useToast } from '../../../shared/components/Toast';
 import { getIndexCoverage, indexPending, type IndexCoverage } from '../utils/embeddingIndexer';
 import { searchNotes, type RetrievedNote } from '../utils/noteRetriever';
+import { AIEmbeddingService } from '../services/AIEmbeddingService';
 
 export function EmbeddingDiagnostics() {
   const { showToast } = useToast();
@@ -13,6 +14,8 @@ export function EmbeddingDiagnostics() {
   const [loading, setLoading] = useState(true);
   const [indexing, setIndexing] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+
+  const [syncing, setSyncing] = useState(false);
 
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
@@ -48,6 +51,22 @@ export function EmbeddingDiagnostics() {
     } finally {
       setIndexing(false);
       setProgress(null);
+      void refresh();
+    }
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const r = await AIEmbeddingService.syncPendingToCloud();
+      if (r.locked) showToast(`Синхронизировано ${r.synced}; остальное ждёт — разблокируй E2E-шифрование`, 'error');
+      else if (r.synced > 0) showToast(`В облако выгружено эмбеддингов: ${r.synced}`, 'success');
+      else showToast('Всё уже синхронизировано', 'success');
+    } catch (e) {
+      console.error('[EmbeddingDiagnostics] sync failed:', e);
+      showToast('Ошибка синхронизации', 'error');
+    } finally {
+      setSyncing(false);
       void refresh();
     }
   };
@@ -91,6 +110,14 @@ export function EmbeddingDiagnostics() {
               Обновить
             </Button>
             <Button
+              onClick={() => void handleSync()}
+              disabled={syncing || indexing || loading || (coverage?.unsynced ?? 0) === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border-subtle bg-surface-base/5 text-text-main/60 text-xs font-semibold disabled:opacity-50 transition-colors min-h-[34px]"
+            >
+              {syncing ? <Loader2 size={12} className="animate-spin" /> : <CloudUpload size={12} />}
+              {(coverage?.unsynced ?? 0) === 0 ? 'В облаке' : `В облако (${coverage?.unsynced ?? 0})`}
+            </Button>
+            <Button
               onClick={() => void handleIndexNow()}
               disabled={indexing || loading || (coverage?.stale ?? 0) === 0}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-text-main text-surface-base text-xs font-semibold disabled:opacity-50 transition-colors min-h-[34px]"
@@ -122,6 +149,7 @@ export function EmbeddingDiagnostics() {
           {[
             { label: 'Проиндексировано', value: coverage ? String(coverage.indexed) : '—' },
             { label: 'Ожидают', value: coverage ? String(coverage.stale) : '—' },
+            { label: 'Не в облаке', value: coverage ? String(coverage.unsynced) : '—' },
             { label: 'Модель / размер', value: coverage ? `${coverage.model.split('/').pop()} · ${coverage.dim}` : '—' },
             { label: 'Последняя', value: coverage?.lastProcessedAt ? new Date(coverage.lastProcessedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—' },
           ].map(s => (

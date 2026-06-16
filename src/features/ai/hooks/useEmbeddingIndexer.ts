@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { findStaleDocuments, indexDocument } from '../utils/embeddingIndexer';
+import { AIEmbeddingService } from '../services/AIEmbeddingService';
 
 const BATCH_SIZE = 3;
 const DEBOUNCE_MS = 30_000;
@@ -37,6 +38,9 @@ export function useEmbeddingIndexer(): void {
           break;
         }
       }
+      // Best-effort: push any local-only embeddings to the cloud (no AI calls).
+      // Succeeds only when E2E is unlocked; otherwise stays local for next time.
+      await AIEmbeddingService.syncPendingToCloud();
     } catch (e) {
       console.error('[useEmbeddingIndexer] batch error:', e);
     } finally {
