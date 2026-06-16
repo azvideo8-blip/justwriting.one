@@ -9,6 +9,8 @@ export const AI_PROVIDER = (process.env.AI_PROVIDER ?? 'fireworks').toLowerCase(
 // Env-var default for the Fireworks model (used if Firestore config is absent).
 const FIREWORKS_MODEL_ENV = process.env.FIREWORKS_MODEL ?? 'accounts/fireworks/models/deepseek-v4-flash';
 const FIREWORKS_BASE_URL = 'https://api.fireworks.ai/inference/v1';
+const FIREWORKS_EMBED_MODEL = process.env.FIREWORKS_EMBED_MODEL ?? 'fireworks/qwen3-embedding-8b';
+const EMBED_DIMENSIONS = 1024;
 
 // ── Active model config (Firestore-backed, env-var fallback) ──────────────────
 // Firestore doc `appConfig/ai` stores { model: string }. The admin panel writes
@@ -159,4 +161,68 @@ async function generateFireworks(params: GenerateParams): Promise<GenerateResult
     tokensOut: data.usage?.completion_tokens ?? 0,
     model: activeModel,
   };
+}
+
+export interface EmbedResult {
+  vectors: number[][];
+  model: string;
+  dim: number;
+  tokens: number;
+}
+
+export async function embed(texts: string[]): Promise<EmbedResult> {
+  if (AI_PROVIDER === 'fireworks') return embedFireworks(texts);
+  return embedGemini(texts);
+}
+
+async function embedGemini(texts: string[]): Promise<EmbedResult> {
+  const { embedMany } = await import('ai');
+  const { createGoogleGenerativeAI } = await import('@ai-sdk/google');
+  const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY! });
+  const model = google.textEmbeddingModel('text-embedding-004');
+  const { embeddings } = await embedMany({ model, values: texts });
+  const vectors = embeddings;
+  const dim = vectors[0]?.length ?? 0;
+  return { vectors, model: 'text-embedding-004', dim, tokens: 0 };
+}
+
+async function embedFireworks(texts: string[]): Promise<EmbedResult> {
+  const apiKey = process.env.FIREWORKS_API_KEY;
+  if (!apiKey) throw new Error('FIREWORKS_API_KEY not set');
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60_000);
+  let res: Response;
+  try {
+    res = await fetch(`${FIREWORKS_BASE_URL}/embeddings`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: FIREWORKS_EMBED_MODEL,
+        input: texts,
+        dimensions: EMBED_DIMENSIONS,
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Fireworks embed ${res.status}: ${errText.slice(0, 300)}`);
+  }
+
+  const data = (await res.json()) as {
+    data?: { embedding?: number[] }[];
+    usage?: { total_tokens?: number };
+  };
+
+  const vectors = data.data?.map(d => d.embedding ?? []) ?? [];
+  const dim = vectors[0]?.length ?? 0;
+  const tokens = data.usage?.total_tokens ?? 0;
+  return { vectors, model: FIREWORKS_EMBED_MODEL, dim, tokens };
 }
