@@ -1,5 +1,5 @@
 /* eslint-env worker */
-const CACHE_VERSION = 'v0.7.6';
+const CACHE_VERSION = 'v0.7.20';
 const CACHE = `jw-${CACHE_VERSION}`;
 const NAV_CACHE = `jw-nav-${CACHE_VERSION}`;
 
@@ -29,16 +29,22 @@ self.addEventListener('fetch', (event) => {
   // Bypass non-GET requests and API calls to prevent fetch errors and stream truncation
   if (event.request.method !== 'GET' || url.pathname.startsWith('/api/')) return;
 
+  // Navigation: network-first so a deploy is picked up immediately. The cached
+  // shell is only a fallback when offline — never serve a stale index.html that
+  // points at old, already-purged asset bundles (that broke clients on the
+  // IndexedDB v6 bump: old shell -> old JS -> could not open the upgraded DB).
   if (event.request.mode === 'navigate' || event.request.destination === 'document') {
     event.respondWith(
-      caches.open(NAV_CACHE).then((cache) =>
-        cache.match(event.request).then((cached) => {
-          const fetchPromise = fetch(event.request).then((response) => {
-            if (response.ok) cache.put(event.request, response.clone());
-            return response;
-          }).catch(() => cached);
-          return cached || fetchPromise;
-        })
+      fetch(event.request).then((response) => {
+        if (response.ok) {
+          const clone = response.clone();
+          void caches.open(NAV_CACHE).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() =>
+        caches.open(NAV_CACHE).then((cache) =>
+          cache.match(event.request).then((cached) => cached || caches.match('/index.html'))
+        )
       )
     );
     return;
