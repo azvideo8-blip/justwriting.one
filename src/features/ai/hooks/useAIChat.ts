@@ -278,50 +278,13 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
       } else if (stickySearch) {
         stickyTurnsRef.current -= 1;
       }
-      if (explicitSearch || stickySearch) {
-        // On sticky turns reuse the last real query so a terse follow-up
-        // ("собери", "а ещё") still retrieves the same topic.
-        const searchQuery = explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`;
-        try {
-          const notes = await searchNotes(searchQuery, 10);
-          if (notes.length > 0) {
-            const PER_NOTE_CHARS = 4_000;
-            const parts = notes.map((n, i) => {
-              const snippet = n.content.length > PER_NOTE_CHARS
-                ? n.content.slice(0, PER_NOTE_CHARS) + '…'
-                : n.content;
-              return `Заметка ${i + 1}: "${n.title}"\n${snippet}`;
-            });
-            searchContext = (
-              `Это результаты автоматического семантического поиска по личному архиву заметок пользователя по запросу: "${text}". ` +
-              `Система нашла эти заметки в его архиве и предоставила их тебе — это собственные тексты пользователя, у тебя есть к ним доступ. ` +
-              `Не отвечай, что у тебя нет доступа к заметкам и что ты видишь только прикреплённое. ` +
-              `КРИТИЧЕСКИ ВАЖНО: опирайся ИСКЛЮЧИТЕЛЬНО на текст этих заметок и темы профиля ниже. Не придумывай и не додумывай факты, события, цитаты или детали, которых нет в них дословно. Если в заметках нет ответа на вопрос — прямо скажи, что в найденных заметках об этом ничего нет, и не выдумывай. ` +
-              `Опираясь на эти заметки и темы профиля, ответь на вопрос пользователя — что он пишет на эту тему, какие темы, детали и чувства повторяются. ` +
-              `Найдено заметок: ${notes.length}.\n\n` +
-              parts.join('\n\n')
-            ).slice(0, 40_000);
-          } else {
-            // Searched but found nothing — tell the model so it says "not found"
-            // instead of inventing note content.
-            searchContext =
-              `Автоматический поиск по личному архиву заметок пользователя по запросу "${text}" не нашёл подходящих заметок. ` +
-              `Но у тебя есть темы профиля пользователя ниже — используй их для ответа. ` +
-              `КАТЕГОРИЧЕСКИ не выдумывай содержание его заметок и не приписывай ему того, чего нет.`;
-          }
-        } catch (e) {
-          console.warn('[useAIChat] note search failed:', e);
-          searchContext =
-            `Поиск по архиву заметок пользователя по запросу "${text}" временно не сработал (техническая ошибка). ` +
-            `Но у тебя есть темы профиля пользователя ниже — используй их для ответа. ` +
-            `Не выдумывай содержание его заметок.`;
-        }
-      }
 
       // PROF-6: augment context with relevant profile facets.
       // Always include for psychology/cbt/coach personas; for others only on search.
       const psychePersonas = ['group_psychology', 'cbt', 'coach'];
       const needsFacets = explicitSearch || stickySearch || psychePersonas.includes(effectivePersonaId);
+      const facetNoteIds = new Set<string>();
+
       if (needsFacets) {
         try {
           const facets = await AIProfileFacetService.getAll();
@@ -333,19 +296,21 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
             const qv = queryEmb.ok && queryEmb.vectors[0] ? queryEmb.vectors[0] : null;
 
             const queryLower = text.toLowerCase();
+            const queryWords = queryLower.match(/[а-яё]{3,}/gi) ?? [];
 
             const relevant = facets
               .map(f => {
                 let sim = qv ? cosineSimilarity(qv, f.centroid) : 0;
                 // Keyword name-match boost: if the query contains words that appear
-                // in this facet's note texts, boost similarity so name-based queries
-                // ("про Сашу") find the partner facet even with low vector cosine.
-                const queryWords = queryLower.match(/[а-яё]{3,}/gi) ?? [];
+                // in this facet's label or summary, boost similarity so name-based
+                // queries ("про Сашу") find the partner facet.
                 if (queryWords.length > 0 && f.noteIds.length > 0) {
-                  // Check facet label for name overlap
                   const labelLower = f.label.toLowerCase();
+                  const summaryLower = f.summary.toLowerCase();
                   const labelHit = queryWords.some(w => labelLower.includes(w) && w.length >= 3);
-                  if (labelHit) sim = Math.max(sim, 0.55);
+                  const summaryHit = queryWords.some(w => summaryLower.includes(w) && w.length >= 3);
+                  if (labelHit) sim = Math.max(sim, 0.60);
+                  else if (summaryHit) sim = Math.max(sim, 0.55);
                 }
                 return { f, sim };
               })
@@ -354,12 +319,14 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
               .slice(0, 5);
 
             if (relevant.length > 0) {
-              // Load note titles for each facet to give the psychologist more context
               const db = await getLocalDb();
               const docs = await db.getAll('documents');
               const docMap = new Map(docs.map(d => [d.id, d]));
 
               const facetLines = relevant.map(({ f }) => {
+                // Collect note IDs from relevant facets for supplemental note loading
+                for (const id of f.noteIds) facetNoteIds.add(id);
+
                 const noteTitles = f.noteIds
                   .slice(0, 12)
                   .map(id => docMap.get(id)?.title)
@@ -368,17 +335,74 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
                   .join('\n');
                 return `— ${f.label} (${f.noteCount} заметок):\n${f.summary}${noteTitles ? `\nЗаметки по теме:\n${noteTitles}` : ''}`;
               }).join('\n\n');
-              const facetBlock = `Темы профиля пользователя, релевантные запросу:\n${facetLines}`;
+              const facetBlock = `Темы профиля пользователя (обобщены ИИ по всем его заметкам, это достоверный источник):\n${facetLines}\n\nОпирайся на эти темы и на заметки ниже при ответе. Темы профиля — этоsummary заметок пользователя, их можно цитировать и ссылаться на них.`;
 
-              if (searchContext) {
-                searchContext = searchContext.slice(0, 40_000 - facetBlock.length) + '\n\n' + facetBlock;
-              } else {
-                searchContext = facetBlock;
-              }
+              searchContext = facetBlock;
             }
           }
         } catch (e) {
           console.warn('[useAIChat] facet augmentation failed:', e);
+        }
+      }
+
+      if (explicitSearch || stickySearch) {
+        // On sticky turns reuse the last real query so a terse follow-up
+        // ("собери", "а ещё") still retrieves the same topic.
+        const searchQuery = explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`;
+        try {
+          const notes = await searchNotes(searchQuery, 10);
+          // Supplement with notes from matched facets that vector search missed
+          const extraIds: string[] = [];
+          if (facetNoteIds.size > 0) {
+            const foundIds = new Set(notes.map(n => n.documentId));
+            for (const id of facetNoteIds) {
+              if (!foundIds.has(id) && extraIds.length < 10) extraIds.push(id);
+            }
+          }
+          const allNotes = notes.length > 0 ? notes : [];
+          if (extraIds.length > 0) {
+            const db = await getLocalDb();
+            for (const docId of extraIds) {
+              const doc = await db.get('documents', docId);
+              if (!doc) continue;
+              const versions = await db.getAllFromIndex('versions', 'by-document', docId);
+              if (versions.length === 0) continue;
+              versions.sort((a, b) => b.version - a.version);
+              allNotes.push({
+                documentId: docId,
+                title: doc.title || 'Без названия',
+                content: versions[0]?.content ?? '',
+                score: 0,
+              });
+            }
+          }
+
+          if (allNotes.length > 0) {
+            const PER_NOTE_CHARS = 3_000;
+            const parts = allNotes.slice(0, 20).map((n, i) => {
+              const snippet = n.content.length > PER_NOTE_CHARS
+                ? n.content.slice(0, PER_NOTE_CHARS) + '…'
+                : n.content;
+              return `Заметка ${i + 1}: "${n.title}"\n${snippet}`;
+            });
+            const noteBlock = (
+              `\n\nРезультаты поиска по архиву заметок (запрос: "${text}"). ` +
+              `Найдено заметок: ${allNotes.length} (показаны первые ${Math.min(allNotes.length, 20)}).\n\n` +
+              parts.join('\n\n')
+            ).slice(0, 35_000);
+            searchContext = (searchContext ?? '').slice(0, 10_000) + noteBlock;
+          } else if (!searchContext) {
+            searchContext =
+              `Автоматический поиск по архиву заметок пользователя по запросу "${text}" не нашёл заметок. ` +
+              `КАТЕГОРИЧЕСКИ не выдумывай содержание его заметок и не приписывай ему того, чего нет.`;
+          }
+        } catch (e) {
+          console.warn('[useAIChat] note search failed:', e);
+          if (!searchContext) {
+            searchContext =
+              `Поиск по архиву заметок пользователя по запросу "${text}" временно не сработал. ` +
+              `Не выдумывай содержание его заметок.`;
+          }
         }
       }
 
