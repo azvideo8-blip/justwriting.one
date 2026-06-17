@@ -10,7 +10,7 @@ import { generate } from '../shared/aiProvider';
 const inputSchema = z.object({
   notes: z.array(z.object({
     title: z.string().max(300),
-    excerpt: z.string().max(4_000),
+    excerpt: z.string().max(8_000),
   })).min(1).max(60),
   focus: z.string().max(200).nullable().optional(),
 });
@@ -20,7 +20,7 @@ const inputSchema = z.object({
 // facet summaries instead. Override via AI_FACET_MODEL.
 const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'accounts/fireworks/models/gpt-oss-20b';
 
-const SYSTEM_PROMPT = 'Ты анализируешь группу фрагментов из личных заметок пользователя на одну тему. Ответь СТРОГО на русском, РОВНО в таком формате и без любых других слов:\nНАЗВАНИЕ: <короткое название темы, 1–4 слова>\nОПИСАНИЕ: <2–4 предложения от третьего лица: о чём пользователь пишет, какие чувства, детали и паттерны повторяются>\nНЕ рассуждай вслух, не описывай задачу, не пиши «мы имеем заметки» — сразу результат. Опирайся ТОЛЬКО на приведённые фрагменты, ничего не выдумывай.';
+const SYSTEM_PROMPT = 'Ты анализируешь группу фрагментов из личных заметок пользователя на одну тему. Ответь СТРОГО на русском, РОВНО в таком формате и без любых других слов:\nНАЗВАНИЕ: <короткое название темы, 1–4 слова>\nОПИСАНИЕ: <5–8 предложений от третьего лица: подробно опиши, о чём пользователь пишет в этой теме, какие конкретные ситуации, люди и детали упоминаются, какие чувства и внутренние конфликты повторяются, как меняется отношение со временем. Приводи конкретные детали из текста, а не общие фразы>\nНЕ рассуждай вслух, не описывай задачу, не пиши «мы имеем заметки» — сразу результат. Опирайся ТОЛЬКО на приведённые фрагменты, ничего не выдумывай.';
 
 export const summarizeFacet = onCall({
   secrets: ['GEMINI_API_KEY', 'FIREWORKS_API_KEY'],
@@ -56,7 +56,7 @@ export const summarizeFacet = onCall({
       system,
       messages: [{ role: 'user', content: `Фрагменты заметок${focus ? ` (тема «${focus}»)` : ''}:\n\n${notesText}` }],
       json: false,
-      maxTokens: 1000,
+      maxTokens: 1500,
       model: FACET_MODEL,
       abortMs: 50_000,
     });
@@ -81,7 +81,7 @@ export const summarizeFacet = onCall({
     // Also reject clearly truncated summaries (ending mid-sentence without punctuation).
     let finalLabel = label;
     const truncated = summary.length > 0 && !/[.!?]$/.test(summary);
-    if (!summary || META.test(summary) || cyr(summary) < summary.length * 0.3 || (truncated && summary.length < 120)) { finalLabel = ''; summary = ''; }
+    if (!summary || META.test(summary) || cyr(summary) < summary.length * 0.3 || (truncated && summary.length < 200)) { finalLabel = ''; summary = ''; }
     if (finalLabel && (META.test(finalLabel) || cyr(finalLabel) === 0)) finalLabel = '';
     if (!finalLabel && summary) {
       finalLabel = summary.split(/[.!?\n]/)[0]!.split(/\s+/).slice(0, 5).join(' ').slice(0, 48);
