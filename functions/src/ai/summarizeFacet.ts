@@ -15,6 +15,11 @@ const inputSchema = z.object({
   focus: z.string().max(120).optional(),
 });
 
+// DeepSeek (the default chat model) is a reasoning model that leaks its
+// chain-of-thought into the answer for this task. Use an obedient model for
+// facet summaries instead. Override via AI_FACET_MODEL.
+const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'accounts/fireworks/models/qwen3-30b-a3b';
+
 const SYSTEM_PROMPT = 'Ты анализируешь группу фрагментов из личных заметок пользователя на одну тему. Ответь СТРОГО на русском, РОВНО в таком формате и без любых других слов:\nНАЗВАНИЕ: <короткое название темы, 1–4 слова>\nОПИСАНИЕ: <2–4 предложения от третьего лица: о чём пользователь пишет, какие чувства, детали и паттерны повторяются>\nНЕ рассуждай вслух, не описывай задачу, не пиши «мы имеем заметки» — сразу результат. Опирайся ТОЛЬКО на приведённые фрагменты, ничего не выдумывай.';
 
 export const summarizeFacet = onCall({
@@ -50,7 +55,8 @@ export const summarizeFacet = onCall({
       system,
       messages: [{ role: 'user', content: `Фрагменты заметок${focus ? ` (тема «${focus}»)` : ''}:\n\n${notesText}` }],
       json: false,
-      maxTokens: 400,
+      maxTokens: 600,
+      model: FACET_MODEL,
       abortMs: 50_000,
     });
 
@@ -59,26 +65,26 @@ export const summarizeFacet = onCall({
     );
 
     const text = result.text.trim();
-    const META = /мы имеем|нужно (определить|проанализ)|\bwe need\b|the (user|notes|theme)|объединённых|given notes|<think>/i;
+    // Reasoning-model leakage markers + English — these must never reach a card.
+    const META = /мы (имеем|должны)|нужно (определить|проанализ)|проанализир|\bwe need\b|the (user|notes|theme)|given notes|<think>|похоже,?\s*что|возможно,?\s*(это|жен)|в заметке\s*\d|из заметок|предложени[яй] от третьего/i;
     const cyr = (s: string) => (s.match(/[а-яё]/gi) ?? []).length;
 
-    let label = (text.match(/НАЗВАНИЕ\s*:\s*(.+)/i)?.[1] ?? '').trim();
-    let summary = (text.match(/ОПИСАНИЕ\s*:\s*([\s\S]+)/i)?.[1] ?? '').trim();
+    const label = (text.match(/НАЗВАНИЕ\s*:\s*(.+)/i)?.[1] ?? '').trim().replace(/[«»"]/g, '');
+
+    // Take what follows the last "ОПИСАНИЕ:"/"Опишу:" marker (drops any preamble
+    // the model wrote before the actual answer); else use the whole text.
+    let summary = text.split(/ОПИСАНИЕ\s*:|опиш[уи]\s*:/i).pop()?.trim() ?? '';
     summary = summary.replace(/\n+НАЗВАНИЕ\s*:[\s\S]*$/i, '').trim();
 
-    // Model ignored the format but may have given clean Russian prose — accept it.
-    if (!summary && text && !META.test(text) && cyr(text) > text.length * 0.5) {
-      summary = text.slice(0, 700);
-    }
-
     // Reject reasoning / English leakage so the client builds a clean fallback.
-    if (!summary || META.test(summary) || cyr(summary) < summary.length * 0.3) { label = ''; summary = ''; }
-    if (label && (META.test(label) || cyr(label) === 0)) label = '';
-    if (!label && summary) {
-      label = summary.split(/[.!?\n]/)[0]!.split(/\s+/).slice(0, 5).join(' ').slice(0, 48);
+    let finalLabel = label;
+    if (!summary || META.test(summary) || cyr(summary) < summary.length * 0.3) { finalLabel = ''; summary = ''; }
+    if (finalLabel && (META.test(finalLabel) || cyr(finalLabel) === 0)) finalLabel = '';
+    if (!finalLabel && summary) {
+      finalLabel = summary.split(/[.!?\n]/)[0]!.split(/\s+/).slice(0, 5).join(' ').slice(0, 48);
     }
 
-    return { label, summary };
+    return { label: finalLabel, summary };
   } catch (e) {
     console.error('[AI facet] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
