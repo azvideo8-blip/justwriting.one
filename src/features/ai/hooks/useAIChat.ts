@@ -417,19 +417,39 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
           }
 
           if (allNotes.length > 0) {
-            const PER_NOTE_CHARS = 3_000;
-            const parts = allNotes.slice(0, 20).map((n, i) => {
-              const snippet = n.content.length > PER_NOTE_CHARS
-                ? n.content.slice(0, PER_NOTE_CHARS) + '…'
-                : n.content;
+            // For name-based queries, extract fragments around the name instead
+            // of truncating from the start — the name may appear deep in the note.
+            const CONTEXT_RADIUS = 500;
+            const PER_NOTE_CHARS = 2_000;
+            const parts = allNotes.slice(0, 25).map((n, i) => {
+              let snippet: string;
+              if (candidateNames.length > 0) {
+                const namePositions = candidateNames
+                  .map(name => n.content.indexOf(name))
+                  .filter(pos => pos >= 0);
+                if (namePositions.length > 0) {
+                  const firstPos = Math.min(...namePositions);
+                  const start = Math.max(0, firstPos - CONTEXT_RADIUS);
+                  snippet = n.content.slice(start, start + PER_NOTE_CHARS);
+                  if (start > 0) snippet = '…' + snippet;
+                  if (start + PER_NOTE_CHARS < n.content.length) snippet += '…';
+                } else {
+                  snippet = n.content.slice(0, PER_NOTE_CHARS);
+                }
+              } else {
+                snippet = n.content.length > PER_NOTE_CHARS
+                  ? n.content.slice(0, PER_NOTE_CHARS) + '…'
+                  : n.content;
+              }
               return `Заметка ${i + 1}: "${n.title}"\n${snippet}`;
             });
             const noteBlock = (
               `\n\nРезультаты поиска по архиву заметок (запрос: "${text}"). ` +
-              `Найдено заметок: ${allNotes.length} (показаны первые ${Math.min(allNotes.length, 20)}).\n\n` +
+              `Найдено заметок: ${allNotes.length} (показаны первые ${Math.min(allNotes.length, 25)}). ` +
+              `В этих заметках точно содержится ответ на вопрос пользователя — прочитай их внимательно.\n\n` +
               parts.join('\n\n')
-            ).slice(0, 35_000);
-            searchContext = (searchContext ?? '').slice(0, 10_000) + noteBlock;
+            ).slice(0, 40_000);
+            searchContext = (searchContext ?? '').slice(0, 5_000) + noteBlock;
           } else if (!searchContext) {
             searchContext =
               `Автоматический поиск по архиву заметок пользователя по запросу "${text}" не нашёл заметок. ` +

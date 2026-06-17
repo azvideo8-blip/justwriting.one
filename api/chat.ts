@@ -145,8 +145,6 @@ function sanitizeAiInput(content: string): string {
 function buildSystemPrompt(
   personaId: string,
   customPrompt: string | null | undefined,
-  docContent: string | null | undefined,
-  docMood: string | null | undefined,
   userPortrait: string | null | undefined,
 ): string {
   let base =
@@ -158,10 +156,7 @@ function buildSystemPrompt(
     base = `${base}\n\n---\n[Портрет пользователя (личность, темы, контекст)]\n${userPortrait}`;
   }
 
-  if (!docContent) return base;
-
-  const mood = docMood ? `Настроение: ${docMood}` : '';
-  return `${base}\n\n---\n[Документ пользователя]\n${sanitizeAiInput(docContent).slice(0, 9_500)}\n${mood}`;
+  return base;
 }
 
 // ── Daily limit ───────────────────────────────────────────────────────────────
@@ -289,7 +284,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  const systemPrompt = buildSystemPrompt(personaId, customSystemPrompt, documentContent, documentMood, userPortrait);
+  const systemPrompt = buildSystemPrompt(personaId, customSystemPrompt, userPortrait);
+
+  // Insert document content as a fake user+assistant turn (like chatWithAI.ts)
+  // instead of into the system prompt — avoids the 9.5K system-prompt truncation
+  // that silently drops most note content.
+  const providerMessages = messages.map(m => ({ role: m.role, content: sanitizeAiInput(m.content) }));
+  if (documentContent) {
+    const safeMood = documentMood ? sanitizeAiInput(documentMood) : 'не указано';
+    const docMessage = `[Документ пользователя]\n${sanitizeAiInput(documentContent)}\n[Настроение: ${safeMood}]`;
+    providerMessages.unshift({ role: 'user', content: docMessage });
+    if (providerMessages.length > 1 && providerMessages[1]!.role === 'user') {
+      providerMessages.splice(1, 0, { role: 'assistant', content: 'Документ получен. Готов обсудить.' });
+    }
+  }
 
   // Stream. maxOutputTokens caps total output INCLUDING gemini-2.5 thinking tokens;
   // at 1024 the thinking budget could consume it all and truncate the reply
@@ -298,7 +306,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const result = streamText({
     model: await getChatModel(),
     system: systemPrompt,
-    messages: messages.map(m => ({ role: m.role, content: sanitizeAiInput(m.content) })),
+    messages: providerMessages,
     maxOutputTokens: 8192,
     onFinish: async ({ totalUsage }) => {
       try {
