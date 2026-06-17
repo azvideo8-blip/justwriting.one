@@ -55,6 +55,9 @@ export interface GenerateParams {
   json?: boolean;
   maxTokens?: number;
   abortMs?: number;
+  /** Override the Fireworks model for this call (e.g. an obedient non-reasoning
+   *  model for structured tasks). Defaults to the active chat model. */
+  model?: string | undefined;
 }
 
 export interface GenerateResult {
@@ -112,7 +115,7 @@ async function generateFireworks(params: GenerateParams): Promise<GenerateResult
   const apiKey = process.env.FIREWORKS_API_KEY;
   if (!apiKey) throw new Error('FIREWORKS_API_KEY not set');
 
-  const activeModel = await getActiveModel();
+  const activeModel = params.model ?? await getActiveModel();
 
   const oaMessages: { role: string; content: string }[] = [];
   if (system) oaMessages.push({ role: 'system', content: system });
