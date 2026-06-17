@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2, Sparkles, Layers } from 'lucide-react';
+import { Loader2, Sparkles, Layers, Copy } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { useToast } from '../../../shared/components/Toast';
@@ -25,6 +25,25 @@ export function ProfileFacets() {
   const [loading, setLoading] = useState(true);
   const [building, setBuilding] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggle = (id: string) => setExpanded(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  const handleExport = async () => {
+    const md = facets.map(f =>
+      `## ${f.label} — ${f.noteCount} заметок (${fmt(f.firstAt)} – ${fmt(f.lastAt)})\n\n${f.summary || '—'}`
+    ).join('\n\n');
+    try {
+      await navigator.clipboard.writeText(md);
+      showToast('Темы скопированы в буфер', 'success');
+    } catch {
+      showToast('Не удалось скопировать', 'error');
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,14 +83,26 @@ export function ProfileFacets() {
           <Layers size={13} className="text-brand-soft" />
           Темы профиля (кластеры заметок)
         </span>
-        <Button
-          onClick={() => void handleBuild()}
-          disabled={building}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-brand-soft/20 bg-brand-soft/10 text-brand-soft text-[10px] font-bold disabled:opacity-50"
-        >
-          {building ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-          {building && progress ? `Анализ ${progress.done}/${progress.total}…` : (facets.length ? 'Перестроить' : 'Построить темы')}
-        </Button>
+        <div className="flex items-center gap-1.5">
+          {facets.length > 0 && (
+            <Button
+              onClick={() => void handleExport()}
+              disabled={building}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-subtle text-text-main/60 text-[10px] font-bold disabled:opacity-50"
+            >
+              <Copy size={12} />
+              Выгрузить
+            </Button>
+          )}
+          <Button
+            onClick={() => void handleBuild()}
+            disabled={building}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-brand-soft/20 bg-brand-soft/10 text-brand-soft text-[10px] font-bold disabled:opacity-50"
+          >
+            {building ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+            {building && progress ? `Анализ ${progress.done}/${progress.total}…` : (facets.length ? 'Перестроить' : 'Построить темы')}
+          </Button>
+        </div>
       </div>
 
       <div className="p-4">
@@ -85,15 +116,23 @@ export function ProfileFacets() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {facets.map(f => {
               const t = trend(f);
+              const isExp = expanded.has(f.id);
               return (
-                <div key={f.id} className="p-3.5 rounded-xl border border-border-subtle bg-surface-card/20 space-y-1.5">
+                <div
+                  key={f.id}
+                  onClick={() => toggle(f.id)}
+                  className={cn(
+                    'p-3.5 rounded-xl border border-border-subtle bg-surface-card/20 space-y-1.5 cursor-pointer transition-colors hover:bg-surface-card/40',
+                    isExp && 'sm:col-span-2'
+                  )}
+                >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-text-main truncate">{f.label}</span>
+                    <span className={cn('text-sm font-semibold text-text-main', !isExp && 'truncate')}>{f.label}</span>
                     <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0', t.cls)}>{t.label}</span>
                   </div>
-                  <p className="text-[11px] text-text-main/60 leading-relaxed line-clamp-4">{f.summary || '—'}</p>
+                  <p className={cn('text-[11px] text-text-main/60 leading-relaxed whitespace-pre-wrap', !isExp && 'line-clamp-4')}>{f.summary || '—'}</p>
                   <div className="flex items-center justify-between text-[9px] text-text-main/30 font-mono pt-0.5">
-                    <span>{f.noteCount} заметок</span>
+                    <span>{f.noteCount} заметок · {isExp ? 'свернуть' : 'развернуть'}</span>
                     <span>{fmt(f.firstAt)} – {fmt(f.lastAt)}</span>
                   </div>
                 </div>
