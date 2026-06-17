@@ -153,10 +153,12 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
   // don't match a trigger, reusing the last real query so the topic carries.
   const stickyTurnsRef = useRef(0);
   const lastSearchQueryRef = useRef('');
+  const lastSearchNamesRef = useRef<string[]>([]);
 
   useEffect(() => {
     stickyTurnsRef.current = 0;
     lastSearchQueryRef.current = '';
+    lastSearchNamesRef.current = [];
   }, [dialogueId]);
 
   useEffect(() => {
@@ -276,6 +278,7 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
       if (explicitSearch) {
         stickyTurnsRef.current = 4;
         lastSearchQueryRef.current = text;
+        lastSearchNamesRef.current = [...new Set(text.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [])];
       } else if (stickySearch) {
         stickyTurnsRef.current -= 1;
       }
@@ -298,7 +301,10 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
 
             const queryLower = text.toLowerCase();
             const queryWords = queryLower.match(/[а-яё]{3,}/gi) ?? [];
-            const queryNames = [...new Set(text.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [])];
+            const queryNames = [...new Set([
+              ...text.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [],
+              ...lastSearchNamesRef.current,
+            ])];
             const nameLower = queryNames.map(n => n.toLowerCase());
 
             const relevant = facets
@@ -363,9 +369,12 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
 
           // Text-based name search: vector embeddings are bad at proper-name
           // retrieval ("Даша" won't match chunks that mention her briefly).
-          // Extract candidate names (capitalized Russian words 3+ chars) from
-          // the query and scan chunk texts for them (fast, already in memory).
-          const candidateNames = [...new Set(text.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [])];
+          // Extract candidate names from current text + carry forward from the
+          // original query on sticky turns ("а ещё про неё?" has no names).
+          const candidateNames = [...new Set([
+            ...text.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [],
+            ...lastSearchNamesRef.current,
+          ])];
           const nameSearchIds = new Set<string>();
           if (candidateNames.length > 0) {
             const allEmb = await AIEmbeddingService.getAll();
