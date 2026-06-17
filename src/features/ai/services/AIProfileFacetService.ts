@@ -260,21 +260,32 @@ export const AIProfileFacetService = {
         .map(c => c.text.slice(0, 800));
       if (sampleTexts.length >= 8) {
         try {
-          const chatRes = await AIService.chat({
-            personaId: 'custom',
-            customSystemPrompt: 'Ты извлекаешь имена конкретных людей из личных дневниковых записей. Ответь ТОЛЬКО в формате JSON-массив: [{"name":"Имя","role":"отношение к автору (жена/муж/дочь/сын/мать/отец/коллега/друг/итд)"}]. Если людей нет — верни []. НЕ рассуждай, НЕ пиши пояснений — только JSON.',
-            messages: [{ role: 'user', content: `Вот фрагменты из дневника автора. Найди всех конкретных людей, которых он упоминает, и определи их роль:\n\n${sampleTexts.join('\n---\n')}` }],
+          const extractRes = await AIService.summarizeFacet({
+            notes: sampleTexts.map(t => ({ title: '(фрагмент)', excerpt: t })),
+            focus: 'Люди: имена и отношения',
           });
-          if (chatRes.ok) {
-            let jsonText = chatRes.text.trim();
-            if (jsonText.startsWith('```')) jsonText = jsonText.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
-            const people = JSON.parse(jsonText) as { name: string; role: string }[];
-            for (const p of people) {
-              if (!p.name || p.name.length < 2) continue;
-              const key = p.name.toLowerCase();
-              let entry = personNotes.get(key);
-              if (!entry) { entry = { name: p.name, role: p.role || '', noteIds: [] }; personNotes.set(key, entry); }
-              if (p.role) entry.role = p.role;
+          if (extractRes.ok && (extractRes.summary || extractRes.label)) {
+            const combined = `${extractRes.label} ${extractRes.summary}`;
+            const namePattern = /[А-ЯЁ][а-яё]+(?:\s[А-ЯЁ][а-яё]+)?/g;
+            const candidates = combined.match(namePattern) ?? [];
+            const roleKeywords: Record<string, string> = {
+              жена: 'партнёр', муж: 'партнёр', супруга: 'партнёр', супруг: 'партнёр',
+              дочь: 'ребёнок', сын: 'ребёнок', дочка: 'ребёнок',
+              мама: 'родитель', мать: 'родитель', отец: 'родитель', папа: 'родитель',
+              коллега: 'коллега', друг: 'друг', подруга: 'друг',
+            };
+            const knownWords = new Set(Object.keys(roleKeywords));
+            for (const name of candidates) {
+              if (name.length < 2 || name.length > 30 || knownWords.has(name.toLowerCase())) continue;
+              if (['НАЗВАНИЕ','ОПИСАНИЕ','Люди','Имена','Отношения','Фрагмент'].includes(name)) continue;
+              const key = name.toLowerCase();
+              if (personNotes.has(key)) continue;
+              let role = '';
+              const before = combined.slice(Math.max(0, combined.indexOf(name) - 40), combined.indexOf(name));
+              for (const [kw, r] of Object.entries(roleKeywords)) {
+                if (new RegExp(kw, 'i').test(before)) { role = r; break; }
+              }
+              personNotes.set(key, { name, role, noteIds: [] });
             }
           }
         } catch (e) {

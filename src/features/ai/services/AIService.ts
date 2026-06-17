@@ -128,12 +128,14 @@ export const AIService = {
 
   async summarizeFacet(params: {
     notes: { title: string; excerpt: string }[];
-    focus?: string | undefined;
+    focus?: string | null | undefined;
   }): Promise<{ ok: true; label: string; summary: string } | { ok: false; error: string }> {
     const functions = getFunctions();
     const fn = httpsCallable<unknown, { label: string; summary: string }>(functions, 'summarizeFacet');
     try {
-      const { data } = await withTimeout(fn(params), 60_000);
+      const { focus, ...rest } = params;
+      const payload = { ...rest, ...(focus ? { focus } : {}) };
+      const { data } = await withTimeout(fn(payload), 60_000);
       return { ok: true, label: data.label, summary: data.summary };
     } catch (e: unknown) {
       reportError(e, { action: 'summarizeFacet' });
