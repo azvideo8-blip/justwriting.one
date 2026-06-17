@@ -65,6 +65,7 @@ export function ProfileFacets() {
       const res = await AIProfileFacetService.build(p => setProgress(p));
       if (res.ok) showToast(`Темы профиля построены: ${res.count}`, 'success');
       else if (res.error === 'NO_EMBEDDINGS') showToast('Сначала проиндексируйте заметки (вкладка «База данных»)', 'error');
+      else if (res.error === 'NO_CHUNK_TEXTS') showToast('Нужен реиндекс: «База данных» → «Переиндексировать всё» (обновлён формат эмбеддингов)', 'error');
       else showToast('Не удалось выделить темы — мало заметок', 'error');
     } catch (e) {
       console.error('[ProfileFacets] build failed:', e);
