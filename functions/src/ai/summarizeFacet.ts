@@ -15,7 +15,7 @@ const inputSchema = z.object({
   focus: z.string().max(120).optional(),
 });
 
-const SYSTEM_PROMPT = 'Ты анализируешь группу личных заметок пользователя, объединённых одной темой. Верни ТОЛЬКО валидный JSON-объект вида {"label":"...","summary":"..."}. Пиши СТРОГО на русском. НЕ описывай свою задачу, НЕ рассуждай вслух, НЕ пиши «мы имеем заметки» / «нужно проанализировать» — сразу содержательный результат. label — короткое название темы (1–4 слова: сфера жизни, чувство или паттерн). summary — 2–4 предложения от третьего лица: о чём пользователь пишет в этой теме, какие чувства, детали и паттерны повторяются. Опирайся ИСКЛЮЧИТЕЛЬНО на приведённые заметки, ничего не выдумывай.';
+const SYSTEM_PROMPT = 'Ты анализируешь группу фрагментов из личных заметок пользователя на одну тему. Ответь СТРОГО на русском, РОВНО в таком формате и без любых других слов:\nНАЗВАНИЕ: <короткое название темы, 1–4 слова>\nОПИСАНИЕ: <2–4 предложения от третьего лица: о чём пользователь пишет, какие чувства, детали и паттерны повторяются>\nНЕ рассуждай вслух, не описывай задачу, не пиши «мы имеем заметки» — сразу результат. Опирайся ТОЛЬКО на приведённые фрагменты, ничего не выдумывай.';
 
 export const summarizeFacet = onCall({
   secrets: ['GEMINI_API_KEY', 'FIREWORKS_API_KEY'],
@@ -42,15 +42,15 @@ export const summarizeFacet = onCall({
 
   const focus = parsed.data.focus ? sanitizeAiInput(parsed.data.focus) : '';
   const system = focus
-    ? `${SYSTEM_PROMPT} ВАЖНО: опиши ТОЛЬКО то, что относится к теме «${focus}». Игнорируй всё, что к ней не относится. НЕ описывай сам формат (дневник, аскеза, ежедневные записи) и повседневную рутину в целом — только содержание и паттерны по теме «${focus}». Если про эту тему в заметках почти ничего нет — верни summary из одного предложения об этом.`
+    ? `${SYSTEM_PROMPT} Опиши ТОЛЬКО то, что относится к теме «${focus}»; игнорируй формат дневника и всё постороннее. Если про эту тему почти ничего нет — одно предложение об этом.`
     : SYSTEM_PROMPT;
 
   try {
     const result = await generate({
       system,
-      messages: [{ role: 'user', content: `Заметки${focus ? ` (тебя интересует только тема «${focus}»)` : ''}:\n\n${notesText}\n\nВерни только {"label":"...","summary":"..."}.` }],
-      json: true,
-      maxTokens: 512,
+      messages: [{ role: 'user', content: `Фрагменты заметок${focus ? ` (тема «${focus}»)` : ''}:\n\n${notesText}` }],
+      json: false,
+      maxTokens: 400,
       abortMs: 50_000,
     });
 
@@ -58,28 +58,22 @@ export const summarizeFacet = onCall({
       console.error('[AI facet] usage record failed:', e),
     );
 
-    let label = '';
-    let summary = '';
-    let raw = result.text.trim();
-    if (raw.startsWith('```')) {
-      raw = raw.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+    const text = result.text.trim();
+    const META = /мы имеем|нужно (определить|проанализ)|\bwe need\b|the (user|notes|theme)|объединённых|given notes|<think>/i;
+    const cyr = (s: string) => (s.match(/[а-яё]/gi) ?? []).length;
+
+    let label = (text.match(/НАЗВАНИЕ\s*:\s*(.+)/i)?.[1] ?? '').trim();
+    let summary = (text.match(/ОПИСАНИЕ\s*:\s*([\s\S]+)/i)?.[1] ?? '').trim();
+    summary = summary.replace(/\n+НАЗВАНИЕ\s*:[\s\S]*$/i, '').trim();
+
+    // Model ignored the format but may have given clean Russian prose — accept it.
+    if (!summary && text && !META.test(text) && cyr(text) > text.length * 0.5) {
+      summary = text.slice(0, 700);
     }
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    try {
-      const obj = JSON.parse(jsonMatch ? jsonMatch[0] : raw) as { label?: unknown; summary?: unknown };
-      if (typeof obj.label === 'string') label = obj.label.trim();
-      if (typeof obj.summary === 'string') summary = obj.summary.trim();
-    } catch { /* leave empty — caller builds a clean fallback */ }
 
-    // Reject the model's meta-narration / reasoning leakage and English output.
-    // Returning empty makes the client fall back to a clean local summary instead
-    // of showing "Мы имеем заметки…" / "We need to analyze…" in the card.
-    const META = /мы имеем|нужно (определить|проанализ)|\bwe need\b|the (user|notes|theme)|объединённых одной темой|given notes/i;
-    const cyrillic = (summary.match(/[а-яё]/gi) ?? []).length;
-    const looksBad = !summary || META.test(summary) || META.test(label) || cyrillic < summary.length * 0.3;
-    if (looksBad) { label = ''; summary = ''; }
-
-    // Derive a label from a clean summary if the model omitted one.
+    // Reject reasoning / English leakage so the client builds a clean fallback.
+    if (!summary || META.test(summary) || cyr(summary) < summary.length * 0.3) { label = ''; summary = ''; }
+    if (label && (META.test(label) || cyr(label) === 0)) label = '';
     if (!label && summary) {
       label = summary.split(/[.!?\n]/)[0]!.split(/\s+/).slice(0, 5).join(' ').slice(0, 48);
     }
