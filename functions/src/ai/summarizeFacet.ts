@@ -55,7 +55,7 @@ export const summarizeFacet = onCall({
       system,
       messages: [{ role: 'user', content: `Фрагменты заметок${focus ? ` (тема «${focus}»)` : ''}:\n\n${notesText}` }],
       json: false,
-      maxTokens: 600,
+      maxTokens: 800,
       model: FACET_MODEL,
       abortMs: 50_000,
     });
@@ -77,8 +77,10 @@ export const summarizeFacet = onCall({
     summary = summary.replace(/\n+НАЗВАНИЕ\s*:[\s\S]*$/i, '').trim();
 
     // Reject reasoning / English leakage so the client builds a clean fallback.
+    // Also reject clearly truncated summaries (ending mid-sentence without punctuation).
     let finalLabel = label;
-    if (!summary || META.test(summary) || cyr(summary) < summary.length * 0.3) { finalLabel = ''; summary = ''; }
+    const truncated = summary.length > 0 && !/[.!?]$/.test(summary);
+    if (!summary || META.test(summary) || cyr(summary) < summary.length * 0.3 || (truncated && summary.length < 60)) { finalLabel = ''; summary = ''; }
     if (finalLabel && (META.test(finalLabel) || cyr(finalLabel) === 0)) finalLabel = '';
     if (!finalLabel && summary) {
       finalLabel = summary.split(/[.!?\n]/)[0]!.split(/\s+/).slice(0, 5).join(' ').slice(0, 48);
