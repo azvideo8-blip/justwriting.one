@@ -110,3 +110,30 @@ export function clusterChunks(items: ChunkItem[], k: number, iters = 12): Cluste
 export function suggestK(noteCount: number): number {
   return Math.max(4, Math.min(18, Math.round(noteCount / 4)));
 }
+
+/**
+ * Greedily merges clusters whose centroids are near-duplicates (cosine >
+ * threshold). Over-splitting (e.g. a journaling corpus split into many similar
+ * "self-reflection" clusters) collapses into one facet.
+ */
+export function mergeSimilarClusters(clusters: Cluster[], threshold: number): Cluster[] {
+  const kept: Cluster[] = [];
+  for (const c of clusters) {
+    const cCentroid = normalize(c.centroid);
+    let target: Cluster | undefined;
+    for (const k of kept) {
+      if (dot(cCentroid, normalize(k.centroid)) > threshold) { target = k; break; }
+    }
+    if (target) {
+      const union = new Set([...target.noteIds, ...c.noteIds]);
+      target.noteIds = [...union];
+      const w1 = target.chunkCount;
+      const w2 = c.chunkCount;
+      target.centroid = normalize(target.centroid.map((x, i) => x * w1 + (c.centroid[i] ?? 0) * w2));
+      target.chunkCount = w1 + w2;
+    } else {
+      kept.push({ centroid: c.centroid.slice(), noteIds: [...c.noteIds], chunkCount: c.chunkCount });
+    }
+  }
+  return kept;
+}

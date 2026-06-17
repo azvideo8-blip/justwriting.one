@@ -2,11 +2,12 @@ import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIProfileFacet } from '../../../core/storage/localDb';
 import { AIEmbeddingService } from './AIEmbeddingService';
 import { AIService } from './AIService';
-import { clusterChunks, suggestK, type ChunkItem } from '../utils/facetClustering';
+import { clusterChunks, mergeSimilarClusters, suggestK, type ChunkItem } from '../utils/facetClustering';
 
 const MIN_FACET_NOTES = 2;          // drop singleton clusters (noise)
 const MAX_NOTES_PER_PROMPT = 12;    // cap excerpts sent to the facet summarizer
 const EXCERPT_CHARS = 1_800;
+const MERGE_THRESHOLD = 0.82;       // collapse near-duplicate facets (cosine)
 
 export interface FacetBuildProgress { done: number; total: number }
 export type FacetBuildResult =
@@ -40,7 +41,8 @@ export const AIProfileFacetService = {
     if (items.length === 0) return { ok: false, error: 'NO_EMBEDDINGS' };
 
     const noteCount = new Set(items.map(i => i.noteId)).size;
-    const clusters = clusterChunks(items, suggestK(noteCount))
+    const raw = clusterChunks(items, suggestK(noteCount));
+    const clusters = mergeSimilarClusters(raw, MERGE_THRESHOLD)
       .filter(c => c.noteIds.length >= MIN_FACET_NOTES)
       .sort((a, b) => b.noteIds.length - a.noteIds.length);
     if (clusters.length === 0) return { ok: false, error: 'NO_CLUSTERS' };
@@ -80,7 +82,12 @@ export const AIProfileFacetService = {
       let label = `Тема (${cluster.noteIds.length})`;
       let summary = '';
       if (noteInputs.length > 0) {
-        const res = await AIService.summarizeFacet({ notes: noteInputs });
+        let res = await AIService.summarizeFacet({ notes: noteInputs });
+        // Retry once on a transient failure / empty result before falling back.
+        if (!res.ok || (!res.label && !res.summary)) {
+          await new Promise(r => setTimeout(r, 300));
+          res = await AIService.summarizeFacet({ notes: noteInputs });
+        }
         if (res.ok) {
           if (res.label) label = res.label;
           summary = res.summary;

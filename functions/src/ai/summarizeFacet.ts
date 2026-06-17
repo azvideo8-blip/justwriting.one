@@ -54,11 +54,21 @@ export const summarizeFacet = onCall({
 
     let label = '';
     let summary = '';
+    let raw = result.text.trim();
+    if (raw.startsWith('```')) {
+      raw = raw.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+    }
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
     try {
-      const obj = JSON.parse(result.text) as { label?: unknown; summary?: unknown };
+      const obj = JSON.parse(jsonMatch ? jsonMatch[0] : raw) as { label?: unknown; summary?: unknown };
       if (typeof obj.label === 'string') label = obj.label.trim();
       if (typeof obj.summary === 'string') summary = obj.summary.trim();
-    } catch { /* leave empty */ }
+    } catch { /* fall through to prose fallback */ }
+
+    // Model returned prose instead of JSON — don't lose it.
+    if (!summary && raw.length > 0 && !raw.startsWith('{')) {
+      summary = raw.slice(0, 600);
+    }
 
     return { label, summary };
   } catch (e) {
