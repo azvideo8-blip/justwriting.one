@@ -265,9 +265,10 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
       const userPortrait = await AIProfileService.getPortrait();
 
       // Note-search context goes through documentContent (backend cap 50K), NOT
-      // appended to the message — a chat message is capped at 10K chars, and 5
+      // appended to the message — a chat message is capped at 10K chars, and
       // full notes blow past it (that returned 400 Bad Request from /api/chat).
       let searchContext: string | undefined;
+
       // Explicit trigger, or sticky follow-up within an ongoing notes conversation.
       const explicitSearch = looksLikeNoteSearch(text);
       const stickySearch = !explicitSearch && stickyTurnsRef.current > 0 && lastSearchQueryRef.current.length > 0;
@@ -282,9 +283,9 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
         // ("собери", "а ещё") still retrieves the same topic.
         const searchQuery = explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`;
         try {
-          const notes = await searchNotes(searchQuery, 5);
+          const notes = await searchNotes(searchQuery, 10);
           if (notes.length > 0) {
-            const PER_NOTE_CHARS = 6_000;
+            const PER_NOTE_CHARS = 4_000;
             const parts = notes.map((n, i) => {
               const snippet = n.content.length > PER_NOTE_CHARS
                 ? n.content.slice(0, PER_NOTE_CHARS) + '…'
@@ -295,49 +296,84 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
               `Это результаты автоматического семантического поиска по личному архиву заметок пользователя по запросу: "${text}". ` +
               `Система нашла эти заметки в его архиве и предоставила их тебе — это собственные тексты пользователя, у тебя есть к ним доступ. ` +
               `Не отвечай, что у тебя нет доступа к заметкам и что ты видишь только прикреплённое. ` +
-              `КРИТИЧЕСКИ ВАЖНО: опирайся ИСКЛЮЧИТЕЛЬНО на текст этих заметок. Не придумывай и не додумывай факты, события, цитаты или детали, которых нет в них дословно. Если в заметках нет ответа на вопрос — прямо скажи, что в найденных заметках об этом ничего нет, и не выдумывай. ` +
-              `Опираясь только на эти заметки, ответь на вопрос пользователя — что он пишет на эту тему, какие темы, детали и чувства повторяются. ` +
+              `КРИТИЧЕСКИ ВАЖНО: опирайся ИСКЛЮЧИТЕЛЬНО на текст этих заметок и темы профиля ниже. Не придумывай и не додумывай факты, события, цитаты или детали, которых нет в них дословно. Если в заметках нет ответа на вопрос — прямо скажи, что в найденных заметках об этом ничего нет, и не выдумывай. ` +
+              `Опираясь на эти заметки и темы профиля, ответь на вопрос пользователя — что он пишет на эту тему, какие темы, детали и чувства повторяются. ` +
               `Найдено заметок: ${notes.length}.\n\n` +
               parts.join('\n\n')
-            ).slice(0, 45_000);
+            ).slice(0, 40_000);
           } else {
             // Searched but found nothing — tell the model so it says "not found"
             // instead of inventing note content.
             searchContext =
               `Автоматический поиск по личному архиву заметок пользователя по запросу "${text}" не нашёл подходящих заметок. ` +
-              `Сообщи пользователю, что в его заметках по этому запросу ничего не найдено. ` +
+              `Но у тебя есть темы профиля пользователя ниже — используй их для ответа. ` +
               `КАТЕГОРИЧЕСКИ не выдумывай содержание его заметок и не приписывай ему того, чего нет.`;
           }
         } catch (e) {
           console.warn('[useAIChat] note search failed:', e);
-          // Search itself errored — still guard against fabrication / false
-          // "no access" replies rather than silently answering with no context.
           searchContext =
             `Поиск по архиву заметок пользователя по запросу "${text}" временно не сработал (техническая ошибка). ` +
-            `Скажи пользователю, что не удалось выполнить поиск по заметкам, и предложи повторить. ` +
+            `Но у тебя есть темы профиля пользователя ниже — используй их для ответа. ` +
             `Не выдумывай содержание его заметок.`;
         }
+      }
 
-        // PROF-6: augment search context with relevant profile facets
+      // PROF-6: augment context with relevant profile facets.
+      // Always include for psychology/cbt/coach personas; for others only on search.
+      const psychePersonas = ['group_psychology', 'cbt', 'coach'];
+      const needsFacets = explicitSearch || stickySearch || psychePersonas.includes(effectivePersonaId);
+      if (needsFacets) {
         try {
           const facets = await AIProfileFacetService.getAll();
           if (facets.length > 0) {
-            const queryEmb = await AIService.embed({ content: searchQuery });
-            if (queryEmb.ok && queryEmb.vectors[0]) {
-              const qv = queryEmb.vectors[0];
-              const relevant = facets
-                .map(f => ({ f, sim: cosineSimilarity(qv, f.centroid) }))
-                .filter(({ sim }) => sim >= 0.45)
-                .sort((a, b) => b.sim - a.sim)
-                .slice(0, 3);
-              if (relevant.length > 0) {
-                const facetLines = relevant.map(({ f }) =>
-                  `— ${f.label} (${f.noteCount} заметок): ${f.summary}`
-                ).join('\n');
-                const facetBlock = `\n\nТемы профиля пользователя, релевантные запросу:\n${facetLines}`;
-                searchContext = searchContext
-                  ? searchContext.slice(0, 45_000 - facetBlock.length) + facetBlock
-                  : facetBlock;
+            const embedQuery = explicitSearch || stickySearch
+              ? (explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`)
+              : text;
+            const queryEmb = await AIService.embed({ content: embedQuery });
+            const qv = queryEmb.ok && queryEmb.vectors[0] ? queryEmb.vectors[0] : null;
+
+            const queryLower = text.toLowerCase();
+
+            const relevant = facets
+              .map(f => {
+                let sim = qv ? cosineSimilarity(qv, f.centroid) : 0;
+                // Keyword name-match boost: if the query contains words that appear
+                // in this facet's note texts, boost similarity so name-based queries
+                // ("про Сашу") find the partner facet even with low vector cosine.
+                const queryWords = queryLower.match(/[а-яё]{3,}/gi) ?? [];
+                if (queryWords.length > 0 && f.noteIds.length > 0) {
+                  // Check facet label for name overlap
+                  const labelLower = f.label.toLowerCase();
+                  const labelHit = queryWords.some(w => labelLower.includes(w) && w.length >= 3);
+                  if (labelHit) sim = Math.max(sim, 0.55);
+                }
+                return { f, sim };
+              })
+              .filter(({ sim }) => sim >= 0.35)
+              .sort((a, b) => b.sim - a.sim)
+              .slice(0, 5);
+
+            if (relevant.length > 0) {
+              // Load note titles for each facet to give the psychologist more context
+              const db = await getLocalDb();
+              const docs = await db.getAll('documents');
+              const docMap = new Map(docs.map(d => [d.id, d]));
+
+              const facetLines = relevant.map(({ f }) => {
+                const noteTitles = f.noteIds
+                  .slice(0, 12)
+                  .map(id => docMap.get(id)?.title)
+                  .filter(Boolean)
+                  .map(t => `  · ${t}`)
+                  .join('\n');
+                return `— ${f.label} (${f.noteCount} заметок):\n${f.summary}${noteTitles ? `\nЗаметки по теме:\n${noteTitles}` : ''}`;
+              }).join('\n\n');
+              const facetBlock = `Темы профиля пользователя, релевантные запросу:\n${facetLines}`;
+
+              if (searchContext) {
+                searchContext = searchContext.slice(0, 40_000 - facetBlock.length) + '\n\n' + facetBlock;
+              } else {
+                searchContext = facetBlock;
               }
             }
           }
