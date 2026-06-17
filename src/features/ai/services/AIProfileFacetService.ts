@@ -41,6 +41,9 @@ const STOPWORDS = new Set([
   'вроде','того','общем','даже','дело','какие','такое','чуть','опять','добрый','выходной',
   'идёт','иду','шёл','пришёл','ушёл','пошёл','вернулся','поехал','пошли',
   'больше','меньше','лучше','хуже','первый','второй','последний','следующий','другой','разный',
+  'заниматься','много','мало','хотя','которую','сделал','хорошо','каким','вечер','начинаю',
+  'вечером','сессия','неделе','следующей','клиентов','аскезу','утром','ночью','проснулся',
+  'почему','потому','этому','этому','этому','кроме','против','через','между','перед',
 ]);
 
 /** Clean keyword fallback — never raw chunk text (could be mid-sentence / explicit). */
@@ -236,17 +239,15 @@ export const AIProfileFacetService = {
     }
 
     // PROF-7: Person facets from mentionedPeople in summaries.
+    // Only active when notes have been re-summarized with the updated prompt.
     const personNotes = new Map<string, { name: string; role: string; noteIds: string[] }>();
     for (const s of summaries) {
       for (const p of s.mentionedPeople ?? []) {
         const key = p.name.toLowerCase();
         let entry = personNotes.get(key);
-        if (!entry) {
-          entry = { name: p.name, role: p.role, noteIds: [] };
-          personNotes.set(key, entry);
-        }
+        if (!entry) { entry = { name: p.name, role: p.role, noteIds: [] }; personNotes.set(key, entry); }
         if (!entry.noteIds.includes(s.documentId)) entry.noteIds.push(s.documentId);
-        if (p.role && (!entry.role || entry.role === p.role)) entry.role = p.role;
+        if (p.role) entry.role = p.role;
       }
     }
 

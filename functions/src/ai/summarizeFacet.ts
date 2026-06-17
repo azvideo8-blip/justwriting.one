@@ -10,9 +10,9 @@ import { generate } from '../shared/aiProvider';
 const inputSchema = z.object({
   notes: z.array(z.object({
     title: z.string().max(300),
-    excerpt: z.string().max(2_000),
-  })).min(1).max(40),
-  focus: z.string().max(120).optional(),
+    excerpt: z.string().max(4_000),
+  })).min(1).max(60),
+  focus: z.string().max(200).optional(),
 });
 
 // DeepSeek (the default chat model) is a reasoning model that leaks its
@@ -38,6 +38,7 @@ export const summarizeFacet = onCall({
 
   const parsed = inputSchema.safeParse(request.data);
   if (!parsed.success) {
+    console.error('[AI facet] validation failed:', JSON.stringify(parsed.error.issues));
     throw new HttpsError('invalid-argument', 'Invalid payload.');
   }
 
@@ -55,7 +56,7 @@ export const summarizeFacet = onCall({
       system,
       messages: [{ role: 'user', content: `Фрагменты заметок${focus ? ` (тема «${focus}»)` : ''}:\n\n${notesText}` }],
       json: false,
-      maxTokens: 800,
+      maxTokens: 1000,
       model: FACET_MODEL,
       abortMs: 50_000,
     });
@@ -80,7 +81,7 @@ export const summarizeFacet = onCall({
     // Also reject clearly truncated summaries (ending mid-sentence without punctuation).
     let finalLabel = label;
     const truncated = summary.length > 0 && !/[.!?]$/.test(summary);
-    if (!summary || META.test(summary) || cyr(summary) < summary.length * 0.3 || (truncated && summary.length < 60)) { finalLabel = ''; summary = ''; }
+    if (!summary || META.test(summary) || cyr(summary) < summary.length * 0.3 || (truncated && summary.length < 120)) { finalLabel = ''; summary = ''; }
     if (finalLabel && (META.test(finalLabel) || cyr(finalLabel) === 0)) finalLabel = '';
     if (!finalLabel && summary) {
       finalLabel = summary.split(/[.!?\n]/)[0]!.split(/\s+/).slice(0, 5).join(' ').slice(0, 48);
