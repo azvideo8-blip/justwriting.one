@@ -238,8 +238,9 @@ export const AIProfileFacetService = {
       await new Promise(r => setTimeout(r, 150));
     }
 
-    // PROF-7: Person facets from mentionedPeople in summaries.
-    // Only active when notes have been re-summarized with the updated prompt.
+    // PROF-7: Person facets.
+    // Step 1: Collect from mentionedPeople in summaries (if re-summarized).
+    // Step 2: LLM extraction from chunk texts.
     const personNotes = new Map<string, { name: string; role: string; noteIds: string[] }>();
     for (const s of summaries) {
       for (const p of s.mentionedPeople ?? []) {
@@ -248,6 +249,47 @@ export const AIProfileFacetService = {
         if (!entry) { entry = { name: p.name, role: p.role, noteIds: [] }; personNotes.set(key, entry); }
         if (!entry.noteIds.includes(s.documentId)) entry.noteIds.push(s.documentId);
         if (p.role) entry.role = p.role;
+      }
+    }
+
+    if (personNotes.size < 2 && chunks.length > 10) {
+      const sampleTexts = chunks
+        .filter(c => c.text.trim().length > 80)
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 25)
+        .map(c => c.text.slice(0, 800));
+      if (sampleTexts.length >= 8) {
+        try {
+          const chatRes = await AIService.chat({
+            personaId: 'custom',
+            customSystemPrompt: 'Ты извлекаешь имена конкретных людей из личных дневниковых записей. Ответь ТОЛЬКО в формате JSON-массив: [{"name":"Имя","role":"отношение к автору (жена/муж/дочь/сын/мать/отец/коллега/друг/итд)"}]. Если людей нет — верни []. НЕ рассуждай, НЕ пиши пояснений — только JSON.',
+            messages: [{ role: 'user', content: `Вот фрагменты из дневника автора. Найди всех конкретных людей, которых он упоминает, и определи их роль:\n\n${sampleTexts.join('\n---\n')}` }],
+          });
+          if (chatRes.ok) {
+            let jsonText = chatRes.text.trim();
+            if (jsonText.startsWith('```')) jsonText = jsonText.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
+            const people = JSON.parse(jsonText) as { name: string; role: string }[];
+            for (const p of people) {
+              if (!p.name || p.name.length < 2) continue;
+              const key = p.name.toLowerCase();
+              let entry = personNotes.get(key);
+              if (!entry) { entry = { name: p.name, role: p.role || '', noteIds: [] }; personNotes.set(key, entry); }
+              if (p.role) entry.role = p.role;
+            }
+          }
+        } catch (e) {
+          console.warn('[AIProfileFacetService] person extraction failed:', e);
+        }
+      }
+
+      // Map chunks to detected people by name matching
+      for (const [, pn] of personNotes) {
+        const nameRe = new RegExp(`\\b${pn.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+        for (const ch of chunks) {
+          if (nameRe.test(ch.text) && !pn.noteIds.includes(ch.noteId)) {
+            pn.noteIds.push(ch.noteId);
+          }
+        }
       }
     }
 
