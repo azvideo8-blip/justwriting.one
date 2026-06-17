@@ -120,6 +120,22 @@ export interface AIPersona {
   createdAt: number;
 }
 
+/** A theme/facet of the living AI profile, derived by clustering note embeddings. */
+export interface AIProfileFacet {
+  id: string;
+  label: string;
+  summary: string;
+  centroid: number[];
+  noteIds: string[];
+  noteCount: number;
+  firstAt: number;       // earliest member-note session time
+  lastAt: number;        // latest member-note session time
+  updatedAt: number;
+  /** Build-batch id, so a fresh rebuild can replace the previous generation. */
+  buildId: string;
+  cloudSyncedAt?: number;
+}
+
 interface JustWritingDB extends DBSchema {
   documents: {
     key: string;
@@ -145,6 +161,7 @@ interface JustWritingDB extends DBSchema {
   };
   aiSummaries: { key: string; value: AIDocumentSummary; };
   aiEmbeddings: { key: string; value: AIDocumentEmbedding; };
+  aiProfileFacets: { key: string; value: AIProfileFacet; };
   aiPersonas: { key: string; value: AIPersona; };
 }
 
@@ -174,7 +191,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   if (dbOpenPromise) return dbOpenPromise;
 
   const currentGeneration = dbGeneration;
-  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 6, {
+  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 7, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const docStore = db.createObjectStore('documents', { keyPath: 'id' });
@@ -205,6 +222,9 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
       }
       if (oldVersion < 6) {
         db.createObjectStore('aiEmbeddings', { keyPath: 'documentId' });
+      }
+      if (oldVersion < 7) {
+        db.createObjectStore('aiProfileFacets', { keyPath: 'id' });
       }
     },
     blocked() { console.warn('[localDb] Database upgrade blocked — close other tabs and reload.'); },
