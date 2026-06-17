@@ -6,14 +6,15 @@ import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 
 // Encrypt fields on save: only the chunked vectorsJson. Decrypt accepts the
 // legacy single-vector vectorJson too, so old cloud docs still read.
-const ENCRYPT_FIELDS = ['vectorsJson', 'model', 'contentHash'];
-const DECRYPT_FIELDS = ['vectorsJson', 'vectorJson', 'model', 'contentHash'];
+const ENCRYPT_FIELDS = ['vectorsJson', 'chunkTextsJson', 'model', 'contentHash'];
+const DECRYPT_FIELDS = ['vectorsJson', 'chunkTextsJson', 'vectorJson', 'model', 'contentHash'];
 const ARRAY_FIELDS: string[] = [];
 
 async function saveEmbeddingToCloud(userId: string, emb: AIDocumentEmbedding): Promise<void> {
   const payload = {
     documentId: emb.documentId,
     vectorsJson: JSON.stringify(emb.vectors),
+    chunkTextsJson: JSON.stringify(emb.chunkTexts ?? []),
     model: emb.model,
     dim: emb.dim,
     contentHash: emb.contentHash,
@@ -58,6 +59,12 @@ async function fetchEmbeddingFromCloud(userId: string, documentId: string): Prom
   const processedAt = typeof decrypted.processedAt === 'number' ? decrypted.processedAt : Date.now();
   const base: AIDocumentEmbedding = { documentId: docId, vectors, model, dim, contentHash, processedAt };
   if (typeof decrypted.schemaV === 'number') base.schemaV = decrypted.schemaV;
+  if (typeof decrypted.chunkTextsJson === 'string') {
+    try {
+      const ct = JSON.parse(decrypted.chunkTextsJson);
+      if (Array.isArray(ct) && ct.length) base.chunkTexts = ct.map(String);
+    } catch { /* ignore */ }
+  }
   return base;
 }
 

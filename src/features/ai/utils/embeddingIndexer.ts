@@ -4,9 +4,9 @@ import { AIService } from '../services/AIService';
 
 export const CURRENT_EMBED_MODEL = 'fireworks/qwen3-embedding-8b';
 export const CURRENT_EMBED_DIM = 1024;
-// Embedding pipeline version. v2 = per-chunk vectors (was v1: one mean-pooled
-// vector per note). Bumping forces a full re-index into the new format.
-export const CURRENT_EMBED_SCHEMA = 2;
+// Embedding pipeline version. v2 = per-chunk vectors; v3 = also stores chunk
+// texts (for chunk-level profile domains). Bumping forces a full re-index.
+export const CURRENT_EMBED_SCHEMA = 3;
 
 export type IndexResult = 'ok' | 'skip' | 'rate' | 'daily' | 'error';
 
@@ -70,6 +70,7 @@ export async function indexDocument(documentId: string, force = false): Promise<
   await AIEmbeddingService.save({
     documentId,
     vectors: result.vectors,
+    chunkTexts: result.chunks,
     model: result.model,
     dim: result.dim,
     contentHash: hash,

@@ -65,9 +65,10 @@ export const embedDocument = onCall({
       console.error('[AI embed] usage record failed:', e),
     );
 
-    // Return one vector per chunk (no mean-pool). The client stores them all and
-    // scores a note by its best-matching chunk.
-    return { vectors: result.vectors, model: result.model, dim: result.dim };
+    // Return one vector per chunk plus the chunk texts, so the client can assign
+    // individual chunks to profile domains and summarize a domain from its own
+    // excerpts (a note's chunks may belong to different domains).
+    return { vectors: result.vectors, chunks, model: result.model, dim: result.dim };
   } catch (e) {
     console.error('[AI embed] generation failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);

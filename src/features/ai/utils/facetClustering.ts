@@ -6,11 +6,13 @@
 export interface ChunkItem {
   noteId: string;
   vector: number[];
+  text?: string;
 }
 
 export interface Cluster {
   centroid: number[];
   noteIds: string[];
+  texts: string[];
   chunkCount: number;
 }
 
@@ -92,17 +94,19 @@ export function clusterChunks(items: ChunkItem[], k: number, iters = 12): Cluste
     if (!moved && iter > 0) break;
   }
 
-  // Build clusters with unique noteIds.
-  const buckets: { noteIds: Set<string>; chunkCount: number; centroid: number[] }[] =
-    centroids.map(centroid => ({ noteIds: new Set<string>(), chunkCount: 0, centroid }));
+  // Build clusters with unique noteIds + their chunk texts.
+  const buckets: { noteIds: Set<string>; texts: string[]; chunkCount: number; centroid: number[] }[] =
+    centroids.map(centroid => ({ noteIds: new Set<string>(), texts: [], chunkCount: 0, centroid }));
   for (let i = 0; i < items.length; i++) {
     const b = buckets[assign[i]]!;
     b.noteIds.add(items[i]!.noteId);
+    const txt = items[i]!.text;
+    if (txt) b.texts.push(txt);
     b.chunkCount++;
   }
 
   return buckets
-    .map(b => ({ centroid: b.centroid, noteIds: [...b.noteIds], chunkCount: b.chunkCount }))
+    .map(b => ({ centroid: b.centroid, noteIds: [...b.noteIds], texts: b.texts, chunkCount: b.chunkCount }))
     .filter(c => c.noteIds.length > 0);
 }
 
@@ -127,12 +131,13 @@ export function mergeSimilarClusters(clusters: Cluster[], threshold: number): Cl
     if (target) {
       const union = new Set([...target.noteIds, ...c.noteIds]);
       target.noteIds = [...union];
+      target.texts = [...target.texts, ...c.texts];
       const w1 = target.chunkCount;
       const w2 = c.chunkCount;
       target.centroid = normalize(target.centroid.map((x, i) => x * w1 + (c.centroid[i] ?? 0) * w2));
       target.chunkCount = w1 + w2;
     } else {
-      kept.push({ centroid: c.centroid.slice(), noteIds: [...c.noteIds], chunkCount: c.chunkCount });
+      kept.push({ centroid: c.centroid.slice(), noteIds: [...c.noteIds], texts: [...c.texts], chunkCount: c.chunkCount });
     }
   }
   return kept;

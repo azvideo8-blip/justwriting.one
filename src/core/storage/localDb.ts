@@ -98,6 +98,9 @@ export interface AIDocumentEmbedding {
   documentId: string;
   /** One vector per chunk of the note (chunked schema, schemaV >= 2). */
   vectors: number[][];
+  /** Chunk texts aligned with `vectors` (schemaV >= 3). Used to assign chunks to
+   *  profile domains and summarize a domain from its own excerpts. */
+  chunkTexts?: string[];
   model: string;
   dim: number;
   contentHash: string;
