@@ -12,6 +12,7 @@ import { AIService } from '../services/AIService';
 import { AIProfileService } from '../services/AIProfileService';
 import { AISummaryService } from '../services/AISummaryService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
+import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { searchNotes } from '../utils/noteRetriever';
 
@@ -297,6 +298,8 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
 
             const queryLower = text.toLowerCase();
             const queryWords = queryLower.match(/[а-яё]{3,}/gi) ?? [];
+            const queryNames = [...new Set(text.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [])];
+            const nameLower = queryNames.map(n => n.toLowerCase());
 
             const relevant = facets
               .map(f => {
@@ -311,6 +314,12 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
                   const summaryHit = queryWords.some(w => summaryLower.includes(w) && w.length >= 3);
                   if (labelHit) sim = Math.max(sim, 0.60);
                   else if (summaryHit) sim = Math.max(sim, 0.55);
+                }
+                // Proper-name boost: if the query contains a capitalized name
+                // and this facet's note texts mention that name, strong boost.
+                if (nameLower.length > 0 && f.noteIds.length > 0) {
+                  const allLower = `${f.label} ${f.summary}`.toLowerCase();
+                  if (nameLower.some(n => allLower.includes(n))) sim = Math.max(sim, 0.60);
                 }
                 return { f, sim };
               })
@@ -351,30 +360,60 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
         const searchQuery = explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`;
         try {
           const notes = await searchNotes(searchQuery, 10);
-          // Supplement with notes from matched facets that vector search missed
-          const extraIds: string[] = [];
-          if (facetNoteIds.size > 0) {
-            const foundIds = new Set(notes.map(n => n.documentId));
-            for (const id of facetNoteIds) {
-              if (!foundIds.has(id) && extraIds.length < 10) extraIds.push(id);
+
+          // Text-based name search: vector embeddings are bad at proper-name
+          // retrieval ("Даша" won't match chunks that mention her briefly).
+          // Extract candidate names (capitalized Russian words 3+ chars) from
+          // the query and scan chunk texts for them (fast, already in memory).
+          const candidateNames = [...new Set(text.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [])];
+          const nameSearchIds = new Set<string>();
+          if (candidateNames.length > 0) {
+            const allEmb = await AIEmbeddingService.getAll();
+            for (const name of candidateNames) {
+              const nameRe = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+              for (const emb of allEmb) {
+                if (nameSearchIds.has(emb.documentId)) continue;
+                const texts = emb.chunkTexts ?? [];
+                if (texts.some(t => nameRe.test(t))) nameSearchIds.add(emb.documentId);
+              }
             }
           }
-          const allNotes = notes.length > 0 ? notes : [];
-          if (extraIds.length > 0) {
-            const db = await getLocalDb();
-            for (const docId of extraIds) {
-              const doc = await db.get('documents', docId);
-              if (!doc) continue;
-              const versions = await db.getAllFromIndex('versions', 'by-document', docId);
-              if (versions.length === 0) continue;
-              versions.sort((a, b) => b.version - a.version);
-              allNotes.push({
-                documentId: docId,
-                title: doc.title || 'Без названия',
-                content: versions[0]?.content ?? '',
-                score: 0,
-              });
+
+          // Combine: vector search results + facet notes + name-search notes
+          const foundIds = new Set(notes.map(n => n.documentId));
+          // Also add facet notes where the queried name appears in chunk texts
+          if (candidateNames.length > 0 && facetNoteIds.size > 0) {
+            const allEmb = await AIEmbeddingService.getAll();
+            for (const name of candidateNames) {
+              const nameRe = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+              for (const emb of allEmb) {
+                if (!facetNoteIds.has(emb.documentId)) continue;
+                if (foundIds.has(emb.documentId) || nameSearchIds.has(emb.documentId)) continue;
+                const texts = emb.chunkTexts ?? [];
+                if (texts.some(t => nameRe.test(t))) nameSearchIds.add(emb.documentId);
+              }
             }
+          }
+          const extraIds: string[] = [];
+          for (const id of facetNoteIds) {
+            if (!foundIds.has(id) && !nameSearchIds.has(id) && extraIds.length < 10) extraIds.push(id);
+          }
+          const nameIds = [...nameSearchIds].filter(id => !foundIds.has(id) && !extraIds.includes(id)).slice(0, 15);
+          const allNotes = notes.length > 0 ? [...notes] : [];
+
+          const db = await getLocalDb();
+          for (const docId of [...extraIds, ...nameIds]) {
+            const doc = await db.get('documents', docId);
+            if (!doc) continue;
+            const versions = await db.getAllFromIndex('versions', 'by-document', docId);
+            if (versions.length === 0) continue;
+            versions.sort((a, b) => b.version - a.version);
+            allNotes.push({
+              documentId: docId,
+              title: doc.title || 'Без названия',
+              content: versions[0]?.content ?? '',
+              score: 0,
+            });
           }
 
           if (allNotes.length > 0) {
