@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2, RefreshCw, Sparkles, Search, CloudUpload } from 'lucide-react';
+import { Loader2, RefreshCw, Sparkles, Search, CloudUpload, RotateCcw } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
 import { useToast } from '../../../shared/components/Toast';
-import { getIndexCoverage, indexPending, type IndexCoverage } from '../utils/embeddingIndexer';
+import { getIndexCoverage, indexPending, reindexAll, type IndexCoverage } from '../utils/embeddingIndexer';
 import { searchNotes, type RetrievedNote } from '../utils/noteRetriever';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 
@@ -13,6 +13,7 @@ export function EmbeddingDiagnostics() {
   const [coverage, setCoverage] = useState<IndexCoverage | null>(null);
   const [loading, setLoading] = useState(true);
   const [indexing, setIndexing] = useState(false);
+  const [reindexing, setReindexing] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 
   const [syncing, setSyncing] = useState(false);
@@ -50,6 +51,26 @@ export function EmbeddingDiagnostics() {
       showToast('Ошибка индексации', 'error');
     } finally {
       setIndexing(false);
+      setProgress(null);
+      void refresh();
+    }
+  };
+
+  const handleReindexAll = async () => {
+    const total = coverage?.totalDocs ?? 0;
+    if (!window.confirm(`Переиндексировать ВСЕ заметки (${total})? Каждая будет пересчитана заново — это потратит лимит ИИ. Нужно при смене алгоритма/модели или для подстраховки.`)) return;
+    setReindexing(true);
+    setProgress({ done: 0, total });
+    try {
+      const summary = await reindexAll({ onProgress: (done, t) => setProgress({ done, total: t }) });
+      if (summary.stopped === 'daily') showToast('Переиндексация приостановлена: дневной лимит ИИ', 'error');
+      else if (summary.stopped === 'rate') showToast('Переиндексация приостановлена: слишком много запросов', 'error');
+      else showToast(`Переиндексировано: ${summary.ok}, пропущено ${summary.skipped}, ошибок ${summary.failed}`, 'success');
+    } catch (e) {
+      console.error('[EmbeddingDiagnostics] reindex failed:', e);
+      showToast('Ошибка переиндексации', 'error');
+    } finally {
+      setReindexing(false);
       setProgress(null);
       void refresh();
     }
@@ -103,7 +124,7 @@ export function EmbeddingDiagnostics() {
           <div className="flex items-center gap-2">
             <Button
               onClick={() => void refresh()}
-              disabled={loading || indexing}
+              disabled={loading || indexing || reindexing}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border-subtle bg-surface-base/5 text-text-main/60 text-xs font-semibold disabled:opacity-50 transition-colors"
             >
               {loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
@@ -111,15 +132,23 @@ export function EmbeddingDiagnostics() {
             </Button>
             <Button
               onClick={() => void handleSync()}
-              disabled={syncing || indexing || loading || (coverage?.unsynced ?? 0) === 0}
+              disabled={syncing || indexing || reindexing || loading || (coverage?.unsynced ?? 0) === 0}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border-subtle bg-surface-base/5 text-text-main/60 text-xs font-semibold disabled:opacity-50 transition-colors min-h-[34px]"
             >
               {syncing ? <Loader2 size={12} className="animate-spin" /> : <CloudUpload size={12} />}
               {(coverage?.unsynced ?? 0) === 0 ? 'В облаке' : `В облако (${coverage?.unsynced ?? 0})`}
             </Button>
             <Button
+              onClick={() => void handleReindexAll()}
+              disabled={indexing || reindexing || loading || (coverage?.totalDocs ?? 0) === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border-subtle bg-surface-base/5 text-text-main/60 text-xs font-semibold disabled:opacity-50 transition-colors min-h-[34px]"
+            >
+              {reindexing ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
+              {reindexing && progress ? `Пересчёт ${progress.done}/${progress.total}…` : 'Переиндексировать всё'}
+            </Button>
+            <Button
               onClick={() => void handleIndexNow()}
-              disabled={indexing || loading || (coverage?.stale ?? 0) === 0}
+              disabled={indexing || reindexing || loading || (coverage?.stale ?? 0) === 0}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-text-main text-surface-base text-xs font-semibold disabled:opacity-50 transition-colors min-h-[34px]"
             >
               {indexing ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
