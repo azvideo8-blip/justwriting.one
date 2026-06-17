@@ -21,11 +21,25 @@ export type FacetBuildResult =
 interface Chunk { noteId: string; vector: number[]; text: string }
 interface FacetSpec { label: string; fixedLabel: boolean; noteIds: string[]; texts: string[]; centroid: number[] }
 
-/** Clean fallback from the facet's own chunk texts (already domain-relevant). */
+const STOPWORDS = new Set([
+  'это','эта','этот','что','чтобы','когда','если','или','как','так','тоже','также','уже','ещё','еще','очень','только','просто',
+  'меня','мной','мне','мой','моя','моё','мои','тебя','тебе','него','неё','них','свой','своя','свои','себя','себе',
+  'был','была','было','были','быть','есть','будет','чтото','что-то','потому','потом','тогда','сейчас','сегодня','завтра','вчера',
+  'день','утро','доброе','время','раз','нужно','надо','хочу','могу','буду','делать','сделать','которые','который','которая',
+  'нет','да','ну','вот','там','тут','здесь','этом','этого','всё','все','весь','очень','более','менее','этим','будто','например',
+]);
+
+/** Clean keyword fallback — never raw chunk text (could be mid-sentence / explicit). */
 function fallbackFromTexts(texts: string[]): { label: string; summary: string } {
-  const joined = texts.filter(t => t.trim()).slice(0, 3).join(' ').replace(/\s+/g, ' ').trim();
-  const summary = joined.slice(0, 400);
-  const label = (summary.split(/[.!?\n]/)[0] ?? '').split(/\s+/).slice(0, 4).join(' ').slice(0, 40);
+  const freq = new Map<string, number>();
+  const words = texts.join(' ').toLowerCase().match(/[а-яё]{4,}/gi) ?? [];
+  for (const w of words) {
+    if (STOPWORDS.has(w)) continue;
+    freq.set(w, (freq.get(w) ?? 0) + 1);
+  }
+  const top = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([w]) => w);
+  const label = top.slice(0, 2).join(', ');
+  const summary = top.length ? `Часто упоминается: ${top.join(', ')}.` : '';
   return { label, summary };
 }
 
@@ -117,11 +131,15 @@ export const AIProfileFacetService = {
 
     const docs = await db.getAll('documents');
     const docMap = new Map(docs.map(d => [d.id, d]));
+    const totalNotes = new Set(chunks.map(c => c.noteId)).size;
 
     const buildId = `${Date.now()}`;
     const facets: AIProfileFacet[] = [];
 
-    for (const spec of specs) {
+    for (let i = 0; i < specs.length; i++) {
+      const spec = specs[i]!;
+      onProgress?.({ done: i + 1, total: specs.length });
+
       let firstAt = Infinity;
       let lastAt = 0;
       for (const id of spec.noteIds) {
@@ -136,6 +154,7 @@ export const AIProfileFacetService = {
 
       let label = spec.fixedLabel ? spec.label : '';
       let summary = '';
+      let llmOk = false;
       if (excerpts.length > 0) {
         const focus = spec.fixedLabel ? spec.label : undefined;
         let res = await AIService.summarizeFacet({ notes: excerpts, focus });
@@ -143,15 +162,25 @@ export const AIProfileFacetService = {
           await new Promise(r => setTimeout(r, 300));
           res = await AIService.summarizeFacet({ notes: excerpts, focus });
         }
-        if (res.ok) {
+        if (res.ok && res.summary) {
           summary = res.summary;
+          llmOk = true;
           if (!spec.fixedLabel && res.label) label = res.label;
         }
       }
+
+      // Drop noisy "discovered" facets: the AI couldn't name them, or they're a
+      // catch-all (greetings/logistics residue across most of the corpus). Keep
+      // every life-domain (with a clean keyword fallback if the LLM failed).
+      if (!spec.fixedLabel && (!llmOk || spec.noteIds.length > totalNotes * 0.4)) {
+        await new Promise(r => setTimeout(r, 150));
+        continue;
+      }
+
       if (!summary || !label) {
         const fb = fallbackFromTexts(spec.texts);
         if (!summary) summary = fb.summary;
-        if (!label) label = fb.label || `Тема (${spec.noteIds.length})`;
+        if (!label) label = fb.label || spec.label || 'Тема';
       }
 
       facets.push({
@@ -166,7 +195,6 @@ export const AIProfileFacetService = {
         updatedAt: Date.now(),
         buildId,
       });
-      onProgress?.({ done: facets.length, total: specs.length });
       await new Promise(r => setTimeout(r, 150));
     }
 
