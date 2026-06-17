@@ -63,13 +63,17 @@ export const summarizeFacet = onCall({
       const obj = JSON.parse(jsonMatch ? jsonMatch[0] : raw) as { label?: unknown; summary?: unknown };
       if (typeof obj.label === 'string') label = obj.label.trim();
       if (typeof obj.summary === 'string') summary = obj.summary.trim();
-    } catch { /* fall through to prose fallback */ }
+    } catch { /* leave empty — caller builds a clean fallback */ }
 
-    // Model returned prose instead of JSON — don't lose it.
-    if (!summary && raw.length > 0 && !raw.startsWith('{')) {
-      summary = raw.slice(0, 600);
-    }
-    // Derive a label from the summary if the model omitted one.
+    // Reject the model's meta-narration / reasoning leakage and English output.
+    // Returning empty makes the client fall back to a clean local summary instead
+    // of showing "Мы имеем заметки…" / "We need to analyze…" in the card.
+    const META = /мы имеем|нужно (определить|проанализ)|\bwe need\b|the (user|notes|theme)|объединённых одной темой|given notes/i;
+    const cyrillic = (summary.match(/[а-яё]/gi) ?? []).length;
+    const looksBad = !summary || META.test(summary) || META.test(label) || cyrillic < summary.length * 0.3;
+    if (looksBad) { label = ''; summary = ''; }
+
+    // Derive a label from a clean summary if the model omitted one.
     if (!label && summary) {
       label = summary.split(/[.!?\n]/)[0]!.split(/\s+/).slice(0, 5).join(' ').slice(0, 48);
     }
