@@ -105,8 +105,10 @@ export const AIProfileFacetService = {
     }
 
     // 2. Assign each CHUNK to ALL matching domains (multi-assignment).
-    //    Primary: argmax if cosine ≥ domain's threshold (or global DOMAIN_THRESHOLD).
-    //    Secondary: any other domain where cosine ≥ threshold + SECONDARY_BUMP.
+    //    Primary: argmax if cosine ≥ domain's threshold.
+    //    Secondary: if primary passed, other domains with cosine ≥ threshold + SECONDARY_BUMP.
+    //    If primary FAILED (greedy domain rejected the chunk), evaluate all others
+    //    at their BASE threshold (no bump) so chunks aren't orphaned by a greedy gate.
     const SECONDARY_BUMP = 0.03;
     const domainData = new Map<string, { label: string; noteIds: Set<string>; texts: string[]; chunkVecs: number[][] }>();
     const leftover: ChunkItem[] = [];
@@ -117,8 +119,9 @@ export const AIProfileFacetService = {
         threshold: LIFE_DOMAINS.find(ld => ld.id === d.id)?.threshold ?? DOMAIN_THRESHOLD,
       }));
       const best = scores.reduce((a, b) => a.sim >= b.sim ? a : b);
+      const bestPassed = best.sim >= best.threshold;
       let assigned = false;
-      if (best.sim >= best.threshold) {
+      if (bestPassed) {
         let dd = domainData.get(best.id);
         if (!dd) { dd = { label: best.label, noteIds: new Set(), texts: [], chunkVecs: [] }; domainData.set(best.id, dd); }
         dd.noteIds.add(ch.noteId);
@@ -128,7 +131,7 @@ export const AIProfileFacetService = {
       }
       for (const s of scores) {
         if (s.id === best.id) continue;
-        const secThreshold = s.threshold + SECONDARY_BUMP;
+        const secThreshold = bestPassed ? s.threshold + SECONDARY_BUMP : s.threshold;
         if (s.sim >= secThreshold) {
           let dd = domainData.get(s.id);
           if (!dd) { dd = { label: s.label, noteIds: new Set(), texts: [], chunkVecs: [] }; domainData.set(s.id, dd); }
@@ -398,6 +401,16 @@ export const AIProfileFacetService = {
         if (!bestFacet.noteIds.includes(noteId)) {
           bestFacet.noteIds.push(noteId);
           bestFacet.noteCount = bestFacet.noteIds.length;
+        }
+        // Update centroid with weighted blend (0.9 old + 0.1 new) + L2 normalize
+        if (bestFacet.centroid && bestFacet.centroid.length > 0) {
+          const blended = bestFacet.centroid.map((x, idx) => x * 0.9 + (ch.vector[idx] ?? 0) * 0.1);
+          let mag = 0;
+          for (const val of blended) mag += val * val;
+          mag = Math.sqrt(mag);
+          bestFacet.centroid = mag === 0 ? blended : blended.map(val => val / mag);
+        } else {
+          bestFacet.centroid = ch.vector.slice();
         }
         bestFacet.dirty = true;
         dirty.add(bestFacet.id);

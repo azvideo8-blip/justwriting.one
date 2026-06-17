@@ -20,7 +20,7 @@ const inputSchema = z.object({
 // facet summaries instead. Override via AI_FACET_MODEL.
 const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'accounts/fireworks/models/gpt-oss-20b';
 
-const SYSTEM_PROMPT = 'Ты анализируешь группу фрагментов из личных заметок пользователя на одну тему. Ответь СТРОГО на русском, РОВНО в таком формате и без любых других слов:\nНАЗВАНИЕ: <короткое название темы, 1–4 слова>\nОПИСАНИЕ: <5–8 предложений от третьего лица: подробно опиши, о чём пользователь пишет в этой теме, какие конкретные ситуации, люди и детали упоминаются, какие чувства и внутренние конфликты повторяются, как меняется отношение со временем. Приводи конкретные детали из текста, а не общие фразы>\nНЕ рассуждай вслух, не описывай задачу, не пиши «мы имеем заметки» — сразу результат. Опирайся ТОЛЬКО на приведённые фрагменты, ничего не выдумывай.';
+const SYSTEM_PROMPT = 'Ты анализируешь группу фрагментов из личных заметок пользователя на одну тему. Ответь СТРОГО на русском, обернув результат в XML-теги следующим образом:\n<label>короткое название темы, 1–4 слова</label>\n<description>5–8 предложений от третьего лица: подробно опиши, о чём пользователь пишет в этой теме, какие конкретные ситуации, люди и детали упоминаются, какие чувства и внутренние конфликты повторяются, как меняется отношение со временем. Приводи конкретные детали из текста, а не общие фразы</description>\nНЕ рассуждай вслух, не описывай задачу, не пиши «мы имеем заметки» — сразу результат. Опирайся ТОЛЬКО на приведённые фрагменты, ничего не выдумывай.';
 
 export const summarizeFacet = onCall({
   secrets: ['GEMINI_API_KEY', 'FIREWORKS_API_KEY'],
@@ -70,12 +70,21 @@ export const summarizeFacet = onCall({
     const META = /мы (имеем|должны)|нужно (определить|проанализ)|проанализир|\bwe need\b|the (user|notes|theme)|given notes|<think>|похоже,?\s*что|возможно,?\s*(это|жен)|в заметке\s*\d|из заметок|предложени[яй] от третьего/i;
     const cyr = (s: string) => (s.match(/[а-яё]/gi) ?? []).length;
 
-    const label = (text.match(/НАЗВАНИЕ\s*:\s*(.+)/i)?.[1] ?? '').trim().replace(/[«»"]/g, '');
+    // XML tag extraction (robust to preamble/reasoning). Fallback to legacy
+    // НАЗВАНИЕ:/ОПИСАНИЕ: markers for backward compat with old model output.
+    let label = (text.match(/<label>([\s\S]*?)<\/label>/i)?.[1] ?? '').trim().replace(/[«»"]/g, '');
+    if (!label) label = (text.match(/НАЗВАНИЕ\s*:\s*(.+)/i)?.[1] ?? '').trim().replace(/[«»"]/g, '');
 
-    // Take what follows the last "ОПИСАНИЕ:"/"Опишу:" marker (drops any preamble
-    // the model wrote before the actual answer); else use the whole text.
-    let summary = text.split(/ОПИСАНИЕ\s*:|опиш[уи]\s*:/i).pop()?.trim() ?? '';
-    summary = summary.replace(/\n+НАЗВАНИЕ\s*:[\s\S]*$/i, '').trim();
+    let summary = (text.match(/<description>([\s\S]*?)<\/description>/i)?.[1] ?? '').trim();
+    if (!summary) {
+      // Legacy fallback
+      summary = text.split(/ОПИСАНИЕ\s*:|опиш[уи]\s*:/i).pop()?.trim() ?? '';
+      summary = summary.replace(/\n+НАЗВАНИЕ\s*:[\s\S]*$/i, '').trim();
+    }
+    // Handle unclosed tags (model truncated mid-output)
+    if (!summary && text.includes('<description>')) {
+      summary = text.slice(text.indexOf('<description>') + '<description>'.length).trim();
+    }
 
     // Reject reasoning / English leakage so the client builds a clean fallback.
     // Also reject clearly truncated summaries (ending mid-sentence without punctuation).

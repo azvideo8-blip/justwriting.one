@@ -408,7 +408,7 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
             if (!foundIds.has(id) && !nameSearchIds.has(id) && extraIds.length < 10) extraIds.push(id);
           }
           const nameIds = [...nameSearchIds].filter(id => !foundIds.has(id) && !extraIds.includes(id)).slice(0, 15);
-          const allNotes = notes.length > 0 ? [...notes] : [];
+          let allNotes = notes.length > 0 ? [...notes] : [];
 
           const db = await getLocalDb();
           for (const docId of [...extraIds, ...nameIds]) {
@@ -423,6 +423,28 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
               content: versions[0]?.content ?? '',
               score: 0,
             });
+          }
+
+          if (allNotes.length > 5) {
+            // Rerank when we have many candidates — pick the most relevant 5-8.
+            try {
+              const candidates = allNotes.map(n => ({
+                documentId: n.documentId,
+                card: `${n.title}\n${n.content.slice(0, 400)}`,
+              }));
+              const rr = await AIService.rerank({ query: text, candidates, maxResults: 8 });
+              if (rr.ok && rr.documentIds.length > 0) {
+                const rerankOrder = new Map(rr.documentIds.map((id, i) => [id, i]));
+                allNotes.sort((a, b) => {
+                  const ai = rerankOrder.get(a.documentId) ?? 999;
+                  const bi = rerankOrder.get(b.documentId) ?? 999;
+                  return ai - bi;
+                });
+                allNotes = allNotes.slice(0, 8);
+              }
+            } catch (e) {
+              console.warn('[useAIChat] rerank failed, keeping original order:', e);
+            }
           }
 
           if (allNotes.length > 0) {
