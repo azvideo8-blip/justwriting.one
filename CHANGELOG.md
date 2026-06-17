@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+
+## 2026-06-17 (v0.7.22)
 - **[RU]** Профиль: фасеты описывает послушная модель. Активная чат-модель (DeepSeek v4) — reasoning-модель и сыплет рассуждения в ответ («Мы должны проанализировать… похоже, жену зовут…») независимо от формата. Теперь `summarizeFacet` зовёт отдельную модель (`AI_FACET_MODEL`, по умолч. Qwen3 30B-A3B) через новый оверрайд `model` в `generate`. Парсер срезает преамбулу (берёт текст после «ОПИСАНИЕ:») и жёстко отклоняет любые рассуждения → в карточку попадает либо чистое описание, либо чистые ключевые слова, но не «сырьё мышления».
 - **[EN]** Profile: facets summarized by an obedient model. The active chat model (DeepSeek v4) is a reasoning model that leaks its chain-of-thought into the answer regardless of format. `summarizeFacet` now calls a dedicated model (`AI_FACET_MODEL`, default Qwen3 30B-A3B) via a new `model` override in `generate`. The parser strips any preamble (takes text after "ОПИСАНИЕ:") and hard-rejects reasoning → a card shows a clean summary or clean keywords, never raw thinking.
 - **[RU]** Профиль: надёжность ИИ-описаний фасетов. `summarizeFacet` переведён с жёсткого JSON-режима (DeepSeek на нём регулярно срывался в рассуждения → отклонялось → мусорный keyword-фолбэк) на простой формат `НАЗВАНИЕ:/ОПИСАНИЕ:` с устойчивым парсером (если формат проигнорён, но текст чистый русский — берётся как описание). Должно резко снизить число фасетов, упавших в фолбэк.

@@ -14,6 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.22',
+    date: '2026-06-17',
+    items: [
+      { category: 'new', ru: 'Живой AI-профиль — фасеты по жизненным доменам (деньги, отношения с детьми/партнёром/родителями/коллегами, самореализация). Каждый абзац заметки назначается в свой домен, ИИ пишет описание фасета по своим фрагментам. Карточки раскрываются по клику — список заметок с переходом', en: 'Living AI profile — facets by life domains (money, relationships with children/partner/parents/colleagues, self-realization). Each note paragraph is assigned to its domain, the AI writes a facet description from its fragments. Cards expand on click — note list with navigation' },
+      { category: 'new', ru: 'Инкрементальное обновление фасетов: после индексации новой заметки фасеты перестраиваются автоматически (только грязные), без полного пересчёта', en: 'Incremental facet update: after indexing a new note, facets rebuild automatically (dirty only), no full rebuild' },
+      { category: 'new', ru: 'Чат ИИ теперь учитывает профиль: к контексту подмешиваются фасеты, релевантные текущему разговору (по близости к центроиду домена)', en: 'AI chat now considers your profile: facets relevant to the current conversation are mixed into context (by centroid proximity)' },
+      { category: 'new', ru: 'Люди из заметок — отдельные фасеты: ИИ извлекает упомянутых людей, строит фасет про каждого. Бейдж «кандидат в пост» для заметок с высокой плотностью инсайтов', en: 'People from notes — separate facets: the AI extracts mentioned people, builds a facet for each. "Post candidate" badge for notes with high insight density' },
+      { category: 'improvement', ru: 'Портрет-резюме профиля теперь строится из фасетов (а не из саммари), показывая ключевые темы и динамику', en: 'Profile portrait-summary now builds from facets (not summaries), showing key themes and dynamics' },
+      { category: 'fix', ru: 'Фасеты больше не падают с ошибкой 400 (null focus) и не показывают мусорные ключевые слова — улучшенный промпт, расширенный стоп-лист, увеличенные лимиты токенов', en: 'Facets no longer fail with 400 error (null focus) or show junk keywords — improved prompt, expanded stopwords, increased token limits' },
+    ],
+  },
+  {
     version: '0.7.21',
     date: '2026-06-16',
     items: [
