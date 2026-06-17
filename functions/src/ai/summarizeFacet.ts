@@ -18,7 +18,7 @@ const inputSchema = z.object({
 // DeepSeek (the default chat model) is a reasoning model that leaks its
 // chain-of-thought into the answer for this task. Use an obedient model for
 // facet summaries instead. Override via AI_FACET_MODEL.
-const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'accounts/fireworks/models/qwen3-30b-a3b';
+const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'accounts/fireworks/models/gpt-oss-20b';
 
 const SYSTEM_PROMPT = 'Ты анализируешь группу фрагментов из личных заметок пользователя на одну тему. Ответь СТРОГО на русском, РОВНО в таком формате и без любых других слов:\nНАЗВАНИЕ: <короткое название темы, 1–4 слова>\nОПИСАНИЕ: <2–4 предложения от третьего лица: о чём пользователь пишет, какие чувства, детали и паттерны повторяются>\nНЕ рассуждай вслух, не описывай задачу, не пиши «мы имеем заметки» — сразу результат. Опирайся ТОЛЬКО на приведённые фрагменты, ничего не выдумывай.';
 
