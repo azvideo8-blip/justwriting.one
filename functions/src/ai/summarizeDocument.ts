@@ -9,6 +9,7 @@ const SUMMARY_SYSTEM_PROMPT = `Проанализируй текст и верн
 - insights: массив из 3-5 коротких инсайтов или ключевых мыслей, которые звучат в тексте
 - themes: массив из 2-4 основных тем
 - extractedFacts: массив из 2-5 конкретных фактов, событий или утверждений из текста (что именно произошло, что автор упоминает как реальное событие или утверждение)
+- mentionedPeople: массив объектов { name: "имя или прозвище", role: "отношение к автору (жена/муж/дочь/сын/мать/отец/коллега/друг/итд)" } для каждого конкретного человека, упомянутого в тексте. Если людей нет — пустой массив.
 
 Верни ТОЛЬКО валидный JSON без пояснений и markdown-обёртки.`;
 
@@ -86,7 +87,7 @@ export const summarizeDocument = onCall({
     throw new HttpsError('internal', 'AI summarization failed.');
   }
 
-  let parsed_json: { tone: string; frequentWords: string[]; insights: string[]; themes: string[]; extractedFacts: string[] };
+  let parsed_json: { tone: string; frequentWords: string[]; insights: string[]; themes: string[]; extractedFacts: string[]; mentionedPeople?: { name: string; role: string }[] };
   try {
     let textToParse = text.trim();
     if (textToParse.startsWith('```')) {
@@ -111,5 +112,9 @@ export const summarizeDocument = onCall({
     insights: (parsed_json.insights ?? []).map(sanitizeAiResponse),
     themes: (parsed_json.themes ?? []).map(sanitizeAiResponse),
     extractedFacts: (parsed_json.extractedFacts ?? []).map(sanitizeAiResponse),
+    mentionedPeople: (parsed_json.mentionedPeople ?? []).map(p => ({
+      name: sanitizeAiResponse(p.name ?? ''),
+      role: sanitizeAiResponse(p.role ?? ''),
+    })).filter(p => p.name.length > 0),
   };
 });

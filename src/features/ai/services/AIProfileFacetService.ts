@@ -21,6 +21,13 @@ export type FacetBuildResult =
 interface Chunk { noteId: string; vector: number[]; text: string }
 interface FacetSpec { label: string; fixedLabel: boolean; noteIds: string[]; texts: string[]; centroid: number[] }
 
+function normalize(v: number[]): number[] {
+  let mag = 0;
+  for (const x of v) mag += x * x;
+  mag = Math.sqrt(mag);
+  return mag === 0 ? v.slice() : v.map(x => x / mag);
+}
+
 const STOPWORDS = new Set([
   'это','эта','этот','что','чтобы','когда','если','или','как','так','тоже','также','уже','ещё','еще','очень','только','просто',
   'меня','мной','мне','мой','моя','моё','мои','тебя','тебе','него','неё','них','свой','своя','свои','себя','себе',
@@ -87,22 +94,39 @@ export const AIProfileFacetService = {
       if (res.ok && res.vectors[0]) domainVecs.push({ id: d.id, label: d.label, vec: res.vectors[0] });
     }
 
-    // 2. Assign each CHUNK to its single best domain (argmax above threshold).
+    // 2. Assign each CHUNK to ALL matching domains (multi-assignment).
+    //    Primary: argmax if cosine ≥ domain's threshold (or global DOMAIN_THRESHOLD).
+    //    Secondary: any other domain where cosine ≥ threshold + SECONDARY_BUMP.
+    const SECONDARY_BUMP = 0.03;
     const domainData = new Map<string, { label: string; vec: number[]; noteIds: Set<string>; texts: string[] }>();
     const leftover: ChunkItem[] = [];
     for (const ch of chunks) {
-      let best: { id: string; label: string; vec: number[] } | null = null;
-      let bestSim = DOMAIN_THRESHOLD;
-      for (const d of domainVecs) {
-        const s = cosineSimilarity(ch.vector, d.vec);
-        if (s >= bestSim) { bestSim = s; best = d; }
-      }
-      if (best) {
+      const scores = domainVecs.map(d => ({
+        id: d.id, label: d.label, vec: d.vec,
+        sim: cosineSimilarity(ch.vector, d.vec),
+        threshold: LIFE_DOMAINS.find(ld => ld.id === d.id)?.threshold ?? DOMAIN_THRESHOLD,
+      }));
+      const best = scores.reduce((a, b) => a.sim >= b.sim ? a : b);
+      let assigned = false;
+      if (best.sim >= best.threshold) {
         let dd = domainData.get(best.id);
         if (!dd) { dd = { label: best.label, vec: best.vec, noteIds: new Set(), texts: [] }; domainData.set(best.id, dd); }
         dd.noteIds.add(ch.noteId);
         if (ch.text) dd.texts.push(ch.text);
-      } else {
+        assigned = true;
+      }
+      for (const s of scores) {
+        if (s.id === best.id) continue;
+        const secThreshold = s.threshold + SECONDARY_BUMP;
+        if (s.sim >= secThreshold) {
+          let dd = domainData.get(s.id);
+          if (!dd) { dd = { label: s.label, vec: s.vec, noteIds: new Set(), texts: [] }; domainData.set(s.id, dd); }
+          dd.noteIds.add(ch.noteId);
+          if (ch.text) dd.texts.push(ch.text);
+          assigned = true;
+        }
+      }
+      if (!assigned) {
         leftover.push({ noteId: ch.noteId, vector: ch.vector, text: ch.text });
       }
     }
@@ -132,6 +156,9 @@ export const AIProfileFacetService = {
     const docs = await db.getAll('documents');
     const docMap = new Map(docs.map(d => [d.id, d]));
     const totalNotes = new Set(chunks.map(c => c.noteId)).size;
+
+    const summaries = await db.getAll('aiSummaries');
+    const summaryMap = new Map(summaries.map(s => [s.documentId, s]));
 
     const buildId = `${Date.now()}`;
     const facets: AIProfileFacet[] = [];
@@ -194,6 +221,76 @@ export const AIProfileFacetService = {
         lastAt,
         updatedAt: Date.now(),
         buildId,
+        insightDensity: spec.noteIds.length > 0
+          ? spec.noteIds.filter(id => { const s = summaryMap.get(id); return s && s.insights.length > 0; }).length / spec.noteIds.length
+          : 0,
+      });
+      await new Promise(r => setTimeout(r, 150));
+    }
+
+    // PROF-7: Person facets from mentionedPeople in summaries.
+    const personNotes = new Map<string, { name: string; role: string; noteIds: string[] }>();
+    for (const s of summaries) {
+      for (const p of s.mentionedPeople ?? []) {
+        const key = p.name.toLowerCase();
+        let entry = personNotes.get(key);
+        if (!entry) {
+          entry = { name: p.name, role: p.role, noteIds: [] };
+          personNotes.set(key, entry);
+        }
+        if (!entry.noteIds.includes(s.documentId)) entry.noteIds.push(s.documentId);
+        if (p.role && (!entry.role || entry.role === p.role)) entry.role = p.role;
+      }
+    }
+
+    for (const [, pn] of personNotes) {
+      if (pn.noteIds.length < MIN_FACET_NOTES) continue;
+      onProgress?.({ done: facets.length + 1, total: facets.length + personNotes.size });
+
+      let firstAt = Infinity;
+      let lastAt = 0;
+      const texts: string[] = [];
+      for (const id of pn.noteIds) {
+        const ts = docMap.get(id)?.lastSessionAt ?? 0;
+        if (ts) { firstAt = Math.min(firstAt, ts); lastAt = Math.max(lastAt, ts); }
+        for (const e of embeddings) {
+          if (e.documentId === id) texts.push(...(e.chunkTexts ?? []));
+        }
+      }
+
+      const excerpts = texts.filter(t => t.trim()).slice(0, MAX_EXCERPTS).map(t => ({ title: '(фрагмент)', excerpt: t.slice(0, EXCERPT_CHARS) }));
+      let summary = '';
+      if (excerpts.length > 0) {
+        const focus = `${pn.name} (${pn.role})`;
+        let res = await AIService.summarizeFacet({ notes: excerpts, focus });
+        if (!res.ok || (!res.label && !res.summary)) {
+          await new Promise(r => setTimeout(r, 300));
+          res = await AIService.summarizeFacet({ notes: excerpts, focus });
+        }
+        if (res.ok && res.summary) summary = res.summary;
+      }
+
+      const meanVec = embeddings
+        .filter(e => pn.noteIds.includes(e.documentId) && e.vectors.length > 0)
+        .flatMap(e => e.vectors);
+      const centroid = meanVec.length > 0
+        ? normalize(meanVec.reduce((acc, v) => acc.map((x, i) => x + (v[i] ?? 0)), new Array(meanVec[0]!.length).fill(0) as number[]))
+        : [];
+
+      facets.push({
+        id: `${buildId}_${facets.length}`,
+        label: pn.name,
+        summary: summary || `Упоминания о ${pn.name} (${pn.role}) в ${pn.noteIds.length} заметках.`,
+        centroid,
+        noteIds: pn.noteIds,
+        noteCount: pn.noteIds.length,
+        firstAt: firstAt === Infinity ? 0 : firstAt,
+        lastAt,
+        updatedAt: Date.now(),
+        buildId,
+        insightDensity: pn.noteIds.length > 0
+          ? pn.noteIds.filter(id => { const s = summaryMap.get(id); return s && s.insights.length > 0; }).length / pn.noteIds.length
+          : 0,
       });
       await new Promise(r => setTimeout(r, 150));
     }
@@ -201,5 +298,105 @@ export const AIProfileFacetService = {
     await db.clear('aiProfileFacets');
     for (const f of facets) await db.put('aiProfileFacets', f);
     return { ok: true, count: facets.length };
+  },
+
+  /**
+   * Incremental update: assign new note chunks to existing facets by centroid
+   * proximity. Dirty facets get re-summarized. Returns number of facets updated.
+   * Call this after a new note is embedded (from useEmbeddingIndexer).
+   */
+  async incrementalUpdate(noteId: string): Promise<{ updated: number }> {
+    const db = await getLocalDb();
+    const facets = await db.getAll('aiProfileFacets');
+    if (facets.length === 0) return { updated: 0 };
+
+    const emb = await AIEmbeddingService.get(noteId);
+    if (!emb || !emb.vectors?.length) return { updated: 0 };
+
+    const chunks: { vector: number[]; text: string }[] = [];
+    for (let i = 0; i < emb.vectors.length; i++) {
+      chunks.push({ vector: emb.vectors[i]!, text: emb.chunkTexts?.[i] ?? '' });
+    }
+
+    const INCREMENT_THRESHOLD = 0.48;
+    const dirty = new Set<string>();
+
+    for (const ch of chunks) {
+      let bestFacet: AIProfileFacet | null = null;
+      let bestSim = INCREMENT_THRESHOLD;
+      for (const f of facets) {
+        const s = cosineSimilarity(ch.vector, f.centroid);
+        if (s >= bestSim) { bestSim = s; bestFacet = f; }
+      }
+      if (bestFacet) {
+        if (!bestFacet.noteIds.includes(noteId)) {
+          bestFacet.noteIds.push(noteId);
+          bestFacet.noteCount = bestFacet.noteIds.length;
+        }
+        bestFacet.dirty = true;
+        dirty.add(bestFacet.id);
+      }
+    }
+
+    const doc = (await db.getAll('documents')).find(d => d.id === noteId);
+    const ts = doc?.lastSessionAt ?? Date.now();
+
+    for (const f of facets) {
+      if (dirty.has(f.id)) {
+        if (ts < f.firstAt || !f.firstAt) f.firstAt = ts;
+        if (ts > f.lastAt) f.lastAt = ts;
+      }
+      await db.put('aiProfileFacets', f);
+    }
+
+    return { updated: dirty.size };
+  },
+
+  /**
+   * Re-summarize all dirty facets. Call this after incrementalUpdate, ideally
+   * debounced so multiple new notes in one session batch together.
+   */
+  async resummarizeDirty(onProgress?: (p: FacetBuildProgress) => void): Promise<{ count: number }> {
+    const db = await getLocalDb();
+    const facets = await db.getAll('aiProfileFacets');
+    const dirty = facets.filter(f => f.dirty);
+    if (dirty.length === 0) return { count: 0 };
+
+    const _docs = await db.getAll('documents');
+    let done = 0;
+
+    for (const f of dirty) {
+      onProgress?.({ done: ++done, total: dirty.length });
+
+      const embForNote = await AIEmbeddingService.getAll();
+      const texts: string[] = [];
+      for (const e of embForNote) {
+        if (!f.noteIds.includes(e.documentId)) continue;
+        for (const t of e.chunkTexts ?? []) {
+          if (t.trim()) texts.push(t);
+        }
+      }
+
+      const excerpts = texts.slice(0, MAX_EXCERPTS).map(t => ({ title: '(фрагмент)', excerpt: t.slice(0, EXCERPT_CHARS) }));
+      if (excerpts.length > 0) {
+        const focus = f.label;
+        let res = await AIService.summarizeFacet({ notes: excerpts, focus });
+        if (!res.ok || (!res.label && !res.summary)) {
+          await new Promise(r => setTimeout(r, 300));
+          res = await AIService.summarizeFacet({ notes: excerpts, focus });
+        }
+        if (res.ok && res.summary) {
+          f.summary = res.summary;
+          if (res.label && !f.label.startsWith('Отношения')) f.label = res.label;
+        }
+      }
+
+      f.dirty = false;
+      f.updatedAt = Date.now();
+      await db.put('aiProfileFacets', f);
+      await new Promise(r => setTimeout(r, 150));
+    }
+
+    return { count: dirty.length };
   },
 };
