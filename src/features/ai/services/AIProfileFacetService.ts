@@ -7,8 +7,8 @@ import { cosineSimilarity } from '../utils/vectorSearch';
 import { LIFE_DOMAINS } from '../utils/lifeDomains';
 
 const MIN_FACET_NOTES = 2;          // drop facets with fewer notes (noise)
-const MAX_EXCERPTS = 8;            // chunk excerpts sent to the facet summarizer
-const EXCERPT_CHARS = 1_200;
+const MAX_EXCERPTS = 14;
+const EXCERPT_CHARS = 2_000;
 const MERGE_THRESHOLD = 0.80;       // collapse near-duplicate discovered facets
 const MAX_DISCOVERED = 6;           // keep the "other" bucket from re-fragmenting
 const DOMAIN_THRESHOLD = 0.45;      // min cosine (chunk ↔ domain seed) to assign
