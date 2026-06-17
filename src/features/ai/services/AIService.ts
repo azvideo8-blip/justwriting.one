@@ -127,6 +127,7 @@ export const AIService = {
 
   async summarizeFacet(params: {
     notes: { title: string; excerpt: string }[];
+    focus?: string | undefined;
   }): Promise<{ ok: true; label: string; summary: string } | { ok: false; error: string }> {
     const functions = getFunctions();
     const fn = httpsCallable<unknown, { label: string; summary: string }>(functions, 'summarizeFacet');
