@@ -7,11 +7,11 @@ import { cosineSimilarity } from '../utils/vectorSearch';
 import { LIFE_DOMAINS } from '../utils/lifeDomains';
 
 const MIN_FACET_NOTES = 2;          // drop facets with fewer notes (noise)
-const MAX_NOTES_PER_PROMPT = 12;    // cap excerpts sent to the facet summarizer
-const EXCERPT_CHARS = 1_800;
+const MAX_NOTES_PER_PROMPT = 10;    // cap excerpts sent to the facet summarizer
+const EXCERPT_CHARS = 1_300;
 const MERGE_THRESHOLD = 0.80;       // collapse near-duplicate discovered facets
 const MAX_DISCOVERED = 6;           // keep the "other" bucket from re-fragmenting
-const DOMAIN_THRESHOLD = 0.43;      // min cosine (note chunk ↔ domain seed) to assign
+const DOMAIN_THRESHOLD = 0.47;      // min cosine (note chunk ↔ domain seed) to assign
 
 /** Clean, model-free summary built from local note summaries (themes + insights),
  *  used when the LLM facet summarizer fails or returns junk. */
@@ -139,14 +139,15 @@ export const AIProfileFacetService = {
         if (ts) { firstAt = Math.min(firstAt, ts); lastAt = Math.max(lastAt, ts); }
 
         if (noteInputs.length < MAX_NOTES_PER_PROMPT) {
-          const sum = sumMap.get(noteId);
-          let excerpt: string;
-          if (sum) {
-            excerpt = `Темы: ${sum.themes.join(', ')}. Инсайты: ${sum.insights.join('; ')}. Факты: ${sum.extractedFacts.join('; ')}`;
-          } else {
-            const versions = await db.getAllFromIndex('versions', 'by-document', noteId);
-            versions.sort((a, b) => b.version - a.version);
-            excerpt = versions[0]?.content ?? '';
+          // Raw note text gives the summarizer material to extract the domain
+          // slice from (note summaries are too generic — everything reads as
+          // "ведёт дневник аскезы"). Fall back to the summary only if no content.
+          const versions = await db.getAllFromIndex('versions', 'by-document', noteId);
+          versions.sort((a, b) => b.version - a.version);
+          let excerpt = versions[0]?.content ?? '';
+          if (!excerpt) {
+            const sum = sumMap.get(noteId);
+            if (sum) excerpt = `Темы: ${sum.themes.join(', ')}. Инсайты: ${sum.insights.join('; ')}.`;
           }
           noteInputs.push({ title: doc?.title || 'Без названия', excerpt: excerpt.slice(0, EXCERPT_CHARS) });
         }
@@ -155,10 +156,11 @@ export const AIProfileFacetService = {
       let label = spec.fixedLabel ? spec.label : '';
       let summary = '';
       if (noteInputs.length > 0) {
-        let res = await AIService.summarizeFacet({ notes: noteInputs });
+        const focus = spec.fixedLabel ? spec.label : undefined;
+        let res = await AIService.summarizeFacet({ notes: noteInputs, focus });
         if (!res.ok || (!res.label && !res.summary)) {
           await new Promise(r => setTimeout(r, 300));
-          res = await AIService.summarizeFacet({ notes: noteInputs });
+          res = await AIService.summarizeFacet({ notes: noteInputs, focus });
         }
         if (res.ok) {
           summary = res.summary;

@@ -12,6 +12,7 @@ const inputSchema = z.object({
     title: z.string().max(300),
     excerpt: z.string().max(2_000),
   })).min(1).max(40),
+  focus: z.string().max(120).optional(),
 });
 
 const SYSTEM_PROMPT = 'Ты анализируешь группу личных заметок пользователя, объединённых одной темой. Верни ТОЛЬКО валидный JSON-объект вида {"label":"...","summary":"..."}. Пиши СТРОГО на русском. НЕ описывай свою задачу, НЕ рассуждай вслух, НЕ пиши «мы имеем заметки» / «нужно проанализировать» — сразу содержательный результат. label — короткое название темы (1–4 слова: сфера жизни, чувство или паттерн). summary — 2–4 предложения от третьего лица: о чём пользователь пишет в этой теме, какие чувства, детали и паттерны повторяются. Опирайся ИСКЛЮЧИТЕЛЬНО на приведённые заметки, ничего не выдумывай.';
@@ -39,10 +40,15 @@ export const summarizeFacet = onCall({
     .map((n, i) => `Заметка ${i + 1} «${sanitizeAiInput(n.title)}»:\n${sanitizeAiInput(n.excerpt)}`)
     .join('\n\n');
 
+  const focus = parsed.data.focus ? sanitizeAiInput(parsed.data.focus) : '';
+  const system = focus
+    ? `${SYSTEM_PROMPT} ВАЖНО: опиши ТОЛЬКО то, что относится к теме «${focus}». Игнорируй всё, что к ней не относится. НЕ описывай сам формат (дневник, аскеза, ежедневные записи) и повседневную рутину в целом — только содержание и паттерны по теме «${focus}». Если про эту тему в заметках почти ничего нет — верни summary из одного предложения об этом.`
+    : SYSTEM_PROMPT;
+
   try {
     const result = await generate({
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: `Заметки одной темы:\n\n${notesText}\n\nВерни только {"label":"...","summary":"..."}.` }],
+      system,
+      messages: [{ role: 'user', content: `Заметки${focus ? ` (тебя интересует только тема «${focus}»)` : ''}:\n\n${notesText}\n\nВерни только {"label":"...","summary":"..."}.` }],
       json: true,
       maxTokens: 512,
       abortMs: 50_000,
