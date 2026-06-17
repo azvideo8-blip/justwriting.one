@@ -1,5 +1,5 @@
 import { getLocalDb } from '../../../core/storage/localDb';
-import type { AIProfileFacet } from '../../../core/storage/localDb';
+import type { AIProfileFacet, AIDocumentSummary } from '../../../core/storage/localDb';
 import { AIEmbeddingService } from './AIEmbeddingService';
 import { AIService } from './AIService';
 import { clusterChunks, mergeSimilarClusters, suggestK } from '../utils/facetClustering';
@@ -9,8 +9,28 @@ import { LIFE_DOMAINS } from '../utils/lifeDomains';
 const MIN_FACET_NOTES = 2;          // drop facets with fewer notes (noise)
 const MAX_NOTES_PER_PROMPT = 12;    // cap excerpts sent to the facet summarizer
 const EXCERPT_CHARS = 1_800;
-const MERGE_THRESHOLD = 0.82;       // collapse near-duplicate discovered facets
-const DOMAIN_THRESHOLD = 0.50;      // min cosine (note chunk ↔ domain seed) to assign
+const MERGE_THRESHOLD = 0.80;       // collapse near-duplicate discovered facets
+const MAX_DISCOVERED = 6;           // keep the "other" bucket from re-fragmenting
+const DOMAIN_THRESHOLD = 0.43;      // min cosine (note chunk ↔ domain seed) to assign
+
+/** Clean, model-free summary built from local note summaries (themes + insights),
+ *  used when the LLM facet summarizer fails or returns junk. */
+function fallbackSummary(noteIds: string[], sumMap: Map<string, AIDocumentSummary>): { label: string; summary: string } {
+  const themeCounts = new Map<string, number>();
+  const insights: string[] = [];
+  for (const id of noteIds) {
+    const s = sumMap.get(id);
+    if (!s) continue;
+    for (const t of s.themes) themeCounts.set(t, (themeCounts.get(t) ?? 0) + 1);
+    insights.push(...s.insights);
+  }
+  const topThemes = [...themeCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([t]) => t);
+  const label = topThemes[0] ?? '';
+  const parts: string[] = [];
+  if (topThemes.length) parts.push(`Повторяющиеся темы: ${topThemes.join(', ')}.`);
+  if (insights.length) parts.push(insights.slice(0, 3).join(' '));
+  return { label, summary: parts.join(' ') };
+}
 
 export interface FacetBuildProgress { done: number; total: number }
 export type FacetBuildResult =
@@ -83,7 +103,8 @@ export const AIProfileFacetService = {
     let discovered: { centroid: number[]; noteIds: string[]; chunkCount: number }[] = [];
     if (leftover.length > 0) {
       const items = leftover.flatMap(n => n.chunks.map(v => ({ noteId: n.noteId, vector: v })));
-      discovered = mergeSimilarClusters(clusterChunks(items, suggestK(leftover.length)), MERGE_THRESHOLD)
+      const k = Math.min(suggestK(leftover.length), MAX_DISCOVERED);
+      discovered = mergeSimilarClusters(clusterChunks(items, k), MERGE_THRESHOLD)
         .filter(c => c.noteIds.length >= MIN_FACET_NOTES);
     }
 
@@ -131,7 +152,7 @@ export const AIProfileFacetService = {
         }
       }
 
-      let label = spec.fixedLabel ? spec.label : `Тема (${spec.noteIds.length})`;
+      let label = spec.fixedLabel ? spec.label : '';
       let summary = '';
       if (noteInputs.length > 0) {
         let res = await AIService.summarizeFacet({ notes: noteInputs });
@@ -143,6 +164,12 @@ export const AIProfileFacetService = {
           summary = res.summary;
           if (!spec.fixedLabel && res.label) label = res.label; // domains keep their canonical label
         }
+      }
+      // Clean local fallback when the LLM failed or its output was rejected.
+      if (!summary || !label) {
+        const fb = fallbackSummary(spec.noteIds, sumMap);
+        if (!summary) summary = fb.summary;
+        if (!label) label = fb.label || `Тема (${spec.noteIds.length})`;
       }
 
       facets.push({
