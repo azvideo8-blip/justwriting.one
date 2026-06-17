@@ -124,4 +124,18 @@ export const AIService = {
       return { ok: false, error: mapAIError(e) };
     }
   },
+
+  async summarizeFacet(params: {
+    notes: { title: string; excerpt: string }[];
+  }): Promise<{ ok: true; label: string; summary: string } | { ok: false; error: string }> {
+    const functions = getFunctions();
+    const fn = httpsCallable<unknown, { label: string; summary: string }>(functions, 'summarizeFacet');
+    try {
+      const { data } = await withTimeout(fn(params), 60_000);
+      return { ok: true, label: data.label, summary: data.summary };
+    } catch (e: unknown) {
+      reportError(e, { action: 'summarizeFacet' });
+      return { ok: false, error: mapAIError(e) };
+    }
+  },
 };
