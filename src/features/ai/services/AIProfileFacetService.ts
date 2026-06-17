@@ -108,7 +108,7 @@ export const AIProfileFacetService = {
     //    Primary: argmax if cosine ≥ domain's threshold (or global DOMAIN_THRESHOLD).
     //    Secondary: any other domain where cosine ≥ threshold + SECONDARY_BUMP.
     const SECONDARY_BUMP = 0.03;
-    const domainData = new Map<string, { label: string; vec: number[]; noteIds: Set<string>; texts: string[] }>();
+    const domainData = new Map<string, { label: string; noteIds: Set<string>; texts: string[]; chunkVecs: number[][] }>();
     const leftover: ChunkItem[] = [];
     for (const ch of chunks) {
       const scores = domainVecs.map(d => ({
@@ -120,9 +120,10 @@ export const AIProfileFacetService = {
       let assigned = false;
       if (best.sim >= best.threshold) {
         let dd = domainData.get(best.id);
-        if (!dd) { dd = { label: best.label, vec: best.vec, noteIds: new Set(), texts: [] }; domainData.set(best.id, dd); }
+        if (!dd) { dd = { label: best.label, noteIds: new Set(), texts: [], chunkVecs: [] }; domainData.set(best.id, dd); }
         dd.noteIds.add(ch.noteId);
         if (ch.text) dd.texts.push(ch.text);
+        dd.chunkVecs.push(ch.vector);
         assigned = true;
       }
       for (const s of scores) {
@@ -130,9 +131,10 @@ export const AIProfileFacetService = {
         const secThreshold = s.threshold + SECONDARY_BUMP;
         if (s.sim >= secThreshold) {
           let dd = domainData.get(s.id);
-          if (!dd) { dd = { label: s.label, vec: s.vec, noteIds: new Set(), texts: [] }; domainData.set(s.id, dd); }
+          if (!dd) { dd = { label: s.label, noteIds: new Set(), texts: [], chunkVecs: [] }; domainData.set(s.id, dd); }
           dd.noteIds.add(ch.noteId);
           if (ch.text) dd.texts.push(ch.text);
+          dd.chunkVecs.push(ch.vector);
           assigned = true;
         }
       }
@@ -154,7 +156,10 @@ export const AIProfileFacetService = {
     for (const d of domainVecs) {
       const dd = domainData.get(d.id);
       if (dd && dd.noteIds.size >= MIN_FACET_NOTES) {
-        specs.push({ label: dd.label, fixedLabel: true, noteIds: [...dd.noteIds], texts: dd.texts, centroid: dd.vec });
+        const centroid = dd.chunkVecs.length > 0
+          ? normalize(dd.chunkVecs.reduce((acc, v) => acc.map((x, i) => x + (v[i] ?? 0)), new Array(dd.chunkVecs[0]!.length).fill(0) as number[]))
+          : d.vec;
+        specs.push({ label: dd.label, fixedLabel: true, noteIds: [...dd.noteIds], texts: dd.texts, centroid });
       }
     }
     for (const c of discovered) {
