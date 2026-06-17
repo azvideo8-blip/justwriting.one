@@ -31,17 +31,21 @@ async function fetchSummaryFromCloud(userId: string, documentId: string): Promis
   const frequentWords = Array.isArray(decrypted.frequentWords) ? decrypted.frequentWords.map(String) : [];
   const insights = Array.isArray(decrypted.insights) ? decrypted.insights.map(String) : [];
   const themes = Array.isArray(decrypted.themes) ? decrypted.themes.map(String) : [];
-  const extractedFacts = Array.isArray(decrypted.extractedFacts) ? decrypted.extractedFacts.map(String) : [];
-  const processedAt = typeof decrypted.processedAt === 'number' ? decrypted.processedAt : Date.now();
-  return {
-    documentId: docId,
-    tone,
-    frequentWords,
-    insights,
-    themes,
-    extractedFacts,
-    processedAt,
-  };
+    const extractedFacts = Array.isArray(decrypted.extractedFacts) ? decrypted.extractedFacts.map(String) : [];
+    const mentionedPeople = Array.isArray(decrypted.mentionedPeople)
+      ? decrypted.mentionedPeople.filter((p: unknown) => typeof p === 'object' && p !== null && 'name' in (p as Record<string, unknown>)) as { name: string; role: string }[]
+      : [];
+    const processedAt = typeof decrypted.processedAt === 'number' ? decrypted.processedAt : Date.now();
+    return {
+      documentId: docId,
+      tone,
+      frequentWords,
+      insights,
+      themes,
+      extractedFacts,
+      mentionedPeople,
+      processedAt,
+    };
 }
 
 export const AISummaryService = {

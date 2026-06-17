@@ -91,6 +91,7 @@ export interface AIDocumentSummary {
   insights: string[];
   themes: string[];
   extractedFacts: string[];
+  mentionedPeople?: { name: string; role: string }[];
   processedAt: number;
 }
 
@@ -136,6 +137,10 @@ export interface AIProfileFacet {
   updatedAt: number;
   /** Build-batch id, so a fresh rebuild can replace the previous generation. */
   buildId: string;
+  /** New chunks assigned since last summary — triggers re-summarization. */
+  dirty?: boolean;
+  /** Ratio of notes with non-empty insights (0–1). High = candidate for a post. */
+  insightDensity?: number;
   cloudSyncedAt?: number;
 }
 

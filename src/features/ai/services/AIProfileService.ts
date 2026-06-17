@@ -46,8 +46,31 @@ export const AIProfileService = {
 
   async generate(): Promise<{ ok: true; markdown: string } | { ok: false; error: string }> {
     const db = await getLocalDb();
-    const allSummaries = await db.getAll('aiSummaries');
+    const facets = await db.getAll('aiProfileFacets');
 
+    if (facets.length >= 3) {
+      const facetInput = facets
+        .sort((a, b) => b.noteCount - a.noteCount)
+        .map(f => `**${f.label}** (${f.noteCount} заметок): ${f.summary}`)
+        .join('\n');
+
+      const result = await AIService.chat({
+        personaId: 'custom',
+        customSystemPrompt: 'Ты — профессиональный психоаналитик. На основе тем профиля пользователя составь глубокий, поддерживающий психологический портрет. Опиши паттерны мышления, эмоциональные тенденции, сильные стороны и зоны роста. НЕ рассуждай вслух — сразу результат в Markdown. Опирайся ТОЛЬКО на приведённые данные, ничего не выдумывай.',
+        messages: [{
+          role: 'user',
+          content: `Темы профиля пользователя (из ${facets.reduce((s, f) => s + f.noteCount, 0)} заметок):\n\n${facetInput}\n\nСоставь психологический портрет: паттерны мышления, эмоциональные тенденции, сильные стороны и зоны роста. Формат: markdown.`,
+        }],
+      });
+
+      if (result.ok) {
+        await this.savePortrait(result.text);
+        return { ok: true, markdown: result.text };
+      }
+      return { ok: false, error: result.error };
+    }
+
+    const allSummaries = await db.getAll('aiSummaries');
     if (allSummaries.length < 3) {
       return { ok: false, error: 'NOT_ENOUGH_DATA' };
     }

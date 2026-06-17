@@ -8,6 +8,8 @@ export interface LifeDomain {
   label: string;
   /** Rich Russian seed text embedded to represent the domain. */
   seed: string;
+  /** Override the global DOMAIN_THRESHOLD for this domain. Higher = stricter. */
+  threshold?: number;
 }
 
 export const LIFE_DOMAINS: LifeDomain[] = [
@@ -35,10 +37,12 @@ export const LIFE_DOMAINS: LifeDomain[] = [
     id: 'colleagues',
     label: 'Отношения с коллегами',
     seed: 'коллеги, работа, начальник, руководитель, команда, клиенты, рабочие отношения, общение на работе, профессиональное взаимодействие',
+    threshold: 0.42,
   },
   {
     id: 'selfreal',
     label: 'Самореализация',
-    seed: 'самореализация и призвание, реализация себя в любимом деле, творческие проекты и продукт, амбиции и мечты, профессиональный смысл и признание, ощущение значимости и нужности своего труда',
+    seed: 'самореализация, призвание, творческие проекты, амбиции и мечты, ощущение значимости своего труда',
+    threshold: 0.50,
   },
 ];

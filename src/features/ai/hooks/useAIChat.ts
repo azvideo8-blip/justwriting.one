@@ -11,6 +11,8 @@ import type { AIMessage } from '../services/AIService';
 import { AIService } from '../services/AIService';
 import { AIProfileService } from '../services/AIProfileService';
 import { AISummaryService } from '../services/AISummaryService';
+import { AIProfileFacetService } from '../services/AIProfileFacetService';
+import { cosineSimilarity } from '../utils/vectorSearch';
 import { searchNotes } from '../utils/noteRetriever';
 
 let _streamAvailable: boolean | null = null;
@@ -314,6 +316,33 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
             `Поиск по архиву заметок пользователя по запросу "${text}" временно не сработал (техническая ошибка). ` +
             `Скажи пользователю, что не удалось выполнить поиск по заметкам, и предложи повторить. ` +
             `Не выдумывай содержание его заметок.`;
+        }
+
+        // PROF-6: augment search context with relevant profile facets
+        try {
+          const facets = await AIProfileFacetService.getAll();
+          if (facets.length > 0) {
+            const queryEmb = await AIService.embed({ content: searchQuery });
+            if (queryEmb.ok && queryEmb.vectors[0]) {
+              const qv = queryEmb.vectors[0];
+              const relevant = facets
+                .map(f => ({ f, sim: cosineSimilarity(qv, f.centroid) }))
+                .filter(({ sim }) => sim >= 0.45)
+                .sort((a, b) => b.sim - a.sim)
+                .slice(0, 3);
+              if (relevant.length > 0) {
+                const facetLines = relevant.map(({ f }) =>
+                  `— ${f.label} (${f.noteCount} заметок): ${f.summary}`
+                ).join('\n');
+                const facetBlock = `\n\nТемы профиля пользователя, релевантные запросу:\n${facetLines}`;
+                searchContext = searchContext
+                  ? searchContext.slice(0, 45_000 - facetBlock.length) + facetBlock
+                  : facetBlock;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[useAIChat] facet augmentation failed:', e);
         }
       }
 

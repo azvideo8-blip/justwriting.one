@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { findStaleDocuments, indexDocument } from '../utils/embeddingIndexer';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
+import { AIProfileFacetService } from '../services/AIProfileFacetService';
 
 const BATCH_SIZE = 3;
 const DEBOUNCE_MS = 30_000;
@@ -36,6 +37,11 @@ export function useEmbeddingIndexer(): void {
         if (result === 'rate') {
           backoffUntilRef.current = Date.now() + BACKOFF_MS['RATE_LIMIT']!;
           break;
+        }
+        if (result === 'ok') {
+          void AIProfileFacetService.incrementalUpdate(docId).catch(e =>
+            console.error('[useEmbeddingIndexer] incremental facet update failed:', e),
+          );
         }
       }
       // Best-effort: push any local-only embeddings to the cloud (no AI calls).

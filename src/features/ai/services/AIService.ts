@@ -15,6 +15,7 @@ export interface AISummaryPayload {
   insights: string[];
   themes: string[];
   extractedFacts: string[];
+  mentionedPeople?: { name: string; role: string }[];
 }
 
 function mapAIError(e: unknown): 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG' | 'SERVER_ERROR' {
