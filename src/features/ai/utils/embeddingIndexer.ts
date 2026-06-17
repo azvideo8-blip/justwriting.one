@@ -45,7 +45,7 @@ export async function findStaleDocuments(): Promise<string[]> {
   return stale;
 }
 
-export async function indexDocument(documentId: string): Promise<IndexResult> {
+export async function indexDocument(documentId: string, force = false): Promise<IndexResult> {
   const content = await getLatestContent(documentId);
   if (!content || content.trim().length === 0) return 'skip';
 
@@ -53,10 +53,10 @@ export async function indexDocument(documentId: string): Promise<IndexResult> {
   // Local-only freshness check: never hit the cloud in the indexing loop — a
   // cloud read can throw (permissions before rules deploy, or LOCKED decrypt
   // when E2E is locked) and would break the whole batch. findStaleDocuments
-  // already works off the local store.
+  // already works off the local store. `force` re-embeds even if fresh.
   const db = await getLocalDb();
   const existing = await db.get('aiEmbeddings', documentId);
-  if (existing && existing.contentHash === hash && isFresh(existing)) {
+  if (!force && existing && existing.contentHash === hash && isFresh(existing)) {
     return 'skip';
   }
 
@@ -117,34 +117,46 @@ export interface IndexRunSummary {
   stopped: 'rate' | 'daily' | null;
 }
 
-/**
- * Indexes pending documents until done or `limit` is reached. Stops early on a
- * rate/daily limit. `onProgress(done, total, lastResult)` fires after each doc.
- */
-export async function indexPending(opts?: {
-  limit?: number;
-  onProgress?: (done: number, total: number, lastResult: IndexResult) => void;
-}): Promise<IndexRunSummary> {
-  const stale = await findStaleDocuments();
-  const targets = opts?.limit ? stale.slice(0, opts.limit) : stale;
-  const summary: IndexRunSummary = { ok: 0, skipped: 0, failed: 0, stopped: null };
+type ProgressFn = (done: number, total: number, lastResult: IndexResult) => void;
 
-  for (let i = 0; i < targets.length; i++) {
-    const result = await indexDocument(targets[i]!);
+async function runIndex(ids: string[], force: boolean, onProgress?: ProgressFn): Promise<IndexRunSummary> {
+  const summary: IndexRunSummary = { ok: 0, skipped: 0, failed: 0, stopped: null };
+  for (let i = 0; i < ids.length; i++) {
+    const result = await indexDocument(ids[i]!, force);
     if (result === 'ok') summary.ok++;
     else if (result === 'skip') summary.skipped++;
     else if (result === 'error') summary.failed++;
     else if (result === 'daily' || result === 'rate') {
       summary.stopped = result;
-      opts?.onProgress?.(i + 1, targets.length, result);
+      onProgress?.(i + 1, ids.length, result);
       break;
     }
-    opts?.onProgress?.(i + 1, targets.length, result);
+    onProgress?.(i + 1, ids.length, result);
     // Gentle spacing between real embed calls so a large backlog doesn't burst
     // the provider (skips are local and instant — no need to wait).
-    if (result === 'ok' && i < targets.length - 1) {
+    if (result === 'ok' && i < ids.length - 1) {
       await new Promise(r => setTimeout(r, 150));
     }
   }
   return summary;
+}
+
+/**
+ * Indexes pending (stale) documents until done or `limit` is reached. Stops
+ * early on a rate/daily limit. `onProgress(done, total, lastResult)` fires per doc.
+ */
+export async function indexPending(opts?: {
+  limit?: number;
+  onProgress?: ProgressFn;
+}): Promise<IndexRunSummary> {
+  const stale = await findStaleDocuments();
+  const targets = opts?.limit ? stale.slice(0, opts.limit) : stale;
+  return runIndex(targets, false, opts?.onProgress);
+}
+
+/** Force re-embed of EVERY document (ignores freshness) — full rebuild. */
+export async function reindexAll(opts?: { onProgress?: ProgressFn }): Promise<IndexRunSummary> {
+  const db = await getLocalDb();
+  const ids = (await db.getAll('documents')).map(d => d.id);
+  return runIndex(ids, true, opts?.onProgress);
 }

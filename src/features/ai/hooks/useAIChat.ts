@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { AIDialogue } from '../../../core/storage/localDb';
 import { AIDialogueService } from '../services/AIDialogueService';
 import { PRESET_PERSONAS, AIPersonaService } from '../services/AIPersonaService';
@@ -145,6 +145,17 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
   const [streamingMessage, setStreamingMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Sticky note-search: once a search happens, keep retrieving for the next few
+  // follow-up turns (e.g. "посмотри в этих", "собери", "а почему") even if they
+  // don't match a trigger, reusing the last real query so the topic carries.
+  const stickyTurnsRef = useRef(0);
+  const lastSearchQueryRef = useRef('');
+
+  useEffect(() => {
+    stickyTurnsRef.current = 0;
+    lastSearchQueryRef.current = '';
+  }, [dialogueId]);
+
   useEffect(() => {
     if (!dialogueId) { setDialogue(null); return; }
     void AIDialogueService.get(dialogueId).then(d => setDialogue(d ?? null));
@@ -255,9 +266,21 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
       // appended to the message — a chat message is capped at 10K chars, and 5
       // full notes blow past it (that returned 400 Bad Request from /api/chat).
       let searchContext: string | undefined;
-      if (looksLikeNoteSearch(text)) {
+      // Explicit trigger, or sticky follow-up within an ongoing notes conversation.
+      const explicitSearch = looksLikeNoteSearch(text);
+      const stickySearch = !explicitSearch && stickyTurnsRef.current > 0 && lastSearchQueryRef.current.length > 0;
+      if (explicitSearch) {
+        stickyTurnsRef.current = 4;
+        lastSearchQueryRef.current = text;
+      } else if (stickySearch) {
+        stickyTurnsRef.current -= 1;
+      }
+      if (explicitSearch || stickySearch) {
+        // On sticky turns reuse the last real query so a terse follow-up
+        // ("собери", "а ещё") still retrieves the same topic.
+        const searchQuery = explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`;
         try {
-          const notes = await searchNotes(text, 5);
+          const notes = await searchNotes(searchQuery, 5);
           if (notes.length > 0) {
             const PER_NOTE_CHARS = 6_000;
             const parts = notes.map((n, i) => {
