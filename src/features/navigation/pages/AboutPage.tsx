@@ -1,12 +1,13 @@
-import { ArrowLeft, Heart } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Heart, Shield, FileText } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useLanguage } from '../../../shared/i18n';
 import { SeoHead } from '../../../shared/i18n/SeoHead';
 import { Button } from '../../../shared/components/Button';
 
 export function AboutPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
+  const isRu = language === 'ru';
 
   return (
     <div className="max-w-md mx-auto py-8 px-4">
@@ -45,6 +46,17 @@ export function AboutPage() {
           <p className="text-sm text-text-main/50">
             {t('about_made_with_love')}
           </p>
+        </div>
+
+        <div className="bg-surface-card/50 border border-border-subtle rounded-2xl p-5 space-y-3">
+          <Link to="/privacy" className="flex items-center gap-3 text-sm text-text-main/60 hover:text-text-main transition-colors">
+            <Shield size={16} className="text-text-main/30 shrink-0" />
+            {isRu ? 'Политика конфиденциальности' : 'Privacy Policy'}
+          </Link>
+          <Link to="/terms" className="flex items-center gap-3 text-sm text-text-main/60 hover:text-text-main transition-colors">
+            <FileText size={16} className="text-text-main/30 shrink-0" />
+            {isRu ? 'Условия использования' : 'Terms of Service'}
+          </Link>
         </div>
       </div>
     </div>
