@@ -66,6 +66,7 @@ describe('AISummaryService', () => {
     insights: ['insight 1'],
     themes: ['theme 1'],
     extractedFacts: ['fact 1'],
+    mentionedPeople: [],
     processedAt: 1672531200000,
   };
 
@@ -76,6 +77,7 @@ describe('AISummaryService', () => {
   describe('get', () => {
     it('returns local summary if available', async () => {
       mockGet.mockResolvedValue(dummySummary);
+
       const res = await AISummaryService.get('doc-123');
       expect(res).toEqual(dummySummary);
       expect(mockGet).toHaveBeenCalledWith('aiSummaries', 'doc-123');
@@ -97,6 +99,7 @@ describe('AISummaryService', () => {
         insights: ['insight 1'],
         themes: ['theme 1'],
         extractedFacts: ['fact 1'],
+        mentionedPeople: [],
         processedAt: 1672531200000,
       });
 

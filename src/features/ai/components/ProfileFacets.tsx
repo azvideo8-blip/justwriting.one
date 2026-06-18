@@ -155,8 +155,9 @@ export function ProfileFacets() {
             Темы ещё не построены. Нажми «Построить темы» — заметки сгруппируются по смыслу, и для каждой темы появится описание.
           </p>
         ) : (
+          <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {facets.map(f => {
+            {facets.filter(f => !f.isPerson).map(f => {
               const t = trend(f);
               const isExp = expanded.has(f.id);
               return (
@@ -172,7 +173,14 @@ export function ProfileFacets() {
                     <span className={cn('text-sm font-semibold text-text-main', !isExp && 'truncate')}>{f.label}</span>
                     <div className="flex items-center gap-1.5">
                       {f.dirty && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">новое</span>}
-                      {(f.insightDensity ?? 0) >= 0.5 && <PenLine size={11} className="text-violet-400" />}
+                      {(f.insightDensity ?? 0) >= 0.5 && (
+                        <button
+                          onClick={e => { e.stopPropagation(); void navigate(`/ai?persona=editor&draftFacet=${f.id}`); }}
+                          className="flex items-center gap-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 hover:bg-violet-500/25 transition-colors"
+                        >
+                          <PenLine size={10} /> в пост
+                        </button>
+                      )}
                       <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0', t.cls)}>{t.label}</span>
                     </div>
                   </div>
@@ -206,6 +214,68 @@ export function ProfileFacets() {
               );
             })}
           </div>
+
+          {facets.some(f => f.isPerson) && (
+            <>
+              <div className="mt-5 mb-2 flex items-center gap-2">
+                <span className="text-xs font-bold text-text-main/50 uppercase tracking-wider">Окружение (Люди)</span>
+                <div className="h-px flex-1 bg-border-subtle" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {facets.filter(f => f.isPerson).map(f => {
+                  const t = trend(f);
+                  const isExp = expanded.has(f.id);
+                  return (
+                    <div
+                      key={f.id}
+                      onClick={() => toggle(f.id)}
+                      className={cn(
+                        'p-3.5 rounded-xl border border-border-subtle bg-surface-card/20 space-y-1.5 cursor-pointer transition-colors hover:bg-surface-card/40',
+                        isExp && 'sm:col-span-2'
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={cn('text-sm font-semibold text-text-main', !isExp && 'truncate')}>{f.label}</span>
+                        <div className="flex items-center gap-1.5">
+                          {f.dirty && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">новое</span>}
+                          <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0', t.cls)}>{t.label}</span>
+                        </div>
+                      </div>
+                      {f.summary && f.summary !== '—' && (
+                        <p className={cn('text-[11px] text-text-main/60 leading-relaxed whitespace-pre-wrap', !isExp && 'line-clamp-4')}>{f.summary}</p>
+                      )}
+                      {isExp && (
+                        <div className="mt-2 space-y-1">
+                          <span className="text-[9px] font-bold text-text-main/40 uppercase tracking-wider">Заметки</span>
+                          <div className="max-h-40 overflow-y-auto space-y-0.5">
+                            {f.noteIds.map(id => {
+                              const doc = docMap.get(id);
+                              return (
+                                <button
+                                  key={id}
+                                  onClick={e => { e.stopPropagation(); void navigate(`/ai?doc=${id}`); }}
+                                  className="flex items-center gap-1.5 w-full text-left px-2 py-1 rounded-md hover:bg-brand-soft/10 transition-colors group"
+                                >
+                                  <FileText size={10} className="shrink-0 text-text-main/30 group-hover:text-brand-soft" />
+                                  <span className="text-[10px] text-text-main/50 group-hover:text-text-main/80 truncate flex-1">{doc?.title ?? '(без названия)'}</span>
+                                  <span className="text-[9px] text-text-main/25 font-mono shrink-0">{doc ? fmt(doc.lastSessionAt) : ''}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between text-[9px] text-text-main/30 font-mono pt-0.5">
+                        <span>{f.noteCount} упоминаний · {isExp ? 'свернуть' : 'развернуть'}</span>
+                        <span>{fmt(f.firstAt)} – {fmt(f.lastAt)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+             </>
+           )}
+          </>
         )}
         <p className="text-[10px] text-text-main/30 mt-3">
           Темы выделяются кластеризацией эмбеддингов заметок (локально), описание каждой — ИИ по её заметкам. Заметка может попадать в несколько тем.

@@ -16,7 +16,7 @@ export interface Cluster {
   chunkCount: number;
 }
 
-function normalize(v: number[]): number[] {
+export function normalize(v: number[]): number[] {
   let mag = 0;
   for (const x of v) mag += x * x;
   mag = Math.sqrt(mag);

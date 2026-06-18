@@ -5,7 +5,7 @@ import { generate, getActiveModel } from '../shared/aiProvider';
 import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD, PRESET_PERSONA_IDS, type PersonaId } from '../shared/prompts';
 
 const inputSchema = z.object({
-  personaId: z.enum(['group_psychology', 'cbt', 'coach', 'editor', 'journalist', 'custom']),
+  personaId: z.enum(['group_psychology', 'cbt', 'coach', 'editor', 'custom']),
   customSystemPrompt: z.string().max(500).nullish(),
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant']),
@@ -17,6 +17,7 @@ const inputSchema = z.object({
   documentContent: z.string().max(50_000).nullish(),
   documentMood: z.string().max(50).nullish(),
   userPortrait: z.string().max(100_000).nullish(),
+  responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
 });
 
 export const chatWithAI = onCall({
@@ -48,7 +49,7 @@ export const chatWithAI = onCall({
     throw new HttpsError('invalid-argument', 'Invalid payload.');
   }
 
-  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait } = parsed.data;
+  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength } = parsed.data;
 
   if (personaId === 'custom') {
     if (!customSystemPrompt) {
@@ -63,6 +64,12 @@ export const chatWithAI = onCall({
   let systemInstruction = personaId === 'custom'
     ? `${TOPIC_GUARD}\n\n${customSystemPrompt!}\n\n${NOTES_GUARD}`
     : `${personaPrompt}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}`;
+
+  if (responseLength === 'short') {
+    systemInstruction += '\n\nВАЖНО: Верни очень краткий, лаконичный ответ. Уложись в 1-2 абзаца, пиши только самое главное без долгих вступлений.';
+  } else if (responseLength === 'detailed') {
+    systemInstruction += '\n\nВАЖНО: Верни подробный, развёрнутый ответ с глубоким анализом, детальными объяснениями и выводами.';
+  }
 
   if (userPortrait) {
     systemInstruction = `${systemInstruction}\n\n---\n[Портрет пользователя (личность, темы, контекст)]\n${userPortrait}`;

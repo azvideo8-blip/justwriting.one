@@ -18,7 +18,7 @@ export const archiveTranslations: Translations = {
   archive_empty_subtitle: { ru: 'Заверши первую сессию — она появится здесь', en: 'Finish your first session and it will appear here' },
   archive_subtitle: { ru: 'Архив свободного письма. Каждая запись — слепок одного дня.', en: 'Archive of free writing. Each entry is a snapshot of one day.' },
   archive_count: { ru: 'записей', en: 'entries' },
-  archive_tags_label: { ru: 'теги', en: 'tags' },
+  archive_tags_label: { ru: 'Теги/Метки', en: 'Tags/Labels' },
   archive_tags_hide: { ru: 'скрыть', en: 'hide' },
   archive_tags_reset: { ru: 'сбросить', en: 'reset' },
   archive_continue_writing: { ru: 'Продолжить писать', en: 'Continue writing' },

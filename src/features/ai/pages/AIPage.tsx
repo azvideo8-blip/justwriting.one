@@ -1,5 +1,5 @@
-import React from 'react';
-import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { DocumentPickerModal } from '../components/DocumentPickerModal';
 import { CreatePersonaModal } from '../components/CreatePersonaModal';
@@ -15,8 +15,18 @@ import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 
 export function AIPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const linkedDocId = searchParams.get('doc') ?? undefined;
+  const draftFacetId = searchParams.get('draftFacet') ?? undefined;
+
+  // Clear draftFacet param after it's been consumed
+  useEffect(() => {
+    if (draftFacetId) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('draftFacet');
+      setSearchParams(next, { replace: true });
+    }
+  }, [draftFacetId, searchParams, setSearchParams]);
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
   const { t } = useLanguage();
@@ -32,16 +42,18 @@ export function AIPage() {
     attachMenuOpen, setAttachMenuOpen,
     messagesEndRef, fileInputRef, attachMenuRef,
     isLoading, streamingMessage, error, clearError,
+    dialogue,
     dailyLimit,
     loadCustomPersonas,
     handleSendMessage, handleNewDialogue, handleArchive, handleDelete, handleExport,
     handleDocSelect, handleCopyMessage, handleFileUpload,
+    handleSetResponseLength, handleRenameDialogue,
     allPersonas, openPersonaDetail,
     displayMessages,
     activePersona, activeRole, headerVisual,
     convPersonaName, convVisual,
     MAX_INPUT_CHARS,
-  } = useAIPageData(linkedDocId);
+  } = useAIPageData(linkedDocId, draftFacetId);
 
   return (
     <div className={cn("h-screen bg-surface-base flex", isMobile ? "flex-col" : "flex-row")}>
@@ -135,11 +147,36 @@ export function AIPage() {
             {activeDialogueId && (
               <div className="flex items-center gap-1">
                  <IconButton onClick={() => void handleExport()} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_download_md')} label={t('ai_download_md')} icon={<Download size={15} />} />
+                 <IconButton onClick={() => { const name = window.prompt('Новое название диалога:', dialogue?.title ?? ''); if (name && name.trim() && activeDialogueId) void handleRenameDialogue(activeDialogueId, name.trim()); }} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title="Переименовать" label="Переименовать" icon={<Pencil size={15} />} />
                  <IconButton onClick={() => void handleArchive()} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_to_archive')} label={t('ai_to_archive')} icon={<Archive size={15} />} />
                  <IconButton onClick={() => void handleDelete()} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/35 hover:text-accent-danger transition-colors flex items-center justify-center" title={t('ai_delete')} label={t('ai_delete')} icon={<Trash2 size={15} />} />
               </div>
             )}
           </div>
+
+          {activeDialogueId && (
+            <div className="flex items-center gap-1 mt-2">
+              <span className="text-[9px] font-mono uppercase tracking-wider text-text-main/25 mr-1">объём:</span>
+              {(['short', 'standard', 'detailed'] as const).map(len => {
+                const active = (dialogue?.responseLength ?? 'standard') === len;
+                const label = len === 'short' ? 'Кратко' : len === 'standard' ? 'Стандартно' : 'Объёмно';
+                return (
+                  <Button
+                    key={len}
+                    onClick={() => void handleSetResponseLength(len)}
+                    className={cn(
+                      "px-2.5 py-0.5 rounded-full text-[10px] font-medium border transition-colors",
+                      active
+                        ? "bg-brand-soft/15 border-brand-soft/30 text-brand-soft"
+                        : "border-border-subtle text-text-main/40 hover:text-text-main/60"
+                    )}
+                  >
+                    {label}
+                  </Button>
+                );
+              })}
+            </div>
+          )}
 
           <div className="flex gap-1.5 items-center overflow-x-auto pb-1 pt-3.5 -mx-1 px-1 no-scrollbar">
             {allPersonas.map(p => {
@@ -260,7 +297,7 @@ export function AIPage() {
 
             {isLoading && streamingMessage === null && (
               <AssistantTurn name={convPersonaName} color={convVisual.color} mono={convVisual.mono}>
-                 <span className="text-text-main/40">{t('ai_typing')}</span>
+                 <span className="text-text-main/40">{convPersonaName} думает…</span>
               </AssistantTurn>
             )}
 

@@ -2,9 +2,11 @@ import { useRef, useEffect, useCallback } from 'react';
 import { findStaleDocuments, indexDocument } from '../utils/embeddingIndexer';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
+import { rebuildWordCloud } from '../../archive/hooks/useArchiveWordCloud';
 
 const BATCH_SIZE = 3;
 const DEBOUNCE_MS = 30_000;
+const RESUMMARIZE_DEBOUNCE_MS = 60_000;
 const BACKOFF_MS: Record<string, number> = {
   DAILY_LIMIT: 300_000,
   RATE_LIMIT: 60_000,
@@ -17,6 +19,29 @@ export function useEmbeddingIndexer(): void {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const backoffUntilRef = useRef<number>(0);
   const runningRef = useRef(false);
+  const resummarizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirtyCountRef = useRef(0);
+  const wordCloudTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleWordCloudRebuild = useCallback(() => {
+    if (wordCloudTimerRef.current) clearTimeout(wordCloudTimerRef.current);
+    wordCloudTimerRef.current = setTimeout(() => {
+      void rebuildWordCloud().catch(e => console.warn('[useEmbeddingIndexer] word cloud rebuild failed:', e));
+    }, 8_000);
+  }, []);
+
+  const scheduleResummarize = useCallback(() => {
+    dirtyCountRef.current += 1;
+    if (resummarizeTimerRef.current) clearTimeout(resummarizeTimerRef.current);
+    resummarizeTimerRef.current = setTimeout(() => {
+      void AIProfileFacetService.resummarizeDirty().then(r => {
+        console.warn(`[useEmbeddingIndexer] resummarized ${r.count} dirty facets`);
+        dirtyCountRef.current = 0;
+      }).catch(e => {
+        console.warn('[useEmbeddingIndexer] resummarize failed:', e);
+      });
+    }, RESUMMARIZE_DEBOUNCE_MS);
+  }, []);
 
   const runBatch = useCallback(async () => {
     if (runningRef.current) return;
@@ -39,9 +64,12 @@ export function useEmbeddingIndexer(): void {
           break;
         }
         if (result === 'ok') {
-          void AIProfileFacetService.incrementalUpdate(docId).catch(e =>
+          void AIProfileFacetService.incrementalUpdate(docId).then(() => {
+            scheduleResummarize();
+          }).catch(e =>
             console.error('[useEmbeddingIndexer] incremental facet update failed:', e),
           );
+          scheduleWordCloudRebuild();
         }
       }
       // Best-effort: push any local-only embeddings to the cloud (no AI calls).
@@ -52,7 +80,7 @@ export function useEmbeddingIndexer(): void {
     } finally {
       runningRef.current = false;
     }
-  }, []);
+  }, [scheduleResummarize, scheduleWordCloudRebuild]);
 
   const scheduleIdle = useCallback(() => {
     if (typeof window === 'undefined' || !('requestIdleCallback' in window)) {
@@ -91,6 +119,8 @@ export function useEmbeddingIndexer(): void {
       window.removeEventListener('storage', scheduleDebounced);
       if (timerRef.current) clearTimeout(timerRef.current);
       if (pollRef.current) clearInterval(pollRef.current);
+      if (resummarizeTimerRef.current) clearTimeout(resummarizeTimerRef.current);
+      if (wordCloudTimerRef.current) clearTimeout(wordCloudTimerRef.current);
     };
   }, [scheduleIdle, scheduleDebounced]);
 }

@@ -59,7 +59,7 @@ export function useArchiveData(user: User | null, userId: string, t: (key: strin
     setSelectedMonth(null);
   };
 
-  const { wordCloud, maxCount } = useArchiveWordCloud(sessionsData.sessions);
+  const { wordCloud, maxCount } = useArchiveWordCloud();
   const { groupedSessions, sortedDates } = useArchiveGrouping(filteredSessions);
 
   const dateLocale = getDateLocale(language);

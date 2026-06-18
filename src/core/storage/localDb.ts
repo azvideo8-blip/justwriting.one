@@ -82,6 +82,8 @@ export interface AIDialogue {
   createdAt: number;
   updatedAt: number;
   archivedAt?: number | undefined;
+  /** Desired response verbosity: 'short' | 'standard' | 'detailed' */
+  responseLength?: 'short' | 'standard' | 'detailed';
 }
 
 export interface AIDocumentSummary {
@@ -131,7 +133,13 @@ export interface AIProfileFacet {
   summary: string;
   centroid: number[];
   noteIds: string[];
+  /** Notes whose best-chunk similarity ≥ PRIMARY_THRESHOLD (0.55) — core to this facet. */
+  primaryNoteIds?: string[];
+  /** Notes with membership but below primary threshold — tangentially related. */
+  secondaryNoteIds?: string[];
   noteCount: number;
+  /** Number of chunk vectors used to compute the centroid (for weighted blend on incremental update). */
+  chunkCount?: number;
   firstAt: number;       // earliest member-note session time
   lastAt: number;        // latest member-note session time
   updatedAt: number;
@@ -141,6 +149,8 @@ export interface AIProfileFacet {
   dirty?: boolean;
   /** Ratio of notes with non-empty insights (0–1). High = candidate for a post. */
   insightDensity?: number;
+  /** True for person facets (people), false for domain/topic facets. */
+  isPerson?: boolean;
   cloudSyncedAt?: number;
 }
 

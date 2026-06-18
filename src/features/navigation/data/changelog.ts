@@ -14,6 +14,23 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.23',
+    date: '2026-06-18',
+    items: [
+      { category: 'new', ru: 'Гибридный поиск заметок (Vector + BM25 + RRF): полнотекстовый поиск через MiniSearch с нечётким匹配ом и префиксами, объединён с векторным через Reciprocal Rank Fusion', en: 'Hybrid note search (Vector + BM25 + RRF): full-text search via MiniSearch with fuzzy matching and prefixes, fused with vector search via Reciprocal Rank Fusion' },
+      { category: 'new', ru: 'Генеративное расширение запросов: ИИ генерирует 3 синоним-запроса перед поиском, результаты сливаются через RRF', en: 'Generative query expansion: AI generates 3 synonym queries before search, results fused via RRF' },
+      { category: 'new', ru: 'Управление объёмом ответа ИИ: «Кратко / Стандартно / Объёмно» для каждого диалога', en: 'AI response length control: "Short / Standard / Detailed" per dialogue' },
+      { category: 'new', ru: 'Автоназвания диалогов: ИИ генерирует краткое название после первого ответа + кнопка переименования', en: 'Auto-naming dialogues: AI generates a short title after the first reply + rename button' },
+      { category: 'improvement', ru: 'Оптимистичный рендер: сообщение пользователя появляется мгновенно, «{персона} думает…» до стриминга', en: 'Optimistic rendering: user message appears instantly, "{persona} thinking…" before streaming' },
+      { category: 'improvement', ru: 'Parent Document Retrieval: загружается только релевантный чанк + соседи, не вся заметка', en: 'Parent Document Retrieval: only the relevant chunk + neighbours loaded, not the full note' },
+      { category: 'improvement', ru: 'Динамическое бюджетирование контекста: заметки ранжируются по 0.5×вектор + 0.3×ключевые слова + 0.2×свежесть до лимита 25K', en: 'Dynamic context budgeting: notes ranked by 0.5×vector + 0.3×keywords + 0.2×recency up to 25K limit' },
+      { category: 'improvement', ru: 'Фасеты людей из LLM-извлечения (не regex): карточки разделены на «Сферы жизни» и «Окружение (Люди)»', en: 'People facets from LLM extraction (not regex): cards split into "Life spheres" and "People"' },
+      { category: 'improvement', ru: 'Облако слов кэшируется в localStorage, пересчёт в фоне — мгновенная загрузка Архива', en: 'Word cloud cached in localStorage, rebuilt in background — instant Archive load' },
+      { category: 'fix', ru: 'Удалена персона «Журналист»', en: 'Removed "Journalist" persona' },
+      { category: 'fix', ru: 'Исправлена граница слов для кириллицы в поиске по именам, дедуп вызовов эмбеддингов, общий лимит контекста 30K', en: 'Fixed Cyrillic word boundary in name search, deduplicated embedding calls, 30K total context cap' },
+    ],
+  },
+  {
     version: '0.7.22',
     date: '2026-06-17',
     items: [

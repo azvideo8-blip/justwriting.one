@@ -4,12 +4,15 @@ import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService'
 import { useAIChat } from '../hooks/useAIChat';
 import { useDailyLimit } from '../hooks/useDailyLimit';
 import { personaVisual, usePersonaRole } from '../constants/personaVisuals';
+import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import type { AIDialogue, AIPersona } from '../../../core/storage/localDb';
 import type { PersonaDetailTarget } from '../components/PersonaDetailModal';
 
+type ResponseLength = 'short' | 'standard' | 'detailed';
+
 const MAX_INPUT_CHARS = 10_000;
 
-export function useAIPageData(linkedDocId?: string) {
+export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const [dialogues, setDialogues] = useState<AIDialogue[]>([]);
   const [archivedDialogues, setArchivedDialogues] = useState<AIDialogue[]>([]);
   const [activeDialogueId, setActiveDialogueId] = useState<string | null>(null);
@@ -51,6 +54,11 @@ export function useAIPageData(linkedDocId?: string) {
     setCustomPersonas(list);
   }, []);
 
+  const handleNewDialogue = useCallback(() => {
+    setActiveDialogueId(null);
+    setInputText('');
+  }, []);
+
   useEffect(() => {
     if (initRef.current) return;
     initRef.current = true;
@@ -60,6 +68,31 @@ export function useAIPageData(linkedDocId?: string) {
     }, 0);
     if (linkedDocId) void attachDocument(linkedDocId);
   }, [loadDialogues, loadCustomPersonas, linkedDocId, attachDocument]);
+
+  // TICKET-013: Handle draftFacet query param — pre-fill editor with facet data
+  const draftFacetHandledRef = useRef(false);
+  useEffect(() => {
+    if (!draftFacetId || draftFacetHandledRef.current) return;
+    draftFacetHandledRef.current = true;
+    void (async () => {
+      try {
+        const facet = (await AIProfileFacetService.getAll()).find(f => f.id === draftFacetId);
+        if (!facet) return;
+        setSelectedPersonaId('editor');
+        handleNewDialogue();
+        setInputText(
+          `Напиши вовлекающий пост для Telegram/блога на тему «${facet.label}» на основе связанных заметок. ` +
+          `Инсайты для фокуса: ${facet.summary}`
+        );
+        // Attach facet notes to the new dialogue
+        for (const noteId of facet.noteIds.slice(0, 5)) {
+          await attachDocument(noteId);
+        }
+      } catch (e) {
+        console.warn('[useAIPageData] draftFacet handling failed:', e);
+      }
+    })();
+  }, [draftFacetId, attachDocument, handleNewDialogue]);
 
   useEffect(() => {
     if (!attachMenuOpen) return;
@@ -83,10 +116,16 @@ export function useAIPageData(linkedDocId?: string) {
     await loadDialogues();
   };
 
-  const handleNewDialogue = () => {
-    setActiveDialogueId(null);
-    setInputText('');
-  };
+  const handleSetResponseLength = useCallback(async (length: ResponseLength) => {
+    if (!activeDialogueId) return;
+    await AIDialogueService.updateResponseLength(activeDialogueId, length);
+    await loadDialogues();
+  }, [activeDialogueId, loadDialogues]);
+
+  const handleRenameDialogue = useCallback(async (id: string, newTitle: string) => {
+    await AIDialogueService.updateTitle(id, newTitle);
+    await loadDialogues();
+  }, [loadDialogues]);
 
   const handleArchive = async () => {
     if (activeDialogueId) {
@@ -213,6 +252,7 @@ export function useAIPageData(linkedDocId?: string) {
     activeDialogue, displayMessages,
     activePersona, activeRole, headerVisual,
     convPersonaId, convPersonaName, convVisual,
+    handleSetResponseLength, handleRenameDialogue,
     MAX_INPUT_CHARS,
   };
 }

@@ -1,7 +1,7 @@
 {
   "name": "justwriting-one",
   "private": true,
-  "version": "0.7.22",
+  "version": "0.7.23",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
@@ -30,6 +30,7 @@
     "idb": "^8.0.3",
     "jszip": "^3.10.1",
     "lucide-react": "^0.546.0",
+    "minisearch": "^7.2.0",
     "motion": "^12.23.24",
     "p-limit": "^7.3.0",
     "posthog-js": "^1.376.2",

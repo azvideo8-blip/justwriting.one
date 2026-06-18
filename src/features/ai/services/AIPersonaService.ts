@@ -7,7 +7,6 @@ export const PRESET_PERSONAS = [
   { id: 'cbt', name: 'КПТ-психолог', emoji: '\u{1F9E0}', isPreset: true },
   { id: 'editor', name: 'Редактор', emoji: '\u270F\uFE0F', isPreset: true },
   { id: 'coach', name: 'Коуч', emoji: '\u{1F680}', isPreset: true },
-  { id: 'journalist', name: 'Журналист', emoji: '\u{1F4F0}', isPreset: true },
 ] as const;
 
 export const PRESET_PERSONA_IDS = PRESET_PERSONAS.map(p => p.id);
