@@ -5,6 +5,7 @@ import { ArchiveSession } from '../types';
 import { updateArchiveField, deleteArchiveSession } from '../services/archiveCrud';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { logger } from '../../../shared/errors/logger';
+import { rebuildWordCloud } from './useArchiveWordCloud';
 
 export function useArchiveSessions(user: User | null, userId: string, t: (key: string) => string) {
   const [sessions, setSessions] = useState<ArchiveSession[]>([]);
@@ -61,6 +62,7 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
       await deleteArchiveSession(s, userId);
       setSessions(prev => prev.filter(x => x.id !== s.id));
       if (previewSession?.id === s.id) setPreviewSession(null);
+      void rebuildWordCloud().catch(() => { /* non-critical */ });
     } catch (e) {
       logger.error('archive', 'Failed to delete session', { error: String(e) });
     }

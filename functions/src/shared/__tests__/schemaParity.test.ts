@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 
 const callableSchema = z.object({
-  personaId: z.enum(['group_psychology', 'cbt', 'coach', 'editor', 'journalist', 'custom']),
+  personaId: z.enum(['group_psychology', 'cbt', 'coach', 'editor', 'custom']),
   customSystemPrompt: z.string().max(500).nullish(),
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant']),
@@ -14,6 +14,7 @@ const callableSchema = z.object({
   documentContent: z.string().max(50_000).nullish(),
   documentMood: z.string().max(50).nullish(),
   userPortrait: z.string().max(100_000).nullish(),
+  responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
 });
 
 describe('Schema parity between api/chat.ts and chatWithAI.ts', () => {

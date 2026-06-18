@@ -15,7 +15,6 @@ const PRESET_VISUALS: Record<string, PersonaVisual> = {
   cbt:              { color: '#7BA9F0', mono: 'К',  role: { ru: 'когнитивно-поведенческий', en: 'cognitive-behavioural' } },
   editor:           { color: '#F0A879', mono: 'Р',  role: { ru: 'структура и ясность', en: 'structure and clarity' } },
   coach:            { color: '#7DD3A8', mono: 'Кч', role: { ru: 'действие и цели', en: 'action and goals' } },
-  journalist:       { color: '#C896F0', mono: 'Ж',  role: { ru: 'вопросы и факты', en: 'questions and facts' } },
 };
 
 const CUSTOM_COLOR = '#A583E8';

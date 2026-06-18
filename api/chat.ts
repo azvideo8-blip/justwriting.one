@@ -146,11 +146,18 @@ function buildSystemPrompt(
   personaId: string,
   customPrompt: string | null | undefined,
   userPortrait: string | null | undefined,
+  responseLength?: 'short' | 'standard' | 'detailed' | null,
 ): string {
   let base =
     personaId === 'custom'
       ? `${customPrompt ?? ''}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}`
       : `${(PERSONA_PROMPTS as Record<string, string>)[personaId] ?? PERSONA_PROMPTS.coach}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}`;
+
+  if (responseLength === 'short') {
+    base += '\n\nВАЖНО: Верни очень краткий, лаконичный ответ. Уложись в 1-2 абзаца, пиши только самое главное без долгих вступлений.';
+  } else if (responseLength === 'detailed') {
+    base += '\n\nВАЖНО: Верни подробный, развёрнутый ответ с глубоким анализом, детальными объяснениями и выводами.';
+  }
 
   if (userPortrait) {
     base = `${base}\n\n---\n[Портрет пользователя (личность, темы, контекст)]\n${userPortrait}`;
@@ -233,7 +240,7 @@ async function recordUsage(uid: string, tokensIn: number, tokensOut: number, mod
 
 // ── Input schema ──────────────────────────────────────────────────────────────
 const inputSchema = z.object({
-  personaId: z.enum(['group_psychology', 'cbt', 'coach', 'editor', 'journalist', 'custom']),
+  personaId: z.enum(['group_psychology', 'cbt', 'coach', 'editor', 'custom']),
   customSystemPrompt: z.string().max(500).nullish(),
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant']),
@@ -245,6 +252,7 @@ const inputSchema = z.object({
   documentContent: z.string().max(50_000).nullish(),
   documentMood: z.string().max(50).nullish(),
   userPortrait: z.string().max(100_000).nullish(),
+  responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
 });
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -275,7 +283,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const parsed = inputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'Bad Request' }); return; }
 
-  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait } = parsed.data;
+  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength } = parsed.data;
 
   // Injection guard for custom prompts
   if (personaId === 'custom' && customSystemPrompt) {
@@ -284,7 +292,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  const systemPrompt = buildSystemPrompt(personaId, customSystemPrompt, userPortrait);
+  const systemPrompt = buildSystemPrompt(personaId, customSystemPrompt, userPortrait, responseLength);
 
   // Insert document content as a fake user+assistant turn (like chatWithAI.ts)
   // instead of into the system prompt — avoids the 9.5K system-prompt truncation
@@ -302,9 +310,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Stream. maxOutputTokens caps total output INCLUDING gemini-2.5 thinking tokens;
   // at 1024 the thinking budget could consume it all and truncate the reply
   // mid-sentence. 8192 leaves ample room for a complete answer.
-  const activeModel = await getActiveModel();
+  const [activeModel, chatModel] = await Promise.all([getActiveModel(), getChatModel()]);
   const result = streamText({
-    model: await getChatModel(),
+    model: chatModel,
     system: systemPrompt,
     messages: providerMessages,
     maxOutputTokens: 8192,

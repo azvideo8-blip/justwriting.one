@@ -14,7 +14,7 @@ import { AISummaryService } from '../services/AISummaryService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { cosineSimilarity } from '../utils/vectorSearch';
-import { searchNotes } from '../utils/noteRetriever';
+import { searchNotesMulti } from '../utils/noteRetriever';
 
 let _streamAvailable: boolean | null = null;
 const MAX_ATTACHMENT_CHARS = 9_500;
@@ -56,6 +56,7 @@ async function streamChat(params: {
   documentContent?: string | undefined;
   documentMood?: string | undefined;
   userPortrait?: string | null | undefined;
+  responseLength?: 'short' | 'standard' | 'detailed' | undefined;
   onChunk: (partial: string) => void;
 }): Promise<string> {
   const user = getAuth().currentUser;
@@ -76,6 +77,7 @@ async function streamChat(params: {
       documentContent: params.documentContent,
       documentMood: params.documentMood,
       userPortrait: params.userPortrait,
+      responseLength: params.responseLength,
     }),
   });
 
@@ -113,6 +115,7 @@ async function callableChat(params: {
   messages: AIMessage[];
   documentContent?: string | undefined;
   userPortrait?: string | null | undefined;
+  responseLength?: 'short' | 'standard' | 'detailed' | undefined;
 }): Promise<string> {
   const result = await AIService.chat({
     personaId: params.personaId,
@@ -120,6 +123,7 @@ async function callableChat(params: {
     messages: params.messages.map(({ role, content }) => ({ role, content })),
     documentContent: params.documentContent,
     userPortrait: params.userPortrait,
+    responseLength: params.responseLength,
   });
 
   if (!result.ok) {
@@ -147,6 +151,9 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
   const [isLoading, setIsLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // L12: Cache portrait across messages to avoid Firestore reads per turn.
+  const portraitCacheRef = useRef<string | null | undefined>(undefined);
 
   // Sticky note-search: once a search happens, keep retrieving for the next few
   // follow-up turns (e.g. "посмотри в этих", "собери", "а почему") even if they
@@ -228,44 +235,70 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
     setError(null);
 
     // Build API messages from the ORIGINAL dialogue before the optimistic update.
-    // Using optimisticDialogue here would duplicate the user message because
-    // optimisticDialogue.messages already contains it after the update below.
     const allMessages: AIMessage[] = dialogue
       ? [...dialogue.messages, { role: 'user' as const, content: text, type: 'chat' as const }]
       : [{ role: 'user' as const, content: text, type: 'chat' as const }];
 
+    // Resolve persona name/emoji early for the optimistic display.
+    const preset = PRESET_PERSONAS.find(p => p.id === personaId);
+    let personaName = preset?.name ?? 'Custom';
+    let personaEmoji = preset?.emoji ?? '\u{1F916}';
+
+    // TICKET-019: Optimistic display — immediately show the user message even
+    // when no dialogue exists yet. Create a temporary dialogue object so the
+    // message renders before the API responds.
     let optimisticDialogue = dialogue;
     if (optimisticDialogue) {
       const optimistic = { ...optimisticDialogue, messages: [...optimisticDialogue.messages, { role: 'user' as const, content: text, type: 'chat' as const }] };
       setDialogue(optimistic);
       optimisticDialogue = optimistic;
+    } else {
+      const tempDialogue: AIDialogue = {
+        id: 'temp-id',
+        title: 'Новый диалог',
+        personaId,
+        personaName,
+        personaEmoji,
+        documentId: undefined,
+        messages: [{ role: 'user', content: text, type: 'chat' }],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      setDialogue(tempDialogue);
     }
 
     try {
 
       const apiMessages = pruneMessages(allMessages.filter(m => m.type !== 'system'));
 
+      // async-cheap-condition-before-await: compute sync flags before any awaits.
+      const explicitSearch = looksLikeNoteSearch(text);
+
       let effectivePersonaId = personaId;
       let customSystemPrompt: string | undefined;
-      let personaName = 'Custom';
-      let personaEmoji = '\u{1F916}';
 
       const isPreset = PRESET_PERSONAS.some(p => p.id === personaId);
-      if (!isPreset) {
-        const customPersona = await AIPersonaService.getCustom(personaId);
-        if (customPersona) {
-          customSystemPrompt = customPersona.systemPrompt;
-          personaName = customPersona.name;
-          personaEmoji = customPersona.emoji;
-          effectivePersonaId = 'custom';
-        }
-      } else {
+
+      // async-parallel: fetch portrait and custom persona concurrently.
+      const portraitPromise = portraitCacheRef.current !== undefined
+        ? Promise.resolve(portraitCacheRef.current)
+        : AIProfileService.getPortrait().then(p => { portraitCacheRef.current = p; return p; });
+      const personaPromise = isPreset
+        ? Promise.resolve(undefined)
+        : AIPersonaService.getCustom(personaId);
+
+      const [userPortrait, customPersona] = await Promise.all([portraitPromise, personaPromise]);
+
+      if (!isPreset && customPersona) {
+        customSystemPrompt = customPersona.systemPrompt;
+        personaName = customPersona.name;
+        personaEmoji = customPersona.emoji;
+        effectivePersonaId = 'custom';
+      } else if (isPreset) {
         const preset = PRESET_PERSONAS.find(p => p.id === personaId);
         personaName = preset?.name ?? personaId;
         personaEmoji = preset?.emoji ?? '\u{1F916}';
       }
-
-      const userPortrait = await AIProfileService.getPortrait();
 
       // Note-search context goes through documentContent (backend cap 50K), NOT
       // appended to the message — a chat message is capped at 10K chars, and
@@ -273,7 +306,6 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
       let searchContext: string | undefined;
 
       // Explicit trigger, or sticky follow-up within an ongoing notes conversation.
-      const explicitSearch = looksLikeNoteSearch(text);
       const stickySearch = !explicitSearch && stickyTurnsRef.current > 0 && lastSearchQueryRef.current.length > 0;
       if (explicitSearch) {
         stickyTurnsRef.current = 4;
@@ -350,7 +382,7 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
                   .join('\n');
                 return `— ${f.label} (${f.noteCount} заметок):\n${f.summary}${noteTitles ? `\nЗаметки по теме:\n${noteTitles}` : ''}`;
               }).join('\n\n');
-              const facetBlock = `Темы профиля пользователя (обобщены ИИ по всем его заметкам, это достоверный источник):\n${facetLines}\n\nОпирайся на эти темы и на заметки ниже при ответе. Темы профиля — этоsummary заметок пользователя, их можно цитировать и ссылаться на них.`;
+              const facetBlock = `Темы профиля пользователя (обобщены ИИ по заметкам):\n${facetLines}\n\nОпирайся на эти темы и на заметки ниже при ответе. Не выдумывай детали, которых нет в текстах.`;
 
               searchContext = facetBlock;
             }
@@ -365,7 +397,21 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
         // ("собери", "а ещё") still retrieves the same topic.
         const searchQuery = explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`;
         try {
-          const notes = await searchNotes(searchQuery, 10);
+          // TICKET-024: Query expansion — generate synonyms via LLM before search.
+          let searchQueries = [searchQuery];
+          if (explicitSearch) {
+            try {
+              const expandRes = await AIService.chat({
+                personaId: 'coach',
+                messages: [{ role: 'user', content: `Для поискового запроса по личному дневнику: "${searchQuery}", напиши 3 альтернативных поисковых запроса на русском языке (синонимы, связанные темы, имена). Выдай их одной строкой через запятую.` }],
+              });
+              if (expandRes.ok && expandRes.text) {
+                const expanded = expandRes.text.split(',').map(s => s.trim()).filter(s => s.length > 2);
+                if (expanded.length > 0) searchQueries = [searchQuery, ...expanded.slice(0, 3)];
+              }
+            } catch { /* non-critical, fall back to original query */ }
+          }
+          const notes = await searchNotesMulti(searchQueries, 10);
 
           // Text-based name search: vector embeddings are bad at proper-name
           // retrieval ("Даша" won't match chunks that mention her briefly).
@@ -376,33 +422,32 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
             ...lastSearchNamesRef.current,
           ])];
           const nameSearchIds = new Set<string>();
-          if (candidateNames.length > 0) {
-            const allEmb = await AIEmbeddingService.getAll();
-            for (const name of candidateNames) {
-              const nameRe = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
-              for (const emb of allEmb) {
-                if (nameSearchIds.has(emb.documentId)) continue;
-                const texts = emb.chunkTexts ?? [];
-                if (texts.some(t => nameRe.test(t))) nameSearchIds.add(emb.documentId);
-              }
+          // M2: Load embeddings once, reuse for both name search and facet-note matching.
+          const nameSearchEmb = candidateNames.length > 0 ? await AIEmbeddingService.getAll() : [];
+          // js-hoist-regexp: pre-compile all name regexes once instead of in a loop.
+          const nameRegexes = candidateNames.map(name =>
+            new RegExp(`(?:^|[^а-яёА-ЯЁa-zA-Z0-9_])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:[^а-яёА-ЯЁa-zA-Z0-9_]|$)`)
+          );
+          if (nameRegexes.length > 0) {
+            for (const emb of nameSearchEmb) {
+              if (nameSearchIds.has(emb.documentId)) continue;
+              const texts = emb.chunkTexts ?? [];
+              if (texts.some(t => nameRegexes.some(re => re.test(t)))) nameSearchIds.add(emb.documentId);
             }
           }
 
           // Combine: vector search results + facet notes + name-search notes
           const foundIds = new Set(notes.map(n => n.documentId));
-          // Also add facet notes where the queried name appears in chunk texts
-          if (candidateNames.length > 0 && facetNoteIds.size > 0) {
-            const allEmb = await AIEmbeddingService.getAll();
-            for (const name of candidateNames) {
-              const nameRe = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
-              for (const emb of allEmb) {
-                if (!facetNoteIds.has(emb.documentId)) continue;
-                if (foundIds.has(emb.documentId) || nameSearchIds.has(emb.documentId)) continue;
-                const texts = emb.chunkTexts ?? [];
-                if (texts.some(t => nameRe.test(t))) nameSearchIds.add(emb.documentId);
-              }
+          // M2: reuse nameSearchEmb + nameRegexes already compiled above.
+          if (nameRegexes.length > 0 && facetNoteIds.size > 0) {
+            for (const emb of nameSearchEmb) {
+              if (!facetNoteIds.has(emb.documentId)) continue;
+              if (foundIds.has(emb.documentId) || nameSearchIds.has(emb.documentId)) continue;
+              const texts = emb.chunkTexts ?? [];
+              if (texts.some(t => nameRegexes.some(re => re.test(t)))) nameSearchIds.add(emb.documentId);
             }
           }
+          // L11: skip facet extraIds already covered by vector search to avoid duplicate notes.
           const extraIds: string[] = [];
           for (const id of facetNoteIds) {
             if (!foundIds.has(id) && !nameSearchIds.has(id) && extraIds.length < 10) extraIds.push(id);
@@ -422,6 +467,7 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
               title: doc.title || 'Без названия',
               content: versions[0]?.content ?? '',
               score: 0,
+              lastSessionAt: doc.lastSessionAt,
             });
           }
 
@@ -448,11 +494,29 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
           }
 
           if (allNotes.length > 0) {
-            // For name-based queries, extract fragments around the name instead
-            // of truncating from the start — the name may appear deep in the note.
+            // TICKET-025: Dynamic Context Budgeting — score by vector sim +
+            // keyword density + recency, then add notes until budget exhausted.
+            const BUDGET_CHARS = 25_000;
+            const now = Date.now();
+            const scored = allNotes.map(n => {
+              const vectorScore = Math.max(0, n.score);
+              const keywordScore = Math.min(1, (n.content.match(new RegExp(text.split(/\s+/).filter(w => w.length > 2).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi'))?.length ?? 0) / 10);
+              const ageDays = (now - (n.lastSessionAt ?? now)) / 86_400_000;
+              const recencyFactor = Math.exp(-ageDays / 365);
+              return {
+                note: n,
+                compositeScore: 0.5 * vectorScore + 0.3 * keywordScore + 0.2 * recencyFactor,
+              };
+            }).sort((a, b) => b.compositeScore - a.compositeScore);
+
             const CONTEXT_RADIUS = 500;
             const PER_NOTE_CHARS = 2_000;
-            const parts = allNotes.slice(0, 25).map((n, i) => {
+            const parts: string[] = [];
+            let totalChars = 0;
+            let noteIdx = 0;
+
+            for (const { note: n } of scored) {
+              if (totalChars >= BUDGET_CHARS) break;
               let snippet: string;
               if (candidateNames.length > 0) {
                 const namePositions = candidateNames
@@ -472,19 +536,38 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
                   ? n.content.slice(0, PER_NOTE_CHARS) + '…'
                   : n.content;
               }
-              return `Заметка ${i + 1}: "${n.title}"\n${snippet}`;
-            });
+              noteIdx++;
+              parts.push(`Заметка ${noteIdx}: "${n.title}"\n${snippet}`);
+              totalChars += snippet.length;
+            }
             const noteBlock = (
               `\n\nРезультаты поиска по архиву заметок (запрос: "${text}"). ` +
-              `Найдено заметок: ${allNotes.length} (показаны первые ${Math.min(allNotes.length, 25)}). ` +
+              `Найдено заметок: ${allNotes.length} (отобрано ${noteIdx} по релевантности). ` +
               `В этих заметках точно содержится ответ на вопрос пользователя — прочитай их внимательно.\n\n` +
               parts.join('\n\n')
-            ).slice(0, 40_000);
-            searchContext = (searchContext ?? '').slice(0, 5_000) + noteBlock;
+            );
+            searchContext = (searchContext ?? '') + noteBlock;
           } else if (!searchContext) {
             searchContext =
               `Автоматический поиск по архиву заметок пользователя по запросу "${text}" не нашёл заметок. ` +
               `КАТЕГОРИЧЕСКИ не выдумывай содержание его заметок и не приписывай ему того, чего нет.`;
+          }
+          // H5: Cap total searchContext to prevent blowing past model context window.
+          // Budget: 30K chars ≈ 10K tokens for notes/facets (model window ~128K tokens).
+          const CONTEXT_CAP = 30_000;
+          if (searchContext && searchContext.length > CONTEXT_CAP) {
+            const facetHead = searchContext.indexOf('\n\nРезультаты поиска');
+            if (facetHead > 0) {
+              const facetPart = searchContext.slice(0, facetHead);
+              const notePart = searchContext.slice(facetHead);
+              const facetBudget = 5_000;
+              const noteBudget = CONTEXT_CAP - facetBudget;
+              const trimmedFacet = facetPart.length <= facetBudget ? facetPart : facetPart.slice(0, facetBudget) + '…';
+              const trimmedNote = notePart.length <= noteBudget ? notePart : notePart.slice(0, noteBudget) + '…';
+              searchContext = trimmedFacet + trimmedNote;
+            } else {
+              searchContext = searchContext.slice(0, CONTEXT_CAP) + '…';
+            }
           }
         } catch (e) {
           console.warn('[useAIChat] note search failed:', e);
@@ -496,10 +579,12 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
         }
       }
 
+      const responseLength = dialogue?.responseLength;
+
       let fullText: string;
 
       if (_streamAvailable === false) {
-        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait });
+        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait, responseLength });
       } else {
         try {
           fullText = await streamChat({
@@ -508,13 +593,14 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
             messages: apiMessages,
             documentContent: searchContext,
             userPortrait,
+            responseLength,
             onChunk: (partial) => setStreamingMessage(partial),
           });
         } catch (e: unknown) {
           console.warn('Streaming chat failed, falling back to callable chat:', e);
           const errMsg = e instanceof Error ? e.message : '';
           if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED') {
-            fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait });
+            fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait, responseLength });
           } else {
             throw e;
           }
@@ -531,6 +617,7 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
       incrementDailyUsage();
 
       let currentDialogue = dialogue;
+      const wasNew = !currentDialogue;
       if (!currentDialogue) {
         const title = text.slice(0, 40) + (text.length > 40 ? '...' : '');
         currentDialogue = await AIDialogueService.create({
@@ -546,6 +633,23 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
       const updated = await AIDialogueService.get(currentDialogue.id);
       setDialogue(updated ?? null);
       setStreamingMessage(null);
+
+      // TICKET-018: Auto-name the dialogue via LLM after the first exchange.
+      if (wasNew) {
+        void AIService.chat({
+          personaId: 'coach',
+          messages: [
+            { role: 'user', content: `Придумай короткое название (3-5 слов) для диалога на русском языке на основе первого сообщения пользователя: "${text.slice(0, 200)}" и ответа ИИ: "${fullText.slice(0, 200)}". Ответь ТОЛЬКО названием, без кавычек.` },
+          ],
+        }).then(res => {
+          if (res.ok && res.text) {
+            const cleanTitle = res.text.trim().replace(/^["«]|["»]$/g, '').slice(0, 50);
+            if (cleanTitle.length > 0) {
+              void AIDialogueService.updateTitle(currentDialogue!.id, cleanTitle);
+            }
+          }
+        }).catch(() => { /* non-critical */ });
+      }
     } catch (e: unknown) {
       setStreamingMessage(null);
       const db = await getLocalDb();

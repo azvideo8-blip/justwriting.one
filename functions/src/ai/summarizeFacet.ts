@@ -12,7 +12,7 @@ const inputSchema = z.object({
     title: z.string().max(300),
     excerpt: z.string().max(8_000),
   })).min(1).max(60),
-  focus: z.string().max(200).nullable().optional(),
+  focus: z.string().max(200).nullish().default(null),
 });
 
 // DeepSeek (the default chat model) is a reasoning model that leaks its

@@ -73,6 +73,13 @@ export const AIDialogueService = {
     await db.delete('aiDialogues', id);
   },
 
+  async updateResponseLength(id: string, responseLength: 'short' | 'standard' | 'detailed'): Promise<void> {
+    const db = await getLocalDb();
+    const dialogue = await db.get('aiDialogues', id);
+    if (!dialogue) return;
+    await db.put('aiDialogues', { ...dialogue, responseLength, updatedAt: Date.now() });
+  },
+
   async exportAsMarkdown(id: string): Promise<string> {
     const db = await getLocalDb();
     const dialogue = await db.get('aiDialogues', id);

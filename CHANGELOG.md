@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+## 2026-06-18 (v0.7.23)
+- **[RU]** Гибридный поиск заметок (Vector + BM25 + RRF): векторный поиск теперь объединён с полнотекстовым поиском через MiniSearch (BM25 ранжирование, префиксы, нечёткий поиск с tolerate опечаток 0.2). Результаты сливаются по формуле Reciprocal Rank Fusion (RRF), давая топ-15 кандидатов для реранкинга. Точные даты, имена и термины теперь находятся даже при слабом векторном сходстве.
+- **[EN]** Hybrid note search (Vector + BM25 + RRF): vector search is now combined with full-text search via MiniSearch (BM25 ranking, prefix matching, fuzzy 0.2 tolerance). Results are fused by Reciprocal Rank Fusion (RRF), yielding top-15 candidates for reranking. Exact dates, names and terms are now found even with weak vector similarity.
+- **[RU]** Parent Document Retrieval: вместо загрузки всей заметки при совпадении по чанку, загружается только совпавший чанк и его соседи (±1) — экономит токены для длинных заметок.
+- **[EN]** Parent Document Retrieval: instead of loading the full note when a chunk matches, only the matching chunk and its neighbours (±1) are loaded — saves tokens for long notes.
+- **[RU]** Генеративное расширение поисковых запросов: перед поиском ИИ генерирует 3 альтернативных запроса (синонимы, связанные темы), которые тоже участвуют в поиске и сливаются через RRF — абстрактные запросы находят заметки, где исходные слова не упоминались.
+- **[EN]** Generative query expansion: before search, the AI generates 3 alternative queries (synonyms, related topics) that also participate in search and are fused via RRF — abstract queries find notes where the original words weren't mentioned.
+- **[RU]** Динамическое бюджетирование контекста: заметки добавляются в контекст ИИ по убыванию композитного балла (0.5×вектор + 0.3×ключевые слова + 0.2×свежесть), пока не достигнут лимит 25K символов — свежие и точные заметки приоритетнее старых с высоким векторным сходством.
+- **[EN]** Dynamic context budgeting: notes are added to the AI context in descending order of composite score (0.5×vector + 0.3×keywords + 0.2×recency), until the 25K character budget is exhausted — fresh and keyword-matched notes take priority over old ones with high vector similarity.
+- **[RU]** Управление объёмом ответа ИИ: переключатель «Кратко / Стандартно / Объёмно» в шапке каждого диалога — промпт модифицируется для соответствующего стиля ответа.
+- **[EN]** AI response length control: a "Short / Standard / Detailed" toggle in each dialogue header — the prompt is modified to match the desired response style.
+- **[RU]** Автоназвания диалогов: после первого ответа ИИ генерирует краткое название (3–5 слов) для диалога вместо обрезки первого сообщения. Кнопка «Переименовать» (карандаш) в шапке для ручного переименования.
+- **[EN]** Auto-naming dialogues: after the first AI reply, a short title (3–5 words) is generated instead of truncating the first message. A "Rename" button (pencil) in the header allows manual renaming.
+- **[RU]** Оптимистичный рендер сообщений: сообщение пользователя появляется мгновенно при отправке, а статус «{имя персоны} думает…» заменяет общий «печатает…» до начала стриминга.
+- **[EN]** Optimistic message rendering: the user message appears instantly on send, and a "{persona name} thinking…" status replaces the generic "typing…" before streaming starts.
+- **[RU]** Удалена персона «Журналист» — остались «Группа психологов», «КПТ-психолог», «Коуч», «Редактор».
+- **[EN]** Removed "Journalist" persona — remaining: "Psychologist Panel", "CBT Therapist", "Coach", "Editor".
+- **[RU]** Фасеты людей теперь строятся только из LLM-извлечения (mentionedPeople в саммари заметок) — убран regex-парсер с ложными совпадениями. В UI карточки разделены на «Сферы жизни и темы» и «Окружение (Люди)». Бейдж «в пост» на темах с высокой плотностью инсайтов + кнопка перехода к редактору с предзаполненным промптом.
+- **[EN]** People facets now built exclusively from LLM extraction (mentionedPeople in note summaries) — removed the regex parser with false positives. UI cards are split into "Life spheres & themes" and "People". "To post" badge on themes with high insight density + button to jump to the editor with a pre-filled prompt.
+- **[RU]** Облако слов в Архиве теперь кэшируется в localStorage и пересчитывается в фоне (при индексации/удалении заметок), а не при каждом рендере страницы — мгновенная загрузка без зависаний.
+- **[EN]** Archive word cloud is now cached in localStorage and rebuilt in the background (on note indexing/deletion) instead of on every page render — instant load without freezes.
+- **[RU]** Кнопка фильтрации в Архиве переименована с «теги» на «Теги/Метки».
+- **[EN]** Archive filter button renamed from "tags" to "Tags/Labels".
+- **[RU]** Улучшения качества: центроиды фасетов из реальных чанк-векторов (не сидов), взвешенный blend центроидов 1/(n+1) при инкременте, авто-ресуммаризация dirty фасетов (debounce 60с), кэш портрета между сообщениями, дедуп вызовов эмбеддингов, общий лимит контекста 30K, исправлена граница слов для кириллицы в поиске по именам.
+- **[EN]** Quality improvements: facet centroids from actual chunk vectors (not seeds), weighted centroid blend 1/(n+1) on increment, auto-resummarization of dirty facets (60s debounce), portrait cache across messages, deduplicated embedding calls, 30K total context cap, fixed word boundary for Cyrillic in name search.
+- **[RU]** Усилен промпт извлечения людей в `summarizeDocument` — только реальные имена, исключение персонажей/авторов/публичных деятелей. Промпт фасетов переведён на XML-теги `<label>/<description>` с fallback на старый формат.
+- **[EN]** Strengthened people extraction prompt in `summarizeDocument` — only real names, excluding fictional characters/authors/public figures. Facet prompt switched to XML tags `<label>/<description>` with fallback to legacy format.
+
 ## 2026-06-17 (v0.7.22)
 - **[RU]** Профиль: фасеты описывает послушная модель. Активная чат-модель (DeepSeek v4) — reasoning-модель и сыплет рассуждения в ответ («Мы должны проанализировать… похоже, жену зовут…») независимо от формата. Теперь `summarizeFacet` зовёт отдельную модель (`AI_FACET_MODEL`, по умолч. Qwen3 30B-A3B) через новый оверрайд `model` в `generate`. Парсер срезает преамбулу (берёт текст после «ОПИСАНИЕ:») и жёстко отклоняет любые рассуждения → в карточку попадает либо чистое описание, либо чистые ключевые слова, но не «сырьё мышления».
 - **[EN]** Profile: facets summarized by an obedient model. The active chat model (DeepSeek v4) is a reasoning model that leaks its chain-of-thought into the answer regardless of format. `summarizeFacet` now calls a dedicated model (`AI_FACET_MODEL`, default Qwen3 30B-A3B) via a new `model` override in `generate`. The parser strips any preamble (takes text after "ОПИСАНИЕ:") and hard-rejects reasoning → a card shows a clean summary or clean keywords, never raw thinking.

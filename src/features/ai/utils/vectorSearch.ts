@@ -48,3 +48,26 @@ export function topKMulti(
   scored.sort((a, b) => b.score - a.score);
   return scored.slice(0, k);
 }
+
+/**
+ * Same as topKMulti but also returns the index of the best-matching chunk
+ * for each result, enabling Parent Document Retrieval (load only the
+ * matching chunk + its neighbours instead of the whole note).
+ */
+export function topKMultiWithChunkIndex(
+  query: number[],
+  items: { id: string; vectors: number[][] }[],
+  k: number,
+): { id: string; score: number; chunkIndex: number }[] {
+  const scored = items.map(item => {
+    let best = 0;
+    let bestIdx = 0;
+    for (let i = 0; i < item.vectors.length; i++) {
+      const s = cosineSimilarity(query, item.vectors[i]!);
+      if (s > best) { best = s; bestIdx = i; }
+    }
+    return { id: item.id, score: best, chunkIndex: bestIdx };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, k);
+}
