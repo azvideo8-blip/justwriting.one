@@ -1,6 +1,14 @@
 import { onCLS, onFCP, onINP, onLCP, onTTFB, type Metric } from 'web-vitals';
 import posthog from 'posthog-js';
 
+function hasConsent(): boolean {
+  try {
+    return localStorage.getItem('analytics_consent') === 'true';
+  } catch {
+    return false;
+  }
+}
+
 const THRESHOLDS: Record<string, number> = {
   CLS: 0.1,
   FCP: 1800,
@@ -14,7 +22,7 @@ function sendToAnalytics(metric: Metric) {
   const isSlow = metric.value > threshold;
 
   // PostHog
-  if (typeof posthog !== 'undefined') {
+  if (hasConsent() && typeof posthog !== 'undefined') {
     posthog.capture('web_vital', {
       metric_name: metric.name,
       metric_value: Math.round(metric.value * 1000) / 1000,

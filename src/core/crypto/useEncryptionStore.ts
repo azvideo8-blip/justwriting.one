@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { reportError } from '../../shared/errors/reportError';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 
+const AUTO_LOCK_MS = 15 * 60 * 1000;
+
 interface EncryptionState {
   dataKey: CryptoKey | null;
   isVaultUnlocked: boolean;
@@ -15,14 +17,71 @@ interface EncryptionState {
   isProfileLoaded: (userId: string) => boolean;
 }
 
+let autoLockTimer: ReturnType<typeof setTimeout> | null = null;
+let lastActivity = Date.now();
+
+function clearAutoLockTimer() {
+  if (autoLockTimer) {
+    clearTimeout(autoLockTimer);
+    autoLockTimer = null;
+  }
+}
+
+function startAutoLockTimer() {
+  clearAutoLockTimer();
+  autoLockTimer = setTimeout(() => {
+    useEncryptionStore.getState().lockVault();
+  }, AUTO_LOCK_MS);
+}
+
+function resetAutoLockTimer() {
+  lastActivity = Date.now();
+  if (useEncryptionStore.getState().isVaultUnlocked) {
+    startAutoLockTimer();
+  }
+}
+
+if (typeof window !== 'undefined') {
+  const activityEvents: (keyof WindowEventMap)[] = ['keydown', 'mousedown', 'touchstart', 'mousemove'];
+  let throttleId: ReturnType<typeof setTimeout> | null = null;
+  for (const evt of activityEvents) {
+    window.addEventListener(evt, () => {
+      if (throttleId) return;
+      throttleId = setTimeout(() => {
+        throttleId = null;
+        resetAutoLockTimer();
+      }, 5000);
+    }, { passive: true });
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && useEncryptionStore.getState().isVaultUnlocked) {
+      const idleMs = Date.now() - lastActivity;
+      if (idleMs >= AUTO_LOCK_MS) {
+        useEncryptionStore.getState().lockVault();
+      }
+    }
+  });
+}
+
 export const useEncryptionStore = create<EncryptionState>((set, get) => ({
   dataKey: null,
   isVaultUnlocked: false,
   encryptionEnabled: {},
   profileLoaded: {},
 
-  setKey: (key) => set({ dataKey: key, isVaultUnlocked: !!key }),
-  lockVault: () => set({ dataKey: null, isVaultUnlocked: false }),
+  setKey: (key) => {
+    set({ dataKey: key, isVaultUnlocked: !!key });
+    if (key) {
+      lastActivity = Date.now();
+      startAutoLockTimer();
+    } else {
+      clearAutoLockTimer();
+    }
+  },
+  lockVault: () => {
+    set({ dataKey: null, isVaultUnlocked: false });
+    clearAutoLockTimer();
+  },
 
   setEncryptionEnabled: (userId, enabled) => {
     if (!userId) return;

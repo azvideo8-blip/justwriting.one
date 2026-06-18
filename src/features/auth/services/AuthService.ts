@@ -73,8 +73,7 @@ async function unlockVaultFromProfile(profileData: VaultProfileData, password: s
     } catch (e) {
       if (e instanceof DOMException && e.name === 'OperationError') {
         reportError(e, { action: 'legacyUnwrapDataKey', userId });
-        setEncryptionEnabled(userId, true);
-        return true;
+        return false;
       }
       throw e;
     }

@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+## 2026-06-18 (v0.7.25)
+- **[RU]** Безопасность шифрования: при неверном пароле vault больше не помечается как «шифрование включено» без ключа в памяти — функция возвращает `false` вместо ложного успеха.
+- **[EN]** Encryption security: on wrong password, the vault no longer silently marks encryption as "enabled" without a key in memory — the function returns `false` instead of a false success.
+- **[RU]** Авто-блокировка ключа шифрования: через 15 минут неактивности CryptoKey автоматически очищается из памяти; при сворачивании вкладки с истёкшим таймером — тоже. Активность (нажатия клавиш, мышь, тач) сбрасывает таймер.
+- **[EN]** CryptoKey auto-lock: after 15 minutes of inactivity, the encryption key is automatically cleared from memory; minimizing the tab with an expired timer also clears it. Activity (keypress, mouse, touch) resets the timer.
+- **[RU]** Защита ИИ от prompt injection расширена на сообщения пользователя: паттерны инъекций теперь проверяются не только в кастомных промптах, но и в пользовательских сообщениях в streaming-чате.
+- **[EN]** AI prompt injection guard extended to user messages: injection patterns are now checked not only in custom prompts but also in user messages in the streaming chat.
+- **[RU]** Единый список паттернов инъекций (15 шаблонов) вынесен в общий модуль `src/shared/ai/injectionPatterns.ts` — Edge API и Cloud Functions больше не рассинхронизированы.
+- **[EN]** Unified injection pattern list (15 patterns) moved to shared module `src/shared/ai/injectionPatterns.ts` — Edge API and Cloud Functions are no longer out of sync.
+- **[RU]** Аналитика: `trackEvent` и Web Vitals теперь проверяют согласие пользователя (`hasConsent()`) перед отправкой данных в PostHog — раньше обходили этот check.
+- **[EN]** Analytics: `trackEvent` and Web Vitals now check user consent (`hasConsent()`) before sending data to PostHog — previously bypassed this check.
+- **[RU]** Уязвимости зависимостей: обновлены react-router-dom (RCE CVSS 8.1), vite (fs.deny bypass), hono (CORS+credentials, 9 advisories), form-data (CRLF injection). Все HIGH уязвимости устранены (7 → 0).
+- **[EN]** Dependency vulnerabilities: updated react-router-dom (RCE CVSS 8.1), vite (fs.deny bypass), hono (CORS+credentials, 9 advisories), form-data (CRLF injection). All HIGH vulnerabilities resolved (7 → 0).
+- **[RU]** CI: `npm audit` теперь проверяет на уровне HIGH без `continue-on-error` — раньше moderate-уровень игнорировался, 7 HIGH уязвимостей молча проходили CI.
+- **[EN]** CI: `npm audit` now checks at HIGH level without `continue-on-error` — previously moderate level was ignored, 7 HIGH vulnerabilities silently passed CI.
+- **[RU]** Политика конфиденциальности (`/privacy`): новая страница с 10 разделами на RU/EN. Раскрыты все обработчики данных: Firebase, PostHog, Sentry, Gemini, Fireworks AI, Langfuse. Описано шифрование, ИИ-функции, права пользователя, хранение.
+- **[EN]** Privacy Policy (`/privacy`): new page with 10 sections in RU/EN. All data processors disclosed: Firebase, PostHog, Sentry, Gemini, Fireworks AI, Langfuse. Covers encryption, AI features, user rights, data retention.
+- **[RU]** Условия использования (`/terms`): новая страница с 10 разделами на RU/EN — допустимое использование, ИИ-дисклеймер, ограничение ответственности, возраст 16+.
+- **[EN]** Terms of Service (`/terms`): new page with 10 sections in RU/EN — acceptable use, AI disclaimer, limitation of liability, age 16+.
+- **[RU]** Privacy Modal: раскрыты Langfuse, PostHog и Sentry; добавлены ссылки на страницы политики конфиденциальности и условий использования.
+- **[EN]** Privacy Modal: disclosed Langfuse, PostHog, and Sentry; added links to Privacy Policy and Terms of Service pages.
+- **[RU]** SECURITY.md полностью переписан: шифрование (PBKDF2, AES-GCM, auto-lock), безопасность ИИ (инъекции, санитизация, rate limits), App Check, CSP, аналитика, общие паттерны инъекций.
+- **[EN]** SECURITY.md fully rewritten: encryption (PBKDF2, AES-GCM, auto-lock), AI security (injection, sanitization, rate limits), App Check, CSP, analytics, shared injection patterns.
+- **[RU]** README.md обновлён: tech stack (Motion), разделы features (AI, шифрование, privacy), security, переменные окружения (PostHog, Sentry, SITE_URL).
+- **[EN]** README.md updated: tech stack (Motion), features sections (AI, encryption, privacy), security, environment variables (PostHog, Sentry, SITE_URL).
+
 ## 2026-06-19 (v0.7.24)
 - **[RU]** Переключатель объёма ответа всегда виден: кнопки «Кратко / Стандартно / Объёмно» отображаются даже до начала диалога. При смене объёма в чат добавляется системное сообщение `⚙️ [Смена объёма]: Теперь {персона} ответит вам {кратко/стандартно/объёмно}`. Выбор сохраняется в диалог и применяется к новым сообщениям реактивно.
 - **[EN]** Response length toggle always visible: "Short / Standard / Detailed" buttons show even before a dialogue starts. On change, a system message `⚙️ [Volume changed]: {persona} will now respond {briefly/standard/verbosely}` is added to the chat. The selection is saved to the dialogue and applied reactively to new messages.

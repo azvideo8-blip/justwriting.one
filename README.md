@@ -80,7 +80,32 @@ Sessions live in the cloud (Firebase) and optionally offline (IndexedDB). Each n
 
 ## Tech
 
-React 19 · TypeScript · Vite · Tailwind CSS v4 · Framer Motion · Firebase · Zustand · Vitest
+React 19 · TypeScript · Vite · Tailwind CSS v4 · Motion · Firebase · Zustand · Vitest · PostHog · Sentry
+
+## Features
+
+- **Editor** — distraction-free textarea, stream mode (no backspace), zen mode (UI fades while writing)
+- **Sessions** — timed writing sessions with word/time goals, WPM tracking
+- **AI** — chat with personas (psychology panel, CBT, coach, editor), AI editing, AI summarization, semantic search, AI portrait
+- **Encryption** — AES-256-GCM client-side encryption with PBKDF2 key derivation, auto-lock after 15 min inactivity
+- **Archive** — list/grid views, full-text search, labels, tags
+- **Statistics** — WPM charts, streak tracker, calendar heatmap
+- **Profile** — lifetime stats, achievements
+- **Export** — plain text (.txt), PDF, JSON backup, DOCX
+- **Storage** — local-first (IndexedDB), optional cloud sync (Firestore), offline queue with conflict resolution
+- **Privacy** — Privacy Policy (`/privacy`), Terms of Service (`/terms`), consent-gated analytics
+
+## Security
+
+- AES-256-GCM encryption with PBKDF2 (300K iterations)
+- Firestore security rules: strict user isolation, RBAC, role protection
+- Prompt injection guards (15 patterns, shared between Edge API and Cloud Functions)
+- Multi-layer rate limiting (per-user daily limit + cooldown + global cap)
+- DOMPurify sanitization on all AI output
+- Comprehensive CSP headers (HSTS, X-Frame-Options, nosniff, etc.)
+- Consent-gated PostHog analytics, PII-masked Sentry error reporting
+
+See [SECURITY.md](SECURITY.md) for full documentation.
 
 ---
 
@@ -109,6 +134,10 @@ VITE_FIREBASE_PROJECT_ID=...
 VITE_FIREBASE_STORAGE_BUCKET=...
 VITE_FIREBASE_MESSAGING_SENDER_ID=...
 VITE_FIREBASE_APP_ID=...
+VITE_POSTHOG_KEY=...           # Optional — analytics
+VITE_POSTHOG_HOST=...          # Optional — default: https://eu.i.posthog.com
+VITE_SENTRY_DSN=...            # Optional — error monitoring
+VITE_SITE_URL=...              # Optional — default: https://justwriting.one
 ```
 
 ```bash

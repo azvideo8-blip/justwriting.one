@@ -1,6 +1,9 @@
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 
+// SECURITY: rehype-sanitize strips all raw HTML from AI output.
+// NEVER add rehype-raw to this component — it would re-enable XSS
+// from unsanitized streaming AI responses (see api/chat.ts).
 interface MarkdownRendererProps {
   content: string;
   className?: string;

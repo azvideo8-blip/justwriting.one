@@ -7,6 +7,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { z } from 'zod';
 import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD } from '../src/shared/ai/prompts.js';
+import { INJECTION_PATTERNS } from '../src/shared/ai/injectionPatterns.js';
 
 // Must match the database the Cloud Functions and frontend use (shared/firestore.ts,
 // VITE_FIREBASE_FIRESTORE_DATABASE_ID). Bare getFirestore() targets "(default)", which
@@ -128,12 +129,6 @@ async function getChatModel() {
   if (AI_PROVIDER === 'fireworks') return fireworks.chat(await getActiveModel());
   return google(GEMINI_MODEL);
 }
-
-const INJECTION_PATTERNS = [
-  /ignore\s+previous/i, /ignore\s+instructions/i, /jailbreak/i,
-  /\bDAN\b/i, /you\s+are\s+now/i, /forget\s+your/i,
-  /новые\s+инструкции/i, /забудь/i,
-];
 
 function sanitizeAiInput(content: string): string {
   return content
@@ -290,6 +285,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (INJECTION_PATTERNS.some(p => p.test(customSystemPrompt))) {
       res.status(400).json({ error: 'Bad Request' }); return;
     }
+  }
+
+  // Injection guard for user messages
+  const userMessages = messages.filter(m => m.role === 'user');
+  if (userMessages.some(m => INJECTION_PATTERNS.some(p => p.test(m.content)))) {
+    res.status(400).json({ error: 'Bad Request' }); return;
   }
 
   const systemPrompt = buildSystemPrompt(personaId, customSystemPrompt, userPortrait, responseLength);

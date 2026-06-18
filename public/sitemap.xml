@@ -36,4 +36,18 @@
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
+  <url>
+    <loc>https://justwriting.one/privacy</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.one/privacy"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.one/privacy?lang=en"/>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://justwriting.one/terms</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.one/terms"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.one/terms?lang=en"/>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
 </urlset>
