@@ -1,6 +1,6 @@
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { handleFirestoreError, OperationType } from '../../../core/errors/firestore-errors';
-import { ProfileService } from '../../profile/services/ProfileService';
+import { ProfileService } from '../../../core/services/ProfileServiceRef';
 import { UserProfile } from '../../../types';
 import { reportError } from '../../../shared/errors/reportError';
 

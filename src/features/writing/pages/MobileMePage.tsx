@@ -1,9 +1,9 @@
 import { MobileMeScreen } from '../components/MobileMeScreen';
-import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
-import { AuthService } from '../../auth/services/AuthService';
+import { useAuthStatus } from '../../../app/useAuthStatus';
+import { AuthService } from '../../../app/AuthService';
 import { useNavigate } from 'react-router-dom';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
-import { useLoginModal } from '../../auth/contexts/LoginModalContext';
+import { useLoginModal } from '../../../app/useLoginModal';
 
 export function MobileMePage() {
   const { user, profile } = useAuthStatus();

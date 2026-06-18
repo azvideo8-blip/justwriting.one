@@ -4,7 +4,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { reportError } from '../../../shared/errors/reportError';
 import { Session, Achievement } from '../../../types';
 import { ACHIEVEMENTS as ACH_DATA } from '../constants/achievements';
-import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
+import { useAuthStatus } from '../../../app/useAuthStatus';
 import { ProfileService } from '../services/ProfileService';
 import { calculateBestStreak, cn } from '../../../core/utils/utils';
 

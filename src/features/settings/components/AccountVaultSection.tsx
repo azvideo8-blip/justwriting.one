@@ -7,8 +7,8 @@ import { reportError } from '../../../shared/errors/reportError';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { type MigrationProgress } from '../../../core/crypto/encryptMigration';
 import { Section } from './SettingsHelpers';
-import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
-import { ChangeEncryptionPasswordButton, EncryptionPasswordModal } from '../../encryption/components/EncryptionPasswordModal';
+import { useAuthStatus } from '../../../app/useAuthStatus';
+import { ChangeEncryptionPasswordButton, EncryptionPasswordModal } from '../../../app/EncryptionPasswordModal';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
 

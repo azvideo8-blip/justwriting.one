@@ -11,8 +11,8 @@ import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx, ExportStrings } fro
 import { InlineTags } from './InlineTags';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
-import { AISummaryService } from '../../ai/services/AISummaryService';
-import { AIService } from '../../ai/services/AIService';
+import { AISummaryService } from '../../../core/services/AISummaryService';
+import { AIService } from '../../../core/services/AIService';
 import type { AIDocumentSummary } from '../../../core/storage/localDb';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';

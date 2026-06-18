@@ -5,7 +5,7 @@ import { ExternalLink, Trash2, Pencil, MoreVertical, Sparkles, Loader2 } from 'l
 import { getSessionDate, cn } from '../../../core/utils/utils';
 import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { InlineTags } from './InlineTags';
-import { StorageIcons } from '../../writing/components/StorageIcons';
+import { StorageIcons } from '../../../shared/components/StorageIcons';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { highlightText, getSearchContext } from '../../../shared/utils/highlightText';

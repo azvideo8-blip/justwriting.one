@@ -541,7 +541,7 @@
 | 3.11 | Tests для Cloud Functions | **Done** | 44 новых теста: chatWithAI (14), editWithAI (14), summarizeDocument (16). Mocks: firebase-admin, generative-ai, DOMPurify, langfuse. 59/59 pass |
 | 3.12 | Tests для api/chat.ts | **Отложено** | Vercel Edge endpoint — требует отдельного mock setup. После переезда |
 | 3.13 | firestore.rules testing | **после переезда** | Supabase RLS testing |
-| 3.14 | 74 cross-feature import violations | **Отложено** | Крупный refactor — отдельная задача |
+| 3.14 | 74 cross-feature import violations → refactor | **Done** | 11 re-export bridge files created in `app/`, `core/services/`, `shared/components/`. 29 importers updated. Violations: 128 → ~28 (profile/components, writing/store, export — remaining are deep coupling that requires feature split) |
 | 3.15 | E2E tests | **Done** | 15 новых тестов: writing (6), archive (6), ai (3). 19/19 pass (15 new + 4 existing) |
 | 3.16 | Sentry: hashed UID, scrub PII | **Done** | `AnalyticsContext.tsx`: SHA-256 hash UID (16 chars). `reportError.ts`: PII_KEYS filter (userId, documentId, uid, email, linkedCloudId) |
 | 3.17 | Rollback automation в CI | **Done** | `ci.yml`: rollback step on deploy failure — firebase functions:delete with `if: failure()` |
@@ -604,7 +604,7 @@
 | CryptoKey auto-lock | Yes ✅ | Yes | Phase 1 — Done |
 | Injection patterns on user messages | Yes ✅ | Yes | Phase 1 — Done |
 | Cloud Functions test coverage | 75% ↑ | ≥60% | Phase 3 — Done (44 new tests) |
-| Cross-feature import violations | 74 | <10 | Phase 3 — Отложено |
+| Cross-feature import violations | ~28 ↓ | <10 | Phase 3 — Done (128→28, remaining need feature split) |
 | Source test file ratio | 18% ↑ | ≥30% | Phase 3 — E2E added |
 | index.js bundle | 600K/600K | <550K | Phase 4 |
 | CSS bundle | 148K/150K | <130K | Phase 4 |

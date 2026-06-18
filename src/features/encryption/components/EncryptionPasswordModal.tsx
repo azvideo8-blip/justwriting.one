@@ -6,7 +6,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
-import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
+import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
 import { useModalEscape } from '../../../shared/hooks/useModalEscape';
 import {

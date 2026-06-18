@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../../../shared/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
-import { ProfileService } from '../../profile/services/ProfileService';
+import { ProfileService } from '../../../core/services/ProfileServiceRef';
 import { Section } from './SettingsHelpers';
 import { Button } from '../../../shared/components/Button';
 

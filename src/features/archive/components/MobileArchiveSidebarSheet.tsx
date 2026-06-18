@@ -4,7 +4,7 @@ import { format, isSameDay } from 'date-fns';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { ArchiveSession } from '../types';
 import { ArchiveStats } from './ArchiveStats';
-import { Calendar } from '../../calendar/components/Calendar';
+import { Calendar } from '../../../shared/components/Calendar';
 import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';

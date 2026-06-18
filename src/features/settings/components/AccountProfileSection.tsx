@@ -1,9 +1,9 @@
 import React from 'react';
 import { HardDrive, LogIn, User as UserIcon } from 'lucide-react';
-import { AuthService } from '../../auth/services/AuthService';
+import { AuthService } from '../../../app/AuthService';
 import { useLanguage } from '../../../shared/i18n';
-import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
-import { useLoginModal } from '../../auth/contexts/LoginModalContext';
+import { useAuthStatus } from '../../../app/useAuthStatus';
+import { useLoginModal } from '../../../app/useLoginModal';
 import { Section } from './SettingsHelpers';
 import { Button } from '../../../shared/components/Button';
 
