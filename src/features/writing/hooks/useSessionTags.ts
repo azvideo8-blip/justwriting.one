@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { reportError } from '../../../shared/errors/reportError';
 
 export function useSessionTags(initialTags: string[] = []) {
   const [tags, setTags] = useState<string[]>(initialTags);
@@ -9,7 +10,7 @@ export function useSessionTags(initialTags: string[] = []) {
     try {
       setTags(newTags);
     } catch (error) {
-      console.error('Error updating session tags:', error);
+      reportError(error, { action: 'update_session_tags' });
     } finally {
       setLoading(false);
     }

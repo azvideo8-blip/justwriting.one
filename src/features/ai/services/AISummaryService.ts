@@ -3,6 +3,7 @@ import type { AIDocumentSummary } from '../../../core/storage/localDb';
 import { getAuth } from 'firebase/auth';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
+import { reportError } from '../../../shared/errors/reportError';
 
 const STRING_FIELDS = ['tone'] as const;
 const ARRAY_FIELDS = ['frequentWords', 'insights', 'themes', 'extractedFacts'] as const;
@@ -72,7 +73,7 @@ export const AISummaryService = {
     const uid = getAuth().currentUser?.uid;
     if (uid) {
       await saveSummaryToCloud(uid, summary).catch(e => {
-        console.error('[AISummaryService] cloud save failed:', e);
+        reportError(e, { action: 'ai_summary_cloud_save' });
       });
     }
   },

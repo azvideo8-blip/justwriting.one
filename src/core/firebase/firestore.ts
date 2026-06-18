@@ -1,4 +1,5 @@
 import { app } from './client';
+import { reportError } from '../../shared/errors/reportError';
 
 type Firestore = import('firebase/firestore').Firestore;
 
@@ -70,14 +71,14 @@ async function testConnection(retryCount = 0) {
         updateConnectionStatus(true);
         if (_retryTimer) { clearTimeout(_retryTimer); _retryTimer = null; }
       } else {
-        console.error("Firestore connection truly failed or timed out:", errorCode, error.message);
+        reportError(error, { action: 'firestore_connection_failed', errorCode });
         updateConnectionStatus(false);
         if (retryCount < 3) {
           _retryTimer = setTimeout(() => void testConnection(retryCount + 1), 5000 * (retryCount + 1));
         }
       }
     } else {
-      console.error("Firestore connection truly failed or timed out:", error);
+      reportError(error, { action: 'firestore_connection_failed' });
       updateConnectionStatus(false);
       if (retryCount < 3) {
         _retryTimer = setTimeout(() => void testConnection(retryCount + 1), 5000 * (retryCount + 1));

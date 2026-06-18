@@ -40,6 +40,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -66,6 +67,10 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
     e.preventDefault();
     if (!email || !password) {
       setError(t('auth_error_fields_required'));
+      return;
+    }
+    if (mode === 'register' && !ageConfirmed) {
+      setError(t('auth_age_required'));
       return;
     }
     setLoading(true);
@@ -207,7 +212,21 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
               </div>
             </div>
 
-            <Button 
+            {mode === 'register' && (
+              <label className="flex items-start gap-3 cursor-pointer text-left">
+                <input
+                  type="checkbox"
+                  checked={ageConfirmed}
+                  onChange={e => setAgeConfirmed(e.target.checked)}
+                  className="mt-0.5 accent-brand-soft shrink-0"
+                />
+                <span className="text-xs text-text-main/60">
+                  {t('auth_age_confirm')}
+                </span>
+              </label>
+            )}
+
+            <Button
               type="submit"
               disabled={loading}
               className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold hover:brightness-110 active:scale-[0.98] transition-colors disabled:opacity-50 text-white bg-[var(--brand-primary)]"

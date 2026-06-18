@@ -18,6 +18,7 @@ import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { useSettings } from '../../../core/settings/SettingsContext';
 import { SetupMode } from '../components/WritingSetup';
 import type { SessionGroup, DailySummary, LifeLogDocument } from '../types/lifeLog';
+import { reportError } from '../../../shared/errors/reportError';
 
 export interface WritingSessionContextValue {
   session: AnySessionReturn;
@@ -112,7 +113,7 @@ export function WritingSessionProvider({
 
   useEffect(() => {
     if (isBrowserOnline && !isGuest) {
-      SyncService.syncPending(userId).catch(console.error);
+      SyncService.syncPending(userId).catch(e => reportError(e, { action: 'sync_pending' }));
     }
   }, [isBrowserOnline, isGuest, userId]);
 

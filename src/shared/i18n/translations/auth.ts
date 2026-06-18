@@ -19,6 +19,8 @@ export const authTranslations: Translations = {
   auth_sign_up: { ru: 'Создать аккаунт', en: 'Create Account' },
   auth_or: { ru: 'Или', en: 'Or' },
   auth_no_account: { ru: 'Нет аккаунта? Зарегистрироваться', en: "Don't have an account? Sign Up" },
+  auth_age_confirm: { ru: 'Мне исполнилось 16 лет. Я согласен с условиями использования.', en: 'I am at least 16 years old. I agree to the Terms of Service.' },
+  auth_age_required: { ru: 'Необходимо подтвердить возраст (16+) для регистрации.', en: 'You must confirm you are at least 16 years old to register.' },
   auth_has_account: { ru: 'Уже есть аккаунт? Войти', en: 'Already have an account? Sign In' },
   auth_tagline: { ru: 'Никаких отвлекающих факторов. Только ты и твои слова.', en: 'No distractions. Just you and your words.' },
   auth_required_title: { ru: 'Требуется регистрация', en: 'Sign up required' },

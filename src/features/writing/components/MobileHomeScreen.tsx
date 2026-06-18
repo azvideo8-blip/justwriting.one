@@ -9,6 +9,7 @@ import { Settings } from 'lucide-react';
 import { useSettings } from '../../../core/settings/SettingsContext';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Button } from '../../../shared/components/Button';
+import { reportError } from '../../../shared/errors/reportError';
 
 interface MobileHomeScreenProps {
   userId: string;
@@ -96,7 +97,7 @@ export function MobileHomeScreen({
         refreshResult.then(() => {
           setRefreshing(false);
         }).catch((e: unknown) => {
-          console.error('Refresh failed:', e);
+          reportError(e, { action: 'mobile_home_refresh' });
           setRefreshing(false);
         });
       } else {
