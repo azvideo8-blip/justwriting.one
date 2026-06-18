@@ -80,4 +80,11 @@ jobs:
         cache: 'npm'
     - run: npm ci
     - run: cd functions && npm ci && npm run build
-    - run: npx firebase deploy --only functions --token ${{ secrets.FIREBASE_TOKEN }}
+    - name: Deploy functions
+      run: npx firebase deploy --only functions --token ${{ secrets.FIREBASE_TOKEN }}
+    - name: Rollback on failure
+      if: failure()
+      run: |
+        echo "Deploy failed — rolling back to previous functions version"
+        npx firebase functions:delete chatWithAI editWithAI summarizeDocument validateCustomPrompt getAILimit getAIUsageStats setUserRole setAIModel resetUserLimit embedDocument summarizeFacet rerankNotes --token ${{ secrets.FIREBASE_TOKEN }} --force || true
+        echo "Rollback attempted. Check Firebase console for previous versions."

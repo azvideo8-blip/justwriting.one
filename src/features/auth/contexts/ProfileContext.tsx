@@ -4,7 +4,6 @@ import { UserProfile } from '../../../types';
 import { userProfileDbSchema } from '../../../core/firebase/schemas/firestoreSchemas';
 import { setEncryptionEnabled, setProfileLoaded } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
-import * as Sentry from '@sentry/react';
 import { useAuth } from './AuthContext';
 
 interface ProfileContextValue {
@@ -99,11 +98,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
                 setProfileLoaded(user.uid, true);
               }
             }).catch(err => {
-              console.error('Error creating user profile:', err);
-              Sentry.captureException(err, {
-                tags: { context: 'profile_creation' },
-                extra: { uid: user.uid },
-              });
+              reportError(err, { action: 'createUserProfile', uid: user.uid });
               creationAttemptedRef.current = false;
               if (!cancelled) {
                 setProfile(null);
@@ -113,7 +108,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           }
         })();
       }, (err) => {
-        console.error('Firestore snapshot error:', err);
         reportError(err, { action: 'profileSnapshot', uid: user.uid });
       });
     })();

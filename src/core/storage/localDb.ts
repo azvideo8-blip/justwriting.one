@@ -1,4 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { reportError } from '../../shared/errors/reportError';
 
 export interface LocalDocument {
   id: string;
@@ -264,7 +265,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
     return dbInstance;
   } catch (e) {
     dbOpenPromise = null;
-    console.error('[localDb] Failed to open IndexedDB:', e);
+    reportError(e, { action: 'localDb_open_indexeddb' });
     throw e;
   }
 }

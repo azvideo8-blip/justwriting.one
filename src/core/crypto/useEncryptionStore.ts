@@ -91,7 +91,7 @@ export const useEncryptionStore = create<EncryptionState>((set, get) => ({
         localStorage.setItem(STORAGE_KEYS.ENC_ENABLED(userId), enabled ? '1' : '0');
       }
     } catch (e) {
-      console.error('[useEncryptionStore] localStorage write failed', e);
+      reportError(e, { action: 'setEncryptionEnabled_write' });
     }
   },
 

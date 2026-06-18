@@ -26,7 +26,12 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
     const isSentryInitialized = Boolean(sentryDsn && typeof sentryDsn === 'string' && sentryDsn.startsWith('https://'));
 
     if (user != null && isSentryInitialized) {
-      Sentry.setUser({ id: user.uid });
+      const encoder = new TextEncoder();
+      void crypto.subtle.digest('SHA-256', encoder.encode(user.uid)).then(hashBuffer => {
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashedId = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+        Sentry.setUser({ id: hashedId });
+      });
     } else if (user == null && isSentryInitialized) {
       Sentry.setUser(null);
     }
