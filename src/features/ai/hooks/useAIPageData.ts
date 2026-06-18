@@ -119,11 +119,12 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
 
   const handleSetResponseLength = useCallback(async (length: ResponseLength) => {
     setResponseLength(length);
-    if (activeDialogueId) {
-      await AIDialogueService.updateResponseLength(activeDialogueId, length);
+    const did = activeDialogueId ?? dialogue?.id;
+    if (did) {
+      await AIDialogueService.updateResponseLength(did, length);
       await loadDialogues();
     }
-  }, [activeDialogueId, loadDialogues]);
+  }, [activeDialogueId, dialogue, loadDialogues]);
 
   const handleRenameDialogue = useCallback(async (id: string, newTitle: string) => {
     await AIDialogueService.updateTitle(id, newTitle);
