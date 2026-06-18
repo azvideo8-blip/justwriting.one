@@ -58,10 +58,10 @@ export function AttachedNoteCard({ content }: { content: string }) {
           className="w-full flex items-center justify-between gap-2"
         >
           <span className="flex items-center gap-2 min-w-0">
-            <Paperclip size={12} className="text-text-main/40 shrink-0" aria-hidden="true" />
+            <Paperclip size={12} className="text-text-main/60 shrink-0" aria-hidden="true" />
             <span className="text-sm font-medium text-text-main truncate">{title}</span>
           </span>
-          {expanded ? <ChevronUp size={12} className="text-text-main/40 shrink-0" aria-hidden="true" /> : <ChevronDown size={12} className="text-text-main/40 shrink-0" aria-hidden="true" />}
+          {expanded ? <ChevronUp size={12} className="text-text-main/60 shrink-0" aria-hidden="true" /> : <ChevronDown size={12} className="text-text-main/60 shrink-0" aria-hidden="true" />}
         </Button>
         {expanded && (
           <div className="mt-2 text-xs text-text-main/60 whitespace-pre-wrap max-h-60 overflow-y-auto">
@@ -89,10 +89,10 @@ export function AttachedFileCard({ content }: { content: string }) {
           className="w-full flex items-center justify-between gap-2"
         >
           <span className="flex items-center gap-2 min-w-0">
-            <File size={12} className="text-text-main/40 shrink-0" aria-hidden="true" />
+            <File size={12} className="text-text-main/60 shrink-0" aria-hidden="true" />
             <span className="text-sm font-medium text-text-main truncate">{fileName}</span>
           </span>
-          {expanded ? <ChevronUp size={12} className="text-text-main/40 shrink-0" aria-hidden="true" /> : <ChevronDown size={12} className="text-text-main/40 shrink-0" aria-hidden="true" />}
+          {expanded ? <ChevronUp size={12} className="text-text-main/60 shrink-0" aria-hidden="true" /> : <ChevronDown size={12} className="text-text-main/60 shrink-0" aria-hidden="true" />}
         </Button>
         {expanded && (
           <div className="mt-2 text-xs text-text-main/60 whitespace-pre-wrap max-h-60 overflow-y-auto">
@@ -123,7 +123,7 @@ export function AttachedSummaryCard({ content }: { content: string }) {
             <Sparkles size={12} className="text-brand-soft shrink-0" aria-hidden="true" />
             <span className="text-sm font-medium text-text-main truncate">Саммари: {title}</span>
           </span>
-          {expanded ? <ChevronUp size={12} className="text-text-main/40 shrink-0" aria-hidden="true" /> : <ChevronDown size={12} className="text-text-main/40 shrink-0" aria-hidden="true" />}
+          {expanded ? <ChevronUp size={12} className="text-text-main/60 shrink-0" aria-hidden="true" /> : <ChevronDown size={12} className="text-text-main/60 shrink-0" aria-hidden="true" />}
         </Button>
         {expanded && (
           <div className="mt-2 text-xs text-text-main/60 whitespace-pre-wrap max-h-40 overflow-y-auto">

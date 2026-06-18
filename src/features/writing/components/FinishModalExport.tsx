@@ -66,7 +66,7 @@ export function FinishModalExport({
 
   return (
     <div className="space-y-3">
-      <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/50">{t('session_export')}</div>
+      <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/60">{t('session_export')}</div>
       <div className="grid grid-cols-3 gap-3">
         <Button type="button" onClick={exportPDF} className="flex flex-col items-center gap-2 p-3 transition-colors rounded-2xl bg-surface-base hover:bg-text-main/10 border border-border-subtle">
           <FileText size={18} className="text-text-main/70" />

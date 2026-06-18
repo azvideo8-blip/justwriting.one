@@ -48,7 +48,7 @@ export function HourRhythm({ sessions }: { sessions: Session[] }) {
         <h2 className="text-[18px] font-medium text-text-main">
           {t('profile_rhythm_title')}
         </h2>
-        <div className="font-mono text-label-sm text-text-main/40">
+        <div className="font-mono text-label-sm text-text-main/60">
           {t('profile_rhythm_peak')}{' '}
           <span className="text-[var(--flow-pulse-color)]">
             {String(peakHour).padStart(2, '0')}:00
@@ -101,7 +101,7 @@ export function HourRhythm({ sessions }: { sessions: Session[] }) {
         })}
       </div>
 
-      <div className="flex justify-between mt-2 font-mono text-label text-text-main/25">
+      <div className="flex justify-between mt-2 font-mono text-label text-text-main/60">
         <span>00</span><span>06</span><span>12</span><span>18</span><span>24</span>
       </div>
     </div>

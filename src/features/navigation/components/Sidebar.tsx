@@ -35,7 +35,7 @@ function SidebarNavItem({ icon, label, isActive, expanded, onClick }: SidebarNav
         "px-3 py-2.5 pl-[10px]",
         isActive
           ? "text-brand-soft"
-          : "text-text-main/40 hover:text-text-main/70"
+          : "text-text-main/60 hover:text-text-main/70"
       )}
     >
       {isActive && (
@@ -93,7 +93,7 @@ function SidebarActionItem({ icon, label, expanded, onClick, accent }: SidebarAc
         "relative group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
         accent
           ? "text-text-main/70 hover:text-text-main hover:bg-text-main/25"
-          : "text-text-main/40 hover:text-text-main/60 hover:bg-text-main/8"
+          : "text-text-main/60 hover:text-text-main/60 hover:bg-text-main/8"
       )}
     >
       <span className="shrink-0">{icon}</span>
@@ -223,19 +223,19 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
         />
 
         <div className={cn(
-           "px-3 py-2 text-[9px] font-mono text-text-main/25 transition-all duration-300 select-none whitespace-nowrap flex flex-col items-start gap-1.5",
+           "px-3 py-2 text-[9px] font-mono text-text-main/60 transition-all duration-300 select-none whitespace-nowrap flex flex-col items-start gap-1.5",
           expanded ? "opacity-100 pl-3" : "opacity-0 h-0 p-0 overflow-hidden"
         )}>
           <button
             onClick={() => void navigate('/about')}
-            className="hover:text-text-main/50 transition-colors underline underline-offset-2 decoration-dotted"
+            className="hover:text-text-main/60 transition-colors underline underline-offset-2 decoration-dotted"
           >
             {t('nav_about')}
           </button>
           <button
             type="button"
             onClick={() => void navigate('/changelog')}
-            className="hover:text-text-main/50 transition-colors"
+            className="hover:text-text-main/60 transition-colors"
           >
             v{APP_VERSION}
           </button>

@@ -99,7 +99,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                   onChange={e => setTitle(e.target.value)}
                   placeholder={t('topbar_title_placeholder')}
                   maxLength={200}
-                  className="flex-1 min-w-[120px] bg-transparent outline-none text-[15px] font-medium font-sans text-text-main/50 focus:text-text-main focus:shadow-[0_0_25px_color-mix(in_srgb,var(--brand-soft)_15%,transparent)] placeholder:text-text-main/25 transition-all duration-500"
+                  className="flex-1 min-w-[120px] bg-transparent outline-none text-[15px] font-medium font-sans text-text-main/60 focus:text-text-main focus:shadow-[0_0_25px_color-mix(in_srgb,var(--brand-soft)_15%,transparent)] placeholder:text-text-main/40 transition-all duration-500"
                 />
                 <div className="flex items-center gap-1 ml-auto">
                    <IconButton
@@ -178,7 +178,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="font-mono text-label text-text-main/25 tracking-widest uppercase ml-3"
+                    className="font-mono text-label text-text-main/60 tracking-widest uppercase ml-3"
                   >
                     {t('editor_saving')}
                   </motion.span>
@@ -190,7 +190,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="flex items-center gap-1 font-mono text-label text-text-main/25 tracking-widest uppercase ml-3"
+                    className="flex items-center gap-1 font-mono text-label text-text-main/60 tracking-widest uppercase ml-3"
                   >
                     <motion.svg viewBox="0 0 12 10" width={12} height={10}>
                       <motion.path

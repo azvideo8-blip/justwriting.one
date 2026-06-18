@@ -42,7 +42,7 @@ export function ArchiveSidebar({
 
       <div className="h-px bg-border-subtle" />
 
-      <div className="text-label-sm font-mono text-text-main/30 uppercase tracking-widest">
+      <div className="text-label-sm font-mono text-text-main/60 uppercase tracking-widest">
         {t('archive_calendar_title')}
       </div>
 
@@ -74,7 +74,7 @@ export function ArchiveSidebar({
 
       {wordCloud.length > 0 && (
         <div>
-          <div className="font-mono text-label-sm text-text-main/30 uppercase tracking-widest mb-3">
+          <div className="font-mono text-label-sm text-text-main/60 uppercase tracking-widest mb-3">
             {t('archive_wordcloud_title')}
           </div>
           <div className="flex flex-wrap gap-x-2 gap-y-1.5">

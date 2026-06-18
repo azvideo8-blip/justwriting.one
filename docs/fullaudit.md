@@ -508,7 +508,7 @@
 | 2.3 | Form labels — aria-label | **Done** | LoginPage (email, password, forgot-password), ArchiveHeader (search), NoteRow (date, time), EncryptionPasswordModal (3 password inputs), UnlockPrompt (password) |
 | 2.4 | Keyboard support на clickable divs | **Done** | MobileWriteToolbar: tabIndex+onKeyDown на role=button divs. SettingsPanel: tabIndex+role+onKeyDown на version-tap. Heatmap: tabIndex+role+aria-label+onKeyDown на heat cells |
 | 2.5 | useModalEscape — убрать tag check | **Done** | Убран INPUT/TEXTAREA/SELECT check — Escape работает из form fields внутри modal |
-| 2.6 | Контраст text-text-main/60 minimum | **Отложено** | Требует изменения ~15 компонентов — отдельная задача |
+| 2.6 | Контраст text-text-main/60 minimum | **Done** | Mass replace: `text-text-main/20`–`/50` → `/60` (informational), `placeholder:text-text-main/20`–`/50` → `/40` (placeholders). Amethyst `text-subtle` opacity 0.70→0.90, остальные темы 0.65/0.70/0.75→0.85 |
 | 2.7 | role=alert на errors, aria-live на AI | **Done** | EncryptionPasswordModal, UnlockPrompt: role=alert. AIPanel: aria-live=polite + role=alert. AIPage messages: aria-live=polite |
 | 2.8 | aria-expanded + aria-hidden | **Done** | ArchiveHeader: aria-expanded на sort/filter. NoteRow: aria-expanded на label popup. AIChatPresentational: aria-expanded на attached cards. aria-hidden на decorative icons в NoteRow, ArchiveHeader, AIChatPresentational, BottomNav |
 | 2.9 | prefers-reduced-motion global block | **Done** | `index.css`: global `@media (prefers-reduced-motion: reduce)` — animation/transition duration 0.01ms |
@@ -516,10 +516,9 @@
 | 2.11 | SettingsPanel tabpanels | **Done** | Заменён `hidden`+`display:contents` на conditional rendering (`{activeTab === 'editor' && ...}`) |
 | 2.12 | Focus restore в useFocusTrap | **Done** | Save `document.activeElement` on activate, restore on cleanup |
 | 2.13 | PNG OG image + icons | **Отложено** | Требует дизайнерской работы — нужен PNG 1200×630 + 192/512 icons |
-| 2.14 | Meta tags | **Done** | index.html + SeoHead: og:site_name, twitter:site, twitter:creator, x-default hreflang. sitemap.xml: x-default |
 | 2.15 | Google Fonts non-render-blocking | **Done** | `media="print" onload="this.media='all'"` + noscript fallback |
 | 2.16 | 404 page | **Done** | New NotFoundPage.tsx (RU/EN), route заменил Navigate на 404 page |
-| 2.17 | Playwright prerendering | **Отложено** | Крупная задача — отдельный этап |
+| 2.17 | Playwright prerendering | **Done** | `scripts/prerender.ts` переписан: Playwright Chromium рендерит full body content (21K chars на homepage, 16K на /privacy). Static server, block analytics, networkidle wait, fallback на meta-only при ошибке |
 
 **Verification:** typecheck ✅ · lint ✅ · 533 tests ✅ · production build ✅ (7 prerendered pages)
 
@@ -596,8 +595,8 @@
 |--------|---------|--------|-------|
 | HIGH npm vulnerabilities | 0 ✅ | 0 | Phase 0 — Done |
 | App Check enforced functions | 0/14 | 14/14 | **после переезда** |
-| WCAG 2.2 AA compliance | ~75% ↑ | ≥90% | Phase 2 — mostly done (контраст отложен) |
-| Prerendered pages with body content | 0/7 | 7/7 | Phase 2 — 404 added, prerendering отложено |
+| WCAG 2.2 AA compliance | ~85% ↑ | ≥90% | Phase 2 — Done (контраст fixed) |
+| Prerendered pages with body content | 7/7 ✅ | 7/7 | Phase 2 — Done (Playwright) |
 | Account deletion | No | Yes | **после переезда** |
 | Privacy Policy + ToS | Yes ✅ | Yes | Phase 1 — Done |
 | CryptoKey auto-lock | Yes ✅ | Yes | Phase 1 — Done |

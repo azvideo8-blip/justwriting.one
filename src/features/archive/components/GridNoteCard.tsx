@@ -94,9 +94,9 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
         boxShadow: `inset 3px 0 10px color-mix(in srgb, ${label.color} 12%, transparent)`,
       } : {}}
     >
-      <div className="text-label-sm font-medium tracking-wider text-text-main/40 font-mono">
+      <div className="text-label-sm font-medium tracking-wider text-text-main/60 font-mono">
         {formattedDate}
-        <span className="text-text-main/25 ml-1.5">{relativeDate}</span>
+        <span className="text-text-main/60 ml-1.5">{relativeDate}</span>
       </div>
 
       {session.title && (
@@ -124,7 +124,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
             "inline-flex items-center gap-1 ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono border transition-colors disabled:opacity-60",
             aiProcessed
               ? "bg-brand-soft/10 text-brand-soft border-brand-soft/30 hover:bg-brand-soft/20"
-              : "bg-text-main/3 text-text-main/40 border-border-subtle hover:text-brand-soft hover:bg-brand-soft/5 hover:border-brand-soft/30"
+              : "bg-text-main/3 text-text-main/60 border-border-subtle hover:text-brand-soft hover:bg-brand-soft/5 hover:border-brand-soft/30"
           )}
           title={aiProcessed ? 'Обработано ИИ (посмотреть чат)' : 'Обработать с помощью ИИ'}
         >
@@ -133,9 +133,9 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
         </Button>
       </div>
 
-      <div className="flex items-center gap-2 text-[12px] font-mono text-text-main/40 pt-3 mt-auto border-t border-border-subtle">
+      <div className="flex items-center gap-2 text-[12px] font-mono text-text-main/60 pt-3 mt-auto border-t border-border-subtle">
         <span>{session.wordCount.toLocaleString()} {t('home_words_short')}</span>
-        <span className="text-text-main/25">·</span>
+        <span className="text-text-main/60">·</span>
         <span>{Math.floor(session.duration / 60)} {t('goal_time_short')}</span>
         {labels && onLabelChange && (
           <div className="relative ml-auto" onClick={e => e.stopPropagation()}>
@@ -152,7 +152,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
                 });
                 setLabelPopupOpen(v => !v);
               }}
-              className="flex items-center gap-1 font-mono text-label-sm text-text-main/30 hover:text-text-main/60 transition-colors"
+              className="flex items-center gap-1 font-mono text-label-sm text-text-main/60 hover:text-text-main/60 transition-colors"
             >
               <span
                 className="w-2.5 h-2.5 rounded-full border border-text-main/20 shrink-0"
@@ -173,7 +173,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
                 {session.labelId && (
                   <Button
                     onClick={() => { onLabelChange(session, undefined); setLabelPopupOpen(false); }}
-                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap text-text-main/40 hover:bg-text-main/5 transition-colors"
+                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap text-text-main/60 hover:bg-text-main/5 transition-colors"
                   >
                     <div className="w-3 h-3 rounded-full border border-dashed border-text-main/20 shrink-0" />
                     {t('archive_no_label')}

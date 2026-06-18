@@ -126,13 +126,13 @@ export function MobileSessionSetupSheet({
                   {t('writing_back')}
                 </Button>
               ) : (
-                <span className="text-sm font-bold text-text-main/30 uppercase tracking-widest">
+                <span className="text-sm font-bold text-text-main/60 uppercase tracking-widest">
                   {t('writing_select_mode')}
                 </span>
               )}
               <IconButton
                 onClick={() => setSetupMode(null)}
-                className="w-8 h-8 rounded-full bg-white/[0.04] border-none flex items-center justify-center text-text-main/40 hover:text-text-main/70 cursor-pointer"
+                className="w-8 h-8 rounded-full bg-white/[0.04] border-none flex items-center justify-center text-text-main/60 hover:text-text-main/70 cursor-pointer"
                 label={t('close')}
                 icon={<X size={18} />}
               />
@@ -143,7 +143,7 @@ export function MobileSessionSetupSheet({
               {setupMode === 'selection' && (
                 <div className="space-y-4">
                   <div className="space-y-1">
-                    <p className="text-xs text-text-main/40 font-medium leading-relaxed">
+                    <p className="text-xs text-text-main/60 font-medium leading-relaxed">
                       {t('writing_how_to_write')}
                     </p>
                   </div>
@@ -167,7 +167,7 @@ export function MobileSessionSetupSheet({
                           <div className="font-semibold text-sm text-text-main leading-tight">
                             {t(mode.label)}
                           </div>
-                          <div className="text-xs text-text-main/40 leading-tight mt-0.5">
+                          <div className="text-xs text-text-main/60 leading-tight mt-0.5">
                             {t(mode.desc)}
                           </div>
                         </div>
@@ -205,7 +205,7 @@ export function MobileSessionSetupSheet({
                               autoFocus
                             />
                           </div>
-                          <span className="text-label font-bold uppercase tracking-widest text-text-main/40 mt-2">
+                          <span className="text-label font-bold uppercase tracking-widest text-text-main/60 mt-2">
                             {t('writing_minutes')}
                           </span>
 
@@ -244,7 +244,7 @@ export function MobileSessionSetupSheet({
                               autoFocus
                             />
                           </div>
-                          <span className="text-label font-bold uppercase tracking-widest text-text-main/40 mt-2">
+                          <span className="text-label font-bold uppercase tracking-widest text-text-main/60 mt-2">
                             {t('writing_words')}
                           </span>
 
@@ -282,7 +282,7 @@ export function MobileSessionSetupSheet({
                               autoFocus
                             />
                           </div>
-                          <span className="text-label font-bold uppercase tracking-widest text-text-main/40 mt-2">
+                          <span className="text-label font-bold uppercase tracking-widest text-text-main/60 mt-2">
                             {t('writing_time')}
                           </span>
                           {finishByError && (

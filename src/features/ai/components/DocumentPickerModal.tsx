@@ -79,18 +79,18 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
           <h3 className="text-sm font-bold text-text-main">Какую заметку разберём?</h3>
-          <IconButton onClick={onClose} className="p-1.5 rounded-lg text-text-main/40 hover:text-text-main transition-colors" label={t('close')} icon={<X size={18} />} />
+          <IconButton onClick={onClose} className="p-1.5 rounded-lg text-text-main/60 hover:text-text-main transition-colors" label={t('close')} icon={<X size={18} />} />
         </div>
 
         <div className="px-4 py-3 border-b border-border-subtle">
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-main/30" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-main/60" />
             <Input
               ref={inputRef}
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Поиск по названию..."
-              className="pl-9 pr-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40"
+              className="pl-9 pr-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/40 outline-none focus:border-brand-soft/40"
             />
           </div>
         </div>
@@ -106,11 +106,11 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
                 {doc.mood && <span className="text-lg">{doc.mood}</span>}
                 <span className="text-sm font-medium text-text-main truncate">{doc.title}</span>
               </div>
-              <p className="text-xs text-text-main/40 mt-1 line-clamp-2">{doc.preview}</p>
+              <p className="text-xs text-text-main/60 mt-1 line-clamp-2">{doc.preview}</p>
             </Button>
           ))}
           {filtered.length === 0 && (
-            <div className="py-8 text-center text-sm text-text-main/30">Ничего не найдено</div>
+            <div className="py-8 text-center text-sm text-text-main/60">Ничего не найдено</div>
           )}
         </div>
       </motion.div>

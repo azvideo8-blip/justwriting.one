@@ -60,23 +60,23 @@ export function ArchiveHeader({
         <h1 className="text-3xl font-medium tracking-tight text-text-main">
           {title}
         </h1>
-        <span className="font-mono text-label-sm text-text-main/30 uppercase tracking-widest">
+        <span className="font-mono text-label-sm text-text-main/60 uppercase tracking-widest">
           {count} {countLabel}
         </span>
       </div>
-      <p className="text-sm text-text-main/40 mb-5">
+      <p className="text-sm text-text-main/60 mb-5">
         {subtitle}
       </p>
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-[440px]">
-          <Search size={14} className="absolute left-3 top-2.5 text-text-main/30" aria-hidden="true" />
+          <Search size={14} className="absolute left-3 top-2.5 text-text-main/60" aria-hidden="true" />
           <Input
             ref={searchInputRef}
             aria-label={searchPlaceholder}
             value={searchQuery}
             onChange={e => onSearchChange(e.target.value)}
             placeholder={searchPlaceholder}
-            className="pl-8 pr-12 py-2 bg-text-main/[0.03] border border-border-subtle rounded-lg text-sm text-text-main placeholder:text-text-main/25 outline-none focus:border-border-subtle/60 transition-colors"
+            className="pl-8 pr-12 py-2 bg-text-main/[0.03] border border-border-subtle rounded-lg text-sm text-text-main placeholder:text-text-main/40 outline-none focus:border-border-subtle/60 transition-colors"
           />
           <AnimatePresence>
             {!searchQuery && (
@@ -84,7 +84,7 @@ export function ArchiveHeader({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-label text-text-main/20 border border-border-subtle rounded px-1.5 py-0.5 leading-none"
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-label text-text-main/60 border border-border-subtle rounded px-1.5 py-0.5 leading-none"
               >
                 ⌘K
               </motion.kbd>
@@ -107,7 +107,7 @@ export function ArchiveHeader({
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
-              <span className={cn("relative z-10", viewMode === v ? "text-text-main" : "text-text-main/30")}>
+              <span className={cn("relative z-10", viewMode === v ? "text-text-main" : "text-text-main/60")}>
                 {v === 'list' ? <LayoutList size={14} aria-hidden="true" /> : <LayoutGrid size={14} aria-hidden="true" />}
               </span>
             </Button>
@@ -123,7 +123,7 @@ export function ArchiveHeader({
                 ? "bg-text-main/10 border-border-subtle/60 text-text-main"
                 : sortMode !== 'newest'
                   ? "bg-brand-soft/20 border-brand-soft/40 text-brand-soft"
-                  : "bg-text-main/[0.03] border-border-subtle text-text-main/40 hover:text-text-main/60"
+                  : "bg-text-main/[0.03] border-border-subtle text-text-main/60 hover:text-text-main/60"
             )}
             title={sortLabels[sortMode]}
           >
@@ -157,7 +157,7 @@ export function ArchiveHeader({
               "h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-sm transition-colors border",
               showFilters
                 ? "bg-brand-soft/20 border-brand-soft/40 text-brand-soft"
-                : "bg-text-main/[0.03] border-border-subtle text-text-main/40 hover:text-text-main/60"
+                : "bg-text-main/[0.03] border-border-subtle text-text-main/60 hover:text-text-main/60"
             )}
           >
             <Tag size={14} aria-hidden="true" />
@@ -167,7 +167,7 @@ export function ArchiveHeader({
         {onFilterClick && (
           <IconButton
             onClick={onFilterClick}
-            className="md:hidden h-8 px-2.5 rounded-lg flex items-center justify-center border border-border-subtle bg-text-main/[0.03] text-text-main/40 hover:text-text-main/60 active:scale-[0.98] transition-colors cursor-pointer"
+            className="md:hidden h-8 px-2.5 rounded-lg flex items-center justify-center border border-border-subtle bg-text-main/[0.03] text-text-main/60 hover:text-text-main/60 active:scale-[0.98] transition-colors cursor-pointer"
             label="Filters"
             icon={<SlidersHorizontal size={14} aria-hidden="true" />}
           />

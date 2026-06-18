@@ -70,7 +70,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
     <div className="space-y-4 p-4 rounded-xl border border-border-subtle bg-surface-card/30">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-xs text-text-main/40">
+          <div className="text-xs text-text-main/60">
             Compare local IndexedDB cache with Cloud Firestore collections.
           </div>
           {hasEncryption && !getSessionKey() && (
@@ -106,17 +106,17 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Поиск по названию…"
-          className="w-full px-3 py-2 rounded-lg bg-surface-base/5 border border-border-subtle text-xs text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40"
+          className="w-full px-3 py-2 rounded-lg bg-surface-base/5 border border-border-subtle text-xs text-text-main placeholder:text-text-main/40 outline-none focus:border-brand-soft/40"
         />
       )}
 
       {loading && items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 gap-2">
-          <Loader2 size={24} className="animate-spin text-text-main/30" />
-          <span className="text-xs text-text-main/40">Analyzing database differences...</span>
+          <Loader2 size={24} className="animate-spin text-text-main/60" />
+          <span className="text-xs text-text-main/60">Analyzing database differences...</span>
         </div>
       ) : items.length === 0 ? (
-        <div className="text-center py-6 text-xs text-text-main/30">
+        <div className="text-center py-6 text-xs text-text-main/60">
           No documents found on this device or in the cloud.
         </div>
       ) : layoutMode === 'mobile' ? (
@@ -130,23 +130,23 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                     <h4 className="font-semibold text-text-main text-sm truncate" title={item.title}>
                       {item.title}
                     </h4>
-                    <span className="text-label text-text-main/30 font-mono block truncate mt-0.5">{item.id}</span>
+                    <span className="text-label text-text-main/60 font-mono block truncate mt-0.5">{item.id}</span>
                   </div>
                   <div className="shrink-0 flex flex-col items-end gap-1">
                     {getStatusBadge(item.status)}
-                    <span className="text-label text-text-main/40 font-mono whitespace-nowrap">{formatDate(item.date)}</span>
+                    <span className="text-label text-text-main/60 font-mono whitespace-nowrap">{formatDate(item.date)}</span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-label-sm text-text-main/60 bg-surface-card/20 p-2 rounded">
                   <div>
-                    <span className="text-text-main/40 block">Versions (L / C)</span>
+                    <span className="text-text-main/60 block">Versions (L / C)</span>
                     <span className="font-mono text-text-main">
                       {item.hasLocal ? item.localVersion : '-'} / {item.hasCloud ? item.cloudVersion : '-'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-text-main/40 block">Words (L / C)</span>
+                    <span className="text-text-main/60 block">Words (L / C)</span>
                     <span className="font-mono text-text-main">
                       {item.hasLocal ? item.localWords : '-'} / {item.hasCloud ? item.cloudWords : '-'}
                     </span>
@@ -225,7 +225,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                 </div>
 
                 <div className="flex items-center justify-between border-t border-border-subtle/50 pt-2 text-label-sm">
-                  <span className="text-text-main/40 font-medium">AI Analysis</span>
+                  <span className="text-text-main/60 font-medium">AI Analysis</span>
                   <div>
                     {processedDocs[item.id] ? (
                       <div className="flex items-center gap-2">
@@ -239,7 +239,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                         </Button>
                       </div>
                     ) : processingDocId === item.id ? (
-                      <div className="flex items-center gap-1.5 text-text-main/40">
+                      <div className="flex items-center gap-1.5 text-text-main/60">
                         <Loader2 size={14} className="animate-spin text-brand-soft" />
                         Processing...
                       </div>
@@ -252,7 +252,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                         Analyze with AI
                       </Button>
                     ) : (
-                      <span className="text-text-main/20 text-xs">Needs Local Copy</span>
+                      <span className="text-text-main/60 text-xs">Needs Local Copy</span>
                     )}
                   </div>
                 </div>
@@ -264,7 +264,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs">
             <thead>
-              <tr className="border-b border-border-subtle text-text-main/40 font-medium">
+              <tr className="border-b border-border-subtle text-text-main/60 font-medium">
                 <th className="py-2 px-3"><button type="button" onClick={() => toggleSort('title')} className="hover:text-text-main transition-colors">Note Title{sortArrow('title')}</button></th>
                 <th className="py-2 px-2 text-center"><button type="button" onClick={() => toggleSort('date')} className="hover:text-text-main transition-colors">Date{sortArrow('date')}</button></th>
                 <th className="py-2 px-2 text-center"><button type="button" onClick={() => toggleSort('status')} className="hover:text-text-main transition-colors">Location{sortArrow('status')}</button></th>
@@ -281,9 +281,9 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                   <tr key={item.id} className="border-b border-border-subtle/50 hover:bg-surface-base/5 text-text-main/80">
                     <td className="py-2.5 px-3 max-w-[150px] truncate" title={item.title}>
                       <span className="font-medium text-text-main">{item.title}</span>
-                      <div className="text-[9px] text-text-main/20 font-mono truncate">{item.id}</div>
+                      <div className="text-[9px] text-text-main/60 font-mono truncate">{item.id}</div>
                     </td>
-                    <td className="py-2.5 px-2 text-center whitespace-nowrap font-mono text-[11px] text-text-main/50">
+                    <td className="py-2.5 px-2 text-center whitespace-nowrap font-mono text-[11px] text-text-main/60">
                       {formatDate(item.date)}
                     </td>
                     <td className="py-2.5 px-2 text-center whitespace-nowrap">
@@ -303,7 +303,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                           </span>
                           <IconButton
                             onClick={() => void handleReadSummary(item.id)}
-                            className="p-1 rounded hover:bg-surface-base/10 text-text-main/50 hover:text-text-main transition-colors"
+                            className="p-1 rounded hover:bg-surface-base/10 text-text-main/60 hover:text-text-main transition-colors"
                             label="Прочитать саммари"
                             icon={<Eye size={12} />}
                           />
@@ -320,7 +320,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                           Analyze
                         </Button>
                       ) : (
-                        <span className="text-[10px] text-text-main/20 font-medium">Needs Local Copy</span>
+                        <span className="text-[10px] text-text-main/60 font-medium">Needs Local Copy</span>
                       )}
                     </td>
                     <td className="py-2.5 px-3 text-right whitespace-nowrap">
@@ -392,7 +392,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             {item.inQueue && (
                               <IconButton
                                 onClick={() => void handleClearQueueItem(item)}
-                                className="p-1 rounded hover:bg-accent-danger/10 text-text-main/30 hover:text-accent-danger transition-colors"
+                                className="p-1 rounded hover:bg-accent-danger/10 text-text-main/60 hover:text-accent-danger transition-colors"
                                 label="Remove item from sync queue"
                                 icon={<Trash2 size={10} />}
                               />

@@ -80,7 +80,7 @@ export function AccountTab({ userId }: AccountTabProps) {
             <button
               type="button"
               onClick={() => setIsSecurityExpanded(!isSecurityExpanded)}
-              className="w-full flex items-center justify-between font-bold text-label-sm uppercase tracking-widest text-text-main/40 px-1 py-1 hover:text-text-main/60 transition-colors"
+              className="w-full flex items-center justify-between font-bold text-label-sm uppercase tracking-widest text-text-main/60 px-1 py-1 hover:text-text-main/60 transition-colors"
             >
               <span>{t('settings_security')}</span>
               {isSecurityExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -96,7 +96,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                       onClick={() => setShowChangePassword(true)}
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors text-left"
                     >
-                      <Lock size={16} className="text-text-main/40" />
+                      <Lock size={16} className="text-text-main/60" />
                       {t('settings_change_password')}
                     </Button>
                   </div>
@@ -130,7 +130,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
                       placeholder={t('settings_current_password')}
-                      className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
+                      className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/40"
                     />
                     <Input
                       type="password"
@@ -138,7 +138,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder={t('settings_new_password')}
-                      className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
+                      className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/40"
                     />
                     <div className="flex gap-2">
                       <Button
@@ -150,7 +150,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                       </Button>
                       <Button
                         onClick={() => { setShowChangePassword(false); setPasswordError(null); setPasswordSuccess(false); }}
-                        className="px-4 py-2.5 rounded-xl text-sm text-text-main/40 hover:text-text-main/60 transition-colors"
+                        className="px-4 py-2.5 rounded-xl text-sm text-text-main/60 hover:text-text-main/60 transition-colors"
                       >
                         {t('writing_cancel')}
                       </Button>

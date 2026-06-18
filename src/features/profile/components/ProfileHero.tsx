@@ -98,7 +98,7 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
             )}
             {!isGuest && (
               <IconButton onClick={() => setEditingName(true)}
-                className="text-text-main/20 hover:text-text-main/50 transition-colors"
+                className="text-text-main/60 hover:text-text-main/60 transition-colors"
                 label="Edit name"
                 icon={<Pencil size={14} />}
               />
@@ -106,12 +106,12 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
           </div>
 
           {user?.email && (
-            <div className="font-mono text-[12px] md:text-[13px] text-text-main/40 mb-3 md:mb-4">
+            <div className="font-mono text-[12px] md:text-[13px] text-text-main/60 mb-3 md:mb-4">
               {user.email}
             </div>
           )}
 
-          <div className="font-serif italic text-[13px] md:text-[14px] text-text-main/50 leading-relaxed max-w-lg mb-4 md:mb-5 min-h-[20px] text-center md:text-left">
+          <div className="font-serif italic text-[13px] md:text-[14px] text-text-main/60 leading-relaxed max-w-lg mb-4 md:mb-5 min-h-[20px] text-center md:text-left">
             <AnimatePresence mode="wait">
               <motion.span
                 key={quoteIdx}
@@ -137,13 +137,13 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
         </div>
 
         <div className="text-center md:text-right w-full md:w-auto border border-border-subtle rounded-xl p-3 bg-surface-card/45">
-          <div className="font-mono text-label text-text-main/30 uppercase tracking-widest mb-1">
+          <div className="font-mono text-label text-text-main/60 uppercase tracking-widest mb-1">
             {t('profile_member_since')}
           </div>
           <div className="text-[16px] md:text-[18px] font-medium text-text-main">
             {memberSince.toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric' })}
           </div>
-          <div className="font-mono text-label-sm text-text-main/40 mt-1">
+          <div className="font-mono text-label-sm text-text-main/60 mt-1">
             {daysSince} {t('home_streak_days')}
           </div>
         </div>

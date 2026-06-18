@@ -100,14 +100,14 @@ export function EditorTab() {
                 "flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-colors",
                 headerVisibility[item.key]
                   ? "border-text-main bg-text-main/10 text-text-main"
-                  : "border-border-subtle text-text-main/40 hover:text-text-main/60"
+                  : "border-border-subtle text-text-main/60 hover:text-text-main/60"
               )}
             >
               <span className="text-base shrink-0">{item.emoji}</span>
               <span className="text-xs font-medium leading-tight flex-1">{item.label}</span>
               <span className={cn(
                 "text-xs shrink-0",
-                headerVisibility[item.key] ? "text-text-main" : "text-text-main/40"
+                headerVisibility[item.key] ? "text-text-main" : "text-text-main/60"
               )}>
                 {headerVisibility[item.key] ? '✓' : '○'}
               </span>

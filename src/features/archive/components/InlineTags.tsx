@@ -50,12 +50,12 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
       {tags.map(tag => (
         <span
           key={tag}
-          className="group/tag flex items-center gap-1 font-mono text-label text-text-main/40 border border-border-subtle rounded px-1.5 py-0.5 hover:border-text-main/20 transition-colors"
+          className="group/tag flex items-center gap-1 font-mono text-label text-text-main/60 border border-border-subtle rounded px-1.5 py-0.5 hover:border-text-main/20 transition-colors"
         >
           #{tag}
           <IconButton
             onClick={e => removeTag(e, tag)}
-            className="w-auto h-auto rounded text-text-main/40 hover:text-accent-danger transition-colors opacity-100 md:opacity-0 md:group-hover/tag:opacity-100 -mr-0.5 p-1.5 md:p-0.5 flex items-center justify-center touch-manipulation"
+            className="w-auto h-auto rounded text-text-main/60 hover:text-accent-danger transition-colors opacity-100 md:opacity-0 md:group-hover/tag:opacity-100 -mr-0.5 p-1.5 md:p-0.5 flex items-center justify-center touch-manipulation"
             label="Remove Tag"
             icon={<X className="w-2.5 h-2.5 md:w-2 md:h-2" />}
           />
@@ -122,7 +122,7 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
       ) : (
         <Button
           onClick={e => { e.stopPropagation(); setAdding(true); }}
-          className="font-mono text-label text-text-main/40 border border-dashed border-text-main/25 rounded px-1.5 py-0.5 hover:text-brand-soft hover:border-brand-soft/40 transition-colors flex items-center gap-0.5"
+          className="font-mono text-label text-text-main/60 border border-dashed border-text-main/25 rounded px-1.5 py-0.5 hover:text-brand-soft hover:border-brand-soft/40 transition-colors flex items-center gap-0.5"
         >
           <span className="text-[9px] leading-none">+</span>
           {t('archive_tag_add_short')}

@@ -32,7 +32,7 @@ export function ChangelogPage() {
       <Button
         type="button"
         onClick={() => void navigate(-1)}
-        className="flex items-center gap-2 text-text-main/40 hover:text-text-main/60 text-sm mb-8 transition-colors"
+        className="flex items-center gap-2 text-text-main/60 hover:text-text-main/60 text-sm mb-8 transition-colors"
       >
         <ArrowLeft size={16} />
         {t('writing_back')}
@@ -42,7 +42,7 @@ export function ChangelogPage() {
         <JustWritingLogo size={32} variant="dark" showRailway showCrown className="shrink-0" />
         <div>
           <h1 className="text-lg font-bold text-text-main">justwriting</h1>
-          <p className="text-xs text-text-main/40">{t('changelog_title')}</p>
+          <p className="text-xs text-text-main/60">{t('changelog_title')}</p>
         </div>
       </div>
 
@@ -70,7 +70,7 @@ export function ChangelogPage() {
                 )}>
                   v{release.version}
                 </span>
-                <span className="text-xs text-text-main/30 font-mono">
+                <span className="text-xs text-text-main/60 font-mono">
                   {new Date(release.date).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', {
                     day: 'numeric', month: 'long', year: 'numeric'
                   })}

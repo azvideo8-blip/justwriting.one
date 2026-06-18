@@ -84,7 +84,7 @@
     --bg-elevated: #231542;
     --text-main: #F0EBFF;
     --text-muted: #9B89CC;
-    --text-subtle: rgba(155, 137, 204, 0.70);
+    --text-subtle: rgba(155, 137, 204, 0.90);
     --border-light: rgba(165, 131, 232, 0.12);
     --surface-card: rgba(26, 16, 48, 0.4);
     --surface-elevated: rgba(35, 21, 66, 0.6);
@@ -107,7 +107,7 @@
     --bg-base: #050506;
     --text-main: #FAFAFA;
     --text-muted: #A1A1AA;
-    --text-subtle: rgba(161, 161, 170, 0.65);
+    --text-subtle: rgba(161, 161, 170, 0.85);
     --border-light: rgba(255, 255, 255, 0.06);
     --surface-card: rgba(255, 255, 255, 0.03);
     --surface-elevated: rgba(255, 255, 255, 0.07);
@@ -130,7 +130,7 @@
     --bg-base: #FAF8F5;
     --text-main: #1A1412;
     --text-muted: #6B625E;
-    --text-subtle: rgba(107, 98, 94, 0.75);
+    --text-subtle: rgba(107, 98, 94, 0.85);
     --border-light: rgba(26, 20, 18, 0.07);
     --surface-card: #F0EDE6;
     --surface-elevated: #E5E1D7;
@@ -152,7 +152,7 @@
     --bg-base: #090C0A;
     --text-main: #EBF5EF;
     --text-muted: #8AA393;
-    --text-subtle: rgba(138, 163, 147, 0.70);
+    --text-subtle: rgba(138, 163, 147, 0.85);
     --border-light: rgba(29, 185, 84, 0.1);
     --surface-card: #131915;
     --surface-elevated: #1C2620;

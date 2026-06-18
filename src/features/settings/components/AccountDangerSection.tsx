@@ -59,7 +59,7 @@ export function AccountDangerSection({ userId }: AccountDangerSectionProps) {
           >
             {t('finish_discard')}
           </Button>
-          <Button onClick={() => setConfirmReset(false)} className="text-sm text-text-main/40 hover:text-text-main/60 transition-colors">
+          <Button onClick={() => setConfirmReset(false)} className="text-sm text-text-main/60 hover:text-text-main/60 transition-colors">
             {t('writing_cancel')}
           </Button>
         </div>

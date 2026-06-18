@@ -18,7 +18,7 @@ export function StatCard({ value, label, accent }: {
       )}>
         {value}
       </div>
-      <div className="text-[11px] font-mono uppercase tracking-[0.06em] text-text-main/30">
+      <div className="text-[11px] font-mono uppercase tracking-[0.06em] text-text-main/60">
         {label}
       </div>
     </div>
@@ -37,7 +37,7 @@ export function SettingRow({ label, children, hint }: {
         {children}
       </div>
       {hint && (
-        <div className="text-[11px] text-text-main/30">{hint}</div>
+        <div className="text-[11px] text-text-main/60">{hint}</div>
       )}
     </div>
   );

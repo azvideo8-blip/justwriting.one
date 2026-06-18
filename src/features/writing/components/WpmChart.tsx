@@ -46,7 +46,7 @@ export function WpmChart({ data, avgWpm, height = 72 }: WpmChartProps) {
 
   return (
     <div className="w-full space-y-2">
-      <div className="flex justify-between text-label font-mono text-text-main/40 uppercase tracking-wider">
+      <div className="flex justify-between text-label font-mono text-text-main/60 uppercase tracking-wider">
         <span>{t('wpm_peak')} {peakWpm} {t('wpm_unit')}</span>
         <span>{t('wpm_avg')} {displayAvg} {t('wpm_unit')}</span>
       </div>

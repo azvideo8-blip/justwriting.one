@@ -66,10 +66,10 @@ export function OnboardingGoalScreen({ onComplete, setWordGoal }: OnboardingGoal
               )}
             >
               <div className="text-xl font-mono font-bold text-text-main tabular-nums">{preset.words}</div>
-              <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/50">
+              <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/60">
                 {t(`onboarding_goal_${preset.key}`)}
               </div>
-              <div className="text-label text-text-main/30">
+              <div className="text-label text-text-main/60">
                 ≈ {preset.mins} {t('goal_time_min')}
               </div>
             </Button>
@@ -93,13 +93,13 @@ export function OnboardingGoalScreen({ onComplete, setWordGoal }: OnboardingGoal
                 onChange={e => setCustomWords(e.target.value)}
                 placeholder="500"
                 autoFocus
-                className="w-20 text-center text-xl font-mono font-bold bg-transparent border-b border-brand-primary outline-none text-text-main placeholder:text-text-main/30"
+                className="w-20 text-center text-xl font-mono font-bold bg-transparent border-b border-brand-primary outline-none text-text-main placeholder:text-text-main/40"
                 onClick={e => e.stopPropagation()}
               />
             ) : (
               <div className="text-xl font-mono font-bold text-text-main tabular-nums">✎</div>
             )}
-            <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/50">
+            <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/60">
               {t('onboarding_goal_custom')}
             </div>
           </Button>

@@ -160,12 +160,12 @@ export function MobileNoteActionsSheet({
 
         {/* Header */}
         <div className="flex justify-between items-center px-6 pb-3">
-          <span className="text-sm font-bold text-text-main/30 uppercase tracking-widest">
+          <span className="text-sm font-bold text-text-main/60 uppercase tracking-widest">
             {t('archive_note_actions') || 'Действия с заметкой'}
           </span>
           <IconButton
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/[0.04] border-none flex items-center justify-center text-text-main/40 hover:text-text-main/70 cursor-pointer"
+            className="w-8 h-8 rounded-full bg-white/[0.04] border-none flex items-center justify-center text-text-main/60 hover:text-text-main/70 cursor-pointer"
             label={t('close')}
             icon={<X size={18} />}
           />
@@ -180,7 +180,7 @@ export function MobileNoteActionsSheet({
             {selectedLabel && (
               <div className="flex items-center gap-1.5 mt-1">
                 <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: selectedLabel.color }} />
-                <span className="text-xs text-text-main/50">{selectedLabel.name}</span>
+                <span className="text-xs text-text-main/60">{selectedLabel.name}</span>
               </div>
             )}
           </div>
@@ -195,7 +195,7 @@ export function MobileNoteActionsSheet({
                 onClick={() => { onOpen(); onClose(); }}
                 className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
               >
-                <ExternalLink size={18} className="text-text-main/40" />
+                <ExternalLink size={18} className="text-text-main/60" />
                 <span>{t('archive_preview') || 'Открыть превью'}</span>
               </Button>
 
@@ -203,7 +203,7 @@ export function MobileNoteActionsSheet({
                 onClick={() => { onRename(); onClose(); }}
                 className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
               >
-                <Pencil size={18} className="text-text-main/40" />
+                <Pencil size={18} className="text-text-main/60" />
                 <span>{t('archive_rename_title') || 'Переименовать'}</span>
               </Button>
 
@@ -212,7 +212,7 @@ export function MobileNoteActionsSheet({
                   onClick={() => setShowLabelsSelector(true)}
                   className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
                 >
-                  <Tag size={18} className="text-text-main/40" />
+                  <Tag size={18} className="text-text-main/60" />
                   <span>{t('archive_assign_label') || 'Назначить ярлык'}</span>
                 </Button>
               )}
@@ -249,7 +249,7 @@ export function MobileNoteActionsSheet({
                     <Loader2 size={18} className="animate-spin" />
                   ) : (
                     <>
-                      <HardDrive size={18} className="text-text-main/40" />
+                      <HardDrive size={18} className="text-text-main/60" />
                       <span>{t('storage_remove_local') || 'Удалить локальную копию'}</span>
                     </>
                   )}
@@ -266,7 +266,7 @@ export function MobileNoteActionsSheet({
                     <Loader2 size={18} className="animate-spin" />
                   ) : (
                     <>
-                      <Cloud size={18} className="text-text-main/40" />
+                      <Cloud size={18} className="text-text-main/60" />
                       <span>{t('storage_remove_cloud') || 'Удалить из облака'}</span>
                     </>
                   )}
@@ -286,7 +286,7 @@ export function MobileNoteActionsSheet({
             // Labels Sub-selector
             <div className="space-y-3">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-text-main/40 uppercase tracking-wider">{t('archive_assign_label')}</span>
+                <span className="text-xs font-semibold text-text-main/60 uppercase tracking-wider">{t('archive_assign_label')}</span>
                 <Button onClick={() => setShowLabelsSelector(false)} className="text-xs text-brand-soft hover:underline">
                   {t('writing_back') || 'Назад'}
                 </Button>
@@ -298,7 +298,7 @@ export function MobileNoteActionsSheet({
                       onLabelChange(undefined);
                       onClose();
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-left transition-colors border bg-white/[0.01] border-white/[0.04] text-text-main/40 hover:bg-white/[0.03]"
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-left transition-colors border bg-white/[0.01] border-white/[0.04] text-text-main/60 hover:bg-white/[0.03]"
                   >
                     <div className="w-3.5 h-3.5 rounded-full border border-dashed border-text-main/20 shrink-0" />
                     <span className="flex-1">{t('archive_no_label')}</span>

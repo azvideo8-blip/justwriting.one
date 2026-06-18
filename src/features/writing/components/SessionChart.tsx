@@ -56,7 +56,7 @@ export function SessionChart({ sessions, startDate, endDate }: SessionChartProps
             tickLine={false} 
             tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.5 }}
             dy={10}
-            className="text-text-main/50"
+            className="text-text-main/60"
           />
           <YAxis hide />
           <Tooltip 

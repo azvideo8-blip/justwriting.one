@@ -24,7 +24,7 @@ import { Loader2 } from 'lucide-react';
 function PageLoader() {
   return (
     <div className="flex items-center justify-center h-full min-h-[200px]">
-      <Loader2 size={24} className="animate-spin text-text-main/30" />
+      <Loader2 size={24} className="animate-spin text-text-main/60" />
     </div>
   );
 }

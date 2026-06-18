@@ -80,7 +80,7 @@ export function LandingPage() {
         <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
           justwriting
         </h1>
-        <p className="text-lg md:text-xl text-text-main/50 max-w-xl mx-auto leading-relaxed">
+        <p className="text-lg md:text-xl text-text-main/60 max-w-xl mx-auto leading-relaxed">
           {isRu
             ? 'Тихий редактор для свободного письма. Один знак, одна буква, одна минута.'
             : 'A quiet editor for free writing. One sign, one letter, one minute.'}
@@ -104,7 +104,7 @@ export function LandingPage() {
                 <span className="text-brand-soft text-xl font-serif">{iconMap[f.icon]}</span>
                 <h2 className="text-base font-bold">{isRu ? f.titleRu : f.titleEn}</h2>
               </div>
-              <p className="text-sm text-text-main/50 leading-relaxed">
+              <p className="text-sm text-text-main/60 leading-relaxed">
                 {isRu ? f.descRu : f.descEn}
               </p>
             </div>
@@ -116,7 +116,7 @@ export function LandingPage() {
         <h2 className="text-2xl font-serif italic text-brand-soft mb-4">
           {isRu ? 'Просто начни писать.' : 'Just start writing.'}
         </h2>
-        <p className="text-sm text-text-main/40 leading-relaxed mb-8">
+        <p className="text-sm text-text-main/60 leading-relaxed mb-8">
           {isRu
             ? 'Не нужно регистрироваться, чтобы попробовать. Открой редактор и пиши. Облако и шифрование — когда будешь готов.'
             : 'No sign-up required to try. Open the editor and write. Cloud and encryption — when you are ready.'}
@@ -130,7 +130,7 @@ export function LandingPage() {
       </section>
 
       <footer className="max-w-3xl mx-auto px-6 py-8 border-t border-border-subtle text-center">
-        <p className="text-xs text-text-main/30 font-mono">
+        <p className="text-xs text-text-main/60 font-mono">
           justwriting · {new Date().getFullYear()}
         </p>
       </footer>

@@ -208,12 +208,12 @@ export const SessionCard = React.memo(function SessionCard({
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
           <div className="flex items-center gap-3">
             <div className="flex flex-col">
-              <span className="text-label-sm md:text-xs font-bold uppercase tracking-widest text-text-main/40">
+              <span className="text-label-sm md:text-xs font-bold uppercase tracking-widest text-text-main/60">
                 {sessionTime.getTime() > 0 ? format(sessionTime, 'd MMM yyyy • HH:mm') : ''}
               </span>
             </div>
           </div>
-          <div className="flex items-center flex-wrap gap-3 text-xs md:text-sm font-mono text-text-main/50">
+          <div className="flex items-center flex-wrap gap-3 text-xs md:text-sm font-mono text-text-main/60">
             <span className="flex items-center gap-1" title={t('writing_time')}><Clock size={14} /> {Math.floor(session.duration / 60)}{t('unit_min')}</span>
             <span className="flex items-center gap-1" title={t('writing_words')}><Type size={14} /> {session.wordCount}{t('unit_words')}</span>
             <span className="flex items-center gap-1" title={t('writing_chars')}><PenLine size={14} /> {session.charCount || 0}</span>
@@ -224,13 +224,13 @@ export const SessionCard = React.memo(function SessionCard({
                 <span title={session._isLocal ? t('storage_local') : t('storage_no_local')}>
                   <HardDrive 
                     size={13} 
-                    className={session._isLocal ? "text-text-main/60" : "text-text-main/20"} 
+                    className={session._isLocal ? "text-text-main/60" : "text-text-main/60"} 
                   />
                 </span>
                 <span title={session._hasPendingSync ? t('storage_sync_pending') : session._hasCloudCopy ? t('storage_cloud') : t('storage_no_cloud')}>
                   <Cloud 
                     size={13} 
-                    className={session._hasPendingSync ? "text-amber-500 animate-pulse" : session._hasCloudCopy ? "text-blue-400" : "text-text-main/20"}
+                    className={session._hasPendingSync ? "text-amber-500 animate-pulse" : session._hasCloudCopy ? "text-blue-400" : "text-text-main/60"}
                     style={session._hasPendingSync ? { filter: 'drop-shadow(0 0 5px rgb(245 158 11 / 0.6))' } : undefined}
                   />
                 </span>

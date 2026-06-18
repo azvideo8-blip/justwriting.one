@@ -71,13 +71,13 @@ export function FinishModalTags({
                   onChange={e => setEditTitle(e.target.value)}
                   placeholder={t('editor_title_placeholder')}
                   maxLength={200}
-                  className="px-4 py-3 rounded-xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-base font-medium placeholder:text-text-main/30 focus:border-text-main/40 min-h-[44px]"
+                  className="px-4 py-3 rounded-xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-base font-medium placeholder:text-text-main/40 focus:border-text-main/40 min-h-[44px]"
                 />
               </div>
 
               {labels.length > 0 && (
                 <div className="space-y-2">
-                  <div className="text-xs font-bold uppercase tracking-wider text-text-main/50">{t('finish_labels')}</div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-text-main/60">{t('finish_labels')}</div>
                   <div className="flex flex-wrap gap-1.5">
                     {labels.map(label => (
                       <Button
@@ -173,7 +173,7 @@ export function FinishModalTags({
   return (
     <>
       <div className="space-y-2">
-        <div className="text-xs font-bold uppercase tracking-wider text-text-main/50">
+        <div className="text-xs font-bold uppercase tracking-wider text-text-main/60">
           {t('finish_title_label')}
         </div>
         <Input
@@ -182,14 +182,14 @@ export function FinishModalTags({
           onChange={e => setEditTitle(e.target.value)}
           placeholder={t('editor_title_placeholder')}
           maxLength={200}
-          className="px-4 py-3 rounded-2xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-lg font-medium placeholder:text-text-main/30 focus:border-text-main/40"
+          className="px-4 py-3 rounded-2xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-lg font-medium placeholder:text-text-main/40 focus:border-text-main/40"
           autoFocus
         />
       </div>
 
       {labels.length > 0 && (
         <div className="space-y-3">
-          <div className="text-xs font-bold uppercase tracking-wider text-text-main/50">{t('finish_labels')}</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-text-main/60">{t('finish_labels')}</div>
           <div className="flex flex-wrap gap-2">
             {labels.map(label => (
               <Button
@@ -216,7 +216,7 @@ export function FinishModalTags({
       )}
 
       <div className="space-y-3">
-        <div className="text-xs font-bold uppercase tracking-wider text-text-main/50">{t('finish_tags')}</div>
+        <div className="text-xs font-bold uppercase tracking-wider text-text-main/60">{t('finish_tags')}</div>
         <div className="flex flex-wrap gap-2">
           {allSuggestions.map(tag => (
             <Button

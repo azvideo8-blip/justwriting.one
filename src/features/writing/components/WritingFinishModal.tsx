@@ -209,7 +209,7 @@ export function WritingFinishModal({
           >
             <div>
               <div className="text-xl font-bold text-text-main">{t('mood_checkin_title')}</div>
-              <div className="text-sm text-text-main/40 mt-1">{t('mood_checkin_subtitle')}</div>
+              <div className="text-sm text-text-main/60 mt-1">{t('mood_checkin_subtitle')}</div>
             </div>
             <div className="flex justify-center gap-4">
               {([
@@ -241,7 +241,7 @@ export function WritingFinishModal({
               size="sm"
               disabled={isSaving}
               onClick={() => handleMoodSelect(undefined)}
-              className="text-xs text-text-main/30 hover:text-text-main/50 mt-4"
+              className="text-xs text-text-main/60 hover:text-text-main/60 mt-4"
             >
               {isSaving ? t('finish_saving') : t('mood_checkin_skip')}
             </Button>

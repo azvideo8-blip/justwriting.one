@@ -57,7 +57,7 @@ export function CancelConfirmModal({
         <IconButton
           type="button"
           onClick={onCancel}
-          className="absolute top-4 right-4 p-3 rounded-full text-text-main/50 hover:text-text-main hover:bg-text-main/10 transition-colors"
+          className="absolute top-4 right-4 p-3 rounded-full text-text-main/60 hover:text-text-main hover:bg-text-main/10 transition-colors"
           label={t('common_close')}
           icon={<X size={20} />}
         />

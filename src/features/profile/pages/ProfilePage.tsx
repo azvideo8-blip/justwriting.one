@@ -57,7 +57,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
         >
           <JustWritingLogo size={120} variant="dark" showRailway={true} showRoman={true} showCrown={true} />
         </motion.div>
-        <p className="text-sm text-text-main/40 tracking-widest uppercase font-sans">
+        <p className="text-sm text-text-main/60 tracking-widest uppercase font-sans">
           {t("profile_loading")}
         </p>
       </div>
@@ -80,10 +80,10 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       <div className="min-h-screen bg-surface-base flex flex-col items-center justify-center gap-8 px-6 text-center">
         <ProfileHero user={user} profile={profile} isGuest={isGuest} onStartSession={() => void navigate('/')} />
         <div className="max-w-sm space-y-3">
-          <p className="text-[15px] text-text-main/50 leading-relaxed">
+          <p className="text-[15px] text-text-main/60 leading-relaxed">
             {t('profile_empty_desc')}
           </p>
-          <p className="text-[13px] text-text-main/30 font-mono uppercase tracking-widest">
+          <p className="text-[13px] text-text-main/60 font-mono uppercase tracking-widest">
             {t('profile_empty_hint')}
           </p>
         </div>
@@ -125,12 +125,12 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
             <Button onClick={handleResetAchievements} className="text-label-sm font-medium text-accent-danger hover:text-red-300 transition-colors uppercase tracking-widest">
               {t('profile_ach_reset')}
             </Button>
-            <Button onClick={() => setShowResetConfirm(false)} className="text-label-sm font-medium text-text-main/40 hover:text-text-main/60 transition-colors uppercase tracking-widest">
+            <Button onClick={() => setShowResetConfirm(false)} className="text-label-sm font-medium text-text-main/60 hover:text-text-main/60 transition-colors uppercase tracking-widest">
               ✕
             </Button>
           </div>
         ) : (
-          <Button onClick={() => setShowResetConfirm(true)} className="font-mono text-label-sm text-text-main/20 hover:text-accent-danger/50 transition-colors uppercase tracking-widest">
+          <Button onClick={() => setShowResetConfirm(true)} className="font-mono text-label-sm text-text-main/60 hover:text-accent-danger/50 transition-colors uppercase tracking-widest">
             {t('profile_ach_reset')}
           </Button>
         )}

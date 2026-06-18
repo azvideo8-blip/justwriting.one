@@ -29,14 +29,14 @@ export function AccountProfileSection({ userId: _userId }: AccountProfileSection
             />
           ) : (
             <div className="w-12 h-12 rounded-full flex items-center justify-center bg-text-main/10 border border-border-subtle">
-              <UserIcon size={24} className="text-text-main/40" />
+              <UserIcon size={24} className="text-text-main/60" />
             </div>
           )}
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium text-text-main truncate">
               {AuthService.getCurrentUser()?.displayName || AuthService.getCurrentUser()?.email?.split('@')[0] || t('common_untitled')}
             </div>
-            <div className="text-xs text-text-main/40 truncate">
+            <div className="text-xs text-text-main/60 truncate">
               {AuthService.getCurrentUser()?.email}
             </div>
           </div>
@@ -50,13 +50,13 @@ export function AccountProfileSection({ userId: _userId }: AccountProfileSection
       <Section title={t('me_tab_account')}>
         <div className="flex items-center gap-4 p-4 rounded-xl border border-dashed border-border-subtle">
           <div className="w-12 h-12 rounded-full flex items-center justify-center bg-text-main/10">
-            <HardDrive size={24} className="text-text-main/40" />
+            <HardDrive size={24} className="text-text-main/60" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium text-text-main/60">
               {t('guest_saved_locally')}
             </div>
-            <div className="text-xs text-text-main/30 mt-0.5">
+            <div className="text-xs text-text-main/60 mt-0.5">
               {t('guest_sync_hint')}
             </div>
           </div>

@@ -34,7 +34,7 @@ export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerPr
         <div key={label.id} className="flex items-center gap-3 py-2 px-4 rounded-xl border border-border-subtle">
           <div className="w-3 h-3 rounded-full shrink-0" style={label.color ? { background: label.color } : undefined} />
           <span className="text-sm text-text-main flex-1">{label.name}</span>
-          <IconButton onClick={() => removeLabel(label.id)} className="p-1" label="Remove label" icon={<X size={14} className="text-text-main/30 hover:text-accent-danger transition-colors" />} />
+          <IconButton onClick={() => removeLabel(label.id)} className="p-1" label="Remove label" icon={<X size={14} className="text-text-main/60 hover:text-accent-danger transition-colors" />} />
         </div>
       ))}
 
@@ -44,7 +44,7 @@ export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerPr
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder="Label name"
-            className="px-3 py-2 rounded-lg border border-border-subtle bg-surface-base text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-text-main/40 transition-colors"
+            className="px-3 py-2 rounded-lg border border-border-subtle bg-surface-base text-sm text-text-main placeholder:text-text-main/40 outline-none focus:border-text-main/40 transition-colors"
             autoFocus
             onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
           />
@@ -77,7 +77,7 @@ export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerPr
                   style={!LABEL_PRESET_COLORS.includes(selectedColor) ? { background: selectedColor } : {}}
                 >
                   {LABEL_PRESET_COLORS.includes(selectedColor) && (
-                    <span className="text-label-sm text-text-main/40 font-bold leading-none">+</span>
+                    <span className="text-label-sm text-text-main/60 font-bold leading-none">+</span>
                   )}
                 </label>
               </div>
@@ -93,7 +93,7 @@ export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerPr
             </Button>
             <Button
               onClick={() => { setAdding(false); setName(''); }}
-              className="px-4 py-2 rounded-lg text-sm text-text-main/50 hover:text-text-main transition-colors"
+              className="px-4 py-2 rounded-lg text-sm text-text-main/60 hover:text-text-main transition-colors"
             >
               Cancel
             </Button>
@@ -102,7 +102,7 @@ export function LabelsManager({ labels, addLabel, removeLabel }: LabelsManagerPr
       ) : (
         <Button
           onClick={() => setAdding(true)}
-          className="w-full px-4 py-3 rounded-xl border border-dashed border-border-subtle text-sm text-text-main/40 hover:text-text-main/60 hover:border-border-subtle/80 transition-colors"
+          className="w-full px-4 py-3 rounded-xl border border-dashed border-border-subtle text-sm text-text-main/60 hover:text-text-main/60 hover:border-border-subtle/80 transition-colors"
         >
           + Add label
         </Button>
