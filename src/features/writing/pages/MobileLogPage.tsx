@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
+import { useAuthStatus } from '../../../app/useAuthStatus';
 import { MobileLogScreen } from '../components/MobileLogScreen';
 import { Session } from '../../../types';
 import { getOrCreateGuestId } from '../../../core/storage/localDb';

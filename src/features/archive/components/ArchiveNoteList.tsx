@@ -10,8 +10,8 @@ import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
-import { AISummaryService } from '../../ai/services/AISummaryService';
-import { AIService } from '../../ai/services/AIService';
+import { AISummaryService } from '../../../core/services/AISummaryService';
+import { AIService } from '../../../core/services/AIService';
 import { useToast } from '../../../shared/components/Toast';
 import { Button } from '../../../shared/components/Button';
 

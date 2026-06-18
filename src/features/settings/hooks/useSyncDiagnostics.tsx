@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Cloud, HardDrive, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { AIService } from '../../ai/services/AIService';
-import { AISummaryService } from '../../ai/services/AISummaryService';
+import { AIService } from '../../../core/services/AIService';
+import { AISummaryService } from '../../../core/services/AISummaryService';
 import { maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import type { AIDocumentSummary } from '../../../core/storage/localDb';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
@@ -13,7 +13,7 @@ import { getLocalDb } from '../../../core/storage/localDb';
 import { toDate } from '../../../core/utils/dateUtils';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
-import { useAuthStatus } from '../../auth/contexts/AuthContext';
+import { useAuthStatus } from '../../../app/useAuthStatus';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { encryptSingleDocument } from '../../../core/crypto/encryptMigration';
 

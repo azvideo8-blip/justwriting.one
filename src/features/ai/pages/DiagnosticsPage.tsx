@@ -10,7 +10,7 @@ import { APP_VERSION } from '../../../version';
 import { SyncDiagnostics } from '../../settings/components/SyncDiagnostics';
 import { AdminUsersTable } from '../../admin/components/AdminUsersTable';
 import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
-import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
+import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useDiagnosticsData, type Tab } from '../hooks/useDiagnosticsData';
 import { DatabaseExplorer } from '../components/DatabaseExplorer';
 import { EmbeddingDiagnostics } from '../components/EmbeddingDiagnostics';

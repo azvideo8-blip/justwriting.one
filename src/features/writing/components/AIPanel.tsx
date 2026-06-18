@@ -4,7 +4,7 @@ import { Sparkles, X, Copy, Check, Loader2, Wand2, Lightbulb, Tags, Smile, Arrow
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
-import { AIService, type AIAction, type AIResult } from '../../ai/services/AIService';
+import { AIService, type AIAction, type AIResult } from '../../../core/services/AIService';
 import { useAiLimitStore } from '../../ai/store/useAiLimitStore';
 import { useContentStore } from '../store/useContentStore';
 import { IconButton } from '../../../shared/components/IconButton';

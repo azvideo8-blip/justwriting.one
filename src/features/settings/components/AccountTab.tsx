@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Lock, ChevronDown, ChevronRight } from 'lucide-react';
 import { EncryptionService } from '../../../core/services/EncryptionService';
-import { AuthService } from '../../auth/services/AuthService';
+import { AuthService } from '../../../app/AuthService';
 import { useLanguage } from '../../../shared/i18n';
 import { reportError } from '../../../shared/errors/reportError';
-import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
+import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useTimerStore } from '../../writing/store/useTimerStore';
 import { resetAndClear } from '../../writing/store/storeActions';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { User } from 'firebase/auth';
-import { loadAllSessions } from '../../writing/services/UnifiedSessionLoader';
+import { loadAllSessions } from '../../../core/services/UnifiedSessionLoader';
 import { ArchiveSession } from '../types';
 import { updateArchiveField, deleteArchiveSession } from '../services/archiveCrud';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';

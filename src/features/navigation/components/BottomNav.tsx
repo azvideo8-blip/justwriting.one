@@ -1,8 +1,8 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
-import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
-import { useLoginModal } from '../../auth/contexts/LoginModalContext';
+import { useAuthStatus } from '../../../app/useAuthStatus';
+import { useLoginModal } from '../../../app/useLoginModal';
 import { Shield, Sparkles } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 

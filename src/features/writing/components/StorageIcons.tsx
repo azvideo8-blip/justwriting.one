@@ -9,9 +9,9 @@ import { LocalDocumentService } from '../../../core/services/LocalDocumentServic
 import { SyncService } from '../../../core/services/SyncService';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { reportError } from '../../../shared/errors/reportError';
-import { UnlockPrompt } from '../../auth/components/UnlockPrompt';
-import { EncryptionPasswordModal } from '../../encryption/components/EncryptionPasswordModal';
-import { useAuthStatus } from '../../auth/contexts/AuthContext';
+import { UnlockPrompt } from '../../../app/UnlockPrompt';
+import { EncryptionPasswordModal } from '../../../app/EncryptionPasswordModal';
+import { useAuthStatus } from '../../../app/useAuthStatus';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 

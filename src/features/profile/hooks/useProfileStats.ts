@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User } from 'firebase/auth';
 import { Session } from '../../../types';
-import { loadAllSessions } from '../../writing/services/UnifiedSessionLoader';
+import { loadAllSessions } from '../../../core/services/UnifiedSessionLoader';
 import { calculateStreak } from '../../../core/utils/utils';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
 import { reportError } from '../../../shared/errors/reportError';

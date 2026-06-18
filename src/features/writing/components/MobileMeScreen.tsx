@@ -19,7 +19,7 @@ import { HourRhythm } from '../../profile/components/HourRhythm';
 import { Achievements } from '../../profile/components/Achievements';
 import { reportError } from '../../../shared/errors/reportError';
 import { useNavigate } from 'react-router-dom';
-import { ProfileService } from '../../profile/services/ProfileService';
+import { ProfileService } from '../../../core/services/ProfileServiceRef';
 import { MobilePageHeader } from '../../../shared/components/MobilePageHeader';
 import { LoadingSkeleton } from '../../../shared/components/LoadingSkeleton';
 import { useProfileStats } from '../../profile/hooks/useProfileStats';

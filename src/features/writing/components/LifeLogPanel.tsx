@@ -9,7 +9,7 @@ import { SettingsPanelContent } from '../../settings/components/SettingsPanel';
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
 import { deleteSession } from '../services/SessionDeleteService';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
-import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
+import { useAuthStatus } from '../../../app/useAuthStatus';
 import { X, Pin, Trash2, ArrowRight } from 'lucide-react';
 import { highlightText } from '../../../shared/utils/highlightText';
 import { Button } from '../../../shared/components/Button';

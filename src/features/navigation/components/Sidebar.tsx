@@ -5,8 +5,8 @@ import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
-import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
-import { useLoginModal } from '../../auth/contexts/LoginModalContext';
+import { useAuthStatus } from '../../../app/useAuthStatus';
+import { useLoginModal } from '../../../app/useLoginModal';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { APP_VERSION } from '../../../version';
 
