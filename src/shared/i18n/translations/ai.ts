@@ -7,7 +7,7 @@ export const aiTranslations: Translations = {
   ai_no_active_dialogues: { ru: 'Нет активных диалогов', en: 'No active dialogues' },
   ai_no_archived_dialogues: { ru: 'Нет архивных диалогов', en: 'No archived dialogues' },
   ai_interlocutor: { ru: 'собеседник', en: 'interlocutor' },
-  ai_download_md: { ru: 'Скачать .md', en: 'Download .md' },
+  ai_download_md: { ru: 'Скачать как текст', en: 'Download as text' },
   ai_to_archive: { ru: 'В архив', en: 'To archive' },
   ai_delete: { ru: 'Удалить', en: 'Delete' },
   ai_create: { ru: 'Создать', en: 'Create' },

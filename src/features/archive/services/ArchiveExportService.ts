@@ -97,6 +97,20 @@ export function exportAsMd(session: ArchiveSession, s: ExportStrings): void {
   void downloadBlob(content, 'text/markdown;charset=utf-8', getFilename(session, 'md', s));
 }
 
+export function stripMarkdown(md: string): string {
+  if (!md) return '';
+  return md
+    .replace(/<[^>]*>/g, '')
+    .replace(/^(?:#+)\s+(.*)$/gm, '$1')
+    .replace(/[*_]{1,3}([^*_]+)[*_]{1,3}/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+    .replace(/^(?:-{3,}|\*{3,}|_{3,})$/gm, '')
+    .replace(/^\s*>\s+/gm, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^\s*(?:[-*+]|\d+\.)\s+/gm, '');
+}
+
 export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
   const date = toDate(session.createdAt) ?? new Date();
   const locOpts = getLocale();

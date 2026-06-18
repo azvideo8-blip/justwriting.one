@@ -3,7 +3,6 @@ import { useReducedMotion } from 'motion/react';
 import { Virtuoso, VirtuosoGrid, GroupedVirtuoso } from 'react-virtuoso';
 import { format, Locale } from 'date-fns';
 import { BookOpen } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { GridNoteCard } from './GridNoteCard';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { NoteRow } from './NoteRow';
@@ -65,7 +64,6 @@ export function ArchiveNoteList({
 }: ArchiveNoteListProps) {
   const reducedMotion = useReducedMotion();
   const { tp } = useLanguage();
-  const navigate = useNavigate();
   const { showToast } = useToast();
   const [aiProcessedMap, setAiProcessedMap] = useState<Record<string, boolean>>({});
   const [aiLoadingMap, setAiLoadingMap] = useState<Record<string, boolean>>({});
@@ -78,7 +76,7 @@ export function ArchiveNoteList({
   // exists, the button opens the AI chat for that document.
   const handleAIClick = async (session: ArchiveSession) => {
     if (aiProcessedMap[session.id]) {
-      void navigate(`/ai?doc=${session.id}`);
+      onOpen(session);
       return;
     }
     if (!session.id || !session.content || aiLoadingMap[session.id]) return;

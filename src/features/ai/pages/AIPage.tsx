@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { DocumentPickerModal } from '../components/DocumentPickerModal';
@@ -48,12 +48,23 @@ export function AIPage() {
     handleSendMessage, handleNewDialogue, handleArchive, handleDelete, handleExport,
     handleDocSelect, handleCopyMessage, handleFileUpload,
     handleSetResponseLength, handleRenameDialogue,
+    responseLength,
     allPersonas, openPersonaDetail,
     displayMessages,
     activePersona, activeRole, headerVisual,
     convPersonaName, convVisual,
     MAX_INPUT_CHARS,
   } = useAIPageData(linkedDocId, draftFacetId);
+
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+
+  const handleSaveRename = () => {
+    setIsRenaming(false);
+    if (renameValue.trim() && activeDialogueId && renameValue.trim() !== dialogue?.title) {
+      void handleRenameDialogue(activeDialogueId, renameValue.trim());
+    }
+  };
 
   return (
     <div className={cn("h-screen bg-surface-base flex", isMobile ? "flex-col" : "flex-row")}>
@@ -139,26 +150,40 @@ export function AIPage() {
             <div className="min-w-0">
               <div className="text-[10.5px] font-mono uppercase tracking-[0.18em] text-text-main/30 mb-1">{t('ai_interlocutor')}</div>
               <div className="flex items-baseline gap-2.5">
-                <h1 className="text-[22px] font-bold tracking-tight text-text-main truncate">{activePersona?.name}</h1>
-                {activeRole && <span className="text-xs font-medium shrink-0" style={{ color: headerVisual.color }}>{activeRole}</span>}
+                {isRenaming ? (
+                  <input
+                    autoFocus
+                    value={renameValue}
+                    onChange={e => setRenameValue(e.target.value)}
+                    onBlur={handleSaveRename}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleSaveRename();
+                      if (e.key === 'Escape') { setIsRenaming(false); }
+                    }}
+                    className="text-[22px] font-bold tracking-tight text-text-main bg-transparent border-b border-brand-soft/40 outline-none px-1 -mx-1 max-w-[300px]"
+                    placeholder="Название диалога"
+                  />
+                ) : (
+                  <h1 className="text-[22px] font-bold tracking-tight text-text-main truncate">{activePersona?.name}</h1>
+                )}
+                {activeRole && !isRenaming && <span className="text-xs font-medium shrink-0" style={{ color: headerVisual.color }}>{activeRole}</span>}
               </div>
             </div>
             <div className="flex-1" />
             {activeDialogueId && (
               <div className="flex items-center gap-1">
                  <IconButton onClick={() => void handleExport()} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_download_md')} label={t('ai_download_md')} icon={<Download size={15} />} />
-                 <IconButton onClick={() => { const name = window.prompt('Новое название диалога:', dialogue?.title ?? ''); if (name && name.trim() && activeDialogueId) void handleRenameDialogue(activeDialogueId, name.trim()); }} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title="Переименовать" label="Переименовать" icon={<Pencil size={15} />} />
+                 <IconButton onClick={() => { setIsRenaming(true); setRenameValue(dialogue?.title ?? ''); }} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title="Переименовать" label="Переименовать" icon={<Pencil size={15} />} />
                  <IconButton onClick={() => void handleArchive()} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_to_archive')} label={t('ai_to_archive')} icon={<Archive size={15} />} />
                  <IconButton onClick={() => void handleDelete()} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/35 hover:text-accent-danger transition-colors flex items-center justify-center" title={t('ai_delete')} label={t('ai_delete')} icon={<Trash2 size={15} />} />
               </div>
             )}
           </div>
 
-          {activeDialogueId && (
-            <div className="flex items-center gap-1 mt-2">
+          <div className="flex items-center gap-1 mt-2">
               <span className="text-[9px] font-mono uppercase tracking-wider text-text-main/25 mr-1">объём:</span>
               {(['short', 'standard', 'detailed'] as const).map(len => {
-                const active = (dialogue?.responseLength ?? 'standard') === len;
+                const active = responseLength === len;
                 const label = len === 'short' ? 'Кратко' : len === 'standard' ? 'Стандартно' : 'Объёмно';
                 return (
                   <Button
@@ -175,8 +200,7 @@ export function AIPage() {
                   </Button>
                 );
               })}
-            </div>
-          )}
+          </div>
 
           <div className="flex gap-1.5 items-center overflow-x-auto pb-1 pt-3.5 -mx-1 px-1 no-scrollbar">
             {allPersonas.map(p => {

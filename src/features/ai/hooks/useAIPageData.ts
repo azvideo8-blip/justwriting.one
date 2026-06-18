@@ -24,6 +24,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const [createPersonaOpen, setCreatePersonaOpen] = useState(false);
   const [detailPersona, setDetailPersona] = useState<PersonaDetailTarget | null>(null);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const [responseLength, setResponseLength] = useState<ResponseLength>('standard');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,7 +39,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     sendMessage,
     attachDocument,
     clearError,
-  } = useAIChat(activeDialogueId, selectedPersonaId);
+  } = useAIChat(activeDialogueId, selectedPersonaId, responseLength);
 
   const loadDialogues = useCallback(async () => {
     const [active, archived] = await Promise.all([
@@ -117,9 +118,11 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   };
 
   const handleSetResponseLength = useCallback(async (length: ResponseLength) => {
-    if (!activeDialogueId) return;
-    await AIDialogueService.updateResponseLength(activeDialogueId, length);
-    await loadDialogues();
+    setResponseLength(length);
+    if (activeDialogueId) {
+      await AIDialogueService.updateResponseLength(activeDialogueId, length);
+      await loadDialogues();
+    }
   }, [activeDialogueId, loadDialogues]);
 
   const handleRenameDialogue = useCallback(async (id: string, newTitle: string) => {
@@ -146,11 +149,11 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const handleExport = async () => {
     if (!activeDialogueId) return;
     const md = await AIDialogueService.exportAsMarkdown(activeDialogueId);
-    const blob = new Blob([md], { type: 'text/markdown' });
+    const blob = new Blob([md], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `dialogue-${activeDialogueId.slice(0, 8)}.md`;
+    a.download = `dialogue-${activeDialogueId.slice(0, 8)}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -229,6 +232,13 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const convVisual = personaVisual(convPersonaId, convPersonaName);
 
   useEffect(() => {
+    const nextVal = activeDialogue?.responseLength ?? 'standard';
+    void Promise.resolve().then(() => {
+      setResponseLength(curr => curr !== nextVal ? nextVal : curr);
+    });
+  }, [activeDialogue]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [displayMessages.length, streamingMessage]);
 
@@ -253,6 +263,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     activePersona, activeRole, headerVisual,
     convPersonaId, convPersonaName, convVisual,
     handleSetResponseLength, handleRenameDialogue,
+    responseLength,
     MAX_INPUT_CHARS,
   };
 }

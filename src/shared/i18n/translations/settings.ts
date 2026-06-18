@@ -83,6 +83,9 @@ export const settingsTranslations: Translations = {
   synced_compact: { ru: 'Синхронизировано', en: 'Synced' },
 
   settings_change_password:    { ru: 'Сменить пароль', en: 'Change password' },
+  settings_auto_summarize:     { ru: 'Автоматическое саммари заметок', en: 'Auto-summarize notes' },
+  settings_auto_summarize_hint: { ru: 'ИИ автоматически строит психологический портрет и темы по вашим заметкам в фоновом режиме', en: 'AI will build your psychological portrait and themes from notes in background' },
+  settings_security:           { ru: 'Безопасность', en: 'Security' },
   settings_current_password:   { ru: 'Текущий пароль', en: 'Current password' },
   settings_new_password:       { ru: 'Новый пароль', en: 'New password' },
   settings_password_changed:   { ru: 'Пароль успешно изменён', en: 'Password changed successfully' },
@@ -107,7 +110,7 @@ export const settingsTranslations: Translations = {
   settings_vault_unlocked_desc: { ru: 'Ты можешь расшифровать и редактировать зашифрованные заметки. Также можно зашифровать все существующие незашифрованные заметки.', en: 'You can decrypt and edit encrypted notes. You can also encrypt all existing unencrypted notes.' },
   settings_passwords_dont_match: { ru: 'Пароли не совпадают.', en: 'Passwords do not match.' },
   settings_export_all_title: { ru: 'Резервная копия', en: 'Backup' },
-  settings_export_all_desc: { ru: 'Скачать все заметки одним ZIP-архивом (отдельные .md файлы).', en: 'Download all notes as a single ZIP archive (separate .md files).' },
+  settings_export_all_desc: { ru: 'Скачать все заметки одним ZIP-архивом (отдельные .txt файлы без разметки).', en: 'Download all notes as a single ZIP archive (separate .txt files without markup).' },
   settings_export_all_button: { ru: 'Экспортировать всё в ZIP', en: 'Export all to ZIP' },
   settings_export_all_progress: { ru: 'Готовлю архив...', en: 'Preparing archive...' },
   settings_export_all_done: { ru: 'Экспортировано заметок: {count}', en: 'Exported notes: {count}' },

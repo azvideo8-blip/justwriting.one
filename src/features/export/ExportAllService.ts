@@ -2,7 +2,7 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { ArchiveSession } from '../archive/types';
-import { buildMarkdownContent, getFilenameBase, ExportStrings } from '../archive/services/ArchiveExportService';
+import { buildMarkdownContent, getFilenameBase, ExportStrings, stripMarkdown } from '../archive/services/ArchiveExportService';
 import { toDate } from '../../core/utils/dateUtils';
 
 interface LockedFlags {
@@ -35,15 +35,17 @@ export async function exportAllAsZip(
     const datePrefix = format(date, 'yyyy-MM-dd');
     const base = `${datePrefix}_${getFilenameBase(session, s)}`;
 
-    let name = `${base}.md`;
+    let name = `${base}.txt`;
     let n = 2;
     while (usedNames.has(name)) {
-      name = `${base}_${n}.md`;
+      name = `${base}_${n}.txt`;
       n++;
     }
     usedNames.add(name);
 
-    zip.file(name, buildMarkdownContent(session, s));
+    const mdContent = buildMarkdownContent(session, s);
+    const txtContent = stripMarkdown(mdContent);
+    zip.file(name, txtContent);
     exported++;
   }
 
