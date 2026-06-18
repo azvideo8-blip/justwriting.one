@@ -1,16 +1,23 @@
-import React, { useState, useCallback } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import React, { useState, useCallback, useRef } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 const LoginPage = React.lazy(() => import('../pages/LoginPage').then(m => ({ default: m.LoginPage })));
 import { useLoginModal } from '../contexts/LoginModalContext';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { auth } from '../../../core/firebase/auth';
 import { MigrationPrompt, checkGuestDocuments } from './MigrationPrompt';
+import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
+import { useModalEscape } from '../../../shared/hooks/useModalEscape';
 
 export function LoginModalOverlay({ open }: { open: boolean }) {
   const { closeLoginModal } = useLoginModal();
   const { t } = useLanguage();
   const { showToast } = useToast();
+  const reducedMotion = useReducedMotion();
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(modalRef, open);
+  useModalEscape(open, closeLoginModal);
 
   const [showMigrationPrompt, setShowMigrationPrompt] = useState(false);
   const [localDocCount, setLocalDocCount] = useState(0);
@@ -43,9 +50,13 @@ export function LoginModalOverlay({ open }: { open: boolean }) {
           >
             <motion.div
               data-modal
-              initial={{ scale: 0.95, opacity: 0 }}
+              ref={modalRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label={t('login_title')}
+              initial={reducedMotion ? {} : { scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
+              exit={reducedMotion ? {} : { scale: 0.95, opacity: 0 }}
               className="w-full max-w-sm"
               onClick={e => e.stopPropagation()}
             >

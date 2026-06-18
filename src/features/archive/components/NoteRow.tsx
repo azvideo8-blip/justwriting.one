@@ -187,6 +187,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                 </label>
                 <Input
                   type="date"
+                  aria-label={t('archive_edit_date')}
                   value={dateDraft}
                   onChange={e => setDateDraft(e.target.value)}
                   className="text-[12px] font-mono bg-text-main/5 border border-border-subtle rounded px-2 py-1 outline-none mt-0.5"
@@ -198,6 +199,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                 </label>
                 <Input
                   type="time"
+                  aria-label={t('archive_edit_time')}
                   value={timeDraft}
                   onChange={e => setTimeDraft(e.target.value)}
                   className="text-[12px] font-mono bg-text-main/5 border border-border-subtle rounded px-2 py-1 outline-none mt-0.5"
@@ -267,7 +269,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           )}
           title={aiProcessed ? 'Обработано ИИ (посмотреть чат)' : 'Обработать с помощью ИИ'}
         >
-          {aiLoading ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+          {aiLoading ? <Loader2 size={10} className="animate-spin" aria-hidden="true" /> : <Sparkles size={10} aria-hidden="true" />}
           AI
         </Button>
       </div>
@@ -279,7 +281,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
               onClick={e => { e.stopPropagation(); setActionsSheetOpen(true); }}
               className="w-9 h-9 flex items-center justify-center rounded-lg text-text-main/60 hover:bg-text-main/5 active:bg-text-main/10"
               label={t('archive_note_actions') || 'Actions'}
-              icon={<MoreVertical size={18} />}
+              icon={<MoreVertical size={18} aria-hidden="true" />}
             />
             <AnimatePresence>
               {actionsSheetOpen && (
@@ -302,6 +304,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           <>
             <div className="relative">
               <Button
+                aria-expanded={labelPopupOpen}
                 onClick={e => {
                   e.stopPropagation();
                   e.preventDefault();
@@ -359,12 +362,12 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
             <IconButton onClick={e => { e.stopPropagation(); setTitleDraft(session.title || ''); setEditingTitle(true); }}
               className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/40 md:text-text-main/20 hover:text-text-main/60 hover:bg-text-main/5 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
               label={t('archive_rename_title')}
-              icon={<Pencil size={14} />}
+              icon={<Pencil size={14} aria-hidden="true" />}
             />
             <IconButton onClick={e => { e.stopPropagation(); onOpen(); }}
               className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/40 md:text-text-main/20 hover:text-text-main/60 hover:bg-text-main/5 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
               label={t('archive_preview')}
-              icon={<ExternalLink size={14} />}
+              icon={<ExternalLink size={14} aria-hidden="true" />}
             />
             <StorageIcons
               doc={{
@@ -380,7 +383,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
             <IconButton onClick={e => { e.stopPropagation(); onDelete?.(session); }}
               className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/30 md:text-text-main/25 hover:text-accent-danger hover:bg-accent-danger/5 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
               label={t('archive_delete')}
-              icon={<Trash2 size={14} />}
+              icon={<Trash2 size={14} aria-hidden="true" />}
             />
           </>
         )}

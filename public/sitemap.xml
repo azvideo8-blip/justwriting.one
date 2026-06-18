@@ -5,6 +5,7 @@
     <loc>https://justwriting.one/</loc>
     <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.one/"/>
     <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.one/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://justwriting.one/"/>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>

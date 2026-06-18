@@ -29,16 +29,20 @@ export function SeoHead({ path, titleRu, titleEn, descriptionRu, descriptionEn }
       <link rel="canonical" href={canonicalUrl} />
       <link rel="alternate" hrefLang="ru" href={ruUrl} />
       <link rel="alternate" hrefLang="en" href={enUrl} />
+      <link rel="alternate" hrefLang="x-default" href={SITE_URL} />
 
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
       <meta property="og:url" content={canonicalUrl} />
       <meta property="og:image" content={OG_IMAGE} />
       <meta property="og:locale" content={isRu ? 'ru_RU' : 'en_US'} />
+      <meta property="og:site_name" content="justwriting" />
 
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={OG_IMAGE} />
+      <meta name="twitter:site" content="@justwriting" />
+      <meta name="twitter:creator" content="@justwriting" />
     </Helmet>
   );
 }

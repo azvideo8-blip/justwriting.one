@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Lock, Shield, AlertTriangle, AlertCircle, Loader2, KeyRound, Cloud } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
@@ -7,6 +7,8 @@ import { reportError } from '../../../shared/errors/reportError';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
 import { useAuthStatus } from '../../auth/hooks/useAuthStatus';
+import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
+import { useModalEscape } from '../../../shared/hooks/useModalEscape';
 import {
   initializeEncryption,
   unlockVault,
@@ -30,6 +32,8 @@ const MIN_PASSWORD_LENGTH = 8;
 export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose }: EncryptionPasswordModalProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
+  const reducedMotion = useReducedMotion();
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -38,6 +42,9 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
   const [error, setError] = useState<string | null>(null);
 
   const passwordRef = useRef<HTMLInputElement>(null);
+
+  useFocusTrap(modalRef, mode !== 'none');
+  useModalEscape(mode !== 'none', () => onClose?.());
 
   React.useEffect(() => {
     if (mode !== 'none') {
@@ -176,9 +183,13 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
         onClick={onClose ? () => onClose() : undefined}
       >
         <motion.div
-          initial={{ scale: 0.95, opacity: 0 }}
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="enc-modal-title"
+          initial={reducedMotion ? {} : { scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.95, opacity: 0 }}
+          exit={reducedMotion ? {} : { scale: 0.95, opacity: 0 }}
           className="w-full max-w-[400px] bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
           onClick={(e) => e.stopPropagation()}
         >
@@ -192,7 +203,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
             )}
           </div>
 
-          <h2 className="text-base font-medium text-text-main mb-1">
+          <h2 id="enc-modal-title" className="text-base font-medium text-text-main mb-1">
             {isUnlock && t('enc_unlock_title')}
             {isSetup && t('enc_setup_title')}
             {isChange && t('enc_change_title')}
@@ -206,7 +217,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
           </p>
 
           {error && (
-            <div className="p-3 rounded-lg bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-xs mb-3 flex items-center gap-2">
+            <div role="alert" className="p-3 rounded-lg bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-xs mb-3 flex items-center gap-2">
               <AlertCircle size={14} className="shrink-0" />
               {error}
             </div>
@@ -242,6 +253,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder={isMigrate ? t('enc_migrate_current_password') : t('enc_current_password')}
+                aria-label={isMigrate ? t('enc_migrate_current_password') : t('enc_current_password')}
                 className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/20"
                 required
                 autoFocus={isChange || isMigrate}
@@ -254,6 +266,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder={isUnlock ? '••••••••' : t('enc_new_password_placeholder')}
+              aria-label={isUnlock ? t('unlock_title') : t('enc_new_password_placeholder')}
               className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/20"
               required
               autoFocus={isUnlock || isSetup}
@@ -266,6 +279,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder={t('enc_confirm_password')}
+                aria-label={t('enc_confirm_password')}
                 className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/20"
                 required
                 minLength={MIN_PASSWORD_LENGTH}

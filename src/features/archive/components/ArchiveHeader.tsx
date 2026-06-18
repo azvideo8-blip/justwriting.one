@@ -69,9 +69,10 @@ export function ArchiveHeader({
       </p>
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-[440px]">
-          <Search size={14} className="absolute left-3 top-2.5 text-text-main/30" />
+          <Search size={14} className="absolute left-3 top-2.5 text-text-main/30" aria-hidden="true" />
           <Input
             ref={searchInputRef}
+            aria-label={searchPlaceholder}
             value={searchQuery}
             onChange={e => onSearchChange(e.target.value)}
             placeholder={searchPlaceholder}
@@ -107,7 +108,7 @@ export function ArchiveHeader({
                 />
               )}
               <span className={cn("relative z-10", viewMode === v ? "text-text-main" : "text-text-main/30")}>
-                {v === 'list' ? <LayoutList size={14} /> : <LayoutGrid size={14} />}
+                {v === 'list' ? <LayoutList size={14} aria-hidden="true" /> : <LayoutGrid size={14} aria-hidden="true" />}
               </span>
             </Button>
           ))}
@@ -115,6 +116,7 @@ export function ArchiveHeader({
         <div ref={sortRef} className="relative">
           <Button
             onClick={() => setSortOpen(o => !o)}
+            aria-expanded={sortOpen}
             className={cn(
               "h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-sm transition-colors border",
               sortOpen
@@ -125,7 +127,7 @@ export function ArchiveHeader({
             )}
             title={sortLabels[sortMode]}
           >
-            <ArrowUpDown size={14} />
+            <ArrowUpDown size={14} aria-hidden="true" />
             <span className="hidden sm:inline">{sortLabels[sortMode]}</span>
           </Button>
           {sortOpen && (
@@ -150,6 +152,7 @@ export function ArchiveHeader({
         {onToggleFilters && (
           <Button
             onClick={onToggleFilters}
+            aria-expanded={showFilters}
             className={cn(
               "h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-sm transition-colors border",
               showFilters
@@ -157,7 +160,7 @@ export function ArchiveHeader({
                 : "bg-text-main/[0.03] border-border-subtle text-text-main/40 hover:text-text-main/60"
             )}
           >
-            <Tag size={14} />
+            <Tag size={14} aria-hidden="true" />
             <span className="hidden sm:inline">{toggleFiltersLabel}</span>
           </Button>
         )}
@@ -166,7 +169,7 @@ export function ArchiveHeader({
             onClick={onFilterClick}
             className="md:hidden h-8 px-2.5 rounded-lg flex items-center justify-center border border-border-subtle bg-text-main/[0.03] text-text-main/40 hover:text-text-main/60 active:scale-[0.98] transition-colors cursor-pointer"
             label="Filters"
-            icon={<SlidersHorizontal size={14} />}
+            icon={<SlidersHorizontal size={14} aria-hidden="true" />}
           />
         )}
       </div>

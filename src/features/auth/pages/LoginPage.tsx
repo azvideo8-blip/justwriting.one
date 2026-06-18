@@ -181,6 +181,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/40" size={18} />
                 <Input 
                   type="email"
+                  aria-label={t('auth_email')}
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -196,6 +197,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/40" size={18} />
                 <Input 
                   type="password"
+                  aria-label={t('auth_password')}
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -270,6 +272,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                   <div className="space-y-2 text-left mb-3">
                     <Input
                       type="email"
+                      aria-label={t('auth_email')}
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
                       placeholder={t('auth_email_placeholder')}

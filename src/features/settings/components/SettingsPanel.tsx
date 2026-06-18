@@ -99,37 +99,40 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog, activeTab, setA
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-28 space-y-4">
-        <div
-          id="settings-panel-editor"
-          role="tabpanel"
-          aria-labelledby="settings-tab-editor"
-          hidden={activeTab !== 'editor'}
-          className="contents"
-        >
-          <EditorTab />
-        </div>
-        <div
-          id="settings-panel-app"
-          role="tabpanel"
-          aria-labelledby="settings-tab-app"
-          hidden={activeTab !== 'app'}
-          className="contents"
-        >
-          <AppTab userId={userId} onRefreshLifeLog={onRefreshLifeLog} />
-        </div>
-        <div
-          id="settings-panel-account"
-          role="tabpanel"
-          aria-labelledby="settings-tab-account"
-          hidden={activeTab !== 'account'}
-          className="contents"
-        >
-          <AccountTab userId={userId} />
-        </div>
+        {activeTab === 'editor' && (
+          <div
+            id="settings-panel-editor"
+            role="tabpanel"
+            aria-labelledby="settings-tab-editor"
+          >
+            <EditorTab />
+          </div>
+        )}
+        {activeTab === 'app' && (
+          <div
+            id="settings-panel-app"
+            role="tabpanel"
+            aria-labelledby="settings-tab-app"
+          >
+            <AppTab userId={userId} onRefreshLifeLog={onRefreshLifeLog} />
+          </div>
+        )}
+        {activeTab === 'account' && (
+          <div
+            id="settings-panel-account"
+            role="tabpanel"
+            aria-labelledby="settings-tab-account"
+          >
+            <AccountTab userId={userId} />
+          </div>
+        )}
 
         <div className="pt-6 text-center">
           <span
             onClick={handleVersionTap}
+            tabIndex={0}
+            role="button"
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleVersionTap(); } }}
             className="text-xs text-text-main/20 select-none cursor-default"
           >
             v{APP_VERSION}

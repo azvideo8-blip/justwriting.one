@@ -183,6 +183,9 @@ export function WritingFinishModal({
     )}>
       <motion.div
         ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="finish-modal-title"
         initial={isMobile ? { y: '100%' } : { scale: 0.9, opacity: 0 }}
         animate={isMobile ? { y: 0 } : { scale: 1, opacity: 1 }}
         exit={isMobile ? { y: '100%' } : { scale: 0.95, opacity: 0 }}
@@ -265,7 +268,7 @@ export function WritingFinishModal({
             className="flex-1 flex flex-col overflow-hidden"
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle shrink-0">
-              <h3 className="text-lg font-bold text-text-main">{t('finish_congrats')}</h3>
+              <h3 id="finish-modal-title" className="text-lg font-bold text-text-main">{t('finish_congrats')}</h3>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
