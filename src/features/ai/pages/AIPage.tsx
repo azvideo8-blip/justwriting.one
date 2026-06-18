@@ -193,7 +193,7 @@ export function AIPage() {
                       "px-2.5 py-0.5 rounded-full text-[10px] font-medium border transition-colors",
                       active
                         ? "bg-brand-soft/15 border-brand-soft/30 text-brand-soft"
-                        : "border-border-subtle text-text-main/60 hover:text-text-main/60"
+                        : "border-border-subtle text-text-main/60 hover:text-text-main"
                     )}
                   >
                     {label}
@@ -211,7 +211,7 @@ export function AIPage() {
                   key={p.id}
                   className={cn(
                     "shrink-0 flex items-center rounded-full text-xs font-medium border transition-colors",
-                    on ? "pl-1 pr-1.5 text-text-main" : "pl-3 pr-1.5 text-text-main/60"
+                    on ? "pl-1 pr-1.5 text-text-main" : "pl-3 pr-1.5 text-text-main/60 hover:text-text-main"
                   )}
                   style={on
                     ? { background: `${v.color}1c`, borderColor: `${v.color}55` }
