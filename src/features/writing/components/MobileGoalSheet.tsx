@@ -85,12 +85,12 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
 
         {/* Header */}
         <div className="flex justify-between items-center px-6 pb-3">
-          <span className="text-sm font-bold text-text-main/30 uppercase tracking-widest">
+          <span className="text-sm font-bold text-text-main/60 uppercase tracking-widest">
             {t('settings_goals') || 'Цели'}
           </span>
           <IconButton
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/[0.04] border-none flex items-center justify-center text-text-main/40 hover:text-text-main/70 cursor-pointer"
+            className="w-8 h-8 rounded-full bg-white/[0.04] border-none flex items-center justify-center text-text-main/60 hover:text-text-main/70 cursor-pointer"
             label={t('close')}
             icon={<X size={18} />}
           />

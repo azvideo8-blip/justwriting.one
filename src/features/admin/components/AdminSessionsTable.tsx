@@ -31,11 +31,11 @@ export function AdminSessionsTable({ sessions, onDelete, onProcess, onRead }: Ad
     <table className="w-full text-left border-collapse">
       <thead>
         <tr className="border-b bg-surface-base/5 border-border-subtle">
-          <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/50">{t('admin_col_title')}</th>
-          <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/50">{t('admin_col_author')}</th>
-          <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/50">{t('admin_col_date')}</th>
-          <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/50">AI</th>
-          <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/50">{t('admin_col_actions')}</th>
+          <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/60">{t('admin_col_title')}</th>
+          <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/60">{t('admin_col_author')}</th>
+          <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/60">{t('admin_col_date')}</th>
+          <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/60">AI</th>
+          <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/60">{t('admin_col_actions')}</th>
         </tr>
       </thead>
       <tbody>
@@ -43,17 +43,17 @@ export function AdminSessionsTable({ sessions, onDelete, onProcess, onRead }: Ad
           <tr key={s.id} className="border-b last:border-0 border-border-subtle">
             <td className="px-6 py-4 text-sm font-medium text-text-main">{s.title || t('common_untitled')}</td>
              <td className="px-6 py-4 text-sm text-text-main/70">{s.userId?.slice(0, 8) || t('common_anonymous')}</td>
-            <td className="px-6 py-4 text-sm text-text-main/50">
+            <td className="px-6 py-4 text-sm text-text-main/60">
               {s.createdAt != null ? format(parseFirestoreDate(s.createdAt)!, 'dd.MM.yyyy HH:mm') : '-'}
             </td>
             <td className="px-6 py-4">
               {s._aiProcessed ? (
                 <div className="flex items-center gap-1.5">
                   <Check size={14} className="text-emerald-500" />
-                  <span className="text-[10px] text-text-main/40">{s._aiAction}</span>
+                  <span className="text-[10px] text-text-main/60">{s._aiAction}</span>
                   <IconButton
                     onClick={() => onRead(s._aiResultText ?? '')}
-                    className="p-1 rounded text-text-main/40 hover:text-text-main transition-colors"
+                    className="p-1 rounded text-text-main/60 hover:text-text-main transition-colors"
                     label="Прочитать"
                     icon={<Eye size={14} />}
                   />
@@ -63,7 +63,7 @@ export function AdminSessionsTable({ sessions, onDelete, onProcess, onRead }: Ad
               ) : (
                 <IconButton
                   onClick={() => void handleProcess(s.id, s.content)}
-                  className="p-1 rounded text-text-main/30 hover:text-brand-soft transition-colors"
+                  className="p-1 rounded text-text-main/60 hover:text-brand-soft transition-colors"
                   label="Обработать"
                   icon={<Sparkles size={14} />}
                 />
@@ -72,7 +72,7 @@ export function AdminSessionsTable({ sessions, onDelete, onProcess, onRead }: Ad
             <td className="px-6 py-4">
               <IconButton
                 onClick={() => onDelete(s.id)}
-                className="p-3 transition-colors text-text-main/40 hover:text-accent-danger"
+                className="p-3 transition-colors text-text-main/60 hover:text-accent-danger"
                 label="Delete session"
                 icon={<Trash2 size={18} />}
               />

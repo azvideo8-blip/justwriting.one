@@ -20,7 +20,7 @@ export function AboutPage() {
       />
       <Button
         onClick={() => void navigate(-1)}
-        className="flex items-center gap-2 text-text-main/40 hover:text-text-main/60 text-sm mb-8 transition-colors"
+        className="flex items-center gap-2 text-text-main/60 hover:text-text-main/60 text-sm mb-8 transition-colors"
       >
         <ArrowLeft size={16} />
         {t('writing_back')}
@@ -31,7 +31,7 @@ export function AboutPage() {
           J
         </div>
         <h1 className="text-xl font-bold text-text-main mb-1">justwriting</h1>
-        <p className="text-sm text-text-main/40">{t('about_subtitle')}</p>
+        <p className="text-sm text-text-main/60">{t('about_subtitle')}</p>
       </div>
 
       <div className="space-y-4">
@@ -42,19 +42,19 @@ export function AboutPage() {
         </div>
 
         <div className="bg-surface-card/50 border border-border-subtle rounded-2xl p-5 flex items-center gap-3">
-          <Heart size={16} className="text-text-main/30 shrink-0" />
-          <p className="text-sm text-text-main/50">
+          <Heart size={16} className="text-text-main/60 shrink-0" />
+          <p className="text-sm text-text-main/60">
             {t('about_made_with_love')}
           </p>
         </div>
 
         <div className="bg-surface-card/50 border border-border-subtle rounded-2xl p-5 space-y-3">
           <Link to="/privacy" className="flex items-center gap-3 text-sm text-text-main/60 hover:text-text-main transition-colors">
-            <Shield size={16} className="text-text-main/30 shrink-0" />
+            <Shield size={16} className="text-text-main/60 shrink-0" />
             {isRu ? 'Политика конфиденциальности' : 'Privacy Policy'}
           </Link>
           <Link to="/terms" className="flex items-center gap-3 text-sm text-text-main/60 hover:text-text-main transition-colors">
-            <FileText size={16} className="text-text-main/30 shrink-0" />
+            <FileText size={16} className="text-text-main/60 shrink-0" />
             {isRu ? 'Условия использования' : 'Terms of Service'}
           </Link>
         </div>

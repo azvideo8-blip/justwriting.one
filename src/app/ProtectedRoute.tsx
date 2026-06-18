@@ -16,13 +16,13 @@ export function ProtectedRoute({ children, requireAdmin }: { children: React.Rea
   if (!isAuthenticated) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 p-8">
-        <div className="w-12 h-12 rounded-full flex items-center justify-center bg-text-main/10 text-text-main/40">
+        <div className="w-12 h-12 rounded-full flex items-center justify-center bg-text-main/10 text-text-main/60">
           <LogIn size={24} />
         </div>
         <div className="text-lg font-medium text-text-main/70">
           {t('auth_required_title')}
         </div>
-        <div className="text-sm text-text-main/40 text-center max-w-xs">
+        <div className="text-sm text-text-main/60 text-center max-w-xs">
           {t('auth_required_hint')}
         </div>
         <Button
@@ -38,7 +38,7 @@ export function ProtectedRoute({ children, requireAdmin }: { children: React.Rea
   if (requireAdmin && !profile) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 size={24} className="animate-spin text-text-main/30" />
+        <Loader2 size={24} className="animate-spin text-text-main/60" />
       </div>
     );
   }

@@ -88,7 +88,7 @@ export function DiagnosticsPage() {
         </h2>
         <IconButton 
           onClick={() => void navigate('/')} 
-          className="p-2 rounded-lg text-text-main/40 hover:text-text-main hover:bg-surface-base/10 transition-colors"
+          className="p-2 rounded-lg text-text-main/60 hover:text-text-main hover:bg-surface-base/10 transition-colors"
           label="Close"
           icon={<X size={18} />}
         />
@@ -100,7 +100,7 @@ export function DiagnosticsPage() {
           onClick={() => setActiveTab('sync')}
           className={cn(
             "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
-            activeTab === 'sync' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/50 hover:text-text-main"
+            activeTab === 'sync' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
           Синхронизация
@@ -109,7 +109,7 @@ export function DiagnosticsPage() {
           onClick={() => setActiveTab('db')}
           className={cn(
             "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
-            activeTab === 'db' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/50 hover:text-text-main"
+            activeTab === 'db' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
           База данных
@@ -118,7 +118,7 @@ export function DiagnosticsPage() {
           onClick={() => setActiveTab('users')}
           className={cn(
             "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
-            activeTab === 'users' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/50 hover:text-text-main"
+            activeTab === 'users' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
           Пользователи
@@ -127,7 +127,7 @@ export function DiagnosticsPage() {
           onClick={() => setActiveTab('ai_usage')}
           className={cn(
             "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
-            activeTab === 'ai_usage' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/50 hover:text-text-main"
+            activeTab === 'ai_usage' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
           Статистика AI
@@ -136,7 +136,7 @@ export function DiagnosticsPage() {
           onClick={() => setActiveTab('ai_profile')}
           className={cn(
             "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
-            activeTab === 'ai_profile' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/50 hover:text-text-main"
+            activeTab === 'ai_profile' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
           Профиль AI
@@ -145,7 +145,7 @@ export function DiagnosticsPage() {
           onClick={() => setActiveTab('stats')}
           className={cn(
             "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
-            activeTab === 'stats' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/50 hover:text-text-main"
+            activeTab === 'stats' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
           Система
@@ -163,7 +163,7 @@ export function DiagnosticsPage() {
               <div className="p-5 rounded-2xl border border-border-subtle bg-surface-base/5 space-y-3">
                 <div>
                   <h3 className="text-sm font-semibold text-text-main">Выгрузка всех данных</h3>
-                  <p className="text-xs text-text-main/40 mt-1">Отправляет все локальные несинхронизированные заметки в Cloud Firestore.</p>
+                  <p className="text-xs text-text-main/60 mt-1">Отправляет все локальные несинхронизированные заметки в Cloud Firestore.</p>
                 </div>
                 <Button
                   onClick={() => void handleSyncAllToCloud()}
@@ -178,7 +178,7 @@ export function DiagnosticsPage() {
               <div className="p-5 rounded-2xl border border-border-subtle bg-surface-base/5 space-y-3">
                 <div>
                   <h3 className="text-sm font-semibold text-text-main">Импорт из облака</h3>
-                  <p className="text-xs text-text-main/40 mt-1">Скачивает все резервные копии заметок из облака в локальный кэш IndexedDB.</p>
+                  <p className="text-xs text-text-main/60 mt-1">Скачивает все резервные копии заметок из облака в локальный кэш IndexedDB.</p>
                 </div>
                 <Button
                   onClick={() => void handleImportAllFromCloud()}
@@ -304,7 +304,7 @@ export function DiagnosticsPage() {
               {/* Model switcher */}
               <div className="p-4 rounded-2xl border border-border-subtle bg-surface-base/5">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-[10px] font-bold text-text-main/40 uppercase tracking-wider">Активная модель</h4>
+                  <h4 className="text-[10px] font-bold text-text-main/60 uppercase tracking-wider">Активная модель</h4>
                   {currentAIModel && (
                     <span className="text-[10px] font-mono text-brand-soft bg-brand-soft/10 px-2 py-0.5 rounded-full">
                       {currentAIModel.split('/').pop()}
@@ -333,23 +333,23 @@ export function DiagnosticsPage() {
                         )}
                       >
                         <span className="font-bold text-xs">{m.label}</span>
-                        <span className={cn("font-mono", isActive ? "text-brand-soft" : "text-text-main/40")}>{m.price} / 1M</span>
-                        <span className={cn(isActive ? "text-text-main/50" : "text-text-main/30")}>{m.badge}{isActive ? ' · активна' : ''}</span>
+                        <span className={cn("font-mono", isActive ? "text-brand-soft" : "text-text-main/60")}>{m.price} / 1M</span>
+                        <span className={cn(isActive ? "text-text-main/60" : "text-text-main/60")}>{m.badge}{isActive ? ' · активна' : ''}</span>
                       </Button>
                     );
                   })}
-                  {modelSwitching && <Loader2 size={14} className="animate-spin self-center text-text-main/30" />}
+                  {modelSwitching && <Loader2 size={14} className="animate-spin self-center text-text-main/60" />}
                 </div>
-                <p className="text-[10px] text-text-main/30 mt-2">Применяется ко всем AI-функциям (чат, саммари, редактура). Vercel /api/chat обновится в течение 60 сек.</p>
+                <p className="text-[10px] text-text-main/60 mt-2">Применяется ко всем AI-функциям (чат, саммари, редактура). Vercel /api/chat обновится в течение 60 сек.</p>
               </div>
 
               {/* Pricing table */}
               <div className="p-4 rounded-2xl border border-border-subtle bg-surface-base/5">
-                <h4 className="text-[10px] font-bold text-text-main/40 uppercase tracking-wider mb-3">Тарифы (цены актуальны на дату поставки · docs.fireworks.ai, ai.google.dev)</h4>
+                <h4 className="text-[10px] font-bold text-text-main/60 uppercase tracking-wider mb-3">Тарифы (цены актуальны на дату поставки · docs.fireworks.ai, ai.google.dev)</h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs border-collapse">
                     <thead>
-                      <tr className="text-text-main/40 text-[10px] uppercase tracking-wider">
+                      <tr className="text-text-main/60 text-[10px] uppercase tracking-wider">
                         <th className="text-left pb-2 pr-4 font-bold">Модель</th>
                         <th className="text-right pb-2 pr-4 font-bold">Вход / 1M</th>
                         <th className="text-right pb-2 pr-4 font-bold">Выход / 1M</th>
@@ -370,18 +370,18 @@ export function DiagnosticsPage() {
                         return (
                           <tr key={r.key} className={cn("border-t border-border-subtle/40", isSelected && "bg-brand-soft/5")}>
                             <td className="py-2 pr-4 text-text-main/80 font-medium">
-                              {r.name} <span className="text-text-main/30">({r.provider})</span>
+                              {r.name} <span className="text-text-main/60">({r.provider})</span>
                             </td>
                             <td className="py-2 pr-4 text-right font-mono text-text-main/70">${r.inP}</td>
                             <td className="py-2 pr-4 text-right font-mono text-text-main/70">${r.outP}</td>
-                            <td className="py-2 text-right font-mono text-text-main/50">≈${estCost.toFixed(4)}</td>
+                            <td className="py-2 text-right font-mono text-text-main/60">≈${estCost.toFixed(4)}</td>
                           </tr>
                         );
                       })}
                     </tbody>
                   </table>
                 </div>
-                <p className="text-[10px] text-text-main/30 mt-2">Выбранная модель выше используется для расчёта стоимости в таблице пользователей. Для новых запросов модель определяется из события.</p>
+                <p className="text-[10px] text-text-main/60 mt-2">Выбранная модель выше используется для расчёта стоимости в таблице пользователей. Для новых запросов модель определяется из события.</p>
               </div>
 
               {/* Usage limits bar */}
@@ -400,8 +400,8 @@ export function DiagnosticsPage() {
                 return (
                   <div className="p-4 rounded-2xl border border-border-subtle bg-surface-base/5 space-y-3">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-[10px] font-bold text-text-main/40 uppercase tracking-wider">Лимиты {isToday ? '— сегодня' : `— ${aiUsageDate}`}</h4>
-                      <span className="text-[10px] text-text-main/30">лимит на пользователя: {aiLimits.perUserDaily}/день</span>
+                      <h4 className="text-[10px] font-bold text-text-main/60 uppercase tracking-wider">Лимиты {isToday ? '— сегодня' : `— ${aiUsageDate}`}</h4>
+                      <span className="text-[10px] text-text-main/60">лимит на пользователя: {aiLimits.perUserDaily}/день</span>
                     </div>
                     {metrics.map(m => {
                       const pct = m.cap > 0 ? Math.min(100, (m.used / m.cap) * 100) : 0;
@@ -411,10 +411,10 @@ export function DiagnosticsPage() {
                       return (
                         <div key={m.label} className="space-y-1">
                           <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-text-main/50">{m.label}</span>
+                            <span className="text-text-main/60">{m.label}</span>
                             <span className="font-mono text-text-main/70">
                               {m.used.toLocaleString()} / {m.cap.toLocaleString()}{' '}
-                              <span className={cn(over ? 'text-accent-danger' : warn ? 'text-amber-400' : 'text-text-main/40')}>
+                              <span className={cn(over ? 'text-accent-danger' : warn ? 'text-amber-400' : 'text-text-main/60')}>
                                 ({pct < 10 ? pct.toFixed(1) : pct.toFixed(0)}%{over ? ' !' : ''})
                               </span>
                             </span>
@@ -436,7 +436,7 @@ export function DiagnosticsPage() {
                   value={aiSearchQuery}
                   onChange={e => setAiSearchQuery(e.target.value)}
                   placeholder="Поиск по email / никнейму / uid..."
-                  className="flex-1 min-w-[200px] px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main placeholder:text-text-main/30 outline-none"
+                  className="flex-1 min-w-[200px] px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main placeholder:text-text-main/40 outline-none"
                 />
                 <div className="flex items-center gap-2">
                   <input
@@ -444,7 +444,7 @@ export function DiagnosticsPage() {
                     value={manualResetUid}
                     onChange={e => setManualResetUid(e.target.value)}
                     placeholder="UID для сброса лимита..."
-                    className="px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main placeholder:text-text-main/30 outline-none w-52"
+                    className="px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main placeholder:text-text-main/40 outline-none w-52"
                   />
                   <Button
                     onClick={() => {
@@ -464,7 +464,7 @@ export function DiagnosticsPage() {
               <div className="rounded-2xl border border-border-subtle bg-surface-card/10 overflow-hidden">
                 <table className="w-full text-xs text-left border-collapse">
                   <thead>
-                    <tr className="border-b bg-surface-base/5 border-border-subtle text-text-main/40 font-bold uppercase tracking-wider text-[10px]">
+                    <tr className="border-b bg-surface-base/5 border-border-subtle text-text-main/60 font-bold uppercase tracking-wider text-[10px]">
                       <th className="py-3 px-4 w-6"></th>
                       <th className="py-3 px-4">Пользователь</th>
                       <th className="py-3 px-4 text-right">Запросы</th>
@@ -489,7 +489,7 @@ export function DiagnosticsPage() {
                             className="border-b border-border-subtle/40 hover:bg-text-main/[0.02] cursor-pointer"
                             onClick={() => void fetchUserEvents(row.uid)}
                           >
-                            <td className="py-2.5 px-4 text-text-main/30">
+                            <td className="py-2.5 px-4 text-text-main/60">
                               {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                             </td>
                             <td className="py-2.5 px-4 text-text-main/80 font-medium" title={row.uid}>{displayName}</td>
@@ -512,15 +512,15 @@ export function DiagnosticsPage() {
                             <tr className="border-b border-border-subtle/40 bg-surface-base/5">
                               <td colSpan={7} className="px-4 py-3">
                                 {userEventsLoading ? (
-                                  <div className="flex items-center gap-2 text-text-main/40 text-xs py-1">
+                                  <div className="flex items-center gap-2 text-text-main/60 text-xs py-1">
                                     <Loader2 size={12} className="animate-spin" /> Загрузка событий…
                                   </div>
                                 ) : userEvents.length === 0 ? (
-                                  <p className="text-text-main/30 text-xs py-1 italic">Нет событий за выбранную дату (данные записываются с текущей версии)</p>
+                                  <p className="text-text-main/60 text-xs py-1 italic">Нет событий за выбранную дату (данные записываются с текущей версии)</p>
                                 ) : (
                                   <table className="w-full text-[11px] border-collapse">
                                     <thead>
-                                      <tr className="text-text-main/30 text-[10px] uppercase tracking-wider">
+                                      <tr className="text-text-main/60 text-[10px] uppercase tracking-wider">
                                         <th className="text-left pb-1.5 pr-4 font-bold">Время</th>
                                         <th className="text-left pb-1.5 pr-4 font-bold">Функция</th>
                                         <th className="text-left pb-1.5 pr-4 font-bold">Модель</th>
@@ -534,11 +534,11 @@ export function DiagnosticsPage() {
                                         const evCost = ev.tokensIn * pricing.in + ev.tokensOut * pricing.out;
                                         return (
                                           <tr key={ev.id} className="border-t border-border-subtle/20">
-                                            <td className="py-1.5 pr-4 font-mono text-text-main/40">
+                                            <td className="py-1.5 pr-4 font-mono text-text-main/60">
                                               {ev.ts ? new Date(ev.ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'}
                                             </td>
                                             <td className="py-1.5 pr-4 text-text-main/60">{fnLabel(ev.fn)}</td>
-                                            <td className="py-1.5 pr-4 text-text-main/50">{modelLabel(ev.model)}</td>
+                                            <td className="py-1.5 pr-4 text-text-main/60">{modelLabel(ev.model)}</td>
                                             <td className="py-1.5 pr-4 text-right font-mono text-text-main/60">{ev.tokensIn.toLocaleString()}</td>
                                             <td className="py-1.5 pr-4 text-right font-mono text-text-main/60">{ev.tokensOut.toLocaleString()}</td>
                                             <td className="py-1.5 text-right font-mono text-text-main/70">${evCost.toFixed(5)}</td>
@@ -572,7 +572,7 @@ export function DiagnosticsPage() {
               </div>
 
               {aiUsage.length === 0 && !aiUsageLoading && (
-                <div className="py-12 text-center text-xs text-text-main/25">Нет данных об AI-активности за выбранную дату</div>
+                <div className="py-12 text-center text-xs text-text-main/60">Нет данных об AI-активности за выбранную дату</div>
               )}
             </div>
           );
@@ -587,7 +587,7 @@ export function DiagnosticsPage() {
 
             <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden">
               <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
-                <span className="text-xs font-bold text-text-main/50 uppercase tracking-wider">Психологический портрет пользователя</span>
+                <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider">Психологический портрет пользователя</span>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <Button
                     onClick={() => void handleGeneratePortrait()}
@@ -611,7 +611,7 @@ export function DiagnosticsPage() {
                 {portraitText ? (
                   <MarkdownRenderer content={portraitText} />
                 ) : (
-                  <span className="italic text-text-main/25">Портрет ещё не создан — нажмите «Сгенерировать» (нужно ≥3 проанализированных заметок)</span>
+                  <span className="italic text-text-main/60">Портрет ещё не создан — нажмите «Сгенерировать» (нужно ≥3 проанализированных заметок)</span>
                 )}
               </div>
             </div>
@@ -619,12 +619,12 @@ export function DiagnosticsPage() {
             {summaryLogs.length > 0 && (
               <div className="rounded-2xl border border-border-subtle overflow-hidden">
                 <div className="px-5 py-3 border-b border-border-subtle bg-surface-base/5">
-                  <span className="text-xs font-bold text-text-main/50 uppercase tracking-wider">История обработки заметок ИИ</span>
+                  <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider">История обработки заметок ИИ</span>
                 </div>
                 <div className="divide-y divide-border-subtle/50 text-xs">
                   {summaryLogs.map(log => (
                     <div key={log.id} className="px-5 py-3 flex items-center gap-3 hover:bg-text-main/[0.01]">
-                      <span className="text-[10px] font-mono text-text-main/30">{new Date(log.processedAt).toLocaleString('ru-RU')}</span>
+                      <span className="text-[10px] font-mono text-text-main/60">{new Date(log.processedAt).toLocaleString('ru-RU')}</span>
                       <span className="text-xs text-text-main/70 truncate flex-1 font-medium">«{log.title}»</span>
                       <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-brand-soft/10 text-brand-soft">{log.tone}</span>
                     </div>
@@ -666,7 +666,7 @@ export function DiagnosticsPage() {
                   { label: 'Лимит ИИ за сутки', value: `${dailyLimit.used} / ${dailyLimit.limit} запросов` }
                 ].map(r => (
                   <div key={r.label} className="flex items-center justify-between p-4 rounded-xl border border-border-subtle bg-surface-base/5">
-                    <span className="text-xs text-text-main/50 font-medium">{r.label}</span>
+                    <span className="text-xs text-text-main/60 font-medium">{r.label}</span>
                     <span className="text-xs font-mono font-bold text-text-main">{r.value}</span>
                   </div>
                 ))}

@@ -103,11 +103,11 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
           <Mono color={persona.color} mono={persona.mono} />
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-bold text-text-main truncate">{persona.name}</h3>
-            <span className="text-[11px] text-text-main/40">
+            <span className="text-[11px] text-text-main/60">
               {persona.isPreset ? 'Встроенная персона' : 'Ваша персона'}
             </span>
           </div>
-          <IconButton onClick={onClose} className="p-1.5 rounded-lg text-text-main/40 hover:text-text-main transition-colors" label={t('close')} icon={<X size={18} />} />
+          <IconButton onClick={onClose} className="p-1.5 rounded-lg text-text-main/60 hover:text-text-main transition-colors" label={t('close')} icon={<X size={18} />} />
         </div>
 
         <div className="p-5 space-y-4">
@@ -115,48 +115,48 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
             <>
               {presetDescription && (
                 <div>
-                  <label className="text-xs font-medium text-text-main/50 uppercase tracking-wide mb-1.5 block">Описание</label>
+                  <label className="text-xs font-medium text-text-main/60 uppercase tracking-wide mb-1.5 block">Описание</label>
                   <p className="text-sm text-text-main/70 leading-relaxed">{presetDescription}</p>
                 </div>
               )}
               <div>
-                <label className="text-xs font-medium text-text-main/50 uppercase tracking-wide mb-1.5 block">System prompt</label>
+                <label className="text-xs font-medium text-text-main/60 uppercase tracking-wide mb-1.5 block">System prompt</label>
                 <div className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-xs text-text-main/60 leading-relaxed whitespace-pre-wrap max-h-72 overflow-y-auto">
                   {presetPrompt}
                 </div>
-                <p className="text-[10px] text-text-main/30 mt-1.5">Промпт встроенной персоны изменить нельзя.</p>
+                <p className="text-[10px] text-text-main/60 mt-1.5">Промпт встроенной персоны изменить нельзя.</p>
               </div>
             </>
           ) : (
             <>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-medium text-text-main/50 uppercase tracking-wide">Имя</label>
-                  <span className="text-[10px] font-mono text-text-main/25">{name.length}/30</span>
+                  <label className="text-xs font-medium text-text-main/60 uppercase tracking-wide">Имя</label>
+                  <span className="text-[10px] font-mono text-text-main/60">{name.length}/30</span>
                 </div>
                 <Input
                   value={name}
                   onChange={e => setName(e.target.value.slice(0, 30))}
-                  className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40"
+                  className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/40 outline-none focus:border-brand-soft/40"
                 />
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-medium text-text-main/50 uppercase tracking-wide">System prompt</label>
-                  <span className="text-[10px] font-mono text-text-main/25">{prompt.length}/500</span>
+                  <label className="text-xs font-medium text-text-main/60 uppercase tracking-wide">System prompt</label>
+                  <span className="text-[10px] font-mono text-text-main/60">{prompt.length}/500</span>
                 </div>
                 <Textarea
                   value={prompt}
                   onChange={e => setPrompt(e.target.value.slice(0, 500))}
                   rows={5}
-                  className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40 resize-none"
+                  className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/40 outline-none focus:border-brand-soft/40 resize-none"
                 />
                 {(clientError || error) && <p className="text-xs text-accent-danger mt-1">{clientError || error}</p>}
               </div>
               <div className="flex items-center gap-2">
                 <IconButton
                   onClick={() => void handleDelete()}
-                  className="px-3 py-2.5 rounded-xl border border-border-subtle text-text-main/50 hover:text-accent-danger hover:border-accent-danger/30 transition-colors flex items-center justify-center"
+                  className="px-3 py-2.5 rounded-xl border border-border-subtle text-text-main/60 hover:text-accent-danger hover:border-accent-danger/30 transition-colors flex items-center justify-center"
                   title="Удалить персону"
                   label="Удалить персону"
                   icon={<Trash2 size={16} />}

@@ -175,14 +175,14 @@ export function MobileStorageActionsSheet({
 
         {/* Header */}
         <div className="flex justify-between items-center px-6 pb-3">
-          <span className="text-sm font-bold text-text-main/30 uppercase tracking-widest">
+          <span className="text-sm font-bold text-text-main/60 uppercase tracking-widest">
             {t('storage_title') || 'Управление хранилищем'}
           </span>
           <IconButton
             icon={<X size={18} />}
             label={t('common_close')}
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/[0.04] text-text-main/40 hover:text-text-main/70"
+            className="w-8 h-8 rounded-full bg-white/[0.04] text-text-main/60 hover:text-text-main/70"
           />
         </div>
 
@@ -191,13 +191,13 @@ export function MobileStorageActionsSheet({
           <div className="text-base font-bold text-text-main truncate mb-1">
             {session.title || t('common_untitled') || 'Без названия'}
           </div>
-          <div className="flex items-center gap-4 text-xs text-text-main/40">
+          <div className="flex items-center gap-4 text-xs text-text-main/60">
             <div className="flex items-center gap-1">
-              <HardDrive size={12} className={doc.hasLocal ? "text-brand-primary" : "text-text-main/20"} />
+              <HardDrive size={12} className={doc.hasLocal ? "text-brand-primary" : "text-text-main/60"} />
               <span>{doc.hasLocal ? (t('storage_local') || 'Локально') : (t('storage_no_local') || 'Нет на устройстве')}</span>
             </div>
             <div className="flex items-center gap-1">
-              <Cloud size={12} className={doc.hasCloud ? (doc.hasPendingSync ? "text-amber-500" : "text-blue-400") : "text-text-main/20"} />
+              <Cloud size={12} className={doc.hasCloud ? (doc.hasPendingSync ? "text-amber-500" : "text-blue-400") : "text-text-main/60"} />
               <span>
                 {doc.hasPendingSync
                   ? (t('storage_sync_pending') || 'Ожидает синхронизации')
@@ -302,7 +302,7 @@ export function MobileStorageActionsSheet({
               variant="ghost"
               size="md"
               onClick={onClose}
-              className="w-full min-h-[48px] py-3 rounded-2xl font-semibold text-sm bg-white/[0.04] text-text-main/50 text-center active:scale-[0.98]"
+              className="w-full min-h-[48px] py-3 rounded-2xl font-semibold text-sm bg-white/[0.04] text-text-main/60 text-center active:scale-[0.98]"
             >
               {t('common_cancel') || 'Отмена'}
             </Button>

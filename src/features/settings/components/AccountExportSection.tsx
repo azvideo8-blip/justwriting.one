@@ -65,7 +65,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
             </>
           ) : (
             <>
-              <Download size={16} className="text-text-main/40" />
+              <Download size={16} className="text-text-main/60" />
               {t('settings_export_all_button')}
             </>
           )}

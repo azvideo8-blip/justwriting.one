@@ -43,7 +43,7 @@ export function ArchiveLabelBar({
 
   return (
     <div className="flex items-center gap-2 py-3 flex-wrap border-b border-border-subtle" >
-      <span className="font-mono text-[9px] text-text-main/25 uppercase tracking-widest mr-1">
+      <span className="font-mono text-[9px] text-text-main/60 uppercase tracking-widest mr-1">
         {t('archive_labels')}
       </span>
       {labels.map(label => {
@@ -77,7 +77,7 @@ export function ArchiveLabelBar({
                 className="text-label font-medium text-text-main/60 hover:text-text-main disabled:opacity-30">
                 {t('common_save')}
               </Button>
-              <Button onClick={() => setEditingLabelId(null)} className="text-label text-text-main/30 hover:text-text-main/50">✕</Button>
+              <Button onClick={() => setEditingLabelId(null)} className="text-label text-text-main/60 hover:text-text-main/60">✕</Button>
             </div>
           );
         }
@@ -87,7 +87,7 @@ export function ArchiveLabelBar({
               onClick={() => onToggleLabel(label.id)}
               className={cn(
                  "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono transition-colors border",
-                active ? "border-transparent text-white" : "bg-transparent border-border-subtle text-text-main/50 hover:text-text-main/70"
+                active ? "border-transparent text-white" : "bg-transparent border-border-subtle text-text-main/60 hover:text-text-main/70"
               )}
               style={active ? { background: label.color, borderColor: label.color, boxShadow: `0 0 12px color-mix(in srgb, ${label.color} 45%, transparent)` } : {}}
             >
@@ -98,13 +98,13 @@ export function ArchiveLabelBar({
               <span className="hidden md:flex absolute -top-1.5 -right-1.5 opacity-0 group-hover/label:opacity-100 transition-opacity gap-0.5">
                 <IconButton
                   onClick={e => { e.stopPropagation(); setEditingLabelId(label.id); setEditLabelName(label.name); setEditLabelColor(label.color); }}
-                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/50 hover:text-text-main"
+                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/60 hover:text-text-main"
                   label="Rename"
                   icon={<Pencil className="w-1.5 h-1.5" />}
                 />
                 <IconButton
                   onClick={e => { e.stopPropagation(); onDeleteLabel(label.id); }}
-                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/50 hover:text-accent-danger"
+                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/60 hover:text-accent-danger"
                   label="Delete"
                   icon={<X className="w-1.5 h-1.5" />}
                 />
@@ -116,7 +116,7 @@ export function ArchiveLabelBar({
       {selectedLabels.length > 0 && (
         <Button
           onClick={() => selectedLabels.forEach(id => onToggleLabel(id))}
-           className="px-2 py-0.5 rounded-full text-[10px] font-mono border border-dashed border-border-subtle text-text-main/30 hover:text-text-main/50 transition-colors"
+           className="px-2 py-0.5 rounded-full text-[10px] font-mono border border-dashed border-border-subtle text-text-main/60 hover:text-text-main/60 transition-colors"
         >
           {t('archive_tags_reset')} ✕
         </Button>
@@ -124,7 +124,7 @@ export function ArchiveLabelBar({
       {showControls && !addingLabel && !editingLabelId && (
         <Button
           onClick={() => setAddingLabel(true)}
-           className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-text-main/30 hover:text-text-main/50 border border-dashed border-border-subtle transition-colors"
+           className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-text-main/60 hover:text-text-main/60 border border-dashed border-border-subtle transition-colors"
         >
           + {t('archive_add_label')}
         </Button>
@@ -136,7 +136,7 @@ export function ArchiveLabelBar({
             onChange={e => setNewLabelName(e.target.value)}
             placeholder={t('archive_label_name_placeholder')}
             autoFocus
-            className="w-28 bg-transparent text-[12px] text-text-main outline-none placeholder:text-text-main/25"
+            className="w-28 bg-transparent text-[12px] text-text-main outline-none placeholder:text-text-main/40"
             onKeyDown={e => {
               if (e.key === 'Enter') onAddLabel();
               if (e.key === 'Escape') { setAddingLabel(false); setNewLabelName(''); }
@@ -155,7 +155,7 @@ export function ArchiveLabelBar({
             <div className="relative">
               <input type="color" defaultValue={newLabelColor} onChange={e => setNewLabelColor(e.target.value)} className="sr-only" id="new-label-color" />
               <label htmlFor="new-label-color"
-                className={cn("w-4 h-4 rounded-full border border-dashed border-border-subtle flex items-center justify-center cursor-pointer text-[9px] text-text-main/40 hover:border-text-main/40",
+                className={cn("w-4 h-4 rounded-full border border-dashed border-border-subtle flex items-center justify-center cursor-pointer text-[9px] text-text-main/60 hover:border-text-main/40",
                   !LABEL_PRESET_COLORS.includes(newLabelColor) && "ring-2 ring-offset-1 ring-offset-surface-card"
                 )}
                 style={!LABEL_PRESET_COLORS.includes(newLabelColor) ? { background: newLabelColor } : {}}
@@ -172,7 +172,7 @@ export function ArchiveLabelBar({
             {t('common_save')}
           </Button>
           <Button onClick={() => { setAddingLabel(false); setNewLabelName(''); }}
-            className="text-label-sm text-text-main/30 hover:text-text-main/50 transition-colors">
+            className="text-label-sm text-text-main/60 hover:text-text-main/60 transition-colors">
             ✕
           </Button>
         </div>

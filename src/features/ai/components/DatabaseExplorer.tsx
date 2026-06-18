@@ -214,7 +214,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
             onClick={() => setSource('local')}
             className={cn(
               "flex-1 py-1.5 rounded-lg transition-all duration-200",
-              source === 'local' ? "bg-surface-base/20 text-text-main shadow-sm" : "text-text-main/50 hover:text-text-main"
+              source === 'local' ? "bg-surface-base/20 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
             )}
           >
             Локальная БД (IndexedDB)
@@ -223,7 +223,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
             onClick={() => setSource('firestore')}
             className={cn(
               "flex-1 py-1.5 rounded-lg transition-all duration-200",
-              source === 'firestore' ? "bg-surface-base/20 text-text-main shadow-sm" : "text-text-main/50 hover:text-text-main"
+              source === 'firestore' ? "bg-surface-base/20 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
             )}
           >
             Firestore
@@ -232,7 +232,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
 
         {/* Dropdown */}
         <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold text-text-main/40 tracking-wider">Таблица / Коллекция</label>
+          <label className="text-[10px] uppercase font-bold text-text-main/60 tracking-wider">Таблица / Коллекция</label>
           <select
             value={selectedTable}
             onChange={(e) => setSelectedTable(e.target.value)}
@@ -248,25 +248,25 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
 
         {/* Search */}
         <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold text-text-main/40 tracking-wider">Поиск по тексту</label>
+          <label className="text-[10px] uppercase font-bold text-text-main/60 tracking-wider">Поиск по тексту</label>
           <Input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Фильтр по содержимому..."
-            className="px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main outline-none placeholder:text-text-main/30"
+            className="px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main outline-none placeholder:text-text-main/40"
           />
         </div>
 
         {/* Record lists */}
         <div className="rounded-xl border border-border-subtle bg-surface-card/10 overflow-hidden max-h-[380px] overflow-y-auto divide-y divide-border-subtle/30">
           {loading ? (
-            <div className="p-8 text-center text-xs text-text-main/40">
+            <div className="p-8 text-center text-xs text-text-main/60">
               <Loader2 size={16} className="animate-spin mx-auto mb-2 text-brand-soft" />
               Загрузка данных...
             </div>
           ) : filteredRecords.length === 0 ? (
-            <div className="p-8 text-center text-xs text-text-main/30">Записи отсутствуют</div>
+            <div className="p-8 text-center text-xs text-text-main/60">Записи отсутствуют</div>
           ) : (
             filteredRecords.map((r, idx) => {
               const id = getRecordId(r);
@@ -281,7 +281,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
                   )}
                 >
                   <span className="font-semibold truncate">{getRecordTitle(r)}</span>
-                  <span className="text-[9px] font-mono text-text-main/30 truncate">{id}</span>
+                  <span className="text-[9px] font-mono text-text-main/60 truncate">{id}</span>
                 </Button>
               );
             })
@@ -297,9 +297,9 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
             {/* Header info */}
             <div className="flex items-start justify-between gap-4 border-b border-border-subtle/50 pb-4">
               <div className="min-w-0">
-                <span className="text-[9px] uppercase font-bold text-text-main/40 tracking-wider">Детали записи ({selectedTable})</span>
+                <span className="text-[9px] uppercase font-bold text-text-main/60 tracking-wider">Детали записи ({selectedTable})</span>
                 <h4 className="text-sm font-bold text-text-main truncate mt-1">{getRecordTitle(selectedRecord)}</h4>
-                <p className="text-[10px] font-mono text-text-main/30 mt-0.5 break-all">ID: {getRecordId(selectedRecord)}</p>
+                <p className="text-[10px] font-mono text-text-main/60 mt-0.5 break-all">ID: {getRecordId(selectedRecord)}</p>
               </div>
               <IconButton
                 onClick={() => void handleDeleteRecord(selectedRecord)}
@@ -311,7 +311,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
 
             {/* Preformatted JSON block */}
             <div className="space-y-1.5">
-              <span className="text-[10px] uppercase font-bold text-text-main/40 tracking-wider">Значения всех полей (Raw JSON)</span>
+              <span className="text-[10px] uppercase font-bold text-text-main/60 tracking-wider">Значения всех полей (Raw JSON)</span>
               <pre className="p-4 rounded-xl bg-surface-base/80 border border-border-subtle overflow-auto max-h-[450px] text-[10px] font-mono text-text-main/80 select-all leading-normal whitespace-pre-wrap break-all">
                 {JSON.stringify(selectedRecord, null, 2)}
               </pre>
@@ -319,7 +319,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
 
           </div>
         ) : (
-          <div className="h-full flex flex-col items-center justify-center border border-dashed border-border-subtle/50 rounded-2xl p-12 text-center text-xs text-text-main/30">
+          <div className="h-full flex flex-col items-center justify-center border border-dashed border-border-subtle/50 rounded-2xl p-12 text-center text-xs text-text-main/60">
             <Database size={24} className="text-text-main/15 mb-2" />
             Выберите запись в левой панели для просмотра всех полей документа (как в консоли управления)
           </div>

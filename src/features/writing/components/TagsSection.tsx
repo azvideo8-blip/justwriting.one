@@ -34,7 +34,7 @@ export function TagsSection({ session, isEditing: _isEditing }: TagsSectionProps
         tags.map(tag => (
           <span
             key={tag}
-            className="group/tag flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-surface-base text-text-main/50 hover:bg-white/10"
+            className="group/tag flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-surface-base text-text-main/60 hover:bg-white/10"
           >
             #{tag}
             {auth.currentUser?.uid === session.userId && (
@@ -77,7 +77,7 @@ export function TagsSection({ session, isEditing: _isEditing }: TagsSectionProps
           label={t('session_add_tag')}
           size="sm"
           onClick={() => setIsAddingTag(true)}
-          className="p-1 text-text-main/40 hover:text-text-main/50"
+          className="p-1 text-text-main/60 hover:text-text-main/60"
         />
       )}
     </div>

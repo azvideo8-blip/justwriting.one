@@ -62,14 +62,14 @@ export function Toolbar({
           icon={<FilePlus size={16} />}
           label={t('topbar_new')}
           onClick={onNew}
-          className="rounded-lg text-text-main/50 hover:text-text-main hover:bg-text-main/5"
+          className="rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5"
         />
 
         <IconButton
           icon={<FolderOpen size={16} />}
           label={t('topbar_open')}
           onClick={onOpenLog}
-          className="rounded-lg text-text-main/50 hover:text-text-main hover:bg-text-main/5"
+          className="rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5"
         />
 
         <motion.button
@@ -83,8 +83,8 @@ export function Toolbar({
           className={cn(
             "relative w-9 h-9 flex items-center justify-center transition-colors",
             status !== 'idle' && wordCount > 0
-              ? "text-text-main/50 hover:text-text-main hover:bg-text-main/5"
-              : "text-text-main/20 cursor-not-allowed"
+              ? "text-text-main/60 hover:text-text-main hover:bg-text-main/5"
+              : "text-text-main/60 cursor-not-allowed"
           )}
         >
           <Save size={16} />
@@ -129,7 +129,7 @@ export function Toolbar({
             "w-9 h-9 flex items-center justify-center transition-colors",
             status !== 'idle'
               ? "text-accent-danger hover:bg-accent-danger/10"
-              : "text-text-main/25 cursor-not-allowed"
+              : "text-text-main/60 cursor-not-allowed"
           )}
         >
           {status !== 'idle' ? <Flag size={16} /> : <Square size={16} />}
@@ -143,7 +143,7 @@ export function Toolbar({
           value={title}
           onChange={e => setTitle(e.target.value)}
           placeholder={t('topbar_title_placeholder')}
-          className="w-full bg-transparent border-0 px-0 py-1 text-[15px] font-medium font-sans text-text-main/50 placeholder:text-text-main/25 outline-none focus:ring-0 focus:text-text-main focus:shadow-[0_0_25px_color-mix(in_srgb,var(--brand-soft)_15%,transparent)] transition-all duration-500"
+          className="w-full bg-transparent border-0 px-0 py-1 text-[15px] font-medium font-sans text-text-main/60 placeholder:text-text-main/40 outline-none focus:ring-0 focus:text-text-main focus:shadow-[0_0_25px_color-mix(in_srgb,var(--brand-soft)_15%,transparent)] transition-all duration-500"
         />
       </div>
     </div>

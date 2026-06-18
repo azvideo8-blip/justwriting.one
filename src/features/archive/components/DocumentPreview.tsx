@@ -227,7 +227,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
           <h2 className="text-xl font-medium text-text-main leading-snug mb-1">
             {session.title || t('session_untitled')}
           </h2>
-          <div className="font-mono text-label-sm text-text-main/30 uppercase tracking-wider">
+          <div className="font-mono text-label-sm text-text-main/60 uppercase tracking-wider">
             {format(date, 'd MMMM yyyy', { locale: dateLocale })}
             {' · '}
             {session.wordCount?.toLocaleString()} {t('home_words_short')}
@@ -248,7 +248,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                     borderColor: currentLabel?.color ?? 'rgba(255,255,255,0.2)',
                   }}
                 />
-                <span className="text-text-main/40 hover:text-text-main/60 transition-colors">
+                <span className="text-text-main/60 hover:text-text-main/60 transition-colors">
                   {currentLabel?.name ?? t('archive_assign_label')}
                 </span>
               </Button>
@@ -262,7 +262,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
               {currentLabel && (
                 <Button
                   onClick={() => { onLabelChange?.(session!, undefined); setLabelPopupOpen(false); }}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap text-text-main/40 hover:bg-text-main/5 transition-colors"
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap text-text-main/60 hover:bg-text-main/5 transition-colors"
                 >
                   <div className="w-3 h-3 rounded-full border border-dashed border-text-main/20 shrink-0" />
                   {t('archive_no_label')}
@@ -289,7 +289,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
               {onAddLabel && !creatingLabel && (
                 <Button
                   onClick={() => setCreatingLabel(true)}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap text-text-main/30 hover:text-text-main/50 hover:bg-text-main/5 transition-colors border-t border-border-subtle mt-1 pt-2.5"
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap text-text-main/60 hover:text-text-main/60 hover:bg-text-main/5 transition-colors border-t border-border-subtle mt-1 pt-2.5"
                 >
                   + {t('archive_add_label')}
                 </Button>
@@ -301,7 +301,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                     onChange={e => setNewLabelName(e.target.value)}
                     autoFocus
                     placeholder={t('archive_label_name_placeholder')}
-                    className="w-24 bg-transparent text-label-sm text-text-main outline-none placeholder:text-text-main/25"
+                    className="w-24 bg-transparent text-label-sm text-text-main outline-none placeholder:text-text-main/40"
                     onKeyDown={e => {
                       if (e.key === 'Enter') handleCreateLabel();
                       if (e.key === 'Escape') setCreatingLabel(false);
@@ -325,7 +325,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                   >
                     {t('common_save')}
                   </Button>
-                  <Button onClick={() => setCreatingLabel(false)} className="text-label text-text-main/30 hover:text-text-main/50">✕</Button>
+                  <Button onClick={() => setCreatingLabel(false)} className="text-label text-text-main/60 hover:text-text-main/60">✕</Button>
                 </div>
               )}
                 </div>
@@ -335,7 +335,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
         </div>
         <IconButton
           onClick={onClose}
-          className="w-10 h-10 md:w-8 md:h-8 rounded-xl flex items-center justify-center text-text-main/40 hover:text-text-main hover:bg-text-main/5 transition-colors shrink-0 cursor-pointer"
+          className="w-10 h-10 md:w-8 md:h-8 rounded-xl flex items-center justify-center text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors shrink-0 cursor-pointer"
           label={t('close')}
           icon={<X size={18} className="md:w-4 md:h-4" />}
         />
@@ -343,7 +343,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
 
       {/* Tags */}
       <div className="px-6 py-3 border-b border-border-subtle">
-        <div className="text-label font-mono text-text-main/30 uppercase tracking-widest mb-2">
+        <div className="text-label font-mono text-text-main/60 uppercase tracking-widest mb-2">
           {t('finish_tags')}
         </div>
         <InlineTags
@@ -366,10 +366,10 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
         </Button>
             {summaryExpanded && (
               <div className="mt-2 space-y-1.5 text-xs text-text-main/70">
-                <div><span className="text-text-main/40">Тональность:</span> {summary.tone}</div>
+                <div><span className="text-text-main/60">Тональность:</span> {summary.tone}</div>
                 {summary.insights.length > 0 && (
                   <div>
-                    <span className="text-text-main/40">Инсайты:</span>
+                    <span className="text-text-main/60">Инсайты:</span>
                     <ul className="mt-0.5 ml-3 list-disc space-y-0.5">
                       {summary.insights.map((ins, i) => <li key={i}>{ins}</li>)}
                     </ul>
@@ -377,7 +377,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                 )}
                 {summary.extractedFacts.length > 0 && (
                   <div>
-                    <span className="text-text-main/40">Факты:</span>
+                    <span className="text-text-main/60">Факты:</span>
                     <ul className="mt-0.5 ml-3 list-disc space-y-0.5">
                       {summary.extractedFacts.map((f, i) => <li key={i}>{f}</li>)}
                     </ul>
@@ -431,7 +431,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
       <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5">
         <p className="text-[15px] text-text-main/80 leading-[1.8] whitespace-pre-wrap text-pretty" >
           {session.content || (
-            <span className="text-text-main/25 italic">{t('archive_no_content')}</span>
+            <span className="text-text-main/60 italic">{t('archive_no_content')}</span>
           )}
         </p>
       </div>

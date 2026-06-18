@@ -26,7 +26,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         sizeStyles[size],
         active
           ? 'bg-text-main/10 text-text-main'
-          : 'text-text-main/40 hover:text-text-main hover:bg-text-main/5',
+          : 'text-text-main/60 hover:text-text-main hover:bg-text-main/5',
         className,
       )}
       {...props}

@@ -209,7 +209,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
             {isChange && t('enc_change_title')}
             {isMigrate && t('enc_migrate_title')}
           </h2>
-          <p className="text-sm text-text-main/50 mb-4">
+          <p className="text-sm text-text-main/60 mb-4">
             {isUnlock && t('enc_unlock_subtitle')}
             {isSetup && t('enc_setup_subtitle')}
             {isChange && t('enc_change_subtitle')}
@@ -254,7 +254,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder={isMigrate ? t('enc_migrate_current_password') : t('enc_current_password')}
                 aria-label={isMigrate ? t('enc_migrate_current_password') : t('enc_current_password')}
-                className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/20"
+                className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/40"
                 required
                 autoFocus={isChange || isMigrate}
               />
@@ -267,7 +267,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
               onChange={(e) => setPassword(e.target.value)}
               placeholder={isUnlock ? '••••••••' : t('enc_new_password_placeholder')}
               aria-label={isUnlock ? t('unlock_title') : t('enc_new_password_placeholder')}
-              className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/20"
+              className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/40"
               required
               autoFocus={isUnlock || isSetup}
               minLength={isUnlock ? undefined : MIN_PASSWORD_LENGTH}
@@ -280,7 +280,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder={t('enc_confirm_password')}
                 aria-label={t('enc_confirm_password')}
-                className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/20"
+                className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/40"
                 required
                 minLength={MIN_PASSWORD_LENGTH}
               />
@@ -306,7 +306,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
           </form>
 
           {isMigrate && (
-            <p className="text-xs text-text-main/30 mt-3 text-center">
+            <p className="text-xs text-text-main/60 mt-3 text-center">
               {t('enc_migrate_hint')}
             </p>
           )}
@@ -329,7 +329,7 @@ export function ChangeEncryptionPasswordButton({ userId }: { userId: string }) {
         onClick={() => setOpen(true)}
         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors text-left"
       >
-        <KeyRound size={16} className="text-text-main/40" />
+        <KeyRound size={16} className="text-text-main/60" />
         {t('enc_change_password_btn')}
       </Button>
       {open && (

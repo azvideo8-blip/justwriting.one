@@ -88,7 +88,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
             aria-current={active ? 'page' : undefined}
             className={cn(
               "flex flex-col items-center gap-[3px] py-1 px-2 bg-transparent border-none cursor-pointer transition-colors duration-150",
-              active ? "text-text-main font-semibold" : "text-text-main/30 hover:text-text-main/60",
+              active ? "text-text-main font-semibold" : "text-text-main/60 hover:text-text-main/60",
               isGuest && ['ai'].includes(tab.id) ? "opacity-40" : ""
             )}
           >

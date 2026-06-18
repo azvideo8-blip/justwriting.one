@@ -102,7 +102,7 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
       </div>
       <div className="flex items-center justify-end">
         <div className="flex gap-2">
-          <Button variant="ghost" size="md" onClick={onCancel} className="px-4 py-2 text-text-main/50 hover:text-text-main font-medium">{t('common_cancel')}</Button>
+          <Button variant="ghost" size="md" onClick={onCancel} className="px-4 py-2 text-text-main/60 hover:text-text-main font-medium">{t('common_cancel')}</Button>
           <Button variant="primary" size="md" onClick={handleSave} className="px-6 py-2 rounded-2xl font-bold">{t('common_save')}</Button>
         </div>
       </div>

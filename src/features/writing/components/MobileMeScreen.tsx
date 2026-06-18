@@ -126,10 +126,10 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
             </div>
           ) : sessions.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-6 px-6 py-16 text-center">
-              <div className="text-[14px] text-text-main/40 leading-relaxed max-w-xs">
+              <div className="text-[14px] text-text-main/60 leading-relaxed max-w-xs">
                 {t('profile_empty_desc')}
               </div>
-              <div className="text-label-sm text-text-main/25 font-mono uppercase tracking-widest">
+              <div className="text-label-sm text-text-main/60 font-mono uppercase tracking-widest">
                 {t('profile_empty_hint')}
               </div>
             </div>
@@ -180,7 +180,7 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
                       </Button>
                     </div>
                   ) : (
-                    <Button variant="ghost" size="sm" onClick={() => setShowResetConfirm(true)} className="font-mono text-label-sm text-text-main/20 hover:text-accent-danger/50 uppercase tracking-widest">
+                    <Button variant="ghost" size="sm" onClick={() => setShowResetConfirm(true)} className="font-mono text-label-sm text-text-main/60 hover:text-accent-danger/50 uppercase tracking-widest">
                       {t('profile_ach_reset')}
                     </Button>
                   )}

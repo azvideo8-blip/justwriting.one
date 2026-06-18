@@ -14,7 +14,7 @@ function trend(f: AIProfileFacet): { label: string; cls: string } {
   const now = Date.now();
   if (f.firstAt && now - f.firstAt < RECENT_MS) return { label: 'новая', cls: 'bg-brand-soft/15 text-brand-soft' };
   if (f.lastAt && now - f.lastAt < RECENT_MS) return { label: 'активна', cls: 'bg-emerald-500/15 text-emerald-400' };
-  return { label: 'затихла', cls: 'bg-surface-base/10 text-text-main/40' };
+  return { label: 'затихла', cls: 'bg-surface-base/10 text-text-main/60' };
 }
 
 function fmt(ts: number): string {
@@ -111,7 +111,7 @@ export function ProfileFacets() {
   return (
     <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden">
       <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
-        <span className="text-xs font-bold text-text-main/50 uppercase tracking-wider flex items-center gap-2">
+        <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider flex items-center gap-2">
           <Layers size={13} className="text-brand-soft" />
           Темы профиля (кластеры заметок)
         </span>
@@ -149,9 +149,9 @@ export function ProfileFacets() {
 
       <div className="p-4">
         {loading ? (
-          <div className="flex justify-center py-8"><Loader2 size={16} className="animate-spin text-text-main/30" /></div>
+          <div className="flex justify-center py-8"><Loader2 size={16} className="animate-spin text-text-main/60" /></div>
         ) : facets.length === 0 ? (
-          <p className="text-xs text-text-main/30 italic py-6 text-center">
+          <p className="text-xs text-text-main/60 italic py-6 text-center">
             Темы ещё не построены. Нажми «Построить темы» — заметки сгруппируются по смыслу, и для каждой темы появится описание.
           </p>
         ) : (
@@ -187,7 +187,7 @@ export function ProfileFacets() {
                   <p className={cn('text-[11px] text-text-main/60 leading-relaxed whitespace-pre-wrap', !isExp && 'line-clamp-4')}>{f.summary || '—'}</p>
                   {isExp && (
                     <div className="mt-2 space-y-1">
-                      <span className="text-[9px] font-bold text-text-main/40 uppercase tracking-wider">Заметки темы</span>
+                      <span className="text-[9px] font-bold text-text-main/60 uppercase tracking-wider">Заметки темы</span>
                       <div className="max-h-40 overflow-y-auto space-y-0.5">
                         {f.noteIds.map(id => {
                           const doc = docMap.get(id);
@@ -197,16 +197,16 @@ export function ProfileFacets() {
                               onClick={e => { e.stopPropagation(); void navigate(`/ai?doc=${id}`); }}
                               className="flex items-center gap-1.5 w-full text-left px-2 py-1 rounded-md hover:bg-brand-soft/10 transition-colors group"
                             >
-                              <FileText size={10} className="shrink-0 text-text-main/30 group-hover:text-brand-soft" />
-                              <span className="text-[10px] text-text-main/50 group-hover:text-text-main/80 truncate flex-1">{doc?.title ?? '(без названия)'}</span>
-                              <span className="text-[9px] text-text-main/25 font-mono shrink-0">{doc ? fmt(doc.lastSessionAt) : ''}</span>
+                              <FileText size={10} className="shrink-0 text-text-main/60 group-hover:text-brand-soft" />
+                              <span className="text-[10px] text-text-main/60 group-hover:text-text-main/80 truncate flex-1">{doc?.title ?? '(без названия)'}</span>
+                              <span className="text-[9px] text-text-main/60 font-mono shrink-0">{doc ? fmt(doc.lastSessionAt) : ''}</span>
                             </button>
                           );
                         })}
                       </div>
                     </div>
                   )}
-                  <div className="flex items-center justify-between text-[9px] text-text-main/30 font-mono pt-0.5">
+                  <div className="flex items-center justify-between text-[9px] text-text-main/60 font-mono pt-0.5">
                     <span>{f.noteCount} заметок · {isExp ? 'свернуть' : 'развернуть'}</span>
                     <span>{fmt(f.firstAt)} – {fmt(f.lastAt)}</span>
                   </div>
@@ -218,7 +218,7 @@ export function ProfileFacets() {
           {facets.some(f => f.isPerson) && (
             <>
               <div className="mt-5 mb-2 flex items-center gap-2">
-                <span className="text-xs font-bold text-text-main/50 uppercase tracking-wider">Окружение (Люди)</span>
+                <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider">Окружение (Люди)</span>
                 <div className="h-px flex-1 bg-border-subtle" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -246,7 +246,7 @@ export function ProfileFacets() {
                       )}
                       {isExp && (
                         <div className="mt-2 space-y-1">
-                          <span className="text-[9px] font-bold text-text-main/40 uppercase tracking-wider">Заметки</span>
+                          <span className="text-[9px] font-bold text-text-main/60 uppercase tracking-wider">Заметки</span>
                           <div className="max-h-40 overflow-y-auto space-y-0.5">
                             {f.noteIds.map(id => {
                               const doc = docMap.get(id);
@@ -256,16 +256,16 @@ export function ProfileFacets() {
                                   onClick={e => { e.stopPropagation(); void navigate(`/ai?doc=${id}`); }}
                                   className="flex items-center gap-1.5 w-full text-left px-2 py-1 rounded-md hover:bg-brand-soft/10 transition-colors group"
                                 >
-                                  <FileText size={10} className="shrink-0 text-text-main/30 group-hover:text-brand-soft" />
-                                  <span className="text-[10px] text-text-main/50 group-hover:text-text-main/80 truncate flex-1">{doc?.title ?? '(без названия)'}</span>
-                                  <span className="text-[9px] text-text-main/25 font-mono shrink-0">{doc ? fmt(doc.lastSessionAt) : ''}</span>
+                                  <FileText size={10} className="shrink-0 text-text-main/60 group-hover:text-brand-soft" />
+                                  <span className="text-[10px] text-text-main/60 group-hover:text-text-main/80 truncate flex-1">{doc?.title ?? '(без названия)'}</span>
+                                  <span className="text-[9px] text-text-main/60 font-mono shrink-0">{doc ? fmt(doc.lastSessionAt) : ''}</span>
                                 </button>
                               );
                             })}
                           </div>
                         </div>
                       )}
-                      <div className="flex items-center justify-between text-[9px] text-text-main/30 font-mono pt-0.5">
+                      <div className="flex items-center justify-between text-[9px] text-text-main/60 font-mono pt-0.5">
                         <span>{f.noteCount} упоминаний · {isExp ? 'свернуть' : 'развернуть'}</span>
                         <span>{fmt(f.firstAt)} – {fmt(f.lastAt)}</span>
                       </div>
@@ -277,7 +277,7 @@ export function ProfileFacets() {
            )}
           </>
         )}
-        <p className="text-[10px] text-text-main/30 mt-3">
+        <p className="text-[10px] text-text-main/60 mt-3">
           Темы выделяются кластеризацией эмбеддингов заметок (локально), описание каждой — ИИ по её заметкам. Заметка может попадать в несколько тем.
         </p>
       </div>

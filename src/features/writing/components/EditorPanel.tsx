@@ -54,7 +54,7 @@ export function EditorPanel({ keystrokeTrackerRef }: EditorPanelProps) {
               : 'none',
             transition: 'box-shadow 0.4s ease',
           }}
-          className={`w-full bg-transparent outline-none font-bold text-xl pb-0.5 ${showZen ? 'text-text-main/60 placeholder:text-text-main/20' : 'text-text-main placeholder:text-text-main/30'}`}
+          className={`w-full bg-transparent outline-none font-bold text-xl pb-0.5 ${showZen ? 'text-text-main/60 placeholder:text-text-main/40' : 'text-text-main placeholder:text-text-main/40'}`}
         />
       </div>
       <textarea
@@ -62,7 +62,7 @@ export function EditorPanel({ keystrokeTrackerRef }: EditorPanelProps) {
         value={content}
         onChange={handleChange}
         placeholder="Start writing..."
-        className={`flex-1 w-full bg-transparent outline-none resize-none leading-relaxed ${showZen ? 'text-text-main/70 placeholder:text-text-main/20' : 'text-text-main placeholder:text-text-main/30'}`}
+        className={`flex-1 w-full bg-transparent outline-none resize-none leading-relaxed ${showZen ? 'text-text-main/70 placeholder:text-text-main/40' : 'text-text-main placeholder:text-text-main/40'}`}
         autoFocus
       />
     </div>

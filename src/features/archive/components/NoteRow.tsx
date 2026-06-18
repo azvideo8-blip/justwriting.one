@@ -168,10 +168,10 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           onClick={openDateTimeEditor}
           title={t('archive_edit_date')}
         >
-          <div className="font-mono text-label-sm text-text-main/50 uppercase tracking-wide leading-tight hover:text-text-main/70 tabular-nums">
+          <div className="font-mono text-label-sm text-text-main/60 uppercase tracking-wide leading-tight hover:text-text-main/70 tabular-nums">
             {dateLabel}
           </div>
-          <div className="font-mono text-label-sm text-text-main/30 mt-0.5 hover:text-text-main/50 tabular-nums">
+          <div className="font-mono text-label-sm text-text-main/60 mt-0.5 hover:text-text-main/60 tabular-nums">
             {timeStr}
           </div>
         </div>
@@ -182,7 +182,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           >
             <div className="space-y-2">
               <div>
-                <label className="text-label font-mono text-text-main/40 uppercase tracking-wide">
+                <label className="text-label font-mono text-text-main/60 uppercase tracking-wide">
                   {t('archive_edit_date')}
                 </label>
                 <Input
@@ -194,7 +194,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                 />
               </div>
               <div>
-                <label className="text-label font-mono text-text-main/40 uppercase tracking-wide">
+                <label className="text-label font-mono text-text-main/60 uppercase tracking-wide">
                   {t('archive_edit_time')}
                 </label>
                 <Input
@@ -214,7 +214,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
               </Button>
               <Button
                 onClick={() => setEditingDateTime(false)}
-                className="flex-1 text-label-sm font-medium px-2 py-1.5 rounded-lg border border-border-subtle text-text-main/40 hover:text-text-main/60 transition-colors"
+                className="flex-1 text-label-sm font-medium px-2 py-1.5 rounded-lg border border-border-subtle text-text-main/60 hover:text-text-main/60 transition-colors"
               >
                 {t('common_cancel')}
               </Button>
@@ -265,7 +265,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
             "inline-flex items-center gap-1 ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono border transition-colors disabled:opacity-60",
             aiProcessed
               ? "bg-brand-soft/10 text-brand-soft border-brand-soft/30 hover:bg-brand-soft/20"
-              : "bg-text-main/3 text-text-main/40 border-border-subtle hover:text-brand-soft hover:bg-brand-soft/5 hover:border-brand-soft/30"
+              : "bg-text-main/3 text-text-main/60 border-border-subtle hover:text-brand-soft hover:bg-brand-soft/5 hover:border-brand-soft/30"
           )}
           title={aiProcessed ? 'Обработано ИИ (посмотреть чат)' : 'Обработать с помощью ИИ'}
         >
@@ -339,7 +339,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                   {session.labelId && (
                     <Button
                       onClick={e => { e.stopPropagation(); onLabelChange?.(session, undefined); setLabelPopupOpen(false); }}
-                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap text-text-main/40 hover:bg-text-main/5 transition-colors"
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap text-text-main/60 hover:bg-text-main/5 transition-colors"
                     >
                       <div className="w-3 h-3 rounded-full border border-dashed border-text-main/20 shrink-0" />
                       {t('archive_no_label')}
@@ -360,12 +360,12 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
               )}
             </div>
             <IconButton onClick={e => { e.stopPropagation(); setTitleDraft(session.title || ''); setEditingTitle(true); }}
-              className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/40 md:text-text-main/20 hover:text-text-main/60 hover:bg-text-main/5 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
+              className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/60 md:text-text-main/60 hover:text-text-main/60 hover:bg-text-main/5 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
               label={t('archive_rename_title')}
               icon={<Pencil size={14} aria-hidden="true" />}
             />
             <IconButton onClick={e => { e.stopPropagation(); onOpen(); }}
-              className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/40 md:text-text-main/20 hover:text-text-main/60 hover:bg-text-main/5 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
+              className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/60 md:text-text-main/60 hover:text-text-main/60 hover:bg-text-main/5 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
               label={t('archive_preview')}
               icon={<ExternalLink size={14} aria-hidden="true" />}
             />
@@ -381,7 +381,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
               onStorageChange={() => onStorageChange?.()}
             />
             <IconButton onClick={e => { e.stopPropagation(); onDelete?.(session); }}
-              className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/30 md:text-text-main/25 hover:text-accent-danger hover:bg-accent-danger/5 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
+              className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/60 md:text-text-main/60 hover:text-accent-danger hover:bg-accent-danger/5 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
               label={t('archive_delete')}
               icon={<Trash2 size={14} aria-hidden="true" />}
             />

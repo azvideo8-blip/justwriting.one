@@ -152,10 +152,10 @@ export function ArchiveNoteList({
     if (searchQuery?.trim()) {
       return (
         <div className="py-16 text-center space-y-3">
-          <p className="text-[16px] text-text-main/50 font-medium">
+          <p className="text-[16px] text-text-main/60 font-medium">
             {t('archive_empty_filtered')}
           </p>
-          <p className="text-[13px] text-text-main/40">
+          <p className="text-[13px] text-text-main/60">
             {t('archive_search_no_results', { query: searchQuery })}
           </p>
           <Button
@@ -250,7 +250,7 @@ export function ArchiveNoteList({
           return (
             <div key={dateKey} className="mb-2">
               <div className="flex items-center gap-3 py-4 pr-1">
-                <span className="font-mono text-label-sm text-text-main/40 uppercase tracking-widest whitespace-nowrap">
+                <span className="font-mono text-label-sm text-text-main/60 uppercase tracking-widest whitespace-nowrap">
                   {format(new Date(dateKey), 'd MMM', { locale: dateLocale })}
                 </span>
                 <div className="flex-1 flex items-center gap-2">
@@ -260,7 +260,7 @@ export function ArchiveNoteList({
                   </span>
                   <div className="flex-1 h-px bg-gradient-to-l from-transparent to-[var(--border-subtle)]" />
                 </div>
-                <span className="font-mono text-label-sm text-text-main/30 whitespace-nowrap">
+                <span className="font-mono text-label-sm text-text-main/60 whitespace-nowrap">
                   {sessions
                     .reduce((sum, s) => sum + (s.wordCount || 0), 0)
                     .toLocaleString()} {t('home_words_short')}
@@ -301,7 +301,7 @@ export function ArchiveNoteList({
         const sessions = groupedSessions[dateKey] ?? [];
         return (
           <div className="flex items-center gap-3 py-5 pr-1 h-full">
-            <span className="font-mono text-label-sm text-text-main/40 uppercase tracking-widest whitespace-nowrap">
+            <span className="font-mono text-label-sm text-text-main/60 uppercase tracking-widest whitespace-nowrap">
               {format(new Date(dateKey), 'd MMM', { locale: dateLocale })}
             </span>
             <div className="flex-1 flex items-center gap-2">
@@ -311,7 +311,7 @@ export function ArchiveNoteList({
               </span>
               <div className="flex-1 h-px bg-gradient-to-l from-transparent to-[var(--border-subtle)]" />
             </div>
-            <span className="font-mono text-label-sm text-text-main/30 whitespace-nowrap">
+            <span className="font-mono text-label-sm text-text-main/60 whitespace-nowrap">
               {sessions
                 .reduce((sum: number, s: ArchiveSession) => sum + (s.wordCount || 0), 0)
                 .toLocaleString()} {t('home_words_short')}

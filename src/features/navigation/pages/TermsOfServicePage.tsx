@@ -20,7 +20,7 @@ export function TermsOfServicePage() {
       />
       <Button
         onClick={() => void navigate(-1)}
-        className="flex items-center gap-2 text-text-main/40 hover:text-text-main/60 text-sm mb-8 transition-colors"
+        className="flex items-center gap-2 text-text-main/60 hover:text-text-main/60 text-sm mb-8 transition-colors"
       >
         <ArrowLeft size={16} />
         {isRu ? 'Назад' : 'Back'}
@@ -29,7 +29,7 @@ export function TermsOfServicePage() {
       <h1 className="text-2xl font-bold text-text-main mb-2">
         {isRu ? 'Условия использования' : 'Terms of Service'}
       </h1>
-      <p className="text-sm text-text-main/40 mb-8">
+      <p className="text-sm text-text-main/60 mb-8">
         {isRu ? 'Последнее обновление: 18 июня 2026' : 'Last updated: June 18, 2026'}
       </p>
 

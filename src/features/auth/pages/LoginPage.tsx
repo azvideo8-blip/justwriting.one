@@ -139,7 +139,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         descriptionEn="Sign in to justwriting, a quiet editor. Save notes to the cloud and write every day."
       />}
       {isModal && (onClose || onSuccess) && (
-        <IconButton onClick={onClose || onSuccess} className="self-end mb-4 p-2 rounded-lg text-text-main/40 hover:text-text-main transition-colors" label={t('close')} icon={<X size={20} />} />
+        <IconButton onClick={onClose || onSuccess} className="self-end mb-4 p-2 rounded-lg text-text-main/60 hover:text-text-main transition-colors" label={t('close')} icon={<X size={20} />} />
       )}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
@@ -154,7 +154,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
             {isModal ? t('auth_sign_in') : 'justwriting.one'}
           </h1>
           {!isModal && (
-            <p className="text-lg leading-relaxed text-text-main/50">
+            <p className="text-lg leading-relaxed text-text-main/60">
               {t('auth_subtitle')}
             </p>
           )}
@@ -176,9 +176,9 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         <div className="p-8 rounded-3xl shadow-xl space-y-6 border bg-surface-card border-border-subtle backdrop-blur-2xl">
           <form onSubmit={(e) => { e.preventDefault(); void handleEmailAuth(e); }} className="space-y-4">
             <div className="space-y-2 text-left">
-              <label className="text-xs font-bold uppercase tracking-widest ml-1 text-text-main/50">{t('auth_email')}</label>
+              <label className="text-xs font-bold uppercase tracking-widest ml-1 text-text-main/60">{t('auth_email')}</label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/40" size={18} />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/60" size={18} />
                 <Input 
                   type="email"
                   aria-label={t('auth_email')}
@@ -186,15 +186,15 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t('auth_email_placeholder')}
-                  className="pl-12 pr-4 py-3 outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
+                  className="pl-12 pr-4 py-3 outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/40"
                 />
               </div>
             </div>
 
             <div className="space-y-2 text-left">
-              <label className="text-xs font-bold uppercase tracking-widest ml-1 text-text-main/50">{t('auth_password')}</label>
+              <label className="text-xs font-bold uppercase tracking-widest ml-1 text-text-main/60">{t('auth_password')}</label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/40" size={18} />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/60" size={18} />
                 <Input 
                   type="password"
                   aria-label={t('auth_password')}
@@ -202,7 +202,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="pl-12 pr-4 py-3 outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
+                  className="pl-12 pr-4 py-3 outline-none transition-colors bg-surface-base/5 border border-border-subtle text-text-main focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/40"
                 />
               </div>
             </div>
@@ -222,7 +222,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
 
           <Button 
             onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-            className="text-sm font-medium transition-colors text-text-main/50 hover:text-text-main"
+            className="text-sm font-medium transition-colors text-text-main/60 hover:text-text-main"
           >
             {mode === 'login' ? t('auth_no_account') : t('auth_has_account')}
           </Button>
@@ -231,7 +231,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
             <Button
               type="button"
               onClick={() => { setForgotEmail(email); setShowForgotPassword(true); setForgotSent(false); setForgotError(null); }}
-              className="text-xs transition-colors text-text-main/30 hover:text-text-main/50"
+              className="text-xs transition-colors text-text-main/60 hover:text-text-main/60"
             >
               {t('auth_forgot_password')}
             </Button>
@@ -258,7 +258,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                 <ShieldAlert size={18} className="text-amber-400" />
               </div>
               <h2 className="text-base font-medium text-text-main mb-2">{t('auth_forgot_title')}</h2>
-              <p className="text-sm text-text-main/50 mb-4">{t('auth_forgot_warning')}</p>
+              <p className="text-sm text-text-main/60 mb-4">{t('auth_forgot_warning')}</p>
 
               {forgotSent ? (
                 <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-sm">
@@ -276,7 +276,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
                       placeholder={t('auth_email_placeholder')}
-                      className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/20"
+                      className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/40"
                     />
                   </div>
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-400 mb-3 flex gap-2">
@@ -306,7 +306,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                     </Button>
                     <Button
                       onClick={() => setShowForgotPassword(false)}
-                      className="px-4 py-2.5 rounded-xl text-sm text-text-main/40 hover:text-text-main/60 transition-colors"
+                      className="px-4 py-2.5 rounded-xl text-sm text-text-main/60 hover:text-text-main/60 transition-colors"
                     >
                       {t('writing_cancel')}
                     </Button>
@@ -318,7 +318,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         )}
 
         {!isModal && (
-          <p className="text-sm text-text-main/40">
+          <p className="text-sm text-text-main/60">
             {t('auth_tagline')}
           </p>
         )}

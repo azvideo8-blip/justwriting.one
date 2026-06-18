@@ -113,13 +113,13 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
           <h2 className="text-[18px] font-medium text-text-main">
             {t('profile_heatmap_title')}
           </h2>
-          <span className="font-mono text-label-sm text-text-main/30 uppercase tracking-widest">
+          <span className="font-mono text-label-sm text-text-main/60 uppercase tracking-widest">
             {t('profile_heatmap_hint')}
           </span>
         </div>
 
         <div className="flex items-center justify-between sm:justify-end gap-4">
-          <div className="flex items-center gap-1.5 font-mono text-label text-text-main/30">
+          <div className="flex items-center gap-1.5 font-mono text-label text-text-main/60">
             <span>{t('profile_heatmap_less')}</span>
             {colors.map((c, i) => {
               const dotStyle = { background: c };
@@ -132,12 +132,12 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
 
           <div className="flex items-center gap-1">
           <IconButton onClick={() => setOffset(o => o + 1)}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors"
             label="Previous"
             icon={<ChevronLeft size={14} />}
           />
           <IconButton onClick={() => setOffset(o => Math.max(0, o - 1))} disabled={offset === 0}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/30 hover:text-text-main hover:bg-text-main/5 transition-colors disabled:opacity-20 disabled:cursor-default"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors disabled:opacity-20 disabled:cursor-default"
             label="Next"
             icon={<ChevronRight size={14} />}
           />
@@ -148,7 +148,7 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
       <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
         <div className="flex flex-col gap-[3px] pt-5">
           {getDayLabels(language).map((d, i) => (
-            <div key={i} className="font-mono text-[9px] text-text-main/25 h-[11px] leading-[11px]">{d}</div>
+            <div key={i} className="font-mono text-[9px] text-text-main/60 h-[11px] leading-[11px]">{d}</div>
           ))}
         </div>
 
@@ -158,7 +158,7 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
               const label = monthLabels.find(l => l.col === wi);
               return (
                 <div key={wi} 
-                  className="font-mono text-[9px] text-text-main/25 truncate flex-1">
+                  className="font-mono text-[9px] text-text-main/60 truncate flex-1">
                   {label?.label || ''}
                 </div>
               );

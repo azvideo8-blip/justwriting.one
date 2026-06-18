@@ -121,7 +121,7 @@ export function DesktopWritingLayout() {
                       {t('draft_restore')}
                     </Button>
                     <Button onClick={() => void session.discardDraft()}
-                      className="text-text-main/40 hover:text-text-main/60 transition-colors">
+                      className="text-text-main/60 hover:text-text-main/60 transition-colors">
                       {t('draft_discard')}
                     </Button>
                   </div>

@@ -90,7 +90,7 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog, activeTab, setA
               "flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-colors",
               activeTab === tab.id
                 ? "bg-text-main text-surface-base"
-                : "text-text-main/50 hover:text-text-main hover:bg-text-main/8"
+                : "text-text-main/60 hover:text-text-main hover:bg-text-main/8"
             )}
           >
             {tab.label}
@@ -133,7 +133,7 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog, activeTab, setA
             tabIndex={0}
             role="button"
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleVersionTap(); } }}
-            className="text-xs text-text-main/20 select-none cursor-default"
+            className="text-xs text-text-main/60 select-none cursor-default"
           >
             v{APP_VERSION}
           </span>
@@ -194,7 +194,7 @@ export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog, defau
               <IconButton
                 onClick={onClose}
                 label={t('common_close')}
-                className="p-3 rounded-xl text-text-main/50 hover:text-text-main hover:bg-text-main/8 transition-colors"
+                className="p-3 rounded-xl text-text-main/60 hover:text-text-main hover:bg-text-main/8 transition-colors"
                 icon={<X size={20} aria-hidden="true" />}
               />
             </div>

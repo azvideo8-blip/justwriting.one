@@ -20,17 +20,17 @@ export function SummaryModal({ summary, onClose }: SummaryModalProps) {
             <Sparkles size={16} className="text-brand-soft" />
             ИИ Анализ Документа
           </h3>
-          <IconButton onClick={onClose} className="p-2 rounded-lg text-text-main/40 hover:text-text-main transition-colors" label={"Close"} icon={<X size={18} />} />
+          <IconButton onClick={onClose} className="p-2 rounded-lg text-text-main/60 hover:text-text-main transition-colors" label={"Close"} icon={<X size={18} />} />
         </div>
 
         <div className="px-6 py-4 overflow-y-auto space-y-4 text-sm text-text-main/80">
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-text-main/40">Тональность</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-text-main/60">Тональность</span>
             <p className="mt-1 text-sm font-medium text-text-main capitalize">{summary.tone}</p>
           </div>
 
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-text-main/40">Ключевые слова</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-text-main/60">Ключевые слова</span>
             <div className="mt-1 flex flex-wrap gap-1.5">
               {summary.frequentWords.map(word => (
                 <span key={word} className="px-2 py-0.5 text-xs bg-surface-base/10 rounded-md border border-border-subtle text-text-main/70">
@@ -41,7 +41,7 @@ export function SummaryModal({ summary, onClose }: SummaryModalProps) {
           </div>
 
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-text-main/40">Основные темы</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-text-main/60">Основные темы</span>
             <div className="mt-1 flex flex-wrap gap-1.5">
               {summary.themes.map(theme => (
                 <span key={theme} className="px-2 py-0.5 text-xs bg-brand-soft/5 rounded-md border border-brand-soft/10 text-brand-soft font-medium">
@@ -52,7 +52,7 @@ export function SummaryModal({ summary, onClose }: SummaryModalProps) {
           </div>
 
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-text-main/40">Ключевые мысли и инсайты</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-text-main/60">Ключевые мысли и инсайты</span>
             <ul className="mt-2 list-disc list-inside space-y-1.5 pl-1">
               {summary.insights.map((insight, idx) => (
                 <li key={idx} className="text-xs text-text-main/70 leading-relaxed pl-1">

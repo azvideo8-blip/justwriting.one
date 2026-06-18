@@ -178,7 +178,7 @@ export function StorageIcons({
           "w-6 h-6 rounded-lg",
           doc.hasLocal
             ? "text-text-main/70 hover:text-accent-danger hover:bg-accent-danger/10"
-            : "text-text-main/20 cursor-default"
+            : "text-text-main/60 cursor-default"
         )}
       />
 
@@ -198,8 +198,8 @@ export function StorageIcons({
           uploading && "animate-pulse text-blue-400",
           !uploading && isUnsynced && "text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 cursor-pointer",
           !uploading && !isUnsynced && doc.hasCloud && "text-blue-400 hover:text-accent-danger hover:bg-accent-danger/10",
-          !uploading && !isUnsynced && !doc.hasCloud && canUpload && "text-text-main/30 hover:text-blue-400 hover:bg-blue-400/10 cursor-pointer",
-          !uploading && !isUnsynced && !doc.hasCloud && !canUpload && "text-text-main/20 cursor-default"
+          !uploading && !isUnsynced && !doc.hasCloud && canUpload && "text-text-main/60 hover:text-blue-400 hover:bg-blue-400/10 cursor-pointer",
+          !uploading && !isUnsynced && !doc.hasCloud && !canUpload && "text-text-main/60 cursor-default"
         )}
       />
 
@@ -219,7 +219,7 @@ export function StorageIcons({
               <div className="text-sm font-medium text-text-main mb-2">
                 {confirmTitle}
               </div>
-              <div className="text-xs text-text-main/40 mb-4">
+              <div className="text-xs text-text-main/60 mb-4">
                 {confirmHint}
               </div>
               <div className="flex gap-2">
@@ -235,7 +235,7 @@ export function StorageIcons({
                   variant="ghost"
                   size="sm"
                   onClick={() => setConfirmState(IDLE)}
-                  className="flex-1 py-2 rounded-xl border border-border-subtle text-text-main/50 text-sm hover:text-text-main"
+                  className="flex-1 py-2 rounded-xl border border-border-subtle text-text-main/60 text-sm hover:text-text-main"
                 >
                   {t('common_cancel')}
                 </Button>

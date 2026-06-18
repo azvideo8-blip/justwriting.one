@@ -17,7 +17,7 @@ export function TimerDisplay({ showZen }: TimerDisplayProps) {
     <div className={showZen ? 'text-text-main/60' : ''}>
       <span className="font-mono text-2xl tabular-nums">{formatTime(seconds)}</span>
       {sessionType === 'words' && (
-        <span className="text-sm text-text-main/50 ml-2">
+        <span className="text-sm text-text-main/60 ml-2">
           {wordCount}/{wordGoal} {wordGoalReached && '✓'}
         </span>
       )}

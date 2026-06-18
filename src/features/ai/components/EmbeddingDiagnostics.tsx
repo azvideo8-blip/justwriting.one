@@ -162,10 +162,10 @@ export function EmbeddingDiagnostics() {
         {/* Progress bar */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-[11px]">
-            <span className="text-text-main/50">Покрытие корпуса</span>
+            <span className="text-text-main/60">Покрытие корпуса</span>
             <span className="font-mono text-text-main/70">
               {coverage ? `${coverage.indexed} / ${coverage.totalDocs}` : '—'}{' '}
-              <span className="text-text-main/40">({pct}%)</span>
+              <span className="text-text-main/60">({pct}%)</span>
             </span>
           </div>
           <div className="h-1.5 rounded-full bg-border-subtle overflow-hidden">
@@ -183,12 +183,12 @@ export function EmbeddingDiagnostics() {
             { label: 'Последняя', value: coverage?.lastProcessedAt ? new Date(coverage.lastProcessedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—' },
           ].map(s => (
             <div key={s.label} className="p-2.5 rounded-xl border border-border-subtle/60 bg-surface-base/5">
-              <div className="text-[9px] uppercase tracking-wider text-text-main/40 font-bold">{s.label}</div>
+              <div className="text-[9px] uppercase tracking-wider text-text-main/60 font-bold">{s.label}</div>
               <div className="text-text-main/80 font-mono mt-0.5 truncate" title={s.value}>{s.value}</div>
             </div>
           ))}
         </div>
-        <p className="text-[10px] text-text-main/30">
+        <p className="text-[10px] text-text-main/60">
           Индексация идёт автоматически в фоне при простое. Кнопка выше форсирует прогон сейчас. Каждый прогон тратит лимит ИИ (по одному эмбеддингу на заметку).
         </p>
       </div>
@@ -206,7 +206,7 @@ export function EmbeddingDiagnostics() {
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') void handleSearch(); }}
             placeholder="напр.: что я писал про отцовство и усталость"
-            className="flex-1 px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main outline-none placeholder:text-text-main/30"
+            className="flex-1 px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main outline-none placeholder:text-text-main/40"
           />
           <Button
             onClick={() => void handleSearch()}
@@ -220,7 +220,7 @@ export function EmbeddingDiagnostics() {
 
         {results !== null && (
           results.length === 0 ? (
-            <p className="text-xs text-text-main/30 italic py-2">Ничего не найдено (нет проиндексированных заметок или совпадений)</p>
+            <p className="text-xs text-text-main/60 italic py-2">Ничего не найдено (нет проиндексированных заметок или совпадений)</p>
           ) : (
             <div className="space-y-2">
               {results.map((r, i) => (
@@ -231,18 +231,18 @@ export function EmbeddingDiagnostics() {
                     </span>
                     <span className={cn(
                       "text-[10px] font-mono px-2 py-0.5 rounded-full shrink-0",
-                      r.score >= 0.5 ? "bg-brand-soft/10 text-brand-soft" : "bg-surface-base/10 text-text-main/40"
+                      r.score >= 0.5 ? "bg-brand-soft/10 text-brand-soft" : "bg-surface-base/10 text-text-main/60"
                     )}>
                       {r.score.toFixed(3)}
                     </span>
                   </div>
-                  <p className="text-[11px] text-text-main/50 line-clamp-2">{r.content.slice(0, 240) || '(пусто)'}</p>
+                  <p className="text-[11px] text-text-main/60 line-clamp-2">{r.content.slice(0, 240) || '(пусто)'}</p>
                 </div>
               ))}
             </div>
           )
         )}
-        <p className="text-[10px] text-text-main/30">
+        <p className="text-[10px] text-text-main/60">
           Эмбеддит запрос → косинус по локальным векторам → LLM-рерэнк по саммари → топ-5. Так это работает в чате при запросах «что я писал про…».
         </p>
       </div>

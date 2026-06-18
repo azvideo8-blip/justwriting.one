@@ -68,7 +68,7 @@ const SessionItem = React.memo(function SessionItem({ session, doc: _doc, isActi
             label={t('lifelog_continue')}
             onClick={(e) => { e.stopPropagation(); onClick(); }}
             size="sm"
-            className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-text-main/30 hover:text-text-main"
+            className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-text-main/60 hover:text-text-main"
           />
           {onDelete && session.id && (
             <IconButton
@@ -76,7 +76,7 @@ const SessionItem = React.memo(function SessionItem({ session, doc: _doc, isActi
               label={t('session_delete')}
               onClick={(e) => { e.stopPropagation(); onDelete(session); }}
               size="sm"
-              className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-text-main/30 hover:text-accent-danger"
+              className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-text-main/60 hover:text-accent-danger"
             />
           )}
         </div>
@@ -90,7 +90,7 @@ const SessionItem = React.memo(function SessionItem({ session, doc: _doc, isActi
           </span>
         </div>
         {session.content && (
-          <p className="text-[12px] text-text-main/30 truncate mt-0.5 leading-none">
+          <p className="text-[12px] text-text-main/60 truncate mt-0.5 leading-none">
             {highlightText(session.content.slice(0, 80).replace(/\n/g, ' '), searchQuery || '')}
           </p>
         )}
@@ -217,7 +217,7 @@ export function LifeLogPanel({
               "w-8 h-8 rounded-xl border",
               pinned
                 ? "border-text-main/30 bg-text-main/10 text-text-main"
-                : "border-border-subtle text-text-main/40 hover:text-text-main"
+                : "border-border-subtle text-text-main/60 hover:text-text-main"
             )}
           />
 
@@ -225,7 +225,7 @@ export function LifeLogPanel({
             icon={<X size={14} />}
             label={t('lifelog_close')}
             onClick={onClose}
-            className="w-8 h-8 rounded-xl text-text-main/40 hover:text-text-main hover:bg-text-main/5"
+            className="w-8 h-8 rounded-xl text-text-main/60 hover:text-text-main hover:bg-text-main/5"
           />
         </div>
       </div>
@@ -239,7 +239,7 @@ export function LifeLogPanel({
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder={t('lifelog_search_placeholder')}
-              className="bg-surface-base rounded-xl px-3 py-2 text-sm text-text-main placeholder:text-text-main/30 outline-none border border-border-subtle focus:border-text-main/30"
+              className="bg-surface-base rounded-xl px-3 py-2 text-sm text-text-main placeholder:text-text-main/40 outline-none border border-border-subtle focus:border-text-main/30"
             />
           </div>
 
@@ -289,7 +289,7 @@ export function LifeLogPanel({
                                 : 'color-mix(in srgb, var(--color-text-main) 8%, transparent)',
                           }}
                         />
-                        <span className="text-[9px] text-text-main/30 leading-none capitalize">
+                        <span className="text-[9px] text-text-main/60 leading-none capitalize">
                           {day.label}
                         </span>
                       </div>
@@ -312,7 +312,7 @@ export function LifeLogPanel({
                     <div key={group.date.toISOString()}>
                       <div className="px-4 py-2 text-label text-text-subtle font-bold uppercase tracking-wider sticky top-0 bg-surface-card z-10 border-b border-border-subtle/30 flex items-center justify-between">
                         <span>{group.label}</span>
-                        <span className="font-mono font-normal normal-case tracking-normal text-text-main/25">
+                        <span className="font-mono font-normal normal-case tracking-normal text-text-main/60">
                           {groupWords.toLocaleString()} {t('lifelog_words_short')}
                         </span>
                       </div>

@@ -83,13 +83,13 @@ export function AIPage() {
           <div className="flex gap-1 px-4 pb-3.5">
             <Button
               onClick={() => setShowArchived(false)}
-              className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", !showArchived ? "bg-surface-elevated text-text-main" : "text-text-main/40 hover:text-text-main/60")}
+              className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", !showArchived ? "bg-surface-elevated text-text-main" : "text-text-main/60 hover:text-text-main/60")}
             >
               {t('ai_active')}
             </Button>
             <Button
               onClick={() => setShowArchived(true)}
-              className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", showArchived ? "bg-surface-elevated text-text-main" : "text-text-main/40 hover:text-text-main/60")}
+              className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", showArchived ? "bg-surface-elevated text-text-main" : "text-text-main/60 hover:text-text-main/60")}
             >
               {t('ai_archive')}
             </Button>
@@ -119,9 +119,9 @@ export function AIPage() {
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline gap-2">
                       <span className={cn("flex-1 min-w-0 text-sm font-medium truncate", isActive ? "text-text-main" : "text-text-main/55")}>{d.title}</span>
-                      <span className="text-[9.5px] font-mono text-text-main/25 shrink-0">{new Date(d.updatedAt).toLocaleDateString()}</span>
+                      <span className="text-[9.5px] font-mono text-text-main/60 shrink-0">{new Date(d.updatedAt).toLocaleDateString()}</span>
                     </span>
-                    <span className={cn("flex items-center gap-1.5 mt-1 text-xs leading-snug truncate", isActive ? "text-text-main/50" : "text-text-main/30")}>
+                    <span className={cn("flex items-center gap-1.5 mt-1 text-xs leading-snug truncate", isActive ? "text-text-main/60" : "text-text-main/60")}>
                       {d.documentId && <FileText size={10} className="shrink-0" />}
                       <span className="truncate">{preview}</span>
                     </span>
@@ -130,7 +130,7 @@ export function AIPage() {
               );
             })}
             {((showArchived ? archivedDialogues : dialogues).length === 0) && (
-              <div className="py-8 text-center text-xs text-text-main/25">
+              <div className="py-8 text-center text-xs text-text-main/60">
                 {showArchived ? t('ai_no_archived_dialogues') : t('ai_no_active_dialogues')}
               </div>
             )}
@@ -148,7 +148,7 @@ export function AIPage() {
           <div className="flex items-center gap-3.5">
             {!isMobile && <Monogram color={headerVisual.color} mono={headerVisual.mono} size={40} />}
             <div className="min-w-0">
-              <div className="text-[10.5px] font-mono uppercase tracking-[0.18em] text-text-main/30 mb-1">{t('ai_interlocutor')}</div>
+              <div className="text-[10.5px] font-mono uppercase tracking-[0.18em] text-text-main/60 mb-1">{t('ai_interlocutor')}</div>
               <div className="flex items-baseline gap-2.5">
                 {isRenaming ? (
                   <input
@@ -181,7 +181,7 @@ export function AIPage() {
           </div>
 
           <div className="flex items-center gap-1 mt-2">
-              <span className="text-[9px] font-mono uppercase tracking-wider text-text-main/25 mr-1">объём:</span>
+              <span className="text-[9px] font-mono uppercase tracking-wider text-text-main/60 mr-1">объём:</span>
               {(['short', 'standard', 'detailed'] as const).map(len => {
                 const active = responseLength === len;
                 const label = len === 'short' ? 'Кратко' : len === 'standard' ? 'Стандартно' : 'Объёмно';
@@ -193,7 +193,7 @@ export function AIPage() {
                       "px-2.5 py-0.5 rounded-full text-[10px] font-medium border transition-colors",
                       active
                         ? "bg-brand-soft/15 border-brand-soft/30 text-brand-soft"
-                        : "border-border-subtle text-text-main/40 hover:text-text-main/60"
+                        : "border-border-subtle text-text-main/60 hover:text-text-main/60"
                     )}
                   >
                     {label}
@@ -211,7 +211,7 @@ export function AIPage() {
                   key={p.id}
                   className={cn(
                     "shrink-0 flex items-center rounded-full text-xs font-medium border transition-colors",
-                    on ? "pl-1 pr-1.5 text-text-main" : "pl-3 pr-1.5 text-text-main/50"
+                    on ? "pl-1 pr-1.5 text-text-main" : "pl-3 pr-1.5 text-text-main/60"
                   )}
                   style={on
                     ? { background: `${v.color}1c`, borderColor: `${v.color}55` }
@@ -238,7 +238,7 @@ export function AIPage() {
             })}
             <Button
               onClick={() => setCreatePersonaOpen(true)}
-              className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-border-subtle text-text-main/30 hover:text-text-main/50 transition-colors"
+              className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-border-subtle text-text-main/60 hover:text-text-main/60 transition-colors"
             >
               <Plus size={12} />
                {t('ai_create')}
@@ -253,7 +253,7 @@ export function AIPage() {
                 <Monogram color={headerVisual.color} mono={headerVisual.mono} size={56} />
                 <div>
                   <p className="text-base font-medium text-text-main/70">{t('ai_start_dialogue', { name: activePersona?.name ?? '' })}</p>
-                  <p className="text-xs text-text-main/30 mt-1.5">{t('ai_select_persona')}</p>
+                  <p className="text-xs text-text-main/60 mt-1.5">{t('ai_select_persona')}</p>
                 </div>
               </div>
             )}
@@ -268,7 +268,7 @@ export function AIPage() {
               if (isSystemMessage) {
                 return (
                   <div key={i} className="flex justify-center">
-                    <div className="px-4 py-1.5 rounded-full bg-surface-card border border-border-subtle text-[11px] text-text-main/40 font-mono">
+                    <div className="px-4 py-1.5 rounded-full bg-surface-card border border-border-subtle text-[11px] text-text-main/60 font-mono">
                       {msg.content}
                     </div>
                   </div>
@@ -308,7 +308,7 @@ export function AIPage() {
                   <div className="max-w-[78%] px-4 py-3 rounded-2xl rounded-br-md bg-gradient-to-b from-brand-primary/25 to-brand-primary/15 border border-brand-primary/30 text-text-main text-[14.5px] leading-relaxed">
                     {msg.content}
                   </div>
-                   <span className="text-[9px] font-mono uppercase tracking-[0.14em] text-text-main/25 mr-1">{t('ai_you')}</span>
+                   <span className="text-[9px] font-mono uppercase tracking-[0.14em] text-text-main/60 mr-1">{t('ai_you')}</span>
                 </div>
               );
             })}
@@ -321,7 +321,7 @@ export function AIPage() {
 
             {isLoading && streamingMessage === null && (
               <AssistantTurn name={convPersonaName} color={convVisual.color} mono={convVisual.mono}>
-                 <span className="text-text-main/40">{convPersonaName} думает…</span>
+                 <span className="text-text-main/60">{convPersonaName} думает…</span>
               </AssistantTurn>
             )}
 
@@ -380,7 +380,7 @@ export function AIPage() {
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSendMessage(); } }}
                 placeholder={t('ai_write_placeholder', { name: (activePersona?.name ?? '').toLowerCase() })}
                 disabled={isLoading || dailyLimit.remaining === 0}
-                className="flex-1 bg-transparent py-1.5 text-[14.5px] text-text-main placeholder:text-text-main/30 outline-none disabled:opacity-40"
+                className="flex-1 bg-transparent py-1.5 text-[14.5px] text-text-main placeholder:text-text-main/40 outline-none disabled:opacity-40"
               />
               <Button
                 onClick={() => void handleSendMessage()}
@@ -393,13 +393,13 @@ export function AIPage() {
             </div>
 
             <div className="flex items-center gap-3.5 mt-2.5">
-              <span className="text-[10px] font-mono text-text-main/30">
-                {t('ai_remaining_today')} <b className="text-text-main/50">{dailyLimit.remaining}/{dailyLimit.limit}</b> {t('ai_today')}
+              <span className="text-[10px] font-mono text-text-main/60">
+                {t('ai_remaining_today')} <b className="text-text-main/60">{dailyLimit.remaining}/{dailyLimit.limit}</b> {t('ai_today')}
               </span>
               <div className="flex-1" />
               <span className={cn(
                 "text-[10px] font-mono",
-                inputText.length > MAX_INPUT_CHARS * 0.9 ? "text-accent-danger" : "text-text-main/25"
+                inputText.length > MAX_INPUT_CHARS * 0.9 ? "text-accent-danger" : "text-text-main/60"
               )}>
                 {inputText.length.toLocaleString()}/{MAX_INPUT_CHARS.toLocaleString()}
               </span>
@@ -425,7 +425,7 @@ export function AIPage() {
                     onClick={() => setSelectedPersonaId(p.id)}
                     className={cn(
                       "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs",
-                      selectedPersonaId === p.id ? "text-text-main" : "text-text-main/40"
+                      selectedPersonaId === p.id ? "text-text-main" : "text-text-main/60"
                     )}
                     style={selectedPersonaId === p.id ? { background: `${v.color}1c` } : undefined}
                   >
@@ -434,7 +434,7 @@ export function AIPage() {
                   </Button>
                   <IconButton
                     onClick={e => { e.stopPropagation(); openPersonaDetail(p); }}
-                    className="w-5 h-5 rounded-full text-text-main/30 hover:text-text-main/60 flex items-center justify-center"
+                    className="w-5 h-5 rounded-full text-text-main/60 hover:text-text-main/60 flex items-center justify-center"
                     label={t('ai_description_prompt')}
                     icon={<Info size={12} />}
                   />

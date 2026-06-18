@@ -95,7 +95,7 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
           <h2 className="text-base font-medium text-text-main mb-2">
             {t('migration_found_title')}
           </h2>
-          <p className="text-sm text-text-main/50 mb-6">
+          <p className="text-sm text-text-main/60 mb-6">
             {t('migration_found_hint', { count: docCount })}
           </p>
 
@@ -108,7 +108,7 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
             </Button>
             <Button
               onClick={onDone}
-              className="w-full py-2.5 rounded-xl text-text-main/40 text-sm hover:text-text-main/60 transition-colors"
+              className="w-full py-2.5 rounded-xl text-text-main/60 text-sm hover:text-text-main/60 transition-colors"
             >
               {t('migration_keep_local')}
             </Button>

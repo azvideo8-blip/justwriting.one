@@ -30,7 +30,7 @@ export function ArchiveTagBar({
 
   return (
     <div className="flex items-center gap-2 py-3 flex-wrap border-b border-border-subtle" >
-      <span className="font-mono text-[9px] text-text-main/25 uppercase tracking-widest mr-1">
+      <span className="font-mono text-[9px] text-text-main/60 uppercase tracking-widest mr-1">
         {t('archive_tags_label')}
       </span>
       {allTags.map(tag => {
@@ -38,7 +38,7 @@ export function ArchiveTagBar({
         if (renamingTag === tag) {
           return (
             <div key={tag} className="flex items-center gap-1 px-2 py-1 rounded-xl border border-border-subtle bg-surface-card">
-               <span className="text-[9px] font-mono text-text-main/40">#</span>
+               <span className="text-[9px] font-mono text-text-main/60">#</span>
                <input
                  value={renameTagValue}
                  onChange={e => setRenameTagValue(e.target.value)}
@@ -49,7 +49,7 @@ export function ArchiveTagBar({
                    if (e.key === 'Escape') onRenameCancel();
                  }}
                />
-              <Button onClick={onRenameCancel} className="text-label text-text-main/30 hover:text-text-main/50">✕</Button>
+              <Button onClick={onRenameCancel} className="text-label text-text-main/60 hover:text-text-main/60">✕</Button>
             </div>
           );
         }
@@ -63,7 +63,7 @@ export function ArchiveTagBar({
                  "px-2 py-0.5 rounded-full text-[10px] font-mono transition-colors border",
                 active
                   ? "bg-brand-soft/15 border-brand-soft/40 text-brand-soft"
-                  : "bg-transparent border-border-subtle text-text-main/40 hover:text-text-main/60"
+                  : "bg-transparent border-border-subtle text-text-main/60 hover:text-text-main/60"
               )}
             >
               #{tag}
@@ -72,13 +72,13 @@ export function ArchiveTagBar({
               <span className="hidden md:flex absolute -top-1.5 -right-1.5 opacity-0 group-hover/tag:opacity-100 transition-opacity gap-0.5">
                 <IconButton
                   onClick={e => { e.stopPropagation(); onStartRename(tag); }}
-                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/50 hover:text-text-main"
+                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/60 hover:text-text-main"
                   label="Rename"
                   icon={<Pencil className="w-1.5 h-1.5" />}
                 />
                 <IconButton
                   onClick={e => { e.stopPropagation(); onDeleteTag(tag); }}
-                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/50 hover:text-accent-danger"
+                  className="w-4 h-4 rounded-full bg-surface-card border border-border-subtle flex items-center justify-center text-text-main/60 hover:text-accent-danger"
                   label="Delete"
                   icon={<X className="w-1.5 h-1.5" />}
                 />
@@ -90,7 +90,7 @@ export function ArchiveTagBar({
       {selectedTags.length > 0 && (
         <Button
           onClick={onResetTags}
-           className="px-2 py-0.5 rounded-full text-[10px] font-mono border border-dashed border-border-subtle text-text-main/30 hover:text-text-main/50 transition-colors"
+           className="px-2 py-0.5 rounded-full text-[10px] font-mono border border-dashed border-border-subtle text-text-main/60 hover:text-text-main/60 transition-colors"
         >
           {t('archive_tags_reset')} ✕
         </Button>

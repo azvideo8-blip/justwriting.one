@@ -32,7 +32,7 @@ function _PromptsScreen({ t, onSelect, onBack }: {
       <div className="space-y-5">
         {PROMPT_KEYS.map(cat => (
           <div key={cat.key}>
-            <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/40 mb-2">
+            <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/60 mb-2">
               {t(`prompts_category_${cat.key}`)}
             </div>
             <div className="space-y-2">
@@ -56,7 +56,7 @@ function _PromptsScreen({ t, onSelect, onBack }: {
         variant="ghost"
         size="md"
         onClick={onBack}
-        className="w-full py-2 text-xs md:text-sm font-bold text-text-main/50 hover:text-text-main"
+        className="w-full py-2 text-xs md:text-sm font-bold text-text-main/60 hover:text-text-main"
       >
         {t('writing_back')}
       </Button>
@@ -140,7 +140,7 @@ export function WritingSetup({
                 <>
                   <div className="text-center space-y-2 md:space-y-3">
                     <h3 className="text-base font-bold text-text-main/70 uppercase tracking-widest">{t('writing_select_mode')}</h3>
-                    <p className="text-sm md:text-base font-medium text-text-main/50">{t('writing_how_to_write')}</p>
+                    <p className="text-sm md:text-base font-medium text-text-main/60">{t('writing_how_to_write')}</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -166,7 +166,7 @@ export function WritingSetup({
                           <div className="font-semibold text-sm text-text-main leading-tight">
                             {t(mode.label)}
                           </div>
-                          <div className="text-xs text-text-main/40 leading-tight mt-0.5 hidden sm:block">
+                          <div className="text-xs text-text-main/60 leading-tight mt-0.5 hidden sm:block">
                             {t(mode.desc)}
                           </div>
                         </div>
@@ -197,7 +197,7 @@ export function WritingSetup({
                             min="1"
                             autoFocus
                           />
-                          <div className="text-label-sm md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/50">{t('writing_minutes')}</div>
+                          <div className="text-label-sm md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/60">{t('writing_minutes')}</div>
                         </div>
                       )}
                       {setupMode === 'words-config' && (
@@ -211,7 +211,7 @@ export function WritingSetup({
                             step="50"
                             autoFocus
                           />
-                          <div className="text-label-sm md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/50">{t('writing_words')}</div>
+                          <div className="text-label-sm md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/60">{t('writing_words')}</div>
                         </div>
                       )}
                       {setupMode === 'finish-by-config' && (
@@ -225,7 +225,7 @@ export function WritingSetup({
                             }`}
                             autoFocus
                           />
-                          <div className="text-label-sm md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/50">{t('writing_time')}</div>
+                          <div className="text-label-sm md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/60">{t('writing_time')}</div>
                           {finishByError && (
                             <div className="text-xs text-accent-danger mt-2 font-medium">
                               {t('error_target_time_in_past') || 'Выберите время в будущем'}
@@ -267,7 +267,7 @@ export function WritingSetup({
                         variant="ghost"
                         size="md"
                         onClick={() => setSetupMode('selection')}
-                        className="w-full py-2 text-xs md:text-sm font-bold text-text-main/50 hover:text-text-main"
+                        className="w-full py-2 text-xs md:text-sm font-bold text-text-main/60 hover:text-text-main"
                       >
                         {t('writing_back')}
                       </Button>
@@ -285,10 +285,10 @@ export function WritingSetup({
                   <div className="grid grid-cols-1 gap-3 md:gap-4 max-h-[400px] md:max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
                     {userSessions.length === 0 ? (
                       <div className="p-10 md:p-16 text-center space-y-4 rounded-2xl md:rounded-[2rem] border-2 border-dashed bg-white/5 border-border-subtle">
-                        <div className="w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center mx-auto bg-white/10 text-text-main/50">
+                        <div className="w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center mx-auto bg-white/10 text-text-main/60">
                           <PenLine size={24} className="md:w-8 md:h-8" />
                         </div>
-                        <p className="text-sm md:text-base font-medium italic text-text-main/50">{t('writing_no_sessions')}</p>
+                        <p className="text-sm md:text-base font-medium italic text-text-main/60">{t('writing_no_sessions')}</p>
                       </div>
                     ) : (
                       userSessions.map(session => (
@@ -302,19 +302,19 @@ export function WritingSetup({
                         >
                           <div className="flex items-center justify-between w-full">
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors shadow-sm bg-white/10 text-text-main/50 group-hover:text-text-main">
+                              <div className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors shadow-sm bg-white/10 text-text-main/60 group-hover:text-text-main">
                                 <PenLine size={16} />
                               </div>
                               <div>
                                 <div className="font-bold text-sm md:text-base group-hover:translate-x-1 transition-transform duration-300 text-text-main">
                                   {session.title || t('common_untitled')}
                                 </div>
-                                <div className="text-label-sm font-bold uppercase tracking-wider text-text-main/50">
+                                <div className="text-label-sm font-bold uppercase tracking-wider text-text-main/60">
                                   {session.totalWords} {t('writing_words')} · {formatTime(session.totalDuration)}
                                 </div>
                               </div>
                             </div>
-                            <div className="text-label-sm font-black uppercase tracking-widest px-2 py-1 rounded-full bg-white/10 text-text-main/50">
+                            <div className="text-label-sm font-black uppercase tracking-widest px-2 py-1 rounded-full bg-white/10 text-text-main/60">
                               {session.lastSessionAt ? format(new Date(session.lastSessionAt), 'd MMM', { locale: dateLocale }) : ''}
                             </div>
                           </div>
@@ -326,7 +326,7 @@ export function WritingSetup({
                     variant="ghost"
                     size="md"
                     onClick={() => setSetupMode(null)}
-                    className="w-full py-3 md:py-4 text-xs md:text-sm font-bold text-text-main/50 hover:text-text-main"
+                    className="w-full py-3 md:py-4 text-xs md:text-sm font-bold text-text-main/60 hover:text-text-main"
                   >
                     {t('writing_cancel')}
                   </Button>
@@ -342,7 +342,7 @@ export function WritingSetup({
                   variant="ghost"
                   size="sm"
                   onClick={() => setSetupMode(null)}
-                  className="text-xs font-black uppercase tracking-[0.2em] transition-[letter-spacing] hover:tracking-[0.3em] text-text-main/50 hover:text-text-main"
+                  className="text-xs font-black uppercase tracking-[0.2em] transition-[letter-spacing] hover:tracking-[0.3em] text-text-main/60 hover:text-text-main"
                 >
                   {t('writing_cancel')}
                 </Button>

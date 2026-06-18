@@ -135,7 +135,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
               label={t('ai_close')}
               size="sm"
               onClick={onClose}
-              className="rounded-lg text-text-main/40 hover:text-text-main hover:bg-text-main/5"
+              className="rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5"
             />
           </div>
 
@@ -183,7 +183,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
                   exit={{ opacity: 0 }}
                   className="flex flex-col gap-3"
                 >
-                  <div className="text-xs text-text-main/40 font-medium uppercase tracking-wider">
+                  <div className="text-xs text-text-main/60 font-medium uppercase tracking-wider">
                     {t('ai_result_label')}
                   </div>
                   <div className="text-sm text-text-main/80 whitespace-pre-wrap leading-relaxed rounded-xl bg-text-main/[0.03] p-3 border border-border-subtle/30">
@@ -225,7 +225,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
 
           {!content.trim() && (
             <div className="px-4 pb-3">
-              <div className="text-xs text-text-main/30 text-center">{t('ai_no_content')}</div>
+              <div className="text-xs text-text-main/60 text-center">{t('ai_no_content')}</div>
             </div>
           )}
           </motion.div>
@@ -247,7 +247,7 @@ export function AIToggleButton({ onClick, active }: { onClick: () => void; activ
         "rounded-lg",
         active
           ? "bg-brand-soft/20 text-brand-soft"
-          : "text-text-main/40 hover:text-text-main hover:bg-text-main/5"
+          : "text-text-main/60 hover:text-text-main hover:bg-text-main/5"
       )}
     />
   );

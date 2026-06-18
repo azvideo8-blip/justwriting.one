@@ -130,7 +130,7 @@ export function GoalPopup({
           className={cn("border border-border-subtle rounded-lg p-3 shadow-xl", width)}
           data-goal-popup
         >
-          <div className="text-label-sm text-text-main/40 mb-2 font-bold uppercase tracking-widest">{title}</div>
+          <div className="text-label-sm text-text-main/60 mb-2 font-bold uppercase tracking-widest">{title}</div>
           <div className="flex gap-1 flex-wrap mb-2">
             {presets.map(p => {
               const isActive = type === 'time'
@@ -175,7 +175,7 @@ export function GoalPopup({
                 variant="ghost"
                 size="sm"
                 onClick={() => { onClear(); onClose(); }}
-                className="text-xs text-text-main/40 hover:text-text-main/70 p-1 shrink-0"
+                className="text-xs text-text-main/60 hover:text-text-main/70 p-1 shrink-0"
               >{onClearLabel}</Button>
             )}
           </div>

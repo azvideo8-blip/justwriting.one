@@ -139,13 +139,13 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
               {sessionWords}
             </span>
             {wordGoal > 0 && (
-              <span className={cn("text-xs", wordDone ? "text-accent-success/60" : "text-text-main/30")}>
+              <span className={cn("text-xs", wordDone ? "text-accent-success/60" : "text-text-main/60")}>
                 / {wordGoal}
               </span>
             )}
             {!compact && (
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
-                className="text-text-main/20 group-hover:text-text-main/40 transition-colors self-center mb-0.5">
+                className="text-text-main/60 group-hover:text-text-main/60 transition-colors self-center mb-0.5">
                 <path d="M5 2v4M3 4l2 2 2-2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
               </svg>
             )}
@@ -191,7 +191,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
               {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
             </span>
             {timerDuration > 0 && (
-              <span className={cn("text-xs", timeDone ? "text-accent-success/60" : "text-text-main/30")}>
+              <span className={cn("text-xs", timeDone ? "text-accent-success/60" : "text-text-main/60")}>
                 {timeDone ? t('goal_time_done') : t('goal_time_remaining')}
               </span>
             )}
@@ -262,7 +262,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             "w-8 h-8 flex items-center justify-center transition-colors shrink-0",
             status !== 'idle'
               ? "text-accent-danger hover:bg-accent-danger/10"
-              : "text-text-main/20 cursor-not-allowed"
+              : "text-text-main/60 cursor-not-allowed"
           )}
           label={t('stop')}
           icon={<Square size={14} />}

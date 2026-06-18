@@ -76,7 +76,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
           <h2 id="unlock-modal-title" className="text-base font-medium text-text-main mb-1">
             {t('unlock_title')}
           </h2>
-          <p className="text-sm text-text-main/50 mb-4">
+          <p className="text-sm text-text-main/60 mb-4">
             {t('unlock_subtitle')}
           </p>
 
@@ -95,7 +95,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/20"
+              className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/40"
             />
             <div className="flex gap-2">
               <Button
@@ -109,7 +109,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
               <Button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-xl text-sm text-text-main/40 hover:text-text-main/60 transition-colors"
+                className="px-4 py-2.5 rounded-xl text-sm text-text-main/60 hover:text-text-main/60 transition-colors"
               >
                 {t('common_cancel')}
               </Button>

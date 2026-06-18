@@ -48,7 +48,7 @@ export function AppTab({ userId: _userId, onRefreshLifeLog: _onRefreshLifeLog }:
   return (
     <div className="space-y-4 mt-2">
       <Section title={t('settings_section_storage')}>
-        <div className="text-label-sm text-text-main/40 mb-3 px-1">
+        <div className="text-label-sm text-text-main/60 mb-3 px-1">
           {t('settings_storage_hint')}
         </div>
 
@@ -77,7 +77,7 @@ export function AppTab({ userId: _userId, onRefreshLifeLog: _onRefreshLifeLog }:
         <div className="flex items-center justify-between px-1 mb-3">
           <div className="flex-1 text-left pr-4">
             <span className="text-sm text-text-main/60">{t('settings_auto_summarize')}</span>
-            <p className="text-xs text-text-main/40 mt-0.5">{t('settings_auto_summarize_hint')}</p>
+            <p className="text-xs text-text-main/60 mt-0.5">{t('settings_auto_summarize_hint')}</p>
           </div>
           <button
             onClick={toggleAutoSummarize}
@@ -100,7 +100,7 @@ export function AppTab({ userId: _userId, onRefreshLifeLog: _onRefreshLifeLog }:
         {isGuest && (
           <Button
             onClick={openLoginModal}
-            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-border-subtle text-sm text-text-main/40 hover:text-text-main transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors"
           >
             <LogIn size={14} />
             {t('storage_sign_in_for_cloud')}

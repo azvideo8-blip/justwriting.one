@@ -47,7 +47,7 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
             >
               {day.date.getDate()}
             </div>
-            <span className="text-[9px] font-mono text-text-main/30 uppercase">
+            <span className="text-[9px] font-mono text-text-main/60 uppercase">
               {day.date.toLocaleDateString(language, { weekday: 'narrow' })}
             </span>
           </div>
@@ -76,13 +76,13 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
                   ? "bg-brand-primary text-surface-base ring-2 ring-brand-primary/30 ring-offset-2 ring-offset-surface-card"
                   : "bg-brand-primary/40 text-text-main"
                 : day.isToday
-                  ? "bg-text-main/10 text-text-main/40 ring-2 ring-brand-primary/20 ring-offset-2 ring-offset-surface-card"
-                  : "bg-text-main/10 text-text-main/30"
+                  ? "bg-text-main/10 text-text-main/60 ring-2 ring-brand-primary/20 ring-offset-2 ring-offset-surface-card"
+                  : "bg-text-main/10 text-text-main/60"
             )}
           >
             {day.date.getDate()}
           </div>
-          <span className="text-[9px] font-mono text-text-main/30 uppercase">
+          <span className="text-[9px] font-mono text-text-main/60 uppercase">
             {day.date.toLocaleDateString(language, { weekday: 'narrow' })}
           </span>
         </motion.div>

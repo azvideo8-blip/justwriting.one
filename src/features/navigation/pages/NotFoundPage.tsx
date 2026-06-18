@@ -18,7 +18,7 @@ export function NotFoundPage() {
       />
       <div className="text-center">
         <h1 className="text-6xl font-black text-text-main mb-4">404</h1>
-        <p className="text-sm text-text-main/40 mb-8">
+        <p className="text-sm text-text-main/60 mb-8">
           {isRu ? 'Запрашиваемая страница не существует.' : 'The requested page does not exist.'}
         </p>
         <Link

@@ -70,12 +70,12 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
           <h3 className="text-sm font-bold text-text-main">Создать персону</h3>
-          <IconButton onClick={onClose} className="p-1.5 rounded-lg text-text-main/40 hover:text-text-main transition-colors" label="Close" icon={<X size={18} />} />
+          <IconButton onClick={onClose} className="p-1.5 rounded-lg text-text-main/60 hover:text-text-main transition-colors" label="Close" icon={<X size={18} />} />
         </div>
 
         <div className="p-5 space-y-4">
           <div>
-            <label className="text-xs font-medium text-text-main/50 uppercase tracking-wide mb-1.5 block">Эмодзи</label>
+            <label className="text-xs font-medium text-text-main/60 uppercase tracking-wide mb-1.5 block">Эмодзи</label>
             <div className="relative">
               <Button
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -101,28 +101,28 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-medium text-text-main/50 uppercase tracking-wide">Имя</label>
-              <span className="text-[10px] font-mono text-text-main/25">{name.length}/30</span>
+              <label className="text-xs font-medium text-text-main/60 uppercase tracking-wide">Имя</label>
+              <span className="text-[10px] font-mono text-text-main/60">{name.length}/30</span>
             </div>
             <Input
               value={name}
               onChange={e => setName(e.target.value.slice(0, 30))}
               placeholder="Мудрый друг"
-              className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40"
+              className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/40 outline-none focus:border-brand-soft/40"
             />
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-medium text-text-main/50 uppercase tracking-wide">System prompt</label>
-              <span className="text-[10px] font-mono text-text-main/25">{prompt.length}/500</span>
+              <label className="text-xs font-medium text-text-main/60 uppercase tracking-wide">System prompt</label>
+              <span className="text-[10px] font-mono text-text-main/60">{prompt.length}/500</span>
             </div>
             <Textarea
               value={prompt}
               onChange={e => setPrompt(e.target.value.slice(0, 500))}
               placeholder="Опишите роль персоны. Пример: 'Ты — мудрый друг, который...'"
               rows={4}
-              className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/30 outline-none focus:border-brand-soft/40 resize-none"
+              className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/40 outline-none focus:border-brand-soft/40 resize-none"
             />
             {(clientValidationError || validationError) && (
               <p className="text-xs text-accent-danger mt-1">{clientValidationError || validationError}</p>

@@ -34,14 +34,14 @@ export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate,
       <div className="flex items-center justify-between">
         <Button onClick={() => onSelectMonth?.(currentMonth)} className="text-sm font-medium text-text-main px-1 capitalize transition-colors hover:text-text-main/70">{format(currentMonth, 'LLLL yyyy', { locale })}</Button>
         <div className="flex items-center gap-1">
-          <IconButton onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1 rounded transition-colors text-text-main/50 hover:bg-text-main/5 hover:text-text-main" label="Previous month" icon={<ChevronLeft size={18} />} />
-          <IconButton onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1 rounded transition-colors text-text-main/50 hover:bg-text-main/5 hover:text-text-main" label="Next month" icon={<ChevronRight size={18} />} />
+          <IconButton onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1 rounded transition-colors text-text-main/60 hover:bg-text-main/5 hover:text-text-main" label="Previous month" icon={<ChevronLeft size={18} />} />
+          <IconButton onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1 rounded transition-colors text-text-main/60 hover:bg-text-main/5 hover:text-text-main" label="Next month" icon={<ChevronRight size={18} />} />
         </div>
       </div>
 
       <div className="grid grid-cols-7 gap-2">
         {['calendar_mon', 'calendar_tue', 'calendar_wed', 'calendar_thu', 'calendar_fri', 'calendar_sat', 'calendar_sun'].map((key, i) => (
-          <div key={`${key}-${i}`} className="text-label text-text-main/30 uppercase tracking-wider text-center">{t(key)}</div>
+          <div key={`${key}-${i}`} className="text-label text-text-main/60 uppercase tracking-wider text-center">{t(key)}</div>
         ))}
         {Array.from({ length: offset }).map((_, i) => (
           <div key={`empty-${i}`} />
@@ -60,7 +60,7 @@ export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate,
                 "aspect-square rounded-lg flex items-center justify-center text-sm transition-colors relative flex-col gap-0",
                 hasSessions
                   ? "text-text-main/80 font-medium"
-                  : "text-text-main/20 hover:text-text-main/40",
+                  : "text-text-main/60 hover:text-text-main/60",
                 today && !hasSessions && "bg-text-main/10 border border-text-main/20 rounded-lg text-text-main",
                 isSelected && "ring-2 ring-text-main/30"
               )}

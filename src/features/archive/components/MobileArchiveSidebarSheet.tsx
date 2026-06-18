@@ -74,13 +74,13 @@ export function MobileArchiveSidebarSheet({
 
         {/* Header */}
         <div className="flex justify-between items-center px-6 pb-3">
-          <div className="flex items-center gap-2 text-sm font-bold text-text-main/30 uppercase tracking-widest">
+          <div className="flex items-center gap-2 text-sm font-bold text-text-main/60 uppercase tracking-widest">
             <SlidersHorizontal size={16} />
             <span>{t('archive_stats_title') || 'Фильтры'}</span>
           </div>
           <IconButton
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/[0.04] border-none flex items-center justify-center text-text-main/40 hover:text-text-main/70 cursor-pointer"
+            className="w-8 h-8 rounded-full bg-white/[0.04] border-none flex items-center justify-center text-text-main/60 hover:text-text-main/70 cursor-pointer"
             label={t('common_close')}
             icon={<X size={18} />}
           />
@@ -103,7 +103,7 @@ export function MobileArchiveSidebarSheet({
           {/* Calendar Picker Section */}
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="font-mono text-label text-text-main/30 uppercase tracking-widest">
+              <span className="font-mono text-label text-text-main/60 uppercase tracking-widest">
                 {t('archive_calendar_title')}
               </span>
               {selectedDate && (
@@ -142,7 +142,7 @@ export function MobileArchiveSidebarSheet({
 
               {/* Word Cloud Tag list */}
               <div className="space-y-3">
-                <span className="font-mono text-label text-text-main/30 uppercase tracking-widest block">
+                <span className="font-mono text-label text-text-main/60 uppercase tracking-widest block">
                   {t('archive_wordcloud_title')}
                 </span>
                 <div className="flex flex-wrap gap-x-3 gap-y-2 bg-white/[0.01] border border-white/[0.04] rounded-2xl p-4">
