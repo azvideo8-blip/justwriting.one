@@ -148,7 +148,9 @@ export function MobileWriteToolbar({
             onClick={onGoalClick}
             className="flex-1 flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]" 
             role="button"
+            tabIndex={0}
             aria-label={t('writing_mode_words')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onGoalClick?.(); } }}
           >
             <span className="text-[17px] font-medium text-[var(--text-main)] leading-none">
               {sessionWords}
@@ -175,7 +177,9 @@ export function MobileWriteToolbar({
             onClick={onGoalClick}
             className="flex-1 flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]" 
             role="button"
+            tabIndex={0}
             aria-label={t('writing_mode_timer')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onGoalClick?.(); } }}
           >
             <span className="text-[17px] font-medium text-[var(--text-main)] leading-none font-mono tabular-nums">
               {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}

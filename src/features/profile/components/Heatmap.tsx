@@ -191,6 +191,10 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
                         e.stopPropagation();
                         setHoveredCell({ wi, di });
                       }}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`${day.date.toLocaleDateString(language)} — ${day.words} ${t('home_words_short')}`}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHoveredCell({ wi, di }); } }}
                       className="relative cursor-pointer" 
                     >
                       <div

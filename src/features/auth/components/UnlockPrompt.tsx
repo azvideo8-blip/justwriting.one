@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useRef } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Lock, AlertCircle, Loader2 } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
@@ -7,6 +7,8 @@ import { WrongPasswordError, unlockVault } from '../../../core/services/Encrypti
 import { reportError } from '../../../shared/errors/reportError';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
+import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
+import { useModalEscape } from '../../../shared/hooks/useModalEscape';
 
 interface UnlockPromptProps {
   uid: string;
@@ -17,9 +19,14 @@ interface UnlockPromptProps {
 export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
+  const reducedMotion = useReducedMotion();
+  const modalRef = useRef<HTMLDivElement>(null);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useFocusTrap(modalRef, true);
+  useModalEscape(true, onClose);
 
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,16 +60,20 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
         onClick={onClose}
       >
         <motion.div
-          initial={{ scale: 0.95, opacity: 0 }}
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="unlock-modal-title"
+          initial={reducedMotion ? {} : { scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.95, opacity: 0 }}
+          exit={reducedMotion ? {} : { scale: 0.95, opacity: 0 }}
           className="w-full max-w-[360px] bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
           onClick={e => e.stopPropagation()}
         >
           <div className="w-10 h-10 rounded-2xl bg-brand-soft/10 border border-brand-soft/30 flex items-center justify-center mb-4">
             <Lock size={18} className="text-brand-soft" />
           </div>
-          <h2 className="text-base font-medium text-text-main mb-1">
+          <h2 id="unlock-modal-title" className="text-base font-medium text-text-main mb-1">
             {t('unlock_title')}
           </h2>
           <p className="text-sm text-text-main/50 mb-4">
@@ -70,7 +81,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
           </p>
 
           {error && (
-            <div className="p-3 rounded-lg bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-xs mb-3 flex items-center gap-2">
+            <div role="alert" className="p-3 rounded-lg bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-xs mb-3 flex items-center gap-2">
               <AlertCircle size={14} className="shrink-0" />
               {error}
             </div>
@@ -80,6 +91,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
             <Input
               type="password"
               autoFocus
+              aria-label={t('unlock_title')}
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="••••••••"

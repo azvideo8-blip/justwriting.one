@@ -111,6 +111,9 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
             />
           )}
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('ai_panel_title')}
             initial={isMobile ? { y: '100%' } : { opacity: 0, x: 20 }}
             animate={isMobile ? { y: 0 } : { opacity: 1, x: 0 }}
             exit={isMobile ? { y: '100%' } : { opacity: 0, x: 20 }}
@@ -160,8 +163,10 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
             </div>
 
             <AnimatePresence mode="wait">
+              <div aria-live="polite">
               {error && (
                 <motion.div
+                  role="alert"
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
@@ -214,6 +219,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
                   </div>
                 </motion.div>
               )}
+              </div>
             </AnimatePresence>
           </div>
 

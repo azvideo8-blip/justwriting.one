@@ -4,6 +4,7 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, isActive: boole
   useEffect(() => {
     if (!isActive || !ref.current) return;
     const container = ref.current;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
     const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
     const getFocusable = () => Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE));
 
@@ -33,6 +34,7 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, isActive: boole
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       observer.disconnect();
+      previouslyFocused?.focus();
     };
   }, [isActive, ref]);
 }

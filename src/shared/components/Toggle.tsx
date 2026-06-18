@@ -1,4 +1,4 @@
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '../../shared/utils/cn';
 
 interface ToggleProps {
@@ -10,6 +10,7 @@ interface ToggleProps {
 }
 
 export function Toggle({ checked, onChange, disabled, className, ariaLabel }: ToggleProps) {
+  const reducedMotion = useReducedMotion();
   return (
     <button
       type="button"
@@ -27,7 +28,7 @@ export function Toggle({ checked, onChange, disabled, className, ariaLabel }: To
     >
       <motion.div
         animate={{ x: checked ? 24 : 0 }}
-        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+        transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 500, damping: 30 }}
         className={cn(
           "w-4 h-4 rounded-full shadow-sm",
           checked ? "bg-surface-base" : "bg-white"
