@@ -14,6 +14,8 @@ const DiagnosticsPage = React.lazy(() => import('../features/ai/pages/Diagnostic
 const AboutPage = React.lazy(() => import('../features/navigation/pages/AboutPage').then(m => ({ default: m.AboutPage })));
 const ChangelogPage = React.lazy(() => import('../features/navigation/pages/ChangelogPage').then(m => ({ default: m.ChangelogPage })));
 const LandingPage = React.lazy(() => import('../features/navigation/pages/LandingPage').then(m => ({ default: m.LandingPage })));
+const PrivacyPolicyPage = React.lazy(() => import('../features/navigation/pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
+const TermsOfServicePage = React.lazy(() => import('../features/navigation/pages/TermsOfServicePage').then(m => ({ default: m.TermsOfServicePage })));
 
 import { Loader2 } from 'lucide-react';
 
@@ -44,6 +46,8 @@ export function AppRoutes() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/changelog" element={<ChangelogPage />} />
         <Route path="/features" element={<LandingPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

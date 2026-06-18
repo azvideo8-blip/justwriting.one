@@ -47,6 +47,20 @@ const pages: PageMeta[] = [
     descriptionRu: 'Режим потока, сквозное шифрование, серия дней, дзен-режим. Тихий редактор для свободного письма.',
     descriptionEn: 'Stream mode, end-to-end encryption, writing streaks, zen mode. A quiet editor for free writing.',
   },
+  {
+    path: '/privacy',
+    titleRu: 'Политика конфиденциальности — justwriting',
+    titleEn: 'Privacy Policy — justwriting',
+    descriptionRu: 'Как justwriting собирает, хранит и обрабатывает ваши данные. Шифрование, ИИ-функции, аналитика, права пользователя.',
+    descriptionEn: 'How justwriting collects, stores, and processes your data. Encryption, AI features, analytics, user rights.',
+  },
+  {
+    path: '/terms',
+    titleRu: 'Условия использования — justwriting',
+    titleEn: 'Terms of Service — justwriting',
+    descriptionRu: 'Условия использования приложения justwriting. Ответственность, допустимое использование, права пользователя.',
+    descriptionEn: 'Terms of Service for justwriting app. Liability, acceptable use, user rights.',
+  },
 ];
 
 function buildPage(meta: PageMeta, indexHtml: string): string {

@@ -19,6 +19,8 @@ export function getGenAI(): GoogleGenerativeAI {
 
 export const MAX_AI_CONTENT_LENGTH = 50_000;
 
+// Mirror of src/shared/ai/injectionPatterns.ts — keep in sync.
+// After migration to Supabase, both sides will import from a single shared package.
 export const INJECTION_PATTERNS = [
   /ignore\s+previous/i,
   /ignore\s+instructions/i,

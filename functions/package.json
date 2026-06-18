@@ -13,7 +13,7 @@
     "firebase-functions": "^7.2.5",
     "isomorphic-dompurify": "^3.14.0",
     "langfuse": "^3.38.20",
-    "zod": "^4.0.0"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "typescript": "^5.3.0",

@@ -14,6 +14,23 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.25',
+    date: '2026-06-18',
+    items: [
+      { category: 'fix', ru: 'Шифрование: неверный пароль больше не включает шифрование без ключа — vault честно возвращает false', en: 'Encryption: wrong password no longer silently enables encryption without a key — vault returns false' },
+      { category: 'new', ru: 'Авто-блокировка ключа шифрования через 15 минут неактивности + очистка при сворачивании вкладки', en: 'CryptoKey auto-lock after 15 min inactivity + clear on tab minimize' },
+      { category: 'fix', ru: 'Защита ИИ от prompt injection расширена на пользовательские сообщения в стриминг-чате', en: 'AI prompt injection guard extended to user messages in streaming chat' },
+      { category: 'improvement', ru: 'Единый список паттернов инъекций (15) в общем модуле — Edge API и Cloud Functions синхронизированы', en: 'Unified injection pattern list (15) in shared module — Edge API and Cloud Functions in sync' },
+      { category: 'fix', ru: 'trackEvent и Web Vitals теперь проверяют согласие пользователя перед отправкой в PostHog', en: 'trackEvent and Web Vitals now check consent before sending to PostHog' },
+      { category: 'fix', ru: 'Устранены все HIGH уязвимости зависимостей (7→0): react-router-dom RCE, vite, hono CORS, form-data CRLF', en: 'Resolved all HIGH dependency vulnerabilities (7→0): react-router-dom RCE, vite, hono CORS, form-data CRLF' },
+      { category: 'improvement', ru: 'CI: npm audit теперь на уровне HIGH без continue-on-error', en: 'CI: npm audit now at HIGH level without continue-on-error' },
+      { category: 'new', ru: 'Политика конфиденциальности (/privacy) — 10 разделов RU/EN, все обработчики данных раскрыты', en: 'Privacy Policy (/privacy) — 10 sections RU/EN, all data processors disclosed' },
+      { category: 'new', ru: 'Условия использования (/terms) — 10 разделов RU/EN', en: 'Terms of Service (/terms) — 10 sections RU/EN' },
+      { category: 'improvement', ru: 'Privacy Modal: раскрыты Langfuse, PostHog, Sentry; ссылки на /privacy и /terms', en: 'Privacy Modal: disclosed Langfuse, PostHog, Sentry; links to /privacy and /terms' },
+      { category: 'improvement', ru: 'SECURITY.md и README.md полностью обновлены', en: 'SECURITY.md and README.md fully updated' },
+    ],
+  },
+  {
     version: '0.7.24',
     date: '2026-06-19',
     items: [

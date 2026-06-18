@@ -31,6 +31,6 @@ describe('hasInjectionAttempt', () => {
   });
 
   it('INJECTION_PATTERNS array matches expected count', () => {
-    expect(INJECTION_PATTERNS.length).toBe(8);
+    expect(INJECTION_PATTERNS.length).toBe(15);
   });
 });
