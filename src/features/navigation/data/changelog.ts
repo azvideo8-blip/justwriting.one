@@ -14,6 +14,22 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.27',
+    date: '2026-06-18',
+    items: [
+      { category: 'new', ru: 'DPIA документ для ИИ-функций (CBT, mood, портрет) — оценка рисков и меры безопасности', en: 'DPIA document for AI features (CBT, mood, portrait) — risk assessment and security measures' },
+      { category: 'new', ru: 'Age gate 16+ при регистрации — чекбокс, блокирующий регистрацию без подтверждения', en: 'Age gate 16+ at registration — checkbox blocking registration without confirmation' },
+      { category: 'new', ru: 'Тумблер аналитики в Настройках → Конфиденциальность + ссылки на Privacy/Terms/CCPA', en: 'Analytics toggle in Settings → Privacy + links to Privacy/Terms/CCPA' },
+      { category: 'new', ru: 'JSON-экспорт (GDPR Art 20) — структурированный экспорт профиля и заметок', en: 'JSON export (GDPR Art 20) — structured export of profile and notes' },
+      { category: 'fix', ru: 'Sentry: SHA-256 хеш UID вместо raw + PII scrubbing (userId, documentId, email)', en: 'Sentry: SHA-256 hashed UID instead of raw + PII scrubbing (userId, documentId, email)' },
+      { category: 'improvement', ru: 'Cloud Functions tests: 44 новых теста (chatWithAI, editWithAI, summarizeDocument)', en: 'Cloud Functions tests: 44 new tests (chatWithAI, editWithAI, summarizeDocument)' },
+      { category: 'improvement', ru: 'E2E tests: 15 новых (writing, archive, AI)', en: 'E2E tests: 15 new (writing, archive, AI)' },
+      { category: 'improvement', ru: 'CI: rollback при сбое деплоя Cloud Functions', en: 'CI: rollback on Cloud Functions deploy failure' },
+      { category: 'improvement', ru: 'Рефакторинг импортов: 11 bridge-файлов, cross-feature violations 128→28', en: 'Import refactor: 11 bridge files, cross-feature violations 128→28' },
+      { category: 'fix', ru: 'console.error → reportError в production files — ошибки доходят до Sentry', en: 'console.error → reportError in production files — errors reach Sentry' },
+    ],
+  },
+  {
     version: '0.7.26',
     date: '2026-06-18',
     items: [

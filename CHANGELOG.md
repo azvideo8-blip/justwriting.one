@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## 2026-06-18 (v0.7.27)
+- **[RU]** DPIA: создан документ оценки воздействия на защиту данных (docs/DPIA.md) для ИИ-функций (CBT-персоны, mood tracking, AI-портрет) — 6 разделов: обработка данных, риски, меры безопасности, рекомендации.
+- **[EN]** DPIA: created Data Protection Impact Assessment document (docs/DPIA.md) for AI features (CBT personas, mood tracking, AI portrait) — 6 sections: data processing, risks, security measures, recommendations.
+- **[RU]** Age gate: при регистрации требуется подтвердить возраст 16+ (чекбокс). Без подтверждения регистрация блокируется.
+- **[EN]** Age gate: registration requires confirming age 16+ (checkbox). Registration is blocked without confirmation.
+- **[RU]** Аналитика: тумблер в Настройках → Конфиденциальность включает/выключает PostHog. Ссылки на Политику конфиденциальности, Условия использования и «Не продавать мои данные» (CCPA).
+- **[EN]** Analytics: toggle in Settings → Privacy enables/disables PostHog. Links to Privacy Policy, Terms of Service, and "Do Not Sell My Personal Information" (CCPA).
+- **[RU]** JSON-экспорт: кнопка «Экспортировать в JSON (GDPR)» в Настройках → Аккаунт — структурированный экспорт профиля и заметок в machine-readable формате (Art 20 portability).
+- **[EN]** JSON export: "Export as JSON (GDPR)" button in Settings → Account — structured export of profile and notes in machine-readable format (Art 20 portability).
+- **[RU]** Безопасность Sentry: UID пользователя хешируется через SHA-256 (16 символов) вместо отправки raw Firebase UID. PII-поля (userId, documentId, email) фильтруются из error context перед отправкой в Sentry.
+- **[EN]** Sentry security: user UID is hashed via SHA-256 (16 chars) instead of sending raw Firebase UID. PII fields (userId, documentId, email) are filtered from error context before sending to Sentry.
+- **[RU]** Тесты Cloud Functions: 44 новых теста (chatWithAI 14, editWithAI 14, summarizeDocument 16) с моками firebase-admin, generative-ai, DOMPurify, langfuse. 59/59 pass.
+- **[EN]** Cloud Functions tests: 44 new tests (chatWithAI 14, editWithAI 14, summarizeDocument 16) with mocks for firebase-admin, generative-ai, DOMPurify, langfuse. 59/59 pass.
+- **[RU]** E2E тесты: 15 новых (writing session 6, archive 6, AI 3). 19/19 pass.
+- **[EN]** E2E tests: 15 new (writing session 6, archive 6, AI 3). 19/19 pass.
+- **[RU]** CI: добавлен шаг rollback при сбое деплоя Cloud Functions (firebase functions:delete).
+- **[EN]** CI: added rollback step on Cloud Functions deploy failure (firebase functions:delete).
+- **[RU]** Рефакторинг импортов: 11 bridge-файлов в app/, core/services/, shared/components/ — 29 файлов обновлены. Cross-feature violations: 128 → ~28.
+- **[EN]** Import refactor: 11 bridge files in app/, core/services/, shared/components/ — 29 files updated. Cross-feature violations: 128 → ~28.
+- **[RU]** console.error → reportError: заменены в production source files — ошибки теперь доходят до Sentry.
+- **[EN]** console.error → reportError: replaced in production source files — errors now reach Sentry.
+
 ## 2026-06-18 (v0.7.26)
 - **[RU]** Доступность: 5 модальных окон (шифрование, разблокировка, вход, ИИ-панель, завершение сессии) получили `role="dialog"`, `aria-modal`, focus trap, восстановление фокуса при закрытии и обработку Escape — теперь клавиатура и скринридеры работают корректно внутри диалогов.
 - **[EN]** Accessibility: 5 modals (encryption, unlock, login, AI panel, finish session) gained `role="dialog"`, `aria-modal`, focus trap, focus restore on close, and Escape handling — keyboard and screen readers now work correctly inside dialogs.
