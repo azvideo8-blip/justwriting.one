@@ -14,6 +14,25 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.26',
+    date: '2026-06-18',
+    items: [
+      { category: 'accessibility', ru: '5 модальных окон: role=dialog, aria-modal, focus trap, восстановление фокуса, Escape', en: '5 modals: role=dialog, aria-modal, focus trap, focus restore, Escape' },
+      { category: 'accessibility', ru: 'Escape работает из полей ввода внутри модалок (убрана блокировка)', en: 'Escape works from input fields inside modals (removed block)' },
+      { category: 'accessibility', ru: 'aria-label на всех input без видимого label (вход, поиск, даты, пароли)', en: 'aria-label on all inputs without visible label (login, search, dates, passwords)' },
+      { category: 'accessibility', ru: 'Клавиатурная навигация на кликабельных div (тулбар, тепловая карта, версия)', en: 'Keyboard navigation on clickable divs (toolbar, heatmap, version)' },
+      { category: 'accessibility', ru: 'role=alert на ошибках, aria-live=polite на AI-ответах и сообщениях чата', en: 'role=alert on errors, aria-live=polite on AI responses and chat messages' },
+      { category: 'accessibility', ru: 'aria-expanded на toggle-кнопках, aria-hidden на декоративных иконках', en: 'aria-expanded on toggle buttons, aria-hidden on decorative icons' },
+      { category: 'accessibility', ru: 'Reduced motion: глобальный CSS-блок + useReducedMotion на motion.div', en: 'Reduced motion: global CSS block + useReducedMotion on motion.div' },
+      { category: 'accessibility', ru: 'SettingsPanel: рендерится только активная вкладка (не все сразу для screen readers)', en: 'SettingsPanel: only active tab rendered (not all at once for screen readers)' },
+      { category: 'accessibility', ru: 'Контраст текста /20–/50 → /60 (~5.4:1), placeholder → /40, amethyst text-subtle 0.90', en: 'Text contrast /20–/50 → /60 (~5.4:1), placeholder → /40, amethyst text-subtle 0.90' },
+      { category: 'improvement', ru: 'Playwright-пререндеринг: 7 страниц рендерятся в full HTML (21K контента на главной)', en: 'Playwright prerendering: 7 pages render to full HTML (21K content on homepage)' },
+      { category: 'improvement', ru: 'SEO: og:site_name, twitter:site/creator, x-default hreflang, Google Fonts non-render-blocking', en: 'SEO: og:site_name, twitter:site/creator, x-default hreflang, Google Fonts non-render-blocking' },
+      { category: 'new', ru: '404 страница (RU/EN) вместо редиректа на главную', en: '404 page (RU/EN) instead of redirect to homepage' },
+      { category: 'improvement', ru: 'Ссылки на Политику конфиденциальности и Условия использования на странице «О приложении»', en: 'Links to Privacy Policy and Terms of Service on About page' },
+    ],
+  },
+  {
     version: '0.7.25',
     date: '2026-06-18',
     items: [

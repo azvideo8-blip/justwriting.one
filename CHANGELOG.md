@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+## 2026-06-18 (v0.7.26)
+- **[RU]** Доступность: 5 модальных окон (шифрование, разблокировка, вход, ИИ-панель, завершение сессии) получили `role="dialog"`, `aria-modal`, focus trap, восстановление фокуса при закрытии и обработку Escape — теперь клавиатура и скринридеры работают корректно внутри диалогов.
+- **[EN]** Accessibility: 5 modals (encryption, unlock, login, AI panel, finish session) gained `role="dialog"`, `aria-modal`, focus trap, focus restore on close, and Escape handling — keyboard and screen readers now work correctly inside dialogs.
+- **[RU]** Focus trap: при закрытии модального окна фокус возвращается на элемент, который открыл диалог (раньше уходил на `<body>`).
+- **[EN]** Focus trap: on modal close, focus returns to the element that opened the dialog (previously went to `<body>`).
+- **[RU]** Escape в формах внутри модалок: убрана блокировка Escape при фокусе в input/textarea — теперь модалку можно закрыть Escape даже из поля ввода.
+- **[EN]** Escape in form fields inside modals: removed the block on Escape when focused in input/textarea — modals can now be closed with Escape even from an input field.
+- **[RU]** Подписи полей: всем input без видимого label добавлен `aria-label` (страница входа, поиск в архиве, поля даты/времени, пароли шифрования).
+- **[EN]** Field labels: all inputs without a visible label now have `aria-label` (login page, archive search, date/time fields, encryption passwords).
+- **[RU]** Клавиатурная навигация: кликабельные `<div>` в тулбаре, тепловой карте и easter-egg версии теперь доступны с клавиатуры (`tabIndex` + `onKeyDown`).
+- **[EN]** Keyboard navigation: clickable `<div>` elements in toolbar, heatmap, and version easter-egg are now keyboard-accessible (`tabIndex` + `onKeyDown`).
+- **[RU]** Ошибки и AI-ответы: `role="alert"` на сообщениях об ошибках, `aria-live="polite"` на результатах ИИ и сообщениях чата — скринридеры объявляют динамические изменения.
+- **[EN]** Errors and AI responses: `role="alert"` on error messages, `aria-live="polite"` on AI results and chat messages — screen readers announce dynamic changes.
+- **[RU]** Раскрывающиеся кнопки и иконки: `aria-expanded` на всех toggle-кнопках, `aria-hidden="true"` на декоративных иконках (архив, чат, навигация).
+- **[EN]** Expandable buttons and icons: `aria-expanded` on all toggle buttons, `aria-hidden="true"` on decorative icons (archive, chat, navigation).
+- **[RU]** Reduced motion: глобальный CSS-блок `@media (prefers-reduced-motion: reduce)` отключает анимации и переходы. Компоненты с `motion.div` проверяют `useReducedMotion()`.
+- **[EN]** Reduced motion: global CSS block `@media (prefers-reduced-motion: reduce)` disables animations and transitions. Components with `motion.div` check `useReducedMotion()`.
+- **[RU]** SettingsPanel вкладки: убран `display:contents` + `hidden` — теперь рендерится только активная вкладка (раньше screen readers видели все вкладки одновременно).
+- **[EN]** SettingsPanel tabs: removed `display:contents` + `hidden` — now only the active tab is rendered (previously screen readers saw all tabs at once).
+- **[RU]** Контраст текста: все `text-text-main/20`–`/50` заменены на `/60` (~5.4:1) — было 1.8:1–4.2:1, не проходило WCAG AA. Placeholder текст — `/40`. Темема amethyst: `text-subtle` opacity 0.70 → 0.90.
+- **[EN]** Text contrast: all `text-text-main/20`–`/50` replaced with `/60` (~5.4:1) — was 1.8:1–4.2:1, failed WCAG AA. Placeholder text — `/40`. Amethyst theme: `text-subtle` opacity 0.70 → 0.90.
+- **[RU]** SEO: Playwright-пререндеринг — все 7 публичных страниц теперь рендерятся в full HTML через headless Chromium (21K символов контента на главной). Crawlers без JS видят полный контент вместо пустой страницы.
+- **[EN]** SEO: Playwright prerendering — all 7 public pages now render to full HTML via headless Chromium (21K chars of content on homepage). Crawlers without JS see full content instead of an empty page.
+- **[RU]** SEO: добавлены `og:site_name`, `twitter:site`, `twitter:creator`, `x-default` hreflang. Google Fonts — non-render-blocking (`media=print onload`).
+- **[EN]** SEO: added `og:site_name`, `twitter:site`, `twitter:creator`, `x-default` hreflang. Google Fonts — non-render-blocking (`media=print onload`).
+- **[RU]** 404 страница: новая `NotFoundPage` с RU/EN поддержкой вместо редиректа на главную.
+- **[EN]** 404 page: new `NotFoundPage` with RU/EN support instead of redirect to homepage.
+- **[RU]** Ссылки на «О приложении»: добавлены ссылки на Политику конфиденциальности и Условия использования.
+- **[EN]** About page links: added links to Privacy Policy and Terms of Service.
+
 ## 2026-06-18 (v0.7.25)
 - **[RU]** Безопасность шифрования: при неверном пароле vault больше не помечается как «шифрование включено» без ключа в памяти — функция возвращает `false` вместо ложного успеха.
 - **[EN]** Encryption security: on wrong password, the vault no longer silently marks encryption as "enabled" without a key in memory — the function returns `false` instead of a false success.
