@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## 2026-06-19 (v0.7.24)
+- **[RU]** Переключатель объёма ответа всегда виден: кнопки «Кратко / Стандартно / Объёмно» отображаются даже до начала диалога. При смене объёма в чат добавляется системное сообщение `⚙️ [Смена объёма]: Теперь {персона} ответит вам {кратко/стандартно/объёмно}`. Выбор сохраняется в диалог и применяется к новым сообщениям реактивно.
+- **[EN]** Response length toggle always visible: "Short / Standard / Detailed" buttons show even before a dialogue starts. On change, a system message `⚙️ [Volume changed]: {persona} will now respond {briefly/standard/verbosely}` is added to the chat. The selection is saved to the dialogue and applied reactively to new messages.
+- **[RU]** Исправлен статус «думает…»: на первом сообщении индикатор загрузки не появлялся из-за `setStreamingMessage('')` вместо `null`. Теперь «{персона} думает…» корректно показывается до начала стриминга.
+- **[EN]** Fixed "thinking…" status: on the first message, the loading indicator didn't appear due to `setStreamingMessage('')` instead of `null`. Now "{persona} thinking…" correctly shows before streaming starts.
+- **[RU]** Инлайн-переименование диалогов: вместо `window.prompt` заголовок чата переключается в редактируемый `<input>` — Enter сохраняет, Escape отменяет, клик вне поля тоже сохраняет.
+- **[EN]** Inline dialogue renaming: instead of `window.prompt`, the chat header switches to an editable `<input>` — Enter saves, Escape cancels, blur also saves.
+- **[RU]** Кнопка ИИ в Архиве: повторное нажатие открывает превью-модал с саммари заметки (вместо перехода на страницу чата).
+- **[EN]** Archive AI button: a second click opens the note preview modal with the summary (instead of navigating to the chat page).
+- **[RU]** Тумблер «Автоматическое саммари заметок» в Настройках → Приложение: отключает фоновую индексацию и построение профиля. Хранится в `localStorage` (`auto_summarize_enabled`).
+- **[EN]** "Auto-summarize notes" toggle in Settings → Application: disables background indexing and profile building. Stored in `localStorage` (`auto_summarize_enabled`).
+- **[RU]** Настройки аккаунта реорганизованы: «Сменить пароль» и «Шифрование» сгруппированы в сворачиваемую секцию «Безопасность» (ChevronDown/Right). Кнопка «Выйти» перенесена в самый низ. Удалена «Опасная зона» с кнопкой сброса ачивок (она уже есть в Профиле).
+- **[EN]** Account settings reorganized: "Change password" and "Encryption" grouped into a collapsible "Security" section (ChevronDown/Right). "Sign out" button moved to the very bottom. Removed "Danger zone" with achievements reset (already in Profile).
+- **[RU]** ZIP-экспорт в формате .txt: заметки в архиве теперь сохраняются как plain text (.txt) с удалением markdown-разметки (заголовки, жирный/курсив, ссылки, списки) через `stripMarkdown()`.
+- **[EN]** ZIP export as .txt: notes in the archive are now saved as plain text (.txt) with markdown stripped (headers, bold/italic, links, lists) via `stripMarkdown()`.
+- **[RU]** Скачивание диалога в .txt: экспорт чата изменён с .md на .txt формат, подпись кнопки — «Скачать как текст».
+- **[EN]** Dialogue download as .txt: chat export changed from .md to .txt format, button label — "Download as text".
+- **[RU]** Удалена кнопка «Мой портрет» со страницы Профиля — портрет генерируется автоматически в фоне и доступен в Диагностике → Профиль AI.
+- **[EN]** Removed "My Portrait" button from Profile page — the portrait is generated automatically in the background and available in Diagnostics → AI Profile.
+- **[RU]** Авто-регенерация портрета: после фоновой пересуммаризации фасетов автоматически запускается `AIProfileService.generate()` — портрет больше не нужно обновлять вручную.
+- **[EN]** Auto portrait regeneration: after background facet resummarization, `AIProfileService.generate()` is triggered automatically — the portrait no longer needs manual refresh.
+- **[RU]** Портрет рендерится через MarkdownRenderer: в Диагностике текст портрета отображается как форматированный Markdown вместо сырого текста с символами `#` и `**`.
+- **[EN]** Portrait rendered via MarkdownRenderer: in Diagnostics, the portrait text is displayed as formatted Markdown instead of raw text with `#` and `**` symbols.
+
 ## 2026-06-18 (v0.7.23)
 - **[RU]** Гибридный поиск заметок (Vector + BM25 + RRF): векторный поиск теперь объединён с полнотекстовым поиском через MiniSearch (BM25 ранжирование, префиксы, нечёткий поиск с tolerate опечаток 0.2). Результаты сливаются по формуле Reciprocal Rank Fusion (RRF), давая топ-15 кандидатов для реранкинга. Точные даты, имена и термины теперь находятся даже при слабом векторном сходстве.
 - **[EN]** Hybrid note search (Vector + BM25 + RRF): vector search is now combined with full-text search via MiniSearch (BM25 ranking, prefix matching, fuzzy 0.2 tolerance). Results are fused by Reciprocal Rank Fusion (RRF), yielding top-15 candidates for reranking. Exact dates, names and terms are now found even with weak vector similarity.

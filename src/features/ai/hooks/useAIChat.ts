@@ -146,7 +146,7 @@ interface UseAIChatReturn {
   clearError: () => void;
 }
 
-export function useAIChat(dialogueId: string | null, personaId: string): UseAIChatReturn {
+export function useAIChat(dialogueId: string | null, personaId: string, responseLength?: 'short' | 'standard' | 'detailed'): UseAIChatReturn {
   const [dialogue, setDialogue] = useState<AIDialogue | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState<string | null>(null);
@@ -170,7 +170,12 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
 
   useEffect(() => {
     if (!dialogueId) { setDialogue(null); return; }
-    void AIDialogueService.get(dialogueId).then(d => setDialogue(d ?? null));
+    const refresh = () => {
+      void AIDialogueService.get(dialogueId).then(d => setDialogue(d ?? null));
+    };
+    refresh();
+    window.addEventListener('dialogue-updated', refresh);
+    return () => window.removeEventListener('dialogue-updated', refresh);
   }, [dialogueId]);
 
   useEffect(() => {
@@ -231,7 +236,7 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
     }
 
     setIsLoading(true);
-    setStreamingMessage('');
+    setStreamingMessage(null);
     setError(null);
 
     // Build API messages from the ORIGINAL dialogue before the optimistic update.
@@ -579,12 +584,12 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
         }
       }
 
-      const responseLength = dialogue?.responseLength;
+      const effectiveResponseLength = dialogue?.responseLength || responseLength || 'standard';
 
       let fullText: string;
 
       if (_streamAvailable === false) {
-        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait, responseLength });
+        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait, responseLength: effectiveResponseLength });
       } else {
         try {
           fullText = await streamChat({
@@ -593,14 +598,14 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
             messages: apiMessages,
             documentContent: searchContext,
             userPortrait,
-            responseLength,
+            responseLength: effectiveResponseLength,
             onChunk: (partial) => setStreamingMessage(partial),
           });
         } catch (e: unknown) {
           console.warn('Streaming chat failed, falling back to callable chat:', e);
           const errMsg = e instanceof Error ? e.message : '';
           if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED') {
-            fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait, responseLength });
+            fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait, responseLength: effectiveResponseLength });
           } else {
             throw e;
           }
@@ -626,6 +631,7 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
           personaName,
           personaEmoji,
           messages: [],
+          responseLength: effectiveResponseLength,
         });
       }
 
@@ -663,7 +669,7 @@ export function useAIChat(dialogueId: string | null, personaId: string): UseAICh
     } finally {
       setIsLoading(false);
     }
-  }, [dialogue, dialogueId, personaId]);
+  }, [dialogue, dialogueId, personaId, responseLength]);
 
   const attachDocument = useCallback(async (documentId: string) => {
     try {

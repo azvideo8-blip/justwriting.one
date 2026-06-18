@@ -37,6 +37,13 @@ export function useEmbeddingIndexer(): void {
       void AIProfileFacetService.resummarizeDirty().then(r => {
         console.warn(`[useEmbeddingIndexer] resummarized ${r.count} dirty facets`);
         dirtyCountRef.current = 0;
+        if (r.count > 0) {
+          void import('../services/AIProfileService').then(({ AIProfileService }) => {
+            void AIProfileService.generate()
+              .then(() => console.warn('[useEmbeddingIndexer] auto-regenerated portrait successfully'))
+              .catch(e => console.error('[useEmbeddingIndexer] auto portrait generation failed:', e));
+          });
+        }
       }).catch(e => {
         console.warn('[useEmbeddingIndexer] resummarize failed:', e);
       });
@@ -45,6 +52,7 @@ export function useEmbeddingIndexer(): void {
 
   const runBatch = useCallback(async () => {
     if (runningRef.current) return;
+    if (localStorage.getItem('auto_summarize_enabled') === 'false') return;
     const now = Date.now();
     if (now < backoffUntilRef.current) return;
 

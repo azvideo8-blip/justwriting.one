@@ -57,6 +57,7 @@ export const AIDialogueService = {
     existing.title = title;
     existing.updatedAt = Date.now();
     await db.put('aiDialogues', existing);
+    window.dispatchEvent(new Event('dialogue-updated'));
   },
 
   async archive(id: string): Promise<void> {
@@ -77,7 +78,16 @@ export const AIDialogueService = {
     const db = await getLocalDb();
     const dialogue = await db.get('aiDialogues', id);
     if (!dialogue) return;
-    await db.put('aiDialogues', { ...dialogue, responseLength, updatedAt: Date.now() });
+    const lengthLabel = responseLength === 'short' ? 'кратко' : responseLength === 'detailed' ? 'объёмно' : 'стандартно';
+    dialogue.messages.push({
+      role: 'assistant',
+      content: `⚙️ [Смена объёма]: Теперь ${dialogue.personaName} ответит вам ${lengthLabel}`,
+      type: 'system',
+    });
+    dialogue.responseLength = responseLength;
+    dialogue.updatedAt = Date.now();
+    await db.put('aiDialogues', dialogue);
+    window.dispatchEvent(new Event('dialogue-updated'));
   },
 
   async exportAsMarkdown(id: string): Promise<string> {

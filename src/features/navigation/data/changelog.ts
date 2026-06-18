@@ -14,6 +14,21 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.24',
+    date: '2026-06-19',
+    items: [
+      { category: 'improvement', ru: 'Переключатель объёма ответа («Кратко/Стандартно/Объёмно») всегда виден + системное сообщение в чате при смене', en: 'Response length toggle always visible + system message in chat on change' },
+      { category: 'fix', ru: 'Статус «{персона} думает…» теперь появляется на первом сообщении', en: '"{persona} thinking…" now appears on the first message' },
+      { category: 'improvement', ru: 'Инлайн-переименование диалогов: ввод прямо в заголовке вместо модального окна', en: 'Inline dialogue renaming: edit directly in header instead of modal prompt' },
+      { category: 'improvement', ru: 'Кнопка ИИ в Архиве открывает превью с саммари вместо перехода в чат', en: 'Archive AI button opens summary preview instead of navigating to chat' },
+      { category: 'new', ru: 'Тумблер «Автоматическое саммари заметок» в Настройках → Приложение', en: 'Auto-summarize notes toggle in Settings → Application' },
+      { category: 'improvement', ru: 'Настройки аккаунта: секция «Безопасность» (сворачиваемая), «Выйти» внизу, убрана «Опасная зона»', en: 'Account settings: collapsible Security section, Sign out at bottom, removed Danger zone' },
+      { category: 'improvement', ru: 'ZIP-экспорт в .txt без markdown-разметки + скачивание диалога в .txt', en: 'ZIP export as .txt without markdown + dialogue download as .txt' },
+      { category: 'fix', ru: 'Удалена кнопка «Мой портрет» из Профиля — портрет генерируется автоматически', en: 'Removed "My Portrait" button from Profile — portrait is auto-generated' },
+      { category: 'improvement', ru: 'Авто-регенерация портрета после обновления фасетов + рендер через MarkdownRenderer', en: 'Auto portrait regeneration after facet update + MarkdownRenderer rendering' },
+    ],
+  },
+  {
     version: '0.7.23',
     date: '2026-06-18',
     items: [

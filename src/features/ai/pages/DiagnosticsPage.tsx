@@ -15,6 +15,7 @@ import { useDiagnosticsData, type Tab } from '../hooks/useDiagnosticsData';
 import { DatabaseExplorer } from '../components/DatabaseExplorer';
 import { EmbeddingDiagnostics } from '../components/EmbeddingDiagnostics';
 import { ProfileFacets } from '../components/ProfileFacets';
+import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 
@@ -606,8 +607,12 @@ export function DiagnosticsPage() {
                   </Button>
                 </div>
               </div>
-              <div className="px-5 py-4 max-h-60 overflow-y-auto text-xs text-text-main/60 whitespace-pre-wrap leading-relaxed">
-                {portraitText || <span className="italic text-text-main/25">Портрет ещё не создан — нажмите «Сгенерировать» (нужно ≥3 проанализированных заметок)</span>}
+              <div className="px-5 py-4 max-h-60 overflow-y-auto text-xs text-text-main/60 leading-relaxed">
+                {portraitText ? (
+                  <MarkdownRenderer content={portraitText} />
+                ) : (
+                  <span className="italic text-text-main/25">Портрет ещё не создан — нажмите «Сгенерировать» (нужно ≥3 проанализированных заметок)</span>
+                )}
               </div>
             </div>
 
