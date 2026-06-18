@@ -17,6 +17,17 @@ const RRF_K = 60;
 const VECTOR_TOP = 40;
 const KEYWORD_TOP = 40;
 const RRF_FINAL = 15;
+const RERANK_THRESHOLD = 0.88;
+
+// TICKET-047: In-memory semantic query cache
+interface SearchCacheEntry {
+  timestamp: number;
+  query: string;
+  results: RetrievedNote[];
+}
+const searchCache: SearchCacheEntry[] = [];
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const MAX_CACHE_ENTRIES = 50;
 
 let miniSearchInstance: MiniSearch | null = null;
 
@@ -59,11 +70,13 @@ async function keywordSearch(query: string, topN: number): Promise<{ id: string;
   }
 }
 
-/** Reciprocal Rank Fusion: combine two ranked lists into one. */
+/** Reciprocal Rank Fusion: combine two ranked lists into one.
+ *  TICKET-045: supports keywordWeight to boost exact-term matches. */
 function reciprocalRankFusion(
   vectorRanked: { id: string; score: number }[],
   keywordRanked: { id: string; score: number }[],
   k: number,
+  keywordWeight = 1.0,
 ): { id: string; score: number }[] {
   const scores = new Map<string, number>();
 
@@ -74,7 +87,7 @@ function reciprocalRankFusion(
 
   for (let rank = 0; rank < keywordRanked.length; rank++) {
     const id = keywordRanked[rank]!.id;
-    scores.set(id, (scores.get(id) ?? 0) + 1 / (k + rank));
+    scores.set(id, (scores.get(id) ?? 0) + (1 / (k + rank)) * keywordWeight);
   }
 
   const result = [...scores.entries()]
@@ -82,6 +95,26 @@ function reciprocalRankFusion(
     .sort((a, b) => b.score - a.score);
 
   return result;
+}
+
+// TICKET-045: Detect proper names or quoted terms in the query
+function shouldBoostKeywords(query: string): boolean {
+  const hasNames = /[А-ЯЁ][а-яё]{2,}/.test(query);
+  const hasQuotes = /["'«»]/.test(query);
+  return hasNames || hasQuotes;
+}
+
+// TICKET-046: Check for exact title match to bypass rerank
+function hasExactTitleMatch(query: string, topIds: string[]): Promise<boolean> {
+  return (async () => {
+    const db = await getLocalDb();
+    const qLower = query.trim().toLowerCase();
+    for (const id of topIds.slice(0, 5)) {
+      const doc = await db.get('documents', id);
+      if (doc?.title?.trim().toLowerCase() === qLower) return true;
+    }
+    return false;
+  })();
 }
 
 export async function searchNotes(query: string, maxResults = 5): Promise<RetrievedNote[]> {
@@ -109,14 +142,28 @@ export async function searchNotes(query: string, maxResults = 5): Promise<Retrie
   // Keyword search: top 40
   const keywordMatches = await keywordSearch(query, KEYWORD_TOP);
 
+  // TICKET-045: Boost keyword matches if query contains proper names or quotes
+  const kwWeight = shouldBoostKeywords(query) ? 2.0 : 1.0;
+
   // RRF fusion (strip chunkIndex for RRF, keep map for later)
   const chunkIndexMap = new Map(vectorMatches.map(m => [m.id, m.chunkIndex]));
   const fused = reciprocalRankFusion(
     vectorMatches.map(({ id, score }) => ({ id, score })),
     keywordMatches,
     RRF_K,
+    kwWeight,
   );
   const topIds = fused.slice(0, RRF_FINAL).map(f => f.id);
+
+  // TICKET-046: Bypass cloud rerank if top vector similarity is very high
+  // or there's an exact title match
+  const topScore = vectorMatches[0]?.score ?? 0;
+  const hasExactTitle = await hasExactTitleMatch(query, topIds);
+  if (topScore >= RERANK_THRESHOLD || hasExactTitle) {
+    const scoreMap = new Map(fused.map(f => [f.id, f.score]));
+    const fallbackIds = topIds.slice(0, maxResults);
+    return loadNotes(fallbackIds, scoreMap, chunkIndexMap);
+  }
 
   // Build rerank cards from LOCAL summaries
   const cardsDb = await getLocalDb();
@@ -194,36 +241,141 @@ async function loadNotes(
   return results;
 }
 
+// TICKET-047: Cache helpers
+function cleanCache() {
+  const limit = Date.now() - CACHE_TTL_MS;
+  while (searchCache.length > 0 && searchCache[0]!.timestamp < limit) {
+    searchCache.shift();
+  }
+}
+
+function getCached(query: string): RetrievedNote[] | null {
+  const q = query.trim().toLowerCase();
+  const entry = searchCache.find(c => c.query.trim().toLowerCase() === q);
+  return entry ? entry.results : null;
+}
+
+function putCache(query: string, results: RetrievedNote[]) {
+  if (searchCache.length >= MAX_CACHE_ENTRIES) {
+    searchCache.shift();
+  }
+  searchCache.push({ timestamp: Date.now(), query, results });
+}
+
 /**
- * TICKET-024: Multi-query search — run searchNotes for the original query plus
- * each expanded query, then fuse all results via RRF.
+ * TICKET-044: Consolidated multi-query search — single embedding + single rerank.
+ * TICKET-045: Entity-aware keyword boosting in RRF fusion.
+ * TICKET-046: Threshold-based cloud rerank bypassing.
+ * TICKET-047: In-memory semantic query caching.
  */
 export async function searchNotesMulti(
   queries: string[],
   maxResults = 5,
 ): Promise<RetrievedNote[]> {
-  if (queries.length <= 1) return searchNotes(queries[0] ?? '', maxResults);
+  if (queries.length === 0) return [];
 
-  const allResults = await Promise.all(queries.map(q => searchNotes(q, maxResults * 2)));
+  // TICKET-047: Check cache before any network calls
+  cleanCache();
+  const cached = getCached(queries[0]!);
+  if (cached) return cached;
 
-  // RRF fusion across all result lists
-  const rrfK = 60;
-  const scores = new Map<string, number>();
-  const noteMap = new Map<string, RetrievedNote>();
-
-  for (const results of allResults) {
-    for (let rank = 0; rank < results.length; rank++) {
-      const note = results[rank]!;
-      const id = note.documentId;
-      scores.set(id, (scores.get(id) ?? 0) + 1 / (rrfK + rank));
-      if (!noteMap.has(id)) noteMap.set(id, note);
-    }
+  if (queries.length === 1) {
+    const results = await searchNotes(queries[0]!, maxResults);
+    putCache(queries[0]!, results);
+    return results;
   }
 
-  const fused = [...scores.entries()]
-    .map(([id, score]) => ({ id, score, note: noteMap.get(id)! }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, maxResults);
+  // TICKET-044: Consolidate all queries into a single embedding
+  const combinedQuery = queries.join(' ');
+  const embedResult = await AIService.embed({ content: combinedQuery });
+  if (!embedResult.ok) {
+    console.warn('[searchNotesMulti] embed failed:', embedResult.error);
+    return [];
+  }
+  const queryVec = embedResult.vectors[0];
+  if (!queryVec) return [];
 
-  return fused.map(f => ({ ...f.note, score: f.score }));
+  const allEmbeddings = await AIEmbeddingService.getAll();
+  if (allEmbeddings.length === 0) return [];
+
+  // Single vector search with combined embedding
+  const vectorMatches = topKMultiWithChunkIndex(
+    queryVec,
+    allEmbeddings.map(e => ({
+      id: e.documentId,
+      vectors: e.vectors?.length ? e.vectors : (e.vector ? [e.vector] : []),
+    })),
+    VECTOR_TOP,
+  );
+
+  // TICKET-044: Run keyword searches for each query and merge (max score per doc)
+  const keywordScores = new Map<string, number>();
+  for (const q of queries) {
+    const kwResults = await keywordSearch(q, KEYWORD_TOP);
+    for (const { id, score } of kwResults) {
+      const existing = keywordScores.get(id);
+      if (existing === undefined || score > existing) {
+        keywordScores.set(id, score);
+      }
+    }
+  }
+  const mergedKeyword = [...keywordScores.entries()]
+    .map(([id, score]) => ({ id, score }))
+    .sort((a, b) => b.score - a.score);
+
+  // TICKET-045: Boost keywords if original query has names/quotes
+  const kwWeight = shouldBoostKeywords(queries[0]!) ? 2.0 : 1.0;
+
+  // RRF fusion
+  const chunkIndexMap = new Map(vectorMatches.map(m => [m.id, m.chunkIndex]));
+  const fused = reciprocalRankFusion(
+    vectorMatches.map(({ id, score }) => ({ id, score })),
+    mergedKeyword,
+    RRF_K,
+    kwWeight,
+  );
+  const topIds = fused.slice(0, RRF_FINAL).map(f => f.id);
+
+  // TICKET-046: Bypass cloud rerank if top vector similarity is very high
+  // or there's an exact title match
+  const topScore = vectorMatches[0]?.score ?? 0;
+  const hasExactTitle = await hasExactTitleMatch(queries[0]!, topIds);
+  if (topScore >= RERANK_THRESHOLD || hasExactTitle) {
+    const scoreMap = new Map(fused.map(f => [f.id, f.score]));
+    const fallbackIds = topIds.slice(0, maxResults);
+    const results = await loadNotes(fallbackIds, scoreMap, chunkIndexMap);
+    putCache(queries[0]!, results);
+    return results;
+  }
+
+  // Build rerank cards from LOCAL summaries
+  const cardsDb = await getLocalDb();
+  const cards: { documentId: string; card: string }[] = [];
+  for (const id of topIds) {
+    let card = '(саммари недоступно)';
+    try {
+      const summary = await cardsDb.get('aiSummaries', id);
+      if (summary) {
+        card = `Тональность: ${summary.tone}\nТемы: ${summary.themes.join(', ')}\nИнсайты: ${summary.insights.join('; ')}\nФакты: ${summary.extractedFacts.join('; ')}`;
+      }
+    } catch { /* keep placeholder */ }
+    cards.push({ documentId: id, card });
+  }
+
+  // TICKET-044: Single rerank call using original query
+  const fallbackIds = topIds.slice(0, maxResults);
+  const rr = await AIService.rerank({
+    query: queries[0]!,
+    candidates: cards,
+    maxResults,
+  });
+
+  const ids = rr.ok && rr.documentIds.length > 0 ? rr.documentIds.slice(0, maxResults) : fallbackIds;
+
+  const scoreMap = new Map(fused.map(f => [f.id, f.score]));
+  const results = await loadNotes(ids, scoreMap, chunkIndexMap);
+
+  // TICKET-047: Cache results
+  putCache(queries[0]!, results);
+  return results;
 }
