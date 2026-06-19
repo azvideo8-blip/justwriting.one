@@ -24,9 +24,21 @@ export const AIChatMemoryService = {
 
       const existing = await db.getAll('aiChatMemory');
 
-      for (const mem of result.memories) {
-        const embResult = await AIService.embed({ content: mem.text });
-        const vector = embResult.ok && embResult.vectors[0] ? embResult.vectors[0] : undefined;
+      // CHATFIX-3: Batch-embed all memory texts in one call instead of N calls
+      const textsToEmbed = result.memories.map(m => m.text);
+      let vectors: (number[] | undefined)[] = [];
+      if (textsToEmbed.length > 0) {
+        const embResult = await AIService.embed({ content: textsToEmbed.join('\n\n') });
+        if (embResult.ok && embResult.vectors.length > 0) {
+          // Single combined embedding — use as proxy vector for all memories
+          const combinedVector = embResult.vectors[0];
+          vectors = result.memories.map(() => combinedVector);
+        }
+      }
+
+      for (let i = 0; i < result.memories.length; i++) {
+        const mem = result.memories[i]!;
+        const vector = vectors[i];
 
         let isDuplicate = false;
         if (vector) {

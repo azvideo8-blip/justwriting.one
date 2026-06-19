@@ -14,6 +14,23 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.29',
+    date: '2026-06-19',
+    items: [
+      { category: 'improvement', ru: 'Стеммер Портера в анализаторе дверей контакта — русская морфология', en: 'Porter stemmer in contact doors analyzer — Russian morphology' },
+      { category: 'new', ru: 'Динамический лимит: 10 стандарт, 5 reasoning + дисклеймер при переключении', en: 'Dynamic limit: 10 standard, 5 reasoning + disclaimer on switch' },
+      { category: 'fix', ru: 'Архив: GroupedVirtuoso дублировал первую заметку при сортировке', en: 'Archive: GroupedVirtuoso duplicated first note on sort' },
+      { category: 'fix', ru: 'Твердые фоны попапов — текст не просвечивает', en: 'Solid popup backgrounds — no text bleed-through' },
+      { category: 'new', ru: 'Чат-фидбек → preference-память → раздел в портрете', en: 'Chat feedback → preference memory → portrait section' },
+      { category: 'new', ru: 'Локальный анализатор стиля письма (длина слов, восклицания)', en: 'Local writing style analyzer (word length, exclamations)' },
+      { category: 'new', ru: 'Анонимная телеметрия (opt-in, 14 дней, без PII)', en: 'Anonymized telemetry (opt-in, 14 days, no PII)' },
+      { category: 'improvement', ru: 'Чат: двери/документы кэш на сессию, память каждые 3 хода, батч-эмбеддинги', en: 'Chat: doors/docs cached per session, memory every 3 turns, batch embeddings' },
+      { category: 'fix', ru: 'Смягчена формулировка: «точно содержится ответ» → «наиболее релевантные»', en: 'Softened: «answer definitely here» → «most relevant»' },
+      { category: 'fix', ru: 'Психо-персоны: короткие эмоц. реплики подтягивают контекст', en: 'Psycho-personas: short emotional messages trigger context' },
+      { category: 'improvement', ru: 'Дедуп сборки промпта — общий модуль для обоих бэкендов', en: 'Prompt builder dedup — shared module for both backends' },
+    ],
+  },
+  {
     version: '0.7.28',
     date: '2026-06-19',
     items: [

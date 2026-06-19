@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+## 2026-06-19 (v0.7.29)
+- **[RU]** Стеммер Портера: лексический анализатор «дверей контакта» теперь использует русскую морфологию (думаю/думал/думающая → дум) — ловит больше словоформ.
+- **[EN]** Porter stemmer: contact doors analyzer now uses Russian morphology (думаю/думал/думающая → дум) — catches more word forms.
+- **[RU]** Динамический лимит ИИ: 10 запросов/день (стандарт), 5 в режиме «🧠 Рассуждения». При переключении на рассуждения — диалог-подтверждение с дисклеймером.
+- **[EN]** Dynamic AI limit: 10 requests/day (standard), 5 in reasoning mode. Confirmation dialog with disclaimer when switching to reasoning.
+- **[RU]** Архив: исправлен баг GroupedVirtuoso — при сортировке по длине/названию дублировалась первая заметка под каждой датой. Теперь правильный lookup по группе.
+- **[EN]** Archive: fixed GroupedVirtuoso bug — sorting by length/title duplicated first note under every date group. Now correct group-relative lookup.
+- **[RU]** Попапы: твердые непрозрачные фоны (`--surface-popup`) для всех всплывающих окон — текст больше не просвечивает.
+- **[EN]** Popups: solid opaque backgrounds (`--surface-popup`) for all flyout menus — no more text bleed-through.
+- **[RU]** Чат-фидбек: экстрактор памяти теперь явно ищет пользовательскую критику стиля/тона → preference-память → раздел «Предпочтения в коммуникации» в портрете.
+- **[EN]** Chat feedback: memory extractor now explicitly scans for user style/tone critique → preference memories → «Communication preferences» section in portrait.
+- **[RU]** Локальный анализатор стиля письма: средняя длина слова/предложения, частота восклицаний/вопросов — без ИИ, внедряется в промпт портрета.
+- **[EN]** Local writing style analyzer: avg word/sentence length, exclamation/question rate — no AI, injected into portrait prompt.
+- **[RU]** Анонимная телеметрия: opt-in, rotating ID (30 дней), каждые 14 дней. Тема, бакет заметок, среднее кол-во слов, доля reasoning. Никаких email/имён/текстов.
+- **[EN]** Anonymized telemetry: opt-in, rotating ID (30 days), every 14 days. Theme, notes bucket, avg word count, reasoning ratio. No emails/names/texts.
+- **[RU]** Оптимизации чата: двери контакта кэшируются на сессию (был пересчёт каждый ход); документы грузятся один раз за sendMessage; память извлекается каждые 3 обмена (было каждый); эмбеддинги памяти батчем; сортировка дверей по дате (новейшие 20).
+- **[EN]** Chat optimizations: contact doors cached per session (was recomputed every turn); documents loaded once per sendMessage; memory extracted every 3 turns (was every); memory embeddings batched; doors sorted by date (newest 20).
+- **[RU]** Смягчена формулировка контекста: «точно содержится ответ» → «наиболее релевантные заметки; если ответа нет — так и скажи».
+- **[EN]** Softened context phrasing: «answer is definitely here» → «most relevant notes; if answer isn't there — say so».
+- **[RU]** Психо-персоны: расслаблен гейт на коротких сообщениях — «мне плохо» (2 слова) теперь подтягивает фасеты/память (было <4 слов).
+- **[EN]** Psycho-personas: relaxed trivial gate — «мне плохо» (2 words) now triggers facets/memory (was <4 words).
+- **[RU]** Дедуп сборки промпта: общий `buildChatSystemPrompt` в `src/shared/ai/` + mirror в `functions/src/shared/` — оба бэкенда используют одну реализацию.
+- **[EN]** Prompt builder dedup: shared `buildChatSystemPrompt` in `src/shared/ai/` + mirror in `functions/src/shared/` — both backends use one implementation.
+- **[RU]** Service Worker: CACHE_VERSION обновлён до v0.7.29.
+- **[EN]** Service Worker: CACHE_VERSION updated to v0.7.29.
+
 ## 2026-06-19 (v0.7.28)
 - **[RU]** Поиск заметок: consolidated multi-query batching — 1 embedding + 1 rerank на поиск (было N×embed + N×rerank). Entity-aware keyword boosting (имена/кавычки → x2 вес в RRF). Threshold-based rerank bypass (similarity ≥ 0.88 → без cloud rerank). In-memory cache (5 мин, 50 записей, 0 network calls при повторе).
 - **[EN]** Note search: consolidated multi-query batching — 1 embedding + 1 rerank per search (was N×embed + N×rerank). Entity-aware keyword boosting (names/quotes → x2 RRF weight). Threshold-based rerank bypass (similarity ≥ 0.88 → no cloud rerank). In-memory cache (5 min, 50 entries, 0 network calls on repeat).

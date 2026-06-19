@@ -2,7 +2,8 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
 import { generate, getActiveModel } from '../shared/aiProvider';
-import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD, REFLECTION_GUIDE, PRESET_PERSONA_IDS, type PersonaId } from '../shared/prompts';
+import { PRESET_PERSONA_IDS, type PersonaId } from '../shared/prompts';
+import { buildChatSystemPrompt } from '../shared/buildChatPrompt';
 
 const inputSchema = z.object({
   personaId: z.enum(['group_psychology', 'cbt', 'coach', 'editor', 'custom']),
@@ -60,28 +61,15 @@ export const chatWithAI = onCall({
     }
   }
 
-  const personaPrompt = personaId !== 'custom' ? PERSONA_PROMPTS[personaId as PersonaId] : '';
-  let systemInstruction = personaId === 'custom'
-    ? `${TOPIC_GUARD}\n\n${customSystemPrompt!}\n\n${NOTES_GUARD}\n\n${REFLECTION_GUIDE}`
-    : `${personaPrompt}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}\n\n${REFLECTION_GUIDE}`;
-
-  if (responseLength === 'short') {
-    systemInstruction += '\n\nВАЖНО: Верни очень краткий, лаконичный ответ. Уложись в 1-2 абзаца, пиши только самое главное без долгих вступлений.';
-  } else if (responseLength === 'detailed') {
-    systemInstruction += '\n\nВАЖНО: Верни подробный, развёрнутый ответ с глубоким анализом, детальными объяснениями и выводами.';
-  } else if (responseLength === 'reasoning') {
-    systemInstruction += '\n\nВАЖНО: Сначала выведи ход своих рассуждений в тегах <reasoning>...</reasoning> — анализ записи, выбор подхода, промежуточные выводы. Затем выведи итоговый ответ в тегах <answer>...</answer> — глубокий структурированный разбор. Обе части обязательны.';
-  }
-
-  // OPT-5: RAG context goes into system prompt, not as a fake user turn
-  if (documentContent) {
-    const safeMood = documentMood ? sanitizeAiInput(documentMood) : 'не указано';
-    systemInstruction += `\n\n---\n[Контекст из заметок пользователя]\n${sanitizeAiInput(documentContent)}\n[Настроение: ${safeMood}]`;
-  }
-
-  if (userPortrait) {
-    systemInstruction = `${systemInstruction}\n\n---\n[Портрет пользователя (личность, темы, контекст)]\n${userPortrait}`;
-  }
+  // CHATFIX-6: Use shared buildChatSystemPrompt instead of inline copy
+  const systemInstruction = buildChatSystemPrompt({
+    personaId,
+    customSystemPrompt,
+    userPortrait,
+    responseLength,
+    documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined,
+    documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined,
+  });
 
   // OPT-5: No more fake user/assistant turns — context is in system prompt
   const providerMessages = messages.map(m => ({

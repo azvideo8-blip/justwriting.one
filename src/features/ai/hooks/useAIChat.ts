@@ -176,7 +176,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
   // OPT-4: Cache facets + documents for the session, invalidate on dialogue change
   const facetsCacheRef = useRef<{ facets: Awaited<ReturnType<typeof AIProfileFacetService.getAll>> | null }>({ facets: null });
-  const docsCacheRef = useRef<Map<string, unknown> | null>(null);
+  // CHATFIX-2: docsCacheRef — Map<id, doc>, loaded once per session
+  const docsCacheRef = useRef<Map<string, { id: string; title?: string; lastSessionAt?: number; firstSessionAt?: number }> | null>(null);
+  // CHATFIX-1: doorsCacheRef — aggregate doors, computed once per session
+  const doorsCacheRef = useRef<{ hint: string } | null>(null);
+  // CHATFIX-3: Track message count for memory extraction throttle
+  const messageCountRef = useRef(0);
 
   // Sticky note-search: once a search happens, keep retrieving for the next few
   // follow-up turns (e.g. "посмотри в этих", "собери", "а почему") even if they
@@ -189,9 +194,11 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     stickyTurnsRef.current = 0;
     lastSearchQueryRef.current = '';
     lastSearchNamesRef.current = [];
-    // OPT-4: Invalidate facet/doc cache on dialogue change
+    // OPT-4: Invalidate facet/doc/doors cache on dialogue change
     facetsCacheRef.current = { facets: null };
     docsCacheRef.current = null;
+    doorsCacheRef.current = null;
+    messageCountRef.current = 0;
   }, [dialogueId]);
 
   useEffect(() => {
@@ -358,7 +365,13 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       let allEmbeddings: Awaited<ReturnType<typeof AIEmbeddingService.getAll>> | undefined;
 
       // OPT-4: Gate facet augmentation on trivial messages
-      const isTrivial = text.trim().split(/\s+/).length < 4 && !/[?]/.test(text) && !looksLikeNoteSearch(text);
+      // CHATFIX-7: For psycho-personas, relax gate — emotional short messages
+      // ("мне плохо", "устал") are key moments that need context.
+      const wordCount = text.trim().split(/\s+/).length;
+      const isPsyche = psychePersonas.includes(effectivePersonaId);
+      const isTrivial = isPsyche
+        ? (wordCount < 2 && !/[?]/.test(text) && !looksLikeNoteSearch(text))
+        : (wordCount < 4 && !/[?]/.test(text) && !looksLikeNoteSearch(text));
       const shouldRunFacets = needsFacets && !isTrivial;
 
       if (shouldRunFacets) {
@@ -415,9 +428,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
               .slice(0, 5);
 
             if (relevant.length > 0) {
-              const db = await getLocalDb();
-              const docs = await db.getAll('documents');
-              const docMap = new Map(docs.map(d => [d.id, d]));
+              // CHATFIX-2: Use docsCacheRef — single getAll('documents') per session
+              let docMap = docsCacheRef.current;
+              if (!docMap) {
+                const db = await getLocalDb();
+                const docs = await db.getAll('documents');
+                docMap = new Map(docs.map(d => [d.id, d]));
+                docsCacheRef.current = docMap;
+              }
 
               const facetLines = relevant.map(({ f }) => {
                 // Collect note IDs from relevant facets for supplemental note loading
@@ -452,23 +470,34 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
               }).join('\n\n');
               const facetBlock = `Темы профиля пользователя (обобщены ИИ по заметкам):\n${facetLines}\n\nОпирайся на эти темы и на заметки ниже при ответе. Не выдумывай детали, которых нет в текстах.`;
 
-              // DOORS-3: Soft signal — three doors of contact analysis
+              // CHATFIX-1: Doors hint — cached per session, not recomputed every message
               let doorsHint = '';
               if (psychePersonas.includes(effectivePersonaId)) {
-                try {
-                  const allDocs = await db.getAll('documents');
-                  const perNote: { doors: ReturnType<typeof analyzeDoors>; ts: number }[] = [];
-                  for (const d of allDocs) {
-                    const vers = await db.getAllFromIndex('versions', 'by-document', d.id);
-                    if (vers.length === 0) continue;
-                    vers.sort((a, b) => b.version - a.version);
-                    perNote.push({ doors: analyzeDoors(vers[0]?.content ?? ''), ts: d.lastSessionAt ?? Date.now() });
-                  }
-                  const doorsResult = aggregateDoors(perNote.slice(-20));
-                  if (!doorsResult.lowData && doorsResult.thinnestDoor && doorsResult.dominantDoor) {
-                    doorsHint = `\n\nНаблюдение: в записях пользователь чаще опирается на ${doorLabel(doorsResult.dominantDoor)}; ${doorLabel(doorsResult.thinnestDoor)} звучат реже. Если уместно — мягко, гипотезой пригласи заметить ${doorLabel(doorsResult.thinnestDoor)} под ${doorLabel(doorsResult.dominantDoor)}; не дави, дай возможность отказаться.`;
-                  }
-                } catch { /* non-critical */ }
+                if (doorsCacheRef.current) {
+                  doorsHint = doorsCacheRef.current.hint;
+                } else {
+                  try {
+                    const db = await getLocalDb();
+                    // CHATFIX-2: reuse docMap from cache instead of second getAll
+                    const allDocs = [...(docMap ?? new Map()).values()];
+                    if (allDocs.length > 0) {
+                      const perNote: { doors: ReturnType<typeof analyzeDoors>; ts: number }[] = [];
+                      for (const d of allDocs) {
+                        const vers = await db.getAllFromIndex('versions', 'by-document', d.id);
+                        if (vers.length === 0) continue;
+                        vers.sort((a, b) => b.version - a.version);
+                        perNote.push({ doors: analyzeDoors(vers[0]?.content ?? ''), ts: d.lastSessionAt ?? d.firstSessionAt ?? 0 });
+                      }
+                      // CHATFIX-4: Sort by ts desc, take 20 newest
+                      perNote.sort((a, b) => b.ts - a.ts);
+                      const doorsResult = aggregateDoors(perNote.slice(0, 20));
+                      if (!doorsResult.lowData && doorsResult.thinnestDoor && doorsResult.dominantDoor) {
+                        doorsHint = `\n\nНаблюдение: в записях пользователь чаще опирается на ${doorLabel(doorsResult.dominantDoor)}; ${doorLabel(doorsResult.thinnestDoor)} звучат реже. Если уместно — мягко, гипотезой пригласи заметить ${doorLabel(doorsResult.thinnestDoor)} под ${doorLabel(doorsResult.dominantDoor)}; не дави, дай возможность отказаться.`;
+                      }
+                    }
+                    doorsCacheRef.current = { hint: doorsHint };
+                  } catch { /* non-critical */ }
+                }
               }
 
               searchContext = facetBlock + doorsHint;
@@ -648,7 +677,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             const noteBlock = (
               `\n\nРезультаты поиска по архиву заметок (запрос: "${text}"). ` +
               `Найдено заметок: ${allNotes.length} (отобрано ${noteIdx} по релевантности). ` +
-              `В этих заметках точно содержится ответ на вопрос пользователя — прочитай их внимательно.\n\n` +
+              `Это наиболее релевантные заметки по запросу. Если ответа в них нет — так и скажи, не домысливай.\n\n` +
               parts.join('\n\n')
             );
             searchContext = (searchContext ?? '') + noteBlock;
@@ -762,7 +791,11 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // RSN-4: Clean reasoning tags before saving to dialogue history
       const savedText = effectiveResponseLength === 'reasoning' ? extractAnswer(fullText) : fullText;
       await AIDialogueService.appendMessage(currentDialogue.id, text, savedText);
-      void AIChatMemoryService.extractFromDialogue(currentDialogue.id, allMessages);
+      // CHATFIX-3: Extract memory every 3rd turn, not every turn
+      messageCountRef.current += 1;
+      if (messageCountRef.current % 3 === 0) {
+        void AIChatMemoryService.extractFromDialogue(currentDialogue.id, allMessages);
+      }
       const updated = await AIDialogueService.get(currentDialogue.id);
       setDialogue(updated ?? null);
       setStreamingMessage(null); setStreamingReasoning(null);
