@@ -9,6 +9,7 @@ import { getAuth } from 'firebase/auth';
 import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIMessage } from '../services/AIService';
 import { AIService } from '../services/AIService';
+import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import { AIProfileService } from '../services/AIProfileService';
 import { AISummaryService } from '../services/AISummaryService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
@@ -646,6 +647,20 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         }
       }
 
+      // DLG-1: Cross-dialogue memory — inject relevant memories into context.
+      if (queryEmb) {
+        try {
+          const memories = await AIChatMemoryService.getRelevant(queryEmb, 5);
+          if (memories.length > 0) {
+            const memoryBlock = '[Что ИИ помнит о пользователе из прошлых бесед]\n' +
+              memories.map(m => `— ${m.kind}: ${m.text}`).join('\n');
+            searchContext = searchContext ? searchContext + '\n\n' + memoryBlock : memoryBlock;
+          }
+        } catch (e) {
+          console.warn('[useAIChat] memory retrieval failed:', e);
+        }
+      }
+
       const effectiveResponseLength = dialogue?.responseLength || responseLength || 'standard';
 
       let fullText: string;
@@ -698,6 +713,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       }
 
       await AIDialogueService.appendMessage(currentDialogue.id, text, fullText);
+      void AIChatMemoryService.extractFromDialogue(currentDialogue.id, allMessages);
       const updated = await AIDialogueService.get(currentDialogue.id);
       setDialogue(updated ?? null);
       setStreamingMessage(null);
