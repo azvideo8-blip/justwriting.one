@@ -143,4 +143,18 @@ export const AIService = {
       return { ok: false, error: mapAIError(e) };
     }
   },
+
+  async extractChatMemory(params: {
+    messages: { role: string; content: string }[];
+  }): Promise<{ ok: true; memories: { kind: string; text: string }[] } | { ok: false; error: string }> {
+    const functions = getFunctions();
+    const fn = httpsCallable<unknown, { memories: { kind: string; text: string }[] }>(functions, 'extractChatMemory');
+    try {
+      const { data } = await withTimeout(fn(params), 60_000);
+      return { ok: true, memories: data.memories };
+    } catch (e: unknown) {
+      reportError(e, { action: 'extractChatMemory' });
+      return { ok: false, error: mapAIError(e) };
+    }
+  },
 };

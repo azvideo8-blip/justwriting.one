@@ -655,7 +655,7 @@ export function DiagnosticsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
                   { label: 'Версия приложения', value: APP_VERSION },
-                  { label: 'Локальная база (IndexedDB) версия', value: '6' },
+                  { label: 'Локальная база (IndexedDB) версия', value: '8' },
                   { label: 'Локальных документов на устройстве', value: stats.localDocs },
                   { label: 'Документов в облаке (Firestore)', value: stats.cloudDocs },
                   { label: 'Только на этом устройстве (local only)', value: stats.localDocs - stats.cloudDocs },
@@ -663,6 +663,7 @@ export function DiagnosticsPage() {
                   { label: 'Эмбеддингов сохранено', value: stats.embeddings },
                   { label: 'Диалогов ИИ записано', value: stats.dialogues },
                   { label: 'Кастомных персон создано', value: stats.customPersonas },
+                  { label: 'Памяти диалогов (DLG-1)', value: stats.memories },
                   { label: 'Лимит ИИ за сутки', value: `${dailyLimit.used} / ${dailyLimit.limit} запросов` }
                 ].map(r => (
                   <div key={r.label} className="flex items-center justify-between p-4 rounded-xl border border-border-subtle bg-surface-base/5">

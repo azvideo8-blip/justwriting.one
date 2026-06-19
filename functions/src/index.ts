@@ -19,6 +19,7 @@ export { summarizeDocument } from './ai/summarizeDocument';
 export { embedDocument } from './ai/embedDocument';
 export { rerankNotes } from './ai/rerankNotes';
 export { summarizeFacet } from './ai/summarizeFacet';
+export { extractChatMemory } from './ai/extractChatMemory';
 export { validateCustomPrompt } from './ai/validateCustomPrompt';
 export { getAIUsageStats } from './ai/getAIUsageStats';
 export { getAILimit } from './ai/getAILimit';
