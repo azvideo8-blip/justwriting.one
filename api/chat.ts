@@ -125,14 +125,8 @@ async function getActiveModel(): Promise<string> {
   return FIREWORKS_MODEL;
 }
 
-const AI_REASONING_MODEL = process.env.AI_REASONING_MODEL ?? 'accounts/fireworks/models/deepseek-v4-pro';
-
-async function getChatModel(responseLength?: 'short' | 'standard' | 'detailed' | 'reasoning' | null) {
-  // RSN-5: Route reasoning mode to a more capable model
-  const model = responseLength === 'reasoning'
-    ? (AI_PROVIDER === 'fireworks' ? AI_REASONING_MODEL : GEMINI_MODEL)
-    : await getActiveModel();
-  if (AI_PROVIDER === 'fireworks') return fireworks.chat(model);
+async function getChatModel() {
+  if (AI_PROVIDER === 'fireworks') return fireworks.chat(await getActiveModel());
   return google(GEMINI_MODEL);
 }
 
@@ -316,7 +310,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Stream. maxOutputTokens caps total output INCLUDING gemini-2.5 thinking tokens;
   // at 1024 the thinking budget could consume it all and truncate the reply
   // mid-sentence. 8192 leaves ample room for a complete answer.
-  const [activeModel, chatModel] = await Promise.all([getActiveModel(), getChatModel(responseLength)]);
+  const [activeModel, chatModel] = await Promise.all([getActiveModel(), getChatModel()]);
   const result = streamText({
     model: chatModel,
     system: systemPrompt,
