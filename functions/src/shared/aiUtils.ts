@@ -69,17 +69,19 @@ export function sanitizeAiInput(content: string): string {
 // Strips ALL HTML tags and attributes from AI responses using DOMPurify.
 // Also strips reasoning artifacts (//<reasoning>, <reasoning>, thinking text)
 // that reasoning models like DeepSeek may leak into responses.
-export function sanitizeAiResponse(response: string): string {
+// RSN-3: In reasoning mode, keep <reasoning>/<answer> text content.
+export function sanitizeAiResponse(response: string, keepReasoning = false): string {
   let cleaned = response;
-  // OPT-8: Strip reasoning blocks that reasoning models leak into output
-  cleaned = cleaned.replace(/\/\/<reasoning>[\s\S]*?<\/reasoning>/gi, '');
-  cleaned = cleaned.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '');
-  cleaned = cleaned.replace(/\/\/<reasoning>[\s\S]*$/gi, '');
-  cleaned = cleaned.replace(/<reasoning>[\s\S]*$/gi, '');
-  // Strip standalone reasoning comment markers
-  cleaned = cleaned.replace(/^\/\/<reasoning>/gim, '');
+  if (!keepReasoning) {
+    // OPT-8: Strip reasoning blocks that reasoning models leak into output
+    cleaned = cleaned.replace(/\/\/<reasoning>[\s\S]*?<\/reasoning>/gi, '');
+    cleaned = cleaned.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '');
+    cleaned = cleaned.replace(/\/\/<reasoning>[\s\S]*$/gi, '');
+    cleaned = cleaned.replace(/<reasoning>[\s\S]*$/gi, '');
+    cleaned = cleaned.replace(/^\/\/<reasoning>/gim, '');
+  }
   return DOMPurify.sanitize(cleaned, {
-    ALLOWED_TAGS: [],
+    ALLOWED_TAGS: keepReasoning ? [] : [],
     ALLOWED_ATTR: [],
     ALLOW_DATA_ATTR: false,
   });

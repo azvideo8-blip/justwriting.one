@@ -74,7 +74,7 @@ export const AIDialogueService = {
     await db.delete('aiDialogues', id);
   },
 
-  async updateResponseLength(id: string, responseLength: 'short' | 'standard' | 'detailed'): Promise<void> {
+  async updateResponseLength(id: string, responseLength: 'short' | 'standard' | 'detailed' | 'reasoning'): Promise<void> {
     const db = await getLocalDb();
     const dialogue = await db.get('aiDialogues', id);
     if (!dialogue) return;

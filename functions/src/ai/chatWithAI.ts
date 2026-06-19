@@ -17,7 +17,7 @@ const inputSchema = z.object({
   documentContent: z.string().max(50_000).nullish(),
   documentMood: z.string().max(50).nullish(),
   userPortrait: z.string().max(100_000).nullish(),
-  responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
+  responseLength: z.enum(['short', 'standard', 'detailed', 'reasoning']).nullish(),
 });
 
 export const chatWithAI = onCall({
@@ -69,6 +69,8 @@ export const chatWithAI = onCall({
     systemInstruction += '\n\nВАЖНО: Верни очень краткий, лаконичный ответ. Уложись в 1-2 абзаца, пиши только самое главное без долгих вступлений.';
   } else if (responseLength === 'detailed') {
     systemInstruction += '\n\nВАЖНО: Верни подробный, развёрнутый ответ с глубоким анализом, детальными объяснениями и выводами.';
+  } else if (responseLength === 'reasoning') {
+    systemInstruction += '\n\nВАЖНО: Сначала выведи ход своих рассуждений в тегах <reasoning>...</reasoning> — анализ записи, выбор подхода, промежуточные выводы. Затем выведи итоговый ответ в тегах <answer>...</answer> — глубокий структурированный разбор. Обе части обязательны.';
   }
 
   // OPT-5: RAG context goes into system prompt, not as a fake user turn
@@ -94,7 +96,7 @@ export const chatWithAI = onCall({
 
   let gen;
   try {
-    gen = await generate({ system: systemInstruction, messages: providerMessages, maxTokens: 8192, abortMs: 110_000 });
+    gen = await generate({ system: systemInstruction, messages: providerMessages, maxTokens: responseLength === 'reasoning' ? 16384 : 8192, abortMs: 110_000 });
   } catch (e) {
     console.error('[chatWithAI] AI request failed:', e);
     generation?.end({ output: String(e), level: 'ERROR' });
@@ -102,7 +104,8 @@ export const chatWithAI = onCall({
     throw new HttpsError('internal', 'AI request failed.');
   }
 
-  const text = sanitizeAiResponse(gen.text);
+  const isReasoningMode = responseLength === 'reasoning';
+  const text = sanitizeAiResponse(gen.text, isReasoningMode);
 
   generation?.end({ output: text, usage: { promptTokens: gen.tokensIn, completionTokens: gen.tokensOut } });
   recordUsage(uid, gen.tokensIn, gen.tokensOut, { model: gen.model, fn: 'chat' }).catch(e => console.error('[AI chat] usage record failed:', e));
