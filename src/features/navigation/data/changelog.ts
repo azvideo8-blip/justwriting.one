@@ -14,6 +14,21 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.28',
+    date: '2026-06-19',
+    items: [
+      { category: 'improvement', ru: 'Поиск: 1 embed + 1 rerank на поиск (было N×), entity boost, rerank bypass ≥0.88, кэш 5 мин', en: 'Search: 1 embed + 1 rerank per search (was N×), entity boost, rerank bypass ≥0.88, 5-min cache' },
+      { category: 'improvement', ru: 'Оптимизация диалога: reuse embedding, expansion off by default, facet gate+cache, context в system, порядок заметок, reasoning cleanup', en: 'Dialogue optimization: reuse embedding, expansion off, facet gate+cache, context in system, note order, reasoning cleanup' },
+      { category: 'new', ru: 'Рефлексивный диалог: REFLECTION_GUIDE, CBT Socratic reframe, Coach MI, темпоральные фасеты, цитирование источников', en: 'Reflective dialogue: REFLECTION_GUIDE, CBT Socratic reframe, Coach MI, temporal facets, source citations' },
+      { category: 'new', ru: 'Память между диалогами: извлечение фактов/инсайтов после чата, подмешивание в будущие диалоги', en: 'Cross-dialogue memory: extract facts/insights after chat, inject into future dialogues' },
+      { category: 'new', ru: 'Режим «🧠 Рассуждения» — ход мысли в реальном времени + ответ', en: 'Reasoning mode — real-time chain-of-thought + answer' },
+      { category: 'new', ru: 'Три двери контакта: локальный анализатор (мысли/чувства/поведение) + виджет в Диагностике', en: 'Three doors of contact: local analyzer (thinking/feeling/behavior) + Diagnostics widget' },
+      { category: 'fix', ru: 'CSP: Google Fonts onload → rel=preload+stylesheet', en: 'CSP: Google Fonts onload → rel=preload+stylesheet' },
+      { category: 'fix', ru: 'AI кнопки: hover + responseLength без activeDialogueId', en: 'AI buttons: hover + responseLength without activeDialogueId' },
+      { category: 'fix', ru: 'Service Worker: CACHE_VERSION v0.7.21 → v0.7.28', en: 'Service Worker: CACHE_VERSION v0.7.21 → v0.7.28' },
+    ],
+  },
+  {
     version: '0.7.27',
     date: '2026-06-18',
     items: [
