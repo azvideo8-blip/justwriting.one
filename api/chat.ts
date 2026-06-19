@@ -142,6 +142,8 @@ function buildSystemPrompt(
   customPrompt: string | null | undefined,
   userPortrait: string | null | undefined,
   responseLength?: 'short' | 'standard' | 'detailed' | null,
+  documentContent?: string | null | undefined,
+  documentMood?: string | null | undefined,
 ): string {
   let base =
     personaId === 'custom'
@@ -152,6 +154,12 @@ function buildSystemPrompt(
     base += '\n\nВАЖНО: Верни очень краткий, лаконичный ответ. Уложись в 1-2 абзаца, пиши только самое главное без долгих вступлений.';
   } else if (responseLength === 'detailed') {
     base += '\n\nВАЖНО: Верни подробный, развёрнутый ответ с глубоким анализом, детальными объяснениями и выводами.';
+  }
+
+  // OPT-5: RAG context goes into system prompt, not as a fake user turn
+  if (documentContent) {
+    const safeMood = documentMood ? sanitizeAiInput(documentMood) : 'не указано';
+    base += `\n\n---\n[Контекст из заметок пользователя]\n${sanitizeAiInput(documentContent)}\n[Настроение: ${safeMood}]`;
   }
 
   if (userPortrait) {
@@ -293,20 +301,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: 'Bad Request' }); return;
   }
 
-  const systemPrompt = buildSystemPrompt(personaId, customSystemPrompt, userPortrait, responseLength);
+  const systemPrompt = buildSystemPrompt(personaId, customSystemPrompt, userPortrait, responseLength, documentContent, documentMood);
 
-  // Insert document content as a fake user+assistant turn (like chatWithAI.ts)
-  // instead of into the system prompt — avoids the 9.5K system-prompt truncation
-  // that silently drops most note content.
+  // OPT-5: Context is now in system prompt, no fake user/assistant turn
   const providerMessages = messages.map(m => ({ role: m.role, content: sanitizeAiInput(m.content) }));
-  if (documentContent) {
-    const safeMood = documentMood ? sanitizeAiInput(documentMood) : 'не указано';
-    const docMessage = `[Документ пользователя]\n${sanitizeAiInput(documentContent)}\n[Настроение: ${safeMood}]`;
-    providerMessages.unshift({ role: 'user', content: docMessage });
-    if (providerMessages.length > 1 && providerMessages[1]!.role === 'user') {
-      providerMessages.splice(1, 0, { role: 'assistant', content: 'Документ получен. Готов обсудить.' });
-    }
-  }
 
   // Stream. maxOutputTokens caps total output INCLUDING gemini-2.5 thinking tokens;
   // at 1024 the thinking budget could consume it all and truncate the reply

@@ -117,16 +117,23 @@ function hasExactTitleMatch(query: string, topIds: string[]): Promise<boolean> {
   })();
 }
 
-export async function searchNotes(query: string, maxResults = 5): Promise<RetrievedNote[]> {
-  const embedResult = await AIService.embed({ content: query });
-  if (!embedResult.ok) {
-    console.warn('[searchNotes] embed failed:', embedResult.error);
-    return [];
+type EmbeddingEntry = Awaited<ReturnType<typeof AIEmbeddingService.getAll>>[number];
+
+export async function searchNotes(query: string, maxResults = 5, opts?: { queryVector?: number[] | undefined; allEmbeddings?: EmbeddingEntry[] | undefined }): Promise<RetrievedNote[]> {
+  // OPT-1: Reuse pre-computed query vector if provided
+  let queryVec = opts?.queryVector;
+  if (!queryVec) {
+    const embedResult = await AIService.embed({ content: query });
+    if (!embedResult.ok) {
+      console.warn('[searchNotes] embed failed:', embedResult.error);
+      return [];
+    }
+    queryVec = embedResult.vectors[0];
   }
-  const queryVec = embedResult.vectors[0];
   if (!queryVec) return [];
 
-  const allEmbeddings = await AIEmbeddingService.getAll();
+  // OPT-1: Reuse pre-loaded embeddings if provided
+  const allEmbeddings = opts?.allEmbeddings ?? await AIEmbeddingService.getAll();
   if (allEmbeddings.length === 0) return [];
 
   // Vector search: top 40, with chunk index for Parent Document Retrieval
@@ -271,6 +278,7 @@ function putCache(query: string, results: RetrievedNote[]) {
 export async function searchNotesMulti(
   queries: string[],
   maxResults = 5,
+  opts?: { queryVector?: number[] | undefined; allEmbeddings?: EmbeddingEntry[] | undefined },
 ): Promise<RetrievedNote[]> {
   if (queries.length === 0) return [];
 
@@ -280,22 +288,26 @@ export async function searchNotesMulti(
   if (cached) return cached;
 
   if (queries.length === 1) {
-    const results = await searchNotes(queries[0]!, maxResults);
+    const results = await searchNotes(queries[0]!, maxResults, opts);
     putCache(queries[0]!, results);
     return results;
   }
 
-  // TICKET-044: Consolidate all queries into a single embedding
-  const combinedQuery = queries.join(' ');
-  const embedResult = await AIService.embed({ content: combinedQuery });
-  if (!embedResult.ok) {
-    console.warn('[searchNotesMulti] embed failed:', embedResult.error);
-    return [];
+  // OPT-1: Reuse pre-computed query vector if provided
+  let queryVec = opts?.queryVector;
+  if (!queryVec) {
+    // TICKET-044: Consolidate all queries into a single embedding
+    const combinedQuery = queries.join(' ');
+    const embedResult = await AIService.embed({ content: combinedQuery });
+    if (!embedResult.ok) {
+      console.warn('[searchNotesMulti] embed failed:', embedResult.error);
+      return [];
+    }
+    queryVec = embedResult.vectors[0];
   }
-  const queryVec = embedResult.vectors[0];
   if (!queryVec) return [];
 
-  const allEmbeddings = await AIEmbeddingService.getAll();
+  const allEmbeddings = opts?.allEmbeddings ?? await AIEmbeddingService.getAll();
   if (allEmbeddings.length === 0) return [];
 
   // Single vector search with combined embedding

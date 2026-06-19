@@ -13,8 +13,8 @@ import { AIProfileService } from '../services/AIProfileService';
 import { AISummaryService } from '../services/AISummaryService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
+import { searchNotesMulti, type RetrievedNote } from '../utils/noteRetriever';
 import { cosineSimilarity } from '../utils/vectorSearch';
-import { searchNotesMulti } from '../utils/noteRetriever';
 
 let _streamAvailable: boolean | null = null;
 const MAX_ATTACHMENT_CHARS = 9_500;
@@ -155,6 +155,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   // L12: Cache portrait across messages to avoid Firestore reads per turn.
   const portraitCacheRef = useRef<string | null | undefined>(undefined);
 
+  // OPT-4: Cache facets + documents for the session, invalidate on dialogue change
+  const facetsCacheRef = useRef<{ facets: Awaited<ReturnType<typeof AIProfileFacetService.getAll>> | null }>({ facets: null });
+  const docsCacheRef = useRef<Map<string, unknown> | null>(null);
+
   // Sticky note-search: once a search happens, keep retrieving for the next few
   // follow-up turns (e.g. "посмотри в этих", "собери", "а почему") even if they
   // don't match a trigger, reusing the last real query so the topic carries.
@@ -166,6 +170,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     stickyTurnsRef.current = 0;
     lastSearchQueryRef.current = '';
     lastSearchNamesRef.current = [];
+    // OPT-4: Invalidate facet/doc cache on dialogue change
+    facetsCacheRef.current = { facets: null };
+    docsCacheRef.current = null;
   }, [dialogueId]);
 
   useEffect(() => {
@@ -326,15 +333,33 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       const needsFacets = explicitSearch || stickySearch || psychePersonas.includes(effectivePersonaId);
       const facetNoteIds = new Set<string>();
 
-      if (needsFacets) {
+      // OPT-1: Single embedding for the query — reused in facets + search
+      let queryEmb: number[] | null = null;
+      // OPT-1: Single getAll() call — reused for facets + name search + vector search
+      let allEmbeddings: Awaited<ReturnType<typeof AIEmbeddingService.getAll>> | null = null;
+
+      // OPT-4: Gate facet augmentation on trivial messages
+      const isTrivial = text.trim().split(/\s+/).length < 4 && !/[?]/.test(text) && !looksLikeNoteSearch(text);
+      const shouldRunFacets = needsFacets && !isTrivial;
+
+      if (shouldRunFacets) {
         try {
-          const facets = await AIProfileFacetService.getAll();
+          // OPT-4: Read facets from cache, only load from DB once per session
+          let facets = facetsCacheRef.current.facets;
+          if (!facets) {
+            facets = await AIProfileFacetService.getAll();
+            facetsCacheRef.current = { facets };
+          }
           if (facets.length > 0) {
-            const embedQuery = explicitSearch || stickySearch
-              ? (explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`)
-              : text;
-            const queryEmb = await AIService.embed({ content: embedQuery });
-            const qv = queryEmb.ok && queryEmb.vectors[0] ? queryEmb.vectors[0] : null;
+            // OPT-1: Compute query embedding ONCE, reuse for search
+            if (!queryEmb) {
+              const embedQuery = explicitSearch || stickySearch
+                ? (explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`)
+                : text;
+              const queryEmbResult = await AIService.embed({ content: embedQuery });
+              queryEmb = queryEmbResult.ok && queryEmbResult.vectors[0] ? queryEmbResult.vectors[0] : null;
+            }
+            const qv = queryEmb;
 
             const queryLower = text.toLowerCase();
             const queryWords = queryLower.match(/[а-яё]{3,}/gi) ?? [];
@@ -402,9 +427,11 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         // ("собери", "а ещё") still retrieves the same topic.
         const searchQuery = explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`;
         try {
-          // TICKET-024: Query expansion — generate synonyms via LLM before search.
+          // OPT-2: Query expansion disabled by default — hybrid BM25+vector
+          // already provides good recall. Set AI_QUERY_EXPANSION=true to re-enable.
           let searchQueries = [searchQuery];
-          if (explicitSearch) {
+          const expansionEnabled = import.meta.env.VITE_AI_QUERY_EXPANSION === 'true';
+          if (explicitSearch && expansionEnabled) {
             try {
               const expandRes = await AIService.chat({
                 personaId: 'coach',
@@ -416,7 +443,19 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
               }
             } catch { /* non-critical, fall back to original query */ }
           }
-          const notes = await searchNotesMulti(searchQueries, 10);
+
+          // OPT-1: Reuse query embedding if already computed for facets
+          if (!queryEmb) {
+            const queryEmbResult = await AIService.embed({ content: searchQuery });
+            queryEmb = queryEmbResult.ok && queryEmbResult.vectors[0] ? queryEmbResult.vectors[0] : null;
+          }
+
+          // OPT-1: Reuse allEmbeddings if already loaded for name search
+          if (!allEmbeddings) {
+            allEmbeddings = await AIEmbeddingService.getAll();
+          }
+
+          const notes = await searchNotesMulti(searchQueries, 10, { queryVector: queryEmb ?? undefined, allEmbeddings });
 
           // Text-based name search: vector embeddings are bad at proper-name
           // retrieval ("Даша" won't match chunks that mention her briefly).
@@ -428,7 +467,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           ])];
           const nameSearchIds = new Set<string>();
           // M2: Load embeddings once, reuse for both name search and facet-note matching.
-          const nameSearchEmb = candidateNames.length > 0 ? await AIEmbeddingService.getAll() : [];
+          // OPT-1: allEmbeddings already loaded above, reuse here
+          const nameSearchEmb = candidateNames.length > 0 ? (allEmbeddings ?? await AIEmbeddingService.getAll()) : [];
           // js-hoist-regexp: pre-compile all name regexes once instead of in a loop.
           const nameRegexes = candidateNames.map(name =>
             new RegExp(`(?:^|[^а-яёА-ЯЁa-zA-Z0-9_])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:[^а-яёА-ЯЁa-zA-Z0-9_]|$)`)
@@ -514,13 +554,16 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
               };
             }).sort((a, b) => b.compositeScore - a.compositeScore);
 
+            // OPT-7: Place most relevant notes near the END (closest to user question)
+            // to combat "lost in the middle" effect — reverse the scored list
+            const orderedForPlacement = [...scored].reverse();
             const CONTEXT_RADIUS = 500;
             const PER_NOTE_CHARS = 2_000;
             const parts: string[] = [];
             let totalChars = 0;
             let noteIdx = 0;
 
-            for (const { note: n } of scored) {
+            for (const { note: n } of orderedForPlacement) {
               if (totalChars >= BUDGET_CHARS) break;
               let snippet: string;
               if (candidateNames.length > 0) {
@@ -640,7 +683,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       setDialogue(updated ?? null);
       setStreamingMessage(null);
 
-      // TICKET-018: Auto-name the dialogue via LLM after the first exchange.
+      // OPT-3: Auto-name the dialogue via LLM after the first exchange.
+      // Uses chat API (void — non-blocking). TODO: switch to cheap facet model
+      // via a dedicated callable to avoid burning the reasoning model on naming.
       if (wasNew) {
         void AIService.chat({
           personaId: 'coach',

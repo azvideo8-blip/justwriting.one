@@ -71,22 +71,18 @@ export const chatWithAI = onCall({
     systemInstruction += '\n\nВАЖНО: Верни подробный, развёрнутый ответ с глубоким анализом, детальными объяснениями и выводами.';
   }
 
+  // OPT-5: RAG context goes into system prompt, not as a fake user turn
+  if (documentContent) {
+    const safeMood = documentMood ? sanitizeAiInput(documentMood) : 'не указано';
+    systemInstruction += `\n\n---\n[Контекст из заметок пользователя]\n${sanitizeAiInput(documentContent)}\n[Настроение: ${safeMood}]`;
+  }
+
   if (userPortrait) {
     systemInstruction = `${systemInstruction}\n\n---\n[Портрет пользователя (личность, темы, контекст)]\n${userPortrait}`;
   }
 
-  const allMessages = [...messages];
-
-  if (documentContent) {
-    const safeMood = documentMood ? sanitizeAiInput(documentMood) : 'не указано';
-    const docMessage = `[Документ пользователя]\n${sanitizeAiInput(documentContent)}\n[Настроение: ${safeMood}]`;
-    allMessages.unshift({ role: 'user', content: docMessage });
-    if (allMessages.length > 1 && allMessages[1].role === 'user') {
-      allMessages.splice(1, 0, { role: 'assistant', content: 'Документ получен. Готов обсудить.' });
-    }
-  }
-
-  const providerMessages = allMessages.map(m => ({
+  // OPT-5: No more fake user/assistant turns — context is in system prompt
+  const providerMessages = messages.map(m => ({
     role: m.role,
     content: sanitizeAiInput(m.content),
   }));
