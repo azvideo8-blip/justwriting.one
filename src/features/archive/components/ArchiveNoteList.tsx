@@ -1,6 +1,6 @@
 import { memo, type ComponentPropsWithoutRef, useState, useEffect } from 'react';
 import { useReducedMotion } from 'motion/react';
-import { Virtuoso, VirtuosoGrid, GroupedVirtuoso } from 'react-virtuoso';
+import { Virtuoso, VirtuosoGrid } from 'react-virtuoso';
 import { format, Locale } from 'date-fns';
 import { BookOpen } from 'lucide-react';
 import { GridNoteCard } from './GridNoteCard';
@@ -232,8 +232,6 @@ export function ArchiveNoteList({
     );
   }
 
-  const groupCounts = sortedDates.map(dateKey => groupedSessions[dateKey]?.length ?? 0);
-
   if (viewMode === 'grid') {
     // Grouped grid is rendered without Virtuoso: nesting variable-height card
     // grids inside a vertical virtualizer desynced on sort/filter/view changes,
@@ -287,64 +285,60 @@ export function ArchiveNoteList({
     );
   }
 
+  // Grouped list rendered without Virtuoso. GroupedVirtuoso's itemContent index
+  // is GLOBAL (across all groups), but the code indexed the per-group array with
+  // it — so groups after the first showed wrong/empty rows (worse on re-sorts).
+  // The grid grouped view was de-virtualized for the same reason; do the same
+  // here. A plain map is robust at this scale (~tens–hundreds of notes).
   return (
-    <GroupedVirtuoso
-      groupCounts={groupCounts}
-      
-      groupContent={(index) => {
-        const dateKey = sortedDates[index];
-        if (!dateKey) return null;
+    <div className="custom-scrollbar h-full overflow-y-auto">
+      {sortedDates.map(dateKey => {
         const sessions = groupedSessions[dateKey] ?? [];
+        if (sessions.length === 0) return null;
         return (
-          <div className="flex items-center gap-3 py-5 pr-1 h-full">
-            <span className="font-mono text-label-sm text-text-main/60 uppercase tracking-widest whitespace-nowrap">
-              {format(new Date(dateKey), 'd MMM', { locale: dateLocale })}
-            </span>
-            <div className="flex-1 flex items-center gap-2">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent to-[var(--border-subtle)]" />
-              <span className="font-mono text-label-sm text-[var(--brand-soft)] opacity-50">
-                {tp('archive_note_count', sessions.length)}
+          <div key={dateKey}>
+            <div className="flex items-center gap-3 py-5 pr-1">
+              <span className="font-mono text-label-sm text-text-main/60 uppercase tracking-widest whitespace-nowrap">
+                {format(new Date(dateKey), 'd MMM', { locale: dateLocale })}
               </span>
-              <div className="flex-1 h-px bg-gradient-to-l from-transparent to-[var(--border-subtle)]" />
+              <div className="flex-1 flex items-center gap-2">
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent to-[var(--border-subtle)]" />
+                <span className="font-mono text-label-sm text-[var(--brand-soft)] opacity-50">
+                  {tp('archive_note_count', sessions.length)}
+                </span>
+                <div className="flex-1 h-px bg-gradient-to-l from-transparent to-[var(--border-subtle)]" />
+              </div>
+              <span className="font-mono text-label-sm text-text-main/60 whitespace-nowrap">
+                {sessions
+                  .reduce((sum: number, s: ArchiveSession) => sum + (s.wordCount || 0), 0)
+                  .toLocaleString()} {t('home_words_short')}
+              </span>
             </div>
-            <span className="font-mono text-label-sm text-text-main/60 whitespace-nowrap">
-              {sessions
-                .reduce((sum: number, s: ArchiveSession) => sum + (s.wordCount || 0), 0)
-                .toLocaleString()} {t('home_words_short')}
-            </span>
+            {sessions.map(session => (
+              <NoteRow
+                key={session.id}
+                session={session}
+                onOpen={() => onOpen(session)}
+                t={t}
+                language={language}
+                labels={labels}
+                onDelete={(s) => onDelete(s)}
+                onTagsChange={onTagsChange}
+                onStorageChange={onStorageChange}
+                onTitleChange={onTitleChange}
+                onDateChange={onDateChange}
+                onLabelChange={onLabelChange}
+                userId={userId}
+                allTags={allTags}
+                searchQuery={searchQuery}
+                aiProcessed={!!aiProcessedMap[session.id]}
+                aiLoading={!!aiLoadingMap[session.id]}
+                onAIClick={() => void handleAIClick(session)}
+              />
+            ))}
           </div>
         );
-      }}
-      itemContent={(index, groupIndex) => {
-        // TICKET-050: index is group-relative, not global. Use groupIndex to
-        // find the correct date group, then index within that group.
-        const dateKey = sortedDates[groupIndex];
-        if (!dateKey) return null;
-        const sessions = groupedSessions[dateKey] ?? [];
-        const session = sessions[index];
-        if (!session) return null;
-        return (
-          <NoteRow
-            session={session}
-            onOpen={() => onOpen(session)}
-            t={t}
-            language={language}
-            labels={labels}
-            onDelete={(s) => onDelete(s)}
-            onTagsChange={onTagsChange}
-            onStorageChange={onStorageChange}
-            onTitleChange={onTitleChange}
-            onDateChange={onDateChange}
-            onLabelChange={onLabelChange}
-            userId={userId}
-            allTags={allTags}
-            searchQuery={searchQuery}
-            aiProcessed={!!aiProcessedMap[session.id]}
-            aiLoading={!!aiLoadingMap[session.id]}
-            onAIClick={() => void handleAIClick(session)}
-          />
-        );
-      }}
-    />
+      })}
+    </div>
   );
 }
