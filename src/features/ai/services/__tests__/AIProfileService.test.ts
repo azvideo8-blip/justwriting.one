@@ -6,6 +6,7 @@ const {
   mockPut,
   mockDelete,
   mockGetAll,
+  mockGetAllFromIndex,
   mockSetDoc,
   mockGetDoc,
   mockCurrentUser,
@@ -17,6 +18,7 @@ const {
     mockPut: vi.fn(),
     mockDelete: vi.fn(),
     mockGetAll: vi.fn(),
+    mockGetAllFromIndex: vi.fn(),
     mockSetDoc: vi.fn(),
     mockGetDoc: vi.fn(),
     mockCurrentUser: { uid: 'test-user-123' },
@@ -31,6 +33,7 @@ vi.mock('../../../../core/storage/localDb', () => ({
     put: mockPut,
     delete: mockDelete,
     getAll: mockGetAll,
+    getAllFromIndex: mockGetAllFromIndex,
   }),
 }));
 
@@ -151,7 +154,13 @@ describe('AIProfileService', () => {
     ];
 
     it('returns error if there are fewer than 3 summaries', async () => {
-      mockGetAll.mockResolvedValue([dummySummaries[0]]);
+      // getAll called for: aiProfileFacets, aiChatMemory, documents, aiSummaries
+      mockGetAll
+        .mockResolvedValueOnce([])  // aiProfileFacets
+        .mockResolvedValueOnce([])  // aiChatMemory
+        .mockResolvedValueOnce([])  // documents
+        .mockResolvedValueOnce([dummySummaries[0]]); // aiSummaries
+      mockGetAllFromIndex.mockResolvedValue([]);
 
       const res = await AIProfileService.generate();
       expect(res).toEqual({ ok: false, error: 'NOT_ENOUGH_DATA' });
@@ -159,7 +168,12 @@ describe('AIProfileService', () => {
     });
 
     it('calls AI to generate portrait if there are 3 or more summaries', async () => {
-      mockGetAll.mockResolvedValue(dummySummaries);
+      mockGetAll
+        .mockResolvedValueOnce([])  // aiProfileFacets
+        .mockResolvedValueOnce([])  // aiChatMemory
+        .mockResolvedValueOnce([])  // documents
+        .mockResolvedValueOnce(dummySummaries); // aiSummaries
+      mockGetAllFromIndex.mockResolvedValue([]);
       vi.mocked(AIService.chat).mockResolvedValue({
         ok: true,
         text: 'Generated portrait markdown text',

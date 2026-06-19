@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { AIDialogueService } from '../services/AIDialogueService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
+import { TelemetryService } from '../../../core/services/TelemetryService';
 import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService';
 import { useAIChat } from '../hooks/useAIChat';
 import { useDailyLimit } from '../hooks/useDailyLimit';
@@ -68,6 +69,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     setTimeout(() => {
       void loadDialogues();
       void loadCustomPersonas();
+      void TelemetryService.maybeSendTelemetry();
     }, 0);
     if (linkedDocId) void attachDocument(linkedDocId);
   }, [loadDialogues, loadCustomPersonas, linkedDocId, attachDocument]);
