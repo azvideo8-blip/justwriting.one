@@ -8,6 +8,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { z } from 'zod';
 import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD, REFLECTION_GUIDE } from '../src/shared/ai/prompts.js';
 import { INJECTION_PATTERNS } from '../src/shared/ai/injectionPatterns.js';
+import { buildChatSystemPrompt, sanitizeAiInputShared } from '../src/shared/ai/buildChatPrompt.js';
 
 // Must match the database the Cloud Functions and frontend use (shared/firestore.ts,
 // VITE_FIREBASE_FIRESTORE_DATABASE_ID). Bare getFirestore() targets "(default)", which
@@ -130,44 +131,10 @@ async function getChatModel() {
   return google(GEMINI_MODEL);
 }
 
+// CHATFIX-6: buildSystemPrompt and sanitizeAiInput moved to shared module
+// (src/shared/ai/buildChatPrompt.ts). Local wrappers kept for backwards compat.
 function sanitizeAiInput(content: string): string {
-  return content
-    .replace(/<\|system\|>/gi, '[system]')
-    .replace(/<\|user\|>/gi, '[user]')
-    .replace(/<\|assistant\|>/gi, '[assistant]');
-}
-
-function buildSystemPrompt(
-  personaId: string,
-  customPrompt: string | null | undefined,
-  userPortrait: string | null | undefined,
-  responseLength?: 'short' | 'standard' | 'detailed' | 'reasoning' | null,  documentContent?: string | null | undefined,
-  documentMood?: string | null | undefined,
-): string {
-  let base =
-    personaId === 'custom'
-      ? `${customPrompt ?? ''}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}\n\n${REFLECTION_GUIDE}`
-      : `${(PERSONA_PROMPTS as Record<string, string>)[personaId] ?? PERSONA_PROMPTS.coach}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}\n\n${REFLECTION_GUIDE}`;
-
-  if (responseLength === 'short') {
-    base += '\n\nВАЖНО: Верни очень краткий, лаконичный ответ. Уложись в 1-2 абзаца, пиши только самое главное без долгих вступлений.';
-  } else if (responseLength === 'detailed') {
-    base += '\n\nВАЖНО: Верни подробный, развёрнутый ответ с глубоким анализом, детальными объяснениями и выводами.';
-  } else if (responseLength === 'reasoning') {
-    base += '\n\nВАЖНО: Сначала выведи ход своих рассуждений в тегах <reasoning>...</reasoning> — анализ записи, выбор подхода, промежуточные выводы. Затем выведи итоговый ответ в тегах <answer>...</answer> — глубокий структурированный разбор. Обе части обязательны.';
-  }
-
-  // OPT-5: RAG context goes into system prompt, not as a fake user turn
-  if (documentContent) {
-    const safeMood = documentMood ? sanitizeAiInput(documentMood) : 'не указано';
-    base += `\n\n---\n[Контекст из заметок пользователя]\n${sanitizeAiInput(documentContent)}\n[Настроение: ${safeMood}]`;
-  }
-
-  if (userPortrait) {
-    base = `${base}\n\n---\n[Портрет пользователя (личность, темы, контекст)]\n${userPortrait}`;
-  }
-
-  return base;
+  return sanitizeAiInputShared(content);
 }
 
 // ── Daily limit ───────────────────────────────────────────────────────────────
@@ -304,7 +271,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: 'Bad Request' }); return;
   }
 
-  const systemPrompt = buildSystemPrompt(personaId, customSystemPrompt, userPortrait, responseLength, documentContent, documentMood);
+  const systemPrompt = buildChatSystemPrompt({ personaId, customSystemPrompt, userPortrait, responseLength, documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
 
   // OPT-5: Context is now in system prompt, no fake user/assistant turn
   const providerMessages = messages.map(m => ({ role: m.role, content: sanitizeAiInput(m.content) }));
