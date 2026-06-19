@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { AIDialogueService } from '../services/AIDialogueService';
+import { useAiLimitStore } from '../store/useAiLimitStore';
 import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService';
 import { useAIChat } from '../hooks/useAIChat';
 import { useDailyLimit } from '../hooks/useDailyLimit';
@@ -119,7 +120,13 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   };
 
   const handleSetResponseLength = useCallback(async (length: ResponseLength) => {
+    // TICKET-049: Disclaimer for reasoning mode (reduced limit)
+    if (length === 'reasoning') {
+      const confirm = window.confirm('Дневной лимит запросов в режиме рассуждений ограничен 5 (вместо 10). Изменить режим на «Рассуждения»?');
+      if (!confirm) return;
+    }
     setResponseLength(length);
+    useAiLimitStore.getState().setLimit(length === 'reasoning' ? 5 : 10);
     const did = activeDialogueId ?? dialogue?.id;
     if (did) {
       await AIDialogueService.updateResponseLength(did, length);
@@ -236,7 +243,13 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   useEffect(() => {
     const nextVal = activeDialogue?.responseLength ?? 'standard';
     void Promise.resolve().then(() => {
-      setResponseLength(curr => curr !== nextVal ? nextVal : curr);
+      setResponseLength(curr => {
+        if (curr !== nextVal) {
+          useAiLimitStore.getState().setLimit(nextVal === 'reasoning' ? 5 : 10);
+          return nextVal;
+        }
+        return curr;
+      });
     });
   }, [activeDialogue]);
 

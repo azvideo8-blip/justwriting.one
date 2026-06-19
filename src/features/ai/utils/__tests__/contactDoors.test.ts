@@ -74,8 +74,8 @@ describe('aggregateDoors', () => {
 
   it('aggregates by month', () => {
     const notes = [
-      { doors: analyzeDoors('Думаю, размышляю, анализирую, понимаю, считаю.'), ts: new Date('2026-01-15').getTime() },
-      { doors: analyzeDoors('Чувствую, ощущаю, злюсь, боюсь, грустно.'), ts: new Date('2026-02-15').getTime() },
+      { doors: analyzeDoors('Думаю, размышляю, анализирую, понимаю, считаю, размышляю, обдумываю.'), ts: new Date('2026-01-15').getTime() },
+      { doors: analyzeDoors('Чувствую, ощущаю, злюсь, боюсь, грустно, тревожно, обижен, страшно.'), ts: new Date('2026-02-15').getTime() },
     ];
     const result = aggregateDoors(notes);
     expect(result.byPeriod).toHaveLength(2);

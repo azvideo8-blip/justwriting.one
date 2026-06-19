@@ -319,8 +319,13 @@ export function ArchiveNoteList({
           </div>
         );
       }}
-      itemContent={(index) => {
-        const session = flatGroupedSessions[index];
+      itemContent={(index, groupIndex) => {
+        // TICKET-050: index is group-relative, not global. Use groupIndex to
+        // find the correct date group, then index within that group.
+        const dateKey = sortedDates[groupIndex];
+        if (!dateKey) return null;
+        const sessions = groupedSessions[dateKey] ?? [];
+        const session = sessions[index];
         if (!session) return null;
         return (
           <NoteRow

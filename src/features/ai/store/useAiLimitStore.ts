@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { getAuth } from 'firebase/auth';
 
 const STORAGE_KEY = 'ai_daily_usage';
-const DEFAULT_LIMIT = 5;
+const DEFAULT_LIMIT = 10;
 
 function getUtcDateStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -34,6 +34,7 @@ interface AiLimitState {
   loadLimit: () => void;
   loadLimitFromServer: () => Promise<void>;
   useRequest: () => void;
+  setLimit: (newLimit: number) => void;
 }
 
 export const useAiLimitStore = create<AiLimitState>((set, get) => ({
@@ -64,7 +65,8 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
       const data = snap.data();
       const used = (data?.date === date) ? (data?.count ?? 0) : 0;
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ count: used, date }));
-      set({ used, limit: DEFAULT_LIMIT, remaining: Math.max(0, DEFAULT_LIMIT - used), resetsAt: getMidnightUtc(), loaded: true });
+      const limit = get().limit;
+      set({ used, limit, remaining: Math.max(0, limit - used), resetsAt: getMidnightUtc(), loaded: true });
     } catch {
       get().loadLimit();
     }
@@ -78,5 +80,12 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ count: newCount, date: today }));
     const limit = get().limit;
     set({ used: newCount, remaining: Math.max(0, limit - newCount) });
+  },
+
+  setLimit(newLimit: number) {
+    set(state => {
+      const remaining = Math.max(0, newLimit - state.used);
+      return { limit: newLimit, remaining };
+    });
   },
 }));

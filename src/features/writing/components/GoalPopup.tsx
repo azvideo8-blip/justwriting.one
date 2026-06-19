@@ -127,7 +127,7 @@ export function GoalPopup({
           onMouseDown={e => e.stopPropagation()}
           onClick={e => e.stopPropagation()}
           style={popupStyle}
-          className={cn("border border-border-subtle rounded-lg p-3 shadow-xl", width)}
+          className={cn("bg-surface-popup border border-border-subtle rounded-lg p-3 shadow-xl", width)}
           data-goal-popup
         >
           <div className="text-label-sm text-text-main/60 mb-2 font-bold uppercase tracking-widest">{title}</div>

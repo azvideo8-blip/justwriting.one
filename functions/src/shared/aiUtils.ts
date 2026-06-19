@@ -120,7 +120,7 @@ export async function recordUsage(
 
 export const DAILY_LIMIT = (() => {
   const raw = process.env.AI_DAILY_LIMIT;
-  if (!raw) return 5;
+  if (!raw) return 10;
   const parsed = parseInt(raw, 10);
   return Number.isNaN(parsed) ? 5 : parsed;
 })();

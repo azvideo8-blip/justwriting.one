@@ -78,7 +78,7 @@ export const AIDialogueService = {
     const db = await getLocalDb();
     const dialogue = await db.get('aiDialogues', id);
     if (!dialogue) return;
-    const lengthLabel = responseLength === 'short' ? 'кратко' : responseLength === 'detailed' ? 'объёмно' : 'стандартно';
+    const lengthLabel = responseLength === 'short' ? 'кратко' : responseLength === 'detailed' ? 'объёмно' : responseLength === 'reasoning' ? 'с рассуждением' : 'стандартно';
     dialogue.messages.push({
       role: 'assistant',
       content: `⚙️ [Смена объёма]: Теперь ${dialogue.personaName} ответит вам ${lengthLabel}`,
