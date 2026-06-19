@@ -36,6 +36,7 @@
 
   /* Surface tokens */
   --color-surface-elevated: var(--surface-elevated);
+  --color-surface-popup: var(--surface-popup);
 
   /* Z-index scale */
   --z-sidebar: 50;
@@ -88,6 +89,7 @@
     --border-light: rgba(165, 131, 232, 0.12);
     --surface-card: rgba(26, 16, 48, 0.4);
     --surface-elevated: rgba(35, 21, 66, 0.6);
+    --surface-popup: #1B1231;
     --accent-success: #34D399;
     --accent-warning: #FBBF24;
     --accent-danger: #F87171;
@@ -111,6 +113,7 @@
     --border-light: rgba(255, 255, 255, 0.06);
     --surface-card: rgba(255, 255, 255, 0.03);
     --surface-elevated: rgba(255, 255, 255, 0.07);
+    --surface-popup: #121214;
     --accent-success: #10B981;
     --accent-warning: #F59E0B;
     --accent-danger: #EF4444;
@@ -134,6 +137,7 @@
     --border-light: rgba(26, 20, 18, 0.07);
     --surface-card: #F0EDE6;
     --surface-elevated: #E5E1D7;
+    --surface-popup: #E5E1D7;
     --accent-success: #15803D;
     --accent-warning: #B45309;
     --accent-danger: #B91C1C;
@@ -156,6 +160,7 @@
     --border-light: rgba(29, 185, 84, 0.1);
     --surface-card: #131915;
     --surface-elevated: #1C2620;
+    --surface-popup: #1C2620;
     --accent-success: #1DB954;
     --accent-warning: #FBBF24;
     --accent-danger: #F87171;
@@ -176,6 +181,7 @@
     --border-light: rgba(255, 255, 255, 0.12);
     --surface-card: rgba(255, 255, 255, 0.06);
     --surface-elevated: rgba(255, 255, 255, 0.08);
+    --surface-popup: #171026
     --accent-success: #34d399;
     --accent-warning: #fbbf24;
     --accent-danger: #f87171;

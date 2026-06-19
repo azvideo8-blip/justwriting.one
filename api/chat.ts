@@ -172,7 +172,7 @@ function buildSystemPrompt(
 
 // ── Daily limit ───────────────────────────────────────────────────────────────
 const DAILY_LIMIT = (() => {
-  const n = parseInt(process.env.AI_DAILY_LIMIT ?? '5', 10);
+  const n = parseInt(process.env.AI_DAILY_LIMIT ?? '10', 10);
   return Number.isNaN(n) ? 5 : n;
 })();
 
@@ -193,7 +193,7 @@ async function userDailyLimit(uid: string): Promise<number> {
 
 const COOLDOWN_MS = 10_000;
 
-async function checkAndIncrementLimit(uid: string): Promise<boolean> {
+async function checkAndIncrementLimit(uid: string, responseLength?: string | null): Promise<boolean> {
   const fs = db();
   const now = Date.now();
 
@@ -207,7 +207,9 @@ async function checkAndIncrementLimit(uid: string): Promise<boolean> {
   });
   if (!cooldownAllowed) return false;
 
-  const limit = await userDailyLimit(uid);
+  // TICKET-049: Reasoning mode gets reduced limit (5 instead of 10)
+  const baseLimit = await userDailyLimit(uid);
+  const limit = responseLength === 'reasoning' ? Math.min(baseLimit, 5) : baseLimit;
   const date = new Date().toISOString().slice(0, 10);
   const ref = fs.doc(`aiDailyLimit/${uid}`);
 
@@ -279,13 +281,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Project-wide free-tier guard (across all users + resets)
   if (!(await withinGlobalDailyLimit())) { res.status(429).json({ error: 'GLOBAL_LIMIT' }); return; }
 
-  // Daily limit
-  const allowed = await checkAndIncrementLimit(uid);
-  if (!allowed) { res.status(429).json({ error: 'DAILY_LIMIT' }); return; }
-
   // Parse body
   const parsed = inputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'Bad Request' }); return; }
+
+  // Daily limit (TICKET-049: reasoning mode gets reduced limit)
+  const allowed = await checkAndIncrementLimit(uid, parsed.data.responseLength);
+  if (!allowed) { res.status(429).json({ error: 'DAILY_LIMIT' }); return; }
 
   const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength } = parsed.data;
 

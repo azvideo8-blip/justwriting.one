@@ -76,7 +76,7 @@ export function ExportMenu({ session, buttonRef, onClose }: ExportMenuProps) {
       initial={{ opacity: 0, y: 10, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       style={menuStyle}
-      className="w-48 rounded-2xl shadow-xl border p-2 bg-surface-card backdrop-blur-xl border-border-subtle"
+      className="w-48 rounded-2xl shadow-xl border p-2 bg-surface-popup border-border-subtle"
     >
       <Button onClick={exportToTxt} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-colors text-text-main/70 hover:bg-white/10 hover:text-text-main">
         <FileText size={14} /> {t('export_txt')}

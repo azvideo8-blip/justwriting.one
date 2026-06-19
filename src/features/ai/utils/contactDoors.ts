@@ -75,23 +75,75 @@ const BEHAVIOR_MARKERS = [
   'записал', 'сфотограф', 'поделилс', 'посоветовал', 'поздрав', 'поблагодар', 'извинилс', 'обещал', 'сдержал',
 ];
 
-function countMatches(text: string, markers: string[]): number {
-  const lower = text.toLowerCase();
+// TICKET-048: Russian Porter Stemmer for morphological matching
+export function stemRussian(word: string): string {
+  word = word.toLowerCase().replace(/ё/g, 'е');
+  const RVRE = /^(.*?[аеиоуыэюя])(.*)$/i;
+  const match = RVRE.exec(word);
+  if (!match) return word;
+  const start = match[1];
+  let rv = match[2] || '';
+  if (!rv) return word;
+
+  // Step 1: Perfective Gerunds, Reflexives, Adjectivals, Verbs, Nouns
+  const gerundMatch = /((?:ив|ивши|ившись|ыв|ывши|ывшись)|([ая])(в|вши|вшись))$/i.exec(rv);
+  if (gerundMatch) {
+    rv = gerundMatch[2] ? rv.slice(0, -gerundMatch[0].length + gerundMatch[2].length) : rv.slice(0, -gerundMatch[0].length);
+  } else {
+    const reflexiveMatch = /(с[яь])$/i.exec(rv);
+    if (reflexiveMatch) rv = rv.slice(0, -reflexiveMatch[0].length);
+    const adjMatch = /(ее|ие|ые|ое|ими|ыми|ей|ий|ый|ой|ем|им|ым|ом|его|ого|ему|ому|их|ых|ую|юю|ая|яя|ою|ею)$/i.exec(rv);
+    const partMatch = /((?:ивш|ывш|авш)|([ая])(ем|нн|вш|ющ|щ))$/i.exec(rv);
+    if (adjMatch) {
+      let len = adjMatch[0].length;
+      if (partMatch) len += partMatch[2] ? partMatch[0].length - partMatch[2].length : partMatch[0].length;
+      rv = rv.slice(0, -len);
+    } else {
+      const verbMatch = /((?:сила|ыла|ена|ейте|уйте|ите|или|ыли|ей|уй|ил|ыл|им|ым|ен|ят|ует|уют|ит|ыт|ены|пить|ыть|ишь|ую|ю)$|([ая])(ла|на|ете|йте|ли|й|л|ем|н|ло|но|ет|ют|ны|ть|ешь|нно))$/i.exec(rv);
+      if (verbMatch) {
+        rv = verbMatch[2] ? rv.slice(0, -verbMatch[0].length + verbMatch[2].length) : rv.slice(0, -verbMatch[0].length);
+      } else {
+        const nounMatch = /(а|ев|ов|ах|ями|ями|ами|е|и|ия|ья|о|у|ах|ы|ь|ию|ью|я|ям|ям|ом|ем|ом|ему|ому|ях)$/i.exec(rv);
+        if (nounMatch) rv = rv.slice(0, -nounMatch[0].length);
+      }
+    }
+  }
+  // Step 2: "и"
+  if (rv.endsWith('и')) rv = rv.slice(0, -1);
+  // Step 3: Derivational
+  const derivMatch = /(ост|ость)$/i.exec(rv);
+  if (derivMatch) rv = rv.slice(0, -derivMatch[0].length);
+  // Step 4: Superlative, "ь"
+  const superlativeMatch = /(ейше|ейш)$/i.exec(rv);
+  if (superlativeMatch) rv = rv.slice(0, -superlativeMatch[0].length);
+  if (rv.endsWith('ь')) rv = rv.slice(0, -1);
+  return start + rv;
+}
+
+// Pre-compute stemmed markers once
+const stemmedThinking = THINKING_MARKERS.map(stemRussian);
+const stemmedFeeling = FEELING_MARKERS.map(stemRussian);
+const stemmedBehavior = BEHAVIOR_MARKERS.map(stemRussian);
+
+function countMatches(text: string, stemmedMarkers: string[]): number {
+  const words = text.toLowerCase().match(/[а-яёa-z0-9]+/g) || [];
+  const stemmedWords = words.map(stemRussian);
   let count = 0;
-  for (const marker of markers) {
-    let idx = 0;
-    while ((idx = lower.indexOf(marker, idx)) !== -1) {
-      count++;
-      idx += marker.length;
+  for (const word of stemmedWords) {
+    for (const marker of stemmedMarkers) {
+      if (word.includes(marker)) {
+        count++;
+        break;
+      }
     }
   }
   return count;
 }
 
 export function analyzeDoors(text: string): DoorsResult {
-  const t = countMatches(text, THINKING_MARKERS);
-  const f = countMatches(text, FEELING_MARKERS);
-  const b = countMatches(text, BEHAVIOR_MARKERS);
+  const t = countMatches(text, stemmedThinking);
+  const f = countMatches(text, stemmedFeeling);
+  const b = countMatches(text, stemmedBehavior);
   const total = t + f + b;
 
   if (total === 0) {
