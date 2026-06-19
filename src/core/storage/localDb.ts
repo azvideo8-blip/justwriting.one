@@ -83,8 +83,8 @@ export interface AIDialogue {
   createdAt: number;
   updatedAt: number;
   archivedAt?: number | undefined;
-  /** Desired response verbosity: 'short' | 'standard' | 'detailed' */
-  responseLength?: 'short' | 'standard' | 'detailed';
+  /** Desired response verbosity: 'short' | 'standard' | 'detailed' | 'reasoning' */
+  responseLength?: 'short' | 'standard' | 'detailed' | 'reasoning';
 }
 
 export interface AIDocumentSummary {

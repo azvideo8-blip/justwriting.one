@@ -41,7 +41,7 @@ export function AIPage() {
     detailPersona, setDetailPersona,
     attachMenuOpen, setAttachMenuOpen,
     messagesEndRef, fileInputRef, attachMenuRef,
-    isLoading, streamingMessage, error, clearError,
+    isLoading, streamingMessage, streamingReasoning, error, clearError,
     dialogue,
     dailyLimit,
     loadCustomPersonas,
@@ -182,9 +182,9 @@ export function AIPage() {
 
           <div className="flex items-center gap-1 mt-2">
               <span className="text-[9px] font-mono uppercase tracking-wider text-text-main/60 mr-1">объём:</span>
-              {(['short', 'standard', 'detailed'] as const).map(len => {
+              {(['short', 'standard', 'detailed', 'reasoning'] as const).map(len => {
                 const active = responseLength === len;
-                const label = len === 'short' ? 'Кратко' : len === 'standard' ? 'Стандартно' : 'Объёмно';
+                const label = len === 'short' ? 'Кратко' : len === 'standard' ? 'Стандартно' : len === 'detailed' ? 'Объёмно' : '🧠 Рассуждения';
                 return (
                   <Button
                     key={len}
@@ -312,6 +312,17 @@ export function AIPage() {
                 </div>
               );
             })}
+
+            {streamingReasoning && (
+              <details className="mb-3 rounded-xl border border-border-subtle bg-surface-card/50 overflow-hidden">
+                <summary className="px-4 py-2 text-xs font-medium text-text-main/60 cursor-pointer hover:text-text-main transition-colors select-none">
+                  🧠 Ход мысли
+                </summary>
+                <div className="px-4 py-3 text-xs text-text-main/60 leading-relaxed whitespace-pre-wrap border-t border-border-subtle">
+                  {streamingReasoning}
+                </div>
+              </details>
+            )}
 
             {streamingMessage !== null && (
               <AssistantTurn name={convPersonaName} color={convVisual.color} mono={convVisual.mono}>

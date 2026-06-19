@@ -14,7 +14,7 @@ import { AIProfileService } from '../services/AIProfileService';
 import { AISummaryService } from '../services/AISummaryService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
-import { searchNotesMulti, type RetrievedNote } from '../utils/noteRetriever';
+import { searchNotesMulti } from '../utils/noteRetriever';
 import { cosineSimilarity } from '../utils/vectorSearch';
 
 let _streamAvailable: boolean | null = null;
@@ -57,8 +57,8 @@ async function streamChat(params: {
   documentContent?: string | undefined;
   documentMood?: string | undefined;
   userPortrait?: string | null | undefined;
-  responseLength?: 'short' | 'standard' | 'detailed' | undefined;
-  onChunk: (partial: string) => void;
+  responseLength?: 'short' | 'standard' | 'detailed' | 'reasoning' | undefined;
+  onChunk: (partial: string, reasoning: string | null) => void;
 }): Promise<string> {
   const user = getAuth().currentUser;
   if (!user) throw new Error('AUTH_REQUIRED');
@@ -103,7 +103,14 @@ async function streamChat(params: {
     const text = decoder.decode(value, { stream: true });
     if (text) {
       fullText += text;
-      params.onChunk(fullText);
+      // RSN-4: Parse reasoning/answer tags from stream
+      const reasoningMatch = fullText.match(/<reasoning>([\s\S]*?)(<\/reasoning>|$)/i);
+      const answerMatch = fullText.match(/<\/reasoning>\s*<answer>([\s\S]*?)(<\/answer>|$)/i);
+      const reasoningText = reasoningMatch ? reasoningMatch[1]!.trim() : null;
+      const answerText = answerMatch
+        ? answerMatch[1]!.trim()
+        : (reasoningMatch ? '' : fullText);
+      params.onChunk(answerText, reasoningText);
     }
   }
 
@@ -116,7 +123,7 @@ async function callableChat(params: {
   messages: AIMessage[];
   documentContent?: string | undefined;
   userPortrait?: string | null | undefined;
-  responseLength?: 'short' | 'standard' | 'detailed' | undefined;
+  responseLength?: 'short' | 'standard' | 'detailed' | 'reasoning' | undefined;
 }): Promise<string> {
   const result = await AIService.chat({
     personaId: params.personaId,
@@ -137,20 +144,30 @@ async function callableChat(params: {
   return result.text;
 }
 
+// RSN-4: Extract answer from response that may contain <reasoning>/<answer> tags
+function extractAnswer(text: string): string {
+  const answerMatch = text.match(/<answer>([\s\S]*?)(<\/answer>|$)/i);
+  if (answerMatch) return answerMatch[1]!.trim();
+  // If no <answer> tag, strip any <reasoning> blocks and return the rest
+  return text.replace(/<\/?reasoning>/gi, '').replace(/<answer>/gi, '').replace(/<\/answer>/gi, '').trim();
+}
+
 interface UseAIChatReturn {
   dialogue: AIDialogue | null;
   isLoading: boolean;
   streamingMessage: string | null;
+  streamingReasoning: string | null;
   error: string | null;
   sendMessage: (text: string) => Promise<void>;
   attachDocument: (documentId: string) => Promise<void>;
   clearError: () => void;
 }
 
-export function useAIChat(dialogueId: string | null, personaId: string, responseLength?: 'short' | 'standard' | 'detailed'): UseAIChatReturn {
+export function useAIChat(dialogueId: string | null, personaId: string, responseLength?: 'short' | 'standard' | 'detailed' | 'reasoning'): UseAIChatReturn {
   const [dialogue, setDialogue] = useState<AIDialogue | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState<string | null>(null);
+  const [streamingReasoning, setStreamingReasoning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // L12: Cache portrait across messages to avoid Firestore reads per turn.
@@ -244,7 +261,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     }
 
     setIsLoading(true);
-    setStreamingMessage(null);
+    setStreamingMessage(null); setStreamingReasoning(null);
     setError(null);
 
     // Build API messages from the ORIGINAL dialogue before the optimistic update.
@@ -335,9 +352,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       const facetNoteIds = new Set<string>();
 
       // OPT-1: Single embedding for the query — reused in facets + search
-      let queryEmb: number[] | null = null;
+      let queryEmb: number[] | undefined;
       // OPT-1: Single getAll() call — reused for facets + name search + vector search
-      let allEmbeddings: Awaited<ReturnType<typeof AIEmbeddingService.getAll>> | null = null;
+      let allEmbeddings: Awaited<ReturnType<typeof AIEmbeddingService.getAll>> | undefined;
 
       // OPT-4: Gate facet augmentation on trivial messages
       const isTrivial = text.trim().split(/\s+/).length < 4 && !/[?]/.test(text) && !looksLikeNoteSearch(text);
@@ -353,12 +370,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           }
           if (facets.length > 0) {
             // OPT-1: Compute query embedding ONCE, reuse for search
-            if (!queryEmb) {
+            if (queryEmb === undefined) {
               const embedQuery = explicitSearch || stickySearch
                 ? (explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`)
                 : text;
               const queryEmbResult = await AIService.embed({ content: embedQuery });
-              queryEmb = queryEmbResult.ok && queryEmbResult.vectors[0] ? queryEmbResult.vectors[0] : null;
+              queryEmb = queryEmbResult.ok && queryEmbResult.vectors[0] ? queryEmbResult.vectors[0] : undefined;
             }
             const qv = queryEmb;
 
@@ -465,17 +482,17 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           }
 
           // OPT-1: Reuse query embedding if already computed for facets
-          if (!queryEmb) {
+          if (queryEmb === undefined) {
             const queryEmbResult = await AIService.embed({ content: searchQuery });
-            queryEmb = queryEmbResult.ok && queryEmbResult.vectors[0] ? queryEmbResult.vectors[0] : null;
+            queryEmb = queryEmbResult.ok && queryEmbResult.vectors[0] ? queryEmbResult.vectors[0] : undefined;
           }
 
           // OPT-1: Reuse allEmbeddings if already loaded for name search
-          if (!allEmbeddings) {
+          if (allEmbeddings === undefined) {
             allEmbeddings = await AIEmbeddingService.getAll();
           }
 
-          const notes = await searchNotesMulti(searchQueries, 10, { queryVector: queryEmb ?? undefined, allEmbeddings });
+          const notes = await searchNotesMulti(searchQueries, 10, { queryVector: queryEmb, allEmbeddings });
 
           // Text-based name search: vector embeddings are bad at proper-name
           // retrieval ("Даша" won't match chunks that mention her briefly).
@@ -676,13 +693,23 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             documentContent: searchContext,
             userPortrait,
             responseLength: effectiveResponseLength,
-            onChunk: (partial) => setStreamingMessage(partial),
+            onChunk: (partial, reasoning) => {
+              setStreamingMessage(partial);
+              setStreamingReasoning(reasoning);
+            },
           });
         } catch (e: unknown) {
           console.warn('Streaming chat failed, falling back to callable chat:', e);
           const errMsg = e instanceof Error ? e.message : '';
           if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED') {
             fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait, responseLength: effectiveResponseLength });
+            // RSN-4: Parse reasoning from callable fallback
+            if (effectiveResponseLength === 'reasoning') {
+              const reasoningMatch = fullText.match(/<reasoning>([\s\S]*?)<\/reasoning>/i);
+              const answerMatch = fullText.match(/<answer>([\s\S]*?)(<\/answer>|$)/i);
+              if (reasoningMatch) setStreamingReasoning(reasoningMatch[1]!.trim());
+              setStreamingMessage(answerMatch ? answerMatch[1]!.trim() : fullText);
+            }
           } else {
             throw e;
           }
@@ -712,11 +739,13 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         });
       }
 
-      await AIDialogueService.appendMessage(currentDialogue.id, text, fullText);
+      // RSN-4: Clean reasoning tags before saving to dialogue history
+      const savedText = effectiveResponseLength === 'reasoning' ? extractAnswer(fullText) : fullText;
+      await AIDialogueService.appendMessage(currentDialogue.id, text, savedText);
       void AIChatMemoryService.extractFromDialogue(currentDialogue.id, allMessages);
       const updated = await AIDialogueService.get(currentDialogue.id);
       setDialogue(updated ?? null);
-      setStreamingMessage(null);
+      setStreamingMessage(null); setStreamingReasoning(null);
 
       // OPT-3: Auto-name the dialogue via LLM after the first exchange.
       // Uses chat API (void — non-blocking). TODO: switch to cheap facet model
@@ -737,7 +766,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         }).catch(() => { /* non-critical */ });
       }
     } catch (e: unknown) {
-      setStreamingMessage(null);
+      setStreamingMessage(null); setStreamingReasoning(null);
       const db = await getLocalDb();
       const fresh = dialogueId ? await db.get('aiDialogues', dialogueId) : null;
       setDialogue(fresh ?? dialogue);
@@ -798,5 +827,5 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     }
   }, [sendMessage]);
 
-  return { dialogue, isLoading, streamingMessage, error, sendMessage, attachDocument, clearError };
+  return { dialogue, isLoading, streamingMessage, streamingReasoning, error, sendMessage, attachDocument, clearError };
 }

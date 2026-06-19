@@ -108,10 +108,10 @@ export const summarizeDocument = onCall({
 
   return {
     tone: sanitizeAiResponse(parsed_json.tone ?? 'neutral'),
-    frequentWords: (parsed_json.frequentWords ?? []).map(sanitizeAiResponse),
-    insights: (parsed_json.insights ?? []).map(sanitizeAiResponse),
-    themes: (parsed_json.themes ?? []).map(sanitizeAiResponse),
-    extractedFacts: (parsed_json.extractedFacts ?? []).map(sanitizeAiResponse),
+    frequentWords: (parsed_json.frequentWords ?? []).map((s) => sanitizeAiResponse(s)),
+    insights: (parsed_json.insights ?? []).map((s) => sanitizeAiResponse(s)),
+    themes: (parsed_json.themes ?? []).map((s) => sanitizeAiResponse(s)),
+    extractedFacts: (parsed_json.extractedFacts ?? []).map((s) => sanitizeAiResponse(s)),
     mentionedPeople: (parsed_json.mentionedPeople ?? []).map(p => ({
       name: sanitizeAiResponse(p.name ?? ''),
       role: sanitizeAiResponse(p.role ?? ''),

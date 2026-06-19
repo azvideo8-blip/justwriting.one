@@ -125,8 +125,14 @@ async function getActiveModel(): Promise<string> {
   return FIREWORKS_MODEL;
 }
 
-async function getChatModel() {
-  if (AI_PROVIDER === 'fireworks') return fireworks.chat(await getActiveModel());
+const AI_REASONING_MODEL = process.env.AI_REASONING_MODEL ?? 'accounts/fireworks/models/deepseek-v4-pro';
+
+async function getChatModel(responseLength?: 'short' | 'standard' | 'detailed' | 'reasoning' | null) {
+  // RSN-5: Route reasoning mode to a more capable model
+  const model = responseLength === 'reasoning'
+    ? (AI_PROVIDER === 'fireworks' ? AI_REASONING_MODEL : GEMINI_MODEL)
+    : await getActiveModel();
+  if (AI_PROVIDER === 'fireworks') return fireworks.chat(model);
   return google(GEMINI_MODEL);
 }
 
@@ -141,8 +147,7 @@ function buildSystemPrompt(
   personaId: string,
   customPrompt: string | null | undefined,
   userPortrait: string | null | undefined,
-  responseLength?: 'short' | 'standard' | 'detailed' | null,
-  documentContent?: string | null | undefined,
+  responseLength?: 'short' | 'standard' | 'detailed' | 'reasoning' | null,  documentContent?: string | null | undefined,
   documentMood?: string | null | undefined,
 ): string {
   let base =
@@ -154,6 +159,8 @@ function buildSystemPrompt(
     base += '\n\nВАЖНО: Верни очень краткий, лаконичный ответ. Уложись в 1-2 абзаца, пиши только самое главное без долгих вступлений.';
   } else if (responseLength === 'detailed') {
     base += '\n\nВАЖНО: Верни подробный, развёрнутый ответ с глубоким анализом, детальными объяснениями и выводами.';
+  } else if (responseLength === 'reasoning') {
+    base += '\n\nВАЖНО: Сначала выведи ход своих рассуждений в тегах <reasoning>...</reasoning> — анализ записи, выбор подхода, промежуточные выводы. Затем выведи итоговый ответ в тегах <answer>...</answer> — глубокий структурированный разбор. Обе части обязательны.';
   }
 
   // OPT-5: RAG context goes into system prompt, not as a fake user turn
@@ -255,7 +262,7 @@ const inputSchema = z.object({
   documentContent: z.string().max(50_000).nullish(),
   documentMood: z.string().max(50).nullish(),
   userPortrait: z.string().max(100_000).nullish(),
-  responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
+  responseLength: z.enum(['short', 'standard', 'detailed', 'reasoning']).nullish(),
 });
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -309,12 +316,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Stream. maxOutputTokens caps total output INCLUDING gemini-2.5 thinking tokens;
   // at 1024 the thinking budget could consume it all and truncate the reply
   // mid-sentence. 8192 leaves ample room for a complete answer.
-  const [activeModel, chatModel] = await Promise.all([getActiveModel(), getChatModel()]);
+  const [activeModel, chatModel] = await Promise.all([getActiveModel(), getChatModel(responseLength)]);
   const result = streamText({
     model: chatModel,
     system: systemPrompt,
     messages: providerMessages,
-    maxOutputTokens: 8192,
+    maxOutputTokens: responseLength === 'reasoning' ? 16384 : 8192,
     onFinish: async ({ totalUsage }) => {
       try {
         await recordUsage(uid, totalUsage?.inputTokens ?? 0, totalUsage?.outputTokens ?? 0, activeModel);

@@ -8,7 +8,7 @@ import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import type { AIDialogue, AIPersona } from '../../../core/storage/localDb';
 import type { PersonaDetailTarget } from '../components/PersonaDetailModal';
 
-type ResponseLength = 'short' | 'standard' | 'detailed';
+type ResponseLength = 'short' | 'standard' | 'detailed' | 'reasoning';
 
 const MAX_INPUT_CHARS = 10_000;
 
@@ -35,6 +35,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     dialogue,
     isLoading,
     streamingMessage,
+    streamingReasoning,
     error,
     sendMessage,
     attachDocument,
@@ -254,7 +255,12 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     detailPersona, setDetailPersona,
     attachMenuOpen, setAttachMenuOpen,
     messagesEndRef, fileInputRef, attachMenuRef,
-    dialogue, isLoading, streamingMessage, error, clearError,
+    dialogue,
+    isLoading,
+    streamingMessage,
+    streamingReasoning,
+    error,
+    clearError,
     dailyLimit,
     loadDialogues, loadCustomPersonas,
     handleSendMessage, handleNewDialogue, handleArchive, handleDelete, handleExport,
