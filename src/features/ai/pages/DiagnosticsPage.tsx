@@ -15,6 +15,7 @@ import { useDiagnosticsData, type Tab } from '../hooks/useDiagnosticsData';
 import { DatabaseExplorer } from '../components/DatabaseExplorer';
 import { EmbeddingDiagnostics } from '../components/EmbeddingDiagnostics';
 import { ProfileFacets } from '../components/ProfileFacets';
+import { ContactDoors } from '../components/ContactDoors';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
@@ -584,6 +585,8 @@ export function DiagnosticsPage() {
             <h3 className="text-sm font-semibold text-text-main mb-3">Профиль автора & AI логи</h3>
 
             <ProfileFacets />
+
+            <ContactDoors />
 
             <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden">
               <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">

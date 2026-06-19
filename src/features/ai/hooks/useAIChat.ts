@@ -15,6 +15,7 @@ import { AISummaryService } from '../services/AISummaryService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { searchNotesMulti } from '../utils/noteRetriever';
+import { analyzeDoors, aggregateDoors, doorLabel } from '../utils/contactDoors';
 import { cosineSimilarity } from '../utils/vectorSearch';
 
 let _streamAvailable: boolean | null = null;
@@ -451,7 +452,26 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
               }).join('\n\n');
               const facetBlock = `Темы профиля пользователя (обобщены ИИ по заметкам):\n${facetLines}\n\nОпирайся на эти темы и на заметки ниже при ответе. Не выдумывай детали, которых нет в текстах.`;
 
-              searchContext = facetBlock;
+              // DOORS-3: Soft signal — three doors of contact analysis
+              let doorsHint = '';
+              if (psychePersonas.includes(effectivePersonaId)) {
+                try {
+                  const allDocs = await db.getAll('documents');
+                  const perNote: { doors: ReturnType<typeof analyzeDoors>; ts: number }[] = [];
+                  for (const d of allDocs) {
+                    const vers = await db.getAllFromIndex('versions', 'by-document', d.id);
+                    if (vers.length === 0) continue;
+                    vers.sort((a, b) => b.version - a.version);
+                    perNote.push({ doors: analyzeDoors(vers[0]?.content ?? ''), ts: d.lastSessionAt ?? Date.now() });
+                  }
+                  const doorsResult = aggregateDoors(perNote.slice(-20));
+                  if (!doorsResult.lowData && doorsResult.thinnestDoor && doorsResult.dominantDoor) {
+                    doorsHint = `\n\nНаблюдение: в записях пользователь чаще опирается на ${doorLabel(doorsResult.dominantDoor)}; ${doorLabel(doorsResult.thinnestDoor)} звучат реже. Если уместно — мягко, гипотезой пригласи заметить ${doorLabel(doorsResult.thinnestDoor)} под ${doorLabel(doorsResult.dominantDoor)}; не дави, дай возможность отказаться.`;
+                  }
+                } catch { /* non-critical */ }
+              }
+
+              searchContext = facetBlock + doorsHint;
             }
           }
         } catch (e) {
