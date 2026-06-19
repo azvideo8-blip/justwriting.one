@@ -234,10 +234,6 @@ export function ArchiveNoteList({
 
   const groupCounts = sortedDates.map(dateKey => groupedSessions[dateKey]?.length ?? 0);
 
-  const flatGroupedSessions = sortedDates.flatMap(
-    dateKey => groupedSessions[dateKey] ?? []
-  );
-
   if (viewMode === 'grid') {
     // Grouped grid is rendered without Virtuoso: nesting variable-height card
     // grids inside a vertical virtualizer desynced on sort/filter/view changes,

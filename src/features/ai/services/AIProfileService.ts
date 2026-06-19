@@ -3,6 +3,7 @@ import { AIService } from './AIService';
 import { getAuth } from 'firebase/auth';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
+import { analyzeWritingStyle } from '../utils/styleAnalyzer';
 
 const PORTRAIT_LS_KEY = 'ai_user_portrait';
 
@@ -48,6 +49,29 @@ export const AIProfileService = {
     const db = await getLocalDb();
     const facets = await db.getAll('aiProfileFacets');
 
+    // TICKET-053: Compile communication preferences from chat memory
+    const chatMemories = await db.getAll('aiChatMemory');
+    const preferences = chatMemories
+      .filter(m => m.kind === 'preference')
+      .map(m => `- ${m.text}`)
+      .join('\n');
+    const preferencesBlock = preferences
+      ? `\n\n## Предпочтения в коммуникации\nПользователь выражал следующие предпочтения по стилю общения с ИИ:\n${preferences}\n\nУчитывай эти предпочтения в разделе «Предпочтения в коммуникации» в конце портрета.`
+      : '';
+
+    // TICKET-054: Local writing style metrics
+    const allDocs = await db.getAll('documents');
+    const styleContents: string[] = [];
+    for (const doc of allDocs) {
+      const versions = await db.getAllFromIndex('versions', 'by-document', doc.id);
+      if (versions.length > 0) {
+        versions.sort((a, b) => b.version - a.version);
+        styleContents.push(versions[0]?.content ?? '');
+      }
+    }
+    const styleMetrics = analyzeWritingStyle(styleContents);
+    const styleBlock = `\n\n[Метрики стиля письма: средняя длина слова ${styleMetrics.avgWordLength.toFixed(1)} симв, средняя длина предложения ${styleMetrics.avgSentenceLength.toFixed(1)} слов, восклицания ${styleMetrics.exclamationRate.toFixed(2)} на предложение, вопросы ${styleMetrics.questionRate.toFixed(2)} на предложение]`;
+
     if (facets.length >= 3) {
       const facetInput = facets
         .sort((a, b) => b.noteCount - a.noteCount)
@@ -56,10 +80,10 @@ export const AIProfileService = {
 
       const result = await AIService.chat({
         personaId: 'custom',
-        customSystemPrompt: 'Ты — профессиональный психоаналитик. На основе тем профиля пользователя составь глубокий, поддерживающий психологический портрет. Опиши паттерны мышления, эмоциональные тенденции, сильные стороны и зоны роста. НЕ рассуждай вслух — сразу результат в Markdown. Опирайся ТОЛЬКО на приведённые данные, ничего не выдумывай.',
+        customSystemPrompt: `Ты — профессиональный психоаналитик. На основе тем профиля пользователя составь глубокий, поддерживающий психологический портрет. Опиши паттерны мышления, эмоциональные тенденции, сильные стороны и зоны роста. НЕ рассуждай вслух — сразу результат в Markdown. Опирайся ТОЛЬКО на приведённые данные, ничего не выдумывай.${preferences ? ' В конце портрета добавь раздел # Предпочтения в коммуникации, обобщив пользовательские предпочтения по стилю общения.' : ''}`,
         messages: [{
           role: 'user',
-          content: `Темы профиля пользователя (из ${facets.reduce((s, f) => s + f.noteCount, 0)} заметок):\n\n${facetInput}\n\nСоставь психологический портрет: паттерны мышления, эмоциональные тенденции, сильные стороны и зоны роста. Формат: markdown.`,
+          content: `Темы профиля пользователя (из ${facets.reduce((s, f) => s + f.noteCount, 0)} заметок):\n\n${facetInput}${styleBlock}${preferencesBlock}\n\nСоставь психологический портрет: паттерны мышления, эмоциональные тенденции, сильные стороны и зоны роста. Формат: markdown.`,
         }],
       });
 
@@ -87,10 +111,10 @@ export const AIProfileService = {
 
     const result = await AIService.chat({
       personaId: 'custom',
-      customSystemPrompt: 'Вы — профессиональный психоаналитик и эксперт по психологическому портретированию. Ваша задача — на основе агрегированных данных дневниковых записей и конкретных фактов составить глубокий, поддерживающий и структурированный психологический портрет автора. Опишите паттерны его мышления, эмоциональные тенденции, сильные стороны и зоны роста. Избегайте вступительного или заключительного диалога, пишите отчет напрямую в формате Markdown.',
+      customSystemPrompt: `Вы — профессиональный психоаналитик и эксперт по психологическому портретированию. Ваша задача — на основе агрегированных данных дневниковых записей и конкретных фактов составить глубокий, поддерживающий и структурированный психологический портрет автора. Опишите паттерны его мышления, эмоциональные тенденции, сильные стороны и зоны роста. Избегайте вступительного или заключительного диалога, пишите отчет напрямую в формате Markdown.${preferences ? ' В конце портрета добавь раздел # Предпочтения в коммуникации.' : ''}`,
       messages: [{
         role: 'user',
-        content: `На основе анализа ${allSummaries.length} текстов пользователя составь его психологический портрет. Вот агрегированные данные:\n\n${JSON.stringify(aggregatedData, null, 2)}\n\nКонкретные факты из текстов:\n${allFacts.map(f => `- ${f}`).join('\n')}\n\nОпиши паттерны мышления, эмоциональные тенденции, сильные стороны и зоны роста. Учитывай конкретные факты и события. Формат: markdown.`,
+        content: `На основе анализа ${allSummaries.length} текстов пользователя составь его психологический портрет. Вот агрегированные данные:\n\n${JSON.stringify(aggregatedData, null, 2)}\n\nКонкретные факты из текстов:\n${allFacts.map(f => `- ${f}`).join('\n')}${styleBlock}${preferencesBlock}\n\nОпиши паттерны мышления, эмоциональные тенденции, сильные стороны и зоны роста. Учитывай конкретные факты и события. Формат: markdown.`,
       }],
     });
 

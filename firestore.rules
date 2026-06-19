@@ -245,5 +245,11 @@ service cloud.firestore {
     match /aiGlobalDaily/{date} {
       allow read, write: if false;
     }
+
+    // TICKET-055: Anonymized telemetry — write for authenticated, read for admin only
+    match /anonymizedTelemetry/{telemetryId} {
+      allow read: if isAdmin();
+      allow write: if isAuthenticated();
+    }
   }
 }

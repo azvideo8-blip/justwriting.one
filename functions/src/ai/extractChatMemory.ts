@@ -16,7 +16,12 @@ const inputSchema = z.object({
 
 const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'accounts/fireworks/models/gpt-oss-20b';
 
-const SYSTEM_PROMPT = 'Extract durable memory units from this conversation. Return JSON array of { kind: \'fact\'|\'insight\'|\'commitment\'|\'preference\', text: short description }. Focus on: facts about the user\'s life, psychological insights discovered, commitments/intentions the user expressed, communication preferences. Keep each memory unit to 1-2 sentences. Return ONLY valid JSON array.';
+const SYSTEM_PROMPT = `Extract durable memory units from this conversation. Return JSON array of { kind: 'fact'|'insight'|'commitment'|'preference', text: short description }. Focus on:
+- Facts about the user's life (relationships, work, habits, events)
+- Psychological insights discovered (patterns, realizations, emotional themes)
+- Commitments or intentions the user expressed (goals, plans, decisions)
+- Communication preferences: pay special attention to direct feedback about the assistant's tone, pacing, style, length, or quality of answers (e.g. 'User dislikes verbose intros', 'User prefers bullet points', 'User found CBT approach helpful', 'User wants shorter answers').
+Keep each memory unit to 1-2 sentences. Return ONLY valid JSON array.`;
 
 const VALID_KINDS = ['fact', 'insight', 'commitment', 'preference'];
 
