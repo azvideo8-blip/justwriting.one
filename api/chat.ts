@@ -6,7 +6,7 @@ import { initializeApp, getApps, cert, applicationDefault, type ServiceAccount }
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { z } from 'zod';
-import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD } from '../src/shared/ai/prompts.js';
+import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD, REFLECTION_GUIDE } from '../src/shared/ai/prompts.js';
 import { INJECTION_PATTERNS } from '../src/shared/ai/injectionPatterns.js';
 
 // Must match the database the Cloud Functions and frontend use (shared/firestore.ts,
@@ -147,8 +147,8 @@ function buildSystemPrompt(
 ): string {
   let base =
     personaId === 'custom'
-      ? `${customPrompt ?? ''}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}`
-      : `${(PERSONA_PROMPTS as Record<string, string>)[personaId] ?? PERSONA_PROMPTS.coach}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}`;
+      ? `${customPrompt ?? ''}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}\n\n${REFLECTION_GUIDE}`
+      : `${(PERSONA_PROMPTS as Record<string, string>)[personaId] ?? PERSONA_PROMPTS.coach}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}\n\n${REFLECTION_GUIDE}`;
 
   if (responseLength === 'short') {
     base += '\n\nВАЖНО: Верни очень краткий, лаконичный ответ. Уложись в 1-2 абзаца, пиши только самое главное без долгих вступлений.';

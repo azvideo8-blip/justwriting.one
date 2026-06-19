@@ -410,7 +410,26 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
                   .filter(Boolean)
                   .map(t => `  · ${t}`)
                   .join('\n');
-                return `— ${f.label} (${f.noteCount} заметок):\n${f.summary}${noteTitles ? `\nЗаметки по теме:\n${noteTitles}` : ''}`;
+
+                // DLG-4: Temporal observations from facet firstAt/lastAt
+                const now = Date.now();
+                const dayMs = 86_400_000;
+                let temporalNote = '';
+                if (f.firstAt && f.lastAt) {
+                  const lastDaysAgo = Math.round((now - f.lastAt) / dayMs);
+                  const firstDaysAgo = Math.round((now - f.firstAt) / dayMs);
+                  if (lastDaysAgo <= 3) {
+                    temporalNote = ` [тема активна сейчас]`;
+                  } else if (lastDaysAgo <= 14) {
+                    temporalNote = ` [последняя запись ${lastDaysAgo} дн. назад]`;
+                  } else if (lastDaysAgo > 30 && firstDaysAgo > 60) {
+                    temporalNote = ` [тема затихла с ${new Date(f.lastAt).toLocaleDateString('ru-RU')}]`;
+                  } else if (firstDaysAgo <= 7) {
+                    temporalNote = ` [новая тема]`;
+                  }
+                }
+
+                return `— ${f.label} (${f.noteCount} заметок)${temporalNote}:\n${f.summary}${noteTitles ? `\nЗаметки по теме:\n${noteTitles}` : ''}`;
               }).join('\n\n');
               const facetBlock = `Темы профиля пользователя (обобщены ИИ по заметкам):\n${facetLines}\n\nОпирайся на эти темы и на заметки ниже при ответе. Не выдумывай детали, которых нет в текстах.`;
 
