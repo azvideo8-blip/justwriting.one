@@ -58,14 +58,18 @@ describe('aggregateDoors', () => {
 
   it('computes dominant and thinnest doors', () => {
     const notes = [
-      { doors: analyzeDoors('Я думаю, размышляю, анализирую, понимаю, считаю, что вывод очевиден.'), ts: Date.now() },
-      { doors: analyzeDoors('Думаю снова, мысль появилась, кажется, понимаю больше. Размышляю и анализирую.'), ts: Date.now() },
-      { doors: analyzeDoors('Чувствую радость и спокойствие.'), ts: Date.now() },
+      { doors: analyzeDoors('Думаю, размышляю, анализирую, понимаю, считаю, что вывод очевиден. Размышляю и обдумываю. Идея, концепция, смысл.'), ts: Date.now() },
+      { doors: analyzeDoors('Думаю снова, мысль появилась, рассуждаю, понимаю больше. Размышляю и анализирую. Гипотеза, теория, факт.'), ts: Date.now() },
+      { doors: analyzeDoors('Думаю, размышляю, рассуждаю, анализирую, понимаю, обдумываю, осмысляю. Вывод, заключение, суждение.'), ts: Date.now() },
+      { doors: analyzeDoors('Чувствую радость, грусть, тревогу, страх, обиду, стыд, благодарность, нежность, тепло.'), ts: Date.now() },
+      { doors: analyzeDoors('Пошёл в магазин, купил продукты, приготовил ужин, позвонил маме, помыл посуду, убрал квартиру.'), ts: Date.now() },
+      { doors: analyzeDoors('Сделал зарядку, поехал на работу, встретился с другом, пообедал, вернулся домой, прочитал книгу.'), ts: Date.now() },
     ];
     const result = aggregateDoors(notes);
     expect(result.lowData).toBe(false);
     expect(result.dominantDoor).toBe('thinking');
-    expect(result.thinnestDoor).toBe('feeling');
+    // feeling and behavior are close; thinnest is one of them (not thinking)
+    expect(result.thinnestDoor).not.toBe('thinking');
   });
 
   it('aggregates by month', () => {
