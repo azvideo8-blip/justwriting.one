@@ -6,7 +6,6 @@ import { initializeApp, getApps, cert, applicationDefault, type ServiceAccount }
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { z } from 'zod';
-import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD, REFLECTION_GUIDE } from '../src/shared/ai/prompts.js';
 import { INJECTION_PATTERNS } from '../src/shared/ai/injectionPatterns.js';
 import { buildChatSystemPrompt, sanitizeAiInputShared } from '../src/shared/ai/buildChatPrompt.js';
 

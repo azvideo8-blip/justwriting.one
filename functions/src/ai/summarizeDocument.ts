@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, refundDailyLimit, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, withinGlobalDailyLimit, refundDailyLimit, getLangfuse } from '../shared/aiUtils';
 import { generate, getActiveModel } from '../shared/aiProvider';
 
 const SUMMARY_SYSTEM_PROMPT = `Проанализируй текст и верни JSON-объект со следующими полями:
@@ -33,13 +33,8 @@ export const summarizeDocument = onCall({
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
-  if (!(await checkDailyLimit(uid))) {
-    throw new HttpsError('resource-exhausted', 'Daily limit reached.');
-  }
-
-  if (!(await checkRateLimit(uid))) {
-    throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
-  }
+  // UXFIX-3: summarizeDocument is background analysis, not chat.
+  // Removed checkDailyLimit/checkRateLimit — only withinGlobalDailyLimit guards.
 
   const parsed = inputSchema.safeParse(request.data);
   if (!parsed.success) {
