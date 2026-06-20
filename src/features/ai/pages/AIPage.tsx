@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil } from 'lucide-react';
+import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { DocumentPickerModal } from '../components/DocumentPickerModal';
 import { CreatePersonaModal } from '../components/CreatePersonaModal';
