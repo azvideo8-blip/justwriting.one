@@ -7,7 +7,6 @@ import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService'
 import { useAIChat } from '../hooks/useAIChat';
 import { useDailyLimit } from '../hooks/useDailyLimit';
 import { personaVisual, usePersonaRole } from '../constants/personaVisuals';
-import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import type { AIDialogue, AIPersona } from '../../../core/storage/localDb';
 import type { PersonaDetailTarget } from '../components/PersonaDetailModal';
 
