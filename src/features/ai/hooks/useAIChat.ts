@@ -163,6 +163,16 @@ async function callableChat(params: {
   return result.text;
 }
 
+function extractReasoning(text: string): string | undefined {
+  // XML tags
+  const xml = text.match(/(?:\/\/)?<reasoning>([\s\S]*?)(<\/reasoning>|$)/i);
+  if (xml) { const r = xml[1]!.trim(); return r || undefined; }
+  // Markdown header: ХОД МЫСЛИ: ... (until ОТВЕТ: or end)
+  const md = text.match(/ХОД МЫСЛИ:\s*([\s\S]*?)(?=ОТВЕТ:|$)/i);
+  if (md) { const r = md[1]!.trim(); return r || undefined; }
+  return undefined;
+}
+
 function extractAnswer(text: string): string {
   // Try XML tags
   const answerMatch = text.match(/(?:\/\/)?<answer>([\s\S]*?)(<\/answer>|$)/i);
@@ -834,9 +844,11 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         });
       }
 
-      // RSN-4: Clean reasoning tags before saving to dialogue history
+      // RSN-4: Clean reasoning tags before saving; persist reasoning separately
+      // so the collapsible "ход мысли" survives in dialogue history.
       const savedText = effectiveResponseLength === 'reasoning' ? extractAnswer(fullText) : fullText;
-      await AIDialogueService.appendMessage(currentDialogue.id, text, savedText);
+      const savedReasoning = effectiveResponseLength === 'reasoning' ? extractReasoning(fullText) : undefined;
+      await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning);
       // CHATFIX-3: Extract memory every 3rd turn, not every turn
       messageCountRef.current += 1;
       if (messageCountRef.current % 3 === 0) {

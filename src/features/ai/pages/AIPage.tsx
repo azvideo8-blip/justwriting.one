@@ -297,6 +297,16 @@ export function AIPage() {
                     mono={convVisual.mono}
                     onCopy={() => handleCopyMessage(msg.content)}
                   >
+                    {msg.reasoning && (
+                      <details className="mb-3 rounded-xl border border-border-subtle bg-surface-card/50 overflow-hidden">
+                        <summary className="px-4 py-2 text-xs font-medium text-text-main/60 cursor-pointer hover:text-text-main transition-colors select-none">
+                          🧠 Ход мысли
+                        </summary>
+                        <div className="px-4 py-3 text-xs text-text-main/60 leading-relaxed whitespace-pre-wrap border-t border-border-subtle">
+                          {msg.reasoning}
+                        </div>
+                      </details>
+                    )}
                     <MarkdownRenderer content={msg.content} />
                   </AssistantTurn>
                 );

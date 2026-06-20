@@ -210,6 +210,98 @@ async function recordUsage(uid: string, tokensIn: number, tokensOut: number, mod
   await batch.commit();
 }
 
+// RSN: Reasoning mode. The Fireworks reasoning model emits its chain-of-thought
+// in the separate `reasoning_content` delta channel, which @ai-sdk/openai does
+// NOT surface (it only maps OpenAI o-series reasoning summaries). So for
+// reasoning mode we stream Fireworks' /chat/completions directly, reading both
+// channels and synthesizing the plain-text section markers the client parser
+// expects ("ХОД МЫСЛИ:" / "ОТВЕТ:"). If the active model emits no reasoning,
+// we just stream the answer (no empty reasoning section).
+type FwDelta = { reasoning_content?: string; reasoning?: string; content?: string };
+type FwChunk = {
+  usage?: { prompt_tokens?: number; completion_tokens?: number };
+  choices?: Array<{ delta?: FwDelta }>;
+};
+async function streamFireworksReasoning(
+  res: VercelResponse,
+  uid: string,
+  model: string,
+  system: string,
+  messages: Array<{ role: string; content: string }>,
+): Promise<void> {
+  const upstream = await fetch('https://api.fireworks.ai/inference/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.FIREWORKS_API_KEY ?? ''}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'system', content: system }, ...messages],
+      stream: true,
+      max_tokens: 16384,
+      stream_options: { include_usage: true },
+    }),
+  });
+
+  if (!upstream.ok || !upstream.body) {
+    res.status(502).end('UPSTREAM_ERROR');
+    return;
+  }
+
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+
+  const reader = upstream.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let wroteReasoningHeader = false;
+  let wroteAnswerHeader = false;
+  let tokensIn = 0;
+  let tokensOut = 0;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (data === '[DONE]') continue;
+      let chunk: FwChunk;
+      try { chunk = JSON.parse(data) as FwChunk; } catch { continue; }
+      if (chunk.usage) {
+        tokensIn = chunk.usage.prompt_tokens ?? tokensIn;
+        tokensOut = chunk.usage.completion_tokens ?? tokensOut;
+      }
+      const delta = chunk.choices?.[0]?.delta;
+      if (!delta) continue;
+      const reasoning = delta.reasoning_content ?? delta.reasoning;
+      const content = delta.content;
+      if (reasoning) {
+        if (!wroteReasoningHeader) { res.write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
+        res.write(reasoning);
+      }
+      if (content) {
+        if (!wroteAnswerHeader) {
+          if (wroteReasoningHeader) res.write('\n\nОТВЕТ:\n');
+          wroteAnswerHeader = true;
+        }
+        res.write(content);
+      }
+    }
+  }
+  res.end();
+  try {
+    await recordUsage(uid, tokensIn, tokensOut, model);
+  } catch (e) {
+    console.error('[api/chat] usage record failed:', e);
+  }
+}
+
 // ── Input schema ──────────────────────────────────────────────────────────────
 const inputSchema = z.object({
   personaId: z.enum(['group_psychology', 'cbt', 'coach', 'editor', 'parts', 'custom']),
@@ -279,6 +371,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // at 1024 the thinking budget could consume it all and truncate the reply
   // mid-sentence. 8192 leaves ample room for a complete answer.
   const [activeModel, chatModel] = await Promise.all([getActiveModel(), getChatModel()]);
+
+  // RSN: capture the model's native reasoning channel (see streamFireworksReasoning).
+  // Build a clean prompt (as 'detailed') so we don't also inject the marker
+  // instructions — markers are synthesized server-side from reasoning_content.
+  if (AI_PROVIDER === 'fireworks' && responseLength === 'reasoning') {
+    const reasoningSystem = buildChatSystemPrompt({ personaId, customSystemPrompt, userPortrait, responseLength: 'detailed', documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
+    await streamFireworksReasoning(res, uid, activeModel, reasoningSystem, providerMessages);
+    return;
+  }
+
   const result = streamText({
     model: chatModel,
     system: systemPrompt,
