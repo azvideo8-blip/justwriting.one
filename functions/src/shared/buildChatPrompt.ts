@@ -1,6 +1,6 @@
 // CHATFIX-6: Shared system prompt builder for both api/chat.ts and
 // functions/src/ai/chatWithAI.ts. Keep behavior identical across backends.
-import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD, REFLECTION_GUIDE, SAFETY_GUIDE, type PersonaId } from './prompts';
+import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD, REFLECTION_GUIDE, SAFETY_GUIDE } from './prompts';
 
 export function buildChatSystemPrompt(params: {
   personaId: string;
@@ -9,9 +9,8 @@ export function buildChatSystemPrompt(params: {
   responseLength?: 'short' | 'standard' | 'detailed' | 'reasoning' | null | undefined;
   documentContent?: string | null | undefined;
   documentMood?: string | null | undefined;
-  safetyOverride?: boolean;
 }): string {
-  const { personaId, customSystemPrompt, userPortrait, responseLength, documentContent, documentMood, safetyOverride } = params;
+  const { personaId, customSystemPrompt, userPortrait, responseLength, documentContent, documentMood } = params;
 
   let base = personaId === 'custom'
     ? `${customSystemPrompt ?? ''}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}\n\n${REFLECTION_GUIDE}\n\n${SAFETY_GUIDE}`
@@ -22,7 +21,7 @@ export function buildChatSystemPrompt(params: {
   } else if (responseLength === 'detailed') {
     base += '\n\nДЛИНА ОТВЕТА (приоритет выше формата персоны): развёрнутый, подробный ответ — полная структура персоны, глубокий анализ, несколько вопросов.';
   } else if (responseLength === 'reasoning') {
-    base += '\n\nДЛИНА ОТВЕТА (приоритет выше формата персоны): Сначала выведи ход своих рассуждений в тегах <reasoning>...</reasoning> — анализ записи, выбор подхода, промежуточные выводы. Затем выведи итоговый ответ в тегах <answer>...</answer> — глубокий структурированный разбор. Обе части обязательны. Ответ в <answer> может быть развёрнутым.';
+    base += '\n\nДЛИНА ОТВЕТА (приоритет выше формата персоны): РЕЖИМ РАССУЖДЕНИЙ.\nВАЖНО: Выведи буквальные теги в ответе. Сначала напиши <reasoning> затем свой анализ (ход мысли, выбор подхода, промежуточные выводы), затем </reasoning>. После этого напиши <answer> затем итоговый ответ, затем </answer>. Теги <reasoning> и <answer> должны быть в выводе буквально, как XML-теги. Не используй //<reasoning> — только <reasoning>.\nПример:\n<reasoning>\nАнализирую текст... вижу паттерн...\n</reasoning>\n<answer>\nЗдесь основной ответ пользователю.\n</answer>';
   }
 
   // OPT-5: RAG context in system prompt, not as fake user turn
