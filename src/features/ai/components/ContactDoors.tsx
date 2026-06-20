@@ -1,13 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { analyzeDoors, aggregateDoors, doorLabel, type AggregatedDoors } from '../utils/contactDoors';
 import { Button } from '../../../shared/components/Button';
 
+const DOORS_CACHE_KEY = 'contact_doors_cache';
+
 export function ContactDoors() {
   const [data, setData] = useState<AggregatedDoors | null>(null);
   const [loading, setLoading] = useState(false);
   const [cache, setCache] = useState<AggregatedDoors | null>(null);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(DOORS_CACHE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as AggregatedDoors;
+        setCache(parsed);
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const handleAnalyze = async () => {
     setLoading(true);
@@ -26,6 +39,10 @@ export function ContactDoors() {
       const result = aggregateDoors(perNote);
       setData(result);
       setCache(result);
+      // Persist to localStorage
+      try {
+        localStorage.setItem(DOORS_CACHE_KEY, JSON.stringify(result));
+      } catch { /* ignore quota */ }
     } catch (e) {
       console.warn('[ContactDoors] analysis failed:', e);
     } finally {
