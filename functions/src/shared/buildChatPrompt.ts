@@ -16,12 +16,18 @@ export function buildChatSystemPrompt(params: {
     ? `${customSystemPrompt ?? ''}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}\n\n${REFLECTION_GUIDE}\n\n${SAFETY_GUIDE}`
     : `${(PERSONA_PROMPTS as Record<string, string>)[personaId] ?? PERSONA_PROMPTS.coach}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}\n\n${REFLECTION_GUIDE}\n\n${SAFETY_GUIDE}`;
 
+  // In reasoning mode: replace //<reasoning> with <reasoning> so model
+  // outputs literal tags instead of treating them as comments.
+  if (responseLength === 'reasoning') {
+    base = base.replace(/\/\/<reasoning>/g, '<reasoning>');
+  }
+
   if (responseLength === 'short') {
     base += '\n\nДЛИНА ОТВЕТА (приоритет выше формата персоны): ОЧЕНЬ кратко — 1–2 абзаца, без секций/заголовков/списков. Только суть + один вопрос.';
   } else if (responseLength === 'detailed') {
     base += '\n\nДЛИНА ОТВЕТА (приоритет выше формата персоны): развёрнутый, подробный ответ — полная структура персоны, глубокий анализ, несколько вопросов.';
   } else if (responseLength === 'reasoning') {
-    base += '\n\nДЛИНА ОТВЕТА (приоритет выше формата персоны): РЕЖИМ РАССУЖДЕНИЙ.\nВАЖНО: Выведи буквальные теги в ответе. Сначала напиши <reasoning> затем свой анализ (ход мысли, выбор подхода, промежуточные выводы), затем </reasoning>. После этого напиши <answer> затем итоговый ответ, затем </answer>. Теги <reasoning> и <answer> должны быть в выводе буквально, как XML-теги. Не используй //<reasoning> — только <reasoning>.\nПример:\n<reasoning>\nАнализирую текст... вижу паттерн...\n</reasoning>\n<answer>\nЗдесь основной ответ пользователю.\n</answer>';
+    base += '\n\nРЕЖИМ РАССУЖДЕНИЙ (приоритет выше формата персоны выше).\nОБЯЗАТЕЛЬНО начни ответ с тега <reasoning> (буквально, без //).\nСтруктура ответа:\n<reasoning>\nздесь твой анализ — ход мысли, выбор подхода, промежуточные выводы\n</reasoning>\n<answer>\nздесь итоговый ответ пользователю\n</answer>\nТеги должны быть в выводе буквально. Первые символы ответа — <reasoning>.';
   }
 
   // OPT-5: RAG context in system prompt, not as fake user turn
