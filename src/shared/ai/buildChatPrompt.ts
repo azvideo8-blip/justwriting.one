@@ -16,26 +16,27 @@ export function buildChatSystemPrompt(params: {
   // before the persona, so the model sees it before any template tags.
   let reasoningPrefix = '';
   if (responseLength === 'reasoning') {
-    reasoningPrefix = `КРИТИЧЕСКОЕ УКАЗАНИЕ ПО ФОРМАТУ ВЫВОДА (высший приоритет, выше всего остального):
-Твой ответ ДОЛЖЕН начинаться с символов <reasoning> — это не комментарий, это буквальный тег для вывода.
-Формат ответа (теги выводятся буквально):
-<reasoning>
-[здесь твой анализ: ход мысли, выбор подхода, промежуточные выводы]
-</reasoning>
-<answer>
-[здесь итоговый ответ пользователю]
-</answer>
-НЕ начинай ответ с текста. Первый символ ответа — < .\n\n`;
+    reasoningPrefix = `ФОРМАТ ВЫВОДА (высший приоритет):
+Твой ответ должен содержать два блока, разделённых XML-тегами.
+Сначала: <reasoning> здесь твои рассуждения и анализ </reasoning>
+Затем: <answer> здесь итоговый ответ пользователю </answer>
+Теги <reasoning> и <answer> — это буквально текст, который должен быть в ответе.
+Начни ответ с <reasoning>\n\n`;
   }
 
   let base = personaId === 'custom'
     ? `${customSystemPrompt ?? ''}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}\n\n${REFLECTION_GUIDE}\n\n${SAFETY_GUIDE}`
     : `${(PERSONA_PROMPTS as Record<string, string>)[personaId] ?? PERSONA_PROMPTS.coach}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}\n\n${REFLECTION_GUIDE}\n\n${SAFETY_GUIDE}`;
 
-  // In reasoning mode: replace //<reasoning> with <reasoning> so model
-  // doesn't treat them as comments.
+  // In reasoning mode: remove <reasoning>/<answer> structural tags from persona
+  // so they don't conflict with the output format instruction.
+  // Replace with plain text section headers.
   if (responseLength === 'reasoning') {
-    base = base.replace(/\/\/<reasoning>/g, '<reasoning>');
+    base = base
+      .replace(/\/\/<reasoning>/g, '[ВНУТРЕННИЙ АНАЛИЗ]')
+      .replace(/<\/reasoning>/g, '[/ВНУТРЕННИЙ АНАЛИЗ]')
+      .replace(/<answer>/g, '[ОТВЕТ ПОЛЬЗОВАТЕЛЮ]')
+      .replace(/<\/answer>/g, '[/ОТВЕТ ПОЛЬЗОВАТЕЛЮ]');
   }
 
   if (responseLength === 'short') {
