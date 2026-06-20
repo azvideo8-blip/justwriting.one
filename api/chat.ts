@@ -259,12 +259,6 @@ async function streamFireworksReasoning(
   let wroteAnswerHeader = false;
   let tokensIn = 0;
   let tokensOut = 0;
-  // RSN-DIAG: structural diagnostics only (no user content) to learn how this
-  // model exposes reasoning. Remove once confirmed.
-  let sawReasoningContent = false;
-  let reasoningLen = 0;
-  let contentLen = 0;
-  let contentHead = '';
 
   for (;;) {
     const { done, value } = await reader.read();
@@ -288,14 +282,10 @@ async function streamFireworksReasoning(
       const reasoning = delta.reasoning_content ?? delta.reasoning;
       const content = delta.content;
       if (reasoning) {
-        sawReasoningContent = true;
-        reasoningLen += reasoning.length;
         if (!wroteReasoningHeader) { res.write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
         res.write(reasoning);
       }
       if (content) {
-        if (contentHead.length < 60) contentHead += content;
-        contentLen += content.length;
         if (!wroteAnswerHeader) {
           if (wroteReasoningHeader) res.write('\n\nОТВЕТ:\n');
           wroteAnswerHeader = true;
@@ -305,14 +295,6 @@ async function streamFireworksReasoning(
     }
   }
   res.end();
-  // RSN-DIAG: only marker presence + lengths, never the body text.
-  const head = contentHead.slice(0, 60);
-  console.warn('[RSN-DIAG]', JSON.stringify({
-    model, sawReasoningContent, reasoningLen, contentLen,
-    contentStartsThink: /^\s*<think>/i.test(head),
-    contentStartsMarker: /^\s*ХОД МЫСЛИ/i.test(head),
-    headHasThink: /<think>/i.test(head),
-  }));
   try {
     await recordUsage(uid, tokensIn, tokensOut, model);
   } catch (e) {
@@ -390,16 +372,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // mid-sentence. 8192 leaves ample room for a complete answer.
   const [activeModel, chatModel] = await Promise.all([getActiveModel(), getChatModel()]);
 
-  // RSN: reasoning mode. DeepSeek on Fireworks may expose its thinking three
-  // different ways — a native `reasoning_content` delta channel, inline
-  // `<think>…</think>` in content, or not at all. To be robust to all of them
-  // we (a) keep the explicit "ХОД МЫСЛИ:/ОТВЕТ:" instruction in the prompt so a
-  // plain model still emits visible reasoning, and (b) stream Fireworks directly
-  // so we can also surface the native reasoning_content channel (dropped by
-  // @ai-sdk/openai). The client parser handles markers, reasoning_content, and
-  // <think> tags. Graceful: no reasoning → just the answer.
+  // RSN: reasoning mode. DeepSeek v4 Pro on Fireworks emits its chain-of-thought
+  // in the native `reasoning_content` delta channel (confirmed: ~1.7k chars/turn),
+  // which @ai-sdk/openai drops. We stream Fireworks directly to surface it and
+  // synthesize the "ХОД МЫСЛИ:/ОТВЕТ:" markers the client parser expects.
+  // IMPORTANT: build the prompt WITHOUT the marker instruction (as 'detailed') —
+  // if we ask the model to also print the markers, it duplicates them into
+  // `content` and the output gets garbled. The native channel is the source.
   if (AI_PROVIDER === 'fireworks' && responseLength === 'reasoning') {
-    await streamFireworksReasoning(res, uid, activeModel, systemPrompt, providerMessages);
+    const reasoningSystem = buildChatSystemPrompt({ personaId, customSystemPrompt, userPortrait, responseLength: 'detailed', documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
+    await streamFireworksReasoning(res, uid, activeModel, reasoningSystem, providerMessages);
     return;
   }
 
