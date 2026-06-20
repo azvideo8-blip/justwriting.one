@@ -105,14 +105,30 @@ async function streamChat(params: {
     const text = decoder.decode(value, { stream: true });
     if (text) {
       fullText += text;
-      // RSN-4: Parse reasoning/answer tags from stream.
-      // Handle both <reasoning> and //<reasoning> (persona template format).
+      // Parse reasoning/answer sections from stream.
+      // Uses markdown-style headers: ХОД МЫСЛИ: / ОТВЕТ:
+      // Falls back to XML tags <reasoning>/<answer> if model uses those.
       const reasoningMatch = fullText.match(/(?:\/\/)?<reasoning>([\s\S]*?)(<\/reasoning>|$)/i);
       const answerMatch = fullText.match(/<\/reasoning>\s*(?:\/\/)?<answer>([\s\S]*?)(<\/answer>|$)/i);
-      const reasoningText = reasoningMatch ? reasoningMatch[1]!.trim() : null;
-      const answerText = answerMatch
-        ? answerMatch[1]!.trim()
-        : (reasoningMatch ? '' : fullText);
+      
+      // Also try markdown-style: ХОД МЫСЛИ: ... ОТВЕТ: ...
+      const mdReasoningMatch = fullText.match(/ХОД МЫСЛИ:\s*([\s\S]*?)(?=ОТВЕТ:|$)/i);
+      const mdAnswerMatch = fullText.match(/ОТВЕТ:\s*([\s\S]*?)$/i);
+      
+      let reasoningText: string | null = null;
+      let answerText: string;
+      
+      if (reasoningMatch) {
+        reasoningText = reasoningMatch[1]!.trim();
+        answerText = answerMatch ? answerMatch[1]!.trim() : '';
+      } else if (mdReasoningMatch) {
+        reasoningText = mdReasoningMatch[1]!.trim();
+        answerText = mdAnswerMatch ? mdAnswerMatch[1]!.trim() : '';
+      } else {
+        // No reasoning markers yet — show raw text as answer
+        reasoningText = null;
+        answerText = fullText;
+      }
       params.onChunk(answerText, reasoningText);
     }
   }
@@ -147,14 +163,18 @@ async function callableChat(params: {
   return result.text;
 }
 
-// RSN-4: Extract answer from response that may contain <reasoning>/<answer> tags.
-// Handles both <reasoning> and //<reasoning> (persona template format).
 function extractAnswer(text: string): string {
+  // Try XML tags
   const answerMatch = text.match(/(?:\/\/)?<answer>([\s\S]*?)(<\/answer>|$)/i);
   if (answerMatch) return answerMatch[1]!.trim();
-  // If no <answer> tag, strip reasoning blocks and return the rest
+  // Try markdown: ОТВЕТ: ...
+  const mdAnswerMatch = text.match(/ОТВЕТ:\s*([\s\S]*?)$/i);
+  if (mdAnswerMatch) return mdAnswerMatch[1]!.trim();
+  // Strip reasoning blocks and return the rest
   return text
     .replace(/(?:\/\/)?<\/?reasoning>/gi, '')
+    .replace(/ХОД МЫСЛИ:[\s\S]*?(?=ОТВЕТ:|$)/gi, '')
+    .replace(/ОТВЕТ:/gi, '')
     .replace(/(?:\/\/)?<answer>/gi, '')
     .replace(/<\/answer>/gi, '')
     .trim();
@@ -771,10 +791,19 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait, responseLength: effectiveResponseLength });
             // RSN-4: Parse reasoning from callable fallback
             if (effectiveResponseLength === 'reasoning') {
+              // Try XML tags
               const reasoningMatch = fullText.match(/(?:\/\/)?<reasoning>([\s\S]*?)<\/reasoning>/i);
               const answerMatch = fullText.match(/(?:\/\/)?<answer>([\s\S]*?)(<\/answer>|$)/i);
+              // Try markdown headers
+              const mdReasoningMatch = fullText.match(/ХОД МЫСЛИ:\s*([\s\S]*?)(?=ОТВЕТ:|$)/i);
+              const mdAnswerMatch = fullText.match(/ОТВЕТ:\s*([\s\S]*?)$/i);
+              
               if (reasoningMatch) setStreamingReasoning(reasoningMatch[1]!.trim());
-              setStreamingMessage(answerMatch ? answerMatch[1]!.trim() : fullText);
+              else if (mdReasoningMatch) setStreamingReasoning(mdReasoningMatch[1]!.trim());
+              
+              if (answerMatch) setStreamingMessage(answerMatch[1]!.trim());
+              else if (mdAnswerMatch) setStreamingMessage(mdAnswerMatch[1]!.trim());
+              else setStreamingMessage(fullText);
             }
           } else {
             throw e;
