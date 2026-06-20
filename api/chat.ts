@@ -372,12 +372,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // mid-sentence. 8192 leaves ample room for a complete answer.
   const [activeModel, chatModel] = await Promise.all([getActiveModel(), getChatModel()]);
 
-  // RSN: capture the model's native reasoning channel (see streamFireworksReasoning).
-  // Build a clean prompt (as 'detailed') so we don't also inject the marker
-  // instructions — markers are synthesized server-side from reasoning_content.
+  // RSN: reasoning mode. DeepSeek on Fireworks may expose its thinking three
+  // different ways — a native `reasoning_content` delta channel, inline
+  // `<think>…</think>` in content, or not at all. To be robust to all of them
+  // we (a) keep the explicit "ХОД МЫСЛИ:/ОТВЕТ:" instruction in the prompt so a
+  // plain model still emits visible reasoning, and (b) stream Fireworks directly
+  // so we can also surface the native reasoning_content channel (dropped by
+  // @ai-sdk/openai). The client parser handles markers, reasoning_content, and
+  // <think> tags. Graceful: no reasoning → just the answer.
   if (AI_PROVIDER === 'fireworks' && responseLength === 'reasoning') {
-    const reasoningSystem = buildChatSystemPrompt({ personaId, customSystemPrompt, userPortrait, responseLength: 'detailed', documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
-    await streamFireworksReasoning(res, uid, activeModel, reasoningSystem, providerMessages);
+    await streamFireworksReasoning(res, uid, activeModel, systemPrompt, providerMessages);
     return;
   }
 

@@ -105,20 +105,26 @@ async function streamChat(params: {
     const text = decoder.decode(value, { stream: true });
     if (text) {
       fullText += text;
-      // Parse reasoning/answer sections from stream.
-      // Uses markdown-style headers: ХОД МЫСЛИ: / ОТВЕТ:
-      // Falls back to XML tags <reasoning>/<answer> if model uses those.
+      // Parse reasoning/answer sections from stream. DeepSeek exposes thinking
+      // in three shapes, handled in priority order:
+      //  1. <think>…</think> inline tags (reasoning models on Fireworks)
+      //  2. <reasoning>…</reasoning><answer>…</answer> XML
+      //  3. markdown headers ХОД МЫСЛИ: … ОТВЕТ: …
+      const thinkMatch = fullText.match(/<think>([\s\S]*?)(<\/think>|$)/i);
       const reasoningMatch = fullText.match(/(?:\/\/)?<reasoning>([\s\S]*?)(<\/reasoning>|$)/i);
       const answerMatch = fullText.match(/<\/reasoning>\s*(?:\/\/)?<answer>([\s\S]*?)(<\/answer>|$)/i);
-      
-      // Also try markdown-style: ХОД МЫСЛИ: ... ОТВЕТ: ...
       const mdReasoningMatch = fullText.match(/ХОД МЫСЛИ:\s*([\s\S]*?)(?=ОТВЕТ:|$)/i);
       const mdAnswerMatch = fullText.match(/ОТВЕТ:\s*([\s\S]*?)$/i);
-      
+
       let reasoningText: string | null = null;
       let answerText: string;
-      
-      if (reasoningMatch) {
+
+      if (thinkMatch) {
+        reasoningText = thinkMatch[1]!.trim();
+        // answer is whatever follows the closing </think>
+        const after = fullText.split(/<\/think>/i)[1];
+        answerText = after !== undefined ? after.trim() : '';
+      } else if (reasoningMatch) {
         reasoningText = reasoningMatch[1]!.trim();
         answerText = answerMatch ? answerMatch[1]!.trim() : '';
       } else if (mdReasoningMatch) {
@@ -129,7 +135,7 @@ async function streamChat(params: {
         reasoningText = null;
         answerText = fullText;
       }
-      params.onChunk(answerText, reasoningText);
+      params.onChunk(answerText, reasoningText || null);
     }
   }
 
@@ -164,6 +170,9 @@ async function callableChat(params: {
 }
 
 function extractReasoning(text: string): string | undefined {
+  // <think> tags
+  const think = text.match(/<think>([\s\S]*?)(<\/think>|$)/i);
+  if (think) { const r = think[1]!.trim(); return r || undefined; }
   // XML tags
   const xml = text.match(/(?:\/\/)?<reasoning>([\s\S]*?)(<\/reasoning>|$)/i);
   if (xml) { const r = xml[1]!.trim(); return r || undefined; }
@@ -174,6 +183,11 @@ function extractReasoning(text: string): string | undefined {
 }
 
 function extractAnswer(text: string): string {
+  // <think>…</think> — answer is what follows the closing tag
+  if (/<\/think>/i.test(text)) {
+    const after = text.split(/<\/think>/i)[1];
+    if (after !== undefined) return after.trim();
+  }
   // Try XML tags
   const answerMatch = text.match(/(?:\/\/)?<answer>([\s\S]*?)(<\/answer>|$)/i);
   if (answerMatch) return answerMatch[1]!.trim();
@@ -182,6 +196,7 @@ function extractAnswer(text: string): string {
   if (mdAnswerMatch) return mdAnswerMatch[1]!.trim();
   // Strip reasoning blocks and return the rest
   return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
     .replace(/(?:\/\/)?<\/?reasoning>/gi, '')
     .replace(/ХОД МЫСЛИ:[\s\S]*?(?=ОТВЕТ:|$)/gi, '')
     .replace(/ОТВЕТ:/gi, '')
