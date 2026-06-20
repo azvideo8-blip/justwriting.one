@@ -49,6 +49,7 @@ export function AIPage() {
     handleDocSelect, handleCopyMessage, handleFileUpload,
     handleSetResponseLength, handleRenameDialogue,
     responseLength,
+    proactiveHint,
     allPersonas, openPersonaDetail,
     displayMessages,
     activePersona, activeRole, headerVisual,
@@ -248,6 +249,18 @@ export function AIPage() {
 
         <div className="relative z-[1] flex-1 overflow-y-auto px-6 py-7">
           <div className="max-w-[1600px] mx-auto flex flex-col gap-7" aria-live="polite">
+            {proactiveHint && !activeDialogueId && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-brand-soft/10 border border-brand-soft/20 text-sm text-brand-soft">
+                <Sparkles size={16} className="shrink-0" aria-hidden="true" />
+                <span className="flex-1">{proactiveHint}</span>
+                <Button
+                  onClick={() => { if (proactiveHint) setInputText(proactiveHint.replace(/.*«|».*/, '').trim()); }}
+                  className="text-xs font-bold px-3 py-1 rounded-lg bg-brand-soft/20 hover:bg-brand-soft/30"
+                >
+                  {isMobile ? 'OK' : 'Обсудить'}
+                </Button>
+              </div>
+            )}
             {displayMessages.length === 0 && !activeDialogueId && (
               <div className="flex flex-col items-center justify-center gap-4 text-center py-24">
                 <Monogram color={headerVisual.color} mono={headerVisual.mono} size={56} />

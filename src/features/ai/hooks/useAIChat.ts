@@ -16,6 +16,7 @@ import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { searchNotesMulti } from '../utils/noteRetriever';
 import { analyzeDoors, aggregateDoors, doorLabel } from '../utils/contactDoors';
+import { detectRisk, CRISIS_RESOURCES } from '../utils/riskDetect';
 import { cosineSimilarity } from '../utils/vectorSearch';
 
 let _streamAvailable: boolean | null = null;
@@ -355,7 +356,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       // PROF-6: augment context with relevant profile facets.
       // Always include for psychology/cbt/coach personas; for others only on search.
-      const psychePersonas = ['group_psychology', 'cbt', 'coach'];
+      const psychePersonas = ['group_psychology', 'cbt', 'coach', 'parts'];
       const needsFacets = explicitSearch || stickySearch || psychePersonas.includes(effectivePersonaId);
       const facetNoteIds = new Set<string>();
 
@@ -725,6 +726,16 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         } catch (e) {
           console.warn('[useAIChat] memory retrieval failed:', e);
         }
+      }
+
+      // THERAPY-2: Crisis safety check — if acute risk detected, inject safety context
+      const riskResult = detectRisk(text);
+      if (riskResult.isRisk) {
+        const crisisBlock = `⚠️ КРИЗИСНЫЙ КОНТЕКСТ: пользователь выразил явные маркеры острого риска. ` +
+          `СЛЕДУЙ КРИЗИСНОМУ ПРОТОКОЛУ (SAFETY_GUIDE). ` +
+          `Ресурсы для пользователя: ${CRISIS_RESOURCES.join(' | ')}. ` +
+          `Тепло признай боль, направь к живой помощи, НЕ обрывай диалог.`;
+        searchContext = searchContext ? crisisBlock + '\n\n' + searchContext : crisisBlock;
       }
 
       const effectiveResponseLength = dialogue?.responseLength || responseLength || 'standard';
