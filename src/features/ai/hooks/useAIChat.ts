@@ -105,9 +105,10 @@ async function streamChat(params: {
     const text = decoder.decode(value, { stream: true });
     if (text) {
       fullText += text;
-      // RSN-4: Parse reasoning/answer tags from stream
-      const reasoningMatch = fullText.match(/<reasoning>([\s\S]*?)(<\/reasoning>|$)/i);
-      const answerMatch = fullText.match(/<\/reasoning>\s*<answer>([\s\S]*?)(<\/answer>|$)/i);
+      // RSN-4: Parse reasoning/answer tags from stream.
+      // Handle both <reasoning> and //<reasoning> (persona template format).
+      const reasoningMatch = fullText.match(/(?:\/\/)?<reasoning>([\s\S]*?)(<\/reasoning>|$)/i);
+      const answerMatch = fullText.match(/<\/reasoning>\s*(?:\/\/)?<answer>([\s\S]*?)(<\/answer>|$)/i);
       const reasoningText = reasoningMatch ? reasoningMatch[1]!.trim() : null;
       const answerText = answerMatch
         ? answerMatch[1]!.trim()
@@ -146,12 +147,17 @@ async function callableChat(params: {
   return result.text;
 }
 
-// RSN-4: Extract answer from response that may contain <reasoning>/<answer> tags
+// RSN-4: Extract answer from response that may contain <reasoning>/<answer> tags.
+// Handles both <reasoning> and //<reasoning> (persona template format).
 function extractAnswer(text: string): string {
-  const answerMatch = text.match(/<answer>([\s\S]*?)(<\/answer>|$)/i);
+  const answerMatch = text.match(/(?:\/\/)?<answer>([\s\S]*?)(<\/answer>|$)/i);
   if (answerMatch) return answerMatch[1]!.trim();
-  // If no <answer> tag, strip any <reasoning> blocks and return the rest
-  return text.replace(/<\/?reasoning>/gi, '').replace(/<answer>/gi, '').replace(/<\/answer>/gi, '').trim();
+  // If no <answer> tag, strip reasoning blocks and return the rest
+  return text
+    .replace(/(?:\/\/)?<\/?reasoning>/gi, '')
+    .replace(/(?:\/\/)?<answer>/gi, '')
+    .replace(/<\/answer>/gi, '')
+    .trim();
 }
 
 interface UseAIChatReturn {
@@ -765,8 +771,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait, responseLength: effectiveResponseLength });
             // RSN-4: Parse reasoning from callable fallback
             if (effectiveResponseLength === 'reasoning') {
-              const reasoningMatch = fullText.match(/<reasoning>([\s\S]*?)<\/reasoning>/i);
-              const answerMatch = fullText.match(/<answer>([\s\S]*?)(<\/answer>|$)/i);
+              const reasoningMatch = fullText.match(/(?:\/\/)?<reasoning>([\s\S]*?)<\/reasoning>/i);
+              const answerMatch = fullText.match(/(?:\/\/)?<answer>([\s\S]*?)(<\/answer>|$)/i);
               if (reasoningMatch) setStreamingReasoning(reasoningMatch[1]!.trim());
               setStreamingMessage(answerMatch ? answerMatch[1]!.trim() : fullText);
             }
