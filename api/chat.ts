@@ -272,20 +272,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   let systemPrompt = buildChatSystemPrompt({ personaId, customSystemPrompt, userPortrait, responseLength, documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
 
-  // Reasoning mode: ensure instruction is present even if shared module
-  // didn't deploy correctly on Vercel. Belt-and-suspenders approach.
-  if (responseLength === 'reasoning' && !systemPrompt.includes('<reasoning>')) {
-    systemPrompt = `ФОРМАТ ВЫВОДА: Начни ответ с <reasoning>, затем анализ, затем </reasoning>, затем <answer>, затем ответ, затем </answer>.\n\n` + systemPrompt;
-  }
-
   // OPT-5: Context is now in system prompt, no fake user/assistant turn
   const providerMessages = messages.map(m => ({ role: m.role, content: sanitizeAiInput(m.content) }));
-
-  // Reasoning mode: pre-pend <reasoning> as start of assistant response
-  // so the model continues from there instead of deciding the format.
-  if (responseLength === 'reasoning') {
-    providerMessages.push({ role: 'assistant', content: '<reasoning>\n' });
-  }
 
   // Stream. maxOutputTokens caps total output INCLUDING gemini-2.5 thinking tokens;
   // at 1024 the thinking budget could consume it all and truncate the reply

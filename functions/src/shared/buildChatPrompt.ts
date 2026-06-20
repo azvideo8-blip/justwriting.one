@@ -16,12 +16,13 @@ export function buildChatSystemPrompt(params: {
   // before the persona, so the model sees it before any template tags.
   let reasoningPrefix = '';
   if (responseLength === 'reasoning') {
-    reasoningPrefix = `ФОРМАТ ВЫВОДА (высший приоритет):
-Твой ответ должен содержать два блока, разделённых XML-тегами.
-Сначала: <reasoning> здесь твои рассуждения и анализ </reasoning>
-Затем: <answer> здесь итоговый ответ пользователю </answer>
-Теги <reasoning> и <answer> — это буквально текст, который должен быть в ответе.
-Начни ответ с <reasoning>\n\n`;
+    reasoningPrefix = `ФОРМАТ ОТВЕТА (обязательно):
+Твой ответ состоит из двух разделов, разделённых заголовком.
+Первый раздел начни со строки: ХОД МЫСЛИ:
+За ней напиши свой анализ — ход рассуждений, выбор подхода, промежуточные выводы.
+Затем напиши строку: ОТВЕТ:
+За ней напиши итоговый ответ пользователю.
+Это не шаблон — это требование к формату вывода.\n\n`;
   }
 
   let base = personaId === 'custom'
