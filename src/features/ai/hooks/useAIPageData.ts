@@ -85,7 +85,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
             const now = Date.now();
             const dayMs = 86_400_000;
             const faded = facets
-              .filter(f => f.lastAt && f.noteCount >= 3 && (now - f.lastAt) > 14 * dayMs && (now - f.lastAt) < 90 * dayMs)
+              .filter(f => f.lastAt !== undefined && f.noteCount >= 3 && (now - f.lastAt) > 14 * dayMs && (now - f.lastAt) < 90 * dayMs)
               .sort((a, b) => (b.noteCount ?? 0) - (a.noteCount ?? 0))
               .slice(0, 1);
             if (faded.length > 0) {

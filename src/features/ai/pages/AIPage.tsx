@@ -345,7 +345,7 @@ export function AIPage() {
 
             {isLoading && streamingMessage === null && (
               <AssistantTurn name={convPersonaName} color={convVisual.color} mono={convVisual.mono}>
-                 <span className="text-text-main/60">{convPersonaName} думает…</span>
+                 <ThinkingIndicator name={convPersonaName} />
               </AssistantTurn>
             )}
 
@@ -472,6 +472,30 @@ export function AIPage() {
       <DocumentPickerModal isOpen={docPickerOpen} onClose={() => setDocPickerOpen(false)} onSelect={(doc) => void handleDocSelect(doc)} />
       <CreatePersonaModal isOpen={createPersonaOpen} onClose={() => setCreatePersonaOpen(false)} onCreated={() => void loadCustomPersonas()} />
       <PersonaDetailModal persona={detailPersona} onClose={() => setDetailPersona(null)} onChanged={() => void loadCustomPersonas()} />
+    </div>
+  );
+}
+
+// UXFIX-2: Animated thinking indicator with seconds counter
+function ThinkingIndicator({ name }: { name: string }) {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    const start = Date.now();
+    const interval = setInterval(() => {
+      setSeconds(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex items-center gap-2 text-text-main/60">
+      <span className="flex gap-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-text-main/40 animate-pulse" style={{ animationDelay: '0ms' }} />
+        <span className="w-1.5 h-1.5 rounded-full bg-text-main/40 animate-pulse" style={{ animationDelay: '150ms' }} />
+        <span className="w-1.5 h-1.5 rounded-full bg-text-main/40 animate-pulse" style={{ animationDelay: '300ms' }} />
+      </span>
+      <span className="text-sm">{name} думает… {seconds}с</span>
     </div>
   );
 }

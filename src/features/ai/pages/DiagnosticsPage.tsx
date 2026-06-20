@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import {
   Download, X, RotateCcw, Bug,
-  RefreshCw, Loader2, Upload, ChevronDown, ChevronRight
+  RefreshCw, Loader2, Upload, ChevronDown, ChevronRight, Sparkles
 } from 'lucide-react';
 import { useDailyLimit } from '../hooks/useDailyLimit';
 import { cn } from '../../../core/utils/utils';
@@ -19,6 +19,10 @@ import { ContactDoors } from '../components/ContactDoors';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { useToast } from '../../../shared/components/Toast';
+import { AIService } from '../services/AIService';
+import { AISummaryService } from '../services/AISummaryService';
+import { getLocalDb } from '../../../core/storage/localDb';
 
 export function DiagnosticsPage() {
   const navigate = useNavigate();
@@ -588,6 +592,9 @@ export function DiagnosticsPage() {
 
             <ContactDoors />
 
+            {/* UXFIX-3: Mass AI analysis */}
+            <MassAnalyzeNotes />
+
             <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden">
               <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
                 <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider">Психологический портрет пользователя</span>
@@ -682,6 +689,104 @@ export function DiagnosticsPage() {
       </div>
 
 
+    </div>
+  );
+}
+
+// UXFIX-3: Mass AI analysis of all unanalyzed notes
+function MassAnalyzeNotes() {
+  const { showToast } = useToast();
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState({ done: 0, total: 0, failed: 0 });
+
+  const handleMassAnalyze = async () => {
+    setRunning(true);
+    setProgress({ done: 0, total: 0, failed: 0 });
+    try {
+      const db = await getLocalDb();
+      const docs = await db.getAll('documents');
+      const summaries = await db.getAll('aiSummaries');
+      const analyzed = new Set(summaries.map(s => s.documentId));
+      const pending = docs.filter(d => !analyzed.has(d.id));
+
+      if (pending.length === 0) {
+        showToast('Все заметки уже проанализированы', 'success');
+        return;
+      }
+
+      setProgress({ done: 0, total: pending.length, failed: 0 });
+
+      for (let i = 0; i < pending.length; i++) {
+        const doc = pending[i]!;
+        try {
+          const versions = await db.getAllFromIndex('versions', 'by-document', doc.id);
+          if (versions.length === 0) continue;
+          versions.sort((a, b) => b.version - a.version);
+          const content = versions[0]?.content ?? '';
+          if (content.length < 50) continue;
+
+          const result = await AIService.summarize({ content: content.slice(0, 50_000) });
+          if (result.ok) {
+            await AISummaryService.save({
+              documentId: doc.id,
+              tone: result.summary.tone,
+              frequentWords: result.summary.frequentWords,
+              insights: result.summary.insights,
+              themes: result.summary.themes,
+              extractedFacts: result.summary.extractedFacts,
+              processedAt: Date.now(),
+            });
+            window.dispatchEvent(new Event('archive-refresh'));
+          } else {
+            setProgress(p => ({ ...p, failed: p.failed + 1 }));
+            if (result.error === 'DAILY_LIMIT') {
+              showToast('Достигнут дневной лимит ИИ. Продолжим позже.', 'error');
+              break;
+            }
+          }
+        } catch {
+          setProgress(p => ({ ...p, failed: p.failed + 1 }));
+        }
+        setProgress(p => ({ ...p, done: p.done + 1 }));
+        // Small delay between calls
+        await new Promise(r => setTimeout(r, 500));
+      }
+
+      showToast(`Анализ завершён: ${progress.done + 1}/${pending.length}`, 'success');
+    } catch (e) {
+      console.warn('[MassAnalyze] failed:', e);
+      showToast('Ошибка массового анализа', 'error');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden">
+      <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
+        <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider">Массовый анализ заметок ИИ</span>
+        <Button
+          onClick={() => void handleMassAnalyze()}
+          disabled={running}
+          className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-brand-soft/20 bg-brand-soft/10 text-brand-soft text-[10px] font-bold disabled:opacity-50"
+        >
+          {running ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+          {running ? `Анализ… ${progress.done}/${progress.total}` : 'Проанализировать все'}
+        </Button>
+      </div>
+      {running && (
+        <div className="px-5 py-3">
+          <div className="h-1.5 rounded-full bg-surface-base/30 overflow-hidden">
+            <div
+              className="h-full bg-brand-soft transition-all duration-300"
+              style={{ width: `${progress.total > 0 ? (progress.done / progress.total) * 100 : 0}%` }}
+            />
+          </div>
+          {progress.failed > 0 && (
+            <div className="text-[10px] text-accent-danger/60 mt-1">Ошибок: {progress.failed}</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
