@@ -343,7 +343,7 @@ export function AIPage() {
               </AssistantTurn>
             )}
 
-            {isLoading && streamingMessage === null && (
+            {isLoading && !streamingMessage && (
               <AssistantTurn name={convPersonaName} color={convVisual.color} mono={convVisual.mono}>
                  <ThinkingIndicator name={convPersonaName} />
               </AssistantTurn>
