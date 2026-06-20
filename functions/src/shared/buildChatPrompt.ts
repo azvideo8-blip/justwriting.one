@@ -1,6 +1,6 @@
 // CHATFIX-6: Mirror of src/shared/ai/buildChatPrompt.ts
 // After Supabase migration both sides will import from a single shared package.
-import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD, REFLECTION_GUIDE, type PersonaId } from './prompts';
+import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD, REFLECTION_GUIDE, SAFETY_GUIDE, type PersonaId } from './prompts';
 
 export function buildChatSystemPrompt(params: {
   personaId: string;
@@ -13,8 +13,8 @@ export function buildChatSystemPrompt(params: {
   const { personaId, customSystemPrompt, userPortrait, responseLength, documentContent, documentMood } = params;
 
   let base = personaId === 'custom'
-    ? `${customSystemPrompt ?? ''}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}\n\n${REFLECTION_GUIDE}`
-    : `${(PERSONA_PROMPTS as Record<string, string>)[personaId] ?? PERSONA_PROMPTS.coach}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}\n\n${REFLECTION_GUIDE}`;
+    ? `${customSystemPrompt ?? ''}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}\n\n${REFLECTION_GUIDE}\n\n${SAFETY_GUIDE}`
+    : `${(PERSONA_PROMPTS as Record<string, string>)[personaId] ?? PERSONA_PROMPTS.coach}\n\n${TOPIC_GUARD}\n\n${NOTES_GUARD}\n\n${REFLECTION_GUIDE}\n\n${SAFETY_GUIDE}`;
 
   if (responseLength === 'short') {
     base += '\n\nВАЖНО: Верни очень краткий, лаконичный ответ. Уложись в 1-2 абзаца, пиши только самое главное без долгих вступлений.';

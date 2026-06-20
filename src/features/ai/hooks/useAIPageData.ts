@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { AIDialogueService } from '../services/AIDialogueService';
+import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import { TelemetryService } from '../../../core/services/TelemetryService';
 import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService';
@@ -63,6 +64,10 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     setInputText('');
   }, []);
 
+  // THERAPY-4: Proactive contact point — check for faded topics on AI page load
+  const [proactiveHint, setProactiveHint] = useState<string | null>(null);
+  const proactiveShownRef = useRef(false);
+
   useEffect(() => {
     if (initRef.current) return;
     initRef.current = true;
@@ -70,6 +75,29 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       void loadDialogues();
       void loadCustomPersonas();
       void TelemetryService.maybeSendTelemetry();
+      // THERAPY-4: Check for faded topics (once per session, debounced)
+      if (!proactiveShownRef.current) {
+        proactiveShownRef.current = true;
+        void (async () => {
+          try {
+            const lastShown = localStorage.getItem('proactive_last_shown');
+            if (lastShown && (Date.now() - parseInt(lastShown, 10)) < 86_400_000) return; // once per day
+            const facets = await AIProfileFacetService.getAll();
+            const now = Date.now();
+            const dayMs = 86_400_000;
+            const faded = facets
+              .filter(f => f.lastAt && f.noteCount >= 3 && (now - f.lastAt) > 14 * dayMs && (now - f.lastAt) < 90 * dayMs)
+              .sort((a, b) => (b.noteCount ?? 0) - (a.noteCount ?? 0))
+              .slice(0, 1);
+            if (faded.length > 0) {
+              const f = faded[0]!;
+              const daysAgo = Math.round((now - f.lastAt) / dayMs);
+              setProactiveHint(`Тема «${f.label}» была активна ${daysAgo} дн. назад — хочешь вернуться к ней?`);
+              localStorage.setItem('proactive_last_shown', String(Date.now()));
+            }
+          } catch { /* non-critical */ }
+        })();
+      }
     }, 0);
     if (linkedDocId) void attachDocument(linkedDocId);
   }, [loadDialogues, loadCustomPersonas, linkedDocId, attachDocument]);
@@ -286,6 +314,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     convPersonaId, convPersonaName, convVisual,
     handleSetResponseLength, handleRenameDialogue,
     responseLength,
+    proactiveHint,
     MAX_INPUT_CHARS,
   };
 }

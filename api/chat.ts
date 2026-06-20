@@ -213,7 +213,7 @@ async function recordUsage(uid: string, tokensIn: number, tokensOut: number, mod
 
 // ── Input schema ──────────────────────────────────────────────────────────────
 const inputSchema = z.object({
-  personaId: z.enum(['group_psychology', 'cbt', 'coach', 'editor', 'custom']),
+  personaId: z.enum(['group_psychology', 'cbt', 'coach', 'editor', 'parts', 'custom']),
   customSystemPrompt: z.string().max(500).nullish(),
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant']),
