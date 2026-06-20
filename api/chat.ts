@@ -259,6 +259,12 @@ async function streamFireworksReasoning(
   let wroteAnswerHeader = false;
   let tokensIn = 0;
   let tokensOut = 0;
+  // RSN-DIAG: structural diagnostics only (no user content) to learn how this
+  // model exposes reasoning. Remove once confirmed.
+  let sawReasoningContent = false;
+  let reasoningLen = 0;
+  let contentLen = 0;
+  let contentHead = '';
 
   for (;;) {
     const { done, value } = await reader.read();
@@ -282,10 +288,14 @@ async function streamFireworksReasoning(
       const reasoning = delta.reasoning_content ?? delta.reasoning;
       const content = delta.content;
       if (reasoning) {
+        sawReasoningContent = true;
+        reasoningLen += reasoning.length;
         if (!wroteReasoningHeader) { res.write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
         res.write(reasoning);
       }
       if (content) {
+        if (contentHead.length < 60) contentHead += content;
+        contentLen += content.length;
         if (!wroteAnswerHeader) {
           if (wroteReasoningHeader) res.write('\n\nОТВЕТ:\n');
           wroteAnswerHeader = true;
@@ -295,6 +305,14 @@ async function streamFireworksReasoning(
     }
   }
   res.end();
+  // RSN-DIAG: only marker presence + lengths, never the body text.
+  const head = contentHead.slice(0, 60);
+  console.warn('[RSN-DIAG]', JSON.stringify({
+    model, sawReasoningContent, reasoningLen, contentLen,
+    contentStartsThink: /^\s*<think>/i.test(head),
+    contentStartsMarker: /^\s*ХОД МЫСЛИ/i.test(head),
+    headHasThink: /<think>/i.test(head),
+  }));
   try {
     await recordUsage(uid, tokensIn, tokensOut, model);
   } catch (e) {
