@@ -1,6 +1,9 @@
 // CHATFIX-6: Shared system prompt builder for both api/chat.ts and
 // functions/src/ai/chatWithAI.ts. Keep behavior identical across backends.
-import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD, REFLECTION_GUIDE, SAFETY_GUIDE } from './prompts';
+// NOTE: keep the .js extension — Vercel runs api/* as native ESM (no bundling),
+// so an extensionless relative import fails at runtime with ERR_MODULE_NOT_FOUND
+// and 500s the whole /api/chat endpoint. Vite resolves the .js → .ts for the SPA.
+import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD, REFLECTION_GUIDE, SAFETY_GUIDE } from './prompts.js';
 
 export function buildChatSystemPrompt(params: {
   personaId: string;
