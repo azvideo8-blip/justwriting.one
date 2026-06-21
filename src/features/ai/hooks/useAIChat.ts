@@ -11,7 +11,6 @@ import type { AIMessage } from '../services/AIService';
 import { AIService } from '../services/AIService';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import { AIProfileService } from '../services/AIProfileService';
-import { AISummaryService } from '../services/AISummaryService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { searchNotesMulti } from '../utils/noteRetriever';
@@ -20,7 +19,6 @@ import { detectRisk, CRISIS_RESOURCES } from '../utils/riskDetect';
 import { cosineSimilarity } from '../utils/vectorSearch';
 
 let _streamAvailable: boolean | null = null;
-const MAX_ATTACHMENT_CHARS = 9_500;
 const CONTEXT_WINDOW = 14;
 
 // Detect "search my notes" intent. Regex-based (not a fixed phrase list) so
@@ -211,7 +209,7 @@ interface UseAIChatReturn {
   streamingMessage: string | null;
   streamingReasoning: string | null;
   error: string | null;
-  sendMessage: (text: string) => Promise<void>;
+  sendMessage: (text: string, attached?: { apiText: string; content: string }) => Promise<void>;
   attachDocument: (documentId: string) => Promise<void>;
   clearError: () => void;
 }
@@ -310,7 +308,11 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
   const clearError = useCallback(() => setError(null), []);
 
-  const sendMessage = useCallback(async (text: string) => {
+  // `attached` lets a caller show a full note in the bubble/history (`text`) while
+  // sending a short marker as the chat message (`attached.apiText`, to stay under
+  // the 10K message cap) and routing the FULL note through documentContent (50K).
+  // This is how attached notes reach the model in full instead of as a summary.
+  const sendMessage = useCallback(async (text: string, attached?: { apiText: string; content: string }) => {
     if (!text.trim()) return;
 
     const { remaining } = useAiLimitStore.getState();
@@ -359,10 +361,18 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
     try {
 
-      const apiMessages = pruneMessages(allMessages.filter(m => m.type !== 'system'));
+      // For attached notes the last user message goes to the API as a short
+      // marker; the full note text travels via documentContent (see below).
+      const apiAllMessages = attached
+        ? allMessages.map((m, i) => i === allMessages.length - 1 ? { ...m, content: attached.apiText } : m)
+        : allMessages;
+      const apiMessages = pruneMessages(apiAllMessages.filter(m => m.type !== 'system'));
 
       // async-cheap-condition-before-await: compute sync flags before any awaits.
-      const explicitSearch = looksLikeNoteSearch(text);
+      // An attached note must NOT trigger an archive search — the note is already
+      // provided in full via documentContent, and its "[Прикреплена заметка…]"
+      // marker would otherwise match the note-search heuristic.
+      const explicitSearch = attached ? false : looksLikeNoteSearch(text);
 
       let effectivePersonaId = personaId;
       let customSystemPrompt: string | undefined;
@@ -437,9 +447,11 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           if (facets.length > 0) {
             // OPT-1: Compute query embedding ONCE, reuse for search
             if (queryEmb === undefined) {
+              // For an attached note, embed a bounded snippet (not the whole 45K
+              // note) so facet matching stays cheap and within embed limits.
               const embedQuery = explicitSearch || stickySearch
                 ? (explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`)
-                : text;
+                : (attached ? attached.content.slice(0, 2000) : text);
               const queryEmbResult = await AIService.embed({ content: embedQuery });
               queryEmb = queryEmbResult.ok && queryEmbResult.vectors[0] ? queryEmbResult.vectors[0] : undefined;
             }
@@ -789,6 +801,19 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         searchContext = searchContext ? crisisBlock + '\n\n' + searchContext : crisisBlock;
       }
 
+      // Attached note: inject the FULL text as primary context (capped to fit the
+      // 50K documentContent budget). Takes priority over facet/search context.
+      if (attached?.content) {
+        const noteText = attached.content.slice(0, 45_000);
+        const noteBlock = `[Полный текст заметки, прикреплённой пользователем для разбора]\n${noteText}`;
+        if (searchContext) {
+          const room = 48_000 - noteBlock.length;
+          searchContext = room > 500 ? noteBlock + '\n\n' + searchContext.slice(0, room) : noteBlock;
+        } else {
+          searchContext = noteBlock;
+        }
+      }
+
       const effectiveResponseLength = dialogue?.responseLength || responseLength || 'standard';
 
       let fullText: string;
@@ -919,35 +944,13 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       const content = firstVersion.content;
       const title = doc.title || 'Без названия';
 
-      if (content.length > MAX_ATTACHMENT_CHARS) {
-        const summary = await AISummaryService.get(documentId);
-        if (summary) {
-          const compressed = `Тональность: ${summary.tone}\nТемы: ${summary.themes.join(', ')}\nИнсайты: ${summary.insights.join('; ')}\nФакты: ${summary.extractedFacts.join('; ')}`;
-          const formattedMessage = `[Прикреплено саммари заметки: "${title}"]\n\n[Сжатое содержание]: ${compressed}`;
-          await sendMessage(formattedMessage);
-        } else {
-          const result = await AIService.summarize({ content: content.slice(0, 30_000) });
-          if (result.ok) {
-            const compressed = `Тональность: ${result.summary.tone}\nТемы: ${result.summary.themes.join(', ')}\nИнсайты: ${result.summary.insights.join('; ')}\nФакты: ${result.summary.extractedFacts.join('; ')}`;
-            const formattedMessage = `[Прикреплено саммари заметки: "${title}"]\n\n[Сжатое содержание]: ${compressed}`;
-            await AISummaryService.save({
-              documentId,
-              tone: result.summary.tone,
-              frequentWords: result.summary.frequentWords,
-              insights: result.summary.insights,
-              themes: result.summary.themes,
-              extractedFacts: result.summary.extractedFacts,
-              processedAt: Date.now(),
-            });
-            await sendMessage(formattedMessage);
-          } else {
-            setError('Не удалось сжать заметку для отправки');
-          }
-        }
-      } else {
-        const formattedMessage = `[Прикреплена заметка: "${title}"]\n\n${content}`;
-        await sendMessage(formattedMessage);
-      }
+      // Always attach the FULL note: the card/history shows the whole text, while
+      // the model receives a short marker message + the full note via
+      // documentContent (50K cap). Previously long notes were sent as an AI
+      // summary, so the model discussed the summary instead of the actual note.
+      const marker = `[Прикреплена заметка: "${title}"]`;
+      const displayMessage = `${marker}\n\n${content}`;
+      await sendMessage(displayMessage, { apiText: marker, content });
     } catch {
       setError('Не удалось прикрепить документ');
     }
