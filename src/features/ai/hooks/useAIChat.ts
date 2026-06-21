@@ -254,6 +254,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   const doorsCacheRef = useRef<{ hint: string } | null>(null);
   // CHATFIX-3: Track message count for memory extraction throttle
   const messageCountRef = useRef(0);
+  // Sticky attached note: once a note is attached, keep it as the subject for the
+  // whole dialogue session so follow-ups ("разбери подробнее") still see its text
+  // — otherwise the note is gone after the first turn and the model confabulates.
+  const attachedNoteRef = useRef<{ content: string } | null>(null);
 
   // Sticky note-search: once a search happens, keep retrieving for the next few
   // follow-up turns (e.g. "посмотри в этих", "собери", "а почему") even if they
@@ -273,6 +277,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     docsCacheRef.current = null;
     doorsCacheRef.current = null;
     messageCountRef.current = 0;
+    attachedNoteRef.current = null;
   }, [dialogueId]);
 
   useEffect(() => {
@@ -389,6 +394,11 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
     try {
 
+      // Sticky note: remember a freshly attached note, and reuse it on follow-up
+      // turns that don't re-attach so the note stays the subject of the dialogue.
+      if (attached) attachedNoteRef.current = attached;
+      const effectiveAttached = attached ?? attachedNoteRef.current ?? undefined;
+
       // For attached notes the last user message goes to the API as a short
       // marker; the full note text travels via documentContent (see below).
       // Collapse any oversized attachment body so no single API message exceeds the
@@ -400,7 +410,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // An attached note must NOT trigger an archive search — the note is already
       // provided in full via documentContent, and its "[Прикреплена заметка…]"
       // marker would otherwise match the note-search heuristic.
-      const explicitSearch = attached ? false : looksLikeNoteSearch(text);
+      const explicitSearch = effectiveAttached ? false : looksLikeNoteSearch(text);
 
       let effectivePersonaId = personaId;
       let customSystemPrompt: string | undefined;
@@ -449,7 +459,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // mixing in facet/profile summaries made the model confabulate a fake note
       // out of past themes (it described events that weren't in the attached text).
       const psychePersonas = ['group_psychology', 'cbt', 'coach', 'parts'];
-      const needsFacets = !attached && (explicitSearch || stickySearch || psychePersonas.includes(effectivePersonaId));
+      const needsFacets = !effectiveAttached && (explicitSearch || stickySearch || psychePersonas.includes(effectivePersonaId));
       const facetNoteIds = new Set<string>();
 
       // OPT-1: Single embedding for the query — reused in facets + search
@@ -809,7 +819,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // DLG-1: Cross-dialogue memory — inject relevant memories into context.
       // Skip when a note is attached: memory of past chats (incl. the AI's own
       // past interpretations) leaked in and got misattributed to the attached note.
-      if (queryEmb && !attached) {
+      if (queryEmb && !effectiveAttached) {
         try {
           const memories = await AIChatMemoryService.getRelevant(queryEmb, 5);
           if (memories.length > 0) {
@@ -834,8 +844,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       // Attached note: inject the FULL text as primary context (capped to fit the
       // 50K documentContent budget). Takes priority over facet/search context.
-      if (attached?.content) {
-        const noteText = attached.content.slice(0, 45_000);
+      if (effectiveAttached?.content) {
+        const noteText = effectiveAttached.content.slice(0, 45_000);
         const noteBlock =
           `[Прикреплённая пользователем заметка — ЕДИНСТВЕННЫЙ источник для разбора]\n` +
           `Разбирай СТРОГО то, что реально написано ниже. Не добавляй событий, сцен, цитат, эмоций или фактов, которых в этом тексте нет (например слёз, сессий, чужих фраз), даже если они кажутся вероятными или звучали раньше. Если чего-то в тексте нет — значит этого нет.\n\n` +
@@ -848,12 +858,17 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         }
       }
 
+      // Defensive clamps — never exceed the API schema limits (documentContent
+      // 50K, userPortrait 100K), or the request 400s before reaching the model.
+      if (searchContext && searchContext.length > 49_000) searchContext = searchContext.slice(0, 49_000);
+      const safePortrait = userPortrait && userPortrait.length > 99_000 ? userPortrait.slice(0, 99_000) : userPortrait;
+
       const effectiveResponseLength = dialogue?.responseLength || responseLength || 'standard';
 
       let fullText: string;
 
       if (_streamAvailable === false) {
-        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait, responseLength: effectiveResponseLength });
+        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, responseLength: effectiveResponseLength });
       } else {
         try {
           fullText = await streamChat({
@@ -861,7 +876,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             customSystemPrompt,
             messages: apiMessages,
             documentContent: searchContext,
-            userPortrait,
+            userPortrait: safePortrait,
             responseLength: effectiveResponseLength,
             signal: controller.signal,
             onChunk: (partial, reasoning) => {
@@ -875,7 +890,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           console.warn('Streaming chat failed, falling back to callable chat:', e);
           const errMsg = e instanceof Error ? e.message : '';
           if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED') {
-            fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait, responseLength: effectiveResponseLength });
+            fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, responseLength: effectiveResponseLength });
             // RSN-4: Parse reasoning from callable fallback
             if (effectiveResponseLength === 'reasoning') {
               // Try XML tags

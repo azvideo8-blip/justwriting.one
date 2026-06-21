@@ -6,6 +6,7 @@ import { SyncService } from '../../../core/services/SyncService';
 import { StorageService } from '../../../core/services/StorageService';
 import { AdminUserService } from '../../admin/services/AdminUserService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
+import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import { useToast } from '../../../shared/components/Toast';
 import { UserProfile } from '../../../types';
 import { getAuth } from 'firebase/auth';
@@ -340,6 +341,18 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     }
   };
 
+  const handleClearMemory = async () => {
+    if (!window.confirm('Очистить всю память ИИ из прошлых бесед? Накопленные факты/инсайты будут удалены безвозвратно. (Диалоги и заметки не затрагиваются.)')) return;
+    try {
+      await AIChatMemoryService.deleteAll();
+      showToast('Память ИИ очищена', 'success');
+      await loadSystemStats();
+    } catch (e: unknown) {
+      console.error('Failed to clear AI memory:', e);
+      showToast('Не удалось очистить память ИИ', 'error');
+    }
+  };
+
   const handleResetUserLimit = async (targetUid: string, displayName: string) => {
     if (!window.confirm(`Сбросить суточный счетчик запросов ИИ для пользователя ${displayName}?`)) return;
     setResettingUid(targetUid);
@@ -402,5 +415,6 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     handleGeneratePortrait,
     handleResetCounter,
     handleResetUserLimit,
+    handleClearMemory,
   };
 }

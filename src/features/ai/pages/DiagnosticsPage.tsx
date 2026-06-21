@@ -69,6 +69,7 @@ export function DiagnosticsPage() {
     handleGeneratePortrait,
     handleResetCounter,
     handleResetUserLimit,
+    handleClearMemory,
   } = useDiagnosticsData(profile, authLoading, activeTab);
 
   if (authLoading) {
@@ -681,6 +682,19 @@ export function DiagnosticsPage() {
                     <span className="text-xs font-mono font-bold text-text-main">{r.value}</span>
                   </div>
                 ))}
+              </div>
+            )}
+            {statsLoaded && (
+              <div className="pt-2">
+                <Button
+                  onClick={() => void handleClearMemory()}
+                  disabled={stats.memories === 0}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-xs font-semibold hover:bg-accent-danger/20 transition-colors disabled:opacity-40"
+                >
+                  <RotateCcw size={13} />
+                  Очистить память ИИ ({stats.memories})
+                </Button>
+                <p className="mt-1.5 text-[11px] text-text-main/50">Удаляет накопленные факты/инсайты из прошлых бесед. Диалоги и заметки не затрагиваются.</p>
               </div>
             )}
           </div>

@@ -168,6 +168,16 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
 
   const removePendingAttachment = useCallback(() => setPendingAttachment(null), []);
 
+  // Long pasted text is usually a note, not a chat message — let the user turn it
+  // into a staged attachment (chip) so it's analyzed strictly as a note (facets/
+  // memory suppressed) instead of mixing with profile context.
+  const handlePasteAsNote = useCallback(() => {
+    const text = inputText.trim();
+    if (!text) return;
+    setPendingAttachment({ documentId: `pasted-${Date.now()}`, title: 'Вставленный текст', content: text });
+    setInputText('');
+  }, [inputText]);
+
   const handleSetResponseLength = useCallback(async (length: ResponseLength) => {
     // TICKET-049: Disclaimer for reasoning mode (reduced limit)
     if (length === 'reasoning') {
@@ -325,7 +335,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     error,
     clearError,
     stop,
-    pendingAttachment, removePendingAttachment,
+    pendingAttachment, removePendingAttachment, handlePasteAsNote,
     dailyLimit,
     loadDialogues, loadCustomPersonas,
     handleSendMessage, handleNewDialogue, handleArchive, handleDelete, handleExport,

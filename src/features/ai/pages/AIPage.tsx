@@ -42,7 +42,7 @@ export function AIPage() {
     attachMenuOpen, setAttachMenuOpen,
     messagesEndRef, fileInputRef, attachMenuRef,
     isLoading, streamingMessage, streamingReasoning, error, clearError,
-    stop, pendingAttachment, removePendingAttachment,
+    stop, pendingAttachment, removePendingAttachment, handlePasteAsNote,
     dialogue,
     dailyLimit,
     loadCustomPersonas,
@@ -394,6 +394,16 @@ export function AIPage() {
 
         <div className="relative z-10 px-6 py-4 border-t border-border-subtle">
           <div>
+            {!pendingAttachment && inputText.trim().length > 1500 && (
+              <button
+                type="button"
+                onClick={handlePasteAsNote}
+                className="mb-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-brand-soft/10 border border-brand-soft/30 text-xs text-brand-soft hover:bg-brand-soft/20 transition-colors"
+              >
+                <Paperclip size={12} />
+                Это заметка? Разобрать как заметку (точнее по тексту)
+              </button>
+            )}
             {pendingAttachment && (
               <div className="mb-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-card border border-brand-soft/30 text-xs text-text-main/80 max-w-full">
                 <Paperclip size={12} className="text-brand-soft shrink-0" />
