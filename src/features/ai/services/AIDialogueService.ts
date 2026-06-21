@@ -63,6 +63,17 @@ export const AIDialogueService = {
     window.dispatchEvent(new Event('dialogue-updated'));
   },
 
+  // Link a dialogue to the note it's about, so follow-up turns (even after a
+  // reload) keep grounding on that note and suppress profile/memory contamination.
+  async setDocumentId(id: string, documentId: string): Promise<void> {
+    const db = await getLocalDb();
+    const existing = await db.get('aiDialogues', id);
+    if (!existing || existing.documentId === documentId) return;
+    existing.documentId = documentId;
+    existing.updatedAt = Date.now();
+    await db.put('aiDialogues', existing);
+  },
+
   async updateTitle(id: string, title: string): Promise<void> {
     const db = await getLocalDb();
     const existing = await db.get('aiDialogues', id);

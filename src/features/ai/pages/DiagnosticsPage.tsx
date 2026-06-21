@@ -70,6 +70,7 @@ export function DiagnosticsPage() {
     handleResetCounter,
     handleResetUserLimit,
     handleClearMemory,
+    handleCollapseVersions,
   } = useDiagnosticsData(profile, authLoading, activeTab);
 
   if (authLoading) {
@@ -695,6 +696,16 @@ export function DiagnosticsPage() {
                   Очистить память ИИ ({stats.memories})
                 </Button>
                 <p className="mt-1.5 text-[11px] text-text-main/50">Удаляет накопленные факты/инсайты из прошлых бесед. Диалоги и заметки не затрагиваются.</p>
+                <div className="mt-3">
+                  <Button
+                    onClick={() => void handleCollapseVersions()}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-elevated border border-border-subtle text-text-main/80 text-xs font-semibold hover:text-text-main transition-colors"
+                  >
+                    <RotateCcw size={13} />
+                    Схлопнуть версии заметок
+                  </Button>
+                  <p className="mt-1.5 text-[11px] text-text-main/50">Оставляет у каждой заметки только последнюю версию (убирает «2 / N»). Текст не меняется.</p>
+                </div>
               </div>
             )}
           </div>
