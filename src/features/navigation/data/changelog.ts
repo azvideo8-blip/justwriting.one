@@ -14,6 +14,22 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.30',
+    date: '2026-06-21',
+    items: [
+      { category: 'fix', ru: 'Критично: стриминговый /api/chat лежал (500) с 0.7.29 — все чаты уходили в фоллбэк. Починено', en: 'Critical: streaming /api/chat was down (500) since 0.7.29 — all chats fell back. Fixed' },
+      { category: 'new', ru: 'Режим «🧠 Рассуждения» заработал: нативный ход мысли DeepSeek в сворачиваемом блоке, сохраняется в истории, на русском', en: 'Reasoning mode «🧠» now works: native DeepSeek chain-of-thought in a collapsible block, persisted, in Russian' },
+      { category: 'new', ru: 'Кнопка «Стоп» во время ответа — прерывает и сохраняет уже пришедшую часть', en: 'Stop button while answering — interrupts and keeps the partial answer' },
+      { category: 'new', ru: 'Прикрепление заметки как часть сообщения: чип над полем, можно дописать текст; модель получает полный текст заметки (не саммари)', en: 'Attach-to-compose: chip above the input, add your text; the model gets the full note (not a summary)' },
+      { category: 'fix', ru: 'Прикреплённая заметка больше не валит следующий запрос (400)', en: 'An attached note no longer 400s the next request' },
+      { category: 'fix', ru: 'Новый чат больше не пропадает после перехода на другую вкладку', en: 'A new chat no longer disappears after navigating away' },
+      { category: 'new', ru: 'THERAPY: глубина персон + кризисный слой безопасности', en: 'THERAPY: deeper personas + crisis safety layer' },
+      { category: 'improvement', ru: 'UXFIX: объём ответа реально меняет ответ; живой индикатор «думает…» со счётчиком; массовый анализ всех заметок', en: 'UXFIX: response length actually changes the answer; live "thinking…" timer; bulk analyze all notes' },
+      { category: 'fix', ru: 'Архив: де-виртуализация сгруппированного списка — сортировка не дублирует строки', en: 'Archive: grouped list de-virtualized — sorting no longer duplicates rows' },
+      { category: 'fix', ru: 'Память чата: каждая единица эмбеддится отдельно (была общая на всех)', en: 'Chat memory: each unit embedded separately (was shared across all)' },
+    ],
+  },
+  {
     version: '0.7.29',
     date: '2026-06-19',
     items: [

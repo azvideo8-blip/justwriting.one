@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+## 2026-06-21 (v0.7.30)
+- **[RU]** Критично: стриминговый `/api/chat` лежал полностью (500 ERR_MODULE_NOT_FOUND из-за extensionless ESM-импорта) с версии 0.7.29 — каждый чат молча уходил в callable-фоллбэк. Починено.
+- **[EN]** Critical: streaming `/api/chat` was fully down (500 ERR_MODULE_NOT_FOUND from an extensionless ESM import) since 0.7.29 — every chat silently fell back to the callable. Fixed.
+- **[RU]** Режим «🧠 Рассуждения» доведён до рабочего состояния: стримит нативный канал рассуждений DeepSeek в сворачиваемый «Ход мысли», сохраняет его в истории и принудительно держит на русском (раньше пусто/по-китайски). Подход переписан с тегов на нативный `reasoning_content`.
+- **[EN]** Reasoning mode «🧠» now actually works: streams DeepSeek's native reasoning channel into a collapsible "Ход мысли", persists it in history, and forces Russian (was empty/Chinese). Reworked from tags to the native `reasoning_content` channel.
+- **[RU]** Кнопка «Стоп»: во время ответа «Отправить» превращается в спиннер «Обработка…» + Стоп; прерывание сохраняет уже пришедшую часть ответа.
+- **[EN]** Stop button: while answering, Send becomes a spinner "Обработка…" + Stop; interrupting keeps the partial answer already streamed.
+- **[RU]** Прикрепление заметки как часть сообщения: вместо авто-отправки появляется чип над полем — можно дописать своё сообщение и отправить вместе. Полный текст заметки теперь уходит модели (раньше — ИИ-саммари).
+- **[EN]** Attach-to-compose: attaching a note shows a chip above the input instead of auto-sending — add your message and send together. Full note text now goes to the model (was an AI summary).
+- **[RU]** Исправлено: прикреплённая заметка больше не валит следующий запрос (400) — тело заметки схлопывается до маркера в истории API, полный текст идёт через documentContent.
+- **[EN]** Fixed: an attached note no longer 400s the next request — its body is collapsed to a marker in the API history, full text travels via documentContent.
+- **[RU]** Исправлено: новый чат больше не «пропадает» после перехода на другую вкладку — созданный диалог сразу выбирается и сохраняется.
+- **[EN]** Fixed: a new chat no longer "disappears" after navigating away — the created dialogue is selected and persisted immediately.
+- **[RU]** THERAPY: терапевтическая глубина персон + кризисный слой безопасности (детект острого риска → мягкое признание боли, ресурсы помощи, без обрыва диалога).
+- **[EN]** THERAPY: deeper therapeutic personas + crisis safety layer (acute-risk detection → warm acknowledgment, help resources, no dialogue cutoff).
+- **[RU]** UXFIX: переключение объёма ответа реально меняет ответ; живой индикатор «думает…» со счётчиком; кнопка массового анализа всех непроанализированных заметок.
+- **[EN]** UXFIX: response-length switch actually changes the answer; live "thinking…" indicator with a timer; bulk "analyze all un-analyzed notes" button.
+- **[RU]** Исправлено: сломанная сборка после THERAPY-пуша (дубль импорта + отсутствующая иконка) — прод не компилировался.
+- **[EN]** Fixed: broken build after the THERAPY push (duplicate import + missing icon) — production failed to compile.
+- **[RU]** Архив: сгруппированный список де-виртуализирован — сортировка по длине/названию больше не дублирует строки.
+- **[EN]** Archive: grouped list de-virtualized — sorting by length/title no longer duplicates rows.
+- **[RU]** Память чата: каждая единица памяти эмбеддится отдельно (регрессия, где все воспоминания делили один вектор).
+- **[EN]** Chat memory: each memory unit is embedded separately (regression where all memories shared one vector).
+- **[RU]** Service Worker: CACHE_VERSION обновлён до v0.7.30.
+- **[EN]** Service Worker: CACHE_VERSION updated to v0.7.30.
+
 ## 2026-06-19 (v0.7.29)
 - **[RU]** Стеммер Портера: лексический анализатор «дверей контакта» теперь использует русскую морфологию (думаю/думал/думающая → дум) — ловит больше словоформ.
 - **[EN]** Porter stemmer: contact doors analyzer now uses Russian morphology (думаю/думал/думающая → дум) — catches more word forms.
