@@ -21,6 +21,7 @@ export const aiTranslations: Translations = {
   ai_upload_file: { ru: 'Загрузить файл', en: 'Upload file' },
   ai_write_placeholder: { ru: 'Напишите {name}…', en: 'Write to {name}…' },
   ai_send: { ru: 'Отправить', en: 'Send' },
+  ai_processing: { ru: 'Обработка…', en: 'Processing…' },
   ai_remaining_today: { ru: 'осталось', en: 'remaining' },
   ai_today: { ru: 'сегодня', en: 'today' },
   ai_description_prompt: { ru: 'Описание и промпт', en: 'Description and prompt' },

@@ -70,6 +70,7 @@ async function streamChat(params: {
   documentMood?: string | undefined;
   userPortrait?: string | null | undefined;
   responseLength?: 'short' | 'standard' | 'detailed' | 'reasoning' | undefined;
+  signal?: AbortSignal | undefined;
   onChunk: (partial: string, reasoning: string | null) => void;
 }): Promise<string> {
   const user = getAuth().currentUser;
@@ -92,6 +93,7 @@ async function streamChat(params: {
       userPortrait: params.userPortrait,
       responseLength: params.responseLength,
     }),
+    signal: params.signal ?? null,
   });
 
   if (response.status === 404) {
@@ -109,7 +111,8 @@ async function streamChat(params: {
   const decoder = new TextDecoder();
   let fullText = '';
 
-  while (true) {
+  try {
+   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
     const text = decoder.decode(value, { stream: true });
@@ -147,6 +150,11 @@ async function streamChat(params: {
       }
       params.onChunk(answerText, reasoningText || null);
     }
+   }
+  } catch (e) {
+    // User pressed Stop — keep whatever streamed so far instead of erroring.
+    if (params.signal?.aborted) return fullText;
+    throw e;
   }
 
   return fullText;
@@ -221,8 +229,10 @@ interface UseAIChatReturn {
   streamingMessage: string | null;
   streamingReasoning: string | null;
   error: string | null;
-  sendMessage: (text: string, attached?: { apiText: string; content: string }) => Promise<void>;
+  sendMessage: (text: string, attached?: { content: string }) => Promise<string | null>;
   attachDocument: (documentId: string) => Promise<void>;
+  prepareAttachment: (documentId: string) => Promise<{ title: string; content: string } | null>;
+  stop: () => void;
   clearError: () => void;
 }
 
@@ -251,6 +261,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   const stickyTurnsRef = useRef(0);
   const lastSearchQueryRef = useRef('');
   const lastSearchNamesRef = useRef<string[]>([]);
+  // Stop button: abort the in-flight streaming request.
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     stickyTurnsRef.current = 0;
@@ -320,23 +332,27 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
   const clearError = useCallback(() => setError(null), []);
 
-  // `attached` lets a caller show a full note in the bubble/history (`text`) while
-  // sending a short marker as the chat message (`attached.apiText`, to stay under
-  // the 10K message cap) and routing the FULL note through documentContent (50K).
-  // This is how attached notes reach the model in full instead of as a summary.
-  const sendMessage = useCallback(async (text: string, attached?: { apiText: string; content: string }) => {
-    if (!text.trim()) return;
+  // `attached.content` is the full note text routed through documentContent (50K),
+  // so the model reads the whole note while the chat message stays small (just a
+  // "[Прикреплена заметка: …]" marker plus any text the user typed). The note body
+  // is never put into the message itself (that would trip the 10K per-message cap).
+  const sendMessage = useCallback(async (text: string, attached?: { content: string }): Promise<string | null> => {
+    if (!text.trim()) return null;
 
     const { remaining } = useAiLimitStore.getState();
     if (remaining <= 0) {
       setDailyLimitExhausted();
       setError('Дневной лимит достигнут');
-      return;
+      return null;
     }
 
     setIsLoading(true);
     setStreamingMessage(null); setStreamingReasoning(null);
     setError(null);
+
+    // Stop button: fresh controller per send; stop() aborts this one.
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     // Build API messages from the ORIGINAL dialogue before the optimistic update.
     const allMessages: AIMessage[] = dialogue
@@ -375,12 +391,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       // For attached notes the last user message goes to the API as a short
       // marker; the full note text travels via documentContent (see below).
-      const apiAllMessages = attached
-        ? allMessages.map((m, i) => i === allMessages.length - 1 ? { ...m, content: attached.apiText } : m)
-        : allMessages;
-      // Collapse oversized attachment bodies so no single API message exceeds the
+      // Collapse any oversized attachment body so no single API message exceeds the
       // 10K per-message cap (the full note travels via documentContent instead).
-      const apiMessages = pruneMessages(apiAllMessages.filter(m => m.type !== 'system'))
+      const apiMessages = pruneMessages(allMessages.filter(m => m.type !== 'system'))
         .map(m => ({ ...m, content: toApiContent(m.content) }));
 
       // async-cheap-condition-before-await: compute sync flags before any awaits.
@@ -844,12 +857,15 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             documentContent: searchContext,
             userPortrait,
             responseLength: effectiveResponseLength,
+            signal: controller.signal,
             onChunk: (partial, reasoning) => {
               setStreamingMessage(partial);
               setStreamingReasoning(reasoning);
             },
           });
         } catch (e: unknown) {
+          // Don't fall back to the callable if the user aborted on purpose.
+          if (controller.signal.aborted) throw new Error('ABORTED');
           console.warn('Streaming chat failed, falling back to callable chat:', e);
           const errMsg = e instanceof Error ? e.message : '';
           if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED') {
@@ -874,6 +890,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             throw e;
           }
         }
+      }
+
+      // User stopped before any text arrived — just halt, no error, nothing saved.
+      if (controller.signal.aborted && (!fullText || !fullText.trim())) {
+        setStreamingMessage(null); setStreamingReasoning(null);
+        return dialogue?.id ?? null;
       }
 
       // An empty stream (e.g. the model errored mid-stream on a quota/spend cap)
@@ -934,45 +956,56 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           }
         }).catch(() => { /* non-critical */ });
       }
+      // Return the persisted dialogue id so the caller can select it (a new
+      // dialogue must become active or it looks "lost" after navigation).
+      return currentDialogue.id;
     } catch (e: unknown) {
       setStreamingMessage(null); setStreamingReasoning(null);
       const db = await getLocalDb();
       const fresh = dialogueId ? await db.get('aiDialogues', dialogueId) : null;
       setDialogue(fresh ?? dialogue);
       const msg = e instanceof Error ? e.message : 'SERVER_ERROR';
-      if (msg === 'DAILY_LIMIT') { setDailyLimitExhausted(); setError('Дневной лимит достигнут'); }
+      if (msg === 'ABORTED') { /* user stopped — no error */ }
+      else if (msg === 'DAILY_LIMIT') { setDailyLimitExhausted(); setError('Дневной лимит достигнут'); }
       else if (msg === 'AUTH_REQUIRED') setError('Требуется регистрация');
       else if (msg === 'EMPTY_RESPONSE') setError('ИИ не ответил — сервис временно недоступен (возможно, исчерпан лимит). Попробуйте позже.');
       else setError('Произошла ошибка при отправке сообщения');
+      return null;
     } finally {
       setIsLoading(false);
     }
   }, [dialogue, dialogueId, personaId, responseLength]);
 
-  const attachDocument = useCallback(async (documentId: string) => {
+  // Load a note's latest text without sending — lets the UI stage an attachment
+  // (show a chip) so the user can add their own message before sending.
+  const prepareAttachment = useCallback(async (documentId: string): Promise<{ title: string; content: string } | null> => {
     try {
       const doc = await LocalDocumentService.getDocument(documentId);
-      if (!doc) return;
+      if (!doc) return null;
       const db = await getLocalDb();
       const versions = await db.getAllFromIndex('versions', 'by-document', documentId);
-      if (versions.length === 0) return;
+      if (versions.length === 0) return null;
       versions.sort((a, b) => b.version - a.version);
-      const firstVersion = versions[0];
-      if (!firstVersion) return;
-      const content = firstVersion.content;
-      const title = doc.title || 'Без названия';
-
-      // Always attach the FULL note: the card/history shows the whole text, while
-      // the model receives a short marker message + the full note via
-      // documentContent (50K cap). Previously long notes were sent as an AI
-      // summary, so the model discussed the summary instead of the actual note.
-      const marker = `[Прикреплена заметка: "${title}"]`;
-      const displayMessage = `${marker}\n\n${content}`;
-      await sendMessage(displayMessage, { apiText: marker, content });
+      const content = versions[0]?.content;
+      if (content === undefined) return null;
+      return { title: doc.title || 'Без названия', content };
     } catch {
-      setError('Не удалось прикрепить документ');
+      return null;
     }
-  }, [sendMessage]);
+  }, []);
 
-  return { dialogue, isLoading, streamingMessage, streamingReasoning, error, sendMessage, attachDocument, clearError };
+  // Attach + send in one step (used when opening chat from a note / facet draft).
+  // The note text goes via documentContent; the message is just the marker.
+  const attachDocument = useCallback(async (documentId: string) => {
+    const prepared = await prepareAttachment(documentId);
+    if (!prepared) { setError('Не удалось прикрепить документ'); return; }
+    const marker = `[Прикреплена заметка: "${prepared.title}"]`;
+    await sendMessage(marker, { content: prepared.content });
+  }, [prepareAttachment, sendMessage]);
+
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
+  return { dialogue, isLoading, streamingMessage, streamingReasoning, error, sendMessage, attachDocument, prepareAttachment, stop, clearError };
 }

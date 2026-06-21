@@ -27,6 +27,9 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const [detailPersona, setDetailPersona] = useState<PersonaDetailTarget | null>(null);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [responseLength, setResponseLength] = useState<ResponseLength>('standard');
+  // Feature: staged note attachment — attaching shows a chip; the note is sent
+  // together with the user's typed message instead of auto-sending on attach.
+  const [pendingAttachment, setPendingAttachment] = useState<{ documentId: string; title: string; content: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,6 +44,8 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     error,
     sendMessage,
     attachDocument,
+    prepareAttachment,
+    stop,
     clearError,
   } = useAIChat(activeDialogueId, selectedPersonaId, responseLength);
 
@@ -61,6 +66,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const handleNewDialogue = useCallback(() => {
     setActiveDialogueId(null);
     setInputText('');
+    setPendingAttachment(null);
   }, []);
 
   // THERAPY-4: Proactive contact point — check for faded topics on AI page load
@@ -98,8 +104,12 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
         })();
       }
     }, 0);
-    if (linkedDocId) void attachDocument(linkedDocId);
-  }, [loadDialogues, loadCustomPersonas, linkedDocId, attachDocument]);
+    // Opening chat from a note stages it as a pending attachment (chip), so the
+    // user can add a question before sending rather than auto-firing the note.
+    if (linkedDocId) void prepareAttachment(linkedDocId).then(p => {
+      if (p) setPendingAttachment({ documentId: linkedDocId, title: p.title, content: p.content });
+    });
+  }, [loadDialogues, loadCustomPersonas, linkedDocId, prepareAttachment]);
 
   // TICKET-013: Handle draftFacet query param — pre-fill editor with facet data
   const draftFacetHandledRef = useRef(false);
@@ -138,15 +148,25 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   }, [attachMenuOpen]);
 
   const handleSendMessage = async () => {
-    if (!inputText.trim() || isLoading) return;
     const text = inputText.trim();
+    if ((!text && !pendingAttachment) || isLoading) return;
     setInputText('');
-    await sendMessage(text);
-    if (!activeDialogueId && dialogue) {
-      setActiveDialogueId(dialogue.id);
+    let id: string | null;
+    if (pendingAttachment) {
+      const marker = `[Прикреплена заметка: "${pendingAttachment.title}"]`;
+      const display = text ? `${marker}\n\n${text}` : marker;
+      const content = pendingAttachment.content;
+      setPendingAttachment(null);
+      id = await sendMessage(display, { content });
+    } else {
+      id = await sendMessage(text);
     }
+    // Select the (possibly newly created) dialogue so it persists across nav.
+    if (!activeDialogueId && id) setActiveDialogueId(id);
     await loadDialogues();
   };
+
+  const removePendingAttachment = useCallback(() => setPendingAttachment(null), []);
 
   const handleSetResponseLength = useCallback(async (length: ResponseLength) => {
     // TICKET-049: Disclaimer for reasoning mode (reduced limit)
@@ -197,7 +217,8 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   };
 
   const handleDocSelect = async (documentId: string) => {
-    await attachDocument(documentId);
+    const prepared = await prepareAttachment(documentId);
+    if (prepared) setPendingAttachment({ documentId, title: prepared.title, content: prepared.content });
   };
 
   const handleCopyMessage = (text: string) => {
@@ -303,6 +324,8 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     streamingReasoning,
     error,
     clearError,
+    stop,
+    pendingAttachment, removePendingAttachment,
     dailyLimit,
     loadDialogues, loadCustomPersonas,
     handleSendMessage, handleNewDialogue, handleArchive, handleDelete, handleExport,
