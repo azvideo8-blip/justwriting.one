@@ -156,8 +156,11 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       const marker = `[Прикреплена заметка: "${pendingAttachment.title}"]`;
       const display = text ? `${marker}\n\n${text}` : marker;
       const content = pendingAttachment.content;
+      // Real notes carry a 'local_…' id so the dialogue can stay linked to them
+      // across reloads; pasted text uses a synthetic id and isn't persisted.
+      const docId = pendingAttachment.documentId.startsWith('local_') ? pendingAttachment.documentId : undefined;
       setPendingAttachment(null);
-      id = await sendMessage(display, { content });
+      id = await sendMessage(display, docId ? { content, documentId: docId } : { content });
     } else {
       id = await sendMessage(text);
     }

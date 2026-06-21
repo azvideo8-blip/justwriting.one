@@ -52,6 +52,22 @@ export const LocalVersionService = {
     return all.sort((a, b) => a.version - b.version);
   },
 
+  // Keep only the latest version row for a document, deleting older ones.
+  // Cosmetic: the latest content is untouched (it's what every read already uses).
+  // Returns how many version rows were removed.
+  async collapseToLatest(documentId: string): Promise<number> {
+    const db = await getLocalDb();
+    const all = await db.getAllFromIndex('versions', 'by-document', documentId);
+    if (all.length <= 1) return 0;
+    all.sort((a, b) => a.version - b.version);
+    const keep = all[all.length - 1];
+    let deleted = 0;
+    for (const v of all) {
+      if (keep && v.id !== keep.id) { await db.delete('versions', v.id); deleted++; }
+    }
+    return deleted;
+  },
+
   async getLatestContent(documentId: string): Promise<string> {
     const db = await getLocalDb();
     const tx = db.transaction('versions', 'readonly');

@@ -7,6 +7,7 @@ import { StorageService } from '../../../core/services/StorageService';
 import { AdminUserService } from '../../admin/services/AdminUserService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
+import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { useToast } from '../../../shared/components/Toast';
 import { UserProfile } from '../../../types';
 import { getAuth } from 'firebase/auth';
@@ -353,6 +354,23 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     }
   };
 
+  const handleCollapseVersions = async () => {
+    if (!window.confirm('Схлопнуть версии всех заметок — оставить только последнюю версию у каждой? Текст не меняется (читается всегда последняя версия), удаляются лишь старые снимки версий. Действие необратимо.')) return;
+    try {
+      const uid = getAuth().currentUser?.uid ?? getOrCreateGuestId();
+      const docs = await LocalDocumentService.getGuestDocuments(uid);
+      let removed = 0;
+      for (const d of docs) {
+        removed += await LocalVersionService.collapseToLatest(d.id);
+      }
+      showToast(`Готово: удалено старых версий — ${removed}`, 'success');
+      await loadSystemStats();
+    } catch (e: unknown) {
+      console.error('Failed to collapse versions:', e);
+      showToast('Не удалось схлопнуть версии', 'error');
+    }
+  };
+
   const handleResetUserLimit = async (targetUid: string, displayName: string) => {
     if (!window.confirm(`Сбросить суточный счетчик запросов ИИ для пользователя ${displayName}?`)) return;
     setResettingUid(targetUid);
@@ -416,5 +434,6 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     handleResetCounter,
     handleResetUserLimit,
     handleClearMemory,
+    handleCollapseVersions,
   };
 }

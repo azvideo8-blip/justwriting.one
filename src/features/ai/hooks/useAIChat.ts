@@ -229,7 +229,7 @@ interface UseAIChatReturn {
   streamingMessage: string | null;
   streamingReasoning: string | null;
   error: string | null;
-  sendMessage: (text: string, attached?: { content: string }) => Promise<string | null>;
+  sendMessage: (text: string, attached?: { content: string; documentId?: string }) => Promise<string | null>;
   attachDocument: (documentId: string) => Promise<void>;
   prepareAttachment: (documentId: string) => Promise<{ title: string; content: string } | null>;
   stop: () => void;
@@ -283,7 +283,23 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   useEffect(() => {
     if (!dialogueId) { setDialogue(null); return; }
     const refresh = () => {
-      void AIDialogueService.get(dialogueId).then(d => setDialogue(d ?? null));
+      void AIDialogueService.get(dialogueId).then(async d => {
+        setDialogue(d ?? null);
+        // Hydrate the sticky note from the dialogue's linked document so a
+        // reloaded note-dialogue stays grounded (note re-injected, facets/memory
+        // suppressed) without the user re-attaching.
+        if (d?.documentId && !attachedNoteRef.current) {
+          try {
+            const db = await getLocalDb();
+            const versions = await db.getAllFromIndex('versions', 'by-document', d.documentId);
+            if (versions.length > 0) {
+              versions.sort((a, b) => b.version - a.version);
+              const content = versions[0]?.content;
+              if (content) attachedNoteRef.current = { content };
+            }
+          } catch { /* non-critical */ }
+        }
+      });
     };
     refresh();
     window.addEventListener('dialogue-updated', refresh);
@@ -341,7 +357,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   // so the model reads the whole note while the chat message stays small (just a
   // "[Прикреплена заметка: …]" marker plus any text the user typed). The note body
   // is never put into the message itself (that would trip the 10K per-message cap).
-  const sendMessage = useCallback(async (text: string, attached?: { content: string }): Promise<string | null> => {
+  const sendMessage = useCallback(async (text: string, attached?: { content: string; documentId?: string }): Promise<string | null> => {
     if (!text.trim()) return null;
 
     const { remaining } = useAiLimitStore.getState();
@@ -947,6 +963,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       const savedText = effectiveResponseLength === 'reasoning' ? extractAnswer(fullText) : fullText;
       const savedReasoning = effectiveResponseLength === 'reasoning' ? extractReasoning(fullText) : undefined;
       await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning);
+      // Link the dialogue to the attached note so it stays grounded after reload.
+      if (attached?.documentId && attached.documentId.startsWith('local_')) {
+        await AIDialogueService.setDocumentId(currentDialogue.id, attached.documentId);
+      }
       // CHATFIX-3: Extract memory every 3rd turn, not every turn
       messageCountRef.current += 1;
       if (messageCountRef.current % 3 === 0) {

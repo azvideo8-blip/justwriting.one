@@ -383,8 +383,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const baseReasoningSystem = buildChatSystemPrompt({ personaId, customSystemPrompt, userPortrait, responseLength: 'detailed', documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
     // DeepSeek tends to reason internally in Chinese; force the chain-of-thought
     // (reasoning_content) into Russian so the visible "ход мысли" is readable.
-    const reasoningSystem = `${baseReasoningSystem}\n\nВАЖНО: и внутренние рассуждения (chain-of-thought / reasoning), и финальный ответ веди ТОЛЬКО на русском языке.`;
-    await streamFireworksReasoning(res, uid, activeModel, reasoningSystem, providerMessages);
+    const reasoningSystem = `${baseReasoningSystem}\n\nВАЖНО: и внутренние рассуждения (chain-of-thought / reasoning), и финальный ответ веди ТОЛЬКО на русском языке. Никогда не думай на английском или китайском.`;
+    // DeepSeek follows a language directive in the latest USER turn far more
+    // reliably than one in the system prompt — append it to the last user message.
+    const reasoningMessages = providerMessages.map((m, i) =>
+      i === providerMessages.length - 1 && m.role === 'user'
+        ? { ...m, content: `${m.content}\n\n(Думай по-русски и ответь по-русски.)` }
+        : m,
+    );
+    await streamFireworksReasoning(res, uid, activeModel, reasoningSystem, reasoningMessages);
     return;
   }
 
