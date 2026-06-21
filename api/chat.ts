@@ -380,7 +380,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // if we ask the model to also print the markers, it duplicates them into
   // `content` and the output gets garbled. The native channel is the source.
   if (AI_PROVIDER === 'fireworks' && responseLength === 'reasoning') {
-    const reasoningSystem = buildChatSystemPrompt({ personaId, customSystemPrompt, userPortrait, responseLength: 'detailed', documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
+    const baseReasoningSystem = buildChatSystemPrompt({ personaId, customSystemPrompt, userPortrait, responseLength: 'detailed', documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
+    // DeepSeek tends to reason internally in Chinese; force the chain-of-thought
+    // (reasoning_content) into Russian so the visible "ход мысли" is readable.
+    const reasoningSystem = `${baseReasoningSystem}\n\nВАЖНО: и внутренние рассуждения (chain-of-thought / reasoning), и финальный ответ веди ТОЛЬКО на русском языке.`;
     await streamFireworksReasoning(res, uid, activeModel, reasoningSystem, providerMessages);
     return;
   }

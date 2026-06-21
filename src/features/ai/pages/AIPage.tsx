@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles } from 'lucide-react';
+import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles, Square, X } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { DocumentPickerModal } from '../components/DocumentPickerModal';
 import { CreatePersonaModal } from '../components/CreatePersonaModal';
@@ -8,7 +8,7 @@ import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { personaVisual } from '../constants/personaVisuals';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { cn } from '../../../core/utils/utils';
-import { Monogram, threadPreview, AttachedNoteCard, AttachedFileCard, AttachedSummaryCard, AssistantTurn, ATTACHED_NOTE_RE, ATTACHED_NOTE_SUMMARY_RE, ATTACHED_FILE_RE } from '../components/AIChatPresentational';
+import { Monogram, threadPreview, AttachedFileCard, AttachedSummaryCard, AssistantTurn, ATTACHED_NOTE_RE, ATTACHED_NOTE_SUMMARY_RE, ATTACHED_FILE_RE } from '../components/AIChatPresentational';
 import { useAIPageData } from '../hooks/useAIPageData';
 import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
@@ -42,6 +42,7 @@ export function AIPage() {
     attachMenuOpen, setAttachMenuOpen,
     messagesEndRef, fileInputRef, attachMenuRef,
     isLoading, streamingMessage, streamingReasoning, error, clearError,
+    stop, pendingAttachment, removePendingAttachment,
     dialogue,
     dailyLimit,
     loadCustomPersonas,
@@ -312,15 +313,35 @@ export function AIPage() {
                 );
               }
 
+              if (isAttachedNote) {
+                // Attached note: title chip + the user's own message (if any),
+                // kept visible rather than tucked inside an expandable card.
+                const noteTitle = msg.content.match(ATTACHED_NOTE_RE)?.[1] ?? 'Заметка';
+                const userNote = msg.content.replace(ATTACHED_NOTE_RE, '').trim();
+                return (
+                  <div key={i} className="flex flex-col items-end gap-1.5">
+                    <div className="max-w-[78%] flex flex-col items-end gap-1.5">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-card border border-brand-soft/30 text-xs text-text-main/80 max-w-full">
+                        <Paperclip size={12} className="text-brand-soft shrink-0" />
+                        <span className="truncate">{noteTitle}</span>
+                      </span>
+                      {userNote && (
+                        <div className="px-4 py-3 rounded-2xl rounded-br-md bg-gradient-to-b from-brand-primary/25 to-brand-primary/15 border border-brand-primary/30 text-text-main text-[14.5px] leading-relaxed whitespace-pre-wrap max-h-72 overflow-y-auto">
+                          {userNote}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
               if (isAttachment) {
                 return (
                   <div key={i} className="flex flex-col items-end gap-1.5">
                     <div className="max-w-[78%]">
-                      {isAttachedNote
-                        ? <AttachedNoteCard content={msg.content} />
-                        : isAttachedSummary
-                          ? <AttachedSummaryCard content={msg.content} />
-                          : <AttachedFileCard content={msg.content} />}
+                      {isAttachedSummary
+                        ? <AttachedSummaryCard content={msg.content} />
+                        : <AttachedFileCard content={msg.content} />}
                     </div>
                   </div>
                 );
@@ -373,6 +394,20 @@ export function AIPage() {
 
         <div className="relative z-10 px-6 py-4 border-t border-border-subtle">
           <div>
+            {pendingAttachment && (
+              <div className="mb-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-card border border-brand-soft/30 text-xs text-text-main/80 max-w-full">
+                <Paperclip size={12} className="text-brand-soft shrink-0" />
+                <span className="truncate">{pendingAttachment.title}</span>
+                <button
+                  type="button"
+                  onClick={removePendingAttachment}
+                  className="shrink-0 text-text-main/50 hover:text-text-main transition-colors"
+                  aria-label={t('ai_close')}
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            )}
             <div className="flex items-end gap-2.5 p-2.5 pl-3.5 rounded-2xl bg-surface-card border border-border-subtle focus-within:border-brand-soft/40 transition-colors">
               <div className="relative" ref={attachMenuRef}>
                 <IconButton
@@ -416,14 +451,25 @@ export function AIPage() {
                 disabled={isLoading || dailyLimit.remaining === 0}
                 className="flex-1 bg-transparent py-1.5 text-[14.5px] text-text-main placeholder:text-text-main/40 outline-none disabled:opacity-40"
               />
-              <Button
-                onClick={() => void handleSendMessage()}
-                disabled={isLoading || !inputText.trim() || dailyLimit.remaining === 0}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl shrink-0 bg-gradient-to-b from-brand-soft to-brand-primary text-white text-[13.5px] font-semibold shadow-[0_4px_16px_rgba(125,79,209,0.35)] disabled:opacity-40 disabled:shadow-none transition-all"
-              >
-                {t('ai_send')}
-                <ArrowRight size={14} />
-              </Button>
+              {isLoading ? (
+                <Button
+                  onClick={() => stop()}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl shrink-0 bg-surface-elevated border border-border-subtle text-text-main/80 text-[13.5px] font-semibold hover:text-text-main transition-all"
+                >
+                  <span className="w-3.5 h-3.5 rounded-full border-2 border-text-main/30 border-t-text-main/80 animate-spin" />
+                  {t('ai_processing')}
+                  <Square size={13} className="fill-current" />
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => void handleSendMessage()}
+                  disabled={(!inputText.trim() && !pendingAttachment) || dailyLimit.remaining === 0}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl shrink-0 bg-gradient-to-b from-brand-soft to-brand-primary text-white text-[13.5px] font-semibold shadow-[0_4px_16px_rgba(125,79,209,0.35)] disabled:opacity-40 disabled:shadow-none transition-all"
+                >
+                  {t('ai_send')}
+                  <ArrowRight size={14} />
+                </Button>
+              )}
             </div>
 
             <div className="flex items-center gap-3.5 mt-2.5">
