@@ -16,12 +16,16 @@ const inputSchema = z.object({
 
 const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'accounts/fireworks/models/gpt-oss-20b';
 
-const SYSTEM_PROMPT = `Extract durable memory units from this conversation. Return JSON array of { kind: 'fact'|'insight'|'commitment'|'preference', text: short description }. Focus on:
-- Facts about the user's life (relationships, work, habits, events)
-- Psychological insights discovered (patterns, realizations, emotional themes)
-- Commitments or intentions the user expressed (goals, plans, decisions)
-- Communication preferences: pay special attention to direct feedback about the assistant's tone, pacing, style, length, or quality of answers (e.g. 'User dislikes verbose intros', 'User prefers bullet points', 'User found CBT approach helpful', 'User wants shorter answers').
-Keep each memory unit to 1-2 sentences. Return ONLY valid JSON array.`;
+const SYSTEM_PROMPT = `Extract durable memory units from this conversation. Return JSON array of { kind: 'fact'|'insight'|'commitment'|'preference', text: short description }.
+
+CRITICAL — source restriction: record ONLY what the USER actually stated or explicitly agreed with. NEVER store the assistant's own interpretations, metaphors, reframes, hypotheses, or wording as if they were the user's facts or insights. If an idea came from the assistant and the user did not voice or confirm it, DO NOT store it. When in doubt, leave it out — a smaller, user-grounded memory is far better than importing the assistant's narrative.
+
+Focus on:
+- Facts about the user's life the USER reported (relationships, work, habits, events)
+- Psychological insights the USER voiced or explicitly endorsed (patterns, realizations) — not the assistant's
+- Commitments or intentions the USER expressed (goals, plans, decisions)
+- Communication preferences: direct feedback the USER gave about the assistant's tone, pacing, style, length, or quality (e.g. 'User dislikes verbose intros', 'User prefers bullet points', 'User wants shorter answers').
+Keep each memory unit to 1-2 sentences, phrased as the user's own. Return ONLY valid JSON array.`;
 
 const VALID_KINDS = ['fact', 'insight', 'commitment', 'preference'];
 
