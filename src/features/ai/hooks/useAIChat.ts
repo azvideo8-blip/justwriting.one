@@ -445,8 +445,11 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       // PROF-6: augment context with relevant profile facets.
       // Always include for psychology/cbt/coach personas; for others only on search.
+      // BUT NOT when a note is attached: the note IS the subject of analysis, and
+      // mixing in facet/profile summaries made the model confabulate a fake note
+      // out of past themes (it described events that weren't in the attached text).
       const psychePersonas = ['group_psychology', 'cbt', 'coach', 'parts'];
-      const needsFacets = explicitSearch || stickySearch || psychePersonas.includes(effectivePersonaId);
+      const needsFacets = !attached && (explicitSearch || stickySearch || psychePersonas.includes(effectivePersonaId));
       const facetNoteIds = new Set<string>();
 
       // OPT-1: Single embedding for the query — reused in facets + search
@@ -475,11 +478,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           if (facets.length > 0) {
             // OPT-1: Compute query embedding ONCE, reuse for search
             if (queryEmb === undefined) {
-              // For an attached note, embed a bounded snippet (not the whole 45K
-              // note) so facet matching stays cheap and within embed limits.
               const embedQuery = explicitSearch || stickySearch
                 ? (explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`)
-                : (attached ? attached.content.slice(0, 2000) : text);
+                : text;
               const queryEmbResult = await AIService.embed({ content: embedQuery });
               queryEmb = queryEmbResult.ok && queryEmbResult.vectors[0] ? queryEmbResult.vectors[0] : undefined;
             }
@@ -806,7 +807,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       }
 
       // DLG-1: Cross-dialogue memory — inject relevant memories into context.
-      if (queryEmb) {
+      // Skip when a note is attached: memory of past chats (incl. the AI's own
+      // past interpretations) leaked in and got misattributed to the attached note.
+      if (queryEmb && !attached) {
         try {
           const memories = await AIChatMemoryService.getRelevant(queryEmb, 5);
           if (memories.length > 0) {
@@ -833,7 +836,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // 50K documentContent budget). Takes priority over facet/search context.
       if (attached?.content) {
         const noteText = attached.content.slice(0, 45_000);
-        const noteBlock = `[Полный текст заметки, прикреплённой пользователем для разбора]\n${noteText}`;
+        const noteBlock =
+          `[Прикреплённая пользователем заметка — ЕДИНСТВЕННЫЙ источник для разбора]\n` +
+          `Разбирай СТРОГО то, что реально написано ниже. Не добавляй событий, сцен, цитат, эмоций или фактов, которых в этом тексте нет (например слёз, сессий, чужих фраз), даже если они кажутся вероятными или звучали раньше. Если чего-то в тексте нет — значит этого нет.\n\n` +
+          noteText;
         if (searchContext) {
           const room = 48_000 - noteBlock.length;
           searchContext = room > 500 ? noteBlock + '\n\n' + searchContext.slice(0, room) : noteBlock;
