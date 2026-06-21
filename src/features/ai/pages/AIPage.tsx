@@ -47,7 +47,7 @@ export function AIPage() {
     dailyLimit,
     loadCustomPersonas,
     handleSendMessage, handleNewDialogue, handleArchive, handleDelete, handleExport,
-    handleDocSelect, handleCopyMessage, handleFileUpload,
+    handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload,
     handleSetResponseLength, handleRenameDialogue,
     responseLength,
     proactiveHint,
@@ -297,6 +297,7 @@ export function AIPage() {
                     color={convVisual.color}
                     mono={convVisual.mono}
                     onCopy={() => handleCopyMessage(msg.content)}
+                    onDelete={() => void handleDeleteMessage(i)}
                   >
                     {msg.reasoning && (
                       <details className="mb-3 rounded-xl border border-border-subtle bg-surface-card/50 overflow-hidden">
@@ -330,6 +331,7 @@ export function AIPage() {
                           {userNote}
                         </div>
                       )}
+                      <button type="button" onClick={() => void handleDeleteMessage(i)} className="text-text-main/30 hover:text-accent-danger transition-colors mr-1" aria-label={t('ai_delete_message')}><Trash2 size={11} /></button>
                     </div>
                   </div>
                 );
@@ -338,10 +340,11 @@ export function AIPage() {
               if (isAttachment) {
                 return (
                   <div key={i} className="flex flex-col items-end gap-1.5">
-                    <div className="max-w-[78%]">
+                    <div className="max-w-[78%] flex flex-col items-end gap-1.5">
                       {isAttachedSummary
                         ? <AttachedSummaryCard content={msg.content} />
                         : <AttachedFileCard content={msg.content} />}
+                      <button type="button" onClick={() => void handleDeleteMessage(i)} className="text-text-main/30 hover:text-accent-danger transition-colors mr-1" aria-label={t('ai_delete_message')}><Trash2 size={11} /></button>
                     </div>
                   </div>
                 );
@@ -352,7 +355,10 @@ export function AIPage() {
                   <div className="max-w-[78%] px-4 py-3 rounded-2xl rounded-br-md bg-gradient-to-b from-brand-primary/25 to-brand-primary/15 border border-brand-primary/30 text-text-main text-[14.5px] leading-relaxed">
                     {msg.content}
                   </div>
-                   <span className="text-[9px] font-mono uppercase tracking-[0.14em] text-text-main/60 mr-1">{t('ai_you')}</span>
+                  <div className="flex items-center gap-2 mr-1">
+                    <button type="button" onClick={() => void handleDeleteMessage(i)} className="text-text-main/30 hover:text-accent-danger transition-colors" aria-label={t('ai_delete_message')}><Trash2 size={11} /></button>
+                    <span className="text-[9px] font-mono uppercase tracking-[0.14em] text-text-main/60">{t('ai_you')}</span>
+                  </div>
                 </div>
               );
             })}

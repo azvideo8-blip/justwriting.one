@@ -235,6 +235,14 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     void navigator.clipboard?.writeText(text);
   };
 
+  const handleDeleteMessage = async (index: number) => {
+    const id = activeDialogueId ?? dialogue?.id;
+    if (!id) return;
+    if (!window.confirm('Удалить это сообщение из диалога? Действие необратимо.')) return;
+    await AIDialogueService.deleteMessage(id, index);
+    await loadDialogues();
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -339,7 +347,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     dailyLimit,
     loadDialogues, loadCustomPersonas,
     handleSendMessage, handleNewDialogue, handleArchive, handleDelete, handleExport,
-    handleDocSelect, handleCopyMessage, handleFileUpload,
+    handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload,
     allPersonas, openPersonaDetail,
     activeDialogue, displayMessages,
     activePersona, activeRole, headerVisual,
