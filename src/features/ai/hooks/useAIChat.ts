@@ -40,6 +40,18 @@ function looksLikeNoteSearch(text: string): boolean {
   return NOTE_SEARCH_PATTERNS.some(re => re.test(text));
 }
 
+// Attachment messages embed the full note/file body for display in the bubble,
+// but a chat message sent to the API is capped at 10K chars. The model already
+// received the note in full via documentContent on the attaching turn, so for
+// the API we collapse an attached-note message to just its marker line. A hard
+// cap is the safety net for any other oversized message.
+const API_MSG_CAP = 9_500;
+function toApiContent(content: string): string {
+  const noteMatch = content.match(/^\[Прикреплена заметка: "[^"]+"\]/);
+  if (noteMatch) return noteMatch[0];
+  return content.length > API_MSG_CAP ? content.slice(0, API_MSG_CAP) : content;
+}
+
 function pruneMessages(messages: AIMessage[]): AIMessage[] {
   const chatOnly = messages.filter(m => m.type !== 'system');
   if (chatOnly.length <= CONTEXT_WINDOW) return chatOnly;
@@ -366,7 +378,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       const apiAllMessages = attached
         ? allMessages.map((m, i) => i === allMessages.length - 1 ? { ...m, content: attached.apiText } : m)
         : allMessages;
-      const apiMessages = pruneMessages(apiAllMessages.filter(m => m.type !== 'system'));
+      // Collapse oversized attachment bodies so no single API message exceeds the
+      // 10K per-message cap (the full note travels via documentContent instead).
+      const apiMessages = pruneMessages(apiAllMessages.filter(m => m.type !== 'system'))
+        .map(m => ({ ...m, content: toApiContent(m.content) }));
 
       // async-cheap-condition-before-await: compute sync flags before any awaits.
       // An attached note must NOT trigger an archive search — the note is already
@@ -892,7 +907,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // CHATFIX-3: Extract memory every 3rd turn, not every turn
       messageCountRef.current += 1;
       if (messageCountRef.current % 3 === 0) {
-        void AIChatMemoryService.extractFromDialogue(currentDialogue.id, allMessages);
+        // Strip attachment bodies — memory extraction goes to an AI endpoint with
+        // the same per-message cap, and raw note text shouldn't be stored anyway.
+        const memMessages = allMessages.map(m => ({ ...m, content: toApiContent(m.content) }));
+        void AIChatMemoryService.extractFromDialogue(currentDialogue.id, memMessages);
       }
       const updated = await AIDialogueService.get(currentDialogue.id);
       setDialogue(updated ?? null);
