@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, ChevronDown, ChevronUp, File, Paperclip, Copy } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, File, Paperclip, Copy, Trash2 } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 
 const ATTACHED_NOTE_RE = /^\[Прикреплена заметка: "([^"]+)"\]/;
@@ -142,12 +142,14 @@ export function AssistantTurn({
   mono,
   children,
   onCopy,
+  onDelete,
 }: {
   name: string;
   color: string;
   mono: string;
   children: React.ReactNode;
   onCopy?: () => void;
+  onDelete?: () => void;
 }) {
   const borderStyle = { borderLeft: `2px solid ${color}40` };
   return (
@@ -163,15 +165,26 @@ export function AssistantTurn({
         >
           {children}
         </div>
-        {onCopy && (
+        {(onCopy || onDelete) && (
           <div className="flex gap-1 mt-3 -ml-2">
-            <Button
-              onClick={onCopy}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-text-main/35 hover:text-text-main/70 hover:bg-text-main/5 transition-colors font-mono text-[10px] tracking-wide"
-            >
-              <Copy size={11} aria-hidden="true" />
-              копировать
-            </Button>
+            {onCopy && (
+              <Button
+                onClick={onCopy}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-text-main/35 hover:text-text-main/70 hover:bg-text-main/5 transition-colors font-mono text-[10px] tracking-wide"
+              >
+                <Copy size={11} aria-hidden="true" />
+                копировать
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                onClick={onDelete}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-text-main/35 hover:text-accent-danger hover:bg-accent-danger/10 transition-colors font-mono text-[10px] tracking-wide"
+              >
+                <Trash2 size={11} aria-hidden="true" />
+                удалить
+              </Button>
+            )}
           </div>
         )}
       </div>

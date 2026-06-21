@@ -50,6 +50,19 @@ export const AIDialogueService = {
     await db.put('aiDialogues', existing);
   },
 
+  // Remove a single message by its index in dialogue.messages. Used to clean a
+  // dialogue (e.g. delete an early hallucinated turn so it stops being replayed).
+  async deleteMessage(id: string, index: number): Promise<void> {
+    const db = await getLocalDb();
+    const existing = await db.get('aiDialogues', id);
+    if (!existing) return;
+    if (index < 0 || index >= existing.messages.length) return;
+    existing.messages.splice(index, 1);
+    existing.updatedAt = Date.now();
+    await db.put('aiDialogues', existing);
+    window.dispatchEvent(new Event('dialogue-updated'));
+  },
+
   async updateTitle(id: string, title: string): Promise<void> {
     const db = await getLocalDb();
     const existing = await db.get('aiDialogues', id);
