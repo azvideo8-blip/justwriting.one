@@ -128,24 +128,34 @@ async function generateFireworks(params: GenerateParams): Promise<GenerateResult
   };
   if (json) body.response_format = { type: 'json_object' };
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), abortMs ?? 110_000);
-  let res: Response;
-  try {
-    res = await fetch(`${FIREWORKS_BASE_URL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
+  // Retry transient upstream errors (502/503/504 "no healthy upstream") with a
+  // short backoff — Fireworks serverless models occasionally return these.
+  const MAX_ATTEMPTS = 3;
+  let res!: Response;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), abortMs ?? 110_000);
+    try {
+      res = await fetch(`${FIREWORKS_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
-  if (!res.ok) {
+    if (res.ok) break;
+
+    const transient = res.status === 502 || res.status === 503 || res.status === 504;
+    if (transient && attempt < MAX_ATTEMPTS) {
+      await new Promise(r => setTimeout(r, 500 * attempt));
+      continue;
+    }
     const errText = await res.text().catch(() => '');
     throw new Error(`Fireworks ${res.status}: ${errText.slice(0, 300)}`);
   }

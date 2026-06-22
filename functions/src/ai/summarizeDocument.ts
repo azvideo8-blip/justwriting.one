@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, recordUsage, withinGlobalDailyLimit, refundDailyLimit, getLangfuse } from '../shared/aiUtils';
-import { generate, getActiveModel } from '../shared/aiProvider';
+import { generate } from '../shared/aiProvider';
 
 const SUMMARY_SYSTEM_PROMPT = `Проанализируй текст и верни JSON-объект со следующими полями:
 - tone: одно слово (нейтральный/задумчивый/тревожный/вдохновляющий/радостный/грустный/злой/усталый)
@@ -12,6 +12,12 @@ const SUMMARY_SYSTEM_PROMPT = `Проанализируй текст и верн
 - mentionedPeople: массив объектов { name: "имя или прозвище", role: "отношение к автору (жена/муж/дочь/сын/мать/отец/коллега/друг/партнёр/брат/сестра/итд)" } для каждого РЕАЛЬНОГО человека, упомянутого в тексте. Извлекай только настоящие имена людей (Саша, Маша, Дмитрий), не слова или понятия. Если людей нет — пустой массив. Не включай имена персонажей, авторов книг или публичных деятелей.
 
 Верни ТОЛЬКО валидный JSON без пояснений и markdown-обёртки.`;
+
+// Summaries are a structured JSON task — use the light, reliable structured model
+// (same as facets/memory), NOT the heavy active reasoning model. The reasoning
+// model is slower, costlier, leaks <think>, and was returning Fireworks 503
+// ("no healthy upstream") for these non-streaming JSON calls. Override via AI_FACET_MODEL.
+const SUMMARY_MODEL = process.env.AI_FACET_MODEL ?? 'accounts/fireworks/models/gpt-oss-20b';
 
 const inputSchema = z.object({
   content: z.string().min(50).max(50_000),
@@ -50,7 +56,7 @@ export const summarizeDocument = onCall({
     : sanitizedContent;
 
   const lf = getLangfuse();
-  const activeModel = await getActiveModel();
+  const activeModel = SUMMARY_MODEL;
   const trace = lf?.trace({ name: 'summarizeDocument', userId: uid });
   const generation = trace?.generation({ name: activeModel, model: activeModel, input: prompt });
 
@@ -65,6 +71,7 @@ export const summarizeDocument = onCall({
       json: true,
       maxTokens: 4096,
       abortMs: 110_000,
+      model: SUMMARY_MODEL,
     });
     text = result.text;
     tokensIn = result.tokensIn;
