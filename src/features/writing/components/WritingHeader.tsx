@@ -55,7 +55,7 @@ export const WritingHeader = React.memo(function WritingHeader({
   const setWordGoal = useTimerStore(s => s.setWordGoal);
   const setTimerDuration = useTimerStore(s => s.setTimerDuration);
 
-  const sessionWords = wordCount - sessionStartWords;
+  const sessionWords = Math.max(0, wordCount - sessionStartWords);
   const sessionSeconds = Math.max(0, seconds - sessionStartSeconds);
 
   const showZen = isZenActive && zenModeEnabled;

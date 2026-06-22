@@ -65,7 +65,7 @@ export function AppTab({ userId: _userId, onRefreshLifeLog: _onRefreshLifeLog }:
 
         {isAuthenticated && (
           <div className="flex items-center justify-between px-1 mb-3">
-            <span className="text-sm text-text-main/60">Автосинхронизация с облаком</span>
+            <span className="text-sm text-text-main/60">{t('settings_auto_sync')}</span>
             <button
               onClick={toggleAutoSync}
               role="switch"

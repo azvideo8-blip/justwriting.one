@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 2026-06-22 (v0.7.31)
+- **[RU]** Чат ИИ: устранена галлюцинация на прикреплённой заметке — на ходах с заметкой не подмешиваются темы профиля и память прошлых бесед (модель выдумывала события, которых в заметке нет); строгое заземление строго по тексту заметки.
+- **[EN]** AI chat: fixed attached-note hallucination — profile facets and cross-dialogue memory are no longer mixed in on note turns (the model invented events absent from the note); strict grounding to the note text.
+- **[RU]** Прикреплённая заметка «липкая» на весь диалог и переживает перезагрузку (диалог привязан к документу) — уточняющие вопросы остаются по тексту заметки.
+- **[EN]** Attached note stays sticky for the whole dialogue and survives reload (dialogue linked to its document) — follow-ups stay grounded in the note.
+- **[RU]** Чат ИИ: кнопка «Стоп» (сохраняет частичный ответ), удаление отдельных сообщений, «ответить иначе» (regenerate), оценки 👍/👎 → в память предпочтений, чек-ин настроения, подсказки-стартеры и продолжения, кризис-баннер с телефонами помощи; рассуждения принудительно на русском.
+- **[EN]** AI chat: Stop button (keeps the partial answer), delete individual messages, "regenerate", 👍/👎 feedback → preference memory, mood check-in, starter/follow-up suggestions, crisis banner with help lines; reasoning forced to Russian.
+- **[RU]** Очистка памяти ИИ и «схлопнуть версии» в Диагностике; «разобрать как заметку» для длинной вставки.
+- **[EN]** Clear AI memory and "collapse versions" in Diagnostics; "analyze as a note" for long pasted text.
+- **[RU]** Письмо: подсказки «о чём писать» в выборе режима; «В этот день» в архиве; мягкий дневной напоминатель на главной; график настроения в профиле.
+- **[EN]** Writing: "what to write about" prompts in mode selection; "On this day" in archive; gentle daily nudge on home; mood-over-time chart in profile.
+- **[RU]** QA-фиксы: краш поиска при пустом content; нельзя сохранить пустую сессию; синк больше не выкидывает молча офлайн-очередь >24ч; отрицательные «слова сессии» в шапке; подтверждение при удалении диалога/персоны; регистронезависимый дедуп тегов; сброс вибро-вех между сессиями; GDPR-экспорт пропускает заблокированные сессии и пишет реальную версию; экспорт чата без system-сообщений; пустой файл при отсутствии диалога; восстановление архивированного диалога; i18n для ряда строк; README приведён в соответствие.
+- **[EN]** QA fixes: search crash on empty content; empty session can no longer be saved; sync no longer silently drops the >24h offline queue; negative "session words" in the header; confirm on dialogue/persona delete; case-insensitive tag dedup; vibration-milestone reset between sessions; GDPR export skips locked sessions and writes the real version; chat export drops system messages; empty file when dialogue missing; unarchive a dialogue; i18n for several strings; README aligned with the app.
+- **[RU]** Service Worker: CACHE_VERSION обновлён до v0.7.31.
+- **[EN]** Service Worker: CACHE_VERSION updated to v0.7.31.
+
 ## 2026-06-21 (v0.7.30)
 - **[RU]** Критично: стриминговый `/api/chat` лежал полностью (500 ERR_MODULE_NOT_FOUND из-за extensionless ESM-импорта) с версии 0.7.29 — каждый чат молча уходил в callable-фоллбэк. Починено.
 - **[EN]** Critical: streaming `/api/chat` was fully down (500 ERR_MODULE_NOT_FOUND from an extensionless ESM import) since 0.7.29 — every chat silently fell back to the callable. Fixed.

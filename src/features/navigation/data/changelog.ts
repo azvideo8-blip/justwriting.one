@@ -14,6 +14,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.31',
+    date: '2026-06-22',
+    items: [
+      { category: 'fix', ru: 'Чат: убрана галлюцинация на прикреплённой заметке — разбор строго по её тексту, без подмеса тем/памяти', en: 'Chat: fixed attached-note hallucination — strict grounding to the note text' },
+      { category: 'improvement', ru: 'Прикреплённая заметка «липкая» на весь диалог и переживает перезагрузку', en: 'Attached note stays sticky for the whole dialogue and survives reload' },
+      { category: 'new', ru: 'Чат: «Стоп», удаление сообщений, «ответить иначе», 👍/👎, чек-ин настроения, стартеры/продолжения, кризис-баннер', en: 'Chat: Stop, delete messages, regenerate, 👍/👎, mood check-in, starters/follow-ups, crisis banner' },
+      { category: 'fix', ru: 'Рассуждения теперь на русском (был китайский)', en: 'Reasoning now in Russian (was Chinese)' },
+      { category: 'new', ru: 'Письмо: подсказки «о чём писать», «В этот день» в архиве, дневной напоминатель, график настроения в профиле', en: 'Writing: prompts, "On this day", daily nudge, mood-over-time chart' },
+      { category: 'new', ru: 'Диагностика: очистка памяти ИИ и «схлопнуть версии»', en: 'Diagnostics: clear AI memory and collapse versions' },
+      { category: 'fix', ru: 'QA-пачка: краш поиска, пустые сессии, молчаливый дроп офлайн-очереди, подтверждения удаления, дедуп тегов, GDPR-экспорт и др.', en: 'QA batch: search crash, empty sessions, silent sync-queue drop, delete confirms, tag dedup, GDPR export, etc.' },
+    ],
+  },
+  {
     version: '0.7.30',
     date: '2026-06-21',
     items: [

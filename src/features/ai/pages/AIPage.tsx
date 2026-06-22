@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles, Square, X } from 'lucide-react';
+import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles, Square, X, RotateCcw } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { DocumentPickerModal } from '../components/DocumentPickerModal';
 import { CreatePersonaModal } from '../components/CreatePersonaModal';
@@ -50,7 +50,7 @@ export function AIPage() {
     dialogue,
     dailyLimit,
     loadCustomPersonas,
-    handleSendMessage, handleNewDialogue, handleArchive, handleDelete, handleExport,
+    handleSendMessage, handleNewDialogue, handleArchive, handleUnarchive, handleDelete, handleExport,
     handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload,
     handleSetResponseLength, handleRenameDialogue,
     responseLength,
@@ -140,6 +140,15 @@ export function AIPage() {
                       <span className="truncate">{preview}</span>
                     </span>
                   </span>
+                  {showArchived && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); void handleUnarchive(d.id); }}
+                      className="shrink-0 p-1.5 rounded-lg text-text-main/60 hover:text-brand-soft transition-colors"
+                      title={t('ai_unarchive')}
+                    >
+                      <RotateCcw size={14} />
+                    </button>
+                  )}
                 </Button>
               );
             })}

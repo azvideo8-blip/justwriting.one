@@ -153,6 +153,12 @@ export function MobileWriteScreen({
   }, [wordCount, sessionStartWords]);
 
   useEffect(() => {
+    if (status === 'idle') {
+      prevMilestoneRef.current = 0;
+    }
+  }, [status]);
+
+  useEffect(() => {
     const hintShown = localStorage.getItem('focus_swipe_hint_shown');
     if (hintShown) return;
     // hideTimer must be cleared from the effect cleanup — a function returned

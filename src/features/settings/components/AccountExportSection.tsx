@@ -10,6 +10,7 @@ import { ExportStrings } from '../../archive/services/ArchiveExportService';
 import { Section } from './SettingsHelpers';
 import { Button } from '../../../shared/components/Button';
 import { saveAs } from 'file-saver';
+import { APP_VERSION } from '../../../version';
 
 interface AccountExportSectionProps {
   userId: string;
@@ -59,27 +60,33 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
         nickname: user?.displayName ?? null,
         email: user?.email ?? null,
       };
+      const exportableSessions = sessions.filter(s => !s._locked && !s._decryptionError);
+      const skippedCount = sessions.length - exportableSessions.length;
       const exportData = {
         exportedAt: new Date().toISOString(),
-        appVersion: 'justwriting',
+        appVersion: APP_VERSION,
         profile: profileData,
-        sessions: sessions.map(s => ({
-          id: s.id,
-          title: s.title ?? null,
-          content: s.content,
-          wordCount: s.wordCount ?? null,
-          charCount: s.charCount ?? null,
-          duration: s.duration ?? null,
-          wpm: s.wpm ?? null,
-          createdAt: s.createdAt ?? null,
-          tags: s.tags ?? [],
-          mood: s.mood ?? null,
-          isPublic: s.isPublic ?? false,
-        })),
+        sessions: exportableSessions
+          .map(s => ({
+            id: s.id,
+            title: s.title ?? null,
+            content: s.content,
+            wordCount: s.wordCount ?? null,
+            charCount: s.charCount ?? null,
+            duration: s.duration ?? null,
+            wpm: s.wpm ?? null,
+            createdAt: s.createdAt ?? null,
+            tags: s.tags ?? [],
+            mood: s.mood ?? null,
+            isPublic: s.isPublic ?? false,
+          })),
       };
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       saveAs(blob, `justwriting-export-${new Date().toISOString().slice(0, 10)}.json`);
-      showToast(t('settings_export_all_done', { count: sessions.length }), 'success');
+      showToast(t('settings_export_all_done', { count: exportableSessions.length }), 'success');
+      if (skippedCount > 0) {
+        showToast(t('settings_export_all_skipped', { count: skippedCount }), 'error');
+      }
     } catch (err) {
       reportError(err, { action: 'exportJson' });
       showToast(t('error_generic_action'), 'error');

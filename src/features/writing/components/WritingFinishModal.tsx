@@ -254,7 +254,7 @@ export function WritingFinishModal({
                 className="mt-4 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-soft/10 border border-brand-soft/20 text-brand-soft text-sm font-medium hover:bg-brand-soft/20"
               >
                 <Sparkles size={14} />
-                Отправить в AI
+                {t('writing_send_to_ai')}
               </Button>
             )}
           </motion.div>
@@ -337,6 +337,7 @@ export function WritingFinishModal({
                   size="md"
                   onClick={handleSaveClick}
                   isLoading={isSaving}
+                  disabled={wordCount === 0}
                   className="flex-[2] px-3 py-3.5 font-bold rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30 min-h-[44px] text-sm"
                 >
                   {isSaving ? t('finish_saving') : t('common_save')}
@@ -422,6 +423,7 @@ export function WritingFinishModal({
               size="md"
               onClick={handleSaveClick}
               isLoading={isSaving}
+              disabled={wordCount === 0}
               className="flex-[2] px-4 py-3.5 font-bold rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30 text-sm"
             >
               {isSaving ? t('finish_saving') : t('common_save')}

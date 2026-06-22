@@ -107,4 +107,9 @@ export const archiveTranslations: Translations = {
   archive_note_count_one: { ru: '{count} заметка', en: '{count} note' },
   archive_note_count_few: { ru: '{count} заметки', en: '{count} notes' },
   archive_note_count_many: { ru: '{count} заметок', en: '{count} notes' },
+  archive_on_this_day_title: { ru: 'В этот день', en: 'On this day' },
+  archive_on_this_day_year: { ru: 'год назад', en: 'a year ago' },
+  archive_on_this_day_half_year: { ru: 'полгода назад', en: 'half a year ago' },
+  archive_on_this_day_month: { ru: 'месяц назад', en: 'a month ago' },
+  archive_untitled: { ru: 'Без названия', en: 'Untitled' },
 };
