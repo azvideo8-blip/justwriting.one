@@ -19,6 +19,14 @@ interface EncryptionState {
 
 let autoLockTimer: ReturnType<typeof setTimeout> | null = null;
 let lastActivity = Date.now();
+// When the user opted into "remember on this device", auto-lock is disabled —
+// they've explicitly chosen convenience over the inactivity lock.
+let rememberDevice = false;
+
+export function setRememberDevice(on: boolean): void {
+  rememberDevice = on;
+  if (on) clearAutoLockTimer();
+}
 
 function clearAutoLockTimer() {
   if (autoLockTimer) {
@@ -28,6 +36,7 @@ function clearAutoLockTimer() {
 }
 
 function startAutoLockTimer() {
+  if (rememberDevice) return;
   clearAutoLockTimer();
   autoLockTimer = setTimeout(() => {
     useEncryptionStore.getState().lockVault();

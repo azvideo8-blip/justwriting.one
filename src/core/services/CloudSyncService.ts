@@ -109,7 +109,66 @@ export const CloudSyncService = {
 
       if (localDoc.linkedCloudId) {
         const existingDoc = await withTimeout(DocumentService.getDocument(userId, localDoc.linkedCloudId));
-        if (existingDoc) return localDoc.linkedCloudId;
+        if (existingDoc) {
+          // Already linked: push any LOCAL versions missing from the cloud and
+          // refresh metadata. Previously this early-returned, so edits made after
+          // the first sync never reached the cloud (doc stayed "Unsynced Edits").
+          const cloudId = localDoc.linkedCloudId;
+          const [localVersions, cloudVersions] = await Promise.all([
+            LocalVersionService.getVersions(localDocumentId),
+            withTimeout(VersionService.getVersions(userId, cloudId)),
+          ]);
+          const cloudNums = new Set(cloudVersions.map(v => v.version));
+          const missing = localVersions.filter(v => !cloudNums.has(v.version));
+          const limiter = pLimit(3);
+          await Promise.all(missing.map((ver) => limiter(async () => {
+            const idx = localVersions.findIndex(v => v.id === ver.id);
+            const prevContent = idx <= 0 ? '' : (localVersions[idx - 1]?.content ?? '');
+            const startedAt = ver.sessionStartedAt != null
+              ? new Date(ver.sessionStartedAt)
+              : new Date(ver.savedAt || Date.now());
+            if (isNaN(startedAt.getTime())) {
+              throw new Error(`Invalid sessionStartedAt for version ${ver.id}`);
+            }
+            const versionPayload = await maybeEncrypt({
+              content: ver.content,
+              previousContent: prevContent,
+              wordCount: ver.wordCount,
+              duration: ver.duration,
+              wpm: ver.wpm,
+              versionNumber: ver.version,
+              goalWords: ver.goalWords,
+              goalTime: ver.goalTime,
+              goalReached: ver.goalReached,
+              sessionStartedAt: startedAt,
+            } satisfies VersionEncryptPayload, ['content', 'previousContent'], [], userId);
+            const content = typeof versionPayload.content === 'string' ? versionPayload.content : '';
+            const previousContent = typeof versionPayload.previousContent === 'string' ? versionPayload.previousContent : '';
+            const _encrypted = typeof versionPayload._encrypted === 'boolean' ? versionPayload._encrypted : undefined;
+            await withTimeout(VersionService.addVersion(userId, cloudId, {
+              content,
+              previousContent,
+              wordCount: ver.wordCount,
+              duration: ver.duration,
+              wpm: ver.wpm,
+              versionNumber: ver.version,
+              goalWords: ver.goalWords,
+              goalTime: ver.goalTime,
+              goalReached: ver.goalReached,
+              sessionStartedAt: startedAt,
+              savedAt: ver.savedAt ? new Date(ver.savedAt) : undefined,
+              _encrypted,
+            }));
+          })));
+          await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
+            totalWords: localDoc.totalWords,
+            totalDuration: localDoc.totalDuration,
+            currentVersion: localDoc.currentVersion,
+            sessionsCount: localDoc.sessionsCount,
+            lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
+          }));
+          return cloudId;
+        }
         await LocalStorageService.updateLinkedCloudId(localDocumentId, '');
       }
 

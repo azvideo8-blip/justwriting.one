@@ -16,6 +16,9 @@ import {
   WrongPasswordError,
 } from '../../../core/services/EncryptionService';
 import { migrateFromLegacy } from '../../../core/services/LegacyKeyMigration';
+import { getSessionKey } from '../../../core/crypto/encrypt';
+import { saveDeviceKey } from '../../../core/crypto/keyVaultCache';
+import { setRememberDevice } from '../../../core/crypto/useEncryptionStore';
 import type { EncryptionModalMode } from '../hooks/useEncryptionSetup';
 
 interface EncryptionPasswordModalProps {
@@ -40,6 +43,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
   const [currentPassword, setCurrentPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rememberDevice, setRememberDeviceChecked] = useState(false);
 
   const passwordRef = useRef<HTMLInputElement>(null);
 
@@ -85,6 +89,10 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
     setError(null);
     try {
       await unlockVault(userId, password);
+      if (rememberDevice) {
+        const key = getSessionKey();
+        if (key) { await saveDeviceKey(userId, key); setRememberDevice(true); }
+      }
       showToast(t('unlock_success'), 'success');
       setPassword('');
       onDone();
@@ -284,6 +292,18 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
                 required
                 minLength={MIN_PASSWORD_LENGTH}
               />
+            )}
+
+            {isUnlock && (
+              <label className="flex items-center gap-2.5 px-1 cursor-pointer select-none text-sm text-text-main/70">
+                <input
+                  type="checkbox"
+                  checked={rememberDevice}
+                  onChange={(e) => setRememberDeviceChecked(e.target.checked)}
+                  className="w-4 h-4 accent-[var(--brand-primary)]"
+                />
+                {t('enc_remember_device')}
+              </label>
             )}
 
             <Button
