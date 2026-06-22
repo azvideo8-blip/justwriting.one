@@ -422,6 +422,13 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       if (attached) attachedNoteRef.current = attached;
       const effectiveAttached = attached ?? attachedNoteRef.current ?? undefined;
 
+      // SAFETY: user asks to analyze "their note" but no note text is actually in
+      // context (attach didn't fire / not re-sent). Never fabricate a note from
+      // profile themes — suppress facets/memory and force the model to ask for the
+      // text instead. This is the catastrophic case (it invented a whole fake note).
+      const noteAnalysisIntent = /(заметк|запис|аскез)/i.test(text) && /(разбер|разбор|проанализ|анализ|прочит|посмотр|глян)/i.test(text);
+      const noteIntentNoText = !effectiveAttached?.content && noteAnalysisIntent;
+
       // For attached notes the last user message goes to the API as a short
       // marker; the full note text travels via documentContent (see below).
       // Build the API history from the FRESHEST stored state (not the closure),
@@ -488,7 +495,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // mixing in facet/profile summaries made the model confabulate a fake note
       // out of past themes (it described events that weren't in the attached text).
       const psychePersonas = ['group_psychology', 'cbt', 'coach', 'parts'];
-      const needsFacets = !effectiveAttached && (explicitSearch || stickySearch || psychePersonas.includes(effectivePersonaId));
+      const needsFacets = !effectiveAttached && !noteIntentNoText && (explicitSearch || stickySearch || psychePersonas.includes(effectivePersonaId));
       const facetNoteIds = new Set<string>();
 
       // OPT-1: Single embedding for the query — reused in facets + search
@@ -848,7 +855,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // DLG-1: Cross-dialogue memory — inject relevant memories into context.
       // Skip when a note is attached: memory of past chats (incl. the AI's own
       // past interpretations) leaked in and got misattributed to the attached note.
-      if (queryEmb && !effectiveAttached) {
+      if (queryEmb && !effectiveAttached && !noteIntentNoText) {
         try {
           const memories = await AIChatMemoryService.getRelevant(queryEmb, 5);
           if (memories.length > 0) {
@@ -886,6 +893,13 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         } else {
           searchContext = noteBlock;
         }
+      } else if (noteIntentNoText) {
+        // User asked to analyze a note but its text isn't here — forbid fabrication.
+        searchContext =
+          `ВНИМАНИЕ: пользователь просит разобрать заметку, но ЕЁ ТЕКСТ НЕ ПРИЛОЖЕН к этому сообщению и его нет в контексте. ` +
+          `У тебя НЕТ текста этой заметки. КАТЕГОРИЧЕСКИ запрещено выдумывать, реконструировать или пересказывать её содержание — ` +
+          `даже если кажется, что ты «помнишь» тему. Не сочиняй ни единого предложения «из заметки». ` +
+          `Вместо этого коротко и по-доброму скажи, что не видишь текста заметки, и попроси прикрепить её (скрепкой) или вставить текст. Ничего больше не придумывай.`;
       }
 
       // Defensive clamps — never exceed the API schema limits (documentContent

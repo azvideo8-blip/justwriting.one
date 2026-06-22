@@ -16,7 +16,10 @@ export const AIChatMemoryService = {
     if (userMessages.length < 2) return;
 
     try {
-      const result = await AIService.extractChatMemory({ messages: messages.filter(m => m.type !== 'system') as { role: string; content: string }[] });
+      // Backend caps the array at 50 messages — send only the most recent chat
+      // turns (a long dialogue would otherwise 400). Recent context is enough.
+      const recent = messages.filter(m => m.type !== 'system').slice(-40);
+      const result = await AIService.extractChatMemory({ messages: recent as { role: string; content: string }[] });
       if (!result.ok || result.memories.length === 0) return;
 
       const db = await getLocalDb();
