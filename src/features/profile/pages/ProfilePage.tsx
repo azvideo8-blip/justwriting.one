@@ -13,6 +13,7 @@ import { KPIStrip } from '../components/KPIStrip';
 import { StreakRibbon } from '../components/StreakRibbon';
 import { Heatmap } from '../components/Heatmap';
 import { HourRhythm } from '../components/HourRhythm';
+import { MoodTrend } from '../components/MoodTrend';
 import { Achievements } from '../components/Achievements';
 import { ProfileService } from '../services/ProfileService';
 import { useToast } from '../../../shared/components/Toast';
@@ -108,6 +109,10 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           <div className="hidden md:block h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_30%,var(--border-light))] to-transparent" />
           <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden">
             <HourRhythm sessions={sessions} />
+          </div>
+          <div className="hidden md:block h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_30%,var(--border-light))] to-transparent" />
+          <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden">
+            <MoodTrend userId={userId} />
           </div>
           <div className="hidden md:block h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_30%,var(--border-light))] to-transparent" />
           <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden">
