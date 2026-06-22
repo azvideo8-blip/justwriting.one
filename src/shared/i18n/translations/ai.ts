@@ -26,4 +26,6 @@ export const aiTranslations: Translations = {
   ai_remaining_today: { ru: 'осталось', en: 'remaining' },
   ai_today: { ru: 'сегодня', en: 'today' },
   ai_description_prompt: { ru: 'Описание и промпт', en: 'Description and prompt' },
+  ai_unarchive: { ru: 'Восстановить', en: 'Restore' },
+  ai_delete_confirm: { ru: 'Удалить диалог безвозвратно?', en: 'Delete this dialogue permanently?' },
 };

@@ -86,6 +86,7 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
 
   const handleDelete = async () => {
     if (persona.isPreset) return;
+    if (!window.confirm('Удалить персону безвозвратно?')) return;
     await AIPersonaService.delete(persona.id);
     onChanged();
     onClose();

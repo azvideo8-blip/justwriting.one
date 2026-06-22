@@ -36,7 +36,7 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
 
   const addTag = () => {
     const val = input.trim().replace(/^#+/, '');
-    if (val && !tags.includes(val)) {
+    if (val && !tags.some(t => t.toLowerCase() === val.toLowerCase())) {
       onChange([...tags, val]);
     }
     setInput('');

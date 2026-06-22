@@ -257,8 +257,14 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     }
   };
 
+  const handleUnarchive = async (id: string) => {
+    await AIDialogueService.unarchive(id);
+    await loadDialogues();
+  };
+
   const handleDelete = async () => {
     if (activeDialogueId) {
+      if (!window.confirm('Удалить диалог безвозвратно?')) return;
       await AIDialogueService.delete(activeDialogueId);
       setActiveDialogueId(null);
       await loadDialogues();
@@ -268,6 +274,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const handleExport = async () => {
     if (!activeDialogueId) return;
     const md = await AIDialogueService.exportAsMarkdown(activeDialogueId);
+    if (!md) return;
     const blob = new Blob([md], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -400,7 +407,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     crisisActive, dismissCrisis,
     dailyLimit,
     loadDialogues, loadCustomPersonas,
-    handleSendMessage, handleNewDialogue, handleArchive, handleDelete, handleExport,
+    handleSendMessage, handleNewDialogue, handleArchive, handleUnarchive, handleDelete, handleExport,
     handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload,
     allPersonas, openPersonaDetail,
     activeDialogue, displayMessages,

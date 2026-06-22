@@ -62,7 +62,7 @@ Both views support full-text search with highlighted matches.
 
 ### Profile
 
-Your lifetime numbers at a glance: total words, total sessions, current streak, total writing time, average WPM, and average session length.
+Your lifetime numbers at a glance: total words, total sessions, current streak, average session length, typical writing hour, and words per day.
 
 ### Calendar
 

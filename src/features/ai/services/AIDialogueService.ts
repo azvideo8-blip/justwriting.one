@@ -106,6 +106,15 @@ export const AIDialogueService = {
     await db.put('aiDialogues', existing);
   },
 
+  async unarchive(id: string): Promise<void> {
+    const db = await getLocalDb();
+    const existing = await db.get('aiDialogues', id);
+    if (!existing) return;
+    existing.archivedAt = undefined;
+    existing.updatedAt = Date.now();
+    await db.put('aiDialogues', existing);
+  },
+
   async delete(id: string): Promise<void> {
     const db = await getLocalDb();
     await db.delete('aiDialogues', id);
@@ -136,11 +145,13 @@ export const AIDialogueService = {
     const docLine = dialogue.documentId ? `\nDocument: ${dialogue.documentId}` : '';
     const header = `# Dialogue with ${dialogue.personaName} ${dialogue.personaEmoji}\nDate: ${dateStr}${docLine}\n\n---\n\n`;
 
-    const messages = dialogue.messages.map(m =>
-      m.role === 'user'
-        ? `**You:** ${m.content}`
-        : `**${dialogue.personaName}:** ${m.content}`
-    ).join('\n\n');
+    const messages = dialogue.messages
+      .filter(m => m.type !== 'system')
+      .map(m =>
+        m.role === 'user'
+          ? `**You:** ${m.content}`
+          : `**${dialogue.personaName}:** ${m.content}`
+      ).join('\n\n');
 
     return header + messages;
   },
