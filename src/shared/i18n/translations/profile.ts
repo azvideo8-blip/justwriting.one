@@ -43,6 +43,8 @@ export const profileTranslations: Translations = {
   profile_heatmap_more:       { ru: 'больше',                     en: 'more' },
   profile_rhythm_title:       { ru: 'Ритм дня',                   en: 'Daily rhythm' },
   profile_rhythm_peak:        { ru: 'типичный час',               en: 'typical hour' },
+  profile_mood_title:         { ru: 'Настроение',                 en: 'Mood' },
+  profile_mood_most:          { ru: 'чаще всего',                 en: 'most often' },
   profile_achievements_title:  { ru: 'Достижения',  en: 'Achievements' },
   profile_achievement_done:    { ru: 'получено',     en: 'unlocked' },
   profile_achievement_locked:  { ru: 'не получено',  en: 'locked' },
