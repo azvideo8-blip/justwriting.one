@@ -74,6 +74,19 @@ export const AIDialogueService = {
     await db.put('aiDialogues', existing);
   },
 
+  // Remove all messages from `fromIndex` to the end (used by "regenerate": trim
+  // the trailing user+assistant turn so it can be re-sent fresh).
+  async truncateFrom(id: string, fromIndex: number): Promise<void> {
+    const db = await getLocalDb();
+    const existing = await db.get('aiDialogues', id);
+    if (!existing) return;
+    if (fromIndex < 0 || fromIndex >= existing.messages.length) return;
+    existing.messages.splice(fromIndex);
+    existing.updatedAt = Date.now();
+    await db.put('aiDialogues', existing);
+    window.dispatchEvent(new Event('dialogue-updated'));
+  },
+
   async updateTitle(id: string, title: string): Promise<void> {
     const db = await getLocalDb();
     const existing = await db.get('aiDialogues', id);

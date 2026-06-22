@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, ChevronDown, ChevronUp, File, Paperclip, Copy, Trash2 } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, File, Paperclip, Copy, Trash2, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 
 const ATTACHED_NOTE_RE = /^\[Прикреплена заметка: "([^"]+)"\]/;
@@ -143,6 +143,8 @@ export function AssistantTurn({
   children,
   onCopy,
   onDelete,
+  onRegenerate,
+  onFeedback,
 }: {
   name: string;
   color: string;
@@ -150,6 +152,8 @@ export function AssistantTurn({
   children: React.ReactNode;
   onCopy?: () => void;
   onDelete?: () => void;
+  onRegenerate?: (() => void) | undefined;
+  onFeedback?: ((value: 'up' | 'down') => void) | undefined;
 }) {
   const borderStyle = { borderLeft: `2px solid ${color}40` };
   return (
@@ -165,8 +169,8 @@ export function AssistantTurn({
         >
           {children}
         </div>
-        {(onCopy || onDelete) && (
-          <div className="flex gap-1 mt-3 -ml-2">
+        {(onCopy || onDelete || onRegenerate || onFeedback) && (
+          <div className="flex gap-1 mt-3 -ml-2 flex-wrap">
             {onCopy && (
               <Button
                 onClick={onCopy}
@@ -175,6 +179,33 @@ export function AssistantTurn({
                 <Copy size={11} aria-hidden="true" />
                 копировать
               </Button>
+            )}
+            {onRegenerate && (
+              <Button
+                onClick={onRegenerate}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-text-main/35 hover:text-text-main/70 hover:bg-text-main/5 transition-colors font-mono text-[10px] tracking-wide"
+              >
+                <RefreshCw size={11} aria-hidden="true" />
+                иначе
+              </Button>
+            )}
+            {onFeedback && (
+              <>
+                <Button
+                  onClick={() => onFeedback('up')}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-md text-text-main/35 hover:text-brand-soft hover:bg-brand-soft/10 transition-colors"
+                  aria-label="Полезный ответ"
+                >
+                  <ThumbsUp size={11} aria-hidden="true" />
+                </Button>
+                <Button
+                  onClick={() => onFeedback('down')}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-md text-text-main/35 hover:text-accent-danger hover:bg-accent-danger/10 transition-colors"
+                  aria-label="Не то"
+                >
+                  <ThumbsDown size={11} aria-hidden="true" />
+                </Button>
+              </>
             )}
             {onDelete && (
               <Button

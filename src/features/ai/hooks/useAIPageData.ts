@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { AIDialogueService } from '../services/AIDialogueService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
+import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import { TelemetryService } from '../../../core/services/TelemetryService';
 import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService';
@@ -13,6 +14,26 @@ import type { PersonaDetailTarget } from '../components/PersonaDetailModal';
 type ResponseLength = 'short' | 'standard' | 'detailed' | 'reasoning';
 
 const MAX_INPUT_CHARS = 10_000;
+
+// Conversation starters (empty chat) and follow-up suggestions (after a reply).
+export const CHAT_STARTERS = [
+  'Разобрать мой сегодняшний день',
+  'Помоги копнуть глубже в то, что беспокоит',
+  'Просто хочу выговориться',
+];
+export const CHAT_FOLLOW_UPS = [
+  'Расскажи об этом подробнее',
+  'А что мне с этим делать?',
+  'Помоги увидеть это под другим углом',
+];
+// 1-tap mood check-in (passed to the model as documentMood for the next message).
+export const CHAT_MOODS: { emoji: string; label: string }[] = [
+  { emoji: '😟', label: 'тревожно' },
+  { emoji: '😔', label: 'грустно' },
+  { emoji: '😐', label: 'нейтрально' },
+  { emoji: '🙂', label: 'спокойно' },
+  { emoji: '😊', label: 'хорошо' },
+];
 
 export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const [dialogues, setDialogues] = useState<AIDialogue[]>([]);
@@ -30,6 +51,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   // Feature: staged note attachment — attaching shows a chip; the note is sent
   // together with the user's typed message instead of auto-sending on attach.
   const [pendingAttachment, setPendingAttachment] = useState<{ documentId: string; title: string; content: string } | null>(null);
+  const [chatMood, setChatMood] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -46,6 +68,9 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     attachDocument,
     prepareAttachment,
     stop,
+    regenerateLast,
+    crisisActive,
+    dismissCrisis,
     clearError,
   } = useAIChat(activeDialogueId, selectedPersonaId, responseLength);
 
@@ -147,10 +172,12 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     return () => document.removeEventListener('mousedown', dismiss);
   }, [attachMenuOpen]);
 
-  const handleSendMessage = async () => {
-    const text = inputText.trim();
+  const handleSendMessage = async (overrideText?: string) => {
+    const text = (overrideText ?? inputText).trim();
     if ((!text && !pendingAttachment) || isLoading) return;
-    setInputText('');
+    if (overrideText === undefined) setInputText('');
+    const mood = chatMood ?? undefined;
+    setChatMood(null);
     let id: string | null;
     if (pendingAttachment) {
       const marker = `[Прикреплена заметка: "${pendingAttachment.title}"]`;
@@ -160,12 +187,33 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       // across reloads; pasted text uses a synthetic id and isn't persisted.
       const docId = pendingAttachment.documentId.startsWith('local_') ? pendingAttachment.documentId : undefined;
       setPendingAttachment(null);
-      id = await sendMessage(display, docId ? { content, documentId: docId } : { content });
+      id = await sendMessage(display, docId ? { content, documentId: docId } : { content }, mood);
     } else {
-      id = await sendMessage(text);
+      id = await sendMessage(text, undefined, mood);
     }
     // Select the (possibly newly created) dialogue so it persists across nav.
     if (!activeDialogueId && id) setActiveDialogueId(id);
+    await loadDialogues();
+  };
+
+  // Tap a starter / follow-up suggestion → send it immediately.
+  const handleSuggestion = (text: string) => { void handleSendMessage(text); };
+
+  // 👍/👎 on an answer → store an explicit preference memory (silent, ≤2 clicks).
+  const handleFeedback = async (value: 'up' | 'down') => {
+    if (value === 'up') {
+      await AIChatMemoryService.addManual('preference', 'Пользователю понравился такой ответ (тон/подход) — продолжать в этом духе.', activeDialogueId ?? undefined);
+    } else {
+      const reason = (window.prompt('Что не так с ответом? (необязательно)') ?? '').trim();
+      const text = reason
+        ? `Пользователю не понравился ответ: ${reason}. Учесть в тоне/подходе.`
+        : 'Пользователю не понравился такой ответ (тон/подход) — скорректировать стиль.';
+      await AIChatMemoryService.addManual('preference', text, activeDialogueId ?? undefined);
+    }
+  };
+
+  const handleRegenerate = async () => {
+    await regenerateLast();
     await loadDialogues();
   };
 
@@ -347,6 +395,9 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     clearError,
     stop,
     pendingAttachment, removePendingAttachment, handlePasteAsNote,
+    chatMood, setChatMood,
+    handleSuggestion, handleFeedback, handleRegenerate,
+    crisisActive, dismissCrisis,
     dailyLimit,
     loadDialogues, loadCustomPersonas,
     handleSendMessage, handleNewDialogue, handleArchive, handleDelete, handleExport,
