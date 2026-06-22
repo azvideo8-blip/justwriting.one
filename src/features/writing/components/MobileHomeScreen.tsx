@@ -61,6 +61,14 @@ export function MobileHomeScreen({
     .flatMap(g => g.sessions)
     .slice(0, 3);
 
+  // Gentle daily nudge: have we written anything today? (best-effort reminder —
+  // reliable web push needs a server, so this is an in-app prompt.)
+  const wroteToday = (() => {
+    const now = new Date();
+    const isToday = (d: Date) => d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    return summary.totalWords > 0 || sessionGroups.some(g => g.date instanceof Date && isToday(g.date));
+  })();
+
   const [pulse, setPulse] = useState(false);
   useEffect(() => {
     const timer = setInterval(() => setPulse(p => !p), 2000);
@@ -206,6 +214,16 @@ export function MobileHomeScreen({
           {greeting.top},<br/>
           <span className="text-[var(--text-muted)]">{greeting.bottom}</span>
         </div>
+        {!wroteToday && !hasDraft && (
+          <button
+            type="button"
+            onClick={onStart}
+            className="mt-4 w-full text-left rounded-2xl border border-brand-soft/25 bg-brand-soft/[0.06] hover:bg-brand-soft/10 transition-colors px-4 py-3 flex items-center gap-3"
+          >
+            <span className="text-lg">✍️</span>
+            <span className="flex-1 text-sm text-text-main/80 leading-snug">{t('home_nudge_today')}</span>
+          </button>
+        )}
       </div>
 
       <div className="flex-1 flex items-center justify-center flex-col gap-4" >

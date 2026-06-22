@@ -136,6 +136,7 @@ export const writingTranslations: Translations = {
 
   writing_mode_prompts: { ru: 'С подсказкой', en: 'With a prompt' },
   writing_mode_prompts_desc: { ru: 'Выбери тему и пиши', en: 'Pick a topic and write' },
+  writing_prompts_cta: { ru: 'Не знаешь, о чём писать?', en: "Not sure what to write about?" },
   prompts_category_morning: { ru: 'Утро', en: 'Morning' },
   prompts_category_reflect: { ru: 'Рефлексия', en: 'Reflection' },
   prompts_category_creative: { ru: 'Творчество', en: 'Creativity' },
