@@ -52,7 +52,19 @@ export function MoodTrend({ userId }: { userId: string }) {
   if (total === 0) return null;
 
   const fmtDate = (ts: number) => new Date(ts).toLocaleDateString(language, { day: 'numeric', month: 'short' });
-  const timeline = entries.slice(-30);
+
+  // Continuous per-day axis (last 30 days): a day with a mood shows its emoji,
+  // a skipped day shows a dot — so the timeline reflects real spacing.
+  const DAYS = 30;
+  const dayKey = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
+  const moodByDay = new Map<string, string>();
+  for (const e of entries) moodByDay.set(dayKey(e.date), e.mood); // later (newer) wins
+  const timeline: { ts: number; mood: string | null }[] = [];
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  for (let i = DAYS - 1; i >= 0; i--) {
+    const d = new Date(start); d.setDate(start.getDate() - i);
+    timeline.push({ ts: d.getTime(), mood: moodByDay.get(dayKey(d.getTime())) ?? null });
+  }
 
   return (
     <div className="px-4 py-6 md:px-9 md:py-8 border-b border-border-subtle">
@@ -65,22 +77,26 @@ export function MoodTrend({ userId }: { userId: string }) {
         )}
       </div>
 
-      {/* Timeline: emotional arc over the recent entries (oldest → newest) */}
-      <div className="flex items-end gap-1 overflow-x-auto no-scrollbar pb-1">
-        {timeline.map((e, i) => (
-          <div key={i} className="flex flex-col items-center gap-1 shrink-0" title={fmtDate(e.date)}>
-            <div className={cn('w-7 h-7 rounded-lg border flex items-center justify-center text-base', TONE_CLASS[MOOD_META[e.mood]!.tone])}>
-              {e.mood}
-            </div>
+      {/* Timeline: one cell per day; skipped days are dots, so spacing is real */}
+      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1">
+        {timeline.map((d, i) => (
+          <div key={i} className="shrink-0 flex items-center justify-center" title={fmtDate(d.ts)}>
+            {d.mood ? (
+              <div className={cn('w-7 h-7 rounded-lg border flex items-center justify-center text-base', TONE_CLASS[MOOD_META[d.mood]!.tone])}>
+                {d.mood}
+              </div>
+            ) : (
+              <div className="w-7 h-7 flex items-center justify-center">
+                <span className="w-1 h-1 rounded-full bg-text-main/20" />
+              </div>
+            )}
           </div>
         ))}
       </div>
-      {timeline.length > 1 && (
-        <div className="flex justify-between mt-1.5 font-mono text-label text-text-main/50">
-          <span>{fmtDate(timeline[0]!.date)}</span>
-          <span>{fmtDate(timeline[timeline.length - 1]!.date)}</span>
-        </div>
-      )}
+      <div className="flex justify-between mt-1.5 font-mono text-label text-text-main/50">
+        <span>{fmtDate(timeline[0]!.ts)}</span>
+        <span>{fmtDate(timeline[timeline.length - 1]!.ts)}</span>
+      </div>
 
       {/* Distribution over the period */}
       <div className="flex flex-wrap gap-3 mt-5">

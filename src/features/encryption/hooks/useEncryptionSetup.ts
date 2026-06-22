@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuthStatus } from '../../../app/useAuthStatus';
-import { isVaultUnlocked } from '../../../core/crypto/encrypt';
+import { isVaultUnlocked, setSessionKey } from '../../../core/crypto/encrypt';
+import { loadDeviceKey } from '../../../core/crypto/keyVaultCache';
+import { setRememberDevice } from '../../../core/crypto/useEncryptionStore';
 import { hasEncryptionMeta } from '../../../core/services/EncryptionMetaService';
 import { hasLegacyEncryption } from '../../../core/services/LegacyKeyMigration';
 
@@ -37,7 +39,15 @@ export function useEncryptionSetup(): {
     try {
       const hasNew = await hasEncryptionMeta(user.uid);
       if (hasNew) {
-        setMode('unlock');
+        // "Remember on this device": auto-unlock from the cached key, no prompt.
+        const deviceKey = await loadDeviceKey(user.uid);
+        if (deviceKey) {
+          setSessionKey(deviceKey);
+          setRememberDevice(true);
+          setMode('none');
+        } else {
+          setMode('unlock');
+        }
       } else if (legacy) {
         setMode('migrate');
       } else {

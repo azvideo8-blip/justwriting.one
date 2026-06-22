@@ -4,7 +4,8 @@ import { EncryptionService, WrongPasswordError } from '../../../core/services/En
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
-import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
+import { useEncryptionStore, setRememberDevice } from '../../../core/crypto/useEncryptionStore';
+import { clearDeviceKey } from '../../../core/crypto/keyVaultCache';
 import { type MigrationProgress } from '../../../core/crypto/encryptMigration';
 import { Section } from './SettingsHelpers';
 import { useAuthStatus } from '../../../app/useAuthStatus';
@@ -87,6 +88,9 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
 
   const handleLockVault = () => {
     EncryptionService.lockVault(userId);
+    // Explicit lock cancels "remember on this device" so it won't auto-unlock on reload.
+    setRememberDevice(false);
+    void clearDeviceKey(userId);
     showToast(t('settings_lock_vault') || 'Vault locked', 'success');
   };
 
