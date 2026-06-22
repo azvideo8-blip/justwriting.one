@@ -14,6 +14,7 @@ import { ArchiveHeader, type SortMode } from '../components/ArchiveHeader';
 import { ArchiveTagBar } from '../components/ArchiveTagBar';
 import { ArchiveLabelBar } from '../components/ArchiveLabelBar';
 import { ArchiveNoteList } from '../components/ArchiveNoteList';
+import { OnThisDayCard } from '../components/OnThisDayCard';
 import { ArchiveConfirmModals } from '../components/ArchiveConfirmModals';
 import { MobileArchiveSidebarSheet } from '../components/MobileArchiveSidebarSheet';
 import { useArchiveData } from '../hooks/useArchiveData';
@@ -199,6 +200,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 <Button onClick={() => void fetchSessions()} className="underline text-accent-danger/70 hover:text-accent-danger">{t('retry')}</Button>
               </div>
             )}
+            {!searchQuery && <OnThisDayCard sessions={filteredByFilters} onOpen={s => setPreviewSession(s)} />}
             </div>
             <div className="mt-4 flex-1 min-h-0 pr-1">
               <ArchiveNoteList

@@ -33,6 +33,7 @@ export const lifelogTranslations: Translations = {
   greeting_question:  { ru: 'что на уме?',     en: "what's on your mind?" },
 
   home_streak_days:   { ru: 'дней',            en: 'days' },
+  home_nudge_today:   { ru: 'Сегодня ты ещё не писал — самое время начать практику.', en: "You haven't written today — a good moment to start." },
   home_cta:           { ru: 'Начать',          en: 'Start' },
   profile_cta:        { ru: 'Написать сейчас', en: 'Write now' },
   home_cta_hint:      { ru: 'или просто начни писать',  en: 'or just start typing' },

@@ -16,7 +16,7 @@ const PROMPT_KEYS = [
   { key: 'creative', promptKeys: ['prompt_creative_1', 'prompt_creative_2', 'prompt_creative_3'] },
 ] as const;
 
-function _PromptsScreen({ t, onSelect, onBack }: {
+function PromptsScreen({ t, onSelect, onBack }: {
   t: (key: string) => string;
   onSelect: (prompt: string) => void;
   onBack: () => void;
@@ -64,7 +64,7 @@ function _PromptsScreen({ t, onSelect, onBack }: {
   );
 }
 
-export type SetupMode = 'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | 'finish-by-config' | null;
+export type SetupMode = 'selection' | 'timer-config' | 'words-config' | 'countdown' | 'session-selection' | 'finish-by-config' | 'prompts' | null;
 
 interface WritingSetupProps {
   setupMode: SetupMode;
@@ -83,7 +83,7 @@ export function WritingSetup({
   countdown,
   userSessions,
   continueSession,
-  onSetPromptTitle: _onSetPromptTitle,
+  onSetPromptTitle,
 }: WritingSetupProps) {
   const { t, language } = useLanguage();
   const timerDuration = useTimerStore(s => s.timerDuration);
@@ -173,7 +173,27 @@ export function WritingSetup({
                       </motion.button>
                     ))}
                   </div>
+
+                  {onSetPromptTitle && (
+                    <Button
+                      variant="ghost"
+                      size="md"
+                      onClick={() => setSetupMode('prompts')}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-text-main/60 hover:text-text-main"
+                    >
+                      <PenLine size={15} />
+                      {t('writing_prompts_cta')}
+                    </Button>
+                  )}
                 </>
+              )}
+
+              {setupMode === 'prompts' && (
+                <PromptsScreen
+                  t={t}
+                  onSelect={(prompt) => { onSetPromptTitle?.(prompt); setSetupMode('selection'); }}
+                  onBack={() => setSetupMode('selection')}
+                />
               )}
 
               {(setupMode === 'timer-config' || setupMode === 'words-config' || setupMode === 'finish-by-config') && (
