@@ -9,7 +9,8 @@ import { personaVisual } from '../constants/personaVisuals';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { cn } from '../../../core/utils/utils';
 import { Monogram, threadPreview, AttachedFileCard, AttachedSummaryCard, AssistantTurn, ATTACHED_NOTE_RE, ATTACHED_NOTE_SUMMARY_RE, ATTACHED_FILE_RE } from '../components/AIChatPresentational';
-import { useAIPageData } from '../hooks/useAIPageData';
+import { CRISIS_RESOURCES } from '../utils/riskDetect';
+import { useAIPageData, CHAT_STARTERS, CHAT_FOLLOW_UPS, CHAT_MOODS } from '../hooks/useAIPageData';
 import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
@@ -43,6 +44,9 @@ export function AIPage() {
     messagesEndRef, fileInputRef, attachMenuRef,
     isLoading, streamingMessage, streamingReasoning, error, clearError,
     stop, pendingAttachment, removePendingAttachment, handlePasteAsNote,
+    chatMood, setChatMood,
+    handleSuggestion, handleFeedback, handleRegenerate,
+    crisisActive, dismissCrisis,
     dialogue,
     dailyLimit,
     loadCustomPersonas,
@@ -60,6 +64,14 @@ export function AIPage() {
 
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+
+  const lastAssistantIdx = (() => {
+    for (let i = displayMessages.length - 1; i >= 0; i--) {
+      const m = displayMessages[i];
+      if (m && m.role === 'assistant' && m.type !== 'system') return i;
+    }
+    return -1;
+  })();
 
   const handleSaveRename = () => {
     setIsRenaming(false);
@@ -269,6 +281,19 @@ export function AIPage() {
                   <p className="text-base font-medium text-text-main/70">{t('ai_start_dialogue', { name: activePersona?.name ?? '' })}</p>
                   <p className="text-xs text-text-main/60 mt-1.5">{t('ai_select_persona')}</p>
                 </div>
+                <div className="flex flex-col gap-2 w-full max-w-sm">
+                  {CHAT_STARTERS.map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => handleSuggestion(s)}
+                      disabled={isLoading || dailyLimit.remaining === 0}
+                      className="px-4 py-2.5 rounded-xl bg-surface-card border border-border-subtle text-sm text-text-main/80 hover:border-brand-soft/40 hover:text-text-main transition-colors disabled:opacity-40"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -298,6 +323,8 @@ export function AIPage() {
                     mono={convVisual.mono}
                     onCopy={() => handleCopyMessage(msg.content)}
                     onDelete={() => void handleDeleteMessage(i)}
+                    onFeedback={v => void handleFeedback(v)}
+                    onRegenerate={i === lastAssistantIdx && !isLoading ? () => void handleRegenerate() : undefined}
                   >
                     {msg.reasoning && (
                       <details className="mb-3 rounded-xl border border-border-subtle bg-surface-card/50 overflow-hidden">
@@ -394,12 +421,62 @@ export function AIPage() {
                 </div>
               </div>
             )}
+
+            {!isLoading && streamingMessage === null && !error && lastAssistantIdx === displayMessages.length - 1 && displayMessages.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {CHAT_FOLLOW_UPS.map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => handleSuggestion(s)}
+                    disabled={dailyLimit.remaining === 0}
+                    className="px-3 py-1.5 rounded-full bg-surface-card border border-border-subtle text-xs text-text-main/70 hover:border-brand-soft/40 hover:text-text-main transition-colors disabled:opacity-40"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
         </div>
 
+        {crisisActive && (
+          <div className="relative z-10 mx-6 mb-2 rounded-xl border border-accent-danger/30 bg-accent-danger/10 px-4 py-3">
+            <div className="flex items-start gap-2">
+              <span className="text-sm">🆘</span>
+              <div className="flex-1 text-xs text-text-main/80 leading-relaxed">
+                <p className="font-semibold mb-1">Если тяжело — ты не один. Можно позвонить живому человеку прямо сейчас:</p>
+                <ul className="space-y-0.5">
+                  {CRISIS_RESOURCES.map(r => <li key={r}>{r}</li>)}
+                </ul>
+              </div>
+              <button type="button" onClick={dismissCrisis} className="text-text-main/40 hover:text-text-main transition-colors" aria-label={t('ai_close')}><X size={14} /></button>
+            </div>
+          </div>
+        )}
+
         <div className="relative z-10 px-6 py-4 border-t border-border-subtle">
           <div>
+            {!isLoading && (
+              <div className="mb-2 flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] text-text-main/50 mr-0.5">как ты?</span>
+                {CHAT_MOODS.map(m => (
+                  <button
+                    key={m.label}
+                    type="button"
+                    onClick={() => setChatMood(chatMood === m.label ? null : m.label)}
+                    title={m.label}
+                    className={cn(
+                      "w-7 h-7 rounded-lg text-sm transition-colors",
+                      chatMood === m.label ? "bg-brand-soft/25 ring-1 ring-brand-soft/50" : "hover:bg-text-main/5 opacity-70 hover:opacity-100"
+                    )}
+                  >
+                    {m.emoji}
+                  </button>
+                ))}
+              </div>
+            )}
             {!pendingAttachment && inputText.trim().length > 1500 && (
               <button
                 type="button"

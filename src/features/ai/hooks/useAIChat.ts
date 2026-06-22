@@ -229,10 +229,13 @@ interface UseAIChatReturn {
   streamingMessage: string | null;
   streamingReasoning: string | null;
   error: string | null;
-  sendMessage: (text: string, attached?: { content: string; documentId?: string }) => Promise<string | null>;
+  sendMessage: (text: string, attached?: { content: string; documentId?: string }, mood?: string) => Promise<string | null>;
   attachDocument: (documentId: string) => Promise<void>;
   prepareAttachment: (documentId: string) => Promise<{ title: string; content: string } | null>;
   stop: () => void;
+  regenerateLast: () => Promise<void>;
+  crisisActive: boolean;
+  dismissCrisis: () => void;
   clearError: () => void;
 }
 
@@ -242,6 +245,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   const [streamingMessage, setStreamingMessage] = useState<string | null>(null);
   const [streamingReasoning, setStreamingReasoning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Safety-by-design: surface crisis resources in the UI (not just the prompt)
+  // once acute-risk markers are detected; stays until the user dismisses it.
+  const [crisisActive, setCrisisActive] = useState(false);
 
   // L12: Cache portrait across messages to avoid Firestore reads per turn.
   const portraitCacheRef = useRef<string | null | undefined>(undefined);
@@ -278,6 +284,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     doorsCacheRef.current = null;
     messageCountRef.current = 0;
     attachedNoteRef.current = null;
+    setCrisisActive(false);
   }, [dialogueId]);
 
   useEffect(() => {
@@ -357,7 +364,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   // so the model reads the whole note while the chat message stays small (just a
   // "[Прикреплена заметка: …]" marker plus any text the user typed). The note body
   // is never put into the message itself (that would trip the 10K per-message cap).
-  const sendMessage = useCallback(async (text: string, attached?: { content: string; documentId?: string }): Promise<string | null> => {
+  const sendMessage = useCallback(async (text: string, attached?: { content: string; documentId?: string }, mood?: string): Promise<string | null> => {
     if (!text.trim()) return null;
 
     const { remaining } = useAiLimitStore.getState();
@@ -417,9 +424,15 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       // For attached notes the last user message goes to the API as a short
       // marker; the full note text travels via documentContent (see below).
+      // Build the API history from the FRESHEST stored state (not the closure),
+      // so regenerate (which trims the trailing turn before re-sending) doesn't
+      // replay the old answer as context. Append the current user turn.
+      const freshBase = dialogueId ? await AIDialogueService.get(dialogueId) : null;
+      const baseMessages = freshBase ? freshBase.messages : (dialogue?.messages ?? []);
+      const sourceForApi: AIMessage[] = [...baseMessages, { role: 'user' as const, content: text, type: 'chat' as const }];
       // Collapse any oversized attachment body so no single API message exceeds the
       // 10K per-message cap (the full note travels via documentContent instead).
-      const apiMessages = pruneMessages(allMessages.filter(m => m.type !== 'system'))
+      const apiMessages = pruneMessages(sourceForApi.filter(m => m.type !== 'system'))
         .map(m => ({ ...m, content: toApiContent(m.content) }));
 
       // async-cheap-condition-before-await: compute sync flags before any awaits.
@@ -851,6 +864,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // THERAPY-2: Crisis safety check — if acute risk detected, inject safety context
       const riskResult = detectRisk(text);
       if (riskResult.isRisk) {
+        setCrisisActive(true);
         const crisisBlock = `⚠️ КРИЗИСНЫЙ КОНТЕКСТ: пользователь выразил явные маркеры острого риска. ` +
           `СЛЕДУЙ КРИЗИСНОМУ ПРОТОКОЛУ (SAFETY_GUIDE). ` +
           `Ресурсы для пользователя: ${CRISIS_RESOURCES.join(' | ')}. ` +
@@ -892,6 +906,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             customSystemPrompt,
             messages: apiMessages,
             documentContent: searchContext,
+            documentMood: mood,
             userPortrait: safePortrait,
             responseLength: effectiveResponseLength,
             signal: controller.signal,
@@ -1048,5 +1063,34 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     abortRef.current?.abort();
   }, []);
 
-  return { dialogue, isLoading, streamingMessage, streamingReasoning, error, sendMessage, attachDocument, prepareAttachment, stop, clearError };
+  const dismissCrisis = useCallback(() => setCrisisActive(false), []);
+
+  // "Ответить иначе": trim the trailing user+assistant turn and re-send the last
+  // user message so the model produces a fresh answer (grounding stays via the
+  // sticky note / dialogue documentId).
+  const regenerateLast = useCallback(async () => {
+    if (isLoading) return;
+    const id = dialogueId ?? dialogue?.id;
+    if (!id) return;
+    const d = await AIDialogueService.get(id);
+    if (!d) return;
+    const msgs = d.messages;
+    let aiIdx = -1;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const m = msgs[i];
+      if (m && m.role === 'assistant' && m.type !== 'system') { aiIdx = i; break; }
+    }
+    if (aiIdx < 0) return;
+    let userIdx = -1;
+    for (let i = aiIdx - 1; i >= 0; i--) {
+      if (msgs[i]?.role === 'user') { userIdx = i; break; }
+    }
+    if (userIdx < 0) return;
+    const userText = msgs[userIdx]?.content ?? '';
+    if (!userText) return;
+    await AIDialogueService.truncateFrom(id, userIdx);
+    await sendMessage(userText);
+  }, [isLoading, dialogueId, dialogue, sendMessage]);
+
+  return { dialogue, isLoading, streamingMessage, streamingReasoning, error, sendMessage, attachDocument, prepareAttachment, stop, regenerateLast, crisisActive, dismissCrisis, clearError };
 }

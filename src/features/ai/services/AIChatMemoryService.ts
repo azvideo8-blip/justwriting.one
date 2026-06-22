@@ -67,6 +67,30 @@ export const AIChatMemoryService = {
     }
   },
 
+  // Store an explicit memory unit (e.g. from a 👍/👎 on an answer). Embedded so it
+  // surfaces in future turns via getRelevant — feeds the preference layer directly.
+  async addManual(kind: MemoryKind, text: string, sourceDialogueId?: string): Promise<void> {
+    if (!text.trim()) return;
+    try {
+      const db = await getLocalDb();
+      const now = Date.now();
+      const embResult = await AIService.embed({ content: text });
+      const vector = embResult.ok && embResult.vectors[0] ? embResult.vectors[0] : undefined;
+      const entry: AIChatMemory = {
+        id: randomUUID(),
+        kind,
+        text,
+        sourceDialogueId: sourceDialogueId ?? 'manual',
+        createdAt: now,
+        updatedAt: now,
+      };
+      if (vector) entry.vector = vector;
+      await db.put('aiChatMemory', entry);
+    } catch (e) {
+      console.warn('[AIChatMemoryService] addManual failed:', e);
+    }
+  },
+
   async getRelevant(queryVector: number[], k = 5): Promise<AIChatMemory[]> {
     const db = await getLocalDb();
     const all = await db.getAll('aiChatMemory');
