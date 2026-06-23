@@ -5,6 +5,9 @@ import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import { TelemetryService } from '../../../core/services/TelemetryService';
 import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
+import { getOrCreateGuestId } from '../../../core/storage/localDb';
+import { getAuth } from 'firebase/auth';
 import { useAIChat } from '../hooks/useAIChat';
 import { useDailyLimit } from '../hooks/useDailyLimit';
 import { personaVisual, usePersonaRole } from '../constants/personaVisuals';
@@ -34,6 +37,23 @@ export const CHAT_MOODS: { emoji: string; label: string }[] = [
   { emoji: '🙂', label: 'спокойно' },
   { emoji: '😊', label: 'хорошо' },
 ];
+
+// Auto-pull: "разбери/прочитай (мою)? (последнюю|сегодняшнюю|вчерашнюю|свежую)? заметку/аскезу"
+const NOTE_REF_RE = /(заметк|запис|аскез)/i;
+const NOTE_VERB_RE = /(разбер|разбор|проанализ|анализ|прочит|посмотр|глян)/i;
+type DocLite = { id: string; title?: string | undefined; lastSessionAt?: number; firstSessionAt?: number };
+function sameCalendarDay(ms: number, ref: Date): boolean {
+  const d = new Date(ms);
+  return d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth() && d.getDate() === ref.getDate();
+}
+function pickNoteByText<T extends DocLite>(docs: T[], text: string): T | null {
+  if (docs.length === 0) return null;
+  const recent = [...docs].sort((a, b) => (b.lastSessionAt ?? b.firstSessionAt ?? 0) - (a.lastSessionAt ?? a.firstSessionAt ?? 0));
+  const now = new Date();
+  if (/сегодняшн|сегодня/i.test(text)) return recent.find(d => sameCalendarDay(d.lastSessionAt ?? d.firstSessionAt ?? 0, now)) ?? recent[0] ?? null;
+  if (/вчерашн|вчера/i.test(text)) { const y = new Date(now); y.setDate(now.getDate() - 1); return recent.find(d => sameCalendarDay(d.lastSessionAt ?? d.firstSessionAt ?? 0, y)) ?? recent[0] ?? null; }
+  return recent[0] ?? null; // последнюю / свежую / мою / эту → самая свежая
+}
 
 export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const [dialogues, setDialogues] = useState<AIDialogue[]>([]);
@@ -175,25 +195,54 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const handleSendMessage = async (overrideText?: string) => {
     const text = (overrideText ?? inputText).trim();
     if ((!text && !pendingAttachment) || isLoading) return;
-    if (overrideText === undefined) setInputText('');
+
+    // Resolve the note to attach: an explicitly staged one, OR auto-pull from the
+    // archive by date when the user says "разбери мою последнюю/сегодняшнюю заметку".
+    let attach: { documentId: string; title: string; content: string } | null = pendingAttachment;
+    if (!attach && text && NOTE_REF_RE.test(text) && NOTE_VERB_RE.test(text)) {
+      try {
+        const uid = getAuth().currentUser?.uid ?? getOrCreateGuestId();
+        const docs = await LocalDocumentService.getGuestDocuments(uid);
+        const picked = pickNoteByText(docs, text);
+        if (picked) {
+          const prepared = await prepareAttachment(picked.id);
+          if (prepared && prepared.content.trim()) attach = { documentId: picked.id, title: prepared.title, content: prepared.content };
+        }
+      } catch { /* fall through to a plain message */ }
+    }
+
     const mood = chatMood ?? undefined;
+    const prevPending = pendingAttachment;
+    if (overrideText === undefined) setInputText('');
     setChatMood(null);
+    setPendingAttachment(null);
+
     let id: string | null;
-    if (pendingAttachment) {
-      const marker = `[Прикреплена заметка: "${pendingAttachment.title}"]`;
-      const display = text ? `${marker}\n\n${text}` : marker;
-      const content = pendingAttachment.content;
-      // Real notes carry a 'local_…' id so the dialogue can stay linked to them
-      // across reloads; pasted text uses a synthetic id and isn't persisted.
-      const docId = pendingAttachment.documentId.startsWith('local_') ? pendingAttachment.documentId : undefined;
-      setPendingAttachment(null);
-      id = await sendMessage(display, docId ? { content, documentId: docId } : { content }, mood);
+    if (attach) {
+      const marker = `[Прикреплена заметка: "${attach.title}"]`;
+      const content = attach.content;
+      // Deliver the note IN the message when it fits (most reliable channel, like
+      // file upload); large notes go via documentContent. Real notes keep a
+      // 'local_…' id so the dialogue stays linked across reloads.
+      const fits = content.length <= 9000;
+      const docId = attach.documentId.startsWith('local_') ? attach.documentId : undefined;
+      const display = fits
+        ? `${marker}\n\n${content}${text ? `\n\n— — —\nВопрос: ${text}` : ''}`
+        : (text ? `${marker}\n\n${text}` : marker);
+      id = await sendMessage(display, { content, ...(docId ? { documentId: docId } : {}), inline: fits }, mood);
     } else {
       id = await sendMessage(text, undefined, mood);
     }
-    // Select the (possibly newly created) dialogue so it persists across nav.
-    if (!activeDialogueId && id) setActiveDialogueId(id);
-    await loadDialogues();
+
+    if (id) {
+      if (!activeDialogueId) setActiveDialogueId(id);
+      await loadDialogues();
+    } else {
+      // Failure / stop / daily-limit — restore the user's message and attachment
+      // so nothing typed is lost (they can retry without re-typing).
+      if (overrideText === undefined) setInputText(text);
+      if (prevPending) setPendingAttachment(prevPending);
+    }
   };
 
   // Tap a starter / follow-up suggestion → send it immediately.

@@ -40,16 +40,17 @@ function looksLikeNoteSearch(text: string): boolean {
   return NOTE_SEARCH_PATTERNS.some(re => re.test(text));
 }
 
-// Attachment messages embed the full note/file body for display in the bubble,
-// but a chat message sent to the API is capped at 10K chars. The model already
-// received the note in full via documentContent on the attaching turn, so for
-// the API we collapse an attached-note message to just its marker line. A hard
-// cap is the safety net for any other oversized message.
+// A chat message sent to the API is capped at 10K chars. Small messages pass
+// through untouched (so an attached note that fits is delivered IN the message,
+// the most reliable channel — same as file upload). Only OVERSIZED attachment
+// messages are collapsed to their marker (the full note then travels via
+// documentContent), with a hard slice as the final safety net.
 const API_MSG_CAP = 9_500;
 function toApiContent(content: string): string {
+  if (content.length <= API_MSG_CAP) return content;
   const noteMatch = content.match(/^\[Прикреплена заметка: "[^"]+"\]/);
   if (noteMatch) return noteMatch[0];
-  return content.length > API_MSG_CAP ? content.slice(0, API_MSG_CAP) : content;
+  return content.slice(0, API_MSG_CAP);
 }
 
 function pruneMessages(messages: AIMessage[]): AIMessage[] {
@@ -229,7 +230,7 @@ interface UseAIChatReturn {
   streamingMessage: string | null;
   streamingReasoning: string | null;
   error: string | null;
-  sendMessage: (text: string, attached?: { content: string; documentId?: string }, mood?: string) => Promise<string | null>;
+  sendMessage: (text: string, attached?: { content: string; documentId?: string; inline?: boolean }, mood?: string) => Promise<string | null>;
   attachDocument: (documentId: string) => Promise<void>;
   prepareAttachment: (documentId: string) => Promise<{ title: string; content: string } | null>;
   stop: () => void;
@@ -364,7 +365,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   // so the model reads the whole note while the chat message stays small (just a
   // "[Прикреплена заметка: …]" marker plus any text the user typed). The note body
   // is never put into the message itself (that would trip the 10K per-message cap).
-  const sendMessage = useCallback(async (text: string, attached?: { content: string; documentId?: string }, mood?: string): Promise<string | null> => {
+  const sendMessage = useCallback(async (text: string, attached?: { content: string; documentId?: string; inline?: boolean }, mood?: string): Promise<string | null> => {
     if (!text.trim()) return null;
 
     const { remaining } = useAiLimitStore.getState();
@@ -419,7 +420,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       // Sticky note: remember a freshly attached note, and reuse it on follow-up
       // turns that don't re-attach so the note stays the subject of the dialogue.
-      if (attached) attachedNoteRef.current = attached;
+      if (attached) attachedNoteRef.current = { content: attached.content };
       const effectiveAttached = attached ?? attachedNoteRef.current ?? undefined;
 
       // SAFETY: user asks to analyze "their note" but no note text is actually in
@@ -881,7 +882,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       // Attached note: inject the FULL text as primary context (capped to fit the
       // 50K documentContent budget). Takes priority over facet/search context.
-      if (effectiveAttached?.content) {
+      // Skip when the note is delivered INLINE in the message (small notes) — it's
+      // already in the user turn, the most reliable channel.
+      if (effectiveAttached?.content && !attached?.inline) {
         const noteText = effectiveAttached.content.slice(0, 45_000);
         const noteBlock =
           `[Прикреплённая пользователем заметка — ЕДИНСТВЕННЫЙ источник для разбора]\n` +
