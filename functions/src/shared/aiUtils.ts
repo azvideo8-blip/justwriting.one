@@ -249,7 +249,10 @@ export async function getDailyLimitCount(uid: string): Promise<{ used: number; d
 
 const COOLDOWN_MS = 10000;
 
-export async function checkRateLimit(uid: string): Promise<boolean> {
+export async function checkRateLimit(uid: string, internal?: boolean): Promise<boolean> {
+  if (internal) return true;
+  if (await isAdmin(uid)) return true;
+
   const db = getDb();
   const ref = db.doc(`aiCooldown/${uid}`);
   const now = Date.now();

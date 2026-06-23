@@ -93,6 +93,15 @@ describe('AIProfileService', () => {
       );
       expect(mockSetDoc).toHaveBeenCalled();
     });
+
+    it('saves to localStorage and completes successfully even if encryption fails with ENCRYPT_REQUIRED', async () => {
+      mockMaybeEncrypt.mockRejectedValueOnce(new Error('ENCRYPT_REQUIRED: session key not available'));
+
+      await expect(AIProfileService.savePortrait('test-portrait-md')).resolves.not.toThrow();
+
+      expect(localStorage.getItem('ai_user_portrait')).toBe('test-portrait-md');
+      expect(mockSetDoc).not.toHaveBeenCalled();
+    });
   });
 
   describe('getPortrait', () => {
@@ -119,6 +128,17 @@ describe('AIProfileService', () => {
       mockGetDoc.mockResolvedValue({
         exists: () => false,
       });
+
+      const res = await AIProfileService.getPortrait();
+      expect(res).toBeNull();
+    });
+
+    it('returns null and logs warning if cloud fetch throws LOCKED error', async () => {
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => ({ aiPortrait: 'encrypted-portrait' }),
+      });
+      mockMaybeDecrypt.mockRejectedValueOnce(new Error('LOCKED: session key not available'));
 
       const res = await AIProfileService.getPortrait();
       expect(res).toBeNull();

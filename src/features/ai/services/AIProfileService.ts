@@ -13,14 +13,23 @@ export const AIProfileService = {
 
     const uid = getAuth().currentUser?.uid;
     if (uid) {
-      const encrypted = await maybeEncrypt(
-        { aiPortrait: portraitMarkdown },
-        ['aiPortrait'],
-        [],
-        true,
-      );
-      const { db, mod } = await getClient();
-      await mod.setDoc(mod.doc(db, 'users', uid), encrypted, { merge: true });
+      try {
+        const encrypted = await maybeEncrypt(
+          { aiPortrait: portraitMarkdown },
+          ['aiPortrait'],
+          [],
+          true,
+        );
+        const { db, mod } = await getClient();
+        await mod.setDoc(mod.doc(db, 'users', uid), encrypted, { merge: true });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.includes('ENCRYPT_REQUIRED')) {
+          console.warn('[AIProfileService] Cloud save skipped: E2E locked (session key not available). Portrait saved locally.');
+          return;
+        }
+        throw e;
+      }
     }
   },
 
@@ -30,16 +39,25 @@ export const AIProfileService = {
 
     const uid = getAuth().currentUser?.uid;
     if (uid) {
-      const { db, mod } = await getClient();
-      const snap = await mod.getDoc(mod.doc(db, 'users', uid));
-      if (snap.exists()) {
-        const data = snap.data() as Record<string, unknown>;
-        if (data.aiPortrait) {
-          const decrypted = await maybeDecrypt(data, ['aiPortrait'], []);
-          const portrait = typeof decrypted.aiPortrait === 'string' ? decrypted.aiPortrait : '';
-          localStorage.setItem(PORTRAIT_LS_KEY, portrait);
-          return portrait;
+      try {
+        const { db, mod } = await getClient();
+        const snap = await mod.getDoc(mod.doc(db, 'users', uid));
+        if (snap.exists()) {
+          const data = snap.data() as Record<string, unknown>;
+          if (data.aiPortrait) {
+            const decrypted = await maybeDecrypt(data, ['aiPortrait'], []);
+            const portrait = typeof decrypted.aiPortrait === 'string' ? decrypted.aiPortrait : '';
+            localStorage.setItem(PORTRAIT_LS_KEY, portrait);
+            return portrait;
+          }
         }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.includes('LOCKED') || msg.includes('session key not available')) {
+          console.warn('[AIProfileService] Cloud fetch skipped: E2E locked.');
+          return null;
+        }
+        throw e;
       }
     }
     return null;
