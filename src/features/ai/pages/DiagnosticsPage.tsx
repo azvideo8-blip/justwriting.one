@@ -221,7 +221,7 @@ export function DiagnosticsPage() {
               <div className="flex justify-center py-10"><LoadingSpinner size={8} /></div>
             ) : (
               <div className="overflow-x-auto rounded-2xl border border-border-subtle">
-                <AdminUsersTable users={users} />
+                <AdminUsersTable users={users} onResetLimit={(uid, name) => void handleResetUserLimit(uid, name)} resettingUid={resettingUid} />
               </div>
             )}
           </div>

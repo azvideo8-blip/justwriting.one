@@ -18,7 +18,8 @@ const inputSchema = z.object({
   documentContent: z.string().max(50_000).nullish(),
   documentMood: z.string().max(50).nullish(),
   userPortrait: z.string().max(100_000).nullish(),
-  responseLength: z.enum(['short', 'standard', 'detailed', 'reasoning']).nullish(),
+  responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
+  reasoning: z.boolean().nullish(),
 });
 
 export const chatWithAI = onCall({
@@ -50,7 +51,7 @@ export const chatWithAI = onCall({
     throw new HttpsError('invalid-argument', 'Invalid payload.');
   }
 
-  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength } = parsed.data;
+  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength, reasoning } = parsed.data;
 
   if (personaId === 'custom') {
     if (!customSystemPrompt) {
@@ -67,6 +68,7 @@ export const chatWithAI = onCall({
     customSystemPrompt,
     userPortrait,
     responseLength,
+    reasoning,
     documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined,
     documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined,
   });
@@ -84,7 +86,7 @@ export const chatWithAI = onCall({
 
   let gen;
   try {
-    gen = await generate({ system: systemInstruction, messages: providerMessages, maxTokens: responseLength === 'reasoning' ? 16384 : 8192, abortMs: 110_000 });
+    gen = await generate({ system: systemInstruction, messages: providerMessages, maxTokens: reasoning ? 16384 : 8192, abortMs: 110_000 });
   } catch (e) {
     console.error('[chatWithAI] AI request failed:', e);
     generation?.end({ output: String(e), level: 'ERROR' });
@@ -92,7 +94,7 @@ export const chatWithAI = onCall({
     throw new HttpsError('internal', 'AI request failed.');
   }
 
-  const isReasoningMode = responseLength === 'reasoning';
+  const isReasoningMode = reasoning === true;
   const text = sanitizeAiResponse(gen.text, isReasoningMode);
 
   generation?.end({ output: text, usage: { promptTokens: gen.tokensIn, completionTokens: gen.tokensOut } });

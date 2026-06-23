@@ -57,9 +57,9 @@ export const TelemetryService = {
       // Skip door analysis in telemetry to respect layer boundaries
       // (contactDoors is a feature; telemetry is core)
 
-      // Reasoning ratio
+      // Reasoning ratio (AX-11: reasoning is now a separate boolean flag)
       const dialogues = await db.getAll('aiDialogues');
-      const reasoningCount = dialogues.filter(d => d.responseLength === 'reasoning').length;
+      const reasoningCount = dialogues.filter(d => d.reasoning === true || d.responseLength === 'reasoning' as unknown as string).length;
       const reasoningRatio = dialogues.length > 0 ? Math.round((reasoningCount / dialogues.length) * 100) / 100 : 0;
 
       const payload = {

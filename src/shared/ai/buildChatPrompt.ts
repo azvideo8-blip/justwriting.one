@@ -9,16 +9,17 @@ export function buildChatSystemPrompt(params: {
   personaId: string;
   customSystemPrompt?: string | null | undefined;
   userPortrait?: string | null | undefined;
-  responseLength?: 'short' | 'standard' | 'detailed' | 'reasoning' | null | undefined;
+  responseLength?: 'short' | 'standard' | 'detailed' | null | undefined;
+  reasoning?: boolean | null | undefined;
   documentContent?: string | null | undefined;
   documentMood?: string | null | undefined;
 }): string {
-  const { personaId, customSystemPrompt, userPortrait, responseLength, documentContent, documentMood } = params;
+  const { personaId, customSystemPrompt, userPortrait, responseLength, reasoning, documentContent, documentMood } = params;
 
-  // UXFIX-1: In reasoning mode, put the output format instruction FIRST,
-  // before the persona, so the model sees it before any template tags.
+  // AX-11: Reasoning is now a separate boolean flag, decoupled from length.
+  // The reasoning prefix instructs the model to output two sections.
   let reasoningPrefix = '';
-  if (responseLength === 'reasoning') {
+  if (reasoning) {
     reasoningPrefix = `ФОРМАТ ОТВЕТА (обязательно):
 Твой ответ состоит из двух разделов, разделённых заголовком.
 Первый раздел начни со строки: ХОД МЫСЛИ:
@@ -34,8 +35,7 @@ export function buildChatSystemPrompt(params: {
 
   // In reasoning mode: remove <reasoning>/<answer> structural tags from persona
   // so they don't conflict with the output format instruction.
-  // Replace with plain text section headers.
-  if (responseLength === 'reasoning') {
+  if (reasoning) {
     base = base
       .replace(/\/\/<reasoning>/g, '[ВНУТРЕННИЙ АНАЛИЗ]')
       .replace(/<\/reasoning>/g, '[/ВНУТРЕННИЙ АНАЛИЗ]')
@@ -43,8 +43,11 @@ export function buildChatSystemPrompt(params: {
       .replace(/<\/answer>/g, '[/ОТВЕТ ПОЛЬЗОВАТЕЛЮ]');
   }
 
+  // AX-11: Strengthen length differences so the user feels them.
   if (responseLength === 'short') {
     base += '\n\nДЛИНА ОТВЕТА (приоритет выше формата персоны): ОЧЕНЬ кратко — 1–2 абзаца, без секций/заголовков/списков. Только суть + один вопрос.';
+  } else if (responseLength === 'standard') {
+    base += '\n\nДЛИНА ОТВЕТА (приоритет выше формата персоны): умеренно — 3–5 абзацев, без избыточных секций. Суть + краткое раскрытие + 1–2 вопроса.';
   } else if (responseLength === 'detailed') {
     base += '\n\nДЛИНА ОТВЕТА (приоритет выше формата персоны): развёрнутый, подробный ответ — полная структура персоны, глубокий анализ, несколько вопросов.';
   }

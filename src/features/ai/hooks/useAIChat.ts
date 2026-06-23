@@ -70,7 +70,8 @@ async function streamChat(params: {
   documentContent?: string | undefined;
   documentMood?: string | undefined;
   userPortrait?: string | null | undefined;
-  responseLength?: 'short' | 'standard' | 'detailed' | 'reasoning' | undefined;
+  responseLength?: 'short' | 'standard' | 'detailed' | undefined;
+  reasoning?: boolean | undefined;
   signal?: AbortSignal | undefined;
   onChunk: (partial: string, reasoning: string | null) => void;
 }): Promise<string> {
@@ -93,6 +94,7 @@ async function streamChat(params: {
       documentMood: params.documentMood,
       userPortrait: params.userPortrait,
       responseLength: params.responseLength,
+      reasoning: params.reasoning,
     }),
     signal: params.signal ?? null,
   });
@@ -167,7 +169,8 @@ async function callableChat(params: {
   messages: AIMessage[];
   documentContent?: string | undefined;
   userPortrait?: string | null | undefined;
-  responseLength?: 'short' | 'standard' | 'detailed' | 'reasoning' | undefined;
+  responseLength?: 'short' | 'standard' | 'detailed' | undefined;
+  reasoning?: boolean | undefined;
 }): Promise<string> {
   const result = await AIService.chat({
     personaId: params.personaId,
@@ -176,6 +179,7 @@ async function callableChat(params: {
     documentContent: params.documentContent,
     userPortrait: params.userPortrait,
     responseLength: params.responseLength,
+    reasoning: params.reasoning,
   });
 
   if (!result.ok) {
@@ -240,7 +244,7 @@ interface UseAIChatReturn {
   clearError: () => void;
 }
 
-export function useAIChat(dialogueId: string | null, personaId: string, responseLength?: 'short' | 'standard' | 'detailed' | 'reasoning'): UseAIChatReturn {
+export function useAIChat(dialogueId: string | null, personaId: string, responseLength?: 'short' | 'standard' | 'detailed', reasoning?: boolean): UseAIChatReturn {
   const [dialogue, setDialogue] = useState<AIDialogue | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState<string | null>(null);
@@ -856,12 +860,22 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // DLG-1: Cross-dialogue memory — inject relevant memories into context.
       // Skip when a note is attached: memory of past chats (incl. the AI's own
       // past interpretations) leaked in and got misattributed to the attached note.
-      if (queryEmb && !effectiveAttached && !noteIntentNoText) {
+      // AX-8: preference memories (from 👍/👎) are ALWAYS included, not just by
+      // embedding similarity, so feedback reliably influences the next response.
+      if (!effectiveAttached && !noteIntentNoText) {
         try {
-          const memories = await AIChatMemoryService.getRelevant(queryEmb, 5);
-          if (memories.length > 0) {
+          const relevantMemories = queryEmb ? await AIChatMemoryService.getRelevant(queryEmb, 5) : [];
+          const preferences = await AIChatMemoryService.getPreferences();
+          // Merge + deduplicate by id
+          const seen = new Set<string>();
+          const allMemories = [...preferences, ...relevantMemories].filter(m => {
+            if (seen.has(m.id)) return false;
+            seen.add(m.id);
+            return true;
+          });
+          if (allMemories.length > 0) {
             const memoryBlock = '[Что ИИ помнит о пользователе из прошлых бесед]\n' +
-              memories.map(m => `— ${m.kind}: ${m.text}`).join('\n');
+              allMemories.map(m => `— ${m.kind}: ${m.text}`).join('\n');
             searchContext = searchContext ? searchContext + '\n\n' + memoryBlock : memoryBlock;
           }
         } catch (e) {
@@ -910,12 +924,17 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       if (searchContext && searchContext.length > 49_000) searchContext = searchContext.slice(0, 49_000);
       const safePortrait = userPortrait && userPortrait.length > 99_000 ? userPortrait.slice(0, 99_000) : userPortrait;
 
-      const effectiveResponseLength = dialogue?.responseLength || responseLength || 'standard';
+      // AX-11: Migrate old 'reasoning' value in stored dialogues
+      const storedLength = dialogue?.responseLength;
+      const isLegacyReasoning = storedLength === 'reasoning' as unknown as 'short' | 'standard' | 'detailed';
+      const effectiveResponseLength: 'short' | 'standard' | 'detailed' =
+        isLegacyReasoning ? 'standard' : (storedLength || responseLength || 'standard');
+      const effectiveReasoning = dialogue?.reasoning ?? reasoning ?? isLegacyReasoning;
 
       let fullText: string;
 
       if (_streamAvailable === false) {
-        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, responseLength: effectiveResponseLength });
+        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, responseLength: effectiveResponseLength, reasoning: effectiveReasoning });
       } else {
         try {
           fullText = await streamChat({
@@ -926,6 +945,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             documentMood: mood,
             userPortrait: safePortrait,
             responseLength: effectiveResponseLength,
+            reasoning: effectiveReasoning,
             signal: controller.signal,
             onChunk: (partial, reasoning) => {
               setStreamingMessage(partial);
@@ -938,9 +958,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           console.warn('Streaming chat failed, falling back to callable chat:', e);
           const errMsg = e instanceof Error ? e.message : '';
           if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED') {
-            fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, responseLength: effectiveResponseLength });
+            fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, responseLength: effectiveResponseLength, reasoning: effectiveReasoning });
             // RSN-4: Parse reasoning from callable fallback
-            if (effectiveResponseLength === 'reasoning') {
+            if (effectiveReasoning) {
               // Try XML tags
               const reasoningMatch = fullText.match(/(?:\/\/)?<reasoning>([\s\S]*?)<\/reasoning>/i);
               const answerMatch = fullText.match(/(?:\/\/)?<answer>([\s\S]*?)(<\/answer>|$)/i);
@@ -987,13 +1007,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           personaEmoji,
           messages: [],
           responseLength: effectiveResponseLength,
+          reasoning: effectiveReasoning,
         });
       }
 
       // RSN-4: Clean reasoning tags before saving; persist reasoning separately
       // so the collapsible "ход мысли" survives in dialogue history.
-      const savedText = effectiveResponseLength === 'reasoning' ? extractAnswer(fullText) : fullText;
-      const savedReasoning = effectiveResponseLength === 'reasoning' ? extractReasoning(fullText) : undefined;
+      const savedText = effectiveReasoning ? extractAnswer(fullText) : fullText;
+      const savedReasoning = effectiveReasoning ? extractReasoning(fullText) : undefined;
       await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning);
       // Link the dialogue to the attached note so it stays grounded after reload.
       if (attached?.documentId && attached.documentId.startsWith('local_')) {
@@ -1047,7 +1068,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     } finally {
       setIsLoading(false);
     }
-  }, [dialogue, dialogueId, personaId, responseLength]);
+  }, [dialogue, dialogueId, personaId, responseLength, reasoning]);
 
   // Load a note's latest text without sending — lets the UI stage an attachment
   // (show a chip) so the user can add their own message before sending.
@@ -1082,9 +1103,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
   const dismissCrisis = useCallback(() => setCrisisActive(false), []);
 
-  // "Ответить иначе": trim the trailing user+assistant turn and re-send the last
-  // user message so the model produces a fresh answer (grounding stays via the
-  // sticky note / dialogue documentId).
+  // AX-7: "Ответить иначе" — save the old answer as a variant, then regenerate.
+  // Previous variants are preserved so the user can browse ‹ 2/3 › after several
+  // regenerations. Nothing is lost.
   const regenerateLast = useCallback(async () => {
     if (isLoading) return;
     const id = dialogueId ?? dialogue?.id;
@@ -1105,8 +1126,19 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     if (userIdx < 0) return;
     const userText = msgs[userIdx]?.content ?? '';
     if (!userText) return;
+
+    // Save the current answer as a variant before truncating
+    const oldAssistant = msgs[aiIdx];
+    const oldVariants = oldAssistant?.variants ?? [];
+    const oldContent = oldAssistant?.content ?? '';
+    const savedVariants = [...oldVariants, oldContent];
+
     await AIDialogueService.truncateFrom(id, userIdx);
-    await sendMessage(userText);
+    const newId = await sendMessage(userText);
+    // After the new response is saved, merge variants into the new assistant message
+    if (newId) {
+      await AIDialogueService.setLastAssistantVariants(newId, savedVariants, savedVariants.length);
+    }
   }, [isLoading, dialogueId, dialogue, sendMessage]);
 
   return { dialogue, isLoading, streamingMessage, streamingReasoning, error, sendMessage, attachDocument, prepareAttachment, stop, regenerateLast, crisisActive, dismissCrisis, clearError };

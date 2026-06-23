@@ -112,6 +112,17 @@ export const AIChatMemoryService = {
     return db.getAll('aiChatMemory');
   },
 
+  // AX-8: Always retrieve preference-type memories (not by similarity) so 👍/👎
+  // feedback reliably reaches the model's system prompt every turn.
+  async getPreferences(): Promise<AIChatMemory[]> {
+    const db = await getLocalDb();
+    const all = await db.getAll('aiChatMemory');
+    return all
+      .filter(m => m.kind === 'preference')
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 5);
+  },
+
   async deleteAll(): Promise<void> {
     const db = await getLocalDb();
     await db.clear('aiChatMemory');

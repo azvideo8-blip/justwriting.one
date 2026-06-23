@@ -79,12 +79,14 @@ export interface AIDialogue {
   personaName: string;
   personaEmoji: string;
   documentId?: string | undefined;
-  messages: { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' | undefined; reasoning?: string | undefined }[];
+  messages: { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' | undefined; reasoning?: string | undefined; variants?: string[] | undefined; variantIndex?: number | undefined }[];
   createdAt: number;
   updatedAt: number;
   archivedAt?: number | undefined;
-  /** Desired response verbosity: 'short' | 'standard' | 'detailed' | 'reasoning' */
-  responseLength?: 'short' | 'standard' | 'detailed' | 'reasoning';
+  /** Desired response verbosity: 'short' | 'standard' | 'detailed' */
+  responseLength?: 'short' | 'standard' | 'detailed';
+  /** AX-11: Separate reasoning flag (decoupled from length). */
+  reasoning?: boolean;
 }
 
 export interface AIDocumentSummary {

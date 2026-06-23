@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles, Square, X, RotateCcw } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { DocumentPickerModal } from '../components/DocumentPickerModal';
@@ -8,9 +8,9 @@ import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { personaVisual } from '../constants/personaVisuals';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { cn } from '../../../core/utils/utils';
-import { Monogram, threadPreview, AttachedFileCard, AttachedSummaryCard, AssistantTurn, ATTACHED_NOTE_RE, ATTACHED_NOTE_SUMMARY_RE, ATTACHED_FILE_RE } from '../components/AIChatPresentational';
+import { Monogram, threadPreview, AttachedNoteCard, AttachedFileCard, AttachedSummaryCard, AssistantTurn, ATTACHED_NOTE_RE, ATTACHED_NOTE_SUMMARY_RE, ATTACHED_FILE_RE } from '../components/AIChatPresentational';
 import { CRISIS_RESOURCES } from '../utils/riskDetect';
-import { useAIPageData, CHAT_STARTERS, CHAT_FOLLOW_UPS, CHAT_MOODS } from '../hooks/useAIPageData';
+import { useAIPageData, CHAT_STARTERS } from '../hooks/useAIPageData';
 import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
@@ -43,18 +43,19 @@ export function AIPage() {
     attachMenuOpen, setAttachMenuOpen,
     messagesEndRef, fileInputRef, attachMenuRef,
     isLoading, streamingMessage, streamingReasoning, error, clearError,
-    stop, pendingAttachment, removePendingAttachment, handlePasteAsNote,
-    chatMood, setChatMood,
-    handleSuggestion, handleFeedback, handleRegenerate,
+    stop, pendingAttachments, removePendingAttachment, handlePasteAsNote,
+    handleSuggestion, handleFeedback, handleRegenerate, handleSwitchVariant,
     crisisActive, dismissCrisis,
     dialogue,
     dailyLimit,
     loadCustomPersonas,
     handleSendMessage, handleNewDialogue, handleArchive, handleUnarchive, handleDelete, handleExport,
     handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload,
-    handleSetResponseLength, handleRenameDialogue,
+    handleSetResponseLength, handleSetReasoning, handleRenameDialogue,
     responseLength,
+    reasoning,
     proactiveHint,
+    followUps,
     allPersonas, openPersonaDetail,
     displayMessages,
     activePersona, activeRole, headerVisual,
@@ -64,6 +65,57 @@ export function AIPage() {
 
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // AX-4: Resizable sidebar — persisted to localStorage
+  const SIDEBAR_MIN = 220;
+  const SIDEBAR_MAX = 480;
+  const SIDEBAR_KEY = 'ai_sidebar_width';
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem(SIDEBAR_KEY);
+    const w = saved ? parseInt(saved, 10) : 286;
+    return Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, w));
+  });
+  const sidebarWidthRef = useRef(sidebarWidth);
+  const sidebarDragRef = useRef(false);
+
+  useEffect(() => { sidebarWidthRef.current = sidebarWidth; }, [sidebarWidth]);
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!sidebarDragRef.current) return;
+      const w = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, e.clientX));
+      setSidebarWidth(w);
+    };
+    const onMouseUp = () => {
+      if (sidebarDragRef.current) {
+        sidebarDragRef.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        localStorage.setItem(SIDEBAR_KEY, String(sidebarWidthRef.current));
+      }
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, []);
+
+  const startSidebarDrag = (e: React.MouseEvent) => {
+    e.preventDefault();
+    sidebarDragRef.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [inputText]);
 
   const lastAssistantIdx = (() => {
     for (let i = displayMessages.length - 1; i >= 0; i--) {
@@ -83,7 +135,8 @@ export function AIPage() {
   return (
     <div className={cn("h-screen bg-surface-base flex", isMobile ? "flex-col" : "flex-row")}>
       {!isMobile && (
-        <div className="w-[286px] border-r border-border-subtle flex flex-col bg-surface-card/30">
+        <>
+        <div className="border-r border-border-subtle flex flex-col bg-surface-card/30" style={{ width: sidebarWidth, flexShrink: 0 }}>
           <div className="p-4 pb-3.5">
             <Button
               onClick={handleNewDialogue}
@@ -159,6 +212,12 @@ export function AIPage() {
             )}
           </div>
         </div>
+        <div
+          onMouseDown={startSidebarDrag}
+          className="w-1 cursor-col-resize hover:bg-brand-soft/30 transition-colors shrink-0"
+          style={{ marginRight: -1 }}
+        />
+        </>
       )}
 
       <div className="flex-1 flex flex-col min-w-0 relative">
@@ -205,9 +264,9 @@ export function AIPage() {
 
           <div className="flex items-center gap-1 mt-2">
               <span className="text-[9px] font-mono uppercase tracking-wider text-text-main/60 mr-1">объём:</span>
-              {(['short', 'standard', 'detailed', 'reasoning'] as const).map(len => {
+              {(['short', 'standard', 'detailed'] as const).map(len => {
                 const active = responseLength === len;
-                const label = len === 'short' ? 'Кратко' : len === 'standard' ? 'Стандартно' : len === 'detailed' ? 'Объёмно' : '🧠 Рассуждения';
+                const label = len === 'short' ? 'Кратко' : len === 'standard' ? 'Стандартно' : 'Объёмно';
                 return (
                   <Button
                     key={len}
@@ -223,6 +282,18 @@ export function AIPage() {
                   </Button>
                 );
               })}
+              <button
+                type="button"
+                onClick={() => void handleSetReasoning(!reasoning)}
+                className={cn(
+                  "px-2.5 py-0.5 rounded-full text-[10px] font-medium border transition-colors flex items-center gap-1",
+                  reasoning
+                    ? "bg-brand-soft/15 border-brand-soft/30 text-brand-soft"
+                    : "border-border-subtle text-text-main/60 hover:text-text-main"
+                )}
+              >
+                🧠 Рассуждения
+              </button>
           </div>
 
           <div className="flex gap-1.5 items-center overflow-x-auto pb-1 pt-3.5 -mx-1 px-1 no-scrollbar">
@@ -334,6 +405,9 @@ export function AIPage() {
                     onDelete={() => void handleDeleteMessage(i)}
                     onFeedback={v => void handleFeedback(v)}
                     onRegenerate={i === lastAssistantIdx && !isLoading ? () => void handleRegenerate() : undefined}
+                    variants={msg.variants}
+                    variantIndex={msg.variantIndex}
+                    onSwitchVariant={i === lastAssistantIdx ? (delta: number) => void handleSwitchVariant(delta) : undefined}
                   >
                     {msg.reasoning && (
                       <details className="mb-3 rounded-xl border border-border-subtle bg-surface-card/50 overflow-hidden">
@@ -351,20 +425,39 @@ export function AIPage() {
               }
 
               if (isAttachedNote) {
-                // Attached note: title chip + the user's own message (if any),
-                // kept visible rather than tucked inside an expandable card.
-                const noteTitle = msg.content.match(ATTACHED_NOTE_RE)?.[1] ?? 'Заметка';
-                const userNote = msg.content.replace(ATTACHED_NOTE_RE, '').trim();
+                // AX-1/AX-10: parse display into note cards + question.
+                // Supports multiple attached notes (each with its own marker).
+                const SEPARATOR = '\n\n— — —\nВопрос: ';
+                const sepIdx = msg.content.indexOf(SEPARATOR);
+                const beforeSep = sepIdx >= 0 ? msg.content.slice(0, sepIdx) : msg.content;
+                const question = sepIdx >= 0 ? msg.content.slice(sepIdx + SEPARATOR.length).trim() : '';
+
+                // Extract all note markers and their content blocks
+                const NOTE_MARKER_RE = /\[Прикреплена заметка: "([^"]+)"\]/g;
+                const markers: { title: string; start: number; end: number }[] = [];
+                for (const m of beforeSep.matchAll(NOTE_MARKER_RE)) {
+                  markers.push({ title: m[1] ?? 'Заметка', start: m.index ?? 0, end: (m.index ?? 0) + m[0].length });
+                }
+                const notes: { title: string; body: string }[] = markers.map((mk, idx) => {
+                  const nextStart = idx + 1 < markers.length ? markers[idx + 1]!.start : beforeSep.length;
+                  const body = beforeSep.slice(mk.end, nextStart).trim();
+                  return { title: mk.title, body };
+                });
+
                 return (
                   <div key={i} className="flex flex-col items-end gap-1.5">
                     <div className="max-w-[78%] flex flex-col items-end gap-1.5">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-card border border-brand-soft/30 text-xs text-text-main/80 max-w-full">
-                        <Paperclip size={12} className="text-brand-soft shrink-0" />
-                        <span className="truncate">{noteTitle}</span>
-                      </span>
-                      {userNote && (
-                        <div className="px-4 py-3 rounded-2xl rounded-br-md bg-gradient-to-b from-brand-primary/25 to-brand-primary/15 border border-brand-primary/30 text-text-main text-[14.5px] leading-relaxed whitespace-pre-wrap max-h-72 overflow-y-auto">
-                          {userNote}
+                      {notes.map((note, ni) => (
+                        note.body
+                          ? <AttachedNoteCard key={ni} content={`[Прикреплена заметка: "${note.title}"]\n\n${note.body}`} />
+                          : <span key={ni} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-card border border-brand-soft/30 text-xs text-text-main/80 max-w-full">
+                              <Paperclip size={12} className="text-brand-soft shrink-0" />
+                              <span className="truncate">{note.title}</span>
+                            </span>
+                      ))}
+                      {question && (
+                        <div className="px-4 py-3 rounded-2xl rounded-br-md bg-gradient-to-b from-brand-primary/25 to-brand-primary/15 border border-brand-primary/30 text-text-main text-[14.5px] leading-relaxed whitespace-pre-wrap">
+                          {question}
                         </div>
                       )}
                       <button type="button" onClick={() => void handleDeleteMessage(i)} className="text-text-main/30 hover:text-accent-danger transition-colors mr-1" aria-label={t('ai_delete_message')}><Trash2 size={11} /></button>
@@ -433,7 +526,7 @@ export function AIPage() {
 
             {!isLoading && streamingMessage === null && !error && lastAssistantIdx === displayMessages.length - 1 && displayMessages.length > 0 && (
               <div className="flex flex-wrap gap-2 pt-1">
-                {CHAT_FOLLOW_UPS.map(s => (
+                {followUps.map(s => (
                   <button
                     key={s}
                     type="button"
@@ -467,26 +560,7 @@ export function AIPage() {
 
         <div className="relative z-10 px-6 py-4 border-t border-border-subtle">
           <div>
-            {!isLoading && (
-              <div className="mb-2 flex items-center gap-1.5 flex-wrap">
-                <span className="text-[11px] text-text-main/50 mr-0.5">как ты?</span>
-                {CHAT_MOODS.map(m => (
-                  <button
-                    key={m.label}
-                    type="button"
-                    onClick={() => setChatMood(chatMood === m.label ? null : m.label)}
-                    title={m.label}
-                    className={cn(
-                      "w-7 h-7 rounded-lg text-sm transition-colors",
-                      chatMood === m.label ? "bg-brand-soft/25 ring-1 ring-brand-soft/50" : "hover:bg-text-main/5 opacity-70 hover:opacity-100"
-                    )}
-                  >
-                    {m.emoji}
-                  </button>
-                ))}
-              </div>
-            )}
-            {!pendingAttachment && inputText.trim().length > 1500 && (
+            {pendingAttachments.length === 0 && inputText.trim().length > 1500 && (
               <button
                 type="button"
                 onClick={handlePasteAsNote}
@@ -496,18 +570,22 @@ export function AIPage() {
                 Это заметка? Разобрать как заметку (точнее по тексту)
               </button>
             )}
-            {pendingAttachment && (
-              <div className="mb-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-card border border-brand-soft/30 text-xs text-text-main/80 max-w-full">
-                <Paperclip size={12} className="text-brand-soft shrink-0" />
-                <span className="truncate">{pendingAttachment.title}</span>
-                <button
-                  type="button"
-                  onClick={removePendingAttachment}
-                  className="shrink-0 text-text-main/50 hover:text-text-main transition-colors"
-                  aria-label={t('ai_close')}
-                >
-                  <X size={13} />
-                </button>
+            {pendingAttachments.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {pendingAttachments.map((att, idx) => (
+                  <div key={idx} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-card border border-brand-soft/30 text-xs text-text-main/80 max-w-full">
+                    <Paperclip size={12} className="text-brand-soft shrink-0" />
+                    <span className="truncate max-w-[200px]">{att.title}</span>
+                    <button
+                      type="button"
+                      onClick={() => removePendingAttachment(idx)}
+                      className="shrink-0 text-text-main/50 hover:text-text-main transition-colors"
+                      aria-label={t('ai_close')}
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
             <div className="flex items-end gap-2.5 p-2.5 pl-3.5 rounded-2xl bg-surface-card border border-border-subtle focus-within:border-brand-soft/40 transition-colors">
@@ -527,7 +605,7 @@ export function AIPage() {
                   onChange={handleFileUpload}
                 />
                 {attachMenuOpen && (
-                  <div className="absolute bottom-full left-0 mb-2 w-48 border border-border-subtle rounded-xl shadow-xl overflow-hidden z-50 bg-[var(--bg-elevated)]">
+                  <div className="absolute bottom-full left-0 mb-2 w-48 border border-border-subtle rounded-xl shadow-xl overflow-hidden z-50 bg-surface-popup">
                     <Button
                       onClick={() => { setAttachMenuOpen(false); setDocPickerOpen(true); }}
                       className="w-full text-left px-4 py-2.5 text-sm text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors flex items-center gap-2"
@@ -545,13 +623,15 @@ export function AIPage() {
                   </div>
                 )}
               </div>
-              <input
+              <textarea
+                ref={inputRef}
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSendMessage(); } }}
                 placeholder={t('ai_write_placeholder', { name: (activePersona?.name ?? '').toLowerCase() })}
                 disabled={isLoading || dailyLimit.remaining === 0}
-                className="flex-1 bg-transparent py-1.5 text-[14.5px] text-text-main placeholder:text-text-main/40 outline-none disabled:opacity-40"
+                rows={1}
+                className="flex-1 bg-transparent py-1.5 text-[14.5px] text-text-main placeholder:text-text-main/40 outline-none disabled:opacity-40 resize-none overflow-y-auto max-h-40"
               />
               {isLoading ? (
                 <Button
@@ -565,7 +645,7 @@ export function AIPage() {
               ) : (
                 <Button
                   onClick={() => void handleSendMessage()}
-                  disabled={(!inputText.trim() && !pendingAttachment) || dailyLimit.remaining === 0}
+                  disabled={(!inputText.trim() && pendingAttachments.length === 0) || dailyLimit.remaining === 0}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl shrink-0 bg-gradient-to-b from-brand-soft to-brand-primary text-white text-[13.5px] font-semibold shadow-[0_4px_16px_rgba(125,79,209,0.35)] disabled:opacity-40 disabled:shadow-none transition-all"
                 >
                   {t('ai_send')}
