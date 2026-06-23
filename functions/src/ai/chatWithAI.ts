@@ -51,7 +51,7 @@ export const chatWithAI = onCall({
     throw new HttpsError('resource-exhausted', 'Daily limit reached.');
   }
 
-  if (!(await checkRateLimit(uid))) {
+  if (!(await checkRateLimit(uid, internal === true))) {
     await refundDailyLimit(uid);
     throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
   }

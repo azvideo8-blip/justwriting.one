@@ -145,6 +145,12 @@ describe('chatWithAI', () => {
     expect(recordUsage).toHaveBeenCalledOnce();
   });
 
+  it('passes internal flag to checkRateLimit', async () => {
+    const data = { ...validData, internal: true };
+    await chatWithAI(makeRequest(data, { uid: UID }));
+    expect(checkRateLimit).toHaveBeenCalledWith(UID, true);
+  });
+
   it('rejects injection patterns in custom system prompt', async () => {
     await expect(
       chatWithAI(
