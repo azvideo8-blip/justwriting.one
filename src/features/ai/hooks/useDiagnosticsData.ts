@@ -9,6 +9,7 @@ import { useAiLimitStore } from '../store/useAiLimitStore';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { useToast } from '../../../shared/components/Toast';
+import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { UserProfile } from '../../../types';
 import { getAuth } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -53,6 +54,7 @@ const ADMIN_AI_USERS_LIMIT = 150;
 
 export function useDiagnosticsData(profile: UserProfile | null, authLoading: boolean, activeTab: Tab) {
   const { showToast } = useToast();
+  const { confirm: confirmDialog } = useConfirmDialog();
 
   const [loadingData, setLoadingData] = useState(true);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -343,7 +345,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   };
 
   const handleClearMemory = async () => {
-    if (!window.confirm('Очистить всю память ИИ из прошлых бесед? Накопленные факты/инсайты будут удалены безвозвратно. (Диалоги и заметки не затрагиваются.)')) return;
+    const ok = await confirmDialog({ title: 'Очистить память ИИ?', message: 'Накопленные факты/инсайты будут удалены безвозвратно. Диалоги и заметки не затрагиваются.' });
+    if (!ok) return;
     try {
       await AIChatMemoryService.deleteAll();
       showToast('Память ИИ очищена', 'success');
@@ -355,7 +358,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   };
 
   const handleCollapseVersions = async () => {
-    if (!window.confirm('Схлопнуть версии всех заметок — оставить только последнюю версию у каждой? Текст не меняется (читается всегда последняя версия), удаляются лишь старые снимки версий. Действие необратимо.')) return;
+    const ok = await confirmDialog({ title: 'Схлопнуть версии?', message: 'Оставить только последнюю версию у каждой заметки. Текст не меняется, удаляются лишь старые снимки. Действие необратимо.' });
+    if (!ok) return;
     try {
       const uid = getAuth().currentUser?.uid ?? getOrCreateGuestId();
       const docs = await LocalDocumentService.getGuestDocuments(uid);
@@ -372,18 +376,21 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   };
 
   const handleResetUserLimit = async (targetUid: string, displayName: string) => {
-    if (!window.confirm(`Сбросить суточный счетчик запросов ИИ для пользователя ${displayName}?`)) return;
+    const ok = await confirmDialog({ title: 'Сбросить лимит?', message: `Сбросить суточный счетчик запросов ИИ для пользователя ${displayName}?`, destructive: false });
+    if (!ok) return;
     setResettingUid(targetUid);
     try {
       const functions = getFunctions();
       const fn = httpsCallable<{ targetUid: string }, { success: boolean }>(functions, 'resetUserLimit');
       await fn({ targetUid });
       
-      // If resetting own limit, clear local too
+      // LX-2b: If resetting own limit, clear client state AND sync from server
+      // so the client pre-check immediately unblocks (was stuck on stale localStorage).
       const currentUser = getAuth().currentUser;
       if (currentUser && currentUser.uid === targetUid) {
         localStorage.removeItem('ai_daily_usage');
-        useAiLimitStore.setState({ used: 0, remaining: useAiLimitStore.getState().limit });
+        useAiLimitStore.setState({ used: 0, remaining: useAiLimitStore.getState().limit, loaded: false });
+        void useAiLimitStore.getState().loadLimitFromServer();
       }
       
       showToast(`Суточный счетчик для ${displayName} успешно сброшен`, 'success');

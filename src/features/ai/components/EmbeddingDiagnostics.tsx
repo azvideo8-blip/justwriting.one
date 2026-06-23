@@ -4,12 +4,14 @@ import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
 import { useToast } from '../../../shared/components/Toast';
+import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { getIndexCoverage, indexPending, reindexAll, type IndexCoverage } from '../utils/embeddingIndexer';
 import { searchNotes, type RetrievedNote } from '../utils/noteRetriever';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 
 export function EmbeddingDiagnostics() {
   const { showToast } = useToast();
+  const { confirm: confirmDialog } = useConfirmDialog();
   const [coverage, setCoverage] = useState<IndexCoverage | null>(null);
   const [loading, setLoading] = useState(true);
   const [indexing, setIndexing] = useState(false);
@@ -58,7 +60,8 @@ export function EmbeddingDiagnostics() {
 
   const handleReindexAll = async () => {
     const total = coverage?.totalDocs ?? 0;
-    if (!window.confirm(`Переиндексировать ВСЕ заметки (${total})? Каждая будет пересчитана заново — это потратит лимит ИИ. Нужно при смене алгоритма/модели или для подстраховки.`)) return;
+    const ok = await confirmDialog({ title: 'Переиндексировать все заметки?', message: `Переиндексировать ВСЕ заметки (${total})? Каждая будет пересчитана заново — это потратит лимит ИИ.` });
+    if (!ok) return;
     setReindexing(true);
     setProgress({ done: 0, total });
     try {

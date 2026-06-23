@@ -20,6 +20,7 @@ const inputSchema = z.object({
   userPortrait: z.string().max(100_000).nullish(),
   responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
   reasoning: z.boolean().nullish(),
+  internal: z.boolean().nullish(),
 });
 
 export const chatWithAI = onCall({
@@ -43,9 +44,10 @@ export const chatWithAI = onCall({
     throw new HttpsError('invalid-argument', 'Invalid payload.');
   }
 
-  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength, reasoning } = parsed.data;
+  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength, reasoning, internal } = parsed.data;
 
-  if (!(await checkDailyLimit(uid, reasoning === true))) {
+  // LX-2a/LX-2c: Admins and internal calls (auto-naming, follow-ups) skip the per-user limit.
+  if (!(await checkDailyLimit(uid, reasoning === true, internal === true))) {
     throw new HttpsError('resource-exhausted', 'Daily limit reached.');
   }
 

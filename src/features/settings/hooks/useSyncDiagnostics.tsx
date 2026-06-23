@@ -13,6 +13,7 @@ import { getLocalDb } from '../../../core/storage/localDb';
 import { toDate } from '../../../core/utils/dateUtils';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
+import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { encryptSingleDocument } from '../../../core/crypto/encryptMigration';
@@ -38,6 +39,7 @@ export interface DiagnosticItem {
 export function useSyncDiagnostics({ userId }: { userId: string }) {
   const { t } = useLanguage();
   const { showToast } = useToast();
+  const { confirm: confirmDialog } = useConfirmDialog();
   const { profile } = useAuthStatus();
   const hasEncryption = !!(profile?.encryptionMeta || (profile?.encryptionSalt && profile?.encryptedDataKey));
 
@@ -214,7 +216,8 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
 
   const handleUnlinkItem = async (item: DiagnosticItem) => {
     if (!item.localId) return;
-    if (!window.confirm('Unlink this document from cloud? This will keep it as local-only.')) return;
+    const ok = await confirmDialog({ title: 'Unlink from cloud?', message: 'This will keep it as local-only.' });
+    if (!ok) return;
     setSyncingId(item.id);
     try {
       await LocalDocumentService.updateLinkedCloudId(item.localId, '');
