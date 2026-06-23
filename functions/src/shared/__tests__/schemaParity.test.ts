@@ -16,6 +16,7 @@ const callableSchema = z.object({
   userPortrait: z.string().max(100_000).nullish(),
   responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
   reasoning: z.boolean().nullish(),
+  internal: z.boolean().nullish(),
 });
 
 describe('Schema parity between api/chat.ts and chatWithAI.ts', () => {

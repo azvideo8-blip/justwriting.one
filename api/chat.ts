@@ -157,9 +157,23 @@ async function userDailyLimit(uid: string): Promise<number> {
   return DAILY_LIMIT;
 }
 
+// LX-2a: Admins get effectively no limit — skip checkAndIncrementLimit entirely.
+async function isAdmin(uid: string): Promise<boolean> {
+  try {
+    const snap = await db().doc(`users/${uid}`).get();
+    return snap.data()?.role === 'admin';
+  } catch { return false; }
+}
+
 const COOLDOWN_MS = 10_000;
 
-async function checkAndIncrementLimit(uid: string, reasoning?: boolean | null): Promise<boolean> {
+// LX-2a: Admins skip the per-user limit. LX-2c: `internal` calls also skip.
+async function checkAndIncrementLimit(uid: string, reasoning?: boolean | null, internal?: boolean | null): Promise<boolean> {
+  // Internal calls (auto-naming, follow-ups) bypass the per-user limit
+  if (internal) return true;
+  // Admins bypass the per-user limit
+  if (await isAdmin(uid)) return true;
+
   const fs = db();
   const now = Date.now();
 
@@ -259,6 +273,10 @@ async function streamFireworksReasoning(
   let wroteAnswerHeader = false;
   let tokensIn = 0;
   let tokensOut = 0;
+  // LX-1: Accumulate content when no reasoning_content channel, to detect
+  // inline "ОТВЕТ:" marker and relabel the preamble as "ХОД МЫСЛИ:".
+  let contentAccum = '';
+  let sawNativeReasoning = false;
 
   for (;;) {
     const { done, value } = await reader.read();
@@ -282,17 +300,63 @@ async function streamFireworksReasoning(
       const reasoning = delta.reasoning_content ?? delta.reasoning;
       const content = delta.content;
       if (reasoning) {
+        sawNativeReasoning = true;
         if (!wroteReasoningHeader) { res.write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
         res.write(reasoning);
       }
       if (content) {
-        if (!wroteAnswerHeader) {
-          if (wroteReasoningHeader) res.write('\n\nОТВЕТ:\n');
-          wroteAnswerHeader = true;
+        if (sawNativeReasoning) {
+          // Normal path: native reasoning channel was used, content is the answer
+          if (!wroteAnswerHeader) {
+            if (wroteReasoningHeader) res.write('\n\nОТВЕТ:\n');
+            wroteAnswerHeader = true;
+          }
+          res.write(content);
+        } else {
+          // LX-1: No native reasoning channel — check if content contains inline "ОТВЕТ:"
+          contentAccum += content;
+          // Check if we've hit the "ОТВЕТ:" marker on its own line
+          const answerMarkerRe = /^ОТВЕТ:\s*$/im;
+          const markerMatch = contentAccum.match(answerMarkerRe);
+          if (markerMatch && !wroteAnswerHeader) {
+            const markerIdx = markerMatch.index ?? 0;
+            const beforeMarker = contentAccum.slice(0, markerIdx).trim();
+            const afterMarker = contentAccum.slice(markerIdx).replace(answerMarkerRe, '').trim();
+            // Emit preamble as reasoning
+            if (beforeMarker) {
+              if (!wroteReasoningHeader) { res.write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
+              res.write(beforeMarker);
+            }
+            // Emit answer
+            if (!wroteAnswerHeader) {
+              if (wroteReasoningHeader) res.write('\n\nОТВЕТ:\n');
+              wroteAnswerHeader = true;
+            }
+            res.write(afterMarker);
+          } else if (!wroteAnswerHeader) {
+            // Haven't found marker yet — buffer and don't emit yet.
+            // But if the accumulated content is short, just wait.
+            // If it's getting long without a marker, emit as answer (fallback).
+            if (contentAccum.length > 2000 && !wroteReasoningHeader) {
+              // No marker found in first 2K chars — likely no inline leak, emit as answer
+              if (!wroteAnswerHeader) {
+                wroteAnswerHeader = true;
+              }
+              res.write(contentAccum);
+              contentAccum = '';
+            }
+          } else {
+            // Already in answer mode — emit content directly
+            res.write(content);
+          }
         }
-        res.write(content);
       }
     }
+  }
+  // LX-1: Flush any remaining buffered content (no marker was found)
+  if (contentAccum && !wroteAnswerHeader) {
+    if (!wroteReasoningHeader) { res.write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
+    res.write(contentAccum);
   }
   res.end();
   try {
@@ -318,6 +382,7 @@ const inputSchema = z.object({
   userPortrait: z.string().max(100_000).nullish(),
   responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
   reasoning: z.boolean().nullish(),
+  internal: z.boolean().nullish(),
 });
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -344,8 +409,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const parsed = inputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'Bad Request' }); return; }
 
-  // Daily limit (TICKET-049: reasoning mode gets reduced limit)
-  const allowed = await checkAndIncrementLimit(uid, parsed.data.reasoning);
+  // Daily limit (LX-2a: admins skip; LX-2c: internal calls skip)
+  const allowed = await checkAndIncrementLimit(uid, parsed.data.reasoning, parsed.data.internal);
   if (!allowed) { res.status(429).json({ error: 'DAILY_LIMIT' }); return; }
 
   const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength, reasoning } = parsed.data;

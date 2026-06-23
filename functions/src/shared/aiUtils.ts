@@ -176,6 +176,14 @@ export async function withinGlobalDailyLimit(): Promise<boolean> {
 // AI_ADMIN_DAILY_LIMIT (default 100), everyone else keeps DAILY_LIMIT (5).
 export const ADMIN_DAILY_LIMIT = envInt('AI_ADMIN_DAILY_LIMIT', 100);
 
+// LX-2a: Check if a user is an admin (role from users/{uid}).
+export async function isAdmin(uid: string): Promise<boolean> {
+  try {
+    const snap = await getDb().doc(`users/${uid}`).get();
+    return snap.data()?.role === 'admin';
+  } catch { return false; }
+}
+
 export async function getUserDailyLimit(uid: string): Promise<number> {
   try {
     const snap = await getDb().doc(`users/${uid}`).get();
@@ -184,8 +192,15 @@ export async function getUserDailyLimit(uid: string): Promise<number> {
   return DAILY_LIMIT;
 }
 
-export async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<boolean> {
+// LX-2a: For admins, skip the per-user daily limit entirely.
+// LX-2c: `internal` calls (auto-naming, follow-ups) also skip the per-user limit.
+export async function checkDailyLimit(uid: string, reasoning?: boolean, internal?: boolean): Promise<boolean> {
   const db = getDb();
+
+  // Admins and internal calls bypass the per-user limit
+  if (internal) return true;
+  const admin = await isAdmin(uid);
+  if (admin) return true;
 
   const baseLimit = await getUserDailyLimit(uid);
   const limit = reasoning ? Math.min(baseLimit, 5) : baseLimit;

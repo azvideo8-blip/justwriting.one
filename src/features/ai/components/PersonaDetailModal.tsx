@@ -8,6 +8,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Input } from '../../../shared/components/Input';
+import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { Textarea } from '../../../shared/components/Textarea';
 
 export interface PersonaDetailTarget {
@@ -43,6 +44,7 @@ function Mono({ color, mono }: { color: string; mono: string }) {
 
 export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetailModalProps) {
   const { t } = useLanguage();
+  const { confirm: confirmDialog } = useConfirmDialog();
   const [name, setName] = useState('');
   const [prompt, setPrompt] = useState('');
   const [validating, setValidating] = useState(false);
@@ -86,7 +88,8 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
 
   const handleDelete = async () => {
     if (persona.isPreset) return;
-    if (!window.confirm('Удалить персону безвозвратно?')) return;
+    const ok = await confirmDialog({ title: 'Удалить персону?', message: 'Действие необратимо.' });
+    if (!ok) return;
     await AIPersonaService.delete(persona.id);
     onChanged();
     onClose();

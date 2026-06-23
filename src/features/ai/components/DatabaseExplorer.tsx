@@ -6,6 +6,7 @@ import { VersionService } from '../../../core/services/VersionService';
 import { AdminUserService } from '../../admin/services/AdminUserService';
 import { cn } from '../../../core/utils/utils';
 import { useToast } from '../../../shared/components/Toast';
+import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Input } from '../../../shared/components/Input';
@@ -44,6 +45,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
   const [selectedRecord, setSelectedRecord] = useState<RecordType | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const { showToast } = useToast();
+  const { confirm: confirmDialog } = useConfirmDialog();
 
   const tables = source === 'local' ? LOCAL_TABLES : FIRESTORE_TABLES;
 
@@ -98,7 +100,8 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
   }, [loadData]);
 
   const handleDeleteRecord = async (record: RecordType) => {
-    if (!window.confirm('Вы уверены, что хотите безвозвратно удалить эту запись из базы данных?')) return;
+    const ok = await confirmDialog({ title: 'Удалить запись?', message: 'Запись будет безвозвратно удалена из базы данных.' });
+    if (!ok) return;
     try {
       if (source === 'local') {
         const db = await getLocalDb();

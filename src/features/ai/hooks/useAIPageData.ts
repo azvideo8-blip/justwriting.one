@@ -5,6 +5,7 @@ import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import { AIService } from '../services/AIService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import { useToast } from '../../../shared/components/Toast';
+import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { TelemetryService } from '../../../core/services/TelemetryService';
 import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
@@ -12,6 +13,7 @@ import { getOrCreateGuestId } from '../../../core/storage/localDb';
 import { getAuth } from 'firebase/auth';
 import { useAIChat } from '../hooks/useAIChat';
 import { useDailyLimit } from '../hooks/useDailyLimit';
+import { useProfile } from '../../auth/contexts/ProfileContext';
 import { personaVisual, usePersonaRole } from '../constants/personaVisuals';
 import type { AIDialogue, AIPersona } from '../../../core/storage/localDb';
 import type { PersonaDetailTarget } from '../components/PersonaDetailModal';
@@ -52,6 +54,8 @@ function pickNoteByText<T extends DocLite>(docs: T[], text: string): T | null {
 
 export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const { showToast } = useToast();
+  const { confirm: confirmDialog, alert: alertDialog, prompt: promptDialog } = useConfirmDialog();
+  const { profile } = useProfile();
   const [dialogues, setDialogues] = useState<AIDialogue[]>([]);
   const [archivedDialogues, setArchivedDialogues] = useState<AIDialogue[]>([]);
   const [activeDialogueId, setActiveDialogueId] = useState<string | null>(null);
@@ -88,6 +92,11 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     dismissCrisis,
     clearError,
   } = useAIChat(activeDialogueId, selectedPersonaId, responseLength, reasoning);
+
+  // LX-2a: Sync admin role to the limit store so the client pre-check never blocks admins.
+  useEffect(() => {
+    useAiLimitStore.getState().setAdmin(profile?.role === 'admin');
+  }, [profile?.role]);
 
   const loadDialogues = useCallback(async () => {
     const [active, archived] = await Promise.all([
@@ -269,7 +278,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       await AIChatMemoryService.addManual('preference', 'Пользователю понравился такой ответ (тон/подход) — продолжать в этом духе.', activeDialogueId ?? undefined);
       showToast('Учту — продолжу в этом стиле', 'success');
     } else {
-      const reason = (window.prompt('Что не так? (короче / теплее / конкретнее / не выдумывай — или свой вариант)') ?? '').trim();
+      const reason = (await promptDialog({ title: 'Что не так с ответом?', message: 'короче / теплее / конкретнее / не выдумывай — или свой вариант', placeholder: 'Причина' }))?.trim() ?? '';
       const text = reason
         ? `Пользователю не нравится в ответе: ${reason}. Скорректировать стиль.`
         : 'Пользователю не понравился такой ответ (тон/подход) — скорректировать стиль.';
@@ -329,8 +338,13 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
 
   const handleSetReasoning = useCallback(async (value: boolean) => {
     if (value) {
-      const confirm = window.confirm('Дневной лимит запросов в режиме рассуждений ограничен 5 (вместо 10). Включить рассуждения?');
-      if (!confirm) return;
+      const ok = await confirmDialog({
+        title: 'Режим рассуждений',
+        message: 'Дневной лимит запросов в режиме рассуждений ограничен 5 (вместо 10). Включить?',
+        confirmLabel: 'Включить',
+        destructive: false,
+      });
+      if (!ok) return;
     }
     setReasoning(value);
     useAiLimitStore.getState().setLimit(value ? 5 : 10);
@@ -339,7 +353,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       await AIDialogueService.updateResponseLength(did, responseLength, value);
       await loadDialogues();
     }
-  }, [activeDialogueId, dialogue, responseLength, loadDialogues]);
+  }, [activeDialogueId, dialogue, responseLength, loadDialogues, confirmDialog]);
 
   const handleRenameDialogue = useCallback(async (id: string, newTitle: string) => {
     await AIDialogueService.updateTitle(id, newTitle);
@@ -361,7 +375,8 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
 
   const handleDelete = async () => {
     if (activeDialogueId) {
-      if (!window.confirm('Удалить диалог безвозвратно?')) return;
+      const ok = await confirmDialog({ title: 'Удалить диалог?', message: 'Действие необратимо.' });
+      if (!ok) return;
       await AIDialogueService.delete(activeDialogueId);
       setActiveDialogueId(null);
       await loadDialogues();
@@ -393,7 +408,8 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const handleDeleteMessage = async (index: number) => {
     const id = activeDialogueId ?? dialogue?.id;
     if (!id) return;
-    if (!window.confirm('Удалить это сообщение из диалога? Действие необратимо.')) return;
+    const ok = await confirmDialog({ title: 'Удалить сообщение?', message: 'Действие необратимо.' });
+    if (!ok) return;
     await AIDialogueService.deleteMessage(id, index);
     await loadDialogues();
   };
@@ -403,7 +419,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     if (!file) return;
     const MAX_FILE_SIZE = 1_048_576;
     if (file.size > MAX_FILE_SIZE) {
-      alert(`Файл слишком большой (максимум 1 МБ)`);
+      void alertDialog({ title: 'Файл слишком большой', message: 'Максимум 1 МБ' });
       e.target.value = '';
       setAttachMenuOpen(false);
       return;
@@ -412,7 +428,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     const allowedExts = ['.txt', '.md', '.csv', '.json', '.html', '.xml'];
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     if (!allowedTypes.includes(file.type) && !allowedExts.includes(ext)) {
-      alert(`Неподдерживаемый тип файла. Допустимы: ${allowedExts.join(', ')}`);
+      void alertDialog({ title: 'Неподдерживаемый тип файла', message: `Допустимы: ${allowedExts.join(', ')}` });
       e.target.value = '';
       setAttachMenuOpen(false);
       return;
@@ -421,7 +437,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     reader.onload = async (ev) => {
       const text = typeof ev.target?.result === 'string' ? ev.target.result : '';
       if (text.length > MAX_INPUT_CHARS) {
-        alert(`Файл слишком большой (более ${MAX_INPUT_CHARS.toLocaleString()} символов)`);
+        void alertDialog({ title: 'Файл слишком большой', message: `Более ${MAX_INPUT_CHARS.toLocaleString()} символов` });
         return;
       }
       const formatted = `[Прикреплен файл: "${file.name}"]\n\n${text}`;
@@ -493,8 +509,10 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     if (key === lastFollowUpKeyRef.current) return;
     lastFollowUpKeyRef.current = key;
     if (!lastAssistant) return; // keep default static follow-ups
+    // LX-2c: internal=true so follow-up generation doesn't burn the user's daily limit.
     void AIService.chat({
       personaId: 'coach',
+      internal: true,
       messages: [{ role: 'user', content: `Предложи 3 коротких варианта следующего сообщения пользователя (1-5 слов каждое, по-русски, как будто пользователь пишет собеседнику). Контекст — последний ответ ИИ:\n\n${lastAssistant.slice(0, 800)}\n\nОтветь ТОЛЬКО JSON-массивом строк, без пояснений.` }],
     }).then(res => {
       if (res.ok && res.text) {

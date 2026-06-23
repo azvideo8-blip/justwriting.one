@@ -17,6 +17,7 @@ import { EncryptionPasswordModal } from '../features/encryption/components/Encry
 import { useEncryptionSetup } from '../features/encryption/hooks/useEncryptionSetup';
 
 import { AppRoutes } from './AppRoutes';
+import { ConfirmDialogRenderer } from '../shared/components/ConfirmDialog';
 
 export function AppShell() {
   const location = useLocation();
@@ -75,6 +76,7 @@ export function AppShell() {
 
       {/* [U-03] спейсер h-28 убран: pb-20 на main уже компенсирует высоту BottomNav */}
       <LoginModalOverlay open={loginModalOpen} />
+      <ConfirmDialogRenderer />
       {encryptionMode !== 'none' && user && (
         <EncryptionPasswordModal
           mode={encryptionMode}

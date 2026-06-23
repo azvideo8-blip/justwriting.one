@@ -148,9 +148,24 @@ async function streamChat(params: {
         reasoningText = mdReasoningMatch[1]!.trim();
         answerText = mdAnswerMatch ? mdAnswerMatch[1]!.trim() : '';
       } else {
-        // No reasoning markers yet — show raw text as answer
-        reasoningText = null;
-        answerText = fullText;
+        // LX-1: Inline leak — "ОТВЕТ:" present without "ХОД МЫСЛИ:" prefix.
+        // The model dumped CoT into content; split at "ОТВЕТ:" line.
+        const hasAnswerMarker = /^ОТВЕТ:\s*$/im.test(fullText);
+        const hasReasoningHeader = /ХОД МЫСЛИ:/i.test(fullText);
+        if (hasAnswerMarker && !hasReasoningHeader) {
+          const answerIdx = fullText.search(/^ОТВЕТ:\s*$/im);
+          if (answerIdx > 0) {
+            reasoningText = fullText.slice(0, answerIdx).trim();
+            answerText = fullText.slice(answerIdx).replace(/^ОТВЕТ:\s*/im, '').trim();
+          } else {
+            reasoningText = null;
+            answerText = fullText;
+          }
+        } else {
+          // No reasoning markers yet — show raw text as answer
+          reasoningText = null;
+          answerText = fullText;
+        }
       }
       params.onChunk(answerText, reasoningText || null);
     }
@@ -172,6 +187,7 @@ async function callableChat(params: {
   userPortrait?: string | null | undefined;
   responseLength?: 'short' | 'standard' | 'detailed' | undefined;
   reasoning?: boolean | undefined;
+  internal?: boolean | undefined;
 }): Promise<string> {
   const result = await AIService.chat({
     personaId: params.personaId,
@@ -181,6 +197,7 @@ async function callableChat(params: {
     userPortrait: params.userPortrait,
     responseLength: params.responseLength,
     reasoning: params.reasoning,
+    internal: params.internal,
   });
 
   if (!result.ok) {
@@ -203,6 +220,15 @@ function extractReasoning(text: string): string | undefined {
   // Markdown header: ХОД МЫСЛИ: ... (until ОТВЕТ: or end)
   const md = text.match(/ХОД МЫСЛИ:\s*([\s\S]*?)(?=ОТВЕТ:|$)/i);
   if (md) { const r = md[1]!.trim(); return r || undefined; }
+  // LX-1: Inline leak — "ОТВЕТ:" present WITHOUT "ХОД МЫСЛИ:" prefix.
+  // The model dumped its CoT into content; everything before "ОТВЕТ:" is reasoning.
+  if (!/ХОД МЫСЛИ:/i.test(text)) {
+    const answerIdx = text.search(/^ОТВЕТ:\s*$/im);
+    if (answerIdx > 0) {
+      const r = text.slice(0, answerIdx).trim();
+      return r || undefined;
+    }
+  }
   return undefined;
 }
 
@@ -218,6 +244,15 @@ function extractAnswer(text: string): string {
   // Try markdown: ОТВЕТ: ...
   const mdAnswerMatch = text.match(/ОТВЕТ:\s*([\s\S]*?)$/i);
   if (mdAnswerMatch) return mdAnswerMatch[1]!.trim();
+  // LX-1: Inline leak — "ОТВЕТ:" present WITHOUT "ХОД МЫСЛИ:" prefix.
+  // If there's an "ОТВЕТ:" line anywhere, the answer is what follows it.
+  if (!/ХОД МЫСЛИ:/i.test(text)) {
+    const answerIdx = text.search(/^ОТВЕТ:\s*$/im);
+    if (answerIdx >= 0) {
+      const after = text.slice(answerIdx).replace(/^ОТВЕТ:\s*/im, '').trim();
+      return after || text;
+    }
+  }
   // Strip reasoning blocks and return the rest
   return text
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
@@ -672,6 +707,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             try {
               const expandRes = await AIService.chat({
                 personaId: 'coach',
+                internal: true,
                 messages: [{ role: 'user', content: `Для поискового запроса по личному дневнику: "${searchQuery}", напиши 3 альтернативных поисковых запроса на русском языке (синонимы, связанные темы, имена). Выдай их одной строкой через запятую.` }],
               });
               if (expandRes.ok && expandRes.text) {
@@ -1040,11 +1076,11 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       setStreamingMessage(null); setStreamingReasoning(null);
 
       // OPT-3: Auto-name the dialogue via LLM after the first exchange.
-      // Uses chat API (void — non-blocking). TODO: switch to cheap facet model
-      // via a dedicated callable to avoid burning the reasoning model on naming.
+      // LX-2c: internal=true so auto-naming doesn't burn the user's daily limit.
       if (wasNew) {
         void AIService.chat({
           personaId: 'coach',
+          internal: true,
           messages: [
             { role: 'user', content: `Придумай короткое название (3-5 слов) для диалога на русском языке на основе первого сообщения пользователя: "${text.slice(0, 200)}" и ответа ИИ: "${fullText.slice(0, 200)}". Ответь ТОЛЬКО названием, без кавычек.` },
           ],
@@ -1075,7 +1111,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     } finally {
       setIsLoading(false);
     }
-  }, [dialogue, dialogueId, personaId, responseLength, reasoning]);
+  }, [dialogue, dialogueId, personaId, responseLength, reasoning, language]);
 
   // Load a note's latest text without sending — lets the UI stage an attachment
   // (show a chip) so the user can add their own message before sending.
