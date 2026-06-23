@@ -87,6 +87,43 @@ export const AIDialogueService = {
     window.dispatchEvent(new Event('dialogue-updated'));
   },
 
+  // AX-7: Set variants on the last assistant message (for regenerate history).
+  async setLastAssistantVariants(id: string, variants: string[], variantIndex: number): Promise<void> {
+    const db = await getLocalDb();
+    const existing = await db.get('aiDialogues', id);
+    if (!existing) return;
+    for (let i = existing.messages.length - 1; i >= 0; i--) {
+      const m = existing.messages[i];
+      if (m && m.role === 'assistant' && m.type !== 'system') {
+        m.variants = variants;
+        m.variantIndex = variantIndex;
+        break;
+      }
+    }
+    existing.updatedAt = Date.now();
+    await db.put('aiDialogues', existing);
+    window.dispatchEvent(new Event('dialogue-updated'));
+  },
+
+  // AX-7: Switch the displayed variant on the last assistant message.
+  async switchVariant(id: string, variantIndex: number): Promise<void> {
+    const db = await getLocalDb();
+    const existing = await db.get('aiDialogues', id);
+    if (!existing) return;
+    for (let i = existing.messages.length - 1; i >= 0; i--) {
+      const m = existing.messages[i];
+      if (m && m.role === 'assistant' && m.type !== 'system') {
+        if (!m.variants || variantIndex < 0 || variantIndex >= m.variants.length) return;
+        m.variantIndex = variantIndex;
+        m.content = m.variants[variantIndex] ?? m.content;
+        break;
+      }
+    }
+    existing.updatedAt = Date.now();
+    await db.put('aiDialogues', existing);
+    window.dispatchEvent(new Event('dialogue-updated'));
+  },
+
   async updateTitle(id: string, title: string): Promise<void> {
     const db = await getLocalDb();
     const existing = await db.get('aiDialogues', id);
@@ -120,17 +157,19 @@ export const AIDialogueService = {
     await db.delete('aiDialogues', id);
   },
 
-  async updateResponseLength(id: string, responseLength: 'short' | 'standard' | 'detailed' | 'reasoning'): Promise<void> {
+  async updateResponseLength(id: string, responseLength: 'short' | 'standard' | 'detailed', reasoning?: boolean): Promise<void> {
     const db = await getLocalDb();
     const dialogue = await db.get('aiDialogues', id);
     if (!dialogue) return;
-    const lengthLabel = responseLength === 'short' ? 'кратко' : responseLength === 'detailed' ? 'объёмно' : responseLength === 'reasoning' ? 'с рассуждением' : 'стандартно';
+    const lengthLabel = responseLength === 'short' ? 'кратко' : responseLength === 'detailed' ? 'объёмно' : 'стандартно';
+    const reasoningLabel = reasoning ? ' + рассуждения' : '';
     dialogue.messages.push({
       role: 'assistant',
-      content: `⚙️ [Смена объёма]: Теперь ${dialogue.personaName} ответит вам ${lengthLabel}`,
+      content: `⚙️ [Смена объёма]: Теперь ${dialogue.personaName} ответит вам ${lengthLabel}${reasoningLabel}`,
       type: 'system',
     });
     dialogue.responseLength = responseLength;
+    if (reasoning !== undefined) dialogue.reasoning = reasoning;
     dialogue.updatedAt = Date.now();
     await db.put('aiDialogues', dialogue);
     window.dispatchEvent(new Event('dialogue-updated'));

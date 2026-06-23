@@ -14,6 +14,22 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.32',
+    date: '2026-06-23',
+    items: [
+      { category: 'fix', ru: 'Прикреплённая заметка теперь надёжно доходит до ИИ + показывается сворачиваемой карточкой', en: 'Attached notes reliably reach the AI + shown as a collapsible card' },
+      { category: 'new', ru: 'Авто-подтягивание: «разбери мою последнюю/сегодняшнюю заметку» само находит её в архиве', en: 'Auto-pull: "analyze my last/today\'s note" fetches it from the archive' },
+      { category: 'new', ru: 'Прикрепление нескольких заметок + общий вопрос («что общего»)', en: 'Attach multiple notes + a shared question' },
+      { category: 'new', ru: '«Рассуждения» — отдельная галочка (любой объём ± рассуждение); объёмы дают разную длину', en: 'Reasoning is a separate toggle (any length ± reasoning); lengths differ noticeably' },
+      { category: 'new', ru: '«Ответить иначе» с историей вариантов ‹ 2/3 ›', en: '"Regenerate" with variant history ‹ 2/3 ›' },
+      { category: 'new', ru: 'Контекстные кнопки-продолжения под ответом; авто-расширяющийся ввод; перетаскиваемый разделитель', en: 'Context-aware follow-up chips; auto-growing input; draggable divider' },
+      { category: 'fix', ru: 'Сплошные попапы; сохранение текста при ошибке/стопе/лимите; убран ряд «как ты?»', en: 'Solid popups; input preserved on error/stop/limit; removed "how are you?" row' },
+      { category: 'new', ru: 'Шифрование: «Запомнить на устройстве» — без пароля при перезагрузке', en: 'Encryption: "Remember on this device" — no password on reload' },
+      { category: 'new', ru: 'Профиль: график настроения; Диагностика: сброс лимита по пользователям, очистка памяти, схлопывание версий', en: 'Profile: mood chart; Diagnostics: per-user limit reset, clear memory, collapse versions' },
+      { category: 'fix', ru: 'Синхронизация досылает правки в облако (не залипает на Unsynced); саммари заметок без 500; рассуждения по-русски', en: 'Sync pushes edits to cloud (no stuck Unsynced); note summaries without 500; reasoning in Russian' },
+    ],
+  },
+  {
     version: '0.7.31',
     date: '2026-06-22',
     items: [

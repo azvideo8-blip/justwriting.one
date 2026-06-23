@@ -159,7 +159,7 @@ async function userDailyLimit(uid: string): Promise<number> {
 
 const COOLDOWN_MS = 10_000;
 
-async function checkAndIncrementLimit(uid: string, responseLength?: string | null): Promise<boolean> {
+async function checkAndIncrementLimit(uid: string, reasoning?: boolean | null): Promise<boolean> {
   const fs = db();
   const now = Date.now();
 
@@ -175,7 +175,7 @@ async function checkAndIncrementLimit(uid: string, responseLength?: string | nul
 
   // TICKET-049: Reasoning mode gets reduced limit (5 instead of 10)
   const baseLimit = await userDailyLimit(uid);
-  const limit = responseLength === 'reasoning' ? Math.min(baseLimit, 5) : baseLimit;
+  const limit = reasoning ? Math.min(baseLimit, 5) : baseLimit;
   const date = new Date().toISOString().slice(0, 10);
   const ref = fs.doc(`aiDailyLimit/${uid}`);
 
@@ -316,7 +316,8 @@ const inputSchema = z.object({
   documentContent: z.string().max(50_000).nullish(),
   documentMood: z.string().max(50).nullish(),
   userPortrait: z.string().max(100_000).nullish(),
-  responseLength: z.enum(['short', 'standard', 'detailed', 'reasoning']).nullish(),
+  responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
+  reasoning: z.boolean().nullish(),
 });
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -344,10 +345,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!parsed.success) { res.status(400).json({ error: 'Bad Request' }); return; }
 
   // Daily limit (TICKET-049: reasoning mode gets reduced limit)
-  const allowed = await checkAndIncrementLimit(uid, parsed.data.responseLength);
+  const allowed = await checkAndIncrementLimit(uid, parsed.data.reasoning);
   if (!allowed) { res.status(429).json({ error: 'DAILY_LIMIT' }); return; }
 
-  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength } = parsed.data;
+  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength, reasoning } = parsed.data;
 
   // Injection guard for custom prompts
   if (personaId === 'custom' && customSystemPrompt) {
@@ -362,7 +363,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: 'Bad Request' }); return;
   }
 
-  let systemPrompt = buildChatSystemPrompt({ personaId, customSystemPrompt, userPortrait, responseLength, documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
+  let systemPrompt = buildChatSystemPrompt({ personaId, customSystemPrompt, userPortrait, responseLength, reasoning, documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
 
   // OPT-5: Context is now in system prompt, no fake user/assistant turn
   const providerMessages = messages.map(m => ({ role: m.role, content: sanitizeAiInput(m.content) }));
@@ -379,8 +380,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // IMPORTANT: build the prompt WITHOUT the marker instruction (as 'detailed') —
   // if we ask the model to also print the markers, it duplicates them into
   // `content` and the output gets garbled. The native channel is the source.
-  if (AI_PROVIDER === 'fireworks' && responseLength === 'reasoning') {
-    const baseReasoningSystem = buildChatSystemPrompt({ personaId, customSystemPrompt, userPortrait, responseLength: 'detailed', documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
+  if (AI_PROVIDER === 'fireworks' && reasoning) {
+    const baseReasoningSystem = buildChatSystemPrompt({ personaId, customSystemPrompt, userPortrait, responseLength: responseLength ?? 'detailed', documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
     // DeepSeek tends to reason internally in Chinese; force the chain-of-thought
     // (reasoning_content) into Russian so the visible "ход мысли" is readable.
     const reasoningSystem = `${baseReasoningSystem}\n\nВАЖНО: и внутренние рассуждения (chain-of-thought / reasoning), и финальный ответ веди ТОЛЬКО на русском языке. Никогда не думай на английском или китайском.`;
@@ -399,7 +400,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     model: chatModel,
     system: systemPrompt,
     messages: providerMessages,
-    maxOutputTokens: responseLength === 'reasoning' ? 16384 : 8192,
+    maxOutputTokens: reasoning ? 16384 : 8192,
     onFinish: async ({ totalUsage }) => {
       try {
         await recordUsage(uid, totalUsage?.inputTokens ?? 0, totalUsage?.outputTokens ?? 0, activeModel);

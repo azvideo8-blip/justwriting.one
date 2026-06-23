@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, ChevronDown, ChevronUp, File, Paperclip, Copy, Trash2, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, File, Paperclip, Copy, Trash2, RefreshCw, ThumbsUp, ThumbsDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 
 const ATTACHED_NOTE_RE = /^\[Прикреплена заметка: "([^"]+)"\]/;
@@ -145,6 +145,9 @@ export function AssistantTurn({
   onDelete,
   onRegenerate,
   onFeedback,
+  variants,
+  variantIndex,
+  onSwitchVariant,
 }: {
   name: string;
   color: string;
@@ -154,6 +157,9 @@ export function AssistantTurn({
   onDelete?: () => void;
   onRegenerate?: (() => void) | undefined;
   onFeedback?: ((value: 'up' | 'down') => void) | undefined;
+  variants?: string[] | undefined;
+  variantIndex?: number | undefined;
+  onSwitchVariant?: ((delta: number) => void) | undefined;
 }) {
   const borderStyle = { borderLeft: `2px solid ${color}40` };
   return (
@@ -188,6 +194,27 @@ export function AssistantTurn({
                 <RefreshCw size={11} aria-hidden="true" />
                 иначе
               </Button>
+            )}
+            {onSwitchVariant && variants && variants.length > 1 && (
+              <div className="flex items-center gap-0.5 px-1 py-0.5 rounded-md text-text-main/40 font-mono text-[10px] tracking-wide">
+                <button
+                  type="button"
+                  onClick={() => onSwitchVariant(-1)}
+                  disabled={(variantIndex ?? 0) === 0}
+                  className="p-0.5 hover:text-text-main/70 disabled:opacity-30 transition-colors"
+                >
+                  <ChevronLeft size={12} aria-hidden="true" />
+                </button>
+                <span>{(variantIndex ?? variants.length - 1) + 1}/{variants.length}</span>
+                <button
+                  type="button"
+                  onClick={() => onSwitchVariant(1)}
+                  disabled={(variantIndex ?? variants.length - 1) >= variants.length - 1}
+                  className="p-0.5 hover:text-text-main/70 disabled:opacity-30 transition-colors"
+                >
+                  <ChevronRight size={12} aria-hidden="true" />
+                </button>
+              </div>
             )}
             {onFeedback && (
               <>

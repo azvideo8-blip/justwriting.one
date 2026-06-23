@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+## 2026-06-23 (v0.7.32)
+- **[RU]** Прикреплённая заметка теперь надёжно доходит до модели: текст доставляется внутри сообщения (как файл), а в чате показывается компактной сворачиваемой карточкой. Большие заметки — через documentContent.
+- **[EN]** Attached notes reliably reach the model now: the text is delivered inside the message (like a file) and shown as a compact collapsible card; large notes go via documentContent.
+- **[RU]** Авто-подтягивание: «разбери мою последнюю/сегодняшнюю/вчерашнюю заметку» без вложения само находит нужную заметку в архиве по дате. Если не найдено — просит прикрепить, без выдумок.
+- **[EN]** Auto-pull: "analyze my last/today's/yesterday's note" without an attachment fetches the matching note from the archive by date. If none — it asks to attach, no fabrication.
+- **[RU]** Прикрепление нескольких заметок (2-3) + общий вопрос («что общего между этими заметками»).
+- **[EN]** Attach multiple notes (2-3) with a shared question ("what do these notes have in common").
+- **[RU]** «Рассуждения» теперь отдельная галочка, независимая от объёма — «кратко/стандартно/объёмно» можно с рассуждением или без. Объёмы дают заметно разную длину ответа. Старые диалоги мигрируют.
+- **[EN]** Reasoning is now a separate toggle, independent of length — short/standard/detailed can each be with or without reasoning. Lengths give noticeably different answer sizes. Old dialogues migrate.
+- **[RU]** «Ответить иначе» хранит варианты — можно листать ‹ 2/3 › между сгенерированными ответами, ничего не теряется.
+- **[EN]** "Regenerate" keeps variants — page through ‹ 2/3 › generated answers without losing any.
+- **[RU]** Контекстные кнопки-продолжения под ответом подбираются по содержанию диалога; статичные — как запасной вариант.
+- **[EN]** Follow-up suggestion chips are generated from the dialogue context; static ones as fallback.
+- **[RU]** Поле ввода чата — авто-расширяющееся (растёт вверх, затем скролл); перетаскиваемый разделитель списка/чата с запоминанием ширины.
+- **[EN]** Chat input auto-grows (then scrolls); the list/chat divider is draggable and remembers its width.
+- **[RU]** Все попапы — на сплошном фоне (не просвечивают). Убран ряд «как ты?».
+- **[EN]** All popups use a solid background (no bleed-through). Removed the "how are you?" mood row.
+- **[RU]** Сохранение текста при сбое: ошибка/стоп/дневной лимит больше не теряют набранное — сообщение и вложения возвращаются в поле ввода.
+- **[EN]** Input preserved on failure: an error/stop/daily-limit no longer loses what you typed — message and attachments return to the input.
+- **[RU]** Шифрование: опция «Запомнить на этом устройстве» — авто-разблокировка при перезагрузке без ввода пароля (по желанию; снимается ручной блокировкой).
+- **[EN]** Encryption: "Remember on this device" — auto-unlock on reload without re-entering the password (opt-in; cleared by manual lock).
+- **[RU]** Диагностика: кнопки сброса лимита в списке зарегистрированных пользователей; очистка памяти ИИ; «схлопнуть версии».
+- **[EN]** Diagnostics: reset-limit buttons in the registered-users list; clear AI memory; collapse versions.
+- **[RU]** Профиль: график динамики настроения (пропущенные дни — точками). «В этот день» в архиве со сворачиванием.
+- **[EN]** Profile: mood-over-time chart (skipped days as dots). "On this day" in archive, dismissible.
+- **[RU]** Исправления: не выдумывает содержание заметки, если её текста нет; синхронизация досылает правки в уже привязанный облачный документ (не залипает на «Unsynced Edits»); рассуждения по-русски; саммари заметок на лёгкой модели + ретрай 5xx (ошибка 500 кнопки AI).
+- **[EN]** Fixes: never fabricates note content when the text is absent; sync now pushes edits to an already-linked cloud doc (no more stuck "Unsynced Edits"); reasoning in Russian; note summaries on a light model + 5xx retry (the AI-button 500).
+- **[RU]** Service Worker: CACHE_VERSION обновлён до v0.7.32.
+- **[EN]** Service Worker: CACHE_VERSION updated to v0.7.32.
+
 ## 2026-06-22 (v0.7.31)
 - **[RU]** Чат ИИ: устранена галлюцинация на прикреплённой заметке — на ходах с заметкой не подмешиваются темы профиля и память прошлых бесед (модель выдумывала события, которых в заметке нет); строгое заземление строго по тексту заметки.
 - **[EN]** AI chat: fixed attached-note hallucination — profile facets and cross-dialogue memory are no longer mixed in on note turns (the model invented events absent from the note); strict grounding to the note text.
