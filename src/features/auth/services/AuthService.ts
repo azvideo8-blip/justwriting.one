@@ -8,7 +8,7 @@ import {
   EmailAuthProvider,
 } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
-import { deriveMasterKey, unwrapDataKey, setSessionKey, fromBase64 } from '../../../core/crypto/encrypt';
+import { deriveMasterKey, unwrapDataKey, setSessionKey, fromBase64, decryptContent } from '../../../core/crypto/encrypt';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
 
@@ -56,10 +56,43 @@ interface VaultProfileData {
   encryptedDataKey?: string;
 }
 
+async function verifyKey(dataKey: CryptoKey, verification: string): Promise<boolean> {
+  try {
+    const result = await decryptContent(verification, dataKey);
+    return result === 'justwriting-verify-v1';
+  } catch {
+    return false;
+  }
+}
+
 async function unlockVaultFromProfile(profileData: VaultProfileData, password: string, userId: string): Promise<boolean> {
   if (profileData.encryptionMeta) {
-    setEncryptionEnabled(userId, true);
-    return true;
+    const meta = profileData.encryptionMeta as {
+      salt: string;
+      wrappedDataKey: string;
+      verification?: string;
+    };
+    if (!meta.salt || !meta.wrappedDataKey) {
+      return false;
+    }
+    const salt = fromBase64(meta.salt);
+    const masterKey = await deriveMasterKey(password, salt);
+    try {
+      const dataKey = await unwrapDataKey(meta.wrappedDataKey, masterKey);
+      if (meta.verification) {
+        const isValid = await verifyKey(dataKey, meta.verification);
+        if (!isValid) return false;
+      }
+      setSessionKey(dataKey);
+      setEncryptionEnabled(userId, true);
+      return true;
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'OperationError') {
+        reportError(e, { action: 'unwrapDataKeyFromMeta', userId });
+        return false;
+      }
+      throw e;
+    }
   }
 
   if (profileData.encryptionSalt && profileData.encryptedDataKey) {

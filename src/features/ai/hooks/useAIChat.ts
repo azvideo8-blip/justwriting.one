@@ -3,6 +3,7 @@ import type { AIDialogue } from '../../../core/storage/localDb';
 import { AIDialogueService } from '../services/AIDialogueService';
 import { PRESET_PERSONAS, AIPersonaService } from '../services/AIPersonaService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
+import { useLanguage } from '../../../shared/i18n';
 import { incrementDailyUsage, setDailyLimitExhausted } from './useDailyLimit';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import { getAuth } from 'firebase/auth';
@@ -245,6 +246,7 @@ interface UseAIChatReturn {
 }
 
 export function useAIChat(dialogueId: string | null, personaId: string, responseLength?: 'short' | 'standard' | 'detailed', reasoning?: boolean): UseAIChatReturn {
+  const { language } = useLanguage();
   const [dialogue, setDialogue] = useState<AIDialogue | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState<string | null>(null);
@@ -599,14 +601,19 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
                 if (f.firstAt && f.lastAt) {
                   const lastDaysAgo = Math.round((now - f.lastAt) / dayMs);
                   const firstDaysAgo = Math.round((now - f.firstAt) / dayMs);
+                  const locale = language === 'ru' ? 'ru-RU' : 'en-US';
                   if (lastDaysAgo <= 3) {
-                    temporalNote = ` [тема активна сейчас]`;
+                    temporalNote = language === 'ru' ? ` [тема активна сейчас]` : ` [topic active now]`;
                   } else if (lastDaysAgo <= 14) {
-                    temporalNote = ` [последняя запись ${lastDaysAgo} дн. назад]`;
+                    temporalNote = language === 'ru'
+                      ? ` [последняя запись ${lastDaysAgo} дн. назад]`
+                      : ` [last entry ${lastDaysAgo} days ago]`;
                   } else if (lastDaysAgo > 30 && firstDaysAgo > 60) {
-                    temporalNote = ` [тема затихла с ${new Date(f.lastAt).toLocaleDateString('ru-RU')}]`;
+                    temporalNote = language === 'ru'
+                      ? ` [тема затихла с ${new Date(f.lastAt).toLocaleDateString(locale)}]`
+                      : ` [topic inactive since ${new Date(f.lastAt).toLocaleDateString(locale)}]`;
                   } else if (firstDaysAgo <= 7) {
-                    temporalNote = ` [новая тема]`;
+                    temporalNote = language === 'ru' ? ` [новая тема]` : ` [new topic]`;
                   }
                 }
 

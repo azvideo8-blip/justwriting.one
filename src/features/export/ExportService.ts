@@ -72,6 +72,12 @@ export class ExportService {
         <body>
           <h1>${safeTitle}</h1>
           <pre>${escapeHtml(content)}</pre>
+          <script>
+            window.onload = function() {
+              window.focus();
+              window.print();
+            };
+          </script>
         </body>
         </html>
       `;
@@ -83,25 +89,13 @@ export class ExportService {
       iframe.style.width = '0';
       iframe.style.height = '0';
       iframe.style.border = 'none';
-      iframe.setAttribute('sandbox', 'allow-same-origin allow-modals');
+      iframe.setAttribute('sandbox', 'allow-scripts allow-modals');
+      iframe.srcdoc = printContent;
       document.body.appendChild(iframe);
-
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!iframeDoc) return;
-      iframeDoc.open();
-      iframeDoc.write(printContent);
-      iframeDoc.close();
-
-      try {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-      } catch {
-        // iframe may be blocked by browser policy
-      }
 
       setTimeout(() => {
         document.body.removeChild(iframe);
-      }, 1000);
+      }, 1500);
     } catch (error) {
       reportError(error, { method: 'toPDF', title, contentLength: content.length });
       throw error;

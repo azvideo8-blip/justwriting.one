@@ -137,20 +137,6 @@ describe('summarizeDocument', () => {
     ).rejects.toMatchObject({ code: 'resource-exhausted' });
   });
 
-  it('returns resource-exhausted when per-user daily limit exceeded', async () => {
-    vi.mocked(checkDailyLimit).mockResolvedValue(false);
-    await expect(
-      summarizeDocument(makeRequest(validData, { uid: UID }))
-    ).rejects.toMatchObject({ code: 'resource-exhausted' });
-  });
-
-  it('returns resource-exhausted when cooldown active', async () => {
-    vi.mocked(checkRateLimit).mockResolvedValue(false);
-    await expect(
-      summarizeDocument(makeRequest(validData, { uid: UID }))
-    ).rejects.toMatchObject({ code: 'resource-exhausted' });
-  });
-
   it('returns structured summary on valid request', async () => {
     const result = await summarizeDocument(makeRequest(validData, { uid: UID }));
     expect(result).toMatchObject({

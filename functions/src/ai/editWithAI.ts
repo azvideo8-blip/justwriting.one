@@ -80,6 +80,11 @@ export const editWithAI = onCall({
   }
 
   const { content, action, history } = parsed.data;
+
+  if (INJECTION_PATTERNS.some(p => p.test(content))) {
+    throw new HttpsError('invalid-argument', 'Content contains disallowed patterns.');
+  }
+
   const sanitizedInput = sanitizeAiInput(content);
 
   if (history) {
