@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, recordUsage, withinGlobalDailyLimit } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, withinGlobalDailyLimit } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 // Summarizes one cluster of the user's notes into a profile facet (label +
@@ -96,7 +96,9 @@ export const summarizeFacet = onCall({
       finalLabel = summary.split(/[.!?\n]/)[0]!.split(/\s+/).slice(0, 5).join(' ').slice(0, 48);
     }
 
-    return { label: finalLabel, summary };
+    const cleanLabel = sanitizeAiResponse(finalLabel);
+    const cleanSummary = sanitizeAiResponse(summary);
+    return { label: cleanLabel, summary: cleanSummary };
   } catch (e) {
     console.error('[AI facet] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);

@@ -178,7 +178,7 @@ describe('chatWithAI', () => {
 
   it('calls sanitizeAiResponse on AI output', async () => {
     await chatWithAI(makeRequest(validData, { uid: UID }));
-    expect(sanitizeAiResponse).toHaveBeenCalledWith('AI response text');
+    expect(sanitizeAiResponse).toHaveBeenCalledWith('AI response text', false);
   });
 
   it('calls DOMPurify.sanitize for response sanitization', async () => {

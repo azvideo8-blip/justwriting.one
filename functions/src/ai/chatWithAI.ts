@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, refundDailyLimit, checkRateLimit, withinGlobalDailyLimit, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
 import { generate, getActiveModel } from '../shared/aiProvider';
 import { PRESET_PERSONA_IDS, type PersonaId } from '../shared/prompts';
 import { buildChatSystemPrompt } from '../shared/buildChatPrompt';
@@ -37,14 +37,6 @@ export const chatWithAI = onCall({
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
-  if (!(await checkDailyLimit(uid))) {
-    throw new HttpsError('resource-exhausted', 'Daily limit reached.');
-  }
-
-  if (!(await checkRateLimit(uid))) {
-    throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
-  }
-
   const parsed = inputSchema.safeParse(request.data);
   if (!parsed.success) {
     console.error('Validation failed for chatWithAI. Errors:', JSON.stringify(parsed.error.format()));
@@ -53,6 +45,15 @@ export const chatWithAI = onCall({
 
   const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength, reasoning } = parsed.data;
 
+  if (!(await checkDailyLimit(uid, reasoning === true))) {
+    throw new HttpsError('resource-exhausted', 'Daily limit reached.');
+  }
+
+  if (!(await checkRateLimit(uid))) {
+    await refundDailyLimit(uid);
+    throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
+  }
+
   if (personaId === 'custom') {
     if (!customSystemPrompt) {
       throw new HttpsError('invalid-argument', 'customSystemPrompt is required when personaId is "custom".');
@@ -60,6 +61,11 @@ export const chatWithAI = onCall({
     if (INJECTION_PATTERNS.some(p => p.test(customSystemPrompt))) {
       throw new HttpsError('invalid-argument', 'Custom prompt failed security check.');
     }
+  }
+
+  const userMessages = messages.filter(m => m.role === 'user');
+  if (userMessages.some(m => INJECTION_PATTERNS.some(p => p.test(m.content)))) {
+    throw new HttpsError('invalid-argument', 'Disallowed patterns detected in messages.');
   }
 
   // CHATFIX-6: Use shared buildChatSystemPrompt instead of inline copy

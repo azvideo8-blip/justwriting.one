@@ -184,10 +184,11 @@ export async function getUserDailyLimit(uid: string): Promise<number> {
   return DAILY_LIMIT;
 }
 
-export async function checkDailyLimit(uid: string): Promise<boolean> {
+export async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<boolean> {
   const db = getDb();
 
-  const limit = await getUserDailyLimit(uid);
+  const baseLimit = await getUserDailyLimit(uid);
+  const limit = reasoning ? Math.min(baseLimit, 5) : baseLimit;
   const date = new Date().toISOString().slice(0, 10);
   const ref = db.doc(`aiDailyLimit/${uid}`);
 

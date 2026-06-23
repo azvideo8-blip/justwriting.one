@@ -117,26 +117,15 @@ describe('ExportService', () => {
   });
 
   describe('toPDF', () => {
-    it('creates iframe, writes HTML print layout, triggers print, and cleans up', () => {
-      const printSpy = vi.fn();
+    it('creates iframe with secure sandbox, sets srcdoc with print layout, and cleans up', () => {
       const appendChildSpy = vi.spyOn(document.body, 'appendChild');
       const removeChildSpy = vi.spyOn(document.body, 'removeChild');
+      let createdIframe: any = null;
 
       vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
         const el = originalCreateElement.call(document, tagName);
         if (tagName === 'iframe') {
-          Object.defineProperty(el, 'contentWindow', {
-            value: {
-              focus: vi.fn(),
-              print: printSpy,
-              document: {
-                open: vi.fn(),
-                write: vi.fn(),
-                close: vi.fn(),
-              },
-            },
-            writable: true,
-          });
+          createdIframe = el;
         }
         return el;
       });
@@ -144,7 +133,11 @@ describe('ExportService', () => {
       ExportService.toPDF('My PDF Document', 'This is content to print');
 
       expect(appendChildSpy).toHaveBeenCalled();
-      expect(printSpy).toHaveBeenCalled();
+      expect(createdIframe).not.toBeNull();
+      expect(createdIframe.getAttribute('sandbox')).toBe('allow-scripts allow-modals');
+      expect(createdIframe.srcdoc).toContain('My PDF Document');
+      expect(createdIframe.srcdoc).toContain('This is content to print');
+      expect(createdIframe.srcdoc).toContain('window.print()');
 
       // Clean up timer checks
       vi.advanceTimersByTime(1500);

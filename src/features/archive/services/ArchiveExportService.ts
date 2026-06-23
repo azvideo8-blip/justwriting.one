@@ -150,6 +150,14 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
   <hr class="divider">
   <div class="content">${escapeHtml(session.content || '')}</div>
   ${session.tags?.length ? `<div class="tags">${session.tags.map(t => '#' + escapeHtml(t)).join(' ')}</div>` : ''}
+  <script>
+    if (window.location.protocol === 'blob:') {
+      window.onload = function() {
+        window.focus();
+        window.print();
+      };
+    }
+  </script>
 </body>
 </html>`;
 
@@ -178,17 +186,19 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
       void downloadBlob(html, 'text/html;charset=utf-8', filename);
     }
   } else {
-    const win = window.open('', '_blank', 'noopener,noreferrer');
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const blobUrl = URL.createObjectURL(blob);
+    const win = window.open(blobUrl, '_blank');
     if (!win) {
       console.warn('Popup blocked — falling back to html download');
       void downloadBlob(html, 'text/html;charset=utf-8', getFilename(session, 'html', s));
+      URL.revokeObjectURL(blobUrl);
       return;
     }
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
     win.focus();
-    setTimeout(() => { try { win.print(); } catch { /* window may have closed */ } }, 500);
+    setTimeout(() => {
+      URL.revokeObjectURL(blobUrl);
+    }, 60000);
   }
 }
 

@@ -516,7 +516,7 @@ export function AIPage() {
             )}
 
             {error && (
-              <div className="flex justify-center">
+              <div className="flex justify-center" role="alert">
                 <div className="px-4 py-2 rounded-xl bg-accent-danger/10 border border-accent-danger/20 text-xs text-accent-danger">
                   {error}
                    <Button onClick={clearError} className="ml-2 underline">{t('ai_close')}</Button>
@@ -727,8 +727,8 @@ function ThinkingIndicator({ name }: { name: string }) {
   }, []);
 
   return (
-    <div className="flex items-center gap-2 text-text-main/60">
-      <span className="flex gap-1">
+    <div className="flex items-center gap-2 text-text-main/60" role="status" aria-live="polite">
+      <span className="flex gap-1" aria-hidden="true">
         <span className="w-1.5 h-1.5 rounded-full bg-text-main/40 animate-pulse" style={{ animationDelay: '0ms' }} />
         <span className="w-1.5 h-1.5 rounded-full bg-text-main/40 animate-pulse" style={{ animationDelay: '150ms' }} />
         <span className="w-1.5 h-1.5 rounded-full bg-text-main/40 animate-pulse" style={{ animationDelay: '300ms' }} />
