@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest } from '../shared/aiUtils';
+import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest, refundGlobalRequest } from '../shared/aiUtils';
 import { embed } from '../shared/aiProvider';
 
 const inputSchema = z.object({
@@ -70,6 +70,7 @@ export const embedDocument = onCall({
     // excerpts (a note's chunks may belong to different domains).
     return { vectors: result.vectors, chunks, model: result.model, dim: result.dim };
   } catch (e) {
+    await refundGlobalRequest();
     console.error('[AI embed] generation failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

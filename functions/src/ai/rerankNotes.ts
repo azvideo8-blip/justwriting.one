@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest } from '../shared/aiUtils';
+import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest, refundGlobalRequest } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 // Reranking is search infrastructure, not a user conversation — like embedDocument
@@ -69,6 +69,7 @@ export const rerankNotes = onCall({
 
     return { documentIds: ids.slice(0, maxResults) };
   } catch (e) {
+    await refundGlobalRequest();
     console.error('[AI rerank] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

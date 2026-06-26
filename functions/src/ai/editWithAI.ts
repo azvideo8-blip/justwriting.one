@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, refundDailyLimit, checkRateLimit, tryReserveGlobalRequest, getLangfuse, INJECTION_PATTERNS, MAX_AI_CONTENT_LENGTH } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, refundDailyLimit, checkRateLimit, tryReserveGlobalRequest, refundGlobalRequest, getLangfuse, INJECTION_PATTERNS, MAX_AI_CONTENT_LENGTH } from '../shared/aiUtils';
 import { generate, getActiveModel } from '../shared/aiProvider';
 
 const actionSchema = z.enum(['shorten', 'accents', 'ideas', 'summarize', 'tags', 'mood', 'continue']);
@@ -106,6 +106,7 @@ export const editWithAI = onCall({
     result = await callModel(sanitizedInput, action, history ?? undefined);
   } catch (e) {
     await refundDailyLimit(uid);
+    await refundGlobalRequest();
     throw e;
   }
   const sanitizedOutput = sanitizeAiResponse(result.text);

@@ -62,7 +62,7 @@ export const AIService = {
     userPortrait?: string | null | undefined;
     responseLength?: 'short' | 'standard' | 'detailed' | undefined;
     reasoning?: boolean | undefined;
-    internal?: boolean | undefined;
+    callType?: 'auto_name' | 'follow_up' | 'query_expand' | undefined;
   }): Promise<AIResult> {
     const functions = getFunctions();
     const fn = httpsCallable<unknown, { result: string }>(functions, 'chatWithAI');

@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, getLangfuse } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 const SUMMARY_SYSTEM_PROMPT = `Проанализируй текст и верни JSON-объект со следующими полями:
@@ -79,6 +79,7 @@ export const summarizeDocument = onCall({
     usedModel = result.model;
   } catch (e) {
     console.error('[AI summarize] generation failed:', e);
+    await refundGlobalRequest();
     generation?.end({ output: String(e), level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});
     const msg = String((e as { message?: string })?.message ?? e);

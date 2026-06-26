@@ -170,6 +170,20 @@ export async function tryReserveGlobalRequest(): Promise<boolean> {
   });
 }
 
+// Best-effort refund of one global daily request slot. Call when an AI request
+// passed tryReserveGlobalRequest but then failed — the global counter was already
+// incremented and the slot would be wasted otherwise. Errors are swallowed+logged.
+export async function refundGlobalRequest(): Promise<void> {
+  const db = getDb();
+  const date = new Date().toISOString().slice(0, 10);
+  const ref = db.doc(`aiGlobalDaily/${date}`);
+  try {
+    await ref.set({ requests: FieldValue.increment(-1), date, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  } catch (e) {
+    console.error('[AI] refundGlobalRequest failed:', e);
+  }
+}
+
 // Per-user daily cap with an admin bump: users with role 'admin' get
 // AI_ADMIN_DAILY_LIMIT (default 100), everyone else keeps DAILY_LIMIT (5).
 export const ADMIN_DAILY_LIMIT = envInt('AI_ADMIN_DAILY_LIMIT', 100);
