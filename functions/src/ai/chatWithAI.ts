@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, refundDailyLimit, checkRateLimit, tryReserveGlobalRequest, refundGlobalRequest, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
+import { validateInternalCallRestrictions, getMaxTokens, type InternalCallType } from '../shared/aiPolicy';
 import { generate, getActiveModel } from '../shared/aiProvider';
 import { PRESET_PERSONA_IDS, type PersonaId } from '../shared/prompts';
 import { buildChatSystemPrompt } from '../shared/buildChatPrompt';
@@ -20,7 +21,7 @@ const inputSchema = z.object({
   userPortrait: z.string().max(100_000).nullish(),
   responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
   reasoning: z.boolean().nullish(),
-  callType: z.enum(['auto_name', 'follow_up', 'query_expand']).nullish(),
+  callType: z.enum(['auto_name', 'follow_up', 'query_expand']).nullish() as z.ZodType<InternalCallType | null>,
 });
 
 export const chatWithAI = onCall({
@@ -44,29 +45,23 @@ export const chatWithAI = onCall({
     throw new HttpsError('invalid-argument', 'Invalid payload.');
   }
 
-  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength, reasoning, callType } = parsed.data;
+  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength, reasoning } = parsed.data;
 
-  // Internal call types (auto-naming, follow-up generation, query expansion) skip
-  // the per-user daily limit and cooldown — they are background infrastructure,
-  // not user-initiated chat. The global guard (tryReserveGlobalRequest) still applies.
-  // Internal calls are restricted: low maxTokens, no custom persona, no reasoning,
-  // no document content, no user portrait — so there's no incentive to abuse this path.
-  const isInternalCall = callType !== undefined && callType !== null;
-
-  // Enforce restrictions on internal calls
-  if (isInternalCall) {
-    if (personaId === 'custom') {
-      throw new HttpsError('invalid-argument', 'Custom persona not allowed for internal calls.');
-    }
-    if (reasoning === true) {
-      throw new HttpsError('invalid-argument', 'Reasoning mode not allowed for internal calls.');
-    }
-    if (documentContent || userPortrait) {
-      throw new HttpsError('invalid-argument', 'Document content and user portrait not allowed for internal calls.');
-    }
-    if (messages.length > 3) {
-      throw new HttpsError('invalid-argument', 'Too many messages for internal call.');
-    }
+  // Internal call types: server-validated restrictions via centralized policy.
+  // Per-user daily limit and cooldown are skipped; global guard still applies.
+  let isInternalCall = false;
+  try {
+    const result = validateInternalCallRestrictions({
+      callType: parsed.data.callType,
+      personaId,
+      reasoning,
+      documentContent,
+      userPortrait,
+      messages,
+    });
+    isInternalCall = result.isInternal;
+  } catch (e) {
+    throw new HttpsError((e as { code: string }).code as 'invalid-argument', (e as Error).message);
   }
 
   // LX-2a: Admins skip the per-user limit. Internal calls also skip.
@@ -122,7 +117,7 @@ export const chatWithAI = onCall({
 
   let gen;
   try {
-    const maxTokens = isInternalCall ? 256 : (reasoning ? 16384 : 8192);
+    const maxTokens = getMaxTokens(isInternalCall, reasoning);
     gen = await generate({ system: systemInstruction, messages: providerMessages, maxTokens, abortMs: 110_000 });
   } catch (e) {
     console.error('[chatWithAI] AI request failed:', e);
