@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 2026-06-26 (v0.7.34)
+- **[RU]** Усиление безопасности: правила лимитов AI (`aiPolicy`) и инвариант шифрования собраны в единые точки контроля — случайная локальная правка больше не может тихо открыть дыру повторно.
+- **[EN]** Security hardening: AI-limit rules (`aiPolicy`) and the encryption invariant consolidated into single enforcement points — a stray local edit can no longer silently reopen a hole.
+- **[RU]** Тестовый стенд на Firestore-эмуляторе: автотесты на гонки дневного лимита, правила доступа Firestore и утечки шифрования — регрессии ловятся до релиза.
+- **[EN]** Firestore-emulator test stand: automated tests for daily-limit races, Firestore access rules, and encryption leaks — regressions caught before release.
+- **[RU]** Удалён мёртвый дубликат проверки шифрования (`encryptionGuard`); реальная единая точка — `maybeEncrypt`; документация инвариантов приведена в соответствие.
+- **[EN]** Removed a dead duplicate encryption check (`encryptionGuard`); the real single chokepoint is `maybeEncrypt`; invariant docs corrected to match.
+- **[RU]** Добавлен воспроизводимый аудит-плейбук (`docs/AUDIT_PLAYBOOK.md`) и убран брошенный git-воркт­ри.
+- **[EN]** Added a reproducible audit playbook (`docs/AUDIT_PLAYBOOK.md`) and removed an abandoned git worktree.
+
 ## 2026-06-26 (v0.7.33)
 - **[RU]** Авто-название чата и кнопки-подсказки больше не расходуют дневную квоту AI — только обычные сообщения пользователя считаются.
 - **[EN]** Auto-naming chat and follow-up suggestions no longer consume the daily AI quota — only regular user messages count.
