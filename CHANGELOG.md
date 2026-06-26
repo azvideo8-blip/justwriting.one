@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 2026-06-26 (v0.7.33)
+- **[RU]** Авто-название чата и кнопки-подсказки больше не расходуют дневную квоту AI — только обычные сообщения пользователя считаются.
+- **[EN]** Auto-naming chat and follow-up suggestions no longer consume the daily AI quota — only regular user messages count.
+- **[RU]** Глобальный дневной лимит AI возвращается при сбое запроса — failed запросы больше не «съедают» слот.
+- **[EN]** Global AI daily limit is refunded on request failure — failed requests no longer burn a slot.
+- **[RU]** Диагностика: кнопка «Реконсиляция счётчика сессий» — пересчитывает sessionsCount по фактическим версиям, исправляет расхождения.
+- **[EN]** Diagnostics: "Reconcile session count" button — recalculates sessionsCount from actual versions, fixes drift.
+- **[RU]** Безопасность: закрыт обход лимитов через internal-флаг, усилены санитизация и правила Firestore, исправлены утечки данных и ре-рендеры.
+- **[EN]** Security: closed rate-limit bypass via internal flag, hardened sanitization and Firestore rules, fixed data leaks and re-render storms.
+
 ## 2026-06-23 (v0.7.32)
 - **[RU]** Прикреплённая заметка теперь надёжно доходит до модели: текст доставляется внутри сообщения (как файл), а в чате показывается компактной сворачиваемой карточкой. Большие заметки — через documentContent.
 - **[EN]** Attached notes reliably reach the model now: the text is delivered inside the message (like a file) and shown as a compact collapsible card; large notes go via documentContent.
