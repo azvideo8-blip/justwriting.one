@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, withinGlobalDailyLimit } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 // Extracts durable memory units (facts, insights, commitments, preferences)
@@ -9,7 +9,7 @@ import { generate } from '../shared/aiProvider';
 
 const inputSchema = z.object({
   messages: z.array(z.object({
-    role: z.string().max(20),
+    role: z.enum(['user', 'assistant']),
     content: z.string().max(10_000),
   })).min(1).max(50),
 });
@@ -39,7 +39,7 @@ export const extractChatMemory = onCall({
   }
   const uid = request.auth.uid;
 
-  if (!(await withinGlobalDailyLimit())) {
+  if (!(await tryReserveGlobalRequest())) {
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 

@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, withinGlobalDailyLimit, refundDailyLimit, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, getLangfuse } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 const SUMMARY_SYSTEM_PROMPT = `Проанализируй текст и верни JSON-объект со следующими полями:
@@ -35,12 +35,12 @@ export const summarizeDocument = onCall({
 
   const uid = request.auth.uid;
 
-  if (!(await withinGlobalDailyLimit())) {
+  if (!(await tryReserveGlobalRequest())) {
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
   // UXFIX-3: summarizeDocument is background analysis, not chat.
-  // Removed checkDailyLimit/checkRateLimit — only withinGlobalDailyLimit guards.
+  // Removed checkDailyLimit/checkRateLimit — only tryReserveGlobalRequest guards.
 
   const parsed = inputSchema.safeParse(request.data);
   if (!parsed.success) {
@@ -81,7 +81,6 @@ export const summarizeDocument = onCall({
     console.error('[AI summarize] generation failed:', e);
     generation?.end({ output: String(e), level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});
-    await refundDailyLimit(uid);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
       throw new HttpsError('resource-exhausted', 'AI service is temporarily unavailable (quota/spend limit). Try again later.');
@@ -100,7 +99,6 @@ export const summarizeDocument = onCall({
     console.error('[AI summarize] failed to parse model output:', text.slice(0, 500));
     generation?.end({ output: text, level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
-    await refundDailyLimit(uid);
     throw new HttpsError('internal', 'Failed to parse summary.');
   }
 

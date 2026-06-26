@@ -53,7 +53,7 @@ vi.mock('../../shared/aiUtils', async () => {
     sanitizeAiResponse: vi.fn(actual.sanitizeAiResponse),
     checkDailyLimit: vi.fn().mockResolvedValue(true),
     checkRateLimit: vi.fn().mockResolvedValue(true),
-    withinGlobalDailyLimit: vi.fn().mockResolvedValue(true),
+    tryReserveGlobalRequest: vi.fn().mockResolvedValue(true),
     recordUsage: vi.fn().mockResolvedValue(undefined),
     refundDailyLimit: vi.fn().mockResolvedValue(undefined),
     getLangfuse: vi.fn(() => null),
@@ -65,7 +65,7 @@ import { generate } from '../../shared/aiProvider';
 import {
   checkDailyLimit,
   checkRateLimit,
-  withinGlobalDailyLimit,
+  tryReserveGlobalRequest,
   recordUsage,
   refundDailyLimit,
   sanitizeAiInput,
@@ -96,7 +96,7 @@ describe('summarizeDocument', () => {
     vi.clearAllMocks();
     vi.mocked(checkDailyLimit).mockResolvedValue(true);
     vi.mocked(checkRateLimit).mockResolvedValue(true);
-    vi.mocked(withinGlobalDailyLimit).mockResolvedValue(true);
+    vi.mocked(tryReserveGlobalRequest).mockResolvedValue(true);
     vi.mocked(recordUsage).mockResolvedValue(undefined);
     vi.mocked(refundDailyLimit).mockResolvedValue(undefined);
     vi.mocked(generate).mockResolvedValue({
@@ -131,7 +131,7 @@ describe('summarizeDocument', () => {
   });
 
   it('returns resource-exhausted when global daily limit exceeded', async () => {
-    vi.mocked(withinGlobalDailyLimit).mockResolvedValue(false);
+    vi.mocked(tryReserveGlobalRequest).mockResolvedValue(false);
     await expect(
       summarizeDocument(makeRequest(validData, { uid: UID }))
     ).rejects.toMatchObject({ code: 'resource-exhausted' });
@@ -182,7 +182,7 @@ describe('summarizeDocument', () => {
     await expect(
       summarizeDocument(makeRequest(validData, { uid: UID }))
     ).rejects.toMatchObject({ code: 'internal' });
-    expect(refundDailyLimit).toHaveBeenCalledWith(UID);
+    expect(refundDailyLimit).not.toHaveBeenCalled();
   });
 
   it('refunds daily limit and throws internal on unparseable JSON', async () => {
@@ -195,7 +195,7 @@ describe('summarizeDocument', () => {
     await expect(
       summarizeDocument(makeRequest(validData, { uid: UID }))
     ).rejects.toMatchObject({ code: 'internal' });
-    expect(refundDailyLimit).toHaveBeenCalledWith(UID);
+    expect(refundDailyLimit).not.toHaveBeenCalled();
   });
 
   it('returns resource-exhausted on quota error from AI', async () => {
@@ -203,7 +203,7 @@ describe('summarizeDocument', () => {
     await expect(
       summarizeDocument(makeRequest(validData, { uid: UID }))
     ).rejects.toMatchObject({ code: 'resource-exhausted' });
-    expect(refundDailyLimit).toHaveBeenCalledWith(UID);
+    expect(refundDailyLimit).not.toHaveBeenCalled();
   });
 
   it('strips markdown code fences before JSON parsing', async () => {

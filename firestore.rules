@@ -178,6 +178,7 @@ service cloud.firestore {
     function isValidDocumentCreate(data) {
       return data.keys().hasAll(['userId', 'title']) &&
              data.userId is string &&
+             data.userId == request.auth.uid &&
              data.title is string && data.title.size() <= 200 &&
              (!('tags' in data) || (data.tags is list && data.tags.size() <= 10)) &&
              (!('labelId' in data) || data.labelId is string || data.labelId == null);

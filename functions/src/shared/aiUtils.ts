@@ -104,7 +104,14 @@ export async function recordUsage(
     updatedAt: FieldValue.serverTimestamp(),
   };
   batch.set(db.doc(`aiUsage/${uid}/daily/${date}`), dailyPayload, { merge: true });
-  batch.set(db.doc(`aiGlobalDaily/${date}`), dailyPayload, { merge: true });
+  // Global doc: requests already incremented atomically by tryReserveGlobalRequest;
+  // only add token counts here.
+  batch.set(db.doc(`aiGlobalDaily/${date}`), {
+    date,
+    promptTokens: FieldValue.increment(tokensIn),
+    completionTokens: FieldValue.increment(tokensOut),
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
   // Per-request event for admin breakdown view
   const eventRef = db.collection(`aiUsage/${uid}/events`).doc();
   batch.set(eventRef, {
@@ -145,31 +152,22 @@ export const TIER_LIMITS = {
   tokensPerMinute: envInt('AI_TIER_TPM', 1_000_000),
 };
 
-// Sums today's usage across ALL users (same `daily` collection group the admin
-// stats read). Cheap at free-tier scale (≤ a few hundred docs).
-export async function getGlobalDailyUsage(): Promise<{ requests: number; promptTokens: number; completionTokens: number }> {
+// Atomically check and reserve a slot in the project-wide daily cap.
+// Prevents TOCTOU race where concurrent requests all pass the read check
+// before any increment lands.
+export async function tryReserveGlobalRequest(): Promise<boolean> {
   const db = getDb();
   const date = new Date().toISOString().slice(0, 10);
-  const snap = await db.collectionGroup('daily').where('date', '==', date).get();
-  let requests = 0, promptTokens = 0, completionTokens = 0;
-  snap.forEach(d => {
-    const x = d.data();
-    requests += x.requests ?? 0;
-    promptTokens += x.promptTokens ?? 0;
-    completionTokens += x.completionTokens ?? 0;
+  const ref = db.doc(`aiGlobalDaily/${date}`);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const d = snap.data();
+    const requests = d?.requests ?? 0;
+    const tokens = (d?.promptTokens ?? 0) + (d?.completionTokens ?? 0);
+    if (requests >= TIER_LIMITS.requestsPerDay || tokens >= TIER_LIMITS.tokensPerDay) return false;
+    tx.set(ref, { requests: FieldValue.increment(1), date, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    return true;
   });
-  return { requests, promptTokens, completionTokens };
-}
-
-// True when one more request would still stay within the free-tier daily caps.
-export async function withinGlobalDailyLimit(): Promise<boolean> {
-  const db = getDb();
-  const date = new Date().toISOString().slice(0, 10);
-  const snap = await db.doc(`aiGlobalDaily/${date}`).get();
-  const d = snap.data();
-  const requests = d?.requests ?? 0;
-  const tokens = (d?.promptTokens ?? 0) + (d?.completionTokens ?? 0);
-  return requests < TIER_LIMITS.requestsPerDay && tokens < TIER_LIMITS.tokensPerDay;
 }
 
 // Per-user daily cap with an admin bump: users with role 'admin' get
@@ -193,12 +191,10 @@ export async function getUserDailyLimit(uid: string): Promise<number> {
 }
 
 // LX-2a: For admins, skip the per-user daily limit entirely.
-// LX-2c: `internal` calls (auto-naming, follow-ups) also skip the per-user limit.
-export async function checkDailyLimit(uid: string, reasoning?: boolean, internal?: boolean): Promise<boolean> {
+export async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<boolean> {
   const db = getDb();
 
-  // Admins and internal calls bypass the per-user limit
-  if (internal) return true;
+  // Admins bypass the per-user limit
   const admin = await isAdmin(uid);
   if (admin) return true;
 
@@ -249,8 +245,7 @@ export async function getDailyLimitCount(uid: string): Promise<{ used: number; d
 
 const COOLDOWN_MS = 10000;
 
-export async function checkRateLimit(uid: string, internal?: boolean): Promise<boolean> {
-  if (internal) return true;
+export async function checkRateLimit(uid: string): Promise<boolean> {
   if (await isAdmin(uid)) return true;
 
   const db = getDb();

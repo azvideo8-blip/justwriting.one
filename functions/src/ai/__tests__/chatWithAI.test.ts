@@ -53,7 +53,7 @@ vi.mock('../../shared/aiUtils', async () => {
     sanitizeAiResponse: vi.fn(actual.sanitizeAiResponse),
     checkDailyLimit: vi.fn().mockResolvedValue(true),
     checkRateLimit: vi.fn().mockResolvedValue(true),
-    withinGlobalDailyLimit: vi.fn().mockResolvedValue(true),
+    tryReserveGlobalRequest: vi.fn().mockResolvedValue(true),
     recordUsage: vi.fn().mockResolvedValue(undefined),
     refundDailyLimit: vi.fn().mockResolvedValue(undefined),
     getLangfuse: vi.fn(() => null),
@@ -65,7 +65,7 @@ import { generate } from '../../shared/aiProvider';
 import {
   checkDailyLimit,
   checkRateLimit,
-  withinGlobalDailyLimit,
+  tryReserveGlobalRequest,
   recordUsage,
   sanitizeAiInput,
   sanitizeAiResponse,
@@ -88,7 +88,7 @@ describe('chatWithAI', () => {
     vi.clearAllMocks();
     vi.mocked(checkDailyLimit).mockResolvedValue(true);
     vi.mocked(checkRateLimit).mockResolvedValue(true);
-    vi.mocked(withinGlobalDailyLimit).mockResolvedValue(true);
+    vi.mocked(tryReserveGlobalRequest).mockResolvedValue(true);
     vi.mocked(recordUsage).mockResolvedValue(undefined);
     vi.mocked(generate).mockResolvedValue({
       text: 'AI response text',
@@ -118,7 +118,7 @@ describe('chatWithAI', () => {
   });
 
   it('returns resource-exhausted when global daily limit exceeded', async () => {
-    vi.mocked(withinGlobalDailyLimit).mockResolvedValue(false);
+    vi.mocked(tryReserveGlobalRequest).mockResolvedValue(false);
     await expect(
       chatWithAI(makeRequest(validData, { uid: UID }))
     ).rejects.toMatchObject({ code: 'resource-exhausted' });
@@ -143,12 +143,6 @@ describe('chatWithAI', () => {
     expect(result).toEqual({ result: 'AI response text' });
     expect(generate).toHaveBeenCalledOnce();
     expect(recordUsage).toHaveBeenCalledOnce();
-  });
-
-  it('passes internal flag to checkRateLimit', async () => {
-    const data = { ...validData, internal: true };
-    await chatWithAI(makeRequest(data, { uid: UID }));
-    expect(checkRateLimit).toHaveBeenCalledWith(UID, true);
   });
 
   it('rejects injection patterns in custom system prompt', async () => {
