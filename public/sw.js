@@ -52,7 +52,15 @@ self.addEventListener('fetch', (event) => {
 
   if (url.pathname.startsWith('/assets/')) {
     event.respondWith(
-      caches.match(event.request).then((cached) => cached || fetch(event.request))
+      caches.match(event.request).then((cached) =>
+        cached || fetch(event.request).then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            void caches.open(CACHE).then((c) => c.put(event.request, clone));
+          }
+          return response;
+        }).catch(() => cached)
+      )
     );
     return;
   }

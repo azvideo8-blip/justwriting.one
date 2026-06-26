@@ -130,6 +130,9 @@ export function useBaseWritingSession(): BaseSessionReturn {
     return () => {
       clearInterval(id);
       document.removeEventListener('visibilitychange', onVisibility);
+      // Pause on unmount (route navigation) to prevent timer drift
+      const timerState = useTimerStore.getState();
+      if (timerState.status === 'writing') timerState.pauseSession();
     };
   }, [status]);
 

@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { useEncryptionStore } from '../useEncryptionStore';
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
+import { useEncryptionStore, cleanupEncryptionStoreListeners } from '../useEncryptionStore';
 
 describe('useEncryptionStore', () => {
   beforeEach(() => {
@@ -12,6 +12,10 @@ describe('useEncryptionStore', () => {
     });
     localStorage.clear();
     vi.clearAllMocks();
+  });
+
+  afterAll(() => {
+    cleanupEncryptionStoreListeners();
   });
 
   it('starts with null dataKey and locked vault', () => {

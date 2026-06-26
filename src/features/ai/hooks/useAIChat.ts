@@ -328,7 +328,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     messageCountRef.current = 0;
     attachedNoteRef.current = null;
     setCrisisActive(false);
+    // Abort any in-flight stream from the previous dialogue
+    abortRef.current?.abort();
   }, [dialogueId]);
+
+  // Abort stream on unmount
+  useEffect(() => {
+    return () => { abortRef.current?.abort(); };
+  }, []);
 
   useEffect(() => {
     if (!dialogueId) { setDialogue(null); return; }
@@ -1001,7 +1008,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           if (controller.signal.aborted) throw new Error('ABORTED');
           reportError(e, { action: 'Streaming chat failed, falling back to callable chat' });
           const errMsg = e instanceof Error ? e.message : '';
-          if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED') {
+          if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED' && errMsg !== 'GLOBAL_LIMIT') {
+            // Note: streaming already consumed a daily limit slot via checkAndIncrementLimit.
+            // The callable fallback will consume another slot. We accept the double-count
+            // to avoid losing the user's message, but this means fallback costs 2 quota.
             fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, responseLength: effectiveResponseLength, reasoning: effectiveReasoning });
             // RSN-4: Parse reasoning from callable fallback
             if (effectiveReasoning) {
@@ -1179,9 +1189,18 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
     await AIDialogueService.truncateFrom(id, userIdx);
     const newId = await sendMessage(userText);
-    // After the new response is saved, merge variants into the new assistant message
+    // After the new response is saved, merge variants including the new response
     if (newId) {
-      await AIDialogueService.setLastAssistantVariants(newId, savedVariants, savedVariants.length);
+      const updated = await AIDialogueService.get(newId);
+      let newContent = '';
+      if (updated) {
+        for (let i = updated.messages.length - 1; i >= 0; i--) {
+          const m = updated.messages[i];
+          if (m && m.role === 'assistant' && m.type !== 'system') { newContent = m.content; break; }
+        }
+      }
+      const allVariants = [...savedVariants, newContent];
+      await AIDialogueService.setLastAssistantVariants(newId, allVariants, allVariants.length - 1);
     }
   }, [isLoading, dialogueId, dialogue, sendMessage]);
 

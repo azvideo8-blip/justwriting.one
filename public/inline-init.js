@@ -1,2 +1,2 @@
 try{var l=localStorage.getItem('app_language')||'ru';document.documentElement.lang=l;var t=localStorage.getItem('app-theme')||'amethyst';var c={modern:'theme-modern',notion:'theme-notion',spotify:'theme-spotify',amethyst:'theme-amethyst'};if(c[t])document.documentElement.classList.add(c[t])}catch(e){}
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(e){console.warn('SW registration failed:',e)});navigator.serviceWorker.addEventListener('controllerchange',function(){})}

@@ -443,6 +443,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: 'Bad Request' }); return;
   }
 
+  // Injection guard for document content (RAG context injected into system prompt)
+  if (documentContent && INJECTION_PATTERNS.some(p => p.test(documentContent))) {
+    res.status(400).json({ error: 'Bad Request' }); return;
+  }
+
   let systemPrompt = buildChatSystemPrompt({ personaId, customSystemPrompt, userPortrait, responseLength, reasoning, documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
 
   // OPT-5: Context is now in system prompt, no fake user/assistant turn

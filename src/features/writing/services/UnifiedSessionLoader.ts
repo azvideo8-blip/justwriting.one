@@ -113,7 +113,7 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
               } catch (decErr) {
                 if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) {
                   cloudLocked = true;
-                  cloudContent = latest.content ?? '';
+                  cloudContent = '';
                 } else {
                   throw decErr;
                 }
