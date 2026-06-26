@@ -77,9 +77,44 @@ export function DiagnosticsPage() {
     return (
       <div className="flex justify-center py-20">
         <LoadingSpinner size={10} />
-      </div>
-    );
-  }
+    </div>
+  );
+}
+
+function ReconcileSessionsButton() {
+  const { showToast } = useToast();
+  const [running, setRunning] = useState(false);
+  const { user } = useAuthStatus();
+  const guestId = user?.uid ?? 'guest';
+
+  const handleReconcile = async () => {
+    setRunning(true);
+    try {
+      const { LocalDocumentService } = await import('../../../core/services/LocalDocumentService');
+      const result = await LocalDocumentService.reconcileSessionsCount(guestId);
+      const msg = `Документов исправлено: ${result.docsFixed}, профиль${result.profileFixed ? '' : ' не'} требовал исправления`;
+      showToast(msg, 'success');
+    } catch (e) {
+      showToast('Ошибка реконсиляции: ' + String(e), 'error');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <>
+      <Button
+        onClick={() => void handleReconcile()}
+        disabled={running}
+        className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-elevated border border-border-subtle text-text-main/80 text-xs font-semibold hover:text-text-main transition-colors"
+      >
+        <RotateCcw size={13} />
+        {running ? 'Реконсиляция…' : 'Реконсиляция счётчика сессий'}
+      </Button>
+      <p className="mt-1.5 text-[11px] text-text-main/50">Пересчитывает sessionsCount у всех заметок по фактическим версиям. Исправляет расхождения.</p>
+    </>
+  );
+}
 
   if (profile?.role !== 'admin') {
     return <Navigate to="/" replace />;
@@ -705,6 +740,9 @@ export function DiagnosticsPage() {
                     Схлопнуть версии заметок
                   </Button>
                   <p className="mt-1.5 text-[11px] text-text-main/50">Оставляет у каждой заметки только последнюю версию (убирает «2 / N»). Текст не меняется.</p>
+                </div>
+                <div className="mt-3">
+                  <ReconcileSessionsButton />
                 </div>
               </div>
             )}
