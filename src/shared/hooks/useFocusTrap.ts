@@ -30,7 +30,8 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, isActive: boole
 
     getFocusable()[0]?.focus();
     document.addEventListener('keydown', handleKeyDown);
-    observer.observe(container, { childList: true, subtree: true });
+    // Only observe childList (not subtree) to reduce excessive callbacks
+    observer.observe(container, { childList: true });
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       observer.disconnect();

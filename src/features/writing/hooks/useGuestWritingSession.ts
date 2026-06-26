@@ -71,6 +71,14 @@ export function useGuestWritingSession(): GuestSessionReturn {
       pinnedThoughts: data.pinnedThoughts,
       seconds: data.seconds,
       wordCount: data.wordCount,
+      initialWordCount: data.initialWordCount,
+      sessionStartTime: data.sessionStartTime,
+      activeSessionId: data.activeSessionId,
+      savedDocumentId: data.savedDocumentId,
+      tags: data.tags,
+      labelId: data.labelId,
+      accumulatedDuration: data.accumulatedDuration,
+      totalPauseSeconds: data.totalPauseSeconds,
       timestamp: Date.now(),
     });
   }, []);

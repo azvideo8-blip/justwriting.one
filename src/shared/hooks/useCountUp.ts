@@ -5,7 +5,6 @@ export function useCountUp(target: number, duration = 800) {
   const startValueRef = useRef(0);
 
   useEffect(() => {
-    startValueRef.current = 0;
     const start = performance.now();
     let rafId: number;
     const tick = (now: number) => {
