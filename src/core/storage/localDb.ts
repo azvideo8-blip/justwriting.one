@@ -247,25 +247,37 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
       }
       if (oldVersion < 3) {
         const store = transaction!.objectStore('versions');
-        store.createIndex('by-doc-version', ['documentId', 'version']);
+        if (!store.indexNames.contains('by-doc-version'))
+          store.createIndex('by-doc-version', ['documentId', 'version']);
+      }
+      if (oldVersion < 4) {
+        // No-op: placeholder for a skipped upgrade step.
       }
       if (oldVersion < 5) {
-        const dialogueStore = db.createObjectStore('aiDialogues', { keyPath: 'id' });
-        dialogueStore.createIndex('by-document', 'documentId');
-        dialogueStore.createIndex('by-updatedAt', 'updatedAt');
-        db.createObjectStore('aiSummaries', { keyPath: 'documentId' });
-        db.createObjectStore('aiPersonas', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('aiDialogues')) {
+          const dialogueStore = db.createObjectStore('aiDialogues', { keyPath: 'id' });
+          dialogueStore.createIndex('by-document', 'documentId');
+          dialogueStore.createIndex('by-updatedAt', 'updatedAt');
+        }
+        if (!db.objectStoreNames.contains('aiSummaries'))
+          db.createObjectStore('aiSummaries', { keyPath: 'documentId' });
+        if (!db.objectStoreNames.contains('aiPersonas'))
+          db.createObjectStore('aiPersonas', { keyPath: 'id' });
       }
       if (oldVersion < 6) {
-        db.createObjectStore('aiEmbeddings', { keyPath: 'documentId' });
+        if (!db.objectStoreNames.contains('aiEmbeddings'))
+          db.createObjectStore('aiEmbeddings', { keyPath: 'documentId' });
       }
       if (oldVersion < 7) {
-        db.createObjectStore('aiProfileFacets', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('aiProfileFacets'))
+          db.createObjectStore('aiProfileFacets', { keyPath: 'id' });
       }
       if (oldVersion < 8) {
-        const memoryStore = db.createObjectStore('aiChatMemory', { keyPath: 'id' });
-        memoryStore.createIndex('by-dialogue', 'sourceDialogueId');
-        memoryStore.createIndex('by-updatedAt', 'updatedAt');
+        if (!db.objectStoreNames.contains('aiChatMemory')) {
+          const memoryStore = db.createObjectStore('aiChatMemory', { keyPath: 'id' });
+          memoryStore.createIndex('by-dialogue', 'sourceDialogueId');
+          memoryStore.createIndex('by-updatedAt', 'updatedAt');
+        }
       }
     },
     blocked() { console.warn('[localDb] Database upgrade blocked — close other tabs and reload.'); },

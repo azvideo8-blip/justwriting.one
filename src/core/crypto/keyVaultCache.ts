@@ -18,44 +18,50 @@ function openDb(): Promise<IDBDatabase> {
 }
 
 export async function saveDeviceKey(userId: string, key: CryptoKey): Promise<void> {
+  let db: IDBDatabase | null = null;
   try {
-    const db = await openDb();
+    db = await openDb();
     await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE, 'readwrite');
+      const tx = db!.transaction(STORE, 'readwrite');
       tx.objectStore(STORE).put(key, userId);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-    db.close();
-  } catch { /* non-critical */ }
+  } catch { /* non-critical */ } finally {
+    db?.close();
+  }
 }
 
 export async function loadDeviceKey(userId: string): Promise<CryptoKey | null> {
+  let db: IDBDatabase | null = null;
   try {
-    const db = await openDb();
+    db = await openDb();
     const key = await new Promise<unknown>((resolve, reject) => {
-      const tx = db.transaction(STORE, 'readonly');
+      const tx = db!.transaction(STORE, 'readonly');
       const r = tx.objectStore(STORE).get(userId);
       r.onsuccess = () => resolve(r.result);
       r.onerror = () => reject(r.error);
     });
-    db.close();
     return key instanceof CryptoKey ? key : null;
   } catch {
     return null;
+  } finally {
+    db?.close();
   }
 }
 
 export async function clearDeviceKey(userId?: string): Promise<void> {
+  let db: IDBDatabase | null = null;
   try {
-    const db = await openDb();
+    db = await openDb();
     await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE, 'readwrite');
+      const tx = db!.transaction(STORE, 'readwrite');
       const store = tx.objectStore(STORE);
       if (userId) store.delete(userId); else store.clear();
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-    db.close();
-  } catch { /* non-critical */ }
+  } catch { /* non-critical */ } finally {
+    db?.close();
+  }
 }

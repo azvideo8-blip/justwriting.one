@@ -1,5 +1,11 @@
 import { translations } from '../../shared/i18n';
 
+function tr(key: string, language: 'ru' | 'en'): string {
+  const entry = translations[key];
+  if (entry && entry[language]) return entry[language];
+  return translations['error_generic']?.[language] ?? 'Error';
+}
+
 export const mapFirebaseError = (error: unknown, language: 'ru' | 'en' = 'ru'): string => {
   const code =
     (error !== null && typeof error === 'object' && 'code' in (error as object))
@@ -10,15 +16,15 @@ export const mapFirebaseError = (error: unknown, language: 'ru' | 'en' = 'ru'): 
   
   switch (code) {
     case 'permission-denied':
-      return translations['error_permission_denied']![language];
+      return tr('error_permission_denied', language);
     case 'unavailable':
-      return translations['error_unavailable']![language];
+      return tr('error_unavailable', language);
     case 'auth/user-not-found':
     case 'auth/wrong-password':
-      return translations['auth_error_invalid_credential']![language];
+      return tr('auth_error_invalid_credential', language);
     case 'auth/too-many-requests':
-      return translations['error_too_many_requests']![language];
+      return tr('error_too_many_requests', language);
     default:
-      return translations['error_generic']![language];
+      return tr('error_generic', language);
   }
 };

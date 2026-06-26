@@ -131,11 +131,16 @@ async function _drainPendingQueue(userId: string): Promise<void> {
   if (pending.length === 0) return;
 
   const documentIds = [...new Set(pending.map(p => p.documentId))];
+  const pendingByDoc = new Map<string, typeof pending>();
+  for (const p of pending) {
+    const arr = pendingByDoc.get(p.documentId);
+    if (arr) arr.push(p); else pendingByDoc.set(p.documentId, [p]);
+  }
 
   const results = await Promise.allSettled(documentIds.map(localId =>
     limit(() => StorageService.addCloudCopy(userId, localId).then(cloudId => {
       if (!cloudId) return [];
-      return pending.filter(p => p.documentId === localId).map(p => p.id);
+      return (pendingByDoc.get(localId) ?? []).map(p => p.id);
     }))
   ));
 

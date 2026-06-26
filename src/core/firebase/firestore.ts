@@ -54,6 +54,7 @@ export function getDb(): Promise<Firestore> {
 }
 
 let _retryTimer: ReturnType<typeof setTimeout> | null = null;
+let _onlineListenerAdded = false;
 
 async function testConnection(retryCount = 0) {
   try {
@@ -85,4 +86,11 @@ async function testConnection(retryCount = 0) {
       }
     }
   }
+}
+
+if (typeof window !== 'undefined' && !_onlineListenerAdded) {
+  _onlineListenerAdded = true;
+  window.addEventListener('online', () => {
+    if (!isFirestoreConnected) void testConnection(0);
+  });
 }

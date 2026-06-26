@@ -61,10 +61,12 @@ export const LocalVersionService = {
     if (all.length <= 1) return 0;
     all.sort((a, b) => a.version - b.version);
     const keep = all[all.length - 1];
+    const tx = db.transaction('versions', 'readwrite');
     let deleted = 0;
-    for (const v of all) {
-      if (keep && v.id !== keep.id) { await db.delete('versions', v.id); deleted++; }
-    }
+    await Promise.all(
+      all.filter(v => keep && v.id !== keep.id).map(v => { deleted++; return tx.store.delete(v.id); })
+    );
+    await tx.done;
     return deleted;
   },
 

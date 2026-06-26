@@ -100,6 +100,8 @@ async function _doSaveVersion(userId: string, documentId: string, data: SaveDocu
       data.duration,
       now
     );
+  } else {
+    throw new DOMException('Local save failed (quota exceeded)', 'QuotaExceededError');
   }
 
   if (existing.linkedCloudId) {
