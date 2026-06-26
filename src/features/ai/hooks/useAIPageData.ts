@@ -509,10 +509,10 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     if (key === lastFollowUpKeyRef.current) return;
     lastFollowUpKeyRef.current = key;
     if (!lastAssistant) return; // keep default static follow-ups
-    // LX-2c: internal=true so follow-up generation doesn't burn the user's daily limit.
+    // callType: 'follow_up' — server skips per-user quota, global guard still applies.
     void AIService.chat({
       personaId: 'coach',
-      internal: true,
+      callType: 'follow_up',
       messages: [{ role: 'user', content: `Предложи 3 коротких варианта следующего сообщения пользователя (1-5 слов каждое, по-русски, как будто пользователь пишет собеседнику). Контекст — последний ответ ИИ:\n\n${lastAssistant.slice(0, 800)}\n\nОтветь ТОЛЬКО JSON-массивом строк, без пояснений.` }],
     }).then(res => {
       if (res.ok && res.text) {

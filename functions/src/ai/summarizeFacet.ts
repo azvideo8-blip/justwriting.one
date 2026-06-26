@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 // Summarizes one cluster of the user's notes into a profile facet (label +
@@ -100,6 +100,7 @@ export const summarizeFacet = onCall({
     const cleanSummary = sanitizeAiResponse(summary);
     return { label: cleanLabel, summary: cleanSummary };
   } catch (e) {
+    await refundGlobalRequest();
     console.error('[AI facet] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

@@ -142,6 +142,17 @@ function sanitizeAiInput(content: string): string {
   return sanitizeAiInputShared(content);
 }
 
+// Best-effort refund of one global daily request slot.
+async function refundGlobalRequest(): Promise<void> {
+  const date = new Date().toISOString().slice(0, 10);
+  const ref = db().doc(`aiGlobalDaily/${date}`);
+  try {
+    await ref.set({ requests: FieldValue.increment(-1), date, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  } catch (e) {
+    console.error('[api/chat] refundGlobalRequest failed:', e);
+  }
+}
+
 // ── Daily limit ───────────────────────────────────────────────────────────────
 const DAILY_LIMIT = (() => {
   const n = parseInt(process.env.AI_DAILY_LIMIT ?? '10', 10);
@@ -372,6 +383,7 @@ async function streamFireworksReasoning(
    }
    } catch (streamErr) {
      console.error('[api/chat] stream read failed:', streamErr);
+     await refundGlobalRequest();
    }
    // LX-1: Flush any remaining buffered content (no marker was found)
   if (contentAccum && !wroteAnswerHeader) {
@@ -402,6 +414,7 @@ const inputSchema = z.object({
   userPortrait: z.string().max(100_000).nullish(),
   responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
   reasoning: z.boolean().nullish(),
+  callType: z.enum(['auto_name', 'follow_up', 'query_expand']).nullish(),
 });
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -425,9 +438,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const parsed = inputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'Bad Request' }); return; }
 
-  // Daily limit first (LX-2a: admins skip) — avoids wasting a global slot if user is at per-user cap
-  const allowed = await checkAndIncrementLimit(uid, parsed.data.reasoning);
-  if (!allowed) { res.status(429).json({ error: 'DAILY_LIMIT' }); return; }
+  // Internal call types (auto-naming, follow-up generation, query expansion) skip
+  // the per-user daily limit and cooldown — they are background infrastructure.
+  // The global guard (tryReserveGlobalRequest) still applies.
+  // Internal calls are restricted: low maxTokens, no custom persona, no reasoning.
+  const isInternalCall = parsed.data.callType !== undefined && parsed.data.callType !== null;
+
+  if (isInternalCall) {
+    if (parsed.data.personaId === 'custom') {
+      res.status(400).json({ error: 'Bad Request' }); return;
+    }
+    if (parsed.data.reasoning === true) {
+      res.status(400).json({ error: 'Bad Request' }); return;
+    }
+    if (parsed.data.documentContent || parsed.data.userPortrait) {
+      res.status(400).json({ error: 'Bad Request' }); return;
+    }
+    if (parsed.data.messages.length > 3) {
+      res.status(400).json({ error: 'Bad Request' }); return;
+    }
+  }
+
+  // Daily limit first (LX-2a: admins skip; internal calls skip) — avoids wasting a global slot if user is at per-user cap
+  if (!isInternalCall) {
+    const allowed = await checkAndIncrementLimit(uid, parsed.data.reasoning);
+    if (!allowed) { res.status(429).json({ error: 'DAILY_LIMIT' }); return; }
+  }
 
   // Project-wide free-tier guard (across all users + resets)
   if (!(await tryReserveGlobalRequest())) { res.status(429).json({ error: 'GLOBAL_LIMIT' }); return; }
@@ -485,11 +521,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  const maxOutputTokens = isInternalCall ? 256 : (reasoning ? 16384 : 8192);
+
   const result = streamText({
     model: chatModel,
     system: systemPrompt,
     messages: providerMessages,
-    maxOutputTokens: reasoning ? 16384 : 8192,
+    maxOutputTokens,
     onFinish: async ({ totalUsage }) => {
       try {
         await recordUsage(uid, totalUsage?.inputTokens ?? 0, totalUsage?.outputTokens ?? 0, activeModel);

@@ -190,7 +190,7 @@ async function callableChat(params: {
   userPortrait?: string | null | undefined;
   responseLength?: 'short' | 'standard' | 'detailed' | undefined;
   reasoning?: boolean | undefined;
-  internal?: boolean | undefined;
+  callType?: 'auto_name' | 'follow_up' | 'query_expand' | undefined;
 }): Promise<string> {
   const result = await AIService.chat({
     personaId: params.personaId,
@@ -200,7 +200,7 @@ async function callableChat(params: {
     userPortrait: params.userPortrait,
     responseLength: params.responseLength,
     reasoning: params.reasoning,
-    internal: params.internal,
+    callType: params.callType,
   });
 
   if (!result.ok) {
@@ -719,7 +719,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             try {
               const expandRes = await AIService.chat({
                 personaId: 'coach',
-                internal: true,
+                callType: 'query_expand',
                 messages: [{ role: 'user', content: `Для поискового запроса по личному дневнику: "${searchQuery}", напиши 3 альтернативных поисковых запроса на русском языке (синонимы, связанные темы, имена). Выдай их одной строкой через запятую.` }],
               });
               if (expandRes.ok && expandRes.text) {
@@ -1091,11 +1091,11 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       setStreamingMessage(null); setStreamingReasoning(null);
 
       // OPT-3: Auto-name the dialogue via LLM after the first exchange.
-      // LX-2c: internal=true so auto-naming doesn't burn the user's daily limit.
+      // callType: 'auto_name' — server skips per-user quota, global guard still applies.
       if (wasNew) {
         void AIService.chat({
           personaId: 'coach',
-          internal: true,
+          callType: 'auto_name',
           messages: [
             { role: 'user', content: `Придумай короткое название (3-5 слов) для диалога на русском языке на основе первого сообщения пользователя: "${text.slice(0, 200)}" и ответа ИИ: "${fullText.slice(0, 200)}". Ответь ТОЛЬКО названием, без кавычек.` },
           ],
