@@ -237,4 +237,38 @@ export const LocalDocumentService = {
     const db = await getLocalDb();
     return db.get('profile', guestId);
   },
+
+  // Reconcile sessionsCount for all documents of a user/guest by recounting
+  // actual version rows. Fixes drift from the incremental update approach.
+  async reconcileSessionsCount(guestId: string): Promise<{ docsFixed: number; profileFixed: boolean }> {
+    const db = await getLocalDb();
+    const docs = await db.getAllFromIndex('documents', 'by-guest', guestId);
+    let docsFixed = 0;
+
+    const tx = db.transaction(['documents', 'versions', 'profile'], 'readwrite');
+    for (const doc of docs) {
+      const versions = await tx.objectStore('versions').index('by-document').getAll(doc.id);
+      const actualCount = versions.length;
+      if (doc.sessionsCount !== actualCount) {
+        await tx.objectStore('documents').put({ ...doc, sessionsCount: actualCount });
+        docsFixed++;
+      }
+    }
+
+    // Recalculate profile sessionsCount from all docs
+    const profile = await tx.objectStore('profile').get(guestId);
+    let profileFixed = false;
+    if (profile) {
+      const allDocs = await tx.objectStore('documents').getAll();
+      const userDocs = allDocs.filter(d => d.guestId === guestId);
+      const totalSessions = userDocs.reduce((sum, d) => sum + (d.sessionsCount || 0), 0);
+      if (profile.sessionsCount !== totalSessions) {
+        await tx.objectStore('profile').put({ ...profile, sessionsCount: totalSessions });
+        profileFixed = true;
+      }
+    }
+    await tx.done;
+
+    return { docsFixed, profileFixed };
+  },
 };
