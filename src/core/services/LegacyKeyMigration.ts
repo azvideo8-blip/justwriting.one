@@ -56,6 +56,13 @@ export async function migrateFromLegacy(
     verification,
   });
 
+  // Clean up legacy encryption fields so the old password can no longer derive the dataKey
+  const { setDoc } = mod;
+  await setDoc(doc(db, 'users', userId), {
+    encryptionSalt: null,
+    encryptedDataKey: null,
+  }, { merge: true });
+
   setSessionKey(dataKey);
   setEncryptionEnabled(userId, true);
 }

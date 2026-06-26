@@ -10,10 +10,13 @@ export interface DraftData {
   wpm: number;
   wordCount: number;
   initialWordCount?: number;
-  sessionStartTime?: number | null;
-  activeSessionId?: string | null;
-  tags?: string[];
-  labelId?: string;
+  sessionStartTime?: number | null | undefined;
+  activeSessionId?: string | null | undefined;
+  savedDocumentId?: string | null | undefined;
+  tags?: string[] | undefined;
+  labelId?: string | undefined;
+  accumulatedDuration?: number | undefined;
+  totalPauseSeconds?: number | undefined;
 }
 
 export interface DraftManagerOptions {

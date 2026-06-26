@@ -282,19 +282,20 @@ async function streamFireworksReasoning(
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
 
-  const reader = upstream.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let wroteReasoningHeader = false;
-  let wroteAnswerHeader = false;
-  let tokensIn = 0;
-  let tokensOut = 0;
-  // LX-1: Accumulate content when no reasoning_content channel, to detect
+   const reader = upstream.body.getReader();
+   const decoder = new TextDecoder();
+   let buffer = '';
+   let wroteReasoningHeader = false;
+   let wroteAnswerHeader = false;
+   let tokensIn = 0;
+   let tokensOut = 0;
+   // LX-1: Accumulate content when no reasoning_content channel, to detect
   // inline "ОТВЕТ:" marker and relabel the preamble as "ХОД МЫСЛИ:".
-  let contentAccum = '';
-  let sawNativeReasoning = false;
-
-  for (;;) {
+   let contentAccum = '';
+   let sawNativeReasoning = false;
+ 
+   try {
+   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
@@ -368,8 +369,11 @@ async function streamFireworksReasoning(
         }
       }
     }
-  }
-  // LX-1: Flush any remaining buffered content (no marker was found)
+   }
+   } catch (streamErr) {
+     console.error('[api/chat] stream read failed:', streamErr);
+   }
+   // LX-1: Flush any remaining buffered content (no marker was found)
   if (contentAccum && !wroteAnswerHeader) {
     if (!wroteReasoningHeader) { res.write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
     res.write(contentAccum);
@@ -417,16 +421,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(401).json({ error: 'Unauthorized' }); return;
   }
 
-  // Project-wide free-tier guard (across all users + resets)
-  if (!(await tryReserveGlobalRequest())) { res.status(429).json({ error: 'GLOBAL_LIMIT' }); return; }
-
   // Parse body
   const parsed = inputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'Bad Request' }); return; }
 
-  // Daily limit (LX-2a: admins skip)
+  // Daily limit first (LX-2a: admins skip) — avoids wasting a global slot if user is at per-user cap
   const allowed = await checkAndIncrementLimit(uid, parsed.data.reasoning);
   if (!allowed) { res.status(429).json({ error: 'DAILY_LIMIT' }); return; }
+
+  // Project-wide free-tier guard (across all users + resets)
+  if (!(await tryReserveGlobalRequest())) { res.status(429).json({ error: 'GLOBAL_LIMIT' }); return; }
 
   const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength, reasoning } = parsed.data;
 

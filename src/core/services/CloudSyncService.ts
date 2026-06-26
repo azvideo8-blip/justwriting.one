@@ -46,8 +46,15 @@ export const CloudSyncService = {
         if (isNaN(startedAt.getTime())) startedAt = new Date();
 
         const verRecord: Record<string, unknown> = { ...ver };
-        const decryptedVer = await maybeDecrypt(verRecord, ['content'], []);
-        const verContent = (typeof decryptedVer.content === 'string' ? decryptedVer.content : '') || ver.content;
+        let verContent = '';
+        try {
+          const decryptedVer = await maybeDecrypt(verRecord, ['content'], []);
+          verContent = (typeof decryptedVer.content === 'string' ? decryptedVer.content : '') || ver.content;
+        } catch (decErr) {
+          if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
+          // Skip corrupted version but continue importing others
+          verContent = ver.content ?? '';
+        }
 
         await LocalVersionService.addVersion(userId, localId, {
           content: verContent,

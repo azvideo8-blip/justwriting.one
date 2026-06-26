@@ -2,7 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import { useLanguage } from '../i18n';
 
 const SITE_URL = import.meta.env.VITE_SITE_URL ?? 'https://justwriting.one';
-const OG_IMAGE = `${SITE_URL}/og-image.svg`;
+const OG_IMAGE = `${SITE_URL}/og-image.png`;
 
 interface SeoHeadProps {
   path: string;
@@ -29,7 +29,7 @@ export function SeoHead({ path, titleRu, titleEn, descriptionRu, descriptionEn }
       <link rel="canonical" href={canonicalUrl} />
       <link rel="alternate" hrefLang="ru" href={ruUrl} />
       <link rel="alternate" hrefLang="en" href={enUrl} />
-      <link rel="alternate" hrefLang="x-default" href={SITE_URL} />
+      <link rel="alternate" hrefLang="x-default" href={ruUrl} />
 
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />

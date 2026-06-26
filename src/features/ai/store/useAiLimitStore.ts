@@ -50,6 +50,14 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
   loaded: false,
   isAdmin: false,
 
+  // Schedule a reset at midnight UTC so an open tab doesn't carry stale quota
+  _midnightTimer: typeof window !== 'undefined'
+    ? setTimeout(() => { get().loadLimit(); }, (() => {
+        const ms = getMidnightUtc().getTime() - Date.now();
+        return ms > 0 ? ms : 86_400_000;
+      })()) as ReturnType<typeof setTimeout> | null
+    : null,
+
   loadLimit() {
     const { count } = readLocalUsage();
     const limit = get().isAdmin ? ADMIN_LIMIT : get().limit;

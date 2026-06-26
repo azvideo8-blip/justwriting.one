@@ -39,59 +39,61 @@ export const AIDialogueService = {
     const MAX_MSG_LENGTH = 100_000;
     const truncate = (s: string) => s.length > MAX_MSG_LENGTH ? s.slice(0, MAX_MSG_LENGTH) + '\n[...truncated]' : s;
     const db = await getLocalDb();
-    const existing = await db.get('aiDialogues', id);
-    if (!existing) return;
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
     const now = Date.now();
     existing.messages.push(
       { role: 'user', content: truncate(userMsg) },
       { role: 'assistant', content: truncate(assistantMsg), ...(reasoning ? { reasoning: truncate(reasoning) } : {}) },
     );
     existing.updatedAt = now;
-    await db.put('aiDialogues', existing);
+    await tx.store.put(existing);
+    await tx.done;
   },
 
-  // Remove a single message by its index in dialogue.messages. Used to clean a
-  // dialogue (e.g. delete an early hallucinated turn so it stops being replayed).
   async deleteMessage(id: string, index: number): Promise<void> {
     const db = await getLocalDb();
-    const existing = await db.get('aiDialogues', id);
-    if (!existing) return;
-    if (index < 0 || index >= existing.messages.length) return;
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
+    if (index < 0 || index >= existing.messages.length) { await tx.done; return; }
     existing.messages.splice(index, 1);
     existing.updatedAt = Date.now();
-    await db.put('aiDialogues', existing);
+    await tx.store.put(existing);
+    await tx.done;
     window.dispatchEvent(new Event('dialogue-updated'));
   },
 
-  // Link a dialogue to the note it's about, so follow-up turns (even after a
-  // reload) keep grounding on that note and suppress profile/memory contamination.
   async setDocumentId(id: string, documentId: string): Promise<void> {
     const db = await getLocalDb();
-    const existing = await db.get('aiDialogues', id);
-    if (!existing || existing.documentId === documentId) return;
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing || existing.documentId === documentId) { await tx.done; return; }
     existing.documentId = documentId;
     existing.updatedAt = Date.now();
-    await db.put('aiDialogues', existing);
+    await tx.store.put(existing);
+    await tx.done;
   },
 
-  // Remove all messages from `fromIndex` to the end (used by "regenerate": trim
-  // the trailing user+assistant turn so it can be re-sent fresh).
   async truncateFrom(id: string, fromIndex: number): Promise<void> {
     const db = await getLocalDb();
-    const existing = await db.get('aiDialogues', id);
-    if (!existing) return;
-    if (fromIndex < 0 || fromIndex >= existing.messages.length) return;
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
+    if (fromIndex < 0 || fromIndex >= existing.messages.length) { await tx.done; return; }
     existing.messages.splice(fromIndex);
     existing.updatedAt = Date.now();
-    await db.put('aiDialogues', existing);
+    await tx.store.put(existing);
+    await tx.done;
     window.dispatchEvent(new Event('dialogue-updated'));
   },
 
-  // AX-7: Set variants on the last assistant message (for regenerate history).
   async setLastAssistantVariants(id: string, variants: string[], variantIndex: number): Promise<void> {
     const db = await getLocalDb();
-    const existing = await db.get('aiDialogues', id);
-    if (!existing) return;
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
     for (let i = existing.messages.length - 1; i >= 0; i--) {
       const m = existing.messages[i];
       if (m && m.role === 'assistant' && m.type !== 'system') {
@@ -101,55 +103,63 @@ export const AIDialogueService = {
       }
     }
     existing.updatedAt = Date.now();
-    await db.put('aiDialogues', existing);
+    await tx.store.put(existing);
+    await tx.done;
     window.dispatchEvent(new Event('dialogue-updated'));
   },
 
-  // AX-7: Switch the displayed variant on the last assistant message.
   async switchVariant(id: string, variantIndex: number): Promise<void> {
     const db = await getLocalDb();
-    const existing = await db.get('aiDialogues', id);
-    if (!existing) return;
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
     for (let i = existing.messages.length - 1; i >= 0; i--) {
       const m = existing.messages[i];
       if (m && m.role === 'assistant' && m.type !== 'system') {
-        if (!m.variants || variantIndex < 0 || variantIndex >= m.variants.length) return;
+        if (!m.variants || variantIndex < 0 || variantIndex >= m.variants.length) { await tx.done; return; }
         m.variantIndex = variantIndex;
         m.content = m.variants[variantIndex] ?? m.content;
         break;
       }
     }
     existing.updatedAt = Date.now();
-    await db.put('aiDialogues', existing);
+    await tx.store.put(existing);
+    await tx.done;
     window.dispatchEvent(new Event('dialogue-updated'));
   },
 
   async updateTitle(id: string, title: string): Promise<void> {
     const db = await getLocalDb();
-    const existing = await db.get('aiDialogues', id);
-    if (!existing) return;
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
     existing.title = title;
     existing.updatedAt = Date.now();
-    await db.put('aiDialogues', existing);
+    await tx.store.put(existing);
+    await tx.done;
     window.dispatchEvent(new Event('dialogue-updated'));
   },
 
   async archive(id: string): Promise<void> {
     const db = await getLocalDb();
-    const existing = await db.get('aiDialogues', id);
-    if (!existing) return;
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
     existing.archivedAt = Date.now();
     existing.updatedAt = Date.now();
-    await db.put('aiDialogues', existing);
+    await tx.store.put(existing);
+    await tx.done;
   },
 
   async unarchive(id: string): Promise<void> {
     const db = await getLocalDb();
-    const existing = await db.get('aiDialogues', id);
-    if (!existing) return;
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
     existing.archivedAt = undefined;
     existing.updatedAt = Date.now();
-    await db.put('aiDialogues', existing);
+    await tx.store.put(existing);
+    await tx.done;
   },
 
   async delete(id: string): Promise<void> {
@@ -159,8 +169,9 @@ export const AIDialogueService = {
 
   async updateResponseLength(id: string, responseLength: 'short' | 'standard' | 'detailed', reasoning?: boolean): Promise<void> {
     const db = await getLocalDb();
-    const dialogue = await db.get('aiDialogues', id);
-    if (!dialogue) return;
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const dialogue = await tx.store.get(id);
+    if (!dialogue) { await tx.done; return; }
     const lengthLabel = responseLength === 'short' ? 'кратко' : responseLength === 'detailed' ? 'объёмно' : 'стандартно';
     const reasoningLabel = reasoning ? ' + рассуждения' : '';
     dialogue.messages.push({
@@ -171,7 +182,8 @@ export const AIDialogueService = {
     dialogue.responseLength = responseLength;
     if (reasoning !== undefined) dialogue.reasoning = reasoning;
     dialogue.updatedAt = Date.now();
-    await db.put('aiDialogues', dialogue);
+    await tx.store.put(dialogue);
+    await tx.done;
     window.dispatchEvent(new Event('dialogue-updated'));
   },
 

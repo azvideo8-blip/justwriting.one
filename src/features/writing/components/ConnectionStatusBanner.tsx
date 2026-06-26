@@ -42,7 +42,8 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
     }
   }, [isOnline, wasOffline]);
 
-  if (showZen) return null;
+  // Show offline indicator even in zen mode — users need to know sync is down
+  if (showZen && isOnline) return null;
 
   return (
     <AnimatePresence>

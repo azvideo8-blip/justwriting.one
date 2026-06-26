@@ -175,6 +175,8 @@ async function streamChat(params: {
     // User pressed Stop — keep whatever streamed so far instead of erroring.
     if (params.signal?.aborted) return fullText;
     throw e;
+  } finally {
+    try { reader.releaseLock(); } catch { /* already released */ }
   }
 
   return fullText;
@@ -416,6 +418,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   // is never put into the message itself (that would trip the 10K per-message cap).
   const sendMessage = useCallback(async (text: string, attached?: { content: string; documentId?: string; inline?: boolean }, mood?: string): Promise<string | null> => {
     if (!text.trim()) return null;
+    // Re-entrancy guard: prevent concurrent sendMessage calls from creating orphan streams
+    if (isLoading) return null;
 
     const { remaining } = useAiLimitStore.getState();
     if (remaining <= 0) {
@@ -1122,7 +1126,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     } finally {
       setIsLoading(false);
     }
-  }, [dialogue, dialogueId, personaId, responseLength, reasoning, language]);
+  }, [dialogue, dialogueId, personaId, responseLength, reasoning, language, isLoading]);
 
   // Load a note's latest text without sending — lets the UI stage an attachment
   // (show a chip) so the user can add their own message before sending.
