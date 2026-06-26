@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.34',
+    date: '2026-06-26',
+    items: [
+      { category: 'improvement', ru: 'Под капотом — усиление безопасности: правила лимитов AI и инварианты шифрования собраны в единые точки контроля, чтобы случайная правка не открыла дыру повторно', en: 'Under the hood — security hardening: AI-limit rules and encryption invariants consolidated into single enforcement points, so a stray edit can\'t silently reopen a hole' },
+      { category: 'improvement', ru: 'Автотесты на гонки лимитов, правила доступа Firestore и утечки шифрования — регрессии теперь ловятся до релиза, а не в проде', en: 'Automated tests for limit races, Firestore access rules, and encryption leaks — regressions are now caught before release, not in production' },
+    ],
+  },
+  {
     version: '0.7.33',
     date: '2026-06-26',
     items: [
