@@ -84,9 +84,8 @@ export async function unlockVault(userId: string, password: string): Promise<voi
   setEncryptionEnabled(userId, true);
 }
 
-export function lockVault(userId: string): void {
+export function lockVault(_userId: string): void {
   clearSessionKey();
-  setEncryptionEnabled(userId, false);
 }
 
 export async function changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {

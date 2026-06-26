@@ -69,6 +69,11 @@ export const chatWithAI = onCall({
     throw new HttpsError('invalid-argument', 'Disallowed patterns detected in messages.');
   }
 
+  // Injection guard for document content (RAG context injected into system prompt)
+  if (documentContent && INJECTION_PATTERNS.some(p => p.test(documentContent))) {
+    throw new HttpsError('invalid-argument', 'Disallowed patterns in document content.');
+  }
+
   // CHATFIX-6: Use shared buildChatSystemPrompt instead of inline copy
   const systemInstruction = buildChatSystemPrompt({
     personaId,

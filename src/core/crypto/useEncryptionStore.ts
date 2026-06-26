@@ -50,26 +50,51 @@ function resetAutoLockTimer() {
   }
 }
 
-if (typeof window !== 'undefined') {
+let registeredListeners: Array<{ target: EventTarget; type: string; listener: EventListenerOrEventListenerObject; options?: boolean | AddEventListenerOptions }> = [];
+
+export function setupEncryptionStoreListeners() {
+  if (typeof window === 'undefined') return;
+
+  cleanupEncryptionStoreListeners();
+
   const activityEvents: (keyof WindowEventMap)[] = ['keydown', 'mousedown', 'touchstart', 'mousemove'];
   let throttleId: ReturnType<typeof setTimeout> | null = null;
+
+  const activityListener = () => {
+    if (throttleId) return;
+    throttleId = setTimeout(() => {
+      throttleId = null;
+      resetAutoLockTimer();
+    }, 5000);
+  };
+
   for (const evt of activityEvents) {
-    window.addEventListener(evt, () => {
-      if (throttleId) return;
-      throttleId = setTimeout(() => {
-        throttleId = null;
-        resetAutoLockTimer();
-      }, 5000);
-    }, { passive: true });
+    window.addEventListener(evt, activityListener, { passive: true });
+    registeredListeners.push({ target: window, type: evt, listener: activityListener, options: { passive: true } });
   }
-  document.addEventListener('visibilitychange', () => {
+
+  const visibilityListener = () => {
     if (document.hidden && useEncryptionStore.getState().isVaultUnlocked) {
       const idleMs = Date.now() - lastActivity;
       if (idleMs >= AUTO_LOCK_MS) {
         useEncryptionStore.getState().lockVault();
       }
     }
-  });
+  };
+  document.addEventListener('visibilitychange', visibilityListener);
+  registeredListeners.push({ target: document, type: 'visibilitychange', listener: visibilityListener });
+}
+
+export function cleanupEncryptionStoreListeners() {
+  for (const item of registeredListeners) {
+    item.target.removeEventListener(item.type, item.listener, item.options);
+  }
+  registeredListeners = [];
+  clearAutoLockTimer();
+}
+
+if (typeof window !== 'undefined') {
+  setupEncryptionStoreListeners();
 }
 
 export const useEncryptionStore = create<EncryptionState>((set, get) => ({

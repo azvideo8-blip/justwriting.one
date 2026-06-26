@@ -331,8 +331,13 @@ export const AIProfileFacetService = {
 
     // Versioned build: save new facets BEFORE clearing old ones.
     const newFacets = facets;
-    await db.clear('aiProfileFacets');
+    const newIds = new Set(newFacets.map(f => f.id));
     for (const f of newFacets) await db.put('aiProfileFacets', f);
+    // Only delete old facets that weren't replaced
+    const oldFacets = await db.getAll('aiProfileFacets');
+    for (const f of oldFacets) {
+      if (!newIds.has(f.id)) await db.delete('aiProfileFacets', f.id);
+    }
     return { ok: true, count: newFacets.length };
   },
 

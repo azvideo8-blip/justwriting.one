@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { isVaultUnlocked, setSessionKey } from '../../../core/crypto/encrypt';
-import { loadDeviceKey } from '../../../core/crypto/keyVaultCache';
-import { setRememberDevice } from '../../../core/crypto/useEncryptionStore';
-import { hasEncryptionMeta } from '../../../core/services/EncryptionMetaService';
+import { useEncryptionStore, setRememberDevice } from '../../../core/crypto/useEncryptionStore';
+import { loadDeviceKey, clearDeviceKey } from '../../../core/crypto/keyVaultCache';
+import { hasEncryptionMeta, getEncryptionMeta } from '../../../core/services/EncryptionMetaService';
 import { hasLegacyEncryption } from '../../../core/services/LegacyKeyMigration';
 
 export type EncryptionModalMode = 'none' | 'setup' | 'unlock' | 'migrate' | 'change';
@@ -19,6 +19,7 @@ export function useEncryptionSetup(): {
   const [isLegacy, setIsLegacy] = useState(false);
   const [loading, setLoading] = useState(true);
   const prevUidRef = useRef<string | null>(null);
+  const isVaultUnlockedVal = useEncryptionStore(s => s.isVaultUnlocked);
 
   const check = useCallback(async () => {
     if (!user) {
@@ -42,6 +43,28 @@ export function useEncryptionSetup(): {
         // "Remember on this device": auto-unlock from the cached key, no prompt.
         const deviceKey = await loadDeviceKey(user.uid);
         if (deviceKey) {
+          // Verify the cached key against the stored verification ciphertext
+          // to detect stale keys from re-initialization on another device.
+          const meta = await getEncryptionMeta(user.uid);
+          if (meta?.verification) {
+            try {
+              const { decryptContent } = await import('../../../core/crypto/encrypt');
+              const result = await decryptContent(meta.verification, deviceKey);
+              if (result !== 'justwriting-verify-v1') {
+                // Key doesn't match — stale, clear it
+                await clearDeviceKey(user.uid);
+                setMode('unlock');
+                setLoading(false);
+                return;
+              }
+            } catch {
+              // Decryption failed — stale or corrupted key
+              await clearDeviceKey(user.uid);
+              setMode('unlock');
+              setLoading(false);
+              return;
+            }
+          }
           setSessionKey(deviceKey);
           setRememberDevice(true);
           setMode('none');
@@ -67,10 +90,21 @@ export function useEncryptionSetup(): {
     const uid = user?.uid ?? null;
     if (uid !== prevUidRef.current) {
       prevUidRef.current = uid;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- initial encryption state check on auth change
       void check();
     }
   }, [user?.uid, check]);
+
+  // Re-check when vault transitions from unlocked to locked (auto-lock / explicit lock)
+  const wasUnlockedRef = useRef(false);
+  useEffect(() => {
+    if (isVaultUnlockedVal) {
+      wasUnlockedRef.current = true;
+    } else if (wasUnlockedRef.current) {
+      wasUnlockedRef.current = false;
+      // Vault just locked — re-check to show unlock prompt
+      void check();
+    }
+  }, [isVaultUnlockedVal, check]);
 
   return { mode, isLegacy, loading, check };
 }

@@ -4,6 +4,19 @@ import rehypeSanitize from 'rehype-sanitize';
 // SECURITY: rehype-sanitize strips all raw HTML from AI output.
 // NEVER add rehype-raw to this component — it would re-enable XSS
 // from unsanitized streaming AI responses (see api/chat.ts).
+// Custom schema: strip img tags to prevent IP tracking via external image loads.
+const SANITIZE_SCHEMA = {
+  tagNames: ['p', 'strong', 'em', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre', 'a', 'br', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'del', 'sub', 'sup'],
+  attributes: {
+    a: ['href', 'title', 'target', 'rel'],
+    th: ['align'],
+    td: ['align'],
+  },
+  protocols: {
+    href: ['http', 'https', 'mailto'],
+  },
+};
+
 interface MarkdownRendererProps {
   content: string;
   className?: string;
@@ -13,7 +26,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
   return (
     <div className={className}>
       <ReactMarkdown
-        rehypePlugins={[rehypeSanitize]}
+        rehypePlugins={[[rehypeSanitize, SANITIZE_SCHEMA]]}
         components={{
           p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
           strong: ({ children }) => <strong className="font-semibold text-text-main">{children}</strong>,
