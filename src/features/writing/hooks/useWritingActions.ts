@@ -174,12 +174,14 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       }
 
       const docIdToSync = useSessionMetaStore.getState().savedDocumentId;
-      resetSession();
 
       await cleanupDraftsAfterSave(userId, isGuest, docIdToSync);
 
       await refreshDocuments();
       await refreshLifeLog();
+
+      // Reset session AFTER cleanup succeeds — prevents content loss if cleanup throws
+      resetSession();
     } catch (e) {
       reportError(e, { action: 'writingActions/save' });
       throw e;

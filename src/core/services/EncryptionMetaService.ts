@@ -15,7 +15,7 @@ export { VERIFICATION_PLAINTEXT };
 
 export async function saveEncryptionMeta(uid: string, meta: EncryptionMeta): Promise<void> {
   const { db, mod } = await getClient();
-  const { doc, setDoc } = mod;
+  const { doc, setDoc, deleteField } = mod;
   await setDoc(doc(db, 'users', uid), {
     encryptionMeta: {
       salt: meta.salt,
@@ -23,6 +23,9 @@ export async function saveEncryptionMeta(uid: string, meta: EncryptionMeta): Pro
       wrappedDataKey: meta.wrappedDataKey,
       verification: meta.verification,
     },
+    // Clean up legacy fields if they exist
+    encryptionSalt: deleteField(),
+    encryptedDataKey: deleteField(),
   }, { merge: true });
 }
 

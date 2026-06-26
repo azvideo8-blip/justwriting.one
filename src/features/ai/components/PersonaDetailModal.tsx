@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { X, Trash2 } from 'lucide-react';
 import { AIPersonaService } from '../services/AIPersonaService';
@@ -51,15 +51,17 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
   const [error, setError] = useState<string | null>(null);
   const [editKey, setEditKey] = useState<string | null>(null);
 
-  if (!persona) return null;
+  useEffect(() => {
+    if (persona && editKey !== persona.id) {
+      setEditKey(persona.id);
+      setName(persona.name);
+      setPrompt(persona.systemPrompt ?? '');
+      setError(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persona?.id, persona?.name, persona?.systemPrompt]);
 
-  // Re-seed local edit state whenever a different persona opens.
-  if (editKey !== persona.id) {
-    setEditKey(persona.id);
-    setName(persona.name);
-    setPrompt(persona.systemPrompt ?? '');
-    setError(null);
-  }
+  if (!persona) return null;
 
   const presetDescription = persona.isPreset
     ? (t(`ai_persona_desc_${persona.id}` as `ai_persona_desc_${string}`) ?? persona.name)

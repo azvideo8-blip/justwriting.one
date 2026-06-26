@@ -7,6 +7,9 @@ import {
 } from '../services/GuestDraftService';
 import { useDraftManager, DraftData } from './useDraftManager';
 import { useDraftSession } from './useDraftSession';
+import { useContentStore } from '../store/useContentStore';
+import { useTimerStore } from '../store/useTimerStore';
+import { useSessionMetaStore } from '../store/useSessionMetaStore';
 
 export interface GuestSessionReturn extends ReturnType<typeof useBaseWritingSession> {
   userId: string;
@@ -48,8 +51,16 @@ export function useGuestWritingSession(): GuestSessionReturn {
       seconds: base.seconds,
       wpm: base.wpm,
       wordCount: base.wordCount,
+      initialWordCount: useContentStore.getState().initialWordCount,
+      sessionStartTime: useSessionMetaStore.getState().sessionStartTime ?? undefined,
+      activeSessionId: useSessionMetaStore.getState().activeSessionId ?? undefined,
+      savedDocumentId: useSessionMetaStore.getState().savedDocumentId ?? undefined,
+      tags: base.tags,
+      labelId: base.labelId,
+      accumulatedDuration: useTimerStore.getState().accumulatedDuration,
+      totalPauseSeconds: useTimerStore.getState().totalPauseSeconds,
     };
-  }, [base.content, base.title, base.pinnedThoughts, base.seconds, base.wpm, base.wordCount]);
+  }, [base.content, base.title, base.pinnedThoughts, base.seconds, base.wpm, base.wordCount, base.tags, base.labelId]);
 
   const getDraftData = useCallback(() => draftDataRef.current, []);
 

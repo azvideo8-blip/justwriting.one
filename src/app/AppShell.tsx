@@ -58,7 +58,7 @@ export function AppShell() {
         ) : (
           !showZen && <BottomNav isAdmin={isAdmin} />
         )}
-        {layoutMode === 'desktop' && <ConnectionStatusBanner showZen={showZen} />}
+        <ConnectionStatusBanner showZen={showZen} />
       </>
 
       <main id="main-content" tabIndex={-1} className={cn(

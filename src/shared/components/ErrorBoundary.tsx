@@ -51,6 +51,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private handleRetry = () => {
+    // Bump errorKey to force remount of children — prevents infinite crash loop
     this.setState({ hasError: false, errorKey: Date.now(), showStack: false, error: null });
   };
 
@@ -105,6 +106,6 @@ export class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    return this.props.children;
+    return <div key={this.state.errorKey}>{this.props.children}</div>;
   }
 }

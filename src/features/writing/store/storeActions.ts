@@ -61,6 +61,7 @@ export function loadDraftIntoStore(draft: {
     title: draft.title,
     wordCount: draft.wordCount,
     lastWordCount: draft.wordCount,
+    initialWordCount: draft.wordCount,
     wpm: 0,
     wordSnapshots: [],
   });
@@ -71,9 +72,19 @@ export function loadDraftIntoStore(draft: {
     timeGoalReached: false,
     wordGoalReached: false,
     accumulatedDuration: draft.accumulatedDuration ?? 0,
+    // Reset timer config so stale goals don't fire on restored draft
+    timerDuration: 0,
+    wordGoal: 0,
+    sessionType: 'free',
+    targetTime: null,
+    initialDuration: 0,
+    totalPauseSeconds: 0,
+    seconds: 0,
+    sessionStartSeconds: 0,
   });
   useSessionMetaStore.setState({
     savedDocumentId: draft.savedDocumentId ?? null,
+    sessionStartTime: null,
   });
 }
 
