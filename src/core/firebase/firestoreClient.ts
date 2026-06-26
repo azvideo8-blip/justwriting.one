@@ -18,7 +18,13 @@ async function init(): Promise<Client> {
     _cached = { db, mod };
     return _cached;
   })();
-  return _initPromise;
+  // Reset on failure so a transient error doesn't permanently kill cloud sync.
+  try {
+    return await _initPromise;
+  } catch (e) {
+    _initPromise = null;
+    throw e;
+  }
 }
 
 export async function getClient(): Promise<Client> {

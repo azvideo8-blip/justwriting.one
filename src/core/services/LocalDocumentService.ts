@@ -59,13 +59,11 @@ export const LocalDocumentService = {
 
     const profile = await tx.objectStore('profile').get(existing.guestId);
     if (profile) {
-      const allDocs = await tx.objectStore('documents').getAll();
-      const totalSessions = allDocs.reduce((sum, d) => sum + (d.sessionsCount || 0), 0);
       await tx.objectStore('profile').put({
         ...profile,
         totalWords: profile.totalWords - existing.totalWords + data.totalWords,
         totalDuration: profile.totalDuration - existing.totalDuration + data.totalDuration,
-        sessionsCount: totalSessions,
+        sessionsCount: profile.sessionsCount - (existing.sessionsCount || 0) + data.currentVersion,
         lastSessionAt: now,
       });
       await tx.done;
@@ -80,16 +78,17 @@ export const LocalDocumentService = {
     data: { totalWords?: number; totalDuration?: number; currentVersion?: number; sessionsCount?: number }
   ): Promise<void> {
     const db = await getLocalDb();
-    const existing = await db.get('documents', id);
-    if (!existing) return;
-
-    await db.put('documents', {
+    const tx = db.transaction('documents', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
+    await tx.store.put({
       ...existing,
       ...(data.totalWords !== undefined && { totalWords: data.totalWords }),
       ...(data.totalDuration !== undefined && { totalDuration: data.totalDuration }),
       ...(data.currentVersion !== undefined && { currentVersion: data.currentVersion }),
       ...(data.sessionsCount !== undefined && { sessionsCount: data.sessionsCount }),
     });
+    await tx.done;
   },
 
   async deleteDocument(id: string): Promise<void> {
@@ -109,47 +108,56 @@ export const LocalDocumentService = {
 
   async updateTags(id: string, tags: string[]): Promise<void> {
     const db = await getLocalDb();
-    const existing = await db.get('documents', id);
-    if (!existing) return;
-    await db.put('documents', { ...existing, tags });
+    const tx = db.transaction('documents', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
+    await tx.store.put({ ...existing, tags });
+    await tx.done;
   },
 
   async updateTitle(id: string, title: string): Promise<void> {
     const db = await getLocalDb();
-    const existing = await db.get('documents', id);
-    if (!existing) return;
-    await db.put('documents', { ...existing, title });
+    const tx = db.transaction('documents', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
+    await tx.store.put({ ...existing, title });
+    await tx.done;
   },
 
   async updateDate(id: string, firstSessionAt: number, lastSessionAt: number): Promise<void> {
     const db = await getLocalDb();
-    const existing = await db.get('documents', id);
-    if (!existing) return;
-    await db.put('documents', { ...existing, firstSessionAt, lastSessionAt });
-
-    const versions = await db.getAllFromIndex('versions', 'by-document', id);
+    const tx = db.transaction(['documents', 'versions'], 'readwrite');
+    const existing = await tx.objectStore('documents').get(id);
+    if (!existing) { await tx.done; return; }
+    await tx.objectStore('documents').put({ ...existing, firstSessionAt, lastSessionAt });
+    const versions = await tx.objectStore('versions').index('by-document').getAll(id);
     if (versions.length > 0) {
       versions.sort((a, b) => a.version - b.version);
       const first = versions[0];
       if (first) {
         first.sessionStartedAt = firstSessionAt;
-        await db.put('versions', first);
+        await tx.objectStore('versions').put(first);
       }
     }
+    await tx.done;
   },
 
   async updateLinkedCloudId(id: string, cloudId: string): Promise<void> {
     const db = await getLocalDb();
-    const existing = await db.get('documents', id);
-    if (!existing) return;
-    await db.put('documents', { ...existing, linkedCloudId: cloudId });
+    const tx = db.transaction('documents', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
+    await tx.store.put({ ...existing, linkedCloudId: cloudId });
+    await tx.done;
   },
 
   async updateLabelId(id: string, labelId: string | undefined): Promise<void> {
     const db = await getLocalDb();
-    const existing = await db.get('documents', id);
-    if (!existing) return;
-    await db.put('documents', { ...existing, labelId: labelId ?? undefined });
+    const tx = db.transaction('documents', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
+    await tx.store.put({ ...existing, labelId: labelId ?? undefined });
+    await tx.done;
   },
 
   async migrateDocumentOwner(documentId: string, newOwnerId: string): Promise<void> {
@@ -198,28 +206,31 @@ export const LocalDocumentService = {
   async clearLabelFromAllDocs(userId: string, labelId: string): Promise<void> {
     const db = await getLocalDb();
     const all = await db.getAllFromIndex('documents', 'by-guest', userId);
-    await Promise.all(
-      all.filter(d => d.labelId === labelId)
-         .map(d => db.put('documents', { ...d, labelId: undefined }))
-    );
+    const matching = all.filter(d => d.labelId === labelId);
+    if (matching.length === 0) return;
+    const tx = db.transaction('documents', 'readwrite');
+    await Promise.all(matching.map(d => tx.store.put({ ...d, labelId: undefined })));
+    await tx.done;
   },
 
   async renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void> {
     const db = await getLocalDb();
     const all = await db.getAllFromIndex('documents', 'by-guest', userId);
-    await Promise.all(
-      all.filter(d => d.tags?.includes(oldTag))
-         .map(d => db.put('documents', { ...d, tags: d.tags!.map(t => t === oldTag ? newTag : t) }))
-    );
+    const matching = all.filter(d => Array.isArray(d.tags) && d.tags.includes(oldTag));
+    if (matching.length === 0) return;
+    const tx = db.transaction('documents', 'readwrite');
+    await Promise.all(matching.map(d => tx.store.put({ ...d, tags: (d.tags ?? []).map(t => t === oldTag ? newTag : t) })));
+    await tx.done;
   },
 
   async removeTagFromAllDocs(userId: string, tag: string): Promise<void> {
     const db = await getLocalDb();
     const all = await db.getAllFromIndex('documents', 'by-guest', userId);
-    await Promise.all(
-      all.filter(d => d.tags?.includes(tag))
-         .map(d => db.put('documents', { ...d, tags: d.tags!.filter(t => t !== tag) }))
-    );
+    const matching = all.filter(d => Array.isArray(d.tags) && d.tags.includes(tag));
+    if (matching.length === 0) return;
+    const tx = db.transaction('documents', 'readwrite');
+    await Promise.all(matching.map(d => tx.store.put({ ...d, tags: (d.tags ?? []).filter(t => t !== tag) })));
+    await tx.done;
   },
 
   async getProfile(guestId: string) {

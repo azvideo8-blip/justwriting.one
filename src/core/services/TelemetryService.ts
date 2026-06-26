@@ -12,18 +12,22 @@ const ROTATION_DAYS = 30;
 const SEND_INTERVAL_DAYS = 14;
 
 function getOrCreateTelemetryId(): string {
-  const existing = localStorage.getItem(TELEMETRY_ID_KEY);
-  const lastRotation = localStorage.getItem('telemetry_id_created');
-  const now = Date.now();
+  try {
+    const existing = localStorage.getItem(TELEMETRY_ID_KEY);
+    const lastRotation = localStorage.getItem('telemetry_id_created');
+    const now = Date.now();
 
-  if (!existing || !lastRotation || (now - parseInt(lastRotation, 10)) > ROTATION_DAYS * 86_400_000) {
-    const newId = crypto.randomUUID();
-    localStorage.setItem(TELEMETRY_ID_KEY, newId);
-    localStorage.setItem('telemetry_id_created', String(now));
-    return newId;
+    if (!existing || !lastRotation || (now - parseInt(lastRotation, 10)) > ROTATION_DAYS * 86_400_000) {
+      const newId = crypto.randomUUID();
+      localStorage.setItem(TELEMETRY_ID_KEY, newId);
+      localStorage.setItem('telemetry_id_created', String(now));
+      return newId;
+    }
+
+    return existing;
+  } catch {
+    return crypto.randomUUID();
   }
-
-  return existing;
 }
 
 function bucketize(count: number): string {
@@ -34,19 +38,18 @@ function bucketize(count: number): string {
 }
 
 function getActiveTheme(): string {
-  return localStorage.getItem('app-theme') ?? 'amethyst';
+  try { return localStorage.getItem('app-theme') ?? 'amethyst'; } catch { return 'amethyst'; }
 }
 
 export const TelemetryService = {
   async maybeSendTelemetry(): Promise<void> {
-    const lastSend = localStorage.getItem(TELEMETRY_LAST_SEND_KEY);
-    const now = Date.now();
-
-    if (lastSend && (now - parseInt(lastSend, 10)) < SEND_INTERVAL_DAYS * 86_400_000) {
-      return;
-    }
-
     try {
+      const lastSend = localStorage.getItem(TELEMETRY_LAST_SEND_KEY);
+      const now = Date.now();
+
+      if (lastSend && (now - parseInt(lastSend, 10)) < SEND_INTERVAL_DAYS * 86_400_000) {
+        return;
+      }
       const db = await getLocalDb();
       const docs = await db.getAll('documents');
       const totalWords = docs.reduce((s, d) => s + (d.totalWords ?? 0), 0);
@@ -59,7 +62,7 @@ export const TelemetryService = {
 
       // Reasoning ratio (AX-11: reasoning is now a separate boolean flag)
       const dialogues = await db.getAll('aiDialogues');
-      const reasoningCount = dialogues.filter(d => d.reasoning === true || d.responseLength === 'reasoning' as unknown as string).length;
+      const reasoningCount = dialogues.filter(d => d.reasoning === true).length;
       const reasoningRatio = dialogues.length > 0 ? Math.round((reasoningCount / dialogues.length) * 100) / 100 : 0;
 
       const payload = {

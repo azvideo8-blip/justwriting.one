@@ -72,7 +72,25 @@ async function flushPending(batch: WriteBatch, ops: PendingOp[]): Promise<string
 }
 
 // [A-09] добавлен signal для отмены: предотвращает частичное шифрование при закрытии вкладки
+const _migrationInProgress = new Set<string>();
+
 export async function encryptAllExistingNotes(
+  userId: string,
+  onProgress?: (p: MigrationProgress) => void,
+  signal?: AbortSignal,
+): Promise<MigrationProgress> {
+  if (_migrationInProgress.has(userId)) {
+    throw new Error('Encryption migration already in progress for this user');
+  }
+  _migrationInProgress.add(userId);
+  try {
+    return await _encryptAllExistingNotesInner(userId, onProgress, signal);
+  } finally {
+    _migrationInProgress.delete(userId);
+  }
+}
+
+async function _encryptAllExistingNotesInner(
   userId: string,
   onProgress?: (p: MigrationProgress) => void,
   signal?: AbortSignal,
@@ -88,6 +106,8 @@ export async function encryptAllExistingNotes(
 
   const { db, mod } = await getClient();
   const { collection, getDocs, query, where, doc } = mod;
+
+  let hadErrors = false;
 
   // Document versions
   try {
@@ -106,7 +126,7 @@ export async function encryptAllExistingNotes(
         });
 
         for (const v of versionsSnap.docs) {
-          if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError'); // [A-09]
+          if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
           try {
             const ck = `v_${documentId}_${v.id}`;
             if (checkpoint.has(ck) || v.data()._encrypted) {
@@ -123,6 +143,7 @@ export async function encryptAllExistingNotes(
            } catch (e) {
              if (e instanceof DOMException && e.name === 'AbortError') throw e;
              progress.errors++;
+             hadErrors = true;
              reportError(e, { action: 'encryptAllExistingNotes_version', versionId: v.id, documentId });
            }
           progress.processed++;
@@ -131,11 +152,13 @@ export async function encryptAllExistingNotes(
          await flush();
        } catch (e) {
          if (e instanceof DOMException && e.name === 'AbortError') throw e;
+         hadErrors = true;
          reportError(e, { action: 'encryptAllExistingNotes_documentVersions', documentId });
        }
     }
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') throw e;
+    hadErrors = true;
     reportError(e, { action: 'encryptAllExistingNotes_documentsQuery', userId });
   }
 
@@ -152,7 +175,7 @@ export async function encryptAllExistingNotes(
     });
 
     for (const d of draftSnap.docs) {
-      if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError'); // [A-09]
+      if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
       try {
         const ck = `d_${d.id}`;
         if (checkpoint.has(ck) || d.data()._encrypted) {
@@ -169,6 +192,7 @@ export async function encryptAllExistingNotes(
        } catch (e) {
          if (e instanceof DOMException && e.name === 'AbortError') throw e;
          progress.errors++;
+         hadErrors = true;
          reportError(e, { action: 'encryptAllExistingNotes_draft', draftId: d.id });
        }
       progress.processed++;
@@ -177,10 +201,11 @@ export async function encryptAllExistingNotes(
     await flush();
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') throw e;
+    hadErrors = true;
     reportError(e, { action: 'encryptAllExistingNotes_draftsQuery', userId });
   }
 
-  clearCheckpoint(userId);
+  if (!hadErrors) clearCheckpoint(userId);
   return progress;
 }
 
