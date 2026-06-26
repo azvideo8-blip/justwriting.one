@@ -9,12 +9,12 @@ Centralized rules that MUST hold at all times. Each invariant has one enforcemen
 - **Global guard:** `tryReserveGlobalRequest()` always applies, even for internal calls. `refundGlobalRequest()` on failure.
 - **Test:** `functions/src/__tests__/emulator/aiUtils.emulator.test.ts` — race + refund tests.
 
-## 2. Encryption Cloud Write — `src/core/crypto/encryptionGuard.ts`
+## 2. Encryption Cloud Write — `src/core/crypto/cryptoHelpers.ts`
 
 - **Invariant:** Never write unencrypted content to cloud when encryption is configured and vault is locked.
-- **Enforcement:** `assertCloudWriteSafe(encryptionEnabled)` — call before any cloud write of user content.
+- **Enforcement:** `maybeEncrypt(doc, fields, arrayFields, userId)` is the single chokepoint — every cloud write of user content goes through it (all three call sites in `CloudSyncService.ts` pass `userId`). When `getEncryptionEnabled(userId)` is true and the session key is missing (vault locked), it throws `ENCRYPT_REQUIRED` instead of writing plaintext.
 - **Root cause of C-ENC-1:** `lockVault` called `setEncryptionEnabled(false)`, which made `maybeEncrypt` skip encryption. Fixed by removing that call — `encryptionEnabled` is now a persistent property, not a transient state.
-- **Test:** Manual — lock vault, attempt save, verify `ENCRYPT_REQUIRED` error (not silent plaintext write).
+- **Test:** `src/core/__tests__/cryptoHelpers.test.ts` — "requires encryption when enabled for user and session key missing" asserts `ENCRYPT_REQUIRED` is thrown (reverting the `if (required) throw` branch turns it red).
 
 ## 3. Firestore Rules — `firestore.rules`
 
