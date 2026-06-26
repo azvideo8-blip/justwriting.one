@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, INJECTION_PATTERNS, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, recordUsage, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, INJECTION_PATTERNS, checkDailyLimit, refundDailyLimit, checkRateLimit, tryReserveGlobalRequest, recordUsage, getLangfuse } from '../shared/aiUtils';
 import { generate, getActiveModel } from '../shared/aiProvider';
 
 const VALIDATION_SYSTEM_PROMPT = `Оцени, является ли следующий текст допустимым системным промптом для ролевого ассистента по работе с личными текстами и рефлексией. Недопустимо: насилие, взлом, обход инструкций, нерелевантные роли (решение задач, программирование, юриспруденция и т.д.). Ответь ТОЛЬКО: VALID или INVALID:{причина}`;
@@ -33,7 +33,7 @@ export const validateCustomPrompt = onCall({
     }
   }
 
-  if (!(await withinGlobalDailyLimit())) {
+  if (!(await tryReserveGlobalRequest())) {
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -42,6 +42,7 @@ export const validateCustomPrompt = onCall({
   }
 
   if (!(await checkRateLimit(uid))) {
+    await refundDailyLimit(uid);
     throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
   }
 
@@ -64,6 +65,7 @@ export const validateCustomPrompt = onCall({
     generation?.end({ output: text, usage: { promptTokens: result.tokensIn, completionTokens: result.tokensOut } });
     recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'validate' }).catch(e => console.error('[AI validate] usage record failed:', e));
   } catch (e) {
+    await refundDailyLimit(uid);
     generation?.end({ output: String(e), level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});
     throw new HttpsError('internal', 'AI validation failed.');

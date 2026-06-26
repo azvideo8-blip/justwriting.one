@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, recordUsage, withinGlobalDailyLimit } from '../shared/aiUtils';
+import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest } from '../shared/aiUtils';
 import { embed } from '../shared/aiProvider';
 
 const inputSchema = z.object({
@@ -45,7 +45,7 @@ export const embedDocument = onCall({
   // are NOT subject to the per-user daily cap (AI_DAILY_LIMIT, default 5) or the
   // 10s chat cooldown (checkRateLimit), which made bulk indexing impossible
   // (429 / "Daily limit reached"). Only the project-wide cost guard applies.
-  if (!(await withinGlobalDailyLimit())) {
+  if (!(await tryReserveGlobalRequest())) {
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 

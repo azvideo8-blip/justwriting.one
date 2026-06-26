@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, checkRateLimit, withinGlobalDailyLimit, getLangfuse, INJECTION_PATTERNS, MAX_AI_CONTENT_LENGTH } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, refundDailyLimit, checkRateLimit, tryReserveGlobalRequest, getLangfuse, INJECTION_PATTERNS, MAX_AI_CONTENT_LENGTH } from '../shared/aiUtils';
 import { generate, getActiveModel } from '../shared/aiProvider';
 
 const actionSchema = z.enum(['shorten', 'accents', 'ideas', 'summarize', 'tags', 'mood', 'continue']);
@@ -62,7 +62,7 @@ export const editWithAI = onCall({
 
   const uid = request.auth.uid;
 
-  if (!(await withinGlobalDailyLimit())) {
+  if (!(await tryReserveGlobalRequest())) {
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -71,6 +71,7 @@ export const editWithAI = onCall({
   }
 
   if (!(await checkRateLimit(uid))) {
+    await refundDailyLimit(uid);
     throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
   }
 
@@ -100,7 +101,13 @@ export const editWithAI = onCall({
   const trace = lf?.trace({ name: 'editWithAI', userId: uid, metadata: { action } });
   const generation = trace?.generation({ name: activeModel, model: activeModel, input: sanitizedInput });
 
-  const result = await callModel(sanitizedInput, action, history ?? undefined);
+  let result;
+  try {
+    result = await callModel(sanitizedInput, action, history ?? undefined);
+  } catch (e) {
+    await refundDailyLimit(uid);
+    throw e;
+  }
   const sanitizedOutput = sanitizeAiResponse(result.text);
 
   generation?.end({ output: sanitizedOutput, usage: { promptTokens: result.tokensIn, completionTokens: result.tokensOut } });

@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, refundDailyLimit, checkRateLimit, withinGlobalDailyLimit, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, refundDailyLimit, checkRateLimit, tryReserveGlobalRequest, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
 import { generate, getActiveModel } from '../shared/aiProvider';
 import { PRESET_PERSONA_IDS, type PersonaId } from '../shared/prompts';
 import { buildChatSystemPrompt } from '../shared/buildChatPrompt';
@@ -20,7 +20,6 @@ const inputSchema = z.object({
   userPortrait: z.string().max(100_000).nullish(),
   responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
   reasoning: z.boolean().nullish(),
-  internal: z.boolean().nullish(),
 });
 
 export const chatWithAI = onCall({
@@ -34,7 +33,7 @@ export const chatWithAI = onCall({
 
   const uid = request.auth.uid;
 
-  if (!(await withinGlobalDailyLimit())) {
+  if (!(await tryReserveGlobalRequest())) {
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -44,14 +43,14 @@ export const chatWithAI = onCall({
     throw new HttpsError('invalid-argument', 'Invalid payload.');
   }
 
-  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength, reasoning, internal } = parsed.data;
+  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength, reasoning } = parsed.data;
 
-  // LX-2a/LX-2c: Admins and internal calls (auto-naming, follow-ups) skip the per-user limit.
-  if (!(await checkDailyLimit(uid, reasoning === true, internal === true))) {
+  // LX-2a: Admins skip the per-user limit.
+  if (!(await checkDailyLimit(uid, reasoning === true))) {
     throw new HttpsError('resource-exhausted', 'Daily limit reached.');
   }
 
-  if (!(await checkRateLimit(uid, internal === true))) {
+  if (!(await checkRateLimit(uid))) {
     await refundDailyLimit(uid);
     throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
   }
@@ -97,6 +96,7 @@ export const chatWithAI = onCall({
     gen = await generate({ system: systemInstruction, messages: providerMessages, maxTokens: reasoning ? 16384 : 8192, abortMs: 110_000 });
   } catch (e) {
     console.error('[chatWithAI] AI request failed:', e);
+    await refundDailyLimit(uid);
     generation?.end({ output: String(e), level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});
     throw new HttpsError('internal', 'AI request failed.');

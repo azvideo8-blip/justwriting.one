@@ -29,14 +29,20 @@ const TIER_LIMITS = {
   tokensPerDay: envInt('AI_TIER_TPD', 25_000_000),
 };
 
-// True when one more request stays within the project-wide free-tier daily caps.
-async function withinGlobalDailyLimit(): Promise<boolean> {
+// Atomically check and reserve a slot in the project-wide daily cap.
+// Prevents TOCTOU race where concurrent requests all pass the read check.
+async function tryReserveGlobalRequest(): Promise<boolean> {
   const date = new Date().toISOString().slice(0, 10);
-  const snap = await db().doc(`aiGlobalDaily/${date}`).get();
-  const d = snap.data();
-  const requests = d?.requests ?? 0;
-  const tokens = (d?.promptTokens ?? 0) + (d?.completionTokens ?? 0);
-  return requests < TIER_LIMITS.requestsPerDay && tokens < TIER_LIMITS.tokensPerDay;
+  const ref = db().doc(`aiGlobalDaily/${date}`);
+  return db().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const d = snap.data();
+    const requests = d?.requests ?? 0;
+    const tokens = (d?.promptTokens ?? 0) + (d?.completionTokens ?? 0);
+    if (requests >= TIER_LIMITS.requestsPerDay || tokens >= TIER_LIMITS.tokensPerDay) return false;
+    tx.set(ref, { requests: FieldValue.increment(1), date, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    return true;
+  });
 }
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
@@ -167,10 +173,8 @@ async function isAdmin(uid: string): Promise<boolean> {
 
 const COOLDOWN_MS = 10_000;
 
-// LX-2a: Admins skip the per-user limit. LX-2c: `internal` calls also skip.
-async function checkAndIncrementLimit(uid: string, reasoning?: boolean | null, internal?: boolean | null): Promise<boolean> {
-  // Internal calls (auto-naming, follow-ups) bypass the per-user limit
-  if (internal) return true;
+// LX-2a: Admins skip the per-user limit.
+async function checkAndIncrementLimit(uid: string, reasoning?: boolean | null): Promise<boolean> {
   // Admins bypass the per-user limit
   if (await isAdmin(uid)) return true;
 
@@ -217,7 +221,14 @@ async function recordUsage(uid: string, tokensIn: number, tokensOut: number, mod
     updatedAt: FieldValue.serverTimestamp(),
   };
   batch.set(fs.doc(`aiUsage/${uid}/daily/${date}`), payload, { merge: true });
-  batch.set(fs.doc(`aiGlobalDaily/${date}`), payload, { merge: true });
+  // Global doc: requests already incremented atomically by tryReserveGlobalRequest;
+  // only add token counts here.
+  batch.set(fs.doc(`aiGlobalDaily/${date}`), {
+    date,
+    promptTokens: FieldValue.increment(tokensIn),
+    completionTokens: FieldValue.increment(tokensOut),
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
   // Per-request event for admin breakdown
   const eventRef = fs.collection(`aiUsage/${uid}/events`).doc();
   batch.set(eventRef, { date, ts: FieldValue.serverTimestamp(), tokensIn, tokensOut, model, fn: 'chat-stream' });
@@ -243,11 +254,16 @@ async function streamFireworksReasoning(
   system: string,
   messages: Array<{ role: string; content: string }>,
 ): Promise<void> {
+  const apiKey = process.env.FIREWORKS_API_KEY;
+  if (!apiKey) {
+    res.status(500).end('FIREWORKS_API_KEY not set');
+    return;
+  }
   const upstream = await fetch('https://api.fireworks.ai/inference/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.FIREWORKS_API_KEY ?? ''}`,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model,
@@ -358,12 +374,12 @@ async function streamFireworksReasoning(
     if (!wroteReasoningHeader) { res.write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
     res.write(contentAccum);
   }
-  res.end();
   try {
     await recordUsage(uid, tokensIn, tokensOut, model);
   } catch (e) {
     console.error('[api/chat] usage record failed:', e);
   }
+  res.end();
 }
 
 // ── Input schema ──────────────────────────────────────────────────────────────
@@ -382,7 +398,6 @@ const inputSchema = z.object({
   userPortrait: z.string().max(100_000).nullish(),
   responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
   reasoning: z.boolean().nullish(),
-  internal: z.boolean().nullish(),
 });
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -403,14 +418,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Project-wide free-tier guard (across all users + resets)
-  if (!(await withinGlobalDailyLimit())) { res.status(429).json({ error: 'GLOBAL_LIMIT' }); return; }
+  if (!(await tryReserveGlobalRequest())) { res.status(429).json({ error: 'GLOBAL_LIMIT' }); return; }
 
   // Parse body
   const parsed = inputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'Bad Request' }); return; }
 
-  // Daily limit (LX-2a: admins skip; LX-2c: internal calls skip)
-  const allowed = await checkAndIncrementLimit(uid, parsed.data.reasoning, parsed.data.internal);
+  // Daily limit (LX-2a: admins skip)
+  const allowed = await checkAndIncrementLimit(uid, parsed.data.reasoning);
   if (!allowed) { res.status(429).json({ error: 'DAILY_LIMIT' }); return; }
 
   const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength, reasoning } = parsed.data;
