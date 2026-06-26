@@ -247,10 +247,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // TICKET-055: Anonymized telemetry — write for authenticated, read for admin only
+    // TICKET-055: Anonymized telemetry — create for authenticated, read for admin only
     match /anonymizedTelemetry/{telemetryId} {
       allow read: if isAdmin();
-      allow write: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
     }
   }
 }

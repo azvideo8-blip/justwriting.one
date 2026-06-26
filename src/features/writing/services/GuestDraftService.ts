@@ -6,13 +6,21 @@ const DRAFT_KEY = STORAGE_KEYS.GUEST_DRAFT;
 const GUEST_IDB_KEY = 'guest_draft';
 
 export interface GuestDraftData {
-  content?: string;
-  title?: string;
-  pinnedThoughts?: string[];
-  seconds?: number;
-  wordCount?: number;
-  timestamp?: number;
-  updatedAt?: number;
+  content?: string | undefined;
+  title?: string | undefined;
+  pinnedThoughts?: string[] | undefined;
+  seconds?: number | undefined;
+  wordCount?: number | undefined;
+  timestamp?: number | undefined;
+  updatedAt?: number | undefined;
+  initialWordCount?: number | undefined;
+  sessionStartTime?: number | null | undefined;
+  activeSessionId?: string | null | undefined;
+  savedDocumentId?: string | null | undefined;
+  tags?: string[] | undefined;
+  labelId?: string | undefined;
+  accumulatedDuration?: number | undefined;
+  totalPauseSeconds?: number | undefined;
 }
 
 export async function saveGuestDraftToStorage(draft: GuestDraftData): Promise<void> {

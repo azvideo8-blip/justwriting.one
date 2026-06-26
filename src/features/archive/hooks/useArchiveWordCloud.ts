@@ -20,14 +20,16 @@ const STOP_WORDS = new Set([
   'чувствую','получается','значит','нормально',
 ]);
 
-export async function rebuildWordCloud(): Promise<void> {
+export async function rebuildWordCloud(guestId?: string): Promise<void> {
   const { getLocalDb } = await import('../../../core/storage/localDb');
   const db = await getLocalDb();
 
-  const [docs, summaries] = await Promise.all([
-    db.getAll('documents'),
-    db.getAll('aiSummaries'),
-  ]);
+  const docs = guestId
+    ? await db.getAllFromIndex('documents', 'by-guest', guestId)
+    : await db.getAll('documents');
+  const docIds = new Set(docs.map(d => d.id));
+  const allSummaries = await db.getAll('aiSummaries');
+  const summaries = allSummaries.filter(s => docIds.has(s.documentId));
 
   const freq: Record<string, number> = {};
 
