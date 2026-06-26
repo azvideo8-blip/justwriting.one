@@ -4,6 +4,8 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
+    "test:emulator": "firebase emulators:exec --only firestore \"npx vitest run src/__tests__/emulator/\"",
+    "test:rules": "firebase emulators:exec --only firestore \"npx vitest run src/__tests__/rules.test.ts\"",
     "serve": "npm run build && firebase emulators:start --only functions",
     "deploy": "firebase deploy --only functions"
   },
@@ -16,6 +18,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.1.0",
     "typescript": "^5.3.0",
     "vitest": "^4.1.7"
   },
