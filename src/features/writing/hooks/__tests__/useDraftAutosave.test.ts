@@ -94,7 +94,7 @@ describe('useDraftAutosave', () => {
     
     await act(async () => {
       document.dispatchEvent(new Event('visibilitychange'));
-      await vi.runAllTimersAsync();
+      await vi.advanceTimersByTimeAsync(600);
     });
 
     expect(persistDraft).toHaveBeenCalled();

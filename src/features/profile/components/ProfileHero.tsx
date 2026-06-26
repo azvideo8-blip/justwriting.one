@@ -30,6 +30,12 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
   const { t, language } = useLanguage();
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(profile?.nickname || user?.displayName || '');
+
+  useEffect(() => {
+    const profileName = profile?.nickname || user?.displayName || '';
+    if (profileName && !name) setName(profileName);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.nickname, user?.displayName]);
   const { execute } = useServiceAction();
   const [quoteIdx, setQuoteIdx] = useState(() => new Date().getDate() % QUOTE_KEYS.length);
   const nextQuote = useCallback(() => setQuoteIdx(i => (i + 1) % QUOTE_KEYS.length), []);

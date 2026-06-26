@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
@@ -47,6 +47,15 @@ export function DesktopWritingLayout() {
   const onContinueSession = actions.handleContinueDocument;
   const onSave = onFinishClick;
   const onStop = onFinishClick;
+
+  const handleEditorKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+      keystrokeTrackerRef.current.record();
+    }
+    if ((session.status === 'idle' || session.status === 'paused') && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+      handlePlayRef.current();
+    }
+  }, [session.status, keystrokeTrackerRef, handlePlayRef]);
 
   React.useEffect(() => {
     const el = editorColRef.current;
@@ -152,14 +161,7 @@ export function DesktopWritingLayout() {
               />
             ) : (
             <WritingEditor
-              onKeyDown={(e) => {
-                if (!e.metaKey && !e.ctrlKey && !e.altKey) {
-                  keystrokeTrackerRef.current.record();
-                }
-                if ((session.status === 'idle' || session.status === 'paused') && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
-                  handlePlayRef.current();
-                }
-              }}
+              onKeyDown={handleEditorKeyDown}
             />
             )}
           </div>

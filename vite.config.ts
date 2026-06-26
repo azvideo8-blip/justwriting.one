@@ -35,7 +35,7 @@ export default defineConfig(() => {
     },
     build: {
       target: 'es2022',
-      sourcemap: process.env.NODE_ENV !== 'production',
+      sourcemap: 'hidden' as const,
       chunkSizeWarningLimit: 300,
       rollupOptions: {
         output: {

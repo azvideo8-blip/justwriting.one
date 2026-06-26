@@ -139,8 +139,8 @@ describe('ExportService', () => {
       expect(createdIframe.srcdoc).toContain('This is content to print');
       expect(createdIframe.srcdoc).toContain('window.print()');
 
-      // Clean up timer checks
-      vi.advanceTimersByTime(1500);
+      // Clean up: dispatch afterprint event on the iframe
+      createdIframe.dispatchEvent(new Event('afterprint'));
       expect(removeChildSpy).toHaveBeenCalled();
     });
   });

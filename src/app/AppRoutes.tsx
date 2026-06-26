@@ -33,6 +33,7 @@ export function AppRoutes() {
   const { user, profile } = useAuthStatus();
 
   return (
+    <ErrorBoundary>
     <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/" element={<ErrorBoundary><WritingPage user={user} profile={profile} /></ErrorBoundary>} />
@@ -52,5 +53,6 @@ export function AppRoutes() {
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
+    </ErrorBoundary>
   );
 }

@@ -17,6 +17,7 @@ import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { encryptSingleDocument } from '../../../core/crypto/encryptMigration';
+import { reportError } from '../../../shared/errors/reportError';
 
 export interface DiagnosticItem {
   id: string;
@@ -57,7 +58,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       const statusMap = await AISummaryService.hasAll();
       setProcessedDocs(statusMap);
     } catch (e) {
-      console.error('[SyncDiagnostics] Failed to load AI status:', e);
+      reportError(e, { action: '[SyncDiagnostics] Failed to load AI status' });
     }
   }, []);
 
@@ -67,15 +68,15 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
     try {
       const [localDocs, cloudDocs, queue] = await Promise.all([
         getLocalDb().then(db => db.getAll('documents')).catch(e => {
-          console.error('[SyncDiagnostics] Local docs fetch failed:', e);
+          reportError(e, { action: '[SyncDiagnostics] Local docs fetch failed' });
           return [];
         }),
         DocumentService.getUserDocuments(userId).catch(e => {
-          console.error('[SyncDiagnostics] Cloud fetch failed:', e);
+          reportError(e, { action: '[SyncDiagnostics] Cloud fetch failed' });
           return [];
         }),
         getLocalDb().then(db => db.getAll('syncQueue')).catch(e => {
-          console.error('[SyncDiagnostics] Queue fetch failed:', e);
+          reportError(e, { action: '[SyncDiagnostics] Queue fetch failed' });
           return [];
         }),
       ]);
@@ -156,7 +157,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
             const latest = await VersionService.getLatestVersion(userId, item.cloudId);
             item.cloudEncrypted = !!(latest as unknown as { _encrypted?: boolean })?._encrypted;
           } catch (e) {
-            console.error('[SyncDiagnostics] Encryption check failed:', e);
+            reportError(e, { action: '[SyncDiagnostics] Encryption check failed' });
           }
         }
       }));
@@ -165,7 +166,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
 
       await loadAIStatus();
     } catch (e) {
-      console.error('[SyncDiagnostics] Error fetching diagnostics:', e);
+      reportError(e, { action: '[SyncDiagnostics] Error fetching diagnostics' });
       showToast(t('error_generic_action') || 'Error fetching status', 'error');
     } finally {
       setLoading(false);
@@ -192,7 +193,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       showToast(t('storage_uploaded_cloud') || 'Sync completed', 'success');
       await fetchData();
     } catch (e) {
-      console.error('[SyncDiagnostics] Sync failed:', e);
+      reportError(e, { action: '[SyncDiagnostics] Sync failed' });
       showToast(t('error_generic_action') || 'Sync failed', 'error');
     } finally {
       setSyncingId(null);
@@ -207,7 +208,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       showToast('Downloaded copy to device', 'success');
       await fetchData();
     } catch (e) {
-      console.error('[SyncDiagnostics] Download failed:', e);
+      reportError(e, { action: '[SyncDiagnostics] Download failed' });
       showToast(t('error_generic_action') || 'Download failed', 'error');
     } finally {
       setSyncingId(null);
@@ -224,7 +225,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       showToast('Unlinked from cloud copy', 'success');
       await fetchData();
     } catch (e) {
-      console.error('[SyncDiagnostics] Unlink failed:', e);
+      reportError(e, { action: '[SyncDiagnostics] Unlink failed' });
       showToast(t('error_generic_action') || 'Unlink failed', 'error');
     } finally {
       setSyncingId(null);
@@ -243,7 +244,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       showToast(`Encrypted ${res.encrypted} versions in the cloud`, 'success');
       await fetchData();
     } catch (e) {
-      console.error('[SyncDiagnostics] Encryption failed:', e);
+      reportError(e, { action: '[SyncDiagnostics] Encryption failed' });
       showToast('Encryption failed. Make sure your vault is unlocked.', 'error');
     } finally {
       setSyncingId(null);
@@ -259,7 +260,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       showToast('Cleared task from sync queue', 'success');
       await fetchData();
     } catch (e) {
-      console.error('[SyncDiagnostics] Clear queue item failed:', e);
+      reportError(e, { action: '[SyncDiagnostics] Clear queue item failed' });
       showToast(t('error_generic_action') || 'Clear queue item failed', 'error');
     } finally {
       setSyncingId(null);
@@ -273,7 +274,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       showToast('Synced pending queue items', 'success');
       await fetchData();
     } catch (e) {
-      console.error('[SyncDiagnostics] Sync queue failed:', e);
+      reportError(e, { action: '[SyncDiagnostics] Sync queue failed' });
       showToast(t('error_generic_action') || 'Sync failed', 'error');
     } finally {
       setLoading(false);
@@ -339,7 +340,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         showToast('Не удалось обработать: ' + result.error, 'error');
       }
     } catch (e) {
-      console.error('[SyncDiagnostics] AI processing failed:', e);
+      reportError(e, { action: '[SyncDiagnostics] AI processing failed' });
       showToast('Ошибка при запуске обработки ИИ', 'error');
     } finally {
       setProcessingDocId(null);
@@ -355,7 +356,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         showToast('Саммари не найдено', 'error');
       }
     } catch (e) {
-      console.error('[SyncDiagnostics] Failed to load summary:', e);
+      reportError(e, { action: '[SyncDiagnostics] Failed to load summary' });
       showToast('Не удалось прочитать результаты анализа', 'error');
     }
   };
