@@ -14,6 +14,26 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.33',
+    date: '2026-06-26',
+    items: [
+      { category: 'fix', ru: 'Безопасность шифрования: ручная блокировка хранилища больше не отправляет незашифрованный текст в облако; шифртекст не показывается при заблокированном хранилище; ключ устройства проверяется перед авто-разблокировкой', en: 'Encryption security: locking the vault no longer sends plaintext to the cloud; ciphertext is never shown while locked; the device key is verified before auto-unlock' },
+      { category: 'fix', ru: 'Лимиты AI честнее: авто-название чата и кнопки-подсказки больше не тратят дневную квоту; неудачный запрос возвращает слот лимита; закрыт обход лимитов', en: 'Fairer AI limits: auto-naming and follow-up chips no longer spend the daily quota; a failed request refunds the slot; the limit-bypass exploit is closed' },
+      { category: 'fix', ru: 'Чат: уход из диалога обрывает поток ответа — нет «фантомных» ответов; «ответить иначе» не теряет ответ при переключении вариантов', en: 'Chat: leaving a dialogue aborts the stream — no ghost answers; regenerate no longer loses a response when switching variants' },
+      { category: 'fix', ru: 'Перестройка портрета при прерывании больше не стирает весь профиль (сначала сохраняем новое, потом удаляем старое)', en: 'Profile rebuild no longer wipes the whole profile if interrupted (new facets saved before old ones are removed)' },
+      { category: 'fix', ru: 'WPM больше не сохраняется как 0; таймер не «уплывает» при переходах между экранами, цели сессии сбрасываются корректно', en: 'WPM is no longer saved as 0; the timer no longer drifts when navigating, session goals reset correctly' },
+      { category: 'fix', ru: 'Черновики (включая гостевые) сохраняют все поля — теги, метки, длительность — и переживают перезагрузку; нет потери текста при сбое очистки сессии', en: 'Drafts (including guest) keep all fields — tags, labels, duration — and survive reload; no content loss if session cleanup fails' },
+      { category: 'fix', ru: 'Надёжность локального хранилища: атомарные транзакции — нет порчи и перезаписи заметок; одна повреждённая версия не блокирует остальные; переполнение показывает понятную ошибку', en: 'Local storage reliability: atomic transactions — no note corruption or clobbering; one corrupted version no longer blocks the rest; a full disk shows a clear error' },
+      { category: 'fix', ru: 'Офлайн действительно работает: ресурсы кэшируются. Нет бесконечного спиннера — вход гостем через 10 c при долгой авторизации и повтор загрузки при сбое', en: 'Offline truly works: assets are cached now. No infinite spinner — guest fallback after 10s on slow auth, and retry on a failed chunk load' },
+      { category: 'improvement', ru: 'Подсчёт слов для китайского/японского/корейского — посимвольно (раньше весь фрагмент считался одним словом)', en: 'Word count for Chinese/Japanese/Korean is per-character (the whole run used to count as one word)' },
+      { category: 'improvement', ru: 'Производительность: устранён шторм ре-рендеров (~2 раза в секунду) на странице письма', en: 'Performance: fixed a re-render storm (~2×/sec) on the writing page' },
+      { category: 'fix', ru: 'Приватность: телеметрию нельзя удалить (только создание); изображения вырезаются из ответов AI; усилена санитизация ввода и правила доступа Firestore', en: 'Privacy: telemetry can only be created, not deleted; images are stripped from AI output; input sanitization and Firestore access rules hardened' },
+      { category: 'fix', ru: 'Метрики-счётчики анимируются от текущего значения, а не всегда с нуля; облако слов больше не смешивает данные разных пользователей', en: 'KPI counters animate from the current value, not always from zero; the word cloud no longer mixes data across users' },
+      { category: 'accessibility', ru: 'Escape закрывает только сам диалог, а не родительскую панель; меньше скачков фокуса в модалках', en: 'Escape closes only the dialog itself, not the parent panel; fewer focus jumps in modals' },
+      { category: 'improvement', ru: 'Диагностика: кнопка реконсиляции счётчика сессий — пересчёт по фактическим версиям, исправляет расхождения', en: 'Diagnostics: a session-count reconciliation button — recalculates from actual versions and fixes drift' },
+    ],
+  },
+  {
     version: '0.7.32',
     date: '2026-06-23',
     items: [

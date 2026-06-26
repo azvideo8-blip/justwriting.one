@@ -9,8 +9,20 @@
 - **[EN]** Global AI daily limit is refunded on request failure — failed requests no longer burn a slot.
 - **[RU]** Диагностика: кнопка «Реконсиляция счётчика сессий» — пересчитывает sessionsCount по фактическим версиям, исправляет расхождения.
 - **[EN]** Diagnostics: "Reconcile session count" button — recalculates sessionsCount from actual versions, fixes drift.
-- **[RU]** Безопасность: закрыт обход лимитов через internal-флаг, усилены санитизация и правила Firestore, исправлены утечки данных и ре-рендеры.
-- **[EN]** Security: closed rate-limit bypass via internal flag, hardened sanitization and Firestore rules, fixed data leaks and re-render storms.
+- **[RU]** Безопасность шифрования: ручная блокировка хранилища больше не отправляет незашифрованный текст в облако; шифртекст не показывается при заблокированном хранилище; ключ устройства проверяется перед авто-разблокировкой.
+- **[EN]** Encryption security: locking the vault no longer sends plaintext to the cloud; ciphertext is never shown while locked; the device key is verified before auto-unlock.
+- **[RU]** Чат: уход из диалога обрывает поток ответа (нет «фантомных» ответов); «ответить иначе» не теряет ответ при переключении вариантов; перестройка портрета при прерывании больше не стирает весь профиль.
+- **[EN]** Chat: leaving a dialogue aborts the stream (no ghost answers); regenerate no longer loses a response when switching variants; an interrupted profile rebuild no longer wipes the whole profile.
+- **[RU]** Письмо: WPM больше не сохраняется как 0; таймер не «уплывает» при переходах; черновики (в т.ч. гостевые) сохраняют все поля и переживают перезагрузку; нет потери текста при сбое очистки.
+- **[EN]** Writing: WPM is no longer saved as 0; the timer no longer drifts on navigation; drafts (incl. guest) keep all fields and survive reload; no content loss on cleanup failure.
+- **[RU]** Надёжность хранилища: атомарные транзакции IndexedDB (нет порчи/перезаписи заметок); одна повреждённая версия не блокирует остальные; переполнение даёт понятную ошибку.
+- **[EN]** Storage reliability: atomic IndexedDB transactions (no note corruption/clobbering); one corrupted version no longer blocks the rest; a full disk gives a clear error.
+- **[RU]** Офлайн действительно работает (кэширование ресурсов); нет бесконечного спиннера — вход гостем через 10 c и повтор загрузки при сбое чанка; устранён шторм ре-рендеров.
+- **[EN]** Offline truly works (asset caching); no infinite spinner — guest fallback after 10s and retry on chunk load failure; fixed a re-render storm.
+- **[RU]** Подсчёт слов для китайского/японского/корейского — посимвольно; Escape закрывает только диалог; счётчики анимируются от текущего значения; облако слов не смешивает данные пользователей.
+- **[EN]** Word count for Chinese/Japanese/Korean is per-character; Escape closes only the dialog; counters animate from the current value; the word cloud no longer mixes users' data.
+- **[RU]** Приватность: телеметрию нельзя удалить (только создание); изображения вырезаются из ответов AI; усилены санитизация ввода и правила доступа Firestore.
+- **[EN]** Privacy: telemetry can only be created, not deleted; images are stripped from AI output; input sanitization and Firestore access rules hardened.
 
 ## 2026-06-23 (v0.7.32)
 - **[RU]** Прикреплённая заметка теперь надёжно доходит до модели: текст доставляется внутри сообщения (как файл), а в чате показывается компактной сворачиваемой карточкой. Большие заметки — через documentContent.
