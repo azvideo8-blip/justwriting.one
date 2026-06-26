@@ -67,6 +67,7 @@ export function useDraftAutosave(
   useSyncUnloadSave(user, draftDataRef);
   useVisibilitySave(wrappedForceSave, () => draftDataRef.current.content);
 
+  // Debounce: save shortly after the user stops typing.
   useEffect(() => {
     const currentStatus = useTimerStore.getState().status;
     if ((currentStatus === 'writing' || currentStatus === 'paused') && user) {
@@ -75,6 +76,16 @@ export function useDraftAutosave(
       return () => clearTimeout(timeout);
     }
   }, [draftData.status, draftData.content, draftData.title, draftData.wordCount, user, wrappedAutosave, layoutMode]);
+
+  // Interval safety net: save every 30s even if the user types continuously
+  // (debounce may never fire during uninterrupted typing).
+  useEffect(() => {
+    if (!user) return;
+    const currentStatus = useTimerStore.getState().status;
+    if (currentStatus !== 'writing' && currentStatus !== 'paused') return;
+    const interval = setInterval(() => void wrappedAutosave(), 30_000);
+    return () => clearInterval(interval);
+  }, [user, wrappedAutosave, draftData.status]);
 
   return { saveStatus: saveStatus as DraftSaveStatus, lastSavedAt };
 }

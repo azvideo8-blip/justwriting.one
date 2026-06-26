@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import { auth } from '../../../core/firebase/auth';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
@@ -29,16 +29,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(u);
       setAuthState(u ? 'authenticated' : 'guest');
     });
-    return unsubscribe;
+    // Fallback: if Firebase Auth never calls back (network/init failure),
+    // transition from loading to guest after 10s so the app isn't stuck.
+    const timeout = setTimeout(() => {
+      setAuthState(prev => prev === 'loading' ? 'guest' : prev);
+    }, 10_000);
+    return () => { unsubscribe(); clearTimeout(timeout); };
   }, []);
 
-  const value: AuthContextValue = {
+  const value = useMemo<AuthContextValue>(() => ({
     user,
     authState,
     isAuthenticated: authState === 'authenticated',
     isGuest: authState === 'guest',
     loading: authState === 'loading',
-  };
+  }), [user, authState]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

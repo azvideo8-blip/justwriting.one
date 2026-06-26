@@ -18,6 +18,7 @@ import { searchNotesMulti } from '../utils/noteRetriever';
 import { analyzeDoors, aggregateDoors, doorLabel } from '../utils/contactDoors';
 import { detectRisk, CRISIS_RESOURCES } from '../utils/riskDetect';
 import { cosineSimilarity } from '../utils/vectorSearch';
+import { reportError } from '../../../shared/errors/reportError';
 
 let _streamAvailable: boolean | null = null;
 const CONTEXT_WINDOW = 14;
@@ -690,7 +691,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             }
           }
         } catch (e) {
-          console.warn('[useAIChat] facet augmentation failed:', e);
+          reportError(e, { action: '[useAIChat] facet augmentation failed' });
         }
       }
 
@@ -807,7 +808,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
                 allNotes = allNotes.slice(0, 8);
               }
             } catch (e) {
-              console.warn('[useAIChat] rerank failed, keeping original order:', e);
+              reportError(e, { action: '[useAIChat] rerank failed, keeping original order' });
             }
           }
 
@@ -891,7 +892,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             }
           }
         } catch (e) {
-          console.warn('[useAIChat] note search failed:', e);
+          reportError(e, { action: '[useAIChat] note search failed' });
           if (!searchContext) {
             searchContext =
               `Поиск по архиву заметок пользователя по запросу "${text}" временно не сработал. ` +
@@ -922,7 +923,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             searchContext = searchContext ? searchContext + '\n\n' + memoryBlock : memoryBlock;
           }
         } catch (e) {
-          console.warn('[useAIChat] memory retrieval failed:', e);
+          reportError(e, { action: '[useAIChat] memory retrieval failed' });
         }
       }
 
@@ -998,7 +999,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         } catch (e: unknown) {
           // Don't fall back to the callable if the user aborted on purpose.
           if (controller.signal.aborted) throw new Error('ABORTED');
-          console.warn('Streaming chat failed, falling back to callable chat:', e);
+          reportError(e, { action: 'Streaming chat failed, falling back to callable chat' });
           const errMsg = e instanceof Error ? e.message : '';
           if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED') {
             fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, responseLength: effectiveResponseLength, reasoning: effectiveReasoning });

@@ -35,9 +35,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     let unsubscribe: (() => void) | null = null;
 
     void (async () => {
-      const { db, mod } = await getClient();
-      const { onSnapshot, doc, setDoc, getDoc } = mod;
-      if (cancelled) return;
+      try {
+        const { db, mod } = await getClient();
+        const { onSnapshot, doc, setDoc, getDoc } = mod;
+        if (cancelled) return;
 
       const userDoc = doc(db, 'users', user.uid);
       unsubscribe = onSnapshot(userDoc, (snap) => {
@@ -110,6 +111,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       }, (err) => {
         reportError(err, { action: 'profileSnapshot', uid: user.uid });
       });
+      } catch (e) {
+        reportError(e, { action: 'profileContext_init', uid: user.uid });
+      }
     })();
 
     return () => {

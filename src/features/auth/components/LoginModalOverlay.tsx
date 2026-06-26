@@ -37,6 +37,10 @@ export function LoginModalOverlay({ open }: { open: boolean }) {
     }
   }, [closeLoginModal]);
 
+  const onSuccessWrapped = useCallback(() => {
+    void handleAuthSuccess();
+  }, [handleAuthSuccess]);
+
   return (
     <>
       <AnimatePresence>
@@ -61,7 +65,7 @@ export function LoginModalOverlay({ open }: { open: boolean }) {
               onClick={e => e.stopPropagation()}
             >
               <React.Suspense fallback={<div className="h-48" />}>
-                <LoginPage isModal onSuccess={() => void handleAuthSuccess()} onClose={closeLoginModal} />
+                <LoginPage isModal onSuccess={onSuccessWrapped} onClose={closeLoginModal} />
               </React.Suspense>
             </motion.div>
           </motion.div>

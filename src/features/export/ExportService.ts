@@ -93,9 +93,16 @@ export class ExportService {
       iframe.srcdoc = printContent;
       document.body.appendChild(iframe);
 
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 1500);
+      const cleanup = () => {
+        iframe.removeEventListener('afterprint', cleanup);
+        if (iframe.parentNode) document.body.removeChild(iframe);
+      };
+      iframe.addEventListener('afterprint', cleanup);
+      iframe.addEventListener('load', () => {
+        try { (iframe.contentWindow as Window | null)?.focus(); (iframe.contentWindow as Window | null)?.print(); } catch { /* cross-origin */ }
+      });
+      const fallbackTimer = setTimeout(cleanup, 60_000);
+      iframe.addEventListener('afterprint', () => clearTimeout(fallbackTimer));
     } catch (error) {
       reportError(error, { method: 'toPDF', title, contentLength: content.length });
       throw error;

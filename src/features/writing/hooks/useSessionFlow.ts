@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { SessionType } from '../store/types';
 import { useTimerStore } from '../store/useTimerStore';
 import { SetupMode } from '../components/WritingSetup';
@@ -136,12 +136,12 @@ export function useSessionFlow(
     };
   }, []);
 
-  return {
+  return useMemo(() => ({
     setupMode, setSetupMode: stableSetSetupMode,
     countdown, startCountdown,
     goalToastVisible, goalToastType,
     sessionStartFlash,
     totalDurationForDeadline,
     showCancelConfirm, setShowCancelConfirm: stableSetShowCancelConfirm,
-  };
+  }), [setupMode, stableSetSetupMode, countdown, startCountdown, goalToastVisible, goalToastType, sessionStartFlash, totalDurationForDeadline, showCancelConfirm, stableSetShowCancelConfirm]);
 }

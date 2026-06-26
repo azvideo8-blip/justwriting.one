@@ -13,6 +13,7 @@ import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { UserProfile } from '../../../types';
 import { getAuth } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { reportError } from '../../../shared/errors/reportError';
 
 export type Tab = 'stats' | 'sync' | 'db' | 'users' | 'ai_usage' | 'ai_profile';
 
@@ -92,7 +93,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       const { data } = await fn({});
       setCurrentAIModel(data.model);
     } catch (e) {
-      console.error('Failed to fetch AI config:', e);
+      reportError(e, { action: 'Failed to fetch AI config' });
     }
   }, []);
 
@@ -105,7 +106,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       setCurrentAIModel(data.model);
       showToast(`Модель переключена на ${data.model.split('/').pop() ?? data.model}`, 'success');
     } catch (e) {
-      console.error('Failed to switch AI model:', e);
+      reportError(e, { action: 'Failed to switch AI model' });
       showToast('Не удалось переключить модель', 'error');
     } finally {
       setModelSwitching(false);
@@ -128,7 +129,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       setExpandedUid(null);
       setUserEvents([]);
     } catch (e) {
-      console.error('Failed to fetch AI usage:', e);
+      reportError(e, { action: 'Failed to fetch AI usage' });
       showToast('Не удалось загрузить статистику AI', 'error');
     } finally {
       setAiUsageLoading(false);
@@ -150,7 +151,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       const { data } = await fn({ date: aiUsageDate, targetUid: uid });
       setUserEvents(data.events ?? []);
     } catch (e) {
-      console.error('Failed to fetch user events:', e);
+      reportError(e, { action: 'Failed to fetch user events' });
       showToast('Не удалось загрузить события пользователя', 'error');
       setExpandedUid(null);
     } finally {
@@ -186,7 +187,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       logs.sort((a, b) => b.processedAt - a.processedAt);
       setSummaryLogs(logs);
     } catch (e) {
-      console.error('Error loading AI Profile data:', e);
+      reportError(e, { action: 'Error loading AI Profile data' });
     }
   }, []);
 
@@ -212,7 +213,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       });
       setStatsLoaded(true);
     } catch (e) {
-      console.error('Error loading stats:', e);
+      reportError(e, { action: 'Error loading stats' });
       setStatsLoaded(true);
     }
   }, []);
@@ -227,7 +228,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       const usersData = await AdminUserService.getUsers(ADMIN_PAGE_LIMIT);
       setUsers(usersData);
     } catch (err) {
-      console.error(err);
+      reportError(err);
       showToast('Не удалось загрузить данные', 'error');
     } finally {
       setLoadingData(false);
@@ -257,14 +258,14 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
           await StorageService.addLocalCopy(user.uid, cloudDoc.id);
           imported++;
         } catch (e) {
-          console.error('Import failed for doc', cloudDoc.id, e);
+          reportError(e, { action: 'Import failed for doc', docId: cloudDoc.id });
           failed++;
         }
       }
       showToast(`Импорт завершен: скачано ${imported} из ${cloudDocs.length} заметок. Ошибок: ${failed}`, 'success');
       setDiagnosticsKey(k => k + 1);
     } catch (e) {
-      console.error(e);
+      reportError(e);
       showToast('Не удалось импортировать заметки из облака', 'error');
     } finally {
       setBulkImporting(false);
@@ -284,7 +285,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       }
       setDiagnosticsKey(k => k + 1);
     } catch (e) {
-      console.error(e);
+      reportError(e);
       showToast('Не удалось выгрузить заметки в облако', 'error');
     } finally {
       setBulkSyncing(false);
@@ -313,7 +314,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
         showToast(`Не удалось создать портрет: ${result.error}`, 'error');
       }
     } catch (e) {
-      console.error('Failed to generate portrait:', e);
+      reportError(e, { action: 'Failed to generate portrait' });
       showToast('Ошибка при создании портрета', 'error');
     } finally {
       setPortraitGenerating(false);
@@ -336,7 +337,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       useAiLimitStore.setState({ used: 0, remaining: useAiLimitStore.getState().limit });
       showToast('Счетчик использования AI сброшен в БД и локально', 'success');
     } catch (e: unknown) {
-      console.error('Failed to reset counter:', e);
+      reportError(e, { action: 'Failed to reset counter' });
       const errMsg = e instanceof Error ? e.message : 'Ошибка сервера';
       showToast(`Не удалось сбросить лимит: ${errMsg}`, 'error');
     } finally {
@@ -352,7 +353,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       showToast('Память ИИ очищена', 'success');
       await loadSystemStats();
     } catch (e: unknown) {
-      console.error('Failed to clear AI memory:', e);
+      reportError(e, { action: 'Failed to clear AI memory' });
       showToast('Не удалось очистить память ИИ', 'error');
     }
   };
@@ -370,7 +371,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       showToast(`Готово: удалено старых версий — ${removed}`, 'success');
       await loadSystemStats();
     } catch (e: unknown) {
-      console.error('Failed to collapse versions:', e);
+      reportError(e, { action: 'Failed to collapse versions' });
       showToast('Не удалось схлопнуть версии', 'error');
     }
   };
@@ -396,7 +397,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       showToast(`Суточный счетчик для ${displayName} успешно сброшен`, 'success');
       await fetchAIUsage();
     } catch (e: unknown) {
-      console.error('Failed to reset user limit:', e);
+      reportError(e, { action: 'Failed to reset user limit' });
       const errMsg = e instanceof Error ? e.message : 'Ошибка сервера';
       showToast(`Не удалось сбросить лимит: ${errMsg}`, 'error');
     } finally {

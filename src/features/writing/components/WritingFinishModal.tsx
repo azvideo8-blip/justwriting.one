@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useShallow } from 'zustand/react/shallow';
 import { cn } from '../../../core/utils/utils';
 import { Label } from '../../../types';
 import { useLanguage } from '../../../shared/i18n';
@@ -71,18 +72,22 @@ export function WritingFinishModal({
   const isMobile = layoutMode === 'mobile';
   const navigate = useNavigate();
 
-  const wordCount = useContentStore(s => s.wordCount);
-  const initialWordCount = useContentStore(s => s.initialWordCount);
-  const seconds = useTimerStore(s => s.seconds);
-  const sessionStartSeconds = useTimerStore(s => s.sessionStartSeconds);
-  const accumulatedDuration = useTimerStore(s => s.accumulatedDuration);
+  const { wordCount, initialWordCount, content, title, setTitle, wpmHistory } = useContentStore(useShallow(s => ({
+    wordCount: s.wordCount,
+    initialWordCount: s.initialWordCount,
+    content: s.content,
+    title: s.title,
+    setTitle: s.setTitle,
+    wpmHistory: s.wpmHistory,
+  })));
+  const { seconds, sessionStartSeconds, accumulatedDuration, totalPauseSeconds } = useTimerStore(useShallow(s => ({
+    seconds: s.seconds,
+    sessionStartSeconds: s.sessionStartSeconds,
+    accumulatedDuration: s.accumulatedDuration,
+    totalPauseSeconds: s.totalPauseSeconds,
+  })));
   const sessionSeconds = accumulatedDuration + Math.max(0, seconds - sessionStartSeconds);
-  const totalPauseSeconds = useTimerStore(s => s.totalPauseSeconds);
   const totalElapsedSeconds = sessionSeconds + totalPauseSeconds;
-  const content = useContentStore(s => s.content);
-  const title = useContentStore(s => s.title);
-  const setTitle = useContentStore(s => s.setTitle);
-  const wpmHistory = useContentStore(s => s.wpmHistory);
 
   const sessionWords = Math.max(0, wordCount - initialWordCount);
   const avgWpm = sessionSeconds > 0

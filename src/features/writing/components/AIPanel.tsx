@@ -89,10 +89,27 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
 
   const handleCopy = useCallback(async () => {
     if (!result) return;
-    await navigator.clipboard.writeText(result);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }, [result]);
+    try {
+      await navigator.clipboard.writeText(result);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = result;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      } catch {
+        setError(t('error_generic'));
+      }
+    }
+  }, [result, t]);
 
   const canApply = Boolean(result && lastAction && !applied && ['shorten', 'summarize', 'continue'].includes(lastAction));
   const canApplyTags = Boolean(result && lastAction === 'tags' && !applied);

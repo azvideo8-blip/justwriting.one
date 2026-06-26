@@ -3,6 +3,7 @@ import { findStaleDocuments, indexDocument } from '../utils/embeddingIndexer';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import { rebuildWordCloud } from '../../archive/hooks/useArchiveWordCloud';
+import { reportError } from '../../../shared/errors/reportError';
 
 const BATCH_SIZE = 3;
 const DEBOUNCE_MS = 30_000;
@@ -26,7 +27,7 @@ export function useEmbeddingIndexer(): void {
   const scheduleWordCloudRebuild = useCallback(() => {
     if (wordCloudTimerRef.current) clearTimeout(wordCloudTimerRef.current);
     wordCloudTimerRef.current = setTimeout(() => {
-      void rebuildWordCloud().catch(e => console.warn('[useEmbeddingIndexer] word cloud rebuild failed:', e));
+      void rebuildWordCloud().catch(e => reportError(e, { action: '[useEmbeddingIndexer] word cloud rebuild failed' }));
     }, 8_000);
   }, []);
 
@@ -41,11 +42,11 @@ export function useEmbeddingIndexer(): void {
           void import('../services/AIProfileService').then(({ AIProfileService }) => {
             void AIProfileService.generate()
               .then(() => console.warn('[useEmbeddingIndexer] auto-regenerated portrait successfully'))
-              .catch(e => console.error('[useEmbeddingIndexer] auto portrait generation failed:', e));
+              .catch(e => reportError(e, { action: '[useEmbeddingIndexer] auto portrait generation failed' }));
           });
         }
       }).catch(e => {
-        console.warn('[useEmbeddingIndexer] resummarize failed:', e);
+        reportError(e, { action: '[useEmbeddingIndexer] resummarize failed' });
       });
     }, RESUMMARIZE_DEBOUNCE_MS);
   }, []);
@@ -75,7 +76,7 @@ export function useEmbeddingIndexer(): void {
           void AIProfileFacetService.incrementalUpdate(docId).then(() => {
             scheduleResummarize();
           }).catch(e =>
-            console.error('[useEmbeddingIndexer] incremental facet update failed:', e),
+            reportError(e, { action: '[useEmbeddingIndexer] incremental facet update failed' }),
           );
           scheduleWordCloudRebuild();
         }
@@ -84,7 +85,7 @@ export function useEmbeddingIndexer(): void {
       // Succeeds only when E2E is unlocked; otherwise stays local for next time.
       await AIEmbeddingService.syncPendingToCloud();
     } catch (e) {
-      console.error('[useEmbeddingIndexer] batch error:', e);
+      reportError(e, { action: '[useEmbeddingIndexer] batch error' });
     } finally {
       runningRef.current = false;
     }
