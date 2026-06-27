@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.35',
+    date: '2026-06-27',
+    items: [
+      { category: 'fix', ru: 'Дневная квота AI честнее: сбой, отклонение (лимит, защита) или обрыв потока больше не расходуют слот — он возвращается автоматически; слот не резервируется до прохождения всех проверок', en: 'Daily AI quota is fairer: a failure, a rejection (limit, security block), or a stream interruption no longer burns your slot — it\'s refunded automatically; the slot isn\'t reserved until all checks pass' },
+      { category: 'fix', ru: 'Безопасность: пользовательский портрет и кастомные промпты теперь проходят проверку на инъекции и санитизацию во всех путях — ранее портрет обходил защиту; фоновые AI-функции и правила Firestore также усилены', en: 'Security: the user portrait and custom prompts now go through injection checks and sanitization on all paths — the portrait previously bypassed them; background AI functions and Firestore rules are also hardened' },
+      { category: 'fix', ru: 'Надёжность: облачная синхронизация больше не «умирает навсегда» после одной временной ошибки — сброс инициализации позволяет следующей попытке работать', en: 'Reliability: cloud sync no longer dies forever after a single transient error — the init state resets so the next attempt works' },
+      { category: 'improvement', ru: 'Производительность: устранён шторм перерисовок страницы письма от таймерных тиков (каждые 500 мс) — интерфейс плавнее и отклик быстрее', en: 'Performance: eliminated a re-render storm on the writing page from timer ticks (every 500 ms) — the UI is smoother and more responsive' },
+      { category: 'fix', ru: 'Ошибки, которые раньше тихо проглатывались, теперь доходят до мониторинга — проблемы замечаются и чинятся быстрее', en: 'Errors that were previously swallowed silently now reach monitoring — issues are noticed and fixed sooner' },
+    ],
+  },
+  {
     version: '0.7.34',
     date: '2026-06-26',
     items: [
