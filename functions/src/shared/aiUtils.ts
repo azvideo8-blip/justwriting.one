@@ -29,10 +29,10 @@ export const INJECTION_PATTERNS = [
   /you\s+are\s+now/i,
   /forget\s+your/i,
   /новые\s+инструкции/i,
-  /забудь/i,
-  /system\s*:/i,
-  /as\s+an\s+AI/i,
-  /developer\s*:/i,
+  /забудь\s+(вс[её]|свои|преды|инструк)/i,
+  /(^|\n)\s*system\s*:/i,
+  /as\s+an\s+AI\b/i,
+  /(^|\n)\s*developer\s*:/i,
   /<\|im_start\|>/i,
   /\[INST\]/i,
   /<developer>/i,
@@ -172,16 +172,20 @@ export async function tryReserveGlobalRequest(): Promise<boolean> {
 
 // Best-effort refund of one global daily request slot. Call when an AI request
 // passed tryReserveGlobalRequest but then failed — the global counter was already
-// incremented and the slot would be wasted otherwise. Errors are swallowed+logged.
+// incremented and the slot would be wasted otherwise. Uses a transaction with
+// date verification and Math.max(0, ...) clamping to prevent cross-day refunds
+// and negative counts. Errors are swallowed+logged.
 export async function refundGlobalRequest(): Promise<void> {
   const db = getDb();
   const date = new Date().toISOString().slice(0, 10);
   const ref = db.doc(`aiGlobalDaily/${date}`);
-  try {
-    await ref.set({ requests: FieldValue.increment(-1), date, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-  } catch (e) {
-    console.error('[AI] refundGlobalRequest failed:', e);
-  }
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.data();
+    if (!data || data.date !== date) return;
+    const next = Math.max(0, (data.requests ?? 1) - 1);
+    tx.update(ref, { requests: next });
+  }).catch(e => console.error('[AI] refundGlobalRequest failed:', e));
 }
 
 // Per-user daily cap with an admin bump: users with role 'admin' get

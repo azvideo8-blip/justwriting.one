@@ -32,10 +32,6 @@ export const summarizeFacet = onCall({
   }
   const uid = request.auth.uid;
 
-  if (!(await tryReserveGlobalRequest())) {
-    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
-  }
-
   const parsed = inputSchema.safeParse(request.data);
   if (!parsed.success) {
     console.error('[AI facet] validation failed:', JSON.stringify(parsed.error.issues));
@@ -54,6 +50,10 @@ export const summarizeFacet = onCall({
   const system = focus
     ? `${SYSTEM_PROMPT} Опиши ТОЛЬКО то, что относится к теме «${focus}»; игнорируй формат дневника и всё постороннее. Если про эту тему почти ничего нет — одно предложение об этом.`
     : SYSTEM_PROMPT;
+
+  if (!(await tryReserveGlobalRequest())) {
+    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
+  }
 
   try {
     const result = await generate({

@@ -35,10 +35,6 @@ export const summarizeDocument = onCall({
 
   const uid = request.auth.uid;
 
-  if (!(await tryReserveGlobalRequest())) {
-    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
-  }
-
   // UXFIX-3: summarizeDocument is background analysis, not chat.
   // Removed checkDailyLimit/checkRateLimit — only tryReserveGlobalRequest guards.
 
@@ -59,6 +55,10 @@ export const summarizeDocument = onCall({
   const prompt = safeMood
     ? `[Настроение документа: ${safeMood}]\n\n${sanitizedContent}`
     : sanitizedContent;
+
+  if (!(await tryReserveGlobalRequest())) {
+    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
+  }
 
   const lf = getLangfuse();
   const activeModel = SUMMARY_MODEL;

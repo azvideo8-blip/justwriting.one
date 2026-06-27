@@ -143,11 +143,19 @@ function sanitizeAiInput(content: string): string {
 }
 
 // Best-effort refund of one global daily request slot.
+// Uses a transaction with date verification and Math.max(0, ...) clamping to
+// prevent cross-day refunds and negative counts.
 async function refundGlobalRequest(): Promise<void> {
   const date = new Date().toISOString().slice(0, 10);
-  const ref = db().doc(`aiGlobalDaily/${date}`);
+  const fs = db();
+  const ref = fs.doc(`aiGlobalDaily/${date}`);
   try {
-    await ref.set({ requests: FieldValue.increment(-1), date, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    await fs.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const data = snap.data();
+      if (!data || data.date !== date) return;
+      tx.update(ref, { requests: Math.max(0, (data.requests ?? 0) - 1) });
+    });
   } catch (e) {
     console.error('[api/chat] refundGlobalRequest failed:', e);
   }
@@ -283,9 +291,12 @@ async function streamFireworksReasoning(
   model: string,
   system: string,
   messages: Array<{ role: string; content: string }>,
+  isInternalCall: boolean,
 ): Promise<void> {
   const apiKey = process.env.FIREWORKS_API_KEY;
   if (!apiKey) {
+    await refundGlobalRequest();
+    if (!isInternalCall) await refundDailyLimit(uid);
     res.status(500).end('FIREWORKS_API_KEY not set');
     return;
   }
@@ -305,6 +316,8 @@ async function streamFireworksReasoning(
   });
 
   if (!upstream.ok || !upstream.body) {
+    await refundGlobalRequest();
+    if (!isInternalCall) await refundDailyLimit(uid);
     res.status(502).end('UPSTREAM_ERROR');
     return;
   }
@@ -400,10 +413,10 @@ async function streamFireworksReasoning(
       }
     }
    }
-   } catch (streamErr) {
+    } catch (streamErr) {
       console.error('[api/chat] stream read failed:', streamErr);
       await refundGlobalRequest();
-      await refundDailyLimit(uid);
+      if (!isInternalCall) await refundDailyLimit(uid);
     }
    // LX-1: Flush any remaining buffered content (no marker was found)
   if (contentAccum && !wroteAnswerHeader) {
@@ -501,22 +514,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // Injection guard for user messages
-  const userMessages = messages.filter(m => m.role === 'user');
-  if (userMessages.some(m => INJECTION_PATTERNS.some(p => p.test(m.content)))) {
+  // S-3: Injection guard for ALL message turns (not just user) — a client-fabricated
+  // assistant message is the real injection vector.
+  if (messages.some(m => INJECTION_PATTERNS.some(p => p.test(m.content)))) {
     if (!isInternalCall) await refundDailyLimit(uid); await refundGlobalRequest();
-    res.status(400).json({ error: 'Bad Request' }); return;
-  }
-
-  // Injection guard for document content (RAG context injected into system prompt)
-  if (documentContent && INJECTION_PATTERNS.some(p => p.test(documentContent))) {
-    await refundDailyLimit(uid); await refundGlobalRequest();
-    res.status(400).json({ error: 'Bad Request' }); return;
-  }
-
-  // Injection guard for user portrait (injected into system prompt)
-  if (userPortrait && INJECTION_PATTERNS.some(p => p.test(userPortrait))) {
-    await refundDailyLimit(uid); await refundGlobalRequest();
     res.status(400).json({ error: 'Bad Request' }); return;
   }
 
@@ -551,7 +552,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? { ...m, content: `${m.content}\n\n(Думай по-русски и ответь по-русски.)` }
         : m,
     );
-    await streamFireworksReasoning(res, uid, activeModel, reasoningSystem, reasoningMessages);
+    await streamFireworksReasoning(res, uid, activeModel, reasoningSystem, reasoningMessages, isInternalCall);
     return;
   }
 
