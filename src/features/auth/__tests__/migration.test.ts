@@ -97,13 +97,31 @@ async function migrateDocuments(guestId: string, userId: string): Promise<number
   const guestVersions = await db.getAll('versions');
   const versionsToMigrate = guestVersions.filter(v => v.guestId === guestId);
 
-  const tx = db.transaction(['documents', 'versions'], 'readwrite');
+  const hasDrafts = db.objectStoreNames.contains('drafts');
+  const tx = db.transaction(
+    hasDrafts ? ['documents', 'versions', 'drafts'] : ['documents', 'versions'],
+    'readwrite',
+  );
   const docStore = tx.objectStore('documents');
   const verStore = tx.objectStore('versions');
+
+  // D-3: migrate guest draft to user draft (don't clobber existing user draft)
+  const draftPuts: Promise<unknown>[] = [];
+  if (hasDrafts) {
+    const draftStore = tx.objectStore('drafts');
+    const guestDraft = await draftStore.get(guestId);
+    if (guestDraft) {
+      const existingUserDraft = await draftStore.get(userId);
+      if (!existingUserDraft) {
+        draftPuts.push(draftStore.put({ ...guestDraft, userId }));
+      }
+    }
+  }
 
   await Promise.all([
     ...guestDocs.map(doc => docStore.put({ ...doc, guestId: userId })),
     ...versionsToMigrate.map(ver => verStore.put({ ...ver, guestId: userId })),
+    ...draftPuts,
     tx.done,
   ]);
 
@@ -634,5 +652,80 @@ describe('GROUP E — Post-migration state', () => {
     const versions = await db.getAllFromIndex('versions', 'by-document', firstUserDoc.id);
     expect(versions).toHaveLength(1);
     expect(versions[0]?.content).toBe(uniqueContent);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GROUP F — Draft migration (D-3)
+// ─────────────────────────────────────────────────────────────────────────────
+describe('GROUP F — Draft migration (D-3)', () => {
+  it('F01: guest draft migrated to userId', async () => {
+    await seedGuestData([
+      { title: 'Doc', versions: [{ content: 'hello', wordCount: 1 }] },
+    ]);
+
+    // Seed a guest draft
+    const db = await getLocalDb();
+    const guestDraft = {
+      userId: GUEST_ID,
+      title: 'Untitled',
+      content: 'Guest draft content',
+      seconds: 30,
+      wpm: 60,
+      wordCount: 3,
+      updatedAt: Date.now(),
+    };
+    await db.put('drafts', guestDraft);
+
+    await migrateDocuments(GUEST_ID, USER_ID);
+
+    const userDraft = await db.get('drafts', USER_ID);
+    expect(userDraft).toBeTruthy();
+    expect(userDraft?.content).toBe('Guest draft content');
+    expect(userDraft?.userId).toBe(USER_ID);
+  });
+
+  it('F02: existing user draft not clobbered by guest draft', async () => {
+    await seedGuestData([
+      { title: 'Doc', versions: [{ content: 'hello', wordCount: 1 }] },
+    ]);
+
+    const db = await getLocalDb();
+    // Seed both guest and user drafts
+    await db.put('drafts', {
+      userId: GUEST_ID,
+      title: 'Guest',
+      content: 'Guest content',
+      seconds: 10,
+      wpm: 50,
+      wordCount: 2,
+      updatedAt: Date.now(),
+    });
+    await db.put('drafts', {
+      userId: USER_ID,
+      title: 'User',
+      content: 'User content',
+      seconds: 20,
+      wpm: 70,
+      wordCount: 2,
+      updatedAt: Date.now(),
+    });
+
+    await migrateDocuments(GUEST_ID, USER_ID);
+
+    const userDraft = await db.get('drafts', USER_ID);
+    expect(userDraft?.content).toBe('User content');
+  });
+
+  it('F03: no guest draft — migration succeeds, no user draft created', async () => {
+    await seedGuestData([
+      { title: 'Doc', versions: [{ content: 'hello', wordCount: 1 }] },
+    ]);
+
+    const db = await getLocalDb();
+    await migrateDocuments(GUEST_ID, USER_ID);
+
+    const userDraft = await db.get('drafts', USER_ID);
+    expect(userDraft).toBeUndefined();
   });
 });

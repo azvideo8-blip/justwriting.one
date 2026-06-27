@@ -88,6 +88,12 @@ describe('persistDraft', () => {
     expect(result.remoteOk).toBe(false);
   });
 
+  it('D-1: localOk=false when saveToLocal rejects (no false-positive "Saved")', async () => {
+    (WritingDraftService.saveToLocal as any).mockRejectedValueOnce(new Error('IDB fail'));
+    const result = await persistDraft({ userId: 'u1' } as any);
+    expect(result.localOk).toBe(false);
+  });
+
   it('warns in console when localStorage > 4500 KB', async () => {
     const { getLocalStorageUsageKB } = await import('../../../../shared/lib/localStorageUtils');
     (getLocalStorageUsageKB as any).mockReturnValue(5000);

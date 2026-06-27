@@ -79,6 +79,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
       if (mode === 'register') {
         const cred = await AuthService.signUpWithEmail(email, password);
 
+        // V-1: brand-new registration — confirmed no encryption exists yet.
         setEncryptionEnabled(cred.user.uid, false);
       } else {
         await AuthService.signInWithEmail(email, password);
@@ -102,10 +103,15 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                 await AuthService.unlockVaultFromPendingKeys(keys, password, currentUid);
               } catch (repairErr) {
                 reportError(repairErr, { action: 'repairEncryptionKeys' });
-                setEncryptionEnabled(currentUid, false);
+                // V-1: do NOT flip encryptionEnabled to false — the account may
+                // have encryption configured. Keep the vault locked so
+                // maybeEncrypt throws ENCRYPT_REQUIRED and blocks plaintext
+                // writes (ref: security-invariants.md #2).
               }
             } else {
-              setEncryptionEnabled(currentUid, false);
+              // V-1: vault unlock failed and no pending keys to repair — keep
+              // the vault locked. Do NOT set encryptionEnabled=false; the user
+              // is prompted to retry their password (ref: security-invariants.md #2).
             }
           }
         }

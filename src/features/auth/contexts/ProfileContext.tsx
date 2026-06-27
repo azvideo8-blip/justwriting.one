@@ -56,16 +56,22 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
               } else {
                 if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, parsed.error.flatten());
                 setProfile(null);
-                setEncryptionEnabled(user.uid, false);
+                // V-1: profile parse failed — can't determine if encryption is
+                // configured. Do NOT flip encryptionEnabled to false; keep the
+                // vault locked so maybeEncrypt blocks plaintext writes
+                // (ref: security-invariants.md #2).
                 setProfileLoaded(user.uid, true);
               }
             } else {
               if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, data);
               setProfile(null);
-              setEncryptionEnabled(user.uid, false);
+              // V-1: profile data shape invalid — same invariant as above.
+              // Do NOT set encryptionEnabled=false (ref: security-invariants.md #2).
               setProfileLoaded(user.uid, true);
             }
           } else {
+            // V-1: no profile doc exists — confirmed brand-new user with no
+            // encryption config. Safe to set false (ref: security-invariants.md #2).
             setEncryptionEnabled(user.uid, false);
             if (creationAttemptedRef.current) return;
             creationAttemptedRef.current = true;

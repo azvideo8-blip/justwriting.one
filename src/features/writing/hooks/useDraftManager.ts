@@ -1,6 +1,8 @@
 import { useEffect, useCallback, useRef } from 'react';
+import type { RefObject } from 'react';
+import type { User } from 'firebase/auth';
 import { useTimerStore } from '../store/useTimerStore';
-import { useDraftCore, useVisibilitySave, type DraftSaveStatus, type DraftErrorKind } from './useDraftCore';
+import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus, type DraftErrorKind } from './useDraftCore';
 
 export interface DraftData {
   content: string;
@@ -33,9 +35,13 @@ export function useDraftManager(
   const onSaveDraftRef = useRef(options.onSaveDraft);
   const timerStatus = useTimerStore(s => s.status);
 
+  // D-2: keep a ref with the latest draft data for useSyncUnloadSave so guests
+  // get a beforeunload/pagehide localStorage fallback.
+  const draftSnapshotRef = useRef(getDraftData());
   useEffect(() => {
     getDraftDataRef.current = getDraftData;
     onSaveDraftRef.current = options.onSaveDraft;
+    draftSnapshotRef.current = getDraftData();
   }, [getDraftData, options.onSaveDraft]);
 
   const doAutosave = useCallback(async () => {
@@ -56,6 +62,14 @@ export function useDraftManager(
   }, [doAutosave, timerStatus]);
 
   useVisibilitySave(doAutosave, () => getDraftData().content);
+
+  // D-2: guests (and cloud users via this manager) get a beforeunload/pagehide
+  // localStorage fallback so closing the tab between 30s autosaves doesn't lose
+  // recent typing.
+  useSyncUnloadSave(
+    userId ? ({ uid: userId } as User) : null,
+    draftSnapshotRef as unknown as RefObject<{ pinnedThoughts: string[]; sessionStartTime?: number | undefined; activeSessionId: string | null; [key: string]: unknown }>,
+  );
 
   const forceSave = useCallback(async () => {
     await doAutosave();
