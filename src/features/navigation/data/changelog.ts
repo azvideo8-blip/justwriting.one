@@ -14,6 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.36',
+    date: '2026-06-27',
+    items: [
+      { category: 'fix', ru: 'Чат AI снова работает с любыми вашими заметками: обычные фразы вроде «не забудь» больше не блокируют разбор и поиск по заметке (ложное срабатывание защиты)', en: 'AI chat works with any of your notes again: everyday phrases like "не забудь" no longer block analysis or note search (a false-positive in the guard)' },
+      { category: 'fix', ru: 'Шифрование надёжнее: неудачная разблокировка или прерванная миграция больше не могут тихо сохранить ваши заметки незашифрованными; авто-разблокировка по устройству проверяется, а «запомнить устройство» не переносится между пользователями', en: 'Encryption is safer: a failed unlock or an interrupted migration can no longer silently store your notes unencrypted; device auto-unlock is verified, and "remember this device" no longer carries over between users' },
+      { category: 'fix', ru: 'Черновики не теряются: исправлено ложное «Сохранено» при сбое хранилища; гостевой черновик переживает закрытие вкладки и переносится при регистрации', en: 'No more lost drafts: fixed a false "Saved" when storage fails; a guest draft survives closing the tab and is migrated on sign-up' },
+      { category: 'fix', ru: 'Лимиты AI честнее и устойчивее: сбой, отклонение или обрыв запроса возвращают слот; один пользователь больше не может исчерпать общий дневной лимит приложения недействительными запросами', en: 'AI limits are fairer and sturdier: a failure, rejection, or interruption refunds the slot; a single user can no longer exhaust the app-wide daily cap with invalid requests' },
+      { category: 'fix', ru: 'Чат: защита от двойной отправки одного сообщения; отдельное понятное сообщение, когда исчерпан общий лимит приложения (а не ваш личный)', en: 'Chat: guard against double-sending the same message; a distinct, clear message when the app-wide limit is reached (vs. your personal one)' },
+      { category: 'improvement', ru: 'Усилены правила доступа к данным (телеметрия, сводки, эмбеддинги, документы) и добавлены автотесты безопасности, реально исполняемые на эмуляторе', en: 'Hardened data-access rules (telemetry, summaries, embeddings, documents) and added security tests that actually run against the emulator' },
+    ],
+  },
+  {
     version: '0.7.35',
     date: '2026-06-27',
     items: [

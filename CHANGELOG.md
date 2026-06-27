@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 2026-06-27 (v0.7.36)
+- **[RU]** Безопасность (глубокий аудит, 21 находка critical/high): редизайн защиты от инъекций — обычные фразы вроде «не забудь» в ваших заметках больше не ломают разбор и поиск; injection-чек снят с пользовательского контента, оставлен на канале инструкций.
+- **[EN]** Security (deep audit, 21 critical/high findings): injection-guard redesign — everyday phrases like "не забудь" in your notes no longer break analysis/search; the check is off user content, kept on the instruction channel.
+- **[RU]** Шифрование: неудачная разблокировка/прерванная миграция больше не пишут plaintext в облако (закрыты пути после C-ENC-1); миграция требует ключ; авто-разблокировка по устройству проверяется; «запомнить устройство» не утекает между пользователями.
+- **[EN]** Encryption: failed unlock / interrupted migration no longer write plaintext to cloud (paths missed by C-ENC-1 closed); migration requires the key; device auto-unlock verified; "remember device" no longer leaks across users.
+- **[RU]** Данные: исправлено ложное «Сохранено» при сбое IndexedDB; гостевой черновик переживает закрытие вкладки и переносится при регистрации.
+- **[EN]** Data: fixed a false "Saved" on IndexedDB failure; guest draft survives tab close and is migrated on sign-up.
+- **[RU]** Квоты AI: рефанд слота при сбое/отклонении/обрыве; глобальный лимит резервируется только после всех проверок (нельзя исчерпать общий лимит мусорными запросами); `refundGlobalRequest` транзакционный с clamp.
+- **[EN]** AI quotas: slot refunded on failure/rejection/interruption; the global cap is reserved only after all checks pass (can't be drained by invalid requests); `refundGlobalRequest` is transactional with clamp.
+- **[RU]** Правила Firestore: валидация полей/размеров для телеметрии (create-only), сводок, эмбеддингов и обновлений документов; обновление документа закрепляет `userId` за владельцем.
+- **[EN]** Firestore rules: field/size validation for telemetry (create-only), summaries, embeddings, and document updates; a document update pins `userId` to the owner.
+- **[RU]** Клиент: синхронная защита от двойной отправки в чате; общий лимит приложения больше не портит ваш личный счётчик (GLOBAL_LIMIT vs DAILY_LIMIT).
+- **[EN]** Client: synchronous double-send guard in chat; the app-wide limit no longer corrupts your per-user counter (GLOBAL_LIMIT vs DAILY_LIMIT).
+- **[RU]** Тесты: починен стенд rules/emulator (никогда не запускался) — теперь реально исполняется: rules 29/29, emulator-гонки/рефанды 11/11. `src/version.ts` синхронизирован с `package.json`.
+- **[EN]** Tests: repaired the rules/emulator stand (never ran) — now actually executes: rules 29/29, emulator races/refunds 11/11. Synced `src/version.ts` with `package.json`.
+
 ## 2026-06-27 (v0.7.35)
 - **[RU]** Квота AI: `api/chat.ts` — добавлен `refundDailyLimit` (transaction с date check и `Math.max(0)` clamping); refund на global-limit rejection, injection rejection, stream failure (reasoning + non-reasoning). Пользователь больше не теряет дневной слот при сбое или отклонении запроса.
 - **[EN]** AI quota: `api/chat.ts` — added `refundDailyLimit` (transaction with date check and `Math.max(0)` clamping); refund on global-limit rejection, injection rejection, stream failure (reasoning + non-reasoning). User no longer loses a daily slot on failure or rejection.
