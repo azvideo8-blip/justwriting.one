@@ -39,10 +39,6 @@ export const extractChatMemory = onCall({
   }
   const uid = request.auth.uid;
 
-  if (!(await tryReserveGlobalRequest())) {
-    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
-  }
-
   const parsed = inputSchema.safeParse(request.data);
   if (!parsed.success) {
     console.error('[AI memory] validation failed:', JSON.stringify(parsed.error.issues));
@@ -56,6 +52,10 @@ export const extractChatMemory = onCall({
   const userMessages = parsed.data.messages.filter(m => m.role === 'user');
   if (userMessages.some(m => INJECTION_PATTERNS.some(p => p.test(m.content)))) {
     throw new HttpsError('invalid-argument', 'Disallowed patterns in messages.');
+  }
+
+  if (!(await tryReserveGlobalRequest())) {
+    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
   try {

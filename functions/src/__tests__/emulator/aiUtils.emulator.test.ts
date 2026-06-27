@@ -49,7 +49,12 @@ async function tryReserveGlobalRequest(): Promise<boolean> {
 
 async function refundGlobalRequest(): Promise<void> {
   const ref = db.doc(`aiGlobalDaily/${DATE}`);
-  await ref.set({ requests: FieldValue.increment(-1), date: DATE, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.data();
+    if (!data || data.date !== DATE) return;
+    tx.update(ref, { requests: Math.max(0, (data.requests ?? 1) - 1) });
+  }).catch(() => {});
 }
 
 const DAILY_LIMIT = 3;
@@ -126,7 +131,7 @@ describe('refundGlobalRequest — global limit refund on AI failure', () => {
   it('does not go below zero', async () => {
     await refundGlobalRequest(); // no prior reservation
     const snap = await db.doc(`aiGlobalDaily/${DATE}`).get();
-    expect((snap.data()?.requests ?? 0)).toBeGreaterThanOrEqual(-1); // Firestore allows negative, but we accept the race-safe behavior
+    expect((snap.data()?.requests ?? 0)).toBeGreaterThanOrEqual(0);
   });
 });
 

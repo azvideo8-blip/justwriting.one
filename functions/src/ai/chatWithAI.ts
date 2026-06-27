@@ -69,19 +69,10 @@ export const chatWithAI = onCall({
     }
   }
 
-  const userMessages = messages.filter(m => m.role === 'user');
-  if (userMessages.some(m => INJECTION_PATTERNS.some(p => p.test(m.content)))) {
+  // S-3: Injection guard for ALL message turns (not just user) — a client-fabricated
+  // assistant message is the real injection vector.
+  if (messages.some(m => INJECTION_PATTERNS.some(p => p.test(m.content)))) {
     throw new HttpsError('invalid-argument', 'Disallowed patterns detected in messages.');
-  }
-
-  // Injection guard for document content (RAG context injected into system prompt)
-  if (documentContent && INJECTION_PATTERNS.some(p => p.test(documentContent))) {
-    throw new HttpsError('invalid-argument', 'Disallowed patterns in document content.');
-  }
-
-  // Injection guard for user portrait (injected into system prompt)
-  if (userPortrait && INJECTION_PATTERNS.some(p => p.test(userPortrait))) {
-    throw new HttpsError('invalid-argument', 'Disallowed patterns in user portrait.');
   }
 
   // Per-user daily limit and cooldown — checked BEFORE reserving global slot

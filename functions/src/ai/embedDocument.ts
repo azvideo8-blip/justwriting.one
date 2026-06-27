@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, INJECTION_PATTERNS } from '../shared/aiUtils';
+import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest, refundGlobalRequest } from '../shared/aiUtils';
 import { embed } from '../shared/aiProvider';
 
 const inputSchema = z.object({
@@ -45,9 +45,6 @@ export const embedDocument = onCall({
   // are NOT subject to the per-user daily cap (AI_DAILY_LIMIT, default 5) or the
   // 10s chat cooldown (checkRateLimit), which made bulk indexing impossible
   // (429 / "Daily limit reached"). Only the project-wide cost guard applies.
-  if (!(await tryReserveGlobalRequest())) {
-    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
-  }
 
   const parsed = inputSchema.safeParse(request.data);
   if (!parsed.success) {
@@ -56,11 +53,11 @@ export const embedDocument = onCall({
 
   const { content } = parsed.data;
 
-  if (INJECTION_PATTERNS.some(p => p.test(content))) {
-    throw new HttpsError('invalid-argument', 'Disallowed patterns in content.');
-  }
-
   const sanitized = sanitizeAiInput(content);
+
+  if (!(await tryReserveGlobalRequest())) {
+    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
+  }
 
   try {
     const chunks = chunkText(sanitized);

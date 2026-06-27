@@ -62,19 +62,6 @@ export const editWithAI = onCall({
 
   const uid = request.auth.uid;
 
-  if (!(await tryReserveGlobalRequest())) {
-    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
-  }
-
-  if (!(await checkDailyLimit(uid))) {
-    throw new HttpsError('resource-exhausted', 'Daily limit reached.');
-  }
-
-  if (!(await checkRateLimit(uid))) {
-    await refundDailyLimit(uid);
-    throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
-  }
-
   const parsed = inputSchema.safeParse(request.data);
   if (!parsed.success) {
     throw new HttpsError('invalid-argument', 'Invalid payload.');
@@ -94,6 +81,20 @@ export const editWithAI = onCall({
         throw new HttpsError('invalid-argument', 'History contains disallowed patterns.');
       }
     }
+  }
+
+  if (!(await checkDailyLimit(uid))) {
+    throw new HttpsError('resource-exhausted', 'Daily limit reached.');
+  }
+
+  if (!(await checkRateLimit(uid))) {
+    await refundDailyLimit(uid);
+    throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
+  }
+
+  if (!(await tryReserveGlobalRequest())) {
+    await refundDailyLimit(uid);
+    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
   const lf = getLangfuse();

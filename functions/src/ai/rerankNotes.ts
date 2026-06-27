@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, INJECTION_PATTERNS } from '../shared/aiUtils';
+import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest, refundGlobalRequest } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 // Reranking is search infrastructure, not a user conversation — like embedDocument
@@ -28,27 +28,26 @@ export const rerankNotes = onCall({
   }
   const uid = request.auth.uid;
 
-  if (!(await tryReserveGlobalRequest())) {
-    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
-  }
-
   const parsed = inputSchema.safeParse(request.data);
   if (!parsed.success) {
     throw new HttpsError('invalid-argument', 'Invalid payload.');
   }
   const { query, candidates, maxResults = 5 } = parsed.data;
 
-  if (INJECTION_PATTERNS.some(p => p.test(query))) {
-    throw new HttpsError('invalid-argument', 'Disallowed patterns in query.');
-  }
-  if (candidates.some(c => INJECTION_PATTERNS.some(p => p.test(c.card)))) {
-    throw new HttpsError('invalid-argument', 'Disallowed patterns in candidates.');
+  // S-7: Validate documentId with strict regex — no injection check (it's an ID, not content)
+  const DOC_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
+  if (candidates.some(c => !DOC_ID_RE.test(c.documentId))) {
+    throw new HttpsError('invalid-argument', 'Invalid documentId in candidates.');
   }
 
   const safeQuery = sanitizeAiInput(query);
   const cardsText = candidates
     .map((c, i) => `[${i + 1}] docId=${c.documentId}\n${sanitizeAiInput(c.card)}`)
     .join('\n\n');
+
+  if (!(await tryReserveGlobalRequest())) {
+    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
+  }
 
   try {
     const result = await generate({
