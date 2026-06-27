@@ -59,6 +59,7 @@ service cloud.firestore {
                'aiPortrait', '_encrypted'
              ]) &&
              data.uid is string && data.uid.size() > 0 &&
+             data.uid == request.auth.uid &&
              data.email is string && data.email.size() > 0 &&
              (!('nickname' in data) || (data.nickname is string && data.nickname.size() <= 100)) &&
              (!('encryptionSalt' in data) || data.encryptionSalt is string) &&

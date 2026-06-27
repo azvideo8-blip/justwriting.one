@@ -7,6 +7,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import type { AIProfileFacet, LocalDocument } from '../../../core/storage/localDb';
 import { getLocalDb } from '../../../core/storage/localDb';
+import { reportError } from '../../../shared/errors/reportError';
 
 const RECENT_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -65,7 +66,7 @@ export function ProfileFacets() {
       setFacets(f);
       setDocMap(new Map(docs.map(d => [d.id, d])));
     } catch (e) {
-      console.error('[ProfileFacets] load failed:', e);
+      reportError(e, { action: 'profile_facets_load' });
     } finally {
       setLoading(false);
     }
@@ -83,7 +84,7 @@ export function ProfileFacets() {
       else if (res.error === 'NO_CHUNK_TEXTS') showToast('Нужен реиндекс: «База данных» → «Переиндексировать всё» (обновлён формат эмбеддингов)', 'error');
       else showToast('Не удалось выделить темы — мало заметок', 'error');
     } catch (e) {
-      console.error('[ProfileFacets] build failed:', e);
+      reportError(e, { action: 'profile_facets_build' });
       showToast('Ошибка построения тем', 'error');
     } finally {
       setBuilding(false);
@@ -99,7 +100,7 @@ export function ProfileFacets() {
       const { count } = await AIProfileFacetService.resummarizeDirty(p => setProgress(p));
       showToast(count > 0 ? `Обновлено ${count} тем` : 'Нет тем для обновления', count > 0 ? 'success' : 'error');
     } catch (e) {
-      console.error('[ProfileFacets] resummarize failed:', e);
+      reportError(e, { action: 'profile_facets_resummarize' });
       showToast('Ошибка обновления тем', 'error');
     } finally {
       setBuilding(false);

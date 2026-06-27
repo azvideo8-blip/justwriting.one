@@ -1,6 +1,7 @@
 import { getLocalDb, type AIChatMemory, randomUUID } from '../../../core/storage/localDb';
 import { AIService } from './AIService';
 import { cosineSimilarity } from '../utils/vectorSearch';
+import { reportError } from '../../../shared/errors/reportError';
 
 type MemoryKind = 'fact' | 'insight' | 'commitment' | 'preference';
 
@@ -66,7 +67,7 @@ export const AIChatMemoryService = {
         }
       }
     } catch (e) {
-      console.warn('[AIChatMemoryService] extractFromDialogue failed:', e);
+      reportError(e, { action: 'ai_chat_memory_extract' });
     }
   },
 
@@ -90,7 +91,7 @@ export const AIChatMemoryService = {
       if (vector) entry.vector = vector;
       await db.put('aiChatMemory', entry);
     } catch (e) {
-      console.warn('[AIChatMemoryService] addManual failed:', e);
+      reportError(e, { action: 'ai_chat_memory_add_manual' });
     }
   },
 

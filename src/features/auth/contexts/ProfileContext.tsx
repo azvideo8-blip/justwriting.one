@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useMemo, ReactNode } from 'react';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { UserProfile } from '../../../types';
 import { userProfileDbSchema } from '../../../core/firebase/schemas/firestoreSchemas';
@@ -122,8 +122,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
+  const value = useMemo(() => ({ profile }), [profile]);
+
   return (
-    <ProfileContext.Provider value={{ profile }}>
+    <ProfileContext.Provider value={value}>
       {children}
     </ProfileContext.Provider>
   );

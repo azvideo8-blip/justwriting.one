@@ -14,6 +14,7 @@ import { AISummaryService } from '../../../core/services/AISummaryService';
 import { AIService } from '../../../core/services/AIService';
 import { useToast } from '../../../shared/components/Toast';
 import { Button } from '../../../shared/components/Button';
+import { reportError } from '../../../shared/errors/reportError';
 
 const GridItem = memo<ComponentPropsWithoutRef<'div'>>(
   ({ className, children, style, ...props }) => (
@@ -99,7 +100,7 @@ export function ArchiveNoteList({
         const doc = await db.get('documents', session.id);
         if (doc) await db.put('documents', { ...doc, aiProcessed: true });
         const { AIProfileService } = await import('../../ai/services/AIProfileService');
-        AIProfileService.generate().catch(e => console.error('[archive-summary] portrait failed:', e));
+        AIProfileService.generate().catch(e => reportError(e, { action: 'archive_summary_portrait' }));
       } else {
         const errMap: Record<string, string> = {
           AUTH_REQUIRED: t('ai_error_auth'),

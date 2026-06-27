@@ -3,6 +3,7 @@ import { RefreshCw } from 'lucide-react';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { analyzeDoors, aggregateDoors, doorLabel, type AggregatedDoors } from '../utils/contactDoors';
 import { Button } from '../../../shared/components/Button';
+import { reportError } from '../../../shared/errors/reportError';
 
 const DOORS_CACHE_KEY = 'contact_doors_cache';
 
@@ -44,7 +45,7 @@ export function ContactDoors() {
         localStorage.setItem(DOORS_CACHE_KEY, JSON.stringify(result));
       } catch { /* ignore quota */ }
     } catch (e) {
-      console.warn('[ContactDoors] analysis failed:', e);
+      reportError(e, { action: 'contact_doors_analysis' });
     } finally {
       setLoading(false);
     }

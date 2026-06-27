@@ -3,6 +3,7 @@ import type { AIDocumentEmbedding } from '../../../core/storage/localDb';
 import { getAuth } from 'firebase/auth';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
+import { reportError } from '../../../shared/errors/reportError';
 
 // Encrypt fields on save: only the chunked vectorsJson. Decrypt accepts the
 // legacy single-vector vectorJson too, so old cloud docs still read.
@@ -86,7 +87,7 @@ export const AIEmbeddingService = {
           return cloud;
         }
       } catch (e) {
-        console.warn('[AIEmbeddingService] cloud read skipped:', e);
+        reportError(e, { action: 'ai_embedding_cloud_read' });
       }
     }
     return undefined;
@@ -107,7 +108,7 @@ export const AIEmbeddingService = {
         // and a later syncPendingToCloud() pass uploads it. Don't alarm.
         const msg = e instanceof Error ? e.message : String(e);
         if (!msg.includes('ENCRYPT_REQUIRED')) {
-          console.warn('[AIEmbeddingService] cloud save failed:', e);
+          reportError(e, { action: 'ai_embedding_cloud_save' });
         }
       }
     }
@@ -134,7 +135,7 @@ export const AIEmbeddingService = {
         if (msg.includes('ENCRYPT_REQUIRED')) {
           return { synced, pending: pending.length, locked: true };
         }
-        console.warn('[AIEmbeddingService] cloud sync failed for', emb.documentId, e);
+        reportError(e, { action: 'ai_embedding_cloud_sync', docId: emb.documentId });
       }
     }
     return { synced, pending: pending.length, locked: false };

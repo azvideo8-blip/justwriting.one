@@ -48,6 +48,13 @@ export function DesktopWritingLayout() {
   const onSave = onFinishClick;
   const onStop = onFinishClick;
 
+  const handleNew = useCallback(() => { void onNew(); }, [onNew]);
+  const handleOpenLog = useCallback(() => { void onOpenLog(); }, [onOpenLog]);
+  const handleSave = useCallback(() => { void onSave(); }, [onSave]);
+  const handlePlay = useCallback(() => { void onPlay(); }, [onPlay]);
+  const handlePause = useCallback(() => { void onPause(); }, [onPause]);
+  const handleStop = useCallback(() => { void onStop(); }, [onStop]);
+
   const handleEditorKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (!e.metaKey && !e.ctrlKey && !e.altKey) {
       keystrokeTrackerRef.current.record();
@@ -103,12 +110,12 @@ export function DesktopWritingLayout() {
         <div className="col-start-2 row-start-1 overflow-hidden">
           <WritingHeader
             totalDurationForDeadline={totalDurationForDeadline}
-            onNew={() => void onNew()}
-            onOpenLog={() => void onOpenLog()}
-            onSave={() => void onSave()}
-            onPlay={() => void onPlay()}
-            onPause={() => void onPause()}
-            onStop={() => void onStop()}
+            onNew={handleNew}
+            onOpenLog={handleOpenLog}
+            onSave={handleSave}
+            onPlay={handlePlay}
+            onPause={handlePause}
+            onStop={handleStop}
             saveStatus={session.saveStatus}
           />
         </div>
@@ -170,9 +177,9 @@ export function DesktopWritingLayout() {
         <div className="col-start-2 row-start-3 overflow-hidden">
           <BottomStats
             compact={isCompact}
-            onPlay={() => void onPlay()}
-            onPause={() => void onPause()}
-            onStop={() => void onStop()}
+            onPlay={handlePlay}
+            onPause={handlePause}
+            onStop={handleStop}
           />
         </div>
 

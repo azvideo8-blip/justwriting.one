@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest, refundGlobalRequest } from '../shared/aiUtils';
+import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, INJECTION_PATTERNS } from '../shared/aiUtils';
 import { embed } from '../shared/aiProvider';
 
 const inputSchema = z.object({
@@ -55,6 +55,11 @@ export const embedDocument = onCall({
   }
 
   const { content } = parsed.data;
+
+  if (INJECTION_PATTERNS.some(p => p.test(content))) {
+    throw new HttpsError('invalid-argument', 'Disallowed patterns in content.');
+  }
+
   const sanitized = sanitizeAiInput(content);
 
   try {

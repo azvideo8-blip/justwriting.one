@@ -8,6 +8,7 @@ import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { getIndexCoverage, indexPending, reindexAll, type IndexCoverage } from '../utils/embeddingIndexer';
 import { searchNotes, type RetrievedNote } from '../utils/noteRetriever';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
+import { reportError } from '../../../shared/errors/reportError';
 
 export function EmbeddingDiagnostics() {
   const { showToast } = useToast();
@@ -29,7 +30,7 @@ export function EmbeddingDiagnostics() {
     try {
       setCoverage(await getIndexCoverage());
     } catch (e) {
-      console.error('[EmbeddingDiagnostics] coverage failed:', e);
+      reportError(e, { action: 'embedding_diagnostics_coverage' });
       showToast('Не удалось загрузить статус индексации', 'error');
     } finally {
       setLoading(false);
@@ -49,7 +50,7 @@ export function EmbeddingDiagnostics() {
       else if (summary.stopped === 'rate') showToast('Индексация приостановлена: слишком много запросов', 'error');
       else showToast(`Индексация: +${summary.ok} новых, ${summary.skipped} пропущено, ${summary.failed} ошибок`, 'success');
     } catch (e) {
-      console.error('[EmbeddingDiagnostics] index failed:', e);
+      reportError(e, { action: 'embedding_diagnostics_index' });
       showToast('Ошибка индексации', 'error');
     } finally {
       setIndexing(false);
@@ -70,7 +71,7 @@ export function EmbeddingDiagnostics() {
       else if (summary.stopped === 'rate') showToast('Переиндексация приостановлена: слишком много запросов', 'error');
       else showToast(`Переиндексировано: ${summary.ok}, пропущено ${summary.skipped}, ошибок ${summary.failed}`, 'success');
     } catch (e) {
-      console.error('[EmbeddingDiagnostics] reindex failed:', e);
+      reportError(e, { action: 'embedding_diagnostics_reindex' });
       showToast('Ошибка переиндексации', 'error');
     } finally {
       setReindexing(false);
@@ -87,7 +88,7 @@ export function EmbeddingDiagnostics() {
       else if (r.synced > 0) showToast(`В облако выгружено эмбеддингов: ${r.synced}`, 'success');
       else showToast('Всё уже синхронизировано', 'success');
     } catch (e) {
-      console.error('[EmbeddingDiagnostics] sync failed:', e);
+      reportError(e, { action: 'embedding_diagnostics_sync' });
       showToast('Ошибка синхронизации', 'error');
     } finally {
       setSyncing(false);
@@ -103,7 +104,7 @@ export function EmbeddingDiagnostics() {
     try {
       setResults(await searchNotes(q, 5));
     } catch (e) {
-      console.error('[EmbeddingDiagnostics] search failed:', e);
+      reportError(e, { action: 'embedding_diagnostics_search' });
       showToast('Ошибка поиска', 'error');
       setResults([]);
     } finally {

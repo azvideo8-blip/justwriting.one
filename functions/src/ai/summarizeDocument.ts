@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 const SUMMARY_SYSTEM_PROMPT = `Проанализируй текст и верни JSON-объект со следующими полями:
@@ -48,6 +48,11 @@ export const summarizeDocument = onCall({
   }
 
   const { content, mood } = parsed.data;
+
+  if (INJECTION_PATTERNS.some(p => p.test(content))) {
+    throw new HttpsError('invalid-argument', 'Disallowed patterns in content.');
+  }
+
   const sanitizedContent = sanitizeAiInput(content);
 
   const safeMood = mood ? sanitizeAiInput(mood) : null;
