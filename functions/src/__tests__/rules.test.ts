@@ -1,12 +1,20 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { initializeTestEnvironment, assertSucceeds, assertFails, type TestEnvironment } from '@firebase/rules-unit-testing';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 let testEnv: TestEnvironment;
 
 const PROJECT_ID = 'justwriting-test';
 
 beforeAll(async () => {
-  testEnv = await initializeTestEnvironment({ projectId: PROJECT_ID });
+  // Load the actual firestore.rules (repo root) — without this the emulator
+  // defaults to allow-all and every "denies" assertion silently passes.
+  const rules = readFileSync(resolve(__dirname, '../../../firestore.rules'), 'utf8');
+  testEnv = await initializeTestEnvironment({
+    projectId: PROJECT_ID,
+    firestore: { rules },
+  });
 });
 
 afterAll(async () => {
@@ -113,6 +121,168 @@ describe('firestore.rules — user documents', () => {
   });
 });
 
+// S-12: isValidDocumentUpdate — hasOnly + type checks
+describe('firestore.rules — document updates (S-12)', () => {
+  it('allows valid document update with known fields', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await db.doc('users/user-a/documents/doc-1').set({
+      userId: 'user-a',
+      title: 'My note',
+      currentVersion: 1,
+      totalWords: 100,
+      totalDuration: 60,
+      sessionsCount: 1,
+      firstSessionAt: new Date(),
+      lastSessionAt: new Date(),
+    });
+    await assertSucceeds(
+      db.doc('users/user-a/documents/doc-1').update({
+        title: 'Updated title',
+        tags: ['tag1'],
+        labelId: 'label-1',
+        totalWords: 200,
+        totalDuration: 120,
+        currentVersion: 2,
+        sessionsCount: 2,
+        lastSessionAt: new Date(),
+      })
+    );
+  });
+
+  it('denies document update with extra field', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await db.doc('users/user-a/documents/doc-1').set({
+      userId: 'user-a',
+      title: 'My note',
+      currentVersion: 1,
+      totalWords: 100,
+      totalDuration: 60,
+      sessionsCount: 1,
+      firstSessionAt: new Date(),
+      lastSessionAt: new Date(),
+    });
+    await assertFails(
+      db.doc('users/user-a/documents/doc-1').update({
+        title: 'Updated',
+        userId: 'user-b',
+      })
+    );
+  });
+
+  it('denies cross-user document update', async () => {
+    const dbOwner = testEnv.authenticatedContext('user-a').firestore();
+    const dbIntruder = testEnv.authenticatedContext('user-b').firestore();
+    await dbOwner.doc('users/user-a/documents/doc-1').set({
+      userId: 'user-a',
+      title: 'My note',
+      currentVersion: 1,
+      totalWords: 100,
+      totalDuration: 60,
+      sessionsCount: 1,
+      firstSessionAt: new Date(),
+      lastSessionAt: new Date(),
+    });
+    await assertFails(
+      dbIntruder.doc('users/user-a/documents/doc-1').update({ title: 'hacked' })
+    );
+  });
+});
+
+// S-11: summaries + embeddings validation
+describe('firestore.rules — summaries (S-11)', () => {
+  const validSummary = {
+    documentId: 'doc-1',
+    tone: 'reflective',
+    frequentWords: ['word1', 'word2'],
+    insights: ['insight1'],
+    themes: ['theme1'],
+    extractedFacts: ['fact1'],
+    mentionedPeople: [{ name: 'Alice', role: 'friend' }],
+    processedAt: Date.now(),
+  };
+
+  it('allows owner to write a valid summary', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await assertSucceeds(
+      db.doc('users/user-a/summaries/doc-1').set(validSummary, { merge: true })
+    );
+  });
+
+  it('denies summary with extra field', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await assertFails(
+      db.doc('users/user-a/summaries/doc-1').set({
+        ...validSummary,
+        extraField: 'malicious',
+      }, { merge: true })
+    );
+  });
+
+  it('denies cross-user summary write', async () => {
+    const dbIntruder = testEnv.authenticatedContext('user-b').firestore();
+    await assertFails(
+      dbIntruder.doc('users/user-a/summaries/doc-1').set(validSummary, { merge: true })
+    );
+  });
+
+  it('denies summary with oversized tone field', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await assertFails(
+      db.doc('users/user-a/summaries/doc-1').set({
+        ...validSummary,
+        tone: 'x'.repeat(600),
+      }, { merge: true })
+    );
+  });
+});
+
+describe('firestore.rules — embeddings (S-11)', () => {
+  const validEmbedding = {
+    documentId: 'doc-1',
+    vectorsJson: JSON.stringify([[0.1, 0.2, 0.3]]),
+    chunkTextsJson: JSON.stringify(['chunk text']),
+    model: 'text-embedding-3-small',
+    dim: 3,
+    contentHash: 'abc123',
+    processedAt: Date.now(),
+    schemaV: 2,
+  };
+
+  it('allows owner to write a valid embedding', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await assertSucceeds(
+      db.doc('users/user-a/embeddings/doc-1').set(validEmbedding, { merge: true })
+    );
+  });
+
+  it('denies embedding with extra field', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await assertFails(
+      db.doc('users/user-a/embeddings/doc-1').set({
+        ...validEmbedding,
+        extraField: 'malicious',
+      }, { merge: true })
+    );
+  });
+
+  it('denies cross-user embedding write', async () => {
+    const dbIntruder = testEnv.authenticatedContext('user-b').firestore();
+    await assertFails(
+      dbIntruder.doc('users/user-a/embeddings/doc-1').set(validEmbedding, { merge: true })
+    );
+  });
+
+  it('denies embedding with oversized vectorsJson', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await assertFails(
+      db.doc('users/user-a/embeddings/doc-1').set({
+        ...validEmbedding,
+        vectorsJson: 'x'.repeat(500001),
+      }, { merge: true })
+    );
+  });
+});
+
 describe('firestore.rules — drafts', () => {
   it('allows owner to read and write their own draft', async () => {
     const db = testEnv.authenticatedContext('user-a').firestore();
@@ -121,6 +291,7 @@ describe('firestore.rules — drafts', () => {
         userId: 'user-a',
         content: 'Draft text',
         title: 'Draft title',
+        updatedAt: Date.now(),
       })
     );
     await assertSucceeds(db.doc('drafts/user-a').get());
@@ -132,28 +303,54 @@ describe('firestore.rules — drafts', () => {
     await dbOwner.doc('drafts/user-a').set({
       userId: 'user-a',
       content: 'Draft text',
+      updatedAt: Date.now(),
     });
     await assertFails(dbIntruder.doc('drafts/user-a').get());
   });
 });
 
 describe('firestore.rules — anonymizedTelemetry', () => {
-  it('allows authenticated user to create telemetry', async () => {
+  // S-10: valid payload matching TelemetryService.maybeSendTelemetry shape
+  const validTelemetry = {
+    telemetryId: 'tel-1',
+    activeTheme: 'amethyst',
+    notesCountBucket: '11-50',
+    averageWordCount: 200,
+    reasoningRatio: 0.5,
+    doorRatios: null,
+    sentAt: new Date().toISOString(),
+  };
+
+  it('allows authenticated user to create valid telemetry', async () => {
     const db = testEnv.authenticatedContext('user-a').firestore();
     await assertSucceeds(
+      db.doc('anonymizedTelemetry/tel-1').set(validTelemetry)
+    );
+  });
+
+  it('denies telemetry with extra fields', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await assertFails(
       db.doc('anonymizedTelemetry/tel-1').set({
-        telemetryId: 'tel-1',
-        sentAt: new Date().toISOString(),
+        ...validTelemetry,
+        extraField: 'malicious',
+      })
+    );
+  });
+
+  it('denies telemetry with oversized string field', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await assertFails(
+      db.doc('anonymizedTelemetry/tel-1').set({
+        ...validTelemetry,
+        activeTheme: 'x'.repeat(200),
       })
     );
   });
 
   it('denies updating telemetry (create-only)', async () => {
     const db = testEnv.authenticatedContext('user-a').firestore();
-    await db.doc('anonymizedTelemetry/tel-1').set({
-      telemetryId: 'tel-1',
-      sentAt: new Date().toISOString(),
-    });
+    await db.doc('anonymizedTelemetry/tel-1').set(validTelemetry);
     await assertFails(
       db.doc('anonymizedTelemetry/tel-1').update({ sentAt: 'modified' })
     );
@@ -161,17 +358,14 @@ describe('firestore.rules — anonymizedTelemetry', () => {
 
   it('denies deleting telemetry by non-admin', async () => {
     const db = testEnv.authenticatedContext('user-a').firestore();
-    await db.doc('anonymizedTelemetry/tel-1').set({
-      telemetryId: 'tel-1',
-      sentAt: new Date().toISOString(),
-    });
+    await db.doc('anonymizedTelemetry/tel-1').set(validTelemetry);
     await assertFails(db.doc('anonymizedTelemetry/tel-1').delete());
   });
 
   it('denies unauthenticated telemetry creation', async () => {
     const db = testEnv.unauthenticatedContext().firestore();
     await assertFails(
-      db.doc('anonymizedTelemetry/tel-1').set({ telemetryId: 'tel-1' })
+      db.doc('anonymizedTelemetry/tel-1').set(validTelemetry)
     );
   });
 });

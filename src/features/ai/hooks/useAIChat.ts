@@ -107,7 +107,17 @@ async function streamChat(params: {
   }
 
   if (response.status === 401) throw new Error('AUTH_REQUIRED');
-  if (response.status === 429) throw new Error('DAILY_LIMIT');
+  // E-1: Distinguish GLOBAL_LIMIT (project-wide cap, daily limit refunded by
+  // server) from DAILY_LIMIT (per-user cap). Without this, a GLOBAL_LIMIT 429
+  // corrupts the client's daily-limit state (sets remaining=0 permanently).
+  if (response.status === 429) {
+    let errorKind = 'DAILY_LIMIT';
+    try {
+      const body = await response.json();
+      if (body?.error === 'GLOBAL_LIMIT') errorKind = 'GLOBAL_LIMIT';
+    } catch { /* default to DAILY_LIMIT */ }
+    throw new Error(errorKind);
+  }
   if (!response.ok) throw new Error('SERVER_ERROR');
 
   _streamAvailable = true;
@@ -318,6 +328,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   const lastSearchNamesRef = useRef<string[]>([]);
   // Stop button: abort the in-flight streaming request.
   const abortRef = useRef<AbortController | null>(null);
+  // R-1: Synchronous re-entrancy guard — isLoading is React state (async commit),
+  // so two calls in the same tick both bypass it. sendingRef is checked/set
+  // synchronously, preventing concurrent streams and orphaned AbortControllers.
+  const sendingRef = useRef(false);
 
   useEffect(() => {
     stickyTurnsRef.current = 0;
@@ -418,11 +432,17 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   // is never put into the message itself (that would trip the 10K per-message cap).
   const sendMessage = useCallback(async (text: string, attached?: { content: string; documentId?: string; inline?: boolean }, mood?: string): Promise<string | null> => {
     if (!text.trim()) return null;
-    // Re-entrancy guard: prevent concurrent sendMessage calls from creating orphan streams
-    if (isLoading) return null;
+    // R-1: Synchronous re-entrancy guard — prevents two calls in the same tick
+    // from both proceeding past the isLoading check (state isn't committed yet).
+    if (sendingRef.current) return null;
+    sendingRef.current = true;
 
     const { remaining } = useAiLimitStore.getState();
     if (remaining <= 0) {
+      // R-1: reset the guard on this early return — the try/finally that clears
+      // it hasn't started yet, so without this sendMessage would deadlock after
+      // the first limit hit.
+      sendingRef.current = false;
       setDailyLimitExhausted();
       setError('Дневной лимит достигнут');
       return null;
@@ -433,6 +453,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     setError(null);
 
     // Stop button: fresh controller per send; stop() aborts this one.
+    // R-1: Abort any previous in-flight controller before overwriting the ref,
+    // so a re-entrant call doesn't orphan the first stream.
+    if (abortRef.current) { abortRef.current.abort(); }
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -1119,14 +1142,16 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       const msg = e instanceof Error ? e.message : 'SERVER_ERROR';
       if (msg === 'ABORTED') { /* user stopped — no error */ }
       else if (msg === 'DAILY_LIMIT') { setDailyLimitExhausted(); setError('Дневной лимит достигнут'); }
+      else if (msg === 'GLOBAL_LIMIT') { setError('Лимит приложения исчерпан — попробуйте позже'); }
       else if (msg === 'AUTH_REQUIRED') setError('Требуется регистрация');
       else if (msg === 'EMPTY_RESPONSE') setError('ИИ не ответил — сервис временно недоступен (возможно, исчерпан лимит). Попробуйте позже.');
       else setError('Произошла ошибка при отправке сообщения');
       return null;
     } finally {
+      sendingRef.current = false;
       setIsLoading(false);
     }
-  }, [dialogue, dialogueId, personaId, responseLength, reasoning, language, isLoading]);
+  }, [dialogue, dialogueId, personaId, responseLength, reasoning, language]);
 
   // Load a note's latest text without sending — lets the UI stage an attachment
   // (show a chip) so the user can add their own message before sending.

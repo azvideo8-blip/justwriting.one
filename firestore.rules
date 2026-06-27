@@ -185,10 +185,34 @@ service cloud.firestore {
              (!('labelId' in data) || data.labelId is string || data.labelId == null);
     }
 
+    // S-12: hasOnly + type checks for document updates.
+    // Field set derived from src/core/services/DocumentService.ts:
+    //   updateTitle → title
+    //   updateTags / renameTagInAllDocs / removeTagFromAllDocs → tags
+    //   updateLabelId / clearLabelFromAllDocs → labelId
+    //   updateDocumentAfterSession → totalWords, totalDuration, currentVersion,
+    //                                mood, sessionsCount, lastSessionAt
+    //   updateDate → firstSessionAt, lastSessionAt
     function isValidDocumentUpdate(data) {
-      return (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
+      // NOTE: on update, request.resource.data is the FULL merged document, so
+      // hasOnly must list every field a document carries — including `userId`,
+      // set at creation (DocumentService.createDocument). `userId` is pinned to
+      // the auth uid so it cannot be tampered to another user's id (S-12).
+      return data.keys().hasOnly([
+               'userId', 'title', 'tags', 'labelId', 'totalWords', 'totalDuration',
+               'currentVersion', 'mood', 'sessionsCount', 'firstSessionAt', 'lastSessionAt'
+             ]) &&
+             data.userId == request.auth.uid &&
+             (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
              (!('tags' in data) || (data.tags is list && data.tags.size() <= 10)) &&
-             (!('labelId' in data) || data.labelId is string || data.labelId == null);
+             (!('labelId' in data) || data.labelId is string || data.labelId == null) &&
+             (!('totalWords' in data) || (data.totalWords is number && data.totalWords >= 0)) &&
+             (!('totalDuration' in data) || (data.totalDuration is number && data.totalDuration >= 0)) &&
+             (!('currentVersion' in data) || (data.currentVersion is number && data.currentVersion >= 0)) &&
+             (!('mood' in data) || (data.mood is string && data.mood.size() <= 50)) &&
+             (!('sessionsCount' in data) || (data.sessionsCount is number && data.sessionsCount >= 0)) &&
+             (!('firstSessionAt' in data) || data.firstSessionAt is timestamp) &&
+             (!('lastSessionAt' in data) || data.lastSessionAt is timestamp);
     }
 
     function isValidVersion(data) {
@@ -220,12 +244,64 @@ service cloud.firestore {
       }
     }
 
+    // S-11: Summary validation.
+    // Field set derived from src/features/ai/services/AISummaryService.ts:
+    //   saveSummaryToCloud writes { ...summary } via setDoc({merge:true}) after
+    //   maybeEncrypt, which may add _encrypted:true.
+    //   Summary fields: documentId, tone, frequentWords, insights, themes,
+    //   extractedFacts, mentionedPeople, processedAt, _encrypted
+    function isValidSummary(data) {
+      return data.keys().hasOnly([
+               'documentId', 'tone', 'frequentWords', 'insights', 'themes',
+               'extractedFacts', 'mentionedPeople', 'processedAt', '_encrypted'
+             ]) &&
+             (!('documentId' in data) || data.documentId is string) &&
+             (!('tone' in data) || (data.tone is string && data.tone.size() <= 500)) &&
+             (!('frequentWords' in data) || (data.frequentWords is list && data.frequentWords.size() <= 50)) &&
+             (!('insights' in data) || (data.insights is list && data.insights.size() <= 50)) &&
+             (!('themes' in data) || (data.themes is list && data.themes.size() <= 50)) &&
+             (!('extractedFacts' in data) || (data.extractedFacts is list && data.extractedFacts.size() <= 50)) &&
+             (!('mentionedPeople' in data) || (data.mentionedPeople is list && data.mentionedPeople.size() <= 100)) &&
+             (!('processedAt' in data) || data.processedAt is number) &&
+             (!('_encrypted' in data) || data._encrypted is bool);
+    }
+
+    // S-11: Embedding validation.
+    // Field set derived from src/features/ai/services/AIEmbeddingService.ts:
+    //   saveEmbeddingToCloud writes payload via setDoc({merge:true}) after
+    //   maybeEncrypt, which may add _encrypted:true.
+    //   Payload fields: documentId, vectorsJson, chunkTextsJson, model, dim,
+    //   contentHash, processedAt, schemaV, _encrypted
+    function isValidEmbedding(data) {
+      // NOTE: written via setDoc({merge:true}); legacy docs may retain the
+      // single-vector `vectorJson` field (see AIEmbeddingService.parseVectors),
+      // so it must stay in hasOnly or re-embedding a legacy doc would be denied.
+      return data.keys().hasOnly([
+               'documentId', 'vectorsJson', 'vectorJson', 'chunkTextsJson', 'model', 'dim',
+               'contentHash', 'processedAt', 'schemaV', '_encrypted'
+             ]) &&
+             (!('documentId' in data) || data.documentId is string) &&
+             (!('vectorsJson' in data) || (data.vectorsJson is string && data.vectorsJson.size() <= 500000)) &&
+             (!('vectorJson' in data) || (data.vectorJson is string && data.vectorJson.size() <= 500000)) &&
+             (!('chunkTextsJson' in data) || (data.chunkTextsJson is string && data.chunkTextsJson.size() <= 500000)) &&
+             (!('model' in data) || (data.model is string && data.model.size() <= 200)) &&
+             (!('dim' in data) || (data.dim is number && data.dim >= 0 && data.dim <= 4096)) &&
+             (!('contentHash' in data) || (data.contentHash is string && data.contentHash.size() <= 200)) &&
+             (!('processedAt' in data) || data.processedAt is number) &&
+             (!('schemaV' in data) || data.schemaV is number || data.schemaV == null) &&
+             (!('_encrypted' in data) || data._encrypted is bool);
+    }
+
     match /users/{userId}/summaries/{documentId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidSummary(request.resource.data);
+      allow delete: if isOwner(userId);
     }
 
     match /users/{userId}/embeddings/{documentId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidEmbedding(request.resource.data);
+      allow delete: if isOwner(userId);
     }
 
     // AI daily limit + cooldown — admin SDK only
@@ -248,10 +324,29 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // S-10: Telemetry validation.
+    // Field set derived from src/core/services/TelemetryService.ts:
+    //   maybeSendTelemetry writes payload via setDoc.
+    //   Payload fields: telemetryId, activeTheme, notesCountBucket,
+    //   averageWordCount, reasoningRatio, doorRatios, sentAt
+    function isValidTelemetry(data) {
+      return data.keys().hasOnly([
+               'telemetryId', 'activeTheme', 'notesCountBucket', 'averageWordCount',
+               'reasoningRatio', 'doorRatios', 'sentAt'
+             ]) &&
+             data.telemetryId is string && data.telemetryId.size() > 0 && data.telemetryId.size() <= 100 &&
+             (!('activeTheme' in data) || (data.activeTheme is string && data.activeTheme.size() <= 100)) &&
+             (!('notesCountBucket' in data) || (data.notesCountBucket is string && data.notesCountBucket.size() <= 20)) &&
+             (!('averageWordCount' in data) || (data.averageWordCount is number && data.averageWordCount >= 0)) &&
+             (!('reasoningRatio' in data) || (data.reasoningRatio is number && data.reasoningRatio >= 0 && data.reasoningRatio <= 1)) &&
+             (!('doorRatios' in data) || data.doorRatios is map || data.doorRatios == null) &&
+             (!('sentAt' in data) || (data.sentAt is string && data.sentAt.size() <= 50));
+    }
+
     // TICKET-055: Anonymized telemetry — create for authenticated, read for admin only
     match /anonymizedTelemetry/{telemetryId} {
       allow read: if isAdmin();
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidTelemetry(request.resource.data);
       allow update, delete: if false;
     }
   }
