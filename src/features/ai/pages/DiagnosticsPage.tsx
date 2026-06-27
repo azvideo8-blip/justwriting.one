@@ -23,6 +23,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { AIService } from '../services/AIService';
 import { AISummaryService } from '../services/AISummaryService';
 import { getLocalDb } from '../../../core/storage/localDb';
+import { reportError } from '../../../shared/errors/reportError';
 
 export function DiagnosticsPage() {
   const navigate = useNavigate();
@@ -817,7 +818,7 @@ function MassAnalyzeNotes() {
 
       showToast(`Анализ завершён: ${progress.done + 1}/${pending.length}`, 'success');
     } catch (e) {
-      console.warn('[MassAnalyze] failed:', e);
+      reportError(e, { action: 'diagnostics_mass_analyze' });
       showToast('Ошибка массового анализа', 'error');
     } finally {
       setRunning(false);

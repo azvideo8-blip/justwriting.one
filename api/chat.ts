@@ -153,6 +153,25 @@ async function refundGlobalRequest(): Promise<void> {
   }
 }
 
+// Best-effort refund of one per-user daily limit slot.
+// Uses a transaction with date check and Math.max(0, ...) clamping to
+// prevent cross-day refunds and negative counts.
+async function refundDailyLimit(uid: string): Promise<void> {
+  const date = new Date().toISOString().slice(0, 10);
+  const fs = db();
+  const ref = fs.doc(`aiDailyLimit/${uid}`);
+  try {
+    await fs.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const data = snap.data();
+      if (!data || data.date !== date) return;
+      tx.update(ref, { count: Math.max(0, (data.count ?? 0) - 1) });
+    });
+  } catch (e) {
+    console.error('[api/chat] refundDailyLimit failed:', e);
+  }
+}
+
 // ── Daily limit ───────────────────────────────────────────────────────────────
 const DAILY_LIMIT = (() => {
   const n = parseInt(process.env.AI_DAILY_LIMIT ?? '10', 10);
@@ -382,9 +401,10 @@ async function streamFireworksReasoning(
     }
    }
    } catch (streamErr) {
-     console.error('[api/chat] stream read failed:', streamErr);
-     await refundGlobalRequest();
-   }
+      console.error('[api/chat] stream read failed:', streamErr);
+      await refundGlobalRequest();
+      await refundDailyLimit(uid);
+    }
    // LX-1: Flush any remaining buffered content (no marker was found)
   if (contentAccum && !wroteAnswerHeader) {
     if (!wroteReasoningHeader) { res.write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
@@ -466,13 +486,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Project-wide free-tier guard (across all users + resets)
-  if (!(await tryReserveGlobalRequest())) { res.status(429).json({ error: 'GLOBAL_LIMIT' }); return; }
+  if (!(await tryReserveGlobalRequest())) {
+    if (!isInternalCall) await refundDailyLimit(uid);
+    res.status(429).json({ error: 'GLOBAL_LIMIT' }); return;
+  }
 
   const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength, reasoning } = parsed.data;
 
   // Injection guard for custom prompts
   if (personaId === 'custom' && customSystemPrompt) {
     if (INJECTION_PATTERNS.some(p => p.test(customSystemPrompt))) {
+      await refundDailyLimit(uid); await refundGlobalRequest();
       res.status(400).json({ error: 'Bad Request' }); return;
     }
   }
@@ -480,15 +504,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Injection guard for user messages
   const userMessages = messages.filter(m => m.role === 'user');
   if (userMessages.some(m => INJECTION_PATTERNS.some(p => p.test(m.content)))) {
+    if (!isInternalCall) await refundDailyLimit(uid); await refundGlobalRequest();
     res.status(400).json({ error: 'Bad Request' }); return;
   }
 
   // Injection guard for document content (RAG context injected into system prompt)
   if (documentContent && INJECTION_PATTERNS.some(p => p.test(documentContent))) {
+    await refundDailyLimit(uid); await refundGlobalRequest();
     res.status(400).json({ error: 'Bad Request' }); return;
   }
 
-  let systemPrompt = buildChatSystemPrompt({ personaId, customSystemPrompt, userPortrait, responseLength, reasoning, documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
+  // Injection guard for user portrait (injected into system prompt)
+  if (userPortrait && INJECTION_PATTERNS.some(p => p.test(userPortrait))) {
+    await refundDailyLimit(uid); await refundGlobalRequest();
+    res.status(400).json({ error: 'Bad Request' }); return;
+  }
+
+  const sanitizedCustomPrompt = customSystemPrompt ? sanitizeAiInput(customSystemPrompt) : undefined;
+  const sanitizedPortrait = userPortrait ? sanitizeAiInput(userPortrait) : undefined;
+  let systemPrompt = buildChatSystemPrompt({ personaId, customSystemPrompt: sanitizedCustomPrompt, userPortrait: sanitizedPortrait, responseLength, reasoning, documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
 
   // OPT-5: Context is now in system prompt, no fake user/assistant turn
   const providerMessages = messages.map(m => ({ role: m.role, content: sanitizeAiInput(m.content) }));
@@ -506,7 +540,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // if we ask the model to also print the markers, it duplicates them into
   // `content` and the output gets garbled. The native channel is the source.
   if (AI_PROVIDER === 'fireworks' && reasoning) {
-    const baseReasoningSystem = buildChatSystemPrompt({ personaId, customSystemPrompt, userPortrait, responseLength: responseLength ?? 'detailed', documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
+    const baseReasoningSystem = buildChatSystemPrompt({ personaId, customSystemPrompt: sanitizedCustomPrompt, userPortrait: sanitizedPortrait, responseLength: responseLength ?? 'detailed', documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
     // DeepSeek tends to reason internally in Chinese; force the chain-of-thought
     // (reasoning_content) into Russian so the visible "ход мысли" is readable.
     const reasoningSystem = `${baseReasoningSystem}\n\nВАЖНО: и внутренние рассуждения (chain-of-thought / reasoning), и финальный ответ веди ТОЛЬКО на русском языке. Никогда не думай на английском или китайском.`;
@@ -535,7 +569,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.error('[api/chat] usage record failed:', e);
       }
     },
+    onError: async (e) => {
+      console.error('[api/chat] streamText failed:', e);
+      await refundGlobalRequest();
+      if (!isInternalCall) await refundDailyLimit(uid);
+    },
   });
 
-  result.pipeTextStreamToResponse(res);
+  try {
+    result.pipeTextStreamToResponse(res);
+  } catch (streamErr) {
+    console.error('[api/chat] pipe failed:', streamErr);
+    await refundGlobalRequest();
+    if (!isInternalCall) await refundDailyLimit(uid);
+    if (!res.headersSent) res.status(500).json({ error: 'Stream failed' });
+  }
 }

@@ -3,6 +3,7 @@ import { AIService } from '../services/AIService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { topKMultiWithChunkIndex } from '../utils/vectorSearch';
 import MiniSearch from 'minisearch';
+import { reportError } from '../../../shared/errors/reportError';
 
 export interface RetrievedNote {
   documentId: string;
@@ -125,7 +126,7 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
   if (!queryVec) {
     const embedResult = await AIService.embed({ content: query });
     if (!embedResult.ok) {
-      console.warn('[searchNotes] embed failed:', embedResult.error);
+      reportError(embedResult.error, { action: 'search_notes_embed' });
       return [];
     }
     queryVec = embedResult.vectors[0];
@@ -300,7 +301,7 @@ export async function searchNotesMulti(
     const combinedQuery = queries.join(' ');
     const embedResult = await AIService.embed({ content: combinedQuery });
     if (!embedResult.ok) {
-      console.warn('[searchNotesMulti] embed failed:', embedResult.error);
+      reportError(embedResult.error, { action: 'search_notes_multi_embed' });
       return [];
     }
     queryVec = embedResult.vectors[0];

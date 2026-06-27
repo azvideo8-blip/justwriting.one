@@ -10,6 +10,7 @@ import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Input } from '../../../shared/components/Input';
+import { reportError } from '../../../shared/errors/reportError';
 
 const LOCAL_TABLES = [
   { name: 'documents', label: 'documents (Заметки)' },
@@ -87,7 +88,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
         }
       }
     } catch (e) {
-      console.error(e);
+      reportError(e, { action: 'database_explorer_load' });
       showToast('Не удалось загрузить данные таблиц', 'error');
       setRecords([]);
     } finally {
@@ -127,7 +128,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
       setSelectedRecord(null);
       await loadData();
     } catch (e) {
-      console.error(e);
+      reportError(e, { action: 'database_explorer_delete' });
       showToast('Ошибка при удалении записи', 'error');
     }
   };

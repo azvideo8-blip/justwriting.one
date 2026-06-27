@@ -1,6 +1,7 @@
 import { ArchiveSession } from '../types';
 import { toDate } from '../../../core/utils/dateUtils';
 import { escapeHtml } from '../../../shared/utils/exportUtils';
+import { reportError } from '../../../shared/errors/reportError';
 
 export interface ExportStrings {
   date: string;
@@ -67,7 +68,7 @@ async function downloadBlob(content: string | Blob, type: string, filename: stri
         return;
       }
     } catch (e) {
-      console.error('[ArchiveExportService] Share failed:', e);
+      reportError(e, { action: 'archive_export_share' });
     }
   }
 
@@ -179,7 +180,7 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
       }
 
       navigator.share(shareData).catch(err => {
-        console.error('[ArchiveExportService] Share failed, falling back to download:', err);
+        reportError(err, { action: 'archive_export_share_fallback' });
         void downloadBlob(html, 'text/html;charset=utf-8', filename);
       });
     } else {

@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest, refundGlobalRequest } from '../shared/aiUtils';
+import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, INJECTION_PATTERNS } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 // Reranking is search infrastructure, not a user conversation — like embedDocument
@@ -37,6 +37,13 @@ export const rerankNotes = onCall({
     throw new HttpsError('invalid-argument', 'Invalid payload.');
   }
   const { query, candidates, maxResults = 5 } = parsed.data;
+
+  if (INJECTION_PATTERNS.some(p => p.test(query))) {
+    throw new HttpsError('invalid-argument', 'Disallowed patterns in query.');
+  }
+  if (candidates.some(c => INJECTION_PATTERNS.some(p => p.test(c.card)))) {
+    throw new HttpsError('invalid-argument', 'Disallowed patterns in candidates.');
+  }
 
   const safeQuery = sanitizeAiInput(query);
   const cardsText = candidates

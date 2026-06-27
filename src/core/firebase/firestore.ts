@@ -25,7 +25,7 @@ function updateConnectionStatus(status: boolean) {
 let _db: Firestore | null = null;
 let _initPromise: Promise<Firestore> | null = null;
 
-export function getDb(): Promise<Firestore> {
+export async function getDb(): Promise<Firestore> {
   if (_db) return Promise.resolve(_db);
   if (_initPromise) return _initPromise;
 
@@ -50,7 +50,12 @@ export function getDb(): Promise<Firestore> {
     return _db;
   })();
 
-  return _initPromise;
+  try {
+    return await _initPromise;
+  } catch (e) {
+    _initPromise = null;
+    throw e;
+  }
 }
 
 let _retryTimer: ReturnType<typeof setTimeout> | null = null;

@@ -16,6 +16,7 @@ import { AIService } from '../../../core/services/AIService';
 import type { AIDocumentSummary } from '../../../core/storage/localDb';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { reportError } from '../../../shared/errors/reportError';
 
 export function DocumentPreview({ session, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags }: {
   session: ArchiveSession | null;
@@ -412,7 +413,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                     if (doc) await db.put('documents', { ...doc, aiProcessed: true });
 
                     const { AIProfileService } = await import('../../ai/services/AIProfileService');
-                    AIProfileService.generate().catch(e => console.error('[manual-portrait] failed:', e));
+                    AIProfileService.generate().catch(e => reportError(e, { action: 'manual_portrait' }));
                   }
                 } catch { /* ignore */ }
                 setSummaryLoading(false);

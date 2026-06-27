@@ -17,6 +17,7 @@ import { useProfile } from '../../auth/contexts/ProfileContext';
 import { personaVisual, usePersonaRole } from '../constants/personaVisuals';
 import type { AIDialogue, AIPersona } from '../../../core/storage/localDb';
 import type { PersonaDetailTarget } from '../components/PersonaDetailModal';
+import { reportError } from '../../../shared/errors/reportError';
 
 type ResponseLength = 'short' | 'standard' | 'detailed';
 
@@ -184,7 +185,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
           await attachDocument(noteId);
         }
       } catch (e) {
-        console.warn('[useAIPageData] draftFacet handling failed:', e);
+        reportError(e, { action: 'use_ai_page_data_draft_facet' });
       }
     })();
   }, [draftFacetId, attachDocument, handleNewDialogue]);

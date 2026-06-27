@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## 2026-06-27 (v0.7.35)
+- **[RU]** Квота AI: `api/chat.ts` — добавлен `refundDailyLimit` (transaction с date check и `Math.max(0)` clamping); refund на global-limit rejection, injection rejection, stream failure (reasoning + non-reasoning). Пользователь больше не теряет дневной слот при сбое или отклонении запроса.
+- **[EN]** AI quota: `api/chat.ts` — added `refundDailyLimit` (transaction with date check and `Math.max(0)` clamping); refund on global-limit rejection, injection rejection, stream failure (reasoning + non-reasoning). User no longer loses a daily slot on failure or rejection.
+- **[RU]** Квота AI: `chatWithAI.ts` — `tryReserveGlobalRequest` перемещён после всех validation checks (parse, internal call, injection guards, daily limit, rate limit). Global slot не резервируется до прохождения всех проверок — нет утечки слота при rejection.
+- **[EN]** AI quota: `chatWithAI.ts` — `tryReserveGlobalRequest` moved after all validation checks (parse, internal call, injection guards, daily limit, rate limit). Global slot is no longer reserved before all checks pass — no slot leak on rejection.
+- **[RU]** Безопасность: `userPortrait` и `customSystemPrompt` теперь проверяются против `INJECTION_PATTERNS` и санируются `sanitizeAiInput` перед системным промптом — в обоих путях (Vercel Edge + Cloud Functions). Ранее `userPortrait` (100K chars в system prompt) обходил обе проверки.
+- **[EN]** Security: `userPortrait` and `customSystemPrompt` are now checked against `INJECTION_PATTERNS` and sanitized with `sanitizeAiInput` before the system prompt — in both paths (Vercel Edge + Cloud Functions). Previously `userPortrait` (100K chars in system prompt) bypassed both checks.
+- **[RU]** Безопасность: 5 AI infra-функций (`summarizeDocument`, `summarizeFacet`, `rerankNotes`, `embedDocument`, `extractChatMemory`) теперь проверяют входные данные против `INJECTION_PATTERNS` — ранее только санировали контрольные токены.
+- **[EN]** Security: 5 AI infra functions (`summarizeDocument`, `summarizeFacet`, `rerankNotes`, `embedDocument`, `extractChatMemory`) now check inputs against `INJECTION_PATTERNS` — previously only sanitized control tokens.
+- **[RU]** Безопасность: `firestore.rules` — `isValidUserCreate` теперь валидирует `data.uid == request.auth.uid` внутри валидатора (ранее только path-level `isOwner`).
+- **[EN]** Security: `firestore.rules` — `isValidUserCreate` now validates `data.uid == request.auth.uid` inside the validator (previously only path-level `isOwner`).
+- **[RU]** Надёжность: `firestore.ts._initPromise` сбрасывается при ошибке (try-catch с `_initPromise = null`) — cloud sync больше не умирает навсегда после одной транзиентной ошибки инициализации. Предыдущий фикс в `firestoreClient.ts` был неэффективен без этого.
+- **[EN]** Reliability: `firestore.ts._initPromise` resets on failure (try-catch with `_initPromise = null`) — cloud sync no longer dies forever after a single transient init error. Previous fix in `firestoreClient.ts` was ineffective without this.
+- **[RU]** Производительность: `ProfileContext` — value обёрнут в `useMemo`; `DesktopWritingLayout` — 6 inline arrow functions заменены на `useCallback` для `WritingHeader` и `BottomStats`. Устранён шторм ре-рендеров от таймерных тиков (500ms).
+- **[EN]** Performance: `ProfileContext` — value wrapped in `useMemo`; `DesktopWritingLayout` — 6 inline arrow functions replaced with `useCallback` for `WritingHeader` and `BottomStats`. Eliminates re-render storm from timer ticks (500ms).
+- **[RU]** Наблюдаемость: 24 `console.error`/`console.warn` в 12 production-файлах заменены на `reportError` — ошибки теперь видны в Sentry (ранее silently проглатывались).
+- **[EN]** Observability: 24 `console.error`/`console.warn` in 12 production files replaced with `reportError` — errors now visible in Sentry (previously silently swallowed).
+- **[RU]** Аудит: проведён полный аудит по `AUDIT_PLAYBOOK.md` (85 проверок, 8 секций + 5 инвариантов), отчёт в `docs/report 27.06.md`.
+- **[EN]** Audit: full audit per `AUDIT_PLAYBOOK.md` (85 checks, 8 sections + 5 invariants), report in `docs/report 27.06.md`.
+
 ## 2026-06-26 (v0.7.34)
 - **[RU]** Усиление безопасности: правила лимитов AI (`aiPolicy`) и инвариант шифрования собраны в единые точки контроля — случайная локальная правка больше не может тихо открыть дыру повторно.
 - **[EN]** Security hardening: AI-limit rules (`aiPolicy`) and the encryption invariant consolidated into single enforcement points — a stray local edit can no longer silently reopen a hole.

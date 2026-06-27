@@ -35,10 +35,6 @@ export const chatWithAI = onCall({
 
   const uid = request.auth.uid;
 
-  if (!(await tryReserveGlobalRequest())) {
-    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
-  }
-
   const parsed = inputSchema.safeParse(request.data);
   if (!parsed.success) {
     console.error('Validation failed for chatWithAI. Errors:', JSON.stringify(parsed.error.format()));
@@ -64,16 +60,6 @@ export const chatWithAI = onCall({
     throw new HttpsError((e as { code: string }).code as 'invalid-argument', (e as Error).message);
   }
 
-  // LX-2a: Admins skip the per-user limit. Internal calls also skip.
-  if (!isInternalCall && !(await checkDailyLimit(uid, reasoning === true))) {
-    throw new HttpsError('resource-exhausted', 'Daily limit reached.');
-  }
-
-  if (!isInternalCall && !(await checkRateLimit(uid))) {
-    await refundDailyLimit(uid);
-    throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
-  }
-
   if (personaId === 'custom') {
     if (!customSystemPrompt) {
       throw new HttpsError('invalid-argument', 'customSystemPrompt is required when personaId is "custom".');
@@ -93,11 +79,33 @@ export const chatWithAI = onCall({
     throw new HttpsError('invalid-argument', 'Disallowed patterns in document content.');
   }
 
+  // Injection guard for user portrait (injected into system prompt)
+  if (userPortrait && INJECTION_PATTERNS.some(p => p.test(userPortrait))) {
+    throw new HttpsError('invalid-argument', 'Disallowed patterns in user portrait.');
+  }
+
+  // Per-user daily limit and cooldown — checked BEFORE reserving global slot
+  // to avoid leaking a global slot on per-user rejection.
+  if (!isInternalCall && !(await checkDailyLimit(uid, reasoning === true))) {
+    throw new HttpsError('resource-exhausted', 'Daily limit reached.');
+  }
+
+  if (!isInternalCall && !(await checkRateLimit(uid))) {
+    await refundDailyLimit(uid);
+    throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
+  }
+
+  // Project-wide free-tier guard — reserved only after all validation passes.
+  if (!(await tryReserveGlobalRequest())) {
+    if (!isInternalCall) await refundDailyLimit(uid);
+    throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
+  }
+
   // CHATFIX-6: Use shared buildChatSystemPrompt instead of inline copy
   const systemInstruction = buildChatSystemPrompt({
     personaId,
-    customSystemPrompt,
-    userPortrait,
+    customSystemPrompt: customSystemPrompt ? sanitizeAiInput(customSystemPrompt) : undefined,
+    userPortrait: userPortrait ? sanitizeAiInput(userPortrait) : undefined,
     responseLength,
     reasoning,
     documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined,
