@@ -11,12 +11,33 @@ import { Button } from '../../../shared/components/Button';
 async function migrateDocuments(userId: string): Promise<number> {
   const guestId = getOrCreateGuestId();
   const db = await getLocalDb();
-  const tx = db.transaction(['documents', 'versions'], 'readwrite');
+  const hasDrafts = db.objectStoreNames.contains('drafts');
+  const tx = db.transaction(
+    hasDrafts ? ['documents', 'versions', 'drafts'] : ['documents', 'versions'],
+    'readwrite',
+  );
   const docStore = tx.objectStore('documents');
   const verStore = tx.objectStore('versions');
+  const draftStore = hasDrafts ? tx.objectStore('drafts') : null;
 
   const guestDocs = await docStore.index('by-guest').getAll(guestId);
-  if (guestDocs.length === 0) { await tx.done; return 0; }
+
+  // D-3: migrate guest draft to user draft (don't clobber existing user draft).
+  const draftPuts: Promise<unknown>[] = [];
+  if (draftStore) {
+    const guestDraft = await draftStore.get(guestId);
+    if (guestDraft) {
+      const existingUserDraft = await draftStore.get(userId);
+      if (!existingUserDraft) {
+        draftPuts.push(draftStore.put({ ...guestDraft, userId }));
+      }
+    }
+  }
+
+  if (guestDocs.length === 0) {
+    await Promise.all([...draftPuts, tx.done]);
+    return 0;
+  }
 
   const verIndex = verStore.index('by-document');
   const versionPuts: Promise<string>[] = [];
@@ -33,6 +54,7 @@ async function migrateDocuments(userId: string): Promise<number> {
   await Promise.all([
     ...guestDocs.map(doc => docStore.put({ ...doc, guestId: userId })),
     ...versionPuts,
+    ...draftPuts,
     tx.done,
   ]);
 

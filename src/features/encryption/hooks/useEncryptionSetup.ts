@@ -46,6 +46,10 @@ export function useEncryptionSetup(): {
           // Verify the cached key against the stored verification ciphertext
           // to detect stale keys from re-initialization on another device.
           const meta = await getEncryptionMeta(user.uid);
+          // V-4: require a NON-EMPTY verification string to auto-unlock.
+          // Empty string '' is falsy but getEncryptionMeta returns '' when the
+          // field is missing — refuse auto-unlock and fall through to password
+          // prompt to avoid accepting a possibly-wrong cached device key.
           if (meta?.verification) {
             try {
               const { decryptContent } = await import('../../../core/crypto/encrypt');
@@ -64,10 +68,14 @@ export function useEncryptionSetup(): {
               setLoading(false);
               return;
             }
+            setSessionKey(deviceKey);
+            setRememberDevice(true);
+            setMode('none');
+          } else {
+            // V-4: verification string missing/empty — refuse auto-unlock,
+            // force password prompt (do not call setSessionKey).
+            setMode('unlock');
           }
-          setSessionKey(deviceKey);
-          setRememberDevice(true);
-          setMode('none');
         } else {
           setMode('unlock');
         }

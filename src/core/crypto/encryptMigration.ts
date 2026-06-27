@@ -13,6 +13,15 @@ export interface MigrationProgress {
 
 const BATCH_SIZE = 400;
 
+// V-2: thrown when the vault locks mid-migration; propagates through per-doc
+// catch blocks to abort the run cleanly instead of erroring on every remaining doc.
+class VaultLockedError extends Error {
+  constructor() {
+    super('Vault locked during migration');
+    this.name = 'VaultLockedError';
+  }
+}
+
 function getCheckpointKey(userId: string) {
   return `encryptionMigration_${userId}_checkpoint`;
 }
@@ -127,6 +136,8 @@ async function _encryptAllExistingNotesInner(
 
         for (const v of versionsSnap.docs) {
           if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
+          // V-2: abort early if vault locked mid-run instead of erroring on every doc.
+          if (!getSessionKey()) throw new VaultLockedError();
           try {
             const ck = `v_${documentId}_${v.id}`;
             if (checkpoint.has(ck) || v.data()._encrypted) {
@@ -135,7 +146,7 @@ async function _encryptAllExistingNotesInner(
               report();
               continue;
             }
-            const encrypted = await maybeEncrypt(v.data() as Record<string, unknown>, ['content'], []);
+            const encrypted = await maybeEncrypt(v.data() as Record<string, unknown>, ['content'], [], true);
             const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
             pending.push({ ref: doc(db, 'users', userId, 'documents', documentId, 'versions', v.id), data: clean, checkKey: ck });
             if (pending.length >= BATCH_SIZE) await flush();
@@ -151,13 +162,15 @@ async function _encryptAllExistingNotesInner(
         }
          await flush();
        } catch (e) {
-         if (e instanceof DOMException && e.name === 'AbortError') throw e;
-         hadErrors = true;
-         reportError(e, { action: 'encryptAllExistingNotes_documentVersions', documentId });
-       }
+          if (e instanceof DOMException && e.name === 'AbortError') throw e;
+          if (e instanceof VaultLockedError) throw e;
+          hadErrors = true;
+          reportError(e, { action: 'encryptAllExistingNotes_documentVersions', documentId });
+        }
     }
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') throw e;
+    if (e instanceof VaultLockedError) throw e;
     hadErrors = true;
     reportError(e, { action: 'encryptAllExistingNotes_documentsQuery', userId });
   }
@@ -176,6 +189,8 @@ async function _encryptAllExistingNotesInner(
 
     for (const d of draftSnap.docs) {
       if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
+      // V-2: abort early if vault locked mid-run instead of erroring on every doc.
+      if (!getSessionKey()) throw new VaultLockedError();
       try {
         const ck = `d_${d.id}`;
         if (checkpoint.has(ck) || d.data()._encrypted) {
@@ -184,23 +199,25 @@ async function _encryptAllExistingNotesInner(
           report();
           continue;
         }
-        const encrypted = await maybeEncrypt(d.data() as Record<string, unknown>, ['content'], ['pinnedThoughts']);
+        const encrypted = await maybeEncrypt(d.data() as Record<string, unknown>, ['content'], ['pinnedThoughts'], true);
         const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
         pending.push({ ref: doc(db, 'drafts', d.id), data: clean, checkKey: ck, useSet: true });
         if (pending.length >= BATCH_SIZE) await flush();
          progress.encrypted++;
        } catch (e) {
-         if (e instanceof DOMException && e.name === 'AbortError') throw e;
-         progress.errors++;
-         hadErrors = true;
-         reportError(e, { action: 'encryptAllExistingNotes_draft', draftId: d.id });
-       }
+          if (e instanceof DOMException && e.name === 'AbortError') throw e;
+          if (e instanceof VaultLockedError) throw e;
+          progress.errors++;
+          hadErrors = true;
+          reportError(e, { action: 'encryptAllExistingNotes_draft', draftId: d.id });
+        }
       progress.processed++;
       report();
     }
     await flush();
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') throw e;
+    if (e instanceof VaultLockedError) throw e;
     hadErrors = true;
     reportError(e, { action: 'encryptAllExistingNotes_draftsQuery', userId });
   }
@@ -227,12 +244,14 @@ export async function encryptSingleDocument(
     const flush = makeFlush(pending, () => mod.writeBatch(db));
 
     for (const v of versionsSnap.docs) {
+      // V-2: abort early if vault locked mid-run instead of erroring on every doc.
+      if (!getSessionKey()) throw new VaultLockedError();
       try {
         if (v.data()._encrypted) {
           result.processed++;
           continue;
         }
-        const encrypted = await maybeEncrypt(v.data() as Record<string, unknown>, ['content'], []);
+        const encrypted = await maybeEncrypt(v.data() as Record<string, unknown>, ['content'], [], true);
         const clean = Object.fromEntries(Object.entries(encrypted).filter(([, val]) => val !== undefined));
         pending.push({
           ref: doc(db, 'users', userId, 'documents', documentId, 'versions', v.id),
@@ -242,6 +261,7 @@ export async function encryptSingleDocument(
         if (pending.length >= BATCH_SIZE) await flush();
         result.encrypted++;
       } catch (e) {
+        if (e instanceof VaultLockedError) throw e;
         result.errors++;
         reportError(e, { action: 'encryptSingleDocument_version', versionId: v.id, documentId });
       }

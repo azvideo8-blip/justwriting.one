@@ -117,6 +117,9 @@ export const WritingDraftService = {
       await localDb.put('drafts', draft);
     } catch (err) {
       reportError(err, { action: 'saveToLocal', userId: draft.userId });
+      // D-1: re-throw so Promise.allSettled sees 'rejected' and localOk is
+      // false — prevents the UI from showing "Saved" when the draft is lost.
+      throw err;
     }
   },
 

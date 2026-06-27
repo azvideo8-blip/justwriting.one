@@ -115,6 +115,9 @@ export const useEncryptionStore = create<EncryptionState>((set, get) => ({
   lockVault: () => {
     set({ dataKey: null, isVaultUnlocked: false });
     clearAutoLockTimer();
+    // V-3: reset rememberDevice so User A's "remember" preference doesn't
+    // leak to User B on the same browser.
+    setRememberDevice(false);
   },
 
   setEncryptionEnabled: (userId, enabled) => {

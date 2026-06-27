@@ -146,6 +146,61 @@ describe('encryptAllExistingNotes', () => {
     expect(progress.errors).toBe(1);
   });
 
+  it('V-2: passes required=true as 4th arg to maybeEncrypt', async () => {
+    const versionDocs = [
+      { id: 'ver1', data: { content: 'hello', _encrypted: false } },
+    ];
+
+    mockGetDocs.mockImplementation(async (queryOrCol: any) => {
+      if (queryOrCol.path === 'users/user123/documents/doc1/versions') {
+        return createMockSnapshot(versionDocs);
+      }
+      if (queryOrCol.path === 'users/user123/documents') {
+        return createMockSnapshot([{ id: 'doc1', data: {} }]);
+      }
+      return createMockSnapshot([]);
+    });
+
+    const spy = vi.spyOn(cryptoHelpers, 'maybeEncrypt');
+    await encryptAllExistingNotes(userId);
+
+    expect(spy).toHaveBeenCalled();
+    for (const call of spy.mock.calls) {
+      // 4th arg (index 3) must be `true` (required)
+      expect(call[3]).toBe(true);
+    }
+  });
+
+  it('V-2: aborts with VaultLockedError when getSessionKey returns null mid-run', async () => {
+    const versionDocs = [
+      { id: 'ver1', data: { content: 'hello', _encrypted: false } },
+    ];
+
+    mockGetDocs.mockImplementation(async (queryOrCol: any) => {
+      if (queryOrCol.path === 'users/user123/documents/doc1/versions') {
+        return createMockSnapshot(versionDocs);
+      }
+      if (queryOrCol.path === 'users/user123/documents') {
+        return createMockSnapshot([{ id: 'doc1', data: {} }]);
+      }
+      return createMockSnapshot([]);
+    });
+
+    // Simulate vault locking mid-run: key present for initial check, null after.
+    let callCount = 0;
+    const spy = vi.spyOn(encryptModule, 'getSessionKey');
+    spy.mockImplementation(() => {
+      callCount++;
+      if (callCount <= 1) return {} as CryptoKey;
+      return null;
+    });
+
+    await expect(encryptAllExistingNotes(userId)).rejects.toThrow('Vault locked during migration');
+
+    // Restore original mock for subsequent tests
+    spy.mockImplementation(() => ({} as CryptoKey));
+  });
+
   it('handles checkpoint save failure without throwing', async () => {
     const versionDocs = [
       { id: 'ver1', data: { content: 'hello', _encrypted: false } },
