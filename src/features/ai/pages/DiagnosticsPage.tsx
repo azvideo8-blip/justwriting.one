@@ -15,6 +15,7 @@ import { useDiagnosticsData, type Tab } from '../hooks/useDiagnosticsData';
 import { DatabaseExplorer } from '../components/DatabaseExplorer';
 import { EmbeddingDiagnostics } from '../components/EmbeddingDiagnostics';
 import { ProfileFacets } from '../components/ProfileFacets';
+import { FacetDiagnostics } from '../components/FacetDiagnostics';
 import { ContactDoors } from '../components/ContactDoors';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { Button } from '../../../shared/components/Button';
@@ -627,6 +628,7 @@ function ReconcileSessionsButton() {
             <h3 className="text-sm font-semibold text-text-main mb-3">Профиль автора & AI логи</h3>
 
             <ProfileFacets />
+            {import.meta.env.DEV && <FacetDiagnostics />}
 
             <ContactDoors />
 
