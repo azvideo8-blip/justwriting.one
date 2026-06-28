@@ -109,9 +109,12 @@ export const AIProfileFacetService = {
       if (res.ok && res.vectors[0]) domainVecs.push({ id: d.id, label: d.label, vec: res.vectors[0] });
     }
 
-    // Assign each CHUNK to ALL matching domains.
-    // If best domain passed its threshold, secondaries get +SECONDARY_BUMP.
-    // If best domain FAILED, secondaries use their base threshold (PROF-8).
+    // Assign each CHUNK to its matching domains. A chunk must earn a PRIMARY
+    // (best domain passes its threshold) before any secondary membership — if
+    // nothing passes, the chunk goes to leftover (→ discovered clusters) rather
+    // than leaking into every weakly-near low-threshold domain. This kills the
+    // over-binding seen on real data (partner swallowing 56/90 notes). When a
+    // primary exists, secondaries still need to clear threshold + SECONDARY_BUMP.
     const SECONDARY_BUMP = 0.03;
     const domainData = new Map<string, { label: string; noteIds: Set<string>; primaryNoteIds: Set<string>; secondaryNoteIds: Set<string>; texts: string[]; chunkVecs: number[][] }>();
     const leftover: ChunkItem[] = [];
@@ -133,17 +136,18 @@ export const AIProfileFacetService = {
         dd.chunkVecs.push(ch.vector);
         assigned = true;
       }
-      for (const s of scores) {
-        if (s.id === best.id) continue;
-        const secThreshold = bestPassed ? s.threshold + SECONDARY_BUMP : s.threshold;
-        if (s.sim >= secThreshold) {
-          let dd = domainData.get(s.id);
-          if (!dd) { dd = { label: s.label, noteIds: new Set(), primaryNoteIds: new Set(), secondaryNoteIds: new Set(), texts: [], chunkVecs: [] }; domainData.set(s.id, dd); }
-          dd.noteIds.add(ch.noteId);
-          dd.secondaryNoteIds.add(ch.noteId);
-          if (ch.text) dd.texts.push(ch.text);
-          dd.chunkVecs.push(ch.vector);
-          assigned = true;
+      if (bestPassed) {
+        for (const s of scores) {
+          if (s.id === best.id) continue;
+          if (s.sim >= s.threshold + SECONDARY_BUMP) {
+            let dd = domainData.get(s.id);
+            if (!dd) { dd = { label: s.label, noteIds: new Set(), primaryNoteIds: new Set(), secondaryNoteIds: new Set(), texts: [], chunkVecs: [] }; domainData.set(s.id, dd); }
+            dd.noteIds.add(ch.noteId);
+            dd.secondaryNoteIds.add(ch.noteId);
+            if (ch.text) dd.texts.push(ch.text);
+            dd.chunkVecs.push(ch.vector);
+            assigned = true;
+          }
         }
       }
       if (!assigned) {
