@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 2026-06-28 (v0.7.37)
+- **[RU]** AI-профиль: домены фасетов пересобраны под реальный корпус. Подняты/перебалансированы пороги (партнёр/дети/родители 0.45/0.42/0.45, призвание/практика 0.49, творчество 0.54, внутр.работа 0.46); «Коллеги» → «Практика психолога»; добавлены «Творчество и проекты» и «Внутренняя работа». Раньше партнёр над-привязывал 56/90 заметок.
+- **[EN]** AI profile: facet domains rebuilt for the real corpus. Thresholds raised/rebalanced (partner/children/parents 0.45/0.42/0.45, calling/practice 0.49, creativity 0.54, inner-work 0.46); "Colleagues" → "Therapy practice"; added "Creativity & projects" and "Inner work". Previously partner over-bound 56/90 notes.
+- **[RU]** Исправлен движок над-привязки (PROF-8) в `AIProfileFacetService.build()`: вторичные домены теперь цепляются только когда у чанка есть прошедший порог первичный домен — иначе чанк уходит в discovered-кластеры (а не «протекает» во все слабо-близкие домены).
+- **[EN]** Fixed the over-binding engine (PROF-8) in `AIProfileFacetService.build()`: secondary domains now attach only when the chunk has a primary that passed threshold — otherwise it falls through to discovered clusters (instead of leaking into every weakly-near domain).
+- **[RU]** Промпт фасет-саммари (`summarizeFacet`) переписан против конфабуляции: имена людей берутся буквально из текста (иначе роль — «жена», «дочь», «клиент»), запрет на выдуманные факты/числа/названия; убрана формулировка, толкавшая модель досочинять. Раньше выдумывались имена и детали.
+- **[EN]** Facet-summary prompt (`summarizeFacet`) rewritten against confabulation: people are named literally from the text (else a role — "wife", "daughter", "client"), invented facts/numbers/names forbidden; removed the wording that pushed the model to fabricate. Previously names and details were made up.
+- **[RU]** Добавлено тестовое покрытие кластеризации (`facetClustering`, `lifeDomains`, `domainSeeds`) и dev-панель «Диагностика порогов» для подбора порогов на реальных данных.
+- **[EN]** Added clustering test coverage (`facetClustering`, `lifeDomains`, `domainSeeds`) and a dev-only "threshold diagnostics" panel for tuning thresholds on real data.
+
 ## 2026-06-27 (v0.7.36)
 - **[RU]** Безопасность (глубокий аудит, 21 находка critical/high): редизайн защиты от инъекций — обычные фразы вроде «не забудь» в ваших заметках больше не ломают разбор и поиск; injection-чек снят с пользовательского контента, оставлен на канале инструкций.
 - **[EN]** Security (deep audit, 21 critical/high findings): injection-guard redesign — everyday phrases like "не забудь" in your notes no longer break analysis/search; the check is off user content, kept on the instruction channel.
