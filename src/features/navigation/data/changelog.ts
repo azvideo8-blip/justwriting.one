@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.37',
+    date: '2026-06-28',
+    items: [
+      { category: 'improvement', ru: 'Темы AI-профиля стали точнее: домены пересобраны под реальные жизненные сферы, и одна тема больше не «засасывает» половину заметок (раньше «отношения с партнёром» ошибочно собирали почти весь дневник)', en: 'AI-profile topics are sharper: domains were rebuilt around real life areas, and one topic no longer swallows half your notes (previously "partner relationship" wrongly captured nearly the whole journal)' },
+      { category: 'new', ru: 'Новые темы профиля: «Призвание и смысл», «Творчество и проекты», «Практика психолога», «Внутренняя работа» — вместо общих категорий, которые ничего не описывали', en: 'New profile topics: "Calling & meaning", "Creativity & projects", "Practice", "Inner work" — instead of generic categories that described nothing' },
+      { category: 'fix', ru: 'Описания тем больше не выдумывают: имена людей берутся только из ваших заметок (без подмены), без вымышленных фактов и деталей', en: 'Topic descriptions no longer make things up: people are named only from your notes (no substitutions), with no invented facts or details' },
+    ],
+  },
+  {
     version: '0.7.36',
     date: '2026-06-27',
     items: [
