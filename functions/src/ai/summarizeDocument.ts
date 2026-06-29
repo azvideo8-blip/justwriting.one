@@ -3,6 +3,31 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
+// Repairs a JSON string that was truncated mid-output (reasoning models can
+// still run past the token budget). Closes a dangling string and any open
+// arrays/objects so JSON.parse succeeds with the fields produced so far.
+function repairTruncatedJson(raw: string): string {
+  const stack: string[] = [];
+  let inStr = false, esc = false;
+  for (const c of raw) {
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === '{') stack.push('}');
+    else if (c === '[') stack.push(']');
+    else if (c === '}' || c === ']') stack.pop();
+  }
+  let out = raw;
+  if (inStr) out += '"';
+  out = out.replace(/,\s*$/, '');
+  while (stack.length) out += stack.pop();
+  return out;
+}
+
 const SUMMARY_SYSTEM_PROMPT = `Проанализируй текст и верни JSON-объект со следующими полями:
 - tone: одно слово (нейтральный/задумчивый/тревожный/вдохновляющий/радостный/грустный/злой/усталый)
 - frequentWords: массив из 5-7 наиболее значимых слов из текста (не стоп-слова)
@@ -74,7 +99,7 @@ export const summarizeDocument = onCall({
       system: SUMMARY_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: prompt }],
       json: true,
-      maxTokens: 4096,
+      maxTokens: 8192,
       abortMs: 110_000,
       model: SUMMARY_MODEL,
     });
@@ -100,7 +125,14 @@ export const summarizeDocument = onCall({
     if (textToParse.startsWith('```')) {
       textToParse = textToParse.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
     }
-    parsed_json = JSON.parse(textToParse);
+    try {
+      parsed_json = JSON.parse(textToParse);
+    } catch {
+      // Salvage a truncated response (reasoning model overran the budget) so a
+      // long note still yields a usable summary instead of a 500.
+      parsed_json = JSON.parse(repairTruncatedJson(textToParse));
+      console.warn('[AI summarize] recovered truncated JSON output');
+    }
   } catch {
     console.error('[AI summarize] failed to parse model output:', text.slice(0, 500));
     generation?.end({ output: text, level: 'ERROR' });

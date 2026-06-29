@@ -60,7 +60,7 @@ export const summarizeFacet = onCall({
       system,
       messages: [{ role: 'user', content: `Фрагменты заметок${focus ? ` (тема «${focus}»)` : ''}:\n\n${notesText}` }],
       json: false,
-      maxTokens: 1500,
+      maxTokens: 2048,
       model: FACET_MODEL,
       abortMs: 50_000,
     });
