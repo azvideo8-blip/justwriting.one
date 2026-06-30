@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.39',
+    date: '2026-06-30',
+    items: [
+      { category: 'improvement', ru: 'Темы профиля сами подстраивают точность под ваши заметки: если тема «захватывает» слишком много или слишком мало записей, её порог автоматически корректируется при пересборке', en: 'Profile topics auto-tune their precision to your notes: if a topic captures too many or too few entries, its threshold is adjusted automatically on rebuild' },
+      { category: 'new', ru: 'ИИ-судья описаний тем: сверяет каждое описание с фактами из заметок (роли людей, темы) и исправляет выдумки. Запускается сам после обновления, либо вручную кнопкой «Судить»', en: 'AI judge for topic descriptions: checks each description against the facts in your notes (people roles, themes) and fixes fabrications. Runs automatically after updates, or manually via the "Судить" button' },
+      { category: 'fix', ru: 'Облако слов на «Моих заметках» очищено от служебных слов (опять, таки, хотя, потому, можно и т.п.) — теперь там настоящие слова', en: 'The word cloud on "My notes" no longer shows function words (опять, таки, хотя, потому, можно, …) — only real content words now' },
+    ],
+  },
+  {
     version: '0.7.38',
     date: '2026-06-30',
     items: [
