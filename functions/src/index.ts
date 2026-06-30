@@ -20,6 +20,7 @@ export { embedDocument } from './ai/embedDocument';
 export { rerankNotes } from './ai/rerankNotes';
 export { summarizeFacet } from './ai/summarizeFacet';
 export { deriveTaxonomy } from './ai/deriveTaxonomy';
+export { judgeFacets } from './ai/judgeFacets';
 export { extractChatMemory } from './ai/extractChatMemory';
 export { validateCustomPrompt } from './ai/validateCustomPrompt';
 export { getAIUsageStats } from './ai/getAIUsageStats';

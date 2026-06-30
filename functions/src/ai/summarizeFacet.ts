@@ -13,6 +13,7 @@ const inputSchema = z.object({
     excerpt: z.string().max(8_000),
   })).min(1).max(60),
   focus: z.string().max(200).nullish().default(null),
+  correction: z.string().max(500).nullish().default(null),
 });
 
 // DeepSeek (the default chat model) is a reasoning model that leaks its
@@ -51,13 +52,18 @@ export const summarizeFacet = onCall({
     ? `${SYSTEM_PROMPT} Опиши ТОЛЬКО то, что относится к теме «${focus}»; игнорируй формат дневника и всё постороннее. Если про эту тему почти ничего нет — одно предложение об этом.`
     : SYSTEM_PROMPT;
 
+  const correction = parsed.data.correction ? sanitizeAiInput(parsed.data.correction) : '';
+  const systemWithCorrection = correction
+    ? `${system}\nОБЯЗАТЕЛЬНО УЧТИ ПОПРАВКУ (она важнее прежнего текста): ${correction}`
+    : system;
+
   if (!(await tryReserveGlobalRequest())) {
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
   try {
     const result = await generate({
-      system,
+      system: systemWithCorrection,
       messages: [{ role: 'user', content: `Фрагменты заметок${focus ? ` (тема «${focus}»)` : ''}:\n\n${notesText}` }],
       json: false,
       maxTokens: 2048,
