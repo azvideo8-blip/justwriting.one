@@ -146,6 +146,20 @@ export const AIService = {
     }
   },
 
+  async deriveTaxonomy(params: { digest: string }): Promise<
+    { ok: true; domains: { label: string; seed: string }[] } | { ok: false; error: string }
+  > {
+    const functions = getFunctions();
+    try {
+      const fn = httpsCallable<unknown, { domains: { label: string; seed: string }[] }>(functions, 'deriveTaxonomy');
+      const res = await fn(params);
+      return { ok: true, domains: res.data.domains ?? [] };
+    } catch (e) {
+      reportError(e, { action: 'deriveTaxonomy' });
+      return { ok: false, error: String((e as { code?: string })?.code ?? 'error') };
+    }
+  },
+
   async extractChatMemory(params: {
     messages: { role: string; content: string }[];
   }): Promise<{ ok: true; memories: { kind: string; text: string }[] } | { ok: false; error: string }> {
