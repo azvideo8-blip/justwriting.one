@@ -5,6 +5,7 @@ import { AIService } from './AIService';
 import { clusterChunks, mergeSimilarClusters, suggestK, normalize, type ChunkItem } from '../utils/facetClustering';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { AITaxonomyService } from './AITaxonomyService';
+import { tuneThresholds } from '../utils/thresholdTuner';
 
 const MIN_FACET_NOTES = 2;
 const MAX_EXCERPTS = 14;
@@ -110,6 +111,21 @@ export const AIProfileFacetService = {
       if (res.ok && res.vectors[0]) domainVecs.push({ id: d.id, label: d.label, vec: res.vectors[0] });
     }
 
+    // B: self-tune each domain's threshold from this user's chunk-score
+    // distribution (pure cosine simulation, no LLM) before assigning, so a
+    // domain that over- or under-binds for this corpus is corrected.
+    const totalNotesForTune = new Set(chunks.map(c => c.noteId)).size;
+    const tuned = tuneThresholds(
+      chunks.map(c => ({ noteId: c.noteId, vector: c.vector })),
+      domainVecs.map(d => ({ id: d.id, vec: d.vec, threshold: taxonomy.find(ld => ld.id === d.id)?.threshold ?? DOMAIN_THRESHOLD })),
+      totalNotesForTune,
+    ).thresholds;
+    // Persist tuned thresholds to the derived taxonomy (skip the hardcoded default).
+    const storedTax = AITaxonomyService.getStored();
+    if (storedTax && tuned.size > 0) {
+      AITaxonomyService.save(storedTax.map(d => ({ ...d, threshold: tuned.get(d.id) ?? d.threshold ?? DOMAIN_THRESHOLD })));
+    }
+
     // Assign each CHUNK to its matching domains. A chunk must earn a PRIMARY
     // (best domain passes its threshold) before any secondary membership — if
     // nothing passes, the chunk goes to leftover (→ discovered clusters) rather
@@ -123,7 +139,7 @@ export const AIProfileFacetService = {
       const scores = domainVecs.map(d => ({
         id: d.id, label: d.label, vec: d.vec,
         sim: cosineSimilarity(ch.vector, d.vec),
-        threshold: taxonomy.find(ld => ld.id === d.id)?.threshold ?? DOMAIN_THRESHOLD,
+        threshold: tuned.get(d.id) ?? DOMAIN_THRESHOLD,
       }));
       const best = scores.reduce((a, b) => a.sim >= b.sim ? a : b);
       const bestPassed = best.sim >= best.threshold;
