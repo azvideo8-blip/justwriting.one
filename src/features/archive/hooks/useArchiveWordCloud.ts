@@ -1,24 +1,14 @@
 import { useState, useEffect } from 'react';
+import { RU_STOPWORDS as STOP_WORDS } from '../../../core/utils/russianStopwords';
 
-const CACHE_KEY = 'cached_word_cloud';
+// v2: expanded stopword filtering — bump so stale caches (full of function
+// words) are dropped and rebuilt fresh.
+const CACHE_KEY = 'cached_word_cloud_v2';
 
 export interface WordCloudEntry {
   word: string;
   count: number;
 }
-
-const STOP_WORDS = new Set([
-  'и','в','на','с','по','что','это','как','из','он','она','они','мы','вы','я','не','но','а','то','же','бы','за','от','до',
-  'так','все','при','уже','или','об','для','его','её','их','мне','мой','моя','мои','нет','да','там','тут','где','когда',
-  'если','чтобы','который','которая','которые','которых','был','была','были','есть','быть','было',
-  'the','and','for','with','this','that','from','they','have','will','what','been','were','than','which','their','there',
-  'when','also','into','some','more','about','would','could','should','these','those','other','after','before',
-  'очень','только','просто','меня','мной','себя','себе','потом','тогда','сейчас','сегодня','завтра','вчера',
-  'день','утро','время','раз','нужно','надо','хочу','могу','буду','делать','сделать',
-  'нет','да','ну','вот','там','тут','здесь','этом','этого','всё','все','весь','более','менее',
-  'может','пока','ничего','делаю','понимаю','знаю','пишу','писал','говорю','сказал','типа','вообще','думаю',
-  'чувствую','получается','значит','нормально',
-]);
 
 export async function rebuildWordCloud(guestId?: string): Promise<void> {
   const { getLocalDb } = await import('../../../core/storage/localDb');
