@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2026-06-30 (v0.7.38)
+- **[RU]** AI-профиль: персональная авто-таксономия (подсистема A). Новый limit-exempt callable `deriveTaxonomy` выводит 6–10 личных доменов из дайджеста `aiSummaries` пользователя (themes/insights/people), заменяя хардкод `LIFE_DOMAINS`. `AITaxonomyService` хранит таксономию в `localStorage` (без IndexedDB-bump), `getActive()` — единственный шов в `build()` с cold-start fallback; бутстрап при ≥20 summaries в фоне индексатора; `rederive()` сохраняет ярлыки (`matchLabels`, cosine ≥0.8). Промпт live-валидирован против Fireworks — воспроизводит вручную выведенную таксономию.
+- **[EN]** AI profile: personal auto-taxonomy (subsystem A). New limit-exempt `deriveTaxonomy` callable derives 6–10 personal domains from the user's `aiSummaries` digest (themes/insights/people), replacing hardcoded `LIFE_DOMAINS`. `AITaxonomyService` stores it in `localStorage` (no IndexedDB bump), `getActive()` is the single `build()` seam with cold-start fallback; bootstraps at ≥20 summaries in the background indexer; `rederive()` preserves labels (`matchLabels`, cosine ≥0.8). Prompt live-validated against Fireworks — reproduces the hand-authored taxonomy.
+- **[RU]** Исправлено: `summarizeDocument`/`summarizeFacet` падали с 500 на длинных заметках — reasoning-модель gpt-oss съедала `max_tokens` и обрывала JSON. Подняты бюджеты (doc 4096→8192, facet 1500→2048) + салвадж обрезанного JSON.
+- **[EN]** Fixed: `summarizeDocument`/`summarizeFacet` 500'd on long notes — the gpt-oss reasoning model ate `max_tokens` and truncated the JSON. Raised budgets (doc 4096→8192, facet 1500→2048) + truncated-JSON salvage.
+
 ## 2026-06-28 (v0.7.37)
 - **[RU]** AI-профиль: домены фасетов пересобраны под реальный корпус. Подняты/перебалансированы пороги (партнёр/дети/родители 0.45/0.42/0.45, призвание/практика 0.49, творчество 0.54, внутр.работа 0.46); «Коллеги» → «Практика психолога»; добавлены «Творчество и проекты» и «Внутренняя работа». Раньше партнёр над-привязывал 56/90 заметок.
 - **[EN]** AI profile: facet domains rebuilt for the real corpus. Thresholds raised/rebalanced (partner/children/parents 0.45/0.42/0.45, calling/practice 0.49, creativity 0.54, inner-work 0.46); "Colleagues" → "Therapy practice"; added "Creativity & projects" and "Inner work". Previously partner over-bound 56/90 notes.
