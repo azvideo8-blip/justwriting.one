@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Sparkles, Layers, Copy, FileText, PenLine } from 'lucide-react';
+import { Loader2, Sparkles, Layers, Copy, FileText, PenLine, Scale } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { useToast } from '../../../shared/components/Toast';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
+import { AIFacetJudgeService } from '../services/AIFacetJudgeService';
 import type { AIProfileFacet, LocalDocument } from '../../../core/storage/localDb';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { reportError } from '../../../shared/errors/reportError';
@@ -109,6 +110,26 @@ export function ProfileFacets() {
     }
   };
 
+  const handleJudge = async () => {
+    setBuilding(true);
+    setProgress(null);
+    try {
+      const { judged, corrected } = await AIFacetJudgeService.review();
+      showToast(
+        judged === 0 ? 'Нет тем для проверки'
+          : corrected > 0 ? `Проверено ${judged} тем, исправлено ${corrected}`
+          : `Проверено ${judged} тем — всё верно`,
+        corrected > 0 ? 'success' : judged > 0 ? 'success' : 'error',
+      );
+    } catch (e) {
+      reportError(e, { action: 'profile_facets_judge' });
+      showToast('Ошибка проверки тем', 'error');
+    } finally {
+      setBuilding(false);
+      void load();
+    }
+  };
+
   return (
     <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden">
       <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
@@ -117,6 +138,17 @@ export function ProfileFacets() {
           Темы профиля (кластеры заметок)
         </span>
           <div className="flex items-center gap-1.5">
+          {facets.length > 0 && (
+            <Button
+              onClick={() => { void handleJudge(); }}
+              disabled={building}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-subtle text-text-main/60 text-[10px] font-bold disabled:opacity-50"
+              title="ИИ-судья сверяет описания тем с фактами и исправляет выдумки/неверные роли"
+            >
+              <Scale size={12} />
+              Судить
+            </Button>
+          )}
           {facets.some(f => f.dirty) && (
             <Button
               onClick={() => { void handleResummarize(); }}
