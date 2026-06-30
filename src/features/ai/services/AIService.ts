@@ -132,6 +132,7 @@ export const AIService = {
   async summarizeFacet(params: {
     notes: { title: string; excerpt: string }[];
     focus?: string | null | undefined;
+    correction?: string | undefined;
   }): Promise<{ ok: true; label: string; summary: string } | { ok: false; error: string }> {
     const functions = getFunctions();
     const fn = httpsCallable<unknown, { label: string; summary: string }>(functions, 'summarizeFacet');
@@ -156,6 +157,20 @@ export const AIService = {
       return { ok: true, domains: res.data.domains ?? [] };
     } catch (e) {
       reportError(e, { action: 'deriveTaxonomy' });
+      return { ok: false, error: String((e as { code?: string })?.code ?? 'error') };
+    }
+  },
+
+  async judgeFacets(params: { facets: { facetId: string; label: string; summary: string; evidence: string }[] }): Promise<
+    { ok: true; verdicts: { facetId: string; ok: boolean; issues: string[]; hint: string }[] } | { ok: false; error: string }
+  > {
+    const functions = getFunctions();
+    try {
+      const fn = httpsCallable<unknown, { verdicts: { facetId: string; ok: boolean; issues: string[]; hint: string }[] }>(functions, 'judgeFacets');
+      const res = await fn(params);
+      return { ok: true, verdicts: res.data.verdicts ?? [] };
+    } catch (e) {
+      reportError(e, { action: 'judgeFacets' });
       return { ok: false, error: String((e as { code?: string })?.code ?? 'error') };
     }
   },
