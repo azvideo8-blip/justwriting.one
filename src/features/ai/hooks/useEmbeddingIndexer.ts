@@ -3,6 +3,7 @@ import { findStaleDocuments, indexDocument } from '../utils/embeddingIndexer';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import { AITaxonomyService } from '../services/AITaxonomyService';
+import { AIFacetJudgeService } from '../services/AIFacetJudgeService';
 import { rebuildWordCloud } from '../../archive/hooks/useArchiveWordCloud';
 import { reportError } from '../../../shared/errors/reportError';
 
@@ -40,11 +41,19 @@ export function useEmbeddingIndexer(): void {
         console.warn(`[useEmbeddingIndexer] resummarized ${r.count} dirty facets`);
         dirtyCountRef.current = 0;
         if (r.count > 0) {
-          void import('../services/AIProfileService').then(({ AIProfileService }) => {
-            void AIProfileService.generate()
-              .then(() => console.warn('[useEmbeddingIndexer] auto-regenerated portrait successfully'))
-              .catch(e => reportError(e, { action: '[useEmbeddingIndexer] auto portrait generation failed' }));
-          });
+          // Judge the (re)written summaries and auto-correct confabulations
+          // BEFORE regenerating the portrait, so the portrait reads corrected
+          // facets. Best-effort: portrait regen runs regardless.
+          void AIFacetJudgeService.review()
+            .then(j => { if (j.corrected > 0) console.warn(`[useEmbeddingIndexer] judge corrected ${j.corrected}/${j.judged} facets`); })
+            .catch(e => reportError(e, { action: '[useEmbeddingIndexer] facet judge failed' }))
+            .finally(() => {
+              void import('../services/AIProfileService').then(({ AIProfileService }) => {
+                void AIProfileService.generate()
+                  .then(() => console.warn('[useEmbeddingIndexer] auto-regenerated portrait successfully'))
+                  .catch(e => reportError(e, { action: '[useEmbeddingIndexer] auto portrait generation failed' }));
+              });
+            });
         }
       }).catch(e => {
         reportError(e, { action: '[useEmbeddingIndexer] resummarize failed' });
