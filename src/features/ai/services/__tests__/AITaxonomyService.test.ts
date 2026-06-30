@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AITaxonomyService, buildSummaryDigest, type TaxonomyDomain } from '../AITaxonomyService';
+import { AITaxonomyService, buildSummaryDigest, matchLabels, type TaxonomyDomain } from '../AITaxonomyService';
 import { LIFE_DOMAINS } from '../../utils/lifeDomains';
 
 const sample: TaxonomyDomain = {
@@ -57,5 +57,21 @@ describe('buildSummaryDigest', () => {
   it('skips empty summaries', () => {
     const digest = buildSummaryDigest([{ themes: [], insights: [], mentionedPeople: [] }]);
     expect(digest).toBe('');
+  });
+});
+
+describe('matchLabels', () => {
+  const cos = (a: number[], b: number[]) => a[0]! * b[0]! + a[1]! * b[1]!;
+  it('carries forward the prev label when seed vectors clearly match', () => {
+    const prev = [{ id: 'p1', label: 'Призвание', seed: 's', threshold: 0.47, derivedAt: 1, noteCountAtDerive: 1, source: 'derived' as const }];
+    const next = [{ label: 'Смысл жизни', seed: 's2' }];
+    const out = matchLabels(prev, next, [[1, 0]], [[0.99, 0.01]], cos);
+    expect(out[0]!.label).toBe('Призвание');
+  });
+  it('keeps the new label when nothing matches', () => {
+    const prev = [{ id: 'p1', label: 'Призвание', seed: 's', threshold: 0.47, derivedAt: 1, noteCountAtDerive: 1, source: 'derived' as const }];
+    const next = [{ label: 'Деньги', seed: 's2' }];
+    const out = matchLabels(prev, next, [[1, 0]], [[0, 1]], cos);
+    expect(out[0]!.label).toBe('Деньги');
   });
 });
