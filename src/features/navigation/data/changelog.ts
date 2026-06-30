@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.38',
+    date: '2026-06-30',
+    items: [
+      { category: 'new', ru: 'Темы профиля теперь подстраиваются под ВАШИ заметки: ИИ сам выводит ваши личные жизненные сферы из того, о чём вы пишете, вместо общего набора категорий. Включается автоматически, когда накопится достаточно записей', en: 'Profile topics now adapt to YOUR notes: the AI derives your own personal life areas from what you write, instead of a generic category set. Kicks in automatically once you have enough entries' },
+      { category: 'fix', ru: 'Описания тем перестали обрываться и падать с ошибкой на длинных заметках (модель упиралась в лимит и не дописывала ответ)', en: 'Topic descriptions no longer truncate and error out on long notes (the model hit its budget and left the answer unfinished)' },
+    ],
+  },
+  {
     version: '0.7.37',
     date: '2026-06-28',
     items: [
