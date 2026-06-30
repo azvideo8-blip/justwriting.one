@@ -4,7 +4,7 @@ import { AIEmbeddingService } from './AIEmbeddingService';
 import { AIService } from './AIService';
 import { clusterChunks, mergeSimilarClusters, suggestK, normalize, type ChunkItem } from '../utils/facetClustering';
 import { cosineSimilarity } from '../utils/vectorSearch';
-import { LIFE_DOMAINS } from '../utils/lifeDomains';
+import { AITaxonomyService } from './AITaxonomyService';
 
 const MIN_FACET_NOTES = 2;
 const MAX_EXCERPTS = 14;
@@ -103,8 +103,9 @@ export const AIProfileFacetService = {
     if (chunks.length === 0) return { ok: false, error: 'NO_EMBEDDINGS' };
     if (!haveTexts) return { ok: false, error: 'NO_CHUNK_TEXTS' };
 
+    const taxonomy = await AITaxonomyService.getActive();
     const domainVecs: { id: string; label: string; vec: number[] }[] = [];
-    for (const d of LIFE_DOMAINS) {
+    for (const d of taxonomy) {
       const res = await AIService.embed({ content: d.seed });
       if (res.ok && res.vectors[0]) domainVecs.push({ id: d.id, label: d.label, vec: res.vectors[0] });
     }
@@ -122,7 +123,7 @@ export const AIProfileFacetService = {
       const scores = domainVecs.map(d => ({
         id: d.id, label: d.label, vec: d.vec,
         sim: cosineSimilarity(ch.vector, d.vec),
-        threshold: LIFE_DOMAINS.find(ld => ld.id === d.id)?.threshold ?? DOMAIN_THRESHOLD,
+        threshold: taxonomy.find(ld => ld.id === d.id)?.threshold ?? DOMAIN_THRESHOLD,
       }));
       const best = scores.reduce((a, b) => a.sim >= b.sim ? a : b);
       const bestPassed = best.sim >= best.threshold;
