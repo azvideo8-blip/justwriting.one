@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, type MockedFunction } from 'vitest';
-import { getDomainSeedVectors, __resetDomainSeedCache } from '../domainSeeds';
+import { getDomainSeedVectors, getSeedVectors, __resetDomainSeedCache } from '../domainSeeds';
 import { LIFE_DOMAINS } from '../lifeDomains';
 
 // Mock AIService so no network calls happen. The path resolves to the same
@@ -67,5 +67,21 @@ describe('getDomainSeedVectors', () => {
       const v = vecs.find(x => x.id === d.id);
       expect(v?.threshold).toBe(d.threshold ?? 0.45);
     }
+  });
+});
+
+describe('getSeedVectors (arbitrary list)', () => {
+  beforeEach(() => { __resetDomainSeedCache(); embedMock.mockReset(); });
+
+  it('embeds each provided domain once and carries its threshold', async () => {
+    embedMock.mockResolvedValue(okVec());
+    const vecs = await getSeedVectors([
+      { id: 'x', label: 'X', seed: 'sx', threshold: 0.5 },
+      { id: 'y', label: 'Y', seed: 'sy' },
+    ]);
+    expect(vecs.map(v => v.id)).toEqual(['x', 'y']);
+    expect(vecs[0]!.threshold).toBe(0.5);
+    expect(vecs[1]!.threshold).toBe(0.45); // default
+    expect(embedMock).toHaveBeenCalledTimes(2);
   });
 });
