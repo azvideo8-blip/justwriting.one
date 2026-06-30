@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, INJECTION_PATTERNS } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 const inputSchema = z.object({ digest: z.string().min(20).max(60_000) });
@@ -41,12 +41,15 @@ export const deriveTaxonomy = onCall({
   const parsed = inputSchema.safeParse(request.data);
   if (!parsed.success) throw new HttpsError('invalid-argument', 'Invalid payload.');
 
+  // The digest is derived metadata (themes/insights), not an instruction
+  // channel — per the v0.7.36 audit philosophy, the injection check belongs on
+  // instructions, not on aggregated user content (it false-positived on benign
+  // phrases like "не забудь"). Sanitize control tokens, but do not hard-reject.
   const digest = sanitizeAiInput(parsed.data.digest);
-  if (INJECTION_PATTERNS.some(p => p.test(digest))) {
-    throw new HttpsError('invalid-argument', 'Disallowed patterns in digest.');
-  }
+  console.log(`[AI taxonomy] start: digest ${digest.length} chars`);
 
   if (!(await tryReserveGlobalRequest())) {
+    console.error('[AI taxonomy] global daily cap reached');
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -68,6 +71,7 @@ export const deriveTaxonomy = onCall({
 
     const arr = z.object({ domains: z.array(domainSchema) }).safeParse(obj);
     if (!arr.success || arr.data.domains.length === 0) {
+      console.error('[AI taxonomy] no valid domains. raw:', result.text.slice(0, 400));
       throw new HttpsError('internal', 'Taxonomy derivation produced no domains.');
     }
     const domains = arr.data.domains.slice(0, 10).map(d => ({
@@ -79,6 +83,7 @@ export const deriveTaxonomy = onCall({
   } catch (e) {
     await refundGlobalRequest();
     const msg = String((e as { message?: string })?.message ?? e);
+    if (!(e instanceof HttpsError)) console.error('[AI taxonomy] failed:', msg);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
       throw new HttpsError('resource-exhausted', 'AI service temporarily unavailable.');
     }
