@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback } from 'react';
 import { findStaleDocuments, indexDocument } from '../utils/embeddingIndexer';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
+import { AITaxonomyService } from '../services/AITaxonomyService';
 import { rebuildWordCloud } from '../../archive/hooks/useArchiveWordCloud';
 import { reportError } from '../../../shared/errors/reportError';
 
@@ -81,6 +82,10 @@ export function useEmbeddingIndexer(): void {
           scheduleWordCloudRebuild();
         }
       }
+      // Best-effort: bootstrap personal taxonomy once enough summaries exist.
+      void AITaxonomyService.ensureBootstrap().catch(e =>
+        reportError(e, { action: '[useEmbeddingIndexer] taxonomy bootstrap failed' }),
+      );
       // Best-effort: push any local-only embeddings to the cloud (no AI calls).
       // Succeeds only when E2E is unlocked; otherwise stays local for next time.
       await AIEmbeddingService.syncPendingToCloud();

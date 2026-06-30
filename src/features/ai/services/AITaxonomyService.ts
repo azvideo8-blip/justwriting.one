@@ -1,7 +1,13 @@
 import { LIFE_DOMAINS, type LifeDomain } from '../utils/lifeDomains';
+import { getLocalDb } from '../../../core/storage/localDb';
+import { AIService } from './AIService';
+import { getSeedVectors } from '../utils/domainSeeds';
+import { cosineSimilarity } from '../utils/vectorSearch';
 
 export const TAXONOMY_LS_KEY = 'ai_taxonomy';
 export const DERIVED_DEFAULT_THRESHOLD = 0.47;
+export const BOOTSTRAP_MIN = 20;
+const CONTINUITY_COS = 0.8;
 
 export interface TaxonomyDomain extends LifeDomain {
   derivedAt: number;
@@ -44,6 +50,15 @@ export const AITaxonomyService = {
       return base;
     });
   },
+
+  async ensureBootstrap(): Promise<'bootstrapped' | 'skip'> {
+    if (this.getStored()) return 'skip';
+    return (await deriveAndStore('bootstrap')) === 'ok' ? 'bootstrapped' : 'skip';
+  },
+
+  async rederive(): Promise<'ok' | 'skip'> {
+    return deriveAndStore('rederive');
+  },
 };
 
 export interface SummaryLike {
@@ -66,4 +81,57 @@ export function buildSummaryDigest(summaries: SummaryLike[], maxNotes = 200): st
     blocks.push(parts.join('\n'));
   }
   return blocks.join('\n---\n');
+}
+
+export function matchLabels(
+  prev: TaxonomyDomain[],
+  next: { label: string; seed: string }[],
+  prevVecs: number[][],
+  nextVecs: number[][],
+  cosine: (a: number[], b: number[]) => number = cosineSimilarity,
+): { label: string; seed: string }[] {
+  return next.map((n, i) => {
+    const nv = nextVecs[i];
+    if (!nv) return n;
+    let best = CONTINUITY_COS, bestLabel: string | null = null;
+    for (let j = 0; j < prev.length; j++) {
+      const pv = prevVecs[j];
+      if (!pv) continue;
+      const s = cosine(nv, pv);
+      if (s >= best) { best = s; bestLabel = prev[j]!.label; }
+    }
+    return bestLabel ? { label: bestLabel, seed: n.seed } : n;
+  });
+}
+
+async function deriveAndStore(origin: 'bootstrap' | 'rederive'): Promise<'ok' | 'skip'> {
+  const db = await getLocalDb();
+  const summaries = await db.getAll('aiSummaries');
+  if (summaries.length < BOOTSTRAP_MIN) return 'skip';
+  const digest = buildSummaryDigest(summaries);
+  if (!digest) return 'skip';
+
+  const res = await AIService.deriveTaxonomy({ digest });
+  if (!res.ok || res.domains.length === 0) return 'skip';
+  let domains = res.domains;
+
+  const prev = AITaxonomyService.getStored();
+  if (origin === 'rederive' && prev && prev.length > 0) {
+    const prevVecs = (await getSeedVectors(prev)).map(v => v.vec);
+    const nextVecs = (await getSeedVectors(domains.map((d, i) => ({ id: `n${i}`, label: d.label, seed: d.seed })))).map(v => v.vec);
+    domains = matchLabels(prev, domains, prevVecs, nextVecs);
+  }
+
+  const now = Date.now();
+  AITaxonomyService.save(domains.map((d, i) => ({
+    id: `tx_${now}_${i}`,
+    label: d.label,
+    seed: d.seed,
+    threshold: DERIVED_DEFAULT_THRESHOLD,
+    derivedAt: now,
+    noteCountAtDerive: summaries.length,
+    source: 'derived',
+    origin,
+  })));
+  return 'ok';
 }
