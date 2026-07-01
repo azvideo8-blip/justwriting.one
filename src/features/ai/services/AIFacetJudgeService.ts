@@ -74,11 +74,26 @@ export const AIFacetJudgeService = {
       evidence: buildEvidence(f.noteIds, summaries),
     }));
 
-    // Judge in small parallel chunks — one batch over all facets overruns the
-    // function timeout (gpt-oss reasoning on many long summaries) → aborted 500.
-    const JUDGE_CHUNK = 3;
+    // Pack facets into judge calls BY SIZE — a call with several long summaries
+    // overruns the function timeout (gpt-oss reasoning scales with content), so
+    // fixed count-chunking silently dropped the biggest facets. Budget bounds
+    // per-call work; a lone oversized facet still gets its own call.
+    const CHUNK_CHAR_BUDGET = 3500;
+    const CHUNK_MAX = 3;
     const chunks: (typeof payload)[] = [];
-    for (let i = 0; i < payload.length; i += JUDGE_CHUNK) chunks.push(payload.slice(i, i + JUDGE_CHUNK));
+    let cur: typeof payload = [];
+    let curLen = 0;
+    for (const p of payload) {
+      const len = p.summary.length + p.evidence.length;
+      if (cur.length > 0 && (curLen + len > CHUNK_CHAR_BUDGET || cur.length >= CHUNK_MAX)) {
+        chunks.push(cur);
+        cur = [];
+        curLen = 0;
+      }
+      cur.push(p);
+      curLen += len;
+    }
+    if (cur.length > 0) chunks.push(cur);
     const results = await Promise.all(chunks.map(c => AIService.judgeFacets({ facets: c })));
     const verdicts = results.flatMap(r => (r.ok ? r.verdicts : []));
     if (verdicts.length === 0 && results.every(r => !r.ok)) {
