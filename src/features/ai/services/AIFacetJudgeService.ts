@@ -43,10 +43,25 @@ export function buildEvidence(
 const MAX_EXCERPTS = 14;
 const EXCERPT_CHARS = 2_000;
 
+export type JudgeStatus = 'ok' | 'corrected' | 'flagged';
+export interface JudgeLogEntry { label: string; status: JudgeStatus; issues: string[] }
+export interface JudgeLog { at: number; entries: JudgeLogEntry[] }
+export const JUDGE_LOG_KEY = 'ai_judge_log';
+
 export const AIFacetJudgeService = {
-  async review(): Promise<{ judged: number; corrected: number }> {
+  /** The last review's log (persisted), for the UI panel. */
+  getLog(): JudgeLog | null {
+    try {
+      const raw = localStorage.getItem(JUDGE_LOG_KEY);
+      return raw ? (JSON.parse(raw) as JudgeLog) : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async review(): Promise<{ judged: number; corrected: number; log: JudgeLogEntry[] }> {
     const facets = await AIProfileFacetService.getAll();
-    if (facets.length === 0) return { judged: 0, corrected: 0 };
+    if (facets.length === 0) return { judged: 0, corrected: 0, log: [] };
 
     const db = await getLocalDb();
     const summaries = (await db.getAll('aiSummaries')) as SummaryRow[];
@@ -71,10 +86,12 @@ export const AIFacetJudgeService = {
     }
 
     let corrected = 0;
+    const log: JudgeLogEntry[] = [];
     for (const v of verdicts) {
-      if (v.ok || !v.hint) continue;
       const facet = facets.find(f => f.id === v.facetId);
-      if (!facet) continue;
+      const label = facet?.label ?? v.facetId;
+      if (v.ok || !v.hint) { log.push({ label, status: 'ok', issues: [] }); continue; }
+      if (!facet) { log.push({ label, status: 'flagged', issues: v.issues }); continue; }
 
       const texts: string[] = [];
       for (const e of embeddings) {
@@ -82,10 +99,10 @@ export const AIFacetJudgeService = {
         for (const t of e.chunkTexts ?? []) if (t.trim()) texts.push(t);
       }
       const excerpts = texts.slice(0, MAX_EXCERPTS).map(t => ({ title: '(фрагмент)', excerpt: t.slice(0, EXCERPT_CHARS) }));
-      if (excerpts.length === 0) continue;
+      if (excerpts.length === 0) { log.push({ label, status: 'flagged', issues: v.issues }); continue; }
 
       const re = await AIService.summarizeFacet({ notes: excerpts, focus: facet.label, correction: v.hint });
-      if (!re.ok || !re.summary) continue;
+      if (!re.ok || !re.summary) { log.push({ label, status: 'flagged', issues: v.issues }); continue; }
 
       // Re-judge the single corrected facet once.
       const recheck = await AIService.judgeFacets({
@@ -97,10 +114,16 @@ export const AIFacetJudgeService = {
         facet.updatedAt = Date.now();
         await db.put('aiProfileFacets', facet);
         corrected++;
+        log.push({ label, status: 'corrected', issues: v.issues });
+      } else {
+        // Keep the original summary (conservative), no second round.
+        log.push({ label, status: 'flagged', issues: v.issues });
       }
-      // else: keep the original summary (conservative), no second round.
     }
 
-    return { judged: verdicts.length, corrected };
+    try {
+      localStorage.setItem(JUDGE_LOG_KEY, JSON.stringify({ at: Date.now(), entries: log } satisfies JudgeLog));
+    } catch { /* quota — non-critical */ }
+    return { judged: verdicts.length, corrected, log };
   },
 };
