@@ -25,7 +25,7 @@ const SYSTEM_PROMPT = 'Ты анализируешь группу фрагмен
 
 export const summarizeFacet = onCall({
   secrets: ['GEMINI_API_KEY', 'FIREWORKS_API_KEY'],
-  timeoutSeconds: 60,
+  timeoutSeconds: 120,
   enforceAppCheck: false,
 }, async (request) => {
   if (!request.auth) {
@@ -68,7 +68,7 @@ export const summarizeFacet = onCall({
       json: false,
       maxTokens: 2048,
       model: FACET_MODEL,
-      abortMs: 50_000,
+      abortMs: 110_000,
     });
 
     recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'facet' }).catch(e =>
