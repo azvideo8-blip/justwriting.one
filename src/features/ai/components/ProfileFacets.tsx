@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Sparkles, Layers, Copy, FileText, PenLine, Scale } from 'lucide-react';
+import { Loader2, Sparkles, Layers, Copy, FileText, PenLine, Scale, CheckCircle2, Wrench, AlertTriangle, ChevronDown } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { useToast } from '../../../shared/components/Toast';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
-import { AIFacetJudgeService } from '../services/AIFacetJudgeService';
+import { AIFacetJudgeService, type JudgeLog } from '../services/AIFacetJudgeService';
 import type { AIProfileFacet, LocalDocument } from '../../../core/storage/localDb';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { reportError } from '../../../shared/errors/reportError';
@@ -32,6 +32,8 @@ export function ProfileFacets() {
   const [building, setBuilding] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [judgeLog, setJudgeLog] = useState<JudgeLog | null>(() => AIFacetJudgeService.getLog());
+  const [judgeLogOpen, setJudgeLogOpen] = useState(false);
 
   const toggle = (id: string) => setExpanded(prev => {
     const next = new Set(prev);
@@ -115,6 +117,8 @@ export function ProfileFacets() {
     setProgress(null);
     try {
       const { judged, corrected } = await AIFacetJudgeService.review();
+      setJudgeLog(AIFacetJudgeService.getLog());
+      setJudgeLogOpen(true);
       showToast(
         judged === 0 ? 'Нет тем для проверки'
           : corrected > 0 ? `Проверено ${judged} тем, исправлено ${corrected}`
@@ -179,6 +183,41 @@ export function ProfileFacets() {
           </Button>
         </div>
       </div>
+
+      {judgeLog && judgeLog.entries.length > 0 && (
+        <div className="border-b border-border-subtle">
+          <button
+            onClick={() => setJudgeLogOpen(o => !o)}
+            className="w-full px-5 py-2 flex items-center justify-between gap-2 text-[10px] font-bold text-text-main/60 uppercase tracking-wider hover:bg-surface-base/5 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <Scale size={12} className="text-brand-soft" />
+              Журнал судьи · {fmt(judgeLog.at)} · исправлено {judgeLog.entries.filter(e => e.status === 'corrected').length} из {judgeLog.entries.length}
+            </span>
+            <ChevronDown size={13} className={cn('transition-transform', judgeLogOpen && 'rotate-180')} />
+          </button>
+          {judgeLogOpen && (
+            <div className="px-5 pb-3 space-y-1.5">
+              {judgeLog.entries.map((e, i) => (
+                <div key={i} className="flex items-start gap-2 text-[11px]">
+                  {e.status === 'ok' && <CheckCircle2 size={12} className="text-emerald-400 mt-0.5 shrink-0" />}
+                  {e.status === 'corrected' && <Wrench size={12} className="text-violet-400 mt-0.5 shrink-0" />}
+                  {e.status === 'flagged' && <AlertTriangle size={12} className="text-amber-400 mt-0.5 shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <span className="font-semibold text-text-main">{e.label}</span>
+                    <span className="text-text-main/60">
+                      {e.status === 'ok' ? ' — без нареканий' : e.status === 'corrected' ? ' — исправлено' : ' — помечено, оставлено как есть'}
+                    </span>
+                    {e.issues.length > 0 && (
+                      <div className="text-[10px] text-text-main/60 mt-0.5">{e.issues.join('; ')}</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="p-4">
         {loading ? (
