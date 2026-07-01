@@ -59,11 +59,19 @@ export const AIFacetJudgeService = {
       evidence: buildEvidence(f.noteIds, summaries),
     }));
 
-    const judged = await AIService.judgeFacets({ facets: payload });
-    if (!judged.ok) return { judged: 0, corrected: 0 };
+    // Judge in small parallel chunks — one batch over all facets overruns the
+    // function timeout (gpt-oss reasoning on many long summaries) → aborted 500.
+    const JUDGE_CHUNK = 3;
+    const chunks: (typeof payload)[] = [];
+    for (let i = 0; i < payload.length; i += JUDGE_CHUNK) chunks.push(payload.slice(i, i + JUDGE_CHUNK));
+    const results = await Promise.all(chunks.map(c => AIService.judgeFacets({ facets: c })));
+    const verdicts = results.flatMap(r => (r.ok ? r.verdicts : []));
+    if (verdicts.length === 0 && results.every(r => !r.ok)) {
+      throw new Error('judge_call_failed');
+    }
 
     let corrected = 0;
-    for (const v of judged.verdicts) {
+    for (const v of verdicts) {
       if (v.ok || !v.hint) continue;
       const facet = facets.find(f => f.id === v.facetId);
       if (!facet) continue;
@@ -93,6 +101,6 @@ export const AIFacetJudgeService = {
       // else: keep the original summary (conservative), no second round.
     }
 
-    return { judged: judged.verdicts.length, corrected };
+    return { judged: verdicts.length, corrected };
   },
 };

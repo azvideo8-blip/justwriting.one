@@ -67,6 +67,7 @@ export const judgeFacets = onCall({
       messages: [{ role: 'user', content: facetsText }],
       json: true,
       maxTokens: 8192,
+      abortMs: 100_000,
       model: JUDGE_MODEL,
     });
     recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'judge' }).catch(() => {});
