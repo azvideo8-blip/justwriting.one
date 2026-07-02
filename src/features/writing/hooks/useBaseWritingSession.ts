@@ -104,7 +104,11 @@ export function useBaseWritingSession(): BaseSessionReturn {
   const handleStart = useCallback(() => {
     const currentStatus = useTimerStore.getState().status;
     const currentWordCount = useContentStore.getState().wordCount;
-    setStatus('writing');
+    if (currentStatus === 'paused') {
+      useTimerStore.getState().resumeSession();
+    } else {
+      setStatus('writing');
+    }
     setTimeGoalReached(false);
     setWordGoalReached(false);
     if (!sessionStartTime) {
@@ -114,8 +118,6 @@ export function useBaseWritingSession(): BaseSessionReturn {
     if (currentStatus === 'idle') {
       useTimerStore.setState({ _startWallMs: performance.now(), _accumulatedMs: 0, seconds: 0, sessionStartSeconds: 0 });
       setSessionStart(currentWordCount);
-    } else if (currentStatus === 'paused') {
-      useTimerStore.getState().resumeSession();
     }
   }, [setStatus, setTimeGoalReached, setWordGoalReached, sessionStartTime, setInitialWordCount, setSessionStartTime, setSessionStart]);
 

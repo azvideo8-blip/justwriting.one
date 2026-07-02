@@ -94,15 +94,21 @@ export class ExportService {
       document.body.appendChild(iframe);
 
       const cleanup = () => {
-        iframe.removeEventListener('afterprint', cleanup);
         if (iframe.parentNode) document.body.removeChild(iframe);
       };
-      iframe.addEventListener('afterprint', cleanup);
-      iframe.addEventListener('load', () => {
-        try { (iframe.contentWindow as Window | null)?.focus(); (iframe.contentWindow as Window | null)?.print(); } catch { /* cross-origin */ }
-      });
       const fallbackTimer = setTimeout(cleanup, 60_000);
-      iframe.addEventListener('afterprint', () => clearTimeout(fallbackTimer));
+      iframe.addEventListener('load', () => {
+        // Attach BEFORE print(): in Chrome print() blocks until the dialog
+        // closes, so a listener added after it would miss the event.
+        iframe.contentWindow?.addEventListener('afterprint', () => {
+          clearTimeout(fallbackTimer);
+          cleanup();
+        }, { once: true });
+        try {
+          (iframe.contentWindow as Window | null)?.focus();
+          (iframe.contentWindow as Window | null)?.print();
+        } catch { /* cross-origin */ }
+      });
     } catch (error) {
       reportError(error, { method: 'toPDF', title, contentLength: content.length });
       throw error;

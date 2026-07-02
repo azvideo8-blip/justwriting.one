@@ -50,7 +50,14 @@ export const AIService = {
   },
 
   parseTags(text: string): string[] {
-    try { return JSON.parse(text); } catch (e) { reportError(e, { action: 'parseTags' }); return []; }
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) return parsed.filter((x: unknown) => typeof x === 'string');
+      if (parsed && typeof parsed === 'object' && Array.isArray((parsed as Record<string, unknown>).tags)) {
+        return ((parsed as Record<string, unknown>).tags as unknown[]).filter((x: unknown) => typeof x === 'string') as string[];
+      }
+      return [];
+    } catch (e) { reportError(e, { action: 'parseTags' }); return []; }
   },
 
   async chat(params: {

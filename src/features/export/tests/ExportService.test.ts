@@ -139,8 +139,11 @@ describe('ExportService', () => {
       expect(createdIframe.srcdoc).toContain('This is content to print');
       expect(createdIframe.srcdoc).toContain('window.print()');
 
-      // Clean up: dispatch afterprint event on the iframe
-      createdIframe.dispatchEvent(new Event('afterprint'));
+      // Clean up: afterprint is a Window event — it fires on the iframe's
+      // contentWindow (listener attached in the load handler), not on the
+      // iframe element itself.
+      createdIframe.dispatchEvent(new Event('load'));
+      createdIframe.contentWindow.dispatchEvent(new Event('afterprint'));
       expect(removeChildSpy).toHaveBeenCalled();
     });
   });

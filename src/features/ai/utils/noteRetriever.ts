@@ -31,9 +31,10 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 50;
 
 let miniSearchInstance: MiniSearch | null = null;
+let miniSearchBuiltAt = 0;
 
 async function getMiniSearch(): Promise<MiniSearch> {
-  if (miniSearchInstance) return miniSearchInstance;
+  if (miniSearchInstance && Date.now() - miniSearchBuiltAt < CACHE_TTL_MS) return miniSearchInstance;
   const db = await getLocalDb();
   const docs = await db.getAll('documents');
   const entries: { id: string; title: string; content: string }[] = [];
@@ -57,6 +58,7 @@ async function getMiniSearch(): Promise<MiniSearch> {
     },
   });
   await miniSearchInstance.addAllAsync(entries);
+  miniSearchBuiltAt = Date.now();
   return miniSearchInstance;
 }
 
@@ -181,7 +183,7 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
     try {
       const summary = await cardsDb.get('aiSummaries', id);
       if (summary) {
-        card = `Тональность: ${summary.tone}\nТемы: ${summary.themes.join(', ')}\nИнсайты: ${summary.insights.join('; ')}\nФакты: ${summary.extractedFacts.join('; ')}`;
+        card = `Тональность: ${summary.tone ?? ''}\nТемы: ${(summary.themes ?? []).join(', ')}\nИнсайты: ${(summary.insights ?? []).join('; ')}\nФакты: ${(summary.extractedFacts ?? []).join('; ')}`;
       }
     } catch { /* keep placeholder */ }
     cards.push({ documentId: id, card });
@@ -369,7 +371,7 @@ export async function searchNotesMulti(
     try {
       const summary = await cardsDb.get('aiSummaries', id);
       if (summary) {
-        card = `Тональность: ${summary.tone}\nТемы: ${summary.themes.join(', ')}\nИнсайты: ${summary.insights.join('; ')}\nФакты: ${summary.extractedFacts.join('; ')}`;
+        card = `Тональность: ${summary.tone ?? ''}\nТемы: ${(summary.themes ?? []).join(', ')}\nИнсайты: ${(summary.insights ?? []).join('; ')}\nФакты: ${(summary.extractedFacts ?? []).join('; ')}`;
       }
     } catch { /* keep placeholder */ }
     cards.push({ documentId: id, card });

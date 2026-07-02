@@ -113,4 +113,5 @@ export const archiveTranslations: Translations = {
   archive_on_this_day_half_year: { ru: 'полгода назад', en: 'half a year ago' },
   archive_on_this_day_month: { ru: 'месяц назад', en: 'a month ago' },
   archive_untitled: { ru: 'Без названия', en: 'Untitled' },
+  archive_cloud_sync_failed: { ru: 'Облачная копия не синхронизирована', en: 'Cloud copy did not sync' },
 };

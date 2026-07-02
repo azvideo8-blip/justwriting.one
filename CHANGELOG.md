@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+## 2026-07-02 (v0.7.40)
+- **[RU]** AI-судья: надёжность — `judgeFacets` больше не падает с 500 на реальных профилях (9+ фасетов): батч разбит на чанки по 3, чанки параллельны; `summarizeFacet` коррекции — таймаут поднят 60→120 с. Развёрнутая упаковка по размеру (≤3500 символов summary+evidence на вызов) гарантирует, что каждый фасет проверен, даже самый большой.
+- **[EN]** AI judge: reliability — `judgeFacets` no longer 500s on real profiles (9+ facets): the batch is split into chunks of 3, chunks run in parallel; `summarizeFacet` correction timeout raised 60→120 s. Size-based packing (≤3500 chars summary+evidence per call) guarantees every facet is judged, even the biggest.
+- **[RU]** AI-судья: журнал — панель «Журнал судьи» показывает, какие фасеты проверены, исправлены или помечены, с текстом замечаний от модели. Действия судьи видны, а не только счётчик в toast.
+- **[EN]** AI judge: log — a "Judge log" panel shows which facets were checked, corrected, or flagged, with the model's issue text. The judge's actions are visible, not just a toast count.
+- **[RU]** AI-судья: точность — промпт судьи больше не считает отсутствующего человека в `mentionedPeople` ошибкой (факты могут быть неполными); помечаются только противоречия ролей и выдуманные события/числа.
+- **[EN]** AI judge: accuracy — the judge prompt no longer flags a person merely absent from `mentionedPeople` as an error (facts may be incomplete); only role contradictions and invented events/numbers are flagged.
+- **[RU]** Безопасность: ключ шифрования устройства сохраняется в IndexedDB как non-extractable (нельзя экспортировать); снятие «Запомнить устройство» удаляет сохранённый ключ; авто-разблокировка корректно выставляет флаг шифрования.
+- **[EN]** Security: the device encryption key is stored in IndexedDB as non-extractable (cannot be exported); unchecking "Remember device" clears the stored key; auto-unlock correctly sets the encryption-enabled flag.
+- **[RU]** Гонки данных: cooldown и дневной лимит AI теперь в одной транзакции (нельзя исчерпать лимит, но заблокироваться cooldown); запись фасетов сериализована блокировкой (`withFacetLock`); создание облачного документа под локом; детерминированные ID очереди синхронизации (нет дублей).
+- **[EN]** Data races: AI cooldown and daily limit are now in a single transaction (can't exhaust the limit yet get blocked by cooldown); facet writes are serialized (`withFacetLock`); cloud-doc creation is locked; sync-queue entries use deterministic IDs (no duplicates).
+- **[RU]** Синхронизация: поле `mood` доходит до облака и корректно удаляется (`deleteField`) при отсутствии; лок-записи исключены из счётчика pending; fallback-парсинг версий расширен (wordsAdded, charsAdded, goalReached, savedAt, sessionStartedAt, _encrypted).
+- **[EN]** Sync: the `mood` field reaches the cloud and is properly deleted (`deleteField`) when absent; lock entries excluded from the pending count; version fallback parsing extended (wordsAdded, charsAdded, goalReached, savedAt, sessionStartedAt, _encrypted).
+- **[RU]** AI-чат: фоллбэк со стрима на callable восстанавливается через 60 с (раньше — навсегда до перезагрузки); пустой ответ после очистки reasoning-тегов возвращает исходный текст; `parseTags` принимает оба JSON-формата (массив и `{tags:[…]}`).
+- **[EN]** AI chat: stream-to-callable fallback recovers after 60 s (previously permanent until reload); an empty answer after reasoning-tag stripping falls back to the raw text; `parseTags` accepts both JSON shapes (array and `{tags:[…]}`).
+- **[RU]** AI-профиль: null-safety на `insights` фасетов; MiniSearch пересоздаётся каждые 5 мин (не залипает на устаревшем индексе); ошибки `LOCKED` при чтении облачного саммари подавляются; черновик фасета прикрепляет заметки чипами (не авто-отправка); файл-аплоад использует единый лимит `API_MSG_CAP`.
+- **[EN]** AI profile: null-safety on facet `insights`; MiniSearch rebuilds every 5 min (no stale index); `LOCKED` errors on cloud-summary reads are suppressed; facet draft stages notes as chips (not auto-send); file upload uses a unified `API_MSG_CAP` limit.
+- **[RU]** Лимиты AI: переключение admin больше не сбрасывает кастомный лимит к дефолту — сохраняется `baseLimit`.
+- **[EN]** AI limits: toggling admin no longer resets a custom limit to the default — `baseLimit` is preserved.
+- **[RU]** Архив: выбор даты сбрасывает фильтр месяца (и наоборот) — нет конфликта фильтров; сброс фильтра очищает и дату; toast на ошибках удаления/обновления/синхронизации; кнопка AI-саммари показывает ошибки вместо молчания.
+- **[EN]** Archive: selecting a date clears the month filter (and vice versa) — no conflicting filters; filter reset also clears the date; toast on delete/update/sync errors; the AI-summary button shows errors instead of failing silently.
+- **[RU]** Письмо: возобновление паузы переставлено до смены статуса (таймер корректно resumes); beforeunload читает живой черновик (не устаревший snapshot); ошибка импорта облачного документа пробрасывается (не глотается); сбой очистки не блокирует «Новый».
+- **[EN]** Writing: pause-resume moved before the status change (timer correctly resumes); beforeunload reads the live draft (not a stale snapshot); cloud-doc import error is re-thrown (not swallowed); cleanup failure doesn't block "New".
+- **[RU]** Экспорт: очистка print-iframe исправлена — `afterprint` listener ставится до `print()` (Chrome блокирует после); export-all пропускает сессии с ошибкой контента.
+- **[EN]** Export: print-iframe cleanup fixed — the `afterprint` listener is attached before `print()` (Chrome blocks after); export-all skips sessions with a content error.
+- **[RU]** Service Worker: CACHE_VERSION обновлён до v0.7.40.
+- **[EN]** Service Worker: CACHE_VERSION updated to v0.7.40.
+
 ## 2026-06-30 (v0.7.39)
 - **[RU]** AI-профиль, подсистема B (самотюнинг порогов): перед каждым билдом `build()` симулирует назначение заметок по доменам из cosine-скоров (та же primary/secondary/PROF-8 логика, без LLM) и демпфированно двигает пороги в полосу `[2 заметки..40%]` (шаг 0.02, кламп `[0.40,0.60]`, ≤20 итераций), персистя в per-user `ai_taxonomy`. `simulateAssignment`/`tuneThresholds` — чистые, с fixed-point тестом.
 - **[EN]** AI profile, subsystem B (threshold self-tuning): before each build, `build()` simulates domain assignment from cosine scores (same primary/secondary/PROF-8 logic, no LLM) and damped-nudges thresholds into a `[2 notes..40%]` band (step 0.02, clamp `[0.40,0.60]`, ≤20 iters), persisting to the per-user `ai_taxonomy`. Pure `simulateAssignment`/`tuneThresholds` with a fixed-point test.

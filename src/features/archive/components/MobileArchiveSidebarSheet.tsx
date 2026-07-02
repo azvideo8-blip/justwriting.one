@@ -125,6 +125,7 @@ export function MobileArchiveSidebarSheet({
                   if (selectedDate && isSameDay(d, selectedDate)) {
                     onSelectDate(null);
                   } else {
+                    onSelectMonth(null);
                     onSelectDate(d);
                   }
                 }}

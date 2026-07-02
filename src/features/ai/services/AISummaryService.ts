@@ -57,10 +57,16 @@ export const AISummaryService = {
 
     const uid = getAuth().currentUser?.uid;
     if (uid) {
-      const cloud = await fetchSummaryFromCloud(uid, documentId);
-      if (cloud) {
-        await db.put('aiSummaries', cloud);
-        return cloud;
+      try {
+        const cloud = await fetchSummaryFromCloud(uid, documentId);
+        if (cloud) {
+          await db.put('aiSummaries', cloud);
+          return cloud;
+        }
+      } catch (e) {
+        if (!String(e).includes('LOCKED')) {
+          reportError(e, { action: 'ai_summary_cloud_read' });
+        }
       }
     }
     return undefined;

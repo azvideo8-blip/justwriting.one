@@ -1,6 +1,6 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import { AIService } from './AIService';
-import { AIProfileFacetService } from './AIProfileFacetService';
+import { AIProfileFacetService, withFacetLock } from './AIProfileFacetService';
 import { AIEmbeddingService } from './AIEmbeddingService';
 
 export interface SummaryRow {
@@ -60,6 +60,7 @@ export const AIFacetJudgeService = {
   },
 
   async review(): Promise<{ judged: number; corrected: number; log: JudgeLogEntry[] }> {
+    return withFacetLock(async () => {
     const facets = await AIProfileFacetService.getAll();
     if (facets.length === 0) return { judged: 0, corrected: 0, log: [] };
 
@@ -140,5 +141,6 @@ export const AIFacetJudgeService = {
       localStorage.setItem(JUDGE_LOG_KEY, JSON.stringify({ at: Date.now(), entries: log } satisfies JudgeLog));
     } catch { /* quota — non-critical */ }
     return { judged: verdicts.length, corrected, log };
+    });
   },
 };

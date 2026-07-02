@@ -51,12 +51,13 @@ export function useArchiveData(user: User | null, userId: string, t: (key: strin
     return t('archive_stats_title');
   }, [selectedLabels, selectedTags, selectedMonth, t, language, labels]);
 
-  const hasActiveFilter = selectedTags.length > 0 || selectedLabels.length > 0 || !!selectedMonth;
+  const hasActiveFilter = selectedTags.length > 0 || selectedLabels.length > 0 || !!selectedMonth || !!selectedDate;
 
   const resetStatsFilter = () => {
     setSelectedTags([]);
     setSelectedLabels([]);
     setSelectedMonth(null);
+    setSelectedDate(null);
   };
 
   const { wordCloud, maxCount } = useArchiveWordCloud();

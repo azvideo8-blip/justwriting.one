@@ -66,6 +66,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
           content = await LocalVersionService.getLatestContent(localId);
         } catch (e) {
           reportError(e, { action: 'writingActions/importCloudDoc' });
+          throw e;
         }
       }
 
@@ -212,7 +213,11 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       return;
     }
     resetAndClear();
-    await cleanupDraftsAfterSave(userId, isGuest, null);
+    try {
+      await cleanupDraftsAfterSave(userId, isGuest, null);
+    } catch (e) {
+      reportError(e, { action: 'writingActions/new' });
+    }
   }, [flow, isGuest, userId]);
 
   const handleFinish = React.useCallback((keystrokeTrackerRef: React.RefObject<{ getStats: () => { kpm: number; ikiMedian: number; ikiCv: number; sampleSize: number; kpmWpmRatio?: number } | null; reset: () => void } | null>) => {
