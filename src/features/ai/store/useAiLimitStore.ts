@@ -31,6 +31,7 @@ function readLocalUsage(): { count: number; date: string } {
 interface AiLimitState {
   remaining: number;
   limit: number;
+  baseLimit: number;
   used: number;
   resetsAt: Date;
   loaded: boolean;
@@ -45,6 +46,7 @@ interface AiLimitState {
 export const useAiLimitStore = create<AiLimitState>((set, get) => ({
   remaining: DEFAULT_LIMIT,
   limit: DEFAULT_LIMIT,
+  baseLimit: DEFAULT_LIMIT,
   used: 0,
   resetsAt: getMidnightUtc(),
   loaded: false,
@@ -102,13 +104,13 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
     set(state => {
       const limit = state.isAdmin ? ADMIN_LIMIT : newLimit;
       const remaining = Math.max(0, limit - state.used);
-      return { limit, remaining };
+      return { limit, remaining, baseLimit: newLimit };
     });
   },
 
   setAdmin(admin: boolean) {
     set(state => {
-      const limit = admin ? ADMIN_LIMIT : DEFAULT_LIMIT;
+      const limit = admin ? ADMIN_LIMIT : state.baseLimit;
       const remaining = Math.max(0, limit - state.used);
       return { isAdmin: admin, limit, remaining };
     });

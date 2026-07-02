@@ -17,6 +17,7 @@ vi.mock('../AIProfileFacetService', () => ({
       { id: 'f1', label: 'Доверие', summary: 'коллега Лариса', noteIds: ['n1'] },
     ]),
   },
+  withFacetLock: vi.fn(<T,>(fn: () => Promise<T>) => fn()),
 }));
 vi.mock('../../../../core/storage/localDb', () => ({
   getLocalDb: vi.fn(async () => ({

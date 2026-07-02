@@ -92,13 +92,13 @@ export const DocumentService = {
   ): Promise<void> {
     try {
       const { db, mod } = await getClient();
-      const { doc, updateDoc, Timestamp, increment } = mod;
-      const updateData: Record<string, number | string | boolean | ReturnType<typeof increment> | ReturnType<typeof Timestamp.now>> = {
+      const { doc, updateDoc, Timestamp, increment, deleteField } = mod;
+      const updateData: Record<string, number | string | boolean | ReturnType<typeof increment> | ReturnType<typeof Timestamp.now> | ReturnType<typeof deleteField>> = {
         totalWords: data.totalWords,
         totalDuration: data.totalDuration,
         currentVersion: data.currentVersion,
       };
-      if (data.mood) updateData.mood = data.mood;
+      if (data.mood) updateData.mood = data.mood; else updateData.mood = deleteField();
       if (data.sessionsCount !== undefined) {
         updateData.sessionsCount = data.sessionsCount;
       } else {

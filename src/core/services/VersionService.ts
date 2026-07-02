@@ -73,7 +73,7 @@ export const VersionService = {
           if (!parsed.success) {
             reportError(parsed.error, { action: 'getVersions_parse', docId: d.id });
             const rawData = d.data() as Record<string, unknown>;
-            return { id: d.id, documentId: rawData.documentId ?? documentId, version: rawData.version ?? 0, content: rawData.content ?? '', wordCount: rawData.wordCount ?? 0, duration: rawData.duration ?? 0, wpm: rawData.wpm ?? 0 } as Version;
+            return { id: d.id, documentId: rawData.documentId ?? documentId, version: rawData.version ?? 0, content: rawData.content ?? '', wordCount: rawData.wordCount ?? 0, duration: rawData.duration ?? 0, wpm: rawData.wpm ?? 0, wordsAdded: rawData.wordsAdded ?? 0, charsAdded: rawData.charsAdded ?? 0, goalReached: rawData.goalReached ?? false, savedAt: rawData.savedAt ?? null, sessionStartedAt: rawData.sessionStartedAt ?? null, ...(rawData._encrypted === true ? { _encrypted: true } : {}) } as Version;
           }
           return parsed.data as Version;
         })

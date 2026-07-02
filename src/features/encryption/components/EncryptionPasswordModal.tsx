@@ -17,7 +17,7 @@ import {
 } from '../../../core/services/EncryptionService';
 import { migrateFromLegacy } from '../../../core/services/LegacyKeyMigration';
 import { getSessionKey } from '../../../core/crypto/encrypt';
-import { saveDeviceKey } from '../../../core/crypto/keyVaultCache';
+import { saveDeviceKey, clearDeviceKey } from '../../../core/crypto/keyVaultCache';
 import { setRememberDevice } from '../../../core/crypto/useEncryptionStore';
 import type { EncryptionModalMode } from '../hooks/useEncryptionSetup';
 
@@ -92,6 +92,8 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
       if (rememberDevice) {
         const key = getSessionKey();
         if (key) { await saveDeviceKey(userId, key); setRememberDevice(true); }
+      } else {
+        await clearDeviceKey(userId);
       }
       showToast(t('unlock_success'), 'success');
       setPassword('');

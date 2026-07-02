@@ -11,7 +11,7 @@ import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService'
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { getOrCreateGuestId } from '../../../core/storage/localDb';
 import { getAuth } from 'firebase/auth';
-import { useAIChat } from '../hooks/useAIChat';
+import { useAIChat, API_MSG_CAP } from '../hooks/useAIChat';
 import { useDailyLimit } from '../hooks/useDailyLimit';
 import { useProfile } from '../../auth/contexts/ProfileContext';
 import { personaVisual, usePersonaRole } from '../constants/personaVisuals';
@@ -85,7 +85,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     streamingReasoning,
     error,
     sendMessage,
-    attachDocument,
     prepareAttachment,
     stop,
     regenerateLast,
@@ -180,15 +179,18 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
           `Напиши вовлекающий пост для Telegram/блога на тему «${facet.label}» на основе связанных заметок. ` +
           `Инсайты для фокуса: ${facet.summary}`
         );
-        // Attach facet notes to the new dialogue
+        // Stage facet notes as pending attachment chips instead of auto-sending
+        const notes: { documentId: string; title: string; content: string }[] = [];
         for (const noteId of facet.noteIds.slice(0, 5)) {
-          await attachDocument(noteId);
+          const p = await prepareAttachment(noteId);
+          if (p) notes.push({ documentId: noteId, title: p.title, content: p.content });
         }
+        setPendingAttachments(notes);
       } catch (e) {
         reportError(e, { action: 'use_ai_page_data_draft_facet' });
       }
     })();
-  }, [draftFacetId, attachDocument, handleNewDialogue]);
+  }, [draftFacetId, prepareAttachment, handleNewDialogue]);
 
   useEffect(() => {
     if (!attachMenuOpen) return;
@@ -437,15 +439,13 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     const reader = new FileReader();
     reader.onload = async (ev) => {
       const text = typeof ev.target?.result === 'string' ? ev.target.result : '';
-      if (text.length > MAX_INPUT_CHARS) {
-        void alertDialog({ title: 'Файл слишком большой', message: `Более ${MAX_INPUT_CHARS.toLocaleString()} символов` });
+      const formatted = `[Прикреплен файл: "${file.name}"]\n\n${text}`;
+      if (formatted.length > API_MSG_CAP) {
+        void alertDialog({ title: 'Файл слишком большой', message: `Более ${API_MSG_CAP.toLocaleString()} символов` });
         return;
       }
-      const formatted = `[Прикреплен файл: "${file.name}"]\n\n${text}`;
-      await sendMessage(formatted);
-      if (!activeDialogueId && dialogue) {
-        setActiveDialogueId(dialogue.id);
-      }
+      const id = await sendMessage(formatted);
+      if (id && !activeDialogueId) setActiveDialogueId(id);
       await loadDialogues();
     };
     reader.readAsText(file);

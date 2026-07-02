@@ -17,13 +17,32 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
+function secureClear(buf: Uint8Array): void {
+  buf.fill(0);
+}
+
 export async function saveDeviceKey(userId: string, key: CryptoKey): Promise<void> {
   let db: IDBDatabase | null = null;
   try {
+    let keyToStore = key;
+    if (key.extractable) {
+      const raw = new Uint8Array(await crypto.subtle.exportKey('raw', key));
+      try {
+        keyToStore = await crypto.subtle.importKey(
+          'raw',
+          raw,
+          { name: 'AES-GCM' },
+          false,
+          ['encrypt', 'decrypt'],
+        );
+      } finally {
+        secureClear(raw);
+      }
+    }
     db = await openDb();
     await new Promise<void>((resolve, reject) => {
       const tx = db!.transaction(STORE, 'readwrite');
-      tx.objectStore(STORE).put(key, userId);
+      tx.objectStore(STORE).put(keyToStore, userId);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });

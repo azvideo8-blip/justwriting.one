@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useMemo } from 'react';
 import type { RefObject } from 'react';
 import type { User } from 'firebase/auth';
 import { useTimerStore } from '../store/useTimerStore';
@@ -37,11 +37,10 @@ export function useDraftManager(
 
   // D-2: keep a ref with the latest draft data for useSyncUnloadSave so guests
   // get a beforeunload/pagehide localStorage fallback.
-  const draftSnapshotRef = useRef(getDraftData());
+  const liveDraftRef = useMemo(() => ({ get current() { return getDraftDataRef.current(); } }), []);
   useEffect(() => {
     getDraftDataRef.current = getDraftData;
     onSaveDraftRef.current = options.onSaveDraft;
-    draftSnapshotRef.current = getDraftData();
   }, [getDraftData, options.onSaveDraft]);
 
   const doAutosave = useCallback(async () => {
@@ -68,7 +67,7 @@ export function useDraftManager(
   // recent typing.
   useSyncUnloadSave(
     userId ? ({ uid: userId } as User) : null,
-    draftSnapshotRef as unknown as RefObject<{ pinnedThoughts: string[]; sessionStartTime?: number | undefined; activeSessionId: string | null; [key: string]: unknown }>,
+    liveDraftRef as unknown as RefObject<{ pinnedThoughts: string[]; sessionStartTime?: number | undefined; activeSessionId: string | null; [key: string]: unknown }>,
   );
 
   const forceSave = useCallback(async () => {

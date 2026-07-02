@@ -17,6 +17,7 @@ import type { AIDocumentSummary } from '../../../core/storage/localDb';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { reportError } from '../../../shared/errors/reportError';
+import { useToast } from '../../../shared/components/Toast';
 
 export function DocumentPreview({ session, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags }: {
   session: ArchiveSession | null;
@@ -29,6 +30,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
   allTags?: string[] | undefined;
 }) {
   const { t, language } = useLanguage();
+  const { showToast } = useToast();
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
   const [labelPopupOpen, setLabelPopupOpen] = useState(false);
@@ -414,8 +416,19 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
 
                     const { AIProfileService } = await import('../../ai/services/AIProfileService');
                     AIProfileService.generate().catch(e => reportError(e, { action: 'manual_portrait' }));
+                  } else {
+                    const errMap: Record<string, string> = {
+                      AUTH_REQUIRED: t('ai_error_auth'),
+                      DAILY_LIMIT: t('ai_error_rate_limit'),
+                      RATE_LIMIT: t('ai_error_rate_limit'),
+                      TOO_LONG: t('ai_error_too_long'),
+                      SERVER_ERROR: t('ai_error_server'),
+                    };
+                    showToast(errMap[res.error] ?? t('ai_error_server'), 'error');
                   }
-                } catch { /* ignore */ }
+                } catch {
+                  showToast(t('ai_error_server'), 'error');
+                }
                 setSummaryLoading(false);
               })();
             }}

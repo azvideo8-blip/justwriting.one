@@ -3,6 +3,7 @@ import { useAuthStatus } from '../../../app/useAuthStatus';
 import { isVaultUnlocked, setSessionKey } from '../../../core/crypto/encrypt';
 import { useEncryptionStore, setRememberDevice } from '../../../core/crypto/useEncryptionStore';
 import { loadDeviceKey, clearDeviceKey } from '../../../core/crypto/keyVaultCache';
+import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { hasEncryptionMeta, getEncryptionMeta } from '../../../core/services/EncryptionMetaService';
 import { hasLegacyEncryption } from '../../../core/services/LegacyKeyMigration';
 
@@ -70,6 +71,7 @@ export function useEncryptionSetup(): {
             }
             setSessionKey(deviceKey);
             setRememberDevice(true);
+            setEncryptionEnabled(user.uid, true);
             setMode('none');
           } else {
             // V-4: verification string missing/empty — refuse auto-unlock,

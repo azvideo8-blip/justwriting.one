@@ -13,16 +13,16 @@ class LockManager {
   async acquire<T>(key: string, fn: () => Promise<T>): Promise<T> {
     const prev = this.locks.get(key) || Promise.resolve();
     let result: T | undefined;
-    let settled = false;
     const next = prev.then(
-      async () => { result = await fn(); settled = true; },
-      async () => { result = await fn(); settled = true; },
+      async () => { result = await fn(); },
+      async () => { result = await fn(); },
     );
-    this.locks.set(key, next.then(() => {}, () => {}));
+    const stored = next.then(() => {}, () => {});
+    this.locks.set(key, stored);
     try {
       await next;
     } finally {
-      if (settled) this.locks.delete(key);
+      if (this.locks.get(key) === stored) this.locks.delete(key);
     }
     return result!;
   }
@@ -44,7 +44,7 @@ export const StorageService = {
   },
 
   async addCloudCopy(userId: string, localDocumentId: string, _encryptionRequired = true): Promise<string> {
-    return CloudSyncService.addCloudCopy(userId, localDocumentId, _encryptionRequired);
+    return _lockManager.acquire(localDocumentId, () => CloudSyncService.addCloudCopy(userId, localDocumentId, _encryptionRequired));
   },
 
   async removeLocalCopy(localDocumentId: string): Promise<void> {

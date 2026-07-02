@@ -20,7 +20,7 @@ import { detectRisk, CRISIS_RESOURCES } from '../utils/riskDetect';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
 
-let _streamAvailable: boolean | null = null;
+let _streamUnavailableUntil = 0;
 const CONTEXT_WINDOW = 14;
 
 // Detect "search my notes" intent. Regex-based (not a fixed phrase list) so
@@ -47,7 +47,7 @@ function looksLikeNoteSearch(text: string): boolean {
 // the most reliable channel — same as file upload). Only OVERSIZED attachment
 // messages are collapsed to their marker (the full note then travels via
 // documentContent), with a hard slice as the final safety net.
-const API_MSG_CAP = 9_500;
+export const API_MSG_CAP = 9_500;
 function toApiContent(content: string): string {
   if (content.length <= API_MSG_CAP) return content;
   const noteMatch = content.match(/^\[Прикреплена заметка: "[^"]+"\]/);
@@ -102,7 +102,7 @@ async function streamChat(params: {
   });
 
   if (response.status === 404) {
-    _streamAvailable = false;
+    _streamUnavailableUntil = Date.now() + 60_000;
     throw new Error('STREAM_FALLBACK');
   }
 
@@ -119,8 +119,6 @@ async function streamChat(params: {
     throw new Error(errorKind);
   }
   if (!response.ok) throw new Error('SERVER_ERROR');
-
-  _streamAvailable = true;
 
   const reader = response.body!.getReader();
   const decoder = new TextDecoder();
@@ -267,7 +265,7 @@ function extractAnswer(text: string): string {
     }
   }
   // Strip reasoning blocks and return the rest
-  return text
+  const stripped = text
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
     .replace(/(?:\/\/)?<\/?reasoning>/gi, '')
     .replace(/ХОД МЫСЛИ:[\s\S]*?(?=ОТВЕТ:|$)/gi, '')
@@ -275,6 +273,13 @@ function extractAnswer(text: string): string {
     .replace(/(?:\/\/)?<answer>/gi, '')
     .replace(/<\/answer>/gi, '')
     .trim();
+  if (!stripped && text.trim()) {
+    return text
+      .replace(/^ХОД МЫСЛИ:\s*$/gim, '')
+      .replace(/^ОТВЕТ:\s*$/gim, '')
+      .trim();
+  }
+  return stripped;
 }
 
 interface UseAIChatReturn {
@@ -1011,7 +1016,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       let fullText: string;
 
-      if (_streamAvailable === false) {
+      if (Date.now() < _streamUnavailableUntil) {
         fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, responseLength: effectiveResponseLength, reasoning: effectiveReasoning });
       } else {
         try {

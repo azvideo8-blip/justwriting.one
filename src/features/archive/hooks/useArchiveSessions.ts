@@ -5,6 +5,7 @@ import { ArchiveSession } from '../types';
 import { updateArchiveField, deleteArchiveSession } from '../services/archiveCrud';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { logger } from '../../../shared/errors/logger';
+import { useToast } from '../../../shared/components/Toast';
 import { rebuildWordCloud } from './useArchiveWordCloud';
 
 export function useArchiveSessions(user: User | null, userId: string, t: (key: string) => string) {
@@ -17,6 +18,7 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
   const mountedRef = useRef(true);
   const isVaultUnlocked = useEncryptionStore(s => s.isVaultUnlocked);
   const prevVaultUnlockedRef = useRef(isVaultUnlocked);
+  const { showToast } = useToast();
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
@@ -65,6 +67,7 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
       void rebuildWordCloud().catch(() => { /* non-critical */ });
     } catch (e) {
       logger.error('archive', 'Failed to delete session', { error: String(e) });
+      showToast(t('error_delete_failed'), 'error');
     }
   };
 
@@ -74,7 +77,7 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
     value: string[] | string | Date | undefined
   ) => {
     try {
-      await updateArchiveField(session, field, value, user, userId);
+      const result = await updateArchiveField(session, field, value, user, userId);
       const patch: Partial<ArchiveSession> = {};
       if (field === 'tags' && Array.isArray(value)) patch.tags = value;
       else if (field === 'title' && typeof value === 'string') patch.title = value;
@@ -85,8 +88,12 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
         patch.labelId = value;
       }
       updateSession(session.id, patch);
+      if (result.cloudSyncFailed) {
+        showToast(t('archive_cloud_sync_failed'), 'error');
+      }
     } catch (e) {
       logger.error('archive', `Failed to update ${field}`, { error: String(e) });
+      showToast(t('error_generic_action'), 'error');
     }
   };
 

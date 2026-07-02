@@ -14,6 +14,22 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.40',
+    date: '2026-07-02',
+    items: [
+      { category: 'fix', ru: 'ИИ-судья тем больше не падает с ошибкой 500 на больших профилях — батч разбит на чанки, а упаковка по размеру гарантирует, что каждый фасет проверен', en: 'The AI topic judge no longer 500s on large profiles — the batch is chunked, and size-based packing guarantees every facet is checked' },
+      { category: 'new', ru: '«Журнал судьи» — панель показывает, какие темы проверены, исправлены или помечены, с текстом замечаний', en: '"Judge log" panel — shows which topics were checked, corrected, or flagged, with the judge\'s issue text' },
+      { category: 'fix', ru: 'Судья больше не считает отсутствующего человека ошибкой — помечаются только противоречия ролей и выдуманные факты', en: 'The judge no longer flags a merely absent person as an error — only role contradictions and invented facts are flagged' },
+      { category: 'fix', ru: 'Безопасность: ключ шифрования устройства хранится как non-extractable; снятие «Запомнить устройство» удаляет ключ', en: 'Security: the device encryption key is stored as non-extractable; unchecking "Remember device" clears the key' },
+      { category: 'fix', ru: 'Гонки данных: AI cooldown и дневной лимит в одной транзакции; запись фасетов и создание облачных документов сериализованы — нет гонок при одновременных операциях', en: 'Data races: AI cooldown and daily limit in a single transaction; facet writes and cloud-doc creation are serialized — no races on concurrent operations' },
+      { category: 'fix', ru: 'Синхронизация: настроение доходит до облака и корректно очищается; нет дублей в очереди синхронизации', en: 'Sync: mood reaches the cloud and is properly cleared; no duplicate sync-queue entries' },
+      { category: 'fix', ru: 'AI-чат: фоллбэк со стрима восстанавливается через 60 с (раньше — навсегда); пустой ответ после очистки reasoning возвращает текст; теги парсятся из обоих JSON-форматов', en: 'AI chat: stream fallback recovers after 60 s (was permanent); empty answer after reasoning cleanup returns the text; tags parsed from both JSON shapes' },
+      { category: 'fix', ru: 'Архив: фильтры даты и месяца больше не конфликтуют; ошибки удаления/обновления/синхронизации показываются toast', en: 'Archive: date and month filters no longer conflict; delete/update/sync errors shown as toast' },
+      { category: 'fix', ru: 'Письмо: возобновление паузы и сохранение черновика при закрытии вкладки исправлены; сбой очистки не блокирует «Новый»', en: 'Writing: pause-resume and draft-on-tab-close fixed; cleanup failure doesn\'t block "New"' },
+      { category: 'fix', ru: 'Экспорт: очистка печати исправлена (afterprint до print); массовый экспорт пропускает сессии с ошибкой контента', en: 'Export: print cleanup fixed (afterprint before print); bulk export skips content-error sessions' },
+    ],
+  },
+  {
     version: '0.7.39',
     date: '2026-06-30',
     items: [

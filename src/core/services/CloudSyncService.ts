@@ -173,6 +173,7 @@ export const CloudSyncService = {
             currentVersion: localDoc.currentVersion,
             sessionsCount: localDoc.sessionsCount,
             lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
+            mood: localDoc.mood,
           }));
           return cloudId;
         }
@@ -239,6 +240,7 @@ export const CloudSyncService = {
           currentVersion: localDoc.currentVersion,
           sessionsCount: localDoc.sessionsCount,
           lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
+          mood: localDoc.mood,
         }));
       } catch (e) {
         if (cloudId) {
@@ -281,7 +283,7 @@ export const CloudSyncService = {
     if (!isFirestoreConnected) {
       const syncDb = await getLocalDb();
       await syncDb.put('syncQueue', {
-        id: `sync_${documentId}_${Date.now()}`,
+        id: `sync_${documentId}`,
         documentId,
         type: 'document' as const,
         createdAt: Date.now(),
@@ -293,7 +295,7 @@ export const CloudSyncService = {
       if (!cloudDoc) {
         const syncDb = await getLocalDb();
         await syncDb.put('syncQueue', {
-          id: `sync_${documentId}_${Date.now()}`,
+          id: `sync_${documentId}`,
           documentId,
           type: 'document' as const,
           createdAt: Date.now(),
@@ -348,7 +350,7 @@ export const CloudSyncService = {
       try {
         const syncDb = await getLocalDb();
         await syncDb.put('syncQueue', {
-          id: `sync_${documentId}_${Date.now()}`,
+          id: `sync_${documentId}`,
           documentId,
           type: 'document' as const,
           createdAt: Date.now(),

@@ -168,12 +168,14 @@ async function refundDailyLimit(uid: string): Promise<void> {
   const date = new Date().toISOString().slice(0, 10);
   const fs = db();
   const ref = fs.doc(`aiDailyLimit/${uid}`);
+  const cooldownRef = fs.doc(`aiCooldown/${uid}`);
   try {
     await fs.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       const data = snap.data();
       if (!data || data.date !== date) return;
       tx.update(ref, { count: Math.max(0, (data.count ?? 0) - 1) });
+      tx.delete(cooldownRef);
     });
   } catch (e) {
     console.error('[api/chat] refundDailyLimit failed:', e);
@@ -218,29 +220,29 @@ async function checkAndIncrementLimit(uid: string, reasoning?: boolean | null): 
 
   const fs = db();
   const now = Date.now();
-
+  const date = new Date().toISOString().slice(0, 10);
   const cooldownRef = fs.doc(`aiCooldown/${uid}`);
-  const cooldownAllowed = await fs.runTransaction(async (tx) => {
-    const snap = await tx.get(cooldownRef);
-    const data = snap.data();
-    if (data && now - data.lastRequestAt < COOLDOWN_MS) return false;
-    tx.set(cooldownRef, { lastRequestAt: now }, { merge: true });
-    return true;
-  });
-  if (!cooldownAllowed) return false;
+  const dailyRef = fs.doc(`aiDailyLimit/${uid}`);
 
   // TICKET-049: Reasoning mode gets reduced limit (5 instead of 10)
   const baseLimit = await userDailyLimit(uid);
   const limit = reasoning ? Math.min(baseLimit, 5) : baseLimit;
-  const date = new Date().toISOString().slice(0, 10);
-  const ref = fs.doc(`aiDailyLimit/${uid}`);
 
   return fs.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const data = snap.data();
-    if (!data || data.date !== date) { tx.set(ref, { count: 1, date }); return true; }
-    if (data.count >= limit) return false;
-    tx.update(ref, { count: data.count + 1 });
+    const [cooldownSnap, dailySnap] = await Promise.all([
+      tx.get(cooldownRef),
+      tx.get(dailyRef),
+    ]);
+    const cooldownData = cooldownSnap.data();
+    if (cooldownData && now - cooldownData.lastRequestAt < COOLDOWN_MS) return false;
+    const dailyData = dailySnap.data();
+    if (dailyData && dailyData.date === date && dailyData.count >= limit) return false;
+    tx.set(cooldownRef, { lastRequestAt: now }, { merge: true });
+    if (!dailyData || dailyData.date !== date) {
+      tx.set(dailyRef, { count: 1, date });
+    } else {
+      tx.update(dailyRef, { count: dailyData.count + 1 });
+    }
     return true;
   });
 }
@@ -420,7 +422,8 @@ async function streamFireworksReasoning(
     }
    // LX-1: Flush any remaining buffered content (no marker was found)
   if (contentAccum && !wroteAnswerHeader) {
-    if (!wroteReasoningHeader) { res.write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
+    if (wroteReasoningHeader) { res.write('\n\nОТВЕТ:\n'); }
+    wroteAnswerHeader = true;
     res.write(contentAccum);
   }
   try {

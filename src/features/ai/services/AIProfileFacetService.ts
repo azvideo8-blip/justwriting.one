@@ -74,6 +74,14 @@ function canonicalName(raw: string): string {
 }
 
 
+let facetWriteLock: Promise<unknown> = Promise.resolve();
+
+export function withFacetLock<T>(fn: () => Promise<T>): Promise<T> {
+  const result = facetWriteLock.then(fn);
+  facetWriteLock = result.then(() => undefined, () => undefined);
+  return result;
+}
+
 export const AIProfileFacetService = {
   async getAll(): Promise<AIProfileFacet[]> {
     const db = await getLocalDb();
@@ -88,6 +96,7 @@ export const AIProfileFacetService = {
   },
 
   async build(onProgress?: (p: FacetBuildProgress) => void): Promise<FacetBuildResult> {
+    return withFacetLock(async () => {
     const db = await getLocalDb();
 
     const embeddings = await AIEmbeddingService.getAll();
@@ -283,7 +292,7 @@ export const AIProfileFacetService = {
         updatedAt: Date.now(),
         buildId,
         insightDensity: spec.noteIds.length > 0
-          ? spec.noteIds.filter(id => { const s = summaryMap.get(id); return s && s.insights.length > 0; }).length / spec.noteIds.length
+          ? spec.noteIds.filter(id => { const s = summaryMap.get(id); return s && (s.insights?.length ?? 0) > 0; }).length / spec.noteIds.length
           : 0,
       });
       await new Promise(r => setTimeout(r, LLM_DELAY_MS));
@@ -344,7 +353,7 @@ export const AIProfileFacetService = {
         updatedAt: Date.now(),
         buildId,
         insightDensity: pn.noteIds.length > 0
-          ? pn.noteIds.filter(id => { const s = summaryMap.get(id); return s && s.insights.length > 0; }).length / pn.noteIds.length
+          ? pn.noteIds.filter(id => { const s = summaryMap.get(id); return s && (s.insights?.length ?? 0) > 0; }).length / pn.noteIds.length
           : 0,
       });
       await new Promise(r => setTimeout(r, LLM_DELAY_MS));
@@ -360,9 +369,11 @@ export const AIProfileFacetService = {
       if (!newIds.has(f.id)) await db.delete('aiProfileFacets', f.id);
     }
     return { ok: true, count: newFacets.length };
+    });
   },
 
   async incrementalUpdate(noteId: string): Promise<{ updated: number }> {
+    return withFacetLock(async () => {
     const db = await getLocalDb();
     const facets = await db.getAll('aiProfileFacets');
     if (facets.length === 0) return { updated: 0 };
@@ -425,9 +436,11 @@ export const AIProfileFacetService = {
     }
 
     return { updated: dirty.size };
+    });
   },
 
   async resummarizeDirty(onProgress?: (p: FacetBuildProgress) => void): Promise<{ count: number }> {
+    return withFacetLock(async () => {
     const db = await getLocalDb();
     const facets = await db.getAll('aiProfileFacets');
     const dirty = facets.filter(f => f.dirty);
@@ -469,5 +482,6 @@ export const AIProfileFacetService = {
     }
 
     return { count: dirty.length };
+    });
   },
 };

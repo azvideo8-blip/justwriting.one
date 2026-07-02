@@ -26,7 +26,7 @@ export const SyncService = {
   async getPendingCount(): Promise<number> {
     const db = await getLocalDb();
     const all = await db.getAll('syncQueue');
-    return all.length;
+    return all.filter(i => !i.id.startsWith('lock_cloud_')).length;
   },
 
   async getUnsyncedCount(userId: string): Promise<number> {

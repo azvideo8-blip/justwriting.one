@@ -8,6 +8,7 @@ import { toDate } from '../../core/utils/dateUtils';
 interface LockedFlags {
   _locked?: boolean;
   _decryptionError?: boolean;
+  _contentError?: boolean;
 }
 
 export interface ExportAllResult {
@@ -26,7 +27,7 @@ export async function exportAllAsZip(
 
   for (const session of sessions) {
     const flags = session as LockedFlags;
-    if (flags._locked || flags._decryptionError) {
+    if (flags._locked || flags._decryptionError || flags._contentError) {
       skipped++;
       continue;
     }
