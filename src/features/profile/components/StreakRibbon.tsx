@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Snowflake } from 'lucide-react';
 import { getSessionDate, calculateStreak, calculateBestStreak, cn } from '../../../core/utils/utils';
+import { wasFreezeUsedThisMonth } from '../../../core/utils/streakFreeze';
 import { useLanguage } from '../../../shared/i18n';
 import { Session } from '../../../types';
 import { IconButton } from '../../../shared/components/IconButton';
@@ -44,6 +45,8 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
 
   const currentStreak = useMemo(() => calculateStreak(sessions), [sessions]);
 
+  const freezeUsed = useMemo(() => currentStreak > 0 && wasFreezeUsedThisMonth(), [currentStreak]);
+
   const bestStreak = useMemo(() => calculateBestStreak(sessions), [sessions]);
 
   const maxWords = Math.max(...days.map(d => d.words), 1);
@@ -78,6 +81,14 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
           <span className="text-[16px] font-semibold text-[var(--flow-pulse-color)] drop-shadow-[0_0_12px_var(--flow-pulse-color)]">
             {currentStreak}
           </span>
+          {freezeUsed && (
+            <span
+              className="inline-flex items-center ml-1 align-middle text-[var(--flow-pulse-color)]/70"
+              title={`${t('profile_streak_freeze_used')}\n${t('profile_streak_freeze_hint')}`}
+            >
+              <Snowflake size={12} />
+            </span>
+          )}
         </span>
         <span>
           {t('profile_streak_best')} <span className="text-[14px] font-medium text-text-main/70">{bestStreak}</span>

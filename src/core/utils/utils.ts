@@ -3,6 +3,7 @@ import { extendTailwindMerge } from "tailwind-merge";
 import { format, subDays } from 'date-fns';
 import { Session } from '../../types';
 import { toDate } from './dateUtils';
+import { getFrozenDates, saveFrozenDates } from './streakFreeze';
 
 export const parseFirestoreDate = toDate;
 
@@ -51,17 +52,42 @@ export function calculateStreak(sessions: Session[]) {
     return 0;
   }
   
+  const frozenDates = getFrozenDates();
+  const frozenMonths = new Set<string>();
+  for (const d of frozenDates) frozenMonths.add(d.substring(0, 7));
+  let freezesChanged = false;
+  
   let streak = 0;
   let checkDate = uniqueDates[0] === today ? new Date() : subDays(new Date(), 1);
   
-  for (let i = 0; i < uniqueDates.length; i++) {
+  let i = 0;
+  while (i < uniqueDates.length) {
     if (uniqueDates[i] === format(checkDate, 'yyyy-MM-dd')) {
       streak++;
       checkDate = subDays(checkDate, 1);
+      i++;
     } else {
+      const nextExpected = format(subDays(checkDate, 1), 'yyyy-MM-dd');
+      if (uniqueDates[i] === nextExpected) {
+        const missedDay = format(checkDate, 'yyyy-MM-dd');
+        const missedMonth = missedDay.substring(0, 7);
+        const alreadyFrozen = frozenDates.has(missedDay);
+        if (alreadyFrozen || !frozenMonths.has(missedMonth)) {
+          if (!alreadyFrozen) {
+            frozenDates.add(missedDay);
+            frozenMonths.add(missedMonth);
+            freezesChanged = true;
+          }
+          streak++;
+          checkDate = subDays(checkDate, 1);
+          continue;
+        }
+      }
       break;
     }
   }
+  
+  if (freezesChanged) saveFrozenDates(frozenDates);
   
   return streak;
 }
@@ -79,11 +105,34 @@ export function calculateBestStreak(sessions: Session[]): number {
     .map(d => new Date(d).getTime())
     .sort((a, b) => a - b);
   if (sorted.length === 0) return 0;
+  
+  const frozenDates = getFrozenDates();
+  const frozenMonths = new Set<string>();
+  for (const d of frozenDates) frozenMonths.add(d.substring(0, 7));
+  let freezesChanged = false;
+  
   let max = 1, cur = 1;
   for (let i = 1; i < sorted.length; i++) {
     const diffDays = Math.round((sorted[i]! - sorted[i - 1]!) / 86400000);
     if (diffDays === 1) { cur++; max = Math.max(max, cur); }
-    else if (diffDays > 1) { cur = 1; }
+    else if (diffDays === 2) {
+      const missedDay = format(new Date(sorted[i - 1]! + 86400000), 'yyyy-MM-dd');
+      const missedMonth = missedDay.substring(0, 7);
+      const alreadyFrozen = frozenDates.has(missedDay);
+      if (alreadyFrozen || !frozenMonths.has(missedMonth)) {
+        if (!alreadyFrozen) {
+          frozenDates.add(missedDay);
+          frozenMonths.add(missedMonth);
+          freezesChanged = true;
+        }
+        cur += 2;
+        max = Math.max(max, cur);
+      } else {
+        cur = 1;
+      }
+    }
+    else if (diffDays > 2) { cur = 1; }
   }
+  if (freezesChanged) saveFrozenDates(frozenDates);
   return max;
 }

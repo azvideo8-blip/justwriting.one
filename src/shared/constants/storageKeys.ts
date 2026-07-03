@@ -22,4 +22,5 @@ export const STORAGE_KEYS = {
   AUTO_SUMMARIZE_ENABLED: 'auto_summarize_enabled',
   DIAGNOSTICS_UNLOCKED: 'diagnostics_unlocked',
   PRIVACY_ACCEPTED: (uid: string) => `privacy_accepted_${uid}`,
+  STREAK_FREEZES: 'jw_streak_freezes',
 } as const;
