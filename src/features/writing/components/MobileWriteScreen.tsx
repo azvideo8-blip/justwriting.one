@@ -14,6 +14,8 @@ import { KeystrokeTracker } from '../utils/keystrokeTracker';
 import { ConnectionStatusBanner } from './ConnectionStatusBanner';
 import { getWpmHex } from '../utils/wpmColors';
 import { cn } from '../../../core/utils/utils';
+import { useAutoHideCursor } from '../hooks/useAutoHideCursor';
+import { getPromptOfDay } from '../utils/promptOfDay';
 
 interface MobileWriteScreenProps {
   onPlay: () => void;
@@ -47,7 +49,7 @@ export function MobileWriteScreen({
       sessionStartWords: s.sessionStartWords,
     }))
   );
-  const { fontFamily, fontSize, isZenActive, zenModeEnabled, streamMode, toggleStreamMode } = useWritingSettings();
+  const { fontFamily, fontSize, isZenActive, zenModeEnabled, streamMode, toggleStreamMode, autoHideCursor } = useWritingSettings();
 
   const sessionSeconds = Math.max(0, seconds - sessionStartSeconds);
   const sessionWords = Math.max(0, wordCount - sessionStartWords);
@@ -114,9 +116,12 @@ export function MobileWriteScreen({
   const [focusMode, setFocusMode] = useState(false);
   const [showGoalSheet, setShowGoalSheet] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorAreaRef = useRef<HTMLDivElement>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lighthouseHideRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lighthouseActive, setLighthouseActive] = useState(false);
+
+  useAutoHideCursor(editorAreaRef, autoHideCursor);
 
   const resetIdleTimer = () => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -252,6 +257,7 @@ export function MobileWriteScreen({
       </AnimatePresence>
 
       <div
+        ref={editorAreaRef}
         className="flex-1 overflow-hidden relative"
         onTouchStart={handleEditorTouchStart}
         onTouchEnd={handleEditorTouchEnd}
@@ -265,7 +271,7 @@ export function MobileWriteScreen({
           onCut={e => { if (streamMode) e.preventDefault(); }}
           onCopy={e => { if (streamMode) e.preventDefault(); }}
           onPaste={e => { if (streamMode) e.preventDefault(); }}
-          placeholder={t('writing_placeholder')}
+          placeholder={content.trim() === '' ? getPromptOfDay(t) : t('writing_placeholder')}
           autoFocus
           inputMode="text"
           className={lighthouseActive ? 'lighthouse-pulse' : ''}

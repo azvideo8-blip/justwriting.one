@@ -6,6 +6,7 @@ import { GoalToast } from '../../../shared/components/GoalToast';
 import { SeoHead } from '../../../shared/i18n/SeoHead';
 
 import { WritingFinishModal } from '../components/WritingFinishModal';
+import { ShortcutsModal } from '../components/ShortcutsModal';
 import { FlowPulse } from '../../../core/theme/FlowPulse';
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
 
@@ -66,6 +67,8 @@ function WritingPageUI() {
     streakForModal,
     isFinishModalOpen,
     setIsFinishModalOpen,
+    isShortcutsModalOpen,
+    setIsShortcutsModalOpen,
     devKpmStats,
     keystrokeTrackerRef,
     isMobile,
@@ -170,6 +173,9 @@ function WritingPageUI() {
         savedDocumentId={savedDocumentId}
       />
       <FlowPulse isActive={sessionStatus === 'writing'} />
+      {isShortcutsModalOpen && (
+        <ShortcutsModal onClose={() => setIsShortcutsModalOpen(false)} />
+      )}
       {import.meta.env.DEV && devKpmStats && (
         <div className="fixed bottom-2 left-2 text-label font-mono text-text-main/60 z-50 pointer-events-none">
           KPM {devKpmStats.kpm} · IKI {devKpmStats.ikiMedian}ms · CV {devKpmStats.ikiCv}

@@ -54,6 +54,8 @@ export interface WritingSessionContextValue {
   streakForModal: number;
   isFinishModalOpen: boolean;
   setIsFinishModalOpen: (v: boolean) => void;
+  isShortcutsModalOpen: boolean;
+  setIsShortcutsModalOpen: (v: boolean) => void;
   devKpmStats: KeystrokeStats | null;
   keystrokeTrackerRef: React.MutableRefObject<KeystrokeTracker>;
   handlePlayRef: React.MutableRefObject<() => void>;
@@ -141,7 +143,11 @@ export function WritingSessionProvider({
     handlePauseRef.current = handlePause;
   }, [handlePlay, handlePause]);
 
-  useWritingKeyboard({ sessionStatus, handlePlayRef, handlePauseRef });
+  const handleFinishRef = React.useRef<(() => void) | null>(null);
+  const toggleShortcutsRef = React.useRef<(() => void) | null>(null);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
+
+  useWritingKeyboard({ sessionStatus, handlePlayRef, handlePauseRef, handleFinishRef, toggleShortcutsRef });
 
   const keystrokeTrackerRef = React.useRef(new KeystrokeTracker());
   const [devKpmStats, setDevKpmStats] = React.useState<KeystrokeStats | null>(null);
@@ -196,6 +202,18 @@ export function WritingSessionProvider({
     setIsFinishModalOpen(true);
   }, [actions]);
 
+  useEffect(() => {
+    handleFinishRef.current = onFinishClick;
+  }, [onFinishClick]);
+
+  const toggleShortcuts = React.useCallback(() => {
+    setIsShortcutsModalOpen(v => !v);
+  }, []);
+
+  useEffect(() => {
+    toggleShortcutsRef.current = toggleShortcuts;
+  }, [toggleShortcuts]);
+
   const isMobile = useLayoutMode().layoutMode !== 'desktop';
 
   const { registerOpenOverride } = useSettings();
@@ -221,6 +239,8 @@ export function WritingSessionProvider({
     streakForModal,
     isFinishModalOpen,
     setIsFinishModalOpen,
+    isShortcutsModalOpen,
+    setIsShortcutsModalOpen,
     devKpmStats,
     keystrokeTrackerRef,
     handlePlayRef,
@@ -243,6 +263,7 @@ export function WritingSessionProvider({
     streakDays,
     streakForModal,
     isFinishModalOpen,
+    isShortcutsModalOpen,
     devKpmStats,
     isMobile,
     showZen,

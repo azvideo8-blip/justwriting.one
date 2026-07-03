@@ -21,6 +21,7 @@ export const writingTranslations: Translations = {
   writing_words: { ru: 'слов', en: 'words' },
   writing_chars: { ru: 'символов', en: 'characters' },
   writing_time: { ru: 'время', en: 'time' },
+  error_target_time_in_past: { ru: 'Выберите время в будущем', en: 'Select a time in the future' },
   writing_continue_session: { ru: 'Выбери сессию для продолжения', en: 'Choose a session to continue' },
   writing_no_sessions: { ru: 'У тебя пока нет сохранённых сессий', en: 'You don\'t have any saved sessions yet' },
   writing_cancel_confirm: { ru: 'Отменить сессию?', en: 'Cancel session?' },
@@ -145,6 +146,8 @@ export const writingTranslations: Translations = {
   stats_time: { ru: 'Время', en: 'Time' },
   stats_set_word_goal: { ru: 'Цель по словам',  en: 'Set word goal' },
   stats_set_time_goal: { ru: 'Цель по времени', en: 'Set time goal' },
+  settings_goals: { ru: 'Цели', en: 'Goals' },
+  apply: { ru: 'Применить', en: 'Apply' },
   stats_writing:       { ru: 'пишу',            en: 'writing' },
 
   prompt_morning_1:  { ru: 'Что мне предстоит сегодня и как я к этому отношусь?', en: 'What lies ahead today and how do I feel about it?' },
@@ -188,4 +191,11 @@ export const writingTranslations: Translations = {
 
   sync_conflict_forked: { ru: 'Конфликт синхронизации: локальная версия сохранена как копия', en: 'Sync conflict: local version saved as a separate copy' },
   writing_send_to_ai: { ru: 'Отправить в AI', en: 'Send to AI' },
+  reading_time: { ru: '~{n} мин чтения', en: '~{n} min read' },
+
+  shortcuts_title: { ru: 'Горячие клавиши', en: 'Keyboard Shortcuts' },
+  shortcuts_pause_resume: { ru: 'Пауза / Продолжить', en: 'Pause / Resume' },
+  shortcuts_save: { ru: 'Сохранить', en: 'Save' },
+  shortcuts_finish: { ru: 'Завершить сессию', en: 'Finish session' },
+  shortcuts_toggle: { ru: 'Показать горячие клавиши', en: 'Toggle shortcuts list' },
 };

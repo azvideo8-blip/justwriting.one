@@ -18,6 +18,7 @@ import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { reportError } from '../../../shared/errors/reportError';
 import { useToast } from '../../../shared/components/Toast';
+import { readingTimeMinutes } from '../../../shared/utils/readingTime';
 
 export function DocumentPreview({ session, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags }: {
   session: ArchiveSession | null;
@@ -234,6 +235,8 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
             {format(date, 'd MMMM yyyy', { locale: dateLocale })}
             {' · '}
             {session.wordCount?.toLocaleString()} {t('home_words_short')}
+            {' · '}
+            {t('reading_time', { n: readingTimeMinutes(session.wordCount || 0) })}
             {' · '}
             {Math.round((session.duration || 0) / 60)} {t('goal_time_min')}
           </div>

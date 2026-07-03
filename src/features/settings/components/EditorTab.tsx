@@ -16,6 +16,9 @@ export function EditorTab() {
     zenModeEnabled, setZenModeEnabled,
     streamMode, toggleStreamMode,
     headerVisibility, toggleVisibility,
+    typewriterScrolling, setTypewriterScrolling,
+    focusModeEnabled, setFocusModeEnabled,
+    autoHideCursor, setAutoHideCursor,
   } = useWritingSettings();
 
   const fonts = ['Inter', 'Lora', 'JetBrains Mono'];
@@ -83,6 +86,12 @@ export function EditorTab() {
       <Section title={t('settings_zen_mode')}>
         <ToggleRow emoji="🧘" label={t('settings_zen_mode')} hint={t('settings_zen_desc')}    value={zenModeEnabled}  onChange={() => setZenModeEnabled(!zenModeEnabled)} />
         <ToggleRow emoji="🌊" label={t('settings_stream_mode')} hint={t('settings_stream_mode_desc')} value={streamMode}       onChange={toggleStreamMode} />
+      </Section>
+
+      <Section title={t('settings_writing_experience')}>
+        <ToggleRow emoji="⌨️" label={t('settings_typewriter')} hint={t('settings_typewriter_desc')} value={typewriterScrolling} onChange={() => setTypewriterScrolling(!typewriterScrolling)} />
+        <ToggleRow emoji="🔍" label={t('settings_focus_mode')} hint={t('settings_focus_mode_desc')} value={focusModeEnabled} onChange={() => setFocusModeEnabled(!focusModeEnabled)} />
+        <ToggleRow emoji="🖱️" label={t('settings_auto_hide_cursor')} hint={t('settings_auto_hide_cursor_desc')} value={autoHideCursor} onChange={() => setAutoHideCursor(!autoHideCursor)} />
       </Section>
 
       <Section title={t('settings_show_in_panel')}>

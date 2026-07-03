@@ -6,6 +6,9 @@ import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { getFontStack } from '../utils/fontStack';
 import { useToast } from '../../../shared/components/Toast';
+import { useCaretEffects } from '../hooks/useCaretEffects';
+import { useAutoHideCursor } from '../hooks/useAutoHideCursor';
+import { getPromptOfDay } from '../utils/promptOfDay';
 
 interface WritingEditorProps {
   onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
@@ -21,9 +24,13 @@ export const WritingEditor = React.memo(function WritingEditor({
   const { 
     streamMode, 
     fontSize, fontFamily,
-    lifeLogEnabled
+    lifeLogEnabled,
+    typewriterScrolling,
+    focusModeEnabled,
+    autoHideCursor,
   } = useWritingSettings();
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
   const streamStatusRef = React.useRef<HTMLSpanElement>(null);
   const { showToast } = useToast();
   const blockToastShownRef = React.useRef(false);
@@ -32,7 +39,13 @@ export const WritingEditor = React.memo(function WritingEditor({
     lineHeight: `${fontSize * 1.2}px`,
     fontFamily: getFontStack(fontFamily),
     userSelect: 'text' as const,
+    // Typewriter mode: extra bottom room so the last lines can scroll up to
+    // the vertical center instead of sticking to the bottom edge.
+    ...(typewriterScrolling ? { paddingBottom: '45vh' } : {}),
   };
+
+  useCaretEffects(textareaRef, { typewriter: typewriterScrolling, focusBand: focusModeEnabled });
+  useAutoHideCursor(containerRef, autoHideCursor);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (streamMode) {
@@ -65,11 +78,17 @@ export const WritingEditor = React.memo(function WritingEditor({
     if (streamMode) e.preventDefault();
   };
 
+  const placeholder = content.trim() === '' ? getPromptOfDay(t) : t('writing_placeholder');
+
   return (
-    <div className={cn(
-      "transition-all duration-1000 flex flex-col",
-      lifeLogEnabled ? "h-full overflow-hidden" : "space-y-4 py-4 font-serif"
-    )}>
+    <div
+      ref={containerRef}
+      className={cn(
+        "transition-all duration-1000 flex flex-col",
+        lifeLogEnabled ? "h-full overflow-hidden" : "space-y-4 py-4 font-serif",
+        focusModeEnabled && "focus-mode-active",
+      )}
+    >
 
       <textarea
         ref={textareaRef}
@@ -84,7 +103,7 @@ export const WritingEditor = React.memo(function WritingEditor({
         onPaste={handlePaste}
         readOnly={isPaused}
         aria-label={t('writing_placeholder')}
-        placeholder={t('writing_placeholder')}
+        placeholder={placeholder}
         style={editorStyle}
         className={cn(
           "w-full outline-none resize-none leading-[1.8] text-text-main placeholder:text-text-main/40 flex-1 min-h-0",
@@ -102,4 +121,3 @@ export const WritingEditor = React.memo(function WritingEditor({
     </div>
   );
 });
-

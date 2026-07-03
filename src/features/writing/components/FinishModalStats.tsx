@@ -16,7 +16,8 @@ interface FinishModalStatsProps {
   wpmHistory: { timestamp: number; wpm: number }[];
   streakDays: number;
   sessionGroups: { date: Date; sessions: unknown[] }[];
-  t: (k: string) => string;
+  readingMinutes: number;
+  t: (k: string, params?: Record<string, string | number>) => string;
   isMobile: boolean;
   statsExpanded: boolean;
   setStatsExpanded: (v: boolean) => void;
@@ -32,6 +33,7 @@ export function FinishModalStats({
   wpmHistory,
   streakDays,
   sessionGroups,
+  readingMinutes,
   t,
   isMobile,
   statsExpanded,
@@ -80,6 +82,10 @@ export function FinishModalStats({
                 <div className="text-label font-bold uppercase tracking-widest mb-0.5 text-text-main/60">{t('writing_wpm')}</div>
                 <div className="text-lg font-mono font-bold text-text-main tabular-nums">{animWpm}</div>
               </div>
+            </div>
+
+            <div className="text-center text-xs text-text-main/60">
+              {t('reading_time', { n: readingMinutes })}
             </div>
 
             {totalPauseSeconds > 0 && (
@@ -133,6 +139,10 @@ export function FinishModalStats({
           <div className="text-label-sm font-bold uppercase tracking-widest mb-1 text-text-main/60">{t('writing_wpm')}</div>
           <div className="text-xl font-mono font-bold text-text-main tabular-nums">{animWpm}</div>
         </div>
+      </div>
+
+      <div className="text-center text-sm text-text-main/60">
+        {t('reading_time', { n: readingMinutes })}
       </div>
 
       {totalPauseSeconds > 0 && (
