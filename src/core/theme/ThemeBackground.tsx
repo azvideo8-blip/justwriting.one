@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useReducedMotion } from 'motion/react';
 import { useLocation } from 'react-router-dom';
 import { useTheme } from './ThemeProvider';
 
@@ -31,11 +30,20 @@ const GRADIENT_THEMES: Record<string, { layers: { gradient: string; origin: stri
 };
 
 export function ThemeBackground() {
-  const { themeId } = useTheme();
-  const reducedMotion = useReducedMotion();
+  const { resolvedThemeId } = useTheme();
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
   const [isVisible, setIsVisible] = useState(() => typeof document !== 'undefined' ? !document.hidden : true);
   const location = useLocation();
   const isWritingPage = location.pathname === '/';
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   useEffect(() => {
     const handleVisibility = () => setIsVisible(!document.hidden);
@@ -43,10 +51,10 @@ export function ThemeBackground() {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
-  if (!(themeId in GRADIENT_THEMES)) return null;
-  const config = GRADIENT_THEMES[themeId]!;
+  if (!(resolvedThemeId in GRADIENT_THEMES)) return null;
+  const config = GRADIENT_THEMES[resolvedThemeId]!;
 
-  const shouldAnimate = !reducedMotion && isVisible && isWritingPage;
+  const shouldAnimate = !prefersReducedMotion && isVisible && isWritingPage;
 
   const baseStyle = { zIndex: 0, background: config.base };
   const layerStyle = (layer: { gradient: string; origin: string }, i: number, shouldAnimate: boolean) => ({
