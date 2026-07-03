@@ -25,7 +25,9 @@ Focus on:
 - Psychological insights the USER voiced or explicitly endorsed (patterns, realizations) — not the assistant's
 - Commitments or intentions the USER expressed (goals, plans, decisions)
 - Communication preferences: direct feedback the USER gave about the assistant's tone, pacing, style, length, or quality (e.g. 'User dislikes verbose intros', 'User prefers bullet points', 'User wants shorter answers').
-Keep each memory unit to 1-2 sentences, phrased as the user's own. Return ONLY valid JSON array.`;
+Keep each memory unit to 1-2 sentences, phrased as the user's own. Return ONLY valid JSON array.
+
+LANGUAGE: write each memory unit's text in the SAME language the user writes in. If the conversation is in Russian, the text must be in Russian; if in English, in English. Never translate the user's words into another language.`;
 
 const VALID_KINDS = ['fact', 'insight', 'commitment', 'preference'];
 

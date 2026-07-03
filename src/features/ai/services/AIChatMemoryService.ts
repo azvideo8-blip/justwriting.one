@@ -73,13 +73,34 @@ export const AIChatMemoryService = {
 
   // Store an explicit memory unit (e.g. from a 👍/👎 on an answer). Embedded so it
   // surfaces in future turns via getRelevant — feeds the preference layer directly.
+  // Dedups: same kind + (identical trimmed text OR cosine>0.92) bumps updatedAt
+  // instead of stacking a duplicate row.
   async addManual(kind: MemoryKind, text: string, sourceDialogueId?: string): Promise<void> {
     if (!text.trim()) return;
     try {
       const db = await getLocalDb();
       const now = Date.now();
+      const trimmed = text.trim();
       const embResult = await AIService.embed({ content: text });
       const vector = embResult.ok && embResult.vectors[0] ? embResult.vectors[0] : undefined;
+
+      const existing = await db.getAll('aiChatMemory');
+
+      for (const existingMem of existing) {
+        if (existingMem.kind !== kind) continue;
+        const isTextDup = existingMem.text.trim() === trimmed;
+        const isVectorDup = !!(vector && existingMem.vector && cosineSimilarity(vector, existingMem.vector) > 0.92);
+        if (isTextDup || isVectorDup) {
+          if (text.length > existingMem.text.length) {
+            existingMem.text = text;
+            if (vector) existingMem.vector = vector;
+          }
+          existingMem.updatedAt = now;
+          await db.put('aiChatMemory', existingMem);
+          return;
+        }
+      }
+
       const entry: AIChatMemory = {
         id: randomUUID(),
         kind,
@@ -132,5 +153,36 @@ export const AIChatMemoryService = {
   async deleteAll(): Promise<void> {
     const db = await getLocalDb();
     await db.clear('aiChatMemory');
+  },
+
+  // One-time cleanup: remove exact-duplicate entries (same kind + identical
+  // trimmed text), keeping the newest. Returns how many were removed.
+  async cleanupDuplicates(): Promise<number> {
+    try {
+      const db = await getLocalDb();
+      const all = await db.getAll('aiChatMemory');
+
+      const groups = new Map<string, AIChatMemory[]>();
+      for (const mem of all) {
+        const key = `${mem.kind}|${mem.text.trim()}`;
+        const group = groups.get(key);
+        if (group) group.push(mem);
+        else groups.set(key, [mem]);
+      }
+
+      let removed = 0;
+      for (const group of groups.values()) {
+        if (group.length <= 1) continue;
+        group.sort((a, b) => (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt));
+        for (let i = 1; i < group.length; i++) {
+          await db.delete('aiChatMemory', group[i]!.id);
+          removed++;
+        }
+      }
+      return removed;
+    } catch (e) {
+      reportError(e, { action: 'ai_chat_memory_cleanup_duplicates' });
+      return 0;
+    }
   },
 };
