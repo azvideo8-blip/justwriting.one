@@ -167,6 +167,25 @@ export const AIDialogueService = {
     await db.delete('aiDialogues', id);
   },
 
+  async cleanupEmpty(excludeId?: string): Promise<number> {
+    const all = await this.list({ includeArchived: false });
+    const now = Date.now();
+    const STALE_MS = 10 * 60 * 1000;
+    let count = 0;
+    for (const d of all) {
+      if (d.id === excludeId) continue;
+      const ts = d.updatedAt || d.createdAt;
+      if (now - ts < STALE_MS) continue;
+      const nonSystem = d.messages.filter(m => m.type !== 'system');
+      const isEmpty = nonSystem.length === 0 || nonSystem.every(m => m.content.trim() === '');
+      if (isEmpty) {
+        await this.delete(d.id);
+        count++;
+      }
+    }
+    return count;
+  },
+
   async updateResponseLength(id: string, responseLength: 'short' | 'standard' | 'detailed', reasoning?: boolean): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');

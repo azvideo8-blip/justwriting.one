@@ -40,6 +40,10 @@ export function useEmbeddingIndexer(): void {
       void AIProfileFacetService.resummarizeDirty().then(r => {
         console.warn(`[useEmbeddingIndexer] resummarized ${r.count} dirty facets`);
         dirtyCountRef.current = 0;
+        // Fill in any pending LLM summaries from a recent build.
+        void AIProfileFacetService.summarizePending().then(sp => {
+          if (sp.done > 0) console.warn(`[useEmbeddingIndexer] summarized ${sp.done} pending facets`);
+        }).catch(e => reportError(e, { action: '[useEmbeddingIndexer] summarizePending failed' }));
         if (r.count > 0) {
           // Judge the (re)written summaries and auto-correct confabulations
           // BEFORE regenerating the portrait, so the portrait reads corrected
