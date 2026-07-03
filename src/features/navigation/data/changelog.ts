@@ -14,6 +14,22 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.41',
+    date: '2026-07-03',
+    items: [
+      { category: 'new', ru: 'Режим «Пишущая машинка» — строка с кареткой держится по центру экрана. Тумблер в «Настройки → Редактор»', en: '"Typewriter" mode — the caret line stays vertically centered. Toggle in Settings → Editor' },
+      { category: 'new', ru: '«Фокус-режим» — плавно затемняет текст выше и ниже строки письма, яркая зона следует за кареткой', en: '"Focus mode" — softly dims text above and below the writing line; the bright band follows the caret' },
+      { category: 'new', ru: '«Промпт дня» в пустом редакторе и скрытие курсора мыши при печати', en: '"Prompt of the day" in an empty editor, and mouse cursor auto-hides while typing' },
+      { category: 'new', ru: 'Пульс счётчика слов на каждой сотне; празднование достижения цели в финише; «~N мин чтения» в превью и итогах', en: 'Word counter pulses every 100 words; goal celebration in the finish modal; "~N min read" in preview and summary' },
+      { category: 'new', ru: 'Заморозка стрика — один пропуск в месяц не сбрасывает серию (в профиле — снежинка)', en: 'Streak freeze — one missed day per month doesn\'t break the streak (a snowflake shows in the profile)' },
+      { category: 'new', ru: 'Тема «Системная» (по светлой/тёмной теме ОС); ярлыки приложения; шпаргалка горячих клавиш (Cmd/Ctrl+/) и финиш по Cmd/Ctrl+Enter', en: '"System" theme (follows OS light/dark); app shortcuts; keyboard cheatsheet (Cmd/Ctrl+/) and finish via Cmd/Ctrl+Enter' },
+      { category: 'improvement', ru: 'Карточка «В этот день» переоформлена; исправлен подсчёт дат («месяц назад» — ровно то же число)', en: '"On this day" card redesigned; date matching fixed ("a month ago" is the exact same day)' },
+      { category: 'new', ru: 'Панель «Память ИИ» — просмотр и удаление того, что ИИ о вас запомнил', en: '"AI memory" panel — view and delete what the AI remembers about you' },
+      { category: 'improvement', ru: 'ИИ: «разбери заметку …» находит запись по названию; пустые диалоги авто-очищаются; теги в финише ранжируются по TF-IDF', en: 'AI: "analyze the note …" finds the entry by title; empty dialogues auto-clean; finish tags ranked by TF-IDF' },
+      { category: 'fix', ru: 'Описания тем профиля достраиваются в фоне — сборка не блокируется на медленных вызовах (реже 429)', en: 'Profile topic descriptions fill in the background — build no longer blocks on slow calls (fewer 429s)' },
+    ],
+  },
+  {
     version: '0.7.40',
     date: '2026-07-02',
     items: [

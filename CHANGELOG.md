@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## 2026-07-03 (v0.7.41)
+- **[RU]** Письмо: режим «Пишущая машинка» — строка с кареткой держится по центру экрана (нижний отступ позволяет центрировать даже последние строки). Тумблер в «Настройки → Редактор».
+- **[EN]** Writing: "Typewriter" mode — the caret line stays vertically centered (bottom padding lets even the last lines reach center). Toggle in Settings → Editor.
+- **[RU]** Письмо: «Фокус-режим» — плавно затемняет текст выше и ниже строки письма, яркая зона следует за кареткой. Тумблер в «Настройки → Редактор».
+- **[EN]** Writing: "Focus mode" — softly dims text above and below the writing line; the bright band follows the caret. Toggle in Settings → Editor.
+- **[RU]** Письмо: «Промпт дня» — в пустом редакторе плейсхолдер показывает вопрос-подсказку, ротация по дате; скрытие курсора мыши при печати (тумблер).
+- **[EN]** Writing: "Prompt of the day" — an empty editor shows a rotating daily prompt as its placeholder; mouse cursor auto-hides while typing (toggle).
+- **[RU]** Сессия: пульс счётчика слов на каждой сотне; празднование достижения цели в модалке финиша (анимация + вибрация на мобиле); «~N мин чтения» в превью заметки и итогах сессии.
+- **[EN]** Session: the word counter pulses on every 100 words; a celebration plays in the finish modal when a goal is reached (animation + mobile vibration); "~N min read" in the note preview and session summary.
+- **[RU]** Стрик: заморозка — один пропущенный день в месяц больше не сбрасывает серию; в профиле показывается снежинка, когда заморозка сработала.
+- **[EN]** Streak: freeze — one missed day per month no longer breaks the streak; a snowflake appears in the profile when a freeze was used.
+- **[RU]** Приложение: тема «Системная» (следует за светлой/тёмной темой ОС); ярлыки установленного приложения (Новая сессия / Архив / ИИ); шпаргалка горячих клавиш по Cmd/Ctrl+/ и завершение сессии по Cmd/Ctrl+Enter; полный учёт «уменьшенного движения».
+- **[EN]** App: "System" theme (follows OS light/dark); installed-app shortcuts (New session / Archive / AI); a keyboard-shortcut cheatsheet via Cmd/Ctrl+/ and finish-session via Cmd/Ctrl+Enter; full prefers-reduced-motion coverage.
+- **[RU]** Архив: карточка «В этот день» переоформлена — мягкий акцент, превью записи, чип с датой, аккуратные ховер и скрытие; исправлен подсчёт дат («месяц назад» теперь ровно то же число).
+- **[EN]** Archive: the "On this day" card redesigned — soft accent, entry excerpt, date chip, tidy hover and dismiss; date matching fixed ("a month ago" is now the exact same day).
+- **[RU]** ИИ: «разбери заметку …» теперь находит запись по названию (а не берёт последнюю); пустые диалоги старше 10 минут авто-очищаются; панель «Память ИИ» на странице ИИ — просмотр и удаление того, что ИИ о вас запомнил.
+- **[EN]** AI: "analyze the note …" now finds the entry by its title (instead of grabbing the latest); empty dialogues older than 10 minutes are auto-cleaned; an "AI memory" panel on the AI page lets you view and delete what the AI remembers about you.
+- **[RU]** ИИ: описания тем профиля теперь достраиваются в фоне — сборка профиля больше не блокируется на медленных/лимитированных вызовах (реже ошибки 429); теги в финише сессии ранжируются по TF-IDF по всему архиву — меньше общих слов.
+- **[EN]** AI: profile topic descriptions now fill in the background — profile build no longer blocks on slow/rate-limited calls (fewer 429s); finish-session tags are ranked by TF-IDF across the whole archive — fewer generic words.
+- **[RU]** Исправлены битые ссылки на строки перевода (заголовок входа, миграция шифрования, кнопки «Отмена»).
+- **[EN]** Fixed broken translation-key references (login title, encryption migration, "Cancel" buttons).
+
 ## 2026-07-02 (v0.7.40)
 - **[RU]** AI-судья: надёжность — `judgeFacets` больше не падает с 500 на реальных профилях (9+ фасетов): батч разбит на чанки по 3, чанки параллельны; `summarizeFacet` коррекции — таймаут поднят 60→120 с. Развёрнутая упаковка по размеру (≤3500 символов summary+evidence на вызов) гарантирует, что каждый фасет проверен, даже самый большой.
 - **[EN]** AI judge: reliability — `judgeFacets` no longer 500s on real profiles (9+ facets): the batch is split into chunks of 3, chunks run in parallel; `summarizeFacet` correction timeout raised 60→120 s. Size-based packing (≤3500 chars summary+evidence per call) guarantees every facet is judged, even the biggest.
