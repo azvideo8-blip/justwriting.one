@@ -80,19 +80,36 @@ export function ProfileFacets() {
   const handleBuild = async () => {
     setBuilding(true);
     setProgress(null);
+    let pendingStarted = false;
     try {
       const res = await AIProfileFacetService.build(p => setProgress(p));
-      if (res.ok) showToast(`Темы профиля построены: ${res.count}`, 'success');
-      else if (res.error === 'NO_EMBEDDINGS') showToast('Сначала проиндексируйте заметки (вкладка «База данных»)', 'error');
-      else if (res.error === 'NO_CHUNK_TEXTS') showToast('Нужен реиндекс: «База данных» → «Переиндексировать всё» (обновлён формат эмбеддингов)', 'error');
-      else showToast('Не удалось выделить темы — мало заметок', 'error');
+      if (res.ok) {
+        showToast(`Темы профиля построены: ${res.count}`, 'success');
+        await load();
+        pendingStarted = true;
+        void AIProfileFacetService.summarizePending(p => setProgress(p))
+          .then(() => { void load(); })
+          .catch(e => { reportError(e, { action: 'profile_facets_summarize_pending' }); })
+          .finally(() => {
+            setBuilding(false);
+            setProgress(null);
+          });
+      } else if (res.error === 'NO_EMBEDDINGS') {
+        showToast('Сначала проиндексируйте заметки (вкладка «База данных»)', 'error');
+      } else if (res.error === 'NO_CHUNK_TEXTS') {
+        showToast('Нужен реиндекс: «База данных» → «Переиндексировать всё» (обновлён формат эмбеддингов)', 'error');
+      } else {
+        showToast('Не удалось выделить темы — мало заметок', 'error');
+      }
     } catch (e) {
       reportError(e, { action: 'profile_facets_build' });
       showToast('Ошибка построения тем', 'error');
     } finally {
-      setBuilding(false);
-      setProgress(null);
-      void load();
+      if (!pendingStarted) {
+        setBuilding(false);
+        setProgress(null);
+        void load();
+      }
     }
   };
 

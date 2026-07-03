@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles, Square, X, RotateCcw } from 'lucide-react';
+import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles, Square, X, RotateCcw, Brain } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { DocumentPickerModal } from '../components/DocumentPickerModal';
 import { CreatePersonaModal } from '../components/CreatePersonaModal';
 import { PersonaDetailModal } from '../components/PersonaDetailModal';
+import { MemoryManagerModal } from '../components/MemoryManagerModal';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { personaVisual } from '../constants/personaVisuals';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
@@ -65,6 +66,7 @@ export function AIPage() {
 
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // AX-4: Resizable sidebar — persisted to localStorage
@@ -252,6 +254,7 @@ export function AIPage() {
               </div>
             </div>
             <div className="flex-1" />
+            <IconButton onClick={() => setMemoryOpen(true)} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_memory_title')} label={t('ai_memory_title')} icon={<Brain size={15} />} />
             {activeDialogueId && (
               <div className="flex items-center gap-1">
                  <IconButton onClick={() => void handleExport()} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_download_md')} label={t('ai_download_md')} icon={<Download size={15} />} />
@@ -710,6 +713,7 @@ export function AIPage() {
       <DocumentPickerModal isOpen={docPickerOpen} onClose={() => setDocPickerOpen(false)} onSelect={(doc) => void handleDocSelect(doc)} />
       <CreatePersonaModal isOpen={createPersonaOpen} onClose={() => setCreatePersonaOpen(false)} onCreated={() => void loadCustomPersonas()} />
       <PersonaDetailModal persona={detailPersona} onClose={() => setDetailPersona(null)} onChanged={() => void loadCustomPersonas()} />
+      {memoryOpen && <MemoryManagerModal onClose={() => setMemoryOpen(false)} />}
     </div>
   );
 }

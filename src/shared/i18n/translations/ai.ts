@@ -28,4 +28,13 @@ export const aiTranslations: Translations = {
   ai_description_prompt: { ru: 'Описание и промпт', en: 'Description and prompt' },
   ai_unarchive: { ru: 'Восстановить', en: 'Restore' },
   ai_delete_confirm: { ru: 'Удалить диалог безвозвратно?', en: 'Delete this dialogue permanently?' },
+  ai_memory_title: { ru: 'Память ИИ', en: 'AI memory' },
+  ai_memory_kind_preference: { ru: 'Предпочтения', en: 'Preferences' },
+  ai_memory_kind_fact: { ru: 'Факты', en: 'Facts' },
+  ai_memory_kind_insight: { ru: 'Инсайты', en: 'Insights' },
+  ai_memory_kind_commitment: { ru: 'Обязательства', en: 'Commitments' },
+  ai_memory_empty: { ru: 'ИИ пока ничего не запомнил', en: 'AI hasn\'t memorized anything yet' },
+  ai_memory_forget_all: { ru: 'Забыть всё', en: 'Forget all' },
+  ai_memory_forget_all_confirm: { ru: 'Удалить все воспоминания безвозвратно?', en: 'Delete all memories permanently?' },
+  ai_memory_delete: { ru: 'Удалить воспоминание', en: 'Delete memory' },
 };

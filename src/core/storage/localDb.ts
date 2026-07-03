@@ -164,6 +164,12 @@ export interface AIProfileFacet {
   insightDensity?: number;
   /** True for person facets (people), false for domain/topic facets. */
   isPerson?: boolean;
+  /** True for domain facets with a fixed taxonomy label (not discovered). */
+  fixedLabel?: boolean;
+  /** True when the facet has only a local fallback summary and still needs an LLM summary. */
+  pendingSummary?: boolean;
+  /** Transient excerpt seed stored at build time so summarizePending can reconstruct LLM input; deleted after summarizing. */
+  _excerptSeed?: string[];
   cloudSyncedAt?: number;
 }
 

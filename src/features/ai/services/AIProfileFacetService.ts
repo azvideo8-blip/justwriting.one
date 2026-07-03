@@ -245,36 +245,19 @@ export const AIProfileFacetService = {
         if (ts) { firstAt = Math.min(firstAt, ts); lastAt = Math.max(lastAt, ts); }
       }
 
-      const excerpts = spec.texts
+      const excerptSeeds = spec.texts
         .filter(t => t.trim().length > 0)
         .slice(0, MAX_EXCERPTS)
-        .map(t => ({ title: '(фрагмент)', excerpt: t.slice(0, EXCERPT_CHARS) }));
+        .map(t => t.slice(0, EXCERPT_CHARS));
 
-      let label = spec.fixedLabel ? spec.label : '';
-      let summary = '';
-      let llmOk = false;
-      if (excerpts.length > 0) {
-        const focus = spec.fixedLabel ? spec.label : undefined;
-        let res = await AIService.summarizeFacet({ notes: excerpts, focus });
-        if (!res.ok || (!res.label && !res.summary)) {
-          await new Promise(r => setTimeout(r, 300));
-          res = await AIService.summarizeFacet({ notes: excerpts, focus });
-        }
-        if (res.ok && res.summary) {
-          summary = res.summary;
-          llmOk = true;
-          if (!spec.fixedLabel && res.label) label = res.label;
-        }
-      }
+      const fb = fallbackFromTexts(spec.texts);
+      const label = spec.fixedLabel ? spec.label : (fb.label || spec.label || 'Тема');
+      const summary = fb.summary;
 
-      if (!spec.fixedLabel && (!llmOk || spec.noteIds.length > totalNotes * 0.4)) {
+      // Discard weak discovered facets: keep only if fallback produced a
+      // non-empty label AND the facet covers <= 40% of total notes.
+      if (!spec.fixedLabel && (!fb.label || spec.noteIds.length > totalNotes * 0.4)) {
         continue;
-      }
-
-      if (!summary || !label) {
-        const fb = fallbackFromTexts(spec.texts);
-        if (!summary) summary = fb.summary;
-        if (!label) label = fb.label || spec.label || 'Тема';
       }
 
       facets.push({
@@ -291,11 +274,13 @@ export const AIProfileFacetService = {
         lastAt,
         updatedAt: Date.now(),
         buildId,
+        pendingSummary: true,
+        fixedLabel: spec.fixedLabel,
+        _excerptSeed: excerptSeeds,
         insightDensity: spec.noteIds.length > 0
           ? spec.noteIds.filter(id => { const s = summaryMap.get(id); return s && (s.insights?.length ?? 0) > 0; }).length / spec.noteIds.length
           : 0,
       });
-      await new Promise(r => setTimeout(r, LLM_DELAY_MS));
     }
 
     // Person facets.
@@ -318,17 +303,7 @@ export const AIProfileFacetService = {
         }
       }
 
-      const excerpts = texts.filter(t => t.trim()).slice(0, MAX_EXCERPTS).map(t => ({ title: '(фрагмент)', excerpt: t.slice(0, EXCERPT_CHARS) }));
-      let summary = '';
-      if (excerpts.length > 0) {
-        const focus = `${pn.name} (${pn.role})`;
-        let res = await AIService.summarizeFacet({ notes: excerpts, focus });
-        if (!res.ok || (!res.label && !res.summary)) {
-          await new Promise(r => setTimeout(r, 300));
-          res = await AIService.summarizeFacet({ notes: excerpts, focus });
-        }
-        if (res.ok && res.summary) summary = res.summary;
-      }
+      const excerptSeeds = texts.filter(t => t.trim()).slice(0, MAX_EXCERPTS).map(t => t.slice(0, EXCERPT_CHARS));
 
       const meanVec = embeddings
         .filter(e => pn.noteIds.includes(e.documentId) && e.vectors.length > 0)
@@ -340,7 +315,7 @@ export const AIProfileFacetService = {
       facets.push({
         id: `${buildId}_${facets.length}`,
         label: pn.name,
-        summary: summary || `Упоминания о ${pn.name} (${pn.role}) в ${pn.noteIds.length} заметках.`,
+        summary: `Упоминания о ${pn.name} (${pn.role}) в ${pn.noteIds.length} заметках.`,
         centroid,
         noteIds: pn.noteIds,
         primaryNoteIds: pn.noteIds,
@@ -352,11 +327,12 @@ export const AIProfileFacetService = {
         lastAt,
         updatedAt: Date.now(),
         buildId,
+        pendingSummary: true,
+        _excerptSeed: excerptSeeds,
         insightDensity: pn.noteIds.length > 0
           ? pn.noteIds.filter(id => { const s = summaryMap.get(id); return s && (s.insights?.length ?? 0) > 0; }).length / pn.noteIds.length
           : 0,
       });
-      await new Promise(r => setTimeout(r, LLM_DELAY_MS));
     }
 
     // Versioned build: save new facets BEFORE clearing old ones.
@@ -482,6 +458,61 @@ export const AIProfileFacetService = {
     }
 
     return { count: dirty.length };
+    });
+  },
+
+  async summarizePending(onProgress?: (p: FacetBuildProgress) => void): Promise<{ done: number }> {
+    return withFacetLock(async () => {
+      const db = await getLocalDb();
+      const facets = await db.getAll('aiProfileFacets');
+      const pending = facets.filter(f => f.pendingSummary === true);
+      if (pending.length === 0) return { done: 0 };
+
+      const allEmb = await AIEmbeddingService.getAll();
+      let done = 0;
+
+      for (const f of pending) {
+        onProgress?.({ done: ++done, total: pending.length });
+
+        let excerpts: { title: string; excerpt: string }[] = [];
+        if (f._excerptSeed && f._excerptSeed.length > 0) {
+          excerpts = f._excerptSeed.map(t => ({ title: '(фрагмент)', excerpt: t }));
+        } else {
+          const texts: string[] = [];
+          for (const e of allEmb) {
+            if (!f.noteIds.includes(e.documentId)) continue;
+            for (const t of e.chunkTexts ?? []) {
+              if (t.trim()) texts.push(t);
+            }
+          }
+          excerpts = texts.slice(0, MAX_EXCERPTS).map(t => ({ title: '(фрагмент)', excerpt: t.slice(0, EXCERPT_CHARS) }));
+        }
+
+        let summarized = false;
+        if (excerpts.length > 0) {
+          const focus = f.isPerson ? f.label : (f.fixedLabel ? f.label : undefined);
+          let res = await AIService.summarizeFacet({ notes: excerpts, focus });
+          if (!res.ok || (!res.label && !res.summary)) {
+            await new Promise(r => setTimeout(r, 300));
+            res = await AIService.summarizeFacet({ notes: excerpts, focus });
+          }
+          if (res.ok && res.summary) {
+            f.summary = res.summary;
+            if (!f.fixedLabel && !f.isPerson && res.label) f.label = res.label;
+            summarized = true;
+          }
+        }
+
+        if (summarized) {
+          f.pendingSummary = false;
+        }
+        delete f._excerptSeed;
+        f.updatedAt = Date.now();
+        await db.put('aiProfileFacets', f);
+        await new Promise(r => setTimeout(r, LLM_DELAY_MS));
+      }
+
+      return { done };
     });
   },
 };

@@ -124,6 +124,11 @@ export const AIChatMemoryService = {
       .slice(0, 5);
   },
 
+  async delete(id: string): Promise<void> {
+    const db = await getLocalDb();
+    await db.delete('aiChatMemory', id);
+  },
+
   async deleteAll(): Promise<void> {
     const db = await getLocalDb();
     await db.clear('aiChatMemory');
