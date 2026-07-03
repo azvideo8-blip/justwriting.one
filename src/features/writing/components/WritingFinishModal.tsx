@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '../../../core/utils/utils';
@@ -17,6 +17,11 @@ import { FinishModalStats } from './FinishModalStats';
 import { FinishModalTags } from './FinishModalTags';
 import { FinishModalExport } from './FinishModalExport';
 import { Button } from '../../../shared/components/Button';
+import { readingTimeMinutes } from '../../../shared/utils/readingTime';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
+import { LocalVersionService } from '../../../core/services/LocalVersionService';
+import { getOrCreateGuestId } from '../../../core/storage/localDb';
+import { getAuth } from 'firebase/auth';
 
 const STOP_WORDS = new Set([
   'это','что','как','так','все','они','она','он','мы','вы','я','его','её','их',
@@ -30,11 +35,73 @@ const STOP_WORDS = new Set([
   'would','could','should','these','those','other','after','before',
 ]);
 
+const TOKENIZER_RE = /(?<![а-яёa-z])[а-яёa-z]{4,}(?![а-яёa-z])/g;
+
+interface CorpusCache {
+  df: Map<string, number>;
+  N: number;
+  timestamp: number;
+}
+
+let corpusCache: CorpusCache | null = null;
+const CORPUS_TTL_MS = 5 * 60 * 1000;
+
+async function buildCorpusDf(): Promise<{ df: Map<string, number>; N: number }> {
+  if (corpusCache && Date.now() - corpusCache.timestamp < CORPUS_TTL_MS) {
+    return { df: corpusCache.df, N: corpusCache.N };
+  }
+  const uid = getAuth().currentUser?.uid ?? getOrCreateGuestId();
+  const docs = await LocalDocumentService.getGuestDocuments(uid);
+  const df = new Map<string, number>();
+  for (const doc of docs) {
+    try {
+      const text = await LocalVersionService.getLatestContent(doc.id);
+      const tokens = text.toLowerCase().match(TOKENIZER_RE) || [];
+      const unique = new Set<string>();
+      for (const w of tokens) {
+        if (!STOP_WORDS.has(w)) unique.add(w);
+      }
+      for (const w of unique) {
+        df.set(w, (df.get(w) || 0) + 1);
+      }
+    } catch {
+      // skip doc on read error
+    }
+  }
+  const result = { df, N: docs.length };
+  corpusCache = { ...result, timestamp: Date.now() };
+  return result;
+}
+
 export interface SaveData {
   title: string;
   tags: string[];
   labelId?: string | undefined;
   mood?: string | undefined;
+}
+
+function CelebrationBadge({ reduced }: { reduced: boolean }) {
+  if (reduced) {
+    return (
+      <div className="flex items-center justify-center mb-3">
+        <div className="w-12 h-12 rounded-full bg-accent-success/15 flex items-center justify-center">
+          <Check size={24} className="text-accent-success" />
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center justify-center mb-3">
+      <div className="relative w-12 h-12 flex items-center justify-center">
+        <span className="absolute inset-0 rounded-full border-2 border-accent-success/40 celebration-ring" />
+        <span className="absolute inset-0 rounded-full border-2 border-accent-success/30 celebration-ring" style={{ animationDelay: '150ms' }} />
+        <span className="absolute inset-0 rounded-full border-2 border-accent-success/20 celebration-ring" style={{ animationDelay: '300ms' }} />
+        <div className="celebration-checkmark w-10 h-10 rounded-full bg-accent-success/15 flex items-center justify-center">
+          <Check size={22} className="text-accent-success" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 interface WritingFinishModalProps {
@@ -80,11 +147,13 @@ export function WritingFinishModal({
     setTitle: s.setTitle,
     wpmHistory: s.wpmHistory,
   })));
-  const { seconds, sessionStartSeconds, accumulatedDuration, totalPauseSeconds } = useTimerStore(useShallow(s => ({
+  const { seconds, sessionStartSeconds, accumulatedDuration, totalPauseSeconds, wordGoalReached, timeGoalReached } = useTimerStore(useShallow(s => ({
     seconds: s.seconds,
     sessionStartSeconds: s.sessionStartSeconds,
     accumulatedDuration: s.accumulatedDuration,
     totalPauseSeconds: s.totalPauseSeconds,
+    wordGoalReached: s.wordGoalReached,
+    timeGoalReached: s.timeGoalReached,
   })));
   const sessionSeconds = accumulatedDuration + Math.max(0, seconds - sessionStartSeconds);
   const totalElapsedSeconds = sessionSeconds + totalPauseSeconds;
@@ -93,6 +162,7 @@ export function WritingFinishModal({
   const avgWpm = sessionSeconds > 0
     ? Math.round((sessionWords / sessionSeconds) * 60)
     : 0;
+  const readingMinutes = readingTimeMinutes(wordCount || sessionWords);
 
   const animWords = useCountUp(wordCount);
   const animSeconds = useCountUp(totalPauseSeconds > 0 ? totalElapsedSeconds : sessionSeconds);
@@ -118,12 +188,32 @@ export function WritingFinishModal({
     }
   }, [isOpen]);
 
+  const goalReached = wordGoalReached || timeGoalReached;
+  const [showCelebration, setShowCelebration] = useState(false);
+
+  React.useEffect(() => {
+    if (isOpen && goalReached) {
+      setShowCelebration(true);
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        try {
+          navigator.vibrate(30);
+        } catch {
+          // ignore
+        }
+      }
+    } else {
+      setShowCelebration(false);
+    }
+  }, [isOpen, goalReached]);
+
   const [editTitle, setEditTitle] = useState('');
   const titleInputValue = editTitle || title || '';
 
-  const popularWords = React.useMemo(() => {
+  const [popularWords, setPopularWords] = useState<string[]>([]);
+
+  const fallbackPopularWords = React.useMemo(() => {
     if (!isOpen) return [];
-    const words = content.toLowerCase().match(/(?<![а-яёa-z])[а-яёa-z]{4,}(?![а-яёa-z])/g) || [];
+    const words = content.toLowerCase().match(TOKENIZER_RE) || [];
     const freq: Record<string, number> = {};
     words.forEach(w => {
       if (!STOP_WORDS.has(w)) freq[w] = (freq[w] || 0) + 1;
@@ -134,6 +224,38 @@ export function WritingFinishModal({
       .slice(0, 5)
       .map(([word]) => word);
   }, [content, isOpen]);
+
+  React.useEffect(() => {
+    if (!isOpen || !content) {
+      setPopularWords([]);
+      return;
+    }
+    let cancelled = false;
+    setPopularWords(fallbackPopularWords);
+    void (async () => {
+      try {
+        const { df, N } = await buildCorpusDf();
+        if (cancelled || N === 0) return;
+        const words = content.toLowerCase().match(TOKENIZER_RE) || [];
+        const freq: Record<string, number> = {};
+        words.forEach(w => {
+          if (!STOP_WORDS.has(w)) freq[w] = (freq[w] || 0) + 1;
+        });
+        const scored = Object.entries(freq)
+          .map(([word, tf]) => {
+            const idf = Math.log((N + 1) / ((df.get(word) || 0) + 1)) + 1;
+            return { word, weight: tf * idf };
+          })
+          .sort((a, b) => b.weight - a.weight)
+          .slice(0, 5)
+          .map(s => s.word);
+        if (!cancelled) setPopularWords(scored);
+      } catch {
+        // fallback already set
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, content, fallbackPopularWords]);
 
   const allSuggestions = React.useMemo(() => {
     const suggestions = new Set([(title || '').trim(), ...popularWords].filter(Boolean));
@@ -273,6 +395,7 @@ export function WritingFinishModal({
             className="flex-1 flex flex-col overflow-hidden"
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle shrink-0">
+              {showCelebration && <CelebrationBadge reduced={!!reducedMotion} />}
               <h3 id="finish-modal-title" className="text-lg font-bold text-text-main">{t('finish_congrats')}</h3>
             </div>
 
@@ -287,6 +410,7 @@ export function WritingFinishModal({
                 wpmHistory={wpmHistory}
                 streakDays={streakDays}
                 sessionGroups={sessionGroups}
+                readingMinutes={readingMinutes}
                 t={t}
                 isMobile={isMobile}
                 statsExpanded={statsExpanded}
@@ -360,6 +484,7 @@ export function WritingFinishModal({
             className="space-y-5"
           >
           <div className="text-center">
+            {showCelebration && <CelebrationBadge reduced={!!reducedMotion} />}
             <h3 className="text-2xl font-bold text-text-main">{t('finish_congrats')}</h3>
           </div>
 
@@ -373,6 +498,7 @@ export function WritingFinishModal({
             wpmHistory={wpmHistory}
             streakDays={streakDays}
             sessionGroups={sessionGroups}
+            readingMinutes={readingMinutes}
             t={t}
             isMobile={isMobile}
             statsExpanded={statsExpanded}

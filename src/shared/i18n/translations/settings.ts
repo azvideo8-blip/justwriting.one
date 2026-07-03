@@ -119,4 +119,12 @@ export const settingsTranslations: Translations = {
   settings_export_all_empty: { ru: 'Нет заметок для экспорта', en: 'No notes to export' },
   settings_all_editor_settings: { ru: 'Все настройки редактора →', en: 'All editor settings →' },
   settings_encryption_management: { ru: 'Настройки шифрования и аккаунта →', en: 'Encryption & Account settings →' },
+  settings_typewriter: { ru: 'Пишущая машинка', en: 'Typewriter scrolling' },
+  settings_typewriter_desc: { ru: 'Каретка всегда по центру экрана', en: 'Keeps the caret line vertically centered' },
+  settings_focus_mode: { ru: 'Фокус-режим', en: 'Focus mode' },
+  settings_focus_mode_desc: { ru: 'Затемняет текст вне текущей зоны письма', en: 'Dims text away from the writing zone' },
+  settings_auto_hide_cursor: { ru: 'Скрытие курсора', en: 'Auto-hide cursor' },
+  settings_auto_hide_cursor_desc: { ru: 'Прячет курсор при печати', en: 'Hides cursor while typing' },
+  settings_writing_experience: { ru: 'Опыт письма', en: 'Writing experience' },
+  settings_theme_system: { ru: 'Системная', en: 'System' },
 };

@@ -79,6 +79,22 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
   const wordRef = useRef<HTMLButtonElement>(null);
   const timeRef = useRef<HTMLButtonElement>(null);
 
+  const [wordPulse, setWordPulse] = useState(0);
+  const [lastMilestone, setLastMilestone] = useState(0);
+
+  // Milestone detection via render-phase state adjustment (not effects) —
+  // fires once per upward crossing; typing backwards never re-triggers.
+  const milestone = Math.floor(sessionWords / 100) * 100;
+  if (milestone > lastMilestone) {
+    setLastMilestone(milestone);
+    if (milestone > 0 && !reducedMotion) setWordPulse(p => p + 1);
+  }
+
+  useEffect(() => {
+    const id = setTimeout(() => setWordPulse(0), 600);
+    return () => clearTimeout(id);
+  }, [wordPulse]);
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -135,7 +151,14 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
           )}
         >
           <div className="flex items-baseline gap-1.5 leading-none">
-            <span className={cn("text-lg font-medium leading-none tabular-nums whitespace-nowrap", wordDone ? "text-accent-success" : "text-text-main")}>
+            <span
+              className={cn(
+                "text-lg font-medium leading-none tabular-nums whitespace-nowrap",
+                wordDone ? "text-accent-success" : "text-text-main",
+                wordPulse > 0 && !reducedMotion && "milestone-pulse"
+              )}
+              key={wordPulse}
+            >
               {sessionWords}
             </span>
             {wordGoal > 0 && (

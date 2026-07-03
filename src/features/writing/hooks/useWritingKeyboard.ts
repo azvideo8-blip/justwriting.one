@@ -5,9 +5,11 @@ interface UseWritingKeyboardParams {
   sessionStatus: string;
   handlePlayRef: RefObject<(() => void) | null>;
   handlePauseRef: RefObject<(() => void) | null>;
+  handleFinishRef: RefObject<(() => void) | null>;
+  toggleShortcutsRef: RefObject<(() => void) | null>;
 }
 
-export function useWritingKeyboard({ sessionStatus, handlePlayRef, handlePauseRef }: UseWritingKeyboardParams) {
+export function useWritingKeyboard({ sessionStatus, handlePlayRef, handlePauseRef, handleFinishRef, toggleShortcutsRef }: UseWritingKeyboardParams) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -28,10 +30,20 @@ export function useWritingKeyboard({ sessionStatus, handlePlayRef, handlePauseRe
           e.preventDefault();
         }
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        if (sessionStatus === 'writing' || sessionStatus === 'paused') {
+          e.preventDefault();
+          handleFinishRef.current?.();
+        }
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault();
+        toggleShortcutsRef.current?.();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sessionStatus, handlePlayRef, handlePauseRef]);
+  }, [sessionStatus, handlePlayRef, handlePauseRef, handleFinishRef, toggleShortcutsRef]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
