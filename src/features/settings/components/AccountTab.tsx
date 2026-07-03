@@ -184,7 +184,7 @@ export function AccountTab({ userId }: AccountTabProps) {
                 onClick={() => setShowSignOutConfirm(false)}
                 className="px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors"
               >
-                {t('cancel') || 'Отмена'}
+                {t('common_cancel')}
               </Button>
             </div>
           ) : (

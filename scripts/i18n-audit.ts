@@ -1,14 +1,14 @@
 import { readFileSync, readdirSync } from 'fs';
 import { globSync } from 'glob';
 
-const translationFiles = readdirSync('src/core/i18n/translations')
+const translationFiles = readdirSync('src/shared/i18n/translations')
   .filter(f => f.endsWith('.ts'));
 
 const definedKeys = new Set<string>();
 const missingLocale: { key: string; missing: 'ru' | 'en' }[] = [];
 
 for (const file of translationFiles) {
-  const src = readFileSync(`src/core/i18n/translations/${file}`, 'utf-8');
+  const src = readFileSync(`src/shared/i18n/translations/${file}`, 'utf-8');
   const keyMatches = [...src.matchAll(/^\s{2}(\w+):\s*\{((?:[^}'"]|'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")*)\}/gm)];
   for (const match of keyMatches) {
     const key = match[1];
@@ -21,7 +21,7 @@ for (const file of translationFiles) {
 }
 
 const srcFiles = globSync('src/**/*.{ts,tsx}', {
-  ignore: ['src/core/i18n/**', 'src/**/__tests__/**', 'node_modules/**']
+  ignore: ['src/shared/i18n/**', 'src/**/__tests__/**', 'node_modules/**']
 });
 
 const usedKeys = new Set<string>();

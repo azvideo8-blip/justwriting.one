@@ -52,6 +52,7 @@ export const commonTranslations: Translations = {
   error_labels_failed:  { ru: 'Не удалось обновить ярлыки.', en: 'Failed to update labels.' },
   error_continue_session: { ru: 'Ошибка при продолжении сессии', en: 'Error continuing session' },
   error_reload: { ru: 'Перезагрузить', en: 'Reload' },
+  error_retry: { ru: 'Повторить', en: 'Retry' },
   error_session_key_missing: {
     ru: 'Сессия устарела. Введи пароль для разблокировки шифрования.',
     en: 'Session expired. Enter your password to unlock encryption.',

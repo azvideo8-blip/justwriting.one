@@ -159,14 +159,14 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
     setError(null);
     try {
       await migrateFromLegacy(userId, currentPassword, password);
-      showToast(t('enc_migration_success'), 'success');
+      showToast(t('enc_migrate_success'), 'success');
       setPassword('');
       setConfirmPassword('');
       setCurrentPassword('');
       onDone();
     } catch (err) {
       if (err instanceof Error && err.message === 'LEGACY_MIGRATION_WRONG_PASSWORD') {
-        setError(t('enc_migration_wrong_password'));
+        setError(t('enc_migrate_wrong_password'));
       } else {
         reportError(err, { action: 'migrateFromLegacy', userId });
         setError(t('error_generic_action'));
