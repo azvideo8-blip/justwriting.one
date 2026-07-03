@@ -75,6 +75,8 @@ export const archiveTranslations: Translations = {
   session_collapse: { ru: 'Свернуть', en: 'Collapse' },
   session_expand: { ru: 'Развернуть', en: 'Expand' },
   session_add_tags: { ru: 'Добавить теги', en: 'Add tags' },
+  session_add_tag: { ru: 'Добавить тег', en: 'Add tag' },
+  session_remove_tag: { ru: 'Удалить тег', en: 'Remove tag' },
   session_tag_placeholder: { ru: 'тег...', en: 'tag...' },
   session_continue: { ru: 'Продолжить писать', en: 'Continue writing' },
 
@@ -114,4 +116,5 @@ export const archiveTranslations: Translations = {
   archive_on_this_day_month: { ru: 'месяц назад', en: 'a month ago' },
   archive_untitled: { ru: 'Без названия', en: 'Untitled' },
   archive_cloud_sync_failed: { ru: 'Облачная копия не синхронизирована', en: 'Cloud copy did not sync' },
+  reading_time: { ru: '~{n} мин чтения', en: '~{n} min read' },
 };
