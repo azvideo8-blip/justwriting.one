@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { calcMaxHistoricalStreak, checkAchievement } from '../components/Achievements';
 import type { Session, Achievement } from '../../../types/index';
+import { clearFrozenDates } from '../../../core/utils/streakFreeze';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -60,6 +61,10 @@ function makeAch(overrides: Partial<Achievement>): Achievement {
 // ─── calcMaxHistoricalStreak ──────────────────────────────────────────────────
 
 describe('calcMaxHistoricalStreak', () => {
+  beforeEach(() => {
+    clearFrozenDates();
+  });
+
   it('returns 0 for empty sessions array', () => {
     expect(calcMaxHistoricalStreak([])).toBe(0);
   });
@@ -73,9 +78,9 @@ describe('calcMaxHistoricalStreak', () => {
     expect(calcMaxHistoricalStreak(sessions)).toBe(7);
   });
 
-  it('breaks streak on a gap: [Mon, Tue, Thu, Fri] → max 2', () => {
-    // offsets: 0=today, 1=yesterday, 3=three days ago, 4=four days ago
-    const sessions = [sessionOnDay(0), sessionOnDay(1), sessionOnDay(3), sessionOnDay(4)];
+  it('breaks streak on a 2-day gap: [today, yesterday, 4d ago, 5d ago] → max 2', () => {
+    // 2-day gap (days 2 and 3 missed) — too wide for freeze
+    const sessions = [sessionOnDay(0), sessionOnDay(1), sessionOnDay(4), sessionOnDay(5)];
     expect(calcMaxHistoricalStreak(sessions)).toBe(2);
   });
 

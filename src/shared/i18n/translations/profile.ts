@@ -37,6 +37,8 @@ export const profileTranslations: Translations = {
   profile_streak_now:         { ru: 'сейчас',                     en: 'now' },
   profile_streak_best:        { ru: 'лучшая',                     en: 'best' },
   profile_streak_today:       { ru: 'сегодня',                    en: 'today' },
+  profile_streak_freeze_used: { ru: 'Заморозка стрика использована', en: 'Streak freeze used' },
+  profile_streak_freeze_hint: { ru: '1 пропуск в месяц не сбрасывает серию', en: 'One missed day per month doesn\'t break your streak' },
   profile_heatmap_title:      { ru: 'Активность',                  en: 'Activity' },
   profile_heatmap_hint:       { ru: 'оттенок — объём слов',       en: 'shade = word count' },
   profile_heatmap_less:       { ru: 'меньше',                     en: 'less' },

@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { calculateStreak, calculateBestStreak } from '../utils';
+import { clearFrozenDates } from '../streakFreeze';
 
 function makeSession(daysAgo: number): import('../../../types').Session {
   const d = new Date();
@@ -19,6 +20,10 @@ function makeSession(daysAgo: number): import('../../../types').Session {
     sessionStartTime: d.getTime(),
   };
 }
+
+beforeEach(() => {
+  clearFrozenDates();
+});
 
 describe('calculateStreak', () => {
   it('[] → 0', () => {
@@ -72,5 +77,41 @@ describe('calculateBestStreak', () => {
 
   it('all same day → 1', () => {
     expect(calculateBestStreak([makeSession(0), makeSession(0), makeSession(0)])).toBe(1);
+  });
+});
+
+describe('streak freeze', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ now: new Date(2024, 5, 15) });
+    clearFrozenDates();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('1-day gap bridged by freeze', () => {
+    expect(calculateStreak([makeSession(0), makeSession(1), makeSession(3)])).toBe(4);
+  });
+
+  it('2-day gap (2 missed days) not bridged', () => {
+    expect(calculateStreak([makeSession(0), makeSession(1), makeSession(4)])).toBe(2);
+  });
+
+  it('second 1-day gap in same month breaks streak', () => {
+    expect(calculateStreak([makeSession(0), makeSession(1), makeSession(3), makeSession(5), makeSession(6)])).toBe(4);
+  });
+
+  it('freeze persisted across computations', () => {
+    expect(calculateStreak([makeSession(0), makeSession(1), makeSession(3)])).toBe(4);
+    expect(calculateStreak([makeSession(0), makeSession(1), makeSession(3)])).toBe(4);
+  });
+
+  it('calculateBestStreak bridges 1-day gap with freeze', () => {
+    const sessions = [
+      ...Array.from({ length: 5 }, (_, i) => makeSession(i)),
+      ...Array.from({ length: 3 }, (_, i) => makeSession(6 + i)),
+    ];
+    expect(calculateBestStreak(sessions)).toBe(9);
   });
 });
