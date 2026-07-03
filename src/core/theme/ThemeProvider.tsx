@@ -1,18 +1,22 @@
-import React, { createContext, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { z } from 'zod';
 import { useLocalStorage } from '../../shared/hooks/useLocalStorage';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 
-export type ThemeId = 'modern' | 'notion' | 'spotify' | 'amethyst';
+export type ThemeId = 'modern' | 'notion' | 'spotify' | 'amethyst' | 'system';
+export type ConcreteThemeId = Exclude<ThemeId, 'system'>;
+
+const DARK_THEME: ConcreteThemeId = 'amethyst';
+const LIGHT_THEME: ConcreteThemeId = 'notion';
 
 export interface ThemeConfig {
-  id: ThemeId;
+  id: ConcreteThemeId;
   nameRu: string;
   nameEn: string;
   cssClass: string;
 }
 
-export const THEMES: Record<ThemeId, ThemeConfig> = {
+export const THEMES: Record<ConcreteThemeId, ThemeConfig> = {
   modern: {
     id: 'modern',
     nameRu: 'Современный',
@@ -43,6 +47,7 @@ interface ThemeContextType {
   themeId: ThemeId;
   setThemeId: (id: ThemeId) => void;
   themes: typeof THEMES;
+  resolvedThemeId: ConcreteThemeId;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -51,17 +56,33 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [themeId, setThemeId] = useLocalStorage<ThemeId>(
     STORAGE_KEYS.APP_THEME,
     'amethyst',
-    z.enum(['modern', 'notion', 'spotify', 'amethyst'])
+    z.enum(['modern', 'notion', 'spotify', 'amethyst', 'system'])
   );
+
+  const [systemPrefersDark, setSystemPrefersDark] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => setSystemPrefersDark(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  const resolvedThemeId: ConcreteThemeId =
+    themeId === 'system'
+      ? (systemPrefersDark ? DARK_THEME : LIGHT_THEME)
+      : themeId;
 
   useEffect(() => {
     const root = document.documentElement;
     Object.values(THEMES).forEach(t => root.classList.remove(t.cssClass));
-    root.classList.add(THEMES[themeId].cssClass);
-  }, [themeId]);
+    root.classList.add(THEMES[resolvedThemeId].cssClass);
+  }, [resolvedThemeId]);
 
   return (
-    <ThemeContext.Provider value={{ themeId, setThemeId, themes: THEMES }}>
+    <ThemeContext.Provider value={{ themeId, setThemeId, themes: THEMES, resolvedThemeId }}>
       {children}
     </ThemeContext.Provider>
   );

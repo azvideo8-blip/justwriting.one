@@ -35,6 +35,7 @@ export function AppTab({ userId: _userId, onRefreshLifeLog: _onRefreshLifeLog }:
     notion:    '#e8dfc0',
     spotify:   '#1ed760',
     amethyst:  '#7c3aed',
+    system:    'linear-gradient(135deg, #0E0A18 50%, #FAF8F5 50%)',
   };
 
   const toggleAutoSync = () => {
@@ -193,6 +194,22 @@ export function AppTab({ userId: _userId, onRefreshLifeLog: _onRefreshLifeLog }:
               </div>
             </Button>
           ))}
+          <Button
+            onClick={() => setThemeId('system')}
+            className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left ${
+              themeId === 'system'
+                ? "border-text-main bg-text-main text-surface-base"
+                : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <div
+                className="w-3 h-3 rounded-full shrink-0 border border-black/10"
+                style={{ background: THEME_ACCENT.system }}
+              />
+              <span>{t('settings_theme_system')}</span>
+            </div>
+          </Button>
         </div>
       </Section>
 
