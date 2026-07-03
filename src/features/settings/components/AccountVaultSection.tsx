@@ -105,7 +105,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
       setMigrationDone(true);
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') {
-        showToast(t('cancel') || 'Отменено', 'error');
+        showToast(t('common_cancel'), 'error');
       } else {
         reportError(e, { action: 'encryptAllExistingNotes', userId });
         showToast(t('error_generic_action'), 'error');
@@ -267,7 +267,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
                   onClick={handleAbortEncryption}
                   className="text-xs text-text-main/60 hover:text-accent-danger transition-colors"
                 >
-                  {t('cancel') || 'Отмена'}
+                  {t('common_cancel')}
                 </Button>
               </div>
               {migrationProgress && (

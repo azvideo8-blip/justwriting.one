@@ -57,7 +57,7 @@ export function LoginModalOverlay({ open }: { open: boolean }) {
               ref={modalRef}
               role="dialog"
               aria-modal="true"
-              aria-label={t('login_title')}
+              aria-label={t('auth_sign_in')}
               initial={reducedMotion ? {} : { scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={reducedMotion ? {} : { scale: 0.95, opacity: 0 }}

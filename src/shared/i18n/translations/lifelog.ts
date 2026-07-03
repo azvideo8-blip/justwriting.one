@@ -23,6 +23,7 @@ export const lifelogTranslations: Translations = {
   lifelog_search_placeholder: { ru: 'Поиск по заметкам...', en: 'Search notes...' },
   lifelog_continue:    { ru: 'Продолжить', en: 'Continue' },
   lifelog_just_now:    { ru: 'только что', en: 'just now' },
+  lifelog_close:       { ru: 'Закрыть', en: 'Close' },
   lifelog_documents:      { ru: 'Документы',  en: 'Documents' },
   lifelog_sessions_count: { ru: 'сессий',     en: 'sessions' },
 
