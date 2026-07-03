@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 2026-07-03 (v0.7.42)
+- **[RU]** ИИ-память: 👍/👎 больше не плодят дубли — одинаковые предпочтения объединяются (обновляется дата, а не добавляется копия); при загрузке страницы ИИ уже накопленные дубли вычищаются один раз.
+- **[EN]** AI memory: 👍/👎 no longer create duplicates — identical preferences are merged (updated in place instead of stacking a copy); existing duplicates are cleaned once on AI page load.
+- **[RU]** ИИ-память: записи теперь сохраняются на языке пользователя (раньше факты/инсайты могли извлекаться по-английски у русскоязычного пользователя).
+- **[EN]** AI memory: entries are now stored in the user's language (previously facts/insights could be extracted in English for a Russian-speaking user).
+- **[RU]** ИИ-чат: «разбери заметку …» с конкретным номером больше не прикрепляет похожую, но не ту заметку — если названной записи нет, не прикрепляется ничего (расплывчатое «последнюю/свежую» по-прежнему берёт свежую).
+- **[EN]** AI chat: "analyze the note …" with a specific number no longer attaches a similar-but-wrong note — if the named entry doesn't exist, nothing is attached (a vague "latest/recent" still picks the most recent note).
+
 ## 2026-07-03 (v0.7.41)
 - **[RU]** Письмо: режим «Пишущая машинка» — строка с кареткой держится по центру экрана (нижний отступ позволяет центрировать даже последние строки). Тумблер в «Настройки → Редактор».
 - **[EN]** Writing: "Typewriter" mode — the caret line stays vertically centered (bottom padding lets even the last lines reach center). Toggle in Settings → Editor.

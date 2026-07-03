@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.42',
+    date: '2026-07-03',
+    items: [
+      { category: 'fix', ru: 'ИИ-память: 👍/👎 больше не плодят дубли — одинаковые предпочтения объединяются; накопленные дубли вычищаются один раз', en: 'AI memory: 👍/👎 no longer create duplicates — identical preferences merge; existing duplicates cleaned once' },
+      { category: 'fix', ru: 'ИИ-память: записи сохраняются на языке пользователя (раньше факты могли извлекаться по-английски)', en: 'AI memory: entries are stored in the user\'s language (facts could previously be extracted in English)' },
+      { category: 'fix', ru: 'ИИ-чат: «разбери заметку …» с конкретным номером не прикрепляет чужую заметку — если такой записи нет, не прикрепляется ничего', en: 'AI chat: "analyze the note …" with a specific number no longer attaches the wrong note — if it doesn\'t exist, nothing is attached' },
+    ],
+  },
+  {
     version: '0.7.41',
     date: '2026-07-03',
     items: [

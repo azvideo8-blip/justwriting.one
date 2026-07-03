@@ -1,5 +1,5 @@
 /* eslint-env worker */
-const CACHE_VERSION = 'v0.7.41';
+const CACHE_VERSION = 'v0.7.42';
 const CACHE = `jw-${CACHE_VERSION}`;
 const NAV_CACHE = `jw-nav-${CACHE_VERSION}`;
 
