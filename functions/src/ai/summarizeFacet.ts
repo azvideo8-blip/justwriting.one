@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, INJECTION_PATTERNS } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 // Summarizes one cluster of the user's notes into a profile facet (label +
@@ -43,7 +43,7 @@ export const summarizeFacet = onCall({
     .map((n, i) => `Заметка ${i + 1} «${sanitizeAiInput(n.title)}»:\n${sanitizeAiInput(n.excerpt)}`)
     .join('\n\n');
 
-  if (INJECTION_PATTERNS.some(p => p.test(notesText))) {
+  if (hasInjectionAttempt(notesText)) {
     throw new HttpsError('invalid-argument', 'Disallowed patterns in notes.');
   }
 

@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, refundDailyLimit, checkRateLimit, tryReserveGlobalRequest, refundGlobalRequest, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, refundDailyLimit, checkRateLimit, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt, getLangfuse } from '../shared/aiUtils';
 import { validateInternalCallRestrictions, getMaxTokens, type InternalCallType } from '../shared/aiPolicy';
 import { generate, getActiveModel } from '../shared/aiProvider';
 import { PRESET_PERSONA_IDS, type PersonaId } from '../shared/prompts';
@@ -64,14 +64,14 @@ export const chatWithAI = onCall({
     if (!customSystemPrompt) {
       throw new HttpsError('invalid-argument', 'customSystemPrompt is required when personaId is "custom".');
     }
-    if (INJECTION_PATTERNS.some(p => p.test(customSystemPrompt))) {
+    if (hasInjectionAttempt(customSystemPrompt)) {
       throw new HttpsError('invalid-argument', 'Custom prompt failed security check.');
     }
   }
 
   // S-3: Injection guard for ALL message turns (not just user) — a client-fabricated
   // assistant message is the real injection vector.
-  if (messages.some(m => INJECTION_PATTERNS.some(p => p.test(m.content)))) {
+  if (messages.some(m => hasInjectionAttempt(m.content))) {
     throw new HttpsError('invalid-argument', 'Disallowed patterns detected in messages.');
   }
 

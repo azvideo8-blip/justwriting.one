@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, INJECTION_PATTERNS } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 // Extracts durable memory units (facts, insights, commitments, preferences)
@@ -51,8 +51,7 @@ export const extractChatMemory = onCall({
     .map(m => `${m.role}: ${sanitizeAiInput(m.content)}`)
     .join('\n\n');
 
-  const userMessages = parsed.data.messages.filter(m => m.role === 'user');
-  if (userMessages.some(m => INJECTION_PATTERNS.some(p => p.test(m.content)))) {
+  if (parsed.data.messages.some(m => hasInjectionAttempt(m.content))) {
     throw new HttpsError('invalid-argument', 'Disallowed patterns in messages.');
   }
 

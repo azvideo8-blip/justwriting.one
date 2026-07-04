@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, refundDailyLimit, checkRateLimit, tryReserveGlobalRequest, refundGlobalRequest, getLangfuse, INJECTION_PATTERNS, MAX_AI_CONTENT_LENGTH } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, refundDailyLimit, checkRateLimit, tryReserveGlobalRequest, refundGlobalRequest, getLangfuse, hasInjectionAttempt, MAX_AI_CONTENT_LENGTH } from '../shared/aiUtils';
 import { generate, getActiveModel } from '../shared/aiProvider';
 
 const actionSchema = z.enum(['shorten', 'accents', 'ideas', 'summarize', 'tags', 'mood', 'continue']);
@@ -69,7 +69,7 @@ export const editWithAI = onCall({
 
   const { content, action, history } = parsed.data;
 
-  if (INJECTION_PATTERNS.some(p => p.test(content))) {
+  if (hasInjectionAttempt(content)) {
     throw new HttpsError('invalid-argument', 'Content contains disallowed patterns.');
   }
 
@@ -77,7 +77,7 @@ export const editWithAI = onCall({
 
   if (history) {
     for (const m of history) {
-      if (INJECTION_PATTERNS.some(p => p.test(m.content))) {
+      if (hasInjectionAttempt(m.content)) {
         throw new HttpsError('invalid-argument', 'History contains disallowed patterns.');
       }
     }
