@@ -48,7 +48,7 @@ export default defineConfig(() => {
             'vendor-router': ['react-router-dom'],
             'vendor-markdown': ['react-markdown', 'rehype-sanitize'],
             'vendor-ui': ['lucide-react', 'clsx', 'tailwind-merge'],
-            'vendor-ai': ['ai', '@ai-sdk/google', '@ai-sdk/openai'],
+            'vendor-ai': ['ai', '@ai-sdk/openai'],
             'vendor-sentry': ['@sentry/react'],
             'vendor-analytics': ['posthog-js'],
             'vendor-virtuoso': ['react-virtuoso'],
