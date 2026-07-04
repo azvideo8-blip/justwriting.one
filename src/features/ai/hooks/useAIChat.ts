@@ -133,7 +133,7 @@ async function streamChat(params: {
       fullText += text;
       // Parse reasoning/answer sections from stream. DeepSeek exposes thinking
       // in three shapes, handled in priority order:
-      //  1. <think>…</think> inline tags (reasoning models on Fireworks)
+      //  1. <think>…</think> inline tags (reasoning models via OpenRouter)
       //  2. <reasoning>…</reasoning><answer>…</answer> XML
       //  3. markdown headers ХОД МЫСЛИ: … ОТВЕТ: …
       const thinkMatch = fullText.match(/<think>([\s\S]*?)(<\/think>|$)/i);

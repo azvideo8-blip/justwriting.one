@@ -2,8 +2,13 @@ import { getLocalDb } from '../../../core/storage/localDb';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { AIService } from '../services/AIService';
 
-export const CURRENT_EMBED_MODEL = 'fireworks/qwen3-embedding-8b';
-export const CURRENT_EMBED_DIM = 1024;
+// OpenRouter's native output for this model is 4096-dim (no truncation param
+// confirmed available) — different from the old Fireworks-hosted 1024-dim
+// vectors. The (model, dim) mismatch alone marks every existing embedding
+// stale, which is intentional: vectors from different models/dims aren't
+// comparable, so a full re-index is required after this provider switch.
+export const CURRENT_EMBED_MODEL = 'qwen/qwen3-embedding-8b';
+export const CURRENT_EMBED_DIM = 4096;
 // Embedding pipeline version. v2 = per-chunk vectors; v3 = also stores chunk
 // texts (for chunk-level profile domains). Bumping forces a full re-index.
 export const CURRENT_EMBED_SCHEMA = 3;

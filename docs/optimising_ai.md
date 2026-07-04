@@ -2,7 +2,7 @@
 
 Документ самодостаточный. Цель — ускорить ответ ИИ, сократить число сетевых/LLM-вызовов на сообщение, убрать антипаттерны RAG и дублирование. Без изменения продуктового поведения (поиск/фасеты/персоны работают как сейчас, просто быстрее и чище).
 
-Проект: `justwriting` (React+TS+Vite; Firebase Functions; Vercel). Провайдер ИИ — Fireworks, активная чат-модель `deepseek-v4-flash` (reasoning-модель).
+Проект: `justwriting` (React+TS+Vite; Firebase Functions; Vercel). Провайдер ИИ — OpenRouter, активная чат-модель `deepseek/deepseek-v4-flash` (reasoning-модель).
 
 ---
 

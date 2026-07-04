@@ -14,7 +14,7 @@ const inputSchema = z.object({
   })).min(1).max(50),
 });
 
-const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'accounts/fireworks/models/gpt-oss-20b';
+const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'openai/gpt-oss-20b:free';
 
 const SYSTEM_PROMPT = `Extract durable memory units from this conversation. Return JSON array of { kind: 'fact'|'insight'|'commitment'|'preference', text: short description }.
 
@@ -32,7 +32,7 @@ LANGUAGE: write each memory unit's text in the SAME language the user writes in.
 const VALID_KINDS = ['fact', 'insight', 'commitment', 'preference'];
 
 export const extractChatMemory = onCall({
-  secrets: ['GEMINI_API_KEY', 'FIREWORKS_API_KEY'],
+  secrets: ['GEMINI_API_KEY', 'OPENROUTER_API_KEY'],
   timeoutSeconds: 60,
   enforceAppCheck: false,
 }, async (request) => {

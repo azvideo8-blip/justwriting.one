@@ -2,7 +2,7 @@
 
 Самодостаточный план. Контекст: личный дневник на русском (практика «аскеза» — ежедневные записи) + ИИ-персоны (психолог-панель `group_psychology`, `cbt`, `coach`, `editor`, `custom`), которые рефлексируют ВМЕСТЕ с пользователем, опираясь на его заметки (chunked-эмбеддинги, гибридный поиск, фасеты-профиль). Цель — сделать диалог непрерывным (память), эмоционально точным, грунтованным и проверяемым. Основано на ресёрче (источники в конце).
 
-Стек: React+TS+Vite; Firebase Functions; Vercel. ИИ — Fireworks (чат `deepseek-v4-flash`, reasoning-модель), эмбеддинги `qwen3-embedding-8b`, служебная модель `AI_FACET_MODEL` (env, по умолч. `qwen3-30b-a3b`).
+Стек: React+TS+Vite; Firebase Functions; Vercel. ИИ — OpenRouter (чат `deepseek/deepseek-v4-flash`, reasoning-модель), эмбеддинги `qwen/qwen3-embedding-8b`, служебная модель `AI_FACET_MODEL` (env, по умолч. `openai/gpt-oss-20b:free`).
 
 ---
 

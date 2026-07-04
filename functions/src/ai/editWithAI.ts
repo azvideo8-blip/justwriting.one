@@ -52,7 +52,7 @@ async function callModel(
 }
 
 export const editWithAI = onCall({
-  secrets: ['GEMINI_API_KEY', 'FIREWORKS_API_KEY'],
+  secrets: ['GEMINI_API_KEY', 'OPENROUTER_API_KEY'],
   timeoutSeconds: 120,
   enforceAppCheck: false,
 }, async (request) => {

@@ -59,7 +59,7 @@ export function TermsOfServicePage() {
 
             <section>
               <h2 className="text-base font-bold text-text-main mb-2">4. ИИ-функции</h2>
-              <p>ИИ-функции (чат, редактирование, саммаризация) предоставляются через сторонние API (Google Gemini, Fireworks AI). ИИ-ответы носят рекомендательный характер и не являются профессиональной медицинской, психологической или юридической консультацией. Не полагайтесь на ИИ-ответы для принятия критических решений.</p>
+              <p>ИИ-функции (чат, редактирование, саммаризация) предоставляются через сторонние API (Google Gemini, OpenRouter). ИИ-ответы носят рекомендательный характер и не являются профессиональной медицинской, психологической или юридической консультацией. Не полагайтесь на ИИ-ответы для принятия критических решений.</p>
             </section>
 
             <section>
@@ -117,7 +117,7 @@ export function TermsOfServicePage() {
 
             <section>
               <h2 className="text-base font-bold text-text-main mb-2">4. AI Features</h2>
-              <p>AI features (chat, editing, summarization) are provided through third-party APIs (Google Gemini, Fireworks AI). AI responses are advisory in nature and are not professional medical, psychological, or legal advice. Do not rely on AI responses for critical decisions.</p>
+              <p>AI features (chat, editing, summarization) are provided through third-party APIs (Google Gemini, OpenRouter). AI responses are advisory in nature and are not professional medical, psychological, or legal advice. Do not rely on AI responses for critical decisions.</p>
             </section>
 
             <section>

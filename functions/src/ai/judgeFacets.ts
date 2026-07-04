@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
-const JUDGE_MODEL = process.env.AI_FACET_MODEL ?? 'accounts/fireworks/models/gpt-oss-20b';
+const JUDGE_MODEL = process.env.AI_FACET_MODEL ?? 'openai/gpt-oss-20b:free';
 
 const inputSchema = z.object({
   facets: z.array(z.object({
@@ -43,7 +43,7 @@ const verdictSchema = z.object({
 });
 
 export const judgeFacets = onCall({
-  secrets: ['GEMINI_API_KEY', 'FIREWORKS_API_KEY'],
+  secrets: ['GEMINI_API_KEY', 'OPENROUTER_API_KEY'],
   timeoutSeconds: 120,
   enforceAppCheck: false,
 }, async (request) => {
