@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.43',
+    date: '2026-07-04',
+    items: [
+      { category: 'fix', ru: 'ИИ снова работает — провайдер переведён с Fireworks (аккаунт был заблокирован по лимиту трат) на OpenRouter', en: 'AI is working again — provider switched from Fireworks (account was suspended on its spend limit) to OpenRouter' },
+      { category: 'improvement', ru: 'Убран резервный ИИ-провайдер Google Gemini (не использовался) — упрощена архитектура, обновлена политика конфиденциальности', en: 'Removed the unused Google Gemini fallback AI provider — simpler architecture, privacy policy updated' },
+      { category: 'improvement', ru: 'Поиск по заметкам ненадолго может показывать чуть устаревшие результаты, пока фоновый индексатор пересчитает эмбеддинги под новую модель', en: 'Note search may briefly show slightly stale results while the background indexer recomputes embeddings for the new model' },
+    ],
+  },
+  {
     version: '0.7.42',
     date: '2026-07-03',
     items: [
