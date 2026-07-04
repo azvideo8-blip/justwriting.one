@@ -52,7 +52,7 @@ export function PrivacyPolicyPage() {
               <ul className="list-disc pl-5 space-y-1">
                 <li><strong>Локально</strong> — в IndexedDB вашего браузера (local-first архитектура).</li>
                 <li><strong>В облаке</strong> — в Firebase Firestore (Google, США) при включённой синхронизации.</li>
-                <li><strong>ИИ-обработка</strong> — текст передаётся в API Gemini (Google) и OpenRouter для генерации ответов. Текст не сохраняется на наших серверах после обработки.</li>
+                <li><strong>ИИ-обработка</strong> — текст передаётся в OpenRouter для генерации ответов. Текст не сохраняется на наших серверах после обработки.</li>
                 <li><strong>Аналитика</strong> — PostHog (ЕС), только с вашего согласия.</li>
                 <li><strong>Мониторинг ошибок</strong> — Sentry (США), личные данные маскируются.</li>
                 <li><strong>Наблюдаемость ИИ</strong> — Langfuse (логи ИИ-запросов для отладки: персона, действие, токены).</li>
@@ -66,7 +66,7 @@ export function PrivacyPolicyPage() {
 
             <section>
               <h2 className="text-base font-bold text-text-main mb-2">4. ИИ-функции</h2>
-              <p>При использовании ИИ-чат, ИИ-редактирования или ИИ-саммаризации текст вашей заметки передаётся во внешний ИИ-API (Google Gemini или OpenRouter). Мы не сохраняем содержимое запроса на наших серверах после генерации ответа. Метаданные запроса (персона, токены, модель) записываются для лимитирования и аналитики.</p>
+              <p>При использовании ИИ-чат, ИИ-редактирования или ИИ-саммаризации текст вашей заметки передаётся во внешний ИИ-API (OpenRouter). Мы не сохраняем содержимое запроса на наших серверах после генерации ответа. Метаданные запроса (персона, токены, модель) записываются для лимитирования и аналитики.</p>
             </section>
 
             <section>
@@ -88,7 +88,7 @@ export function PrivacyPolicyPage() {
               <h2 className="text-base font-bold text-text-main mb-2">7. Передача данных третьим лицам</h2>
               <p>Мы не продаём и не передаём ваши данные третьим лицам. Данные обрабатываются следующими сервисами:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
-                <li>Google (Firebase Auth, Firestore, Gemini API)</li>
+                <li>Google (Firebase Auth, Firestore)</li>
                 <li>OpenRouter (ИИ-генерация)</li>
                 <li>PostHog (аналитика, ЕС)</li>
                 <li>Sentry (мониторинг ошибок)</li>
@@ -129,7 +129,7 @@ export function PrivacyPolicyPage() {
               <ul className="list-disc pl-5 space-y-1">
                 <li><strong>Locally</strong> — in your browser&apos;s IndexedDB (local-first architecture).</li>
                 <li><strong>In the cloud</strong> — Firebase Firestore (Google, US) when sync is enabled.</li>
-                <li><strong>AI processing</strong> — text is sent to Gemini API (Google) and OpenRouter for response generation. Text is not stored on our servers after processing.</li>
+                <li><strong>AI processing</strong> — text is sent to OpenRouter for response generation. Text is not stored on our servers after processing.</li>
                 <li><strong>Analytics</strong> — PostHog (EU), only with your consent.</li>
                 <li><strong>Error monitoring</strong> — Sentry (US), personal data is masked.</li>
                 <li><strong>AI observability</strong> — Langfuse (AI request logs for debugging: persona, action, tokens).</li>
@@ -143,7 +143,7 @@ export function PrivacyPolicyPage() {
 
             <section>
               <h2 className="text-base font-bold text-text-main mb-2">4. AI Features</h2>
-              <p>When using AI chat, AI editing, or AI summarization, your note text is sent to an external AI API (Google Gemini or OpenRouter). We do not store request content on our servers after generating a response. Request metadata (persona, tokens, model) is recorded for rate limiting and analytics.</p>
+              <p>When using AI chat, AI editing, or AI summarization, your note text is sent to an external AI API (OpenRouter). We do not store request content on our servers after generating a response. Request metadata (persona, tokens, model) is recorded for rate limiting and analytics.</p>
             </section>
 
             <section>
@@ -165,7 +165,7 @@ export function PrivacyPolicyPage() {
               <h2 className="text-base font-bold text-text-main mb-2">7. Third-Party Data Sharing</h2>
               <p>We do not sell or share your data with third parties. Data is processed by the following services:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
-                <li>Google (Firebase Auth, Firestore, Gemini API)</li>
+                <li>Google (Firebase Auth, Firestore)</li>
                 <li>OpenRouter (AI generation)</li>
                 <li>PostHog (analytics, EU)</li>
                 <li>Sentry (error monitoring)</li>

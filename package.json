@@ -17,7 +17,6 @@
     "ci": "npm run typecheck && npm run lint && npm run test:ci"
   },
   "dependencies": {
-    "@ai-sdk/google": "^3.0.80",
     "@ai-sdk/openai": "^3.0.66",
     "@sentry/react": "^10.46.0",
     "ai": "^6.0.191",

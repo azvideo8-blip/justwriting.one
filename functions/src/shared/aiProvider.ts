@@ -1,49 +1,10 @@
-import { GEMINI_MODEL, getGenAI } from './aiUtils';
-import { getDb } from './firestore';
-import { FieldValue } from 'firebase-admin/firestore';
-
-// Provider seam: lets the same call sites run against Gemini (Google) or an
-// OpenRouter-hosted OpenAI-compatible model (e.g. DeepSeek). Switch via the
-// AI_PROVIDER env var; Gemini stays available as a fallback.
-export const AI_PROVIDER = (process.env.AI_PROVIDER ?? 'openrouter').toLowerCase();
-// Env-var default for the OpenRouter model (used if Firestore config is absent).
-const OPENROUTER_MODEL_ENV = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash';
+// OpenRouter is the sole AI provider.
+const ACTIVE_CHAT_MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash';
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 const OPENROUTER_EMBED_MODEL = process.env.OPENROUTER_EMBED_MODEL ?? 'qwen/qwen3-embedding-8b';
-// Legacy Fireworks model ids cached in Firestore from before the OpenRouter
-// migration — treat them as absent so the env default kicks in instead of
-// sending a dead provider's model id to OpenRouter.
-const LEGACY_MODEL_PREFIX = 'accounts/fireworks/';
-
-// ── Active model config (Firestore-backed, env-var fallback) ──────────────────
-// Firestore doc `appConfig/ai` stores { model: string }. The admin panel writes
-// to this doc via the `setAIModel` Cloud Function. We cache the result for 60s
-// so hot-path requests pay no extra Firestore read cost.
-let _modelCache: { model: string; expiresAt: number } | null = null;
 
 export async function getActiveModel(): Promise<string> {
-  const now = Date.now();
-  if (_modelCache && now < _modelCache.expiresAt) return _modelCache.model;
-  try {
-    const snap = await getDb().doc('appConfig/ai').get();
-    const model = snap.data()?.model as string | undefined;
-    if (model && model.length > 0 && !model.startsWith(LEGACY_MODEL_PREFIX)) {
-      _modelCache = { model, expiresAt: now + 60_000 };
-      return model;
-    }
-  } catch (e) {
-    console.warn('[aiProvider] failed to read appConfig/ai, using env fallback:', e);
-  }
-  return OPENROUTER_MODEL_ENV;
-}
-
-/** Write the active model to Firestore and invalidate the local cache. */
-export async function setActiveModel(model: string): Promise<void> {
-  await getDb().doc('appConfig/ai').set(
-    { model, updatedAt: FieldValue.serverTimestamp() },
-    { merge: true }
-  );
-  _modelCache = null; // force next request to re-read
+  return ACTIVE_CHAT_MODEL;
 }
 
 export type ProviderRole = 'user' | 'assistant';
@@ -72,44 +33,7 @@ export interface GenerateResult {
 }
 
 export async function generate(params: GenerateParams): Promise<GenerateResult> {
-  if (AI_PROVIDER === 'openrouter') return generateOpenRouter(params);
-  return generateGemini(params);
-}
-
-async function generateGemini(params: GenerateParams): Promise<GenerateResult> {
-  const { system, messages, json, maxTokens, abortMs } = params;
-
-  const generationConfig: Record<string, unknown> = {};
-  if (json) generationConfig.responseMimeType = 'application/json';
-  if (maxTokens) generationConfig.maxOutputTokens = maxTokens;
-
-  const model = getGenAI().getGenerativeModel({
-    model: GEMINI_MODEL,
-    ...(system ? { systemInstruction: system } : {}),
-    ...(Object.keys(generationConfig).length ? { generationConfig } : {}),
-  });
-
-  const history = messages.slice(0, -1).map(m => ({
-    role: m.role === 'assistant' ? ('model' as const) : ('user' as const),
-    parts: [{ text: m.content }],
-  }));
-  const last = messages[messages.length - 1];
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), abortMs ?? 30_000);
-  try {
-    const chat = model.startChat({ history });
-    const result = await chat.sendMessage(last!.content, { signal: controller.signal });
-    const response = result.response;
-    return {
-      text: response.text(),
-      tokensIn: response.usageMetadata?.promptTokenCount ?? 0,
-      tokensOut: response.usageMetadata?.candidatesTokenCount ?? 0,
-      model: GEMINI_MODEL,
-    };
-  } finally {
-    clearTimeout(timeout);
-  }
+  return generateOpenRouter(params);
 }
 
 async function generateOpenRouter(params: GenerateParams): Promise<GenerateResult> {
@@ -195,19 +119,7 @@ export interface EmbedResult {
 }
 
 export async function embed(texts: string[]): Promise<EmbedResult> {
-  if (AI_PROVIDER === 'openrouter') return embedOpenRouter(texts);
-  return embedGemini(texts);
-}
-
-async function embedGemini(texts: string[]): Promise<EmbedResult> {
-  const { embedMany } = await import('ai');
-  const { createGoogleGenerativeAI } = await import('@ai-sdk/google');
-  const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY! });
-  const model = google.textEmbeddingModel('text-embedding-004');
-  const { embeddings } = await embedMany({ model, values: texts });
-  const vectors = embeddings;
-  const dim = vectors[0]?.length ?? 0;
-  return { vectors, model: 'text-embedding-004', dim, tokens: 0 };
+  return embedOpenRouter(texts);
 }
 
 async function embedOpenRouter(texts: string[]): Promise<EmbedResult> {

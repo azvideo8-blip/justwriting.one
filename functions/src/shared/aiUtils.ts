@@ -1,21 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { getDb } from './firestore';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import DOMPurify from 'isomorphic-dompurify';
 import { Langfuse } from 'langfuse';
-
-export const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
-
-let _genAI: GoogleGenerativeAI | null = null;
-
-export function getGenAI(): GoogleGenerativeAI {
-  if (!_genAI) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error('GEMINI_API_KEY not set');
-    _genAI = new GoogleGenerativeAI(apiKey);
-  }
-  return _genAI;
-}
 
 export const MAX_AI_CONTENT_LENGTH = 50_000;
 
@@ -139,12 +125,8 @@ function envInt(name: string, fallback: number): number {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
-// Project-wide Gemini rate-limit guardrails. Defaults are Google's documented
-// Tier 1 limits for gemini-2.5-flash (RPM 1,000 / TPM 1,000,000 / RPD 10,000);
-// verify against your live limits at https://aistudio.google.com/rate-limit and
-// override via env. tokensPerDay is a cost guard (no daily token cap exists on
-// Tier 1) sized so it doesn't bind before RPD under normal use.
-// Keep these numbers in sync with the mirror in api/chat.ts.
+// Project-wide daily request/token budget guard for the OpenRouter chat model.
+// Override via env. Keep these numbers in sync with the mirror in api/chat.ts.
 export const TIER_LIMITS = {
   requestsPerDay: envInt('AI_TIER_RPD', 10_000),
   tokensPerDay: envInt('AI_TIER_TPD', 25_000_000),

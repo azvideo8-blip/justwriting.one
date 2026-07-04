@@ -11,10 +11,14 @@ const schema = z.object({
 const MAX_DAILY_REQUESTS_SAFETY = 500;
 const MAX_DAILY_COST_SAFETY = 5.0; // USD safety limit to prevent runaways
 
-// Gemini 2.5 Flash pricing (as of 2025-06). Input: $0.075/1M tokens,
-// Output: $0.30/1M tokens. Verify at https://ai.google.dev/pricing
-const COST_IN = 0.000000075;
-const COST_OUT = 0.00000030;
+// DeepSeek v4 Flash (OpenRouter) catalog pricing is $0.09/$0.18 per 1M tokens,
+// but a live billed request (2026-07-04, routed to the "DigitalOcean" backend)
+// came in ~25% above that ($0.112/$0.224) — OpenRouter can route the same
+// model slug to different backend providers at different rates. This is a
+// safety cap, so round up rather than use the optimistic catalog rate.
+// Verify at https://openrouter.ai/deepseek/deepseek-v4-flash
+const COST_IN = 0.00000012;
+const COST_OUT = 0.00000024;
 
 export const resetUserLimit = onCall({
   enforceAppCheck: false,

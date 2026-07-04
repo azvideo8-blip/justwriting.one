@@ -25,4 +25,3 @@ export { extractChatMemory } from './ai/extractChatMemory';
 export { validateCustomPrompt } from './ai/validateCustomPrompt';
 export { getAIUsageStats } from './ai/getAIUsageStats';
 export { getAILimit } from './ai/getAILimit';
-export { setAIModel, getAIConfig } from './ai/setAIModel';

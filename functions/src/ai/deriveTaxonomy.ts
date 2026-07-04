@@ -31,7 +31,7 @@ function repairTruncatedJson(raw: string): string {
 const domainSchema = z.object({ label: z.string().min(1).max(60), seed: z.string().min(3).max(600) });
 
 export const deriveTaxonomy = onCall({
-  secrets: ['GEMINI_API_KEY', 'OPENROUTER_API_KEY'],
+  secrets: ['OPENROUTER_API_KEY'],
   timeoutSeconds: 120,
   enforceAppCheck: false,
 }, async (request) => {

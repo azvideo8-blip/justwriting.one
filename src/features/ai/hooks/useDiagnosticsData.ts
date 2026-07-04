@@ -72,9 +72,6 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   const [expandedUid, setExpandedUid] = useState<string | null>(null);
   const [userEvents, setUserEvents] = useState<AIRequestEvent[]>([]);
   const [userEventsLoading, setUserEventsLoading] = useState(false);
-  const [currentAIModel, setCurrentAIModel] = useState<string | null>(null);
-  const [modelSwitching, setModelSwitching] = useState(false);
-
   const [portraitText, setPortraitText] = useState<string | null>(null);
   const [portraitGenerating, setPortraitGenerating] = useState(false);
   const [summaryLogs, setSummaryLogs] = useState<{ id: string; title: string; processedAt: number; tone: string }[]>([]);
@@ -85,33 +82,6 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   const [diagnosticsKey, setDiagnosticsKey] = useState(0);
   const [resettingUid, setResettingUid] = useState<string | null>(null);
   const [manualResetUid, setManualResetUid] = useState('');
-
-  const fetchAIConfig = useCallback(async () => {
-    try {
-      const functions = getFunctions();
-      const fn = httpsCallable<Record<string, never>, { model: string }>(functions, 'getAIConfig');
-      const { data } = await fn({});
-      setCurrentAIModel(data.model);
-    } catch (e) {
-      reportError(e, { action: 'Failed to fetch AI config' });
-    }
-  }, []);
-
-  const switchAIModel = useCallback(async (model: string) => {
-    setModelSwitching(true);
-    try {
-      const functions = getFunctions();
-      const fn = httpsCallable<{ model: string }, { success: boolean; model: string }>(functions, 'setAIModel');
-      const { data } = await fn({ model });
-      setCurrentAIModel(data.model);
-      showToast(`Модель переключена на ${data.model.split('/').pop() ?? data.model}`, 'success');
-    } catch (e) {
-      reportError(e, { action: 'Failed to switch AI model' });
-      showToast('Не удалось переключить модель', 'error');
-    } finally {
-      setModelSwitching(false);
-    }
-  }, [showToast]);
 
   const fetchAIUsage = useCallback(async () => {
     setAiUsageLoading(true);
@@ -239,11 +209,11 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     if (authLoading) return;
     if (profile?.role === 'admin') {
       void fetchData();
-      if (activeTab === 'ai_usage') { void fetchAIUsage(); void fetchAIConfig(); }
+      if (activeTab === 'ai_usage') { void fetchAIUsage(); }
       if (activeTab === 'ai_profile') void loadAIProfileData();
       if (activeTab === 'stats') void loadSystemStats();
     }
-  }, [activeTab, authLoading, profile, fetchData, fetchAIUsage, fetchAIConfig, loadAIProfileData, loadSystemStats]);
+  }, [activeTab, authLoading, profile, fetchData, fetchAIUsage, loadAIProfileData, loadSystemStats]);
 
   const handleImportAllFromCloud = async () => {
     const user = getAuth().currentUser;
@@ -422,9 +392,6 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     userEvents,
     userEventsLoading,
     fetchUserEvents,
-    currentAIModel,
-    modelSwitching,
-    switchAIModel,
     portraitText,
     portraitGenerating,
     summaryLogs,
