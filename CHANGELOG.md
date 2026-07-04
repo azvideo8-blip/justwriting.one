@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+
+## 2026-07-04 (v0.7.43)
 - **[RU]** ИИ-провайдер: переход с Fireworks на OpenRouter (`aiProvider.ts`, `/api/chat`), с единой захардкоженной чат-моделью `deepseek/deepseek-v4-flash` (раньше стриминг-путь и путь Cloud Function могли расходиться на разные модели — исправлено). Служебные задачи (саммари/фасеты/таксономия/память) — бесплатный `openai/gpt-oss-20b:free`, эмбеддинги — `qwen/qwen3-embedding-8b` (4096 dim). Стриминг reasoning-режима теперь явно запрашивает `reasoning:{effort}` (OpenRouter, в отличие от Fireworks, не включает его по умолчанию) — режим «с рассуждениями» теперь тоже идёт через дешёвую Flash-модель, а не Pro.
 - **[EN]** AI provider: migrated from Fireworks to OpenRouter (`aiProvider.ts`, `/api/chat`), with a single hardcoded chat model `deepseek/deepseek-v4-flash` (previously the streaming path and the Cloud Function path could resolve to different models — fixed). Structured tasks (summaries/facets/taxonomy/memory) use the free `openai/gpt-oss-20b:free`, embeddings use `qwen/qwen3-embedding-8b` (4096 dim). Streaming reasoning mode now explicitly requests `reasoning:{effort}` (OpenRouter, unlike Fireworks, doesn't emit it by default) — reasoning mode now also runs on the cheap Flash model instead of Pro.
 - **[RU]** Убран Gemini как резервный AI-провайдер целиком (ключ, зависимости, упоминания в privacy/ToS/DPIA) — теперь единственный провайдер ИИ это OpenRouter.
