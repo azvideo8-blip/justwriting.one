@@ -33,8 +33,6 @@ export function DiagnosticsPage() {
 
   const [activeTab, setActiveTab] = useState<Tab>('sync');
 
-  const [aiPricingModel, setAiPricingModel] = useState<'deepseek-v4-flash' | 'deepseek' | 'gemini' | 'qwen-30b' | 'gpt-oss-120b' | 'gpt-oss-20b'>('deepseek-v4-flash');
-
   const {
     loadingData,
     users,
@@ -52,9 +50,6 @@ export function DiagnosticsPage() {
     userEvents,
     userEventsLoading,
     fetchUserEvents,
-    currentAIModel,
-    modelSwitching,
-    switchAIModel,
     portraitText,
     portraitGenerating,
     summaryLogs,
@@ -266,31 +261,12 @@ function ReconcileSessionsButton() {
 
         {/* Tab 5: AI Stats */}
         {activeTab === 'ai_usage' && (() => {
-          // Pricing per token (USD) — OpenRouter rates, verified at migration time
-          const PRICING = {
-            'deepseek-v4-flash': { label: 'DeepSeek v4 Flash', in: 0.09 / 1_000_000, out: 0.18 / 1_000_000 },
-            deepseek:            { label: 'DeepSeek v4 Pro',    in: 0.435 / 1_000_000, out: 0.87 / 1_000_000 },
-            gemini:              { label: 'Gemini 2.5 Flash',   in: 0.15 / 1_000_000, out: 0.60 / 1_000_000 },
-            'qwen-30b':          { label: 'Qwen3 30B-A3B',      in: 0.12 / 1_000_000, out: 0.50 / 1_000_000 },
-            'gpt-oss-120b':      { label: 'GPT OSS 120B',       in: 0, out: 0 },
-            'gpt-oss-20b':       { label: 'GPT OSS 20B',        in: 0, out: 0 },
-          };
-
-          // Resolve pricing key from active model string
-          function pricingKeyFromModel(model: string): keyof typeof PRICING {
-            if (model.includes('deepseek-v4-flash')) return 'deepseek-v4-flash';
-            if (model.includes('deepseek-v4-pro')) return 'deepseek';
-            if (model.includes('qwen3-30b-a3b')) return 'qwen-30b';
-            if (model.includes('gpt-oss-120b')) return 'gpt-oss-120b';
-            if (model.includes('gpt-oss-20b')) return 'gpt-oss-20b';
-            return 'gemini';
-          }
-          // If currentAIModel is known, auto-select its pricing; user can still override via dropdown
-          const resolvedPricingKey = currentAIModel ? pricingKeyFromModel(currentAIModel) : aiPricingModel;
-          const pricing = PRICING[aiPricingModel] ?? PRICING[resolvedPricingKey];
+          // Pricing per token (USD) — active chat model is hardcoded to DeepSeek
+          // v4 Flash via OpenRouter (see functions/src/shared/aiProvider.ts).
+          const activePricing = { in: 0.09 / 1_000_000, out: 0.18 / 1_000_000 };
 
           function calcCost(tokensIn: number, tokensOut: number) {
-            return tokensIn * pricing.in + tokensOut * pricing.out;
+            return tokensIn * activePricing.in + tokensOut * activePricing.out;
           }
           function modelLabel(model: string) {
             if (model.includes('deepseek')) return 'DeepSeek';
@@ -317,22 +293,13 @@ function ReconcileSessionsButton() {
 
           return (
             <div className="space-y-4">
-              {/* Header: date + model selector + refresh */}
+              {/* Header: date + refresh */}
               <div className="flex items-center justify-between flex-wrap gap-3">
-                <h3 className="text-sm font-semibold text-text-main">Статистика AI</h3>
+                <div>
+                  <h3 className="text-sm font-semibold text-text-main">Статистика AI</h3>
+                  <p className="text-[11px] text-text-main/50">Активная модель: DeepSeek v4 Flash (OpenRouter) · $0.09 / $0.18 за 1M токенов</p>
+                </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <select
-                    value={aiPricingModel}
-                    onChange={e => setAiPricingModel(e.target.value as keyof typeof PRICING)}
-                    className="px-3 py-1.5 rounded-xl bg-surface-base/5 border border-border-subtle text-xs text-text-main outline-none cursor-pointer"
-                  >
-                    <option value="deepseek-v4-flash">DeepSeek v4 Flash ⭐</option>
-                    <option value="deepseek">DeepSeek v4 Pro</option>
-                    <option value="gemini">Gemini 2.5 Flash</option>
-                    <option value="qwen-30b">Qwen3 30B-A3B</option>
-                    <option value="gpt-oss-120b">GPT OSS 120B (free)</option>
-                    <option value="gpt-oss-20b">GPT OSS 20B (free)</option>
-                  </select>
                   <input
                     type="date"
                     value={aiUsageDate}
@@ -348,90 +315,6 @@ function ReconcileSessionsButton() {
                     Обновить
                   </Button>
                 </div>
-              </div>
-
-              {/* Model switcher */}
-              <div className="p-4 rounded-2xl border border-border-subtle bg-surface-base/5">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-[10px] font-bold text-text-main/60 uppercase tracking-wider">Активная модель</h4>
-                  {currentAIModel && (
-                    <span className="text-[10px] font-mono text-brand-soft bg-brand-soft/10 px-2 py-0.5 rounded-full">
-                      {currentAIModel.split('/').pop()}
-                    </span>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {([
-                    { id: 'deepseek/deepseek-v4-flash',  label: 'DeepSeek v4 Flash', badge: '⭐ дешевле всех платных', price: '$0.09/$0.18' },
-                    { id: 'deepseek/deepseek-v4-pro',     label: 'DeepSeek v4 Pro',   badge: 'reasoning',              price: '$0.435/$0.87' },
-                    { id: 'openai/gpt-oss-120b:free',     label: 'GPT OSS 120B',      badge: 'бесплатно',              price: '$0/$0' },
-                    { id: 'openai/gpt-oss-20b:free',      label: 'GPT OSS 20B',       badge: 'бесплатно',              price: '$0/$0' },
-                    { id: 'qwen/qwen3-30b-a3b',           label: 'Qwen3 30B-A3B',     badge: 'дёшево',                 price: '$0.12/$0.50' },
-                  ] as const).map(m => {
-                    const isActive = currentAIModel === m.id;
-                    return (
-                      <Button
-                        key={m.id}
-                        onClick={() => void switchAIModel(m.id)}
-                        disabled={modelSwitching || isActive}
-                        className={cn(
-                          "flex flex-col items-start gap-0.5 px-3 py-2 rounded-xl border text-left transition-all text-[10px] disabled:cursor-default",
-                          isActive
-                            ? "border-brand-soft/40 bg-brand-soft/10 text-text-main"
-                            : "border-border-subtle bg-surface-base/5 text-text-main/60 hover:border-brand-soft/20 hover:text-text-main hover:bg-surface-base/10"
-                        )}
-                      >
-                        <span className="font-bold text-xs">{m.label}</span>
-                        <span className={cn("font-mono", isActive ? "text-brand-soft" : "text-text-main/60")}>{m.price} / 1M</span>
-                        <span className={cn(isActive ? "text-text-main/60" : "text-text-main/60")}>{m.badge}{isActive ? ' · активна' : ''}</span>
-                      </Button>
-                    );
-                  })}
-                  {modelSwitching && <Loader2 size={14} className="animate-spin self-center text-text-main/60" />}
-                </div>
-                <p className="text-[10px] text-text-main/60 mt-2">Применяется ко всем AI-функциям (чат, саммари, редактура). Vercel /api/chat обновится в течение 60 сек.</p>
-              </div>
-
-              {/* Pricing table */}
-              <div className="p-4 rounded-2xl border border-border-subtle bg-surface-base/5">
-                <h4 className="text-[10px] font-bold text-text-main/60 uppercase tracking-wider mb-3">Тарифы (цены актуальны на дату поставки · openrouter.ai/models, ai.google.dev)</h4>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs border-collapse">
-                    <thead>
-                      <tr className="text-text-main/60 text-[10px] uppercase tracking-wider">
-                        <th className="text-left pb-2 pr-4 font-bold">Модель</th>
-                        <th className="text-right pb-2 pr-4 font-bold">Вход / 1M</th>
-                        <th className="text-right pb-2 pr-4 font-bold">Выход / 1M</th>
-                        <th className="text-right pb-2 font-bold">Примерно / запрос</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {([
-                        { key: 'deepseek-v4-flash', name: 'DeepSeek v4 Flash', provider: 'OpenRouter', inP: 0.09, outP: 0.18 },
-                        { key: 'gemini',            name: 'Gemini 2.5 Flash',  provider: 'Google',     inP: 0.15, outP: 0.60 },
-                        { key: 'deepseek',          name: 'DeepSeek v4 Pro',   provider: 'OpenRouter', inP: 0.435, outP: 0.87 },
-                        { key: 'qwen-30b',          name: 'Qwen3 30B-A3B',     provider: 'OpenRouter', inP: 0.12, outP: 0.50 },
-                        { key: 'gpt-oss-120b',      name: 'GPT OSS 120B',      provider: 'OpenRouter', inP: 0, outP: 0 },
-                        { key: 'gpt-oss-20b',       name: 'GPT OSS 20B',       provider: 'OpenRouter', inP: 0, outP: 0 },
-                      ] as const).map(r => {
-                        // Estimate: ~4k in tokens, ~800 out tokens per average request
-                        const estCost = (4000 * r.inP + 800 * r.outP) / 1_000_000;
-                        const isSelected = aiPricingModel === r.key;
-                        return (
-                          <tr key={r.key} className={cn("border-t border-border-subtle/40", isSelected && "bg-brand-soft/5")}>
-                            <td className="py-2 pr-4 text-text-main/80 font-medium">
-                              {r.name} <span className="text-text-main/60">({r.provider})</span>
-                            </td>
-                            <td className="py-2 pr-4 text-right font-mono text-text-main/70">${r.inP}</td>
-                            <td className="py-2 pr-4 text-right font-mono text-text-main/70">${r.outP}</td>
-                            <td className="py-2 text-right font-mono text-text-main/60">≈${estCost.toFixed(4)}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="text-[10px] text-text-main/60 mt-2">Выбранная модель выше используется для расчёта стоимости в таблице пользователей. Для новых запросов модель определяется из события.</p>
               </div>
 
               {/* Usage limits bar */}
@@ -581,7 +464,7 @@ function ReconcileSessionsButton() {
                                     </thead>
                                     <tbody>
                                       {userEvents.map(ev => {
-                                        const evCost = ev.tokensIn * pricing.in + ev.tokensOut * pricing.out;
+                                        const evCost = ev.tokensIn * activePricing.in + ev.tokensOut * activePricing.out;
                                         return (
                                           <tr key={ev.id} className="border-t border-border-subtle/20">
                                             <td className="py-1.5 pr-4 font-mono text-text-main/60">

@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { streamText } from 'ai';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { initializeApp, getApps, cert, applicationDefault, type ServiceAccount } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
@@ -22,8 +21,8 @@ function envInt(name: string, fallback: number): number {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
-// Mirror of functions/src/shared/aiUtils.ts TIER_LIMITS (Gemini Tier 1 for
-// gemini-2.5-flash) — keep in sync.
+// Project-wide daily request/token budget guard. Keep in sync with
+// functions/src/shared/aiUtils.ts TIER_LIMITS.
 const TIER_LIMITS = {
   requestsPerDay: envInt('AI_TIER_RPD', 10_000),
   tokensPerDay: envInt('AI_TIER_TPD', 25_000_000),
@@ -93,22 +92,8 @@ if (getApps().length === 0) {
   });
 }
 
-// Initialize Google AI SDK with GEMINI_API_KEY as fallback
-const googleApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-const googleOptions: { apiKey?: string } = {};
-if (googleApiKey) {
-  googleOptions.apiKey = googleApiKey;
-}
-const google = createGoogleGenerativeAI(googleOptions);
-
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
-
-// Provider seam: switch the streaming chat model via AI_PROVIDER. OpenRouter is
-// OpenAI-compatible, so an OpenRouter-hosted model (e.g. DeepSeek v4 pro) runs
-// through the OpenAI provider pointed at OpenRouter's /chat/completions endpoint.
-// Keep in sync with functions/src/shared/aiProvider.ts.
-const AI_PROVIDER = (process.env.AI_PROVIDER ?? 'openrouter').toLowerCase();
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-pro';
+// OpenRouter is the sole AI provider.
+const ACTIVE_CHAT_MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash';
 const openrouterOptions: { baseURL: string; apiKey?: string } = {
   baseURL: 'https://openrouter.ai/api/v1',
 };
@@ -117,28 +102,12 @@ if (process.env.OPENROUTER_API_KEY) {
 }
 const openrouter = createOpenAI(openrouterOptions);
 
-// Legacy Fireworks model ids cached in Firestore from before the OpenRouter
-// migration — treat them as absent so the env default kicks in instead of
-// sending a dead provider's model id to OpenRouter.
-const LEGACY_MODEL_PREFIX = 'accounts/fireworks/';
-
-// Active model config: read from Firestore appConfig/ai with 60s in-memory cache.
-// Falls back to OPENROUTER_MODEL env var if Firestore read fails or doc is absent.
-let _modelCache: { model: string; expiresAt: number } | null = null;
 async function getActiveModel(): Promise<string> {
-  const now = Date.now();
-  if (_modelCache && now < _modelCache.expiresAt) return _modelCache.model;
-  try {
-    const snap = await db().doc('appConfig/ai').get();
-    const m = snap.data()?.model as string | undefined;
-    if (m && m.length > 0 && !m.startsWith(LEGACY_MODEL_PREFIX)) { _modelCache = { model: m, expiresAt: now + 60_000 }; return m; }
-  } catch { /* fall through */ }
-  return OPENROUTER_MODEL;
+  return ACTIVE_CHAT_MODEL;
 }
 
 async function getChatModel() {
-  if (AI_PROVIDER === 'openrouter') return openrouter.chat(await getActiveModel());
-  return google(GEMINI_MODEL);
+  return openrouter.chat(ACTIVE_CHAT_MODEL);
 }
 
 // CHATFIX-6: buildSystemPrompt and sanitizeAiInput moved to shared module
@@ -539,7 +508,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // OPT-5: Context is now in system prompt, no fake user/assistant turn
   const providerMessages = messages.map(m => ({ role: m.role, content: sanitizeAiInput(m.content) }));
 
-  // Stream. maxOutputTokens caps total output INCLUDING gemini-2.5 thinking tokens;
+  // Stream. maxOutputTokens caps total output INCLUDING thinking tokens;
   // at 1024 the thinking budget could consume it all and truncate the reply
   // mid-sentence. 8192 leaves ample room for a complete answer.
   const [activeModel, chatModel] = await Promise.all([getActiveModel(), getChatModel()]);
@@ -551,7 +520,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // IMPORTANT: build the prompt WITHOUT the marker instruction (as 'detailed') —
   // if we ask the model to also print the markers, it duplicates them into
   // `content` and the output gets garbled. The native channel is the source.
-  if (AI_PROVIDER === 'openrouter' && reasoning) {
+  if (reasoning) {
     const baseReasoningSystem = buildChatSystemPrompt({ personaId, customSystemPrompt: sanitizedCustomPrompt, userPortrait: sanitizedPortrait, responseLength: responseLength ?? 'detailed', documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
     // DeepSeek tends to reason internally in Chinese; force the chain-of-thought
     // (reasoning_content) into Russian so the visible "ход мысли" is readable.

@@ -32,7 +32,7 @@ LANGUAGE: write each memory unit's text in the SAME language the user writes in.
 const VALID_KINDS = ['fact', 'insight', 'commitment', 'preference'];
 
 export const extractChatMemory = onCall({
-  secrets: ['GEMINI_API_KEY', 'OPENROUTER_API_KEY'],
+  secrets: ['OPENROUTER_API_KEY'],
   timeoutSeconds: 60,
   enforceAppCheck: false,
 }, async (request) => {

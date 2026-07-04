@@ -10,7 +10,7 @@ const inputSchema = z.object({
 });
 
 export const validateCustomPrompt = onCall({
-  secrets: ['GEMINI_API_KEY', 'OPENROUTER_API_KEY'],
+  secrets: ['OPENROUTER_API_KEY'],
   timeoutSeconds: 120,
   enforceAppCheck: false,
 }, async (request) => {
