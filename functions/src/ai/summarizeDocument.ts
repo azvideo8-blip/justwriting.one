@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, INJECTION_PATTERNS, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt, getLangfuse } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 // Repairs a JSON string that was truncated mid-output (reasoning models can
@@ -70,7 +70,7 @@ export const summarizeDocument = onCall({
 
   const { content, mood } = parsed.data;
 
-  if (INJECTION_PATTERNS.some(p => p.test(content))) {
+  if (hasInjectionAttempt(content)) {
     throw new HttpsError('invalid-argument', 'Disallowed patterns in content.');
   }
 

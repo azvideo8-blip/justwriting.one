@@ -69,7 +69,12 @@ export const setUserRole = onCall({
     }
   } catch (authError) {
     logger.error('Auth claims update failed, rolling back Firestore role', { targetUid, role, authError });
-    await db.doc(`users/${targetUid}`).update({ role: admin.firestore.FieldValue.delete() });
+    try {
+      await db.doc(`users/${targetUid}`).update({ role: admin.firestore.FieldValue.delete() });
+    } catch (rollbackError) {
+      logger.error('CRITICAL: role rollback failed — Firestore role and auth claims are now inconsistent. Manual intervention required.', { targetUid, role, authError, rollbackError });
+      throw new HttpsError('internal', 'Failed to update auth claims AND failed to roll back Firestore role. Manual fix required.');
+    }
     throw new HttpsError('internal', 'Failed to update auth claims. Firestore role has been rolled back.');
   }
 

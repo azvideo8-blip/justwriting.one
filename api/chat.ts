@@ -5,7 +5,7 @@ import { initializeApp, getApps, cert, applicationDefault, type ServiceAccount }
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { z } from 'zod';
-import { INJECTION_PATTERNS } from '../src/shared/ai/injectionPatterns.js';
+import { hasInjectionAttempt } from '../src/shared/ai/injectionPatterns.js';
 import { buildChatSystemPrompt, sanitizeAiInputShared } from '../src/shared/ai/buildChatPrompt.js';
 
 // Must match the database the Cloud Functions and frontend use (shared/firestore.ts,
@@ -85,6 +85,10 @@ if (getApps().length === 0) {
     }
   }
 
+  if (sa && !credentialConfig) {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT is set but could not be parsed as valid JSON — refusing to silently fall back to applicationDefault().');
+  }
+
   initializeApp({
     credential: credentialConfig
       ? cert(credentialConfig)
@@ -142,14 +146,12 @@ async function refundDailyLimit(uid: string): Promise<void> {
   const date = new Date().toISOString().slice(0, 10);
   const fs = db();
   const ref = fs.doc(`aiDailyLimit/${uid}`);
-  const cooldownRef = fs.doc(`aiCooldown/${uid}`);
   try {
     await fs.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       const data = snap.data();
       if (!data || data.date !== date) return;
       tx.update(ref, { count: Math.max(0, (data.count ?? 0) - 1) });
-      tx.delete(cooldownRef);
     });
   } catch (e) {
     console.error('[api/chat] refundDailyLimit failed:', e);
@@ -488,7 +490,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Injection guard for custom prompts
   if (personaId === 'custom' && customSystemPrompt) {
-    if (INJECTION_PATTERNS.some(p => p.test(customSystemPrompt))) {
+    if (hasInjectionAttempt(customSystemPrompt)) {
       await refundDailyLimit(uid); await refundGlobalRequest();
       res.status(400).json({ error: 'Bad Request' }); return;
     }
@@ -496,7 +498,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // S-3: Injection guard for ALL message turns (not just user) — a client-fabricated
   // assistant message is the real injection vector.
-  if (messages.some(m => INJECTION_PATTERNS.some(p => p.test(m.content)))) {
+  if (messages.some(m => hasInjectionAttempt(m.content))) {
     if (!isInternalCall) await refundDailyLimit(uid); await refundGlobalRequest();
     res.status(400).json({ error: 'Bad Request' }); return;
   }
