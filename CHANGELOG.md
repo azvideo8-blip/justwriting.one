@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+- **[RU]** ИИ-провайдер: переход с Fireworks на OpenRouter (`aiProvider.ts`, `/api/chat`). Модели: чат — `deepseek/deepseek-v4-flash`/`deepseek/deepseek-v4-pro` (дешевле прежних Fireworks-цен), служебные задачи (саммари/фасеты/таксономия/память) — бесплатный `openai/gpt-oss-20b:free`, эмбеддинги — `qwen/qwen3-embedding-8b` (4096 dim). Admin-переключатель моделей и allow-list обновлены на новые id, включая бесплатные `gpt-oss-120b:free`/`gpt-oss-20b:free`. Стриминг reasoning-режима теперь явно запрашивает `reasoning:{effort}` (OpenRouter, в отличие от Fireworks, не включает его по умолчанию).
+- **[EN]** AI provider: migrated from Fireworks to OpenRouter (`aiProvider.ts`, `/api/chat`). Models: chat — `deepseek/deepseek-v4-flash`/`deepseek/deepseek-v4-pro` (cheaper than the old Fireworks rates), structured tasks (summaries/facets/taxonomy/memory) — free `openai/gpt-oss-20b:free`, embeddings — `qwen/qwen3-embedding-8b` (4096 dim). The admin model switcher and allow-list now use the new ids, including the free `gpt-oss-120b:free`/`gpt-oss-20b:free` tiers. Streaming reasoning mode now explicitly requests `reasoning:{effort}` (OpenRouter, unlike Fireworks, doesn't emit it by default).
+- **[RU]** Из-за смены модели эмбеддингов существующие векторы заметок помечаются устаревшими и будут переиндексированы фоново (или вручную через Диагностика → База данных).
+- **[EN]** Because the embedding model changed, existing note vectors are marked stale and will be re-indexed in the background (or manually via Diagnostics → Database).
 
 ## 2026-07-03 (v0.7.42)
 - **[RU]** ИИ-память: 👍/👎 больше не плодят дубли — одинаковые предпочтения объединяются (обновляется дата, а не добавляется копия); при загрузке страницы ИИ уже накопленные дубли вычищаются один раз.

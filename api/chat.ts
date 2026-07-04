@@ -103,22 +103,27 @@ const google = createGoogleGenerativeAI(googleOptions);
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
 
-// Provider seam: switch the streaming chat model via AI_PROVIDER. Fireworks is
-// OpenAI-compatible, so a Fireworks-hosted model (e.g. DeepSeek v4 pro) runs
-// through the OpenAI provider pointed at Fireworks' /chat/completions endpoint.
+// Provider seam: switch the streaming chat model via AI_PROVIDER. OpenRouter is
+// OpenAI-compatible, so an OpenRouter-hosted model (e.g. DeepSeek v4 pro) runs
+// through the OpenAI provider pointed at OpenRouter's /chat/completions endpoint.
 // Keep in sync with functions/src/shared/aiProvider.ts.
-const AI_PROVIDER = (process.env.AI_PROVIDER ?? 'fireworks').toLowerCase();
-const FIREWORKS_MODEL = process.env.FIREWORKS_MODEL ?? 'accounts/fireworks/models/deepseek-v4-pro';
-const fireworksOptions: { baseURL: string; apiKey?: string } = {
-  baseURL: 'https://api.fireworks.ai/inference/v1',
+const AI_PROVIDER = (process.env.AI_PROVIDER ?? 'openrouter').toLowerCase();
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-pro';
+const openrouterOptions: { baseURL: string; apiKey?: string } = {
+  baseURL: 'https://openrouter.ai/api/v1',
 };
-if (process.env.FIREWORKS_API_KEY) {
-  fireworksOptions.apiKey = process.env.FIREWORKS_API_KEY;
+if (process.env.OPENROUTER_API_KEY) {
+  openrouterOptions.apiKey = process.env.OPENROUTER_API_KEY;
 }
-const fireworks = createOpenAI(fireworksOptions);
+const openrouter = createOpenAI(openrouterOptions);
+
+// Legacy Fireworks model ids cached in Firestore from before the OpenRouter
+// migration — treat them as absent so the env default kicks in instead of
+// sending a dead provider's model id to OpenRouter.
+const LEGACY_MODEL_PREFIX = 'accounts/fireworks/';
 
 // Active model config: read from Firestore appConfig/ai with 60s in-memory cache.
-// Falls back to FIREWORKS_MODEL env var if Firestore read fails or doc is absent.
+// Falls back to OPENROUTER_MODEL env var if Firestore read fails or doc is absent.
 let _modelCache: { model: string; expiresAt: number } | null = null;
 async function getActiveModel(): Promise<string> {
   const now = Date.now();
@@ -126,13 +131,13 @@ async function getActiveModel(): Promise<string> {
   try {
     const snap = await db().doc('appConfig/ai').get();
     const m = snap.data()?.model as string | undefined;
-    if (m && m.length > 0) { _modelCache = { model: m, expiresAt: now + 60_000 }; return m; }
+    if (m && m.length > 0 && !m.startsWith(LEGACY_MODEL_PREFIX)) { _modelCache = { model: m, expiresAt: now + 60_000 }; return m; }
   } catch { /* fall through */ }
-  return FIREWORKS_MODEL;
+  return OPENROUTER_MODEL;
 }
 
 async function getChatModel() {
-  if (AI_PROVIDER === 'fireworks') return fireworks.chat(await getActiveModel());
+  if (AI_PROVIDER === 'openrouter') return openrouter.chat(await getActiveModel());
   return google(GEMINI_MODEL);
 }
 
@@ -275,19 +280,21 @@ async function recordUsage(uid: string, tokensIn: number, tokensOut: number, mod
   await batch.commit();
 }
 
-// RSN: Reasoning mode. The Fireworks reasoning model emits its chain-of-thought
-// in the separate `reasoning_content` delta channel, which @ai-sdk/openai does
-// NOT surface (it only maps OpenAI o-series reasoning summaries). So for
-// reasoning mode we stream Fireworks' /chat/completions directly, reading both
-// channels and synthesizing the plain-text section markers the client parser
-// expects ("ХОД МЫСЛИ:" / "ОТВЕТ:"). If the active model emits no reasoning,
-// we just stream the answer (no empty reasoning section).
-type FwDelta = { reasoning_content?: string; reasoning?: string; content?: string };
-type FwChunk = {
+// RSN: Reasoning mode. DeepSeek's chain-of-thought lands in the separate
+// `reasoning` delta channel, which @ai-sdk/openai does NOT surface (it only
+// maps OpenAI o-series reasoning summaries). So for reasoning mode we stream
+// OpenRouter's /chat/completions directly, reading both channels and
+// synthesizing the plain-text section markers the client parser expects
+// ("ХОД МЫСЛИ:" / "ОТВЕТ:"). If the active model emits no reasoning, we just
+// stream the answer (no empty reasoning section). OpenRouter only emits
+// reasoning when explicitly requested via `reasoning: {effort}` — unlike
+// Fireworks, which always emitted it for reasoning-capable models.
+type OrDelta = { reasoning_content?: string; reasoning?: string; content?: string };
+type OrChunk = {
   usage?: { prompt_tokens?: number; completion_tokens?: number };
-  choices?: Array<{ delta?: FwDelta }>;
+  choices?: Array<{ delta?: OrDelta }>;
 };
-async function streamFireworksReasoning(
+async function streamOpenRouterReasoning(
   res: VercelResponse,
   uid: string,
   model: string,
@@ -295,14 +302,14 @@ async function streamFireworksReasoning(
   messages: Array<{ role: string; content: string }>,
   isInternalCall: boolean,
 ): Promise<void> {
-  const apiKey = process.env.FIREWORKS_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     await refundGlobalRequest();
     if (!isInternalCall) await refundDailyLimit(uid);
-    res.status(500).end('FIREWORKS_API_KEY not set');
+    res.status(500).end('OPENROUTER_API_KEY not set');
     return;
   }
-  const upstream = await fetch('https://api.fireworks.ai/inference/v1/chat/completions', {
+  const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -313,6 +320,7 @@ async function streamFireworksReasoning(
       messages: [{ role: 'system', content: system }, ...messages],
       stream: true,
       max_tokens: 16384,
+      reasoning: { effort: 'high' },
       stream_options: { include_usage: true },
     }),
   });
@@ -351,8 +359,8 @@ async function streamFireworksReasoning(
       if (!line.startsWith('data:')) continue;
       const data = line.slice(5).trim();
       if (data === '[DONE]') continue;
-      let chunk: FwChunk;
-      try { chunk = JSON.parse(data) as FwChunk; } catch { continue; }
+      let chunk: OrChunk;
+      try { chunk = JSON.parse(data) as OrChunk; } catch { continue; }
       if (chunk.usage) {
         tokensIn = chunk.usage.prompt_tokens ?? tokensIn;
         tokensOut = chunk.usage.completion_tokens ?? tokensOut;
@@ -536,14 +544,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // mid-sentence. 8192 leaves ample room for a complete answer.
   const [activeModel, chatModel] = await Promise.all([getActiveModel(), getChatModel()]);
 
-  // RSN: reasoning mode. DeepSeek v4 Pro on Fireworks emits its chain-of-thought
-  // in the native `reasoning_content` delta channel (confirmed: ~1.7k chars/turn),
-  // which @ai-sdk/openai drops. We stream Fireworks directly to surface it and
+  // RSN: reasoning mode. DeepSeek v4 Pro on OpenRouter emits its chain-of-thought
+  // in the `reasoning` delta channel when requested via reasoning:{effort},
+  // which @ai-sdk/openai drops. We stream OpenRouter directly to surface it and
   // synthesize the "ХОД МЫСЛИ:/ОТВЕТ:" markers the client parser expects.
   // IMPORTANT: build the prompt WITHOUT the marker instruction (as 'detailed') —
   // if we ask the model to also print the markers, it duplicates them into
   // `content` and the output gets garbled. The native channel is the source.
-  if (AI_PROVIDER === 'fireworks' && reasoning) {
+  if (AI_PROVIDER === 'openrouter' && reasoning) {
     const baseReasoningSystem = buildChatSystemPrompt({ personaId, customSystemPrompt: sanitizedCustomPrompt, userPortrait: sanitizedPortrait, responseLength: responseLength ?? 'detailed', documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
     // DeepSeek tends to reason internally in Chinese; force the chain-of-thought
     // (reasoning_content) into Russian so the visible "ход мысли" is readable.
@@ -555,7 +563,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? { ...m, content: `${m.content}\n\n(Думай по-русски и ответь по-русски.)` }
         : m,
     );
-    await streamFireworksReasoning(res, uid, activeModel, reasoningSystem, reasoningMessages, isInternalCall);
+    await streamOpenRouterReasoning(res, uid, activeModel, reasoningSystem, reasoningMessages, isInternalCall);
     return;
   }
 

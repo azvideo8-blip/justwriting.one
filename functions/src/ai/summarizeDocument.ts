@@ -42,7 +42,7 @@ const SUMMARY_SYSTEM_PROMPT = `Проанализируй текст и верн
 // (same as facets/memory), NOT the heavy active reasoning model. The reasoning
 // model is slower, costlier, leaks <think>, and was returning Fireworks 503
 // ("no healthy upstream") for these non-streaming JSON calls. Override via AI_FACET_MODEL.
-const SUMMARY_MODEL = process.env.AI_FACET_MODEL ?? 'accounts/fireworks/models/gpt-oss-20b';
+const SUMMARY_MODEL = process.env.AI_FACET_MODEL ?? 'openai/gpt-oss-20b:free';
 
 const inputSchema = z.object({
   content: z.string().min(50).max(50_000),
@@ -50,7 +50,7 @@ const inputSchema = z.object({
 });
 
 export const summarizeDocument = onCall({
-  secrets: ['GEMINI_API_KEY', 'FIREWORKS_API_KEY'],
+  secrets: ['GEMINI_API_KEY', 'OPENROUTER_API_KEY'],
   timeoutSeconds: 120,
   enforceAppCheck: false,
 }, async (request) => {

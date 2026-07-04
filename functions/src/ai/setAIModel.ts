@@ -4,13 +4,13 @@ import { getDb } from '../shared/firestore';
 import { setActiveModel, getActiveModel } from '../shared/aiProvider';
 
 // Allowed model IDs — keeps the list sane and prevents arbitrary injection.
+// OpenRouter model slugs (verified against openrouter.ai as of this migration).
 const ALLOWED_MODELS = [
-  'accounts/fireworks/models/deepseek-v4-flash',
-  'accounts/fireworks/models/deepseek-v4-pro',
-  'accounts/fireworks/models/gpt-oss-120b',
-  'accounts/fireworks/models/gpt-oss-20b',
-  'accounts/fireworks/models/qwen3-30b-a3b',
-  'accounts/fireworks/models/qwen3p6-plus',
+  'deepseek/deepseek-v4-flash',
+  'deepseek/deepseek-v4-pro',
+  'openai/gpt-oss-120b:free',
+  'openai/gpt-oss-20b:free',
+  'qwen/qwen3-30b-a3b',
 ] as const;
 
 const inputSchema = z.object({

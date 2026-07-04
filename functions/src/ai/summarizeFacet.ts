@@ -19,12 +19,12 @@ const inputSchema = z.object({
 // DeepSeek (the default chat model) is a reasoning model that leaks its
 // chain-of-thought into the answer for this task. Use an obedient model for
 // facet summaries instead. Override via AI_FACET_MODEL.
-const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'accounts/fireworks/models/gpt-oss-20b';
+const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'openai/gpt-oss-20b:free';
 
 const SYSTEM_PROMPT = 'Ты анализируешь группу фрагментов из личных заметок пользователя на одну тему. Ответь СТРОГО на русском, обернув результат в XML-теги:\n<label>короткое название темы, 1–4 слова</label>\n<description>5–8 предложений от третьего лица: о чём пользователь пишет в этой теме, какие повторяющиеся ситуации, чувства и внутренние конфликты, как меняется отношение со временем.</description>\nЖЁСТКИЕ ПРАВИЛА (точность важнее красоты и подробности):\n— Опирайся ТОЛЬКО на приведённые фрагменты. Не добавляй ничего, чего в них нет: ни фактов, ни чисел, ни названий продуктов, ни событий.\n— Имена людей бери из текста БУКВАЛЬНО. Если имя не написано или ты не уверен в нём — пиши роль («партнёр», «жена», «дочь», «клиент», «родители»), НЕ выдумывай и НЕ искажай имена.\n— Если деталь не подтверждена текстом — обобщай, а не додумывай. Лучше общая верная фраза, чем выдуманная конкретика.\n— Если про тему во фрагментах почти ничего нет — напиши одно честное предложение об этом.\nНЕ рассуждай вслух, не описывай задачу, не пиши «мы имеем заметки» — сразу результат.';
 
 export const summarizeFacet = onCall({
-  secrets: ['GEMINI_API_KEY', 'FIREWORKS_API_KEY'],
+  secrets: ['GEMINI_API_KEY', 'OPENROUTER_API_KEY'],
   timeoutSeconds: 120,
   enforceAppCheck: false,
 }, async (request) => {

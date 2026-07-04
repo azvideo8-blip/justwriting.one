@@ -19,7 +19,7 @@ const inputSchema = z.object({
 const SYSTEM_PROMPT = 'Ты — модуль ранжирования заметок. По запросу пользователя и списку заметок-кандидатов выбери самые релевантные по смыслу и намерению запроса. Верни ТОЛЬКО валидный JSON-объект вида {"ids":["docId1","docId2"]} — массив выбранных documentId по убыванию релевантности, без пояснений.';
 
 export const rerankNotes = onCall({
-  secrets: ['GEMINI_API_KEY', 'FIREWORKS_API_KEY'],
+  secrets: ['GEMINI_API_KEY', 'OPENROUTER_API_KEY'],
   timeoutSeconds: 60,
   enforceAppCheck: false,
 }, async (request) => {

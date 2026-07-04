@@ -33,7 +33,7 @@ export function DiagnosticsPage() {
 
   const [activeTab, setActiveTab] = useState<Tab>('sync');
 
-  const [aiPricingModel, setAiPricingModel] = useState<'deepseek-v4-flash' | 'deepseek' | 'gemini' | 'qwen-30b' | 'qwen-plus'>('deepseek-v4-flash');
+  const [aiPricingModel, setAiPricingModel] = useState<'deepseek-v4-flash' | 'deepseek' | 'gemini' | 'qwen-30b' | 'gpt-oss-120b' | 'gpt-oss-20b'>('deepseek-v4-flash');
 
   const {
     loadingData,
@@ -266,21 +266,23 @@ function ReconcileSessionsButton() {
 
         {/* Tab 5: AI Stats */}
         {activeTab === 'ai_usage' && (() => {
-          // Pricing per token (USD)
+          // Pricing per token (USD) — OpenRouter rates, verified at migration time
           const PRICING = {
-            'deepseek-v4-flash': { label: 'DeepSeek v4 Flash', in: 0.14 / 1_000_000, out: 0.28 / 1_000_000 },
-            deepseek:            { label: 'DeepSeek v4 Pro',    in: 1.74 / 1_000_000, out: 3.48 / 1_000_000 },
+            'deepseek-v4-flash': { label: 'DeepSeek v4 Flash', in: 0.09 / 1_000_000, out: 0.18 / 1_000_000 },
+            deepseek:            { label: 'DeepSeek v4 Pro',    in: 0.435 / 1_000_000, out: 0.87 / 1_000_000 },
             gemini:              { label: 'Gemini 2.5 Flash',   in: 0.15 / 1_000_000, out: 0.60 / 1_000_000 },
-            'qwen-30b':          { label: 'Qwen3 30B-A3B',      in: 0.50 / 1_000_000, out: 0.50 / 1_000_000 },
-            'qwen-plus':         { label: 'Qwen 3.6 Plus',      in: 0.50 / 1_000_000, out: 3.00 / 1_000_000 },
+            'qwen-30b':          { label: 'Qwen3 30B-A3B',      in: 0.12 / 1_000_000, out: 0.50 / 1_000_000 },
+            'gpt-oss-120b':      { label: 'GPT OSS 120B',       in: 0, out: 0 },
+            'gpt-oss-20b':       { label: 'GPT OSS 20B',        in: 0, out: 0 },
           };
 
           // Resolve pricing key from active model string
           function pricingKeyFromModel(model: string): keyof typeof PRICING {
             if (model.includes('deepseek-v4-flash')) return 'deepseek-v4-flash';
-            if (model.includes('deepseek')) return 'deepseek';
+            if (model.includes('deepseek-v4-pro')) return 'deepseek';
             if (model.includes('qwen3-30b-a3b')) return 'qwen-30b';
-            if (model.includes('qwen3p6-plus')) return 'qwen-plus';
+            if (model.includes('gpt-oss-120b')) return 'gpt-oss-120b';
+            if (model.includes('gpt-oss-20b')) return 'gpt-oss-20b';
             return 'gemini';
           }
           // If currentAIModel is known, auto-select its pricing; user can still override via dropdown
@@ -291,7 +293,9 @@ function ReconcileSessionsButton() {
             return tokensIn * pricing.in + tokensOut * pricing.out;
           }
           function modelLabel(model: string) {
-            if (model.includes('deepseek') || model.includes('fireworks')) return 'DeepSeek';
+            if (model.includes('deepseek')) return 'DeepSeek';
+            if (model.includes('gpt-oss')) return 'GPT OSS';
+            if (model.includes('qwen')) return 'Qwen';
             if (model.includes('gemini')) return 'Gemini';
             return model.split('/').pop()?.slice(0, 20) ?? model.slice(0, 20);
           }
@@ -326,7 +330,8 @@ function ReconcileSessionsButton() {
                     <option value="deepseek">DeepSeek v4 Pro</option>
                     <option value="gemini">Gemini 2.5 Flash</option>
                     <option value="qwen-30b">Qwen3 30B-A3B</option>
-                    <option value="qwen-plus">Qwen 3.6 Plus</option>
+                    <option value="gpt-oss-120b">GPT OSS 120B (free)</option>
+                    <option value="gpt-oss-20b">GPT OSS 20B (free)</option>
                   </select>
                   <input
                     type="date"
@@ -357,11 +362,11 @@ function ReconcileSessionsButton() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {([
-                    { id: 'accounts/fireworks/models/deepseek-v4-flash', label: 'DeepSeek v4 Flash', badge: '⭐ дешевле в 12×', price: '$0.14/$0.28' },
-                    { id: 'accounts/fireworks/models/deepseek-v4-pro',   label: 'DeepSeek v4 Pro',  badge: 'reasoning',    price: '$1.74/$3.48' },
-                    { id: 'accounts/fireworks/models/gpt-oss-120b',      label: 'GPT OSS 120B',     badge: 'OpenAI',       price: '$0.15/$0.60' },
-                    { id: 'accounts/fireworks/models/qwen3-30b-a3b',     label: 'Qwen3 30B-A3B',    badge: 'дёшево',       price: '$0.50/$0.50' },
-                    { id: 'accounts/fireworks/models/qwen3p6-plus',      label: 'Qwen 3.6 Plus',    badge: 'флагман',      price: '$0.50/$3.00' },
+                    { id: 'deepseek/deepseek-v4-flash',  label: 'DeepSeek v4 Flash', badge: '⭐ дешевле всех платных', price: '$0.09/$0.18' },
+                    { id: 'deepseek/deepseek-v4-pro',     label: 'DeepSeek v4 Pro',   badge: 'reasoning',              price: '$0.435/$0.87' },
+                    { id: 'openai/gpt-oss-120b:free',     label: 'GPT OSS 120B',      badge: 'бесплатно',              price: '$0/$0' },
+                    { id: 'openai/gpt-oss-20b:free',      label: 'GPT OSS 20B',       badge: 'бесплатно',              price: '$0/$0' },
+                    { id: 'qwen/qwen3-30b-a3b',           label: 'Qwen3 30B-A3B',     badge: 'дёшево',                 price: '$0.12/$0.50' },
                   ] as const).map(m => {
                     const isActive = currentAIModel === m.id;
                     return (
@@ -389,7 +394,7 @@ function ReconcileSessionsButton() {
 
               {/* Pricing table */}
               <div className="p-4 rounded-2xl border border-border-subtle bg-surface-base/5">
-                <h4 className="text-[10px] font-bold text-text-main/60 uppercase tracking-wider mb-3">Тарифы (цены актуальны на дату поставки · docs.fireworks.ai, ai.google.dev)</h4>
+                <h4 className="text-[10px] font-bold text-text-main/60 uppercase tracking-wider mb-3">Тарифы (цены актуальны на дату поставки · openrouter.ai/models, ai.google.dev)</h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs border-collapse">
                     <thead>
@@ -402,11 +407,12 @@ function ReconcileSessionsButton() {
                     </thead>
                     <tbody>
                       {([
-                        { key: 'deepseek-v4-flash', name: 'DeepSeek v4 Flash', provider: 'Fireworks', inP: 0.14, outP: 0.28 },
-                        { key: 'gemini',            name: 'Gemini 2.5 Flash',  provider: 'Google',    inP: 0.15, outP: 0.60 },
-                        { key: 'deepseek',          name: 'DeepSeek v4 Pro',   provider: 'Fireworks', inP: 1.74, outP: 3.48 },
-                        { key: 'qwen-30b',          name: 'Qwen3 30B-A3B',     provider: 'Fireworks', inP: 0.50, outP: 0.50 },
-                        { key: 'qwen-plus',         name: 'Qwen 3.6 Plus',     provider: 'Fireworks', inP: 0.50, outP: 3.00 },
+                        { key: 'deepseek-v4-flash', name: 'DeepSeek v4 Flash', provider: 'OpenRouter', inP: 0.09, outP: 0.18 },
+                        { key: 'gemini',            name: 'Gemini 2.5 Flash',  provider: 'Google',     inP: 0.15, outP: 0.60 },
+                        { key: 'deepseek',          name: 'DeepSeek v4 Pro',   provider: 'OpenRouter', inP: 0.435, outP: 0.87 },
+                        { key: 'qwen-30b',          name: 'Qwen3 30B-A3B',     provider: 'OpenRouter', inP: 0.12, outP: 0.50 },
+                        { key: 'gpt-oss-120b',      name: 'GPT OSS 120B',      provider: 'OpenRouter', inP: 0, outP: 0 },
+                        { key: 'gpt-oss-20b',       name: 'GPT OSS 20B',       provider: 'OpenRouter', inP: 0, outP: 0 },
                       ] as const).map(r => {
                         // Estimate: ~4k in tokens, ~800 out tokens per average request
                         const estCost = (4000 * r.inP + 800 * r.outP) / 1_000_000;
