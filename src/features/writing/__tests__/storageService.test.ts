@@ -419,6 +419,26 @@ describe('StorageService.deleteDocument', () => {
     const doc = await LocalDocumentService.getDocument(localId);
     expect(doc).toBeUndefined();
   });
+
+  it('deletes local document and queues deletion when cloud deletion fails (offline)', async () => {
+    const { localId } = await StorageService.saveNew(GUEST, BASE_DATA);
+    const cloudId = await StorageService.addCloudCopy(GUEST, localId);
+
+    MockDocumentService.deleteDocument.mockRejectedValueOnce(new Error('unavailable'));
+
+    await expect(StorageService.deleteDocument(GUEST, localId, cloudId)).resolves.not.toThrow();
+
+    // Verify local copy is gone
+    const doc = await LocalDocumentService.getDocument(localId);
+    expect(doc).toBeUndefined();
+
+    // Verify a delete task is queued in syncQueue
+    const { getLocalDb } = await import('../../../core/storage/localDb');
+    const db = await getLocalDb();
+    const queue = await db.getAll('syncQueue');
+    const deleteTasks = queue.filter(item => item.type === 'delete' && item.documentId === cloudId);
+    expect(deleteTasks).toHaveLength(1);
+  });
 });
 
 // ─── getStorageState ─────────────────────────────────────────────────────────

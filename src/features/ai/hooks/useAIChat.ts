@@ -299,7 +299,7 @@ interface UseAIChatReturn {
 }
 
 export function useAIChat(dialogueId: string | null, personaId: string, responseLength?: 'short' | 'standard' | 'detailed', reasoning?: boolean): UseAIChatReturn {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const [dialogue, setDialogue] = useState<AIDialogue | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState<string | null>(null);
@@ -441,6 +441,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     // from both proceeding past the isLoading check (state isn't committed yet).
     if (sendingRef.current) return null;
     sendingRef.current = true;
+
+    if (!navigator.onLine) {
+      sendingRef.current = false;
+      setError(t('ai_error_offline'));
+      return null;
+    }
 
     const { remaining } = useAiLimitStore.getState();
     if (remaining <= 0) {
@@ -1156,7 +1162,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       sendingRef.current = false;
       setIsLoading(false);
     }
-  }, [dialogue, dialogueId, personaId, responseLength, reasoning, language]);
+  }, [dialogue, dialogueId, personaId, responseLength, reasoning, language, t]);
 
   // Load a note's latest text without sending — lets the UI stage an attachment
   // (show a chip) so the user can add their own message before sending.

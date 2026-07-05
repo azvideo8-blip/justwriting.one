@@ -15,7 +15,7 @@ import { getAuth } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { reportError } from '../../../shared/errors/reportError';
 
-export type Tab = 'stats' | 'sync' | 'db' | 'users' | 'ai_usage' | 'ai_profile';
+export type Tab = 'stats' | 'sync' | 'db' | 'users' | 'ai_usage' | 'ai_profile' | 'queue';
 
 export interface AIUsageRow {
   uid: string;
@@ -216,6 +216,10 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   }, [activeTab, authLoading, profile, fetchData, fetchAIUsage, loadAIProfileData, loadSystemStats]);
 
   const handleImportAllFromCloud = async () => {
+    if (!navigator.onLine) {
+      showToast('Данная функция работает только при подключении к сети', 'error');
+      return;
+    }
     const user = getAuth().currentUser;
     if (!user) return;
     setBulkImporting(true);
@@ -243,6 +247,10 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   };
 
   const handleSyncAllToCloud = async () => {
+    if (!navigator.onLine) {
+      showToast('Данная функция работает только при подключении к сети', 'error');
+      return;
+    }
     const user = getAuth().currentUser;
     if (!user) return;
     setBulkSyncing(true);
@@ -269,6 +277,10 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   };
 
   const handleGeneratePortrait = async () => {
+    if (!navigator.onLine) {
+      showToast('Данная функция работает только при подключении к сети', 'error');
+      return;
+    }
     setPortraitGenerating(true);
     try {
       const { AIProfileService } = await import('../services/AIProfileService');

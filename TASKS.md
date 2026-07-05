@@ -17,3 +17,7 @@
 - [x] **SYNC-3: Индикатор «Синхронизация приостановлена»** - useSyncStatus хук, индикатор в Sidebar/BottomNav, текст статуса в настройках
 - [x] **SYNC-4: Тесты, закрепляющие «не падает» при сбоях облака** - StorageService.saveVersion resilience + archiveCrud cloud-only fallback + аудит Firestore reads
 - [x] **SYNC-5: Авто-ретрай первой облачной загрузки новой заметки** - cleanupDraftsAfterSave кладёт локальный id в syncQueue при отказе syncOne, подхватывается глобальным дренажом (SYNC-2)
+- [x] **SYNC-6: Офлайн-устойчивое удаление заметки** - StorageService.deleteDocument: локальное удаление сразу, облачное в try/catch с постановкой в syncQueue (type:'delete') при отказе; SyncService дренирует delete/portrait/document задачи раздельно
+- [x] **SYNC-7: Офлайн-устойчивое сохранение ИИ-портрета** - AIProfileService.savePortrait кладёт задачу в syncQueue (type:'portrait') при отказе облака вместо throw; реальная запись вынесена в CloudSyncService.syncPortraitToCloud (core), чтобы SyncService не импортировал features/ai
+- [x] **UI-081: Мягкие офлайн-предупреждения** - ai_error_offline вместо зависаний в useAIChat/AIPanel/useDiagnosticsData для онлайн-only действий
+- [x] **DIAG-012: Вкладка «Очередь» в Диагностике** - QueueExplorer.tsx: просмотр/синхронизация по одному/всё/очистка (с подтверждением) содержимого syncQueue

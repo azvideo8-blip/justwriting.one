@@ -15,6 +15,7 @@ import { useDiagnosticsData, type Tab } from '../hooks/useDiagnosticsData';
 import { DatabaseExplorer } from '../components/DatabaseExplorer';
 import { EmbeddingDiagnostics } from '../components/EmbeddingDiagnostics';
 import { ProfileFacets } from '../components/ProfileFacets';
+import { QueueExplorer } from '../components/QueueExplorer';
 import { FacetDiagnostics } from '../components/FacetDiagnostics';
 import { ContactDoors } from '../components/ContactDoors';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
@@ -188,6 +189,15 @@ function ReconcileSessionsButton() {
           )}
         >
           Система
+        </Button>
+        <Button
+          onClick={() => setActiveTab('queue')}
+          className={cn(
+            "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
+            activeTab === 'queue' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
+          )}
+        >
+          Очередь
         </Button>
       </div>
 
@@ -641,6 +651,8 @@ function ReconcileSessionsButton() {
           </div>
         )}
 
+        {activeTab === 'queue' && <QueueExplorer userId={profile.uid} />}
+
       </div>
 
 
@@ -655,6 +667,10 @@ function MassAnalyzeNotes() {
   const [progress, setProgress] = useState({ done: 0, total: 0, failed: 0 });
 
   const handleMassAnalyze = async () => {
+    if (!navigator.onLine) {
+      showToast('Данная функция работает только при подключении к сети', 'error');
+      return;
+    }
     setRunning(true);
     setProgress({ done: 0, total: 0, failed: 0 });
     try {

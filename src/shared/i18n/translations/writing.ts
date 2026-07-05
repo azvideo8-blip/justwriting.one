@@ -184,6 +184,7 @@ export const writingTranslations: Translations = {
   ai_error_rate_limit: { ru: 'Слишком много запросов. Подожди минуту.', en: 'Too many requests. Wait a minute.' },
   ai_error_too_long: { ru: 'Текст слишком длинный', en: 'Text is too long' },
   ai_error_server: { ru: 'Ошибка сервиса. Попробуй позже.', en: 'Service error. Try again later.' },
+  ai_error_offline: { ru: 'Данная функция работает только при подключении к сети', en: 'This feature only works when connected to the network' },
   ai_persona_desc_group_psychology: { ru: 'Панель психологов разных школ — Роджерс, Бек, Франкл, Ялом — обсуждает твой текст с разных точек зрения и предлагает многогранный взгляд.', en: 'A panel of psychologists from different schools — Rogers, Beck, Frankl, Yalom — discusses your text from multiple perspectives.' },
   ai_persona_desc_cbt: { ru: 'КПТ-психолог помогает найти автоматические мысли и когнитивные искажения. Мысли — не факты, а гипотезы, которые можно проверить.', en: 'A CBT psychologist helps identify automatic thoughts and cognitive distortions. Thoughts are hypotheses, not facts.' },
   ai_persona_desc_editor: { ru: 'Опытный редактор улучшает ясность, структуру и поток текста, сохраняя твой авторский голос.', en: 'An experienced editor improves clarity, structure, and flow while preserving your voice.' },

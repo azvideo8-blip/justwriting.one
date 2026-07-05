@@ -3,6 +3,7 @@ import { logger } from '../../shared/errors/logger';
 import { StorageService } from './StorageService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService } from './DocumentService';
+import { CloudSyncService } from './CloudSyncService';
 import pLimit from 'p-limit';
 
 const _syncInProgress = new Map<string, boolean>();
@@ -130,24 +131,68 @@ async function _drainPendingQueue(userId: string): Promise<void> {
 
   if (pending.length === 0) return;
 
-  const documentIds = [...new Set(pending.map(p => p.documentId))];
-  const pendingByDoc = new Map<string, typeof pending>();
-  for (const p of pending) {
-    const arr = pendingByDoc.get(p.documentId);
-    if (arr) arr.push(p); else pendingByDoc.set(p.documentId, [p]);
-  }
-
-  const results = await Promise.allSettled(documentIds.map(localId =>
-    limit(() => StorageService.addCloudCopy(userId, localId).then(cloudId => {
-      if (!cloudId) return [];
-      return (pendingByDoc.get(localId) ?? []).map(p => p.id);
-    }))
-  ));
+  const deleteTasks = pending.filter(p => p.type === 'delete');
+  const portraitTasks = pending.filter(p => p.type === 'portrait');
+  const docTasks = pending.filter(p => p.type === 'document' || p.type === 'version');
 
   const syncedIds: string[] = [];
-  for (const r of results) {
-    if (r.status === 'fulfilled') syncedIds.push(...r.value);
-    else logger.error('drainPendingQueue', 'Sync failed', { reason: String(r.reason) });
+
+  // 1. Process delete tasks
+  if (deleteTasks.length > 0) {
+    const deleteResults = await Promise.allSettled(deleteTasks.map(task =>
+      limit(async () => {
+        await CloudSyncService.removeCloudCopy(userId, task.documentId);
+        return task.id;
+      })
+    ));
+    for (const r of deleteResults) {
+      if (r.status === 'fulfilled') {
+        syncedIds.push(r.value);
+      } else {
+        logger.error('drainPendingQueue_delete', 'Delete sync failed', { reason: String(r.reason) });
+      }
+    }
+  }
+
+  // 2. Process portrait tasks. Calls CloudSyncService (also core), not
+  // AIProfileService (features/ai) — core must not import from features/
+  // (ARCHITECTURE.md), even via dynamic import (eslint catches that too).
+  if (portraitTasks.length > 0) {
+    const portraitResults = await Promise.allSettled(portraitTasks.map(task =>
+      limit(async () => {
+        await CloudSyncService.syncPortraitToCloud(task.documentId);
+        return task.id;
+      })
+    ));
+    for (const r of portraitResults) {
+      if (r.status === 'fulfilled') {
+        syncedIds.push(r.value);
+      } else {
+        logger.error('drainPendingQueue_portrait', 'Portrait sync failed', { reason: String(r.reason) });
+      }
+    }
+  }
+
+  // 3. Process document/version tasks
+  if (docTasks.length > 0) {
+    const documentIds = [...new Set(docTasks.map(p => p.documentId))];
+    const pendingByDoc = new Map<string, typeof docTasks>();
+    for (const p of docTasks) {
+      const arr = pendingByDoc.get(p.documentId);
+      if (arr) arr.push(p); else pendingByDoc.set(p.documentId, [p]);
+    }
+
+    const results = await Promise.allSettled(documentIds.map(localId =>
+      limit(() => StorageService.addCloudCopy(userId, localId).then(cloudId => {
+        if (!cloudId) return [];
+        return (pendingByDoc.get(localId) ?? []).map(p => p.id);
+      }))
+    ));
+
+    for (const r of results) {
+      if (r.status === 'fulfilled') syncedIds.push(...r.value);
+      else logger.error('drainPendingQueue', 'Sync failed', { reason: String(r.reason) });
+    }
   }
 
   if (syncedIds.length > 0) {
