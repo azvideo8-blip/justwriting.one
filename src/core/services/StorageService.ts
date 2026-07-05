@@ -4,6 +4,7 @@ import { CloudSyncService } from './CloudSyncService';
 import { ProfileUpdater } from './ProfileUpdater';
 import { SaveDocumentData, StorageState } from './storageTypes';
 import { withTimeout } from '../../shared/utils/withTimeout';
+import { reportError } from '../../shared/errors/reportError';
 
 export type { StorageState, SaveDocumentData } from './storageTypes';
 
@@ -56,8 +57,23 @@ export const StorageService = {
   },
 
   async deleteDocument(userId: string, localId?: string, cloudId?: string): Promise<void> {
-    if (cloudId) await CloudSyncService.removeCloudCopy(userId, cloudId);
-    if (localId) await LocalStorageService.deleteDocument(localId);
+    if (localId) {
+      await LocalStorageService.deleteDocument(localId);
+    }
+    if (cloudId) {
+      try {
+        await CloudSyncService.removeCloudCopy(userId, cloudId);
+      } catch (e) {
+        reportError(e, { action: 'deleteDocument_cloudDelete', documentId: cloudId });
+        const db = await getLocalDb();
+        await db.put('syncQueue', {
+          id: `delete_${cloudId}_${Date.now()}`,
+          documentId: cloudId,
+          type: 'delete' as const,
+          createdAt: Date.now(),
+        });
+      }
+    }
   },
 
   async getStorageState(userId: string, localId?: string, cloudId?: string): Promise<StorageState> {

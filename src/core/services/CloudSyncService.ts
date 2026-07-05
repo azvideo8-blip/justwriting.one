@@ -8,12 +8,17 @@ import { maybeEncrypt, maybeDecrypt, type VersionEncryptPayload } from '../crypt
 import { reportError } from '../../shared/errors/reportError';
 import { withTimeout as withTimeoutBase } from '../../shared/utils/withTimeout';
 import { isFirestoreConnected } from '../firebase/firestore';
+import { getClient } from '../firebase/firestoreClient';
 import pLimit from 'p-limit';
 import { SaveDocumentData } from './storageTypes';
 import { ConflictResolver } from './ConflictResolver';
 
 const CLOUD_SYNC_TIMEOUT = 30_000;
 const LOCK_TTL_MS = 30_000;
+// Must match AIProfileService's PORTRAIT_LS_KEY. Duplicated here (rather than
+// imported) because core must not import from features/ (ARCHITECTURE.md) —
+// AIProfileService.syncPortraitToCloud delegates to this method instead.
+const PORTRAIT_LS_KEY = 'ai_user_portrait';
 
 function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): Promise<T> {
   return withTimeoutBase(promise, ms, 'Sync timeout');
@@ -360,5 +365,23 @@ export const CloudSyncService = {
       }
     }
     return { forked: false };
+  },
+
+  /** Pushes the locally-cached AI profile portrait to Firestore. Lives here
+   *  (not in features/ai) so the sync-queue drain (core/services/SyncService,
+   *  which must not import from features/) can call it directly for queued
+   *  'portrait' tasks. AIProfileService.syncPortraitToCloud delegates here. */
+  async syncPortraitToCloud(userId: string): Promise<void> {
+    const portraitMarkdown = localStorage.getItem(PORTRAIT_LS_KEY);
+    if (!portraitMarkdown) return;
+
+    const encrypted = await maybeEncrypt(
+      { aiPortrait: portraitMarkdown },
+      ['aiPortrait'],
+      [],
+      true,
+    );
+    const { db, mod } = await getClient();
+    await mod.setDoc(mod.doc(db, 'users', userId), encrypted, { merge: true });
   },
 };

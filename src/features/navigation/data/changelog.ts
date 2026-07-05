@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.44',
+    date: '2026-07-05',
+    items: [
+      { category: 'fix', ru: 'Устранены 6 находок аудита безопасности ИИ (утечка лимита, обход детектора инъекций и другие)', en: 'Fixed 6 AI security audit findings (a limit leak, an injection-detector bypass, and others)' },
+      { category: 'fix', ru: 'Устранена причина сегодняшнего исчерпания дневной квоты записи Firestore — автосохранение и синхронизация эмбеддингов писали в облако без ограничений', en: "Fixed the cause of today's Firestore daily write-quota exhaustion — autosave and embedding sync were writing to the cloud unchecked" },
+      { category: 'improvement', ru: 'Офлайн-устойчивость: правки, новые заметки и удаление больше не проваливаются молча без сети — всё встаёт в очередь и уходит в облако само при восстановлении связи', en: 'Offline resilience: edits, new notes, and deletions no longer fail silently without a network — everything queues and syncs automatically on reconnect' },
+      { category: 'new', ru: 'Мягкие предупреждения вместо зависаний, когда действию (ИИ-чат, анализ, портрет) нужна сеть, а её нет', en: 'Soft warnings instead of hangs when an action (AI chat, analysis, portrait) needs a network that is unavailable' },
+      { category: 'new', ru: 'Диагностика → новая вкладка «Очередь»: видно, что ждёт отправки в облако, можно синхронизировать или очистить', en: 'Diagnostics → new "Queue" tab: see what is waiting to sync to the cloud, sync it or clear it' },
+    ],
+  },
+  {
     version: '0.7.43',
     date: '2026-07-04',
     items: [

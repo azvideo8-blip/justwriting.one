@@ -71,6 +71,7 @@ import { AIService } from '../AIService';
 describe('AIProfileService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetAll.mockResolvedValue([]);
     localStorage.clear();
   });
 
@@ -101,6 +102,35 @@ describe('AIProfileService', () => {
 
       expect(localStorage.getItem('ai_user_portrait')).toBe('test-portrait-md');
       expect(mockSetDoc).not.toHaveBeenCalled();
+    });
+
+    it('queues to syncQueue and does not throw if cloud save fails with a general error (offline)', async () => {
+      mockSetDoc.mockRejectedValueOnce(new Error('network connection lost'));
+
+      await expect(AIProfileService.savePortrait('test-portrait-md-offline')).resolves.not.toThrow();
+
+      expect(localStorage.getItem('ai_user_portrait')).toBe('test-portrait-md-offline');
+      expect(mockPut).toHaveBeenCalledWith('syncQueue', expect.objectContaining({
+        type: 'portrait',
+        documentId: 'test-user-123',
+      }));
+    });
+  });
+
+  describe('syncPortraitToCloud', () => {
+    it('reads from localStorage and uploads to Firestore', async () => {
+      localStorage.setItem('ai_user_portrait', 'test-synced-portrait');
+      mockSetDoc.mockResolvedValue(undefined);
+
+      await AIProfileService.syncPortraitToCloud('test-user-123');
+
+      expect(mockMaybeEncrypt).toHaveBeenCalledWith(
+        { aiPortrait: 'test-synced-portrait' },
+        ['aiPortrait'],
+        [],
+        true,
+      );
+      expect(mockSetDoc).toHaveBeenCalled();
     });
   });
 

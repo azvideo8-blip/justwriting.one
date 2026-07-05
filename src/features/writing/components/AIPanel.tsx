@@ -41,6 +41,10 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
   const [applied, setApplied] = useState(false);
 
   const handleAction = useCallback(async (action: AIAction) => {
+    if (!navigator.onLine) {
+      setError(t('ai_error_offline'));
+      return;
+    }
     if (!content.trim() || loading) return;
 
     const { remaining } = useAiLimitStore.getState();

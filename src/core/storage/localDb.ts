@@ -187,7 +187,7 @@ interface JustWritingDB extends DBSchema {
   profile: { key: string; value: LocalProfile; };
   syncQueue: {
     key: string;
-    value: { id: string; documentId: string; type: 'document' | 'version'; createdAt: number; };
+    value: { id: string; documentId: string; type: 'document' | 'version' | 'delete' | 'portrait'; createdAt: number; };
   };
   drafts: { key: string; value: LocalDraft; };
   pending_sessions: { key: number; value: PendingSession; autoIncrement: true; };

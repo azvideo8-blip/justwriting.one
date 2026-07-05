@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { SyncService } from '../SyncService';
 import { LocalDocumentService } from '../LocalDocumentService';
 import { getLocalDb } from '../../storage/localDb';
+import { CloudSyncService } from '../CloudSyncService';
 
 describe('SyncService Integration', () => {
   const userId = 'test_user_integration';
@@ -62,5 +63,39 @@ describe('SyncService Integration', () => {
     });
     const countBefore = await SyncService.getPendingCount();
     expect(countBefore).toBe(1);
+  });
+
+  it('drains delete and portrait tasks from syncQueue', async () => {
+    const removeCloudCopySpy = vi.spyOn(CloudSyncService, 'removeCloudCopy').mockResolvedValue(undefined);
+    const syncPortraitSpy = vi.spyOn(CloudSyncService, 'syncPortraitToCloud').mockResolvedValue(undefined);
+
+    const db = await getLocalDb();
+    
+    await db.put('syncQueue', {
+      id: 'delete_cloud_123',
+      documentId: 'cloud_123',
+      type: 'delete' as const,
+      createdAt: Date.now(),
+    });
+
+    await db.put('syncQueue', {
+      id: 'portrait_user_123',
+      documentId: 'user_123',
+      type: 'portrait' as const,
+      createdAt: Date.now(),
+    });
+
+    localStorage.setItem('auto_sync_enabled', 'true');
+    await SyncService.syncPending(userId);
+    localStorage.removeItem('auto_sync_enabled');
+
+    expect(removeCloudCopySpy).toHaveBeenCalledWith(userId, 'cloud_123');
+    expect(syncPortraitSpy).toHaveBeenCalledWith('user_123');
+
+    const count = await SyncService.getPendingCount();
+    expect(count).toBe(0);
+
+    removeCloudCopySpy.mockRestore();
+    syncPortraitSpy.mockRestore();
   });
 });

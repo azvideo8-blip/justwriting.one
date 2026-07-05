@@ -3,6 +3,7 @@ import { AIService } from './AIService';
 import { getAuth } from 'firebase/auth';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
+import { CloudSyncService } from '../../../core/services/CloudSyncService';
 import { analyzeWritingStyle } from '../utils/styleAnalyzer';
 
 const PORTRAIT_LS_KEY = 'ai_user_portrait';
@@ -28,9 +29,30 @@ export const AIProfileService = {
           console.warn('[AIProfileService] Cloud save skipped: E2E locked (session key not available). Portrait saved locally.');
           return;
         }
-        throw e;
+        
+        try {
+          const db = await getLocalDb();
+          const existing = await db.getAll('syncQueue');
+          const hasPortrait = (existing ?? []).some(item => item.type === 'portrait' && item.documentId === uid);
+          if (!hasPortrait) {
+            await db.put('syncQueue', {
+              id: `portrait_${uid}_${Date.now()}`,
+              documentId: uid,
+              type: 'portrait' as const,
+              createdAt: Date.now(),
+            });
+          }
+        } catch (queueErr) {
+          console.error('[AIProfileService] Failed to add portrait task to syncQueue:', queueErr);
+        }
       }
     }
+  },
+
+  // Delegates to CloudSyncService (core) — the sync-queue drain (also core)
+  // calls that directly since core must not import from features/ai.
+  async syncPortraitToCloud(userId: string): Promise<void> {
+    return CloudSyncService.syncPortraitToCloud(userId);
   },
 
   async getPortrait(): Promise<string | null> {
