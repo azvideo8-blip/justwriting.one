@@ -33,8 +33,13 @@ export async function cleanupDraftsAfterSave(
     }
     if (docIdToSync) {
       const { SyncService } = await import('../../../core/services/SyncService');
-      SyncService.syncOne(userId, docIdToSync).catch(e => {
+      SyncService.syncOne(userId, docIdToSync).catch((e) => {
         logger.warn('sessionActions', 'Cloud sync failed', { error: String(e) });
+        SyncService.addToQueue(docIdToSync).catch((queueErr) => {
+          logger.error('sessionActions', 'Failed to add failed sync to syncQueue', {
+            error: String(queueErr),
+          });
+        });
       });
     }
   }
