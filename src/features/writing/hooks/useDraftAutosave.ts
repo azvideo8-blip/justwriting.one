@@ -29,14 +29,27 @@ export function useDraftAutosave(
     draftDataRef.current = draftData;
   }, [draftData]);
 
-  const doAutosave = useCallback(async () => {
+  const doAutosaveLocal = useCallback(async () => {
     if (!user) return;
     const current = draftDataRef.current;
     const storeStatus = useTimerStore.getState().status;
     if (storeStatus !== 'writing' && storeStatus !== 'paused') return;
 
     const draft = buildLocalDraft(user, current);
-    const result = await persistDraft(draft);
+    const result = await persistDraft(draft, { remote: false });
+    if (!result.localOk) {
+      throw new Error('Local save failed');
+    }
+  }, [user]);
+
+  const doAutosaveRemote = useCallback(async () => {
+    if (!user) return;
+    const current = draftDataRef.current;
+    const storeStatus = useTimerStore.getState().status;
+    if (storeStatus !== 'writing' && storeStatus !== 'paused') return;
+
+    const draft = buildLocalDraft(user, current);
+    const result = await persistDraft(draft, { remote: true });
     if (!result.localOk && !result.remoteOk) {
       throw new Error('Both local and remote save failed');
     }
@@ -50,15 +63,19 @@ export function useDraftAutosave(
     if (current.status === 'idle') return;
 
     const draft = buildLocalDraft(user, current);
-    const result = await persistDraft(draft);
+    const result = await persistDraft(draft, { remote: true });
     if (!result.localOk && !result.remoteOk) {
       throw new Error('Both local and remote save failed');
     }
   }, [user]);
 
-  const wrappedAutosave = useCallback(async () => {
-    await wrapSave(doAutosave, 'draftAutosave/autoSave');
-  }, [wrapSave, doAutosave]);
+  const wrappedAutosaveLocal = useCallback(async () => {
+    await wrapSave(doAutosaveLocal, 'draftAutosave/autoSaveLocal');
+  }, [wrapSave, doAutosaveLocal]);
+
+  const wrappedAutosaveRemote = useCallback(async () => {
+    await wrapSave(doAutosaveRemote, 'draftAutosave/autoSave');
+  }, [wrapSave, doAutosaveRemote]);
 
   const wrappedForceSave = useCallback(async () => {
     await wrapSave(doForceSave, 'draftAutosave/forceSave');
@@ -67,25 +84,24 @@ export function useDraftAutosave(
   useSyncUnloadSave(user, draftDataRef);
   useVisibilitySave(wrappedForceSave, () => draftDataRef.current.content);
 
-  // Debounce: save shortly after the user stops typing.
+  // Debounce: save LOCALLY shortly after the user stops typing to avoid Firestore quota exhaustion.
   useEffect(() => {
     const currentStatus = useTimerStore.getState().status;
     if ((currentStatus === 'writing' || currentStatus === 'paused') && user) {
       const debounceDelay = layoutMode === 'mobile' ? 5000 : 500;
-      const timeout = setTimeout(() => void wrappedAutosave(), debounceDelay);
+      const timeout = setTimeout(() => void wrappedAutosaveLocal(), debounceDelay);
       return () => clearTimeout(timeout);
     }
-  }, [draftData.status, draftData.content, draftData.title, draftData.wordCount, user, wrappedAutosave, layoutMode]);
+  }, [draftData.status, draftData.content, draftData.title, draftData.wordCount, user, wrappedAutosaveLocal, layoutMode]);
 
-  // Interval safety net: save every 30s even if the user types continuously
-  // (debounce may never fire during uninterrupted typing).
+  // Interval safety net: save to cloud (remote) every 30s even if the user types continuously.
   useEffect(() => {
     if (!user) return;
     const currentStatus = useTimerStore.getState().status;
     if (currentStatus !== 'writing' && currentStatus !== 'paused') return;
-    const interval = setInterval(() => void wrappedAutosave(), 30_000);
+    const interval = setInterval(() => void wrappedAutosaveRemote(), 30_000);
     return () => clearInterval(interval);
-  }, [user, wrappedAutosave, draftData.status]);
+  }, [user, wrappedAutosaveRemote, draftData.status]);
 
   return { saveStatus: saveStatus as DraftSaveStatus, lastSavedAt };
 }

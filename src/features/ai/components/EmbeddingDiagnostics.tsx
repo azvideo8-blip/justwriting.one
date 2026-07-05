@@ -8,6 +8,7 @@ import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { getIndexCoverage, indexPending, reindexAll, type IndexCoverage } from '../utils/embeddingIndexer';
 import { searchNotes, type RetrievedNote } from '../utils/noteRetriever';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
+import { getWriteBudgetStatus } from '../utils/firestoreWriteBudget';
 import { reportError } from '../../../shared/errors/reportError';
 
 export function EmbeddingDiagnostics() {
@@ -61,7 +62,7 @@ export function EmbeddingDiagnostics() {
 
   const handleReindexAll = async () => {
     const total = coverage?.totalDocs ?? 0;
-    const ok = await confirmDialog({ title: 'Переиндексировать все заметки?', message: `Переиндексировать ВСЕ заметки (${total})? Каждая будет пересчитана заново — это потратит лимит ИИ.` });
+    const ok = await confirmDialog({ title: 'Переиндексировать все заметки?', message: `Переиндексировать ВСЕ заметки (${total})? Каждая будет пересчитана заново и записана в облако — это потратит и лимит ИИ, и дневной бюджет записи в Firestore (общий на всё приложение).` });
     if (!ok) return;
     setReindexing(true);
     setProgress({ done: 0, total });
@@ -85,6 +86,7 @@ export function EmbeddingDiagnostics() {
     try {
       const r = await AIEmbeddingService.syncPendingToCloud();
       if (r.locked) showToast(`Синхронизировано ${r.synced}; остальное ждёт — разблокируй E2E-шифрование`, 'error');
+      else if (r.budgetExhausted) showToast(`Синхронизировано ${r.synced}; дневной бюджет записи в Firestore исчерпан — остальное продолжится завтра`, 'error');
       else if (r.synced > 0) showToast(`В облако выгружено эмбеддингов: ${r.synced}`, 'success');
       else showToast('Всё уже синхронизировано', 'success');
     } catch (e) {
@@ -185,6 +187,7 @@ export function EmbeddingDiagnostics() {
             { label: 'Не в облаке', value: coverage ? String(coverage.unsynced) : '—' },
             { label: 'Модель / размер', value: coverage ? `${coverage.model.split('/').pop()} · ${coverage.dim}` : '—' },
             { label: 'Последняя', value: coverage?.lastProcessedAt ? new Date(coverage.lastProcessedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—' },
+            { label: 'Firestore-бюджет сегодня', value: `${getWriteBudgetStatus().used} / ${getWriteBudgetStatus().cap}` },
           ].map(s => (
             <div key={s.label} className="p-2.5 rounded-xl border border-border-subtle/60 bg-surface-base/5">
               <div className="text-[9px] uppercase tracking-wider text-text-main/60 font-bold">{s.label}</div>
@@ -193,7 +196,7 @@ export function EmbeddingDiagnostics() {
           ))}
         </div>
         <p className="text-[10px] text-text-main/60">
-          Индексация идёт автоматически в фоне при простое. Кнопка выше форсирует прогон сейчас. Каждый прогон тратит лимит ИИ (по одному эмбеддингу на заметку).
+          Индексация идёт автоматически в фоне при простое. Кнопка выше форсирует прогон сейчас. Каждый прогон тратит лимит ИИ (по одному эмбеддингу на заметку) и дневной бюджет записи в Firestore — общий на всё приложение, чтобы фоновая переиндексация не могла вытеснить обычное сохранение заметок.
         </p>
       </div>
 
