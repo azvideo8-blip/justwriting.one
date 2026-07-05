@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { PenLine, History, User as UserIcon, LogIn, Settings, Sparkles, Bug } from 'lucide-react';
+import { PenLine, History, User as UserIcon, LogIn, Settings, Sparkles, Bug, CloudOff } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
@@ -9,6 +9,7 @@ import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useLoginModal } from '../../../app/useLoginModal';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { APP_VERSION } from '../../../version';
+import { useSyncStatus } from '../../settings/hooks/useSyncStatus';
 
 interface SidebarNavItemProps {
   icon: ReactNode;
@@ -134,9 +135,14 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
   const showZen = isZenActive && zenModeEnabled;
   const location = useLocation();
   const navigate = useNavigate();
-  const { isGuest } = useAuthStatus();
+  const { isGuest, user } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
   const expanded = hovered;
+  const syncStatus = useSyncStatus(user?.uid ?? null);
+  // Guests have no cloud sync relationship at all, so isFirestoreConnected
+  // staying false for them isn't a "cloud unavailable" problem — gate on
+  // being an actual authenticated user, same as AppTab's settings row.
+  const showSyncIndicator = !isGuest && syncStatus.autoSyncEnabled && syncStatus.status !== 'synced';
 
   const navItems = [
     { id: 'write',   path: '/',       icon: <PenLine size={20} />,   label: t('nav_write') },
@@ -205,6 +211,38 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
 
       {/* Bottom section */}
       <div className="flex flex-col gap-1 px-2 mt-auto">
+        {showSyncIndicator && (
+          <button
+            onClick={() => void navigate('/settings')}
+            className={cn(
+              "relative flex items-center gap-3 rounded-xl transition-colors duration-200 text-left w-full overflow-hidden px-3 py-2",
+              "text-amber-400/80 hover:text-amber-400"
+            )}
+            title={t(
+              syncStatus.status === 'offline' ? 'sync_paused_no_network'
+                : syncStatus.status === 'cloud_unavailable' ? 'sync_paused_cloud_unavailable'
+                : 'sync_paused_pending',
+              syncStatus.status === 'pending' ? { count: String(syncStatus.pendingCount) } : undefined
+            )}
+          >
+            <CloudOff size={18} className="shrink-0 animate-pulse" />
+            <span className={cn(
+              "text-xs font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
+              expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
+            )}>
+              {t(
+                syncStatus.status === 'offline' ? 'sync_paused_no_network'
+                  : syncStatus.status === 'cloud_unavailable' ? 'sync_paused_cloud_unavailable'
+                  : 'sync_paused_pending',
+                syncStatus.status === 'pending' ? { count: String(syncStatus.pendingCount) } : undefined
+              )}
+            </span>
+            {!expanded && (
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            )}
+          </button>
+        )}
+
         {isGuest && (
         <SidebarActionItem
           icon={<LogIn size={20} />}
