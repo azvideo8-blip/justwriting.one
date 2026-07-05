@@ -4,6 +4,15 @@ import { getAuth } from 'firebase/auth';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
+import { tryReserveWriteBudget } from '../utils/firestoreWriteBudget';
+
+// Gentle pacing between consecutive Firestore writes in a bulk sync loop —
+// this is a DAILY total quota, so pacing alone can't prevent exhausting it,
+// but it avoids an instant burst of hundreds of writes in the same tick.
+const SYNC_PACE_MS = 200;
+function sleep(ms: number): Promise<void> {
+  return new Promise(r => setTimeout(r, ms));
+}
 
 // Encrypt fields on save: only the chunked vectorsJson. Decrypt accepts the
 // legacy single-vector vectorJson too, so old cloud docs still read.
@@ -98,7 +107,7 @@ export const AIEmbeddingService = {
     await db.put('aiEmbeddings', emb);
 
     const uid = getAuth().currentUser?.uid;
-    if (uid) {
+    if (uid && tryReserveWriteBudget()) {
       try {
         await saveEmbeddingToCloud(uid, emb);
         await db.put('aiEmbeddings', { ...emb, cloudSyncedAt: Date.now() });
@@ -115,17 +124,24 @@ export const AIEmbeddingService = {
   },
 
   /** Uploads local embeddings not yet in the cloud (e.g. saved while E2E was
-   *  locked). Makes NO AI calls — pure Firestore writes, so no quota/rate cost.
-   *  Stops early if E2E is locked; the rest retry on a later pass. */
-  async syncPendingToCloud(): Promise<{ synced: number; pending: number; locked: boolean }> {
+   *  locked, or left behind after an embedding-model change marked everything
+   *  stale). Makes NO AI calls, but each upload IS a Firestore write and this
+   *  project's free-tier database has a hard DAILY write quota shared by the
+   *  whole app — see tryReserveWriteBudget. Stops early if E2E is locked or
+   *  the daily write budget is spent; the rest retry on a later pass/day. */
+  async syncPendingToCloud(): Promise<{ synced: number; pending: number; locked: boolean; budgetExhausted: boolean }> {
     const uid = getAuth().currentUser?.uid;
     const db = await getLocalDb();
     const all = await db.getAll('aiEmbeddings');
     const pending = all.filter(e => !e.cloudSyncedAt);
-    if (!uid || pending.length === 0) return { synced: 0, pending: pending.length, locked: false };
+    if (!uid || pending.length === 0) return { synced: 0, pending: pending.length, locked: false, budgetExhausted: false };
 
     let synced = 0;
-    for (const emb of pending) {
+    for (let i = 0; i < pending.length; i++) {
+      const emb = pending[i]!;
+      if (!tryReserveWriteBudget()) {
+        return { synced, pending: pending.length, locked: false, budgetExhausted: true };
+      }
       try {
         await saveEmbeddingToCloud(uid, emb);
         await db.put('aiEmbeddings', { ...emb, cloudSyncedAt: Date.now() });
@@ -133,12 +149,13 @@ export const AIEmbeddingService = {
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (msg.includes('ENCRYPT_REQUIRED')) {
-          return { synced, pending: pending.length, locked: true };
+          return { synced, pending: pending.length, locked: true, budgetExhausted: false };
         }
         reportError(e, { action: 'ai_embedding_cloud_sync', docId: emb.documentId });
       }
+      if (i < pending.length - 1) await sleep(SYNC_PACE_MS);
     }
-    return { synced, pending: pending.length, locked: false };
+    return { synced, pending: pending.length, locked: false, budgetExhausted: false };
   },
 
   async getAll(): Promise<AIDocumentEmbedding[]> {

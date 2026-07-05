@@ -43,19 +43,27 @@ export function buildLocalDraft(
   } as LocalDraft;
 }
 
-export async function persistDraft(draft: LocalDraft): Promise<DraftPersistResult> {
+export async function persistDraft(
+  draft: LocalDraft,
+  options: { remote?: boolean } = { remote: true }
+): Promise<DraftPersistResult> {
   const usageKB = getLocalStorageUsageKB();
   if (usageKB > 4500) {
     logger.warn('draftPersistence', `localStorage usage: ${usageKB.toFixed(0)}KB — approaching limit`);
   }
 
-  const [localResult, remoteResult] = await Promise.allSettled([
+  const shouldRemoteSave = options.remote ?? true;
+  const promises: [Promise<unknown>, Promise<unknown>] = [
     WritingDraftService.saveToLocal(draft),
-    WritingDraftService.saveToFirestore(draft),
-  ]);
+    shouldRemoteSave
+      ? WritingDraftService.saveToFirestore(draft)
+      : Promise.resolve(),
+  ];
+
+  const [localResult, remoteResult] = await Promise.allSettled(promises);
 
   const localOk = localResult.status === 'fulfilled';
-  const remoteOk = remoteResult.status === 'fulfilled';
+  const remoteOk = !shouldRemoteSave || remoteResult.status === 'fulfilled';
 
   if (localOk) {
     await WritingDraftService.clearLegacyDraft(draft.userId);
@@ -64,7 +72,7 @@ export async function persistDraft(draft: LocalDraft): Promise<DraftPersistResul
   if (!localOk) {
     logger.error('draftPersistence', 'Local save failed', { reason: String(localResult.reason) });
   }
-  if (!remoteOk) {
+  if (shouldRemoteSave && !remoteOk) {
     logger.warn('draftPersistence', 'Firestore save failed (will retry on next change)', { reason: String(remoteResult.reason) });
   }
 
