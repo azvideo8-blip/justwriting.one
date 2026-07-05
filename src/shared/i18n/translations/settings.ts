@@ -81,6 +81,10 @@ export const settingsTranslations: Translations = {
   offline_banner_message: { ru: 'Работа в офлайн-режиме. Сессия будет сохранена локально.', en: 'Working offline. Session will be saved locally.' },
   offline_compact: { ru: 'Офлайн', en: 'Offline' },
   synced_compact: { ru: 'Синхронизировано', en: 'Synced' },
+  sync_paused_no_network: { ru: 'Синхронизация приостановлена (нет сети)', en: 'Sync paused (no network)' },
+  sync_paused_cloud_unavailable: { ru: 'Синхронизация приостановлена (облако недоступно)', en: 'Sync paused (cloud unavailable)' },
+  sync_paused_pending: { ru: '{count} заметок ждут отправки', en: '{count} notes pending sync' },
+  sync_indicator_label: { ru: 'Синхронизация', en: 'Sync' },
 
   settings_change_password:    { ru: 'Сменить пароль', en: 'Change password' },
   settings_auto_summarize:     { ru: 'Автоматическое саммари заметок', en: 'Auto-summarize notes' },

@@ -9,17 +9,19 @@ import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { analytics } from '../../../core/analytics/analytics';
+import { useSyncStatus } from '../hooks/useSyncStatus';
 
 interface AppTabProps {
   userId: string;
   onRefreshLifeLog?: (() => void) | undefined;
 }
 
-export function AppTab({ userId: _userId, onRefreshLifeLog: _onRefreshLifeLog }: AppTabProps) {
+export function AppTab({ userId, onRefreshLifeLog: _onRefreshLifeLog }: AppTabProps) {
   const { t, language, setLanguage } = useLanguage();
   const { themeId, setThemeId, themes } = useTheme();
   const { isAuthenticated, isGuest } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
+  const syncStatus = useSyncStatus(userId);
   const [autoSync, setAutoSync] = React.useState(
     localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) !== 'false'
   );
@@ -83,6 +85,20 @@ export function AppTab({ userId: _userId, onRefreshLifeLog: _onRefreshLifeLog }:
                 )}
               />
             </button>
+          </div>
+        )}
+
+        {isAuthenticated && autoSync && syncStatus.status !== 'synced' && (
+          <div className="px-1 mb-3 text-xs text-amber-400/80">
+            {syncStatus.status === 'offline' && t('sync_paused_no_network')}
+            {syncStatus.status === 'cloud_unavailable' && t('sync_paused_cloud_unavailable')}
+            {syncStatus.status === 'pending' && t('sync_paused_pending', { count: String(syncStatus.pendingCount) })}
+          </div>
+        )}
+
+        {isAuthenticated && autoSync && syncStatus.status === 'synced' && (
+          <div className="px-1 mb-3 text-xs text-emerald-400/60">
+            {t('offline_synced')}
           </div>
         )}
 

@@ -5,6 +5,7 @@ import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useLoginModal } from '../../../app/useLoginModal';
 import { Shield, Sparkles } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
+import { useSyncStatus } from '../../settings/hooks/useSyncStatus';
 
 const PenIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
@@ -39,8 +40,13 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
-  const { isGuest } = useAuthStatus();
+  const { isGuest, user } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
+  const syncStatus = useSyncStatus(user?.uid ?? null);
+  // Guests have no cloud sync relationship at all, so isFirestoreConnected
+  // staying false for them isn't a "cloud unavailable" problem — gate on
+  // being an actual authenticated user, same as AppTab's settings row.
+  const showSyncIndicator = !isGuest && syncStatus.autoSyncEnabled && syncStatus.status !== 'synced';
 
   const tabs = [
     { id: 'write' as const, path: '/',        label: t('nav_write'),          icon: <PenIcon /> },
@@ -76,8 +82,22 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
   return (
     <div
       className="fixed bottom-0 left-0 right-0 z-50 bg-surface-card/85 backdrop-blur-xl border-t border-white/[0.06] flex justify-around pt-2 pb-safe"
-      
     >
+      {showSyncIndicator && (
+        <button
+          onClick={() => void navigate('/settings')}
+          className="absolute -top-8 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-medium"
+          title={t(
+            syncStatus.status === 'offline' ? 'sync_paused_no_network'
+              : syncStatus.status === 'cloud_unavailable' ? 'sync_paused_cloud_unavailable'
+              : 'sync_paused_pending',
+            syncStatus.status === 'pending' ? { count: String(syncStatus.pendingCount) } : undefined
+          )}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+          {t('sync_indicator_label')}
+        </button>
+      )}
       {tabs.map(tab => {
         const active = isActive(tab);
         return (
