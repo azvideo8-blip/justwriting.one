@@ -22,7 +22,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
       type="button"
       aria-label={label}
       className={cn(
-        'rounded-xl flex items-center justify-center transition-colors',
+        'rounded-xl flex items-center justify-center transition-colors clickable-target-expansion',
         sizeStyles[size],
         active
           ? 'bg-text-main/10 text-text-main'

@@ -217,7 +217,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
           <Button
             onClick={() => setSource('local')}
             className={cn(
-              "flex-1 py-1.5 rounded-lg transition-all duration-200",
+              "flex-1 py-1.5 rounded-lg transition-[color,background-color,box-shadow] duration-200",
               source === 'local' ? "bg-surface-base/20 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
             )}
           >
@@ -226,7 +226,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
           <Button
             onClick={() => setSource('firestore')}
             className={cn(
-              "flex-1 py-1.5 rounded-lg transition-all duration-200",
+              "flex-1 py-1.5 rounded-lg transition-[color,background-color,box-shadow] duration-200",
               source === 'firestore' ? "bg-surface-base/20 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
             )}
           >

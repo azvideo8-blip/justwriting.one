@@ -153,8 +153,8 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         <IconButton onClick={onClose || onSuccess} className="self-end mb-4 p-2 rounded-lg text-text-main/60 hover:text-text-main transition-colors" label={t('close')} icon={<X size={20} />} />
       )}
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, transform: "translateY(20px)" }}
+        animate={{ opacity: 1, transform: "translateY(0px)" }}
         className="max-w-md w-full text-center space-y-8"
       >
         <div className="space-y-4">

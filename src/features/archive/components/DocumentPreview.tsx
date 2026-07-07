@@ -189,9 +189,9 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
   return (
     <motion.div
       ref={panelRef}
-      initial={{ opacity: 0, x: isMobile ? 0 : 20, y: isMobile ? '100%' : 0 }}
-      animate={{ opacity: 1, x: 0, y: 0 }}
-      exit={{ opacity: 0, x: isMobile ? 0 : 20, y: isMobile ? '100%' : 0 }}
+      initial={{ opacity: 0, transform: isMobile ? "translateY(100%)" : "translateX(20px)" }}
+      animate={{ opacity: 1, transform: "translateX(0px) translateY(0px)" }}
+      exit={{ opacity: 0, transform: isMobile ? "translateY(100%)" : "translateX(20px)" }}
       transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
       className="glass-panel custom-scrollbar fixed z-50 flex flex-col"
       style={isMobile ? {
@@ -476,9 +476,9 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
           <AnimatePresence>
             {exportOpen && (
               <motion.div
-                initial={{ opacity: 0, y: -4, scale: 0.97 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                initial={{ opacity: 0, transform: "translateY(-4px) scale(0.97)" }}
+                animate={{ opacity: 1, transform: "translateY(0px) scale(1)" }}
+                exit={{ opacity: 0, transform: "translateY(-4px) scale(0.97)" }}
                 className={cn("absolute bottom-full mb-2 right-0 border border-border-subtle rounded-xl shadow-xl overflow-hidden w-48 z-50", "bg-surface-popup")}
               >
                 {exportFormats.map(fmt => (

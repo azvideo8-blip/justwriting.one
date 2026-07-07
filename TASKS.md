@@ -8,6 +8,17 @@
 
 ## Done
 
+- [x] **DESIGN-11: AI composer textarea still ~35px wide at 640px viewport** - dialogs-list column capped max-w-[180/200px] below md, send/stop buttons collapse to icon-only below md; measured live: 34px→209px at 640px, no regression at 1280px (286px list, 675px textarea)
+- [x] **DESIGN-12: webVitals.ts still statically imports posthog-js** - now imports shared getPosthog()/hasConsent() from analytics.ts; verified in fresh build: modulepreload for vendor-analytics gone from dist/index.html, main chunk only reaches it via dynamic import()
+- [x] **DESIGN-13: Sidebar.tsx had 5 more transition-all instances** - all replaced with named properties (opacity/max-width/margin-left, opacity/height/padding); grep confirms zero transition-all left in the file
+- [x] **DESIGN-2: Hardcoded colors bypass theme tokens, break theme-notion (light theme)** - StreakDots.tsx, DiagnosticsPage.tsx, ProfileHero.tsx now use var(--...) tokens; verified live in theme-notion
+- [x] **DESIGN-3: Sidebar inactive-icon contrast fails WCAG on theme-notion** - opacity bumped /40→/55; recomputed 3.97:1 (was 2.55:1)
+- [x] **DESIGN-4: Framer Motion x/y shorthand not hardware-accelerated** - all 10 listed files converted to transform strings, verified via diff
+- [x] **DESIGN-5: transition-all used instead of specific properties (main instances)** - fixed everywhere except 5 leftover spots in Sidebar.tsx, see DESIGN-13
+- [x] **DESIGN-6: Click targets below 44x44px on desktop toolbar/nav** - IconButton clickable-target-expansion + SidebarNavItem 44px, verified live
+- [x] **DESIGN-7: /features page identical 2x3 feature-card grid** - first+last feature promoted to highlighted asymmetric cards, verified live
+- [x] **DESIGN-9: Settings uses raw emoji icons vs rest-of-app lucide-react** - clean emoji→icon prop rename, verified no emoji remains
+- [x] **DESIGN-10: Duplicate CTA copy on /features** - both CTAs now "Начать писать", verified live
 - [x] **PROF-8: Исправление бага мульти-назначения доменов (Minority Domains)** - исправить логику распределения чанков по опорным доменам
 - [x] **PROF-9: Обновление центроидов при инкрементальном импорте заметок** - пересчитывать вектор центроида фасета при добавлении новых чанков
 - [x] **PROF-10: Интеграция Reranking в поиск ИИ-психолога** - использовать `AIService.rerank` для сокращения и ранжирования контекста

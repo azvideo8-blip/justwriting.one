@@ -33,7 +33,7 @@ function SidebarNavItem({ icon, label, isActive, expanded, onClick }: SidebarNav
       aria-current={isActive ? 'page' : undefined}
       className={cn(
         "relative group flex items-center gap-3 rounded-xl transition-colors duration-200 text-left w-full overflow-hidden",
-        "px-3 py-2.5 pl-[10px]",
+        "px-3 py-3 pl-[10px]",
         isActive
           ? "text-brand-soft"
           : "text-text-main/60 hover:text-text-main/70"
@@ -48,7 +48,7 @@ function SidebarNavItem({ icon, label, isActive, expanded, onClick }: SidebarNav
       )}
       <span className="relative z-10 shrink-0">{icon}</span>
       <span className={cn(
-        "relative z-10 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
+        "relative z-10 text-sm font-medium whitespace-nowrap overflow-hidden transition-[opacity,max-width,margin-left] duration-300",
         expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
       )}>
         {label}
@@ -57,11 +57,11 @@ function SidebarNavItem({ icon, label, isActive, expanded, onClick }: SidebarNav
         <AnimatePresence>
           {hovered && (
             <motion.span
-              initial={{ opacity: 0, x: -6 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -6 }}
+              initial={{ opacity: 0, transform: "translateX(-6px) translateY(-50%)" }}
+              animate={{ opacity: 1, transform: "translateX(0px) translateY(-50%)" }}
+              exit={{ opacity: 0, transform: "translateX(-6px) translateY(-50%)" }}
               transition={{ duration: 0.15 }}
-              className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-50 bg-surface-card border border-border-subtle text-text-main shadow-lg"
+              className="pointer-events-none absolute left-full ml-3 top-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-50 bg-surface-card border border-border-subtle text-text-main shadow-lg"
             >
               {label}
             </motion.span>
@@ -91,7 +91,7 @@ function SidebarActionItem({ icon, label, expanded, onClick, accent }: SidebarAc
       onFocus={() => setHovered(true)}
       onBlur={() => setHovered(false)}
       className={cn(
-        "relative group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left w-full overflow-hidden",
+        "relative group flex items-center gap-3 px-3 py-3 rounded-xl transition-colors duration-200 text-left w-full overflow-hidden",
         accent
           ? "text-text-main/70 hover:text-text-main hover:bg-text-main/25"
           : "text-text-main/60 hover:text-text-main/60 hover:bg-text-main/8"
@@ -99,7 +99,7 @@ function SidebarActionItem({ icon, label, expanded, onClick, accent }: SidebarAc
     >
       <span className="shrink-0">{icon}</span>
       <span className={cn(
-        "text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
+        "text-sm font-medium whitespace-nowrap overflow-hidden transition-[opacity,max-width,margin-left] duration-300",
         expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
       )}>
         {label}
@@ -108,11 +108,11 @@ function SidebarActionItem({ icon, label, expanded, onClick, accent }: SidebarAc
         <AnimatePresence>
           {hovered && (
             <motion.span
-              initial={{ opacity: 0, x: -6 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -6 }}
+              initial={{ opacity: 0, transform: "translateX(-6px) translateY(-50%)" }}
+              animate={{ opacity: 1, transform: "translateX(0px) translateY(-50%)" }}
+              exit={{ opacity: 0, transform: "translateX(-6px) translateY(-50%)" }}
               transition={{ duration: 0.15 }}
-              className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-50 bg-surface-card border border-border-subtle text-text-main shadow-lg"
+              className="pointer-events-none absolute left-full ml-3 top-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-50 bg-surface-card border border-border-subtle text-text-main shadow-lg"
             >
               {label}
             </motion.span>
@@ -159,7 +159,7 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-          "h-full z-50 flex flex-col py-4 transition-all duration-300 ease-in-out",
+          "h-full z-50 flex flex-col py-4 sidebar-transition",
           "fixed top-0 left-0 border-r border-border-subtle backdrop-blur-xl",
           expanded && "w-[220px]",
           !expanded && "w-16",
@@ -170,7 +170,7 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
       <div className="flex items-center gap-3 px-4 mb-8 h-10 overflow-hidden">
         <JustWritingLogo size={36} variant="dark" showRailway={true} showRoman={false} showCrown={true} className="shrink-0" />
         <span className={cn(
-          "font-bold text-lg text-text-main whitespace-nowrap overflow-hidden transition-all duration-300",
+          "font-bold text-lg text-text-main whitespace-nowrap overflow-hidden transition-[opacity,max-width,margin-left] duration-300",
           expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
         )}>
           justwriting
@@ -227,7 +227,7 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
           >
             <CloudOff size={18} className="shrink-0 animate-pulse" />
             <span className={cn(
-              "text-xs font-medium whitespace-nowrap overflow-hidden transition-all duration-300",
+              "text-xs font-medium whitespace-nowrap overflow-hidden transition-[opacity,max-width,margin-left] duration-300",
               expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
             )}>
               {t(
@@ -261,7 +261,7 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
         />
 
         <div className={cn(
-           "px-3 py-2 text-[9px] font-mono text-text-main/60 transition-all duration-300 select-none whitespace-nowrap flex flex-col items-start gap-1.5",
+          "px-3 py-2 text-[9px] font-mono text-text-main/60 transition-[opacity,height,padding] duration-300 select-none whitespace-nowrap flex flex-col items-start gap-1.5",
           expanded ? "opacity-100 pl-3" : "opacity-0 h-0 p-0 overflow-hidden"
         )}>
           <button

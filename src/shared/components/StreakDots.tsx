@@ -39,10 +39,10 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
                 "w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold font-mono",
                 day.hasSession
                   ? day.isToday
-                    ? "bg-[var(--brand-primary)] text-[var(--color-surface-base,#0b0d0c)]"
-                    : "bg-[rgba(255,255,255,0.12)] text-[rgba(232,236,233,0.85)]"
-                  : "bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.20)]",
-                day.isToday && !day.hasSession ? "border border-[rgba(255,255,255,0.15)]" : "border border-transparent"
+                    ? "bg-brand-primary text-surface-base"
+                    : "bg-text-main/12 text-text-main/85"
+                  : "bg-text-main/5 text-text-main/20",
+                day.isToday && !day.hasSession ? "border border-text-main/15" : "border border-transparent"
               )}
             >
               {day.date.getDate()}

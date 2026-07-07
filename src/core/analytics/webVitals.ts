@@ -1,13 +1,5 @@
 import { onCLS, onFCP, onINP, onLCP, onTTFB, type Metric } from 'web-vitals';
-import posthog from 'posthog-js';
-
-function hasConsent(): boolean {
-  try {
-    return localStorage.getItem('analytics_consent') === 'true';
-  } catch {
-    return false;
-  }
-}
+import { getPosthog, hasConsent } from './analytics';
 
 const THRESHOLDS: Record<string, number> = {
   CLS: 0.1,
@@ -22,15 +14,17 @@ function sendToAnalytics(metric: Metric) {
   const isSlow = metric.value > threshold;
 
   // PostHog
-  if (hasConsent() && typeof posthog !== 'undefined') {
-    posthog.capture('web_vital', {
-      metric_name: metric.name,
-      metric_value: Math.round(metric.value * 1000) / 1000,
-      metric_id: metric.id,
-      metric_rating: metric.rating,
-      metric_delta: Math.round(metric.delta * 1000) / 1000,
-      is_slow: isSlow,
-    });
+  if (hasConsent()) {
+    getPosthog().then(ph => {
+      ph.capture('web_vital', {
+        metric_name: metric.name,
+        metric_value: Math.round(metric.value * 1000) / 1000,
+        metric_id: metric.id,
+        metric_rating: metric.rating,
+        metric_delta: Math.round(metric.delta * 1000) / 1000,
+        is_slow: isSlow,
+      });
+    }).catch(console.error);
   }
 
   // Log slow metrics in development

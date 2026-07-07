@@ -74,7 +74,7 @@ export function OnThisDayCard({ sessions, onOpen }: {
           key={session.id}
           exit={{ opacity: 0, x: -24 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="w-full mt-4 rounded-2xl border border-brand-soft/25 bg-gradient-to-br from-brand-soft/[0.08] to-brand-soft/[0.02] hover:border-brand-soft/40 hover:-translate-y-px transition-all flex items-stretch group overflow-hidden"
+          className="w-full mt-4 rounded-2xl border border-brand-soft/25 bg-gradient-to-br from-brand-soft/[0.08] to-brand-soft/[0.02] hover:border-brand-soft/40 hover:-translate-y-px transition-[border-color,transform] flex items-stretch group overflow-hidden"
         >
           <div className="w-1 shrink-0 bg-brand-soft/50" />
           <button

@@ -87,7 +87,7 @@ export function ArchiveSidebar({
                   key={word}
                   onClick={() => onWordClick(word)}
                   style={{ fontSize: size, opacity }}
-                  className="text-text-main/70 hover:opacity-100 hover:text-brand-primary transition-all duration-200 leading-tight cursor-pointer p-0 min-w-0"
+                  className="text-text-main/70 hover:opacity-100 hover:text-brand-primary transition-[color,opacity] duration-200 leading-tight cursor-pointer p-0 min-w-0"
                 >
                   {word}
                 </Button>
