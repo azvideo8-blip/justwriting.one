@@ -1,5 +1,10 @@
 import { getLocalDb, randomUUID } from '../../../core/storage/localDb';
 import type { AIDialogue } from '../../../core/storage/localDb';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+
+function currentLanguage(): 'ru' | 'en' {
+  return localStorage.getItem(STORAGE_KEYS.APP_LANGUAGE) === 'en' ? 'en' : 'ru';
+}
 
 export const AIDialogueService = {
   async create(data: Omit<AIDialogue, 'id' | 'createdAt' | 'updatedAt'>): Promise<AIDialogue> {
@@ -211,15 +216,21 @@ export const AIDialogueService = {
     const dialogue = await db.get('aiDialogues', id);
     if (!dialogue) return '';
 
+    const lang = currentLanguage();
     const dateStr = new Date(dialogue.createdAt).toLocaleString();
-    const docLine = dialogue.documentId ? `\nDocument: ${dialogue.documentId}` : '';
-    const header = `# Dialogue with ${dialogue.personaName} ${dialogue.personaEmoji}\nDate: ${dateStr}${docLine}\n\n---\n\n`;
+    const docLine = dialogue.documentId
+      ? `\n${lang === 'ru' ? 'Документ' : 'Document'}: ${dialogue.documentId}`
+      : '';
+    const header = lang === 'ru'
+      ? `# Диалог с ${dialogue.personaName} ${dialogue.personaEmoji}\nДата: ${dateStr}${docLine}\n\n---\n\n`
+      : `# Dialogue with ${dialogue.personaName} ${dialogue.personaEmoji}\nDate: ${dateStr}${docLine}\n\n---\n\n`;
+    const userLabel = lang === 'ru' ? 'Пользователь' : 'User';
 
     const messages = dialogue.messages
       .filter(m => m.type !== 'system')
       .map(m =>
         m.role === 'user'
-          ? `**You:** ${m.content}`
+          ? `**${userLabel}:** ${m.content}`
           : `**${dialogue.personaName}:** ${m.content}`
       ).join('\n\n');
 

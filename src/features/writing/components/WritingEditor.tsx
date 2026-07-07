@@ -24,6 +24,7 @@ export const WritingEditor = React.memo(function WritingEditor({
   const { 
     streamMode, 
     fontSize, fontFamily,
+    lineHeight,
     lifeLogEnabled,
     typewriterScrolling,
     focusModeEnabled,
@@ -36,7 +37,7 @@ export const WritingEditor = React.memo(function WritingEditor({
   const blockToastShownRef = React.useRef(false);
   const editorStyle = {
     fontSize: `${fontSize}px`,
-    lineHeight: `${fontSize * 1.2}px`,
+    lineHeight: `${lineHeight}`,
     fontFamily: getFontStack(fontFamily),
     userSelect: 'text' as const,
     // Typewriter mode: extra bottom room so the last lines can scroll up to

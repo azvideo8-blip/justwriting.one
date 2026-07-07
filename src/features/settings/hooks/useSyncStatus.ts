@@ -14,6 +14,38 @@ export interface SyncStatusState {
 }
 
 const PENDING_GRACE_MS = 30_000;
+const POLL_INTERVAL_MS = 10_000;
+
+// Shared across all useSyncStatus() instances (Sidebar, BottomNav, AppShell, AppTab
+// can all be mounted at once) so they don't each run their own IndexedDB poll.
+let sharedPendingCount = 0;
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let activeSubscribers = 0;
+const pendingListeners = new Set<(count: number) => void>();
+
+async function pollPendingCount() {
+  try {
+    sharedPendingCount = await SyncService.getPendingCount();
+    pendingListeners.forEach(fn => fn(sharedPendingCount));
+  } catch { /* non-critical */ }
+}
+
+function subscribePendingCount(listener: (count: number) => void): () => void {
+  pendingListeners.add(listener);
+  activeSubscribers++;
+  if (!pollTimer) {
+    void pollPendingCount();
+    pollTimer = setInterval(() => void pollPendingCount(), POLL_INTERVAL_MS);
+  }
+  return () => {
+    pendingListeners.delete(listener);
+    activeSubscribers--;
+    if (activeSubscribers === 0 && pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  };
+}
 
 /**
  * Global sync health. Show indicator only when autoSyncEnabled && status !== 'synced'.
@@ -47,7 +79,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
     return () => window.removeEventListener('storage', handler);
   }, []);
 
-  // Poll pending count
+  // Subscribe to the shared pending-count poll (deduped across hook instances)
   useEffect(() => {
     if (!userId || !autoSyncEnabled) {
       // Defer to avoid synchronous setState in effect body
@@ -55,17 +87,9 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
       return () => clearTimeout(t);
     }
 
-    let alive = true;
-    const poll = async () => {
-      try {
-        const count = await SyncService.getPendingCount();
-        if (alive) setPendingCount(count);
-      } catch { /* non-critical */ }
-    };
-
-    void poll();
-    const interval = setInterval(() => void poll(), 10_000);
-    return () => { alive = false; clearInterval(interval); };
+    const t = setTimeout(() => setPendingCount(sharedPendingCount), 0);
+    const unsubscribe = subscribePendingCount(setPendingCount);
+    return () => { clearTimeout(t); unsubscribe(); };
   }, [userId, autoSyncEnabled]);
 
   // Grace period: start timer when pending count transitions 0→N
@@ -94,6 +118,24 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
       if (graceTimerRef.current) clearTimeout(graceTimerRef.current);
     };
   }, []);
+
+  // IMPR-1: Warning when leaving tab with unsaved/un-synced changes
+  useEffect(() => {
+    if (!userId || !autoSyncEnabled || pendingCount === 0) {
+      return;
+    }
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [userId, autoSyncEnabled, pendingCount]);
 
   // Determine status (pure render logic)
   let status: SyncStatus = 'synced';

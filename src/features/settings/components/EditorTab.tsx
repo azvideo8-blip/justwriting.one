@@ -5,6 +5,7 @@ import { cn } from '../../../core/utils/utils';
 import { Section, ToggleRow } from './SettingsHelpers';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { Button } from '../../../shared/components/Button';
+import { Wind, Waves, Keyboard, Focus, MousePointer2, Timer, FileText, BarChart2, Gauge } from 'lucide-react';
 
 export function EditorTab() {
   const { t } = useLanguage();
@@ -12,6 +13,7 @@ export function EditorTab() {
   const {
     fontFamily, setFontFamily,
     fontSize, setFontSize,
+    lineHeight, setLineHeight,
     editorWidth, setEditorWidth,
     zenModeEnabled, setZenModeEnabled,
     streamMode, toggleStreamMode,
@@ -21,7 +23,7 @@ export function EditorTab() {
     autoHideCursor, setAutoHideCursor,
   } = useWritingSettings();
 
-  const fonts = ['Inter', 'Lora', 'JetBrains Mono'];
+  const fonts = ['Inter', 'Lora', 'Playfair Display', 'EB Garamond', 'JetBrains Mono'];
 
   return (
     <div className="space-y-5 mt-2">
@@ -64,43 +66,63 @@ export function EditorTab() {
         </div>
       </Section>
 
+      <Section title={t('settings_line_height')}>
+        <div className="flex items-center gap-3 px-1">
+          <input
+            type="range" min={1.2} max={2.2} step={0.1}
+            value={lineHeight}
+            onChange={e => setLineHeight(Number(e.target.value))}
+            className="flex-1 accent-text-main"
+          />
+          <span className="text-sm font-mono text-text-main w-10 text-right">
+            {lineHeight.toFixed(1)}
+          </span>
+        </div>
+      </Section>
+
       {layoutMode === 'desktop' && (
         <Section title={t('settings_editor_width')}>
-          <div className="flex items-center gap-3 px-1">
-            <input
-              type="range"
-              min={40}
-              max={100}
-              step={1}
-              value={editorWidth}
-              onChange={e => setEditorWidth(Number(e.target.value))}
-              className="flex-1 accent-text-main"
-            />
-            <span className="text-sm font-mono text-text-main w-16 text-right">
-              {editorWidth}%
-            </span>
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              { key: 'settings_width_narrow', value: 50, active: editorWidth <= 58 },
+              { key: 'settings_width_medium', value: 68, active: editorWidth > 58 && editorWidth <= 80 },
+              { key: 'settings_width_wide', value: 90, active: editorWidth > 80 }
+            ] as const).map(opt => (
+              <Button
+                key={opt.value}
+                onClick={() => setEditorWidth(opt.value)}
+                className={cn(
+                  "px-3 py-2.5 rounded-xl border text-center transition-[color,background-color,border-color] duration-200 text-xs font-medium",
+                  opt.active
+                    ? "border-text-main bg-text-main text-surface-base"
+                    : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
+                )}
+              >
+                {t(opt.key)}
+              </Button>
+            ))}
           </div>
         </Section>
       )}
 
       <Section title={t('settings_zen_mode')}>
-        <ToggleRow emoji="🧘" label={t('settings_zen_mode')} hint={t('settings_zen_desc')}    value={zenModeEnabled}  onChange={() => setZenModeEnabled(!zenModeEnabled)} />
-        <ToggleRow emoji="🌊" label={t('settings_stream_mode')} hint={t('settings_stream_mode_desc')} value={streamMode}       onChange={toggleStreamMode} />
+        <ToggleRow icon={<Wind size={16} />} label={t('settings_zen_mode')} hint={t('settings_zen_desc')}    value={zenModeEnabled}  onChange={() => setZenModeEnabled(!zenModeEnabled)} />
+        <ToggleRow icon={<Waves size={16} />} label={t('settings_stream_mode')} hint={t('settings_stream_mode_desc')} value={streamMode}       onChange={toggleStreamMode} />
       </Section>
 
       <Section title={t('settings_writing_experience')}>
-        <ToggleRow emoji="⌨️" label={t('settings_typewriter')} hint={t('settings_typewriter_desc')} value={typewriterScrolling} onChange={() => setTypewriterScrolling(!typewriterScrolling)} />
-        <ToggleRow emoji="🔍" label={t('settings_focus_mode')} hint={t('settings_focus_mode_desc')} value={focusModeEnabled} onChange={() => setFocusModeEnabled(!focusModeEnabled)} />
-        <ToggleRow emoji="🖱️" label={t('settings_auto_hide_cursor')} hint={t('settings_auto_hide_cursor_desc')} value={autoHideCursor} onChange={() => setAutoHideCursor(!autoHideCursor)} />
+        <ToggleRow icon={<Keyboard size={16} />} label={t('settings_typewriter')} hint={t('settings_typewriter_desc')} value={typewriterScrolling} onChange={() => setTypewriterScrolling(!typewriterScrolling)} />
+        <ToggleRow icon={<Focus size={16} />} label={t('settings_focus_mode')} hint={t('settings_focus_mode_desc')} value={focusModeEnabled} onChange={() => setFocusModeEnabled(!focusModeEnabled)} />
+        <ToggleRow icon={<MousePointer2 size={16} />} label={t('settings_auto_hide_cursor')} hint={t('settings_auto_hide_cursor_desc')} value={autoHideCursor} onChange={() => setAutoHideCursor(!autoHideCursor)} />
       </Section>
 
       <Section title={t('settings_show_in_panel')}>
         <div className="grid grid-cols-2 gap-2">
           {([
-            { key: 'sessionTime',  label: t('header_sessionTime'),  emoji: '⏱' },
-            { key: 'sessionWords', label: t('header_sessionWords'), emoji: '📝' },
-            { key: 'totalWords',   label: t('header_totalWords'),   emoji: '📊' },
-            { key: 'wpm',          label: t('header_wpm'),          emoji: '💨' },
+            { key: 'sessionTime',  label: t('header_sessionTime'),  icon: <Timer size={16} /> },
+            { key: 'sessionWords', label: t('header_sessionWords'), icon: <FileText size={16} /> },
+            { key: 'totalWords',   label: t('header_totalWords'),   icon: <BarChart2 size={16} /> },
+            { key: 'wpm',          label: t('header_wpm'),          icon: <Gauge size={16} /> },
           ] as const).map(item => (
             <Button
               key={item.key}
@@ -112,7 +134,7 @@ export function EditorTab() {
                   : "border-border-subtle text-text-main/60 hover:text-text-main/60"
               )}
             >
-              <span className="text-base shrink-0">{item.emoji}</span>
+              <span className="text-text-main/60 shrink-0">{item.icon}</span>
               <span className="text-xs font-medium leading-tight flex-1">{item.label}</span>
               <span className={cn(
                 "text-xs shrink-0",

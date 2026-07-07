@@ -26,6 +26,8 @@ import { AIService } from '../services/AIService';
 import { AISummaryService } from '../services/AISummaryService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { reportError } from '../../../shared/errors/reportError';
+import { SyncService } from '../../../core/services/SyncService';
+import { isFirestoreConnected } from '../../../core/firebase/firestore';
 
 export function DiagnosticsPage() {
   const navigate = useNavigate();
@@ -70,6 +72,33 @@ export function DiagnosticsPage() {
     handleClearMemory,
     handleCollapseVersions,
   } = useDiagnosticsData(profile, authLoading, activeTab);
+
+  const handleDownloadDiagnostics = async () => {
+    try {
+      const pendingCount = await SyncService.getPendingCount();
+      const firestoreConnected = isFirestoreConnected;
+      
+      const report = {
+        userAgent: navigator.userAgent,
+        locale: navigator.language || 'unknown',
+        appVersion: APP_VERSION,
+        syncQueueLength: pendingCount,
+        isFirestoreConnected: firestoreConnected,
+        localStats: stats,
+        timestamp: Date.now()
+      };
+
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'justwriting-diagnostics.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      reportError(e, { action: 'download_diagnostics' });
+    }
+  };
 
   if (authLoading) {
     return (
@@ -126,12 +155,21 @@ function ReconcileSessionsButton() {
           <Bug className="text-accent-danger" />
           Диагностика и администрирование
         </h2>
-        <IconButton 
-          onClick={() => void navigate('/')} 
-          className="p-2 rounded-lg text-text-main/60 hover:text-text-main hover:bg-surface-base/10 transition-colors"
-          label="Close"
-          icon={<X size={18} />}
-        />
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => void handleDownloadDiagnostics()}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-brand-soft/10 border border-brand-soft/25 text-brand-soft text-xs font-semibold hover:bg-brand-soft/20 transition-[color,background-color] duration-200"
+          >
+            <Download size={13} />
+            Скачать диагностику
+          </Button>
+          <IconButton 
+            onClick={() => void navigate('/')} 
+            className="p-2 rounded-lg text-text-main/60 hover:text-text-main hover:bg-surface-base/10 transition-colors"
+            label="Close"
+            icon={<X size={18} />}
+          />
+        </div>
       </div>
 
       {/* Tabs list */}
@@ -139,7 +177,7 @@ function ReconcileSessionsButton() {
         <Button
           onClick={() => setActiveTab('sync')}
           className={cn(
-            "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
+            "px-4 py-2 rounded-xl text-xs font-bold transition-[color,background-color,box-shadow] duration-200",
             activeTab === 'sync' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
@@ -148,7 +186,7 @@ function ReconcileSessionsButton() {
         <Button
           onClick={() => setActiveTab('db')}
           className={cn(
-            "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
+            "px-4 py-2 rounded-xl text-xs font-bold transition-[color,background-color,box-shadow] duration-200",
             activeTab === 'db' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
@@ -157,7 +195,7 @@ function ReconcileSessionsButton() {
         <Button
           onClick={() => setActiveTab('users')}
           className={cn(
-            "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
+            "px-4 py-2 rounded-xl text-xs font-bold transition-[color,background-color,box-shadow] duration-200",
             activeTab === 'users' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
@@ -166,7 +204,7 @@ function ReconcileSessionsButton() {
         <Button
           onClick={() => setActiveTab('ai_usage')}
           className={cn(
-            "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
+            "px-4 py-2 rounded-xl text-xs font-bold transition-[color,background-color,box-shadow] duration-200",
             activeTab === 'ai_usage' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
@@ -175,7 +213,7 @@ function ReconcileSessionsButton() {
         <Button
           onClick={() => setActiveTab('ai_profile')}
           className={cn(
-            "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
+            "px-4 py-2 rounded-xl text-xs font-bold transition-[color,background-color,box-shadow] duration-200",
             activeTab === 'ai_profile' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
@@ -184,7 +222,7 @@ function ReconcileSessionsButton() {
         <Button
           onClick={() => setActiveTab('stats')}
           className={cn(
-            "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
+            "px-4 py-2 rounded-xl text-xs font-bold transition-[color,background-color,box-shadow] duration-200",
             activeTab === 'stats' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
@@ -193,7 +231,7 @@ function ReconcileSessionsButton() {
         <Button
           onClick={() => setActiveTab('queue')}
           className={cn(
-            "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200",
+            "px-4 py-2 rounded-xl text-xs font-bold transition-[color,background-color,box-shadow] duration-200",
             activeTab === 'queue' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
@@ -350,7 +388,7 @@ function ReconcileSessionsButton() {
                       const pct = m.cap > 0 ? Math.min(100, (m.used / m.cap) * 100) : 0;
                       const over = m.used >= m.cap;
                       const warn = pct >= 80;
-                      const color = over ? '#f87171' : warn ? '#fbbf24' : '#7d4fd1';
+                      const color = over ? 'var(--accent-danger)' : warn ? 'var(--accent-warning)' : 'var(--accent-info)';
                       return (
                         <div key={m.label} className="space-y-1">
                           <div className="flex items-center justify-between text-[11px]">
@@ -749,7 +787,7 @@ function MassAnalyzeNotes() {
         <div className="px-5 py-3">
           <div className="h-1.5 rounded-full bg-surface-base/30 overflow-hidden">
             <div
-              className="h-full bg-brand-soft transition-all duration-300"
+              className="h-full bg-brand-soft transition-[width] duration-300"
               style={{ width: `${progress.total > 0 ? (progress.done / progress.total) * 100 : 0}%` }}
             />
           </div>
