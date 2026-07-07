@@ -11,8 +11,8 @@ export function Section({ title, children }: { title: string; children: React.Re
   );
 }
 
-export function ToggleRow({ emoji, label, hint, value, onChange }: {
-  emoji?: string;
+export function ToggleRow({ icon, label, hint, value, onChange }: {
+  icon?: React.ReactNode;
   label: string;
   hint?: string;
   value: boolean;
@@ -23,7 +23,7 @@ export function ToggleRow({ emoji, label, hint, value, onChange }: {
       onClick={onChange}
       className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle hover:bg-text-main/5 transition-colors w-full"
     >
-      {emoji && <span className="text-base shrink-0">{emoji}</span>}
+      {Boolean(icon) && <span className="text-text-main/60 shrink-0">{icon}</span>}
       <div className="flex-1 text-left">
         <span className="text-sm text-text-main/70">{label}</span>
         {hint && <p className="text-label text-text-main/60 mt-0.5">{hint}</p>}

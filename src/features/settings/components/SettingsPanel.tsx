@@ -183,9 +183,9 @@ export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog, defau
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-title"
-            initial={{ x: reducedMotion ? 0 : '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: reducedMotion ? 0 : '100%' }}
+            initial={{ transform: reducedMotion ? "translateX(0px)" : "translateX(100%)" }}
+            animate={{ transform: "translateX(0px)" }}
+            exit={{ transform: reducedMotion ? "translateX(0px)" : "translateX(100%)" }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
             className="fixed top-0 right-0 bottom-0 w-full max-w-[420px] z-[var(--z-panel)] bg-surface-card border-l border-border-subtle flex flex-col shadow-2xl"
           >

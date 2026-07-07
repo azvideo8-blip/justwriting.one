@@ -53,8 +53,8 @@ export function ChangelogPage() {
           {CHANGELOG.map((release, i) => (
             <motion.div
               key={release.version}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, transform: "translateY(12px)" }}
+              animate={{ opacity: 1, transform: "translateY(0px)" }}
               transition={{ delay: i * 0.05 }}
               className="relative pl-6"
             >

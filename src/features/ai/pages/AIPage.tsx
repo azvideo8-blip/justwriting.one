@@ -138,7 +138,7 @@ export function AIPage() {
     <div className={cn("h-screen bg-surface-base flex", isMobile ? "flex-col" : "flex-row")}>
       {!isMobile && (
         <>
-        <div className="border-r border-border-subtle flex flex-col bg-surface-card/30" style={{ width: sidebarWidth, flexShrink: 0 }}>
+        <div className="border-r border-border-subtle flex flex-col bg-surface-card/30 max-w-[180px] sm:max-w-[200px] md:max-w-none" style={{ width: sidebarWidth, flexShrink: 0 }}>
           <div className="p-4 pb-3.5">
             <Button
               onClick={handleNewDialogue}
@@ -299,7 +299,7 @@ export function AIPage() {
               </button>
           </div>
 
-          <div className="flex gap-1.5 items-center overflow-x-auto pb-1 pt-3.5 -mx-1 px-1 no-scrollbar">
+          <div className="flex gap-1.5 items-center overflow-x-auto pb-1 pt-3.5 -mx-1 px-1 no-scrollbar flex-nowrap">
             {allPersonas.map(p => {
               const v = personaVisual(p.id, p.name);
               const on = selectedPersonaId === p.id;
@@ -591,7 +591,7 @@ export function AIPage() {
                 ))}
               </div>
             )}
-            <div className="flex items-end gap-2.5 p-2.5 pl-3.5 rounded-2xl bg-surface-card border border-border-subtle focus-within:border-brand-soft/40 transition-colors">
+            <div className="flex items-end gap-2.5 p-2.5 pl-3.5 rounded-2xl bg-surface-card border border-border-subtle focus-within:border-brand-soft/40 transition-colors min-w-0">
               <div className="relative" ref={attachMenuRef}>
                 <IconButton
                   onClick={() => setAttachMenuOpen(v => !v)}
@@ -634,24 +634,24 @@ export function AIPage() {
                 placeholder={t('ai_write_placeholder', { name: (activePersona?.name ?? '').toLowerCase() })}
                 disabled={isLoading || dailyLimit.remaining === 0}
                 rows={1}
-                className="flex-1 bg-transparent py-1.5 text-[14.5px] text-text-main placeholder:text-text-main/40 outline-none disabled:opacity-40 resize-none overflow-y-auto max-h-40"
+                className="flex-1 min-w-0 bg-transparent py-1.5 text-[14.5px] text-text-main placeholder:text-text-main/40 outline-none disabled:opacity-40 resize-none overflow-y-auto max-h-40"
               />
               {isLoading ? (
                 <Button
                   onClick={() => stop()}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl shrink-0 bg-surface-elevated border border-border-subtle text-text-main/80 text-[13.5px] font-semibold hover:text-text-main transition-all"
+                  className="flex items-center gap-2 px-3 py-2.5 md:px-4 rounded-xl shrink-0 bg-surface-elevated border border-border-subtle text-text-main/80 text-[13.5px] font-semibold hover:text-text-main transition-[color,background-color,border-color,opacity] duration-200"
                 >
                   <span className="w-3.5 h-3.5 rounded-full border-2 border-text-main/30 border-t-text-main/80 animate-spin" />
-                  {t('ai_processing')}
+                  <span className="hidden md:inline">{t('ai_processing')}</span>
                   <Square size={13} className="fill-current" />
                 </Button>
               ) : (
                 <Button
                   onClick={() => void handleSendMessage()}
                   disabled={(!inputText.trim() && pendingAttachments.length === 0) || dailyLimit.remaining === 0}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl shrink-0 bg-gradient-to-b from-brand-soft to-brand-primary text-white text-[13.5px] font-semibold shadow-[0_4px_16px_rgba(125,79,209,0.35)] disabled:opacity-40 disabled:shadow-none transition-all"
+                  className="flex items-center gap-2 px-3 py-2.5 md:px-4 rounded-xl shrink-0 bg-gradient-to-b from-brand-soft to-brand-primary text-white text-[13.5px] font-semibold shadow-[0_4px_16px_rgba(125,79,209,0.35)] disabled:opacity-40 disabled:shadow-none transition-[color,background-color,box-shadow,opacity] duration-200"
                 >
-                  {t('ai_send')}
+                  <span className="hidden md:inline">{t('ai_send')}</span>
                   <ArrowRight size={14} />
                 </Button>
               )}

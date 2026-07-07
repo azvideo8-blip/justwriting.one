@@ -45,8 +45,8 @@ export function ArchiveStats({ sessions, streakDays, title, onReset }: ArchiveSt
         {stats.map((stat, i) => (
           <motion.div
             key={stat.label}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, transform: "translateY(8px)" }}
+            animate={{ opacity: 1, transform: "translateY(0px)" }}
             transition={{ duration: 0.2, delay: i * 0.06 }}
             className={cn(
               "border rounded-xl p-2 flex flex-col gap-1",

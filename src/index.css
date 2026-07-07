@@ -221,7 +221,7 @@
   }
 
   .sidebar-icon {
-    @apply w-10 h-10 rounded-xl flex items-center justify-center transition-all text-text-main/40 hover:text-text-main hover:bg-text-main/5;
+    @apply w-10 h-10 rounded-xl flex items-center justify-center transition-colors text-text-main/55 hover:text-text-main hover:bg-text-main/5;
   }
   .sidebar-icon.active {
     @apply bg-text-main text-surface-base shadow-lg;
@@ -488,6 +488,31 @@ textarea {
   }
   .pb-safe-nav {
     padding-bottom: calc(env(safe-area-inset-bottom) + 56px);
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+  .sidebar-transition {
+    transition: width 300ms ease-in-out, opacity 300ms ease-in-out, transform 300ms ease-in-out;
+  }
+  .clickable-target-expansion {
+    position: relative;
+    &::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 44px;
+      height: 44px;
+      transform: translate(-50%, -50%);
+      min-width: 100%;
+      min-height: 100%;
+      z-index: 1;
+    }
   }
 }
 

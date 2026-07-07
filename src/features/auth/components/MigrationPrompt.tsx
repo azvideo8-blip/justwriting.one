@@ -105,9 +105,9 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
       >
         <motion.div
           data-modal
-          initial={{ scale: 0.95, opacity: 0, y: 8 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.95, opacity: 0 }}
+          initial={{ opacity: 0, transform: "translateY(8px) scale(0.95)" }}
+          animate={{ opacity: 1, transform: "translateY(0px) scale(1)" }}
+          exit={{ opacity: 0, transform: "translateY(8px) scale(0.95)" }}
           className="w-full max-w-sm bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
         >
           <div className="w-10 h-10 rounded-2xl bg-text-main/5 border border-border-subtle flex items-center justify-center mb-4">

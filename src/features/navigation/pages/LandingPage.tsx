@@ -3,6 +3,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { SeoHead } from '../../../shared/i18n/SeoHead';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { Button } from '../../../shared/components/Button';
+import { cn } from '../../../core/utils/utils';
 
 const features = [
   {
@@ -87,7 +88,7 @@ export function LandingPage() {
         </p>
         <Button
           onClick={() => void navigate('/')}
-          className="mt-8 px-8 py-3.5 rounded-xl font-bold text-white hover:brightness-110 active:scale-[0.98] transition-all bg-[var(--brand-primary)]"
+          className="mt-8 px-8 py-3.5 rounded-xl font-bold text-white hover:brightness-110 active:scale-[0.98] transition-[filter,transform] bg-[var(--brand-primary)]"
         >
           {isRu ? 'Начать писать' : 'Start writing'}
         </Button>
@@ -95,20 +96,46 @@ export function LandingPage() {
 
       <section className="max-w-4xl mx-auto px-6 pb-20">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {features.map((f) => (
-            <div
-              key={f.icon}
-              className="bg-surface-card/50 border border-border-subtle rounded-2xl p-6"
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-brand-soft text-xl font-serif">{iconMap[f.icon]}</span>
-                <h2 className="text-base font-bold">{isRu ? f.titleRu : f.titleEn}</h2>
+          {features.map((f, i) => {
+            const isHighlighted = i === 0 || i === 5;
+            return (
+              <div
+                key={f.icon}
+                className={cn(
+                  "border rounded-2xl transition-[border-color]",
+                  isHighlighted
+                    ? i === 0
+                      ? "bg-gradient-to-br from-brand-soft/[0.12] to-brand-soft/[0.03] border-brand-soft/30 md:col-span-2 p-8 flex flex-col md:flex-row md:items-center gap-6"
+                      : "bg-gradient-to-br from-text-main/[0.04] to-text-main/[0.01] border-border-subtle md:col-span-2 p-8 flex flex-col md:flex-row md:items-center gap-6"
+                    : "bg-surface-card/50 border border-border-subtle p-6 hover:border-brand-soft/20"
+                )}
+              >
+                {isHighlighted ? (
+                  <>
+                    <div className="text-brand-soft text-4xl font-serif w-14 h-14 rounded-2xl bg-brand-soft/10 flex items-center justify-center shrink-0">
+                      {iconMap[f.icon]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-lg font-bold mb-2">{isRu ? f.titleRu : f.titleEn}</h2>
+                      <p className="text-sm text-text-main/70 leading-relaxed">
+                        {isRu ? f.descRu : f.descEn}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="text-brand-soft text-xl font-serif">{iconMap[f.icon]}</span>
+                      <h2 className="text-base font-bold">{isRu ? f.titleRu : f.titleEn}</h2>
+                    </div>
+                    <p className="text-sm text-text-main/60 leading-relaxed">
+                      {isRu ? f.descRu : f.descEn}
+                    </p>
+                  </>
+                )}
               </div>
-              <p className="text-sm text-text-main/60 leading-relaxed">
-                {isRu ? f.descRu : f.descEn}
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -123,9 +150,9 @@ export function LandingPage() {
         </p>
         <Button
           onClick={() => void navigate('/')}
-          className="px-8 py-3.5 rounded-xl font-bold text-white hover:brightness-110 active:scale-[0.98] transition-all bg-[var(--brand-primary)]"
+          className="px-8 py-3.5 rounded-xl font-bold text-white hover:brightness-110 active:scale-[0.98] transition-[filter,transform] bg-[var(--brand-primary)]"
         >
-          {isRu ? 'Открыть редактор' : 'Open editor'}
+          {isRu ? 'Начать писать' : 'Start writing'}
         </Button>
       </section>
 

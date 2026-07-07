@@ -259,8 +259,8 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
         return (
           <motion.div
             key={group.id}
-            initial={reducedMotion ? false : { opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={reducedMotion ? false : { opacity: 0, transform: "translateY(12px)" }}
+            animate={{ opacity: 1, transform: "translateY(0px)" }}
             transition={{ duration: 0.3, delay: gi * 0.08 }}
             className="mb-8"
           >
