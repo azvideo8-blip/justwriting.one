@@ -14,6 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.45',
+    date: '2026-07-07',
+    items: [
+      { category: 'new', ru: 'Нечёткий поиск по архиву — находит заметки даже с опечаткой', en: 'Fuzzy archive search — finds notes even with a typo' },
+      { category: 'new', ru: 'Импорт заметок из .txt, .md и .docx (перетащить в архив или кнопкой «Импорт»)', en: 'Import notes from .txt, .md, and .docx (drag into the archive or use the "Import" button)' },
+      { category: 'new', ru: 'Экспорт диалога с ИИ в .md-файл', en: 'Export an AI dialogue to a .md file' },
+      { category: 'new', ru: 'Настройки → Редактор: межстрочный интервал и два новых шрифта (EB Garamond, Playfair Display)', en: 'Settings → Editor: line-height control and two new fonts (EB Garamond, Playfair Display)' },
+      { category: 'improvement', ru: 'Закрытие вкладки с неотправленными правками теперь предупреждает перед уходом', en: 'Closing a tab with unsynced changes now warns before you leave' },
+      { category: 'improvement', ru: 'Карта активности в профиле — плавнее и с подсказкой при наведении', en: 'The profile activity heatmap is smoother and shows a tooltip on hover' },
+    ],
+  },
+  {
     version: '0.7.44',
     date: '2026-07-05',
     items: [

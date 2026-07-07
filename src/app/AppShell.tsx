@@ -5,6 +5,7 @@ import { useLayoutMode } from '../shared/hooks/useLayoutMode';
 import { useLanguage } from '../shared/i18n';
 import { cn } from '../core/utils/utils';
 import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
+import { useSyncStatus } from '../features/settings/hooks/useSyncStatus';
 
 import { AppLayout } from '../shared/components/Layout/AppLayout';
 import { Sidebar } from '../features/navigation/components/Sidebar';
@@ -22,12 +23,14 @@ import { ConfirmDialogRenderer } from '../shared/components/ConfirmDialog';
 export function AppShell() {
   const location = useLocation();
   const { t } = useLanguage();
-  const { profile, user } = useAuthStatus();
+  const { profile, user, isGuest } = useAuthStatus();
   const { isZenActive, zenModeEnabled } = useWritingSettings();
   const { layoutMode } = useLayoutMode();
   const { loginModalOpen } = useLoginModal();
   const { openSettings } = useSettings();
   const { mode: encryptionMode, check: recheckEncryption } = useEncryptionSetup();
+
+  useSyncStatus(isGuest ? null : (user?.uid ?? null));
 
   const currentPath = location.pathname;
   const showZen = isZenActive && zenModeEnabled && currentPath === '/';

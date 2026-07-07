@@ -1,8 +1,10 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getSessionDate } from '../../../core/utils/utils';
 import { IconButton } from '../../../shared/components/IconButton';
+import { useLanguage } from '../../../shared/i18n';
+import { Session } from '../../../types';
 
 function getDayLabels(locale: string): string[] {
   const mon = new Date(2024, 0, 1);
@@ -18,8 +20,6 @@ function getDayLabels(locale: string): string[] {
     '',
   ];
 }
-import { useLanguage } from '../../../shared/i18n';
-import { Session } from '../../../types';
 
 interface HeatCell {
   date: Date;
@@ -27,10 +27,19 @@ interface HeatCell {
   level: 0 | 1 | 2 | 3 | 4;
 }
 
+interface HoveredCellState {
+  wi: number;
+  di: number;
+  x: number;
+  y: number;
+  text: string;
+}
+
 export function Heatmap({ sessions }: { sessions: Session[] }) {
   const { t, language } = useLanguage();
   const [offset, setOffset] = useState(0);
-  const [hoveredCell, setHoveredCell] = useState<{ wi: number; di: number } | null>(null);
+  const [hoveredCell, setHoveredCell] = useState<HoveredCellState | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
 
   // Clear tooltip on tap away
@@ -106,8 +115,19 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
     'var(--flow-pulse-color)',
   ];
 
+  // SVG Layout dimensions
+  const labelWidth = 15;
+  const cellSize = 10;
+  const cellGap = 2;
+  const cellStride = cellSize + cellGap; // 12
+  const gridYOffset = 18;
+  const svgWidth = labelWidth + cells.length * cellStride;
+  const svgHeight = gridYOffset + 7 * cellStride;
+
+  const weekdayLabels = getDayLabels(language);
+
   return (
-    <div className="px-4 py-6 md:px-9 md:py-8 border-b border-border-subtle" >
+    <div className="px-4 py-6 md:px-9 md:py-8 border-b border-border-subtle relative" ref={containerRef}>
       <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3 mb-4">
         <div className="flex items-baseline gap-3">
           <h2 className="text-[18px] font-medium text-text-main">
@@ -131,89 +151,144 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
           </div>
 
           <div className="flex items-center gap-1">
-          <IconButton onClick={() => setOffset(o => o + 1)}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors"
-            label="Previous"
-            icon={<ChevronLeft size={14} />}
-          />
-          <IconButton onClick={() => setOffset(o => Math.max(0, o - 1))} disabled={offset === 0}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors disabled:opacity-20 disabled:cursor-default"
-            label="Next"
-            icon={<ChevronRight size={14} />}
-          />
+            <IconButton onClick={() => setOffset(o => o + 1)}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors"
+              label="Previous"
+              icon={<ChevronLeft size={14} />}
+            />
+            <IconButton onClick={() => setOffset(o => Math.max(0, o - 1))} disabled={offset === 0}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors disabled:opacity-20 disabled:cursor-default"
+              label="Next"
+              icon={<ChevronRight size={14} />}
+            />
           </div>
         </div>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
-        <div className="flex flex-col gap-[3px] pt-5">
-          {getDayLabels(language).map((d, i) => (
-            <div key={i} className="font-mono text-[9px] text-text-main/60 h-[11px] leading-[11px]">{d}</div>
+      <div className="overflow-x-auto pb-2 scrollbar-none">
+        <svg 
+          width="100%" 
+          height={svgHeight} 
+          viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+          className="min-w-[420px]"
+        >
+          {/* Weekday labels */}
+          {weekdayLabels.map((label, di) => {
+            if (!label) return null;
+            return (
+              <text
+                key={di}
+                x={0}
+                y={gridYOffset + di * cellStride + 8}
+                className="font-mono text-[9px] fill-text-main/60"
+              >
+                {label}
+              </text>
+            );
+          })}
+
+          {/* Month labels */}
+          {monthLabels.map((ml, index) => (
+            <text
+              key={index}
+              x={labelWidth + ml.col * cellStride}
+              y={10}
+              className="font-mono text-[9px] fill-text-main/60"
+            >
+              {ml.label}
+            </text>
           ))}
-        </div>
 
-        <div className="flex-1 min-w-[280px] overflow-visible">
-          <div className="flex mb-1 gap-0.5" >
-            {cells.map((_, wi) => {
-              const label = monthLabels.find(l => l.col === wi);
-              return (
-                <div key={wi} 
-                  className="font-mono text-[9px] text-text-main/60 truncate flex-1">
-                  {label?.label || ''}
-                </div>
-              );
-            })}
-          </div>
+          {/* Heat cells */}
+          {cells.map((week, wi) => (
+            <g key={wi}>
+              {week.map((day, di) => {
+                const isHovered = hoveredCell?.wi === wi && hoveredCell?.di === di;
+                const rectX = labelWidth + wi * cellStride;
+                const rectY = gridYOffset + di * cellStride;
 
-          <div className="flex gap-0.5" >
-            {cells.map((week, wi) => (
-              <div key={wi} className="flex flex-col flex-1 gap-0.5" >
-                {week.map((day, di) => {
-                  const isHovered = hoveredCell?.wi === wi && hoveredCell?.di === di;
-                  const isLeftEdge = wi < 3;
-                  const isRightEdge = wi > cells.length - 4;
-
-                  const tooltipAlignStyle: React.CSSProperties = isLeftEdge
-                    ? { left: 0, transform: 'none' }
-                    : isRightEdge
-                    ? { right: 0, left: 'auto', transform: 'none' }
-                    : { left: '50%', transform: 'translateX(-50%)' };
-
-                  return (
-                    <motion.div
-                      key={di}
-                      initial={reducedMotion ? false : { opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.15, delay: Math.min(wi, 12) * 0.01 }}
-                      onMouseEnter={() => setHoveredCell({ wi, di })}
-                      onMouseLeave={() => setHoveredCell(null)}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setHoveredCell({ wi, di });
-                      }}
-                      tabIndex={0}
-                      role="button"
-                      aria-label={`${day.date.toLocaleDateString(language)} — ${day.words} ${t('home_words_short')}`}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHoveredCell({ wi, di }); } }}
-                      className="relative cursor-pointer" 
-                    >
-                      <div
-                        className="h-[11px] rounded-[2px] transition-colors duration-100"
-                        style={{ background: isHovered ? 'var(--flow-pulse-color)' : colors[day.level] }}
-                      />
-                      {isHovered && (
-                        <div className="absolute bottom-full mb-1 whitespace-nowrap bg-[var(--surface-elevated)] border border-[var(--border-light)] rounded-md py-0.5 px-2 text-[10px] font-mono text-[var(--text-main)] shadow-[0_4px_12px_rgba(0,0,0,0.3)] pointer-events-none z-50" style={tooltipAlignStyle}>
-                          {day.date.toLocaleDateString(language)} — {day.words} {t('home_words_short')}
-                        </div>
-                      )}
-                    </motion.div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
+                return (
+                  <motion.rect
+                    key={di}
+                    initial={reducedMotion ? false : { opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.15, delay: Math.min(wi, 12) * 0.01 }}
+                    x={rectX}
+                    y={rectY}
+                    width={cellSize}
+                    height={cellSize}
+                    rx={2}
+                    ry={2}
+                    fill={isHovered ? 'var(--flow-pulse-color)' : colors[day.level]}
+                    className="cursor-pointer transition-[fill] duration-100 outline-none"
+                    onMouseEnter={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const parentRect = containerRef.current?.getBoundingClientRect();
+                      if (parentRect) {
+                        setHoveredCell({
+                          wi,
+                          di,
+                          x: rect.left - parentRect.left + rect.width / 2,
+                          y: rect.top - parentRect.top,
+                          text: `${day.date.toLocaleDateString(language)} — ${day.words} ${t('home_words_short')}`
+                        });
+                      }
+                    }}
+                    onMouseLeave={() => setHoveredCell(null)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const parentRect = containerRef.current?.getBoundingClientRect();
+                      if (parentRect) {
+                        setHoveredCell({
+                          wi,
+                          di,
+                          x: rect.left - parentRect.left + rect.width / 2,
+                          y: rect.top - parentRect.top,
+                          text: `${day.date.toLocaleDateString(language)} — ${day.words} ${t('home_words_short')}`
+                        });
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`${day.date.toLocaleDateString(language)} — ${day.words} ${t('home_words_short')}`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const parentRect = containerRef.current?.getBoundingClientRect();
+                        if (parentRect) {
+                          setHoveredCell({
+                            wi,
+                            di,
+                            x: rect.left - parentRect.left + rect.width / 2,
+                            y: rect.top - parentRect.top,
+                            text: `${day.date.toLocaleDateString(language)} — ${day.words} ${t('home_words_short')}`
+                          });
+                        }
+                      }
+                    }}
+                  />
+                );
+              })}
+            </g>
+          ))}
+        </svg>
       </div>
+
+      {/* Tooltip */}
+      {hoveredCell && (
+        <div 
+          className="absolute mb-1 whitespace-nowrap bg-[var(--surface-elevated)] border border-[var(--border-light)] rounded-md py-0.5 px-2 text-[10px] font-mono text-[var(--text-main)] shadow-[0_4px_12px_rgba(0,0,0,0.3)] pointer-events-none z-50 transition-all duration-100"
+          style={{
+            left: `${hoveredCell.x}px`,
+            top: `${hoveredCell.y}px`,
+            transform: 'translate(-50%, -100%)',
+          }}
+        >
+          {hoveredCell.text}
+        </div>
+      )}
     </div>
   );
 }

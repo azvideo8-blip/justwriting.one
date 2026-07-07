@@ -41,6 +41,8 @@ interface WritingSettingsContextType {
   setFocusModeEnabled: (enabled: boolean) => void;
   autoHideCursor: boolean;
   setAutoHideCursor: (enabled: boolean) => void;
+  lineHeight: number;
+  setLineHeight: (lh: number) => void;
 }
 
 const WritingSettingsContext = createContext<WritingSettingsContextType | undefined>(undefined);
@@ -54,6 +56,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
   const [lifeLogTab, setLifeLogTab] = useState<'log' | 'settings'>('log');
   const [fontFamily, setFontFamily] = useLocalStorage<string>('v2_fontFamily', 'Inter', z.string());
   const [fontSize, setFontSize] = useLocalStorage<number>('v2_fontSize', 18, z.number());
+  const [lineHeight, setLineHeight] = useLocalStorage<number>('v2_lineHeight', 1.6, z.number());
   const [lifeLogPinned, setLifeLogPinned] = useLocalStorage<boolean>('v3_lifeLogPinned', false, z.boolean());
   const [typewriterScrolling, setTypewriterScrolling] = useLocalStorage<boolean>('v2_typewriterScrolling', false, z.boolean());
   const [focusModeEnabled, setFocusModeEnabled] = useLocalStorage<boolean>('v2_focusModeEnabled', false, z.boolean());
@@ -145,7 +148,8 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     typewriterScrolling, setTypewriterScrolling,
     focusModeEnabled, setFocusModeEnabled,
     autoHideCursor, setAutoHideCursor,
-  }), [streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled, editorWidth, setEditorWidth, lifeLogEnabled, setLifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isZenActive, zenSeenOnce, status, setStatus, fontFamily, setFontFamily, fontSize, setFontSize, lifeLogPinned, setLifeLogPinned, headerVisibility, toggleVisibility, typewriterScrolling, setTypewriterScrolling, focusModeEnabled, setFocusModeEnabled, autoHideCursor, setAutoHideCursor]);
+    lineHeight, setLineHeight,
+  }), [streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled, editorWidth, setEditorWidth, lifeLogEnabled, setLifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isZenActive, zenSeenOnce, status, setStatus, fontFamily, setFontFamily, fontSize, setFontSize, lifeLogPinned, setLifeLogPinned, headerVisibility, toggleVisibility, typewriterScrolling, setTypewriterScrolling, focusModeEnabled, setFocusModeEnabled, autoHideCursor, setAutoHideCursor, lineHeight, setLineHeight]);
 
   return (
     <WritingSettingsContext.Provider value={contextValue}>

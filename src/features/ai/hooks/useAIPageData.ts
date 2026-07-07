@@ -454,11 +454,16 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     if (!activeDialogueId) return;
     const md = await AIDialogueService.exportAsMarkdown(activeDialogueId);
     if (!md) return;
-    const blob = new Blob([md], { type: 'text/plain' });
+    const activeDialogue = dialogues.find(d => d.id === activeDialogueId) || archivedDialogues.find(d => d.id === activeDialogueId);
+    const rawTitle = activeDialogue?.title || 'dialogue';
+    // Filesystem-unsafe chars (esp. "/") would otherwise break the download path on some OSes.
+    const safeTitle = rawTitle.replace(/[/\\?%*:|"<>]/g, '-').trim() || 'dialogue';
+    const dateStr = new Date().toISOString().split('T')[0];
+    const blob = new Blob([md], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `dialogue-${activeDialogueId.slice(0, 8)}.txt`;
+    a.download = `${safeTitle}-${dateStr}.md`;
     a.click();
     URL.revokeObjectURL(url);
   };

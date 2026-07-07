@@ -1,5 +1,5 @@
 import { type RefObject, useState, useEffect, useRef } from 'react';
-import { Search, LayoutGrid, LayoutList, ArrowUpDown, SlidersHorizontal, Tag } from 'lucide-react';
+import { Search, LayoutGrid, LayoutList, ArrowUpDown, SlidersHorizontal, Tag, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
@@ -30,6 +30,8 @@ interface ArchiveHeaderProps {
   showFilters?: boolean;
   onToggleFilters?: () => void;
   toggleFiltersLabel?: string;
+  onImportClick?: () => void;
+  importLabel?: string;
 }
 
 export function ArchiveHeader({
@@ -41,6 +43,8 @@ export function ArchiveHeader({
   showFilters,
   onToggleFilters,
   toggleFiltersLabel = 'Тэги',
+  onImportClick,
+  importLabel = 'Импорт',
 }: ArchiveHeaderProps) {
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
@@ -162,6 +166,15 @@ export function ArchiveHeader({
           >
             <Tag size={14} aria-hidden="true" />
             <span className="hidden sm:inline">{toggleFiltersLabel}</span>
+          </Button>
+        )}
+        {onImportClick && (
+          <Button
+            onClick={onImportClick}
+            className="h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-sm transition-colors border bg-text-main/[0.03] border-border-subtle text-text-main/60 hover:text-text-main"
+          >
+            <Upload size={14} aria-hidden="true" />
+            <span className="hidden sm:inline">{importLabel}</span>
           </Button>
         )}
         {onFilterClick && (

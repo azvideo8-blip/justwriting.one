@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useRef, useEffect, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { UserProfile } from '../../../types';
@@ -11,6 +11,8 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../shared/components/Button';
 import { useUserId } from '../../../shared/hooks/useUserId';
 import { ArchiveHeader, type SortMode } from '../components/ArchiveHeader';
+import { useToast } from '../../../shared/components/Toast';
+import { Upload } from 'lucide-react';
 import { ArchiveTagBar } from '../components/ArchiveTagBar';
 import { ArchiveLabelBar } from '../components/ArchiveLabelBar';
 import { ArchiveNoteList } from '../components/ArchiveNoteList';
@@ -75,6 +77,62 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const tagEditor = useTagEditor(userId, fetchSessions);
   const labelEditor = useLabelEditor({ addLabel, updateLabel, removeLabel: (id) => void removeLabel(id) });
 
+  const { showToast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragActive, setDragActive] = useState(false);
+
+  const handleImportFiles = async (files: FileList) => {
+    let importedCount = 0;
+    let failedCount = 0;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file) continue;
+      try {
+        const { importNoteFile } = await import('../services/archiveImport');
+        const { success } = await importNoteFile(file, userId, !!user);
+        if (success) importedCount++;
+        else failedCount++;
+      } catch (err) {
+        console.error('Failed to import file:', file.name, err);
+        failedCount++;
+      }
+    }
+
+    if (importedCount > 0) {
+      showToast(t('archive_import_success', { count: importedCount }), 'success');
+      void fetchSessions();
+    }
+    if (failedCount > 0) {
+      showToast(t('archive_import_failed', { count: failedCount }), 'error');
+    }
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer !== null && e.dataTransfer.files.length > 0) {
+      void handleImportFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files !== null && e.target.files.length > 0) {
+      void handleImportFiles(e.target.files);
+    }
+  };
+
   const filteredStreakDays = useMemo(() => calculateStreak(filteredByFilters), [filteredByFilters]);
 
   const [viewMode, setViewMode] = useLocalStorage<'list' | 'grid'>(
@@ -122,7 +180,21 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
 
   return (
     <AdaptiveContainer>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="h-screen overflow-hidden flex flex-col">
+      <motion.div
+        initial={{ opacity: 0, transform: "translateY(20px)" }}
+        animate={{ opacity: 1, transform: "translateY(0px)" }}
+        className="h-screen overflow-hidden flex flex-col relative"
+        onDragEnter={handleDrag}
+        onDragOver={handleDrag}
+      >
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept=".txt,.md,.docx"
+          multiple
+          style={{ display: 'none' }}
+        />
         <div className="flex gap-0 min-w-[320px] flex-1 min-h-0">
           <div className="flex-1 min-w-0 pr-0 lg:pr-8 flex flex-col min-h-0">
             <div className="shrink-0">
@@ -138,6 +210,8 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               showFilters={showTagLabelBars}
               onToggleFilters={() => setShowTagLabelBars(v => !v)}
               toggleFiltersLabel={showTagLabelBars ? t('archive_tags_hide') : t('archive_tags_label')}
+              onImportClick={() => fileInputRef.current?.click()}
+              importLabel={t('archive_import')}
             />
             {isMobile ? (
               showTagLabelBars && (allTags.length > 0 || profileLabels.length > 0) && (
@@ -265,6 +339,26 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
             )}
           </AnimatePresence>
         </div>
+
+        {dragActive && (
+          <div 
+            className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-surface-base/85 backdrop-blur-sm border-2 border-dashed border-brand-soft m-4 rounded-3xl"
+            onDragEnter={handleDrag}
+            onDragOver={handleDrag}
+            onDragLeave={handleDrag}
+            onDrop={handleDrop}
+          >
+            <div className="flex flex-col items-center gap-4 text-center pointer-events-none">
+              <div className="w-16 h-16 rounded-full bg-brand-soft/10 flex items-center justify-center text-brand-soft animate-bounce">
+                <Upload size={32} />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-text-main">{t('archive_import_drop_title')}</p>
+                <p className="text-sm text-text-main/60 mt-1">{t('archive_import_drop_hint')}</p>
+              </div>
+            </div>
+          </div>
+        )}
       </motion.div>
     </AdaptiveContainer>
   );
