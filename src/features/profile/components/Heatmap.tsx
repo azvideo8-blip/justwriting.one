@@ -116,11 +116,11 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
   ];
 
   // SVG Layout dimensions
-  const labelWidth = 15;
-  const cellSize = 10;
-  const cellGap = 2;
-  const cellStride = cellSize + cellGap; // 12
-  const gridYOffset = 18;
+  const labelWidth = 24;
+  const cellSize = 15;
+  const cellGap = 3;
+  const cellStride = cellSize + cellGap; // 18
+  const gridYOffset = 24;
   const svgWidth = labelWidth + cells.length * cellStride;
   const svgHeight = gridYOffset + 7 * cellStride;
 
@@ -166,11 +166,11 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
       </div>
 
       <div className="overflow-x-auto pb-2 scrollbar-none">
-        <svg 
-          width="100%" 
-          height={svgHeight} 
+        <svg
+          width={svgWidth}
+          height={svgHeight}
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-          className="min-w-[420px]"
+          className="max-w-none"
         >
           {/* Weekday labels */}
           {weekdayLabels.map((label, di) => {
@@ -179,8 +179,8 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
               <text
                 key={di}
                 x={0}
-                y={gridYOffset + di * cellStride + 8}
-                className="font-mono text-[9px] fill-text-main/60"
+                y={gridYOffset + di * cellStride + 12}
+                className="font-mono text-[11px] fill-text-main/60"
               >
                 {label}
               </text>
@@ -192,8 +192,8 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
             <text
               key={index}
               x={labelWidth + ml.col * cellStride}
-              y={10}
-              className="font-mono text-[9px] fill-text-main/60"
+              y={13}
+              className="font-mono text-[11px] fill-text-main/60"
             >
               {ml.label}
             </text>

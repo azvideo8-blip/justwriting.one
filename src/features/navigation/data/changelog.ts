@@ -22,7 +22,10 @@ export const CHANGELOG: ChangelogRelease[] = [
       { category: 'new', ru: 'Экспорт диалога с ИИ в .md-файл', en: 'Export an AI dialogue to a .md file' },
       { category: 'new', ru: 'Настройки → Редактор: межстрочный интервал и два новых шрифта (EB Garamond, Playfair Display)', en: 'Settings → Editor: line-height control and two new fonts (EB Garamond, Playfair Display)' },
       { category: 'improvement', ru: 'Закрытие вкладки с неотправленными правками теперь предупреждает перед уходом', en: 'Closing a tab with unsynced changes now warns before you leave' },
-      { category: 'improvement', ru: 'Карта активности в профиле — плавнее и с подсказкой при наведении', en: 'The profile activity heatmap is smoother and shows a tooltip on hover' },
+      { category: 'improvement', ru: 'Карта активности в профиле — крупнее, плавнее и с подсказкой (дата и число слов) при наведении', en: 'The profile activity heatmap is larger, smoother, and shows a tooltip (date and word count) on hover' },
+      { category: 'improvement', ru: 'Дизайн: единый набор иконок и цвета из темы во всём приложении — корректный вид в светлой теме', en: 'Design: consistent icon set and theme-driven colors across the app — renders correctly in the light theme' },
+      { category: 'accessibility', ru: 'Контраст неактивных иконок и размеры кликабельных зон приведены к стандартам доступности', en: 'Inactive-icon contrast and click-target sizes brought up to accessibility standards' },
+      { category: 'improvement', ru: 'Анимации переходов стали плавнее (аппаратное ускорение), интерфейс — отзывчивее', en: 'Transition animations are smoother (hardware-accelerated) and the interface feels more responsive' },
     ],
   },
   {
