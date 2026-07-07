@@ -5,14 +5,14 @@
 - **[RU]** Архив: импорт заметок — перетащите `.txt`, `.md` или `.docx` (с разбором YAML frontmatter для заголовка/тегов) прямо на экран архива, или через новую кнопку «Импорт»; импортированные заметки синхронизируются с облаком так же, как обычные (с постановкой в очередь при офлайне).
 - **[RU]** ИИ: экспорт диалога в `.md` с именем файла по названию и дате; роли и заголовок экспорта — на языке интерфейса.
 - **[RU]** Диагностика (админ): кнопка «Скачать диагностику» — версия приложения, статус синка, локальные счётчики, без содержимого заметок и секретов.
-- **[RU]** Настройки → Редактор: межстрочный интервал (слайдер), два новых шрифта (EB Garamond, Playfair Display), ширина редактора теперь пресетами «Узкий/Средний/Широкий».
+- **[RU]** Настройки → Редактор: межстрочный интервал (слайдер) и два новых шрифта (EB Garamond, Playfair Display).
 - **[RU]** Закрытие вкладки с неотправленными правками (не пуста очередь синхронизации) теперь показывает предупреждение браузера — раньше правки тихо оставались в очереди без сигнала пользователю.
 - **[RU]** Профиль: карта активности переведена на SVG-рендер (плавнее) и получила интерактивную подсказку с датой и количеством слов при наведении/тапе.
 - **[EN]** Archive: fuzzy search across title, content, and tags (`fuse.js`) — now finds documents even with a typo or a slightly different word ending.
 - **[EN]** Archive: note import — drag `.txt`, `.md`, or `.docx` (with YAML frontmatter parsed for title/tags) onto the archive screen, or use the new "Import" button; imported notes sync to the cloud the same way regular notes do (queued if offline).
 - **[EN]** AI: export a dialogue as `.md` named by title and date; role labels and the export header follow the interface language.
 - **[EN]** Diagnostics (admin): a "Download diagnostics" button — app version, sync status, local counters, no note content or secrets.
-- **[EN]** Settings → Editor: line-height slider, two new fonts (EB Garamond, Playfair Display), editor width is now Narrow/Medium/Wide presets.
+- **[EN]** Settings → Editor: line-height slider and two new fonts (EB Garamond, Playfair Display).
 - **[EN]** Closing a tab with unsynced changes (non-empty sync queue) now shows the browser's confirmation warning — previously the changes silently sat in the queue with no signal to the user.
 - **[EN]** Profile: the activity heatmap now renders as SVG (smoother) and has an interactive tooltip showing date and word count on hover/tap.
 

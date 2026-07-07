@@ -82,25 +82,19 @@ export function EditorTab() {
 
       {layoutMode === 'desktop' && (
         <Section title={t('settings_editor_width')}>
-          <div className="grid grid-cols-3 gap-2">
-            {([
-              { key: 'settings_width_narrow', value: 50, active: editorWidth <= 58 },
-              { key: 'settings_width_medium', value: 68, active: editorWidth > 58 && editorWidth <= 80 },
-              { key: 'settings_width_wide', value: 90, active: editorWidth > 80 }
-            ] as const).map(opt => (
-              <Button
-                key={opt.value}
-                onClick={() => setEditorWidth(opt.value)}
-                className={cn(
-                  "px-3 py-2.5 rounded-xl border text-center transition-[color,background-color,border-color] duration-200 text-xs font-medium",
-                  opt.active
-                    ? "border-text-main bg-text-main text-surface-base"
-                    : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
-                )}
-              >
-                {t(opt.key)}
-              </Button>
-            ))}
+          <div className="flex items-center gap-3 px-1">
+            <input
+              type="range"
+              min={40}
+              max={100}
+              step={1}
+              value={editorWidth}
+              onChange={e => setEditorWidth(Number(e.target.value))}
+              className="flex-1 accent-text-main"
+            />
+            <span className="text-sm font-mono text-text-main w-16 text-right">
+              {editorWidth}%
+            </span>
           </div>
         </Section>
       )}
