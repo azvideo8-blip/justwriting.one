@@ -28,21 +28,24 @@ function repairTruncatedJson(raw: string): string {
   return out;
 }
 
-const SUMMARY_SYSTEM_PROMPT = `Проанализируй текст и верни JSON-объект со следующими полями:
-- tone: одно слово (нейтральный/задумчивый/тревожный/вдохновляющий/радостный/грустный/злой/усталый)
-- frequentWords: массив из 5-7 наиболее значимых слов из текста (не стоп-слова)
-- insights: массив из 3-5 коротких инсайтов или ключевых мыслей, которые звучат в тексте
-- themes: массив из 2-4 основных тем
-- extractedFacts: массив из 2-5 конкретных фактов, событий или утверждений из текста (что именно произошло, что автор упоминает как реальное событие или утверждение)
-- mentionedPeople: массив объектов { name: "имя или прозвище", role: "отношение к автору (жена/муж/дочь/сын/мать/отец/коллега/друг/партнёр/брат/сестра/итд)" } для каждого РЕАЛЬНОГО человека, упомянутого в тексте. Извлекай только настоящие имена людей (Саша, Маша, Дмитрий), не слова или понятия. Если людей нет — пустой массив. Не включай имена персонажей, авторов книг или публичных деятелей.
+const SUMMARY_SYSTEM_PROMPT = `Проанализируй личную заметку и верни JSON. Отвечай СТРОГО на русском языке.
 
+Поля:
+- summary: 1–2 предложения от третьего лица о чём эта запись и какова её главная суть («Автор размышляет о...»).
+- tone: одно слово из списка: нейтральный / задумчивый / тревожный / вдохновляющий / радостный / грустный / злой / усталый / ностальгический / противоречивый / благодарный / растерянный.
+- frequentWords: 3–6 самых значимых слов из текста (существительные или глаголы, не стоп-слова, не «я», «это», «что»).
+- insights: ключевые мысли или внутренние наблюдения, которые звучат в тексте — только то, что реально написано.
+- themes: 1–3 основные темы.
+- extractedFacts: конкретные факты ПРОШЕДШЕГО или НАСТОЯЩЕГО времени, которые буквально написаны в тексте. НЕ включай планы, намерения, мечты, гипотезы или события будущего времени. Если факт неточный или косвенный — не включай. Лучше меньше, но достоверно.
+- mentionedPeople: объекты { name, role } для реальных людей, упомянутых по имени. role — отношение к автору (жена/муж/партнёр/дочь/сын/мать/отец/брат/сестра/друг/коллега/терапевт/итд). Не выдумывай роли. Если роль неизвестна — "неизвестно". Если людей нет — [].
+
+ВАЖНО: опирайся ТОЛЬКО на написанное. Не додумывай, не реконструируй, не добавляй деталей которых нет в тексте.
 Верни ТОЛЬКО валидный JSON без пояснений и markdown-обёртки.`;
 
-// Summaries are a structured JSON task — use the light, reliable structured model
-// (same as facets/memory), NOT the heavy active reasoning model. The reasoning
-// model is slower, costlier, leaks <think>, and was returning Fireworks 503
-// ("no healthy upstream") for these non-streaming JSON calls. Override via AI_FACET_MODEL.
-const SUMMARY_MODEL = process.env.AI_FACET_MODEL ?? 'openai/gpt-oss-20b:free';
+// deepseek-v4-flash: reliable for structured JSON, no reasoning leakage into content
+// (reasoning emitted in separate field on OpenRouter, not in content).
+// Override via AI_SUMMARY_MODEL; falls back to AI_FACET_MODEL for compat.
+const SUMMARY_MODEL = process.env.AI_SUMMARY_MODEL ?? process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
 const inputSchema = z.object({
   content: z.string().min(50).max(50_000),
@@ -76,6 +79,14 @@ export const summarizeDocument = onCall({
 
   const sanitizedContent = sanitizeAiInput(content);
 
+  // Scale item counts to text length to avoid over-extraction on short notes.
+  const wordCount = sanitizedContent.split(/\s+/).filter(Boolean).length;
+  const insightCount = wordCount < 100 ? '1–2' : wordCount < 300 ? '2–3' : '3–4';
+  const factCount = wordCount < 100 ? '0–1' : wordCount < 300 ? '1–2' : '1–4';
+  const scaledPrompt = SUMMARY_SYSTEM_PROMPT
+    .replace('insights: ключевые мысли', `insights: ${insightCount} ключевые мысли`)
+    .replace('extractedFacts: конкретные факты', `extractedFacts: ${factCount} конкретных факта`);
+
   const safeMood = mood ? sanitizeAiInput(mood) : null;
   const prompt = safeMood
     ? `[Настроение документа: ${safeMood}]\n\n${sanitizedContent}`
@@ -96,7 +107,7 @@ export const summarizeDocument = onCall({
   let usedModel = activeModel;
   try {
     const result = await generate({
-      system: SUMMARY_SYSTEM_PROMPT,
+      system: scaledPrompt,
       messages: [{ role: 'user', content: prompt }],
       json: true,
       maxTokens: 8192,
@@ -119,7 +130,7 @@ export const summarizeDocument = onCall({
     throw new HttpsError('internal', 'AI summarization failed.');
   }
 
-  let parsed_json: { tone: string; frequentWords: string[]; insights: string[]; themes: string[]; extractedFacts: string[]; mentionedPeople?: { name: string; role: string }[] };
+  let parsed_json: { summary?: string; tone: string; frequentWords: string[]; insights: string[]; themes: string[]; extractedFacts: string[]; mentionedPeople?: { name: string; role: string }[] };
   try {
     let textToParse = text.trim();
     if (textToParse.startsWith('```')) {
@@ -144,15 +155,25 @@ export const summarizeDocument = onCall({
   recordUsage(uid, tokensIn, tokensOut, { model: usedModel, fn: 'summarize' }).catch(e => console.error('[AI summarize] usage record failed:', e));
   if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
+  // Drop strings where Cyrillic chars are less than 20% of length — catches
+  // reasoning leakage (English/Chinese fragments, garbled words) in array fields.
+  const cyrRatio = (s: string) => {
+    const cyr = (s.match(/[а-яёА-ЯЁ]/g) ?? []).length;
+    return s.length > 0 ? cyr / s.length : 0;
+  };
+  const isUsable = (s: string) => s.trim().length > 0 && cyrRatio(s) >= 0.2;
+
+  const rawSummary = sanitizeAiResponse(parsed_json.summary ?? '');
   return {
-    tone: sanitizeAiResponse(parsed_json.tone ?? 'neutral'),
-    frequentWords: (parsed_json.frequentWords ?? []).map((s) => sanitizeAiResponse(s)),
-    insights: (parsed_json.insights ?? []).map((s) => sanitizeAiResponse(s)),
-    themes: (parsed_json.themes ?? []).map((s) => sanitizeAiResponse(s)),
-    extractedFacts: (parsed_json.extractedFacts ?? []).map((s) => sanitizeAiResponse(s)),
+    summary: isUsable(rawSummary) ? rawSummary : undefined,
+    tone: sanitizeAiResponse(parsed_json.tone ?? 'нейтральный'),
+    frequentWords: (parsed_json.frequentWords ?? []).map((s) => sanitizeAiResponse(s)).filter(isUsable),
+    insights: (parsed_json.insights ?? []).map((s) => sanitizeAiResponse(s)).filter(isUsable),
+    themes: (parsed_json.themes ?? []).map((s) => sanitizeAiResponse(s)).filter(isUsable),
+    extractedFacts: (parsed_json.extractedFacts ?? []).map((s) => sanitizeAiResponse(s)).filter(isUsable),
     mentionedPeople: (parsed_json.mentionedPeople ?? []).map(p => ({
       name: sanitizeAiResponse(p.name ?? ''),
       role: sanitizeAiResponse(p.role ?? ''),
-    })).filter(p => p.name.length > 0),
+    })).filter(p => p.name.length > 0 && cyrRatio(p.name) >= 0.3),
   };
 });
