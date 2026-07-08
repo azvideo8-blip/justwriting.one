@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.48',
+    date: '2026-07-08',
+    items: [
+      { category: 'improvement', ru: 'ИИ-анализ заметок стал чище: убран мусор из «мыслей» модели (иероглифы, обрывки английского, артефакты-сноски)', en: 'AI note analysis is cleaner: reasoning-leak garbage removed (CJK characters, English fragments, citation artifacts)' },
+      { category: 'new', ru: 'В анализе заметки — краткая суть (1–2 предложения) и упомянутые люди с ролями', en: 'Note analysis now shows a short gist (1–2 sentences) and mentioned people with their roles' },
+      { category: 'improvement', ru: 'ИИ-чат знает сегодняшнюю дату — можно спрашивать про «вчера», «на этой неделе», «этим летом»', en: 'AI chat knows today’s date — you can ask about "yesterday", "this week", "this summer"' },
+      { category: 'improvement', ru: 'Психологический портрет строится из читаемого текста записей, а не из сырых данных — заметно качественнее', en: 'The psychological portrait is built from readable entry text instead of raw data — noticeably better quality' },
+      { category: 'improvement', ru: 'Поиск и подбор заметок для чата ускорены: читается только последняя версия каждой заметки', en: 'Note search and chat retrieval are faster: only the latest version of each note is read' },
+    ],
+  },
+  {
     version: '0.7.47',
     date: '2026-07-08',
     items: [
