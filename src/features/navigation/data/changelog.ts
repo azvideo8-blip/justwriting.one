@@ -14,6 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.47',
+    date: '2026-07-08',
+    items: [
+      { category: 'improvement', ru: 'Поиск по заметкам стал заметно быстрее: читается только последняя версия каждой заметки вместо загрузки всей истории', en: 'Note search is noticeably faster: only the latest version of each note is read instead of loading the whole history' },
+      { category: 'fix', ru: 'ИИ-подбор заметок: выдуманные моделью идентификаторы отбрасываются — в результатах только реальные заметки-кандидаты', en: 'AI note reranking: model-hallucinated IDs are dropped — results contain only real candidate notes' },
+      { category: 'fix', ru: 'Люди в ИИ-профиле больше не дублируются из-за разных форм одного имени', en: 'People in the AI profile are no longer duplicated by different forms of the same name' },
+      { category: 'improvement', ru: 'Эмбеддинги тем профиля кэшируются локально — пересборка профиля больше не тратит лишние ИИ-запросы', en: 'Profile theme embeddings are cached locally — rebuilding the profile no longer spends extra AI requests' },
+      { category: 'improvement', ru: 'Кэш семантического поиска больше не держит текст заметок в памяти — только ссылки', en: 'The semantic search cache no longer keeps note text in memory — only references' },
+      { category: 'fix', ru: 'Надёжность ИИ-запросов: таймаут на чтение зависшего ответа провайдера, проверка целостности эмбеддингов, подробные логи временных сбоев', en: 'AI request reliability: a timeout on stalled provider responses, embedding integrity checks, detailed logs for transient failures' },
+    ],
+  },
+  {
     version: '0.7.46',
     date: '2026-07-08',
     items: [
