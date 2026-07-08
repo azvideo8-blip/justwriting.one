@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, refundDailyLimit, checkRateLimit, tryReserveGlobalRequest, refundGlobalRequest, getLangfuse, hasInjectionAttempt, MAX_AI_CONTENT_LENGTH } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkAndIncrementLimit, refundDailyLimit, tryReserveGlobalRequest, refundGlobalRequest, getLangfuse, hasInjectionAttempt, MAX_AI_CONTENT_LENGTH } from '../shared/aiUtils';
 import { generate, getActiveModel } from '../shared/aiProvider';
 
 const actionSchema = z.enum(['shorten', 'accents', 'ideas', 'summarize', 'tags', 'mood', 'continue']);
@@ -83,12 +83,11 @@ export const editWithAI = onCall({
     }
   }
 
-  if (!(await checkDailyLimit(uid))) {
+  const limitResult = await checkAndIncrementLimit(uid);
+  if (limitResult === 'DAILY_LIMIT') {
     throw new HttpsError('resource-exhausted', 'Daily limit reached.');
   }
-
-  if (!(await checkRateLimit(uid))) {
-    await refundDailyLimit(uid);
+  if (limitResult === 'RATE_LIMIT') {
     throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
   }
 

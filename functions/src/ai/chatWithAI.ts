@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkDailyLimit, refundDailyLimit, checkRateLimit, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkAndIncrementLimit, refundDailyLimit, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt, getLangfuse } from '../shared/aiUtils';
 import { validateInternalCallRestrictions, getMaxTokens, type InternalCallType } from '../shared/aiPolicy';
 import { generate, getActiveModel } from '../shared/aiProvider';
 import { PRESET_PERSONA_IDS, type PersonaId } from '../shared/prompts';
@@ -75,15 +75,24 @@ export const chatWithAI = onCall({
     throw new HttpsError('invalid-argument', 'Disallowed patterns detected in messages.');
   }
 
-  // Per-user daily limit and cooldown — checked BEFORE reserving global slot
-  // to avoid leaking a global slot on per-user rejection.
-  if (!isInternalCall && !(await checkDailyLimit(uid, reasoning === true))) {
-    throw new HttpsError('resource-exhausted', 'Daily limit reached.');
+  if (documentContent && hasInjectionAttempt(documentContent)) {
+    throw new HttpsError('invalid-argument', 'Disallowed patterns detected in document content.');
   }
 
-  if (!isInternalCall && !(await checkRateLimit(uid))) {
-    await refundDailyLimit(uid);
-    throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
+  if (userPortrait && hasInjectionAttempt(userPortrait)) {
+    throw new HttpsError('invalid-argument', 'Disallowed patterns detected in user portrait.');
+  }
+
+  // Per-user daily limit and cooldown — checked BEFORE reserving global slot
+  // to avoid leaking a global slot on per-user rejection.
+  if (!isInternalCall) {
+    const limitResult = await checkAndIncrementLimit(uid, reasoning === true);
+    if (limitResult === 'DAILY_LIMIT') {
+      throw new HttpsError('resource-exhausted', 'Daily limit reached.');
+    }
+    if (limitResult === 'RATE_LIMIT') {
+      throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
+    }
   }
 
   // Project-wide free-tier guard — reserved only after all validation passes.

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue, type Firestore } from 'firebase-admin/firestore';
 
@@ -19,15 +19,17 @@ beforeAll(async () => {
 afterAll(async () => {
   await db.recursiveDelete(db.collection('aiGlobalDaily'));
   await db.recursiveDelete(db.collection('aiDailyLimit'));
+  await db.recursiveDelete(db.collection('aiCooldown'));
 });
 
 beforeEach(async () => {
   await db.doc(`aiGlobalDaily/${DATE}`).delete().catch(() => {});
   await db.doc(`aiDailyLimit/test-uid`).delete().catch(() => {});
+  await db.doc(`aiCooldown/test-uid`).delete().catch(() => {});
 });
 
 // These tests replicate the exact logic from aiUtils.ts tryReserveGlobalRequest
-// and checkDailyLimit against the real Firestore emulator.
+// and checkAndIncrementLimit against the real Firestore emulator.
 
 const TIER_LIMITS = {
   requestsPerDay: 5, // low limit for testing
@@ -58,18 +60,29 @@ async function refundGlobalRequest(): Promise<void> {
 }
 
 const DAILY_LIMIT = 3;
+const COOLDOWN_MS = 10000;
 
-async function checkDailyLimit(uid: string): Promise<boolean> {
-  const ref = db.doc(`aiDailyLimit/${uid}`);
+async function checkAndIncrementLimit(uid: string): Promise<boolean | 'DAILY_LIMIT' | 'RATE_LIMIT'> {
+  const cooldownRef = db.doc(`aiCooldown/${uid}`);
+  const dailyRef = db.doc(`aiDailyLimit/${uid}`);
+  const now = Date.now();
+
   return db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const data = snap.data();
-    if (!data || data.date !== DATE) {
-      tx.set(ref, { count: 1, date: DATE });
-      return true;
+    const [cooldownSnap, dailySnap] = await Promise.all([
+      tx.get(cooldownRef),
+      tx.get(dailyRef),
+    ]);
+    const cooldownData = cooldownSnap.data();
+    if (cooldownData && now - cooldownData.lastRequestAt < COOLDOWN_MS) return 'RATE_LIMIT';
+    const dailyData = dailySnap.data();
+    if (dailyData && dailyData.date === DATE && dailyData.count >= DAILY_LIMIT) return 'DAILY_LIMIT';
+
+    tx.set(cooldownRef, { lastRequestAt: now }, { merge: true });
+    if (!dailyData || dailyData.date !== DATE) {
+      tx.set(dailyRef, { count: 1, date: DATE });
+    } else {
+      tx.update(dailyRef, { count: dailyData.count + 1 });
     }
-    if (data.count >= DAILY_LIMIT) return false;
-    tx.update(ref, { count: data.count + 1 });
     return true;
   });
 }
@@ -135,47 +148,83 @@ describe('refundGlobalRequest — global limit refund on AI failure', () => {
   });
 });
 
-describe('checkDailyLimit — per-user daily limit', () => {
-  it('allows requests up to the per-user limit', async () => {
+describe('checkAndIncrementLimit — per-user daily limit and cooldown', () => {
+  let mockNow = 1000000;
+
+  beforeEach(() => {
+    mockNow = 1000000;
+    vi.spyOn(Date, 'now').mockImplementation(() => mockNow);
+  });
+
+  it('allows requests up to the per-user limit when cooldown is bypassed', async () => {
     for (let i = 0; i < DAILY_LIMIT; i++) {
-      expect(await checkDailyLimit('test-uid')).toBe(true);
+      expect(await checkAndIncrementLimit('test-uid')).toBe(true);
+      mockNow += 15000; // bypass 10s cooldown
     }
   });
 
-  it('denies the (N+1)th request', async () => {
+  it('denies requests due to cooldown', async () => {
+    expect(await checkAndIncrementLimit('test-uid')).toBe(true);
+    // same millisecond request
+    expect(await checkAndIncrementLimit('test-uid')).toBe('RATE_LIMIT');
+    
+    // just under cooldown (9.9 seconds)
+    mockNow += 9900;
+    expect(await checkAndIncrementLimit('test-uid')).toBe('RATE_LIMIT');
+
+    // exactly at cooldown (10 seconds)
+    mockNow += 100;
+    expect(await checkAndIncrementLimit('test-uid')).toBe(true);
+  });
+
+  it('denies the (N+1)th request even after cooldown', async () => {
     for (let i = 0; i < DAILY_LIMIT; i++) {
-      await checkDailyLimit('test-uid');
+      expect(await checkAndIncrementLimit('test-uid')).toBe(true);
+      mockNow += 15000; // bypass cooldown
     }
-    expect(await checkDailyLimit('test-uid')).toBe(false);
+    expect(await checkAndIncrementLimit('test-uid')).toBe('DAILY_LIMIT');
   });
 
   it('refund restores one slot', async () => {
     for (let i = 0; i < DAILY_LIMIT; i++) {
-      await checkDailyLimit('test-uid');
+      expect(await checkAndIncrementLimit('test-uid')).toBe(true);
+      mockNow += 15000; // bypass cooldown
     }
-    expect(await checkDailyLimit('test-uid')).toBe(false);
+    expect(await checkAndIncrementLimit('test-uid')).toBe('DAILY_LIMIT');
 
     await refundDailyLimit('test-uid');
-    expect(await checkDailyLimit('test-uid')).toBe(true);
+    
+    // now we can retry (ensure cooldown bypassed)
+    mockNow += 15000;
+    expect(await checkAndIncrementLimit('test-uid')).toBe(true);
   });
 
-  it('does not exceed the limit under concurrent requests', async () => {
+  it('allows only 1 request under concurrent requests from the same user due to cooldown (SEC-4)', async () => {
     const N = 10;
     const results = await Promise.all(
-      Array.from({ length: N }, () => checkDailyLimit('test-uid'))
+      Array.from({ length: N }, () => checkAndIncrementLimit('test-uid'))
     );
-    const allowed = results.filter(r => r).length;
-    expect(allowed).toBe(DAILY_LIMIT);
+    // 'RATE_LIMIT'/'DAILY_LIMIT' strings are truthy — must compare strictly to true
+    const allowed = results.filter(r => r === true).length;
+    expect(allowed).toBe(1);
 
-    const snap = await db.doc(`aiDailyLimit/test-uid`).get();
-    expect(snap.data()?.count).toBe(DAILY_LIMIT);
+    const dailySnap = await db.doc(`aiDailyLimit/test-uid`).get();
+    expect(dailySnap.data()?.count).toBe(1);
   });
 });
 
 describe('refundDailyLimit — per-user refund on AI failure', () => {
+  let mockNow = 1000000;
+
+  beforeEach(() => {
+    mockNow = 1000000;
+    vi.spyOn(Date, 'now').mockImplementation(() => mockNow);
+  });
+
   it('decrements the per-user counter by 1', async () => {
-    await checkDailyLimit('test-uid');
-    await checkDailyLimit('test-uid');
+    await checkAndIncrementLimit('test-uid');
+    mockNow += 15000;
+    await checkAndIncrementLimit('test-uid');
     let snap = await db.doc(`aiDailyLimit/test-uid`).get();
     expect(snap.data()?.count).toBe(2);
 
@@ -187,7 +236,6 @@ describe('refundDailyLimit — per-user refund on AI failure', () => {
   it('does not go below zero', async () => {
     await refundDailyLimit('test-uid'); // no prior usage
     const snap = await db.doc(`aiDailyLimit/test-uid`).get();
-    // Should be 0 or absent
     expect((snap.data()?.count ?? 0)).toBeGreaterThanOrEqual(0);
   });
 });

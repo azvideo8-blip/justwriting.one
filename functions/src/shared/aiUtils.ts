@@ -323,3 +323,36 @@ export async function checkRateLimit(uid: string): Promise<boolean> {
     return true;
   });
 }
+
+export type LimitCheckResult = true | 'DAILY_LIMIT' | 'RATE_LIMIT';
+
+export async function checkAndIncrementLimit(uid: string, reasoning?: boolean): Promise<LimitCheckResult> {
+  if (await isAdmin(uid)) return true;
+
+  const db = getDb();
+  const now = Date.now();
+  const date = new Date().toISOString().slice(0, 10);
+  const cooldownRef = db.doc(`aiCooldown/${uid}`);
+  const dailyRef = db.doc(`aiDailyLimit/${uid}`);
+
+  const baseLimit = await getUserDailyLimit(uid);
+  const limit = reasoning ? Math.min(baseLimit, 5) : baseLimit;
+
+  return db.runTransaction(async (tx) => {
+    const [cooldownSnap, dailySnap] = await Promise.all([
+      tx.get(cooldownRef),
+      tx.get(dailyRef),
+    ]);
+    const cooldownData = cooldownSnap.data();
+    if (cooldownData && now - cooldownData.lastRequestAt < COOLDOWN_MS) return 'RATE_LIMIT';
+    const dailyData = dailySnap.data();
+    if (dailyData && dailyData.date === date && dailyData.count >= limit) return 'DAILY_LIMIT';
+    tx.set(cooldownRef, { lastRequestAt: now }, { merge: true });
+    if (!dailyData || dailyData.date !== date) {
+      tx.set(dailyRef, { count: 1, date });
+    } else {
+      tx.update(dailyRef, { count: dailyData.count + 1 });
+    }
+    return true;
+  });
+}

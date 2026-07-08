@@ -277,7 +277,8 @@ async function streamOpenRouterReasoning(
   if (!apiKey) {
     await refundGlobalRequest();
     if (!isInternalCall) await refundDailyLimit(uid);
-    res.status(500).end('OPENROUTER_API_KEY not set');
+    console.error('OPENROUTER_API_KEY not set');
+    res.status(500).end('Internal server error');
     return;
   }
   const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -503,6 +504,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: 'Bad Request' }); return;
   }
 
+  if (documentContent && hasInjectionAttempt(documentContent)) {
+    if (!isInternalCall) await refundDailyLimit(uid);
+    await refundGlobalRequest();
+    res.status(400).json({ error: 'Bad Request' }); return;
+  }
+
+  if (userPortrait && hasInjectionAttempt(userPortrait)) {
+    if (!isInternalCall) await refundDailyLimit(uid);
+    await refundGlobalRequest();
+    res.status(400).json({ error: 'Bad Request' }); return;
+  }
+
   const sanitizedCustomPrompt = customSystemPrompt ? sanitizeAiInput(customSystemPrompt) : undefined;
   const sanitizedPortrait = userPortrait ? sanitizeAiInput(userPortrait) : undefined;
   let systemPrompt = buildChatSystemPrompt({ personaId, customSystemPrompt: sanitizedCustomPrompt, userPortrait: sanitizedPortrait, responseLength, reasoning, documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
@@ -538,7 +551,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const maxOutputTokens = isInternalCall ? 256 : (reasoning ? 16384 : 8192);
+  const maxOutputTokens = isInternalCall ? 256 : 8192;
 
   const result = streamText({
     model: chatModel,
