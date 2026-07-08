@@ -88,6 +88,8 @@ async function generateOpenRouter(params: GenerateParams): Promise<GenerateResul
 
     const transient = res.status === 502 || res.status === 503 || res.status === 504;
     if (transient && attempt < MAX_ATTEMPTS) {
+      const errBody = await res.text().catch(() => '');
+      console.warn(`[aiProvider] attempt ${attempt} transient ${res.status}: ${errBody.slice(0, 200)}`);
       await new Promise(r => setTimeout(r, 500 * attempt));
       continue;
     }
@@ -95,7 +97,14 @@ async function generateOpenRouter(params: GenerateParams): Promise<GenerateResul
     throw new Error(`OpenRouter ${res.status}: ${errText.slice(0, 300)}`);
   }
 
-  const data = (await res.json()) as {
+  let jsonTimerId: ReturnType<typeof setTimeout>;
+  const jsonTimeout = new Promise<never>((_, reject) => {
+    jsonTimerId = setTimeout(() => reject(new Error('body read timeout')), 30_000);
+  });
+  const data = await Promise.race([
+    res.json().finally(() => clearTimeout(jsonTimerId!)),
+    jsonTimeout,
+  ]) as {
     choices?: { message?: { content?: string } }[];
     usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
@@ -156,7 +165,14 @@ async function embedOpenRouter(texts: string[]): Promise<EmbedResult> {
     throw new Error(`OpenRouter embed ${res.status}: ${errText.slice(0, 300)}`);
   }
 
-  const data = (await res.json()) as {
+  let jsonTimerId: ReturnType<typeof setTimeout>;
+  const jsonTimeout = new Promise<never>((_, reject) => {
+    jsonTimerId = setTimeout(() => reject(new Error('body read timeout')), 30_000);
+  });
+  const data = await Promise.race([
+    res.json().finally(() => clearTimeout(jsonTimerId!)),
+    jsonTimeout,
+  ]) as {
     data?: { embedding?: number[] }[];
     usage?: { total_tokens?: number };
   };

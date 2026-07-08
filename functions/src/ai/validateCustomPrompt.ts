@@ -56,7 +56,7 @@ export const validateCustomPrompt = onCall({
     const result = await generate({
       system: VALIDATION_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: sanitizedPrompt }],
-      maxTokens: 2048,
+      maxTokens: 256,
       abortMs: 110_000,
     });
     text = result.text.trim();
