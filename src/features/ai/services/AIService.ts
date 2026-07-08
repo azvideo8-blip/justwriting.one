@@ -10,6 +10,7 @@ export type AIResult =
   | { ok: false; error: 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG' | 'SERVER_ERROR' };
 
 export interface AISummaryPayload {
+  summary?: string;
   tone: string;
   frequentWords: string[];
   insights: string[];

@@ -14,6 +14,7 @@ import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import { AIProfileService } from '../services/AIProfileService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
+import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { searchNotesMulti } from '../utils/noteRetriever';
 import { analyzeDoors, aggregateDoors, doorLabel } from '../utils/contactDoors';
 import { detectRisk, CRISIS_RESOURCES } from '../utils/riskDetect';
@@ -368,13 +369,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         // suppressed) without the user re-attaching.
         if (d?.documentId && !attachedNoteRef.current) {
           try {
-            const db = await getLocalDb();
-            const versions = await db.getAllFromIndex('versions', 'by-document', d.documentId);
-            if (versions.length > 0) {
-              versions.sort((a, b) => b.version - a.version);
-              const content = versions[0]?.content;
-              if (content) attachedNoteRef.current = { content };
-            }
+            const content = await LocalVersionService.getLatestContent(d.documentId);
+            if (content) attachedNoteRef.current = { content };
           } catch { /* non-critical */ }
         }
       });
@@ -709,16 +705,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
                   doorsHint = doorsCacheRef.current.hint;
                 } else {
                   try {
-                    const db = await getLocalDb();
                     // CHATFIX-2: reuse docMap from cache instead of second getAll
                     const allDocs = [...(docMap ?? new Map()).values()];
                     if (allDocs.length > 0) {
                       const perNote: { doors: ReturnType<typeof analyzeDoors>; ts: number }[] = [];
                       for (const d of allDocs) {
-                        const vers = await db.getAllFromIndex('versions', 'by-document', d.id);
-                        if (vers.length === 0) continue;
-                        vers.sort((a, b) => b.version - a.version);
-                        perNote.push({ doors: analyzeDoors(vers[0]?.content ?? ''), ts: d.lastSessionAt ?? d.firstSessionAt ?? 0 });
+                        const content = await LocalVersionService.getLatestContent(d.id);
+                        if (!content) continue;
+                        perNote.push({ doors: analyzeDoors(content), ts: d.lastSessionAt ?? d.firstSessionAt ?? 0 });
                       }
                       // CHATFIX-4: Sort by ts desc, take 20 newest
                       perNote.sort((a, b) => b.ts - a.ts);
@@ -823,13 +817,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           for (const docId of [...extraIds, ...nameIds]) {
             const doc = await db.get('documents', docId);
             if (!doc) continue;
-            const versions = await db.getAllFromIndex('versions', 'by-document', docId);
-            if (versions.length === 0) continue;
-            versions.sort((a, b) => b.version - a.version);
+            const content = await LocalVersionService.getLatestContent(docId);
+            if (!content) continue;
             allNotes.push({
               documentId: docId,
               title: doc.title || 'Без названия',
-              content: versions[0]?.content ?? '',
+              content,
               score: 0,
               lastSessionAt: doc.lastSessionAt,
             });
@@ -904,8 +897,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
                   : n.content;
               }
               noteIdx++;
-              parts.push(`Заметка ${noteIdx}: "${n.title}"\n${snippet}`);
-              totalChars += snippet.length;
+              const noteSummary = await db.get('aiSummaries', n.documentId);
+              const summaryPrefix = noteSummary?.summary ? `[Суть: ${noteSummary.summary}]\n` : '';
+              parts.push(`Заметка ${noteIdx}: "${n.title}"\n${summaryPrefix}${snippet}`);
+              totalChars += snippet.length + summaryPrefix.length;
             }
             const noteBlock = (
               `\n\nРезультаты поиска по архиву заметок (запрос: "${text}"). ` +
@@ -1007,6 +1002,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           `даже если кажется, что ты «помнишь» тему. Не сочиняй ни единого предложения «из заметки». ` +
           `Вместо этого коротко и по-доброму скажи, что не видишь текста заметки, и попроси прикрепить её (скрепкой) или вставить текст. Ничего больше не придумывай.`;
       }
+
+      // Inject today's date so the model can reason about "вчера", "на этой неделе" etc.
+      const todayRu = new Date().toLocaleDateString('ru-RU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      searchContext = searchContext
+        ? `[Сегодня: ${todayRu}]\n\n${searchContext}`
+        : `[Сегодня: ${todayRu}]`;
 
       // Defensive clamps — never exceed the API schema limits (documentContent
       // 50K, userPortrait 100K), or the request 400s before reaching the model.
@@ -1170,12 +1171,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     try {
       const doc = await LocalDocumentService.getDocument(documentId);
       if (!doc) return null;
-      const db = await getLocalDb();
-      const versions = await db.getAllFromIndex('versions', 'by-document', documentId);
-      if (versions.length === 0) return null;
-      versions.sort((a, b) => b.version - a.version);
-      const content = versions[0]?.content;
-      if (content === undefined) return null;
+      const content = await LocalVersionService.getLatestContent(documentId);
+      if (!content) return null;
       return { title: doc.title || 'Без названия', content };
     } catch {
       return null;

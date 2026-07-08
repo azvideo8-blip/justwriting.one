@@ -189,7 +189,13 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
     try {
       const summary = await cardsDb.get('aiSummaries', id);
       if (summary) {
-        card = `Тональность: ${summary.tone ?? ''}\nТемы: ${(summary.themes ?? []).join(', ')}\nИнсайты: ${(summary.insights ?? []).join('; ')}\nФакты: ${(summary.extractedFacts ?? []).join('; ')}`;
+        const parts = [];
+        if (summary.summary) parts.push(summary.summary);
+        if (summary.tone) parts.push(`Тональность: ${summary.tone}`);
+        if (summary.themes?.length) parts.push(`Темы: ${summary.themes.join(', ')}`);
+        if (summary.insights?.length) parts.push(`Инсайты: ${summary.insights.join('; ')}`);
+        if (summary.extractedFacts?.length) parts.push(`Факты: ${summary.extractedFacts.join('; ')}`);
+        card = parts.join('\n');
       }
     } catch { /* keep placeholder */ }
     cards.push({ documentId: id, card });
@@ -393,7 +399,13 @@ export async function searchNotesMulti(
     try {
       const summary = await cardsDb.get('aiSummaries', id);
       if (summary) {
-        card = `Тональность: ${summary.tone ?? ''}\nТемы: ${(summary.themes ?? []).join(', ')}\nИнсайты: ${(summary.insights ?? []).join('; ')}\nФакты: ${(summary.extractedFacts ?? []).join('; ')}`;
+        const parts = [];
+        if (summary.summary) parts.push(summary.summary);
+        if (summary.tone) parts.push(`Тональность: ${summary.tone}`);
+        if (summary.themes?.length) parts.push(`Темы: ${summary.themes.join(', ')}`);
+        if (summary.insights?.length) parts.push(`Инсайты: ${summary.insights.join('; ')}`);
+        if (summary.extractedFacts?.length) parts.push(`Факты: ${summary.extractedFacts.join('; ')}`);
+        card = parts.join('\n');
       }
     } catch { /* keep placeholder */ }
     cards.push({ documentId: id, card });
