@@ -4,6 +4,7 @@ import { getAuth } from 'firebase/auth';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
+import { tryReserveSummarizeBudget } from '../utils/firestoreWriteBudget';
 
 const STRING_FIELDS = ['tone'] as const;
 const ARRAY_FIELDS = ['frequentWords', 'insights', 'themes', 'extractedFacts'] as const;
@@ -15,7 +16,7 @@ async function saveSummaryToCloud(userId: string, summary: AIDocumentSummary): P
     { ...summary },
     STRING_FIELDS_LIST,
     ARRAY_FIELDS_LIST,
-    true,
+    userId,
   );
   const { db, mod } = await getClient();
   await mod.setDoc(mod.doc(db, 'users', userId, 'summaries', summary.documentId), encrypted, { merge: true });
@@ -77,7 +78,7 @@ export const AISummaryService = {
     await db.put('aiSummaries', summary);
 
     const uid = getAuth().currentUser?.uid;
-    if (uid) {
+    if (uid && tryReserveSummarizeBudget()) {
       await saveSummaryToCloud(uid, summary).catch(e => {
         reportError(e, { action: 'ai_summary_cloud_save' });
       });

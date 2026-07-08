@@ -166,8 +166,23 @@ export const DocumentService = {
   async deleteDocument(userId: string, documentId: string): Promise<void> {
     try {
       const { db, mod } = await getClient();
-      const { doc, collection, getDocs, writeBatch } = mod;
+      const { doc, collection, getDocs, writeBatch, getDoc } = mod;
       const ref = doc(db, 'users', userId, 'documents', documentId);
+
+      let localId: string | undefined;
+      try {
+        const docSnap = await getDoc(ref);
+        if (docSnap.exists()) {
+          const docData = docSnap.data() as Record<string, unknown>;
+          if (typeof docData?.id === 'string') {
+            localId = docData.id;
+          }
+        }
+      } catch (err) {
+        // Fall back to deleting using cloud documentId if doc reading fails
+        reportError(err, { action: 'deleteDocument_fetchLocalId', userId, documentId });
+      }
+
       const versionsSnap = await getDocs(collection(ref, 'versions'));
       const versionRefs = versionsSnap.docs.map(v => v.ref);
       for (let i = 0; i < versionRefs.length; i += 499) {
@@ -177,6 +192,10 @@ export const DocumentService = {
       }
       const finalBatch = writeBatch(db);
       finalBatch.delete(ref);
+      const { doc: docRef } = mod;
+      const targetId = localId || documentId;
+      finalBatch.delete(docRef(db, 'users', userId, 'summaries', targetId));
+      finalBatch.delete(docRef(db, 'users', userId, 'embeddings', targetId));
       await finalBatch.commit();
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, `users/${userId}/documents/${documentId}`);

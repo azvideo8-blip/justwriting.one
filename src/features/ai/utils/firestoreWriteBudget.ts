@@ -51,3 +51,34 @@ export function getWriteBudgetStatus(): { used: number; cap: number } {
   const state = readState();
   return { used: state.count, cap: DAILY_CAP };
 }
+
+const DAILY_CAP_SUMMARIZE = 100;
+const STORAGE_KEY_SUMMARIZE = 'summary_cloud_write_budget';
+
+function readStateSummarize(): BudgetState {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_SUMMARIZE);
+    if (!raw) return { date: todayKey(), count: 0 };
+    const parsed = JSON.parse(raw) as BudgetState;
+    if (parsed.date !== todayKey()) return { date: todayKey(), count: 0 };
+    return parsed;
+  } catch {
+    return { date: todayKey(), count: 0 };
+  }
+}
+
+export function tryReserveSummarizeBudget(): boolean {
+  const state = readStateSummarize();
+  if (state.count + 1 > DAILY_CAP_SUMMARIZE) return false;
+  try {
+    localStorage.setItem(STORAGE_KEY_SUMMARIZE, JSON.stringify({ date: state.date, count: state.count + 1 }));
+  } catch {
+    // fail open
+  }
+  return true;
+}
+
+export function getSummarizeBudgetStatus(): { used: number; cap: number } {
+  const state = readStateSummarize();
+  return { used: state.count, cap: DAILY_CAP_SUMMARIZE };
+}

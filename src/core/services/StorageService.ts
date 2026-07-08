@@ -16,7 +16,7 @@ class LockManager {
     let result: T | undefined;
     const next = prev.then(
       async () => { result = await fn(); },
-      async () => { result = await fn(); },
+      async (prevErr) => { throw prevErr; },
     );
     const stored = next.then(() => {}, () => {});
     this.locks.set(key, stored);

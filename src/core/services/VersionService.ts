@@ -33,7 +33,7 @@ export const VersionService = {
     }
     try {
       const { db, mod } = await getClient();
-      const { collection, addDoc, Timestamp } = mod;
+      const { doc: docRef, setDoc, Timestamp } = mod;
       const diff = computeWordDelta(data.previousContent, data.content);
       const doc: Record<string, unknown> = {
         documentId,
@@ -53,8 +53,9 @@ export const VersionService = {
       };
       if (data._encrypted) doc._encrypted = true;
       if (data.mood) doc.mood = data.mood;
-      const ref = await addDoc(collection(db, 'users', userId, 'documents', documentId, 'versions'), doc);
-      return ref.id;
+      const versionDocId = `v${data.versionNumber}`;
+      await setDoc(docRef(db, 'users', userId, 'documents', documentId, 'versions', versionDocId), doc);
+      return versionDocId;
     } catch (e) {
       reportError(e, { action: 'addVersion', userId, documentId });
       handleFirestoreError(e, OperationType.WRITE, `users/${userId}/documents/${documentId}/versions`);

@@ -31,7 +31,7 @@ async function saveEmbeddingToCloud(userId: string, emb: AIDocumentEmbedding): P
     processedAt: emb.processedAt,
     schemaV: emb.schemaV ?? null,
   };
-  const encrypted = await maybeEncrypt(payload, ENCRYPT_FIELDS, ARRAY_FIELDS, true);
+  const encrypted = await maybeEncrypt(payload, ENCRYPT_FIELDS, ARRAY_FIELDS, userId);
   const { db, mod } = await getClient();
   await mod.setDoc(mod.doc(db, 'users', userId, 'embeddings', emb.documentId), encrypted, { merge: true });
 }

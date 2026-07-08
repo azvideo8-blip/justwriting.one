@@ -90,7 +90,7 @@ describe('AIProfileService', () => {
         { aiPortrait: 'test-portrait-md' },
         ['aiPortrait'],
         [],
-        true,
+        'test-user-123',
       );
       expect(mockSetDoc).toHaveBeenCalled();
     });
@@ -128,7 +128,7 @@ describe('AIProfileService', () => {
         { aiPortrait: 'test-synced-portrait' },
         ['aiPortrait'],
         [],
-        true,
+        'test-user-123',
       );
       expect(mockSetDoc).toHaveBeenCalled();
     });

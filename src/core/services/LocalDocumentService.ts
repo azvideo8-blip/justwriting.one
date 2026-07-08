@@ -52,7 +52,7 @@ export const LocalDocumentService = {
       totalWords: data.totalWords,
       totalDuration: data.totalDuration,
       currentVersion: data.currentVersion,
-      sessionsCount: data.currentVersion,
+      sessionsCount: (existing.sessionsCount || 0) + 1,
       lastSessionAt: now,
       mood: data.mood,
     });
@@ -63,7 +63,7 @@ export const LocalDocumentService = {
         ...profile,
         totalWords: profile.totalWords - existing.totalWords + data.totalWords,
         totalDuration: profile.totalDuration - existing.totalDuration + data.totalDuration,
-        sessionsCount: profile.sessionsCount - (existing.sessionsCount || 0) + data.currentVersion,
+        sessionsCount: profile.sessionsCount - (existing.sessionsCount || 0) + 1,
         lastSessionAt: now,
       });
       await tx.done;

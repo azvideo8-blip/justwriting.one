@@ -17,6 +17,32 @@ const BACKOFF_MS: Record<string, number> = {
 const IDLE_TIMEOUT_MS = 5_000;
 const POLL_INTERVAL_MS = 120_000;
 
+const DAILY_LIMIT = 20;
+const INDEXER_STORAGE_KEY = 'embed_indexer_daily_usage';
+
+function getIndexerDailyUsage(): { date: string; count: number } {
+  try {
+    const raw = localStorage.getItem(INDEXER_STORAGE_KEY);
+    if (!raw) return { date: new Date().toISOString().slice(0, 10), count: 0 };
+    const parsed = JSON.parse(raw);
+    if (parsed.date !== new Date().toISOString().slice(0, 10)) {
+      return { date: new Date().toISOString().slice(0, 10), count: 0 };
+    }
+    return parsed;
+  } catch {
+    return { date: new Date().toISOString().slice(0, 10), count: 0 };
+  }
+}
+
+function incrementIndexerDailyUsage(): void {
+  const usage = getIndexerDailyUsage();
+  try {
+    localStorage.setItem(INDEXER_STORAGE_KEY, JSON.stringify({ date: usage.date, count: usage.count + 1 }));
+  } catch {
+    // localStorage unavailable — usage tracking is best-effort, fail open
+  }
+}
+
 export function useEmbeddingIndexer(): void {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -71,10 +97,16 @@ export function useEmbeddingIndexer(): void {
     const now = Date.now();
     if (now < backoffUntilRef.current) return;
 
+    const usage = getIndexerDailyUsage();
+    if (usage.count >= DAILY_LIMIT) {
+      return;
+    }
+
     runningRef.current = true;
     try {
       const staleIds = await findStaleDocuments();
-      const batch = staleIds.slice(0, BATCH_SIZE);
+      const remaining = DAILY_LIMIT - usage.count;
+      const batch = staleIds.slice(0, Math.min(BATCH_SIZE, remaining));
 
       for (const docId of batch) {
         const result = await indexDocument(docId);
@@ -87,6 +119,7 @@ export function useEmbeddingIndexer(): void {
           break;
         }
         if (result === 'ok') {
+          incrementIndexerDailyUsage();
           void AIProfileFacetService.incrementalUpdate(docId).then(() => {
             scheduleResummarize();
           }).catch(e =>

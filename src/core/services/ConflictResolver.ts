@@ -11,14 +11,15 @@ export const ConflictResolver = {
     linkedCloudId: string,
     data: SaveDocumentData,
     newVersion: number,
-    cloudDoc: { currentVersion: number }
+    cloudDoc: { currentVersion: number },
+    originalFirstSessionAt?: number
   ): Promise<{ forked: boolean }> {
     const conflictTitle = `${data.title || 'Untitled'} (Conflict ${new Date().toLocaleDateString()})`;
     const forkedDocId = await LocalStorageService.createDocument(userId, {
       title: conflictTitle,
       tags: data.tags,
       labelId: data.labelId,
-      firstSessionAt: data.sessionStartedAt.getTime(),
+      firstSessionAt: originalFirstSessionAt ?? data.sessionStartedAt.getTime(),
       lastSessionAt: Date.now(),
     });
     await LocalVersionService.addVersion(userId, forkedDocId, {

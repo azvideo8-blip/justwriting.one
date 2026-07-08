@@ -19,7 +19,7 @@ export const AIProfileService = {
           { aiPortrait: portraitMarkdown },
           ['aiPortrait'],
           [],
-          true,
+          uid,
         );
         const { db, mod } = await getClient();
         await mod.setDoc(mod.doc(db, 'users', uid), encrypted, { merge: true });
