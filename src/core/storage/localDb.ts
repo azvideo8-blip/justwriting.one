@@ -91,6 +91,7 @@ export interface AIDialogue {
 
 export interface AIDocumentSummary {
   documentId: string;
+  summary?: string;
   tone: string;
   frequentWords: string[];
   insights: string[];

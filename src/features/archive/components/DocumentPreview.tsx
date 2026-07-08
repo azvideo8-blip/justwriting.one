@@ -372,6 +372,9 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
         </Button>
             {summaryExpanded && (
               <div className="mt-2 space-y-1.5 text-xs text-text-main/70">
+                {summary.summary && (
+                  <div className="italic text-text-main/80">{summary.summary}</div>
+                )}
                 <div><span className="text-text-main/60">Тональность:</span> {summary.tone}</div>
                 {summary.insights.length > 0 && (
                   <div>
@@ -389,6 +392,16 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                     </ul>
                   </div>
                 )}
+                {(summary.mentionedPeople ?? []).length > 0 && (
+                  <div>
+                    <span className="text-text-main/60">Люди:</span>
+                    <span className="ml-1">
+                      {(summary.mentionedPeople ?? []).map((p, i) => (
+                        <span key={i} className="mr-1.5">{p.name}{p.role ? ` (${p.role})` : ''}{i < (summary.mentionedPeople ?? []).length - 1 ? ',' : ''}</span>
+                      ))}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -403,6 +416,7 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                   if (res.ok) {
                     const s: AIDocumentSummary = {
                       documentId: session.id,
+                      ...(res.summary.summary ? { summary: res.summary.summary } : {}),
                       tone: res.summary.tone,
                       frequentWords: res.summary.frequentWords,
                       insights: res.summary.insights,
