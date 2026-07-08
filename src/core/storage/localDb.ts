@@ -173,6 +173,15 @@ export interface AIProfileFacet {
   cloudSyncedAt?: number;
 }
 
+export interface AIDomainVector {
+  cacheKey: string; // `${domainId}_${model}`
+  domainId: string;
+  seed: string;
+  model: string;
+  vector: number[];
+  updatedAt: number;
+}
+
 interface JustWritingDB extends DBSchema {
   documents: {
     key: string;
@@ -205,6 +214,10 @@ interface JustWritingDB extends DBSchema {
     value: AIChatMemory;
     indexes: { 'by-dialogue': string; 'by-updatedAt': number; };
   };
+  aiDomainVectors: {
+    key: string;
+    value: AIDomainVector;
+  };
 }
 
 let dbInstance: IDBPDatabase<JustWritingDB> | null = null;
@@ -233,7 +246,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   if (dbOpenPromise) return dbOpenPromise;
 
   const currentGeneration = dbGeneration;
-  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 8, {
+  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 9, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const docStore = db.createObjectStore('documents', { keyPath: 'id' });
@@ -283,6 +296,11 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
           const memoryStore = db.createObjectStore('aiChatMemory', { keyPath: 'id' });
           memoryStore.createIndex('by-dialogue', 'sourceDialogueId');
           memoryStore.createIndex('by-updatedAt', 'updatedAt');
+        }
+      }
+      if (oldVersion < 9) {
+        if (!db.objectStoreNames.contains('aiDomainVectors')) {
+          db.createObjectStore('aiDomainVectors', { keyPath: 'cacheKey' });
         }
       }
     },
