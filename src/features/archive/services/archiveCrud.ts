@@ -6,6 +6,8 @@ import { SyncService } from '../../../core/services/SyncService';
 import { CloudSyncService } from '../../../core/services/CloudSyncService';
 import { ArchiveSession } from '../types';
 import { reportError } from '../../../shared/errors/reportError';
+import { AISummaryService } from '../../../core/services/AISummaryService';
+import { AIEmbeddingService } from '../../../core/services/AIEmbeddingService';
 
 type ArchiveField = 'tags' | 'title' | 'date' | 'labelId';
 type ArchiveFieldValue = string[] | string | Date | undefined;
@@ -145,4 +147,6 @@ export async function deleteArchiveSession(
     session._isLocal ? session.id : undefined,
     session._hasCloudCopy ? (session._linkedCloudId || session.id) : undefined
   );
+  await AISummaryService.delete(session.id);
+  await AIEmbeddingService.delete(session.id);
 }

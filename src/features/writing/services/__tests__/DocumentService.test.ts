@@ -289,6 +289,11 @@ describe('DocumentService', () => {
         ref: { type: 'version-ref', id: `v_${i}` },
       }));
 
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => ({ id: 'local_id' }),
+      });
+
       mockGetDocs.mockResolvedValue({
         docs: mockVersionsDocs,
       });
@@ -296,8 +301,8 @@ describe('DocumentService', () => {
       await DocumentService.deleteDocument('user_123', 'doc_to_delete');
 
       // Check batching: 600 versions should require 2 batches (499 + 101)
-      expect(mockWriteBatch).toHaveBeenCalledTimes(3); // 2 for versions, 1 final for doc
-      expect(mockBatchDelete).toHaveBeenCalledTimes(601); // 600 versions + 1 doc
+      expect(mockWriteBatch).toHaveBeenCalledTimes(3); // 2 for versions, 1 final for doc + AI data
+      expect(mockBatchDelete).toHaveBeenCalledTimes(603); // 600 versions + 1 doc + 1 summary + 1 embedding
       expect(mockBatchCommit).toHaveBeenCalledTimes(3);
     });
   });

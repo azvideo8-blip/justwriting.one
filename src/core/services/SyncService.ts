@@ -12,16 +12,19 @@ const limit = pLimit(5);
 export const SyncService = {
   async addToQueue(documentId: string): Promise<void> {
     const db = await getLocalDb();
-    const existing = await db.getAll('syncQueue');
+    const tx = db.transaction('syncQueue', 'readwrite');
+    const existing = await tx.store.getAll();
     const cutoff = Date.now() - 60_000;
     const hasRecent = existing.some(item => item.documentId === documentId && item.createdAt >= cutoff);
-    if (hasRecent) return;
-    await db.put('syncQueue', {
-      id: `sync_${documentId}_${Date.now()}`,
-      documentId,
-      type: 'document' as const,
-      createdAt: Date.now(),
-    });
+    if (!hasRecent) {
+      await tx.store.put({
+        id: `sync_${documentId}_${Date.now()}`,
+        documentId,
+        type: 'document' as const,
+        createdAt: Date.now(),
+      });
+    }
+    await tx.done;
   },
 
   async getPendingCount(): Promise<number> {

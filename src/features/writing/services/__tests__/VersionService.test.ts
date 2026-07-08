@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { VersionService } from '../../../../core/services/VersionService';
 
 const mockAddDoc = vi.fn();
+const mockSetDoc = vi.fn();
 const mockGetDocs = vi.fn();
 const mockTimestampNow = { seconds: 12345678, nanoseconds: 0 };
 const mockTimestampFromDate = (date: Date) => ({ seconds: Math.floor(date.getTime() / 1000), nanoseconds: 0 });
@@ -11,7 +12,9 @@ vi.mock('../../../../core/firebase/firestoreClient', () => ({
     db: { type: 'db' } as unknown,
     mod: {
       collection: (db: any, ...paths: string[]) => ({ type: 'collection', paths }),
+      doc: (db: any, ...paths: string[]) => ({ type: 'doc', paths }),
       addDoc: mockAddDoc,
+      setDoc: mockSetDoc,
       getDocs: mockGetDocs,
       Timestamp: {
         now: () => mockTimestampNow,
@@ -71,16 +74,16 @@ describe('VersionService', () => {
 
   describe('addVersion', () => {
     it('successfully computes diff and writes version document to firestore', async () => {
-      mockAddDoc.mockResolvedValue({ id: 'new_ver_id' });
+      mockSetDoc.mockResolvedValue(undefined);
 
       const id = await VersionService.addVersion('user_123', 'doc_123', dummyVersionData);
 
-      expect(id).toBe('new_ver_id');
-      expect(mockAddDoc).toHaveBeenCalled();
-      const [colRef, docPayload] = mockAddDoc.mock.calls[0]!;
-      expect(colRef).toEqual({
-        type: 'collection',
-        paths: ['users', 'user_123', 'documents', 'doc_123', 'versions'],
+      expect(id).toBe('v3');
+      expect(mockSetDoc).toHaveBeenCalled();
+      const [docRef, docPayload] = mockSetDoc.mock.calls[0]!;
+      expect(docRef).toEqual({
+        type: 'doc',
+        paths: ['users', 'user_123', 'documents', 'doc_123', 'versions', 'v3'],
       });
       expect(docPayload).toEqual({
         documentId: 'doc_123',
@@ -115,19 +118,19 @@ describe('VersionService', () => {
     });
 
     it('includes _encrypted: true when encrypted flag is set', async () => {
-      mockAddDoc.mockResolvedValue({ id: 'new_ver_id' });
+      mockSetDoc.mockResolvedValue(undefined);
 
       await VersionService.addVersion('user_123', 'doc_123', {
         ...dummyVersionData,
         _encrypted: true,
       });
 
-      const [, docPayload1] = mockAddDoc.mock.calls[0]!;
+      const [, docPayload1] = mockSetDoc.mock.calls[0]!;
       expect(docPayload1._encrypted).toBe(true);
     });
 
     it('uses custom savedAt date if provided', async () => {
-      mockAddDoc.mockResolvedValue({ id: 'new_ver_id' });
+      mockSetDoc.mockResolvedValue(undefined);
       const customSavedAt = new Date(1700000005000);
 
       await VersionService.addVersion('user_123', 'doc_123', {
@@ -135,12 +138,12 @@ describe('VersionService', () => {
         savedAt: customSavedAt,
       });
 
-      const [, docPayload2] = mockAddDoc.mock.calls[0]!;
+      const [, docPayload2] = mockSetDoc.mock.calls[0]!;
       expect(docPayload2.savedAt).toEqual(mockTimestampFromDate(customSavedAt));
     });
 
     it('rethrows write error', async () => {
-      mockAddDoc.mockRejectedValue(new Error('Firestore error'));
+      mockSetDoc.mockRejectedValue(new Error('Firestore error'));
       await expect(
         VersionService.addVersion('user_123', 'doc_123', dummyVersionData)
       ).rejects.toThrow('Firestore error');

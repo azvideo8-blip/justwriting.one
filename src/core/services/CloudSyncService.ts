@@ -306,7 +306,16 @@ export const CloudSyncService = {
           createdAt: Date.now(),
         });
       } else if (cloudDoc.currentVersion >= newVersion) {
-        const result = await ConflictResolver.resolveConflict(userId, documentId, linkedCloudId, data, newVersion, cloudDoc);
+        const localDoc = await LocalStorageService.getDocument(documentId);
+        const result = await ConflictResolver.resolveConflict(
+          userId,
+          documentId,
+          linkedCloudId,
+          data,
+          newVersion,
+          cloudDoc,
+          localDoc?.firstSessionAt
+        );
         return result;
       } else {
         const startedAt = data.sessionStartedAt;
@@ -379,7 +388,7 @@ export const CloudSyncService = {
       { aiPortrait: portraitMarkdown },
       ['aiPortrait'],
       [],
-      true,
+      userId,
     );
     const { db, mod } = await getClient();
     await mod.setDoc(mod.doc(db, 'users', userId), encrypted, { merge: true });

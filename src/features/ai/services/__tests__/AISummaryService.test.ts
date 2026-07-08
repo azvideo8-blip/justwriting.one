@@ -121,7 +121,7 @@ describe('AISummaryService', () => {
         expect.objectContaining({ documentId: 'doc-123' }),
         ['tone'],
         ['frequentWords', 'insights', 'themes', 'extractedFacts'],
-        true,
+        'test-user-123',
       );
       expect(mockSetDoc).toHaveBeenCalled();
     });
