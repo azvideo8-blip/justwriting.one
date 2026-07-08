@@ -73,6 +73,9 @@ export const rerankNotes = onCall({
       ids = [];
     }
 
+    const candidateIds = new Set(candidates.map(c => c.documentId));
+    ids = ids.filter(id => candidateIds.has(id));
+
     return { documentIds: ids.slice(0, maxResults) };
   } catch (e) {
     await refundGlobalRequest();

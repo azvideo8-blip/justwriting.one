@@ -63,6 +63,11 @@ export const embedDocument = onCall({
     const chunks = chunkText(sanitized);
     const result = await embed(chunks);
 
+    if (result.vectors.length !== chunks.length) {
+      await refundGlobalRequest();
+      throw new HttpsError('internal', `Embedding count mismatch: got ${result.vectors.length} for ${chunks.length} chunks.`);
+    }
+
     recordUsage(uid, result.tokens, 0, { model: result.model, fn: 'embed' }).catch(e =>
       console.error('[AI embed] usage record failed:', e),
     );
