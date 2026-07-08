@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-07-08 (v0.7.46)
+- **[RU]** Безопасность ИИ (SEC-1..9): проверка инъекций теперь охватывает `documentContent` и `userPortrait` в обоих путях (`api/chat.ts` и `chatWithAI`); дневной лимит и кулдаун объединены в одну атомарную транзакцию `checkAndIncrementLimit` (закрыто TOCTOU-окно) с точными сообщениями об ошибке; имя переменной окружения убрано из ответа 500; добавлен parity-тест паттернов инъекций клиент↔functions; удалён мёртвый код (`reasoning`-ветка maxOutputTokens, бессмысленный ре-энкрипт при смене пароля, устаревший комментарий о коллекции `sessions` в firestore.rules).
+- **[EN]** AI security (SEC-1..9): injection checks now cover `documentContent` and `userPortrait` on both paths (`api/chat.ts` and `chatWithAI`); daily limit and cooldown merged into one atomic `checkAndIncrementLimit` transaction (TOCTOU window closed) with precise error messages; env var name removed from the 500 response; added a client↔functions injection-pattern parity test; removed dead code (the `reasoning` maxOutputTokens branch, the pointless re-encrypt on password change, the stale `sessions` collection comment in firestore.rules).
+- **[RU]** Удаление заметки теперь удаляет и связанные ИИ-данные (сводку и эмбеддинги) — из IndexedDB и из Firestore одним батчем; осиротевшие ИИ-документы больше не копятся.
+- **[EN]** Deleting a note now also deletes its AI data (summary and embeddings) — from IndexedDB and from Firestore in the same batch; orphaned AI documents no longer accumulate.
+- **[RU]** Конфликтная копия заметки наследует исходную дату создания документа вместо даты последней сессии.
+- **[EN]** A conflict-fork of a note inherits the original document creation date instead of the last session date.
+- **[RU]** Счётчик сессий (`sessionsCount`) инкрементируется на 1 вместо приравнивания к номеру версии — статистика профиля больше не завышается.
+- **[EN]** The session counter (`sessionsCount`) increments by 1 instead of being set to the version number — profile stats are no longer inflated.
+- **[RU]** Надёжность записи: версии заметок пишутся идемпотентно (`setDoc` с детерминированным ID `v{N}` вместо `addDoc`) — сетевые повторы не создают дубликатов; постановка в очередь синхронизации обёрнута в одну IDB-транзакцию (устранена гонка дублей); ошибка предыдущего сохранения в `LockManager` теперь пробрасывается, а не запускает немедленный повтор следующего.
+- **[EN]** Write reliability: note versions are written idempotently (`setDoc` with deterministic `v{N}` ID instead of `addDoc`) so network retries create no duplicates; sync-queue insertion is wrapped in a single IDB transaction (duplicate race eliminated); a predecessor error in `LockManager` now propagates instead of triggering an immediate retry of the next save.
+- **[RU]** Бюджеты фоновых ИИ-записей: дневной кап 20 на индексацию эмбеддингов и 100 на облачные записи сводок — массовый ре-индекс больше не может исчерпать общую квоту.
+- **[EN]** Background AI write budgets: a daily cap of 20 on embedding indexing and 100 on summary cloud writes — a bulk re-index can no longer exhaust the shared quota.
+
 ## 2026-07-07 (v0.7.45)
 - **[RU]** Архив: нечёткий поиск по заголовкам, содержимому и тегам (`fuse.js`) — теперь находит документы даже с опечаткой или неточным окончанием слова.
 - **[RU]** Архив: импорт заметок — перетащите `.txt`, `.md` или `.docx` (с разбором YAML frontmatter для заголовка/тегов) прямо на экран архива, или через новую кнопку «Импорт»; импортированные заметки синхронизируются с облаком так же, как обычные (с постановкой в очередь при офлайне).
