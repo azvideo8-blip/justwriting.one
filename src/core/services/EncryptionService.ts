@@ -122,57 +122,21 @@ export async function changePassword(userId: string, currentPassword: string, ne
   setSessionKey(dataKey);
 }
 
+/**
+ * @deprecated Use changePassword instead. Re-encryption of documents is unnecessary
+ * because the data key does not change when changing the password.
+ */
 export async function changePasswordWithReEncrypt(
   userId: string,
   currentPassword: string,
   newPassword: string,
   onProgress?: (p: { done: number; total: number }) => void,
 ): Promise<void> {
-  const meta = await getEncryptionMeta(userId);
-  if (!meta) throw new Error('Encryption not configured');
-
-  const oldSalt = saltFromBase64(meta.salt);
-  const oldMasterKey = await deriveMasterKey(currentPassword, oldSalt);
-
-  let dataKey: CryptoKey;
-  try {
-    dataKey = await unwrapDataKey(meta.wrappedDataKey, oldMasterKey);
-  } catch {
-    throw new WrongPasswordError();
-  }
-
-  if (meta.verification) {
-    const valid = await verifyKey(dataKey, meta.verification);
-    if (!valid) throw new WrongPasswordError();
-  }
-
-  const newSalt = generateSalt();
-  const newMasterKey = await deriveMasterKey(newPassword, newSalt);
-  const newWrappedDataKey = await wrapDataKey(dataKey, newMasterKey);
-  const newVerification = await createVerification(dataKey);
-
-  await saveEncryptionMeta(userId, {
-    salt: saltToBase64(newSalt),
-    version: ENCRYPTION_META_VERSION,
-    wrappedDataKey: newWrappedDataKey,
-    verification: newVerification,
-  });
-
-  setSessionKey(dataKey);
-
+  const result = await changePassword(userId, currentPassword, newPassword);
   if (onProgress) {
-    const { StorageService } = await import('./StorageService');
-    const { getLocalDb } = await import('../storage/localDb');
-    const db = await getLocalDb();
-    const docs = await db.getAllFromIndex('documents', 'by-guest', userId);
-    let done = 0;
-    const total = docs.length;
-    for (const doc of docs) {
-      await StorageService.addCloudCopy(userId, doc.id);
-      done++;
-      onProgress({ done, total });
-    }
+    onProgress({ done: 1, total: 1 });
   }
+  return result;
 }
 
 async function encryptAll(userId: string, onProgress: (p: MigrationProgress) => void, signal: AbortSignal) {

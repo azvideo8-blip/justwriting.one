@@ -51,8 +51,7 @@ vi.mock('../../shared/aiUtils', async () => {
     ...actual,
     sanitizeAiInput: vi.fn(actual.sanitizeAiInput),
     sanitizeAiResponse: vi.fn(actual.sanitizeAiResponse),
-    checkDailyLimit: vi.fn().mockResolvedValue(true),
-    checkRateLimit: vi.fn().mockResolvedValue(true),
+    checkAndIncrementLimit: vi.fn().mockResolvedValue(true),
     tryReserveGlobalRequest: vi.fn().mockResolvedValue(true),
     recordUsage: vi.fn().mockResolvedValue(undefined),
     refundDailyLimit: vi.fn().mockResolvedValue(undefined),
@@ -64,8 +63,7 @@ vi.mock('../../shared/aiUtils', async () => {
 import { editWithAI } from '../editWithAI';
 import { generate } from '../../shared/aiProvider';
 import {
-  checkDailyLimit,
-  checkRateLimit,
+  checkAndIncrementLimit,
   tryReserveGlobalRequest,
   recordUsage,
   sanitizeAiInput,
@@ -87,8 +85,7 @@ function makeRequest(data: unknown, auth?: { uid: string }) {
 describe('editWithAI', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(checkDailyLimit).mockResolvedValue(true);
-    vi.mocked(checkRateLimit).mockResolvedValue(true);
+    vi.mocked(checkAndIncrementLimit).mockResolvedValue(true);
     vi.mocked(tryReserveGlobalRequest).mockResolvedValue(true);
     vi.mocked(recordUsage).mockResolvedValue(undefined);
     vi.mocked(generate).mockResolvedValue({
@@ -135,18 +132,16 @@ describe('editWithAI', () => {
     ).rejects.toMatchObject({ code: 'resource-exhausted' });
   });
 
-  it('returns resource-exhausted when per-user daily limit exceeded', async () => {
-    vi.mocked(checkDailyLimit).mockResolvedValue(false);
+  it('returns resource-exhausted when user limit or cooldown fails', async () => {
+    vi.mocked(checkAndIncrementLimit).mockResolvedValue('DAILY_LIMIT');
     await expect(
       editWithAI(makeRequest(validData, { uid: UID }))
-    ).rejects.toMatchObject({ code: 'resource-exhausted' });
-  });
+    ).rejects.toMatchObject({ code: 'resource-exhausted', message: 'Daily limit reached.' });
 
-  it('returns resource-exhausted when cooldown active', async () => {
-    vi.mocked(checkRateLimit).mockResolvedValue(false);
+    vi.mocked(checkAndIncrementLimit).mockResolvedValue('RATE_LIMIT');
     await expect(
       editWithAI(makeRequest(validData, { uid: UID }))
-    ).rejects.toMatchObject({ code: 'resource-exhausted' });
+    ).rejects.toMatchObject({ code: 'resource-exhausted', message: 'Too many requests. Please wait a few seconds.' });
   });
 
   it('returns result on valid request', async () => {

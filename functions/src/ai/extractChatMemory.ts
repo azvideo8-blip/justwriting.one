@@ -47,13 +47,13 @@ export const extractChatMemory = onCall({
     throw new HttpsError('invalid-argument', 'Invalid payload.');
   }
 
-  const conversationText = parsed.data.messages
-    .map(m => `${m.role}: ${sanitizeAiInput(m.content)}`)
-    .join('\n\n');
-
   if (parsed.data.messages.some(m => hasInjectionAttempt(m.content))) {
     throw new HttpsError('invalid-argument', 'Disallowed patterns in messages.');
   }
+
+  const conversationText = parsed.data.messages
+    .map(m => `${m.role}: ${sanitizeAiInput(m.content)}`)
+    .join('\n\n');
 
   if (!(await tryReserveGlobalRequest())) {
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
