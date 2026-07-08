@@ -62,6 +62,9 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 5. Release Checklist
+- **Service Worker Versioning:** When making a release that changes JS/CSS assets, you MUST bump `CACHE_VERSION` in `public/sw.js` to match the new package version (e.g. `v0.7.45`). This triggers the cache eviction of older assets in users' browsers.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

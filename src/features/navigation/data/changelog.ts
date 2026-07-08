@@ -14,6 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.46',
+    date: '2026-07-08',
+    items: [
+      { category: 'fix', ru: 'Безопасность ИИ: устранены 9 находок аудита — проверка инъекций в содержимом заметки и портрете, атомарная проверка лимитов с точными сообщениями («дневной лимит» vs «слишком часто»), скрытие внутренних деталей ошибок', en: 'AI security: fixed 9 audit findings — injection checks on note content and portrait, atomic limit checks with precise messages ("daily limit" vs "too frequent"), internal error details no longer exposed' },
+      { category: 'fix', ru: 'Удаление заметки теперь удаляет и связанные ИИ-данные (сводку и эмбеддинги) — и локально, и в облаке', en: 'Deleting a note now also removes its AI data (summary and embeddings) — both locally and in the cloud' },
+      { category: 'fix', ru: 'Конфликтная копия заметки сохраняет исходную дату создания документа', en: 'A conflict copy of a note keeps the original document creation date' },
+      { category: 'fix', ru: 'Счётчик сессий письма больше не завышается при повторных сохранениях', en: 'The writing-session counter is no longer inflated by repeated saves' },
+      { category: 'fix', ru: 'Повтор после сетевого сбоя больше не создаёт дубликаты версий заметки и записей очереди синхронизации', en: 'Retrying after a network failure no longer creates duplicate note versions or sync-queue entries' },
+      { category: 'improvement', ru: 'Дневные лимиты на фоновые ИИ-записи в облако (индексация эмбеддингов, сводки), чтобы не исчерпать общую квоту', en: 'Daily caps on background AI cloud writes (embedding indexing, summaries) to protect the shared quota' },
+    ],
+  },
+  {
     version: '0.7.45',
     date: '2026-07-07',
     items: [
