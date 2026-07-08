@@ -1,6 +1,7 @@
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { AIService } from '../services/AIService';
 import { getLocalDb } from '../../../core/storage/localDb';
+import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { topKMultiWithChunkIndex } from '../utils/vectorSearch';
 import MiniSearch from 'minisearch';
 import { reportError } from '../../../shared/errors/reportError';
@@ -20,11 +21,17 @@ const KEYWORD_TOP = 40;
 const RRF_FINAL = 15;
 const RERANK_THRESHOLD = 0.88;
 
+interface CacheResultEntry {
+  documentId: string;
+  score: number;
+  chunkIndex?: number | undefined;
+}
+
 // TICKET-047: In-memory semantic query cache
 interface SearchCacheEntry {
   timestamp: number;
   query: string;
-  results: RetrievedNote[];
+  results: CacheResultEntry[];
 }
 const searchCache: SearchCacheEntry[] = [];
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -39,13 +46,12 @@ async function getMiniSearch(): Promise<MiniSearch> {
   const docs = await db.getAll('documents');
   const entries: { id: string; title: string; content: string }[] = [];
   for (const doc of docs) {
-    const versions = await db.getAllFromIndex('versions', 'by-document', doc.id);
-    if (versions.length === 0) continue;
-    versions.sort((a, b) => b.version - a.version);
+    const content = await LocalVersionService.getLatestContent(doc.id);
+    if (!content) continue;
     entries.push({
       id: doc.id,
       title: doc.title ?? '',
-      content: (versions[0]?.content ?? '').slice(0, 10_000),
+      content: content.slice(0, 10_000),
     });
   }
   miniSearchInstance = new MiniSearch({
@@ -216,16 +222,13 @@ async function loadNotes(
   for (const docId of ids) {
     const doc = await db.get('documents', docId);
     if (!doc) continue;
-    const versions = await db.getAllFromIndex('versions', 'by-document', docId);
-    if (versions.length === 0) continue;
-    versions.sort((a, b) => b.version - a.version);
-    const fullContent = versions[0]?.content ?? '';
     const chunkIdx = chunkIndexMap?.get(docId);
 
-    let content = fullContent;
+    let content = '';
     let noteChunkIndex: number | undefined;
 
-    // Parent Document Retrieval: load chunk ± neighbours
+    // Parent Document Retrieval: load chunk ± neighbours from stored chunk texts.
+    // Falls back to O(1) getLatestContent — avoids loading all version records.
     if (chunkIdx !== undefined && chunkIdx >= 0) {
       const emb = await AIEmbeddingService.get(docId);
       const chunkTexts = emb?.chunkTexts;
@@ -238,6 +241,10 @@ async function loadNotes(
         content = parts.join('\n\n');
       }
     }
+    if (!content) {
+      content = await LocalVersionService.getLatestContent(docId);
+    }
+    if (!content) continue;
 
     results.push({
       documentId: docId,
@@ -259,7 +266,7 @@ function cleanCache() {
   }
 }
 
-function getCached(query: string): RetrievedNote[] | null {
+function getCached(query: string): CacheResultEntry[] | null {
   const q = query.trim().toLowerCase();
   const entry = searchCache.find(c => c.query.trim().toLowerCase() === q);
   return entry ? entry.results : null;
@@ -269,7 +276,12 @@ function putCache(query: string, results: RetrievedNote[]) {
   if (searchCache.length >= MAX_CACHE_ENTRIES) {
     searchCache.shift();
   }
-  searchCache.push({ timestamp: Date.now(), query, results });
+  const cachedResults: CacheResultEntry[] = results.map(r => ({
+    documentId: r.documentId,
+    score: r.score,
+    chunkIndex: r.chunkIndex,
+  }));
+  searchCache.push({ timestamp: Date.now(), query, results: cachedResults });
 }
 
 /**
@@ -287,12 +299,22 @@ export async function searchNotesMulti(
 
   // TICKET-047: Check cache before any network calls
   cleanCache();
-  const cached = getCached(queries[0]!);
-  if (cached) return cached;
+  const cacheKey = [...queries].sort().join('\x00');
+  const cached = getCached(cacheKey);
+  if (cached) {
+    const ids = cached.map(c => c.documentId);
+    const scoreMap = new Map(cached.map(c => [c.documentId, c.score]));
+    const chunkIndexMap = new Map(cached.map(c => [c.documentId, c.chunkIndex]));
+    const cleanChunkIdx = new Map<string, number>();
+    for (const [id, idx] of chunkIndexMap.entries()) {
+      if (idx !== undefined) cleanChunkIdx.set(id, idx);
+    }
+    return loadNotes(ids, scoreMap, cleanChunkIdx);
+  }
 
   if (queries.length === 1) {
     const results = await searchNotes(queries[0]!, maxResults, opts);
-    putCache(queries[0]!, results);
+    putCache(cacheKey, results);
     return results;
   }
 
@@ -359,7 +381,7 @@ export async function searchNotesMulti(
     const scoreMap = new Map(fused.map(f => [f.id, f.score]));
     const fallbackIds = topIds.slice(0, maxResults);
     const results = await loadNotes(fallbackIds, scoreMap, chunkIndexMap);
-    putCache(queries[0]!, results);
+    putCache(cacheKey, results);
     return results;
   }
 
@@ -391,6 +413,6 @@ export async function searchNotesMulti(
   const results = await loadNotes(ids, scoreMap, chunkIndexMap);
 
   // TICKET-047: Cache results
-  putCache(queries[0]!, results);
+  putCache(cacheKey, results);
   return results;
 }

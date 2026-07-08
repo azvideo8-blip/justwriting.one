@@ -6,6 +6,7 @@ import { clusterChunks, mergeSimilarClusters, suggestK, normalize, type ChunkIte
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { AITaxonomyService } from './AITaxonomyService';
 import { tuneThresholds } from '../utils/thresholdTuner';
+import { reportError } from '../../../shared/errors/reportError';
 
 const MIN_FACET_NOTES = 2;
 const MAX_EXCERPTS = 14;
@@ -56,22 +57,7 @@ function fallbackFromTexts(texts: string[]): { label: string; summary: string } 
 }
 
 
-const NAME_ALIASES: Record<string, string[]> = {
-  'саша': ['саша','сашу','саше','сашей','саш','александр','александра'],
-  'юля': ['юля','юлю','юле','юлей','юленька','юлия'],
-  'наташа': ['наташа','наташу','наталье','наташе','натальей','наталья'],
-  'даша': ['даша','дашу','даше','дашей','дарья','дарьи'],
-  'мама': ['мама','маму','маме','мамой','мать','матери'],
-  'папа': ['папа','папу','папе','папой','отец','отца','отцу'],
-};
-
-function canonicalName(raw: string): string {
-  const lower = raw.toLowerCase();
-  for (const [canonical, forms] of Object.entries(NAME_ALIASES)) {
-    if (forms.includes(lower)) return canonical.charAt(0).toUpperCase() + canonical.slice(1);
-  }
-  return raw;
-}
+// NAME_ALIASES and canonicalName removed as mentionedPeople nominative extraction is handled by LLM.
 
 
 let facetWriteLock: Promise<unknown> = Promise.resolve();
@@ -113,11 +99,38 @@ export const AIProfileFacetService = {
     if (chunks.length === 0) return { ok: false, error: 'NO_EMBEDDINGS' };
     if (!haveTexts) return { ok: false, error: 'NO_CHUNK_TEXTS' };
 
+    const activeModel = embeddings.find(e => e.model)?.model || 'default';
     const taxonomy = await AITaxonomyService.getActive();
     const domainVecs: { id: string; label: string; vec: number[] }[] = [];
     for (const d of taxonomy) {
+      const cacheKey = `${d.id}_${activeModel}`;
+      try {
+        const cached = await db.get('aiDomainVectors', cacheKey);
+        if (cached && cached.seed === d.seed && cached.model === activeModel && cached.vector?.length) {
+          domainVecs.push({ id: d.id, label: d.label, vec: cached.vector });
+          continue;
+        }
+      } catch (err) {
+        reportError(err, { action: 'ai_profile_facet_cache_read', domainId: d.id });
+      }
+
       const res = await AIService.embed({ content: d.seed });
-      if (res.ok && res.vectors[0]) domainVecs.push({ id: d.id, label: d.label, vec: res.vectors[0] });
+      if (res.ok && res.vectors[0]) {
+        const vec = res.vectors[0];
+        domainVecs.push({ id: d.id, label: d.label, vec });
+        try {
+          await db.put('aiDomainVectors', {
+            cacheKey,
+            domainId: d.id,
+            seed: d.seed,
+            model: activeModel,
+            vector: vec,
+            updatedAt: Date.now(),
+          });
+        } catch (err) {
+          reportError(err, { action: 'ai_profile_facet_cache_write', domainId: d.id });
+        }
+      }
     }
 
     // B: self-tune each domain's threshold from this user's chunk-score
@@ -221,7 +234,9 @@ export const AIProfileFacetService = {
     for (const s of summaries) {
       for (const p of s.mentionedPeople ?? []) {
         if (!p.name || p.name.length < 2 || p.name.length > 30) continue;
-        const canon = canonicalName(p.name);
+        const trimmed = p.name.trim();
+        if (!trimmed) continue;
+        const canon = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
         const key = canon.toLowerCase();
         let entry = personNotes.get(key);
         if (!entry) { entry = { name: canon, role: p.role, noteIds: [] }; personNotes.set(key, entry); }
@@ -335,15 +350,16 @@ export const AIProfileFacetService = {
       });
     }
 
-    // Versioned build: save new facets BEFORE clearing old ones.
+    // Versioned build: save new facets BEFORE clearing old ones, inside a transaction
     const newFacets = facets;
     const newIds = new Set(newFacets.map(f => f.id));
-    for (const f of newFacets) await db.put('aiProfileFacets', f);
-    // Only delete old facets that weren't replaced
-    const oldFacets = await db.getAll('aiProfileFacets');
+    const tx = db.transaction('aiProfileFacets', 'readwrite');
+    for (const f of newFacets) await tx.store.put(f);
+    const oldFacets = await tx.store.getAll();
     for (const f of oldFacets) {
-      if (!newIds.has(f.id)) await db.delete('aiProfileFacets', f.id);
+      if (!newIds.has(f.id)) await tx.store.delete(f.id);
     }
+    await tx.done;
     return { ok: true, count: newFacets.length };
     });
   },
