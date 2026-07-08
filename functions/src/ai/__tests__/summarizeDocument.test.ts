@@ -139,17 +139,53 @@ describe('summarizeDocument', () => {
   });
 
   it('returns structured summary on valid request', async () => {
+    // Russian content passes the isUsable() Cyrillic filter (>= 20%); this
+    // mirrors real production output and verifies good content is not stripped.
+    vi.mocked(generate).mockResolvedValue({
+      text: JSON.stringify({
+        summary: 'Автор размышляет о рабочем стрессе и утренней усталости.',
+        tone: 'тревожный',
+        frequentWords: ['работа', 'стресс', 'утро', 'усталость', 'тревога'],
+        insights: ['Чувствует перегрузку от объёма работы', 'Утро ощущается скомканным'],
+        themes: ['баланс работы и жизни', 'управление стрессом'],
+        extractedFacts: ['Была встреча в 9 утра', 'Пропустил завтрак'],
+        mentionedPeople: [{ name: 'Анна', role: 'коллега' }],
+      }),
+      tokensIn: 200,
+      tokensOut: 100,
+      model: 'test-model',
+    });
     const result = await summarizeDocument(makeRequest(validData, { uid: UID }));
     expect(result).toMatchObject({
-      tone: 'анxious',
-      frequentWords: ['work', 'stress', 'morning', 'tired', 'anxious'],
-      insights: ['Feeling overwhelmed by workload', 'Morning routine feels rushed'],
-      themes: ['work-life balance', 'stress management'],
-      extractedFacts: ['Had a meeting at 9am', 'Skipped breakfast'],
+      summary: 'Автор размышляет о рабочем стрессе и утренней усталости.',
+      tone: 'тревожный',
+      frequentWords: ['работа', 'стресс', 'утро', 'усталость', 'тревога'],
+      insights: ['Чувствует перегрузку от объёма работы', 'Утро ощущается скомканным'],
+      themes: ['баланс работы и жизни', 'управление стрессом'],
+      extractedFacts: ['Была встреча в 9 утра', 'Пропустил завтрак'],
       mentionedPeople: [{ name: 'Анна', role: 'коллега' }],
     });
     expect(generate).toHaveBeenCalledOnce();
     expect(recordUsage).toHaveBeenCalledOnce();
+  });
+
+  it('filters out non-Cyrillic (reasoning-leak) array items', async () => {
+    vi.mocked(generate).mockResolvedValue({
+      text: JSON.stringify({
+        tone: 'нейтральный',
+        frequentWords: ['работа', 'santos', '已有'],
+        insights: ['Реальный инсайт', 'references'],
+        themes: ['тема'],
+        extractedFacts: ['Настоящий факт'],
+        mentionedPeople: [],
+      }),
+      tokensIn: 10,
+      tokensOut: 5,
+      model: 'test-model',
+    });
+    const result = await summarizeDocument(makeRequest(validData, { uid: UID }));
+    expect(result.frequentWords).toEqual(['работа']);
+    expect(result.insights).toEqual(['Реальный инсайт']);
   });
 
   it('sanitizes content via sanitizeAiInput', async () => {

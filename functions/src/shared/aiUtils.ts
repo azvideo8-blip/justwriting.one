@@ -128,6 +128,16 @@ export function sanitizeAiResponse(response: string, keepReasoning = false): str
     cleaned = cleaned.replace(/\/\/<reasoning>[\s\S]*$/gi, '');
     cleaned = cleaned.replace(/<reasoning>[\s\S]*$/gi, '');
     cleaned = cleaned.replace(/^\/\/<reasoning>/gim, '');
+    // Strip CJK characters leaked from model reasoning chains (gpt-oss/DeepSeek
+    // internal thinking sometimes bleeds into content field).
+    // Ranges: CJK Unified (4E00-9FFF), Extension A (3400-4DBF), Compat (F900-FAFF),
+    // Radicals (2E80-2EFF), Symbols (3000-303F), Kana (3040-30FF).
+    cleaned = cleaned.replace(/[⺀-⻿　-ヿ㐀-䶿一-鿿豈-﫿]/g, '');
+    // Strip citation artifacts that gpt-oss appends to factual sentences
+    // (e.g. "30 000 рублейreferences" or "степень awarded").
+    cleaned = cleaned.replace(/([а-яёА-ЯЁ\d])(references?|sources?|citations?|awarded)\b/gi, '$1');
+    // Collapse any double-spaces created by the strips above.
+    cleaned = cleaned.replace(/  +/g, ' ').trim();
   }
   return DOMPurify.sanitize(cleaned, {
     ALLOWED_TAGS: keepReasoning ? [] : [],
