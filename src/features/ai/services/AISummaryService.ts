@@ -153,7 +153,7 @@ export const AISummaryService = {
     await db.delete('aiTimeline', documentId);
 
     // Remove from people index
-    const people = (await db.getAll('aiPeopleIndex')) || [];
+    const people = await db.getAll('aiPeopleIndex');
     for (const p of people) {
       if (p.noteIds.includes(documentId)) {
         const updatedNoteIds = p.noteIds.filter(id => id !== documentId);
