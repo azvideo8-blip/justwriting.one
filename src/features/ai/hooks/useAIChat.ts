@@ -6,19 +6,11 @@ import { LocalDocumentService } from '../../../core/services/LocalDocumentServic
 import { useLanguage } from '../../../shared/i18n';
 import { incrementDailyUsage, setDailyLimitExhausted } from './useDailyLimit';
 import { useAiLimitStore } from '../store/useAiLimitStore';
-import { getAuth } from 'firebase/auth';
 import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIMessage } from '../services/AIService';
 import { AIService } from '../services/AIService';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
-import { AIProfileService } from '../services/AIProfileService';
-import { AIProfileFacetService } from '../services/AIProfileFacetService';
-import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
-import { searchNotesMulti } from '../utils/noteRetriever';
-import { analyzeDoors, aggregateDoors, doorLabel } from '../utils/contactDoors';
-import { detectRisk, CRISIS_RESOURCES } from '../utils/riskDetect';
-import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
 
 import { useAIChatContext } from './useAIChatContext';
@@ -27,11 +19,9 @@ import {
   callableChat,
   extractReasoning,
   extractAnswer,
-  looksLikeNoteSearch,
   pruneMessages,
   toApiContent,
   API_MSG_CAP,
-  CONTEXT_WINDOW,
   _streamUnavailableUntil
 } from '../utils/aiChatTransport';
 export { API_MSG_CAP };
@@ -77,6 +67,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     setCrisisActive(false);
     // Abort any in-flight stream from the previous dialogue
     abortRef.current?.abort();
+    // context is a stable ref-backed wrapper (same underlying refs across renders);
+    // deliberately keyed on dialogueId only, matching the pre-refactor ref-based effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dialogueId]);
 
   // Abort stream on unmount
@@ -103,6 +96,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     refresh();
     window.addEventListener('dialogue-updated', refresh);
     return () => window.removeEventListener('dialogue-updated', refresh);
+    // context is a stable ref-backed wrapper; getAttachedNote/setAttachedNote are personaId-independent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dialogueId]);
 
   useEffect(() => {
@@ -237,13 +232,6 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       }
       const effectiveAttached = attached ?? context.getAttachedNote() ?? undefined;
 
-      // SAFETY: user asks to analyze "their note" but no note text is actually in
-      // context (attach didn't fire / not re-sent). Never fabricate a note from
-      // profile themes — suppress facets/memory and force the model to ask for the
-      // text instead. This is the catastrophic case (it invented a whole fake note).
-      const noteAnalysisIntent = /(заметк|запис|аскез)/i.test(text) && /(разбер|разбор|проанализ|анализ|прочит|посмотр|глян)/i.test(text);
-      const noteIntentNoText = !effectiveAttached?.content && noteAnalysisIntent;
-
       // For attached notes the last user message goes to the API as a short
       // marker; the full note text travels via documentContent (see below).
       // Build the API history from the FRESHEST stored state (not the closure),
@@ -371,7 +359,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
               actualName = custom.name;
               actualEmoji = custom.emoji;
             }
-          } catch {}
+          } catch { /* non-critical */ }
         }
         const title = text.slice(0, 40) + (text.length > 40 ? '...' : '');
         currentDialogue = await AIDialogueService.create({
@@ -444,6 +432,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       sendingRef.current = false;
       setIsLoading(false);
     }
+    // context excluded intentionally: buildContext reads current personaId, and personaId
+    // is already a dep here, so sendMessage is recreated with a fresh context on persona change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dialogue, dialogueId, personaId, responseLength, reasoning, language, t]);
 
   // Load a note's latest text without sending — lets the UI stage an attachment
