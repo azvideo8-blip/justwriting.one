@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, type ChangeEvent } from 'react';
 import { API_MSG_CAP } from './useAIChat';
 
 interface AttachmentManagerParams {
@@ -58,7 +58,7 @@ export function useAttachmentManager({
     }
   }, [prepareAttachment]);
 
-  const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const MAX_FILE_SIZE = 1_048_576;

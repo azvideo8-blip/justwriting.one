@@ -72,6 +72,8 @@ describe('AISummaryService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Real IDB getAll() always returns an array (empty if no records), never undefined.
+    mockGetAll.mockResolvedValue([]);
   });
 
   describe('get', () => {
