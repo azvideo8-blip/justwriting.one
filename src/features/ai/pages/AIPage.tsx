@@ -16,6 +16,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { relativeDate } from '../../../core/utils/dateUtils';
+import type { AITimelineEntry } from '../../../core/storage/localDb';
 
 export function AIPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -70,7 +71,7 @@ export function AIPage() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const [suggestedNote, setSuggestedNote] = useState<any>(null);
+  const [suggestedNote, setSuggestedNote] = useState<AITimelineEntry | null>(null);
 
   useEffect(() => {
     void (async () => {

@@ -6,7 +6,7 @@ import { AIPersonaService } from '../services/AIPersonaService';
 import { PRESET_PERSONAS } from '../services/AIPersonaService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
-import { searchNotesMulti } from '../utils/noteRetriever';
+import { searchNotesMulti, type RetrievedNote } from '../utils/noteRetriever';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { AIService } from '../services/AIService';
 import { reportError } from '../../../shared/errors/reportError';
@@ -179,7 +179,7 @@ export function useAIChatContext(personaId: string): {
 
       let handledByTemporal = false;
       let skipSemantic = false;
-      let allNotes: any[] = [];
+      let allNotes: RetrievedNote[] = [];
       const temporalQuery = parseTemporalQuery(text);
 
       if (explicitSearch || stickySearch) {
