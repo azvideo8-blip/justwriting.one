@@ -154,6 +154,39 @@ export const AIDialogueService = {
     existing.updatedAt = Date.now();
     await tx.store.put(existing);
     await tx.done;
+
+    void this.generateClosingSummary(id);
+  },
+
+  async generateClosingSummary(id: string): Promise<void> {
+    try {
+      const db = await getLocalDb();
+      const dialogue = await db.get('aiDialogues', id);
+      if (!dialogue) return;
+
+      const chatMessages = dialogue.messages.filter(m => m.type !== 'system');
+      if (chatMessages.length < 4) return;
+
+      const last10 = chatMessages.slice(-10);
+      const { AIService } = await import('./AIService');
+      const response = await AIService.chat({
+        personaId: 'custom',
+        customSystemPrompt: 'Составь 1-2 предложения: о чём был этот диалог и к какому выводу пришли. Только факты, без оценок.',
+        messages: last10.map(m => ({ role: m.role, content: m.content })),
+      });
+
+      if (response.ok && response.text) {
+        const tx = db.transaction('aiDialogues', 'readwrite');
+        const existing = await tx.store.get(id);
+        if (existing) {
+          existing.closingSummary = response.text.trim();
+          await tx.store.put(existing);
+        }
+        await tx.done;
+      }
+    } catch (e) {
+      console.warn('[AIDialogueService] generateClosingSummary failed:', e);
+    }
   },
 
   async unarchive(id: string): Promise<void> {

@@ -143,6 +143,38 @@ function ReconcileSessionsButton() {
   );
 }
 
+function RebuildTimelineButton() {
+  const { showToast } = useToast();
+  const [running, setRunning] = useState(false);
+
+  const handleRebuild = async () => {
+    setRunning(true);
+    try {
+      const { AITimelineService } = await import('../services/AITimelineService');
+      const count = await AITimelineService.rebuildFromSummaries();
+      showToast(`Хронология ИИ успешно перестроена. Записей: ${count}`, 'success');
+    } catch (e) {
+      showToast('Ошибка пересбора хронологии: ' + String(e), 'error');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <>
+      <Button
+        onClick={() => void handleRebuild()}
+        disabled={running}
+        className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-elevated border border-border-subtle text-text-main/80 text-xs font-semibold hover:text-text-main transition-colors"
+      >
+        <RotateCcw size={13} />
+        {running ? 'Пересбор…' : 'Пересобрать хронологию ИИ'}
+      </Button>
+      <p className="mt-1.5 text-[11px] text-text-main/50">Пересобирает локальную хронологию из всех существующих анализов заметок с привязкой по датам.</p>
+    </>
+  );
+}
+
   if (profile?.role !== 'admin') {
     return <Navigate to="/" replace />;
   }
@@ -683,6 +715,9 @@ function ReconcileSessionsButton() {
                 </div>
                 <div className="mt-3">
                   <ReconcileSessionsButton />
+                </div>
+                <div className="mt-3">
+                  <RebuildTimelineButton />
                 </div>
               </div>
             )}

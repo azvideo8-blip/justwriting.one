@@ -15,6 +15,7 @@ import { useAIPageData, CHAT_STARTERS } from '../hooks/useAIPageData';
 import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { relativeDate } from '../../../core/utils/dateUtils';
 
 export function AIPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -68,6 +69,54 @@ export function AIPage() {
   const [renameValue, setRenameValue] = useState('');
   const [memoryOpen, setMemoryOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const [suggestedNote, setSuggestedNote] = useState<any>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const { AITimelineService } = await import('../services/AITimelineService');
+        const entries = await AITimelineService.getMostRecent(1);
+        if (entries[0]) {
+          setSuggestedNote(entries[0]);
+        }
+      } catch (e) {
+        console.warn('[AIPage] failed to load suggested note:', e);
+      }
+    })();
+  }, []);
+
+  const showBanner = (() => {
+    if (!suggestedNote) return false;
+    const noteDate = new Date(suggestedNote.date);
+    const now = new Date();
+    const diffMs = now.getTime() - noteDate.getTime();
+    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+    const isWithin3Days = diffMs >= 0 && diffMs <= threeDaysMs;
+    if (!isWithin3Days) return false;
+
+    const isAlreadyAttached = dialogues.some(d => d.documentId === suggestedNote.documentId);
+    if (isAlreadyAttached) return false;
+
+    const dismissed = JSON.parse(localStorage.getItem('dismissed_suggested_notes') || '[]');
+    if (dismissed.includes(suggestedNote.documentId)) return false;
+
+    return true;
+  })();
+
+  const handleOpenSuggestedDialogue = () => {
+    if (!suggestedNote) return;
+    handleNewDialogue();
+    void handleDocSelect(suggestedNote.documentId);
+  };
+
+  const handleDismissSuggestedNote = () => {
+    if (!suggestedNote) return;
+    const dismissed = JSON.parse(localStorage.getItem('dismissed_suggested_notes') || '[]');
+    dismissed.push(suggestedNote.documentId);
+    localStorage.setItem('dismissed_suggested_notes', JSON.stringify(dismissed));
+    setSuggestedNote(null);
+  };
 
   // AX-4: Resizable sidebar — persisted to localStorage
   const SIDEBAR_MIN = 220;
@@ -167,6 +216,32 @@ export function AIPage() {
           <div className="h-px bg-border-subtle mx-4 mb-1.5" />
 
           <div className="flex-1 overflow-y-auto px-3 py-1.5 space-y-0.5">
+            {showBanner && suggestedNote && (
+              <div className="mx-1 my-2 p-3 rounded-xl border border-brand-soft/20 bg-brand-soft/10 space-y-2 relative overflow-hidden">
+                <button
+                  onClick={handleDismissSuggestedNote}
+                  className="absolute top-2 right-2 text-text-main/40 hover:text-text-main transition-colors"
+                  title="Скрыть"
+                >
+                  <X size={14} />
+                </button>
+                <div className="pr-4">
+                  <p className="text-xs text-text-main/80 font-medium leading-normal">
+                    Хочешь поговорить о том, что писал {relativeDate(new Date(suggestedNote.date).getTime())}?
+                    <span className="block text-[11px] text-text-main/55 italic mt-1">
+                      [{suggestedNote.summary || suggestedNote.themes?.[0] || 'заметка'}]
+                    </span>
+                  </p>
+                </div>
+                <Button
+                  onClick={handleOpenSuggestedDialogue}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-brand-soft text-surface-card text-[11px] font-bold hover:bg-brand-soft/90 transition-colors"
+                >
+                  <span>Открыть диалог</span>
+                  <ArrowRight size={11} />
+                </Button>
+              </div>
+            )}
             {(showArchived ? archivedDialogues : dialogues).map(d => {
               const v = personaVisual(d.personaId, d.personaName);
               const isActive = activeDialogueId === d.id;

@@ -1,5 +1,5 @@
 import { getLocalDb } from '../../../core/storage/localDb';
-import type { AIDocumentSummary } from '../../../core/storage/localDb';
+import type { AIDocumentSummary, AITimelineEntry } from '../../../core/storage/localDb';
 import { getAuth } from 'firebase/auth';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
@@ -24,7 +24,8 @@ async function saveSummaryToCloud(userId: string, summary: AIDocumentSummary): P
 
 async function fetchSummaryFromCloud(userId: string, documentId: string): Promise<AIDocumentSummary | undefined> {
   const { db, mod } = await getClient();
-  const snap = await mod.getDoc(mod.doc(db, 'users', userId, 'summaries', documentId));
+  const docRef = mod.doc(db, 'users', userId, 'summaries', documentId);
+  const snap = await mod.getDoc(docRef);
   if (!snap.exists()) return undefined;
   const data = snap.data() as Record<string, unknown>;
   const decrypted = await maybeDecrypt(data, STRING_FIELDS_LIST, ARRAY_FIELDS_LIST);
@@ -33,21 +34,21 @@ async function fetchSummaryFromCloud(userId: string, documentId: string): Promis
   const frequentWords = Array.isArray(decrypted.frequentWords) ? decrypted.frequentWords.map(String) : [];
   const insights = Array.isArray(decrypted.insights) ? decrypted.insights.map(String) : [];
   const themes = Array.isArray(decrypted.themes) ? decrypted.themes.map(String) : [];
-    const extractedFacts = Array.isArray(decrypted.extractedFacts) ? decrypted.extractedFacts.map(String) : [];
-    const mentionedPeople = Array.isArray(decrypted.mentionedPeople)
-      ? decrypted.mentionedPeople.filter((p: unknown) => typeof p === 'object' && p !== null && 'name' in (p as Record<string, unknown>)) as { name: string; role: string }[]
-      : [];
-    const processedAt = typeof decrypted.processedAt === 'number' ? decrypted.processedAt : Date.now();
-    return {
-      documentId: docId,
-      tone,
-      frequentWords,
-      insights,
-      themes,
-      extractedFacts,
-      mentionedPeople,
-      processedAt,
-    };
+  const extractedFacts = Array.isArray(decrypted.extractedFacts) ? decrypted.extractedFacts.map(String) : [];
+  const mentionedPeople = Array.isArray(decrypted.mentionedPeople)
+    ? decrypted.mentionedPeople.filter((p: unknown) => typeof p === 'object' && p !== null && 'name' in (p as Record<string, unknown>)) as { name: string; role: string }[]
+    : [];
+  const processedAt = typeof decrypted.processedAt === 'number' ? decrypted.processedAt : Date.now();
+  return {
+    documentId: docId,
+    tone,
+    frequentWords,
+    insights,
+    themes,
+    extractedFacts,
+    mentionedPeople,
+    processedAt,
+  };
 }
 
 export const AISummaryService = {
@@ -65,9 +66,7 @@ export const AISummaryService = {
           return cloud;
         }
       } catch (e) {
-        if (!String(e).includes('LOCKED')) {
-          reportError(e, { action: 'ai_summary_cloud_read' });
-        }
+        reportError(e, { action: 'ai_summary_cloud_fetch', documentId });
       }
     }
     return undefined;
@@ -76,6 +75,69 @@ export const AISummaryService = {
   async save(summary: AIDocumentSummary): Promise<void> {
     const db = await getLocalDb();
     await db.put('aiSummaries', summary);
+
+    // Look up doc to get lastSessionAt
+    const doc = await db.get('documents', summary.documentId);
+    if (doc?.lastSessionAt) {
+      const d = new Date(doc.lastSessionAt);
+      if (!isNaN(d.getTime())) {
+        const dateStr = d.toISOString().slice(0, 10);
+        const monthStr = d.toISOString().slice(0, 7);
+
+        // Save to Timeline
+        const timelineEntry: AITimelineEntry = {
+          documentId: summary.documentId,
+          date: dateStr,
+          month: monthStr,
+          facts: summary.extractedFacts ?? [],
+          tone: summary.tone,
+          themes: summary.themes ?? [],
+        };
+        if (summary.summary) {
+          timelineEntry.summary = summary.summary;
+        }
+        await db.put('aiTimeline', timelineEntry);
+
+        // Trigger monthly digest generation fire-and-forget
+        try {
+          const { AIMonthlyDigestService } = await import('./AIMonthlyDigestService');
+          const existingDigest = await AIMonthlyDigestService.get(monthStr);
+          const oneDayMs = 24 * 60 * 60 * 1000;
+          if (!existingDigest || (Date.now() - existingDigest.generatedAt > oneDayMs)) {
+            void AIMonthlyDigestService.generateForMonth(monthStr);
+          }
+        } catch (e) {
+          console.warn('[AISummaryService] Failed to generate monthly digest:', e);
+        }
+      }
+    }
+
+    // Upsert people index
+    if (summary.mentionedPeople && summary.mentionedPeople.length > 0) {
+      for (const p of summary.mentionedPeople) {
+        if (!p.name?.trim()) continue;
+        const key = p.name.trim().toLowerCase();
+        const existingPerson = await db.get('aiPeopleIndex', key);
+        const noteIds = existingPerson ? [...existingPerson.noteIds] : [];
+        if (!noteIds.includes(summary.documentId)) {
+          noteIds.push(summary.documentId);
+        }
+        const lastMentionedAt = doc?.lastSessionAt ?? Date.now();
+        const role = p.role?.trim() || existingPerson?.role || '';
+        
+        const name = p.name.trim();
+        const displayName = name.charAt(0).toUpperCase() + name.slice(1);
+
+        await db.put('aiPeopleIndex', {
+          key,
+          name: displayName,
+          role,
+          noteIds,
+          lastMentionedAt,
+          mentionCount: noteIds.length,
+        });
+      }
+    }
 
     const uid = getAuth().currentUser?.uid;
     if (uid && tryReserveSummarizeBudget()) {
@@ -88,6 +150,22 @@ export const AISummaryService = {
   async delete(documentId: string): Promise<void> {
     const db = await getLocalDb();
     await db.delete('aiSummaries', documentId);
+    await db.delete('aiTimeline', documentId);
+
+    // Remove from people index
+    const people = (await db.getAll('aiPeopleIndex')) || [];
+    for (const p of people) {
+      if (p.noteIds.includes(documentId)) {
+        const updatedNoteIds = p.noteIds.filter(id => id !== documentId);
+        if (updatedNoteIds.length === 0) {
+          await db.delete('aiPeopleIndex', p.key);
+        } else {
+          p.noteIds = updatedNoteIds;
+          p.mentionCount = updatedNoteIds.length;
+          await db.put('aiPeopleIndex', p);
+        }
+      }
+    }
   },
 
   async exportAsMarkdown(documentId: string, docTitle: string): Promise<string> {
