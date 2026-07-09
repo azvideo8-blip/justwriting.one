@@ -21,267 +21,20 @@ import { detectRisk, CRISIS_RESOURCES } from '../utils/riskDetect';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
 
-let _streamUnavailableUntil = 0;
-const CONTEXT_WINDOW = 14;
-
-// Detect "search my notes" intent. Regex-based (not a fixed phrase list) so
-// follow-ups like "а где про Сашу пишу?" also trigger. Avoids the imperative
-// "напиши …" (write-for-me) by requiring a word boundary before пиш/писа.
-const NOTE_SEARCH_PATTERNS: RegExp[] = [
-  /заметк|\bзапис|дневник/i,
-  /что годится в пост/i,
-  /\b(найди|найти|поищи|поиск|ищу|напомни|вспомни|посмотри|посмотреть|проверь|перепроверь|глянь|собери|подбери|покажи)\b/i,
-  // question word + writing/telling verb: "где про Сашу пишу", "о чём я писал"
-  /(что|где|когда|о\s*ч[её]м|про\s+ко|про\s+что|сколько|как часто).{0,40}\b(пиш|писа|говорил|упомина|вспомина|расска|отмеча)/i,
-  // "… про X пишу/писал"
-  /\b(пиш[уеёя]|писа[лнв])\b.{0,30}\bпро\b/i,
-  /что (я )?(обычно |часто |вообще )?(про|о)\b/i,
-  /что у меня про|что есть про/i,
-];
-
-function looksLikeNoteSearch(text: string): boolean {
-  return NOTE_SEARCH_PATTERNS.some(re => re.test(text));
-}
-
-// A chat message sent to the API is capped at 10K chars. Small messages pass
-// through untouched (so an attached note that fits is delivered IN the message,
-// the most reliable channel — same as file upload). Only OVERSIZED attachment
-// messages are collapsed to their marker (the full note then travels via
-// documentContent), with a hard slice as the final safety net.
-export const API_MSG_CAP = 9_500;
-function toApiContent(content: string): string {
-  if (content.length <= API_MSG_CAP) return content;
-  const noteMatch = content.match(/^\[Прикреплена заметка: "[^"]+"\]/);
-  if (noteMatch) return noteMatch[0];
-  return content.slice(0, API_MSG_CAP);
-}
-
-function pruneMessages(messages: AIMessage[]): AIMessage[] {
-  const chatOnly = messages.filter(m => m.type !== 'system');
-  if (chatOnly.length <= CONTEXT_WINDOW) return chatOnly;
-  const first = chatOnly[0];
-  if (!first) return chatOnly;
-  const rest = chatOnly.slice(-CONTEXT_WINDOW);
-  if (first === rest[0]) return rest;
-  return [first, ...rest];
-}
-
-async function streamChat(params: {
-  personaId: string;
-  customSystemPrompt?: string | undefined;
-  messages: AIMessage[];
-  documentContent?: string | undefined;
-  documentMood?: string | undefined;
-  userPortrait?: string | null | undefined;
-  responseLength?: 'short' | 'standard' | 'detailed' | undefined;
-  reasoning?: boolean | undefined;
-  signal?: AbortSignal | undefined;
-  onChunk: (partial: string, reasoning: string | null) => void;
-}): Promise<string> {
-  const user = getAuth().currentUser;
-  if (!user) throw new Error('AUTH_REQUIRED');
-
-  const idToken = await user.getIdToken();
-
-  const response = await fetch('/api/chat', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${idToken}`,
-    },
-    body: JSON.stringify({
-      personaId: params.personaId,
-      customSystemPrompt: params.customSystemPrompt,
-      messages: params.messages.map(({ role, content }) => ({ role, content })),
-      documentContent: params.documentContent,
-      documentMood: params.documentMood,
-      userPortrait: params.userPortrait,
-      responseLength: params.responseLength,
-      reasoning: params.reasoning,
-    }),
-    signal: params.signal ?? null,
-  });
-
-  if (response.status === 404) {
-    _streamUnavailableUntil = Date.now() + 60_000;
-    throw new Error('STREAM_FALLBACK');
-  }
-
-  if (response.status === 401) throw new Error('AUTH_REQUIRED');
-  // E-1: Distinguish GLOBAL_LIMIT (project-wide cap, daily limit refunded by
-  // server) from DAILY_LIMIT (per-user cap). Without this, a GLOBAL_LIMIT 429
-  // corrupts the client's daily-limit state (sets remaining=0 permanently).
-  if (response.status === 429) {
-    let errorKind = 'DAILY_LIMIT';
-    try {
-      const body = await response.json();
-      if (body?.error === 'GLOBAL_LIMIT') errorKind = 'GLOBAL_LIMIT';
-    } catch { /* default to DAILY_LIMIT */ }
-    throw new Error(errorKind);
-  }
-  if (!response.ok) throw new Error('SERVER_ERROR');
-
-  const reader = response.body!.getReader();
-  const decoder = new TextDecoder();
-  let fullText = '';
-
-  try {
-   while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const text = decoder.decode(value, { stream: true });
-    if (text) {
-      fullText += text;
-      // Parse reasoning/answer sections from stream. DeepSeek exposes thinking
-      // in three shapes, handled in priority order:
-      //  1. <think>…</think> inline tags (reasoning models via OpenRouter)
-      //  2. <reasoning>…</reasoning><answer>…</answer> XML
-      //  3. markdown headers ХОД МЫСЛИ: … ОТВЕТ: …
-      const thinkMatch = fullText.match(/<think>([\s\S]*?)(<\/think>|$)/i);
-      const reasoningMatch = fullText.match(/(?:\/\/)?<reasoning>([\s\S]*?)(<\/reasoning>|$)/i);
-      const answerMatch = fullText.match(/<\/reasoning>\s*(?:\/\/)?<answer>([\s\S]*?)(<\/answer>|$)/i);
-      const mdReasoningMatch = fullText.match(/ХОД МЫСЛИ:\s*([\s\S]*?)(?=ОТВЕТ:|$)/i);
-      const mdAnswerMatch = fullText.match(/ОТВЕТ:\s*([\s\S]*?)$/i);
-
-      let reasoningText: string | null = null;
-      let answerText: string;
-
-      if (thinkMatch) {
-        reasoningText = thinkMatch[1]!.trim();
-        // answer is whatever follows the closing </think>
-        const after = fullText.split(/<\/think>/i)[1];
-        answerText = after !== undefined ? after.trim() : '';
-      } else if (reasoningMatch) {
-        reasoningText = reasoningMatch[1]!.trim();
-        answerText = answerMatch ? answerMatch[1]!.trim() : '';
-      } else if (mdReasoningMatch) {
-        reasoningText = mdReasoningMatch[1]!.trim();
-        answerText = mdAnswerMatch ? mdAnswerMatch[1]!.trim() : '';
-      } else {
-        // LX-1: Inline leak — "ОТВЕТ:" present without "ХОД МЫСЛИ:" prefix.
-        // The model dumped CoT into content; split at "ОТВЕТ:" line.
-        const hasAnswerMarker = /^ОТВЕТ:\s*$/im.test(fullText);
-        const hasReasoningHeader = /ХОД МЫСЛИ:/i.test(fullText);
-        if (hasAnswerMarker && !hasReasoningHeader) {
-          const answerIdx = fullText.search(/^ОТВЕТ:\s*$/im);
-          if (answerIdx > 0) {
-            reasoningText = fullText.slice(0, answerIdx).trim();
-            answerText = fullText.slice(answerIdx).replace(/^ОТВЕТ:\s*/im, '').trim();
-          } else {
-            reasoningText = null;
-            answerText = fullText;
-          }
-        } else {
-          // No reasoning markers yet — show raw text as answer
-          reasoningText = null;
-          answerText = fullText;
-        }
-      }
-      params.onChunk(answerText, reasoningText || null);
-    }
-   }
-  } catch (e) {
-    // User pressed Stop — keep whatever streamed so far instead of erroring.
-    if (params.signal?.aborted) return fullText;
-    throw e;
-  } finally {
-    try { reader.releaseLock(); } catch { /* already released */ }
-  }
-
-  return fullText;
-}
-
-async function callableChat(params: {
-  personaId: string;
-  customSystemPrompt?: string | undefined;
-  messages: AIMessage[];
-  documentContent?: string | undefined;
-  userPortrait?: string | null | undefined;
-  responseLength?: 'short' | 'standard' | 'detailed' | undefined;
-  reasoning?: boolean | undefined;
-  callType?: 'auto_name' | 'follow_up' | 'query_expand' | undefined;
-}): Promise<string> {
-  const result = await AIService.chat({
-    personaId: params.personaId,
-    customSystemPrompt: params.customSystemPrompt,
-    messages: params.messages.map(({ role, content }) => ({ role, content })),
-    documentContent: params.documentContent,
-    userPortrait: params.userPortrait,
-    responseLength: params.responseLength,
-    reasoning: params.reasoning,
-    callType: params.callType,
-  });
-
-  if (!result.ok) {
-    if (result.error === 'DAILY_LIMIT') throw new Error('DAILY_LIMIT');
-    if (result.error === 'AUTH_REQUIRED') throw new Error('AUTH_REQUIRED');
-    if (result.error === 'RATE_LIMIT') throw new Error('RATE_LIMIT');
-    throw new Error('SERVER_ERROR');
-  }
-
-  return result.text;
-}
-
-function extractReasoning(text: string): string | undefined {
-  // <think> tags
-  const think = text.match(/<think>([\s\S]*?)(<\/think>|$)/i);
-  if (think) { const r = think[1]!.trim(); return r || undefined; }
-  // XML tags
-  const xml = text.match(/(?:\/\/)?<reasoning>([\s\S]*?)(<\/reasoning>|$)/i);
-  if (xml) { const r = xml[1]!.trim(); return r || undefined; }
-  // Markdown header: ХОД МЫСЛИ: ... (until ОТВЕТ: or end)
-  const md = text.match(/ХОД МЫСЛИ:\s*([\s\S]*?)(?=ОТВЕТ:|$)/i);
-  if (md) { const r = md[1]!.trim(); return r || undefined; }
-  // LX-1: Inline leak — "ОТВЕТ:" present WITHOUT "ХОД МЫСЛИ:" prefix.
-  // The model dumped its CoT into content; everything before "ОТВЕТ:" is reasoning.
-  if (!/ХОД МЫСЛИ:/i.test(text)) {
-    const answerIdx = text.search(/^ОТВЕТ:\s*$/im);
-    if (answerIdx > 0) {
-      const r = text.slice(0, answerIdx).trim();
-      return r || undefined;
-    }
-  }
-  return undefined;
-}
-
-function extractAnswer(text: string): string {
-  // <think>…</think> — answer is what follows the closing tag
-  if (/<\/think>/i.test(text)) {
-    const after = text.split(/<\/think>/i)[1];
-    if (after !== undefined) return after.trim();
-  }
-  // Try XML tags
-  const answerMatch = text.match(/(?:\/\/)?<answer>([\s\S]*?)(<\/answer>|$)/i);
-  if (answerMatch) return answerMatch[1]!.trim();
-  // Try markdown: ОТВЕТ: ...
-  const mdAnswerMatch = text.match(/ОТВЕТ:\s*([\s\S]*?)$/i);
-  if (mdAnswerMatch) return mdAnswerMatch[1]!.trim();
-  // LX-1: Inline leak — "ОТВЕТ:" present WITHOUT "ХОД МЫСЛИ:" prefix.
-  // If there's an "ОТВЕТ:" line anywhere, the answer is what follows it.
-  if (!/ХОД МЫСЛИ:/i.test(text)) {
-    const answerIdx = text.search(/^ОТВЕТ:\s*$/im);
-    if (answerIdx >= 0) {
-      const after = text.slice(answerIdx).replace(/^ОТВЕТ:\s*/im, '').trim();
-      return after || text;
-    }
-  }
-  // Strip reasoning blocks and return the rest
-  const stripped = text
-    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-    .replace(/(?:\/\/)?<\/?reasoning>/gi, '')
-    .replace(/ХОД МЫСЛИ:[\s\S]*?(?=ОТВЕТ:|$)/gi, '')
-    .replace(/ОТВЕТ:/gi, '')
-    .replace(/(?:\/\/)?<answer>/gi, '')
-    .replace(/<\/answer>/gi, '')
-    .trim();
-  if (!stripped && text.trim()) {
-    return text
-      .replace(/^ХОД МЫСЛИ:\s*$/gim, '')
-      .replace(/^ОТВЕТ:\s*$/gim, '')
-      .trim();
-  }
-  return stripped;
-}
+import { useAIChatContext } from './useAIChatContext';
+import {
+  streamChat,
+  callableChat,
+  extractReasoning,
+  extractAnswer,
+  looksLikeNoteSearch,
+  pruneMessages,
+  toApiContent,
+  API_MSG_CAP,
+  CONTEXT_WINDOW,
+  _streamUnavailableUntil
+} from '../utils/aiChatTransport';
+export { API_MSG_CAP };
 
 interface UseAIChatReturn {
   dialogue: AIDialogue | null;
@@ -310,28 +63,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   // once acute-risk markers are detected; stays until the user dismisses it.
   const [crisisActive, setCrisisActive] = useState(false);
 
-  // L12: Cache portrait across messages to avoid Firestore reads per turn.
-  const portraitCacheRef = useRef<string | null | undefined>(undefined);
+    const context = useAIChatContext(personaId);
 
-  // OPT-4: Cache facets + documents for the session, invalidate on dialogue change
-  const facetsCacheRef = useRef<{ facets: Awaited<ReturnType<typeof AIProfileFacetService.getAll>> | null }>({ facets: null });
-  // CHATFIX-2: docsCacheRef — Map<id, doc>, loaded once per session
-  const docsCacheRef = useRef<Map<string, { id: string; title?: string; lastSessionAt?: number; firstSessionAt?: number }> | null>(null);
-  // CHATFIX-1: doorsCacheRef — aggregate doors, computed once per session
-  const doorsCacheRef = useRef<{ hint: string } | null>(null);
-  // CHATFIX-3: Track message count for memory extraction throttle
-  const messageCountRef = useRef(0);
-  // Sticky attached note: once a note is attached, keep it as the subject for the
-  // whole dialogue session so follow-ups ("разбери подробнее") still see its text
-  // — otherwise the note is gone after the first turn and the model confabulates.
-  const attachedNoteRef = useRef<{ content: string } | null>(null);
-
-  // Sticky note-search: once a search happens, keep retrieving for the next few
-  // follow-up turns (e.g. "посмотри в этих", "собери", "а почему") even if they
-  // don't match a trigger, reusing the last real query so the topic carries.
-  const stickyTurnsRef = useRef(0);
-  const lastSearchQueryRef = useRef('');
-  const lastSearchNamesRef = useRef<string[]>([]);
   // Stop button: abort the in-flight streaming request.
   const abortRef = useRef<AbortController | null>(null);
   // R-1: Synchronous re-entrancy guard — isLoading is React state (async commit),
@@ -340,15 +73,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   const sendingRef = useRef(false);
 
   useEffect(() => {
-    stickyTurnsRef.current = 0;
-    lastSearchQueryRef.current = '';
-    lastSearchNamesRef.current = [];
-    // OPT-4: Invalidate facet/doc/doors cache on dialogue change
-    facetsCacheRef.current = { facets: null };
-    docsCacheRef.current = null;
-    doorsCacheRef.current = null;
-    messageCountRef.current = 0;
-    attachedNoteRef.current = null;
+    context.resetSession();
     setCrisisActive(false);
     // Abort any in-flight stream from the previous dialogue
     abortRef.current?.abort();
@@ -367,10 +92,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         // Hydrate the sticky note from the dialogue's linked document so a
         // reloaded note-dialogue stays grounded (note re-injected, facets/memory
         // suppressed) without the user re-attaching.
-        if (d?.documentId && !attachedNoteRef.current) {
+        if (d?.documentId && !context.getAttachedNote()) {
           try {
             const content = await LocalVersionService.getLatestContent(d.documentId);
-            if (content) attachedNoteRef.current = { content };
+            if (content) context.setAttachedNote({ content, documentId: d.documentId });
           } catch { /* non-critical */ }
         }
       });
@@ -501,10 +226,16 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
     try {
 
-      // Sticky note: remember a freshly attached note, and reuse it on follow-up
+            // Sticky note: remember a freshly attached note, and reuse it on follow-up
       // turns that don't re-attach so the note stays the subject of the dialogue.
-      if (attached) attachedNoteRef.current = { content: attached.content };
-      const effectiveAttached = attached ?? attachedNoteRef.current ?? undefined;
+      if (attached) {
+        const note: { content: string; documentId?: string } = { content: attached.content };
+        if (attached.documentId !== undefined) {
+          note.documentId = attached.documentId;
+        }
+        context.setAttachedNote(note);
+      }
+      const effectiveAttached = attached ?? context.getAttachedNote() ?? undefined;
 
       // SAFETY: user asks to analyze "their note" but no note text is actually in
       // context (attach didn't fire / not re-sent). Never fabricate a note from
@@ -526,493 +257,32 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       const apiMessages = pruneMessages(sourceForApi.filter(m => m.type !== 'system'))
         .map(m => ({ ...m, content: toApiContent(m.content) }));
 
-      // async-cheap-condition-before-await: compute sync flags before any awaits.
-      // An attached note must NOT trigger an archive search — the note is already
-      // provided in full via documentContent, and its "[Прикреплена заметка…]"
-      // marker would otherwise match the note-search heuristic.
-      const explicitSearch = effectiveAttached ? false : looksLikeNoteSearch(text);
+      const isFirstTurn = baseMessages.filter(m => m.type !== 'system').length === 0;
 
-      let effectivePersonaId = personaId;
-      let customSystemPrompt: string | undefined;
-
-      const isPreset = PRESET_PERSONAS.some(p => p.id === personaId);
-
-      // async-parallel: fetch portrait and custom persona concurrently.
-      const portraitPromise = portraitCacheRef.current !== undefined
-        ? Promise.resolve(portraitCacheRef.current)
-        : AIProfileService.getPortrait().then(p => { portraitCacheRef.current = p; return p; });
-      const personaPromise = isPreset
-        ? Promise.resolve(undefined)
-        : AIPersonaService.getCustom(personaId);
-
-      const [userPortrait, customPersona] = await Promise.all([portraitPromise, personaPromise]);
-
-      if (!isPreset && customPersona) {
-        customSystemPrompt = customPersona.systemPrompt;
-        personaName = customPersona.name;
-        personaEmoji = customPersona.emoji;
-        effectivePersonaId = 'custom';
-      } else if (isPreset) {
-        const preset = PRESET_PERSONAS.find(p => p.id === personaId);
-        personaName = preset?.name ?? personaId;
-        personaEmoji = preset?.emoji ?? '\u{1F916}';
-      }
-
-      // Note-search context goes through documentContent (backend cap 50K), NOT
-      // appended to the message — a chat message is capped at 10K chars, and
-      // full notes blow past it (that returned 400 Bad Request from /api/chat).
-      let searchContext: string | undefined;
-
-      // Explicit trigger, or sticky follow-up within an ongoing notes conversation.
-      const stickySearch = !explicitSearch && stickyTurnsRef.current > 0 && lastSearchQueryRef.current.length > 0;
-      if (explicitSearch) {
-        stickyTurnsRef.current = 4;
-        lastSearchQueryRef.current = text;
-        lastSearchNamesRef.current = [...new Set(text.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [])];
-      } else if (stickySearch) {
-        stickyTurnsRef.current -= 1;
-      }
-
-      // PROF-6: augment context with relevant profile facets.
-      // Always include for psychology/cbt/coach personas; for others only on search.
-      // BUT NOT when a note is attached: the note IS the subject of analysis, and
-      // mixing in facet/profile summaries made the model confabulate a fake note
-      // out of past themes (it described events that weren't in the attached text).
-      const psychePersonas = ['group_psychology', 'cbt', 'coach', 'parts'];
-      const needsFacets = !effectiveAttached && !noteIntentNoText && (explicitSearch || stickySearch || psychePersonas.includes(effectivePersonaId));
-      const facetNoteIds = new Set<string>();
-
-      // OPT-1: Single embedding for the query — reused in facets + search
-      let queryEmb: number[] | undefined;
-      // OPT-1: Single getAll() call — reused for facets + name search + vector search
-      let allEmbeddings: Awaited<ReturnType<typeof AIEmbeddingService.getAll>> | undefined;
-
-      // OPT-4: Gate facet augmentation on trivial messages
-      // CHATFIX-7: For psycho-personas, relax gate — emotional short messages
-      // ("мне плохо", "устал") are key moments that need context.
-      const wordCount = text.trim().split(/\s+/).length;
-      const isPsyche = psychePersonas.includes(effectivePersonaId);
-      const isTrivial = isPsyche
-        ? (wordCount < 2 && !/[?]/.test(text) && !looksLikeNoteSearch(text))
-        : (wordCount < 4 && !/[?]/.test(text) && !looksLikeNoteSearch(text));
-      const shouldRunFacets = needsFacets && !isTrivial;
-
-      if (shouldRunFacets) {
-        try {
-          // OPT-4: Read facets from cache, only load from DB once per session
-          let facets = facetsCacheRef.current.facets;
-          if (!facets) {
-            facets = await AIProfileFacetService.getAll();
-            facetsCacheRef.current = { facets };
-          }
-          if (facets.length > 0) {
-            // OPT-1: Compute query embedding ONCE, reuse for search
-            if (queryEmb === undefined) {
-              const embedQuery = explicitSearch || stickySearch
-                ? (explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`)
-                : text;
-              const queryEmbResult = await AIService.embed({ content: embedQuery });
-              queryEmb = queryEmbResult.ok && queryEmbResult.vectors[0] ? queryEmbResult.vectors[0] : undefined;
-            }
-            const qv = queryEmb;
-
-            const queryLower = text.toLowerCase();
-            const queryWords = queryLower.match(/[а-яё]{3,}/gi) ?? [];
-            const queryNames = [...new Set([
-              ...text.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [],
-              ...lastSearchNamesRef.current,
-            ])];
-            const nameLower = queryNames.map(n => n.toLowerCase());
-
-            const relevant = facets
-              .map(f => {
-                let sim = qv ? cosineSimilarity(qv, f.centroid) : 0;
-                // Keyword name-match boost: if the query contains words that appear
-                // in this facet's label or summary, boost similarity so name-based
-                // queries ("про Сашу") find the partner facet.
-                if (queryWords.length > 0 && f.noteIds.length > 0) {
-                  const labelLower = f.label.toLowerCase();
-                  const summaryLower = f.summary.toLowerCase();
-                  const labelHit = queryWords.some(w => labelLower.includes(w) && w.length >= 3);
-                  const summaryHit = queryWords.some(w => summaryLower.includes(w) && w.length >= 3);
-                  if (labelHit) sim = Math.max(sim, 0.60);
-                  else if (summaryHit) sim = Math.max(sim, 0.55);
-                }
-                // Proper-name boost: if the query contains a capitalized name
-                // and this facet's note texts mention that name, strong boost.
-                if (nameLower.length > 0 && f.noteIds.length > 0) {
-                  const allLower = `${f.label} ${f.summary}`.toLowerCase();
-                  if (nameLower.some(n => allLower.includes(n))) sim = Math.max(sim, 0.60);
-                }
-                return { f, sim };
-              })
-              .filter(({ sim }) => sim >= 0.35)
-              .sort((a, b) => b.sim - a.sim)
-              .slice(0, 5);
-
-            if (relevant.length > 0) {
-              // CHATFIX-2: Use docsCacheRef — single getAll('documents') per session
-              let docMap = docsCacheRef.current;
-              if (!docMap) {
-                const db = await getLocalDb();
-                const docs = await db.getAll('documents');
-                docMap = new Map(docs.map(d => [d.id, d]));
-                docsCacheRef.current = docMap;
-              }
-
-              const facetLines = relevant.map(({ f }) => {
-                // Collect note IDs from relevant facets for supplemental note loading
-                for (const id of f.noteIds) facetNoteIds.add(id);
-
-                const noteTitles = f.noteIds
-                  .slice(0, 12)
-                  .map(id => docMap.get(id)?.title)
-                  .filter(Boolean)
-                  .map(t => `  · ${t}`)
-                  .join('\n');
-
-                // DLG-4: Temporal observations from facet firstAt/lastAt
-                const now = Date.now();
-                const dayMs = 86_400_000;
-                let temporalNote = '';
-                if (f.firstAt && f.lastAt) {
-                  const lastDaysAgo = Math.round((now - f.lastAt) / dayMs);
-                  const firstDaysAgo = Math.round((now - f.firstAt) / dayMs);
-                  const locale = language === 'ru' ? 'ru-RU' : 'en-US';
-                  if (lastDaysAgo <= 3) {
-                    temporalNote = language === 'ru' ? ` [тема активна сейчас]` : ` [topic active now]`;
-                  } else if (lastDaysAgo <= 14) {
-                    temporalNote = language === 'ru'
-                      ? ` [последняя запись ${lastDaysAgo} дн. назад]`
-                      : ` [last entry ${lastDaysAgo} days ago]`;
-                  } else if (lastDaysAgo > 30 && firstDaysAgo > 60) {
-                    temporalNote = language === 'ru'
-                      ? ` [тема затихла с ${new Date(f.lastAt).toLocaleDateString(locale)}]`
-                      : ` [topic inactive since ${new Date(f.lastAt).toLocaleDateString(locale)}]`;
-                  } else if (firstDaysAgo <= 7) {
-                    temporalNote = language === 'ru' ? ` [новая тема]` : ` [new topic]`;
-                  }
-                }
-
-                return `— ${f.label} (${f.noteCount} заметок)${temporalNote}:\n${f.summary}${noteTitles ? `\nЗаметки по теме:\n${noteTitles}` : ''}`;
-              }).join('\n\n');
-              const facetBlock = `Темы профиля пользователя (обобщены ИИ по заметкам):\n${facetLines}\n\nОпирайся на эти темы и на заметки ниже при ответе. Не выдумывай детали, которых нет в текстах.`;
-
-              // CHATFIX-1: Doors hint — cached per session, not recomputed every message
-              let doorsHint = '';
-              if (psychePersonas.includes(effectivePersonaId)) {
-                if (doorsCacheRef.current) {
-                  doorsHint = doorsCacheRef.current.hint;
-                } else {
-                  try {
-                    // CHATFIX-2: reuse docMap from cache instead of second getAll
-                    const allDocs = [...(docMap ?? new Map()).values()];
-                    if (allDocs.length > 0) {
-                      const perNote: { doors: ReturnType<typeof analyzeDoors>; ts: number }[] = [];
-                      for (const d of allDocs) {
-                        const content = await LocalVersionService.getLatestContent(d.id);
-                        if (!content) continue;
-                        perNote.push({ doors: analyzeDoors(content), ts: d.lastSessionAt ?? d.firstSessionAt ?? 0 });
-                      }
-                      // CHATFIX-4: Sort by ts desc, take 20 newest
-                      perNote.sort((a, b) => b.ts - a.ts);
-                      const doorsResult = aggregateDoors(perNote.slice(0, 20));
-                      if (!doorsResult.lowData && doorsResult.thinnestDoor && doorsResult.dominantDoor) {
-                        doorsHint = `\n\nНаблюдение: в записях пользователь чаще опирается на ${doorLabel(doorsResult.dominantDoor)}; ${doorLabel(doorsResult.thinnestDoor)} звучат реже. Если уместно — мягко, гипотезой пригласи заметить ${doorLabel(doorsResult.thinnestDoor)} под ${doorLabel(doorsResult.dominantDoor)}; не дави, дай возможность отказаться.`;
-                      }
-                    }
-                    doorsCacheRef.current = { hint: doorsHint };
-                  } catch { /* non-critical */ }
-                }
-              }
-
-              searchContext = facetBlock + doorsHint;
-            }
-          }
-        } catch (e) {
-          reportError(e, { action: '[useAIChat] facet augmentation failed' });
-        }
-      }
-
-      if (explicitSearch || stickySearch) {
-        // On sticky turns reuse the last real query so a terse follow-up
-        // ("собери", "а ещё") still retrieves the same topic.
-        const searchQuery = explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`;
-        try {
-          // OPT-2: Query expansion disabled by default — hybrid BM25+vector
-          // already provides good recall. Set AI_QUERY_EXPANSION=true to re-enable.
-          let searchQueries = [searchQuery];
-          const expansionEnabled = import.meta.env.VITE_AI_QUERY_EXPANSION === 'true';
-          if (explicitSearch && expansionEnabled) {
-            try {
-              const expandRes = await AIService.chat({
-                personaId: 'coach',
-                callType: 'query_expand',
-                messages: [{ role: 'user', content: `Для поискового запроса по личному дневнику: "${searchQuery}", напиши 3 альтернативных поисковых запроса на русском языке (синонимы, связанные темы, имена). Выдай их одной строкой через запятую.` }],
-              });
-              if (expandRes.ok && expandRes.text) {
-                const expanded = expandRes.text.split(',').map(s => s.trim()).filter(s => s.length > 2);
-                if (expanded.length > 0) searchQueries = [searchQuery, ...expanded.slice(0, 3)];
-              }
-            } catch { /* non-critical, fall back to original query */ }
-          }
-
-          // OPT-1: Reuse query embedding if already computed for facets
-          if (queryEmb === undefined) {
-            const queryEmbResult = await AIService.embed({ content: searchQuery });
-            queryEmb = queryEmbResult.ok && queryEmbResult.vectors[0] ? queryEmbResult.vectors[0] : undefined;
-          }
-
-          // OPT-1: Reuse allEmbeddings if already loaded for name search
-          if (allEmbeddings === undefined) {
-            allEmbeddings = await AIEmbeddingService.getAll();
-          }
-
-          const notes = await searchNotesMulti(searchQueries, 10, { queryVector: queryEmb, allEmbeddings });
-
-          // Text-based name search: vector embeddings are bad at proper-name
-          // retrieval ("Даша" won't match chunks that mention her briefly).
-          // Extract candidate names from current text + carry forward from the
-          // original query on sticky turns ("а ещё про неё?" has no names).
-          const candidateNames = [...new Set([
-            ...text.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [],
-            ...lastSearchNamesRef.current,
-          ])];
-          const nameSearchIds = new Set<string>();
-          // M2: Load embeddings once, reuse for both name search and facet-note matching.
-          // OPT-1: allEmbeddings already loaded above, reuse here
-          const nameSearchEmb = candidateNames.length > 0 ? (allEmbeddings ?? await AIEmbeddingService.getAll()) : [];
-          // js-hoist-regexp: pre-compile all name regexes once instead of in a loop.
-          const nameRegexes = candidateNames.map(name =>
-            new RegExp(`(?:^|[^а-яёА-ЯЁa-zA-Z0-9_])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:[^а-яёА-ЯЁa-zA-Z0-9_]|$)`)
-          );
-          if (nameRegexes.length > 0) {
-            for (const emb of nameSearchEmb) {
-              if (nameSearchIds.has(emb.documentId)) continue;
-              const texts = emb.chunkTexts ?? [];
-              if (texts.some(t => nameRegexes.some(re => re.test(t)))) nameSearchIds.add(emb.documentId);
-            }
-          }
-
-          // Combine: vector search results + facet notes + name-search notes
-          const foundIds = new Set(notes.map(n => n.documentId));
-          // M2: reuse nameSearchEmb + nameRegexes already compiled above.
-          if (nameRegexes.length > 0 && facetNoteIds.size > 0) {
-            for (const emb of nameSearchEmb) {
-              if (!facetNoteIds.has(emb.documentId)) continue;
-              if (foundIds.has(emb.documentId) || nameSearchIds.has(emb.documentId)) continue;
-              const texts = emb.chunkTexts ?? [];
-              if (texts.some(t => nameRegexes.some(re => re.test(t)))) nameSearchIds.add(emb.documentId);
-            }
-          }
-          // L11: skip facet extraIds already covered by vector search to avoid duplicate notes.
-          const extraIds: string[] = [];
-          for (const id of facetNoteIds) {
-            if (!foundIds.has(id) && !nameSearchIds.has(id) && extraIds.length < 10) extraIds.push(id);
-          }
-          const nameIds = [...nameSearchIds].filter(id => !foundIds.has(id) && !extraIds.includes(id)).slice(0, 15);
-          let allNotes = notes.length > 0 ? [...notes] : [];
-
-          const db = await getLocalDb();
-          for (const docId of [...extraIds, ...nameIds]) {
-            const doc = await db.get('documents', docId);
-            if (!doc) continue;
-            const content = await LocalVersionService.getLatestContent(docId);
-            if (!content) continue;
-            allNotes.push({
-              documentId: docId,
-              title: doc.title || 'Без названия',
-              content,
-              score: 0,
-              lastSessionAt: doc.lastSessionAt,
-            });
-          }
-
-          if (allNotes.length > 5) {
-            // Rerank when we have many candidates — pick the most relevant 5-8.
-            try {
-              const candidates = allNotes.map(n => ({
-                documentId: n.documentId,
-                card: `${n.title}\n${n.content.slice(0, 400)}`,
-              }));
-              const rr = await AIService.rerank({ query: text, candidates, maxResults: 8 });
-              if (rr.ok && rr.documentIds.length > 0) {
-                const rerankOrder = new Map(rr.documentIds.map((id, i) => [id, i]));
-                allNotes.sort((a, b) => {
-                  const ai = rerankOrder.get(a.documentId) ?? 999;
-                  const bi = rerankOrder.get(b.documentId) ?? 999;
-                  return ai - bi;
-                });
-                allNotes = allNotes.slice(0, 8);
-              }
-            } catch (e) {
-              reportError(e, { action: '[useAIChat] rerank failed, keeping original order' });
-            }
-          }
-
-          if (allNotes.length > 0) {
-            // TICKET-025: Dynamic Context Budgeting — score by vector sim +
-            // keyword density + recency, then add notes until budget exhausted.
-            const BUDGET_CHARS = 25_000;
-            const now = Date.now();
-            const scored = allNotes.map(n => {
-              const vectorScore = Math.max(0, n.score);
-              const keywordScore = Math.min(1, (n.content.match(new RegExp(text.split(/\s+/).filter(w => w.length > 2).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi'))?.length ?? 0) / 10);
-              const ageDays = (now - (n.lastSessionAt ?? now)) / 86_400_000;
-              const recencyFactor = Math.exp(-ageDays / 365);
-              return {
-                note: n,
-                compositeScore: 0.5 * vectorScore + 0.3 * keywordScore + 0.2 * recencyFactor,
-              };
-            }).sort((a, b) => b.compositeScore - a.compositeScore);
-
-            // OPT-7: Place most relevant notes near the END (closest to user question)
-            // to combat "lost in the middle" effect — reverse the scored list
-            const orderedForPlacement = [...scored].reverse();
-            const CONTEXT_RADIUS = 500;
-            const PER_NOTE_CHARS = 2_000;
-            const parts: string[] = [];
-            let totalChars = 0;
-            let noteIdx = 0;
-
-            for (const { note: n } of orderedForPlacement) {
-              if (totalChars >= BUDGET_CHARS) break;
-              let snippet: string;
-              if (candidateNames.length > 0) {
-                const namePositions = candidateNames
-                  .map(name => n.content.indexOf(name))
-                  .filter(pos => pos >= 0);
-                if (namePositions.length > 0) {
-                  const firstPos = Math.min(...namePositions);
-                  const start = Math.max(0, firstPos - CONTEXT_RADIUS);
-                  snippet = n.content.slice(start, start + PER_NOTE_CHARS);
-                  if (start > 0) snippet = '…' + snippet;
-                  if (start + PER_NOTE_CHARS < n.content.length) snippet += '…';
-                } else {
-                  snippet = n.content.slice(0, PER_NOTE_CHARS);
-                }
-              } else {
-                snippet = n.content.length > PER_NOTE_CHARS
-                  ? n.content.slice(0, PER_NOTE_CHARS) + '…'
-                  : n.content;
-              }
-              noteIdx++;
-              const noteSummary = await db.get('aiSummaries', n.documentId);
-              const summaryPrefix = noteSummary?.summary ? `[Суть: ${noteSummary.summary}]\n` : '';
-              parts.push(`Заметка ${noteIdx}: "${n.title}"\n${summaryPrefix}${snippet}`);
-              totalChars += snippet.length + summaryPrefix.length;
-            }
-            const noteBlock = (
-              `\n\nРезультаты поиска по архиву заметок (запрос: "${text}"). ` +
-              `Найдено заметок: ${allNotes.length} (отобрано ${noteIdx} по релевантности). ` +
-              `Это наиболее релевантные заметки по запросу. Если ответа в них нет — так и скажи, не домысливай.\n\n` +
-              parts.join('\n\n')
-            );
-            searchContext = (searchContext ?? '') + noteBlock;
-          } else if (!searchContext) {
-            searchContext =
-              `Автоматический поиск по архиву заметок пользователя по запросу "${text}" не нашёл заметок. ` +
-              `КАТЕГОРИЧЕСКИ не выдумывай содержание его заметок и не приписывай ему того, чего нет.`;
-          }
-          // H5: Cap total searchContext to prevent blowing past model context window.
-          // Budget: 30K chars ≈ 10K tokens for notes/facets (model window ~128K tokens).
-          const CONTEXT_CAP = 30_000;
-          if (searchContext && searchContext.length > CONTEXT_CAP) {
-            const facetHead = searchContext.indexOf('\n\nРезультаты поиска');
-            if (facetHead > 0) {
-              const facetPart = searchContext.slice(0, facetHead);
-              const notePart = searchContext.slice(facetHead);
-              const facetBudget = 5_000;
-              const noteBudget = CONTEXT_CAP - facetBudget;
-              const trimmedFacet = facetPart.length <= facetBudget ? facetPart : facetPart.slice(0, facetBudget) + '…';
-              const trimmedNote = notePart.length <= noteBudget ? notePart : notePart.slice(0, noteBudget) + '…';
-              searchContext = trimmedFacet + trimmedNote;
-            } else {
-              searchContext = searchContext.slice(0, CONTEXT_CAP) + '…';
-            }
-          }
-        } catch (e) {
-          reportError(e, { action: '[useAIChat] note search failed' });
-          if (!searchContext) {
-            searchContext =
-              `Поиск по архиву заметок пользователя по запросу "${text}" временно не сработал. ` +
-              `Не выдумывай содержание его заметок.`;
-          }
-        }
-      }
-
-      // DLG-1: Cross-dialogue memory — inject relevant memories into context.
-      // Skip when a note is attached: memory of past chats (incl. the AI's own
-      // past interpretations) leaked in and got misattributed to the attached note.
-      // AX-8: preference memories (from 👍/👎) are ALWAYS included, not just by
-      // embedding similarity, so feedback reliably influences the next response.
-      if (!effectiveAttached && !noteIntentNoText) {
-        try {
-          const relevantMemories = queryEmb ? await AIChatMemoryService.getRelevant(queryEmb, 5) : [];
-          const preferences = await AIChatMemoryService.getPreferences();
-          // Merge + deduplicate by id
-          const seen = new Set<string>();
-          const allMemories = [...preferences, ...relevantMemories].filter(m => {
-            if (seen.has(m.id)) return false;
-            seen.add(m.id);
-            return true;
-          });
-          if (allMemories.length > 0) {
-            const memoryBlock = '[Что ИИ помнит о пользователе из прошлых бесед]\n' +
-              allMemories.map(m => `— ${m.kind}: ${m.text}`).join('\n');
-            searchContext = searchContext ? searchContext + '\n\n' + memoryBlock : memoryBlock;
-          }
-        } catch (e) {
-          reportError(e, { action: '[useAIChat] memory retrieval failed' });
-        }
-      }
-
-      // THERAPY-2: Crisis safety check — if acute risk detected, inject safety context
-      const riskResult = detectRisk(text);
-      if (riskResult.isRisk) {
-        setCrisisActive(true);
-        const crisisBlock = `⚠️ КРИЗИСНЫЙ КОНТЕКСТ: пользователь выразил явные маркеры острого риска. ` +
-          `СЛЕДУЙ КРИЗИСНОМУ ПРОТОКОЛУ (SAFETY_GUIDE). ` +
-          `Ресурсы для пользователя: ${CRISIS_RESOURCES.join(' | ')}. ` +
-          `Тепло признай боль, направь к живой помощи, НЕ обрывай диалог.`;
-        searchContext = searchContext ? crisisBlock + '\n\n' + searchContext : crisisBlock;
-      }
-
-      // Attached note: inject the FULL text as primary context (capped to fit the
-      // 50K documentContent budget). Takes priority over facet/search context.
-      // Skip when the note is delivered INLINE in the message (small notes) — it's
-      // already in the user turn, the most reliable channel.
-      if (effectiveAttached?.content && !attached?.inline) {
-        const noteText = effectiveAttached.content.slice(0, 45_000);
-        const noteBlock =
-          `[Прикреплённая пользователем заметка — ЕДИНСТВЕННЫЙ источник для разбора]\n` +
-          `Разбирай СТРОГО то, что реально написано ниже. Не добавляй событий, сцен, цитат, эмоций или фактов, которых в этом тексте нет (например слёз, сессий, чужих фраз), даже если они кажутся вероятными или звучали раньше. Если чего-то в тексте нет — значит этого нет.\n\n` +
-          noteText;
-        if (searchContext) {
-          const room = 48_000 - noteBlock.length;
-          searchContext = room > 500 ? noteBlock + '\n\n' + searchContext.slice(0, room) : noteBlock;
-        } else {
-          searchContext = noteBlock;
-        }
-      } else if (noteIntentNoText) {
-        // User asked to analyze a note but its text isn't here — forbid fabrication.
-        searchContext =
-          `ВНИМАНИЕ: пользователь просит разобрать заметку, но ЕЁ ТЕКСТ НЕ ПРИЛОЖЕН к этому сообщению и его нет в контексте. ` +
-          `У тебя НЕТ текста этой заметки. КАТЕГОРИЧЕСКИ запрещено выдумывать, реконструировать или пересказывать её содержание — ` +
-          `даже если кажется, что ты «помнишь» тему. Не сочиняй ни единого предложения «из заметки». ` +
-          `Вместо этого коротко и по-доброму скажи, что не видишь текста заметки, и попроси прикрепить её (скрепкой) или вставить текст. Ничего больше не придумывай.`;
-      }
+      const { userPortrait, customPersona, searchContext: rawSearchContext } = await context.buildContext({
+        text,
+        attached: effectiveAttached ? (
+          effectiveAttached.documentId !== undefined
+            ? { content: effectiveAttached.content, documentId: effectiveAttached.documentId }
+            : { content: effectiveAttached.content }
+        ) : null,
+        mood,
+        messageHistory: apiMessages,
+        isFirstTurn,
+      });
 
       // Inject today's date so the model can reason about "вчера", "на этой неделе" etc.
       const todayRu = new Date().toLocaleDateString('ru-RU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-      searchContext = searchContext
-        ? `[Сегодня: ${todayRu}]\n\n${searchContext}`
+      let searchContext = rawSearchContext
+        ? `[Сегодня: ${todayRu}]\n\n${rawSearchContext}`
         : `[Сегодня: ${todayRu}]`;
 
       // Defensive clamps — never exceed the API schema limits (documentContent
       // 50K, userPortrait 100K), or the request 400s before reaching the model.
       if (searchContext && searchContext.length > 49_000) searchContext = searchContext.slice(0, 49_000);
       const safePortrait = userPortrait && userPortrait.length > 99_000 ? userPortrait.slice(0, 99_000) : userPortrait;
+      const customSystemPrompt = customPersona;
+      const effectivePersonaId = customPersona ? 'custom' : personaId;
 
       // AX-11: Migrate old 'reasoning' value in stored dialogues
       const storedLength = dialogue?.responseLength;
@@ -1092,12 +362,23 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       let currentDialogue = dialogue;
       const wasNew = !currentDialogue;
       if (!currentDialogue) {
+        let actualName = personaName;
+        let actualEmoji = personaEmoji;
+        if (!preset) {
+          try {
+            const custom = await AIPersonaService.getCustom(personaId);
+            if (custom) {
+              actualName = custom.name;
+              actualEmoji = custom.emoji;
+            }
+          } catch {}
+        }
         const title = text.slice(0, 40) + (text.length > 40 ? '...' : '');
         currentDialogue = await AIDialogueService.create({
           title,
           personaId,
-          personaName,
-          personaEmoji,
+          personaName: actualName,
+          personaEmoji: actualEmoji,
           messages: [],
           responseLength: effectiveResponseLength,
           reasoning: effectiveReasoning,
@@ -1114,8 +395,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         await AIDialogueService.setDocumentId(currentDialogue.id, attached.documentId);
       }
       // CHATFIX-3: Extract memory every 3rd turn, not every turn
-      messageCountRef.current += 1;
-      if (messageCountRef.current % 3 === 0) {
+      context.incrementMessageCount();
+      if (context.getMessageCount() % 3 === 0) {
         // Strip attachment bodies — memory extraction goes to an AI endpoint with
         // the same per-message cap, and raw note text shouldn't be stored anyway.
         const memMessages = allMessages.map(m => ({ ...m, content: toApiContent(m.content) }));

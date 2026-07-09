@@ -7,24 +7,25 @@ import { useAiLimitStore } from '../store/useAiLimitStore';
 import { useToast } from '../../../shared/components/Toast';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { TelemetryService } from '../../../core/services/TelemetryService';
-import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { getOrCreateGuestId } from '../../../core/storage/localDb';
 import { getAuth } from 'firebase/auth';
-import { useAIChat, API_MSG_CAP } from '../hooks/useAIChat';
+import { useAIChat } from '../hooks/useAIChat';
 import { useDailyLimit } from '../hooks/useDailyLimit';
 import { useProfile } from '../../auth/contexts/ProfileContext';
 import { personaVisual, usePersonaRole } from '../constants/personaVisuals';
-import type { AIDialogue, AIPersona } from '../../../core/storage/localDb';
-import type { PersonaDetailTarget } from '../components/PersonaDetailModal';
 import { reportError } from '../../../shared/errors/reportError';
+
+import { useDialogueManager } from './useDialogueManager';
+import { usePersonaManager } from './usePersonaManager';
+import { useAttachmentManager } from './useAttachmentManager';
+import { pickNoteByText, NOTE_REF_RE, NOTE_VERB_RE } from '../utils/noteAutoAttacher';
 
 type ResponseLength = 'short' | 'standard' | 'detailed';
 
 const MAX_INPUT_CHARS = 10_000;
 const EMPTY_MESSAGES: readonly never[] = [];
 
-// Conversation starters (empty chat) and follow-up suggestions (after a reply).
 export const CHAT_STARTERS = [
   'Разобрать мой сегодняшний день',
   'Помоги копнуть глубже в то, что беспокоит',
@@ -36,108 +37,50 @@ export const CHAT_FOLLOW_UPS = [
   'Помоги увидеть это под другим углом',
 ];
 
-// Auto-pull: "разбери/прочитай (мою)? (последнюю|сегодняшнюю|вчерашнюю|свежую)? заметку/аскезу"
-const NOTE_REF_RE = /(заметк|запис|аскез)/i;
-const NOTE_VERB_RE = /(разбер|разбор|проанализ|анализ|прочит|посмотр|глян)/i;
-type DocLite = { id: string; title?: string | undefined; lastSessionAt?: number; firstSessionAt?: number };
-function sameCalendarDay(ms: number, ref: Date): boolean {
-  const d = new Date(ms);
-  return d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth() && d.getDate() === ref.getDate();
-}
-function pickNoteByText<T extends DocLite>(docs: T[], text: string): T | null {
-  if (docs.length === 0) return null;
-  const recent = [...docs].sort((a, b) => (b.lastSessionAt ?? b.firstSessionAt ?? 0) - (a.lastSessionAt ?? a.firstSessionAt ?? 0));
-  const now = new Date();
-  if (/сегодняшн|сегодня/i.test(text)) return recent.find(d => sameCalendarDay(d.lastSessionAt ?? d.firstSessionAt ?? 0, now)) ?? recent[0] ?? null;
-  if (/вчерашн|вчера/i.test(text)) { const y = new Date(now); y.setDate(now.getDate() - 1); return recent.find(d => sameCalendarDay(d.lastSessionAt ?? d.firstSessionAt ?? 0, y)) ?? recent[0] ?? null; }
-
-  // Vague-reference words that do NOT count as a specific title match
-  const VAGUE_PREFIXES = ['последн', 'свеж', 'недавн', 'прошл'];
-  const VAGUE_EXACT = new Set(['мою', 'эту', 'про', 'о', 'об', 'по', 'на', 'тему']);
-  const isVague = (w: string): boolean =>
-    VAGUE_EXACT.has(w) || VAGUE_PREFIXES.some(p => w.startsWith(p));
-
-  // Strip trigger/verb refs, then tokenize into word and number tokens
-  const rawTokens = text
-    .replace(NOTE_REF_RE, ' ')
-    .replace(NOTE_VERB_RE, ' ')
-    .split(/[^a-zа-яё0-9]+/i)
-    .map(w => w.toLowerCase().trim())
-    .filter(w => w.length > 0);
-
-  const queryWords: string[] = [];
-  const queryNumbers: string[] = [];
-  for (const w of rawTokens) {
-    if (/^\d+$/.test(w)) {
-      queryNumbers.push(w);
-    } else if (w.length >= 3 && /^[a-zа-яё]+$/i.test(w) && !isVague(w)) {
-      queryWords.push(w);
-    }
-  }
-
-  // Specificity: >=1 NUMBER token OR >=1 non-vague WORD token of length>=4
-  const isSpecific = queryNumbers.length >= 1 || queryWords.some(w => w.length >= 4);
-
-  if (isSpecific) {
-    let best: T | null = null;
-    let bestScore = 0;
-
-    for (const d of recent) {
-      const title = (d.title ?? '').toLowerCase();
-      if (!title) continue;
-
-      const titleTokens = title.split(/[^a-zа-яё0-9]+/i).filter(t => t.length > 0);
-      const titleNumbers = titleTokens.filter(t => /^\d+$/.test(t));
-      const titleWords = titleTokens.filter(t => !/^\d+$/.test(t));
-
-      // NUMBER gate: EVERY query number must be an EXACT title number (not substring)
-      if (queryNumbers.length > 0 && !queryNumbers.every(qn => titleNumbers.includes(qn))) continue;
-
-      let score = 0;
-      for (const qn of queryNumbers) {
-        if (titleNumbers.includes(qn)) score++;
-      }
-      for (const qw of queryWords) {
-        if (titleWords.some(tw => tw.includes(qw) || qw.includes(tw))) score++;
-      }
-
-      if (score > bestScore) { bestScore = score; best = d; }
-    }
-
-    // Must cover all numbers AND at least one word (when word tokens exist)
-    const required = queryWords.length > 0 ? queryNumbers.length + 1 : queryNumbers.length;
-    if (best && bestScore >= required) return best;
-    return null; // specific query, no qualifying doc → attach nothing
-  }
-
-  return recent[0] ?? null; // последнюю / свежую / мою / эту → самая свежая
-}
-
 export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const { showToast } = useToast();
   const { confirm: confirmDialog, alert: alertDialog, prompt: promptDialog } = useConfirmDialog();
   const { profile } = useProfile();
-  const [dialogues, setDialogues] = useState<AIDialogue[]>([]);
-  const [archivedDialogues, setArchivedDialogues] = useState<AIDialogue[]>([]);
-  const [activeDialogueId, setActiveDialogueId] = useState<string | null>(null);
-  const [selectedPersonaId, setSelectedPersonaId] = useState<string>('group_psychology');
-  const [showArchived, setShowArchived] = useState(false);
-  const [customPersonas, setCustomPersonas] = useState<AIPersona[]>([]);
+
   const [inputText, setInputText] = useState('');
-  const [docPickerOpen, setDocPickerOpen] = useState(false);
-  const [createPersonaOpen, setCreatePersonaOpen] = useState(false);
-  const [detailPersona, setDetailPersona] = useState<PersonaDetailTarget | null>(null);
-  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [responseLength, setResponseLength] = useState<ResponseLength>('standard');
   const [reasoning, setReasoning] = useState(false);
-  // AX-10: Multiple note attachments — array instead of single object
-  const [pendingAttachments, setPendingAttachments] = useState<{ documentId: string; title: string; content: string }[]>([]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initRef = useRef(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const attachMenuRef = useRef<HTMLDivElement>(null);
 
   const dailyLimit = useDailyLimit();
+
+  const dialogueManager = useDialogueManager({ confirmDialog });
+  const {
+    dialogues,
+    archivedDialogues,
+    activeDialogueId,
+    setActiveDialogueId,
+    showArchived,
+    setShowArchived,
+    loadDialogues,
+    handleRenameDialogue,
+    handleArchive,
+    handleUnarchive,
+    handleDelete,
+    handleExport,
+  } = dialogueManager;
+
+  const personaManager = usePersonaManager();
+  const {
+    selectedPersonaId,
+    setSelectedPersonaId,
+    customPersonas,
+    createPersonaOpen,
+    setCreatePersonaOpen,
+    detailPersona,
+    setDetailPersona,
+    loadCustomPersonas,
+    allPersonas,
+    openPersonaDetail,
+  } = personaManager;
+
   const {
     dialogue,
     isLoading,
@@ -153,36 +96,44 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     clearError,
   } = useAIChat(activeDialogueId, selectedPersonaId, responseLength, reasoning);
 
-  // LX-2a: Sync admin role to the limit store so the client pre-check never blocks admins.
+  const attachmentManager = useAttachmentManager({
+    prepareAttachment,
+    sendMessage,
+    activeDialogueId,
+    setActiveDialogueId,
+    loadDialogues,
+    alertDialog,
+    inputText,
+    setInputText,
+  });
+  const {
+    docPickerOpen,
+    setDocPickerOpen,
+    attachMenuOpen,
+    setAttachMenuOpen,
+    pendingAttachments,
+    setPendingAttachments,
+    fileInputRef,
+    attachMenuRef,
+    removePendingAttachment,
+    handlePasteAsNote,
+    handleDocSelect,
+    handleFileUpload,
+  } = attachmentManager;
+
   useEffect(() => {
     useAiLimitStore.getState().setAdmin(profile?.role === 'admin');
   }, [profile?.role]);
-
-  const loadDialogues = useCallback(async () => {
-    const [active, archived] = await Promise.all([
-      AIDialogueService.list({ includeArchived: false }),
-      AIDialogueService.list({ includeArchived: true }),
-    ]);
-    setDialogues(active);
-    setArchivedDialogues(archived.filter(d => d.archivedAt));
-  }, []);
-
-  const loadCustomPersonas = useCallback(async () => {
-    const list = await AIPersonaService.listCustom();
-    setCustomPersonas(list);
-  }, []);
 
   const handleNewDialogue = useCallback(() => {
     setActiveDialogueId(null);
     setInputText('');
     setPendingAttachments([]);
-  }, []);
+  }, [setActiveDialogueId, setPendingAttachments]);
 
-  // THERAPY-4: Proactive contact point — check for faded topics on AI page load
   const [proactiveHint, setProactiveHint] = useState<string | null>(null);
   const proactiveShownRef = useRef(false);
 
-  // AX-9: Auto-generated follow-up suggestions based on the last AI response
   const [followUps, setFollowUps] = useState<string[]>(CHAT_FOLLOW_UPS);
   const lastFollowUpKeyRef = useRef('');
 
@@ -191,19 +142,16 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     initRef.current = true;
     setTimeout(() => {
       void loadDialogues();
-      // Runs once on mount (initRef guard) — activeDialogueId is null here, and
-      // the 10-min staleness guard protects any dialogue the user just opened.
       void AIDialogueService.cleanupEmpty().then(n => { if (n > 0) void loadDialogues(); });
       void AIChatMemoryService.cleanupDuplicates();
       void loadCustomPersonas();
       void TelemetryService.maybeSendTelemetry();
-      // THERAPY-4: Check for faded topics (once per session, debounced)
       if (!proactiveShownRef.current) {
         proactiveShownRef.current = true;
         void (async () => {
           try {
             const lastShown = localStorage.getItem('proactive_last_shown');
-            if (lastShown && (Date.now() - parseInt(lastShown, 10)) < 86_400_000) return; // once per day
+            if (lastShown && (Date.now() - parseInt(lastShown, 10)) < 86_400_000) return;
             const facets = await AIProfileFacetService.getAll();
             const now = Date.now();
             const dayMs = 86_400_000;
@@ -221,14 +169,11 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
         })();
       }
     }, 0);
-    // Opening chat from a note stages it as a pending attachment (chip), so the
-    // user can add a question before sending rather than auto-firing the note.
     if (linkedDocId) void prepareAttachment(linkedDocId).then(p => {
       if (p) setPendingAttachments([{ documentId: linkedDocId, title: p.title, content: p.content }]);
     });
-  }, [loadDialogues, loadCustomPersonas, linkedDocId, prepareAttachment]);
+  }, [loadDialogues, loadCustomPersonas, linkedDocId, prepareAttachment, setPendingAttachments]);
 
-  // TICKET-013: Handle draftFacet query param — pre-fill editor with facet data
   const draftFacetHandledRef = useRef(false);
   useEffect(() => {
     if (!draftFacetId || draftFacetHandledRef.current) return;
@@ -243,7 +188,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
           `Напиши вовлекающий пост для Telegram/блога на тему «${facet.label}» на основе связанных заметок. ` +
           `Инсайты для фокуса: ${facet.summary}`
         );
-        // Stage facet notes as pending attachment chips instead of auto-sending
         const notes: { documentId: string; title: string; content: string }[] = [];
         for (const noteId of facet.noteIds.slice(0, 5)) {
           const p = await prepareAttachment(noteId);
@@ -254,24 +198,12 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
         reportError(e, { action: 'use_ai_page_data_draft_facet' });
       }
     })();
-  }, [draftFacetId, prepareAttachment, handleNewDialogue]);
-
-  useEffect(() => {
-    if (!attachMenuOpen) return;
-    const dismiss = (e: MouseEvent) => {
-      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) {
-        setAttachMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', dismiss);
-    return () => document.removeEventListener('mousedown', dismiss);
-  }, [attachMenuOpen]);
+  }, [draftFacetId, prepareAttachment, handleNewDialogue, setSelectedPersonaId, setPendingAttachments]);
 
   const handleSendMessage = async (overrideText?: string) => {
     const text = (overrideText ?? inputText).trim();
     if ((!text && pendingAttachments.length === 0) || isLoading) return;
 
-    // AX-10: Resolve attachments — staged ones, OR auto-pull from the archive
     let attaches: { documentId: string; title: string; content: string }[] = [...pendingAttachments];
     if (attaches.length === 0 && text && NOTE_REF_RE.test(text) && NOTE_VERB_RE.test(text)) {
       try {
@@ -291,7 +223,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
 
     let id: string | null;
     if (attaches.length > 0) {
-      // Build markers and display for multiple notes
       const markers = attaches.map(a => `[Прикреплена заметка: "${a.title}"]`);
       const totalContent = attaches.map(a => a.content).join('\n\n---\n\n');
       const totalChars = attaches.reduce((s, a) => s + a.content.length, 0);
@@ -299,7 +230,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       const firstLocalDocId = attaches.find(a => a.documentId.startsWith('local_'))?.documentId;
 
       if (attaches.length === 1) {
-        // Single note — same format as before
         const a = attaches[0]!;
         const marker = markers[0]!;
         const display = fits
@@ -307,7 +237,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
           : (text ? `${marker}\n\n${text}` : marker);
         id = await sendMessage(display, { content: a.content, ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), inline: fits });
       } else {
-        // Multiple notes — each marked, combined content
         const noteBlocks = attaches.map((a, idx) => `${markers[idx]}\n\n${a.content}`).join('\n\n');
         const display = fits
           ? `${noteBlocks}${text ? `\n\n— — —\nВопрос: ${text}` : ''}`
@@ -322,24 +251,13 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       if (!activeDialogueId) setActiveDialogueId(id);
       await loadDialogues();
     } else {
-      // Failure / stop / daily-limit — restore the user's message and attachments
       if (overrideText === undefined) setInputText(text);
       if (prevPending.length > 0) setPendingAttachments(prevPending);
     }
   };
 
-  // Tap a starter / follow-up suggestion → send it immediately.
   const handleSuggestion = (text: string) => { void handleSendMessage(text); };
 
-  // AX-8: 👍/👎 feedback — saves preference memory that is GUARANTEED to reach
-  // the model's system prompt on the next turn (see useAIChat: preference
-  // memories are always included, not just by embedding similarity). A toast
-  // makes the effect visible to the user.
-  //
-  // What's saved to AIChatMemory (IndexedDB 'aiChatMemory', kind='preference'):
-  //  👍 → "Пользователю понравился такой ответ (тон/подход) — продолжать в этом духе."
-  //  👎 → "Пользователю не нравится: {reason}. Скорректировать стиль."
-  // These surface in future turns as "[Что ИИ помнит о пользователе] — preference: …"
   const handleFeedback = async (value: 'up' | 'down') => {
     if (value === 'up') {
       await AIChatMemoryService.addManual('preference', 'Пользователю понравился такой ответ (тон/подход) — продолжать в этом духе.', activeDialogueId ?? undefined);
@@ -359,7 +277,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     await loadDialogues();
   };
 
-  // AX-7: Switch between regenerate variants
   const handleSwitchVariant = async (delta: number) => {
     const id = activeDialogueId ?? dialogue?.id;
     if (!id) return;
@@ -379,21 +296,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     await loadDialogues();
   };
 
-  const removePendingAttachment = useCallback((index: number) => {
-    setPendingAttachments(prev => prev.filter((_, i) => i !== index));
-  }, []);
-
-  // Long pasted text is usually a note, not a chat message — let the user turn it
-  // into a staged attachment (chip) so it's analyzed strictly as a note (facets/
-  // memory suppressed) instead of mixing with profile context.
-  const handlePasteAsNote = useCallback(() => {
-    const text = inputText.trim();
-    if (!text) return;
-    setPendingAttachments(prev => [...prev, { documentId: `pasted-${Date.now()}`, title: 'Вставленный текст', content: text }]);
-    setInputText('');
-  }, [inputText]);
-
-  // AX-11: Length and reasoning are separate controls.
   const handleSetResponseLength = useCallback(async (length: ResponseLength) => {
     setResponseLength(length);
     const did = activeDialogueId ?? dialogue?.id;
@@ -422,57 +324,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     }
   }, [activeDialogueId, dialogue, responseLength, loadDialogues, confirmDialog]);
 
-  const handleRenameDialogue = useCallback(async (id: string, newTitle: string) => {
-    await AIDialogueService.updateTitle(id, newTitle);
-    await loadDialogues();
-  }, [loadDialogues]);
-
-  const handleArchive = async () => {
-    if (activeDialogueId) {
-      await AIDialogueService.archive(activeDialogueId);
-      setActiveDialogueId(null);
-      await loadDialogues();
-    }
-  };
-
-  const handleUnarchive = async (id: string) => {
-    await AIDialogueService.unarchive(id);
-    await loadDialogues();
-  };
-
-  const handleDelete = async () => {
-    if (activeDialogueId) {
-      const ok = await confirmDialog({ title: 'Удалить диалог?', message: 'Действие необратимо.' });
-      if (!ok) return;
-      await AIDialogueService.delete(activeDialogueId);
-      setActiveDialogueId(null);
-      await loadDialogues();
-    }
-  };
-
-  const handleExport = async () => {
-    if (!activeDialogueId) return;
-    const md = await AIDialogueService.exportAsMarkdown(activeDialogueId);
-    if (!md) return;
-    const activeDialogue = dialogues.find(d => d.id === activeDialogueId) || archivedDialogues.find(d => d.id === activeDialogueId);
-    const rawTitle = activeDialogue?.title || 'dialogue';
-    // Filesystem-unsafe chars (esp. "/") would otherwise break the download path on some OSes.
-    const safeTitle = rawTitle.replace(/[/\\?%*:|"<>]/g, '-').trim() || 'dialogue';
-    const dateStr = new Date().toISOString().split('T')[0];
-    const blob = new Blob([md], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${safeTitle}-${dateStr}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleDocSelect = async (documentId: string) => {
-    const prepared = await prepareAttachment(documentId);
-    if (prepared) setPendingAttachments(prev => [...prev, { documentId, title: prepared.title, content: prepared.content }]);
-  };
-
   const handleCopyMessage = (text: string) => {
     void navigator.clipboard?.writeText(text);
   };
@@ -486,59 +337,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     await loadDialogues();
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const MAX_FILE_SIZE = 1_048_576;
-    if (file.size > MAX_FILE_SIZE) {
-      void alertDialog({ title: 'Файл слишком большой', message: 'Максимум 1 МБ' });
-      e.target.value = '';
-      setAttachMenuOpen(false);
-      return;
-    }
-    const allowedTypes = ['text/plain', 'text/markdown', 'text/csv', 'application/json', 'text/html'];
-    const allowedExts = ['.txt', '.md', '.csv', '.json', '.html', '.xml'];
-    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-    if (!allowedTypes.includes(file.type) && !allowedExts.includes(ext)) {
-      void alertDialog({ title: 'Неподдерживаемый тип файла', message: `Допустимы: ${allowedExts.join(', ')}` });
-      e.target.value = '';
-      setAttachMenuOpen(false);
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const text = typeof ev.target?.result === 'string' ? ev.target.result : '';
-      const formatted = `[Прикреплен файл: "${file.name}"]\n\n${text}`;
-      if (formatted.length > API_MSG_CAP) {
-        void alertDialog({ title: 'Файл слишком большой', message: `Более ${API_MSG_CAP.toLocaleString()} символов` });
-        return;
-      }
-      const id = await sendMessage(formatted);
-      if (id && !activeDialogueId) setActiveDialogueId(id);
-      await loadDialogues();
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-    setAttachMenuOpen(false);
-  };
-
-  const allPersonas: { id: string; name: string; emoji: string; isPreset: boolean; systemPrompt?: string }[] = [
-    ...PRESET_PERSONAS.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, isPreset: true })),
-    ...customPersonas.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, isPreset: false, systemPrompt: p.systemPrompt })),
-  ];
-
-  const openPersonaDetail = (persona: typeof allPersonas[number]) => {
-    const v = personaVisual(persona.id, persona.name);
-    setDetailPersona({
-      id: persona.id,
-      name: persona.name,
-      isPreset: persona.isPreset,
-      systemPrompt: persona.systemPrompt,
-      color: v.color,
-      mono: v.mono,
-    });
-  };
-
   const activeDialogue = dialogue ?? dialogues.find(d => d.id === activeDialogueId) ?? null;
   const displayMessages = activeDialogue?.messages ?? EMPTY_MESSAGES;
 
@@ -550,7 +348,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const convVisual = personaVisual(convPersonaId, convPersonaName);
 
   useEffect(() => {
-    // AX-11: Migrate old 'reasoning' value → {length: 'standard', reasoning: true}
     let nextVal = activeDialogue?.responseLength ?? 'standard';
     let nextReasoning = activeDialogue?.reasoning ?? false;
     if (nextVal === 'reasoning' as unknown as ResponseLength) {
@@ -568,7 +365,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [displayMessages.length, streamingMessage]);
 
-  // AX-9: Generate context-aware follow-ups when the last assistant message changes
   useEffect(() => {
     let lastAssistant: string | null = null;
     for (let i = displayMessages.length - 1; i >= 0; i--) {
@@ -578,8 +374,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     const key = `${activeDialogueId ?? 'new'}:${displayMessages.length}:${lastAssistant?.slice(0, 100) ?? 'none'}`;
     if (key === lastFollowUpKeyRef.current) return;
     lastFollowUpKeyRef.current = key;
-    if (!lastAssistant) return; // keep default static follow-ups
-    // callType: 'follow_up' — server skips per-user quota, global guard still applies.
+    if (!lastAssistant) return;
     void AIService.chat({
       personaId: 'coach',
       callType: 'follow_up',

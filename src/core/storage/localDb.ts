@@ -87,6 +87,7 @@ export interface AIDialogue {
   responseLength?: 'short' | 'standard' | 'detailed';
   /** AX-11: Separate reasoning flag (decoupled from length). */
   reasoning?: boolean;
+  closingSummary?: string;
 }
 
 export interface AIDocumentSummary {
@@ -99,6 +100,34 @@ export interface AIDocumentSummary {
   extractedFacts: string[];
   mentionedPeople?: { name: string; role: string }[];
   processedAt: number;
+}
+
+export interface AITimelineEntry {
+  documentId: string;
+  date: string;       // YYYY-MM-DD from document's lastSessionAt
+  month: string;      // YYYY-MM for easy range queries
+  facts: string[];    // extractedFacts from the summary
+  summary?: string;   // AIDocumentSummary.summary (1-2 sentence overview)
+  tone?: string;
+  themes?: string[];
+}
+
+export interface AIMonthlyDigest {
+  month: string;       // YYYY-MM
+  narrative: string;   // 3-5 sentence plain text summary of that month
+  tones: string[];     // dominant tones
+  themes: string[];    // recurring themes
+  noteCount: number;
+  generatedAt: number;
+}
+
+export interface AIPeopleIndexEntry {
+  key: string;         // person name lowercased (canonical)
+  name: string;         // display name (capitalized)
+  role: string;         // most recent role seen
+  noteIds: string[];    // all documentIds where mentioned
+  lastMentionedAt: number;  // timestamp of most recent note
+  mentionCount: number;
 }
 
 export interface AIDocumentEmbedding {
@@ -219,6 +248,20 @@ interface JustWritingDB extends DBSchema {
     key: string;
     value: AIDomainVector;
   };
+  aiTimeline: {
+    key: string;
+    value: AITimelineEntry;
+    indexes: { 'by-month': string; 'by-date': string };
+  };
+  aiMonthlyDigest: {
+    key: string;
+    value: AIMonthlyDigest;
+  };
+  aiPeopleIndex: {
+    key: string;
+    value: AIPeopleIndexEntry;
+    indexes: { 'by-lastMentioned': number };
+  };
 }
 
 let dbInstance: IDBPDatabase<JustWritingDB> | null = null;
@@ -247,7 +290,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   if (dbOpenPromise) return dbOpenPromise;
 
   const currentGeneration = dbGeneration;
-  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 9, {
+  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 12, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const docStore = db.createObjectStore('documents', { keyPath: 'id' });
@@ -302,6 +345,24 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
       if (oldVersion < 9) {
         if (!db.objectStoreNames.contains('aiDomainVectors')) {
           db.createObjectStore('aiDomainVectors', { keyPath: 'cacheKey' });
+        }
+      }
+      if (oldVersion < 10) {
+        if (!db.objectStoreNames.contains('aiTimeline')) {
+          const timelineStore = db.createObjectStore('aiTimeline', { keyPath: 'documentId' });
+          timelineStore.createIndex('by-month', 'month');
+          timelineStore.createIndex('by-date', 'date');
+        }
+      }
+      if (oldVersion < 11) {
+        if (!db.objectStoreNames.contains('aiMonthlyDigest')) {
+          db.createObjectStore('aiMonthlyDigest', { keyPath: 'month' });
+        }
+      }
+      if (oldVersion < 12) {
+        if (!db.objectStoreNames.contains('aiPeopleIndex')) {
+          const peopleStore = db.createObjectStore('aiPeopleIndex', { keyPath: 'key' });
+          peopleStore.createIndex('by-lastMentioned', 'lastMentionedAt');
         }
       }
     },
