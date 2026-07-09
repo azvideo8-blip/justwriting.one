@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.49',
+    date: '2026-07-09',
+    items: [
+      { category: 'new', ru: 'ИИ понимает вопросы про время: «что было в апреле», «что я писал на прошлой неделе», «напомни, что происходило» — отвечает по хронологии заметок без обычного поиска', en: 'AI understands time-based questions: "what happened in April", "what did I write last week", "remind me what was going on" — answered from a note timeline without the usual search' },
+      { category: 'new', ru: 'ИИ помнит людей из заметок: «расскажи про Наташу» подтягивает записи, где она упомянута', en: 'AI tracks people across notes: "tell me about Наташа" pulls up entries where she is mentioned' },
+      { category: 'new', ru: 'В новом диалоге ИИ сразу в контексте недавних записей и динамики настроения; терапевтические персоны видят краткие итоги прошлых сессий', en: 'In a fresh dialogue the AI starts already aware of recent notes and mood trend; therapy personas see short summaries of past sessions' },
+      { category: 'improvement', ru: 'Заметки в ответах ИИ помечаются датой («три недели назад», «в апреле») — понятнее, о каком времени речь', en: 'Notes in AI answers are labelled with a date ("three weeks ago", "in April") — clearer which time period is meant' },
+      { category: 'improvement', ru: 'Подсказка на странице ИИ: предлагает обсудить свежую заметку одним нажатием', en: 'A hint on the AI page suggests discussing a recent note in one click' },
+    ],
+  },
+  {
     version: '0.7.48',
     date: '2026-07-08',
     items: [
