@@ -14,6 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.50',
+    date: '2026-07-10',
+    items: [
+      { category: 'new', ru: 'Бесшовная фоновая аналитика заметок: работает автоматически при простое приложения, убраны все ручные кнопки ИИ', en: 'Seamless background note analysis: runs automatically during idle periods, removing all manual AI buttons' },
+      { category: 'new', ru: 'Экран окончания письма показывает «Связь мыслей» (Echo) — как текущая запись перекликается с прошлым опытом', en: 'The writing finish screen shows a "Connection of thoughts" (Echo) connecting the entry with your past experience' },
+      { category: 'new', ru: 'ИИ видит ваши открытые намерения и сам отмечает их выполнение, когда вы пишете о них в новых заметках', en: 'AI tracks your open intentions (commitments) and auto-completes them when you write about them in new notes' },
+      { category: 'improvement', ru: 'Цепочки мыслей (narrative threads): записи автоматически объединяются в сквозные сюжетные линии во времени', en: 'Narrative threads: entries are automatically grouped into continuous story arcs over time' },
+      { category: 'new', ru: 'Анализ трендов настроения, детектор противоречий в суждениях и легковесный контекст при каждом обращении к чату', en: 'Mood trends, contradiction detection, and lightweight silent context retrieved for every chat turn' },
+      { category: 'improvement', ru: 'Психологический портрет строится по частям — пересчитываются только изменившиеся разделы, экономя запросы ИИ', en: 'The psychological portrait is computed incrementally — only updating sections with changed content to save requests' },
+    ],
+  },
+  {
     version: '0.7.49',
     date: '2026-07-09',
     items: [

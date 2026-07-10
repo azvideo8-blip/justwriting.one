@@ -1,6 +1,7 @@
 import { getLocalDb, type AIMonthlyDigest } from '../../../core/storage/localDb';
 import { AITimelineService } from './AITimelineService';
 import { AIService } from './AIService';
+import { AIBackgroundBudget } from './AIBackgroundBudget';
 
 // ponytail: dedupe concurrent generation for the same month. save() fires this
 // fire-and-forget on every summary; a bulk re-summarize (DiagnosticsPage) saves
@@ -44,6 +45,11 @@ async function generateForMonthInner(month: string): Promise<void> {
       excerpt: [e.summary ?? '', ...(e.facts ?? [])].filter(Boolean).join('. '),
     }));
 
+    if (!AIBackgroundBudget.canSpend(1)) {
+      console.warn(`[AIMonthlyDigestService] Skipping monthly digest for ${month}: background budget exhausted`);
+      return;
+    }
+
     const result = await AIService.summarizeFacet({
       notes: notesInput,
       focus: `${month} дневник`,
@@ -53,6 +59,8 @@ async function generateForMonthInner(month: string): Promise<void> {
       console.warn(`[AIMonthlyDigestService] Failed to summarize facet for month ${month}:`, result.error);
       return;
     }
+
+    AIBackgroundBudget.spend(1);
 
     // Compute dominant tone and tone/theme lists
     const toneCounts: Record<string, number> = {};

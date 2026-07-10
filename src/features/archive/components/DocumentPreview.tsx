@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { X, ArrowRight, Download, ChevronDown, Sparkles, ChevronUp } from 'lucide-react';
+import { X, ArrowRight, Download, ChevronDown, Sparkles, ChevronUp, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Label } from '../../../types';
 import { ArchiveSession } from '../types';
@@ -12,12 +12,10 @@ import { InlineTags } from './InlineTags';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { AISummaryService } from '../../../core/services/AISummaryService';
-import { AIService } from '../../../core/services/AIService';
+
 import type { AIDocumentSummary } from '../../../core/storage/localDb';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
-import { reportError } from '../../../shared/errors/reportError';
-import { useToast } from '../../../shared/components/Toast';
 import { readingTimeMinutes } from '../../../shared/utils/readingTime';
 
 export function DocumentPreview({ session, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags }: {
@@ -31,7 +29,6 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
   allTags?: string[] | undefined;
 }) {
   const { t, language } = useLanguage();
-  const { showToast } = useToast();
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
   const [labelPopupOpen, setLabelPopupOpen] = useState(false);
@@ -49,14 +46,24 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
 
   const [summary, setSummary] = useState<AIDocumentSummary | null>(null);
   const [summaryExpanded, setSummaryExpanded] = useState(true);
-  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
 
   useEffect(() => {
-    if (!session?.id) { setSummary(null); return; }
-    void AISummaryService.get(session.id).then(s => setSummary(s ?? null));
+    let active = true;
+    if (!session?.id) {
+      void Promise.resolve().then(() => {
+        if (active) setSummary(null);
+      });
+      return;
+    }
+    void AISummaryService.get(session.id).then(s => {
+      if (active) setSummary(s ?? null);
+    });
+    return () => {
+      active = false;
+    };
   }, [session?.id]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -406,55 +413,10 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
             )}
           </div>
         ) : (
-          <Button
-            onClick={() => {
-              if (!session?.id || !session.content || summaryLoading) return;
-              void (async () => {
-                setSummaryLoading(true);
-                try {
-                  const res = await AIService.summarize({ content: session.content, mood: session.mood });
-                  if (res.ok) {
-                    const s: AIDocumentSummary = {
-                      documentId: session.id,
-                      ...(res.summary.summary ? { summary: res.summary.summary } : {}),
-                      tone: res.summary.tone,
-                      frequentWords: res.summary.frequentWords,
-                      insights: res.summary.insights,
-                      themes: res.summary.themes,
-                      extractedFacts: res.summary.extractedFacts,
-                      processedAt: Date.now(),
-                    };
-                    await AISummaryService.save(s);
-                    setSummary(s);
-                    const { getLocalDb } = await import('../../../core/storage/localDb');
-                    const db = await getLocalDb();
-                    const doc = await db.get('documents', session.id);
-                    if (doc) await db.put('documents', { ...doc, aiProcessed: true });
-
-                    const { AIProfileService } = await import('../../ai/services/AIProfileService');
-                    AIProfileService.generate().catch(e => reportError(e, { action: 'manual_portrait' }));
-                  } else {
-                    const errMap: Record<string, string> = {
-                      AUTH_REQUIRED: t('ai_error_auth'),
-                      DAILY_LIMIT: t('ai_error_rate_limit'),
-                      RATE_LIMIT: t('ai_error_rate_limit'),
-                      TOO_LONG: t('ai_error_too_long'),
-                      SERVER_ERROR: t('ai_error_server'),
-                    };
-                    showToast(errMap[res.error] ?? t('ai_error_server'), 'error');
-                  }
-                } catch {
-                  showToast(t('ai_error_server'), 'error');
-                }
-                setSummaryLoading(false);
-              })();
-            }}
-            disabled={summaryLoading}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-brand-soft/5 border border-brand-soft/15 text-xs text-brand-soft hover:bg-brand-soft/10 transition-colors disabled:opacity-40"
-          >
-            <Sparkles size={12} />
-            {summaryLoading ? 'Генерация...' : 'Сгенерировать анализ ИИ'}
-          </Button>
+          <div className="flex items-center gap-2 text-xs text-text-main/50 italic px-3 py-2 bg-surface-base/5 border border-border-subtle/10 rounded-xl">
+            <Loader2 size={12} className="animate-spin text-brand-soft" />
+            <span>анализируется…</span>
+          </div>
         )}
       </div>
 

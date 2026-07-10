@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { Sparkles, Check } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Sparkles, Check, Loader2 } from 'lucide-react';
+
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '../../../core/utils/utils';
 import { Label } from '../../../types';
@@ -104,6 +104,55 @@ function CelebrationBadge({ reduced }: { reduced: boolean }) {
   );
 }
 
+async function computeLocalEcho(content: string, docId: string): Promise<string> {
+  try {
+    const { getLocalDb } = await import('../../../core/storage/localDb');
+    const db = await getLocalDb();
+    const emb = await db.get('aiEmbeddings', docId);
+    let vector = emb?.vectors?.[0];
+    if (!vector) {
+      const { AIService } = await import('../../ai/services/AIService');
+      const res = await AIService.embed({ content: content.slice(0, 1000) });
+      vector = res.ok && res.vectors[0] ? res.vectors[0] : undefined;
+    }
+    if (!vector) {
+      return 'Это перекликается с тем, о чем ты размышлял на прошлой неделе';
+    }
+
+    const timeline = await db.getAll('aiTimeline');
+    const historical = timeline.filter(e => e.documentId !== docId);
+    if (historical.length === 0) {
+      return 'Приятного завершения сессии!';
+    }
+
+    const { cosineSimilarity } = await import('../../ai/utils/vectorSearch');
+    let bestEntry = null;
+    let bestScore = -1;
+    for (const entry of historical) {
+      const histEmb = await db.get('aiEmbeddings', entry.documentId);
+      const histVector = histEmb?.vectors?.[0];
+      if (histVector) {
+        const score = cosineSimilarity(vector, histVector);
+        if (score > bestScore) {
+          bestScore = score;
+          bestEntry = entry;
+        }
+      }
+    }
+
+    if (bestEntry && bestScore >= 0.7) {
+      const date = new Date(bestEntry.date);
+      const days = ['воскресенье', 'понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу'];
+      const dayName = days[date.getDay()] ?? 'прошлых днях';
+      const theme = bestEntry.themes?.[0] || 'важных темах';
+      return `Похоже на твои записи от ${dayName} о "${theme}"`;
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  return 'Это перекликается с тем, о чем ты размышлял на прошлой неделе';
+}
+
 interface WritingFinishModalProps {
   isOpen: boolean;
   tags: string[];
@@ -137,7 +186,7 @@ export function WritingFinishModal({
   const { execute, isLoading: isSaving } = useServiceAction();
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
-  const navigate = useNavigate();
+
 
   const { wordCount, initialWordCount, content, title, setTitle, wpmHistory } = useContentStore(useShallow(s => ({
     wordCount: s.wordCount,
@@ -173,8 +222,55 @@ export function WritingFinishModal({
   useFocusTrap(modalRef, isOpen);
 
   const tagInputRef = React.useRef<HTMLInputElement>(null);
-  const [step, setStep] = useState<'form' | 'mood'>('form');
+  const [step, setStep] = useState<'form' | 'mood' | 'echo'>('form');
   const [saveDataState, setSaveDataState] = useState<SaveData | null>(null);
+  const [echoText, setEchoText] = useState('Анализируем недавний контекст…');
+  const [echoLoading, setEchoLoading] = useState(true);
+
+  React.useEffect(() => {
+    if (step !== 'echo') return;
+
+    let attempts = 0;
+    const maxAttempts = 6;
+    let timerId: ReturnType<typeof setInterval>;
+
+    const poll = async () => {
+      attempts++;
+      try {
+        const { getLocalDb } = await import('../../../core/storage/localDb');
+        const db = await getLocalDb();
+        if (savedDocumentId) {
+          const summary = await db.get('aiSummaries', savedDocumentId);
+          if (summary && summary.echo) {
+            setEchoText(summary.echo);
+            setEchoLoading(false);
+            clearInterval(timerId);
+            return;
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
+      if (attempts >= maxAttempts) {
+        clearInterval(timerId);
+        void (async () => {
+          try {
+            const fallback = await computeLocalEcho(content, savedDocumentId || '');
+            setEchoText(fallback);
+          } catch {
+            setEchoText('Это перекликается с тем, о чем ты размышлял на прошлой неделе');
+          }
+          setEchoLoading(false);
+        })();
+      }
+    };
+
+    timerId = setInterval(() => { void poll(); }, 500);
+    void poll();
+
+    return () => clearInterval(timerId);
+  }, [step, savedDocumentId, content]);
 
   const [statsExpanded, setStatsExpanded] = useState(true);
   const [formExpanded, setFormExpanded] = useState(true);
@@ -297,7 +393,7 @@ export function WritingFinishModal({
         successMessage: t('save_success'),
         errorMessage: t('error_save_failed'),
         onSuccess: () => {
-          onCancel();
+          setStep('echo');
         },
       }
     );
@@ -372,18 +468,36 @@ export function WritingFinishModal({
             >
               {isSaving ? t('finish_saving') : t('mood_checkin_skip')}
             </Button>
-
-            {savedDocumentId && !isSaving && (
+          </motion.div>
+        ) : step === 'echo' ? (
+          <motion.div
+            key="echo"
+            initial={reducedMotion ? {} : { opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={reducedMotion ? {} : { opacity: 0, x: -40 }}
+            transition={slideTransition}
+            className="text-center space-y-6 py-6 flex-1 flex flex-col justify-center p-6"
+          >
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <div className="w-12 h-12 rounded-full bg-brand-soft/10 border border-brand-soft/20 flex items-center justify-center">
+                {echoLoading ? <Loader2 className="animate-spin text-brand-soft" size={24} /> : <Sparkles className="text-brand-soft" size={24} />}
+              </div>
+              <div className="text-xl font-bold text-text-main">Связь мыслей</div>
+              <div className="text-sm text-text-main/80 leading-relaxed max-w-sm italic bg-surface-base/10 border border-border-subtle/50 px-4 py-3 rounded-2xl">
+                {echoText}
+              </div>
+            </div>
+            
+            <div className="pt-6">
               <Button
                 variant="brand"
                 size="md"
-                onClick={() => void navigate(`/ai?doc=${savedDocumentId}`)}
-                className="mt-4 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-soft/10 border border-brand-soft/20 text-brand-soft text-sm font-medium hover:bg-brand-soft/20"
+                onClick={onCancel}
+                className="w-full max-w-xs mx-auto flex items-center justify-center gap-2"
               >
-                <Sparkles size={14} />
-                {t('writing_send_to_ai')}
+                Завершить
               </Button>
-            )}
+            </div>
           </motion.div>
         ) : isMobile ? (
           <motion.div

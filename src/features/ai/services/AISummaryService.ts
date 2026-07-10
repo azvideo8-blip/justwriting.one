@@ -6,8 +6,8 @@ import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
 import { tryReserveSummarizeBudget } from '../utils/firestoreWriteBudget';
 
-const STRING_FIELDS = ['tone'] as const;
-const ARRAY_FIELDS = ['frequentWords', 'insights', 'themes', 'extractedFacts'] as const;
+const STRING_FIELDS = ['tone', 'echo'] as const;
+const ARRAY_FIELDS = ['frequentWords', 'insights', 'themes', 'extractedFacts', 'commitments'] as const;
 const STRING_FIELDS_LIST: string[] = [...STRING_FIELDS];
 const ARRAY_FIELDS_LIST: string[] = [...ARRAY_FIELDS];
 
@@ -31,15 +31,20 @@ async function fetchSummaryFromCloud(userId: string, documentId: string): Promis
   const decrypted = await maybeDecrypt(data, STRING_FIELDS_LIST, ARRAY_FIELDS_LIST);
   const docId = typeof decrypted.documentId === 'string' ? decrypted.documentId : documentId;
   const tone = typeof decrypted.tone === 'string' ? decrypted.tone : '';
+  const echo = typeof decrypted.echo === 'string' ? decrypted.echo : '';
   const frequentWords = Array.isArray(decrypted.frequentWords) ? decrypted.frequentWords.map(String) : [];
   const insights = Array.isArray(decrypted.insights) ? decrypted.insights.map(String) : [];
   const themes = Array.isArray(decrypted.themes) ? decrypted.themes.map(String) : [];
   const extractedFacts = Array.isArray(decrypted.extractedFacts) ? decrypted.extractedFacts.map(String) : [];
+  const commitments = Array.isArray(decrypted.commitments) ? decrypted.commitments.map(String) : [];
   const mentionedPeople = Array.isArray(decrypted.mentionedPeople)
     ? decrypted.mentionedPeople.filter((p: unknown) => typeof p === 'object' && p !== null && 'name' in (p as Record<string, unknown>)) as { name: string; role: string }[]
     : [];
   const processedAt = typeof decrypted.processedAt === 'number' ? decrypted.processedAt : Date.now();
-  return {
+  const valence = typeof decrypted.valence === 'number' ? decrypted.valence : undefined;
+  const arousal = typeof decrypted.arousal === 'number' ? decrypted.arousal : undefined;
+
+  const result: AIDocumentSummary = {
     documentId: docId,
     tone,
     frequentWords,
@@ -49,6 +54,13 @@ async function fetchSummaryFromCloud(userId: string, documentId: string): Promis
     mentionedPeople,
     processedAt,
   };
+  if (commitments.length > 0) result.commitments = commitments;
+  if (valence !== undefined) result.valence = valence;
+  if (arousal !== undefined) result.arousal = arousal;
+  if (echo) result.echo = echo;
+  const hash = decrypted.contentHash;
+  if (typeof hash === 'string') result.contentHash = hash;
+  return result;
 }
 
 export const AISummaryService = {
@@ -93,10 +105,26 @@ export const AISummaryService = {
           tone: summary.tone,
           themes: summary.themes ?? [],
         };
-        if (summary.summary) {
+        if (summary.summary !== undefined) {
           timelineEntry.summary = summary.summary;
         }
+        if (summary.valence !== undefined) {
+          timelineEntry.valence = summary.valence;
+        }
+        if (summary.arousal !== undefined) {
+          timelineEntry.arousal = summary.arousal;
+        }
         await db.put('aiTimeline', timelineEntry);
+
+        // Upsert commitments
+        if (summary.commitments && summary.commitments.length > 0) {
+          try {
+            const { AICommitmentService } = await import('./AICommitmentService');
+            await AICommitmentService.upsertCommitments(summary.documentId, summary.commitments, dateStr);
+          } catch (e) {
+            console.warn('[AISummaryService] Failed to upsert commitments:', e);
+          }
+        }
 
         // Trigger monthly digest generation fire-and-forget
         try {
