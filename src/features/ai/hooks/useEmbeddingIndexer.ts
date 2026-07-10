@@ -101,35 +101,33 @@ export function useEmbeddingIndexer(): void {
     const now = Date.now();
     if (now < backoffUntilRef.current) return;
 
-    const usage = getIndexerDailyUsage();
-    if (usage.count >= DAILY_LIMIT) {
-      return;
-    }
-
     runningRef.current = true;
     try {
-      const staleIds = await findStaleDocuments();
-      const remaining = DAILY_LIMIT - usage.count;
-      const batch = staleIds.slice(0, Math.min(BATCH_SIZE, remaining));
+      const usage = getIndexerDailyUsage();
+      if (usage.count < DAILY_LIMIT) {
+        const staleIds = await findStaleDocuments();
+        const remaining = DAILY_LIMIT - usage.count;
+        const batch = staleIds.slice(0, Math.min(BATCH_SIZE, remaining));
 
-      for (const docId of batch) {
-        const result = await indexDocument(docId);
-        if (result === 'daily') {
-          backoffUntilRef.current = Date.now() + BACKOFF_MS['DAILY_LIMIT']!;
-          break;
-        }
-        if (result === 'rate') {
-          backoffUntilRef.current = Date.now() + BACKOFF_MS['RATE_LIMIT']!;
-          break;
-        }
-        if (result === 'ok') {
-          incrementIndexerDailyUsage();
-          void AIProfileFacetService.incrementalUpdate(docId).then(() => {
-            scheduleResummarize();
-          }).catch(e =>
-            reportError(e, { action: '[useEmbeddingIndexer] incremental facet update failed' }),
-          );
-          scheduleWordCloudRebuild();
+        for (const docId of batch) {
+          const result = await indexDocument(docId);
+          if (result === 'daily') {
+            backoffUntilRef.current = Date.now() + BACKOFF_MS['DAILY_LIMIT']!;
+            break;
+          }
+          if (result === 'rate') {
+            backoffUntilRef.current = Date.now() + BACKOFF_MS['RATE_LIMIT']!;
+            break;
+          }
+          if (result === 'ok') {
+            incrementIndexerDailyUsage();
+            void AIProfileFacetService.incrementalUpdate(docId).then(() => {
+              scheduleResummarize();
+            }).catch(e =>
+              reportError(e, { action: '[useEmbeddingIndexer] incremental facet update failed' }),
+            );
+            scheduleWordCloudRebuild();
+          }
         }
       }
 
