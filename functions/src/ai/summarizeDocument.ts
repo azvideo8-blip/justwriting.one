@@ -49,7 +49,7 @@ const SUMMARY_SYSTEM_PROMPT = `Проанализируй личную заме�
 // deepseek-v4-flash: reliable for structured JSON, no reasoning leakage into content
 // (reasoning emitted in separate field on OpenRouter, not in content).
 // Override via AI_SUMMARY_MODEL; falls back to AI_FACET_MODEL for compat.
-const SUMMARY_MODEL = process.env.AI_SUMMARY_MODEL ?? process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
+const SUMMARY_MODEL = process.env.AI_SUMMARY_MODEL ?? 'deepseek/deepseek-v4-flash';
 
 const inputSchema = z.object({
   content: z.string().min(50).max(50_000),
