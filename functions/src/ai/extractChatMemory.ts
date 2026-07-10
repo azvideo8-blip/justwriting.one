@@ -14,7 +14,7 @@ const inputSchema = z.object({
   })).min(1).max(50),
 });
 
-const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'openai/gpt-oss-20b:free';
+const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'google/gemma-2-9b-it:free';
 
 const SYSTEM_PROMPT = `Extract durable memory units from this conversation. Return JSON array of { kind: 'fact'|'insight'|'commitment'|'preference', text: short description }.
 

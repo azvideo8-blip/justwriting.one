@@ -5,7 +5,7 @@ import { generate } from '../shared/aiProvider';
 
 const inputSchema = z.object({ digest: z.string().min(20).max(60_000) });
 
-const TAXO_MODEL = process.env.AI_FACET_MODEL ?? 'openai/gpt-oss-20b:free';
+const TAXO_MODEL = process.env.AI_FACET_MODEL ?? 'google/gemma-2-9b-it:free';
 
 const SYSTEM_PROMPT = `Ты получаешь дайджест тем, инсайтов и людей из личного дневника одного человека. Определи 6–10 ОСНОВНЫХ жизненных сфер (доменов), вокруг которых вращается этот дневник — так, как они есть у ЭТОГО человека, а не общими категориями. Верни СТРОГО валидный JSON:
 {"domains":[{"label":"короткое название сферы, 1–3 слова","seed":"1–2 предложения, богато описывающие эту сферу словами из дайджеста — для семантического поиска"}]}
