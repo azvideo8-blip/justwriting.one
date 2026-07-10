@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx --max-warnings 0 --ignore-pattern \"public/**\"",
+    "lint:changed": "FILES=$(git diff --name-only --diff-filter=ACMR origin/main -- '*.ts' '*.tsx' ':(exclude)functions/**' ':(exclude)scripts/**'); if [ -z \"$FILES\" ]; then echo 'lint:changed: no changed .ts/.tsx files vs origin/main'; else echo \"$FILES\" | NODE_OPTIONS=--max-old-space-size=6144 xargs eslint --max-warnings 0; fi",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest",
