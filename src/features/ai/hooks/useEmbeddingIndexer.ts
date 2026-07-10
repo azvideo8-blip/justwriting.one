@@ -1,11 +1,15 @@
 import { useRef, useEffect, useCallback } from 'react';
-import { findStaleDocuments, indexDocument } from '../utils/embeddingIndexer';
+import { findStaleDocuments, indexDocument, findStaleSummaries, sha256Hex } from '../utils/embeddingIndexer';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import { AITaxonomyService } from '../services/AITaxonomyService';
 import { AIFacetJudgeService } from '../services/AIFacetJudgeService';
 import { rebuildWordCloud } from '../../archive/hooks/useArchiveWordCloud';
 import { reportError } from '../../../shared/errors/reportError';
+import { AIBackgroundBudget } from '../services/AIBackgroundBudget';
+import { AISummaryService } from '../services/AISummaryService';
+import { AIService } from '../services/AIService';
+import { getLocalDb, type AIDocumentSummary } from '../../../core/storage/localDb';
 
 const BATCH_SIZE = 3;
 const DEBOUNCE_MS = 30_000;
@@ -128,10 +132,86 @@ export function useEmbeddingIndexer(): void {
           scheduleWordCloudRebuild();
         }
       }
+
+      // Summarization step
+      if (localStorage.getItem('auto_summarize_enabled') !== 'false') {
+        const staleSumIds = await findStaleSummaries();
+        if (staleSumIds.length > 0) {
+          const db = await getLocalDb();
+          const limit = BATCH_SIZE;
+          let count = 0;
+          for (const docId of staleSumIds) {
+            if (count >= limit) break;
+            if (!AIBackgroundBudget.canSpend(1)) break;
+
+            const doc = await db.get('documents', docId);
+            if (!doc) continue;
+
+            const versions = await db.getAllFromIndex('versions', 'by-document', docId);
+            if (versions.length === 0) continue;
+            versions.sort((a, b) => b.version - a.version);
+            const content = versions[0]?.content ?? '';
+            if (content.length < 50) continue;
+
+            // Build recentContext
+            const summaries = await db.getAll('aiSummaries');
+            summaries.sort((a, b) => b.processedAt - a.processedAt);
+            const recentContext = summaries.slice(0, 3).map(s => s.summary || s.tone).filter(Boolean).join('\n');
+
+            const res = await AIService.summarize({
+              content: content.slice(0, 50_000),
+              mood: doc.mood,
+              recentContext
+            });
+
+            if (res.ok) {
+              const hash = await sha256Hex(content);
+              const s: AIDocumentSummary = {
+                documentId: docId,
+                tone: res.summary.tone,
+                frequentWords: res.summary.frequentWords,
+                insights: res.summary.insights,
+                themes: res.summary.themes,
+                extractedFacts: res.summary.extractedFacts,
+                processedAt: Date.now(),
+                contentHash: hash,
+              };
+              if (res.summary.summary !== undefined) s.summary = res.summary.summary;
+              if (res.summary.mentionedPeople !== undefined) s.mentionedPeople = res.summary.mentionedPeople;
+              if (res.summary.commitments !== undefined) s.commitments = res.summary.commitments;
+              if (res.summary.valence !== undefined) s.valence = res.summary.valence;
+              if (res.summary.arousal !== undefined) s.arousal = res.summary.arousal;
+              if (res.summary.echo !== undefined) s.echo = res.summary.echo;
+              await AISummaryService.save(s);
+
+              AIBackgroundBudget.spend(1);
+              count++;
+              // Gentle spacing between real summarize calls
+              await new Promise(r => setTimeout(r, 150));
+            } else {
+              if (res.error === 'DAILY_LIMIT') {
+                backoffUntilRef.current = Date.now() + BACKOFF_MS['DAILY_LIMIT']!;
+                break;
+              }
+              if (res.error === 'RATE_LIMIT') {
+                backoffUntilRef.current = Date.now() + BACKOFF_MS['RATE_LIMIT']!;
+                break;
+              }
+            }
+          }
+        }
+      }
+
       // Best-effort: bootstrap personal taxonomy once enough summaries exist.
       void AITaxonomyService.ensureBootstrap().catch(e =>
         reportError(e, { action: '[useEmbeddingIndexer] taxonomy bootstrap failed' }),
       );
+      // Rebuild temporal threads
+      void import('../services/AIThreadService').then(({ AIThreadService }) => {
+        void AIThreadService.rebuildThreads().catch(e =>
+          reportError(e, { action: '[useEmbeddingIndexer] thread rebuild failed' }),
+        );
+      });
       // Best-effort: push any local-only embeddings to the cloud (no AI calls).
       // Succeeds only when E2E is unlocked; otherwise stays local for next time.
       await AIEmbeddingService.syncPendingToCloud();

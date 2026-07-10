@@ -150,6 +150,10 @@ describe('summarizeDocument', () => {
         themes: ['баланс работы и жизни', 'управление стрессом'],
         extractedFacts: ['Была встреча в 9 утра', 'Пропустил завтрак'],
         mentionedPeople: [{ name: 'Анна', role: 'коллега' }],
+        commitments: ['позвонить маме'],
+        valence: -0.5,
+        arousal: 0.7,
+        echo: 'Это перекликается с прошлой неделей.',
       }),
       tokensIn: 200,
       tokensOut: 100,
@@ -164,6 +168,10 @@ describe('summarizeDocument', () => {
       themes: ['баланс работы и жизни', 'управление стрессом'],
       extractedFacts: ['Была встреча в 9 утра', 'Пропустил завтрак'],
       mentionedPeople: [{ name: 'Анна', role: 'коллега' }],
+      commitments: ['позвонить маме'],
+      valence: -0.5,
+      arousal: 0.7,
+      echo: 'Это перекликается с прошлой неделей.',
     });
     expect(generate).toHaveBeenCalledOnce();
     expect(recordUsage).toHaveBeenCalledOnce();

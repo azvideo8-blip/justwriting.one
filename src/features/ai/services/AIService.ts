@@ -17,6 +17,10 @@ export interface AISummaryPayload {
   themes: string[];
   extractedFacts: string[];
   mentionedPeople?: { name: string; role: string }[];
+  commitments?: string[];
+  valence?: number;
+  arousal?: number;
+  echo?: string;
 }
 
 function mapAIError(e: unknown): 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG' | 'SERVER_ERROR' {
@@ -87,6 +91,7 @@ export const AIService = {
   async summarize(params: {
     content: string;
     mood?: string | undefined;
+    recentContext?: string | undefined;
   }): Promise<{ ok: true; summary: AISummaryPayload } | { ok: false; error: string }> {
     const functions = getFunctions();
     const fn = httpsCallable<unknown, AISummaryPayload>(functions, 'summarizeDocument');

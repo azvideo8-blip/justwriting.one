@@ -10,7 +10,7 @@ import { highlightText } from '../../../shared/utils/highlightText';
 import { InlineTags } from './InlineTags';
 import { useLanguage } from '../../../shared/i18n';
 import { useSessionTags } from '../../writing/hooks/useSessionTags';
-import { Sparkles, Loader2 } from 'lucide-react';
+
 import { Button } from '../../../shared/components/Button';
 
 interface GridNoteCardProps {
@@ -34,9 +34,9 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
   allTags,
   onTagsChange,
   onLabelChange,
-  aiProcessed,
-  aiLoading,
-  onAIClick,
+  aiProcessed: _aiProcessed,
+  aiLoading: _aiLoading,
+  onAIClick: _onAIClick,
 }) => {
   const { t, language } = useLanguage();
   const { tags: _tags } = useSessionTags(session.tags || []);
@@ -117,20 +117,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
           allTags={allTags}
           onChange={newTags => onTagsChange?.(session, newTags)}
         />
-        <Button
-          onClick={e => { e.stopPropagation(); onAIClick?.(); }}
-          disabled={aiLoading}
-          className={cn(
-            "inline-flex items-center gap-1 ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono border transition-colors disabled:opacity-60",
-            aiProcessed
-              ? "bg-brand-soft/10 text-brand-soft border-brand-soft/30 hover:bg-brand-soft/20"
-              : "bg-text-main/3 text-text-main/60 border-border-subtle hover:text-brand-soft hover:bg-brand-soft/5 hover:border-brand-soft/30"
-          )}
-          title={aiProcessed ? 'Обработано ИИ (посмотреть чат)' : 'Обработать с помощью ИИ'}
-        >
-          {aiLoading ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
-          AI
-        </Button>
+
       </div>
 
       <div className="flex items-center gap-2 text-[12px] font-mono text-text-main/60 pt-3 mt-auto border-t border-border-subtle">

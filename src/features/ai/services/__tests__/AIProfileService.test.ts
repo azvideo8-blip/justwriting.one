@@ -229,12 +229,19 @@ describe('AIProfileService', () => {
         text: 'Generated portrait markdown text',
       });
 
+      const expectedMarkdown = `# Психологический портрет пользователя\n\n` +
+        `## Темы и интересы\nGenerated portrait markdown text\n\n` +
+        `## Эмоциональные паттерны\nGenerated portrait markdown text\n\n` +
+        `## Сильные стороны\nGenerated portrait markdown text\n\n` +
+        `## Зоны роста\nGenerated portrait markdown text\n\n` +
+        `## Стиль общения\nGenerated portrait markdown text\n`;
+
       const res = await AIProfileService.generate();
-      expect(res).toEqual({ ok: true, markdown: 'Generated portrait markdown text' });
+      expect(res).toEqual({ ok: true, markdown: expectedMarkdown });
       expect(AIService.chat).toHaveBeenCalledWith(expect.objectContaining({
         personaId: 'custom',
       }));
-      expect(localStorage.getItem('ai_user_portrait')).toBe('Generated portrait markdown text');
+      expect(localStorage.getItem('ai_user_portrait')).toBe(expectedMarkdown);
     });
   });
 });

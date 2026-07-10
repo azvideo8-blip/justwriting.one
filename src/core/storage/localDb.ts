@@ -100,6 +100,11 @@ export interface AIDocumentSummary {
   extractedFacts: string[];
   mentionedPeople?: { name: string; role: string }[];
   processedAt: number;
+  commitments?: string[];
+  valence?: number;
+  arousal?: number;
+  echo?: string;
+  contentHash?: string;
 }
 
 export interface AITimelineEntry {
@@ -110,6 +115,8 @@ export interface AITimelineEntry {
   summary?: string;   // AIDocumentSummary.summary (1-2 sentence overview)
   tone?: string;
   themes?: string[];
+  valence?: number;
+  arousal?: number;
 }
 
 export interface AIMonthlyDigest {
@@ -262,6 +269,30 @@ interface JustWritingDB extends DBSchema {
     value: AIPeopleIndexEntry;
     indexes: { 'by-lastMentioned': number };
   };
+  aiCommitments: {
+    key: string;
+    value: {
+      id: string;
+      text: string;
+      documentId: string;
+      createdAt: number;
+      date: string;
+      status: 'open' | 'done' | 'stale';
+      vector?: number[];
+    };
+  };
+  aiThreads: {
+    key: string;
+    value: {
+      id: string;
+      noteIds: string[];
+      summary: string;
+      centroid: number[];
+      lastNoteAt: number;
+      memberHash: string;
+      updatedAt: number;
+    };
+  };
 }
 
 let dbInstance: IDBPDatabase<JustWritingDB> | null = null;
@@ -290,7 +321,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   if (dbOpenPromise) return dbOpenPromise;
 
   const currentGeneration = dbGeneration;
-  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 12, {
+  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 13, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const docStore = db.createObjectStore('documents', { keyPath: 'id' });
@@ -363,6 +394,14 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
         if (!db.objectStoreNames.contains('aiPeopleIndex')) {
           const peopleStore = db.createObjectStore('aiPeopleIndex', { keyPath: 'key' });
           peopleStore.createIndex('by-lastMentioned', 'lastMentionedAt');
+        }
+      }
+      if (oldVersion < 13) {
+        if (!db.objectStoreNames.contains('aiCommitments')) {
+          db.createObjectStore('aiCommitments', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('aiThreads')) {
+          db.createObjectStore('aiThreads', { keyPath: 'id' });
         }
       }
     },

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
-import { ExternalLink, Trash2, Pencil, MoreVertical, Sparkles, Loader2 } from 'lucide-react';
+import { ExternalLink, Trash2, Pencil, MoreVertical } from 'lucide-react';
 import { getSessionDate, cn } from '../../../core/utils/utils';
 import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { InlineTags } from './InlineTags';
@@ -36,7 +36,7 @@ interface NoteRowProps {
   onAIClick?: (() => void) | undefined;
 }
 
-function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels, allTags, searchQuery, aiProcessed, aiLoading, onAIClick }: NoteRowProps) {
+function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels, allTags, searchQuery, aiProcessed: _aiProcessed, aiLoading: _aiLoading, onAIClick: _onAIClick }: NoteRowProps) {
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
   const [editingTitle, setEditingTitle] = useState(false);
@@ -258,20 +258,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           onChange={(newTags) => onTagsChange?.(session, newTags)}
           allTags={allTags}
         />
-        <Button
-          onClick={e => { e.stopPropagation(); onAIClick?.(); }}
-          disabled={aiLoading}
-          className={cn(
-            "inline-flex items-center gap-1 ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono border transition-colors disabled:opacity-60",
-            aiProcessed
-              ? "bg-brand-soft/10 text-brand-soft border-brand-soft/30 hover:bg-brand-soft/20"
-              : "bg-text-main/3 text-text-main/60 border-border-subtle hover:text-brand-soft hover:bg-brand-soft/5 hover:border-brand-soft/30"
-          )}
-          title={aiProcessed ? 'Обработано ИИ (посмотреть чат)' : 'Обработать с помощью ИИ'}
-        >
-          {aiLoading ? <Loader2 size={10} className="animate-spin" aria-hidden="true" /> : <Sparkles size={10} aria-hidden="true" />}
-          AI
-        </Button>
+
       </div>
 
       <div className="flex items-center gap-1 shrink-0 pt-1" onClick={e => e.stopPropagation()}>

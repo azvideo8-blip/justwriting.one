@@ -147,6 +147,29 @@ async function runIndex(ids: string[], force: boolean, onProgress?: ProgressFn):
   return summary;
 }
 
+export async function findStaleSummaries(): Promise<string[]> {
+  const db = await getLocalDb();
+  const documents = await db.getAll('documents');
+  const summaries = await db.getAll('aiSummaries');
+  const sumMap = new Map(summaries.map(s => [s.documentId, s]));
+
+  const stale: string[] = [];
+  for (const doc of documents) {
+    const sum = sumMap.get(doc.id);
+    if (!sum) {
+      stale.push(doc.id);
+      continue;
+    }
+    const content = await getLatestContent(doc.id);
+    if (!content) continue;
+    const hash = await sha256Hex(content);
+    if (sum.contentHash !== hash) {
+      stale.push(doc.id);
+    }
+  }
+  return stale;
+}
+
 /**
  * Indexes pending (stale) documents until done or `limit` is reached. Stops
  * early on a rate/daily limit. `onProgress(done, total, lastResult)` fires per doc.

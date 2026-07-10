@@ -49,8 +49,14 @@ export const AITimelineService = {
           tone: summary.tone,
           themes: summary.themes ?? [],
         };
-        if (summary.summary) {
+        if (summary.summary !== undefined) {
           timelineEntry.summary = summary.summary;
+        }
+        if (summary.valence !== undefined) {
+          timelineEntry.valence = summary.valence;
+        }
+        if (summary.arousal !== undefined) {
+          timelineEntry.arousal = summary.arousal;
         }
         await timelineStore.put(timelineEntry);
         count++;
@@ -59,6 +65,21 @@ export const AITimelineService = {
 
     await tx.done;
     return count;
+  },
+
+  async getAffectTrend(nDays = 30): Promise<{ date: string; valence: number; arousal: number }[]> {
+    const db = await getLocalDb();
+    const entries = await db.getAll('aiTimeline');
+    return entries
+      .filter(e => typeof e.valence === 'number' && typeof e.arousal === 'number')
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, nDays)
+      .reverse() // chronological order
+      .map(e => ({
+        date: e.date,
+        valence: e.valence!,
+        arousal: e.arousal!,
+      }));
   },
 
   async getMoodByMonth(month: string): Promise<{ tone: string; count: number }[]> {

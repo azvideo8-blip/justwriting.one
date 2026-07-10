@@ -6,8 +6,41 @@ import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { CloudSyncService } from '../../../core/services/CloudSyncService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { analyzeWritingStyle } from '../utils/styleAnalyzer';
+import { AIBackgroundBudget } from './AIBackgroundBudget';
+import { reportError } from '../../../shared/errors/reportError';
 
 const PORTRAIT_LS_KEY = 'ai_user_portrait';
+const SECTIONS_CACHE_KEY = 'ai_portrait_sections';
+
+interface PortraitSectionCache {
+  content: string;
+  hash: string;
+}
+
+interface PortraitCacheData {
+  themes?: PortraitSectionCache;
+  emotional_patterns?: PortraitSectionCache;
+  strengths?: PortraitSectionCache;
+  growth?: PortraitSectionCache;
+  communication_prefs?: PortraitSectionCache;
+}
+
+async function sha256Hex(str: string): Promise<string> {
+  try {
+    const msgUint8 = new TextEncoder().encode(str);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch {
+    // Fallback if crypto is missing (e.g. non-secure origin)
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return String(hash);
+  }
+}
 
 export const AIProfileService = {
   async savePortrait(portraitMarkdown: string): Promise<void> {
@@ -27,7 +60,7 @@ export const AIProfileService = {
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (msg.includes('ENCRYPT_REQUIRED')) {
-          console.warn('[AIProfileService] Cloud save skipped: E2E locked (session key not available). Portrait saved locally.');
+          console.warn('[AIProfileService] Cloud save skipped: E2E locked. Portrait saved locally.');
           return;
         }
         
@@ -50,8 +83,6 @@ export const AIProfileService = {
     }
   },
 
-  // Delegates to CloudSyncService (core) — the sync-queue drain (also core)
-  // calls that directly since core must not import from features/ai.
   async syncPortraitToCloud(userId: string): Promise<void> {
     return CloudSyncService.syncPortraitToCloud(userId);
   },
@@ -87,81 +118,153 @@ export const AIProfileService = {
   },
 
   async generate(): Promise<{ ok: true; markdown: string } | { ok: false; error: string }> {
-    const db = await getLocalDb();
-    const facets = await db.getAll('aiProfileFacets');
+    try {
+      const db = await getLocalDb();
+      const facets = await db.getAll('aiProfileFacets');
 
-    // TICKET-053: Compile communication preferences from chat memory
-    const chatMemories = await db.getAll('aiChatMemory');
-    const preferences = chatMemories
-      .filter(m => m.kind === 'preference')
-      .map(m => `- ${m.text}`)
-      .join('\n');
-    const preferencesBlock = preferences
-      ? `\n\n## Предпочтения в коммуникации\nПользователь выражал следующие предпочтения по стилю общения с ИИ:\n${preferences}\n\nУчитывай эти предпочтения в разделе «Предпочтения в коммуникации» в конце портрета.`
-      : '';
-
-    // TICKET-054: Local writing style metrics
-    const allDocs = await db.getAll('documents');
-    const styleContents: string[] = [];
-    for (const doc of allDocs) {
-      const content = await LocalVersionService.getLatestContent(doc.id);
-      if (content) styleContents.push(content);
-    }
-    const styleMetrics = analyzeWritingStyle(styleContents);
-    const styleBlock = `\n\n[Метрики стиля письма: средняя длина слова ${styleMetrics.avgWordLength.toFixed(1)} симв, средняя длина предложения ${styleMetrics.avgSentenceLength.toFixed(1)} слов, восклицания ${styleMetrics.exclamationRate.toFixed(2)} на предложение, вопросы ${styleMetrics.questionRate.toFixed(2)} на предложение]`;
-
-    if (facets.length >= 3) {
-      const facetInput = facets
-        .sort((a, b) => b.noteCount - a.noteCount)
-        .map(f => `**${f.label}** (${f.noteCount} заметок): ${f.summary}`)
+      // TICKET-053: Compile communication preferences from chat memory
+      const chatMemories = await db.getAll('aiChatMemory');
+      const preferences = chatMemories
+        .filter(m => m.kind === 'preference')
+        .map(m => `- ${m.text}`)
         .join('\n');
 
-      const result = await AIService.chat({
-        personaId: 'custom',
-        customSystemPrompt: `Ты — профессиональный психоаналитик. На основе тем профиля пользователя составь глубокий, поддерживающий психологический портрет. Опиши паттерны мышления, эмоциональные тенденции, сильные стороны и зоны роста. НЕ рассуждай вслух — сразу результат в Markdown. Опирайся ТОЛЬКО на приведённые данные, ничего не выдумывай.${preferences ? ' В конце портрета добавь раздел # Предпочтения в коммуникации, обобщив пользовательские предпочтения по стилю общения.' : ''}`,
-        messages: [{
-          role: 'user',
-          content: `Темы профиля пользователя (из ${facets.reduce((s, f) => s + f.noteCount, 0)} заметок):\n\n${facetInput}${styleBlock}${preferencesBlock}\n\nСоставь психологический портрет: паттерны мышления, эмоциональные тенденции, сильные стороны и зоны роста. Формат: markdown.`,
-        }],
-      });
-
-      if (result.ok) {
-        await this.savePortrait(result.text);
-        return { ok: true, markdown: result.text };
+      // TICKET-054: Local writing style metrics
+      const allDocs = await db.getAll('documents');
+      const styleContents: string[] = [];
+      for (const doc of allDocs) {
+        const content = await LocalVersionService.getLatestContent(doc.id);
+        if (content) styleContents.push(content);
       }
-      return { ok: false, error: result.error };
+      const styleMetrics = analyzeWritingStyle(styleContents);
+      const styleBlock = `\n\n[Метрики стиля письма: средняя длина слова ${styleMetrics.avgWordLength.toFixed(1)} симв, средняя длина предложения ${styleMetrics.avgSentenceLength.toFixed(1)} слов, восклицания ${styleMetrics.exclamationRate.toFixed(2)} на предложение, вопросы ${styleMetrics.questionRate.toFixed(2)} на предложение]`;
+
+      let baseInput = '';
+      if (facets.length >= 3) {
+        baseInput = facets
+          .sort((a, b) => b.noteCount - a.noteCount)
+          .map(f => `**${f.label}** (${f.noteCount} заметок): ${f.summary}`)
+          .join('\n');
+      } else {
+        const allSummaries = await db.getAll('aiSummaries');
+        if (allSummaries.length < 3) {
+          return { ok: false, error: 'NOT_ENOUGH_DATA' };
+        }
+        baseInput = allSummaries.map((s, i) => {
+          const parts = [`Запись ${i + 1}:`];
+          if (s.summary) parts.push(`  Суть: ${s.summary}`);
+          if (s.tone) parts.push(`  Тон: ${s.tone}`);
+          if (s.themes?.length) parts.push(`  Темы: ${s.themes.join(', ')}`);
+          if (s.insights?.length) s.insights.forEach(ins => parts.push(`  • ${ins}`));
+          return parts.join('\n');
+        }).join('\n\n');
+      }
+
+      // Load cached sections
+      let cache: PortraitCacheData = {};
+      try {
+        const raw = localStorage.getItem(SECTIONS_CACHE_KEY);
+        if (raw) cache = JSON.parse(raw);
+      } catch { /* ignore */ }
+
+      const sections = [
+        {
+          key: 'themes' as const,
+          title: 'Темы и интересы',
+          prompt: 'Ты — профессиональный психоаналитик. На основе тем профиля пользователя опиши его главные темы и интересы. НЕ рассуждай вслух — сразу результат в Markdown.',
+          input: baseInput + styleBlock,
+        },
+        {
+          key: 'emotional_patterns' as const,
+          title: 'Эмоциональные паттерны',
+          prompt: 'Ты — профессиональный психоаналитик. На основе тем профиля пользователя опиши его эмоциональные тенденции и паттерны мышления. НЕ рассуждай вслух — сразу результат в Markdown.',
+          input: baseInput + styleBlock,
+        },
+        {
+          key: 'strengths' as const,
+          title: 'Сильные стороны',
+          prompt: 'Ты — профессиональный психоаналитик. На основе тем профиля пользователя опиши его психологические сильные стороны. НЕ рассуждай вслух — сразу результат в Markdown.',
+          input: baseInput,
+        },
+        {
+          key: 'growth' as const,
+          title: 'Зоны роста',
+          prompt: 'Ты — профессиональный психоаналитик. На основе тем профиля пользователя опиши его зоны роста и направления развития. НЕ рассуждай вслух — сразу результат в Markdown.',
+          input: baseInput,
+        },
+        {
+          key: 'communication_prefs' as const,
+          title: 'Стиль общения',
+          prompt: 'Ты — профессиональный психоаналитик. На основе тем профиля пользователя, метрик стиля письма и предпочтений в общении с ИИ составь описание его стиля общения и предпочтений в коммуникации. НЕ рассуждай вслух — сразу результат в Markdown.',
+          input: baseInput + styleBlock + (preferences ? `\n\nПредпочтения: ${preferences}` : ''),
+        },
+      ];
+
+      const activeSections: Record<string, string> = {};
+
+      for (const sec of sections) {
+        const hash = await sha256Hex(sec.input);
+        const cached = cache[sec.key];
+
+        if (cached && cached.hash === hash && cached.content) {
+          activeSections[sec.key] = cached.content;
+        } else {
+          // Regenerate section if budget allows
+          if (AIBackgroundBudget.canSpend(1)) {
+            const result = await AIService.chat({
+              personaId: 'custom',
+              customSystemPrompt: sec.prompt,
+              messages: [{
+                role: 'user',
+                content: `${sec.title} на основе данных:\n\n${sec.input}\n\nНапиши подробный подраздел.`,
+              }],
+            });
+
+            if (result.ok && result.text) {
+              activeSections[sec.key] = result.text;
+              cache[sec.key] = { content: result.text, hash };
+              AIBackgroundBudget.spend(1);
+            } else {
+              // Fallback to cache if request fails
+              activeSections[sec.key] = cached?.content || 'Раздел находится в процессе анализа…';
+            }
+          } else {
+            // Re-use cache if out of budget
+            activeSections[sec.key] = cached?.content || 'Раздел находится в процессе анализа…';
+          }
+        }
+      }
+
+      // Save sections cache
+      try {
+        localStorage.setItem(SECTIONS_CACHE_KEY, JSON.stringify(cache));
+      } catch { /* ignore */ }
+
+      // Reassemble final markdown
+      const finalMarkdown = `# Психологический портрет пользователя
+
+## Темы и интересы
+${activeSections.themes}
+
+## Эмоциональные паттерны
+${activeSections.emotional_patterns}
+
+## Сильные стороны
+${activeSections.strengths}
+
+## Зоны роста
+${activeSections.growth}
+
+## Стиль общения
+${activeSections.communication_prefs}
+`;
+
+      await this.savePortrait(finalMarkdown);
+      return { ok: true, markdown: finalMarkdown };
+    } catch (e) {
+      reportError(e, { action: 'ai_profile_generate' });
+      return { ok: false, error: String(e) };
     }
-
-    const allSummaries = await db.getAll('aiSummaries');
-    if (allSummaries.length < 3) {
-      return { ok: false, error: 'NOT_ENOUGH_DATA' };
-    }
-
-    const summaryLines = allSummaries.map((s, i) => {
-      const parts: string[] = [`Запись ${i + 1}:`];
-      if (s.summary) parts.push(`  Суть: ${s.summary}`);
-      if (s.tone) parts.push(`  Тон: ${s.tone}`);
-      if (s.themes?.length) parts.push(`  Темы: ${s.themes.join(', ')}`);
-      if (s.insights?.length) s.insights.forEach(ins => parts.push(`  • ${ins}`));
-      if (s.extractedFacts?.length) s.extractedFacts.forEach(f => parts.push(`  → ${f}`));
-      return parts.join('\n');
-    }).join('\n\n');
-
-    const result = await AIService.chat({
-      personaId: 'custom',
-      customSystemPrompt: `Вы — профессиональный психоаналитик и эксперт по психологическому портретированию. Ваша задача — на основе дневниковых записей составить глубокий, поддерживающий и структурированный психологический портрет автора. Опишите паттерны его мышления, эмоциональные тенденции, сильные стороны и зоны роста. НЕ рассуждайте вслух — сразу результат в Markdown. Опирайтесь ТОЛЬКО на приведённые данные, ничего не выдумывайте.${preferences ? ' В конце портрета добавьте раздел # Предпочтения в коммуникации.' : ''}`,
-      messages: [{
-        role: 'user',
-        content: `Данные из ${allSummaries.length} дневниковых записей:\n\n${summaryLines}${styleBlock}${preferencesBlock}\n\nСоставь психологический портрет: паттерны мышления, эмоциональные тенденции, сильные стороны и зоны роста. Формат: markdown.`,
-      }],
-    });
-
-    if (!result.ok) {
-      return { ok: false, error: result.error };
-    }
-
-    await this.savePortrait(result.text);
-    return { ok: true, markdown: result.text };
   },
 
   async exportMarkdown(): Promise<string | null> {

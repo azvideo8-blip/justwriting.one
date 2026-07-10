@@ -24,7 +24,7 @@ import { IconButton } from '../../../shared/components/IconButton';
 import { useToast } from '../../../shared/components/Toast';
 import { AIService } from '../services/AIService';
 import { AISummaryService } from '../services/AISummaryService';
-import { getLocalDb } from '../../../core/storage/localDb';
+import { getLocalDb, type AIDocumentSummary } from '../../../core/storage/localDb';
 import { reportError } from '../../../shared/errors/reportError';
 import { SyncService } from '../../../core/services/SyncService';
 import { isFirestoreConnected } from '../../../core/firebase/firestore';
@@ -733,11 +733,50 @@ function RebuildTimelineButton() {
   );
 }
 
+import { AIBackgroundBudget } from '../services/AIBackgroundBudget';
+
 // UXFIX-3: Mass AI analysis of all unanalyzed notes
 function MassAnalyzeNotes() {
   const { showToast } = useToast();
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0, failed: 0 });
+  const [stats, setStats] = useState({
+    total: 0,
+    summarized: 0,
+    remaining: 0,
+    daysToComplete: 0,
+    budgetSpent: 0,
+    budgetLimit: 25,
+  });
+
+  const loadStats = React.useCallback(async () => {
+    try {
+      const db = await getLocalDb();
+      const docs = await db.getAll('documents');
+      const summaries = await db.getAll('aiSummaries');
+      const total = docs.length;
+      const summarized = summaries.length;
+      const remaining = Math.max(0, total - summarized);
+      const budget = AIBackgroundBudget.budgetStatus();
+      setStats({
+        total,
+        summarized,
+        remaining,
+        daysToComplete: Math.ceil(remaining / budget.budget),
+        budgetSpent: budget.spent,
+        budgetLimit: budget.budget,
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void loadStats();
+    const handleRefresh = () => { void loadStats(); };
+    window.addEventListener('archive-refresh', handleRefresh);
+    return () => window.removeEventListener('archive-refresh', handleRefresh);
+  }, [loadStats]);
 
   const handleMassAnalyze = async () => {
     if (!navigator.onLine) {
@@ -745,7 +784,7 @@ function MassAnalyzeNotes() {
       return;
     }
     setRunning(true);
-    setProgress({ done: 0, total: 0, failed: 0 });
+    setProgress({ done: 0, total: 10, failed: 0 });
     try {
       const db = await getLocalDb();
       const docs = await db.getAll('documents');
@@ -755,12 +794,19 @@ function MassAnalyzeNotes() {
 
       if (pending.length === 0) {
         showToast('Все заметки уже проанализированы', 'success');
+        setRunning(false);
         return;
       }
 
-      setProgress({ done: 0, total: pending.length, failed: 0 });
+      const runLimit = Math.min(10, pending.length);
+      setProgress({ done: 0, total: runLimit, failed: 0 });
 
-      for (let i = 0; i < pending.length; i++) {
+      for (let i = 0; i < runLimit; i++) {
+        if (!AIBackgroundBudget.canSpend(1)) {
+          showToast('Достигнут дневной лимит бюджета ИИ (25/25)', 'error');
+          break;
+        }
+
         const doc = pending[i]!;
         try {
           const versions = await db.getAllFromIndex('versions', 'by-document', doc.id);
@@ -769,9 +815,21 @@ function MassAnalyzeNotes() {
           const content = versions[0]?.content ?? '';
           if (content.length < 50) continue;
 
-          const result = await AIService.summarize({ content: content.slice(0, 50_000) });
-          if (result.ok) {
-            await AISummaryService.save({
+          // Build recentContext
+          const currentSummaries = await db.getAll('aiSummaries');
+          currentSummaries.sort((a, b) => b.processedAt - a.processedAt);
+          const recentContext = currentSummaries.slice(0, 3).map(s => s.summary || s.tone).filter(Boolean).join('\n');
+
+          const result = await AIService.summarize({
+            content: content.slice(0, 50_000),
+            mood: doc.mood,
+            recentContext
+          });
+
+            if (result.ok) {
+            const { sha256Hex } = await import('../utils/embeddingIndexer');
+            const hash = await sha256Hex(content);
+            const s: AIDocumentSummary = {
               documentId: doc.id,
               tone: result.summary.tone,
               frequentWords: result.summary.frequentWords,
@@ -779,12 +837,21 @@ function MassAnalyzeNotes() {
               themes: result.summary.themes,
               extractedFacts: result.summary.extractedFacts,
               processedAt: Date.now(),
-            });
+              contentHash: hash,
+            };
+            if (result.summary.summary !== undefined) s.summary = result.summary.summary;
+            if (result.summary.mentionedPeople !== undefined) s.mentionedPeople = result.summary.mentionedPeople;
+            if (result.summary.commitments !== undefined) s.commitments = result.summary.commitments;
+            if (result.summary.valence !== undefined) s.valence = result.summary.valence;
+            if (result.summary.arousal !== undefined) s.arousal = result.summary.arousal;
+            if (result.summary.echo !== undefined) s.echo = result.summary.echo;
+            await AISummaryService.save(s);
+            AIBackgroundBudget.spend(1);
             window.dispatchEvent(new Event('archive-refresh'));
           } else {
             setProgress(p => ({ ...p, failed: p.failed + 1 }));
-            if (result.error === 'DAILY_LIMIT') {
-              showToast('Достигнут дневной лимит ИИ. Продолжим позже.', 'error');
+            if (result.error === 'DAILY_LIMIT' || result.error === 'RATE_LIMIT') {
+              showToast('Превышен лимит запросов к ИИ', 'error');
               break;
             }
           }
@@ -796,30 +863,62 @@ function MassAnalyzeNotes() {
         await new Promise(r => setTimeout(r, 500));
       }
 
-      showToast(`Анализ завершён: ${progress.done + 1}/${pending.length}`, 'success');
+      showToast(`Пакетный анализ завершён`, 'success');
     } catch (e) {
       reportError(e, { action: 'diagnostics_mass_analyze' });
       showToast('Ошибка массового анализа', 'error');
     } finally {
       setRunning(false);
+      void loadStats();
     }
   };
 
   return (
-    <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden">
-      <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
-        <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider">Массовый анализ заметок ИИ</span>
+    <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden space-y-4 p-5">
+      <div className="flex items-center justify-between gap-2 border-b border-border-subtle/50 pb-3">
+        <div>
+          <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider block">Фоновый анализ ИИ заметок</span>
+          <span className="text-[10px] text-text-main/40 block mt-1">Ограничение бюджета ИИ предупреждает резкий расход токенов.</span>
+        </div>
         <Button
           onClick={() => void handleMassAnalyze()}
-          disabled={running}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-brand-soft/20 bg-brand-soft/10 text-brand-soft text-[10px] font-bold disabled:opacity-50"
+          disabled={running || stats.remaining === 0}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-soft/20 bg-brand-soft/10 text-brand-soft text-[10px] font-bold disabled:opacity-50"
         >
           {running ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-          {running ? `Анализ… ${progress.done}/${progress.total}` : 'Проанализировать все'}
+          {running ? `Анализ… ${progress.done}/${progress.total}` : 'Проанализировать 10 сейчас'}
         </Button>
       </div>
+
+      <div className="grid grid-cols-2 gap-4 text-xs">
+        <div className="space-y-1">
+          <div className="text-text-main/40 text-[10px] uppercase">Покрытие саммари</div>
+          <div className="font-semibold text-text-main">
+            {stats.summarized} / {stats.total} заметок ({stats.total > 0 ? Math.round((stats.summarized / stats.total) * 100) : 0}%)
+          </div>
+        </div>
+        <div className="space-y-1">
+          <div className="text-text-main/40 text-[10px] uppercase">Оценка завершения фоном</div>
+          <div className="font-semibold text-text-main">
+            {stats.remaining > 0 ? `~${stats.daysToComplete} дн. (при бюджете ${stats.budgetLimit}/день)` : 'Завершено 🎉'}
+          </div>
+        </div>
+        <div className="space-y-1 col-span-2 border-t border-border-subtle/30 pt-3">
+          <div className="text-text-main/40 text-[10px] uppercase">Использованный дневной бюджет ИИ (SEAM-0)</div>
+          <div className="font-semibold text-text-main">
+            {stats.budgetSpent} / {stats.budgetLimit} вызовов
+          </div>
+          <div className="h-1.5 rounded-full bg-surface-base/30 overflow-hidden mt-1">
+            <div
+              className="h-full bg-brand-soft transition-[width] duration-300"
+              style={{ width: `${Math.min(100, (stats.budgetSpent / stats.budgetLimit) * 100)}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
       {running && (
-        <div className="px-5 py-3">
+        <div className="pt-2 border-t border-border-subtle/30">
           <div className="h-1.5 rounded-full bg-surface-base/30 overflow-hidden">
             <div
               className="h-full bg-brand-soft transition-[width] duration-300"

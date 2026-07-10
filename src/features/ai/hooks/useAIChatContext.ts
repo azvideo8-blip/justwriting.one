@@ -2,8 +2,7 @@ import { useRef } from 'react';
 import type { AIMessage } from '../services/AIService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { AIProfileService } from '../services/AIProfileService';
-import { AIPersonaService } from '../services/AIPersonaService';
-import { PRESET_PERSONAS } from '../services/AIPersonaService';
+import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { searchNotesMulti, type RetrievedNote } from '../utils/noteRetriever';
@@ -17,8 +16,8 @@ import { AITimelineService } from '../services/AITimelineService';
 import { AIMonthlyDigestService } from '../services/AIMonthlyDigestService';
 import { AIPeopleService } from '../services/AIPeopleService';
 import { relativeDate } from '../../../core/utils/dateUtils';
-import { looksLikeNoteSearch, toApiContent } from '../utils/aiChatTransport';
-import { cosineSimilarity } from '../utils/vectorSearch';
+import { looksLikeNoteSearch } from '../utils/aiChatTransport';
+import { cosineSimilarity, topKMultiWithChunkIndex } from '../utils/vectorSearch';
 import { AIDialogueService } from '../services/AIDialogueService';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
 
@@ -89,6 +88,14 @@ export function useAIChatContext(personaId: string): {
     isFirstTurn: boolean;
   }): Promise<ChatContextResult> => {
     const { text, attached, mood, isFirstTurn } = params;
+
+    let turnEmb: number[] | undefined;
+    if (text.trim().length > 0) {
+      try {
+        const res = await AIService.embed({ content: text });
+        turnEmb = res.ok && res.vectors[0] ? res.vectors[0] : undefined;
+      } catch { /* ignore */ }
+    }
 
     // 1. Fetch portrait and custom persona concurrently
     const isPreset = PRESET_PERSONAS.some(p => p.id === personaId);
@@ -427,6 +434,39 @@ export function useAIChatContext(personaId: string): {
         }
       }
 
+      // Lite retrieval if no full search was performed
+      const performedFullSearch = explicitSearch || stickySearch;
+      if (!attached && !performedFullSearch && !noteIntentNoText) {
+        if (turnEmb) {
+          try {
+            const allEmb = await AIEmbeddingService.getAll();
+            const db = await getLocalDb();
+            const results = topKMultiWithChunkIndex(turnEmb, allEmb.map(e => ({ id: e.documentId, vectors: e.vectors })), 3);
+            if (results.length > 0) {
+              const parts = [];
+              let idx = 0;
+              for (const r of results) {
+                const doc = await db.get('documents', r.id);
+                if (!doc) continue;
+                const emb = allEmb.find(e => e.documentId === r.id);
+                const textChunk = emb?.chunkTexts?.[r.chunkIndex] || '';
+                if (!textChunk.trim()) continue;
+                idx++;
+                const dateLabel = doc.lastSessionAt ? relativeDate(doc.lastSessionAt) : '';
+                const datePart = dateLabel ? ` (${dateLabel})` : '';
+                parts.push(`Заметка ${idx}${datePart}: "${doc.title || 'Без названия'}"\n${textChunk}`);
+              }
+              if (parts.length > 0) {
+                const liteBlock = `[Возможно релевантные заметки]\n` + parts.join('\n\n');
+                searchContext = searchContext ? `${searchContext}\n\n${liteBlock}` : liteBlock;
+              }
+            }
+          } catch (e) {
+            reportError(e, { action: '[useAIChatContext] lite retrieval failed' });
+          }
+        }
+      }
+
       // Memory integration
       // AX-8: preference memories (from 👍/👎) are ALWAYS included, not just by
       // embedding similarity, so feedback reliably influences the next response.
@@ -452,7 +492,7 @@ export function useAIChatContext(personaId: string): {
 
       // Crisis resources check
       const isCrisis = detectRisk(text);
-      if (isCrisis) {
+      if (isCrisis.hasRisk) {
         const crisisResourceText =
           `Пользователь находится в кризисном состоянии. Интегрируй в свой ответ контакты служб поддержки:\n` +
           `Единый телефон доверия: 8-800-333-44-34, горячая линия психологической помощи: 051 (с городского) или +7 (495) 051.\n` +
@@ -569,7 +609,7 @@ export function useAIChatContext(personaId: string): {
 
       try {
         const archived = await AIDialogueService.list({ includeArchived: true });
-        const personaArchived = archived.filter(d => d.personaId === personaId && d.archivedAt && d.closingSummary);
+        const personaArchived = archived.filter(d => d.personaId === personaId && d.archivedAt !== undefined && d.closingSummary !== undefined && d.closingSummary !== '');
         const recentArchived = personaArchived
           .sort((a, b) => (b.archivedAt ?? 0) - (a.archivedAt ?? 0))
           .slice(0, 3);
@@ -584,6 +624,49 @@ export function useAIChatContext(personaId: string): {
         }
       } catch (e) {
         reportError(e, { action: '[useAIChatContext] cross dialogue memory context failed' });
+      }
+
+      try {
+        const db = await getLocalDb();
+        const timeline = await db.getAll('aiTimeline');
+        
+        // Trends
+        const { computeTrends, formatTrendsBlock } = await import('../utils/contextTrends');
+        const trends = computeTrends(timeline);
+        const trendsBlock = formatTrendsBlock(trends);
+        if (trendsBlock) {
+          proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${trendsBlock}` : trendsBlock;
+        }
+
+        // Contradictions
+        const { detectContradictions, formatContradictions } = await import('../utils/contradictionDetect');
+        const contradictions = detectContradictions(timeline);
+        if (contradictions.length > 0) {
+          const contraBlock = formatContradictions(contradictions);
+          proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${contraBlock}` : contraBlock;
+        }
+
+        // Commitments
+        const { AICommitmentService } = await import('../services/AICommitmentService');
+        const openCommitments = await AICommitmentService.getOpenCommitments();
+        if (openCommitments.length > 0) {
+          const commitmentsLines = openCommitments.map(c => `- «${c.text}» (создано: ${relativeDate(c.createdAt)})`).join('\n');
+          const commitmentsBlock = `[Твои открытые планы / обязательства]\n${commitmentsLines}`;
+          proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${commitmentsBlock}` : commitmentsBlock;
+        }
+
+        // Narrative threads
+        if (turnEmb) {
+          const { AIThreadService } = await import('../services/AIThreadService');
+          const relevantThreads = await AIThreadService.getRelevant(turnEmb, 2);
+          if (relevantThreads.length > 0) {
+            const threadLines = relevantThreads.map(t => `- [Сюжетная линия, активность ${t.ageDays} дней назад]: ${t.summary}`).join('\n');
+            const threadBlock = `[Связанные сюжетные линии]\n${threadLines}`;
+            proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${threadBlock}` : threadBlock;
+          }
+        }
+      } catch (e) {
+        reportError(e, { action: '[useAIChatContext] proactive advanced context failed' });
       }
 
       if (proactiveBlock) {

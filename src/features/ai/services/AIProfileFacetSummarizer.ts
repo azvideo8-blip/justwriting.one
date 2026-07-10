@@ -3,6 +3,7 @@ import { AIEmbeddingService } from './AIEmbeddingService';
 import { AIService } from './AIService';
 import { withFacetLock } from './AIProfileFacetService';
 import type { FacetBuildProgress } from './AIProfileFacetBuilder';
+import { AIBackgroundBudget } from './AIBackgroundBudget';
 
 const MAX_EXCERPTS = 14;
 const EXCERPT_CHARS = 2_000;
@@ -18,8 +19,10 @@ export const AIProfileFacetSummarizer = {
 
       const allEmb = await AIEmbeddingService.getAll();
       let done = 0;
+      let summarizedCount = 0;
 
       for (const f of dirty) {
+        if (!AIBackgroundBudget.canSpend(1)) break;
         onProgress?.({ done: ++done, total: dirty.length });
 
         const texts: string[] = [];
@@ -41,6 +44,8 @@ export const AIProfileFacetSummarizer = {
           if (res.ok && res.summary) {
             f.summary = res.summary;
             if (res.label && !f.label.startsWith('Отношения')) f.label = res.label;
+            AIBackgroundBudget.spend(1);
+            summarizedCount++;
           }
         }
 
@@ -50,7 +55,7 @@ export const AIProfileFacetSummarizer = {
         await new Promise(r => setTimeout(r, LLM_DELAY_MS));
       }
 
-      return { count: dirty.length };
+      return { count: summarizedCount };
     });
   },
 
@@ -63,8 +68,10 @@ export const AIProfileFacetSummarizer = {
 
       const allEmb = await AIEmbeddingService.getAll();
       let done = 0;
+      let summarizedCount = 0;
 
       for (const f of pending) {
+        if (!AIBackgroundBudget.canSpend(1)) break;
         onProgress?.({ done: ++done, total: pending.length });
 
         let excerpts: { title: string; excerpt: string }[] = [];
@@ -93,6 +100,8 @@ export const AIProfileFacetSummarizer = {
             f.summary = res.summary;
             if (!f.fixedLabel && !f.isPerson && res.label) f.label = res.label;
             summarized = true;
+            AIBackgroundBudget.spend(1);
+            summarizedCount++;
           }
         }
 
@@ -105,7 +114,7 @@ export const AIProfileFacetSummarizer = {
         await new Promise(r => setTimeout(r, LLM_DELAY_MS));
       }
 
-      return { done };
+      return { done: summarizedCount };
     });
   },
 };
