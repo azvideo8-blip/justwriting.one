@@ -492,7 +492,7 @@ export function useAIChatContext(personaId: string): {
 
       // Crisis resources check
       const isCrisis = detectRisk(text);
-      if (isCrisis.hasRisk) {
+      if (isCrisis.isRisk) {
         const crisisResourceText =
           `Пользователь находится в кризисном состоянии. Интегрируй в свой ответ контакты служб поддержки:\n` +
           `Единый телефон доверия: 8-800-333-44-34, горячая линия психологической помощи: 051 (с городского) или +7 (495) 051.\n` +
