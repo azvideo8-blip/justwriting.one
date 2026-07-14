@@ -33,7 +33,7 @@ function chunkText(text: string): string[] {
 export const embedDocument = onCall({
   secrets: ['OPENROUTER_API_KEY'],
   timeoutSeconds: 120,
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Registration required.');
@@ -56,7 +56,8 @@ export const embedDocument = onCall({
 
   const sanitized = sanitizeAiInput(content);
 
-  if (!(await tryReserveGlobalRequest())) {
+  const reservation = await tryReserveGlobalRequest(512);
+  if (!reservation) {
     await refundBulkLimit(uid);
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
@@ -67,11 +68,11 @@ export const embedDocument = onCall({
 
     if (result.vectors.length !== chunks.length) {
       await refundBulkLimit(uid);
-      await refundGlobalRequest();
+      await refundGlobalRequest(reservation);
       throw new HttpsError('internal', `Embedding count mismatch: got ${result.vectors.length} for ${chunks.length} chunks.`);
     }
 
-    recordUsage(uid, result.tokens, 0, { model: result.model, fn: 'embed' }).catch(e =>
+    recordUsage(uid, result.tokens, 0, { model: result.model, fn: 'embed' }, reservation).catch(e =>
       console.error('[AI embed] usage record failed:', e),
     );
 
@@ -81,7 +82,7 @@ export const embedDocument = onCall({
     return { vectors: result.vectors, chunks, model: result.model, dim: result.dim };
   } catch (e) {
     await refundBulkLimit(uid);
-    await refundGlobalRequest();
+    await refundGlobalRequest(reservation);
     console.error('[AI embed] generation failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

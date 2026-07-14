@@ -54,7 +54,7 @@ async function callModel(
 export const editWithAI = onCall({
   secrets: ['OPENROUTER_API_KEY'],
   timeoutSeconds: 120,
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Registration required.');
@@ -91,7 +91,8 @@ export const editWithAI = onCall({
     throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
   }
 
-  if (!(await tryReserveGlobalRequest())) {
+  const reservation = await tryReserveGlobalRequest(4096);
+  if (!reservation) {
     await refundDailyLimit(uid);
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
@@ -106,13 +107,13 @@ export const editWithAI = onCall({
     result = await callModel(sanitizedInput, action, history ?? undefined);
   } catch (e) {
     await refundDailyLimit(uid);
-    await refundGlobalRequest();
+    await refundGlobalRequest(reservation);
     throw e;
   }
   const sanitizedOutput = sanitizeAiResponse(result.text);
 
   generation?.end({ output: sanitizedOutput, usage: { promptTokens: result.tokensIn, completionTokens: result.tokensOut } });
-  recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'edit' }).catch(e => console.error('[AI] usage record failed:', e));
+  recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'edit' }, reservation).catch(e => console.error('[AI] usage record failed:', e));
   if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   return { result: sanitizedOutput };

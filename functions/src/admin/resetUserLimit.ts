@@ -21,7 +21,7 @@ const COST_IN = 0.00000012;
 const COST_OUT = 0.00000024;
 
 export const resetUserLimit = onCall({
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Authentication required.');

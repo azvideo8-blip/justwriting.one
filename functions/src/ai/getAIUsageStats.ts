@@ -14,7 +14,7 @@ const inputSchema = z.object({
 });
 
 export const getAIUsageStats = onCall({
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Registration required.');

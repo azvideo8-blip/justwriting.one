@@ -38,7 +38,7 @@ const domainSchema = z.object({ label: z.string().min(1).max(60), seed: z.string
 export const deriveTaxonomy = onCall({
   secrets: ['OPENROUTER_API_KEY'],
   timeoutSeconds: 120,
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Registration required.');
   const uid = request.auth.uid;
@@ -59,7 +59,8 @@ export const deriveTaxonomy = onCall({
   const digest = sanitizeAiInput(parsed.data.digest);
   console.log(`[AI taxonomy] start: digest ${digest.length} chars`);
 
-  if (!(await tryReserveGlobalRequest())) {
+  const reservation = await tryReserveGlobalRequest(4096);
+  if (!reservation) {
     await refundBulkLimit(uid);
     console.error('[AI taxonomy] global daily cap reached');
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
@@ -74,7 +75,7 @@ export const deriveTaxonomy = onCall({
       abortMs: 110_000,
       model: TAXO_MODEL,
     });
-    recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'taxonomy' }).catch(() => {});
+    recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'taxonomy' }, reservation).catch(() => {});
 
     let txt = result.text.trim();
     if (txt.startsWith('```')) txt = txt.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
@@ -95,7 +96,7 @@ export const deriveTaxonomy = onCall({
     return { domains };
   } catch (e) {
     await refundBulkLimit(uid);
-    await refundGlobalRequest();
+    await refundGlobalRequest(reservation);
     const msg = String((e as { message?: string })?.message ?? e);
     if (!(e instanceof HttpsError)) console.error('[AI taxonomy] failed:', msg);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

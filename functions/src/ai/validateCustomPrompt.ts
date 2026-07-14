@@ -12,7 +12,7 @@ const inputSchema = z.object({
 export const validateCustomPrompt = onCall({
   secrets: ['OPENROUTER_API_KEY'],
   timeoutSeconds: 120,
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Registration required.');
@@ -39,7 +39,8 @@ export const validateCustomPrompt = onCall({
     throw new HttpsError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
   }
 
-  if (!(await tryReserveGlobalRequest())) {
+  const reservation = await tryReserveGlobalRequest(256);
+  if (!reservation) {
     await refundDailyLimit(uid);
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
@@ -61,10 +62,10 @@ export const validateCustomPrompt = onCall({
     });
     text = result.text.trim();
     generation?.end({ output: text, usage: { promptTokens: result.tokensIn, completionTokens: result.tokensOut } });
-    recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'validate' }).catch(e => console.error('[AI validate] usage record failed:', e));
+    recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'validate' }, reservation).catch(e => console.error('[AI validate] usage record failed:', e));
   } catch (e) {
     await refundDailyLimit(uid);
-    await refundGlobalRequest();
+    await refundGlobalRequest(reservation);
     generation?.end({ output: String(e), level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});
     throw new HttpsError('internal', 'AI validation failed.');

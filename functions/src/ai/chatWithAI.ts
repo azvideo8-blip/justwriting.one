@@ -27,7 +27,7 @@ const inputSchema = z.object({
 export const chatWithAI = onCall({
   secrets: ['OPENROUTER_API_KEY'],
   timeoutSeconds: 120,
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Registration required.');
@@ -96,7 +96,9 @@ export const chatWithAI = onCall({
   }
 
   // Project-wide free-tier guard — reserved only after all validation passes.
-  if (!(await tryReserveGlobalRequest())) {
+  const maxTokens = getMaxTokens(isInternalCall, reasoning);
+  const reservation = await tryReserveGlobalRequest(maxTokens);
+  if (!reservation) {
     if (!isInternalCall) await refundDailyLimit(uid);
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
@@ -125,12 +127,11 @@ export const chatWithAI = onCall({
 
   let gen;
   try {
-    const maxTokens = getMaxTokens(isInternalCall, reasoning);
     gen = await generate({ system: systemInstruction, messages: providerMessages, maxTokens, abortMs: 110_000 });
   } catch (e) {
     console.error('[chatWithAI] AI request failed:', e);
     if (!isInternalCall) await refundDailyLimit(uid);
-    await refundGlobalRequest();
+    await refundGlobalRequest(reservation);
     generation?.end({ output: String(e), level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});
     throw new HttpsError('internal', 'AI request failed.');
@@ -140,7 +141,7 @@ export const chatWithAI = onCall({
   const text = sanitizeAiResponse(gen.text, isReasoningMode);
 
   generation?.end({ output: text, usage: { promptTokens: gen.tokensIn, completionTokens: gen.tokensOut } });
-  recordUsage(uid, gen.tokensIn, gen.tokensOut, { model: gen.model, fn: 'chat' }).catch(e => console.error('[AI chat] usage record failed:', e));
+  recordUsage(uid, gen.tokensIn, gen.tokensOut, { model: gen.model, fn: 'chat' }, reservation).catch(e => console.error('[AI chat] usage record failed:', e));
   if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   return { result: text };

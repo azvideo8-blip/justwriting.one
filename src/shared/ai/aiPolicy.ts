@@ -37,9 +37,9 @@ export function isInternalCall(callType: InternalCallType | null | undefined): b
 export function validateInternalCallRestrictions(params: {
   callType: InternalCallType | null | undefined;
   personaId: string;
-  reasoning?: boolean | null;
-  documentContent?: string | null;
-  userPortrait?: string | null;
+  reasoning?: boolean | null | undefined;
+  documentContent?: string | null | undefined;
+  userPortrait?: string | null | undefined;
   messages: unknown[];
 }): { isInternal: boolean } {
   const isInternal = isInternalCall(params.callType);

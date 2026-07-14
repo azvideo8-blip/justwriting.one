@@ -21,7 +21,7 @@ const SYSTEM_PROMPT = 'Ты — модуль ранжирования замет
 export const rerankNotes = onCall({
   secrets: ['OPENROUTER_API_KEY'],
   timeoutSeconds: 60,
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Registration required.');
@@ -51,7 +51,8 @@ export const rerankNotes = onCall({
     .map((c, i) => `[${i + 1}] docId=${c.documentId}\n${sanitizeAiInput(c.card)}`)
     .join('\n\n');
 
-  if (!(await tryReserveGlobalRequest())) {
+  const reservation = await tryReserveGlobalRequest(512);
+  if (!reservation) {
     await refundBulkLimit(uid);
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
@@ -68,7 +69,7 @@ export const rerankNotes = onCall({
       abortMs: 50_000,
     });
 
-    recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'rerank' }).catch(e =>
+    recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'rerank' }, reservation).catch(e =>
       console.error('[AI rerank] usage record failed:', e),
     );
 
@@ -91,7 +92,7 @@ export const rerankNotes = onCall({
     return { documentIds: ids.slice(0, maxResults) };
   } catch (e) {
     await refundBulkLimit(uid);
-    await refundGlobalRequest();
+    await refundGlobalRequest(reservation);
     console.error('[AI rerank] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

@@ -116,6 +116,41 @@ describe('performance.now-based timer', () => {
     vi.restoreAllMocks();
   });
 
+  it('finish-by mode: checkGoals sets timeGoalReached when wall-clock passes targetTime', () => {
+    const startIso = '2026-07-14T10:00:00';
+    const beforeIso = '2026-07-14T10:04:59';
+    const afterIso = '2026-07-14T10:05:01';
+
+    vi.useFakeTimers();
+
+    vi.setSystemTime(new Date(startIso));
+
+    useTimerStore.setState({
+      status: 'writing',
+      sessionType: 'finish-by',
+      targetTime: '10:05',
+      sessionStartWallMs: new Date(startIso).getTime(),
+      timeGoalReached: false,
+      _startWallMs: 0,
+      _accumulatedMs: 0,
+    });
+
+    // 1. Move time to 10:04:59 (before targetTime 10:05)
+    vi.spyOn(performance, 'now').mockReturnValue(299000);
+    vi.setSystemTime(new Date(beforeIso));
+    useTimerStore.getState().checkGoals();
+    expect(useTimerStore.getState().timeGoalReached).toBe(false);
+
+    // 2. Move time to 10:05:01 (after targetTime 10:05)
+    vi.spyOn(performance, 'now').mockReturnValue(301000);
+    vi.setSystemTime(new Date(afterIso));
+    useTimerStore.getState().checkGoals();
+    expect(useTimerStore.getState().timeGoalReached).toBe(true);
+
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
   it('resumeSession sets new _startWallMs', () => {
     useTimerStore.setState({ status: 'paused', _accumulatedMs: 5000, _startWallMs: null, _pauseWallStart: Date.now() - 2000 });
     const now = performance.now();

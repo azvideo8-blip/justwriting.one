@@ -150,7 +150,8 @@ export async function recordUsage(
   uid: string,
   tokensIn: number,
   tokensOut: number,
-  options?: { model?: string; fn?: string }
+  options?: { model?: string; fn?: string },
+  res?: GlobalReservation | null
 ): Promise<void> {
   const db = getDb();
   const date = new Date().toISOString().slice(0, 10);
@@ -164,15 +165,22 @@ export async function recordUsage(
   };
   batch.set(db.doc(`aiUsage/${uid}/daily/${date}`), dailyPayload, { merge: true });
   
-  // Global doc: requests and tokens sharded across 10 shards.
   const NUM_SHARDS = 10;
-  const shardId = Math.floor(Math.random() * NUM_SHARDS).toString();
-  batch.set(db.doc(`aiGlobalDaily/${date}/shards/${shardId}`), {
-    date,
-    promptTokens: FieldValue.increment(tokensIn),
-    completionTokens: FieldValue.increment(tokensOut),
-    updatedAt: FieldValue.serverTimestamp(),
-  }, { merge: true });
+  if (res && res.date && res.shardId) {
+    batch.set(db.doc(`aiGlobalDaily/${res.date}/shards/${res.shardId}`), {
+      promptTokens: FieldValue.increment(tokensIn - res.allowance),
+      completionTokens: FieldValue.increment(tokensOut),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  } else {
+    const shardId = Math.floor(Math.random() * NUM_SHARDS).toString();
+    batch.set(db.doc(`aiGlobalDaily/${date}/shards/${shardId}`), {
+      date,
+      promptTokens: FieldValue.increment(tokensIn),
+      completionTokens: FieldValue.increment(tokensOut),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  }
   
   // Per-request event for admin breakdown view
   const eventRef = db.collection(`aiUsage/${uid}/events`).doc();
@@ -210,46 +218,83 @@ export const TIER_LIMITS = {
   tokensPerMinute: envInt('AI_TIER_TPM', 1_000_000),
 };
 
-// Atomically check and reserve a slot in the project-wide daily cap.
-// Uses distributed sharding (10 shards) to prevent database write contention hotspots.
-export async function tryReserveGlobalRequest(): Promise<boolean> {
-  const db = getDb();
-  const date = new Date().toISOString().slice(0, 10);
-
-  const shardsSnap = await db.collection(`aiGlobalDaily/${date}/shards`).get();
-  let requests = 0;
-  let tokens = 0;
-  shardsSnap.forEach(doc => {
-    const data = doc.data();
-    requests += data.requests ?? 0;
-    tokens += (data.promptTokens ?? 0) + (data.completionTokens ?? 0);
-  });
-
-  if (requests >= TIER_LIMITS.requestsPerDay || tokens >= TIER_LIMITS.tokensPerDay) return false;
-
-  const NUM_SHARDS = 10;
-  const shardId = Math.floor(Math.random() * NUM_SHARDS).toString();
-  const shardRef = db.doc(`aiGlobalDaily/${date}/shards/${shardId}`);
-  await shardRef.set({
-    requests: FieldValue.increment(1),
-    date,
-    updatedAt: FieldValue.serverTimestamp()
-  }, { merge: true });
-
-  return true;
+export interface GlobalReservation {
+  date: string;
+  shardId: string;
+  allowance: number;
 }
 
-// Best-effort refund of one global daily request slot.
-export async function refundGlobalRequest(): Promise<void> {
+// Atomically check and reserve a slot in the project-wide daily cap.
+// Uses distributed sharding (10 shards) with bounded transaction reads (checks up to 3 shards).
+export async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalReservation | null> {
   const db = getDb();
   const date = new Date().toISOString().slice(0, 10);
   const NUM_SHARDS = 10;
-  const shardId = Math.floor(Math.random() * NUM_SHARDS).toString();
-  const shardRef = db.doc(`aiGlobalDaily/${date}/shards/${shardId}`);
-  await shardRef.set({
-    requests: FieldValue.increment(-1),
-    updatedAt: FieldValue.serverTimestamp()
-  }, { merge: true }).catch(e => console.error('[AI] refundGlobalRequest failed:', e));
+  const requestsLimit = Math.ceil(TIER_LIMITS.requestsPerDay / NUM_SHARDS);
+  const tokensLimit = Math.ceil(TIER_LIMITS.tokensPerDay / NUM_SHARDS);
+
+  return await db.runTransaction(async tx => {
+    const shardsCol = db.collection(`aiGlobalDaily/${date}/shards`);
+    let chosenShardId = '';
+    let chosenData = null;
+    
+    // Bounded search: check up to 3 shards to find one with capacity.
+    const attempts = 3;
+    const baseShard = Math.floor(Math.random() * NUM_SHARDS);
+    for (let i = 0; i < attempts; i++) {
+      const sId = ((baseShard + i) % NUM_SHARDS).toString();
+      const shardRef = shardsCol.doc(sId);
+      const snap = await tx.get(shardRef);
+      const data = snap.data() || { requests: 0, promptTokens: 0, completionTokens: 0 };
+      
+      const reqs = data.requests ?? 0;
+      const tkns = (data.promptTokens ?? 0) + (data.completionTokens ?? 0);
+      
+      if (reqs < requestsLimit && tkns < tokensLimit) {
+        chosenShardId = sId;
+        chosenData = data;
+        break;
+      }
+    }
+
+    if (!chosenShardId || !chosenData) return null;
+
+    const shardRef = shardsCol.doc(chosenShardId);
+    tx.set(shardRef, {
+      requests: (chosenData.requests ?? 0) + 1,
+      promptTokens: (chosenData.promptTokens ?? 0) + allowance,
+      date,
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    return { date, shardId: chosenShardId, allowance };
+  });
+}
+
+// Day-safe, shard-specific refund. Clamps shard requests to >= 0.
+export async function refundGlobalRequest(res: GlobalReservation | null | undefined): Promise<void> {
+  if (!res || !res.date || !res.shardId) return;
+  const db = getDb();
+
+  try {
+    await db.runTransaction(async tx => {
+      const shardRef = db.doc(`aiGlobalDaily/${res.date}/shards/${res.shardId}`);
+      const snap = await tx.get(shardRef);
+      if (!snap.exists) return;
+
+      const data = snap.data();
+      const requests = Math.max(0, (data?.requests ?? 0) - 1);
+      const promptTokens = Math.max(0, (data?.promptTokens ?? 0) - res.allowance);
+
+      tx.set(shardRef, {
+        requests,
+        promptTokens,
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+    });
+  } catch (e) {
+    console.error('[AI] refundGlobalRequest failed:', e);
+  }
 }
 
 // Per-user daily cap with an admin bump: users with role 'admin' get

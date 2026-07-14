@@ -50,7 +50,7 @@ const verdictSchema = z.object({
 export const judgeFacets = onCall({
   secrets: ['OPENROUTER_API_KEY'],
   timeoutSeconds: 120,
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Registration required.');
   const uid = request.auth.uid;
@@ -68,7 +68,8 @@ export const judgeFacets = onCall({
     `ФАСЕТ ${i + 1} [id=${sanitizeAiInput(f.facetId)}] «${sanitizeAiInput(f.label)}»\nОПИСАНИЕ: ${sanitizeAiInput(f.summary)}\nФАКТЫ: ${sanitizeAiInput(f.evidence)}`,
   ).join('\n\n');
 
-  if (!(await tryReserveGlobalRequest())) {
+  const reservation = await tryReserveGlobalRequest(8192);
+  if (!reservation) {
     await refundBulkLimit(uid);
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
@@ -82,7 +83,7 @@ export const judgeFacets = onCall({
       abortMs: 100_000,
       model: JUDGE_MODEL,
     });
-    recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'judge' }).catch(() => {});
+    recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'judge' }, reservation).catch(() => {});
 
     let txt = result.text.trim();
     if (txt.startsWith('```')) txt = txt.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
@@ -104,7 +105,7 @@ export const judgeFacets = onCall({
     return { verdicts };
   } catch (e) {
     await refundBulkLimit(uid);
-    await refundGlobalRequest();
+    await refundGlobalRequest(reservation);
     const msg = String((e as { message?: string })?.message ?? e);
     if (!(e instanceof HttpsError)) console.error('[AI judge] failed:', msg);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
