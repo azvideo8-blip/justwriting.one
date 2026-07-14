@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt, checkAndIncrementBulkLimit, refundBulkLimit } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 // Summarizes one cluster of the user's notes into a profile facet (label +
@@ -39,6 +39,12 @@ export const summarizeFacet = onCall({
     throw new HttpsError('invalid-argument', 'Invalid payload.');
   }
 
+  // Bulk daily limit check
+  const allowed = await checkAndIncrementBulkLimit(uid);
+  if (!allowed) {
+    throw new HttpsError('resource-exhausted', 'Daily bulk operations limit reached.');
+  }
+
   const notesText = parsed.data.notes
     .map((n, i) => `Заметка ${i + 1} «${sanitizeAiInput(n.title)}»:\n${sanitizeAiInput(n.excerpt)}`)
     .join('\n\n');
@@ -58,6 +64,7 @@ export const summarizeFacet = onCall({
     : system;
 
   if (!(await tryReserveGlobalRequest())) {
+    await refundBulkLimit(uid);
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -100,7 +107,11 @@ export const summarizeFacet = onCall({
     // Also reject clearly truncated summaries (ending mid-sentence without punctuation).
     let finalLabel = label;
     const truncated = summary.length > 0 && !/[.!?]$/.test(summary);
-    if (!summary || META.test(summary) || cyr(summary) < summary.length * 0.3 || (truncated && summary.length < 200)) { finalLabel = ''; summary = ''; }
+    if (!summary || META.test(summary) || cyr(summary) < summary.length * 0.3 || (truncated && summary.length < 200)) { 
+      await refundBulkLimit(uid);
+      finalLabel = ''; 
+      summary = ''; 
+    }
     if (finalLabel && (META.test(finalLabel) || cyr(finalLabel) === 0)) finalLabel = '';
     if (!finalLabel && summary) {
       finalLabel = summary.split(/[.!?\n]/)[0]!.split(/\s+/).slice(0, 5).join(' ').slice(0, 48);
@@ -110,6 +121,7 @@ export const summarizeFacet = onCall({
     const cleanSummary = sanitizeAiResponse(summary);
     return { label: cleanLabel, summary: cleanSummary };
   } catch (e) {
+    await refundBulkLimit(uid);
     await refundGlobalRequest();
     console.error('[AI facet] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);

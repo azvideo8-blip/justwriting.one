@@ -4,9 +4,11 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { initializeApp, getApps, cert, applicationDefault, type ServiceAccount } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
+import { getAppCheck } from 'firebase-admin/app-check';
 import { z } from 'zod';
 import { hasInjectionAttempt } from '../src/shared/ai/injectionPatterns.js';
 import { buildChatSystemPrompt, sanitizeAiInputShared } from '../src/shared/ai/buildChatPrompt.js';
+import { validateInternalCallRestrictions, getMaxTokens } from '../src/shared/ai/aiPolicy.js';
 
 // Must match the database the Cloud Functions and frontend use (shared/firestore.ts,
 // VITE_FIREBASE_FIRESTORE_DATABASE_ID). Bare getFirestore() targets "(default)", which
@@ -29,19 +31,32 @@ const TIER_LIMITS = {
 };
 
 // Atomically check and reserve a slot in the project-wide daily cap.
-// Prevents TOCTOU race where concurrent requests all pass the read check.
+// Uses distributed sharding (10 shards) to prevent database write contention hotspots.
 async function tryReserveGlobalRequest(): Promise<boolean> {
   const date = new Date().toISOString().slice(0, 10);
-  const ref = db().doc(`aiGlobalDaily/${date}`);
-  return db().runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const d = snap.data();
-    const requests = d?.requests ?? 0;
-    const tokens = (d?.promptTokens ?? 0) + (d?.completionTokens ?? 0);
-    if (requests >= TIER_LIMITS.requestsPerDay || tokens >= TIER_LIMITS.tokensPerDay) return false;
-    tx.set(ref, { requests: FieldValue.increment(1), date, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-    return true;
+  const fs = db();
+
+  const shardsSnap = await fs.collection(`aiGlobalDaily/${date}/shards`).get();
+  let requests = 0;
+  let tokens = 0;
+  shardsSnap.forEach(doc => {
+    const data = doc.data();
+    requests += data.requests ?? 0;
+    tokens += (data.promptTokens ?? 0) + (data.completionTokens ?? 0);
   });
+
+  if (requests >= TIER_LIMITS.requestsPerDay || tokens >= TIER_LIMITS.tokensPerDay) return false;
+
+  const NUM_SHARDS = 10;
+  const shardId = Math.floor(Math.random() * NUM_SHARDS).toString();
+  const shardRef = fs.doc(`aiGlobalDaily/${date}/shards/${shardId}`);
+  await shardRef.set({
+    requests: FieldValue.increment(1),
+    date,
+    updatedAt: FieldValue.serverTimestamp()
+  }, { merge: true });
+
+  return true;
 }
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
@@ -126,14 +141,14 @@ function sanitizeAiInput(content: string): string {
 async function refundGlobalRequest(): Promise<void> {
   const date = new Date().toISOString().slice(0, 10);
   const fs = db();
-  const ref = fs.doc(`aiGlobalDaily/${date}`);
+  const NUM_SHARDS = 10;
+  const shardId = Math.floor(Math.random() * NUM_SHARDS).toString();
+  const shardRef = fs.doc(`aiGlobalDaily/${date}/shards/${shardId}`);
   try {
-    await fs.runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      const data = snap.data();
-      if (!data || data.date !== date) return;
-      tx.update(ref, { requests: Math.max(0, (data.requests ?? 0) - 1) });
-    });
+    await shardRef.set({
+      requests: FieldValue.increment(-1),
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
   } catch (e) {
     console.error('[api/chat] refundGlobalRequest failed:', e);
   }
@@ -237,14 +252,17 @@ async function recordUsage(uid: string, tokensIn: number, tokensOut: number, mod
     updatedAt: FieldValue.serverTimestamp(),
   };
   batch.set(fs.doc(`aiUsage/${uid}/daily/${date}`), payload, { merge: true });
-  // Global doc: requests already incremented atomically by tryReserveGlobalRequest;
-  // only add token counts here.
-  batch.set(fs.doc(`aiGlobalDaily/${date}`), {
+  
+  // Global doc: requests and tokens sharded across 10 shards.
+  const NUM_SHARDS = 10;
+  const shardId = Math.floor(Math.random() * NUM_SHARDS).toString();
+  batch.set(fs.doc(`aiGlobalDaily/${date}/shards/${shardId}`), {
     date,
     promptTokens: FieldValue.increment(tokensIn),
     completionTokens: FieldValue.increment(tokensOut),
     updatedAt: FieldValue.serverTimestamp(),
   }, { merge: true });
+  
   // Per-request event for admin breakdown
   const eventRef = fs.collection(`aiUsage/${uid}/events`).doc();
   batch.set(eventRef, { date, ts: FieldValue.serverTimestamp(), tokensIn, tokensOut, model, fn: 'chat-stream' });
@@ -450,29 +468,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(401).json({ error: 'Unauthorized' }); return;
   }
 
+  // App Check verification (if enabled via env)
+  if (process.env.APP_CHECK_ENFORCE === 'true') {
+    const appCheckToken = req.headers['x-firebase-appcheck'];
+    if (typeof appCheckToken !== 'string') {
+      res.status(401).json({ error: 'Unauthorized: App Check token required' });
+      return;
+    }
+    try {
+      await getAppCheck().verifyToken(appCheckToken);
+    } catch (err) {
+      res.status(401).json({ error: 'Unauthorized: Invalid App Check token' });
+      return;
+    }
+  }
+
   // Parse body
   const parsed = inputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'Bad Request' }); return; }
 
-  // Internal call types (auto-naming, follow-up generation, query expansion) skip
-  // the per-user daily limit and cooldown — they are background infrastructure.
-  // The global guard (tryReserveGlobalRequest) still applies.
-  // Internal calls are restricted: low maxTokens, no custom persona, no reasoning.
-  const isInternalCall = parsed.data.callType !== undefined && parsed.data.callType !== null;
-
-  if (isInternalCall) {
-    if (parsed.data.personaId === 'custom') {
-      res.status(400).json({ error: 'Bad Request' }); return;
-    }
-    if (parsed.data.reasoning === true) {
-      res.status(400).json({ error: 'Bad Request' }); return;
-    }
-    if (parsed.data.documentContent || parsed.data.userPortrait) {
-      res.status(400).json({ error: 'Bad Request' }); return;
-    }
-    if (parsed.data.messages.length > 3) {
-      res.status(400).json({ error: 'Bad Request' }); return;
-    }
+  // Internal call validation via centralized policy
+  let isInternalCall = false;
+  try {
+    const policyResult = validateInternalCallRestrictions({
+      callType: parsed.data.callType,
+      personaId: parsed.data.personaId,
+      reasoning: parsed.data.reasoning,
+      documentContent: parsed.data.documentContent,
+      userPortrait: parsed.data.userPortrait,
+      messages: parsed.data.messages,
+    });
+    isInternalCall = policyResult.isInternal;
+  } catch (e: any) {
+    res.status(400).json({ error: 'Bad Request' }); return;
   }
 
   // Daily limit first (LX-2a: admins skip; internal calls skip) — avoids wasting a global slot if user is at per-user cap
@@ -551,7 +579,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const maxOutputTokens = isInternalCall ? 256 : 8192;
+  const maxOutputTokens = getMaxTokens(isInternalCall, reasoning);
 
   const result = streamText({
     model: chatModel,

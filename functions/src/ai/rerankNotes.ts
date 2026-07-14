@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest, refundGlobalRequest } from '../shared/aiUtils';
+import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, checkAndIncrementBulkLimit, refundBulkLimit } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 // Reranking is search infrastructure, not a user conversation — like embedDocument
@@ -34,6 +34,12 @@ export const rerankNotes = onCall({
   }
   const { query, candidates, maxResults = 5 } = parsed.data;
 
+  // Bulk daily limit check
+  const allowed = await checkAndIncrementBulkLimit(uid);
+  if (!allowed) {
+    throw new HttpsError('resource-exhausted', 'Daily bulk operations limit reached.');
+  }
+
   // S-7: Validate documentId with strict regex — no injection check (it's an ID, not content)
   const DOC_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
   if (candidates.some(c => !DOC_ID_RE.test(c.documentId))) {
@@ -46,6 +52,7 @@ export const rerankNotes = onCall({
     .join('\n\n');
 
   if (!(await tryReserveGlobalRequest())) {
+    await refundBulkLimit(uid);
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -66,10 +73,15 @@ export const rerankNotes = onCall({
     );
 
     let ids: string[] = [];
+    let txt = result.text.trim();
+    if (txt.startsWith('```')) {
+      txt = txt.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
+    }
     try {
-      const obj = JSON.parse(result.text) as { ids?: unknown };
+      const obj = JSON.parse(txt) as { ids?: unknown };
       if (Array.isArray(obj.ids)) ids = obj.ids.filter((x): x is string => typeof x === 'string');
     } catch {
+      await refundBulkLimit(uid);
       ids = [];
     }
 
@@ -78,6 +90,7 @@ export const rerankNotes = onCall({
 
     return { documentIds: ids.slice(0, maxResults) };
   } catch (e) {
+    await refundBulkLimit(uid);
     await refundGlobalRequest();
     console.error('[AI rerank] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);

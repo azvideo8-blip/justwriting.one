@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, checkAndIncrementBulkLimit, refundBulkLimit } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 const JUDGE_MODEL = process.env.AI_FACET_MODEL ?? 'google/gemma-2-9b-it:free';
@@ -29,7 +29,12 @@ function repairTruncatedJson(raw: string): string {
     else if (c === '}' || c === ']') stack.pop();
   }
   let out = raw;
-  if (inStr) out += '"';
+  if (inStr) {
+    if (esc) {
+      out = out.slice(0, -1);
+    }
+    out += '"';
+  }
   out = out.replace(/,\s*$/, '');
   while (stack.length) out += stack.pop();
   return out;
@@ -53,11 +58,18 @@ export const judgeFacets = onCall({
   const parsed = inputSchema.safeParse(request.data);
   if (!parsed.success) throw new HttpsError('invalid-argument', 'Invalid payload.');
 
+  // Bulk daily limit check
+  const allowed = await checkAndIncrementBulkLimit(uid);
+  if (!allowed) {
+    throw new HttpsError('resource-exhausted', 'Daily bulk operations limit reached.');
+  }
+
   const facetsText = parsed.data.facets.map((f, i) =>
     `ФАСЕТ ${i + 1} [id=${sanitizeAiInput(f.facetId)}] «${sanitizeAiInput(f.label)}»\nОПИСАНИЕ: ${sanitizeAiInput(f.summary)}\nФАКТЫ: ${sanitizeAiInput(f.evidence)}`,
   ).join('\n\n');
 
   if (!(await tryReserveGlobalRequest())) {
+    await refundBulkLimit(uid);
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -79,6 +91,7 @@ export const judgeFacets = onCall({
 
     const arr = z.object({ verdicts: z.array(verdictSchema) }).safeParse(obj);
     if (!arr.success) {
+      await refundBulkLimit(uid);
       console.error('[AI judge] no valid verdicts. raw:', result.text.slice(0, 400));
       throw new HttpsError('internal', 'Judge produced no verdicts.');
     }
@@ -90,6 +103,7 @@ export const judgeFacets = onCall({
     }));
     return { verdicts };
   } catch (e) {
+    await refundBulkLimit(uid);
     await refundGlobalRequest();
     const msg = String((e as { message?: string })?.message ?? e);
     if (!(e instanceof HttpsError)) console.error('[AI judge] failed:', msg);

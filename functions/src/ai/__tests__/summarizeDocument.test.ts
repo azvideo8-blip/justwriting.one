@@ -57,6 +57,8 @@ vi.mock('../../shared/aiUtils', async () => {
     recordUsage: vi.fn().mockResolvedValue(undefined),
     refundDailyLimit: vi.fn().mockResolvedValue(undefined),
     refundGlobalRequest: vi.fn().mockResolvedValue(undefined),
+    checkAndIncrementBulkLimit: vi.fn().mockResolvedValue(true),
+    refundBulkLimit: vi.fn().mockResolvedValue(undefined),
     getLangfuse: vi.fn(() => null),
   };
 });

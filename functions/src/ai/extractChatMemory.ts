@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt, checkAndIncrementBulkLimit, refundBulkLimit } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 // Extracts durable memory units (facts, insights, commitments, preferences)
@@ -47,6 +47,12 @@ export const extractChatMemory = onCall({
     throw new HttpsError('invalid-argument', 'Invalid payload.');
   }
 
+  // Bulk daily limit check
+  const allowed = await checkAndIncrementBulkLimit(uid);
+  if (!allowed) {
+    throw new HttpsError('resource-exhausted', 'Daily bulk operations limit reached.');
+  }
+
   if (parsed.data.messages.some(m => hasInjectionAttempt(m.content))) {
     throw new HttpsError('invalid-argument', 'Disallowed patterns in messages.');
   }
@@ -56,6 +62,7 @@ export const extractChatMemory = onCall({
     .join('\n\n');
 
   if (!(await tryReserveGlobalRequest())) {
+    await refundBulkLimit(uid);
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -87,12 +94,17 @@ export const extractChatMemory = onCall({
       }
     }
 
+    if (!Array.isArray(memories) || memories.length === 0) {
+      await refundBulkLimit(uid);
+    }
+
     memories = (Array.isArray(memories) ? memories : []).filter(m =>
       m && typeof m.text === 'string' && typeof m.kind === 'string' && VALID_KINDS.includes(m.kind),
     );
 
     return { memories };
   } catch (e) {
+    await refundBulkLimit(uid);
     await refundGlobalRequest();
     console.error('[AI memory] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
