@@ -30,33 +30,57 @@ const TIER_LIMITS = {
   tokensPerDay: envInt('AI_TIER_TPD', 25_000_000),
 };
 
+interface GlobalReservation {
+  date: string;
+  shardId: string;
+  allowance: number;
+}
+
 // Atomically check and reserve a slot in the project-wide daily cap.
-// Uses distributed sharding (10 shards) to prevent database write contention hotspots.
-async function tryReserveGlobalRequest(): Promise<boolean> {
+// Uses distributed sharding (10 shards) with bounded transaction reads (checks up to 3 shards).
+async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalReservation | null> {
   const date = new Date().toISOString().slice(0, 10);
   const fs = db();
-
-  const shardsSnap = await fs.collection(`aiGlobalDaily/${date}/shards`).get();
-  let requests = 0;
-  let tokens = 0;
-  shardsSnap.forEach(doc => {
-    const data = doc.data();
-    requests += data.requests ?? 0;
-    tokens += (data.promptTokens ?? 0) + (data.completionTokens ?? 0);
-  });
-
-  if (requests >= TIER_LIMITS.requestsPerDay || tokens >= TIER_LIMITS.tokensPerDay) return false;
-
   const NUM_SHARDS = 10;
-  const shardId = Math.floor(Math.random() * NUM_SHARDS).toString();
-  const shardRef = fs.doc(`aiGlobalDaily/${date}/shards/${shardId}`);
-  await shardRef.set({
-    requests: FieldValue.increment(1),
-    date,
-    updatedAt: FieldValue.serverTimestamp()
-  }, { merge: true });
+  const requestsLimit = Math.ceil(TIER_LIMITS.requestsPerDay / NUM_SHARDS);
+  const tokensLimit = Math.ceil(TIER_LIMITS.tokensPerDay / NUM_SHARDS);
 
-  return true;
+  return await fs.runTransaction(async tx => {
+    const shardsCol = fs.collection(`aiGlobalDaily/${date}/shards`);
+    let chosenShardId = '';
+    let chosenData = null;
+    
+    // Bounded search: check up to 3 shards to find one with capacity.
+    const attempts = 3;
+    const baseShard = Math.floor(Math.random() * NUM_SHARDS);
+    for (let i = 0; i < attempts; i++) {
+      const sId = ((baseShard + i) % NUM_SHARDS).toString();
+      const shardRef = shardsCol.doc(sId);
+      const snap = await tx.get(shardRef);
+      const data = snap.data() || { requests: 0, promptTokens: 0, completionTokens: 0 };
+      
+      const reqs = data.requests ?? 0;
+      const tkns = (data.promptTokens ?? 0) + (data.completionTokens ?? 0);
+      
+      if (reqs < requestsLimit && tkns < tokensLimit) {
+        chosenShardId = sId;
+        chosenData = data;
+        break;
+      }
+    }
+
+    if (!chosenShardId || !chosenData) return null;
+
+    const shardRef = shardsCol.doc(chosenShardId);
+    tx.set(shardRef, {
+      requests: (chosenData.requests ?? 0) + 1,
+      promptTokens: (chosenData.promptTokens ?? 0) + allowance,
+      date,
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    return { date, shardId: chosenShardId, allowance };
+  });
 }
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
@@ -135,20 +159,27 @@ function sanitizeAiInput(content: string): string {
   return sanitizeAiInputShared(content);
 }
 
-// Best-effort refund of one global daily request slot.
-// Uses a transaction with date verification and Math.max(0, ...) clamping to
-// prevent cross-day refunds and negative counts.
-async function refundGlobalRequest(): Promise<void> {
-  const date = new Date().toISOString().slice(0, 10);
+// Day-safe, shard-specific refund. Clamps shard requests to >= 0.
+async function refundGlobalRequest(res: GlobalReservation | null | undefined): Promise<void> {
+  if (!res || !res.date || !res.shardId) return;
   const fs = db();
-  const NUM_SHARDS = 10;
-  const shardId = Math.floor(Math.random() * NUM_SHARDS).toString();
-  const shardRef = fs.doc(`aiGlobalDaily/${date}/shards/${shardId}`);
+
   try {
-    await shardRef.set({
-      requests: FieldValue.increment(-1),
-      updatedAt: FieldValue.serverTimestamp()
-    }, { merge: true });
+    await fs.runTransaction(async tx => {
+      const shardRef = fs.doc(`aiGlobalDaily/${res.date}/shards/${res.shardId}`);
+      const snap = await tx.get(shardRef);
+      if (!snap.exists) return;
+
+      const data = snap.data();
+      const requests = Math.max(0, (data?.requests ?? 0) - 1);
+      const promptTokens = Math.max(0, (data?.promptTokens ?? 0) - res.allowance);
+
+      tx.set(shardRef, {
+        requests,
+        promptTokens,
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+    });
   } catch (e) {
     console.error('[api/chat] refundGlobalRequest failed:', e);
   }
@@ -240,7 +271,13 @@ async function checkAndIncrementLimit(uid: string, reasoning?: boolean | null): 
 
 // Mirror functions/src/shared/aiUtils.ts recordUsage so streamed chats show up in
 // admin AI stats (getAIUsageStats reads the `daily` collection group).
-async function recordUsage(uid: string, tokensIn: number, tokensOut: number, model: string): Promise<void> {
+async function recordUsage(
+  uid: string,
+  tokensIn: number,
+  tokensOut: number,
+  model: string,
+  res?: GlobalReservation | null
+): Promise<void> {
   const date = new Date().toISOString().slice(0, 10);
   const fs = db();
   const batch = fs.batch();
@@ -253,15 +290,22 @@ async function recordUsage(uid: string, tokensIn: number, tokensOut: number, mod
   };
   batch.set(fs.doc(`aiUsage/${uid}/daily/${date}`), payload, { merge: true });
   
-  // Global doc: requests and tokens sharded across 10 shards.
   const NUM_SHARDS = 10;
-  const shardId = Math.floor(Math.random() * NUM_SHARDS).toString();
-  batch.set(fs.doc(`aiGlobalDaily/${date}/shards/${shardId}`), {
-    date,
-    promptTokens: FieldValue.increment(tokensIn),
-    completionTokens: FieldValue.increment(tokensOut),
-    updatedAt: FieldValue.serverTimestamp(),
-  }, { merge: true });
+  if (res && res.date && res.shardId) {
+    batch.set(fs.doc(`aiGlobalDaily/${res.date}/shards/${res.shardId}`), {
+      promptTokens: FieldValue.increment(tokensIn - res.allowance),
+      completionTokens: FieldValue.increment(tokensOut),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  } else {
+    const shardId = Math.floor(Math.random() * NUM_SHARDS).toString();
+    batch.set(fs.doc(`aiGlobalDaily/${date}/shards/${shardId}`), {
+      date,
+      promptTokens: FieldValue.increment(tokensIn),
+      completionTokens: FieldValue.increment(tokensOut),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  }
   
   // Per-request event for admin breakdown
   const eventRef = fs.collection(`aiUsage/${uid}/events`).doc();
@@ -290,10 +334,11 @@ async function streamOpenRouterReasoning(
   system: string,
   messages: Array<{ role: string; content: string }>,
   isInternalCall: boolean,
+  reservation: GlobalReservation | null,
 ): Promise<void> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    await refundGlobalRequest();
+    await refundGlobalRequest(reservation);
     if (!isInternalCall) await refundDailyLimit(uid);
     console.error('OPENROUTER_API_KEY not set');
     res.status(500).end('Internal server error');
@@ -316,7 +361,7 @@ async function streamOpenRouterReasoning(
   });
 
   if (!upstream.ok || !upstream.body) {
-    await refundGlobalRequest();
+    await refundGlobalRequest(reservation);
     if (!isInternalCall) await refundDailyLimit(uid);
     res.status(502).end('UPSTREAM_ERROR');
     return;
@@ -415,7 +460,7 @@ async function streamOpenRouterReasoning(
    }
     } catch (streamErr) {
       console.error('[api/chat] stream read failed:', streamErr);
-      await refundGlobalRequest();
+      await refundGlobalRequest(reservation);
       if (!isInternalCall) await refundDailyLimit(uid);
     }
    // LX-1: Flush any remaining buffered content (no marker was found)
@@ -425,7 +470,7 @@ async function streamOpenRouterReasoning(
     res.write(contentAccum);
   }
   try {
-    await recordUsage(uid, tokensIn, tokensOut, model);
+    await recordUsage(uid, tokensIn, tokensOut, model, reservation);
   } catch (e) {
     console.error('[api/chat] usage record failed:', e);
   }
@@ -510,7 +555,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Project-wide free-tier guard (across all users + resets)
-  if (!(await tryReserveGlobalRequest())) {
+  const maxOutputTokens = getMaxTokens(isInternalCall, parsed.data.reasoning);
+  const reservation = await tryReserveGlobalRequest(maxOutputTokens);
+  if (!reservation) {
     if (!isInternalCall) await refundDailyLimit(uid);
     res.status(429).json({ error: 'GLOBAL_LIMIT' }); return;
   }
@@ -520,7 +567,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Injection guard for custom prompts
   if (personaId === 'custom' && customSystemPrompt) {
     if (hasInjectionAttempt(customSystemPrompt)) {
-      await refundDailyLimit(uid); await refundGlobalRequest();
+      await refundDailyLimit(uid); await refundGlobalRequest(reservation);
       res.status(400).json({ error: 'Bad Request' }); return;
     }
   }
@@ -528,19 +575,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // S-3: Injection guard for ALL message turns (not just user) — a client-fabricated
   // assistant message is the real injection vector.
   if (messages.some(m => hasInjectionAttempt(m.content))) {
-    if (!isInternalCall) await refundDailyLimit(uid); await refundGlobalRequest();
+    if (!isInternalCall) await refundDailyLimit(uid); await refundGlobalRequest(reservation);
     res.status(400).json({ error: 'Bad Request' }); return;
   }
 
   if (documentContent && hasInjectionAttempt(documentContent)) {
     if (!isInternalCall) await refundDailyLimit(uid);
-    await refundGlobalRequest();
+    await refundGlobalRequest(reservation);
     res.status(400).json({ error: 'Bad Request' }); return;
   }
 
   if (userPortrait && hasInjectionAttempt(userPortrait)) {
     if (!isInternalCall) await refundDailyLimit(uid);
-    await refundGlobalRequest();
+    await refundGlobalRequest(reservation);
     res.status(400).json({ error: 'Bad Request' }); return;
   }
 
@@ -575,11 +622,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? { ...m, content: `${m.content}\n\n(Думай по-русски и ответь по-русски.)` }
         : m,
     );
-    await streamOpenRouterReasoning(res, uid, activeModel, reasoningSystem, reasoningMessages, isInternalCall);
+    await streamOpenRouterReasoning(res, uid, activeModel, reasoningSystem, reasoningMessages, isInternalCall, reservation);
     return;
   }
-
-  const maxOutputTokens = getMaxTokens(isInternalCall, reasoning);
 
   const result = streamText({
     model: chatModel,
@@ -588,14 +633,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     maxOutputTokens,
     onFinish: async ({ totalUsage }) => {
       try {
-        await recordUsage(uid, totalUsage?.inputTokens ?? 0, totalUsage?.outputTokens ?? 0, activeModel);
+        await recordUsage(uid, totalUsage?.inputTokens ?? 0, totalUsage?.outputTokens ?? 0, activeModel, reservation);
       } catch (e) {
         console.error('[api/chat] usage record failed:', e);
       }
     },
     onError: async (e) => {
       console.error('[api/chat] streamText failed:', e);
-      await refundGlobalRequest();
+      await refundGlobalRequest(reservation);
       if (!isInternalCall) await refundDailyLimit(uid);
     },
   });
@@ -604,7 +649,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     result.pipeTextStreamToResponse(res);
   } catch (streamErr) {
     console.error('[api/chat] pipe failed:', streamErr);
-    await refundGlobalRequest();
+    await refundGlobalRequest(reservation);
     if (!isInternalCall) await refundDailyLimit(uid);
     if (!res.headersSent) res.status(500).json({ error: 'Stream failed' });
   }

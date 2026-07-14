@@ -26,7 +26,7 @@ const SYSTEM_PROMPT = 'Ты анализируешь группу фрагмен
 export const summarizeFacet = onCall({
   secrets: ['OPENROUTER_API_KEY'],
   timeoutSeconds: 120,
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Registration required.');
@@ -63,7 +63,8 @@ export const summarizeFacet = onCall({
     ? `${system}\nОБЯЗАТЕЛЬНО УЧТИ ПОПРАВКУ (она важнее прежнего текста): ${correction}`
     : system;
 
-  if (!(await tryReserveGlobalRequest())) {
+  const reservation = await tryReserveGlobalRequest(2048);
+  if (!reservation) {
     await refundBulkLimit(uid);
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
@@ -78,7 +79,7 @@ export const summarizeFacet = onCall({
       abortMs: 110_000,
     });
 
-    recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'facet' }).catch(e =>
+    recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'facet' }, reservation).catch(e =>
       console.error('[AI facet] usage record failed:', e),
     );
 
@@ -122,7 +123,7 @@ export const summarizeFacet = onCall({
     return { label: cleanLabel, summary: cleanSummary };
   } catch (e) {
     await refundBulkLimit(uid);
-    await refundGlobalRequest();
+    await refundGlobalRequest(reservation);
     console.error('[AI facet] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

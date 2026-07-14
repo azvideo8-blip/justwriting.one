@@ -120,7 +120,8 @@ export const useTimerStore = create<TimerState>((set, get) => ({
         const parts = s.targetTime.split(':').map(Number);
         const hours = parts[0] ?? 0;
         const minutes = parts[1] ?? 0;
-        const start = s.sessionStartWallMs ? new Date(s.sessionStartWallMs) : new Date();
+        const now = new Date();
+        const start = s.sessionStartWallMs ? new Date(s.sessionStartWallMs) : now;
         const target = new Date(start);
         target.setHours(hours, minutes, 0, 0);
         if (target <= start) {

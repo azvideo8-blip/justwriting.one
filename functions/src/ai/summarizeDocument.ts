@@ -65,7 +65,7 @@ const inputSchema = z.object({
 export const summarizeDocument = onCall({
   secrets: ['OPENROUTER_API_KEY'],
   timeoutSeconds: 120,
-  enforceAppCheck: false,
+  enforceAppCheck: true,
 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Registration required.');
@@ -87,6 +87,10 @@ export const summarizeDocument = onCall({
     throw new HttpsError('invalid-argument', 'Disallowed patterns in content.');
   }
 
+  if (recentContext && hasInjectionAttempt(recentContext)) {
+    throw new HttpsError('invalid-argument', 'Disallowed patterns in recentContext.');
+  }
+
   // Bulk daily limit check
   const allowed = await checkAndIncrementBulkLimit(uid);
   if (!allowed) {
@@ -94,6 +98,7 @@ export const summarizeDocument = onCall({
   }
 
   const sanitizedContent = sanitizeAiInput(content);
+  const sanitizedRecentContext = recentContext ? sanitizeAiInput(recentContext) : null;
 
   // Scale item counts to text length to avoid over-extraction on short notes.
   const wordCount = sanitizedContent.split(/\s+/).filter(Boolean).length;
@@ -108,11 +113,12 @@ export const summarizeDocument = onCall({
     ? `[Настроение документа: ${safeMood}]\n\n${sanitizedContent}`
     : sanitizedContent;
 
-  if (recentContext) {
-    prompt = `[recentContext (недавние темы):\n${recentContext}]\n\n${prompt}`;
+  if (sanitizedRecentContext) {
+    prompt = `[recentContext (недавние темы):\n${sanitizedRecentContext}]\n\n${prompt}`;
   }
 
-  if (!(await tryReserveGlobalRequest())) {
+  const reservation = await tryReserveGlobalRequest(8192);
+  if (!reservation) {
     await refundBulkLimit(uid);
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
@@ -142,7 +148,7 @@ export const summarizeDocument = onCall({
   } catch (e) {
     console.error('[AI summarize] generation failed:', e);
     await refundBulkLimit(uid);
-    await refundGlobalRequest();
+    await refundGlobalRequest(reservation);
     generation?.end({ output: String(e), level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});
     const msg = String((e as { message?: string })?.message ?? e);
@@ -180,6 +186,7 @@ export const summarizeDocument = onCall({
     }
   } catch {
     await refundBulkLimit(uid);
+    await refundGlobalRequest(reservation);
     console.error('[AI summarize] failed to parse model output:', text.slice(0, 500));
     generation?.end({ output: text, level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
@@ -187,7 +194,7 @@ export const summarizeDocument = onCall({
   }
 
   generation?.end({ output: text, usage: { promptTokens: tokensIn, completionTokens: tokensOut } });
-  recordUsage(uid, tokensIn, tokensOut, { model: usedModel, fn: 'summarize' }).catch(e => console.error('[AI summarize] usage record failed:', e));
+  recordUsage(uid, tokensIn, tokensOut, { model: usedModel, fn: 'summarize' }, reservation).catch(e => console.error('[AI summarize] usage record failed:', e));
   if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   // Drop strings where Cyrillic chars are less than 20% of length — catches

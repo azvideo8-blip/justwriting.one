@@ -6,7 +6,8 @@
 
 Streaming AI chat with persona system, served from Vercel Edge.
 
-**Authentication:** `Authorization: Bearer <Firebase ID token>`
+**Authentication:** `Authorization: Bearer <Firebase ID token>`  
+**App Check:** `x-firebase-appcheck: <token>` — required when `APP_CHECK_ENFORCE=true` (enabled in production).
 
 **Request body (JSON):**
 
@@ -28,6 +29,8 @@ Streaming AI chat with persona system, served from Vercel Edge.
 | Status | Code | Meaning |
 |--------|------|---------|
 | 401 | `Unauthorized` | Missing or invalid ID token |
+| 401 | `Unauthorized: App Check token required` | `APP_CHECK_ENFORCE=true` but `x-firebase-appcheck` header missing |
+| 401 | `Unauthorized: Invalid App Check token` | App Check token failed verification |
 | 400 | `Bad Request` | Schema validation failed or injection pattern detected |
 | 405 | — | Non-POST method |
 | 429 | `DAILY_LIMIT` | Per-user daily request cap reached |
@@ -37,7 +40,7 @@ Streaming AI chat with persona system, served from Vercel Edge.
 
 ## Firebase Callable Functions
 
-All callables use Firebase Auth (verified ID token). **App Check is configured but enforcement is currently OFF** (`enforceAppCheck: false`) — see [TICKET-009](../TICKETS.md).
+All callables use Firebase Auth (verified ID token) **and Firebase App Check** (`enforceAppCheck: true`). Requests without a valid App Check token are automatically rejected by the Firebase Functions runtime before handler code runs.
 
 ### `chatWithAI`
 
