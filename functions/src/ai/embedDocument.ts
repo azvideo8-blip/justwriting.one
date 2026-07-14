@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest, refundGlobalRequest } from '../shared/aiUtils';
+import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, checkAndIncrementBulkLimit, refundBulkLimit } from '../shared/aiUtils';
 import { embed } from '../shared/aiProvider';
 
 const inputSchema = z.object({
@@ -41,11 +41,6 @@ export const embedDocument = onCall({
 
   const uid = request.auth.uid;
 
-  // Embeddings are cheap bulk infrastructure, not user-facing AI calls — they
-  // are NOT subject to the per-user daily cap (AI_DAILY_LIMIT, default 5) or the
-  // 10s chat cooldown (checkRateLimit), which made bulk indexing impossible
-  // (429 / "Daily limit reached"). Only the project-wide cost guard applies.
-
   const parsed = inputSchema.safeParse(request.data);
   if (!parsed.success) {
     throw new HttpsError('invalid-argument', 'Invalid payload.');
@@ -53,9 +48,16 @@ export const embedDocument = onCall({
 
   const { content } = parsed.data;
 
+  // Bulk daily limit check
+  const allowed = await checkAndIncrementBulkLimit(uid);
+  if (!allowed) {
+    throw new HttpsError('resource-exhausted', 'Daily bulk operations limit reached.');
+  }
+
   const sanitized = sanitizeAiInput(content);
 
   if (!(await tryReserveGlobalRequest())) {
+    await refundBulkLimit(uid);
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -64,6 +66,7 @@ export const embedDocument = onCall({
     const result = await embed(chunks);
 
     if (result.vectors.length !== chunks.length) {
+      await refundBulkLimit(uid);
       await refundGlobalRequest();
       throw new HttpsError('internal', `Embedding count mismatch: got ${result.vectors.length} for ${chunks.length} chunks.`);
     }
@@ -77,6 +80,7 @@ export const embedDocument = onCall({
     // excerpts (a note's chunks may belong to different domains).
     return { vectors: result.vectors, chunks, model: result.model, dim: result.dim };
   } catch (e) {
+    await refundBulkLimit(uid);
     await refundGlobalRequest();
     console.error('[AI embed] generation failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);

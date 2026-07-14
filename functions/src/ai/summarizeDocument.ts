@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt, getLangfuse, checkAndIncrementBulkLimit, refundBulkLimit } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 // Repairs a JSON string that was truncated mid-output (reasoning models can
@@ -22,7 +22,12 @@ function repairTruncatedJson(raw: string): string {
     else if (c === '}' || c === ']') stack.pop();
   }
   let out = raw;
-  if (inStr) out += '"';
+  if (inStr) {
+    if (esc) {
+      out = out.slice(0, -1);
+    }
+    out += '"';
+  }
   out = out.replace(/,\s*$/, '');
   while (stack.length) out += stack.pop();
   return out;
@@ -82,6 +87,12 @@ export const summarizeDocument = onCall({
     throw new HttpsError('invalid-argument', 'Disallowed patterns in content.');
   }
 
+  // Bulk daily limit check
+  const allowed = await checkAndIncrementBulkLimit(uid);
+  if (!allowed) {
+    throw new HttpsError('resource-exhausted', 'Daily bulk operations limit reached.');
+  }
+
   const sanitizedContent = sanitizeAiInput(content);
 
   // Scale item counts to text length to avoid over-extraction on short notes.
@@ -102,6 +113,7 @@ export const summarizeDocument = onCall({
   }
 
   if (!(await tryReserveGlobalRequest())) {
+    await refundBulkLimit(uid);
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -129,6 +141,7 @@ export const summarizeDocument = onCall({
     usedModel = result.model;
   } catch (e) {
     console.error('[AI summarize] generation failed:', e);
+    await refundBulkLimit(uid);
     await refundGlobalRequest();
     generation?.end({ output: String(e), level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});
@@ -166,6 +179,7 @@ export const summarizeDocument = onCall({
       console.warn('[AI summarize] recovered truncated JSON output');
     }
   } catch {
+    await refundBulkLimit(uid);
     console.error('[AI summarize] failed to parse model output:', text.slice(0, 500));
     generation?.end({ output: text, level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));

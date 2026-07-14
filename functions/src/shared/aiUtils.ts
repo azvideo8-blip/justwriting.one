@@ -140,7 +140,7 @@ export function sanitizeAiResponse(response: string, keepReasoning = false): str
     cleaned = cleaned.replace(/  +/g, ' ').trim();
   }
   return DOMPurify.sanitize(cleaned, {
-    ALLOWED_TAGS: keepReasoning ? [] : [],
+    ALLOWED_TAGS: keepReasoning ? ['reasoning', 'answer'] : [],
     ALLOWED_ATTR: [],
     ALLOW_DATA_ATTR: false,
   });
@@ -163,14 +163,17 @@ export async function recordUsage(
     updatedAt: FieldValue.serverTimestamp(),
   };
   batch.set(db.doc(`aiUsage/${uid}/daily/${date}`), dailyPayload, { merge: true });
-  // Global doc: requests already incremented atomically by tryReserveGlobalRequest;
-  // only add token counts here.
-  batch.set(db.doc(`aiGlobalDaily/${date}`), {
+  
+  // Global doc: requests and tokens sharded across 10 shards.
+  const NUM_SHARDS = 10;
+  const shardId = Math.floor(Math.random() * NUM_SHARDS).toString();
+  batch.set(db.doc(`aiGlobalDaily/${date}/shards/${shardId}`), {
     date,
     promptTokens: FieldValue.increment(tokensIn),
     completionTokens: FieldValue.increment(tokensOut),
     updatedAt: FieldValue.serverTimestamp(),
   }, { merge: true });
+  
   // Per-request event for admin breakdown view
   const eventRef = db.collection(`aiUsage/${uid}/events`).doc();
   batch.set(eventRef, {
@@ -208,39 +211,45 @@ export const TIER_LIMITS = {
 };
 
 // Atomically check and reserve a slot in the project-wide daily cap.
-// Prevents TOCTOU race where concurrent requests all pass the read check
-// before any increment lands.
+// Uses distributed sharding (10 shards) to prevent database write contention hotspots.
 export async function tryReserveGlobalRequest(): Promise<boolean> {
   const db = getDb();
   const date = new Date().toISOString().slice(0, 10);
-  const ref = db.doc(`aiGlobalDaily/${date}`);
-  return db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const d = snap.data();
-    const requests = d?.requests ?? 0;
-    const tokens = (d?.promptTokens ?? 0) + (d?.completionTokens ?? 0);
-    if (requests >= TIER_LIMITS.requestsPerDay || tokens >= TIER_LIMITS.tokensPerDay) return false;
-    tx.set(ref, { requests: FieldValue.increment(1), date, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-    return true;
+
+  const shardsSnap = await db.collection(`aiGlobalDaily/${date}/shards`).get();
+  let requests = 0;
+  let tokens = 0;
+  shardsSnap.forEach(doc => {
+    const data = doc.data();
+    requests += data.requests ?? 0;
+    tokens += (data.promptTokens ?? 0) + (data.completionTokens ?? 0);
   });
+
+  if (requests >= TIER_LIMITS.requestsPerDay || tokens >= TIER_LIMITS.tokensPerDay) return false;
+
+  const NUM_SHARDS = 10;
+  const shardId = Math.floor(Math.random() * NUM_SHARDS).toString();
+  const shardRef = db.doc(`aiGlobalDaily/${date}/shards/${shardId}`);
+  await shardRef.set({
+    requests: FieldValue.increment(1),
+    date,
+    updatedAt: FieldValue.serverTimestamp()
+  }, { merge: true });
+
+  return true;
 }
 
-// Best-effort refund of one global daily request slot. Call when an AI request
-// passed tryReserveGlobalRequest but then failed — the global counter was already
-// incremented and the slot would be wasted otherwise. Uses a transaction with
-// date verification and Math.max(0, ...) clamping to prevent cross-day refunds
-// and negative counts. Errors are swallowed+logged.
+// Best-effort refund of one global daily request slot.
 export async function refundGlobalRequest(): Promise<void> {
   const db = getDb();
   const date = new Date().toISOString().slice(0, 10);
-  const ref = db.doc(`aiGlobalDaily/${date}`);
-  await db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const data = snap.data();
-    if (!data || data.date !== date) return;
-    const next = Math.max(0, (data.requests ?? 1) - 1);
-    tx.update(ref, { requests: next });
-  }).catch(e => console.error('[AI] refundGlobalRequest failed:', e));
+  const NUM_SHARDS = 10;
+  const shardId = Math.floor(Math.random() * NUM_SHARDS).toString();
+  const shardRef = db.doc(`aiGlobalDaily/${date}/shards/${shardId}`);
+  await shardRef.set({
+    requests: FieldValue.increment(-1),
+    updatedAt: FieldValue.serverTimestamp()
+  }, { merge: true }).catch(e => console.error('[AI] refundGlobalRequest failed:', e));
 }
 
 // Per-user daily cap with an admin bump: users with role 'admin' get
@@ -365,4 +374,46 @@ export async function checkAndIncrementLimit(uid: string, reasoning?: boolean): 
     }
     return true;
   });
+}
+
+// ── Bulk Daily limit ─────────────────────────────────────────────────────────
+export const BULK_DAILY_LIMIT = (() => {
+  const raw = process.env.AI_BULK_DAILY_LIMIT;
+  if (!raw) return 50;
+  const parsed = parseInt(raw, 10);
+  return Number.isNaN(parsed) ? 50 : parsed;
+})();
+
+export async function checkAndIncrementBulkLimit(uid: string): Promise<boolean> {
+  if (await isAdmin(uid)) return true;
+
+  const db = getDb();
+  const date = new Date().toISOString().slice(0, 10);
+  const ref = db.doc(`aiBulkDailyLimit/${uid}`);
+
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.data();
+
+    if (!data || data.date !== date) {
+      tx.set(ref, { count: 1, date });
+      return true;
+    }
+    if (data.count >= BULK_DAILY_LIMIT) return false;
+    tx.update(ref, { count: data.count + 1 });
+    return true;
+  });
+}
+
+export async function refundBulkLimit(uid: string): Promise<void> {
+  const db = getDb();
+  const date = new Date().toISOString().slice(0, 10);
+  const ref = db.doc(`aiBulkDailyLimit/${uid}`);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.data();
+    if (!data || data.date !== date) return;
+    const next = Math.max(0, (data.count ?? 1) - 1);
+    tx.update(ref, { count: next });
+  }).catch(e => console.error('[AI] refundBulkLimit failed:', e));
 }

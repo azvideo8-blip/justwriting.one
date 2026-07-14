@@ -8,7 +8,7 @@ const schema = z.object({
   targetUid: userIdSchema,
 });
 
-const MAX_DAILY_REQUESTS_SAFETY = 500;
+const MAX_DAILY_REQUESTS_SAFETY = 10000;
 const MAX_DAILY_COST_SAFETY = 5.0; // USD safety limit to prevent runaways
 
 // DeepSeek v4 Flash (OpenRouter) catalog pricing is $0.09/$0.18 per 1M tokens,
@@ -43,10 +43,17 @@ export const resetUserLimit = onCall({
 
   const date = new Date().toISOString().slice(0, 10);
 
-  const globalSnap = await db.doc(`aiGlobalDaily/${date}`).get();
-  const globalData = globalSnap.data();
-  const totalRequests = globalData?.requests ?? 0;
-  const totalCost = (globalData?.promptTokens ?? 0) * COST_IN + (globalData?.completionTokens ?? 0) * COST_OUT;
+  const shardsSnap = await db.collection(`aiGlobalDaily/${date}/shards`).get();
+  let totalRequests = 0;
+  let promptTokens = 0;
+  let completionTokens = 0;
+  shardsSnap.forEach(doc => {
+    const data = doc.data();
+    totalRequests += data.requests ?? 0;
+    promptTokens += data.promptTokens ?? 0;
+    completionTokens += data.completionTokens ?? 0;
+  });
+  const totalCost = promptTokens * COST_IN + completionTokens * COST_OUT;
 
   if (totalRequests >= MAX_DAILY_REQUESTS_SAFETY || totalCost >= MAX_DAILY_COST_SAFETY) {
     throw new HttpsError(
