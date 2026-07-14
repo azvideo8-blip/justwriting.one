@@ -16,7 +16,7 @@ export function parseImportFile(fileName: string, rawContent: string): ParsedImp
   if (match) {
     const yaml = match[1] ?? '';
     content = rawContent.replace(FRONTMATTER_REGEX, '');
-    for (const line of yaml.split('\n')) {
+    for (const line of yaml.split(/\r?\n/)) {
       const parts = line.split(':');
       if (parts.length < 2) continue;
       const key = parts[0]?.trim().toLowerCase();

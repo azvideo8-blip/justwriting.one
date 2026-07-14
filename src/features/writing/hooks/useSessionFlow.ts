@@ -115,8 +115,13 @@ export function useSessionFlow(
         const parts = targetTime.split(':').map(Number);
         const hours = parts[0] ?? 0;
         const minutes = parts[1] ?? 0;
-        const target = new Date();
+        const startWall = useTimerStore.getState().sessionStartWallMs;
+        const start = startWall ? new Date(startWall) : new Date();
+        const target = new Date(start);
         target.setHours(hours, minutes, 0, 0);
+        if (target <= start) {
+          target.setDate(target.getDate() + 1);
+        }
         const now = new Date();
         const remaining = Math.max(0, (target.getTime() - now.getTime()) / 1000);
         const dur = remaining + useTimerStore.getState().getElapsedSeconds();

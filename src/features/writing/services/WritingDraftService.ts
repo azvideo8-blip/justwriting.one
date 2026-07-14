@@ -89,6 +89,9 @@ export const WritingDraftService = {
         await WritingDraftService.deleteDraft(userId);
         return null;
       }
+      if (winner === cloudDraft) {
+        await WritingDraftService.saveToLocal(cloudDraft).catch(() => {});
+      }
       return winner;
     }
     const resolved = resolvedLocal || cloudDraft;
@@ -100,6 +103,9 @@ export const WritingDraftService = {
       if (isDraftExpired(resolved)) {
         await WritingDraftService.deleteDraft(userId);
         return null;
+      }
+      if (resolved === cloudDraft) {
+        await WritingDraftService.saveToLocal(cloudDraft).catch(() => {});
       }
     }
     return resolved;

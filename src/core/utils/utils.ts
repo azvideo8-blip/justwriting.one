@@ -102,7 +102,10 @@ export function calculateBestStreak(sessions: Session[]): number {
       .filter(d => d <= today)
   );
   const sorted = [...dates]
-    .map(d => new Date(d).getTime())
+    .map(d => {
+      const [y, m, day] = d.split('-').map(Number);
+      return new Date(y!, m! - 1, day!).getTime();
+    })
     .sort((a, b) => a - b);
   if (sorted.length === 0) return 0;
   
@@ -116,7 +119,9 @@ export function calculateBestStreak(sessions: Session[]): number {
     const diffDays = Math.round((sorted[i]! - sorted[i - 1]!) / 86400000);
     if (diffDays === 1) { cur++; max = Math.max(max, cur); }
     else if (diffDays === 2) {
-      const missedDay = format(new Date(sorted[i - 1]! + 86400000), 'yyyy-MM-dd');
+      const prevDate = new Date(sorted[i - 1]!);
+      prevDate.setDate(prevDate.getDate() + 1);
+      const missedDay = format(prevDate, 'yyyy-MM-dd');
       const missedMonth = missedDay.substring(0, 7);
       const alreadyFrozen = frozenDates.has(missedDay);
       if (alreadyFrozen || !frozenMonths.has(missedMonth)) {

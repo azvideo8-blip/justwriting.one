@@ -5,7 +5,7 @@ import { DocumentService } from '../../../core/services/DocumentService';
 import { VersionService } from '../../../core/services/VersionService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { toDate } from '../../../core/utils/dateUtils';
-import { maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
+import { maybeDecrypt, DecryptionError } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
 import { getLocalDb } from '../../../core/storage/localDb';
 import pLimit from 'p-limit';
@@ -109,9 +109,10 @@ export async function loadAllSessions(userId: string, user: User | null): Promis
                 const latestRecord: Record<string, unknown> = { ...latest };
                 const decrypted = await maybeDecrypt(latestRecord, ['content'], []);
                 cloudContent = typeof decrypted.content === 'string' ? decrypted.content : '';
-                if (decrypted._decryptionError) cloudDecryptError = true;
               } catch (decErr) {
-                if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) {
+                if (decErr instanceof DecryptionError) {
+                  cloudDecryptError = true;
+                } else if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) {
                   cloudLocked = true;
                   cloudContent = '';
                 } else {
