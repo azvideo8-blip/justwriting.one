@@ -1,4 +1,6 @@
 import { getAuth } from 'firebase/auth';
+import { getToken } from 'firebase/app-check';
+import { appCheck } from '../../../core/firebase/client';
 import type { AIMessage } from '../services/AIService';
 import { AIService } from '../services/AIService';
 
@@ -67,12 +69,23 @@ export async function streamChat(params: {
 
   const idToken = await user.getIdToken();
 
+  // /api/chat is a Vercel endpoint, not a Firebase callable — the App Check
+  // token is not attached automatically, we must send it ourselves.
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${idToken}`,
+  };
+  if (appCheck) {
+    try {
+      headers['x-firebase-appcheck'] = (await getToken(appCheck)).token;
+    } catch (e) {
+      console.error('[chat] App Check token failed:', e);
+    }
+  }
+
   const response = await fetch('/api/chat', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${idToken}`,
-    },
+    headers,
     body: JSON.stringify({
       personaId: params.personaId,
       customSystemPrompt: params.customSystemPrompt,

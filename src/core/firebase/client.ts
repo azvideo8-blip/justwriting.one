@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaV3Provider, type AppCheck } from 'firebase/app-check';
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
@@ -27,25 +27,26 @@ export const app = initializeApp(firebaseConfig);
 
 // ─── Firebase App Check ──────────────────────────────────────────────────────
 // App Check proves every request comes from your legitimate web app, not a
-// script. Once initialized here, firebase/functions httpsCallable and
-// firebase/auth automatically attach the token — no changes needed in
-// AIService or anywhere else.
+// script. httpsCallable and firebase/auth attach the token automatically; the
+// Vercel endpoint /api/chat is NOT a callable, so aiChatTransport reads
+// `appCheck` below and sends the token in an x-firebase-appcheck header itself.
 //
-// LOCAL DEV: Set self.FIREBASE_APPCHECK_DEBUG_TOKEN in the browser console to
-// get a debug token printed to the console. Then paste it into:
-//   Firebase Console → App Check → Apps → your web app → Debug tokens
-// After that App Check works normally in localhost without reCAPTCHA.
+// LOCAL DEV: set VITE_APPCHECK_DEBUG_TOKEN=true in .env.local, open the app,
+// copy the debug token printed in the console into
+// Firebase Console → App Check → Apps → your web app → Debug tokens.
 //
-// PRODUCTION: Set VITE_RECAPTCHA_SITE_KEY in Vercel env vars (reCAPTCHA v3
-// site key from console.cloud.google.com → reCAPTCHA Enterprise).
-//   Step 1: Get key at https://console.cloud.google.com/security/recaptcha
-//   Step 2: Add it to Firebase Console → App Check → Apps → Register
-//   Step 3: Set VITE_RECAPTCHA_SITE_KEY in .env.local / Vercel
+// PRODUCTION: VITE_RECAPTCHA_SITE_KEY is the reCAPTCHA v3 site key registered
+// in Firebase Console → App Check → Apps.
 const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY as string | undefined;
-if (recaptchaSiteKey) {
-  initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(recaptchaSiteKey),
-    // Automatic token refresh — keeps the token fresh in the background.
-    isTokenAutoRefreshEnabled: true,
-  });
+
+if (import.meta.env.VITE_APPCHECK_DEBUG_TOKEN) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
 }
+
+export const appCheck: AppCheck | null = recaptchaSiteKey
+  ? initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(recaptchaSiteKey),
+      isTokenAutoRefreshEnabled: true,
+    })
+  : null;
