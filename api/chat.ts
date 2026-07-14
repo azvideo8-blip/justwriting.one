@@ -34,6 +34,10 @@ interface GlobalReservation {
   date: string;
   shardId: string;
   allowance: number;
+  // Set once refunded. recordUsage/refund must both be no-ops afterwards:
+  // an error path refunds and then still falls through to recordUsage, which
+  // would subtract the allowance a second time and drive the shard negative.
+  refunded?: boolean;
 }
 
 // Atomically check and reserve a slot in the project-wide daily cap.
@@ -161,7 +165,8 @@ function sanitizeAiInput(content: string): string {
 
 // Day-safe, shard-specific refund. Clamps shard requests to >= 0.
 async function refundGlobalRequest(res: GlobalReservation | null | undefined): Promise<void> {
-  if (!res || !res.date || !res.shardId) return;
+  if (!res || !res.date || !res.shardId || res.refunded) return;
+  res.refunded = true;
   const fs = db();
 
   try {
@@ -291,7 +296,7 @@ async function recordUsage(
   batch.set(fs.doc(`aiUsage/${uid}/daily/${date}`), payload, { merge: true });
   
   const NUM_SHARDS = 10;
-  if (res && res.date && res.shardId) {
+  if (res && res.date && res.shardId && !res.refunded) {
     batch.set(fs.doc(`aiGlobalDaily/${res.date}/shards/${res.shardId}`), {
       promptTokens: FieldValue.increment(tokensIn - res.allowance),
       completionTokens: FieldValue.increment(tokensOut),
@@ -544,7 +549,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       messages: parsed.data.messages,
     });
     isInternalCall = policyResult.isInternal;
-  } catch (e: any) {
+  } catch {
     res.status(400).json({ error: 'Bad Request' }); return;
   }
 
