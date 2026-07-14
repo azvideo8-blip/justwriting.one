@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-07-14 (v0.7.51)
+- **[RU]** Безопасность: Edge API (`/api/chat`) проверяет App Check токен (заголовок `X-Firebase-AppCheck`) при `APP_CHECK_ENFORCE=true`; ручные проверки лимитов заменены общей политикой `aiPolicy` (зеркало для Edge). Safety-лимит сброса пользователя поднят 500 → 10 000.
+- **[EN]** Security: Edge API (`/api/chat`) validates the App Check token (`X-Firebase-AppCheck`) when `APP_CHECK_ENFORCE=true`; manual limit checks replaced by a shared `aiPolicy` (mirrored for Edge). Admin reset safety cap raised 500 → 10,000.
+- **[RU]** ИИ-инфраструктура: отдельный суточный лимит фоновых операций (50/день на пользователя, с корректным возвратом при сбоях) для эмбеддингов, реранка, суммаризации, фасетов, таксономии и памяти чата; глобальные суточные счётчики распределены по 10 шардам — устранён hotspot при параллельных записях.
+- **[EN]** AI infra: a per-user daily cap on background operations (50/day, refunded on failure) across embeddings, reranking, summarization, facets, taxonomy and chat memory; global daily counters sharded across 10 documents to remove the write hotspot.
+- **[RU]** Надёжность ИИ: восстановлен режим рассуждений (DOMPurify больше не вырезает теги `<reasoning>`/`<answer>`); очистка markdown-обёрток перед парсингом JSON в реранке; исправлено восстановление обрезанного JSON на висящем символе экранирования; таймауты 60 c на `deriveTaxonomy`/`judgeFacets`.
+- **[EN]** AI robustness: reasoning mode restored (DOMPurify no longer strips `<reasoning>`/`<answer>` tags); markdown fences stripped before JSON parsing in reranking; truncated-JSON repair fixed when output ends on a dangling escape; 60s timeouts on `deriveTaxonomy`/`judgeFacets`.
+- **[RU]** Данные и синхронизация: фоновая синхронизация портрета пропускает задачи чужого UID; победивший облачный черновик пишется обратно в IndexedDB (нет потери правок в оффлайне); `DecryptionError` при загрузке сессии корректно помечает заблокированный сейф; миграция E2E-ключей перепроверяется при загрузке профиля.
+- **[EN]** Data & sync: background portrait sync skips tasks with a mismatched UID; the winning cloud draft is written back to IndexedDB (no lost edits offline); `DecryptionError` on session load flags the locked vault correctly; E2E key migration re-checks when the profile loads.
+- **[RU]** Оффлайн: после 3 быстрых попыток пинг Firestore продолжается в фоне каждые 60 c — онлайн-статус восстанавливается сам при возврате сети.
+- **[EN]** Offline: after 3 quick retries, Firestore ping continues in the background every 60s — online status recovers automatically when the network returns.
+- **[RU]** Корректность: расчёт серий (streak) больше не зависит от часового пояса (локальный разбор дат); дедлайн «закончить к» после полуночи переносится на следующие сутки (нет мгновенного срабатывания таймера); импорт YAML-frontmatter корректно обрабатывает Windows-переносы CRLF.
+- **[EN]** Correctness: streak calculation no longer depends on the timezone (local date parsing); a "finish by" deadline past midnight rolls to the next day (no instant timer trigger); YAML frontmatter import handles Windows CRLF line endings.
+
 ## 2026-07-10 (v0.7.50)
 - **[RU]** Бесшовный ИИ (SEAM-0..10): фоновая автоматическая саммаризация заметок при простое без участия пользователя. Лимит бюджета фонового ИИ (25 весов в день) защищает квоту. Вся ручная аналитика из интерфейса удалена, в превью заметок отображается статус фонового ИИ («анализируется…»).
 - **[EN]** Seamless AI (SEAM-0..10): automatic background note summarization during idle periods. A background AI budget cap of 25 weights per day protects the shared quota. All manual analysis buttons are removed, and document preview shows background status ("analyzing...").

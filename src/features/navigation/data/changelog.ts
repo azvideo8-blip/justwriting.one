@@ -14,6 +14,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.51',
+    date: '2026-07-14',
+    items: [
+      { category: 'fix', ru: 'Режим рассуждений ИИ снова работает — «ход мысли» больше не вырезался из ответа', en: 'AI reasoning mode works again — the thinking trace is no longer stripped from the answer' },
+      { category: 'fix', ru: 'Серия дней (streak) считается по вашему местному времени, без сбоев из-за часового пояса', en: 'Your day streak is counted in your local time, without timezone glitches' },
+      { category: 'fix', ru: 'Дедлайн «закончить к» после полуночи больше не срабатывает мгновенно — переносится на следующий день', en: 'A "finish by" deadline past midnight no longer triggers instantly — it rolls to the next day' },
+      { category: 'fix', ru: 'Черновик из облака сохраняется локально — правки не теряются при уходе в оффлайн', en: 'Cloud drafts are saved locally — your edits are no longer lost when going offline' },
+      { category: 'fix', ru: 'Приложение само восстанавливает связь после долгого офлайна', en: 'The app now restores its connection on its own after a long offline period' },
+      { category: 'fix', ru: 'Заблокированный сейф при загрузке заметки распознаётся корректно, импорт .md с Windows-переносами читается без мусора', en: 'A locked vault is recognized correctly when loading a note, and .md import with Windows line endings reads cleanly' },
+      { category: 'improvement', ru: 'Фоновая аналитика ИИ надёжнее и экономнее к общей квоте (суточный лимит фоновых операций, распределённые счётчики)', en: 'Background AI analysis is more reliable and gentler on the shared quota (daily background limit, distributed counters)' },
+    ],
+  },
+  {
     version: '0.7.50',
     date: '2026-07-10',
     items: [
