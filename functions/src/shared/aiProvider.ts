@@ -97,9 +97,14 @@ async function generateOpenRouter(params: GenerateParams): Promise<GenerateResul
     throw new Error(`OpenRouter ${res.status}: ${errText.slice(0, 300)}`);
   }
 
+  // fetch() resolves as soon as the HEADERS arrive; for a non-streaming
+  // completion the body only lands once the model has finished generating.
+  // So this timer bounds the whole generation, not a slow socket — 30s was
+  // far too tight and timed out every long chat/summary. Give it the same
+  // budget as the request itself.
   let jsonTimerId: ReturnType<typeof setTimeout>;
   const jsonTimeout = new Promise<never>((_, reject) => {
-    jsonTimerId = setTimeout(() => reject(new Error('body read timeout')), 30_000);
+    jsonTimerId = setTimeout(() => reject(new Error('body read timeout')), abortMs ?? 110_000);
   });
   const data = await Promise.race([
     res.json().finally(() => clearTimeout(jsonTimerId!)),
