@@ -3,6 +3,11 @@ import { reportError } from '../../../shared/errors/reportError';
 import { withTimeout } from '../../../shared/utils/withTimeout';
 import { analytics } from '../../../core/analytics/analytics';
 
+// Generation calls (chat/edit/summarize) let the model run up to abortMs=110s
+// server-side, inside a 120s function timeout. A 60s client timeout used to
+// abort perfectly good generations before the answer came back.
+const GEN_TIMEOUT_MS = 115_000;
+
 export type AIAction = 'shorten' | 'accents' | 'ideas' | 'summarize' | 'tags' | 'mood' | 'continue';
 export type AIMessage = { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' | undefined };
 export type AIResult =
@@ -45,7 +50,7 @@ export const AIService = {
     const functions = getFunctions();
     const fn = httpsCallable<unknown, { result: string }>(functions, 'editWithAI');
     try {
-      const { data } = await withTimeout(fn({ content, action, ...opts }), 60_000);
+      const { data } = await withTimeout(fn({ content, action, ...opts }), GEN_TIMEOUT_MS);
       try { analytics.track('ai_action', { action }); } catch { /* non-critical */ }
       return { ok: true, text: data.result };
     } catch (e: unknown) {
@@ -79,7 +84,7 @@ export const AIService = {
     const functions = getFunctions();
     const fn = httpsCallable<unknown, { result: string }>(functions, 'chatWithAI');
     try {
-      const { data } = await withTimeout(fn(params), 60_000);
+      const { data } = await withTimeout(fn(params), GEN_TIMEOUT_MS);
       try { analytics.track('ai_chat', { personaId: params.personaId }); } catch { /* non-critical */ }
       return { ok: true, text: data.result };
     } catch (e: unknown) {
@@ -96,7 +101,7 @@ export const AIService = {
     const functions = getFunctions();
     const fn = httpsCallable<unknown, AISummaryPayload>(functions, 'summarizeDocument');
     try {
-      const { data } = await withTimeout(fn(params), 60_000);
+      const { data } = await withTimeout(fn(params), GEN_TIMEOUT_MS);
       try { analytics.track('ai_summarize'); } catch { /* non-critical */ }
       return { ok: true, summary: data };
     } catch (e: unknown) {
