@@ -163,6 +163,10 @@ async function _drainPendingQueue(userId: string): Promise<void> {
   if (portraitTasks.length > 0) {
     const portraitResults = await Promise.allSettled(portraitTasks.map(task =>
       limit(async () => {
+        if (task.documentId !== userId) {
+          logger.warn('drainPendingQueue_portrait', 'Skipping portrait task for mismatching user ID', { taskDocId: task.documentId, currentUserId: userId });
+          return task.id;
+        }
         await CloudSyncService.syncPortraitToCloud(task.documentId);
         return task.id;
       })

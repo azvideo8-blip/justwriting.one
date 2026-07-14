@@ -20,6 +20,7 @@ export function useEncryptionSetup(): {
   const [isLegacy, setIsLegacy] = useState(false);
   const [loading, setLoading] = useState(true);
   const prevUidRef = useRef<string | null>(null);
+  const prevProfileRef = useRef<unknown>(null);
   const isVaultUnlockedVal = useEncryptionStore(s => s.isVaultUnlocked);
 
   const check = useCallback(async () => {
@@ -98,11 +99,12 @@ export function useEncryptionSetup(): {
 
   useEffect(() => {
     const uid = user?.uid ?? null;
-    if (uid !== prevUidRef.current) {
+    if (uid !== prevUidRef.current || profile !== prevProfileRef.current) {
       prevUidRef.current = uid;
+      prevProfileRef.current = profile;
       void check();
     }
-  }, [user?.uid, check]);
+  }, [user?.uid, profile, check]);
 
   // Re-check when vault transitions from unlocked to locked (auto-lock / explicit lock)
   const wasUnlockedRef = useRef(false);

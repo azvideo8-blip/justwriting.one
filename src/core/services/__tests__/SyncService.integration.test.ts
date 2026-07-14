@@ -79,8 +79,8 @@ describe('SyncService Integration', () => {
     });
 
     await db.put('syncQueue', {
-      id: 'portrait_user_123',
-      documentId: 'user_123',
+      id: `portrait_${userId}`,
+      documentId: userId,
       type: 'portrait' as const,
       createdAt: Date.now(),
     });
@@ -90,7 +90,7 @@ describe('SyncService Integration', () => {
     localStorage.removeItem('auto_sync_enabled');
 
     expect(removeCloudCopySpy).toHaveBeenCalledWith(userId, 'cloud_123');
-    expect(syncPortraitSpy).toHaveBeenCalledWith('user_123');
+    expect(syncPortraitSpy).toHaveBeenCalledWith(userId);
 
     const count = await SyncService.getPendingCount();
     expect(count).toBe(0);

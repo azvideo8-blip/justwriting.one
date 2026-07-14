@@ -56,8 +56,7 @@ export function MobileSessionSetupSheet({
       const target = new Date();
       target.setHours(hours, minutes, 0, 0);
       if (target <= new Date()) {
-        setFinishByError(true);
-        return;
+        target.setDate(target.getDate() + 1);
       }
     }
     setFinishByError(false);

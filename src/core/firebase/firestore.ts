@@ -81,6 +81,8 @@ async function testConnection(retryCount = 0) {
         updateConnectionStatus(false);
         if (retryCount < 3) {
           _retryTimer = setTimeout(() => void testConnection(retryCount + 1), 5000 * (retryCount + 1));
+        } else {
+          _retryTimer = setTimeout(() => void testConnection(3), 60000);
         }
       }
     } else {
@@ -88,6 +90,8 @@ async function testConnection(retryCount = 0) {
       updateConnectionStatus(false);
       if (retryCount < 3) {
         _retryTimer = setTimeout(() => void testConnection(retryCount + 1), 5000 * (retryCount + 1));
+      } else {
+        _retryTimer = setTimeout(() => void testConnection(3), 60000);
       }
     }
   }

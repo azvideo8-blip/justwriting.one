@@ -166,7 +166,7 @@ export const AIService = {
     const functions = getFunctions();
     try {
       const fn = httpsCallable<unknown, { domains: { label: string; seed: string }[] }>(functions, 'deriveTaxonomy');
-      const res = await fn(params);
+      const res = await withTimeout(fn(params), 60_000);
       return { ok: true, domains: res.data.domains ?? [] };
     } catch (e) {
       reportError(e, { action: 'deriveTaxonomy' });
@@ -180,7 +180,7 @@ export const AIService = {
     const functions = getFunctions();
     try {
       const fn = httpsCallable<unknown, { verdicts: { facetId: string; ok: boolean; issues: string[]; hint: string }[] }>(functions, 'judgeFacets');
-      const res = await fn(params);
+      const res = await withTimeout(fn(params), 60_000);
       return { ok: true, verdicts: res.data.verdicts ?? [] };
     } catch (e) {
       reportError(e, { action: 'judgeFacets' });
