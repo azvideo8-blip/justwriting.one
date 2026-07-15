@@ -244,6 +244,18 @@ export const AIDialogueService = {
     window.dispatchEvent(new Event('dialogue-updated'));
   },
 
+  async setTemporalScope(id: string, scope: AIDialogue['temporalScope']): Promise<void> {
+    const db = await getLocalDb();
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const dialogue = await tx.store.get(id);
+    if (!dialogue) { await tx.done; return; }
+    dialogue.temporalScope = scope;
+    dialogue.updatedAt = Date.now();
+    await tx.store.put(dialogue);
+    await tx.done;
+    window.dispatchEvent(new Event('dialogue-updated'));
+  },
+
   async exportAsMarkdown(id: string): Promise<string> {
     const db = await getLocalDb();
     const dialogue = await db.get('aiDialogues', id);

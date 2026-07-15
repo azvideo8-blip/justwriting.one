@@ -1,13 +1,13 @@
 export interface TemporalQuery {
   type: 'month' | 'dateRange' | 'recent' | 'person' | 'none';
-  month?: string;        // YYYY-MM if type=month
-  from?: string;         // YYYY-MM-DD if type=dateRange
-  to?: string;
-  personName?: string;   // if type=person
+  month?: string | undefined;        // YYYY-MM if type=month
+  from?: string | undefined;         // YYYY-MM-DD if type=dateRange
+  to?: string | undefined;
+  personName?: string | undefined;   // if type=person
   rawText: string;
 }
 
-const MONTHS_MAP: Record<string, string> = {
+export const MONTHS_MAP: Record<string, string> = {
   'январ': '01',
   'феврал': '02',
   'март': '03',
@@ -24,10 +24,29 @@ const MONTHS_MAP: Record<string, string> = {
   'декабр': '12'
 };
 
-function lemmatizeRussianName(name: string): string {
+const CONSONANT_MASCULINE_NAMES = new Set([
+  'Иван', 'Максим', 'Антон', 'Артем', 'Артём', 'Олег', 'Егор', 'Глеб',
+  'Данил', 'Кирилл', 'Роман', 'Денис', 'Влад', 'Руслан', 'Тимур',
+  'Артур', 'Михаил'
+]);
+
+export function lemmatizeRussianName(name: string): string {
   let n = name.trim();
   if (!n) return '';
   n = n.charAt(0).toUpperCase() + n.slice(1).toLowerCase();
+
+  if (n.endsWith('я')) {
+    if (n.endsWith('ея')) return n.slice(0, -2) + 'ей'; // Сергея -> Сергей
+    if (n.endsWith('ия')) return n.slice(0, -2) + 'ий'; // Дмитрия -> Дмитрий
+    if (n.endsWith('ря')) return n.slice(0, -2) + 'рь'; // Игоря -> Игорь
+  }
+  if (n.endsWith('а')) {
+    const stem = n.slice(0, -1);
+    if (CONSONANT_MASCULINE_NAMES.has(stem)) {
+      return stem; // Ивана -> Иван
+    }
+    if (stem === 'Павл') return 'Павел'; // Павла -> Павел
+  }
 
   if (n.endsWith('шу')) return n.slice(0, -2) + 'ша';
   if (n.endsWith('е')) {

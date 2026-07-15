@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect, type ChangeEvent } from 'reac
 import { API_MSG_CAP } from './useAIChat';
 
 interface AttachmentManagerParams {
-  prepareAttachment: (docId: string) => Promise<{ title: string; content: string } | null>;
+  prepareAttachment: (docId: string) => Promise<{ title: string; content: string; lastSessionAt?: number | undefined } | null>;
   sendMessage: (text: string) => Promise<string | null>;
   activeDialogueId: string | null;
   setActiveDialogueId: (id: string | null) => void;
@@ -24,7 +24,7 @@ export function useAttachmentManager({
 }: AttachmentManagerParams) {
   const [docPickerOpen, setDocPickerOpen] = useState(false);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
-  const [pendingAttachments, setPendingAttachments] = useState<{ documentId: string; title: string; content: string }[]>([]);
+  const [pendingAttachments, setPendingAttachments] = useState<{ documentId: string; title: string; content: string; lastSessionAt?: number | undefined }[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
@@ -54,7 +54,7 @@ export function useAttachmentManager({
   const handleDocSelect = useCallback(async (documentId: string) => {
     const prepared = await prepareAttachment(documentId);
     if (prepared) {
-      setPendingAttachments(prev => [...prev, { documentId, title: prepared.title, content: prepared.content }]);
+      setPendingAttachments(prev => [...prev, { documentId, title: prepared.title, content: prepared.content, lastSessionAt: prepared.lastSessionAt }]);
     }
   }, [prepareAttachment]);
 

@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import type { AIDialogue } from '../../../core/storage/localDb';
 import { AIDialogueService } from '../services/AIDialogueService';
 import { PRESET_PERSONAS, AIPersonaService } from '../services/AIPersonaService';
+import { parseTemporalQuery } from '../utils/temporalQueryParser';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { useLanguage } from '../../../shared/i18n';
 import { incrementDailyUsage, setDailyLimitExhausted } from './useDailyLimit';
@@ -34,12 +35,20 @@ interface UseAIChatReturn {
   error: string | null;
   sendMessage: (text: string, attached?: { content: string; documentId?: string; inline?: boolean }, mood?: string) => Promise<string | null>;
   attachDocument: (documentId: string) => Promise<void>;
-  prepareAttachment: (documentId: string) => Promise<{ title: string; content: string } | null>;
+  prepareAttachment: (documentId: string) => Promise<{ title: string; content: string; lastSessionAt?: number | undefined } | null>;
   stop: () => void;
   regenerateLast: () => Promise<void>;
   crisisActive: boolean;
   dismissCrisis: () => void;
   clearError: () => void;
+}
+
+function sanitizeCitations(text: string, injectedIds: string[]): string {
+  const allowed = new Set(injectedIds);
+  return text.replace(/\[#([a-zA-Z0-9_-]+)\]/g, (match, id) => {
+    if (allowed.has(id)) return match;
+    return `[${id}]`;
+  });
 }
 
 export function useAIChat(dialogueId: string | null, personaId: string, responseLength?: 'short' | 'standard' | 'detailed', reasoning?: boolean): UseAIChatReturn {
@@ -237,41 +246,6 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // Build the API history from the FRESHEST stored state (not the closure),
       // so regenerate (which trims the trailing turn before re-sending) doesn't
       // replay the old answer as context. Append the current user turn.
-      const freshBase = dialogueId ? await AIDialogueService.get(dialogueId) : null;
-      const baseMessages = freshBase ? freshBase.messages : (dialogue?.messages ?? []);
-      const sourceForApi: AIMessage[] = [...baseMessages, { role: 'user' as const, content: text, type: 'chat' as const }];
-      // Collapse any oversized attachment body so no single API message exceeds the
-      // 10K per-message cap (the full note travels via documentContent instead).
-      const apiMessages = pruneMessages(sourceForApi.filter(m => m.type !== 'system'))
-        .map(m => ({ ...m, content: toApiContent(m.content) }));
-
-      const isFirstTurn = baseMessages.filter(m => m.type !== 'system').length === 0;
-
-      const { userPortrait, customPersona, searchContext: rawSearchContext } = await context.buildContext({
-        text,
-        attached: effectiveAttached ? (
-          effectiveAttached.documentId !== undefined
-            ? { content: effectiveAttached.content, documentId: effectiveAttached.documentId }
-            : { content: effectiveAttached.content }
-        ) : null,
-        mood,
-        messageHistory: apiMessages,
-        isFirstTurn,
-      });
-
-      // Inject today's date so the model can reason about "вчера", "на этой неделе" etc.
-      const todayRu = new Date().toLocaleDateString('ru-RU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-      let searchContext = rawSearchContext
-        ? `[Сегодня: ${todayRu}]\n\n${rawSearchContext}`
-        : `[Сегодня: ${todayRu}]`;
-
-      // Defensive clamps — never exceed the API schema limits (documentContent
-      // 50K, userPortrait 100K), or the request 400s before reaching the model.
-      if (searchContext && searchContext.length > 49_000) searchContext = searchContext.slice(0, 49_000);
-      const safePortrait = userPortrait && userPortrait.length > 99_000 ? userPortrait.slice(0, 99_000) : userPortrait;
-      const customSystemPrompt = customPersona;
-      const effectivePersonaId = customPersona ? 'custom' : personaId;
-
       // AX-11: Migrate old 'reasoning' value in stored dialogues
       const storedLength = dialogue?.responseLength;
       const isLegacyReasoning = storedLength === 'reasoning' as unknown as 'short' | 'standard' | 'detailed';
@@ -279,76 +253,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         isLegacyReasoning ? 'standard' : (storedLength || responseLength || 'standard');
       const effectiveReasoning = dialogue?.reasoning ?? reasoning ?? isLegacyReasoning;
 
-      let fullText: string;
-
-      if (Date.now() < _streamUnavailableUntil) {
-        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, responseLength: effectiveResponseLength, reasoning: effectiveReasoning });
-      } else {
-        try {
-          fullText = await streamChat({
-            personaId: effectivePersonaId,
-            customSystemPrompt,
-            messages: apiMessages,
-            documentContent: searchContext,
-            documentMood: mood,
-            userPortrait: safePortrait,
-            responseLength: effectiveResponseLength,
-            reasoning: effectiveReasoning,
-            signal: controller.signal,
-            onChunk: (partial, reasoning) => {
-              setStreamingMessage(partial);
-              setStreamingReasoning(reasoning);
-            },
-          });
-        } catch (e: unknown) {
-          // Don't fall back to the callable if the user aborted on purpose.
-          if (controller.signal.aborted) throw new Error('ABORTED');
-          reportError(e, { action: 'Streaming chat failed, falling back to callable chat' });
-          const errMsg = e instanceof Error ? e.message : '';
-          if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED' && errMsg !== 'GLOBAL_LIMIT') {
-            // Note: streaming already consumed a daily limit slot via checkAndIncrementLimit.
-            // The callable fallback will consume another slot. We accept the double-count
-            // to avoid losing the user's message, but this means fallback costs 2 quota.
-            fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, responseLength: effectiveResponseLength, reasoning: effectiveReasoning });
-            // RSN-4: Parse reasoning from callable fallback
-            if (effectiveReasoning) {
-              // Try XML tags
-              const reasoningMatch = fullText.match(/(?:\/\/)?<reasoning>([\s\S]*?)<\/reasoning>/i);
-              const answerMatch = fullText.match(/(?:\/\/)?<answer>([\s\S]*?)(<\/answer>|$)/i);
-              // Try markdown headers
-              const mdReasoningMatch = fullText.match(/ХОД МЫСЛИ:\s*([\s\S]*?)(?=ОТВЕТ:|$)/i);
-              const mdAnswerMatch = fullText.match(/ОТВЕТ:\s*([\s\S]*?)$/i);
-              
-              if (reasoningMatch) setStreamingReasoning(reasoningMatch[1]!.trim());
-              else if (mdReasoningMatch) setStreamingReasoning(mdReasoningMatch[1]!.trim());
-              
-              if (answerMatch) setStreamingMessage(answerMatch[1]!.trim());
-              else if (mdAnswerMatch) setStreamingMessage(mdAnswerMatch[1]!.trim());
-              else setStreamingMessage(fullText);
-            }
-          } else {
-            throw e;
-          }
-        }
-      }
-
-      // User stopped before any text arrived — just halt, no error, nothing saved.
-      if (controller.signal.aborted && (!fullText || !fullText.trim())) {
-        setStreamingMessage(null); setStreamingReasoning(null);
-        return dialogue?.id ?? null;
-      }
-
-      // An empty stream (e.g. the model errored mid-stream on a quota/spend cap)
-      // resolves without throwing — surface it as an error instead of saving a
-      // blank assistant bubble.
-      if (!fullText || !fullText.trim()) {
-        throw new Error('EMPTY_RESPONSE');
-      }
-
-      incrementDailyUsage();
-
-      let currentDialogue = dialogue;
-      const wasNew = !currentDialogue;
+      let effectiveDialogueId = dialogueId;
+      let currentDialogue = effectiveDialogueId ? await AIDialogueService.get(effectiveDialogueId) : null;
       if (!currentDialogue) {
         let actualName = personaName;
         let actualEmoji = personaEmoji;
@@ -371,12 +277,136 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           responseLength: effectiveResponseLength,
           reasoning: effectiveReasoning,
         });
+        effectiveDialogueId = currentDialogue.id;
+        const parsedScope = parseTemporalQuery(text);
+        if (parsedScope.type !== 'none') {
+          currentDialogue.temporalScope = parsedScope;
+          await AIDialogueService.setTemporalScope(currentDialogue.id, parsedScope);
+        }
+        setDialogue(currentDialogue);
+      } else {
+        const parsedScope = parseTemporalQuery(text);
+        if (parsedScope.type !== 'none') {
+          currentDialogue.temporalScope = parsedScope;
+          await AIDialogueService.setTemporalScope(currentDialogue.id, parsedScope);
+        }
       }
+
+      const baseMessages = currentDialogue.messages;
+      const sourceForApi: AIMessage[] = [...baseMessages, { role: 'user' as const, content: text, type: 'chat' as const }];
+      const apiMessages = pruneMessages(sourceForApi.filter(m => m.type !== 'system'))
+        .map(m => ({ ...m, content: toApiContent(m.content) }));
+
+      const isFirstTurn = baseMessages.filter(m => m.type !== 'system').length === 0;
+
+      const { userPortrait, customPersona, searchContext: rawSearchContext, injectedDocumentIds } = await context.buildContext({
+        text,
+        attached: effectiveAttached ? (
+          effectiveAttached.documentId !== undefined
+            ? { content: effectiveAttached.content, documentId: effectiveAttached.documentId }
+            : { content: effectiveAttached.content }
+        ) : null,
+        mood,
+        messageHistory: apiMessages,
+        isFirstTurn,
+        dialogueId: effectiveDialogueId,
+      });
+
+      // Inject today's date so the model can reason about "вчера", "на этой неделе" etc.
+      const todayRu = new Date().toLocaleDateString('ru-RU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      let searchContext = rawSearchContext
+        ? `[Сегодня: ${todayRu}]\n\n${rawSearchContext}`
+        : `[Сегодня: ${todayRu}]`;
+
+      // Defensive clamps — never exceed the API schema limits (documentContent
+      // 50K, userPortrait 100K), or the request 400s before reaching the model.
+      if (searchContext && searchContext.length > 49_000) searchContext = searchContext.slice(0, 49_000);
+      const safePortrait = userPortrait && userPortrait.length > 99_000 ? userPortrait.slice(0, 99_000) : userPortrait;
+      const customSystemPrompt = customPersona;
+      const effectivePersonaId = customPersona ? 'custom' : personaId;
+
+      // Response length and reasoning variables moved to top of sendMessage
+
+      let fullText: string;
+
+      if (Date.now() < _streamUnavailableUntil) {
+        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, responseLength: effectiveResponseLength, reasoning: effectiveReasoning });
+      } else {
+        try {
+          fullText = await streamChat({
+            personaId: effectivePersonaId,
+            customSystemPrompt,
+            messages: apiMessages,
+            documentContent: searchContext,
+            documentMood: mood,
+            userPortrait: safePortrait,
+            responseLength: effectiveResponseLength,
+            reasoning: effectiveReasoning,
+            signal: controller.signal,
+            onChunk: (partial, reasoning) => {
+              const cleanPartial = sanitizeCitations(partial, injectedDocumentIds || []);
+              const cleanReasoning = reasoning ? sanitizeCitations(reasoning, injectedDocumentIds || []) : null;
+              setStreamingMessage(cleanPartial);
+              setStreamingReasoning(cleanReasoning);
+            },
+          });
+        } catch (e: unknown) {
+          // Don't fall back to the callable if the user aborted on purpose.
+          if (controller.signal.aborted) throw new Error('ABORTED');
+          reportError(e, { action: 'Streaming chat failed, falling back to callable chat' });
+          const errMsg = e instanceof Error ? e.message : '';
+          if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED' && errMsg !== 'GLOBAL_LIMIT') {
+            // Note: streaming already consumed a daily limit slot via checkAndIncrementLimit.
+            // The callable fallback will consume another slot. We accept the double-count
+            // to avoid losing the user's message, but this means fallback costs 2 quota.
+            fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, responseLength: effectiveResponseLength, reasoning: effectiveReasoning });
+            // RSN-4: Parse reasoning from callable fallback
+            if (effectiveReasoning) {
+              // Try XML tags
+              const reasoningMatch = fullText.match(/(?:\/\/)?<reasoning>([\s\S]*?)<\/reasoning>/i);
+              const answerMatch = fullText.match(/(?:\/\/)?<answer>([\s\S]*?)(<\/answer>|$)/i);
+              // Try markdown headers
+              const mdReasoningMatch = fullText.match(/ХОД МЫСЛИ:\s*([\s\S]*?)(?=ОТВЕТ:|$)/i);
+              const mdAnswerMatch = fullText.match(/ОТВЕТ:\s*([\s\S]*?)$/i);
+              
+              const cleanReasoning = reasoningMatch
+                ? reasoningMatch[1]!.trim()
+                : (mdReasoningMatch ? mdReasoningMatch[1]!.trim() : undefined);
+              const cleanAnswer = answerMatch
+                ? answerMatch[1]!.trim()
+                : (mdAnswerMatch ? mdAnswerMatch[1]!.trim() : fullText);
+
+              if (cleanReasoning) setStreamingReasoning(sanitizeCitations(cleanReasoning, injectedDocumentIds || []));
+              if (cleanAnswer) setStreamingMessage(sanitizeCitations(cleanAnswer, injectedDocumentIds || []));
+            }
+          } else {
+            throw e;
+          }
+        }
+      }
+
+      // User stopped before any text arrived — just halt, no error, nothing saved.
+      if (controller.signal.aborted && (!fullText || !fullText.trim())) {
+        setStreamingMessage(null); setStreamingReasoning(null);
+        return dialogue?.id ?? null;
+      }
+
+      // An empty stream (e.g. the model errored mid-stream on a quota/spend cap)
+      // resolves without throwing — surface it as an error instead of saving a
+      // blank assistant bubble.
+      if (!fullText || !fullText.trim()) {
+        throw new Error('EMPTY_RESPONSE');
+      }
+
+      incrementDailyUsage();
+
+      const wasNew = !dialogueId;
 
       // RSN-4: Clean reasoning tags before saving; persist reasoning separately
       // so the collapsible "ход мысли" survives in dialogue history.
-      const savedText = effectiveReasoning ? extractAnswer(fullText) : fullText;
-      const savedReasoning = effectiveReasoning ? extractReasoning(fullText) : undefined;
+      const sanitizedFullText = sanitizeCitations(fullText, injectedDocumentIds || []);
+      const savedText = effectiveReasoning ? extractAnswer(sanitizedFullText) : sanitizedFullText;
+      const savedReasoning = effectiveReasoning ? extractReasoning(sanitizedFullText) : undefined;
       await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning);
       // Link the dialogue to the attached note so it stays grounded after reload.
       if (attached?.documentId && attached.documentId.startsWith('local_')) {
@@ -439,13 +469,13 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
   // Load a note's latest text without sending — lets the UI stage an attachment
   // (show a chip) so the user can add their own message before sending.
-  const prepareAttachment = useCallback(async (documentId: string): Promise<{ title: string; content: string } | null> => {
+  const prepareAttachment = useCallback(async (documentId: string): Promise<{ title: string; content: string; lastSessionAt?: number | undefined } | null> => {
     try {
       const doc = await LocalDocumentService.getDocument(documentId);
       if (!doc) return null;
       const content = await LocalVersionService.getLatestContent(documentId);
       if (!content) return null;
-      return { title: doc.title || 'Без названия', content };
+      return { title: doc.title || 'Без названия', content, lastSessionAt: doc.lastSessionAt };
     } catch {
       return null;
     }

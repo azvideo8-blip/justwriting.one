@@ -7,19 +7,20 @@ import { useAiLimitStore } from '../store/useAiLimitStore';
 import { useToast } from '../../../shared/components/Toast';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { TelemetryService } from '../../../core/services/TelemetryService';
-import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
-import { getOrCreateGuestId } from '../../../core/storage/localDb';
-import { getAuth } from 'firebase/auth';
+import { getLocalDb } from '../../../core/storage/localDb';
 import { useAIChat } from '../hooks/useAIChat';
 import { useDailyLimit } from '../hooks/useDailyLimit';
 import { useProfile } from '../../auth/contexts/ProfileContext';
 import { personaVisual, usePersonaRole } from '../constants/personaVisuals';
 import { reportError } from '../../../shared/errors/reportError';
+import { lemmatizeRussianName } from '../utils/temporalQueryParser';
+import { AIPeopleService } from '../services/AIPeopleService';
 
 import { useDialogueManager } from './useDialogueManager';
 import { usePersonaManager } from './usePersonaManager';
 import { useAttachmentManager } from './useAttachmentManager';
-import { pickNoteByText, NOTE_REF_RE, NOTE_VERB_RE } from '../utils/noteAutoAttacher';
+import { NOTE_REF_RE, NOTE_VERB_RE } from '../utils/noteAutoAttacher';
+import { searchNotes } from '../utils/noteRetriever';
 
 type ResponseLength = 'short' | 'standard' | 'detailed';
 
@@ -134,6 +135,9 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const [proactiveHint, setProactiveHint] = useState<string | null>(null);
   const proactiveShownRef = useRef(false);
 
+  const [consentNames, setConsentNames] = useState<string[]>([]);
+  const [pendingSendParams, setPendingSendParams] = useState<{ text: string; overrideText?: string | undefined } | null>(null);
+
   const [followUps, setFollowUps] = useState<string[]>(CHAT_FOLLOW_UPS);
   const lastFollowUpKeyRef = useRef('');
 
@@ -188,10 +192,10 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
           `Напиши вовлекающий пост для Telegram/блога на тему «${facet.label}» на основе связанных заметок. ` +
           `Инсайты для фокуса: ${facet.summary}`
         );
-        const notes: { documentId: string; title: string; content: string }[] = [];
+        const notes: { documentId: string; title: string; content: string; lastSessionAt?: number | undefined }[] = [];
         for (const noteId of facet.noteIds.slice(0, 5)) {
           const p = await prepareAttachment(noteId);
-          if (p) notes.push({ documentId: noteId, title: p.title, content: p.content });
+          if (p) notes.push({ documentId: noteId, title: p.title, content: p.content, lastSessionAt: p.lastSessionAt });
         }
         setPendingAttachments(notes);
       } catch (e) {
@@ -200,21 +204,19 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     })();
   }, [draftFacetId, prepareAttachment, handleNewDialogue, setSelectedPersonaId, setPendingAttachments]);
 
-  const handleSendMessage = async (overrideText?: string) => {
-    const text = (overrideText ?? inputText).trim();
-    if ((!text && pendingAttachments.length === 0) || isLoading) return;
-
-    let attaches: { documentId: string; title: string; content: string }[] = [...pendingAttachments];
+  const executeSendMessage = useCallback(async (text: string, overrideText?: string) => {
+    let attaches: { documentId: string; title: string; content: string; lastSessionAt?: number | undefined }[] = [...pendingAttachments];
     if (attaches.length === 0 && text && NOTE_REF_RE.test(text) && NOTE_VERB_RE.test(text)) {
       try {
-        const uid = getAuth().currentUser?.uid ?? getOrCreateGuestId();
-        const docs = await LocalDocumentService.getGuestDocuments(uid);
-        const picked = pickNoteByText(docs, text);
-        if (picked) {
-          const prepared = await prepareAttachment(picked.id);
-          if (prepared && prepared.content.trim()) attaches = [{ documentId: picked.id, title: prepared.title, content: prepared.content }];
+        const matches = text.match(NOTE_REF_RE);
+        const term = matches?.[1] || '';
+        const index = await searchNotes(term, 1);
+        if (index[0]) {
+          const docId = index[0].documentId;
+          const p = await prepareAttachment(docId);
+          if (p) attaches = [{ documentId: docId, title: p.title, content: p.content, lastSessionAt: p.lastSessionAt }];
         }
-      } catch { /* fall through to a plain message */ }
+      } catch { /* ignore fallback */ }
     }
 
     const prevPending = pendingAttachments;
@@ -224,22 +226,27 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     let id: string | null;
     if (attaches.length > 0) {
       const markers = attaches.map(a => `[Прикреплена заметка: "${a.title}"]`);
-      const totalContent = attaches.map(a => a.content).join('\n\n---\n\n');
+      const firstLocalDocId = attaches.find(a => a.documentId.startsWith('local_'))?.documentId;
+
+      const formatRefTag = (a: { documentId: string; lastSessionAt?: number | undefined; title: string; content: string }) => {
+        const yyyymmdd = a.lastSessionAt ? new Date(a.lastSessionAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+        return `[#${a.documentId} · ${yyyymmdd}]\n[Прикреплена заметка: "${a.title}"]\n${a.content}`;
+      };
+
+      const totalContent = attaches.map(formatRefTag).join('\n\n---\n\n');
       const totalChars = attaches.reduce((s, a) => s + a.content.length, 0);
       const fits = totalChars <= 9000;
-      const firstLocalDocId = attaches.find(a => a.documentId.startsWith('local_'))?.documentId;
 
       if (attaches.length === 1) {
         const a = attaches[0]!;
         const marker = markers[0]!;
         const display = fits
-          ? `${marker}\n\n${a.content}${text ? `\n\n— — —\nВопрос: ${text}` : ''}`
+          ? `${formatRefTag(a)}${text ? `\n\n— — —\nВопрос: ${text}` : ''}`
           : (text ? `${marker}\n\n${text}` : marker);
-        id = await sendMessage(display, { content: a.content, ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), inline: fits });
+        id = await sendMessage(display, { content: formatRefTag(a), ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), inline: fits });
       } else {
-        const noteBlocks = attaches.map((a, idx) => `${markers[idx]}\n\n${a.content}`).join('\n\n');
         const display = fits
-          ? `${noteBlocks}${text ? `\n\n— — —\nВопрос: ${text}` : ''}`
+          ? `${totalContent}${text ? `\n\n— — —\nВопрос: ${text}` : ''}`
           : `${markers.join('\n')}${text ? `\n\n— — —\nВопрос: ${text}` : ''}`;
         id = await sendMessage(display, { content: totalContent, ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), inline: fits });
       }
@@ -254,7 +261,72 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       if (overrideText === undefined) setInputText(text);
       if (prevPending.length > 0) setPendingAttachments(prevPending);
     }
-  };
+  }, [pendingAttachments, prepareAttachment, sendMessage, activeDialogueId, setActiveDialogueId, loadDialogues, setInputText, setPendingAttachments]);
+
+  const handleSendMessage = useCallback(async (overrideText?: string) => {
+    const text = (overrideText ?? inputText).trim();
+    if ((!text && pendingAttachments.length === 0) || isLoading) return;
+
+    try {
+      const promptNames = [...new Set(text.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [])];
+      const pendingConsent: string[] = [];
+      const db = await getLocalDb();
+
+      const RUSSIAN_CAPITALIZED_STOP_WORDS = new Set([
+        'Я', 'Мы', 'Ты', 'Вы', 'Он', 'Она', 'Оно', 'Они',
+        'Как', 'Что', 'Где', 'Когда', 'Почему', 'Зачем', 'Кто', 'Кому', 'Чем',
+        'Если', 'Хотя', 'Чтобы', 'Потому', 'Поэтому', 'Зато',
+        'Да', 'Нет', 'И', 'А', 'Но', 'Или', 'Даже', 'Лишь', 'Только',
+        'Вчера', 'Сегодня', 'Завтра', 'Утром', 'Днем', 'Вечером', 'Ночью',
+        'Мой', 'Твой', 'Свой', 'Наш', 'Ваш', 'Этот', 'Тот', 'Весь', 'Все', 'Всё',
+        'Надо', 'Хочу', 'Могу', 'Очень', 'Просто', 'Быстро', 'Тоже', 'Так',
+        'Там', 'Тут', 'Здесь', 'Где-то', 'Как-то', 'Иногда', 'Часто', 'Редко',
+        'Опять', 'Снова', 'Вдруг', 'Сразу', 'Потом', 'Тогда', 'Сейчас', 'Теперь',
+        'Было', 'Были', 'Будет', 'Будут', 'Есть', 'Нету', 'Раз', 'Два', 'Три',
+        'Привет', 'Пока', 'Спасибо', 'Пожалуйста', 'Здравствуйте', 'Добрый',
+      ]);
+
+      for (const name of promptNames) {
+        if (RUSSIAN_CAPITALIZED_STOP_WORDS.has(name)) continue;
+        const lemmatized = lemmatizeRussianName(name);
+        if (!lemmatized || lemmatized.length < 2) continue;
+        const key = lemmatized.toLowerCase();
+        const person = await db.get('aiPeopleIndex', key);
+        if (!person || person.status === undefined) {
+          pendingConsent.push(name);
+        }
+      }
+
+      if (pendingConsent.length > 0) {
+        setConsentNames(pendingConsent);
+        setPendingSendParams({ text, overrideText });
+        return;
+      }
+    } catch (e) {
+      console.warn('[useAIPageData] consent check failed:', e);
+    }
+
+    await executeSendMessage(text, overrideText);
+  }, [inputText, pendingAttachments, isLoading, executeSendMessage]);
+
+  const handleConfirmConsent = useCallback(async (status: 'active' | 'ignored') => {
+    if (!pendingSendParams || consentNames.length === 0) return;
+    try {
+      for (const name of consentNames) {
+        const lemmatized = lemmatizeRussianName(name);
+        const key = lemmatized.toLowerCase();
+        await AIPeopleService.updateStatus(key, lemmatized, status);
+      }
+    } catch (e) {
+      console.error('[useAIPageData] failed to update people status:', e);
+    }
+
+    const { text, overrideText } = pendingSendParams;
+    setConsentNames([]);
+    setPendingSendParams(null);
+
+    await executeSendMessage(text, overrideText);
+  }, [consentNames, pendingSendParams, executeSendMessage]);
 
   const handleSuggestion = (text: string) => { void handleSendMessage(text); };
 
@@ -336,6 +408,13 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     await AIDialogueService.deleteMessage(id, index);
     await loadDialogues();
   };
+
+  const handleClearTemporalScope = useCallback(async () => {
+    const id = activeDialogueId ?? dialogue?.id;
+    if (!id) return;
+    await AIDialogueService.setTemporalScope(id, undefined);
+    await loadDialogues();
+  }, [activeDialogueId, dialogue, loadDialogues]);
 
   const activeDialogue = dialogue ?? dialogues.find(d => d.id === activeDialogueId) ?? null;
   const displayMessages = activeDialogue?.messages ?? EMPTY_MESSAGES;
@@ -422,7 +501,9 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     activeDialogue, displayMessages,
     activePersona, activeRole, headerVisual,
     convPersonaId, convPersonaName, convVisual,
-    handleSetResponseLength, handleSetReasoning, handleRenameDialogue,
+    handleSetResponseLength, handleSetReasoning, handleRenameDialogue, handleClearTemporalScope,
+    handleConfirmConsent,
+    consentNames,
     responseLength,
     reasoning,
     proactiveHint,

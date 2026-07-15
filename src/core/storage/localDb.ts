@@ -88,6 +88,14 @@ export interface AIDialogue {
   /** AX-11: Separate reasoning flag (decoupled from length). */
   reasoning?: boolean;
   closingSummary?: string;
+  temporalScope?: {
+    type: 'month' | 'dateRange' | 'person' | 'none' | 'recent';
+    month?: string | undefined;
+    from?: string | undefined;
+    to?: string | undefined;
+    personName?: string | undefined;
+    rawText: string;
+  } | undefined;
 }
 
 export interface AIDocumentSummary {
@@ -135,6 +143,7 @@ export interface AIPeopleIndexEntry {
   noteIds: string[];    // all documentIds where mentioned
   lastMentionedAt: number;  // timestamp of most recent note
   mentionCount: number;
+  status?: 'active' | 'ignored' | undefined;
 }
 
 export interface AIDocumentEmbedding {

@@ -20,9 +20,10 @@ const SANITIZE_SCHEMA = {
 interface MarkdownRendererProps {
   content: string;
   className?: string;
+  onCitationClick?: (id: string) => void;
 }
 
-export function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, className, onCitationClick }: MarkdownRendererProps) {
   return (
     <div className={className}>
       <ReactMarkdown
@@ -40,6 +41,23 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
           blockquote: ({ children }) => <blockquote className="border-l-2 border-brand-soft/30 pl-3 my-1 text-text-main/60">{children}</blockquote>,
           code: ({ children }) => <code className="px-1 py-0.5 rounded bg-text-main/5 text-xs font-mono">{children}</code>,
           pre: ({ children }) => <pre className="p-2 rounded-lg bg-text-main/5 text-xs font-mono overflow-x-auto my-1">{children}</pre>,
+          a: ({ href, children }) => {
+            if (href && href.startsWith('#cite-')) {
+              const id = href.replace('#cite-', '');
+              const isUnknown = children != null && String(children).includes('?');
+              return (
+                <button
+                  type="button"
+                  onClick={() => onCitationClick?.(id)}
+                  disabled={isUnknown}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs font-medium cursor-pointer align-baseline select-none"
+                >
+                  {children}
+                </button>
+              );
+            }
+            return <a href={href} className="text-brand-soft hover:underline" target="_blank" rel="noopener noreferrer">{children}</a>;
+          },
         }}
       >
         {content}
