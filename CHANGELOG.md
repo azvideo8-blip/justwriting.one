@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-07-15 (v0.7.52)
+- **[RU]** Слой доверия к памяти (MEM-0): ответы ИИ несут ссылки на источники в формате `[#id]` — каждый факт из заметок оканчивается кликабельной меткой с датой (`MarkdownRenderer` рендерит чип через `#cite-`), открывающей исходную запись; `sanitizeCitations` вырезает ссылки на id вне контекста хода; в `useAIChatContext` инъекция заметок помечается `[#documentId · YYYY-MM-DD]`.
+- **[EN]** Memory trust layer (MEM-0): AI answers carry `[#id]` source citations — each note-derived fact ends with a clickable dated chip (`MarkdownRenderer` renders it via `#cite-`) that opens the original entry; `sanitizeCitations` strips citations to ids outside the turn's context; `useAIChatContext` tags injected notes with `[#documentId · YYYY-MM-DD]`.
+- **[RU]** Согласие на людей (MEM-2): распознавание имён в запросе; для нового имени диалог приостанавливается модальным окном согласия; статус `ignored` (`AIPeopleService.updateStatus`) исключает человека и его заметки из контекста (`ignoredDocumentIds`).
+- **[EN]** People consent (MEM-2): name detection in the prompt; a new name pauses the turn with a consent modal; `ignored` status (`AIPeopleService.updateStatus`) filters the person and their notes out of context (`ignoredDocumentIds`).
+- **[RU]** Управление памятью (MEM-3): вкладка «Упоминания людей» в `MemoryManagerModal` — список людей со статусом и счётчиком упоминаний, переключение статуса и стирание из индекса.
+- **[EN]** Memory management (MEM-3): a "People mentions" tab in `MemoryManagerModal` — a people list with status and mention counts, status toggling and erase-from-index.
+- **[RU]** Ограничение периода (MEM-1): активный temporal-scope показан меткой в чате (`formatScopeLabel`) и жёстко фильтрует выборку заметок по диапазону (`minTime`/`maxTime`); длина ответа и режим рассуждений разведены.
+- **[EN]** Period scope (MEM-1): the active temporal scope is shown as a chip (`formatScopeLabel`) and hard-filters note retrieval by range (`minTime`/`maxTime`); answer length and reasoning mode decoupled.
+- **[RU]** Промпт `NOTES_GUARD` объединяет новый контракт цитирования `[#id]` с прежней защитой от конфабуляции (разделение блоков источников; запрет добавлять события/сцены/эмоции, которых нет в присланной заметке).
+- **[EN]** The `NOTES_GUARD` prompt merges the new `[#id]` citation contract with the prior anti-confabulation guard (source-block separation; no adding events/scenes/emotions absent from the provided note).
+
 ## 2026-07-14 (v0.7.51)
 - **[RU]** Безопасность: Edge API (`/api/chat`) проверяет App Check токен (заголовок `X-Firebase-AppCheck`) при `APP_CHECK_ENFORCE=true`; ручные проверки лимитов заменены общей политикой `aiPolicy` (зеркало для Edge). Safety-лимит сброса пользователя поднят 500 → 10 000.
 - **[EN]** Security: Edge API (`/api/chat`) validates the App Check token (`X-Firebase-AppCheck`) when `APP_CHECK_ENFORCE=true`; manual limit checks replaced by a shared `aiPolicy` (mirrored for Edge). Admin reset safety cap raised 500 → 10,000.
