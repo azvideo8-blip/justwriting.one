@@ -103,35 +103,9 @@ export function useEmbeddingIndexer(): void {
 
     runningRef.current = true;
     try {
-      const usage = getIndexerDailyUsage();
-      if (usage.count < DAILY_LIMIT) {
-        const staleIds = await findStaleDocuments();
-        const remaining = DAILY_LIMIT - usage.count;
-        const batch = staleIds.slice(0, Math.min(BATCH_SIZE, remaining));
-
-        for (const docId of batch) {
-          const result = await indexDocument(docId);
-          if (result === 'daily') {
-            backoffUntilRef.current = Date.now() + BACKOFF_MS['DAILY_LIMIT']!;
-            break;
-          }
-          if (result === 'rate') {
-            backoffUntilRef.current = Date.now() + BACKOFF_MS['RATE_LIMIT']!;
-            break;
-          }
-          if (result === 'ok') {
-            incrementIndexerDailyUsage();
-            void AIProfileFacetService.incrementalUpdate(docId).then(() => {
-              scheduleResummarize();
-            }).catch(e =>
-              reportError(e, { action: '[useEmbeddingIndexer] incremental facet update failed' }),
-            );
-            scheduleWordCloudRebuild();
-          }
-        }
-      }
-
-      // Summarization step
+      // Note summarization runs FIRST so it gets first claim on the shared
+      // background budget — facets, threads, taxonomy and the monthly digest
+      // all draw from the same daily pool and used to starve fresh notes.
       if (localStorage.getItem('auto_summarize_enabled') !== 'false') {
         const staleSumIds = await findStaleSummaries();
         if (staleSumIds.length > 0) {
@@ -196,6 +170,36 @@ export function useEmbeddingIndexer(): void {
                 break;
               }
             }
+          }
+        }
+      }
+
+      // Embedding + incremental facet update (facets draw the same budget, so
+      // this runs after note summarization has taken its share).
+      const usage = getIndexerDailyUsage();
+      if (usage.count < DAILY_LIMIT) {
+        const staleIds = await findStaleDocuments();
+        const remaining = DAILY_LIMIT - usage.count;
+        const batch = staleIds.slice(0, Math.min(BATCH_SIZE, remaining));
+
+        for (const docId of batch) {
+          const result = await indexDocument(docId);
+          if (result === 'daily') {
+            backoffUntilRef.current = Date.now() + BACKOFF_MS['DAILY_LIMIT']!;
+            break;
+          }
+          if (result === 'rate') {
+            backoffUntilRef.current = Date.now() + BACKOFF_MS['RATE_LIMIT']!;
+            break;
+          }
+          if (result === 'ok') {
+            incrementIndexerDailyUsage();
+            void AIProfileFacetService.incrementalUpdate(docId).then(() => {
+              scheduleResummarize();
+            }).catch(e =>
+              reportError(e, { action: '[useEmbeddingIndexer] incremental facet update failed' }),
+            );
+            scheduleWordCloudRebuild();
           }
         }
       }
