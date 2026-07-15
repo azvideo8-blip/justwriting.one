@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-07-15 (v0.7.54)
+- **[RU]** AI-панель редактора: результаты кешируются по действию (`results: Record<AIAction,string>`) — переключение между действиями не вызывает модель повторно, есть кнопка пересчёта (force); «Применить» теперь **дописывает** результат вниз с пометкой (`ai_from_ai`, напр. «Резюме от ИИ:») вместо перезаписи; «Продолжить» вливается без пометки; подсказка «нет текста» поднята над кнопками; индикаторы кеша на кнопках.
+- **[EN]** Editor AI panel: results are cached per action (`results: Record<AIAction,string>`) — switching actions no longer re-calls the model, with a force-regenerate button; "Apply" now **appends** the result below with a label (`ai_from_ai`, e.g. "Summary from AI:") instead of overwriting; "Continue" flows in without a label; the "no text" hint moved above the actions; cache indicators on buttons.
+- **[RU]** Убрана кнопка «Обсудить с ИИ» из `BottomStats` (во время письма); осталась в `WritingFinishModal`.
+- **[EN]** Removed the "Discuss with AI" button from `BottomStats` (during writing); it stays in `WritingFinishModal`.
+- **[RU]** Согласие на людей: срабатывает только для человека, реально упомянутого в заметках (`noteIds.length>0 && status===undefined`) — глаголы-команды из стартеров («Разбери…») больше не принимаются за имена; `AISummaryService` сохраняет `status` человека при пере-суммаризации (ignored не слетает).
+- **[EN]** People consent: fires only for a person actually mentioned in notes (`noteIds.length>0 && status===undefined`) — imperative verbs from starters ("Разбери…") are no longer treated as names; `AISummaryService` preserves a person's `status` on re-summarize (ignored no longer resets).
+- **[RU]** Дневной лимит: правки AI-панели теперь тикают тот же per-user счётчик, что и чат (`useAiLimitStore.useRequest`, админ тоже считается); обычным юзерам чат/правки унифицированы на 10; админ-кап = 20 (клиентский `ADMIN_LIMIT` + серверные дефолты `AI_ADMIN_DAILY_LIMIT` в `api/chat.ts` и `aiUtils`); эмбеддинги/саммари/реранк по-прежнему освобождены.
+- **[EN]** Daily limit: AI-panel edits now tick the same per-user counter as chat (`useAiLimitStore.useRequest`, admins counted too); regular chat/edit unified at 10; admin cap = 20 (client `ADMIN_LIMIT` + server defaults `AI_ADMIN_DAILY_LIMIT` in `api/chat.ts` and `aiUtils`); embeddings/summaries/rerank remain exempt.
+
 ## 2026-07-15 (v0.7.53)
 - **[RU]** Редактор↔ИИ: подключена простаивавшая `AIPanel` — быстрые действия (сократить/продолжить/акценты/идеи/тон/теги/сводка) над текущим черновиком через `useContentStore`; тумблер `Sparkles` в `Toolbar`/`WritingHeader`/`MobileWriteToolbar`, панель по образцу `LifeLogPanel`. Действия под существующим лимитом (`useAiLimitStore` + серверный `editWithAI`).
 - **[EN]** Editor↔AI: the dormant `AIPanel` is now wired — quick actions (shorten/continue/accents/ideas/tone/tags/summary) on the current draft via `useContentStore`; a `Sparkles` toggle in `Toolbar`/`WritingHeader`/`MobileWriteToolbar`, panel modeled on `LifeLogPanel`. Actions stay under the existing limit (`useAiLimitStore` + server `editWithAI`).

@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.54',
+    date: '2026-07-15',
+    items: [
+      { category: 'new', ru: 'ИИ-панель запоминает результаты: переключение между «Идеями» и «Резюме» не тратит токены заново, а к готовому результату есть кнопка пересчёта', en: 'The AI panel remembers results: switching between "Ideas" and "Summary" no longer re-spends tokens, and each result has a regenerate button' },
+      { category: 'improvement', ru: '«Применить» дописывает текст от ИИ вниз к заметке с пометкой (например «Резюме от ИИ:») — больше не стирает написанное вами', en: '"Apply" appends the AI text to the bottom of the note with a label (e.g. "Summary from AI:") — it no longer erases what you wrote' },
+      { category: 'fix', ru: 'Кнопка «Обсудить с ИИ» убрана из панели во время письма (осталась на экране завершения записи)', en: 'The "Discuss with AI" button is removed from the writing toolbar (it stays on the finish screen)' },
+      { category: 'fix', ru: 'ИИ больше не принимает слова-команды («Разбери…», «Помоги…») за имена людей; выбор «игнорировать» человека не сбрасывается при повторном анализе заметки', en: 'The AI no longer mistakes command words ("Analyze…", "Help…") for people\'s names; an "ignore" decision for a person is no longer reset when a note is re-analyzed' },
+      { category: 'improvement', ru: 'Дневной лимит ИИ теперь учитывает и быстрые правки в редакторе, не только чат (эмбеддинги и фоновые сводки по-прежнему не считаются)', en: 'The daily AI limit now counts editor quick-actions too, not just chat (embeddings and background summaries still don\'t count)' },
+    ],
+  },
+  {
     version: '0.7.53',
     date: '2026-07-15',
     items: [
