@@ -128,8 +128,7 @@ function hasExactTitleMatch(query: string, topIds: string[]): Promise<boolean> {
 
 type EmbeddingEntry = Awaited<ReturnType<typeof AIEmbeddingService.getAll>>[number];
 
-export async function searchNotes(query: string, maxResults = 5, opts?: { queryVector?: number[] | undefined; allEmbeddings?: EmbeddingEntry[] | undefined }): Promise<RetrievedNote[]> {
-  // OPT-1: Reuse pre-computed query vector if provided
+export async function searchNotes(query: string, maxResults = 5, opts?: { queryVector?: number[] | undefined; allEmbeddings?: EmbeddingEntry[] | undefined; minTime?: number | undefined; maxTime?: number | undefined; ignoredDocIds?: Set<string> | undefined }): Promise<RetrievedNote[]> {
   let queryVec = opts?.queryVector;
   if (!queryVec) {
     const embedResult = await AIService.embed({ content: query });
@@ -141,22 +140,45 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
   }
   if (!queryVec) return [];
 
-  // OPT-1: Reuse pre-loaded embeddings if provided
-  const allEmbeddings = opts?.allEmbeddings ?? await AIEmbeddingService.getAll();
-  if (allEmbeddings.length === 0) return [];
+  let filteredEmbeddings = opts?.allEmbeddings ?? await AIEmbeddingService.getAll();
+  const db = await getLocalDb();
+  if (opts?.minTime !== undefined || opts?.maxTime !== undefined || opts?.ignoredDocIds !== undefined) {
+    const allowed = new Set<string>();
+    const docs = await db.getAll('documents');
+    for (const doc of docs) {
+      if (opts?.ignoredDocIds?.has(doc.id)) continue;
+      const ts = doc.lastSessionAt;
+      if (ts && (opts.minTime === undefined || ts >= opts.minTime) && (opts.maxTime === undefined || ts <= opts.maxTime)) {
+        allowed.add(doc.id);
+      }
+    }
+    filteredEmbeddings = filteredEmbeddings.filter(e => allowed.has(e.documentId));
+  }
 
-  // Vector search: top 40, with chunk index for Parent Document Retrieval
+  if (filteredEmbeddings.length === 0) return [];
+
   const vectorMatches = topKMultiWithChunkIndex(
     queryVec,
-    allEmbeddings.map(e => ({
+    filteredEmbeddings.map(e => ({
       id: e.documentId,
       vectors: e.vectors?.length ? e.vectors : (e.vector ? [e.vector] : []),
     })),
     VECTOR_TOP,
   );
 
-  // Keyword search: top 40
-  const keywordMatches = await keywordSearch(query, KEYWORD_TOP);
+  let keywordMatches = await keywordSearch(query, KEYWORD_TOP);
+  if (opts?.minTime !== undefined || opts?.maxTime !== undefined || opts?.ignoredDocIds !== undefined) {
+    const allowed = new Set<string>();
+    const docs = await db.getAll('documents');
+    for (const doc of docs) {
+      if (opts?.ignoredDocIds?.has(doc.id)) continue;
+      const ts = doc.lastSessionAt;
+      if (ts && (opts.minTime === undefined || ts >= opts.minTime) && (opts.maxTime === undefined || ts <= opts.maxTime)) {
+        allowed.add(doc.id);
+      }
+    }
+    keywordMatches = keywordMatches.filter(m => allowed.has(m.id));
+  }
 
   // TICKET-045: Boost keyword matches if query contains proper names or quotes
   const kwWeight = shouldBoostKeywords(query) ? 2.0 : 1.0;
@@ -299,7 +321,7 @@ function putCache(query: string, results: RetrievedNote[]) {
 export async function searchNotesMulti(
   queries: string[],
   maxResults = 5,
-  opts?: { queryVector?: number[] | undefined; allEmbeddings?: EmbeddingEntry[] | undefined },
+  opts?: { queryVector?: number[] | undefined; allEmbeddings?: EmbeddingEntry[] | undefined; minTime?: number | undefined; maxTime?: number | undefined; ignoredDocIds?: Set<string> | undefined },
 ): Promise<RetrievedNote[]> {
   if (queries.length === 0) return [];
 
@@ -338,13 +360,27 @@ export async function searchNotesMulti(
   }
   if (!queryVec) return [];
 
-  const allEmbeddings = opts?.allEmbeddings ?? await AIEmbeddingService.getAll();
-  if (allEmbeddings.length === 0) return [];
+  const db = await getLocalDb();
+  let filteredEmbeddings = opts?.allEmbeddings ?? await AIEmbeddingService.getAll();
+  if (opts?.minTime !== undefined || opts?.maxTime !== undefined || opts?.ignoredDocIds !== undefined) {
+    const allowed = new Set<string>();
+    const docs = await db.getAll('documents');
+    for (const doc of docs) {
+      if (opts?.ignoredDocIds?.has(doc.id)) continue;
+      const ts = doc.lastSessionAt;
+      if (ts && (opts.minTime === undefined || ts >= opts.minTime) && (opts.maxTime === undefined || ts <= opts.maxTime)) {
+        allowed.add(doc.id);
+      }
+    }
+    filteredEmbeddings = filteredEmbeddings.filter(e => allowed.has(e.documentId));
+  }
+
+  if (filteredEmbeddings.length === 0) return [];
 
   // Single vector search with combined embedding
   const vectorMatches = topKMultiWithChunkIndex(
     queryVec,
-    allEmbeddings.map(e => ({
+    filteredEmbeddings.map(e => ({
       id: e.documentId,
       vectors: e.vectors?.length ? e.vectors : (e.vector ? [e.vector] : []),
     })),
@@ -354,7 +390,19 @@ export async function searchNotesMulti(
   // TICKET-044: Run keyword searches for each query and merge (max score per doc)
   const keywordScores = new Map<string, number>();
   for (const q of queries) {
-    const kwResults = await keywordSearch(q, KEYWORD_TOP);
+    let kwResults = await keywordSearch(q, KEYWORD_TOP);
+    if (opts?.minTime !== undefined || opts?.maxTime !== undefined || opts?.ignoredDocIds !== undefined) {
+      const allowed = new Set<string>();
+      const docs = await db.getAll('documents');
+      for (const doc of docs) {
+        if (opts?.ignoredDocIds?.has(doc.id)) continue;
+        const ts = doc.lastSessionAt;
+        if (ts && (opts.minTime === undefined || ts >= opts.minTime) && (opts.maxTime === undefined || ts <= opts.maxTime)) {
+          allowed.add(doc.id);
+        }
+      }
+      kwResults = kwResults.filter(r => allowed.has(r.id));
+    }
     for (const { id, score } of kwResults) {
       const existing = keywordScores.get(id);
       if (existing === undefined || score > existing) {

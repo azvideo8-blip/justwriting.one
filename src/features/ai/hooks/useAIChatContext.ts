@@ -11,7 +11,7 @@ import { AIService } from '../services/AIService';
 import { reportError } from '../../../shared/errors/reportError';
 import { detectRisk } from '../utils/riskDetect';
 import { analyzeDoors, aggregateDoors, doorLabel } from '../utils/contactDoors';
-import { parseTemporalQuery } from '../utils/temporalQueryParser';
+import { parseTemporalQuery, MONTHS_MAP, lemmatizeRussianName, type TemporalQuery } from '../utils/temporalQueryParser';
 import { AITimelineService } from '../services/AITimelineService';
 import { AIMonthlyDigestService } from '../services/AIMonthlyDigestService';
 import { AIPeopleService } from '../services/AIPeopleService';
@@ -21,11 +21,40 @@ import { cosineSimilarity, topKMultiWithChunkIndex } from '../utils/vectorSearch
 import { AIDialogueService } from '../services/AIDialogueService';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
 
+function formatDateYYYYMMDD(timestamp: number | undefined): string {
+  if (!timestamp) return 'unknown-date';
+  const date = new Date(timestamp);
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+async function getDocDate(docId: string): Promise<string> {
+  try {
+    const db = await getLocalDb();
+    const doc = await db.get('documents', docId);
+    if (doc?.lastSessionAt) {
+      const date = new Date(doc.lastSessionAt);
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+  } catch { /* ignore */ }
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export interface ChatContextResult {
   userPortrait: string | null;
   customPersona: string | undefined; // customSystemPrompt
   searchContext: string | undefined;
   documentMood: string | undefined;
+  injectedDocumentIds?: string[];
 }
 
 export function useAIChatContext(personaId: string): {
@@ -35,6 +64,7 @@ export function useAIChatContext(personaId: string): {
     mood: string | undefined;
     messageHistory: AIMessage[];
     isFirstTurn: boolean;
+    dialogueId?: string | null;
   }): Promise<ChatContextResult>;
   resetSession(): void;
   setAttachedNote(note: { content: string; documentId?: string } | null): void;
@@ -86,8 +116,46 @@ export function useAIChatContext(personaId: string): {
     mood: string | undefined;
     messageHistory: AIMessage[];
     isFirstTurn: boolean;
+    dialogueId?: string | null;
   }): Promise<ChatContextResult> => {
-    const { text, attached, mood, isFirstTurn } = params;
+    const { text, attached, mood, isFirstTurn, dialogueId } = params;
+    const injectedDocumentIds: string[] = [];
+    const db = await getLocalDb();
+
+    // Scan prompt for Russian proper names and check if they are ignored
+    const promptNames = [...new Set(text.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [])];
+    const ignoredNames = new Set<string>();
+    const ignoredDocumentIds = new Set<string>();
+
+    const RUSSIAN_CAPITALIZED_STOP_WORDS = new Set([
+      'Я', 'Мы', 'Ты', 'Вы', 'Он', 'Она', 'Оно', 'Они',
+      'Как', 'Что', 'Где', 'Когда', 'Почему', 'Зачем', 'Кто', 'Кому', 'Чем',
+      'Если', 'Хотя', 'Чтобы', 'Потому', 'Поэтому', 'Зато',
+      'Да', 'Нет', 'И', 'А', 'Но', 'Или', 'Даже', 'Лишь', 'Только',
+      'Вчера', 'Сегодня', 'Завтра', 'Утром', 'Днем', 'Вечером', 'Ночью',
+      'Мой', 'Твой', 'Свой', 'Наш', 'Ваш', 'Этот', 'Тот', 'Весь', 'Все', 'Всё',
+      'Надо', 'Хочу', 'Могу', 'Очень', 'Просто', 'Быстро', 'Тоже', 'Так',
+      'Там', 'Тут', 'Здесь', 'Где-то', 'Как-то', 'Иногда', 'Часто', 'Редко',
+      'Опять', 'Снова', 'Вдруг', 'Сразу', 'Потом', 'Тогда', 'Сейчас', 'Теперь',
+      'Было', 'Были', 'Будет', 'Будут', 'Есть', 'Нету', 'Раз', 'Два', 'Три',
+      'Привет', 'Пока', 'Спасибо', 'Пожалуйста', 'Здравствуйте', 'Добрый',
+    ]);
+
+    for (const name of promptNames) {
+      if (RUSSIAN_CAPITALIZED_STOP_WORDS.has(name)) continue;
+      const lemmatized = lemmatizeRussianName(name);
+      if (!lemmatized || lemmatized.length < 2) continue;
+      const key = lemmatized.toLowerCase();
+      try {
+        const person = await db.get('aiPeopleIndex', key);
+        if (person?.status === 'ignored') {
+          ignoredNames.add(key);
+          if (person.noteIds?.length) {
+            person.noteIds.forEach(id => ignoredDocumentIds.add(id));
+          }
+        }
+      } catch { /* ignore */ }
+    }
 
     let turnEmb: number[] | undefined;
     if (text.trim().length > 0) {
@@ -121,6 +189,24 @@ export function useAIChatContext(personaId: string): {
     const explicitSearch = attached ? false : looksLikeNoteSearch(text);
 
     let searchContext: string | undefined;
+
+    if (attached) {
+      if (attached.content.includes('[#')) {
+        searchContext = attached.content;
+      } else {
+        const yyyymmdd = attached.documentId ? (await getDocDate(attached.documentId)) : formatDateYYYYMMDD(Date.now());
+        const docId = attached.documentId || 'attached-note';
+        searchContext = `[#${docId} · ${yyyymmdd}]\n[Прикрепленная заметка]\n${attached.content}`;
+      }
+      
+      if (attached.documentId) {
+        injectedDocumentIds.push(attached.documentId);
+      }
+      const matches = attached.content.matchAll(/\[#([a-zA-Z0-9_-]+)\]/g);
+      for (const m of matches) {
+        if (m[1]) injectedDocumentIds.push(m[1]);
+      }
+    }
 
     if (!noteIntentNoText) {
       const stickySearch = !explicitSearch && stickyTurnsRef.current > 0 && lastSearchQueryRef.current.length > 0;
@@ -171,8 +257,9 @@ export function useAIChatContext(personaId: string): {
 
               if (matched.length > 0) {
                 const blocks = matched.map(m => {
-                  m.facet.noteIds.forEach(id => facetNoteIds.add(id));
-                  const notesMeta = m.facet.noteIds.length > 0 ? ` (заметки: ${m.facet.noteIds.length})` : '';
+                  const allowedIds = m.facet.noteIds.filter(id => !ignoredDocumentIds.has(id));
+                  allowedIds.forEach(id => facetNoteIds.add(id));
+                  const notesMeta = allowedIds.length > 0 ? ` (заметки: ${allowedIds.length})` : '';
                   return `Раздел "${m.facet.label}": ${m.facet.summary || 'описание отсутствует'}${notesMeta}`;
                 });
                 searchContext = `[Профиль пользователя: авто-выделенные темы]\n` + blocks.join('\n');
@@ -187,7 +274,208 @@ export function useAIChatContext(personaId: string): {
       let handledByTemporal = false;
       let skipSemantic = false;
       let allNotes: RetrievedNote[] = [];
-      const temporalQuery = parseTemporalQuery(text);
+
+      const isComparison = /(?:^|[^а-яёА-ЯЁa-zA-Z0-9])(?:vs|сравни|противо|по сравнению|разниц|отличи)(?![а-яёА-ЯЁa-zA-Z0-9])/i.test(text);
+      let comparisonScopes: TemporalQuery[] = [];
+      if (isComparison) {
+        const monthStems = Object.keys(MONTHS_MAP);
+        const foundMonths: { stem: string; index: number; year?: number }[] = [];
+        const lowerText = text.toLowerCase();
+        const yearMatch = lowerText.match(/(?:^|[^0-9])(202\d)(?![0-9])/);
+        const defaultYear = yearMatch ? parseInt(yearMatch[1]!, 10) : new Date().getFullYear();
+
+        monthStems.forEach(stem => {
+          let idx = lowerText.indexOf(stem);
+          while (idx !== -1) {
+            foundMonths.push({ stem, index: idx, year: defaultYear });
+            idx = lowerText.indexOf(stem, idx + 1);
+          }
+        });
+        foundMonths.sort((a, b) => a.index - b.index);
+        const uniqueMonths = foundMonths.filter((m, i) => i === 0 || m.stem !== foundMonths[i - 1]!.stem);
+
+        if (uniqueMonths.length >= 2) {
+          comparisonScopes = uniqueMonths.slice(0, 2).map(m => ({
+            type: 'month' as const,
+            month: `${m.year}-${MONTHS_MAP[m.stem]!}`,
+            rawText: m.stem,
+          }));
+        } else {
+          const seasons = [
+            { name: 'зима', months: ['12', '01', '02'] },
+            { name: 'зим', months: ['12', '01', '02'] },
+            { name: 'весна', months: ['03', '04', '05'] },
+            { name: 'весн', months: ['03', '04', '05'] },
+            { name: 'лето', months: ['06', '07', '08'] },
+            { name: 'летн', months: ['06', '07', '08'] },
+            { name: 'осень', months: ['09', '10', '11'] },
+            { name: 'осен', months: ['09', '10', '11'] },
+          ];
+          const foundSeasons: { name: string; index: number; months: string[] }[] = [];
+          seasons.forEach(s => {
+            let idx = lowerText.indexOf(s.name);
+            while (idx !== -1) {
+              foundSeasons.push({ name: s.name, index: idx, months: s.months });
+              idx = lowerText.indexOf(s.name, idx + 1);
+            }
+          });
+          foundSeasons.sort((a, b) => a.index - b.index);
+          const uniqueSeasons = foundSeasons.filter((s, i) => i === 0 || s.name !== foundSeasons[i - 1]!.name);
+
+          if (uniqueSeasons.length >= 2) {
+            comparisonScopes = uniqueSeasons.slice(0, 2).map(s => ({
+              type: 'dateRange' as const,
+              from: `${defaultYear}-${s.months[0]}-01`,
+              to: `${defaultYear}-${s.months[2]}-30`,
+              rawText: s.name,
+            }));
+          } else {
+            const yearMatches = [...lowerText.matchAll(/(?:^|[^0-9])(202\d)(?![0-9])/g)];
+            if (yearMatches.length >= 2) {
+              comparisonScopes = yearMatches.slice(0, 2).map(m => ({
+                type: 'dateRange' as const,
+                from: `${m[1]}-01-01`,
+                to: `${m[1]}-12-31`,
+                rawText: m[1]!,
+              }));
+            }
+          }
+        }
+      }
+
+      let temporalQuery = parseTemporalQuery(text);
+      if (temporalQuery.type === 'none' && dialogueId) {
+        try {
+          const dlg = await AIDialogueService.get(dialogueId);
+          if (dlg?.temporalScope) {
+            temporalQuery = dlg.temporalScope;
+          }
+        } catch { /* ignore */ }
+      }
+
+      let minTime: number | undefined;
+      let maxTime: number | undefined;
+
+      if (comparisonScopes.length === 2) {
+        const scopeA = comparisonScopes[0]!;
+        const scopeB = comparisonScopes[1]!;
+        
+        const getScopeBlock = async (scope: TemporalQuery, label: string) => {
+          let sMin: number | undefined;
+          let sMax: number | undefined;
+          if (scope.type === 'month') {
+            const [yyyy, mm] = scope.month!.split('-');
+            const year = parseInt(yyyy!, 10);
+            const month = parseInt(mm!, 10) - 1;
+            sMin = Date.UTC(year, month, 1);
+            sMax = Date.UTC(year, month + 1, 1) - 1;
+          } else if (scope.type === 'dateRange') {
+            sMin = new Date(scope.from!).getTime();
+            sMax = new Date(scope.to!).getTime() + 86_400_000 - 1;
+          }
+
+          let digestNarrative = '';
+          if (scope.type === 'month') {
+            const digest = await AIMonthlyDigestService.get(scope.month!);
+            if (digest?.narrative) digestNarrative = `Сводка за месяц: ${digest.narrative}\n`;
+          }
+
+          let timelineFacts = '';
+          if (scope.type === 'month') {
+            const entries = await AITimelineService.getByMonth(scope.month!);
+            timelineFacts = entries.flatMap(e => e.facts).join('; ');
+          } else if (scope.type === 'dateRange') {
+            const entries = await AITimelineService.getByDateRange(scope.from!, scope.to!);
+            timelineFacts = entries.flatMap(e => e.facts).join('; ');
+          }
+
+          const searchQuery = explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`;
+          const notes = await searchNotesMulti([searchQuery], 5, { minTime: sMin, maxTime: sMax });
+          const notesText = notes.map(n => `[#${n.documentId} · ${formatDateYYYYMMDD(n.lastSessionAt)}] Заметка "${n.title}": ${n.content.slice(0, 1000)}`).join('\n\n');
+
+          return `=== ПЕРИОД ${label} (${scope.rawText}) ===\n` +
+                 (digestNarrative ? `${digestNarrative}\n` : '') +
+                 (timelineFacts ? `События: ${timelineFacts}\n\n` : '') +
+                 `Релевантные заметки:\n${notesText || '(нет заметок)'}\n`;
+        };
+
+        const blockA = await getScopeBlock(scopeA, 'А');
+        const blockB = await getScopeBlock(scopeB, 'Б');
+
+        searchContext = `[РЕЖИМ СРАВНЕНИЯ ПЕРИОДОВ]\nНиже приведены данные для двух сравниваемых периодов. Отвечай на вопросы пользователя, сравнивая их, но не смешивай факты между периодами.\n\n` +
+                        `${blockA}\n\n${blockB}`;
+        handledByTemporal = true;
+        skipSemantic = true;
+      } else if (temporalQuery.type === 'month') {
+        const [yyyy, mm] = temporalQuery.month!.split('-');
+        const year = parseInt(yyyy!, 10);
+        const month = parseInt(mm!, 10) - 1;
+        minTime = Date.UTC(year, month, 1);
+        maxTime = Date.UTC(year, month + 1, 1) - 1;
+        handledByTemporal = true;
+        try {
+          const entries = await AITimelineService.getByMonth(temporalQuery.month!);
+          const factsStr = entries.flatMap(e => {
+            const dateLabel = e.date ? `[${relativeDate(new Date(e.date).getTime())}]` : '';
+            return e.facts.map(f => `${dateLabel} ${f}`);
+          }).join('; ');
+          const digest = await AIMonthlyDigestService.get(temporalQuery.month!);
+          const narrative = digest?.narrative ? `${digest.narrative}\n\n` : '';
+          const textBlock = `${narrative}В ${temporalQuery.month}: ${factsStr || 'записи отсутствуют'}. Было ${entries.length} заметок.`;
+          searchContext = (searchContext ?? '') + `\n\n[Результаты поиска по хронологии]\n${textBlock}`;
+        } catch (e) {
+          reportError(e, { action: '[useAIChatContext] temporal query month failed' });
+        }
+      } else if (temporalQuery.type === 'dateRange') {
+        minTime = new Date(temporalQuery.from!).getTime();
+        maxTime = new Date(temporalQuery.to!).getTime() + 86_400_000 - 1;
+        handledByTemporal = true;
+        try {
+          const entries = await AITimelineService.getByDateRange(temporalQuery.from!, temporalQuery.to!);
+          const factsStr = entries.flatMap(e => {
+            const dateLabel = e.date ? `[${relativeDate(new Date(e.date).getTime())}]` : '';
+            return e.facts.map(f => `${dateLabel} ${f}`);
+          }).join('; ');
+          const textBlock = `В период с ${temporalQuery.from} по ${temporalQuery.to}: ${factsStr || 'записи отсутствуют'}. Было ${entries.length} заметок.`;
+          searchContext = (searchContext ?? '') + `\n\n[Результаты поиска по хронологии]\n${textBlock}`;
+        } catch (e) {
+          reportError(e, { action: '[useAIChatContext] temporal query dateRange failed' });
+        }
+      } else if (temporalQuery.type === 'recent') {
+        handledByTemporal = true;
+        skipSemantic = true;
+        try {
+          const digests = await AIMonthlyDigestService.getRecent(3);
+          const timelines = await AITimelineService.getMostRecent(10);
+          const sortedDigests = [...digests].reverse();
+          const digestLines = sortedDigests.map(d => `${d.month}: ${d.narrative}`).join('\n');
+          const eventLines = timelines.flatMap(e => {
+            const dateLabel = e.date ? `[${relativeDate(new Date(e.date).getTime())}]` : '';
+            return e.facts.map(f => `- ${dateLabel}: ${f}`);
+          }).join('\n');
+          const catchUpBlock = `За последние месяцы:\n${digestLines || 'Нет обзоров.'}\n\nПоследние события:\n${eventLines || 'Нет зафиксированных событий.'}`;
+          searchContext = (searchContext ?? '') + `\n\n[Хронологическая сводка]\n${catchUpBlock}`;
+        } catch (e) {
+          reportError(e, { action: '[useAIChatContext] temporal query recent failed' });
+        }
+      }
+
+      if (minTime && maxTime) {
+        try {
+          const db = await getLocalDb();
+          const docs = await db.getAll('documents');
+          let noteCountForPeriod = 0;
+          for (const doc of docs) {
+            const ts = doc.lastSessionAt;
+            if (ts && ts >= minTime && ts <= maxTime) {
+              noteCountForPeriod++;
+            }
+          }
+          if (noteCountForPeriod <= 2) {
+            searchContext = (searchContext ?? '') + `\n\n[СИСТЕМНОЕ ПРЕДУПРЕЖДЕНИЕ: За выбранный период найдено мало записей (${noteCountForPeriod}). Обязательно честно скажи об этом пользователю ("за этот период мало записей — ...") вместо того, чтобы придумывать или обобщать.]`;
+          }
+        } catch { /* ignore */ }
+      }
 
       if (explicitSearch || stickySearch) {
         const db = await getLocalDb();
@@ -196,60 +484,13 @@ export function useAIChatContext(personaId: string): {
           ...lastSearchNamesRef.current,
         ])];
 
-        if (temporalQuery.type === 'month') {
-          handledByTemporal = true;
-          skipSemantic = true;
-          try {
-            const entries = await AITimelineService.getByMonth(temporalQuery.month!);
-            const factsStr = entries.flatMap(e => {
-              const dateLabel = e.date ? `[${relativeDate(new Date(e.date).getTime())}]` : '';
-              return e.facts.map(f => `${dateLabel} ${f}`);
-            }).join('; ');
-            const digest = await AIMonthlyDigestService.get(temporalQuery.month!);
-            const narrative = digest?.narrative ? `${digest.narrative}\n\n` : '';
-            const textBlock = `${narrative}В ${temporalQuery.month}: ${factsStr || 'записи отсутствуют'}. Было ${entries.length} заметок.`;
-            searchContext = (searchContext ?? '') + `\n\n[Результаты поиска по хронологии]\n${textBlock}`;
-          } catch (e) {
-            reportError(e, { action: '[useAIChatContext] temporal query month failed' });
-          }
-        } else if (temporalQuery.type === 'dateRange') {
-          handledByTemporal = true;
-          skipSemantic = true;
-          try {
-            const entries = await AITimelineService.getByDateRange(temporalQuery.from!, temporalQuery.to!);
-            const factsStr = entries.flatMap(e => {
-              const dateLabel = e.date ? `[${relativeDate(new Date(e.date).getTime())}]` : '';
-              return e.facts.map(f => `${dateLabel} ${f}`);
-            }).join('; ');
-            const textBlock = `В период с ${temporalQuery.from} по ${temporalQuery.to}: ${factsStr || 'записи отсутствуют'}. Было ${entries.length} заметок.`;
-            searchContext = (searchContext ?? '') + `\n\n[Результаты поиска по хронологии]\n${textBlock}`;
-          } catch (e) {
-            reportError(e, { action: '[useAIChatContext] temporal query dateRange failed' });
-          }
-        } else if (temporalQuery.type === 'recent') {
-          handledByTemporal = true;
-          skipSemantic = true;
-          try {
-            const digests = await AIMonthlyDigestService.getRecent(3);
-            const timelines = await AITimelineService.getMostRecent(10);
-            const sortedDigests = [...digests].reverse();
-            const digestLines = sortedDigests.map(d => `${d.month}: ${d.narrative}`).join('\n');
-            const eventLines = timelines.flatMap(e => {
-              const dateLabel = e.date ? `[${relativeDate(new Date(e.date).getTime())}]` : '';
-              return e.facts.map(f => `- ${dateLabel}: ${f}`);
-            }).join('\n');
-
-            const catchUpBlock = `За последние месяцы:\n${digestLines || 'Нет обзоров.'}\n\nПоследние события:\n${eventLines || 'Нет зафиксированных событий.'}`;
-            searchContext = (searchContext ?? '') + `\n\n[Хронологическая сводка]\n${catchUpBlock}`;
-          } catch (e) {
-            reportError(e, { action: '[useAIChatContext] temporal query recent failed' });
-          }
-        } else if (temporalQuery.type === 'person') {
+        if (temporalQuery.type === 'person') {
           skipSemantic = true;
           try {
             const matchedPeople = await AIPeopleService.search(temporalQuery.personName!);
             const noteIds = [...new Set(matchedPeople.flatMap(p => p.noteIds))];
             for (const docId of noteIds) {
+              if (ignoredDocumentIds.has(docId)) continue;
               const doc = await db.get('documents', docId);
               if (!doc) continue;
               const content = await LocalVersionService.getLatestContent(docId);
@@ -295,7 +536,7 @@ export function useAIChatContext(personaId: string): {
               allEmbeddings = await AIEmbeddingService.getAll();
             }
 
-            const notes = await searchNotesMulti(searchQueries, 10, { queryVector: queryEmb, allEmbeddings });
+            const notes = await searchNotesMulti(searchQueries, 10, { queryVector: queryEmb, allEmbeddings, minTime, maxTime, ignoredDocIds: ignoredDocumentIds });
             const nameSearchIds = new Set<string>();
             const nameSearchEmb = candidateNames.length > 0 ? (allEmbeddings ?? await AIEmbeddingService.getAll()) : [];
             const nameRegexes = candidateNames.map(name =>
@@ -414,7 +655,9 @@ export function useAIChatContext(personaId: string): {
               
               const dateLabel = n.lastSessionAt ? relativeDate(n.lastSessionAt) : '';
               const datePart = dateLabel ? ` (${dateLabel})` : '';
-              parts.push(`Заметка ${noteIdx}${datePart}: "${n.title}"\n${summaryPrefix}${snippet}`);
+              const yyyymmdd = formatDateYYYYMMDD(n.lastSessionAt);
+              injectedDocumentIds.push(n.documentId);
+              parts.push(`[#${n.documentId} · ${yyyymmdd}]\nЗаметка ${noteIdx}${datePart}: "${n.title}"\n${summaryPrefix}${snippet}`);
               totalChars += snippet.length + summaryPrefix.length;
             }
             const noteBlock = (
@@ -440,8 +683,20 @@ export function useAIChatContext(personaId: string): {
         if (turnEmb) {
           try {
             const allEmb = await AIEmbeddingService.getAll();
-            const db = await getLocalDb();
-            const results = topKMultiWithChunkIndex(turnEmb, allEmb.map(e => ({ id: e.documentId, vectors: e.vectors })), 3);
+            let filteredEmb = allEmb;
+            if (minTime !== undefined || maxTime !== undefined || ignoredDocumentIds.size > 0) {
+              const allowed = new Set<string>();
+              const docs = await db.getAll('documents');
+              for (const doc of docs) {
+                if (ignoredDocumentIds.has(doc.id)) continue;
+                const ts = doc.lastSessionAt;
+                if (ts && (minTime === undefined || ts >= minTime) && (maxTime === undefined || ts <= maxTime)) {
+                  allowed.add(doc.id);
+                }
+              }
+              filteredEmb = allEmb.filter(e => allowed.has(e.documentId));
+            }
+            const results = topKMultiWithChunkIndex(turnEmb, filteredEmb.map(e => ({ id: e.documentId, vectors: e.vectors })), 3);
             if (results.length > 0) {
               const parts = [];
               let idx = 0;
@@ -454,7 +709,9 @@ export function useAIChatContext(personaId: string): {
                 idx++;
                 const dateLabel = doc.lastSessionAt ? relativeDate(doc.lastSessionAt) : '';
                 const datePart = dateLabel ? ` (${dateLabel})` : '';
-                parts.push(`Заметка ${idx}${datePart}: "${doc.title || 'Без названия'}"\n${textChunk}`);
+                const yyyymmdd = formatDateYYYYMMDD(doc.lastSessionAt);
+                injectedDocumentIds.push(r.id);
+                parts.push(`[#${doc.id} · ${yyyymmdd}]\nЗаметка ${idx}${datePart}: "${doc.title || 'Без названия'}"\n${textChunk}`);
               }
               if (parts.length > 0) {
                 const liteBlock = `[Возможно релевантные заметки]\n` + parts.join('\n\n');
@@ -680,6 +937,7 @@ export function useAIChatContext(personaId: string): {
       customPersona: customSystemPrompt,
       searchContext,
       documentMood: mood,
+      injectedDocumentIds: [...new Set(injectedDocumentIds)],
     };
   };
 

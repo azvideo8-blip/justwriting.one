@@ -1,11 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles, Square, X, RotateCcw, Brain } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { AnimatePresence } from 'motion/react';
 import { DocumentPickerModal } from '../components/DocumentPickerModal';
 import { CreatePersonaModal } from '../components/CreatePersonaModal';
 import { PersonaDetailModal } from '../components/PersonaDetailModal';
 import { MemoryManagerModal } from '../components/MemoryManagerModal';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
+import { DocumentPreview } from '../../archive/components/DocumentPreview';
+import type { ArchiveSession } from '../../archive/types';
+import { LocalVersionService } from '../../../core/services/LocalVersionService';
+import { getLocalDb } from '../../../core/storage/localDb';
 import { personaVisual } from '../constants/personaVisuals';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { cn } from '../../../core/utils/utils';
@@ -17,6 +22,28 @@ import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { relativeDate } from '../../../core/utils/dateUtils';
 import type { AITimelineEntry } from '../../../core/storage/localDb';
+import type { TemporalQuery } from '../utils/temporalQueryParser';
+
+const formatScopeLabel = (scope: TemporalQuery | null | undefined): string => {
+  if (!scope) return '';
+  if (scope.type === 'month') {
+    const [yyyy, mm] = scope.month!.split('-');
+    const months = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+    const monthName = months[parseInt(mm!, 10) - 1] || 'месяц';
+    return `${monthName} ${yyyy}`;
+  }
+  if (scope.type === 'dateRange') {
+    const formatDate = (s: string) => {
+      const d = new Date(s);
+      return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+    };
+    return `${formatDate(scope.from!)} – ${formatDate(scope.to!)}`;
+  }
+  if (scope.type === 'person') {
+    return `про ${scope.personName}`;
+  }
+  return scope.rawText;
+};
 
 export function AIPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -54,7 +81,8 @@ export function AIPage() {
     loadCustomPersonas,
     handleSendMessage, handleNewDialogue, handleArchive, handleUnarchive, handleDelete, handleExport,
     handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload,
-    handleSetResponseLength, handleSetReasoning, handleRenameDialogue,
+    handleSetResponseLength, handleSetReasoning, handleRenameDialogue, handleClearTemporalScope,
+    handleConfirmConsent, consentNames,
     responseLength,
     reasoning,
     proactiveHint,
@@ -71,6 +99,10 @@ export function AIPage() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const navigate = useNavigate();
+  const [previewSession, setPreviewSession] = useState<ArchiveSession | null>(null);
+  const [citationMeta, setCitationMeta] = useState<Record<string, { date: string; title: string }>>({});
+
   const [suggestedNote, setSuggestedNote] = useState<AITimelineEntry | null>(null);
 
   useEffect(() => {
@@ -86,6 +118,102 @@ export function AIPage() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    const ids = new Set<string>();
+    const citeRegex = /\[#([a-zA-Z0-9_-]+)\]/g;
+    
+    displayMessages.forEach(msg => {
+      let match;
+      const content = msg.content || '';
+      citeRegex.lastIndex = 0;
+      while ((match = citeRegex.exec(content)) !== null) {
+        if (match[1]) ids.add(match[1]);
+      }
+      if (msg.reasoning) {
+        citeRegex.lastIndex = 0;
+        while ((match = citeRegex.exec(msg.reasoning)) !== null) {
+          if (match[1]) ids.add(match[1]);
+        }
+      }
+    });
+
+    if (streamingMessage) {
+      let match;
+      citeRegex.lastIndex = 0;
+      while ((match = citeRegex.exec(streamingMessage)) !== null) {
+        if (match[1]) ids.add(match[1]);
+      }
+    }
+
+    if (ids.size === 0) return;
+
+    void (async () => {
+      try {
+        const db = await getLocalDb();
+        const newMeta = { ...citationMeta };
+        let updated = false;
+        for (const id of ids) {
+          if (newMeta[id]) continue;
+          const doc = await db.get('documents', id);
+          if (doc) {
+            const date = doc.lastSessionAt
+              ? new Date(doc.lastSessionAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+              : 'Заметка';
+            newMeta[id] = {
+              date,
+              title: doc.title || 'Без названия',
+            };
+            updated = true;
+          }
+        }
+        if (updated) {
+          setCitationMeta(newMeta);
+        }
+      } catch (e) {
+        console.warn('[AIPage] failed to fetch citation metadata:', e);
+      }
+    })();
+  }, [displayMessages, streamingMessage, citationMeta]);
+
+  const processCitations = (text: string | null | undefined): string => {
+    if (!text) return '';
+    return text.replace(/\[#([a-zA-Z0-9_-]+)\]/g, (match, id) => {
+      const info = citationMeta[id];
+      if (info) {
+        return `[📅 ${info.date}](#cite-${id})`;
+      }
+      return `[📅 ?](#cite-${id})`;
+    });
+  };
+
+  const handleCitationClick = async (id: string) => {
+    try {
+      const db = await getLocalDb();
+      const doc = await db.get('documents', id);
+      if (!doc) return;
+      const content = await LocalVersionService.getLatestContent(id);
+      const session: ArchiveSession = {
+        id: doc.id,
+        userId: doc.guestId,
+        title: doc.title || 'Без названия',
+        content: content || '',
+        duration: doc.totalDuration || 0,
+        wordCount: doc.totalWords || 0,
+        charCount: content ? content.length : 0,
+        wpm: doc.totalWords ? Math.round(doc.totalWords / (doc.totalDuration / 60 || 1)) : 0,
+        tags: doc.tags ?? [],
+        labelId: doc.labelId,
+        mood: doc.mood,
+        createdAt: doc.firstSessionAt || doc.lastSessionAt || Date.now(),
+        sessionStartTime: doc.firstSessionAt,
+        _isLocal: true,
+      };
+      setPreviewSession(session);
+    } catch (e) {
+      console.error('[AIPage] failed to preview cited note:', e);
+    }
+  };
 
   const showBanner = (() => {
     if (!suggestedNote) return false;
@@ -329,6 +457,18 @@ export function AIPage() {
                 {activeRole && !isRenaming && <span className="text-xs font-medium shrink-0" style={{ color: headerVisual.color }}>{activeRole}</span>}
               </div>
             </div>
+            {dialogue?.temporalScope && (
+              <div className="ml-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => void handleClearTemporalScope()}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30 border border-brand-soft/30 transition-all font-medium cursor-pointer"
+                >
+                  Только {formatScopeLabel(dialogue.temporalScope)}
+                  <X size={12} className="opacity-70" />
+                </button>
+              </div>
+            )}
             <div className="flex-1" />
             <IconButton onClick={() => setMemoryOpen(true)} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_memory_title')} label={t('ai_memory_title')} icon={<Brain size={15} />} />
             {activeDialogueId && (
@@ -498,7 +638,7 @@ export function AIPage() {
                         </div>
                       </details>
                     )}
-                    <MarkdownRenderer content={msg.content} />
+                    <MarkdownRenderer content={processCitations(msg.content)} onCitationClick={(id) => void handleCitationClick(id)} />
                   </AssistantTurn>
                 );
               }
@@ -584,7 +724,7 @@ export function AIPage() {
 
             {streamingMessage !== null && (
               <AssistantTurn name={convPersonaName} color={convVisual.color} mono={convVisual.mono}>
-                <MarkdownRenderer content={streamingMessage || '…'} />
+                <MarkdownRenderer content={processCitations(streamingMessage)} onCitationClick={(id) => void handleCitationClick(id)} />
               </AssistantTurn>
             )}
 
@@ -790,6 +930,51 @@ export function AIPage() {
       <CreatePersonaModal isOpen={createPersonaOpen} onClose={() => setCreatePersonaOpen(false)} onCreated={() => void loadCustomPersonas()} />
       <PersonaDetailModal persona={detailPersona} onClose={() => setDetailPersona(null)} onChanged={() => void loadCustomPersonas()} />
       {memoryOpen && <MemoryManagerModal onClose={() => setMemoryOpen(false)} />}
+
+      {previewSession && <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setPreviewSession(null)} />}
+      <AnimatePresence>
+        {previewSession && (
+          <DocumentPreview
+            session={previewSession}
+            onClose={() => setPreviewSession(null)}
+            onContinue={s => { void navigate('/', { state: { sessionToContinue: s } }); }}
+          />
+        )}
+      </AnimatePresence>
+
+      {consentNames.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-surface-card border border-border-subtle shadow-xl animate-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <div className="w-10 h-10 rounded-xl bg-brand-soft/10 text-brand-soft flex items-center justify-center mb-4">
+                <Brain size={20} />
+              </div>
+              <h3 className="text-base font-bold text-text-main mb-2">Новое имя в записях</h3>
+              <p className="text-xs text-text-main/60 leading-relaxed mb-6">
+                Кажется, в ваших записях упоминается <span className="font-semibold text-text-main">
+                  {consentNames.join(', ')}
+                </span>. Хотите, чтобы я помнил факты об {consentNames.length > 1 ? 'этих людях' : 'этом человеке'}?
+              </p>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleConfirmConsent('active')}
+                  className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-brand-soft text-white hover:bg-brand-soft-hover transition-colors shadow-sm cursor-pointer border border-transparent"
+                >
+                  Да, отслеживать
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleConfirmConsent('ignored')}
+                  className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-text-main/5 text-text-main hover:bg-text-main/10 transition-colors border border-border-subtle cursor-pointer"
+                >
+                  Нет, игнорировать
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
