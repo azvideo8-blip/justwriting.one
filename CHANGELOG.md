@@ -11,6 +11,14 @@
 - **[EN]** Period scope (MEM-1): the active temporal scope is shown as a chip (`formatScopeLabel`) and hard-filters note retrieval by range (`minTime`/`maxTime`); answer length and reasoning mode decoupled.
 - **[RU]** Промпт `NOTES_GUARD` объединяет новый контракт цитирования `[#id]` с прежней защитой от конфабуляции (разделение блоков источников; запрет добавлять события/сцены/эмоции, которых нет в присланной заметке).
 - **[EN]** The `NOTES_GUARD` prompt merges the new `[#id]` citation contract with the prior anti-confabulation guard (source-block separation; no adding events/scenes/emotions absent from the provided note).
+- **[RU]** ИИ-надёжность: убран 30-секундный таймаут чтения тела ответа, обрывавший долгие генерации (чат 500-ил, фоновая суммаризация молча ничего не давала) — чтение тела получает тот же бюджет, что и запрос (`abortMs`, 110 c), клиент ждёт 115 c.
+- **[EN]** AI robustness: removed the 30s body-read timeout that aborted long generations (chat 500s, background summarization silently produced nothing) — the body read now gets the request budget (`abortMs`, 110s), client waits 115s.
+- **[RU]** Восстановлены фоновые пайплайны: делистнутая `google/gemma-2-9b-it:free` (404) заменена на `deepseek-v4-flash` в `summarizeFacet`/`judgeFacets`/`deriveTaxonomy`/`extractChatMemory` — устранены 500-е в месячном дайджесте и профиле.
+- **[EN]** Background pipelines restored: the delisted `google/gemma-2-9b-it:free` (404) replaced with `deepseek-v4-flash` in `summarizeFacet`/`judgeFacets`/`deriveTaxonomy`/`extractChatMemory` — fixing 500s in the monthly digest and profile.
+- **[RU]** Фоновый ИИ-бюджет: поднят 25 → 60/день, суммаризация заметок идёт первой в батче индексатора — свежие заметки не застревают на «анализируется…».
+- **[EN]** Background AI budget: raised 25 → 60/day, note summarization runs first in the indexer batch — fresh notes no longer stall on "analyzing…".
+- **[RU]** App Check доведён до конца: клиент шлёт `x-firebase-appcheck` из `aiChatTransport` (иначе `APP_CHECK_ENFORCE=true` возвращал 401 на каждый чат); глобальная резервация сделана одноразовой (reasoning-стрим возвращал её и всё равно доходил до `recordUsage`, списывая лимит дважды и уводя счётчик-шард в минус).
+- **[EN]** App Check completed end-to-end: the client sends `x-firebase-appcheck` from `aiChatTransport` (otherwise `APP_CHECK_ENFORCE=true` returned 401 on every chat); the global reservation is now single-use (the reasoning stream refunded it and still reached `recordUsage`, subtracting the allowance twice and driving the shard counter negative).
 
 ## 2026-07-14 (v0.7.51)
 - **[RU]** Безопасность: Edge API (`/api/chat`) проверяет App Check токен (заголовок `X-Firebase-AppCheck`) при `APP_CHECK_ENFORCE=true`; ручные проверки лимитов заменены общей политикой `aiPolicy` (зеркало для Edge). Safety-лимит сброса пользователя поднят 500 → 10 000.
