@@ -14,6 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.53',
+    date: '2026-07-15',
+    items: [
+      { category: 'new', ru: 'ИИ-панель прямо в редакторе: быстрые действия над текущим черновиком — сократить, продолжить мысль, выделить акценты, идеи, тон, теги — без перехода в чат', en: 'An AI panel right in the editor: quick actions on the current draft — shorten, continue, highlight, ideas, tone, tags — without leaving for the chat' },
+      { category: 'new', ru: '«Обсудить с ИИ» из редактора: одним нажатием сохраняет черновик и открывает чат с уже прикреплённой заметкой', en: '"Discuss with AI" from the editor: one tap saves the draft and opens the chat with the note already attached' },
+      { category: 'new', ru: 'Из ответа ИИ можно создать новую заметку в дневнике, а в режиме «Редактор» — применить улучшенный вариант к прикреплённой заметке (сохраняется как новая версия)', en: 'Turn an AI reply into a new journal note, or — in the Editor persona — apply the improved version to the attached note (saved as a new version)' },
+      { category: 'improvement', ru: 'Стартовые подсказки чата подстраиваются под темы прикреплённой заметки вместо общих фраз', en: 'Chat starter prompts adapt to the attached note\'s themes instead of generic phrases' },
+      { category: 'improvement', ru: 'В предпросмотре цитируемой заметки появились быстрые действия: прикрепить к диалогу, открыть в редакторе, скопировать', en: 'The cited-note preview now has quick actions: attach to the dialogue, open in the editor, copy' },
+      { category: 'improvement', ru: 'Точнее и быстрее поиск по заметкам: в переранжирование попадает точный фрагмент текста, точные совпадения имён и цитат поднимаются мгновенно без облачного вызова', en: 'More accurate and faster note retrieval: the exact matched excerpt feeds reranking, and exact name/quote matches surface instantly without a cloud call' },
+    ],
+  },
+  {
     version: '0.7.52',
     date: '2026-07-15',
     items: [

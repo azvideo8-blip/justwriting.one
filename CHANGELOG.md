@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-07-15 (v0.7.53)
+- **[RU]** Редактор↔ИИ: подключена простаивавшая `AIPanel` — быстрые действия (сократить/продолжить/акценты/идеи/тон/теги/сводка) над текущим черновиком через `useContentStore`; тумблер `Sparkles` в `Toolbar`/`WritingHeader`/`MobileWriteToolbar`, панель по образцу `LifeLogPanel`. Действия под существующим лимитом (`useAiLimitStore` + серверный `editWithAI`).
+- **[EN]** Editor↔AI: the dormant `AIPanel` is now wired — quick actions (shorten/continue/accents/ideas/tone/tags/summary) on the current draft via `useContentStore`; a `Sparkles` toggle in `Toolbar`/`WritingHeader`/`MobileWriteToolbar`, panel modeled on `LifeLogPanel`. Actions stay under the existing limit (`useAiLimitStore` + server `editWithAI`).
+- **[RU]** «Обсудить с ИИ» (`BottomStats`/`WritingFinishModal`): сохраняет черновик (`handleSave` теперь возвращает id) и переходит на `/ai?doc=<id>` — заметка авто-прикрепляется (`useAIPageData`).
+- **[EN]** "Discuss with AI" (`BottomStats`/`WritingFinishModal`): saves the draft (`handleSave` now returns the id) and navigates to `/ai?doc=<id>` — the note auto-attaches (`useAIPageData`).
+- **[RU]** Из ответа ИИ: «Создать заметку» (`StorageService.saveNew`, тег «ИИ») и «Применить к заметке» для персоны редактора (`StorageService.saveVersion` — недеструктивно, новая версия).
+- **[EN]** From an AI reply: "Create a note" (`StorageService.saveNew`, tag "ИИ") and "Apply to note" for the editor persona (`StorageService.saveVersion` — non-destructive, new version).
+- **[RU]** Контекстные стартеры чата из `aiSummaries.themes` прикреплённой заметки (fallback на стандартные); быстрые действия в предпросмотре цитаты (`DocumentPreview`): прикрепить/открыть/скопировать.
+- **[EN]** Context-aware chat starters from the attached note's `aiSummaries.themes` (fallback to defaults); quick actions in the citation preview (`DocumentPreview`): attach/open/copy.
+- **[RU]** RAG: в rerank-карточки добавлен точный фрагмент совпавшего чанка (`chunkTexts[idx]`, cap 350); локальный обход облачного реранка при точном совпадении имени/цитаты с подъёмом совпадений наверх (`noteRetriever`, стабильная сортировка); взвешивание основного запроса над синоним-расширениями.
+- **[EN]** RAG: rerank cards now include the exact matched-chunk excerpt (`chunkTexts[idx]`, cap 350); a local bypass of the cloud rerank on an exact name/quote hit that lifts matches to the front (`noteRetriever`, stable sort); the primary query is weighted over its synonym expansions.
+
 ## 2026-07-15 (v0.7.52)
 - **[RU]** Слой доверия к памяти (MEM-0): ответы ИИ несут ссылки на источники в формате `[#id]` — каждый факт из заметок оканчивается кликабельной меткой с датой (`MarkdownRenderer` рендерит чип через `#cite-`), открывающей исходную запись; `sanitizeCitations` вырезает ссылки на id вне контекста хода; в `useAIChatContext` инъекция заметок помечается `[#documentId · YYYY-MM-DD]`.
 - **[EN]** Memory trust layer (MEM-0): AI answers carry `[#id]` source citations — each note-derived fact ends with a clickable dated chip (`MarkdownRenderer` renders it via `#cite-`) that opens the original entry; `sanitizeCitations` strips citations to ids outside the turn's context; `useAIChatContext` tags injected notes with `[#documentId · YYYY-MM-DD]`.
