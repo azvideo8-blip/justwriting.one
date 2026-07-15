@@ -14,6 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.52',
+    date: '2026-07-15',
+    items: [
+      { category: 'new', ru: 'Ответы ИИ теперь ссылаются на источники: под фактами из ваших заметок появляются кликабельные метки с датой, открывающие исходную запись; выдумывать несуществующие источники ИИ не может', en: 'AI answers now cite their sources: facts drawn from your notes get clickable dated chips that open the original entry, and the AI cannot invent non-existent sources' },
+      { category: 'new', ru: 'Согласие на запоминание людей: при новом имени в запросе ИИ спрашивает разрешение; отмеченного «игнорировать» человека и связанные с ним заметки ИИ в контекст не берёт', en: 'Consent for remembering people: when a new name appears, the AI asks permission first; a person you mark "ignore" — and their related notes — is kept out of the AI context' },
+      { category: 'new', ru: 'Вкладка «Упоминания людей» в управлении памятью: список найденных людей со статусом и числом упоминаний; статус можно переключать («Отслеживать»/«Игнорировать») или стирать человека из индекса', en: 'A "People mentions" tab in memory management: a list of detected people with status and mention counts; toggle status (track/ignore) or erase a person from the index' },
+      { category: 'improvement', ru: 'Ограничение периода в чате теперь видно как метку и реально отбирает только заметки этого периода', en: 'A chat period scope is now shown as a chip and actually restricts retrieval to notes within that period' },
+      { category: 'improvement', ru: 'Длина ответа и режим рассуждений разведены — их можно включать независимо', en: 'Answer length and reasoning mode are decoupled — each can be toggled independently' },
+      { category: 'fix', ru: 'Усилена защита от додумывания: разбирая присланную заметку, ИИ строго держится её текста и не добавляет событий, сцен, цитат или эмоций, которых в ней нет', en: 'Stronger anti-confabulation: when working with a provided note, the AI sticks strictly to its text and does not add events, scenes, quotes or emotions that are not there' },
+    ],
+  },
+  {
     version: '0.7.51',
     date: '2026-07-14',
     items: [
