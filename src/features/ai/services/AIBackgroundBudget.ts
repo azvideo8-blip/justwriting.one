@@ -1,5 +1,5 @@
 const BUDGET_KEY = 'ai_bg_budget';
-const DAILY_BUDGET = 25;
+const DAILY_BUDGET = 60;
 
 export function getBudgetUsage(): { date: string; spent: number } {
   try {
