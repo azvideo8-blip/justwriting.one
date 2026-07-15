@@ -212,14 +212,14 @@ async function refundDailyLimit(uid: string): Promise<void> {
 // ── Daily limit ───────────────────────────────────────────────────────────────
 const DAILY_LIMIT = (() => {
   const n = parseInt(process.env.AI_DAILY_LIMIT ?? '10', 10);
-  return Number.isNaN(n) ? 5 : n;
+  return Number.isNaN(n) ? 10 : n;
 })();
 
 // Admins (role 'admin') get a higher personal cap. Mirror of
-// functions/src/shared/aiUtils.ts getUserDailyLimit.
+// functions/src/shared/aiUtils.ts getUserDailyLimit. Default 20 (experiment).
 const ADMIN_DAILY_LIMIT = (() => {
-  const n = parseInt(process.env.AI_ADMIN_DAILY_LIMIT ?? '100', 10);
-  return Number.isNaN(n) ? 100 : n;
+  const n = parseInt(process.env.AI_ADMIN_DAILY_LIMIT ?? '20', 10);
+  return Number.isNaN(n) ? 20 : n;
 })();
 
 async function userDailyLimit(uid: string): Promise<number> {
@@ -527,7 +527,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     try {
       await getAppCheck().verifyToken(appCheckToken);
-    } catch (err) {
+    } catch {
       res.status(401).json({ error: 'Unauthorized: Invalid App Check token' });
       return;
     }
