@@ -43,6 +43,8 @@ interface WritingSettingsContextType {
   setAutoHideCursor: (enabled: boolean) => void;
   lineHeight: number;
   setLineHeight: (lh: number) => void;
+  aiPanelOpen: boolean;
+  setAiPanelOpen: (v: boolean) => void;
 }
 
 const WritingSettingsContext = createContext<WritingSettingsContextType | undefined>(undefined);
@@ -52,7 +54,8 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
   const [zenModeEnabled, setZenModeEnabled] = useLocalStorage<boolean>('v2_zenModeEnabled', true, z.boolean());
   const [editorWidth, setEditorWidth] = useLocalStorage<number>('v3_editorWidth', 68, z.number());
   const [lifeLogEnabled, setLifeLogEnabled] = useLocalStorage<boolean>('lifeLogEnabled', true, z.boolean());
-  const [lifeLogVisible, setLifeLogVisible] = useState(false);
+  const [lifeLogVisible, _setLifeLogVisible] = useState(false);
+  const [aiPanelOpen, _setAiPanelOpen] = useState(false);
   const [lifeLogTab, setLifeLogTab] = useState<'log' | 'settings'>('log');
   const [fontFamily, setFontFamily] = useLocalStorage<string>('v2_fontFamily', 'Inter', z.string());
   const [fontSize, setFontSize] = useLocalStorage<number>('v2_fontSize', 18, z.number());
@@ -74,6 +77,16 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
   const zenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const guardRef = useRef<boolean>(false);
   const lastMousePos = useRef<{ x: number; y: number }>({ x: -1, y: -1 });
+
+  const setLifeLogVisible = useCallback((v: boolean) => {
+    _setLifeLogVisible(v);
+    if (v) _setAiPanelOpen(false);
+  }, []);
+
+  const setAiPanelOpen = useCallback((v: boolean) => {
+    _setAiPanelOpen(v);
+    if (v) _setLifeLogVisible(false);
+  }, []);
 
   useEffect(() => {
     if (status !== 'writing' || !zenModeEnabled) {
@@ -149,7 +162,8 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     focusModeEnabled, setFocusModeEnabled,
     autoHideCursor, setAutoHideCursor,
     lineHeight, setLineHeight,
-  }), [streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled, editorWidth, setEditorWidth, lifeLogEnabled, setLifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isZenActive, zenSeenOnce, status, setStatus, fontFamily, setFontFamily, fontSize, setFontSize, lifeLogPinned, setLifeLogPinned, headerVisibility, toggleVisibility, typewriterScrolling, setTypewriterScrolling, focusModeEnabled, setFocusModeEnabled, autoHideCursor, setAutoHideCursor, lineHeight, setLineHeight]);
+    aiPanelOpen, setAiPanelOpen,
+  }), [streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled, editorWidth, setEditorWidth, lifeLogEnabled, setLifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isZenActive, zenSeenOnce, status, setStatus, fontFamily, setFontFamily, fontSize, setFontSize, lifeLogPinned, setLifeLogPinned, headerVisibility, toggleVisibility, typewriterScrolling, setTypewriterScrolling, focusModeEnabled, setFocusModeEnabled, autoHideCursor, setAutoHideCursor, lineHeight, setLineHeight, aiPanelOpen, setAiPanelOpen]);
 
   return (
     <WritingSettingsContext.Provider value={contextValue}>

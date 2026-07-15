@@ -132,7 +132,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
   }, [handleContinueDocument, showToast, t]);
 
   const handleSave = React.useCallback(async (data: SaveData) => {
-    if (savingRef.current) return;
+    if (savingRef.current) return null;
     savingRef.current = true;
 
     try {
@@ -183,6 +183,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
 
       // Reset session AFTER cleanup succeeds — prevents content loss if cleanup throws
       resetSession();
+      return docIdToSync ?? null;
     } catch (e) {
       reportError(e, { action: 'writingActions/save' });
       throw e;

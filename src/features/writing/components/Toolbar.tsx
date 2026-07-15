@@ -4,6 +4,8 @@ import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { IconButton } from '../../../shared/components/IconButton';
+import { useWritingSettings } from '../contexts/WritingSettingsContext';
+import { AIToggleButton } from './AIPanel';
 
 const PLAY_PATH = "M8 5v14l11-7z";
 const PAUSE_PATH = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
@@ -46,6 +48,7 @@ export function Toolbar({
   setTitle
 }: ToolbarProps) {
   const { t } = useLanguage();
+  const { aiPanelOpen, setAiPanelOpen } = useWritingSettings();
 
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -134,6 +137,13 @@ export function Toolbar({
         >
           {status !== 'idle' ? <Flag size={16} /> : <Square size={16} />}
         </motion.button>
+
+        <div className="w-px h-5 bg-border-subtle mx-0.5" />
+
+        <AIToggleButton
+          active={aiPanelOpen}
+          onClick={() => setAiPanelOpen(!aiPanelOpen)}
+        />
       </div>
 
       <div className="ml-2 flex-1 min-w-0">

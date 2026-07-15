@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { AIToggleButton } from './AIPanel';
 
 function DottedProgress({ pct, color }: { pct: number; color: string }) {
   const n = 16;
@@ -71,7 +72,7 @@ export function MobileWriteToolbar({
   onPlay, onPause, onStop, onGoalClick, streamMode, onToggleStreamMode, onNew, keyboardHeight
 }: MobileWriteToolbarProps) {
   const { t } = useLanguage();
-  const { headerVisibility = { sessionTime: true, sessionWords: true, totalWords: true, wpm: true } } = useWritingSettings();
+  const { headerVisibility = { sessionTime: true, sessionWords: true, totalWords: true, wpm: true }, aiPanelOpen, setAiPanelOpen } = useWritingSettings();
   const { wordCount, wpm, wpmHistory } = useContentStore(
     useShallow(s => ({
       wordCount: s.wordCount,
@@ -214,6 +215,10 @@ export function MobileWriteToolbar({
       <div className="w-px h-9 bg-[var(--border-light)] mx-3" />
 
       <div className="flex gap-1.5" >
+        <AIToggleButton
+          active={aiPanelOpen}
+          onClick={() => setAiPanelOpen(!aiPanelOpen)}
+        />
 
         <IconButton
           onClick={isRunning ? onPause : onPlay}

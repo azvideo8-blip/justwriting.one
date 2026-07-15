@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { Square } from 'lucide-react';
+import { Square, Sparkles } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useContentStore } from '../store/useContentStore';
@@ -12,6 +12,8 @@ import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { GoalPopup } from './GoalPopup';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Button } from '../../../shared/components/Button';
+import { useNavigate } from 'react-router-dom';
+import { useWritingSessionContext } from '../contexts/WritingSessionContext';
 
 const PLAY_PATH = "M8 5v14l11-7z";
 const PAUSE_PATH = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
@@ -37,15 +39,41 @@ interface BottomStatsProps {
 
 export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsProps) {
   const { t } = useLanguage();
+  const navigate = useNavigate();
+  const { actions, session } = useWritingSessionContext();
+  const { tags, labelId } = session;
+  
   const { isZenActive, zenModeEnabled, headerVisibility } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
   const reducedMotion = useReducedMotion();
-  const { wordCount, wpm } = useContentStore(
+  const { wordCount, wpm, title } = useContentStore(
     useShallow((s: ReturnType<typeof useContentStore.getState>) => ({
       wordCount: s.wordCount,
       wpm: s.wpm,
+      title: s.title,
     }))
   );
+  
+  const handleDiscussWithAi = async () => {
+    if (wordCount === 0) return;
+    if (status === 'writing') {
+      onPause();
+    }
+    try {
+      const docId = await actions.handleSave({
+        title: title || 'Без названия',
+        tags: tags !== undefined ? tags : [],
+        labelId: labelId,
+        mood: undefined,
+      });
+      if (docId !== null) {
+        void navigate(`/ai?doc=${docId}`);
+      }
+    } catch (err) {
+      console.error('Failed to save document for AI discussion:', err);
+    }
+  };
+
   const { status, seconds, wordGoal, timerDuration, sessionStartWords, sessionStartSeconds, setWordGoal, setTimerDuration } = useTimerStore(
     useShallow((s: ReturnType<typeof useTimerStore.getState>) => ({
       status: s.status,
@@ -264,6 +292,17 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
 
       <div className="flex items-center gap-2 ml-2 shrink-0">
         <div className="w-px h-6 bg-border-subtle" />
+        {wordCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { void handleDiscussWithAi(); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-brand-soft/10 text-brand-soft hover:bg-brand-soft/20 transition-colors ml-auto mr-1 font-bold shrink-0"
+          >
+            <Sparkles size={13} />
+            {!compact && "Обсудить с ИИ"}
+          </Button>
+        )}
         <div className="flex items-center gap-1 bg-text-main/[0.04] rounded-xl px-1 py-0.5">
         <IconButton
           onClick={status === 'writing' ? onPause : onPlay}

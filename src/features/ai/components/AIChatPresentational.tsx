@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, ChevronDown, ChevronUp, File, Paperclip, Copy, Trash2, RefreshCw, ThumbsUp, ThumbsDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, File, Paperclip, Copy, Trash2, RefreshCw, ThumbsUp, ThumbsDown, ChevronLeft, ChevronRight, FilePlus, CheckSquare } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 
 const ATTACHED_NOTE_RE = /^\[Прикреплена заметка: "([^"]+)"\]/;
@@ -148,6 +148,8 @@ export function AssistantTurn({
   variants,
   variantIndex,
   onSwitchVariant,
+  onCreateNote,
+  onApplyToNote,
 }: {
   name: string;
   color: string;
@@ -160,6 +162,8 @@ export function AssistantTurn({
   variants?: string[] | undefined;
   variantIndex?: number | undefined;
   onSwitchVariant?: ((delta: number) => void) | undefined;
+  onCreateNote?: (() => void) | undefined;
+  onApplyToNote?: (() => void) | undefined;
 }) {
   const borderStyle = { borderLeft: `2px solid ${color}40` };
   return (
@@ -175,7 +179,7 @@ export function AssistantTurn({
         >
           {children}
         </div>
-        {(onCopy || onDelete || onRegenerate || onFeedback) && (
+        {(onCopy || onDelete || onRegenerate || onFeedback || onCreateNote || onApplyToNote) && (
           <div className="flex gap-1 mt-3 -ml-2 flex-wrap">
             {onCopy && (
               <Button
@@ -184,6 +188,24 @@ export function AssistantTurn({
               >
                 <Copy size={11} aria-hidden="true" />
                 копировать
+              </Button>
+            )}
+            {onCreateNote && (
+              <Button
+                onClick={onCreateNote}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-text-main/35 hover:text-text-main/70 hover:bg-text-main/5 transition-colors font-mono text-[10px] tracking-wide"
+              >
+                <FilePlus size={11} aria-hidden="true" />
+                создать заметку
+              </Button>
+            )}
+            {onApplyToNote && (
+              <Button
+                onClick={onApplyToNote}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-text-main/35 hover:text-text-main/70 hover:bg-text-main/5 transition-colors font-mono text-[10px] tracking-wide"
+              >
+                <CheckSquare size={11} aria-hidden="true" />
+                применить к заметке
               </Button>
             )}
             {onRegenerate && (

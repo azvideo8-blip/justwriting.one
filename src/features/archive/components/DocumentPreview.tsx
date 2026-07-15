@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { X, ArrowRight, Download, ChevronDown, Sparkles, ChevronUp, Loader2 } from 'lucide-react';
+import { X, ArrowRight, Download, ChevronDown, Sparkles, ChevronUp, Loader2, Paperclip, Copy } from 'lucide-react';
 import { format } from 'date-fns';
 import { Label } from '../../../types';
 import { ArchiveSession } from '../types';
@@ -18,7 +18,7 @@ import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { readingTimeMinutes } from '../../../shared/utils/readingTime';
 
-export function DocumentPreview({ session, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags }: {
+export function DocumentPreview({ session, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags, onAttach, onCopyText }: {
   session: ArchiveSession | null;
   onClose: () => void;
   onContinue: (session: ArchiveSession) => void;
@@ -27,6 +27,8 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
   onAddLabel?: ((label: { name: string; color: string }) => void) | undefined;
   labels?: Label[] | undefined;
   allTags?: string[] | undefined;
+  onAttach?: ((documentId: string) => void) | undefined;
+  onCopyText?: ((text: string) => void) | undefined;
 }) {
   const { t, language } = useLanguage();
   const [exportOpen, setExportOpen] = useState(false);
@@ -438,6 +440,26 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
           <ArrowRight size={14} />
           {t('archive_continue_writing')}
         </Button>
+
+        {session !== null && onAttach && (
+          <Button
+            onClick={() => onAttach(session.id)}
+            className="flex items-center justify-center px-3 h-11 rounded-xl bg-surface-card border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-surface-elevated transition-colors text-sm cursor-pointer"
+            title="Прикрепить к ИИ"
+          >
+            <Paperclip size={14} />
+          </Button>
+        )}
+
+        {session !== null && onCopyText && (
+          <Button
+            onClick={() => onCopyText(session.content || '')}
+            className="flex items-center justify-center px-3 h-11 rounded-xl bg-surface-card border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-surface-elevated transition-colors text-sm cursor-pointer"
+            title="Копировать текст"
+          >
+            <Copy size={14} />
+          </Button>
+        )}
 
         <div className="relative" ref={exportRef}>
           <Button

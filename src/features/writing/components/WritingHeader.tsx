@@ -12,6 +12,7 @@ import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { Toolbar } from './Toolbar';
 import { HeaderStats } from './HeaderStats';
+import { AIToggleButton } from './AIPanel';
 
 interface WritingHeaderProps {
   totalDurationForDeadline?: number | null;
@@ -38,7 +39,8 @@ export const WritingHeader = React.memo(function WritingHeader({
   const { 
     isZenActive, zenModeEnabled, 
     headerVisibility,
-    lifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab
+    lifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab,
+    aiPanelOpen, setAiPanelOpen
   } = useWritingSettings();
 
   const status = useTimerStore(s => s.status);
@@ -114,6 +116,10 @@ export const WritingHeader = React.memo(function WritingHeader({
                          setLifeLogVisible(false);
                        }
                      }}
+                   />
+                   <AIToggleButton
+                     active={aiPanelOpen}
+                     onClick={() => setAiPanelOpen(!aiPanelOpen)}
                    />
                     <IconButton
                      icon={isFullscreen ? <Minimize size={16} aria-hidden="true" /> : <Maximize size={16} aria-hidden="true" />}
