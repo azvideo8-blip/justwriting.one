@@ -349,8 +349,15 @@ export async function searchNotesMulti(
   // OPT-1: Reuse pre-computed query vector if provided
   let queryVec = opts?.queryVector;
   if (!queryVec) {
-    // TICKET-044: Consolidate all queries into a single embedding
-    const combinedQuery = queries.join(' ');
+    // TICKET-044 & T-6: Consolidate all queries into a single embedding, weighting by turn age
+    const weightedParts: string[] = [];
+    queries.forEach((q, idx) => {
+      const weight = Math.max(1, 3 - idx);
+      for (let i = 0; i < weight; i++) {
+        weightedParts.push(q);
+      }
+    });
+    const combinedQuery = weightedParts.join(' ');
     const embedResult = await AIService.embed({ content: combinedQuery });
     if (!embedResult.ok) {
       reportError(embedResult.error, { action: 'search_notes_multi_embed' });
@@ -387,10 +394,13 @@ export async function searchNotesMulti(
     VECTOR_TOP,
   );
 
-  // TICKET-044: Run keyword searches for each query and merge (max score per doc)
+  // TICKET-044 & T-6: Run keyword searches for each query and merge with turn-decay weighting
   const keywordScores = new Map<string, number>();
+  let queryIdx = 0;
   for (const q of queries) {
     let kwResults = await keywordSearch(q, KEYWORD_TOP);
+    const decay = Math.pow(0.5, queryIdx);
+    queryIdx++;
     if (opts?.minTime !== undefined || opts?.maxTime !== undefined || opts?.ignoredDocIds !== undefined) {
       const allowed = new Set<string>();
       const docs = await db.getAll('documents');
@@ -404,9 +414,10 @@ export async function searchNotesMulti(
       kwResults = kwResults.filter(r => allowed.has(r.id));
     }
     for (const { id, score } of kwResults) {
+      const decayedScore = score * decay;
       const existing = keywordScores.get(id);
-      if (existing === undefined || score > existing) {
-        keywordScores.set(id, score);
+      if (existing === undefined || decayedScore > existing) {
+        keywordScores.set(id, decayedScore);
       }
     }
   }
@@ -427,13 +438,36 @@ export async function searchNotesMulti(
   );
   const topIds = fused.slice(0, RRF_FINAL).map(f => f.id);
 
-  // TICKET-046: Bypass cloud rerank if top vector similarity is very high
-  // or there's an exact title match
+  // TICKET-046 & T-3: Bypass cloud rerank if top vector similarity is very high,
+  // there is an exact title match, quote match, or named entity match
   const topScore = vectorMatches[0]?.score ?? 0;
   const hasExactTitle = await hasExactTitleMatch(queries[0]!, topIds);
-  if (topScore >= RERANK_THRESHOLD || hasExactTitle) {
+
+  // T-3: local high-confidence signal — an exact quote or named-entity hit in a
+  // candidate's content. Collect the matching ids so we can lift them, not just bypass.
+  const matchedIds = new Set<string>();
+  const quotes = extractQuotes(queries[0]!);
+  const entities = extractNamedEntities(queries[0]!);
+  if (quotes.length > 0 || entities.length > 0) {
+    for (const id of topIds) {
+      let content = '';
+      try { content = await LocalVersionService.getLatestContent(id); } catch { /* ignore */ }
+      if (!content) continue;
+      const lc = content.toLowerCase();
+      if (quotes.some(q => lc.includes(q)) || entities.some(e => lc.includes(e))) {
+        matchedIds.add(id);
+      }
+    }
+  }
+
+  // Bypass the cloud rerank when a strong local signal exists, and lift local
+  // matches to the front (stable — the fused order is preserved otherwise).
+  if (topScore >= RERANK_THRESHOLD || hasExactTitle || matchedIds.size > 0) {
     const scoreMap = new Map(fused.map(f => [f.id, f.score]));
-    const fallbackIds = topIds.slice(0, maxResults);
+    const ordered = [...topIds].sort(
+      (a, b) => (matchedIds.has(b) ? 1 : 0) - (matchedIds.has(a) ? 1 : 0),
+    );
+    const fallbackIds = ordered.slice(0, maxResults);
     const results = await loadNotes(fallbackIds, scoreMap, chunkIndexMap);
     putCache(cacheKey, results);
     return results;
@@ -446,13 +480,41 @@ export async function searchNotesMulti(
     let card = '(саммари недоступно)';
     try {
       const summary = await cardsDb.get('aiSummaries', id);
+      const parts = [];
       if (summary) {
-        const parts = [];
         if (summary.summary) parts.push(summary.summary);
         if (summary.tone) parts.push(`Тональность: ${summary.tone}`);
         if (summary.themes?.length) parts.push(`Темы: ${summary.themes.join(', ')}`);
         if (summary.insights?.length) parts.push(`Инсайты: ${summary.insights.join('; ')}`);
         if (summary.extractedFacts?.length) parts.push(`Факты: ${summary.extractedFacts.join('; ')}`);
+      }
+
+      const chunkIdx = chunkIndexMap.get(id);
+      let excerpt = '';
+      if (chunkIdx !== undefined && chunkIdx >= 0) {
+        try {
+          const emb = await AIEmbeddingService.get(id);
+          const matchedText = emb?.chunkTexts?.[chunkIdx];
+          if (matchedText) {
+            excerpt = matchedText.slice(0, 350);
+          }
+        } catch { /* ignore */ }
+      }
+
+      if (!excerpt) {
+        try {
+          const content = await LocalVersionService.getLatestContent(id);
+          if (content) {
+            excerpt = content.slice(0, 350);
+          }
+        } catch { /* ignore */ }
+      }
+
+      if (excerpt) {
+        parts.push(`Фрагмент: "${excerpt}"`);
+      }
+
+      if (parts.length > 0) {
         card = parts.join('\n');
       }
     } catch { /* keep placeholder */ }
@@ -475,4 +537,29 @@ export async function searchNotesMulti(
   // TICKET-047: Cache results
   putCache(cacheKey, results);
   return results;
+}
+
+function extractQuotes(text: string): string[] {
+  const quotes: string[] = [];
+  const regex = /["'«„]([^"'»“]+)["'»“]/g;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    if (match[1]?.trim()) {
+      quotes.push(match[1].trim().toLowerCase());
+    }
+  }
+  return quotes;
+}
+
+function extractNamedEntities(query: string): string[] {
+  const words = query.split(/[\s,.:;!?()"\-«»„“]+/);
+  const entities: string[] = [];
+  for (const w of words) {
+    if (/^[А-ЯA-Z][а-яa-zа-яёА-ЯЁa-zA-Z]*$/.test(w)) {
+      if (w.length >= 3) {
+        entities.push(w.toLowerCase());
+      }
+    }
+  }
+  return entities;
 }
