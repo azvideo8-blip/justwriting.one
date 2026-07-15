@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, X, Copy, Check, Loader2, Wand2, Lightbulb, Tags, Smile, ArrowRight, AlignLeft, Highlighter } from 'lucide-react';
+import { Sparkles, X, Copy, Check, Loader2, Wand2, Lightbulb, Tags, Smile, ArrowRight, AlignLeft, Highlighter, RotateCcw } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
@@ -34,35 +34,43 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
   const setTags = useContentStore(s => s.setTags);
 
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
-  const [lastAction, setLastAction] = useState<AIAction | null>(null);
+  // Persist a result per action so switching between e.g. "Ideas" and "Summary"
+  // keeps both — revisiting a cached action never re-spends a token.
+  const [results, setResults] = useState<Partial<Record<AIAction, string>>>({});
+  const [activeAction, setActiveAction] = useState<AIAction | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [applied, setApplied] = useState(false);
+  const [appliedActions, setAppliedActions] = useState<Set<AIAction>>(new Set());
 
-  const handleAction = useCallback(async (action: AIAction) => {
+  const runAction = useCallback(async (action: AIAction, force: boolean) => {
+    // Cache hit: show the stored result without calling the model again.
+    if (!force && results[action] !== undefined) {
+      setActiveAction(action);
+      setError(null);
+      return;
+    }
     if (!navigator.onLine) {
       setError(t('ai_error_offline'));
       return;
     }
     if (!content.trim() || loading) return;
 
-    const { remaining } = useAiLimitStore.getState();
+    const { remaining, useRequest: consumeRequest } = useAiLimitStore.getState();
     if (remaining <= 0) {
       setError(t('ai_error_rate_limit'));
       return;
     }
 
     setLoading(true);
-    setResult(null);
+    setActiveAction(action);
     setError(null);
-    setLastAction(action);
-    setApplied(false);
 
     const res: AIResult = await AIService.process(content, action);
 
     if (res.ok) {
-      setResult(res.text);
+      setResults(prev => ({ ...prev, [action]: res.text }));
+      setAppliedActions(prev => { const n = new Set(prev); n.delete(action); return n; });
+      consumeRequest(); // count editor AI edits against the same daily limit as chat
     } else {
       const errorMap: Record<string, string> = {
         AUTH_REQUIRED: t('ai_error_auth'),
@@ -74,33 +82,40 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
       setError(errorMap[(res as { ok: false; error: string }).error] ?? t('ai_error_server'));
     }
     setLoading(false);
-  }, [content, loading, t]);
+  }, [content, loading, t, results]);
 
   const handleApply = useCallback(() => {
-    if (!result || !lastAction) return;
-    if (lastAction === 'tags') {
-      const parsed = AIService.parseTags(result);
+    if (!activeAction) return;
+    const text = results[activeAction];
+    if (!text) return;
+    if (activeAction === 'tags') {
+      const parsed = AIService.parseTags(text);
       if (parsed.length > 0) setTags(parsed);
-    } else if (lastAction === 'continue') {
-      setContent(content + '\n\n' + result);
-    } else if (lastAction === 'mood' || lastAction === 'ideas' || lastAction === 'accents') {
-      // these are informational — no content replacement
+    } else if (activeAction === 'continue') {
+      // A continuation flows into the note directly.
+      setContent(content.trimEnd() + '\n\n' + text);
     } else {
-      setContent(result);
+      // Everything else is appended below the existing text with a label —
+      // never overwrites what the user wrote.
+      const meta = AI_ACTIONS.find(a => a.action === activeAction);
+      const label = `${meta ? t(meta.labelKey) : ''} ${t('ai_from_ai')}:`.trim();
+      const base = content.trimEnd();
+      setContent((base ? base + '\n\n' : '') + label + '\n' + text);
     }
-    setApplied(true);
-  }, [result, lastAction, content, setContent, setTags]);
+    setAppliedActions(prev => new Set(prev).add(activeAction));
+  }, [activeAction, results, content, setContent, setTags, t]);
 
   const handleCopy = useCallback(async () => {
-    if (!result) return;
+    const text = activeAction ? results[activeAction] : undefined;
+    if (!text) return;
     try {
-      await navigator.clipboard.writeText(result);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
       try {
         const textarea = document.createElement('textarea');
-        textarea.value = result;
+        textarea.value = text;
         textarea.style.position = 'fixed';
         textarea.style.opacity = '0';
         document.body.appendChild(textarea);
@@ -113,10 +128,13 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
         setError(t('error_generic'));
       }
     }
-  }, [result, t]);
+  }, [activeAction, results, t]);
 
-  const canApply = Boolean(result && lastAction && !applied && ['shorten', 'summarize', 'continue'].includes(lastAction));
-  const canApplyTags = Boolean(result && lastAction === 'tags' && !applied);
+  const activeResult = activeAction ? results[activeAction] : undefined;
+  const activeMeta = activeAction ? AI_ACTIONS.find(a => a.action === activeAction) : undefined;
+  const isApplied = activeAction ? appliedActions.has(activeAction) : false;
+  const canApply = Boolean(activeResult && activeAction && !isApplied);
+  const hasContent = Boolean(content.trim());
 
   return (
     <AnimatePresence>
@@ -161,26 +179,40 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4">
+            {!hasContent && (
+              <div className="text-xs text-text-main/60 text-center rounded-xl bg-text-main/[0.03] px-3 py-2.5 border border-border-subtle/30">
+                {t('ai_no_content')}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-2">
-              {AI_ACTIONS.map(({ action, icon, labelKey }) => (
-                <Button
-                  key={action}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void handleAction(action)}
-                  disabled={loading || !content.trim()}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors",
-                    loading && lastAction === action
-                      ? "bg-brand-soft/20 text-brand-soft"
-                      : "bg-text-main/[0.04] text-text-main/60 hover:bg-text-main/[0.08] hover:text-text-main/80",
-                    (loading || !content.trim()) && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  {loading && lastAction === action ? <Loader2 size={14} className="animate-spin" /> : icon}
-                  {t(labelKey)}
-                </Button>
-              ))}
+              {AI_ACTIONS.map(({ action, icon, labelKey }) => {
+                const hasResult = results[action] !== undefined;
+                const isActive = activeAction === action;
+                const isBusy = loading && activeAction === action;
+                return (
+                  <Button
+                    key={action}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void runAction(action, false)}
+                    disabled={loading || !hasContent}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors",
+                      isActive
+                        ? "bg-brand-soft/15 text-brand-soft"
+                        : "bg-text-main/[0.04] text-text-main/60 hover:bg-text-main/[0.08] hover:text-text-main/80",
+                      (loading || !hasContent) && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    {isBusy ? <Loader2 size={14} className="animate-spin" /> : icon}
+                    <span className="flex-1 text-left truncate">{t(labelKey)}</span>
+                    {hasResult && !isBusy && (
+                      <Check size={11} className={cn("shrink-0", isActive ? "text-brand-soft" : "text-accent-success/70")} />
+                    )}
+                  </Button>
+                );
+              })}
             </div>
 
             <AnimatePresence mode="wait">
@@ -197,30 +229,40 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
                 </motion.div>
               )}
 
-              {result && (
+              {activeResult && !loading && (
                 <motion.div
+                  key={activeAction}
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                   className="flex flex-col gap-3"
                 >
-                  <div className="text-xs text-text-main/60 font-medium uppercase tracking-wider">
-                    {t('ai_result_label')}
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-text-main/60 font-medium uppercase tracking-wider">
+                      {activeMeta ? t(activeMeta.labelKey) : t('ai_result_label')}
+                    </div>
+                    <IconButton
+                      icon={<RotateCcw size={12} />}
+                      label={t('ai_result_label')}
+                      size="sm"
+                      onClick={() => { if (activeAction) void runAction(activeAction, true); }}
+                      className="rounded-lg text-text-main/40 hover:text-text-main/70 hover:bg-text-main/5"
+                    />
                   </div>
                   <div className="text-sm text-text-main/80 whitespace-pre-wrap leading-relaxed rounded-xl bg-text-main/[0.03] p-3 border border-border-subtle/30">
-                    {result}
+                    {activeResult}
                   </div>
                   <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void handleCopy()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-text-main/[0.05] text-text-main/60 hover:bg-text-main/[0.1] hover:text-text-main/80"
-              >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void handleCopy()}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-text-main/[0.05] text-text-main/60 hover:bg-text-main/[0.1] hover:text-text-main/80"
+                    >
                       {copied ? <Check size={12} /> : <Copy size={12} />}
                       {copied ? t('ai_copied') : t('ai_copy')}
                     </Button>
-                    {(canApply || canApplyTags) && (
+                    {canApply && (
                       <Button
                         variant="brand"
                         size="sm"
@@ -228,10 +270,10 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30"
                       >
                         <Check size={12} />
-                        {lastAction === 'tags' ? t('ai_apply_tags') : t('ai_apply')}
+                        {activeAction === 'tags' ? t('ai_apply_tags') : t('ai_apply')}
                       </Button>
                     )}
-                    {applied && (
+                    {isApplied && (
                       <span className="flex items-center gap-1 text-xs text-accent-success">
                         <Check size={12} />
                         {t('ai_applied')}
@@ -243,12 +285,6 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
               </div>
             </AnimatePresence>
           </div>
-
-          {!content.trim() && (
-            <div className="px-4 pb-3">
-              <div className="text-xs text-text-main/60 text-center">{t('ai_no_content')}</div>
-            </div>
-          )}
           </motion.div>
         </>
       )}
