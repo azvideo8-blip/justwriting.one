@@ -140,6 +140,45 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
 
   const [followUps, setFollowUps] = useState<string[]>(CHAT_FOLLOW_UPS);
   const lastFollowUpKeyRef = useRef('');
+  const [starters, setStarters] = useState<string[]>(CHAT_STARTERS);
+
+  useEffect(() => {
+    void (async () => {
+      if (!linkedDocId) {
+        setStarters(CHAT_STARTERS);
+        return;
+      }
+      try {
+        const db = await getLocalDb();
+        const summary = await db.get('aiSummaries', linkedDocId);
+        if (summary && summary.themes?.length) {
+          const themes = summary.themes;
+          const dynamicStarters = themes.slice(0, 3).map((theme: string) => {
+            const t = theme.toLowerCase();
+            if (t.includes('выгоран') || t.includes('устал') || t.includes('стресс') || t.includes('работ')) {
+              return `Помоги найти причины усталости и выгорания в этой записи`;
+            }
+            if (t.includes('отношен') || t.includes('семь') || t.includes('друг') || t.includes('любов')) {
+              return `Разбери динамику отношений, описанную в этой заметке`;
+            }
+            if (t.includes('творчеств') || t.includes('иде') || t.includes('проект') || t.includes('книг')) {
+              return `Помоги развить творческие идеи из этой записи`;
+            }
+            if (t.includes('страх') || t.includes('тревог') || t.includes('беспокойств')) {
+              return `Помоги разобраться с тревогой и страхами в этом тексте`;
+            }
+            return `Давай обсудим тему «${theme}» из этой заметки`;
+          });
+          setStarters(dynamicStarters);
+        } else {
+          setStarters(CHAT_STARTERS);
+        }
+      } catch (e) {
+        console.warn('[useAIPageData] failed to load custom starters:', e);
+        setStarters(CHAT_STARTERS);
+      }
+    })();
+  }, [linkedDocId]);
 
   useEffect(() => {
     if (initRef.current) return;
@@ -508,6 +547,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     reasoning,
     proactiveHint,
     followUps,
+    starters,
     MAX_INPUT_CHARS,
   };
 }

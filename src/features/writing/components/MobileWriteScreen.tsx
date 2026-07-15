@@ -12,6 +12,7 @@ import { MobileGoalSheet } from './MobileGoalSheet';
 import { getFontStack } from '../utils/fontStack';
 import { KeystrokeTracker } from '../utils/keystrokeTracker';
 import { ConnectionStatusBanner } from './ConnectionStatusBanner';
+import { AIPanel } from './AIPanel';
 import { getWpmHex } from '../utils/wpmColors';
 import { cn } from '../../../core/utils/utils';
 import { useAutoHideCursor } from '../hooks/useAutoHideCursor';
@@ -49,7 +50,7 @@ export function MobileWriteScreen({
       sessionStartWords: s.sessionStartWords,
     }))
   );
-  const { fontFamily, fontSize, isZenActive, zenModeEnabled, streamMode, toggleStreamMode, autoHideCursor } = useWritingSettings();
+  const { fontFamily, fontSize, isZenActive, zenModeEnabled, streamMode, toggleStreamMode, autoHideCursor, aiPanelOpen, setAiPanelOpen } = useWritingSettings();
 
   const sessionSeconds = Math.max(0, seconds - sessionStartSeconds);
   const sessionWords = Math.max(0, wordCount - sessionStartWords);
@@ -365,6 +366,7 @@ export function MobileWriteScreen({
         )}
       </AnimatePresence>
 
+      <AIPanel open={aiPanelOpen} onClose={() => setAiPanelOpen(false)} />
     </div>
   );
 }

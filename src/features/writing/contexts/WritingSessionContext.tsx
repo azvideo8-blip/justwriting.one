@@ -37,7 +37,7 @@ export interface WritingSessionContextValue {
     setShowCancelConfirm: (v: boolean) => void;
   };
   actions: {
-    handleSave: (data: import('../components/WritingFinishModal').SaveData) => Promise<void>;
+    handleSave: (data: import('../components/WritingFinishModal').SaveData) => Promise<string | null>;
     handlePlay: () => void;
     handlePause: () => void;
     handleNew: () => Promise<void>;

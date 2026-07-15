@@ -13,6 +13,7 @@ import { useModalEscape } from '../../../shared/hooks/useModalEscape';
 import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
+import { useNavigate } from 'react-router-dom';
 import { FinishModalStats } from './FinishModalStats';
 import { FinishModalTags } from './FinishModalTags';
 import { FinishModalExport } from './FinishModalExport';
@@ -160,7 +161,7 @@ interface WritingFinishModalProps {
   labelId?: string | undefined;
   setLabelId: (labelId?: string) => void;
   labels: Label[];
-  onSave: (data: SaveData) => Promise<void>;
+  onSave: (data: SaveData) => Promise<string | null>;
   onCancel: () => void;
   onSkipSave: () => void;
   streakDays?: number | undefined;
@@ -183,6 +184,7 @@ export function WritingFinishModal({
   savedDocumentId,
 }: WritingFinishModalProps) {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const { execute, isLoading: isSaving } = useServiceAction();
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
@@ -303,6 +305,7 @@ export function WritingFinishModal({
   }, [isOpen, goalReached]);
 
   const [editTitle, setEditTitle] = useState('');
+  const [justSavedDocId, setJustSavedDocId] = useState<string | null>(null);
   const titleInputValue = editTitle || title || '';
 
   const [popularWords, setPopularWords] = useState<string[]>([]);
@@ -388,7 +391,12 @@ export function WritingFinishModal({
   const handleMoodSelect = (selectedMood?: string) => {
     if (!saveDataState) return;
     void execute(
-      () => onSave({ ...saveDataState, mood: selectedMood }),
+      async () => {
+        const docId = await onSave({ ...saveDataState, mood: selectedMood });
+        if (docId) {
+          setJustSavedDocId(docId);
+        }
+      },
       {
         successMessage: t('save_success'),
         errorMessage: t('error_save_failed'),
@@ -488,7 +496,7 @@ export function WritingFinishModal({
               </div>
             </div>
             
-            <div className="pt-6">
+            <div className="pt-6 flex flex-col gap-2.5">
               <Button
                 variant="brand"
                 size="md"
@@ -497,6 +505,20 @@ export function WritingFinishModal({
               >
                 Завершить
               </Button>
+              {justSavedDocId && (
+                <Button
+                  variant="ghost"
+                  size="md"
+                  onClick={() => {
+                    onCancel();
+                    void navigate(`/ai?doc=${justSavedDocId}`);
+                  }}
+                  className="w-full max-w-xs mx-auto flex items-center justify-center gap-2 bg-brand-soft/10 text-brand-soft border border-brand-soft/20 hover:bg-brand-soft/20 font-bold"
+                >
+                  <Sparkles size={14} />
+                  Обсудить с ИИ
+                </Button>
+              )}
             </div>
           </motion.div>
         ) : isMobile ? (

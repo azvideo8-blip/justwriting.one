@@ -11,12 +11,17 @@ import { DocumentPreview } from '../../archive/components/DocumentPreview';
 import type { ArchiveSession } from '../../archive/types';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { getLocalDb } from '../../../core/storage/localDb';
+import { StorageService } from '../../../core/services/StorageService';
+import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
+import { countWords } from '../../../shared/utils/countWords';
+import { useToast } from '../../../shared/components/Toast';
+import { useProfile } from '../../auth/contexts/ProfileContext';
 import { personaVisual } from '../constants/personaVisuals';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { cn } from '../../../core/utils/utils';
 import { Monogram, threadPreview, AttachedNoteCard, AttachedFileCard, AttachedSummaryCard, AssistantTurn, ATTACHED_NOTE_RE, ATTACHED_NOTE_SUMMARY_RE, ATTACHED_FILE_RE } from '../components/AIChatPresentational';
 import { CRISIS_RESOURCES } from '../utils/riskDetect';
-import { useAIPageData, CHAT_STARTERS } from '../hooks/useAIPageData';
+import { useAIPageData } from '../hooks/useAIPageData';
 import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
@@ -87,12 +92,76 @@ export function AIPage() {
     reasoning,
     proactiveHint,
     followUps,
+    starters,
     allPersonas, openPersonaDetail,
     displayMessages,
     activePersona, activeRole, headerVisual,
     convPersonaName, convVisual,
     MAX_INPUT_CHARS,
   } = useAIPageData(linkedDocId, draftFacetId);
+
+  const { profile } = useProfile();
+  const userId = profile?.uid ?? 'guest';
+  const { showToast } = useToast();
+
+  const handleCreateNote = async (text: string) => {
+    try {
+      const cleanText = text.replace(/<[^>]+>/g, '').trim();
+      const firstLine = cleanText.split('\n')[0] || '';
+      const noteTitle = firstLine.substring(0, 50).trim() || 'Без названия';
+      const words = countWords(cleanText);
+
+      const saveData = {
+        title: noteTitle,
+        content: cleanText,
+        wordCount: words,
+        duration: 0,
+        wpm: 0,
+        tags: ['ИИ'],
+        sessionStartedAt: new Date(),
+      };
+
+      await StorageService.saveNew(userId, saveData);
+      showToast('Заметка успешно создана', 'success');
+    } catch (e) {
+      console.error('Failed to create note from assistant reply:', e);
+      showToast('Не удалось создать заметку', 'error');
+    }
+  };
+
+  const handleApplyToNote = async (text: string) => {
+    if (!linkedDocId) {
+      showToast('Нет связанной заметки', 'error');
+      return;
+    }
+    try {
+      const cleanText = text.replace(/<[^>]+>/g, '').trim();
+      const currentDoc = await LocalDocumentService.getDocument(linkedDocId);
+      if (!currentDoc) {
+        showToast('Заметка не найдена', 'error');
+        return;
+      }
+      const words = countWords(cleanText);
+
+      const saveData = {
+        title: currentDoc.title || 'Без названия',
+        content: cleanText,
+        wordCount: words,
+        duration: 0,
+        wpm: 0,
+        tags: currentDoc.tags,
+        mood: currentDoc.mood,
+        labelId: currentDoc.labelId,
+        sessionStartedAt: new Date(),
+      };
+
+      await StorageService.saveVersion(userId, linkedDocId, saveData);
+      showToast('Заметка обновлена новым вариантом', 'success');
+    } catch (e) {
+      console.error('Failed to apply reply to note:', e);
+      showToast('Не удалось обновить заметку', 'error');
+    }
+  };
 
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
@@ -581,7 +650,7 @@ export function AIPage() {
                   <p className="text-xs text-text-main/60 mt-1.5">{t('ai_select_persona')}</p>
                 </div>
                 <div className="flex flex-col gap-2 w-full max-w-sm">
-                  {CHAT_STARTERS.map(s => (
+                  {starters.map(s => (
                     <button
                       key={s}
                       type="button"
@@ -627,6 +696,8 @@ export function AIPage() {
                     variants={msg.variants}
                     variantIndex={msg.variantIndex}
                     onSwitchVariant={i === lastAssistantIdx ? (delta: number) => void handleSwitchVariant(delta) : undefined}
+                    onCreateNote={() => { void handleCreateNote(msg.content); }}
+                    onApplyToNote={selectedPersonaId === 'editor' && linkedDocId ? () => { void handleApplyToNote(msg.content); } : undefined}
                   >
                     {msg.reasoning && (
                       <details className="mb-3 rounded-xl border border-border-subtle bg-surface-card/50 overflow-hidden">
@@ -938,6 +1009,11 @@ export function AIPage() {
             session={previewSession}
             onClose={() => setPreviewSession(null)}
             onContinue={s => { void navigate('/', { state: { sessionToContinue: s } }); }}
+            onAttach={id => { void handleDocSelect(id); setPreviewSession(null); }}
+            onCopyText={text => {
+              void navigator.clipboard.writeText(text);
+              showToast('Текст скопирован', 'success');
+            }}
           />
         )}
       </AnimatePresence>
