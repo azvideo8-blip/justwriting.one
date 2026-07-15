@@ -3,9 +3,10 @@ import { getAuth } from 'firebase/auth';
 
 const STORAGE_KEY = 'ai_daily_usage';
 const DEFAULT_LIMIT = 10;
-// LX-2a: Admins get effectively unlimited — set a very high limit so the
-// client-side pre-check (remaining <= 0) never blocks them.
-const ADMIN_LIMIT = 100_000;
+// Admin daily cap for the experiment. Must match the server env
+// AI_ADMIN_DAILY_LIMIT (chat + editWithAI) — this constant only drives the
+// client-side countdown; the server is authoritative.
+const ADMIN_LIMIT = 20;
 
 function getUtcDateStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -89,8 +90,6 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
   },
 
   useRequest() {
-    // LX-2a: Admins don't track client-side usage
-    if (get().isAdmin) return;
     const today = getUtcDateStr();
     const { count: localCount, date: localDate } = readLocalUsage();
     const count = localDate === today ? localCount : 0;

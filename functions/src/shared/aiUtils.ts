@@ -199,7 +199,7 @@ export const DAILY_LIMIT = (() => {
   const raw = process.env.AI_DAILY_LIMIT;
   if (!raw) return 10;
   const parsed = parseInt(raw, 10);
-  return Number.isNaN(parsed) ? 5 : parsed;
+  return Number.isNaN(parsed) ? 10 : parsed;
 })();
 
 function envInt(name: string, fallback: number): number {
@@ -298,8 +298,8 @@ export async function refundGlobalRequest(res: GlobalReservation | null | undefi
 }
 
 // Per-user daily cap with an admin bump: users with role 'admin' get
-// AI_ADMIN_DAILY_LIMIT (default 100), everyone else keeps DAILY_LIMIT (5).
-export const ADMIN_DAILY_LIMIT = envInt('AI_ADMIN_DAILY_LIMIT', 100);
+// AI_ADMIN_DAILY_LIMIT (default 20 — experiment), everyone else keeps DAILY_LIMIT (10).
+export const ADMIN_DAILY_LIMIT = envInt('AI_ADMIN_DAILY_LIMIT', 20);
 
 // LX-2a: Check if a user is an admin (role from users/{uid}).
 export async function isAdmin(uid: string): Promise<boolean> {
