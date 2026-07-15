@@ -331,7 +331,11 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
         if (!lemmatized || lemmatized.length < 2) continue;
         const key = lemmatized.toLowerCase();
         const person = await db.get('aiPeopleIndex', key);
-        if (!person || person.status === undefined) {
+        // Only ask consent for someone actually mentioned in the user's notes
+        // (present in the index with note references) who has no decision yet —
+        // not for every capitalized word, e.g. the imperative verbs in starters
+        // like "Разбери мой день" which are not people at all.
+        if (person && person.noteIds.length > 0 && person.status === undefined) {
           pendingConsent.push(name);
         }
       }
