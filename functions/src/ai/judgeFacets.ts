@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, checkAndIncrementBulkLimit, refundBulkLimit } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
-const JUDGE_MODEL = process.env.AI_FACET_MODEL ?? 'google/gemma-2-9b-it:free';
+const JUDGE_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
 const inputSchema = z.object({
   facets: z.array(z.object({

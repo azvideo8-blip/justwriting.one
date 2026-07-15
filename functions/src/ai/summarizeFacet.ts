@@ -16,10 +16,10 @@ const inputSchema = z.object({
   correction: z.string().max(500).nullish().default(null),
 });
 
-// DeepSeek (the default chat model) is a reasoning model that leaks its
-// chain-of-thought into the answer for this task. Use an obedient model for
-// facet summaries instead. Override via AI_FACET_MODEL.
-const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'google/gemma-2-9b-it:free';
+// Was google/gemma-2-9b-it:free — delisted from OpenRouter (404). deepseek-v4-flash
+// is the non-reasoning flash variant summarizeDocument already uses for the same
+// structured-JSON task without CoT leak. Override via AI_FACET_MODEL.
+const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
 const SYSTEM_PROMPT = 'Ты анализируешь группу фрагментов из личных заметок пользователя на одну тему. Ответь СТРОГО на русском, обернув результат в XML-теги:\n<label>короткое название темы, 1–4 слова</label>\n<description>5–8 предложений от третьего лица: о чём пользователь пишет в этой теме, какие повторяющиеся ситуации, чувства и внутренние конфликты, как меняется отношение со временем.</description>\nЖЁСТКИЕ ПРАВИЛА (точность важнее красоты и подробности):\n— Опирайся ТОЛЬКО на приведённые фрагменты. Не добавляй ничего, чего в них нет: ни фактов, ни чисел, ни названий продуктов, ни событий.\n— Имена людей бери из текста БУКВАЛЬНО. Если имя не написано или ты не уверен в нём — пиши роль («партнёр», «жена», «дочь», «клиент», «родители»), НЕ выдумывай и НЕ искажай имена.\n— Если деталь не подтверждена текстом — обобщай, а не додумывай. Лучше общая верная фраза, чем выдуманная конкретика.\n— Если про тему во фрагментах почти ничего нет — напиши одно честное предложение об этом.\nНЕ рассуждай вслух, не описывай задачу, не пиши «мы имеем заметки» — сразу результат.';
 
