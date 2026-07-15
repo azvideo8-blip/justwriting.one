@@ -27,6 +27,7 @@ export const CHANGELOG: ChangelogRelease[] = [
       { category: 'fix', ru: 'Восстановлены фоновые ИИ-функции (темы, месячный дайджест, портрет, память) после того, как провайдер удалил прежнюю модель', en: 'Background AI features (themes, monthly digest, portrait, memory) restored after the provider delisted the previous model' },
       { category: 'fix', ru: 'Свежие заметки анализируются в первую очередь и больше не застревают в статусе «анализируется…» в активные дни', en: 'Fresh notes are analyzed first and no longer get stuck on "analyzing…" on busy days' },
       { category: 'fix', ru: 'Защита запросов к ИИ (App Check) доведена до рабочего состояния; исправлен двойной учёт дневного лимита обращений', en: 'AI request protection (App Check) now works end-to-end; fixed a double-count of the daily request limit' },
+      { category: 'fix', ru: 'Память чата: в панели «Факты и правила» убран дублирующий ярлык категории; новые сохраняемые факты пишутся на языке пользователя, а не по-английски', en: 'Chat memory: the "Facts & rules" panel no longer duplicates the category label; new saved memories are written in the user\'s language, not English' },
     ],
   },
   {

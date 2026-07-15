@@ -18,6 +18,8 @@ const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
 const SYSTEM_PROMPT = `Extract durable memory units from this conversation. Return JSON array of { kind: 'fact'|'insight'|'commitment'|'preference', text: short description }.
 
+LANGUAGE (MOST IMPORTANT RULE): every memory unit's "text" MUST be written in the SAME language the user writes in the conversation below. These instructions are in English, but that MUST NOT make you write the memory in English — if the user writes in Russian, every "text" must be in Russian. Write the memory as if the user wrote it about themselves, in their language. Never translate the user's words into another language.
+
 CRITICAL — source restriction: record ONLY what the USER actually stated or explicitly agreed with. NEVER store the assistant's own interpretations, metaphors, reframes, hypotheses, or wording as if they were the user's facts or insights. If an idea came from the assistant and the user did not voice or confirm it, DO NOT store it. When in doubt, leave it out — a smaller, user-grounded memory is far better than importing the assistant's narrative.
 
 Focus on:
@@ -25,9 +27,7 @@ Focus on:
 - Psychological insights the USER voiced or explicitly endorsed (patterns, realizations) — not the assistant's
 - Commitments or intentions the USER expressed (goals, plans, decisions)
 - Communication preferences: direct feedback the USER gave about the assistant's tone, pacing, style, length, or quality (e.g. 'User dislikes verbose intros', 'User prefers bullet points', 'User wants shorter answers').
-Keep each memory unit to 1-2 sentences, phrased as the user's own. Return ONLY valid JSON array.
-
-LANGUAGE: write each memory unit's text in the SAME language the user writes in. If the conversation is in Russian, the text must be in Russian; if in English, in English. Never translate the user's words into another language.`;
+Keep each memory unit to 1-2 sentences, phrased in the first person as the user's own words, in the user's language. Return ONLY valid JSON array.`;
 
 const VALID_KINDS = ['fact', 'insight', 'commitment', 'preference'];
 
