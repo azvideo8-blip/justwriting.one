@@ -63,7 +63,12 @@ For multi-step tasks, state a brief plan:
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
 ## 5. Release Checklist
-- **Service Worker Versioning:** When making a release that changes JS/CSS assets, you MUST bump `CACHE_VERSION` in `public/sw.js` to match the new package version (e.g. `v0.7.45`). This triggers the cache eviction of older assets in users' browsers.
+- **Version bump — FOUR places, all must match:**
+  1. `package.json` `"version"`.
+  2. `package-lock.json` — run `npm install --package-lock-only` after bumping `package.json`.
+  3. `public/sw.js` `CACHE_VERSION = 'vX.Y.Z'` — triggers cache eviction of old assets in users' browsers.
+  4. `src/version.ts` `APP_VERSION` — **this is the version the UI displays** (Sidebar, Settings, Diagnostics, export payloads). A release that skips this ships new code while the site still shows the old number.
+  - Before pushing, grep for stragglers: `rg "X\.Y\.<old>" --hidden -g '!node_modules' -g '!.git'` (changelog *history* entries are the expected exception).
 
 ---
 
