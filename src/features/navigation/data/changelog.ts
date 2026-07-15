@@ -23,6 +23,10 @@ export const CHANGELOG: ChangelogRelease[] = [
       { category: 'improvement', ru: 'Ограничение периода в чате теперь видно как метку и реально отбирает только заметки этого периода', en: 'A chat period scope is now shown as a chip and actually restricts retrieval to notes within that period' },
       { category: 'improvement', ru: 'Длина ответа и режим рассуждений разведены — их можно включать независимо', en: 'Answer length and reasoning mode are decoupled — each can be toggled independently' },
       { category: 'fix', ru: 'Усилена защита от додумывания: разбирая присланную заметку, ИИ строго держится её текста и не добавляет событий, сцен, цитат или эмоций, которых в ней нет', en: 'Stronger anti-confabulation: when working with a provided note, the AI sticks strictly to its text and does not add events, scenes, quotes or emotions that are not there' },
+      { category: 'fix', ru: 'Долгие ответы и сводки ИИ больше не обрываются преждевременным таймаутом — длинные генерации доходят до конца', en: 'Long AI answers and summaries are no longer cut off by a premature timeout — long generations run to completion' },
+      { category: 'fix', ru: 'Восстановлены фоновые ИИ-функции (темы, месячный дайджест, портрет, память) после того, как провайдер удалил прежнюю модель', en: 'Background AI features (themes, monthly digest, portrait, memory) restored after the provider delisted the previous model' },
+      { category: 'fix', ru: 'Свежие заметки анализируются в первую очередь и больше не застревают в статусе «анализируется…» в активные дни', en: 'Fresh notes are analyzed first and no longer get stuck on "analyzing…" on busy days' },
+      { category: 'fix', ru: 'Защита запросов к ИИ (App Check) доведена до рабочего состояния; исправлен двойной учёт дневного лимита обращений', en: 'AI request protection (App Check) now works end-to-end; fixed a double-count of the daily request limit' },
     ],
   },
   {
