@@ -2,6 +2,32 @@
 
 ## Active
 
+- [ ] **MEM-0: Grounded citations in chat answers** - 🔴 Foundational trust skin for memory features
+  - Ref-tag injected notes with `[#<documentId> · <YYYY-MM-DD>]` in `useAIChatContext.buildContext`
+  - Add citation contract to `PERSONA_PROMPTS` in `src/shared/ai/prompts.ts`, `functions/src/shared/prompts.ts`, and `api/chat.ts`
+  - Render clickable source chips in `AIPage.tsx` for `[#id]` tokens to preview notes
+  - Implement defensive guard to neutralize out-of-context citation tags after generation
+  - Migrate regression test to `scripts/ai/citation_faithfulness.mjs`
+- [ ] **MEM-1: Visible, removable memory scope + hard-scoped retrieval** - 🔴 Boundary visibility and filtering
+  - Render a removable scope chip in `AIPage.tsx` chat header, clearable by clicking
+  - Hard-scope note candidates filtering in retrieval path before search/ranking
+  - Implement distinct period labeling for comparison mode (e.g., "весна vs осень")
+  - Inject honesty marker for periods with insufficient notes to prevent confabulation
+- [ ] **MEM-2: Consent-based people resolution** - 🟡 Propose aliases instead of silent identity merging
+  - Create new IDB store `aiPersonAliases`
+  - Implement local suggestion heuristic based on co-occurrence + embedding proximity
+  - Build consent UI for suggestions: confirm / reject / rename / undo
+  - Use only confirmed alias sets for cross-label resolution in `AIPeopleService.search`
+- [ ] **MEM-3: Correction loops: exclude a source, fix a mention** - 🟡 User control over AI data sources
+  - Exclude source option on chip: re-run synthesis with selected note removed
+  - Fix mention option: detach note from a person's alias set with confirm/undo
+  - Keep actions local, reversible, and within budget (no new LLM calls except re-synthesis)
+- [ ] **MEM-4: Decision-outcome journal** - 🟢 (P2) Learn from writer's decisions without claiming causation
+  - Group decisions locally using `commitments` and thread machinery (SEAM-4/5)
+  - Display decision outcomes grouped by prior context and follow-ups with MEM-0 citations
+  - Label outcomes explicitly as correlation, not causation (e.g., "после этого решения в заметках...")
+  - Allow user to mark misgrouped decisions as unrelated
+
 ## Waiting On
 
 ## Someday
