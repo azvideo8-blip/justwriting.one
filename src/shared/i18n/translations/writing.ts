@@ -179,6 +179,7 @@ export const writingTranslations: Translations = {
   ai_apply: { ru: 'Применить', en: 'Apply' },
   ai_apply_tags: { ru: 'Добавить теги', en: 'Add tags' },
   ai_applied: { ru: 'Применено', en: 'Applied' },
+  ai_from_ai: { ru: 'от ИИ', en: 'from AI' },
   ai_no_content: { ru: 'Напишите текст, чтобы использовать ИИ', en: 'Write some text to use AI' },
   ai_error_auth: { ru: 'Нужна регистрация', en: 'Sign up required' },
   ai_error_rate_limit: { ru: 'Слишком много запросов. Подожди минуту.', en: 'Too many requests. Wait a minute.' },
