@@ -163,6 +163,9 @@ export const AISummaryService = {
           noteIds,
           lastMentionedAt,
           mentionCount: noteIds.length,
+          // Preserve a prior consent decision — re-summarizing a note must not
+          // reset an "ignored"/"active" person back to undefined.
+          ...(existingPerson?.status !== undefined ? { status: existingPerson.status } : {}),
         });
       }
     }
