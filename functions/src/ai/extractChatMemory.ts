@@ -47,14 +47,14 @@ export const extractChatMemory = onCall({
     throw new HttpsError('invalid-argument', 'Invalid payload.');
   }
 
+  if (parsed.data.messages.some(m => hasInjectionAttempt(m.content))) {
+    throw new HttpsError('invalid-argument', 'Disallowed patterns in messages.');
+  }
+
   // Bulk daily limit check
   const allowed = await checkAndIncrementBulkLimit(uid);
   if (!allowed) {
     throw new HttpsError('resource-exhausted', 'Daily bulk operations limit reached.');
-  }
-
-  if (parsed.data.messages.some(m => hasInjectionAttempt(m.content))) {
-    throw new HttpsError('invalid-argument', 'Disallowed patterns in messages.');
   }
 
   const conversationText = parsed.data.messages

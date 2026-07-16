@@ -34,16 +34,16 @@ export const rerankNotes = onCall({
   }
   const { query, candidates, maxResults = 5 } = parsed.data;
 
-  // Bulk daily limit check
-  const allowed = await checkAndIncrementBulkLimit(uid);
-  if (!allowed) {
-    throw new HttpsError('resource-exhausted', 'Daily bulk operations limit reached.');
-  }
-
   // S-7: Validate documentId with strict regex — no injection check (it's an ID, not content)
   const DOC_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
   if (candidates.some(c => !DOC_ID_RE.test(c.documentId))) {
     throw new HttpsError('invalid-argument', 'Invalid documentId in candidates.');
+  }
+
+  // Bulk daily limit check
+  const allowed = await checkAndIncrementBulkLimit(uid);
+  if (!allowed) {
+    throw new HttpsError('resource-exhausted', 'Daily bulk operations limit reached.');
   }
 
   const safeQuery = sanitizeAiInput(query);

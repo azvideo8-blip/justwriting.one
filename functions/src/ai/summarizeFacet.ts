@@ -39,18 +39,18 @@ export const summarizeFacet = onCall({
     throw new HttpsError('invalid-argument', 'Invalid payload.');
   }
 
-  // Bulk daily limit check
-  const allowed = await checkAndIncrementBulkLimit(uid);
-  if (!allowed) {
-    throw new HttpsError('resource-exhausted', 'Daily bulk operations limit reached.');
-  }
-
   const notesText = parsed.data.notes
     .map((n, i) => `Заметка ${i + 1} «${sanitizeAiInput(n.title)}»:\n${sanitizeAiInput(n.excerpt)}`)
     .join('\n\n');
 
   if (hasInjectionAttempt(notesText)) {
     throw new HttpsError('invalid-argument', 'Disallowed patterns in notes.');
+  }
+
+  // Bulk daily limit check
+  const allowed = await checkAndIncrementBulkLimit(uid);
+  if (!allowed) {
+    throw new HttpsError('resource-exhausted', 'Daily bulk operations limit reached.');
   }
 
   const focus = parsed.data.focus ? sanitizeAiInput(parsed.data.focus) : '';
