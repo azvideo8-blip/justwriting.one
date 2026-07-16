@@ -11,7 +11,9 @@ describe('contextTrends', () => {
       { documentId: '4', date: '2026-07-09', month: '2026-07', facts: [], themes: ['спорт', 'семья'], valence: 0.6 },
     ];
 
-    const trends = computeTrends(timeline);
+    // Fixed reference so the 7-day recent/baseline window is deterministic:
+    // now - 7d = 2026-07-08, so docs 3-4 are "recent", docs 1-2 "baseline".
+    const trends = computeTrends(timeline, new Date('2026-07-15T12:00:00Z'));
 
     expect(trends.emergingThemes).toContain('спорт');
     expect(trends.emergingThemes).toContain('отдых');
@@ -35,7 +37,7 @@ describe('contextTrends', () => {
       { documentId: '4', date: '2026-07-09', month: '2026-07', facts: [], themes: [], valence: 0.2 },
     ];
 
-    const trends = computeTrends(timeline);
+    const trends = computeTrends(timeline, new Date('2026-07-15T12:00:00Z'));
     expect(trends.moodSlope).toBe('declining');
   });
 
