@@ -66,6 +66,7 @@ export const deriveTaxonomy = onCall({
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
+  let settled = false;
   try {
     const result = await generate({
       system: SYSTEM_PROMPT,
@@ -76,6 +77,7 @@ export const deriveTaxonomy = onCall({
       model: TAXO_MODEL,
     });
     recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'taxonomy' }, reservation).catch(() => {});
+    settled = true;
 
     let txt = result.text.trim();
     if (txt.startsWith('```')) txt = txt.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
@@ -84,7 +86,6 @@ export const deriveTaxonomy = onCall({
 
     const arr = z.object({ domains: z.array(domainSchema) }).safeParse(obj);
     if (!arr.success || arr.data.domains.length === 0) {
-      await refundBulkLimit(uid);
       console.error('[AI taxonomy] no valid domains. raw:', result.text.slice(0, 400));
       throw new HttpsError('internal', 'Taxonomy derivation produced no domains.');
     }
@@ -96,7 +97,7 @@ export const deriveTaxonomy = onCall({
     return { domains };
   } catch (e) {
     await refundBulkLimit(uid);
-    await refundGlobalRequest(reservation);
+    if (!settled) await refundGlobalRequest(reservation);
     const msg = String((e as { message?: string })?.message ?? e);
     if (!(e instanceof HttpsError)) console.error('[AI taxonomy] failed:', msg);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

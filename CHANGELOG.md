@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+- **[RU]** Аудит облачных AI-функций: валидация входа (инъекции/`documentId`) перенесена ПЕРЕД списанием bulk-лимита в `summarizeFacet`/`rerankNotes`/`extractChatMemory` — отклонённый запрос больше не сжигает дневную bulk-квоту.
+- **[EN]** Cloud AI functions audit: input validation (injection/`documentId`) moved BEFORE the bulk-limit increment in `summarizeFacet`/`rerankNotes`/`extractChatMemory` — a rejected request no longer burns the daily bulk quota.
+- **[RU]** Учёт бюджета: убран двойной refund bulk-лимита и ошибочный возврат уже сведённой (`recordUsage`) глобальной резервации на путях плохого JSON/схемы в `judgeFacets`/`deriveTaxonomy` (флаг `settled`); в `embedDocument` устранён двойной refund при несовпадении числа векторов — проектный cost-guard больше не занижает реально потраченные токены.
+- **[EN]** Budget accounting: fixed a double bulk-limit refund and a wrong refund of the already-settled (`recordUsage`) global reservation on bad-JSON/schema paths in `judgeFacets`/`deriveTaxonomy` (`settled` flag); removed the double refund on a vector-count mismatch in `embedDocument` — the project cost-guard no longer under-counts genuinely spent tokens.
+
 ## 2026-07-15 (v0.7.54)
 - **[RU]** AI-панель редактора: результаты кешируются по действию (`results: Record<AIAction,string>`) — переключение между действиями не вызывает модель повторно, есть кнопка пересчёта (force); «Применить» теперь **дописывает** результат вниз с пометкой (`ai_from_ai`, напр. «Резюме от ИИ:») вместо перезаписи; «Продолжить» вливается без пометки; подсказка «нет текста» поднята над кнопками; индикаторы кеша на кнопках.
 - **[EN]** Editor AI panel: results are cached per action (`results: Record<AIAction,string>`) — switching actions no longer re-calls the model, with a force-regenerate button; "Apply" now **appends** the result below with a label (`ai_from_ai`, e.g. "Summary from AI:") instead of overwriting; "Continue" flows in without a label; the "no text" hint moved above the actions; cache indicators on buttons.

@@ -67,8 +67,6 @@ export const embedDocument = onCall({
     const result = await embed(chunks);
 
     if (result.vectors.length !== chunks.length) {
-      await refundBulkLimit(uid);
-      await refundGlobalRequest(reservation);
       throw new HttpsError('internal', `Embedding count mismatch: got ${result.vectors.length} for ${chunks.length} chunks.`);
     }
 
