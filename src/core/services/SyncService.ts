@@ -85,10 +85,14 @@ export const SyncService = {
   },
 
   async syncDocument(userId: string, localId: string, encryptionRequired = true): Promise<void> {
-    await StorageService.addCloudCopy(userId, localId, encryptionRequired);
+    const cloudId = await StorageService.addCloudCopy(userId, localId, encryptionRequired);
+    // addCloudCopy returns '' when a concurrent sync holds the lock (no-op). Don't
+    // clear this doc's queue items then — the pending edit would never be retried.
+    // Also never delete the lock_cloud_ entry itself.
+    if (!cloudId) return;
     const db = await getLocalDb();
     const queue = await db.getAll('syncQueue');
-    const docTasks = queue.filter(p => p.documentId === localId);
+    const docTasks = queue.filter(p => p.documentId === localId && !p.id.startsWith('lock_cloud_'));
     if (docTasks.length > 0) {
       const tx = db.transaction('syncQueue', 'readwrite');
       await Promise.all(docTasks.map(p => tx.store.delete(p.id)));
