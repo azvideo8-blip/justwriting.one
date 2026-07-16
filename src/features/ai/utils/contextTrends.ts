@@ -7,7 +7,7 @@ export interface TrendAnalysis {
   valenceDelta: number;
 }
 
-export function computeTrends(timeline: AITimelineEntry[]): TrendAnalysis {
+export function computeTrends(timeline: AITimelineEntry[], now: Date = new Date()): TrendAnalysis {
   if (timeline.length === 0) {
     return { emergingThemes: [], fadingThemes: [], moodSlope: 'flat', valenceDelta: 0 };
   }
@@ -16,7 +16,6 @@ export function computeTrends(timeline: AITimelineEntry[]): TrendAnalysis {
   const sorted = [...timeline].sort((a, b) => a.date.localeCompare(b.date));
 
   // Determine recent vs baseline partition
-  const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
 
