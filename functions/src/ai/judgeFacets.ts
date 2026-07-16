@@ -74,6 +74,7 @@ export const judgeFacets = onCall({
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
+  let settled = false;
   try {
     const result = await generate({
       system: SYSTEM_PROMPT,
@@ -84,6 +85,7 @@ export const judgeFacets = onCall({
       model: JUDGE_MODEL,
     });
     recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'judge' }, reservation).catch(() => {});
+    settled = true;
 
     let txt = result.text.trim();
     if (txt.startsWith('```')) txt = txt.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
@@ -92,7 +94,6 @@ export const judgeFacets = onCall({
 
     const arr = z.object({ verdicts: z.array(verdictSchema) }).safeParse(obj);
     if (!arr.success) {
-      await refundBulkLimit(uid);
       console.error('[AI judge] no valid verdicts. raw:', result.text.slice(0, 400));
       throw new HttpsError('internal', 'Judge produced no verdicts.');
     }
@@ -105,7 +106,7 @@ export const judgeFacets = onCall({
     return { verdicts };
   } catch (e) {
     await refundBulkLimit(uid);
-    await refundGlobalRequest(reservation);
+    if (!settled) await refundGlobalRequest(reservation);
     const msg = String((e as { message?: string })?.message ?? e);
     if (!(e instanceof HttpsError)) console.error('[AI judge] failed:', msg);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
