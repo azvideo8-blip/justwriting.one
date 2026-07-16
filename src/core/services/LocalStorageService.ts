@@ -38,14 +38,24 @@ export const LocalStorageService = {
     db: Awaited<ReturnType<typeof getLocalDb>>,
     documentId: string,
     data: SaveDocumentData,
-    existing: LocalDocument,
-    newVersion: number,
-    prevContent: string,
     now: number
-  ): Promise<boolean> {
+  ): Promise<{ ok: true; newVersion: number; prevContent: string; existing: LocalDocument } | { ok: false }> {
     const tx = db.transaction(['documents', 'versions'], 'readwrite');
     const docStore = tx.objectStore('documents');
     const verStore = tx.objectStore('versions');
+
+    // Read the document and its previous version INSIDE the write transaction so
+    // the version number and the base snapshot are consistent with what we write
+    // — a concurrent (cross-tab) save/sync cannot slip in between, so we never
+    // revert a freshly-set linkedCloudId or reuse a version number.
+    const existing = await docStore.get(documentId);
+    if (!existing) {
+      await tx.done;
+      throw new Error('Document not found');
+    }
+    const newVersion = existing.currentVersion + 1;
+    const prevVer = await verStore.index('by-doc-version').get([documentId, existing.currentVersion]);
+    const prevContent = prevVer?.content ?? '';
 
     const diff = computeWordDelta(prevContent, data.content);
     const verId = `ver_${randomUUID()}`;
@@ -85,13 +95,13 @@ export const LocalStorageService = {
     } catch (localErr) {
       if (localErr instanceof DOMException && localErr.name === 'QuotaExceededError') {
         reportError(localErr, { action: 'saveVersionToLocal', documentId, quotaExceeded: true }, 'warning');
-        return false;
+        return { ok: false };
       } else {
         reportError(localErr, { action: 'saveVersionToLocal_localSave', documentId });
         throw localErr;
       }
     }
-    return true;
+    return { ok: true, newVersion, prevContent, existing };
   },
 
   async getDocument(localId: string) {

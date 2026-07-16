@@ -87,38 +87,23 @@ export const StorageService = {
 
 async function _doSaveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<{ forked: boolean }> {
   const db = await getLocalDb();
-  const tx = db.transaction(['documents', 'versions'], 'readonly');
-  const docStore = tx.objectStore('documents');
-  const verStore = tx.objectStore('versions');
-
-  const existing = await docStore.get(documentId);
-  if (!existing) {
-    await tx.done;
-    throw new Error('Document not found');
-  }
-
-  const prevVer = await verStore.index('by-doc-version').get([documentId, existing.currentVersion]);
-  const prevContent = prevVer?.content ?? '';
-  await tx.done;
-
-  const newVersion = existing.currentVersion + 1;
-  const totalWords = data.documentWordCount ?? data.wordCount;
   const now = Date.now();
+  const totalWords = data.documentWordCount ?? data.wordCount;
 
-  const localSaveOk = await LocalStorageService.saveVersionToLocal(db, documentId, data, existing, newVersion, prevContent, now);
-
-  if (localSaveOk) {
-    await ProfileUpdater.updateLocalProfile(
-      existing.guestId,
-      existing.totalWords,
-      totalWords,
-      existing.totalDuration,
-      data.duration,
-      now
-    );
-  } else {
+  const res = await LocalStorageService.saveVersionToLocal(db, documentId, data, now);
+  if (!res.ok) {
     throw new DOMException('Local save failed (quota exceeded)', 'QuotaExceededError');
   }
+  const { newVersion, prevContent, existing } = res;
+
+  await ProfileUpdater.updateLocalProfile(
+    existing.guestId,
+    existing.totalWords,
+    totalWords,
+    existing.totalDuration,
+    data.duration,
+    now
+  );
 
   if (existing.linkedCloudId) {
     const result = await CloudSyncService.syncVersionToCloud(
