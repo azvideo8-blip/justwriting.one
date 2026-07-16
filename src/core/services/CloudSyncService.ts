@@ -54,7 +54,7 @@ export const CloudSyncService = {
         let verContent = '';
         try {
           const decryptedVer = await maybeDecrypt(verRecord, ['content'], []);
-          verContent = (typeof decryptedVer.content === 'string' ? decryptedVer.content : '') || ver.content;
+          verContent = typeof decryptedVer.content === 'string' ? decryptedVer.content : (ver.content ?? '');
         } catch (decErr) {
           if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
           // Skip corrupted version but continue importing others
@@ -172,14 +172,19 @@ export const CloudSyncService = {
               _encrypted,
             }));
           })));
-          await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
-            totalWords: localDoc.totalWords,
-            totalDuration: localDoc.totalDuration,
-            currentVersion: localDoc.currentVersion,
-            sessionsCount: localDoc.sessionsCount,
-            lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
-            mood: localDoc.mood,
-          }));
+          // Don't roll cloud metadata backward when the cloud copy is ahead of
+          // this (behind) device — otherwise currentVersion regresses and a later
+          // save can reuse a version number, overwriting a version via setDoc(`v${n}`).
+          if (localDoc.currentVersion >= existingDoc.currentVersion) {
+            await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
+              totalWords: localDoc.totalWords,
+              totalDuration: localDoc.totalDuration,
+              currentVersion: localDoc.currentVersion,
+              sessionsCount: localDoc.sessionsCount,
+              lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
+              mood: localDoc.mood,
+            }));
+          }
           return cloudId;
         }
         await LocalStorageService.updateLinkedCloudId(localDocumentId, '');
@@ -255,6 +260,15 @@ export const CloudSyncService = {
       }
 
       if (!cloudId) throw new Error('Failed to create cloud document');
+      // A concurrent tab (whose lock may have appeared to expire during a long
+      // upload) could have created+linked a cloud doc meanwhile. If so, discard
+      // our duplicate and adopt the winner rather than orphaning a cloud document.
+      const freshLocal = await LocalStorageService.getDocument(localDocumentId);
+      if (freshLocal?.linkedCloudId && freshLocal.linkedCloudId !== cloudId) {
+        try { await DocumentService.deleteDocument(userId, cloudId); }
+        catch (cleanupErr) { reportError(cleanupErr, { action: 'addCloudCopy_dupCleanup', cloudId }); }
+        return freshLocal.linkedCloudId;
+      }
       await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId);
       await LocalStorageService.migrateDocumentOwner(localDocumentId, userId);
       return cloudId;
