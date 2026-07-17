@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkAndIncrementLimit, refundDailyLimit, tryReserveGlobalRequest, refundGlobalRequest, getLangfuse, hasInjectionAttempt, MAX_AI_CONTENT_LENGTH } from '../shared/aiUtils';
 import { generate, getActiveModel } from '../shared/aiProvider';
 
-const actionSchema = z.enum(['shorten', 'accents', 'ideas', 'summarize', 'tags', 'mood', 'continue']);
+const actionSchema = z.enum(['accents', 'ideas', 'summarize', 'continue', 'gratitude', 'achievements']);
 
 const messageSchema = z.object({
   role: z.enum(['user', 'assistant']),
@@ -18,13 +18,12 @@ const inputSchema = z.object({
 });
 
 const ACTION_PROMPTS: Record<string, string> = {
-  shorten: 'Сократи текст, сохранив суть и стиль автора. Без пояснений — только результат.',
   accents: 'Выдели 3–5 ключевых мыслей из текста. Верни маркированный список.',
   ideas: 'Предложи 5 идей для развития темы. Кратко, одна строка каждая.',
   summarize: 'Краткое резюме в 2–3 предложениях.',
-  tags: 'Верни JSON-массив из 3–7 тегов-ключевых слов, строчными, без `#`. Только JSON, без пояснений.',
-  mood: 'Одним словом определи тональность текста (нейтральный / задумчивый / тревожный / вдохновляющий / радостный / грустный).',
   continue: 'Продолжи текст в том же стиле, ещё 2–3 абзаца.',
+  gratitude: 'На основе этой записи составь список, начинающийся со слов "Я благодарен себе за…", и перечисли 3–5 пунктов, за что автор может быть благодарен себе. Обращайся на "ты"/от первого лица как в примере. Только список, без вступления.',
+  achievements: 'На основе этой записи составь список, начинающийся со слов "Сегодня я сделал…", и перечисли, что автору удалось сделать — даже небольшое. 3–5 пунктов. Только список, без вступления.',
 };
 
 function buildPrompt(action: string, content: string): string {

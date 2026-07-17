@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, X, Copy, Check, Loader2, Wand2, Lightbulb, Tags, Smile, ArrowRight, AlignLeft, Highlighter, RotateCcw } from 'lucide-react';
+import { Sparkles, X, Copy, Check, Loader2, Wand2, Lightbulb, ArrowRight, Highlighter, RotateCcw, Heart, Trophy } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
@@ -11,13 +11,12 @@ import { IconButton } from '../../../shared/components/IconButton';
 import { Button } from '../../../shared/components/Button';
 
 const AI_ACTIONS: { action: AIAction; icon: React.ReactNode; labelKey: string }[] = [
-  { action: 'shorten', icon: <AlignLeft size={14} />, labelKey: 'ai_action_shorten' },
   { action: 'accents', icon: <Highlighter size={14} />, labelKey: 'ai_action_accents' },
   { action: 'ideas', icon: <Lightbulb size={14} />, labelKey: 'ai_action_ideas' },
   { action: 'summarize', icon: <Wand2 size={14} />, labelKey: 'ai_action_summarize' },
-  { action: 'tags', icon: <Tags size={14} />, labelKey: 'ai_action_tags' },
-  { action: 'mood', icon: <Smile size={14} />, labelKey: 'ai_action_mood' },
   { action: 'continue', icon: <ArrowRight size={14} />, labelKey: 'ai_action_continue' },
+  { action: 'gratitude', icon: <Heart size={14} />, labelKey: 'ai_action_gratitude' },
+  { action: 'achievements', icon: <Trophy size={14} />, labelKey: 'ai_action_achievements' },
 ];
 
 interface AIPanelProps {
@@ -31,7 +30,6 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
   const isMobile = layoutMode === 'mobile';
   const content = useContentStore(s => s.content);
   const setContent = useContentStore(s => s.setContent);
-  const setTags = useContentStore(s => s.setTags);
 
   const [loading, setLoading] = useState(false);
   // Persist a result per action so switching between e.g. "Ideas" and "Summary"
@@ -88,10 +86,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
     if (!activeAction) return;
     const text = results[activeAction];
     if (!text) return;
-    if (activeAction === 'tags') {
-      const parsed = AIService.parseTags(text);
-      if (parsed.length > 0) setTags(parsed);
-    } else if (activeAction === 'continue') {
+    if (activeAction === 'continue') {
       // A continuation flows into the note directly.
       setContent(content.trimEnd() + '\n\n' + text);
     } else {
@@ -103,7 +98,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
       setContent((base ? base + '\n\n' : '') + label + '\n' + text);
     }
     setAppliedActions(prev => new Set(prev).add(activeAction));
-  }, [activeAction, results, content, setContent, setTags, t]);
+  }, [activeAction, results, content, setContent, t]);
 
   const handleCopy = useCallback(async () => {
     const text = activeAction ? results[activeAction] : undefined;
@@ -270,7 +265,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30"
                       >
                         <Check size={12} />
-                        {activeAction === 'tags' ? t('ai_apply_tags') : t('ai_apply')}
+                        {t('ai_apply')}
                       </Button>
                     )}
                     {isApplied && (
