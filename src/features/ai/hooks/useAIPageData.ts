@@ -225,7 +225,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       try {
         const facet = (await AIProfileFacetService.getAll()).find(f => f.id === draftFacetId);
         if (!facet) return;
-        setSelectedPersonaId('editor');
+        setSelectedPersonaId('cbt');
         handleNewDialogue();
         setInputText(
           `Напиши вовлекающий пост для Telegram/блога на тему «${facet.label}» на основе связанных заметок. ` +
