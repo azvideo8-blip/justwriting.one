@@ -10,6 +10,13 @@ vi.mock('../../../shared/i18n', () => ({
   }),
 }));
 
+// Mock useToast
+vi.mock('../../../shared/components/Toast', () => ({
+  useToast: () => ({
+    showToast: vi.fn(),
+  }),
+}));
+
 // Mock zustand stores
 vi.mock('../store/useContentStore', () => ({
   useContentStore: (cb: any) => cb({

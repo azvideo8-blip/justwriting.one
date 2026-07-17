@@ -11,6 +11,8 @@ import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { AIToggleButton } from './AIPanel';
+import { Mic, MicOff } from 'lucide-react';
+import { useSpeechInput } from '../../../shared/hooks/useSpeechInput';
 
 function DottedProgress({ pct, color }: { pct: number; color: string }) {
   const n = 16;
@@ -73,13 +75,23 @@ export function MobileWriteToolbar({
 }: MobileWriteToolbarProps) {
   const { t } = useLanguage();
   const { headerVisibility = { sessionTime: true, sessionWords: true, totalWords: true, wpm: true }, aiPanelOpen, setAiPanelOpen } = useWritingSettings();
-  const { wordCount, wpm, wpmHistory } = useContentStore(
+  const { wordCount, wpm, wpmHistory, setContent } = useContentStore(
     useShallow(s => ({
       wordCount: s.wordCount,
       wpm: s.wpm,
       wpmHistory: s.wpmHistory,
+      setContent: s.setContent,
     }))
   );
+
+  const { isListening, startListening, stopListening, hasSupport } = useSpeechInput({
+    onTranscript: (text) => {
+      // Read the latest content from the store — a captured `content` would be stale
+      // across successive utterances (continuous dictation) and overwrite earlier text.
+      const cur = useContentStore.getState().content;
+      setContent(cur ? cur.trimEnd() + ' ' + text : text);
+    }
+  });
   const { seconds, wordGoal, timerDuration, sessionStartWords, sessionStartSeconds, status } = useTimerStore(
     useShallow(s => ({
       seconds: s.seconds,
@@ -219,6 +231,20 @@ export function MobileWriteToolbar({
           active={aiPanelOpen}
           onClick={() => setAiPanelOpen(!aiPanelOpen)}
         />
+
+        {hasSupport && (
+          <IconButton
+            onClick={isListening ? stopListening : startListening}
+            label={isListening ? t('voice_stop') : t('voice_start')}
+            className={cn(
+              "w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer border",
+              isListening
+                ? "border-accent-danger bg-accent-danger/10 text-accent-danger animate-pulse"
+                : "border-[var(--border-light)] bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]"
+            )}
+            icon={isListening ? <MicOff size={16} /> : <Mic size={16} />}
+          />
+        )}
 
         <IconButton
           onClick={isRunning ? onPause : onPlay}
