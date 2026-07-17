@@ -8,9 +8,11 @@ import { LocalVersionService } from '../../../core/services/LocalVersionService'
 import { analyzeWritingStyle } from '../utils/styleAnalyzer';
 import { AIBackgroundBudget } from './AIBackgroundBudget';
 import { reportError } from '../../../shared/errors/reportError';
+import { useAiLimitStore } from '../store/useAiLimitStore';
 
 const PORTRAIT_LS_KEY = 'ai_user_portrait';
 const SECTIONS_CACHE_KEY = 'ai_portrait_sections';
+let _autoGenInProgress = false;
 
 interface PortraitSectionCache {
   content: string;
@@ -45,6 +47,20 @@ async function sha256Hex(str: string): Promise<string> {
 export const AIProfileService = {
   async savePortrait(portraitMarkdown: string): Promise<void> {
     localStorage.setItem(PORTRAIT_LS_KEY, portraitMarkdown);
+
+    try {
+      const db = await getLocalDb();
+      const allSummaries = await db.getAll('aiSummaries');
+      const generatedAtDelta = allSummaries.length;
+      await db.put('aiPortrait', {
+        id: 'singleton',
+        portrait: portraitMarkdown,
+        updatedAt: Date.now(),
+        generatedAtDelta
+      });
+    } catch (e) {
+      console.error('[AIProfileService] Failed to save portrait to IDB:', e);
+    }
 
     const uid = getAuth().currentUser?.uid;
     if (uid) {
@@ -88,6 +104,17 @@ export const AIProfileService = {
   },
 
   async getPortrait(): Promise<string | null> {
+    try {
+      const db = await getLocalDb();
+      const cached = await db.get('aiPortrait', 'singleton');
+      if (cached?.portrait) {
+        localStorage.setItem(PORTRAIT_LS_KEY, cached.portrait);
+        return cached.portrait;
+      }
+    } catch (e) {
+      console.error('[AIProfileService] Failed to load portrait from IDB:', e);
+    }
+
     const local = localStorage.getItem(PORTRAIT_LS_KEY);
     if (local) return local;
 
@@ -280,4 +307,48 @@ ${activeSections.communication_prefs}
     URL.revokeObjectURL(url);
     return portrait;
   },
+
+  async autoGeneratePortrait(): Promise<void> {
+    if (_autoGenInProgress) return;
+    // Single-flight: claim the lock synchronously BEFORE any await, so concurrent
+    // indexer callbacks can't both slip past the guard and double-fire generation.
+    _autoGenInProgress = true;
+
+    try {
+      const db = await getLocalDb();
+      const allSummaries = await db.getAll('aiSummaries');
+      const summariesCount = allSummaries.length;
+
+      // 1. Threshold of >= 20 analyzed summaries
+      if (summariesCount < 20) return;
+
+      const cached = await db.get('aiPortrait', 'singleton');
+
+      // 2. Cooldown gate: minimum 1 hour since last generation
+      const ONE_HOUR = 60 * 60 * 1000;
+      if (cached && (Date.now() - cached.updatedAt < ONE_HOUR)) {
+        return;
+      }
+
+      // 3. Delta of +5 summaries since last generation
+      if (cached && (summariesCount - cached.generatedAtDelta < 5)) {
+        return;
+      }
+
+      // 4. Remaining AI limit check: at least 5 remaining daily requests
+      const { remaining } = useAiLimitStore.getState();
+      if (remaining < 5) return;
+
+      console.warn('[AIProfileService] Triggering auto-generation of psychological portrait...');
+      const result = await this.generate();
+
+      if (result.ok) {
+        console.warn('[AIProfileService] Psychological portrait auto-generated successfully!');
+      }
+    } catch (e) {
+      console.error('[AIProfileService] Failed to auto-generate portrait:', e);
+    } finally {
+      _autoGenInProgress = false;
+    }
+  }
 };

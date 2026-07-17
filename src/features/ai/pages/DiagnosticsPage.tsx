@@ -18,7 +18,7 @@ import { ProfileFacets } from '../components/ProfileFacets';
 import { QueueExplorer } from '../components/QueueExplorer';
 import { FacetDiagnostics } from '../components/FacetDiagnostics';
 import { ContactDoors } from '../components/ContactDoors';
-import { MarkdownRenderer } from '../components/MarkdownRenderer';
+import { AuthorPortrait } from '../components/AuthorPortrait';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { useToast } from '../../../shared/components/Toast';
@@ -53,8 +53,6 @@ export function DiagnosticsPage() {
     userEvents,
     userEventsLoading,
     fetchUserEvents,
-    portraitText,
-    portraitGenerating,
     summaryLogs,
     stats,
     statsLoaded,
@@ -65,8 +63,6 @@ export function DiagnosticsPage() {
     fetchAIUsage,
     handleImportAllFromCloud,
     handleSyncAllToCloud,
-    handleExportProfile,
-    handleGeneratePortrait,
     handleResetCounter,
     handleResetUserLimit,
     handleClearMemory,
@@ -604,36 +600,7 @@ function RebuildTimelineButton() {
             {/* UXFIX-3: Mass AI analysis */}
             <MassAnalyzeNotes />
 
-            <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden">
-              <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
-                <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider">Психологический портрет пользователя</span>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Button
-                    onClick={() => void handleGeneratePortrait()}
-                    disabled={portraitGenerating}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-brand-soft/20 bg-brand-soft/10 text-brand-soft text-[10px] font-bold disabled:opacity-50"
-                  >
-                    {portraitGenerating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                    {portraitGenerating ? 'Генерация…' : (portraitText ? 'Обновить' : 'Сгенерировать')}
-                  </Button>
-                  <Button
-                    onClick={() => void handleExportProfile()}
-                    disabled={!portraitText}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-subtle text-text-main/60 text-[10px] font-bold disabled:opacity-40"
-                  >
-                    <Download size={12} />
-                    Экспорт .md
-                  </Button>
-                </div>
-              </div>
-              <div className="px-5 py-4 max-h-60 overflow-y-auto text-xs text-text-main/60 leading-relaxed">
-                {portraitText ? (
-                  <MarkdownRenderer content={portraitText} />
-                ) : (
-                  <span className="italic text-text-main/60">Портрет ещё не создан — нажмите «Сгенерировать» (нужно ≥3 проанализированных заметок)</span>
-                )}
-              </div>
-            </div>
+            <AuthorPortrait />
 
             {summaryLogs.length > 0 && (
               <div className="rounded-2xl border border-border-subtle overflow-hidden">

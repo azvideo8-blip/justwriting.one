@@ -7,21 +7,14 @@ import { reportError } from '../../../shared/errors/reportError';
 
 const DOORS_CACHE_KEY = 'contact_doors_cache';
 
-export function ContactDoors() {
+interface ContactDoorsProps {
+  readOnly?: boolean;
+}
+
+export function ContactDoors({ readOnly = false }: ContactDoorsProps = {}) {
   const [data, setData] = useState<AggregatedDoors | null>(null);
   const [loading, setLoading] = useState(false);
   const [cache, setCache] = useState<AggregatedDoors | null>(null);
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(DOORS_CACHE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as AggregatedDoors;
-        setCache(parsed);
-      }
-    } catch { /* ignore */ }
-  }, []);
 
   const handleAnalyze = async () => {
     setLoading(true);
@@ -51,20 +44,39 @@ export function ContactDoors() {
     }
   };
 
+  // Load from localStorage on mount
+  useEffect(() => {
+    let hasCache = false;
+    try {
+      const saved = localStorage.getItem(DOORS_CACHE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as AggregatedDoors;
+        setCache(parsed);
+        hasCache = true;
+      }
+    } catch { /* ignore */ }
+
+    if (readOnly && !hasCache) {
+      void handleAnalyze();
+    }
+  }, [readOnly]);
+
   const display = data ?? cache;
 
   return (
     <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden">
       <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
         <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider">Три двери контакта</span>
-        <Button
-          onClick={() => void handleAnalyze()}
-          disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-subtle text-text-main/60 text-[10px] font-bold disabled:opacity-50"
-        >
-          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-          {loading ? 'Анализ…' : (display ? 'Обновить' : 'Анализировать')}
-        </Button>
+        {!readOnly && (
+          <Button
+            onClick={() => void handleAnalyze()}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-subtle text-text-main/60 text-[10px] font-bold disabled:opacity-50"
+          >
+            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+            {loading ? 'Анализ…' : (display ? 'Обновить' : 'Анализировать')}
+          </Button>
+        )}
       </div>
 
       <div className="p-5">

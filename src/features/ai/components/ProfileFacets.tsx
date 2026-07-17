@@ -23,7 +23,11 @@ function fmt(ts: number): string {
   return ts ? new Date(ts).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
 }
 
-export function ProfileFacets() {
+interface ProfileFacetsProps {
+  readOnly?: boolean;
+}
+
+export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [facets, setFacets] = useState<AIProfileFacet[]>([]);
@@ -34,6 +38,7 @@ export function ProfileFacets() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [judgeLog, setJudgeLog] = useState<JudgeLog | null>(() => AIFacetJudgeService.getLog());
   const [judgeLogOpen, setJudgeLogOpen] = useState(false);
+  const [summariesCount, setSummariesCount] = useState(0);
 
   const toggle = (id: string) => setExpanded(prev => {
     const next = new Set(prev);
@@ -65,9 +70,14 @@ export function ProfileFacets() {
     setLoading(true);
     try {
       const db = await getLocalDb();
-      const [f, docs] = await Promise.all([AIProfileFacetService.getAll(), db.getAll('documents')]);
+      const [f, docs, summaries] = await Promise.all([
+        AIProfileFacetService.getAll(),
+        db.getAll('documents'),
+        db.getAll('aiSummaries')
+      ]);
       setFacets(f);
       setDocMap(new Map(docs.map(d => [d.id, d])));
+      setSummariesCount(summaries.length);
     } catch (e) {
       reportError(e, { action: 'profile_facets_load' });
     } finally {
@@ -158,47 +168,49 @@ export function ProfileFacets() {
           <Layers size={13} className="text-brand-soft" />
           Темы профиля (кластеры заметок)
         </span>
-          <div className="flex items-center gap-1.5">
-          {facets.length > 0 && (
-            <Button
-              onClick={() => { void handleJudge(); }}
-              disabled={building}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-subtle text-text-main/60 text-[10px] font-bold disabled:opacity-50"
-              title="ИИ-судья сверяет описания тем с фактами и исправляет выдумки/неверные роли"
-            >
-              <Scale size={12} />
-              Судить
-            </Button>
+          {!readOnly && (
+            <div className="flex items-center gap-1.5">
+              {facets.length > 0 && (
+                <Button
+                  onClick={() => { void handleJudge(); }}
+                  disabled={building}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-subtle text-text-main/60 text-[10px] font-bold disabled:opacity-50"
+                  title="ИИ-судья сверяет описания тем с фактами и исправляет выдумки/неверные роли"
+                >
+                  <Scale size={12} />
+                  Судить
+                </Button>
+              )}
+              {facets.some(f => f.dirty) && (
+                <Button
+                  onClick={() => { void handleResummarize(); }}
+                  disabled={building}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-400 text-[10px] font-bold disabled:opacity-50"
+                >
+                  <Sparkles size={12} />
+                  Обновить описания
+                </Button>
+              )}
+              {facets.length > 0 && (
+                <Button
+                  onClick={() => void handleExport()}
+                  disabled={building}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-subtle text-text-main/60 text-[10px] font-bold disabled:opacity-50"
+                >
+                  <Copy size={12} />
+                  Выгрузить
+                </Button>
+              )}
+              <Button
+                onClick={() => void handleBuild()}
+                disabled={building}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-brand-soft/20 bg-brand-soft/10 text-brand-soft text-[10px] font-bold disabled:opacity-50"
+              >
+                {building ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                {building && progress ? `Анализ ${progress.done}/${progress.total}…` : (facets.length ? 'Перестроить' : 'Построить темы')}
+              </Button>
+            </div>
           )}
-          {facets.some(f => f.dirty) && (
-            <Button
-              onClick={() => { void handleResummarize(); }}
-              disabled={building}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-400 text-[10px] font-bold disabled:opacity-50"
-            >
-              <Sparkles size={12} />
-              Обновить описания
-            </Button>
-          )}
-          {facets.length > 0 && (
-            <Button
-              onClick={() => void handleExport()}
-              disabled={building}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-subtle text-text-main/60 text-[10px] font-bold disabled:opacity-50"
-            >
-              <Copy size={12} />
-              Выгрузить
-            </Button>
-          )}
-          <Button
-            onClick={() => void handleBuild()}
-            disabled={building}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-brand-soft/20 bg-brand-soft/10 text-brand-soft text-[10px] font-bold disabled:opacity-50"
-          >
-            {building ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-            {building && progress ? `Анализ ${progress.done}/${progress.total}…` : (facets.length ? 'Перестроить' : 'Построить темы')}
-          </Button>
-        </div>
       </div>
 
       {judgeLog && judgeLog.entries.length > 0 && (
@@ -240,9 +252,15 @@ export function ProfileFacets() {
         {loading ? (
           <div className="flex justify-center py-8"><Loader2 size={16} className="animate-spin text-text-main/60" /></div>
         ) : facets.length === 0 ? (
-          <p className="text-xs text-text-main/60 italic py-6 text-center">
-            Темы ещё не построены. Нажми «Построить темы» — заметки сгруппируются по смыслу, и для каждой темы появится описание.
-          </p>
+          readOnly && summariesCount < 20 ? (
+            <p className="text-xs text-text-main/60 italic py-6 text-center">
+              Темы появятся автоматически после ~20 проанализированных заметок (сейчас проанализировано: {summariesCount}/20).
+            </p>
+          ) : (
+            <p className="text-xs text-text-main/60 italic py-6 text-center">
+              Темы ещё не построены. Нажми «Построить темы» — заметки сгруппируются по смыслу, и для каждой темы появится описание.
+            </p>
+          )
         ) : (
           <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -264,7 +282,7 @@ export function ProfileFacets() {
                       {f.dirty && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">новое</span>}
                       {(f.insightDensity ?? 0) >= 0.5 && (
                         <button
-                          onClick={e => { e.stopPropagation(); void navigate(`/ai?persona=editor&draftFacet=${f.id}`); }}
+                          onClick={e => { e.stopPropagation(); void navigate(`/ai?persona=cbt&draftFacet=${f.id}`); }}
                           className="flex items-center gap-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 hover:bg-violet-500/25 transition-colors"
                         >
                           <PenLine size={10} /> в пост
