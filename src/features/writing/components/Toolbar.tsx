@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
-import { FilePlus, FolderOpen, Save, Square, Flag } from 'lucide-react';
+import { FilePlus, FolderOpen, Save, Square, Flag, Mic, MicOff } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { IconButton } from '../../../shared/components/IconButton';
 import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { AIToggleButton } from './AIPanel';
+import { useSpeechInput } from '../../../shared/hooks/useSpeechInput';
+import { useContentStore } from '../store/useContentStore';
 
 const PLAY_PATH = "M8 5v14l11-7z";
 const PAUSE_PATH = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
@@ -49,6 +51,16 @@ export function Toolbar({
 }: ToolbarProps) {
   const { t } = useLanguage();
   const { aiPanelOpen, setAiPanelOpen } = useWritingSettings();
+  const setContent = useContentStore(s => s.setContent);
+
+  const { isListening, startListening, stopListening, hasSupport } = useSpeechInput({
+    onTranscript: (text) => {
+      // Read the latest content from the store — a captured `content` would be stale
+      // across successive utterances (continuous dictation) and overwrite earlier text.
+      const cur = useContentStore.getState().content;
+      setContent(cur ? cur.trimEnd() + ' ' + text : text);
+    }
+  });
 
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -119,6 +131,25 @@ export function Toolbar({
         >
           <PlayPauseIcon isPlaying={status === 'writing'} />
         </motion.button>
+
+        {hasSupport && (
+          <motion.button
+            type="button"
+            onClick={isListening ? stopListening : startListening}
+            title={isListening ? t('voice_stop') : t('voice_start')}
+            aria-label={isListening ? t('voice_stop') : t('voice_start')}
+            whileTap={{ scale: 0.82 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+            className={cn(
+              "w-9 h-9 flex items-center justify-center transition-colors rounded-lg",
+              isListening
+                ? "text-accent-danger bg-accent-danger/10 hover:bg-accent-danger/20 animate-pulse"
+                : "text-text-main/60 hover:text-text-main hover:bg-text-main/5"
+            )}
+          >
+            {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+          </motion.button>
+        )}
 
         <motion.button
           type="button"
