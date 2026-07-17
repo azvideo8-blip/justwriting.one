@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles, Square, X, RotateCcw, Brain } from 'lucide-react';
+import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles, Square, X, RotateCcw, Brain, Filter, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
 import { DocumentPickerModal } from '../components/DocumentPickerModal';
@@ -25,8 +25,7 @@ import { useAIPageData } from '../hooks/useAIPageData';
 import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
-import { relativeDate } from '../../../core/utils/dateUtils';
-import type { AITimelineEntry } from '../../../core/storage/localDb';
+// import type { AITimelineEntry } from '../../../core/storage/localDb';
 import type { TemporalQuery } from '../utils/temporalQueryParser';
 
 const formatScopeLabel = (scope: TemporalQuery | null | undefined): string => {
@@ -166,27 +165,33 @@ export function AIPage() {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('justwriting_sidebar_collapsed') === 'true');
+  const toggleSidebar = () => {
+    const next = !sidebarCollapsed;
+    setSidebarCollapsed(next);
+    localStorage.setItem('justwriting_sidebar_collapsed', String(next));
+  };
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const navigate = useNavigate();
   const [previewSession, setPreviewSession] = useState<ArchiveSession | null>(null);
   const [citationMeta, setCitationMeta] = useState<Record<string, { date: string; title: string }>>({});
 
-  const [suggestedNote, setSuggestedNote] = useState<AITimelineEntry | null>(null);
+  // const [suggestedNote, setSuggestedNote] = useState<AITimelineEntry | null>(null);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const { AITimelineService } = await import('../services/AITimelineService');
-        const entries = await AITimelineService.getMostRecent(1);
-        if (entries[0]) {
-          setSuggestedNote(entries[0]);
-        }
-      } catch (e) {
-        console.warn('[AIPage] failed to load suggested note:', e);
-      }
-    })();
-  }, []);
+  // useEffect(() => {
+  //   void (async () => {
+  //     try {
+  //       const { AITimelineService } = await import('../services/AITimelineService');
+  //       const entries = await AITimelineService.getMostRecent(1);
+  //       if (entries[0]) {
+  //         setSuggestedNote(entries[0]);
+  //       }
+  //     } catch (e) {
+  //       console.warn('[AIPage] failed to load suggested note:', e);
+  //     }
+  //   })();
+  // }, []);
 
   useEffect(() => {
     const ids = new Set<string>();
@@ -284,37 +289,37 @@ export function AIPage() {
     }
   };
 
-  const showBanner = (() => {
-    if (!suggestedNote) return false;
-    const noteDate = new Date(suggestedNote.date);
-    const now = new Date();
-    const diffMs = now.getTime() - noteDate.getTime();
-    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
-    const isWithin3Days = diffMs >= 0 && diffMs <= threeDaysMs;
-    if (!isWithin3Days) return false;
-
-    const isAlreadyAttached = dialogues.some(d => d.documentId === suggestedNote.documentId);
-    if (isAlreadyAttached) return false;
-
-    const dismissed = JSON.parse(localStorage.getItem('dismissed_suggested_notes') || '[]');
-    if (dismissed.includes(suggestedNote.documentId)) return false;
-
-    return true;
-  })();
-
-  const handleOpenSuggestedDialogue = () => {
-    if (!suggestedNote) return;
-    handleNewDialogue();
-    void handleDocSelect(suggestedNote.documentId);
-  };
-
-  const handleDismissSuggestedNote = () => {
-    if (!suggestedNote) return;
-    const dismissed = JSON.parse(localStorage.getItem('dismissed_suggested_notes') || '[]');
-    dismissed.push(suggestedNote.documentId);
-    localStorage.setItem('dismissed_suggested_notes', JSON.stringify(dismissed));
-    setSuggestedNote(null);
-  };
+  // const showBanner = (() => {
+  //   if (!suggestedNote) return false;
+  //   const noteDate = new Date(suggestedNote.date);
+  //   const now = new Date();
+  //   const diffMs = now.getTime() - noteDate.getTime();
+  //   const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+  //   const isWithin3Days = diffMs >= 0 && diffMs <= threeDaysMs;
+  //   if (!isWithin3Days) return false;
+  // 
+  //   const isAlreadyAttached = dialogues.some(d => d.documentId === suggestedNote.documentId);
+  //   if (isAlreadyAttached) return false;
+  // 
+  //   const dismissed = JSON.parse(localStorage.getItem('dismissed_suggested_notes') || '[]');
+  //   if (dismissed.includes(suggestedNote.documentId)) return false;
+  // 
+  //   return true;
+  // })();
+  // 
+  // const handleOpenSuggestedDialogue = () => {
+  //   if (!suggestedNote) return;
+  //   handleNewDialogue();
+  //   void handleDocSelect(suggestedNote.documentId);
+  // };
+  // 
+  // const handleDismissSuggestedNote = () => {
+  //   if (!suggestedNote) return;
+  //   const dismissed = JSON.parse(localStorage.getItem('dismissed_suggested_notes') || '[]');
+  //   dismissed.push(suggestedNote.documentId);
+  //   localStorage.setItem('dismissed_suggested_notes', JSON.stringify(dismissed));
+  //   setSuggestedNote(null);
+  // };
 
   // AX-4: Resizable sidebar — persisted to localStorage
   const SIDEBAR_MIN = 220;
@@ -385,113 +390,149 @@ export function AIPage() {
     <div className={cn("h-screen bg-surface-base flex", isMobile ? "flex-col" : "flex-row")}>
       {!isMobile && (
         <>
-        <div className="border-r border-border-subtle flex flex-col bg-surface-card/30 max-w-[180px] sm:max-w-[200px] md:max-w-none" style={{ width: sidebarWidth, flexShrink: 0 }}>
-          <div className="p-4 pb-3.5">
-            <Button
-              onClick={handleNewDialogue}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-soft/10 border border-brand-soft/25 text-brand-soft text-sm font-semibold hover:bg-brand-soft/20 transition-colors"
-            >
-              <Plus size={15} />
-              {t('ai_new_dialogue')}
-            </Button>
-          </div>
-
-          <div className="flex gap-1 px-4 pb-3.5">
-            <Button
-              onClick={() => setShowArchived(false)}
-              className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", !showArchived ? "bg-surface-elevated text-text-main" : "text-text-main/60 hover:text-text-main/60")}
-            >
-              {t('ai_active')}
-            </Button>
-            <Button
-              onClick={() => setShowArchived(true)}
-              className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", showArchived ? "bg-surface-elevated text-text-main" : "text-text-main/60 hover:text-text-main/60")}
-            >
-              {t('ai_archive')}
-            </Button>
-          </div>
-
-          <div className="h-px bg-border-subtle mx-4 mb-1.5" />
-
-          <div className="flex-1 overflow-y-auto px-3 py-1.5 space-y-0.5">
-            {showBanner && suggestedNote && (
-              <div className="mx-1 my-2 p-3 rounded-xl border border-brand-soft/20 bg-brand-soft/10 space-y-2 relative overflow-hidden">
-                <button
-                  onClick={handleDismissSuggestedNote}
-                  className="absolute top-2 right-2 text-text-main/40 hover:text-text-main transition-colors"
-                  title="Скрыть"
-                >
-                  <X size={14} />
-                </button>
-                <div className="pr-4">
-                  <p className="text-xs text-text-main/80 font-medium leading-normal">
-                    Хочешь поговорить о том, что писал {relativeDate(new Date(suggestedNote.date).getTime())}?
-                    <span className="block text-[11px] text-text-main/55 italic mt-1">
-                      [{suggestedNote.summary || suggestedNote.themes?.[0] || 'заметка'}]
-                    </span>
-                  </p>
-                </div>
-                <Button
-                  onClick={handleOpenSuggestedDialogue}
-                  className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-brand-soft text-surface-card text-[11px] font-bold hover:bg-brand-soft/90 transition-colors"
-                >
-                  <span>Открыть диалог</span>
-                  <ArrowRight size={11} />
-                </Button>
-              </div>
-            )}
-            {(showArchived ? archivedDialogues : dialogues).map(d => {
-              const v = personaVisual(d.personaId, d.personaName);
-              const isActive = activeDialogueId === d.id;
-              const preview = threadPreview(d);
-              return (
-                <Button
-                  key={d.id}
-                  onClick={() => { setActiveDialogueId(d.id); setSelectedPersonaId(d.personaId); }}
-                  className="w-full text-left relative flex gap-3 px-3 py-3 rounded-xl transition-colors"
-                  style={isActive ? { background: `linear-gradient(90deg, ${v.color}16, transparent 75%)` } : undefined}
-                >
-                  {isActive && (
-                    <span
-                      className="absolute left-1 top-3.5 bottom-3.5 w-[2.5px] rounded-full"
-                      style={{ background: v.color, boxShadow: `0 0 9px ${v.color}90` }}
-                    />
-                  )}
-                  <Monogram color={v.color} mono={v.mono} size={28} dim={!isActive} />
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-baseline gap-2">
-                      <span className={cn("flex-1 min-w-0 text-sm font-medium truncate", isActive ? "text-text-main" : "text-text-main/55")}>{d.title}</span>
-                      <span className="text-[9.5px] font-mono text-text-main/60 shrink-0">{new Date(d.updatedAt).toLocaleDateString()}</span>
-                    </span>
-                    <span className={cn("flex items-center gap-1.5 mt-1 text-xs leading-snug truncate", isActive ? "text-text-main/60" : "text-text-main/60")}>
-                      {d.documentId && <FileText size={10} className="shrink-0" />}
-                      <span className="truncate">{preview}</span>
-                    </span>
-                  </span>
-                  {showArchived && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); void handleUnarchive(d.id); }}
-                      className="shrink-0 p-1.5 rounded-lg text-text-main/60 hover:text-brand-soft transition-colors"
-                      title={t('ai_unarchive')}
-                    >
-                      <RotateCcw size={14} />
-                    </button>
-                  )}
-                </Button>
-              );
-            })}
-            {((showArchived ? archivedDialogues : dialogues).length === 0) && (
-              <div className="py-8 text-center text-xs text-text-main/60">
-                {showArchived ? t('ai_no_archived_dialogues') : t('ai_no_active_dialogues')}
-              </div>
-            )}
-          </div>
-        </div>
         <div
-          onMouseDown={startSidebarDrag}
-          className="w-1 cursor-col-resize hover:bg-brand-soft/30 transition-colors shrink-0"
-          style={{ marginRight: -1 }}
-        />
+          className="border-r border-border-subtle flex flex-col bg-surface-card/30 transition-[width] duration-200"
+          style={{ width: sidebarCollapsed ? '60px' : sidebarWidth, flexShrink: 0 }}
+        >
+          {sidebarCollapsed ? (
+            <div className="p-2 flex flex-col items-center gap-3">
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="w-10 h-10 flex items-center justify-center rounded-xl text-text-main/60 hover:text-text-main hover:bg-surface-elevated transition-colors border border-border-subtle/50"
+                title="Развернуть боковую панель"
+              >
+                <PanelLeftOpen size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={handleNewDialogue}
+                className="w-10 h-10 flex items-center justify-center rounded-xl bg-brand-soft/10 text-brand-soft border border-brand-soft/20 hover:bg-brand-soft/20 transition-colors"
+                title={t('ai_new_dialogue')}
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="p-4 pb-3.5 flex items-center gap-2">
+                <Button
+                  onClick={handleNewDialogue}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-soft/10 border border-brand-soft/25 text-brand-soft text-sm font-semibold hover:bg-brand-soft/20 transition-colors"
+                >
+                  <Plus size={15} />
+                  {t('ai_new_dialogue')}
+                </Button>
+                <button
+                  type="button"
+                  onClick={toggleSidebar}
+                  className="p-2.5 rounded-xl text-text-main/60 hover:text-text-main hover:bg-surface-elevated transition-colors border border-border-subtle"
+                  title="Свернуть боковую панель"
+                >
+                  <PanelLeftClose size={15} />
+                </button>
+              </div>
+
+              <div className="flex gap-1 px-4 pb-3.5">
+                <Button
+                  onClick={() => setShowArchived(false)}
+                  className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", !showArchived ? "bg-surface-elevated text-text-main" : "text-text-main/60 hover:text-text-main/60")}
+                >
+                  {t('ai_active')}
+                </Button>
+                <Button
+                  onClick={() => setShowArchived(true)}
+                  className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", showArchived ? "bg-surface-elevated text-text-main" : "text-text-main/60 hover:text-text-main/60")}
+                >
+                  {t('ai_archive')}
+                </Button>
+              </div>
+
+              <div className="h-px bg-border-subtle mx-4 mb-1.5" />
+
+              <div className="flex-1 overflow-y-auto px-3 py-1.5 space-y-0.5">
+                {/* {showBanner && suggestedNote && (
+                  <div className="mx-1 my-2 p-3 rounded-xl border border-brand-soft/20 bg-brand-soft/10 space-y-2 relative overflow-hidden">
+                    <button
+                      onClick={handleDismissSuggestedNote}
+                      className="absolute top-2 right-2 text-text-main/40 hover:text-text-main transition-colors"
+                      title="Скрыть"
+                    >
+                      <X size={14} />
+                    </button>
+                    <div className="pr-4">
+                      <p className="text-xs text-text-main/80 font-medium leading-normal">
+                        Хочешь поговорить о том, что писал {relativeDate(new Date(suggestedNote.date).getTime())}?
+                        <span className="block text-[11px] text-text-main/55 italic mt-1">
+                          [{suggestedNote.summary || suggestedNote.themes?.[0] || 'заметка'}]
+                        </span>
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleOpenSuggestedDialogue}
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-brand-soft text-surface-card text-[11px] font-bold hover:bg-brand-soft/90 transition-colors"
+                    >
+                      <span>Открыть диалог</span>
+                      <ArrowRight size={11} />
+                    </Button>
+                  </div>
+                )} */}
+                {(showArchived ? archivedDialogues : dialogues).map(d => {
+                  const v = personaVisual(d.personaId, d.personaName);
+                  const isActive = activeDialogueId === d.id;
+                  const preview = threadPreview(d);
+                  return (
+                    <Button
+                      key={d.id}
+                      onClick={() => { setActiveDialogueId(d.id); setSelectedPersonaId(d.personaId); }}
+                      className="w-full text-left relative flex gap-3 px-3 py-3 rounded-xl transition-colors"
+                      style={isActive ? { background: `linear-gradient(90deg, ${v.color}16, transparent 75%)` } : undefined}
+                    >
+                      {isActive && (
+                        <span
+                          className="absolute left-1 top-3.5 bottom-3.5 w-[2.5px] rounded-full"
+                          style={{ background: v.color, boxShadow: `0 0 9px ${v.color}90` }}
+                        />
+                      )}
+                      <Monogram color={v.color} mono={v.mono} size={28} dim={!isActive} />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-baseline gap-2">
+                          <span className={cn("flex-1 min-w-0 text-sm font-medium truncate", isActive ? "text-text-main" : "text-text-main/55")}>{d.title}</span>
+                          <span className="text-[9.5px] font-mono text-text-main/60 shrink-0">{new Date(d.updatedAt).toLocaleDateString()}</span>
+                        </span>
+                        <span className={cn("flex items-center gap-1.5 mt-1 text-xs leading-snug truncate", isActive ? "text-text-main/60" : "text-text-main/60")}>
+                          {d.documentId && <FileText size={10} className="shrink-0" />}
+                          <span className="truncate">{preview}</span>
+                        </span>
+                      </span>
+                      {showArchived && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); void handleUnarchive(d.id); }}
+                          className="shrink-0 p-1.5 rounded-lg text-text-main/60 hover:text-brand-soft transition-colors"
+                          title={t('ai_unarchive')}
+                        >
+                          <RotateCcw size={14} />
+                        </button>
+                      )}
+                    </Button>
+                  );
+                })}
+                {((showArchived ? archivedDialogues : dialogues).length === 0) && (
+                  <div className="py-8 text-center text-xs text-text-main/60">
+                    {showArchived ? t('ai_no_archived_dialogues') : t('ai_no_active_dialogues')}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+        {!sidebarCollapsed && (
+          <div
+            onMouseDown={startSidebarDrag}
+            className="w-1 cursor-col-resize hover:bg-brand-soft/30 transition-colors shrink-0"
+            style={{ marginRight: -1 }}
+          />
+        )}
         </>
       )}
 
@@ -531,8 +572,10 @@ export function AIPage() {
                 <button
                   type="button"
                   onClick={() => void handleClearTemporalScope()}
+                  title="ИИ ищет только в заметках за этот период. Нажми ✕, чтобы искать по всем."
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30 border border-brand-soft/30 transition-all font-medium cursor-pointer"
                 >
+                  <Filter size={11} className="shrink-0" />
                   Только {formatScopeLabel(dialogue.temporalScope)}
                   <X size={12} className="opacity-70" />
                 </button>

@@ -5,7 +5,6 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 export const PRESET_PERSONAS = [
   { id: 'group_psychology', name: 'Группа психологов', emoji: '\u{1FAC2}', isPreset: true },
   { id: 'cbt', name: 'КПТ-психолог', emoji: '\u{1F9E0}', isPreset: true },
-  { id: 'editor', name: 'Редактор', emoji: '\u270F\uFE0F', isPreset: true },
   { id: 'coach', name: 'Коуч', emoji: '\u{1F680}', isPreset: true },
 ] as const;
 
