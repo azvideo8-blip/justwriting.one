@@ -228,6 +228,21 @@ export interface AIDomainVector {
   updatedAt: number;
 }
 
+export interface LifeStoryEntry {
+  eventDate: string; // YYYY-MM-DD, keyPath
+  text: string;
+  sourceDocumentIds: string[];
+  generatedAt: number;
+  edited?: boolean;
+}
+
+export interface AIPortrait {
+  id: string;
+  portrait: string;
+  updatedAt: number;
+  generatedAtDelta: number;
+}
+
 interface JustWritingDB extends DBSchema {
   documents: {
     key: string;
@@ -302,6 +317,15 @@ interface JustWritingDB extends DBSchema {
       updatedAt: number;
     };
   };
+  lifeStory: {
+    key: string;
+    value: LifeStoryEntry;
+    indexes: { 'by-eventDate': string };
+  };
+  aiPortrait: {
+    key: string;
+    value: AIPortrait;
+  };
 }
 
 let dbInstance: IDBPDatabase<JustWritingDB> | null = null;
@@ -330,7 +354,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   if (dbOpenPromise) return dbOpenPromise;
 
   const currentGeneration = dbGeneration;
-  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 13, {
+  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 14, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const docStore = db.createObjectStore('documents', { keyPath: 'id' });
@@ -411,6 +435,15 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
         }
         if (!db.objectStoreNames.contains('aiThreads')) {
           db.createObjectStore('aiThreads', { keyPath: 'id' });
+        }
+      }
+      if (oldVersion < 14) {
+        if (!db.objectStoreNames.contains('lifeStory')) {
+          const storyStore = db.createObjectStore('lifeStory', { keyPath: 'eventDate' });
+          storyStore.createIndex('by-eventDate', 'eventDate');
+        }
+        if (!db.objectStoreNames.contains('aiPortrait')) {
+          db.createObjectStore('aiPortrait', { keyPath: 'id' });
         }
       }
     },

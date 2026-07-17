@@ -19,6 +19,11 @@ import { ProfileService } from '../services/ProfileService';
 import { useToast } from '../../../shared/components/Toast';
 import { useProfileStats } from '../hooks/useProfileStats';
 import { Button } from '../../../shared/components/Button';
+import { CollapsibleSection } from '../components/CollapsibleSection';
+import { ProfileFacets } from '../../ai/components/ProfileFacets';
+import { ContactDoors } from '../../ai/components/ContactDoors';
+import { AuthorPortrait } from '../../ai/components/AuthorPortrait';
+import { LifeStoryTimeline } from '../../ai/components/LifeStoryTimeline';
 
 interface ProfilePageProps {
   user: User | null;
@@ -93,53 +98,70 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-surface-base">
-        <ProfileHero
+    <div className="min-h-screen bg-surface-base pb-12">
+      <ProfileHero
         user={user} profile={profile} isGuest={isGuest}
         onStartSession={() => void navigate('/')}
       />
-      <div className="px-4 md:px-9 pt-6 flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible scroll-snap-x-container gap-6 md:gap-0 pb-6 md:pb-0">
-          <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden">
-            <KPIStrip stats={kpiStats} />
+      
+      <div className="max-w-5xl mx-auto px-4 md:px-9 space-y-6 pt-6">
+        <CollapsibleSection title="Как я пишу" storageKey="profile_sec_how_write" defaultOpen={true}>
+          <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible scroll-snap-x-container gap-6 md:gap-0 pb-6 md:pb-0">
+            <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden animate-none">
+              <KPIStrip stats={kpiStats} />
+            </div>
+            <div className="hidden md:block h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_30%,var(--border-light))] to-transparent animate-none" />
+            <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden animate-none">
+              <Heatmap sessions={sessions} />
+            </div>
+            <div className="hidden md:block h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_30%,var(--border-light))] to-transparent animate-none" />
+            <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden animate-none">
+              <HourRhythm sessions={sessions} />
+            </div>
+            <div className="hidden md:block h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_30%,var(--border-light))] to-transparent animate-none" />
+            <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden animate-none">
+              <MoodTrend userId={userId} />
+            </div>
+            <div className="hidden md:block h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_30%,var(--border-light))] to-transparent animate-none" />
+            <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden animate-none">
+              <StreakRibbon sessions={sessions} />
+            </div>
+            <div className="hidden md:block h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_30%,var(--border-light))] to-transparent animate-none" />
+            <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden animate-none">
+              <Achievements key={achResetKey} stats={kpiStats} sessions={sessions} />
+            </div>
           </div>
-          <div className="hidden md:block h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_30%,var(--border-light))] to-transparent" />
-          <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden">
-            <Heatmap sessions={sessions} />
+          
+          <div className="pt-3 text-center">
+            {showResetConfirm ? (
+              <div className="inline-flex items-center gap-3 bg-accent-danger/10 border border-accent-danger/20 rounded-lg px-4 py-2">
+                <span className="text-[12px] text-accent-danger">{t('profile_ach_reset_confirm')}</span>
+                <Button onClick={handleResetAchievements} className="text-label-sm font-medium text-accent-danger hover:text-red-300 transition-colors uppercase tracking-widest">
+                  {t('profile_ach_reset')}
+                </Button>
+                <Button onClick={() => setShowResetConfirm(false)} className="text-label-sm font-medium text-text-main/60 hover:text-text-main/60 transition-colors uppercase tracking-widest">
+                  ✕
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={() => setShowResetConfirm(true)} className="font-mono text-label-sm text-text-main/60 hover:text-accent-danger/50 transition-colors uppercase tracking-widest">
+                {t('profile_ach_reset')}
+              </Button>
+            )}
           </div>
-          <div className="hidden md:block h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_30%,var(--border-light))] to-transparent" />
-          <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden">
-            <HourRhythm sessions={sessions} />
-          </div>
-          <div className="hidden md:block h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_30%,var(--border-light))] to-transparent" />
-          <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden">
-            <MoodTrend userId={userId} />
-          </div>
-          <div className="hidden md:block h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_30%,var(--border-light))] to-transparent" />
-          <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden">
-            <StreakRibbon sessions={sessions} />
-          </div>
-          <div className="hidden md:block h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--flow-pulse-color)_30%,var(--border-light))] to-transparent" />
-          <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden animate-none">
-            <Achievements key={achResetKey} stats={kpiStats} sessions={sessions} />
-          </div>
-      </div>
-      <div className="px-9 pt-3 pb-12 text-center">
-        {showResetConfirm ? (
-          <div className="inline-flex items-center gap-3 bg-accent-danger/10 border border-accent-danger/20 rounded-lg px-4 py-2">
-            <span className="text-[12px] text-accent-danger">{t('profile_ach_reset_confirm')}</span>
-            <Button onClick={handleResetAchievements} className="text-label-sm font-medium text-accent-danger hover:text-red-300 transition-colors uppercase tracking-widest">
-              {t('profile_ach_reset')}
-            </Button>
-            <Button onClick={() => setShowResetConfirm(false)} className="text-label-sm font-medium text-text-main/60 hover:text-text-main/60 transition-colors uppercase tracking-widest">
-              ✕
-            </Button>
-          </div>
-        ) : (
-          <Button onClick={() => setShowResetConfirm(true)} className="font-mono text-label-sm text-text-main/60 hover:text-accent-danger/50 transition-colors uppercase tracking-widest">
-            {t('profile_ach_reset')}
-          </Button>
-        )}
+        </CollapsibleSection>
 
+        <CollapsibleSection title="Обо мне" storageKey="profile_sec_about_me" defaultOpen={true}>
+          <div className="space-y-6">
+            <ProfileFacets readOnly={true} />
+            <ContactDoors readOnly={true} />
+            <AuthorPortrait readOnly={true} />
+          </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection title="История моей жизни" storageKey="profile_sec_life_story" defaultOpen={true}>
+          <LifeStoryTimeline />
+        </CollapsibleSection>
       </div>
     </div>
   );

@@ -194,8 +194,28 @@ export function useEmbeddingIndexer(): void {
           }
           if (result === 'ok') {
             incrementIndexerDailyUsage();
-            void AIProfileFacetService.incrementalUpdate(docId).then(() => {
+            void AIProfileFacetService.incrementalUpdate(docId).then(async () => {
               scheduleResummarize();
+
+              // C-3: Auto-populate lifeStory from timeline
+              try {
+                const db = await getLocalDb();
+                const timelineEntry = await db.get('aiTimeline', docId);
+                if (timelineEntry) {
+                  const { LifeStoryService } = await import('../services/LifeStoryService');
+                  await LifeStoryService.autoPopulateFromTimeline(timelineEntry);
+                }
+              } catch (e) {
+                reportError(e, { action: '[useEmbeddingIndexer] lifeStory auto-populate failed' });
+              }
+
+              // C-2: Auto-generate portrait
+              try {
+                const { AIProfileService } = await import('../services/AIProfileService');
+                await AIProfileService.autoGeneratePortrait();
+              } catch (e) {
+                reportError(e, { action: '[useEmbeddingIndexer] portrait auto-generation failed' });
+              }
             }).catch(e =>
               reportError(e, { action: '[useEmbeddingIndexer] incremental facet update failed' }),
             );
