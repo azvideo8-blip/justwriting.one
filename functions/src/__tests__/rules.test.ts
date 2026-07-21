@@ -362,6 +362,23 @@ describe('firestore.rules — anonymizedTelemetry', () => {
     await assertFails(db.doc('anonymizedTelemetry/tel-1').delete());
   });
 
+  it('allows deleting telemetry by admin (via custom claim)', async () => {
+    const dbAdmin = testEnv.authenticatedContext('admin-user', { role: 'admin' }).firestore();
+    const dbUser = testEnv.authenticatedContext('user-a').firestore();
+    await dbUser.doc('anonymizedTelemetry/tel-1').set(validTelemetry);
+    await assertSucceeds(dbAdmin.doc('anonymizedTelemetry/tel-1').delete());
+  });
+
+  it('denies deleting telemetry by user with admin role in document but no custom claim', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().doc('users/fake-admin-doc').set({ uid: 'fake-admin-doc', role: 'admin' });
+      await context.firestore().doc('anonymizedTelemetry/tel-1').set(validTelemetry);
+    });
+
+    const dbFakeAdmin = testEnv.authenticatedContext('fake-admin-doc').firestore();
+    await assertFails(dbFakeAdmin.doc('anonymizedTelemetry/tel-1').delete());
+  });
+
   it('denies unauthenticated telemetry creation', async () => {
     const db = testEnv.unauthenticatedContext().firestore();
     await assertFails(
