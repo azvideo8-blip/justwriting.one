@@ -104,8 +104,8 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
         onStartSession={() => void navigate('/')}
       />
       
-      <div className="max-w-5xl mx-auto px-4 md:px-9 space-y-6 pt-6">
-        <CollapsibleSection title="Как я пишу" storageKey="profile_sec_how_write" defaultOpen={true}>
+      <div className="max-w-6xl mx-auto px-4 md:px-9 space-y-6 pt-6">
+        <CollapsibleSection title="Как я пишу" storageKey="profile_sec_how_write_v2" defaultOpen={true}>
           <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible scroll-snap-x-container gap-6 md:gap-0 pb-6 md:pb-0">
             <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden animate-none">
               <KPIStrip stats={kpiStats} />
@@ -151,15 +151,15 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection title="Обо мне" storageKey="profile_sec_about_me" defaultOpen={true}>
+        <CollapsibleSection title="Обо мне" storageKey="profile_sec_about_me_v2" defaultOpen={true}>
           <div className="space-y-6">
+            <AuthorPortrait readOnly={true} />
             <ProfileFacets readOnly={true} />
             <ContactDoors readOnly={true} />
-            <AuthorPortrait readOnly={true} />
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection title="История моей жизни" storageKey="profile_sec_life_story" defaultOpen={true}>
+        <CollapsibleSection title="История моей жизни" storageKey="profile_sec_life_story_v2" defaultOpen={true}>
           <LifeStoryTimeline />
         </CollapsibleSection>
       </div>

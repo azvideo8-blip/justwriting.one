@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Sparkles, Layers, Copy, FileText, PenLine, Scale, CheckCircle2, Wrench, AlertTriangle, ChevronDown } from 'lucide-react';
+import { Loader2, Sparkles, Layers, Copy, FileText, Scale, CheckCircle2, Wrench, AlertTriangle, ChevronDown } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { useToast } from '../../../shared/components/Toast';
@@ -10,12 +10,13 @@ import type { AIProfileFacet, LocalDocument } from '../../../core/storage/localD
 import { getLocalDb } from '../../../core/storage/localDb';
 import { reportError } from '../../../shared/errors/reportError';
 
-const RECENT_MS = 14 * 24 * 60 * 60 * 1000;
+const NEW_MS = 14 * 24 * 60 * 60 * 1000;
+const ACTIVE_MS = 30 * 24 * 60 * 60 * 1000;
 
 function trend(f: AIProfileFacet): { label: string; cls: string } {
   const now = Date.now();
-  if (f.firstAt && now - f.firstAt < RECENT_MS) return { label: 'новая', cls: 'bg-brand-soft/15 text-brand-soft' };
-  if (f.lastAt && now - f.lastAt < RECENT_MS) return { label: 'активна', cls: 'bg-emerald-500/15 text-emerald-400' };
+  if (f.firstAt && now - f.firstAt < NEW_MS) return { label: 'новая', cls: 'bg-brand-soft/15 text-brand-soft' };
+  if (f.lastAt && now - f.lastAt < ACTIVE_MS) return { label: 'активна', cls: 'bg-emerald-500/15 text-emerald-400' };
   return { label: 'затихла', cls: 'bg-surface-base/10 text-text-main/60' };
 }
 
@@ -280,14 +281,6 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
                     <span className={cn('text-sm font-semibold text-text-main', !isExp && 'truncate')}>{f.label}</span>
                     <div className="flex items-center gap-1.5">
                       {f.dirty && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">новое</span>}
-                      {(f.insightDensity ?? 0) >= 0.5 && (
-                        <button
-                          onClick={e => { e.stopPropagation(); void navigate(`/ai?persona=cbt&draftFacet=${f.id}`); }}
-                          className="flex items-center gap-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 hover:bg-violet-500/25 transition-colors"
-                        >
-                          <PenLine size={10} /> в пост
-                        </button>
-                      )}
                       <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0', t.cls)}>{t.label}</span>
                     </div>
                   </div>
