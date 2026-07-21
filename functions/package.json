@@ -4,8 +4,8 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
-    "test:emulator": "firebase emulators:exec --only firestore \"npx vitest run -c vitest.emulator.config.ts src/__tests__/emulator/\"",
-    "test:rules": "firebase emulators:exec --only firestore \"npx vitest run -c vitest.emulator.config.ts src/__tests__/rules.test.ts\"",
+    "test:emulator": "npx -y firebase-tools@latest emulators:exec --only firestore \"npx vitest run -c vitest.emulator.config.ts src/__tests__/emulator/\"",
+    "test:rules": "npx -y firebase-tools@latest emulators:exec --only firestore \"npx vitest run -c vitest.emulator.config.ts src/__tests__/rules.test.ts\"",
     "serve": "npm run build && firebase emulators:start --only functions",
     "deploy": "firebase deploy --only functions"
   },
