@@ -1,6 +1,16 @@
 # Changelog
 
 ## Unreleased
+- **[RU]** Чат: детекторы прикреплённой заметки/саммари/файла (`ATTACHED_*_RE`, `AIChatPresentational.tsx`) теперь допускают ведущий маркер цитаты `[#id · дата]\n`, поэтому инлайновая заметка снова рендерится сворачиваемой карточкой, а не сырым текстом (regression-тест `attachmentRegex.test.ts`).
+- **[EN]** Chat: the attached note/summary/file detectors (`ATTACHED_*_RE`, `AIChatPresentational.tsx`) now tolerate a leading `[#id · date]\n` citation marker, so an inline note again renders as a collapsible card instead of raw text (regression test `attachmentRegex.test.ts`).
+- **[RU]** `MarkdownRenderer` подключил `remark-gfm` — таблицы (в `overflow-x-auto`) и зачёркивание в ответах ИИ рендерятся корректно; санитайзер без `rehype-raw` сохранён.
+- **[EN]** `MarkdownRenderer` enables `remark-gfm` — GFM tables (in `overflow-x-auto`) and strikethrough in AI replies render correctly; the no-`rehype-raw` sanitizer is preserved.
+- **[RU]** Всплывающие панели в шапке чата переведены на непрозрачный токен `bg-surface-popup` (был полупрозрачный `surface-elevated`), убрано просвечивание; переключатель «Рассуждения» снова читается.
+- **[EN]** Chat-header popovers switched to the opaque `bg-surface-popup` token (was translucent `surface-elevated`), removing show-through; the "Reasoning" toggle is legible again.
+- **[RU]** Профиль: «Обо мне» и «История моей жизни» свёрнуты по умолчанию (ключи `_v3`), развёрнут только «Как я пишу»; заголовок тем сокращён до «Темы профиля», «Журнал судьи» скрыт вне диагностики (`!readOnly`).
+- **[EN]** Profile: "About me" and "Story of my life" collapsed by default (keys `_v3`), only "How I write" open; themes heading trimmed to "Profile themes", judge log hidden outside diagnostics (`!readOnly`).
+- **[RU]** История жизни: в `AITimelineEntry` добавлено поле `insights` (заполняется в `AISummaryService`/`AITimelineService`); день показывается полным текстом со стрелкой-разворотом, факты и инсайты — отдельными списками.
+- **[EN]** Life story: added `insights` to `AITimelineEntry` (populated in `AISummaryService`/`AITimelineService`); each day shows full text with an expand chevron, facts and insights as separate lists.
 - **[RU]** Аудит облачных AI-функций: валидация входа (инъекции/`documentId`) перенесена ПЕРЕД списанием bulk-лимита в `summarizeFacet`/`rerankNotes`/`extractChatMemory` — отклонённый запрос больше не сжигает дневную bulk-квоту.
 - **[EN]** Cloud AI functions audit: input validation (injection/`documentId`) moved BEFORE the bulk-limit increment in `summarizeFacet`/`rerankNotes`/`extractChatMemory` — a rejected request no longer burns the daily bulk quota.
 - **[RU]** Учёт бюджета: убран двойной refund bulk-лимита и ошибочный возврат уже сведённой (`recordUsage`) глобальной резервации на путях плохого JSON/схемы в `judgeFacets`/`deriveTaxonomy` (флаг `settled`); в `embedDocument` устранён двойной refund при несовпадении числа векторов — проектный cost-guard больше не занижает реально потраченные токены.
