@@ -228,11 +228,30 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
         setSelectedPersonaId('cbt');
         handleNewDialogue();
         setInputText(
-          `Напиши вовлекающий пост для Telegram/блога на тему «${facet.label}» на основе связанных заметок. ` +
-          `Инсайты для фокуса: ${facet.summary}`
+          `Давай разберём тему «${facet.label}». Вот что я про неё писал — помоги увидеть паттерн и что с этим делать.`
         );
+
+        const noteIdsToUse = facet.primaryNoteIds && facet.primaryNoteIds.length > 0
+          ? facet.primaryNoteIds
+          : facet.noteIds;
+
+        const db = await getLocalDb();
+        const docs = await Promise.all(
+          noteIdsToUse.map(async id => {
+            try {
+              const doc = await db.get('documents', id);
+              return { id, lastSessionAt: doc?.lastSessionAt ?? 0 };
+            } catch {
+              return { id, lastSessionAt: 0 };
+            }
+          })
+        );
+        // Sort descending by lastSessionAt (most-recent first)
+        docs.sort((a, b) => b.lastSessionAt - a.lastSessionAt);
+        const sortedIds = docs.map(d => d.id).slice(0, 5);
+
         const notes: { documentId: string; title: string; content: string; lastSessionAt?: number | undefined }[] = [];
-        for (const noteId of facet.noteIds.slice(0, 5)) {
+        for (const noteId of sortedIds) {
           const p = await prepareAttachment(noteId);
           if (p) notes.push({ documentId: noteId, title: p.title, content: p.content, lastSessionAt: p.lastSessionAt });
         }
