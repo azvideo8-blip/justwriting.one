@@ -125,6 +125,7 @@ export interface AITimelineEntry {
   themes?: string[];
   valence?: number;
   arousal?: number;
+  insights?: string[];
 }
 
 export interface AIMonthlyDigest {

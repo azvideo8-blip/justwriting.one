@@ -104,6 +104,7 @@ export const AISummaryService = {
           facts: summary.extractedFacts ?? [],
           tone: summary.tone,
           themes: summary.themes ?? [],
+          insights: summary.insights ?? [],
         };
         if (summary.summary !== undefined) {
           timelineEntry.summary = summary.summary;

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, ChevronDown } from 'lucide-react';
 import { getLocalDb, type LifeStoryEntry } from '../../../core/storage/localDb';
 import { LifeStoryService } from '../services/LifeStoryService';
 import { reportError } from '../../../shared/errors/reportError';
+import { cn } from '../../../core/utils/utils';
 
 interface DayItem {
   eventDate: string;
@@ -12,18 +13,7 @@ interface DayItem {
   storyEntry?: LifeStoryEntry | undefined;
   facts?: string[] | undefined;
   themes?: string[] | undefined;
-}
-
-function getTeaser(text: string | undefined): string {
-  if (!text) return '';
-  const firstSentence = text.split(/[.!?]\s/)[0];
-  if (firstSentence && firstSentence.length < text.length) {
-    return firstSentence + '.';
-  }
-  if (text.length > 80) {
-    return text.slice(0, 80) + '...';
-  }
-  return text;
+  insights?: string[] | undefined;
 }
 
 export function LifeStoryTimeline() {
@@ -47,7 +37,7 @@ export function LifeStoryTimeline() {
 
       // Map timeline entries to event dates. Reuse the note's existing AI summary
       // directly as the day's story — no separate generation needed.
-      const dayMap = new Map<string, { documentId: string; noteTitle: string; timelineSummary?: string | undefined; facts?: string[] | undefined; themes?: string[] | undefined }>();
+      const dayMap = new Map<string, { documentId: string; noteTitle: string; timelineSummary?: string | undefined; facts?: string[] | undefined; themes?: string[] | undefined; insights?: string[] | undefined }>();
       for (const entry of timelineEntries) {
         const eventDate = LifeStoryService.getDefaultEventDate(entry.date);
         const doc = docMap.get(entry.documentId);
@@ -57,6 +47,7 @@ export function LifeStoryTimeline() {
           timelineSummary: entry.summary,
           facts: entry.facts,
           themes: entry.themes,
+          insights: entry.insights,
         });
       }
 
@@ -79,6 +70,7 @@ export function LifeStoryTimeline() {
         storyEntry: storyMap.get(eventDate),
         facts: info.facts,
         themes: info.themes,
+        insights: info.insights,
       })).sort((a, b) => b.eventDate.localeCompare(a.eventDate));
 
       setDays(compiledDays);
@@ -120,9 +112,9 @@ export function LifeStoryTimeline() {
               const fullText = entry?.text || item.timelineSummary;
               const hasText = Boolean(fullText);
               const isExpanded = expandedDates[item.eventDate] || false;
-              const teaser = getTeaser(fullText);
               const hasFacts = item.facts && item.facts.length > 0;
-              const canExpand = hasText && ((fullText && fullText.length > teaser.length) || hasFacts);
+              const hasInsights = item.insights && item.insights.length > 0;
+              const hasDetails = hasFacts || hasInsights;
 
               return (
                 <div key={item.eventDate} className="relative pl-6">
@@ -132,7 +124,7 @@ export function LifeStoryTimeline() {
                   </span>
 
                   <div className="space-y-1.5">
-                    {/* Date */}
+                    {/* Date and Toggle */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono font-semibold text-text-main">
@@ -146,6 +138,16 @@ export function LifeStoryTimeline() {
                           <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">изменено</span>
                         )}
                       </div>
+                      {hasText && hasDetails && (
+                        <button
+                          type="button"
+                          onClick={() => toggleDateExpanded(item.eventDate)}
+                          className="p-1 text-text-main/40 hover:text-brand-soft hover:bg-surface-elevated rounded transition-all cursor-pointer focus:outline-none"
+                          title={isExpanded ? 'Свернуть детали' : 'Развернуть детали'}
+                        >
+                          <ChevronDown size={14} className={cn('transition-transform duration-200', isExpanded && 'rotate-180')} />
+                        </button>
+                      )}
                     </div>
 
                     {/* Text container */}
@@ -155,41 +157,31 @@ export function LifeStoryTimeline() {
                           <AlertCircle size={12} className="text-text-main/40" />
                           Нет описания для этого дня
                         </div>
-                      ) : !isExpanded ? (
-                        <div className="space-y-2">
-                          <span className="text-text-main/80">{teaser}</span>
-                          {canExpand && (
-                            <button
-                              type="button"
-                              onClick={() => toggleDateExpanded(item.eventDate)}
-                              className="text-brand-soft hover:underline focus:outline-none ml-1.5 font-medium cursor-pointer animate-none bg-transparent border-0 p-0"
-                            >
-                              развернуть
-                            </button>
-                          )}
-                        </div>
                       ) : (
                         <div className="space-y-3">
-                          <div>
-                            <span className="text-text-main/80">{fullText}</span>
-                            {canExpand && (
-                              <button
-                                type="button"
-                                onClick={() => toggleDateExpanded(item.eventDate)}
-                                className="text-brand-soft hover:underline focus:outline-none ml-1.5 font-medium cursor-pointer animate-none bg-transparent border-0 p-0"
-                              >
-                                свернуть
-                              </button>
-                            )}
-                          </div>
-                          {hasFacts && (
-                            <div className="mt-2.5 pt-2.5 border-t border-border-subtle/30 space-y-1.5">
-                              <div className="text-[10px] font-mono uppercase tracking-wider text-text-main/50">Факты и инсайты:</div>
-                              <ul className="list-disc pl-4 space-y-1 text-text-main/70">
-                                {item.facts!.map((fact, idx) => (
-                                  <li key={idx}>{fact}</li>
-                                ))}
-                              </ul>
+                          <span className="text-text-main/80">{fullText}</span>
+                          {isExpanded && hasDetails && (
+                            <div className="mt-2.5 pt-2.5 border-t border-border-subtle/30 space-y-3">
+                              {hasFacts && (
+                                <div className="space-y-1">
+                                  <div className="text-[10px] font-mono uppercase tracking-wider text-text-main/50 font-bold">Факты:</div>
+                                  <ul className="list-disc pl-4 space-y-1 text-text-main/70">
+                                    {item.facts!.map((fact, idx) => (
+                                      <li key={idx}>{fact}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              {hasInsights && (
+                                <div className="space-y-1">
+                                  <div className="text-[10px] font-mono uppercase tracking-wider text-text-main/50 font-bold">Инсайты:</div>
+                                  <ul className="list-disc pl-4 space-y-1 text-text-main/70">
+                                    {item.insights!.map((insight, idx) => (
+                                      <li key={idx}>{insight}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
