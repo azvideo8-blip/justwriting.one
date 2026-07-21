@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Sparkles, ChevronDown, ChevronUp, File, Paperclip, Copy, Trash2, RefreshCw, ThumbsUp, ThumbsDown, ChevronLeft, ChevronRight, FilePlus, CheckSquare } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 
-const ATTACHED_NOTE_RE = /^\[Прикреплена заметка: "([^"]+)"\]/;
-const ATTACHED_NOTE_SUMMARY_RE = /^\[Прикреплено саммари заметки: "([^"]+)"\]/;
-const ATTACHED_FILE_RE = /^\[Прикреплен файл: "([^"]+)"\]/;
+const ATTACHED_NOTE_RE = /^(?:\[#[^\]]*\]\s*)?\[Прикреплена заметка: "([^"]+)"\]/;
+const ATTACHED_NOTE_SUMMARY_RE = /^(?:\[#[^\]]*\]\s*)?\[Прикреплено саммари заметки: "([^"]+)"\]/;
+const ATTACHED_FILE_RE = /^(?:\[#[^\]]*\]\s*)?\[Прикреплен файл: "([^"]+)"\]/;
 
 // Serif monogram tile in a persona's colour — the avatar used across header, threads and messages.
 export function Monogram({ color, mono, size = 36, dim = false }: { color: string; mono: string; size?: number; dim?: boolean }) {
