@@ -2,6 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getDb } from './firestore';
 import DOMPurify from 'isomorphic-dompurify';
 import { Langfuse } from 'langfuse';
+import { sanitizeAiInputShared } from './buildChatPrompt';
 
 export const MAX_AI_CONTENT_LENGTH = 50_000;
 
@@ -101,18 +102,7 @@ export function getLangfuse(): Langfuse | null {
 }
 
 export function sanitizeAiInput(content: string): string {
-  let sanitized = content.slice(0, MAX_AI_CONTENT_LENGTH);
-  sanitized = sanitized.replace(/<\|system\|>/gi, '[system]');
-  sanitized = sanitized.replace(/<\|user\|>/gi, '[user]');
-  sanitized = sanitized.replace(/<\|assistant\|>/gi, '[assistant]');
-  sanitized = sanitized.replace(/<\|im_start\|>/gi, '[im_start]');
-  sanitized = sanitized.replace(/<\|im_end\|>/gi, '[im_end]');
-  sanitized = sanitized.replace(/\[INST\]/gi, '[inst]');
-  sanitized = sanitized.replace(/<\/?developer>/gi, '[developer]');
-  sanitized = sanitized.replace(/<end_of_turn>/gi, '[end_of_turn]');
-  sanitized = sanitized.replace(/[\u200B\u200C\u200D\uFEFF\u00AD]/g, '');
-  sanitized = sanitized.replace(/[\u2000-\u200A\u2028\u2029\u202F\u205F]/g, ' ');
-  return sanitized;
+  return sanitizeAiInputShared(content);
 }
 
 // Strips ALL HTML tags and attributes from AI responses using DOMPurify.

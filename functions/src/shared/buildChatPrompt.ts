@@ -59,8 +59,16 @@ export function buildChatSystemPrompt(params: {
 }
 
 export function sanitizeAiInputShared(content: string): string {
-  return content
-    .replace(/<\|system\|>/gi, '[system]')
-    .replace(/<\|user\|>/gi, '[user]')
-    .replace(/<\|assistant\|>/gi, '[assistant]');
+  let sanitized = content.slice(0, 50_000);
+  sanitized = sanitized.replace(/<\|system\|>/gi, '[system]');
+  sanitized = sanitized.replace(/<\|user\|>/gi, '[user]');
+  sanitized = sanitized.replace(/<\|assistant\|>/gi, '[assistant]');
+  sanitized = sanitized.replace(/<\|im_start\|>/gi, '[im_start]');
+  sanitized = sanitized.replace(/<\|im_end\|>/gi, '[im_end]');
+  sanitized = sanitized.replace(/\[INST\]/gi, '[inst]');
+  sanitized = sanitized.replace(/<\/?developer>/gi, '[developer]');
+  sanitized = sanitized.replace(/<end_of_turn>/gi, '[end_of_turn]');
+  sanitized = sanitized.replace(/\u200B|\u200C|\u200D|\uFEFF|\u00AD/g, '');
+  sanitized = sanitized.replace(/\u2000|\u2001|\u2002|\u2003|\u2004|\u2005|\u2006|\u2007|\u2008|\u2009|\u200A|\u2028|\u2029|\u202F|\u205F/g, ' ');
+  return sanitized;
 }
