@@ -20,6 +20,7 @@ const VECTOR_TOP = 40;
 const KEYWORD_TOP = 40;
 const RRF_FINAL = 15;
 const RERANK_THRESHOLD = 0.88;
+export const RESURFACE_FLOOR = 0.35;
 
 interface CacheResultEntry {
   documentId: string;
@@ -126,6 +127,19 @@ function hasExactTitleMatch(query: string, topIds: string[]): Promise<boolean> {
   })();
 }
 
+async function getExactTitleMatchIds(query: string, ids: string[]): Promise<Set<string>> {
+  const db = await getLocalDb();
+  const qLower = query.trim().toLowerCase();
+  const exactIds = new Set<string>();
+  for (const id of ids) {
+    const doc = await db.get('documents', id);
+    if (doc?.title?.trim().toLowerCase() === qLower) {
+      exactIds.add(id);
+    }
+  }
+  return exactIds;
+}
+
 type EmbeddingEntry = Awaited<ReturnType<typeof AIEmbeddingService.getAll>>[number];
 
 export async function searchNotes(query: string, maxResults = 5, opts?: { queryVector?: number[] | undefined; allEmbeddings?: EmbeddingEntry[] | undefined; minTime?: number | undefined; maxTime?: number | undefined; ignoredDocIds?: Set<string> | undefined }): Promise<RetrievedNote[]> {
@@ -197,16 +211,34 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
   // or there's an exact title match
   const topScore = vectorMatches[0]?.score ?? 0;
   const hasExactTitle = await hasExactTitleMatch(query, topIds);
+
+  const exactTitleIds = await getExactTitleMatchIds(query, topIds);
+  const vectorScoreMap = new Map(vectorMatches.map(m => [m.id, m.score]));
+
+  const filterByRelevanceFloor = (idList: string[]): string[] => {
+    return idList.filter(id => {
+      if (exactTitleIds.has(id)) return true;
+      const score = vectorScoreMap.get(id) ?? 0;
+      return score >= RESURFACE_FLOOR;
+    });
+  };
+
+  const filteredTopIds = filterByRelevanceFloor(topIds);
+
   if (topScore >= RERANK_THRESHOLD || hasExactTitle) {
     const scoreMap = new Map(fused.map(f => [f.id, f.score]));
-    const fallbackIds = topIds.slice(0, maxResults);
+    const fallbackIds = filteredTopIds.slice(0, maxResults);
     return loadNotes(fallbackIds, scoreMap, chunkIndexMap);
+  }
+
+  if (filteredTopIds.length === 0) {
+    return [];
   }
 
   // Build rerank cards from LOCAL summaries
   const cardsDb = await getLocalDb();
   const cards: { documentId: string; card: string }[] = [];
-  for (const id of topIds) {
+  for (const id of filteredTopIds) {
     let card = '(саммари недоступно)';
     try {
       const summary = await cardsDb.get('aiSummaries', id);
@@ -224,7 +256,7 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
   }
 
   // Rerank via the dedicated rerankNotes endpoint
-  const fallbackIds = topIds.slice(0, maxResults);
+  const fallbackIds = filteredTopIds.slice(0, maxResults);
   const rr = await AIService.rerank({
     query,
     candidates: cards,
@@ -232,9 +264,10 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
   });
 
   const ids = rr.ok && rr.documentIds.length > 0 ? rr.documentIds.slice(0, maxResults) : fallbackIds;
+  const finalIds = ids.filter(id => filteredTopIds.includes(id));
 
   const scoreMap = new Map(fused.map(f => [f.id, f.score]));
-  return loadNotes(ids, scoreMap, chunkIndexMap);
+  return loadNotes(finalIds, scoreMap, chunkIndexMap);
 }
 
 /** Loads title + chunk context for the given document ids, preserving order.
@@ -460,11 +493,24 @@ export async function searchNotesMulti(
     }
   }
 
+  const exactTitleIds = await getExactTitleMatchIds(queries[0]!, topIds);
+  const vectorScoreMap = new Map(vectorMatches.map(m => [m.id, m.score]));
+
+  const filterByRelevanceFloor = (idList: string[]): string[] => {
+    return idList.filter(id => {
+      if (exactTitleIds.has(id) || matchedIds.has(id)) return true;
+      const score = vectorScoreMap.get(id) ?? 0;
+      return score >= RESURFACE_FLOOR;
+    });
+  };
+
+  const filteredTopIds = filterByRelevanceFloor(topIds);
+
   // Bypass the cloud rerank when a strong local signal exists, and lift local
   // matches to the front (stable — the fused order is preserved otherwise).
   if (topScore >= RERANK_THRESHOLD || hasExactTitle || matchedIds.size > 0) {
     const scoreMap = new Map(fused.map(f => [f.id, f.score]));
-    const ordered = [...topIds].sort(
+    const ordered = [...filteredTopIds].sort(
       (a, b) => (matchedIds.has(b) ? 1 : 0) - (matchedIds.has(a) ? 1 : 0),
     );
     const fallbackIds = ordered.slice(0, maxResults);
@@ -473,10 +519,15 @@ export async function searchNotesMulti(
     return results;
   }
 
+  if (filteredTopIds.length === 0) {
+    putCache(cacheKey, []);
+    return [];
+  }
+
   // Build rerank cards from LOCAL summaries
   const cardsDb = await getLocalDb();
   const cards: { documentId: string; card: string }[] = [];
-  for (const id of topIds) {
+  for (const id of filteredTopIds) {
     let card = '(саммари недоступно)';
     try {
       const summary = await cardsDb.get('aiSummaries', id);
@@ -522,7 +573,7 @@ export async function searchNotesMulti(
   }
 
   // TICKET-044: Single rerank call using original query
-  const fallbackIds = topIds.slice(0, maxResults);
+  const fallbackIds = filteredTopIds.slice(0, maxResults);
   const rr = await AIService.rerank({
     query: queries[0]!,
     candidates: cards,
@@ -530,9 +581,10 @@ export async function searchNotesMulti(
   });
 
   const ids = rr.ok && rr.documentIds.length > 0 ? rr.documentIds.slice(0, maxResults) : fallbackIds;
+  const finalIds = ids.filter(id => filteredTopIds.includes(id));
 
   const scoreMap = new Map(fused.map(f => [f.id, f.score]));
-  const results = await loadNotes(ids, scoreMap, chunkIndexMap);
+  const results = await loadNotes(finalIds, scoreMap, chunkIndexMap);
 
   // TICKET-047: Cache results
   putCache(cacheKey, results);
