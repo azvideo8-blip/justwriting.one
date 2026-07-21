@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Pencil, Check, X, AlertCircle } from 'lucide-react';
-import { Button } from '../../../shared/components/Button';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { getLocalDb, type LifeStoryEntry } from '../../../core/storage/localDb';
 import { LifeStoryService } from '../services/LifeStoryService';
-import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
 
 interface DayItem {
@@ -12,15 +10,30 @@ interface DayItem {
   noteTitle: string;
   timelineSummary?: string | undefined;
   storyEntry?: LifeStoryEntry | undefined;
+  facts?: string[] | undefined;
+  themes?: string[] | undefined;
+}
+
+function getTeaser(text: string | undefined): string {
+  if (!text) return '';
+  const firstSentence = text.split(/[.!?]\s/)[0];
+  if (firstSentence && firstSentence.length < text.length) {
+    return firstSentence + '.';
+  }
+  if (text.length > 80) {
+    return text.slice(0, 80) + '...';
+  }
+  return text;
 }
 
 export function LifeStoryTimeline() {
-  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState<DayItem[]>([]);
-  const [editingDate, setEditingDate] = useState<string | null>(null);
-  const [editText, setEditText] = useState('');
-  const [editEventDate, setEditEventDate] = useState('');
+  const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
+
+  const toggleDateExpanded = (date: string) => {
+    setExpandedDates(prev => ({ ...prev, [date]: !prev[date] }));
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -34,7 +47,7 @@ export function LifeStoryTimeline() {
 
       // Map timeline entries to event dates. Reuse the note's existing AI summary
       // directly as the day's story — no separate generation needed.
-      const dayMap = new Map<string, { documentId: string; noteTitle: string; timelineSummary?: string | undefined }>();
+      const dayMap = new Map<string, { documentId: string; noteTitle: string; timelineSummary?: string | undefined; facts?: string[] | undefined; themes?: string[] | undefined }>();
       for (const entry of timelineEntries) {
         const eventDate = LifeStoryService.getDefaultEventDate(entry.date);
         const doc = docMap.get(entry.documentId);
@@ -42,6 +55,8 @@ export function LifeStoryTimeline() {
           documentId: entry.documentId,
           noteTitle: doc?.title || 'Заметка без названия',
           timelineSummary: entry.summary,
+          facts: entry.facts,
+          themes: entry.themes,
         });
       }
 
@@ -62,6 +77,8 @@ export function LifeStoryTimeline() {
         noteTitle: info.noteTitle,
         timelineSummary: info.timelineSummary,
         storyEntry: storyMap.get(eventDate),
+        facts: info.facts,
+        themes: info.themes,
       })).sort((a, b) => b.eventDate.localeCompare(a.eventDate));
 
       setDays(compiledDays);
@@ -76,55 +93,6 @@ export function LifeStoryTimeline() {
   useEffect(() => {
     void loadData();
   }, []);
-
-  const handleStartEdit = (item: DayItem) => {
-    setEditingDate(item.eventDate);
-    setEditText(item.storyEntry?.text || '');
-    setEditEventDate(item.eventDate);
-  };
-
-  const handleCancelEdit = () => {
-    setEditingDate(null);
-  };
-
-  const handleSaveEdit = async (item: DayItem) => {
-    if (!editText.trim()) {
-      showToast('Описание события не может быть пустым', 'error');
-      return;
-    }
-
-    try {
-
-
-      // If the eventDate itself was changed
-      if (editEventDate !== item.eventDate) {
-        // Verify target event date doesn't exist already
-        const existing = await LifeStoryService.get(editEventDate);
-        if (existing) {
-          showToast('Событие на эту дату уже существует', 'error');
-          return;
-        }
-
-        // Delete old entry
-        await LifeStoryService.delete(item.eventDate);
-      }
-
-      await LifeStoryService.save({
-        eventDate: editEventDate,
-        text: editText,
-        sourceDocumentIds: item.storyEntry?.sourceDocumentIds || [item.documentId],
-        generatedAt: item.storyEntry?.generatedAt || Date.now(),
-        edited: true,
-      });
-
-      showToast('Событие сохранено', 'success');
-      setEditingDate(null);
-      await loadData();
-    } catch (e) {
-      reportError(e, { action: 'life_story_timeline_save' });
-      showToast('Не удалось сохранить изменения', 'error');
-    }
-  };
 
   if (loading) {
     return (
@@ -148,9 +116,13 @@ export function LifeStoryTimeline() {
         ) : (
           <div className="relative border-l border-border-subtle ml-3 space-y-6">
             {days.map(item => {
-              const isEditing = editingDate === item.eventDate;
               const entry = item.storyEntry;
-              const hasText = Boolean(entry?.text || item.timelineSummary);
+              const fullText = entry?.text || item.timelineSummary;
+              const hasText = Boolean(fullText);
+              const isExpanded = expandedDates[item.eventDate] || false;
+              const teaser = getTeaser(fullText);
+              const hasFacts = item.facts && item.facts.length > 0;
+              const canExpand = hasText && ((fullText && fullText.length > teaser.length) || hasFacts);
 
               return (
                 <div key={item.eventDate} className="relative pl-6">
@@ -160,75 +132,66 @@ export function LifeStoryTimeline() {
                   </span>
 
                   <div className="space-y-1.5">
-                    {/* Date and actions */}
+                    {/* Date */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        {isEditing ? (
-                          <input
-                            type="date"
-                            value={editEventDate}
-                            onChange={e => setEditEventDate(e.target.value)}
-                            className="bg-surface-elevated border border-border-subtle text-xs rounded-lg px-2 py-0.5 outline-none text-text-main"
-                          />
-                        ) : (
-                          <span className="text-xs font-mono font-semibold text-text-main">
-                            {new Date(item.eventDate).toLocaleDateString('ru-RU', {
-                              day: '2-digit',
-                              month: 'long',
-                              year: 'numeric',
-                            })}
-                          </span>
-                        )}
+                        <span className="text-xs font-mono font-semibold text-text-main">
+                          {new Date(item.eventDate).toLocaleDateString('ru-RU', {
+                            day: '2-digit',
+                            month: 'long',
+                            year: 'numeric',
+                          })}
+                        </span>
                         {entry?.edited && (
                           <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">изменено</span>
                         )}
                       </div>
-
-                      {!isEditing && (
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => handleStartEdit(item)}
-                            className="p-1 text-text-main/40 hover:text-brand-soft hover:bg-surface-elevated rounded transition-colors"
-                            title="Редактировать событие"
-                          >
-                            <Pencil size={11} />
-                          </button>
-                        </div>
-                      )}
                     </div>
 
                     {/* Text container */}
                     <div className="bg-surface-card/25 border border-border-subtle/50 rounded-xl p-3 text-xs leading-relaxed text-text-main/80">
-                      {isEditing ? (
-                        <div className="space-y-2">
-                          <textarea
-                            value={editText}
-                            onChange={e => setEditText(e.target.value)}
-                            rows={2}
-                            className="w-full bg-transparent border-0 outline-none resize-none p-0 text-xs text-text-main placeholder:text-text-main/40"
-                            placeholder="Опишите, что произошло в этот день..."
-                          />
-                          <div className="flex justify-end gap-1.5 pt-1 border-t border-border-subtle/30">
-                            <Button
-                              onClick={handleCancelEdit}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border-subtle text-[10px] font-bold text-text-main/60 hover:bg-surface-elevated"
-                            >
-                              <X size={10} /> Отмена
-                            </Button>
-                            <Button
-                              onClick={() => void handleSaveEdit(item)}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-brand-soft text-surface-card text-[10px] font-bold hover:bg-brand-soft/90"
-                            >
-                              <Check size={10} /> Сохранить
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (entry?.text || item.timelineSummary) ? (
-                        <span>{entry?.text || item.timelineSummary}</span>
-                      ) : (
+                      {!hasText ? (
                         <div className="flex items-center gap-1.5 text-text-main/50 italic py-0.5">
                           <AlertCircle size={12} className="text-text-main/40" />
                           Нет описания для этого дня
+                        </div>
+                      ) : !isExpanded ? (
+                        <div className="space-y-2">
+                          <span className="text-text-main/80">{teaser}</span>
+                          {canExpand && (
+                            <button
+                              type="button"
+                              onClick={() => toggleDateExpanded(item.eventDate)}
+                              className="text-brand-soft hover:underline focus:outline-none ml-1.5 font-medium cursor-pointer animate-none bg-transparent border-0 p-0"
+                            >
+                              развернуть
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div>
+                            <span className="text-text-main/80">{fullText}</span>
+                            {canExpand && (
+                              <button
+                                type="button"
+                                onClick={() => toggleDateExpanded(item.eventDate)}
+                                className="text-brand-soft hover:underline focus:outline-none ml-1.5 font-medium cursor-pointer animate-none bg-transparent border-0 p-0"
+                              >
+                                свернуть
+                              </button>
+                            )}
+                          </div>
+                          {hasFacts && (
+                            <div className="mt-2.5 pt-2.5 border-t border-border-subtle/30 space-y-1.5">
+                              <div className="text-[10px] font-mono uppercase tracking-wider text-text-main/50">Факты и инсайты:</div>
+                              <ul className="list-disc pl-4 space-y-1 text-text-main/70">
+                                {item.facts!.map((fact, idx) => (
+                                  <li key={idx}>{fact}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
