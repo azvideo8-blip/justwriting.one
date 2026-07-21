@@ -24,11 +24,9 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Dynamic admin check: only checks the 'role' field in the user's document.
+    // Admin check: checks the secure custom claim token, which the client cannot write.
     function isAdmin() {
-      return isAuthenticated() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isAuthenticated() && request.auth.token.role == 'admin';
     }
 
     function isValidEmail(email) {
