@@ -65,9 +65,9 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
 
   return (
     <div
-      className="px-6 py-6 md:px-9 md:py-8 bg-[radial-gradient(ellipse_60%_80%_at_20%_30%,color-mix(in_srgb,var(--flow-pulse-color)_12%,transparent),transparent_60%)] border-b border-[var(--border-light)]"
+      className="py-6 md:py-8 bg-[radial-gradient(ellipse_60%_80%_at_20%_30%,color-mix(in_srgb,var(--flow-pulse-color)_12%,transparent),transparent_60%)] border-b border-[var(--border-light)]"
     >
-      <div className="flex flex-col md:flex-row items-center md:items-start gap-6 text-center md:text-left">
+      <div className="max-w-screen-2xl mx-auto px-6 md:px-9 flex flex-col md:flex-row items-center md:items-start gap-6 text-center md:text-left">
         <div className="relative shrink-0">
           <motion.div
             animate={{ boxShadow: ['0 0 0px color-mix(in srgb, var(--flow-pulse-color) 0%, transparent)', '0 0 40px color-mix(in srgb, var(--flow-pulse-color) 25%, transparent)', '0 0 0px color-mix(in srgb, var(--flow-pulse-color) 0%, transparent)'] }}

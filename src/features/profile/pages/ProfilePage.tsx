@@ -104,7 +104,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
         onStartSession={() => void navigate('/')}
       />
       
-      <div className="max-w-6xl mx-auto px-4 md:px-9 space-y-6 pt-6">
+      <div className="max-w-screen-2xl mx-auto px-6 md:px-9 space-y-6 pt-6">
         <CollapsibleSection title="Как я пишу" storageKey="profile_sec_how_write_v2" defaultOpen={true}>
           <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible scroll-snap-x-container gap-6 md:gap-0 pb-6 md:pb-0">
             <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden animate-none">
