@@ -98,6 +98,17 @@ export interface AIDialogue {
   } | undefined;
 }
 
+export interface AIDialogueEvent {
+  dialogueId: string;
+  date: string; // YYYY-MM-DD
+  month: string; // YYYY-MM
+  personaId: string;
+  personaName: string;
+  summary: string;
+  themes?: string[];
+  vector?: number[];
+}
+
 export interface AIDocumentSummary {
   documentId: string;
   summary?: string;
@@ -218,6 +229,7 @@ export interface AIProfileFacet {
   /** Transient excerpt seed stored at build time so summarizePending can reconstruct LLM input; deleted after summarizing. */
   _excerptSeed?: string[];
   cloudSyncedAt?: number;
+  dialogueIds?: string[];
 }
 
 export interface AIDomainVector {
@@ -266,6 +278,11 @@ interface JustWritingDB extends DBSchema {
     key: string;
     value: AIDialogue;
     indexes: { 'by-document': string; 'by-updatedAt': number; };
+  };
+  aiDialogueEvents: {
+    key: string;
+    value: AIDialogueEvent;
+    indexes: { 'by-date': string };
   };
   aiSummaries: { key: string; value: AIDocumentSummary; };
   aiEmbeddings: { key: string; value: AIDocumentEmbedding; };
@@ -355,7 +372,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   if (dbOpenPromise) return dbOpenPromise;
 
   const currentGeneration = dbGeneration;
-  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 14, {
+  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 15, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const docStore = db.createObjectStore('documents', { keyPath: 'id' });
@@ -445,6 +462,12 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
         }
         if (!db.objectStoreNames.contains('aiPortrait')) {
           db.createObjectStore('aiPortrait', { keyPath: 'id' });
+        }
+      }
+      if (oldVersion < 15) {
+        if (!db.objectStoreNames.contains('aiDialogueEvents')) {
+          const eventStore = db.createObjectStore('aiDialogueEvents', { keyPath: 'dialogueId' });
+          eventStore.createIndex('by-date', 'date');
         }
       }
     },

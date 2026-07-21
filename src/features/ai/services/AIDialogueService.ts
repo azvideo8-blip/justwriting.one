@@ -1,6 +1,34 @@
 import { getLocalDb, randomUUID } from '../../../core/storage/localDb';
 import type { AIDialogue } from '../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+import { AIChatMemoryService } from './AIChatMemoryService';
+
+function formatDateYYYYMMDD(timestamp: number): string {
+  const date = new Date(timestamp);
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+async function removeDialogueFromFacets(dialogueId: string): Promise<void> {
+  try {
+    const db = await getLocalDb();
+    const facets = await db.getAll('aiProfileFacets');
+    const tx = db.transaction('aiProfileFacets', 'readwrite');
+    for (const f of facets) {
+      if (f.dialogueIds && f.dialogueIds.includes(dialogueId)) {
+        f.dialogueIds = f.dialogueIds.filter(id => id !== dialogueId);
+        f.dirty = true;
+        await tx.store.put(f);
+      }
+    }
+    await tx.done;
+  } catch (e) {
+    console.warn('[AIDialogueService] removeDialogueFromFacets failed:', e);
+  }
+}
+
 
 function currentLanguage(): 'ru' | 'en' {
   return localStorage.getItem(STORAGE_KEYS.APP_LANGUAGE) === 'en' ? 'en' : 'ru';
@@ -176,12 +204,44 @@ export const AIDialogueService = {
       });
 
       if (response.ok && response.text) {
-        const tx = db.transaction('aiDialogues', 'readwrite');
-        const existing = await tx.store.get(id);
-        if (existing) {
-          existing.closingSummary = response.text.trim();
-          await tx.store.put(existing);
+        const text = response.text.trim();
+        const date = formatDateYYYYMMDD(Date.now());
+        const month = date.slice(0, 7);
+
+        // Embed BEFORE opening the IDB transaction — awaiting a network call
+        // between IDB ops auto-closes the transaction (TransactionInactiveError
+        // on the next put). Do all async non-IDB work first.
+        let vector: number[] | undefined;
+        if (localStorage.getItem('ff_dialogues_in_facets') === 'true') {
+          try {
+            const embResult = await AIService.embed({ content: text });
+            if (embResult.ok && embResult.vectors[0]) {
+              vector = embResult.vectors[0];
+            }
+          } catch (e) {
+            console.warn('[AIDialogueService] Failed to embed closingSummary:', e);
+          }
         }
+
+        const tx = db.transaction(['aiDialogues', 'aiDialogueEvents'], 'readwrite');
+        const existing = await tx.objectStore('aiDialogues').get(id);
+        if (existing) {
+          existing.closingSummary = text;
+          await tx.objectStore('aiDialogues').put(existing);
+        }
+
+        const dialogueToUse = existing || dialogue;
+        await tx.objectStore('aiDialogueEvents').put({
+          dialogueId: id,
+          date,
+          month,
+          personaId: dialogueToUse.personaId,
+          personaName: dialogueToUse.personaName,
+          summary: text,
+          themes: [],
+          ...(vector ? { vector } : {}),
+        });
+
         await tx.done;
       }
     } catch (e) {
@@ -191,17 +251,35 @@ export const AIDialogueService = {
 
   async unarchive(id: string): Promise<void> {
     const db = await getLocalDb();
-    const tx = db.transaction('aiDialogues', 'readwrite');
-    const existing = await tx.store.get(id);
+    const tx = db.transaction(['aiDialogues', 'aiDialogueEvents'], 'readwrite');
+    const existing = await tx.objectStore('aiDialogues').get(id);
     if (!existing) { await tx.done; return; }
     existing.archivedAt = undefined;
     existing.updatedAt = Date.now();
-    await tx.store.put(existing);
+    await tx.objectStore('aiDialogues').put(existing);
+    await tx.objectStore('aiDialogueEvents').delete(id);
     await tx.done;
   },
 
   async delete(id: string): Promise<void> {
     const db = await getLocalDb();
+
+    try {
+      await AIChatMemoryService.deleteByDialogue(id);
+    } catch (e) {
+      console.warn('[AIDialogueService] deleteByDialogue failed:', e);
+    }
+
+    try {
+      const tx = db.transaction('aiDialogueEvents', 'readwrite');
+      await tx.store.delete(id);
+      await tx.done;
+    } catch (e) {
+      console.warn('[AIDialogueService] delete dialogue event failed:', e);
+    }
+
+    await removeDialogueFromFacets(id);
+
     await db.delete('aiDialogues', id);
   },
 
