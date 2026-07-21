@@ -3,6 +3,8 @@ import { getLocalDb } from '../../../core/storage/localDb';
 import { AIService } from './AIService';
 import { getSeedVectors } from '../utils/domainSeeds';
 import { cosineSimilarity } from '../utils/vectorSearch';
+import { useAiLimitStore } from '../store/useAiLimitStore';
+import { reportError } from '../../../shared/errors/reportError';
 
 export const TAXONOMY_LS_KEY = 'ai_taxonomy';
 export const DERIVED_DEFAULT_THRESHOLD = 0.47;
@@ -17,6 +19,8 @@ export interface TaxonomyDomain extends LifeDomain {
 }
 
 interface StoredTaxonomy { version: 1; domains: TaxonomyDomain[] }
+
+let _rederiveInProgress = false;
 
 export const AITaxonomyService = {
   getStored(): TaxonomyDomain[] | null {
@@ -52,8 +56,34 @@ export const AITaxonomyService = {
   },
 
   async ensureBootstrap(): Promise<'bootstrapped' | 'skip'> {
-    if (this.getStored()) return 'skip';
-    return (await deriveAndStore('bootstrap')) === 'ok' ? 'bootstrapped' : 'skip';
+    if (_rederiveInProgress) return 'skip';
+    
+    const stored = this.getStored();
+    if (stored) {
+      // staleness check: any label has 0 Cyrillic characters (English taxonomy)
+      const hasEnglish = stored.some(d => !/[а-яё]/i.test(d.label));
+      if (hasEnglish) {
+        console.warn('[AITaxonomyService] Stale (English) taxonomy detected, clearing for re-derive');
+        this.clear();
+      } else {
+        return 'skip';
+      }
+    }
+
+    // Cooldown/Limit check: require at least 5 remaining daily requests
+    const { remaining } = useAiLimitStore.getState();
+    if (remaining < 5) return 'skip';
+
+    _rederiveInProgress = true;
+    try {
+      const res = await deriveAndStore('bootstrap');
+      return res === 'ok' ? 'bootstrapped' : 'skip';
+    } catch (e) {
+      reportError(e, { action: '[AITaxonomyService] ensureBootstrap re-derive failed' });
+      return 'skip';
+    } finally {
+      _rederiveInProgress = false;
+    }
   },
 
   async rederive(): Promise<'ok' | 'skip'> {

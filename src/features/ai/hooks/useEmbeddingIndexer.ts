@@ -225,9 +225,18 @@ export function useEmbeddingIndexer(): void {
       }
 
       // Best-effort: bootstrap personal taxonomy once enough summaries exist.
-      void AITaxonomyService.ensureBootstrap().catch(e =>
-        reportError(e, { action: '[useEmbeddingIndexer] taxonomy bootstrap failed' }),
-      );
+      void (async () => {
+        try {
+          const bootstrapRes = await AITaxonomyService.ensureBootstrap();
+          if (bootstrapRes === 'bootstrapped') {
+            console.warn('[useEmbeddingIndexer] Taxonomy bootstrapped/re-derived, rebuilding facets...');
+            await AIProfileFacetService.build();
+            scheduleResummarize();
+          }
+        } catch (e) {
+          reportError(e, { action: '[useEmbeddingIndexer] taxonomy bootstrap/rebuild failed' });
+        }
+      })();
       // Rebuild temporal threads
       void import('../services/AIThreadService').then(({ AIThreadService }) => {
         void AIThreadService.rebuildThreads().catch(e =>
