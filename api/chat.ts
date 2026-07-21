@@ -209,6 +209,53 @@ async function refundDailyLimit(uid: string): Promise<void> {
   }
 }
 
+const INTERNAL_DAILY_LIMIT = 100;
+const INTERNAL_COOLDOWN_MS = 2000;
+
+async function checkAndIncrementInternalLimit(uid: string): Promise<boolean> {
+  if (await isAdmin(uid)) return true;
+
+  const fs = db();
+  const now = Date.now();
+  const date = new Date().toISOString().slice(0, 10);
+  const cooldownRef = fs.doc(`aiInternalCooldown/${uid}`);
+  const dailyRef = fs.doc(`aiInternalDailyLimit/${uid}`);
+
+  return fs.runTransaction(async (tx) => {
+    const [cooldownSnap, dailySnap] = await Promise.all([
+      tx.get(cooldownRef),
+      tx.get(dailyRef),
+    ]);
+    const cooldownData = cooldownSnap.data();
+    if (cooldownData && now - cooldownData.lastRequestAt < INTERNAL_COOLDOWN_MS) return false;
+    const dailyData = dailySnap.data();
+    if (dailyData && dailyData.date === date && dailyData.count >= INTERNAL_DAILY_LIMIT) return false;
+    tx.set(cooldownRef, { lastRequestAt: now }, { merge: true });
+    if (!dailyData || dailyData.date !== date) {
+      tx.set(dailyRef, { count: 1, date });
+    } else {
+      tx.update(dailyRef, { count: dailyData.count + 1 });
+    }
+    return true;
+  });
+}
+
+async function refundInternalDailyLimit(uid: string): Promise<void> {
+  const date = new Date().toISOString().slice(0, 10);
+  const fs = db();
+  const ref = fs.doc(`aiInternalDailyLimit/${uid}`);
+  try {
+    await fs.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const data = snap.data();
+      if (!data || data.date !== date) return;
+      tx.update(ref, { count: Math.max(0, (data.count ?? 0) - 1) });
+    });
+  } catch (e) {
+    console.error('[api/chat] refundInternalDailyLimit failed:', e);
+  }
+}
+
 // ── Daily limit ───────────────────────────────────────────────────────────────
 const DAILY_LIMIT = (() => {
   const n = parseInt(process.env.AI_DAILY_LIMIT ?? '10', 10);
@@ -344,7 +391,11 @@ async function streamOpenRouterReasoning(
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     await refundGlobalRequest(reservation);
-    if (!isInternalCall) await refundDailyLimit(uid);
+    if (isInternalCall) {
+      await refundInternalDailyLimit(uid);
+    } else {
+      await refundDailyLimit(uid);
+    }
     console.error('OPENROUTER_API_KEY not set');
     res.status(500).end('Internal server error');
     return;
@@ -367,7 +418,11 @@ async function streamOpenRouterReasoning(
 
   if (!upstream.ok || !upstream.body) {
     await refundGlobalRequest(reservation);
-    if (!isInternalCall) await refundDailyLimit(uid);
+    if (isInternalCall) {
+      await refundInternalDailyLimit(uid);
+    } else {
+      await refundDailyLimit(uid);
+    }
     res.status(502).end('UPSTREAM_ERROR');
     return;
   }
@@ -466,7 +521,11 @@ async function streamOpenRouterReasoning(
     } catch (streamErr) {
       console.error('[api/chat] stream read failed:', streamErr);
       await refundGlobalRequest(reservation);
-      if (!isInternalCall) await refundDailyLimit(uid);
+      if (isInternalCall) {
+        await refundInternalDailyLimit(uid);
+      } else {
+        await refundDailyLimit(uid);
+      }
     }
    // LX-1: Flush any remaining buffered content (no marker was found)
   if (contentAccum && !wroteAnswerHeader) {
@@ -553,8 +612,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: 'Bad Request' }); return;
   }
 
-  // Daily limit first (LX-2a: admins skip; internal calls skip) — avoids wasting a global slot if user is at per-user cap
-  if (!isInternalCall) {
+  // Daily limit check: internal calls use a separate dedicated quota.
+  if (isInternalCall) {
+    const allowed = await checkAndIncrementInternalLimit(uid);
+    if (!allowed) { res.status(429).json({ error: 'DAILY_LIMIT' }); return; }
+  } else {
     const allowed = await checkAndIncrementLimit(uid, parsed.data.reasoning);
     if (!allowed) { res.status(429).json({ error: 'DAILY_LIMIT' }); return; }
   }
@@ -563,7 +625,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const maxOutputTokens = getMaxTokens(isInternalCall, parsed.data.reasoning);
   const reservation = await tryReserveGlobalRequest(maxOutputTokens);
   if (!reservation) {
-    if (!isInternalCall) await refundDailyLimit(uid);
+    if (isInternalCall) {
+      await refundInternalDailyLimit(uid);
+    } else {
+      await refundDailyLimit(uid);
+    }
     res.status(429).json({ error: 'GLOBAL_LIMIT' }); return;
   }
 
@@ -580,18 +646,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // S-3: Injection guard for ALL message turns (not just user) — a client-fabricated
   // assistant message is the real injection vector.
   if (messages.some(m => hasInjectionAttempt(m.content))) {
-    if (!isInternalCall) await refundDailyLimit(uid); await refundGlobalRequest(reservation);
+    if (isInternalCall) {
+      await refundInternalDailyLimit(uid);
+    } else {
+      await refundDailyLimit(uid);
+    }
+    await refundGlobalRequest(reservation);
     res.status(400).json({ error: 'Bad Request' }); return;
   }
 
   if (documentContent && hasInjectionAttempt(documentContent)) {
-    if (!isInternalCall) await refundDailyLimit(uid);
+    if (isInternalCall) {
+      await refundInternalDailyLimit(uid);
+    } else {
+      await refundDailyLimit(uid);
+    }
     await refundGlobalRequest(reservation);
     res.status(400).json({ error: 'Bad Request' }); return;
   }
 
   if (userPortrait && hasInjectionAttempt(userPortrait)) {
-    if (!isInternalCall) await refundDailyLimit(uid);
+    if (isInternalCall) {
+      await refundInternalDailyLimit(uid);
+    } else {
+      await refundDailyLimit(uid);
+    }
     await refundGlobalRequest(reservation);
     res.status(400).json({ error: 'Bad Request' }); return;
   }
@@ -646,7 +725,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     onError: async (e) => {
       console.error('[api/chat] streamText failed:', e);
       await refundGlobalRequest(reservation);
-      if (!isInternalCall) await refundDailyLimit(uid);
+      if (isInternalCall) {
+        await refundInternalDailyLimit(uid);
+      } else {
+        await refundDailyLimit(uid);
+      }
     },
   });
 
@@ -655,7 +738,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (streamErr) {
     console.error('[api/chat] pipe failed:', streamErr);
     await refundGlobalRequest(reservation);
-    if (!isInternalCall) await refundDailyLimit(uid);
+    if (isInternalCall) {
+      await refundInternalDailyLimit(uid);
+    } else {
+      await refundDailyLimit(uid);
+    }
     if (!res.headersSent) res.status(500).json({ error: 'Stream failed' });
   }
 }
