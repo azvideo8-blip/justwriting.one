@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles, Square, X, RotateCcw, Brain, Filter, PanelLeftClose, PanelLeftOpen, Settings, ChevronDown } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
@@ -204,21 +204,7 @@ export function AIPage() {
   const [previewSession, setPreviewSession] = useState<ArchiveSession | null>(null);
   const [citationMeta, setCitationMeta] = useState<Record<string, { date: string; title: string }>>({});
 
-  // const [suggestedNote, setSuggestedNote] = useState<AITimelineEntry | null>(null);
 
-  // useEffect(() => {
-  //   void (async () => {
-  //     try {
-  //       const { AITimelineService } = await import('../services/AITimelineService');
-  //       const entries = await AITimelineService.getMostRecent(1);
-  //       if (entries[0]) {
-  //         setSuggestedNote(entries[0]);
-  //       }
-  //     } catch (e) {
-  //       console.warn('[AIPage] failed to load suggested note:', e);
-  //     }
-  //   })();
-  // }, []);
 
   useEffect(() => {
     const ids = new Set<string>();
@@ -288,65 +274,37 @@ export function AIPage() {
     });
   };
 
-  const handleCitationClick = async (id: string) => {
-    try {
-      const db = await getLocalDb();
-      const doc = await db.get('documents', id);
-      if (!doc) return;
-      const content = await LocalVersionService.getLatestContent(id);
-      const session: ArchiveSession = {
-        id: doc.id,
-        userId: doc.guestId,
-        title: doc.title || 'Без названия',
-        content: content || '',
-        duration: doc.totalDuration || 0,
-        wordCount: doc.totalWords || 0,
-        charCount: content ? content.length : 0,
-        wpm: doc.totalWords ? Math.round(doc.totalWords / (doc.totalDuration / 60 || 1)) : 0,
-        tags: doc.tags ?? [],
-        labelId: doc.labelId,
-        mood: doc.mood,
-        createdAt: doc.firstSessionAt || doc.lastSessionAt || Date.now(),
-        sessionStartTime: doc.firstSessionAt,
-        _isLocal: true,
-      };
-      setPreviewSession(session);
-    } catch (e) {
-      console.error('[AIPage] failed to preview cited note:', e);
-    }
-  };
+  const handleCitationClick = useCallback((id: string) => {
+    void (async () => {
+      try {
+        const db = await getLocalDb();
+        const doc = await db.get('documents', id);
+        if (!doc) return;
+        const content = await LocalVersionService.getLatestContent(id);
+        const session: ArchiveSession = {
+          id: doc.id,
+          userId: doc.guestId,
+          title: doc.title || 'Без названия',
+          content: content || '',
+          duration: doc.totalDuration || 0,
+          wordCount: doc.totalWords || 0,
+          charCount: content ? content.length : 0,
+          wpm: doc.totalWords ? Math.round(doc.totalWords / (doc.totalDuration / 60 || 1)) : 0,
+          tags: doc.tags ?? [],
+          labelId: doc.labelId,
+          mood: doc.mood,
+          createdAt: doc.firstSessionAt || doc.lastSessionAt || Date.now(),
+          sessionStartTime: doc.firstSessionAt,
+          _isLocal: true,
+        };
+        setPreviewSession(session);
+      } catch (e) {
+        console.error('[AIPage] failed to preview cited note:', e);
+      }
+    })();
+  }, []);
 
-  // const showBanner = (() => {
-  //   if (!suggestedNote) return false;
-  //   const noteDate = new Date(suggestedNote.date);
-  //   const now = new Date();
-  //   const diffMs = now.getTime() - noteDate.getTime();
-  //   const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
-  //   const isWithin3Days = diffMs >= 0 && diffMs <= threeDaysMs;
-  //   if (!isWithin3Days) return false;
-  // 
-  //   const isAlreadyAttached = dialogues.some(d => d.documentId === suggestedNote.documentId);
-  //   if (isAlreadyAttached) return false;
-  // 
-  //   const dismissed = JSON.parse(localStorage.getItem('dismissed_suggested_notes') || '[]');
-  //   if (dismissed.includes(suggestedNote.documentId)) return false;
-  // 
-  //   return true;
-  // })();
-  // 
-  // const handleOpenSuggestedDialogue = () => {
-  //   if (!suggestedNote) return;
-  //   handleNewDialogue();
-  //   void handleDocSelect(suggestedNote.documentId);
-  // };
-  // 
-  // const handleDismissSuggestedNote = () => {
-  //   if (!suggestedNote) return;
-  //   const dismissed = JSON.parse(localStorage.getItem('dismissed_suggested_notes') || '[]');
-  //   dismissed.push(suggestedNote.documentId);
-  //   localStorage.setItem('dismissed_suggested_notes', JSON.stringify(dismissed));
-  //   setSuggestedNote(null);
-  // };
+
 
   // AX-4: Resizable sidebar — persisted to localStorage
   const SIDEBAR_MIN = 220;
@@ -478,32 +436,7 @@ export function AIPage() {
               <div className="h-px bg-border-subtle mx-4 mb-1.5" />
 
               <div className="flex-1 overflow-y-auto px-3 py-1.5 space-y-0.5">
-                {/* {showBanner && suggestedNote && (
-                  <div className="mx-1 my-2 p-3 rounded-xl border border-brand-soft/20 bg-brand-soft/10 space-y-2 relative overflow-hidden">
-                    <button
-                      onClick={handleDismissSuggestedNote}
-                      className="absolute top-2 right-2 text-text-main/40 hover:text-text-main transition-colors"
-                      title="Скрыть"
-                    >
-                      <X size={14} />
-                    </button>
-                    <div className="pr-4">
-                      <p className="text-xs text-text-main/80 font-medium leading-normal">
-                        Хочешь поговорить о том, что писал {relativeDate(new Date(suggestedNote.date).getTime())}?
-                        <span className="block text-[11px] text-text-main/55 italic mt-1">
-                          [{suggestedNote.summary || suggestedNote.themes?.[0] || 'заметка'}]
-                        </span>
-                      </p>
-                    </div>
-                    <Button
-                      onClick={handleOpenSuggestedDialogue}
-                      className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-brand-soft text-surface-card text-[11px] font-bold hover:bg-brand-soft/90 transition-colors"
-                    >
-                      <span>Открыть диалог</span>
-                      <ArrowRight size={11} />
-                    </Button>
-                  </div>
-                )} */}
+
                 {(showArchived ? archivedDialogues : dialogues).map(d => {
                   const v = personaVisual(d.personaId, d.personaName);
                   const isActive = activeDialogueId === d.id;
@@ -803,6 +736,8 @@ export function AIPage() {
                     onSwitchVariant={i === lastAssistantIdx ? (delta: number) => void handleSwitchVariant(delta) : undefined}
                     onCreateNote={() => { void handleCreateNote(msg.content); }}
                     onApplyToNote={selectedPersonaId === 'editor' && linkedDocId ? () => { void handleApplyToNote(msg.content); } : undefined}
+                    content={msg.content}
+                    reasoning={msg.reasoning}
                   >
                     {msg.reasoning && (
                       <details className="mb-3 rounded-xl border border-border-subtle bg-surface-card/50 overflow-hidden">
@@ -814,7 +749,7 @@ export function AIPage() {
                         </div>
                       </details>
                     )}
-                    <MarkdownRenderer content={processCitations(msg.content)} onCitationClick={(id) => void handleCitationClick(id)} />
+                    <MarkdownRenderer content={processCitations(msg.content)} onCitationClick={handleCitationClick} />
                   </AssistantTurn>
                 );
               }
@@ -899,8 +834,8 @@ export function AIPage() {
             )}
 
             {streamingMessage !== null && (
-              <AssistantTurn name={convPersonaName} color={convVisual.color} mono={convVisual.mono}>
-                <MarkdownRenderer content={processCitations(streamingMessage)} onCitationClick={(id) => void handleCitationClick(id)} />
+              <AssistantTurn name={convPersonaName} color={convVisual.color} mono={convVisual.mono} content={streamingMessage}>
+                <MarkdownRenderer content={processCitations(streamingMessage)} onCitationClick={handleCitationClick} />
               </AssistantTurn>
             )}
 
