@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.57',
+    date: '2026-07-21',
+    items: [
+      { category: 'new', ru: 'В превью заметки — блок «Связанные записи»: похожие прошлые заметки по смыслу, клик открывает их прямо в превью', en: 'The note preview gets a "Related notes" block: semantically similar past notes, click opens them right in the preview' },
+      { category: 'new', ru: 'В превью заметки видно «Что заметил ИИ» — темы, факты и инсайты из саммари, помеченные как наблюдения ИИ (только для чтения)', en: 'The note preview shows "What the AI noticed" — themes, facts and insights from the summary, labeled as AI observations (read-only)' },
+      { category: 'improvement', ru: 'Поиск по заметкам для чата стал точнее: нерелевантные записи с низкой схожестью больше не попадают в контекст и не расходуют его впустую', en: 'Note retrieval for chat is more precise: low-similarity, irrelevant notes no longer enter the context and waste it' },
+      { category: 'improvement', ru: 'Быстрее рендер длинных диалогов: во время потокового ответа перерисовывается только активное сообщение, а не вся история', en: 'Faster rendering of long dialogues: during a streamed reply only the active message re-renders, not the whole history' },
+      { category: 'improvement', ru: 'Усилена защита: отдельный лимит для внутренних AI-вызовов, единый санитайзер промптов на клиенте и сервере, админ-права по защищённому токену', en: 'Hardening: a separate quota for internal AI calls, a unified prompt sanitizer on client and server, admin rights via a secure token claim' },
+    ],
+  },
+  {
     version: '0.7.56',
     date: '2026-07-21',
     items: [
