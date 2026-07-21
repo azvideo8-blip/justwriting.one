@@ -76,8 +76,7 @@ export function sanitizeAiInputShared(content: string): string {
   sanitized = sanitized.replace(/\[INST\]/gi, '[inst]');
   sanitized = sanitized.replace(/<\/?developer>/gi, '[developer]');
   sanitized = sanitized.replace(/<end_of_turn>/gi, '[end_of_turn]');
-  sanitized = sanitized.replace(/(\u200B|\u200C|\u200D|\uFEFF)/g, '');
-  sanitized = sanitized.replace(/\u00AD/g, '');
-  sanitized = sanitized.replace(/[\u2000-\u200A\u2028\u2029\u202F\u205F]/g, ' ');
+  sanitized = sanitized.replace(/\u200B|\u200C|\u200D|\uFEFF|\u00AD/g, '');
+  sanitized = sanitized.replace(/\u2000|\u2001|\u2002|\u2003|\u2004|\u2005|\u2006|\u2007|\u2008|\u2009|\u200A|\u2028|\u2029|\u202F|\u205F/g, ' ');
   return sanitized;
 }
