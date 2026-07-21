@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles, Square, X, RotateCcw, Brain, Filter, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles, Square, X, RotateCcw, Brain, Filter, PanelLeftClose, PanelLeftOpen, Settings, ChevronDown } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
 import { DocumentPickerModal } from '../components/DocumentPickerModal';
@@ -165,6 +165,33 @@ export function AIPage() {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [volumeSettingsOpen, setVolumeSettingsOpen] = useState(false);
+  const volumeSettingsRef = useRef<HTMLDivElement>(null);
+  const [personaDropdownOpen, setPersonaDropdownOpen] = useState(false);
+  const personaDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!volumeSettingsOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (volumeSettingsRef.current && !volumeSettingsRef.current.contains(e.target as Node)) {
+        setVolumeSettingsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [volumeSettingsOpen]);
+
+  useEffect(() => {
+    if (!personaDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (personaDropdownRef.current && !personaDropdownRef.current.contains(e.target as Node)) {
+        setPersonaDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [personaDropdownOpen]);
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('justwriting_sidebar_collapsed') === 'true');
   const toggleSidebar = () => {
     const next = !sidebarCollapsed;
@@ -583,6 +610,60 @@ export function AIPage() {
             )}
             <div className="flex-1" />
             <IconButton onClick={() => setMemoryOpen(true)} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_memory_title')} label={t('ai_memory_title')} icon={<Brain size={15} />} />
+            <div ref={volumeSettingsRef} className="relative">
+              <IconButton
+                onClick={() => setVolumeSettingsOpen(o => !o)}
+                className={cn(
+                  "w-8 h-8 rounded-lg border flex items-center justify-center transition-colors",
+                  volumeSettingsOpen
+                    ? "border-brand-soft text-brand-soft bg-brand-soft/5"
+                    : "border-border-subtle text-text-main/45 hover:text-text-main"
+                )}
+                title="Настройки объема вывода"
+                label="Настройки объема вывода"
+                icon={<Settings size={15} />}
+              />
+              {volumeSettingsOpen && (
+                <div className="absolute right-0 top-full mt-1.5 p-3 w-56 bg-surface-elevated border border-border-subtle rounded-2xl shadow-xl z-30 space-y-3">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-text-main/60">Объём ответа:</div>
+                  <div className="flex flex-col gap-1.5">
+                    {(['short', 'standard', 'detailed'] as const).map(len => {
+                      const active = responseLength === len;
+                      const label = len === 'short' ? 'Кратко' : len === 'standard' ? 'Стандартно' : 'Объёмно';
+                      return (
+                        <button
+                          key={len}
+                          type="button"
+                          onClick={() => void handleSetResponseLength(len)}
+                          className={cn(
+                            "w-full text-left px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors",
+                            active
+                              ? "bg-brand-soft/15 border-brand-soft/30 text-brand-soft"
+                              : "border-transparent text-text-main/60 hover:text-text-main hover:bg-text-main/[0.04]"
+                          )}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="h-px bg-border-subtle" />
+                  <button
+                    type="button"
+                    onClick={() => void handleSetReasoning(!reasoning)}
+                    className={cn(
+                      "w-full text-left px-3 py-2 rounded-lg text-xs font-medium border transition-colors flex items-center justify-between",
+                      reasoning
+                        ? "bg-brand-soft/15 border-brand-soft/30 text-brand-soft"
+                        : "border-transparent text-text-main/60 hover:text-text-main hover:bg-text-main/[0.04]"
+                    )}
+                  >
+                    <span>🧠 Рассуждения</span>
+                    <span className={cn("w-2 h-2 rounded-full", reasoning ? "bg-brand-soft" : "bg-text-main/20")} />
+                  </button>
+                </div>
+              )}
+            </div>
             {activeDialogueId && (
               <div className="flex items-center gap-1">
                  <IconButton onClick={() => void handleExport()} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_download_md')} label={t('ai_download_md')} icon={<Download size={15} />} />
@@ -593,81 +674,62 @@ export function AIPage() {
             )}
           </div>
 
-          <div className="flex items-center gap-1 mt-2">
-              <span className="text-[9px] font-mono uppercase tracking-wider text-text-main/60 mr-1">объём:</span>
-              {(['short', 'standard', 'detailed'] as const).map(len => {
-                const active = responseLength === len;
-                const label = len === 'short' ? 'Кратко' : len === 'standard' ? 'Стандартно' : 'Объёмно';
-                return (
-                  <Button
-                    key={len}
-                    onClick={() => void handleSetResponseLength(len)}
-                    className={cn(
-                      "px-2.5 py-0.5 rounded-full text-[10px] font-medium border transition-colors",
-                      active
-                        ? "bg-brand-soft/15 border-brand-soft/30 text-brand-soft"
-                        : "border-border-subtle text-text-main/60 hover:text-text-main"
-                    )}
-                  >
-                    {label}
-                  </Button>
-                );
-              })}
+          <div className="flex items-center gap-2 mt-3.5">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-text-main/55">Собеседник:</span>
+            <div ref={personaDropdownRef} className="relative">
               <button
                 type="button"
-                onClick={() => void handleSetReasoning(!reasoning)}
-                className={cn(
-                  "px-2.5 py-0.5 rounded-full text-[10px] font-medium border transition-colors flex items-center gap-1",
-                  reasoning
-                    ? "bg-brand-soft/15 border-brand-soft/30 text-brand-soft"
-                    : "border-border-subtle text-text-main/60 hover:text-text-main"
-                )}
+                onClick={() => setPersonaDropdownOpen(o => !o)}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border border-border-subtle bg-surface-base/5 hover:bg-surface-base/10 text-text-main transition-colors"
+                style={{ borderColor: `${headerVisual.color}55`, background: `${headerVisual.color}14` }}
               >
-                🧠 Рассуждения
+                <Monogram color={headerVisual.color} mono={headerVisual.mono} size={16} />
+                <span>{activePersona?.name}</span>
+                <ChevronDown size={12} className="opacity-60" />
               </button>
-          </div>
-
-          <div className="flex gap-1.5 items-center overflow-x-auto pb-1 pt-3.5 -mx-1 px-1 no-scrollbar flex-nowrap">
-            {allPersonas.map(p => {
-              const v = personaVisual(p.id, p.name);
-              const on = selectedPersonaId === p.id;
-              return (
-                <div
-                  key={p.id}
-                  className={cn(
-                    "shrink-0 flex items-center rounded-full text-xs font-medium border transition-colors",
-                    on ? "pl-1 pr-1.5 text-text-main" : "pl-3 pr-1.5 text-text-main/60 hover:text-text-main"
-                  )}
-                  style={on
-                    ? { background: `${v.color}1c`, borderColor: `${v.color}55` }
-                    : { borderColor: 'var(--color-border-subtle)' }}
-                >
-                  <Button
-                    onClick={() => setSelectedPersonaId(p.id)}
-                    className="flex items-center gap-2 py-1 pr-1 hover:text-text-main/70 transition-colors"
+              {personaDropdownOpen && (
+                <div className="absolute left-0 top-full mt-1.5 py-1.5 w-64 bg-surface-elevated border border-border-subtle rounded-2xl shadow-xl z-30 max-h-80 overflow-y-auto">
+                  {allPersonas.map(p => {
+                    const v = personaVisual(p.id, p.name);
+                    const on = selectedPersonaId === p.id;
+                    return (
+                      <div
+                        key={p.id}
+                        className={cn(
+                          "w-full flex items-center justify-between px-3 py-1.5 text-xs font-medium transition-colors hover:bg-text-main/[0.04]",
+                          on ? "text-text-main bg-brand-soft/5" : "text-text-main/60"
+                        )}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedPersonaId(p.id); setPersonaDropdownOpen(false); }}
+                          className="flex-1 flex items-center gap-2.5 text-left py-0.5"
+                        >
+                          <Monogram color={v.color} mono={v.mono} size={18} />
+                          <span className={cn(on && "font-semibold")}>{p.name}</span>
+                        </button>
+                        <IconButton
+                          onClick={() => openPersonaDetail(p)}
+                          className="w-5 h-5 rounded-full text-text-main/35 hover:text-text-main/70 hover:bg-text-main/10 flex items-center justify-center shrink-0 transition-colors"
+                          title={t('ai_description_prompt')}
+                          label={t('ai_description_prompt')}
+                          icon={<Info size={13} />}
+                        />
+                      </div>
+                    );
+                  })}
+                  <div className="h-px bg-border-subtle my-1" />
+                  <button
+                    type="button"
+                    onClick={() => { setCreatePersonaOpen(true); setPersonaDropdownOpen(false); }}
+                    className="w-full flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-text-main/75 hover:bg-text-main/[0.04] transition-colors text-left"
                   >
-                    {on
-                      ? <Monogram color={v.color} mono={v.mono} size={20} />
-                      : <span className="w-[7px] h-[7px] rounded-full" style={{ background: v.color, opacity: 0.85 }} />}
-                    <span>{p.name}</span>
-                  </Button>
-                  <IconButton
-                    onClick={() => openPersonaDetail(p)}
-                    className="w-5 h-5 rounded-full text-text-main/35 hover:text-text-main/70 hover:bg-text-main/10 flex items-center justify-center shrink-0 transition-colors"
-                    title={t('ai_description_prompt')}
-                    label={t('ai_description_prompt')}
-                    icon={<Info size={13} />}
-                  />
+                    <Plus size={14} />
+                    {t('ai_create')}
+                  </button>
                 </div>
-              );
-            })}
-            <Button
-              onClick={() => setCreatePersonaOpen(true)}
-              className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-border-subtle text-text-main/60 hover:text-text-main/60 transition-colors"
-            >
-              <Plus size={12} />
-               {t('ai_create')}
-            </Button>
+              )}
+            </div>
           </div>
         </div>
 
