@@ -6,7 +6,7 @@ import { Button } from '../../../shared/components/Button';
 import { useToast } from '../../../shared/components/Toast';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import { AIFacetJudgeService, type JudgeLog } from '../services/AIFacetJudgeService';
-import type { AIProfileFacet, LocalDocument } from '../../../core/storage/localDb';
+import type { AIProfileFacet, LocalDocument, AIDialogueEvent } from '../../../core/storage/localDb';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { reportError } from '../../../shared/errors/reportError';
 
@@ -33,6 +33,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
   const navigate = useNavigate();
   const [facets, setFacets] = useState<AIProfileFacet[]>([]);
   const [docMap, setDocMap] = useState<Map<string, LocalDocument>>(new Map());
+  const [dialogueEvents, setDialogueEvents] = useState<Map<string, AIDialogueEvent>>(new Map());
   const [loading, setLoading] = useState(true);
   const [building, setBuilding] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -71,13 +72,15 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
     setLoading(true);
     try {
       const db = await getLocalDb();
-      const [f, docs, summaries] = await Promise.all([
+      const [f, docs, summaries, dlgEvents] = await Promise.all([
         AIProfileFacetService.getAll(),
         db.getAll('documents'),
-        db.getAll('aiSummaries')
+        db.getAll('aiSummaries'),
+        db.getAll('aiDialogueEvents')
       ]);
       setFacets(f);
       setDocMap(new Map(docs.map(d => [d.id, d])));
+      setDialogueEvents(new Map(dlgEvents.map(e => [e.dialogueId, e])));
       setSummariesCount(summaries.length);
     } catch (e) {
       reportError(e, { action: 'profile_facets_load' });
@@ -281,6 +284,11 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
                     <span className={cn('text-sm font-semibold text-text-main', !isExp && 'truncate')}>{f.label}</span>
                     <div className="flex items-center gap-1.5">
                       {f.dirty && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">новое</span>}
+                      {f.dialogueIds && f.dialogueIds.length > 0 && (
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400">
+                          💬 {f.dialogueIds.length}
+                        </span>
+                      )}
                       <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0', t.cls)}>{t.label}</span>
                     </div>
                   </div>
@@ -306,9 +314,44 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
                       </div>
                     </div>
                   )}
-                  <div className="flex items-center justify-between text-[9px] text-text-main/60 font-mono pt-0.5">
-                    <span>{f.noteCount} заметок · {isExp ? 'свернуть' : 'развернуть'}</span>
-                    <span>{fmt(f.firstAt)} – {fmt(f.lastAt)}</span>
+                  {isExp && f.dialogueIds && f.dialogueIds.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      <span className="text-[9px] font-bold text-text-main/60 uppercase tracking-wider">Диалоги темы</span>
+                      <div className="max-h-40 overflow-y-auto space-y-0.5">
+                        {f.dialogueIds.map(id => {
+                          const dlg = dialogueEvents.get(id);
+                          return (
+                            <div
+                              key={id}
+                              className="flex items-center gap-1.5 w-full text-left px-2 py-1 rounded-md text-[10px] text-text-main/60"
+                            >
+                              <span className="shrink-0 text-text-main/40">💬</span>
+                              <span className="truncate flex-1">
+                                {dlg?.personaName || 'ИИ'}: {dlg?.summary || 'Без описания'}
+                              </span>
+                              <span className="text-[9px] font-mono shrink-0">{dlg ? dlg.date : ''}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-border-subtle/40 mt-1">
+                    <span className="text-[9px] text-text-main/60 font-mono">
+                      {f.noteCount} заметок
+                      {f.dialogueIds && f.dialogueIds.length > 0 ? ` + ${f.dialogueIds.length} диалогов` : ''}
+                      {` · `}
+                      {isExp ? 'свернуть' : 'развернуть'}
+                    </span>
+                    <Button
+                      onClick={e => {
+                        e.stopPropagation();
+                        void navigate(`/ai?draftFacet=${f.id}`);
+                      }}
+                      className="px-2 py-0.5 text-[9px] font-bold rounded bg-brand-soft/10 text-brand-soft border border-brand-soft/20 hover:bg-brand-soft/20 transition-colors"
+                    >
+                      ✨ Обсудить
+                    </Button>
                   </div>
                 </div>
               );
