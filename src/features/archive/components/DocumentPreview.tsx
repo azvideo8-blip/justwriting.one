@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { X, ArrowRight, Download, ChevronDown, Sparkles, ChevronUp, Loader2, Paperclip, Copy } from 'lucide-react';
 import { format } from 'date-fns';
@@ -17,8 +17,13 @@ import type { AIDocumentSummary } from '../../../core/storage/localDb';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { readingTimeMinutes } from '../../../shared/utils/readingTime';
+import { findRelatedNotes, RelatedNote } from '../../ai/utils/relatedNotes';
+import { LocalVersionService } from '../../../core/services/LocalVersionService';
+import { getLocalDb } from '../../../core/storage/localDb';
 
-export function DocumentPreview({ session, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags, onAttach, onCopyText }: {
+const relatedNotesCache = new Map<string, RelatedNote[]>();
+
+export function DocumentPreview({ session: propSession, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags, onAttach, onCopyText }: {
   session: ArchiveSession | null;
   onClose: () => void;
   onContinue: (session: ArchiveSession) => void;
@@ -30,6 +35,12 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
   onAttach?: ((documentId: string) => void) | undefined;
   onCopyText?: ((text: string) => void) | undefined;
 }) {
+  const [session, setSession] = useState<ArchiveSession | null>(propSession);
+
+  useEffect(() => {
+    setSession(propSession);
+  }, [propSession]);
+
   const { t, language } = useLanguage();
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -67,6 +78,66 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
       active = false;
     };
   }, [session?.id]);
+
+  const [relatedNotes, setRelatedNotes] = useState<RelatedNote[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    if (!session?.id) {
+      setRelatedNotes([]);
+      return;
+    }
+
+    const cached = relatedNotesCache.get(session.id);
+    if (cached) {
+      setRelatedNotes(cached);
+      return;
+    }
+
+    void (async () => {
+      try {
+        const related = await findRelatedNotes({ docId: session.id }, { maxResults: 4 });
+        if (active) {
+          relatedNotesCache.set(session.id!, related);
+          setRelatedNotes(related);
+        }
+      } catch (e) {
+        console.error('[DocumentPreview] failed to compute related notes:', e);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [session?.id]);
+
+  const handleSelectRelatedNote = useCallback(async (id: string) => {
+    try {
+      const db = await getLocalDb();
+      const doc = await db.get('documents', id);
+      if (!doc) return;
+      const content = await LocalVersionService.getLatestContent(id);
+      const newSession: ArchiveSession = {
+        id: doc.id,
+        userId: doc.guestId,
+        title: doc.title || 'Без названия',
+        content: content || '',
+        duration: doc.totalDuration || 0,
+        wordCount: doc.totalWords || 0,
+        charCount: content ? content.length : 0,
+        wpm: doc.totalWords ? Math.round(doc.totalWords / (doc.totalDuration / 60 || 1)) : 0,
+        tags: doc.tags ?? [],
+        labelId: doc.labelId,
+        mood: doc.mood,
+        createdAt: doc.firstSessionAt || doc.lastSessionAt || 0,
+        sessionStartTime: doc.firstSessionAt,
+        _isLocal: true,
+      };
+      setSession(newSession);
+    } catch (e) {
+      console.error('[DocumentPreview] failed to load related note:', e);
+    }
+  }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isMobile) return;
@@ -376,7 +447,10 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
           onClick={() => setSummaryExpanded(v => !v)}
           className="w-full flex items-center justify-between text-xs font-medium text-brand-soft"
         >
-          <span className="flex items-center gap-1.5"><Sparkles size={12} /> Анализ ИИ</span>
+          <span className="flex items-center gap-1.5 font-sans text-xs tracking-wide text-brand-soft/80 font-semibold uppercase">
+            <Sparkles size={12} className="text-brand-soft" />
+            Что заметил ИИ • Наблюдение ИИ
+          </span>
           {summaryExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
         </Button>
             {summaryExpanded && (
@@ -384,6 +458,17 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
                 {summary.summary && (
                   <div className="italic text-text-main/80">{summary.summary}</div>
                 )}
+
+                {summary.themes !== undefined && summary.themes.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2 mb-2">
+                    {summary.themes.map((theme, i) => (
+                      <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-brand-soft/10 text-brand-soft border border-brand-soft/10 uppercase tracking-wider">
+                        #{theme}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 <div><span className="text-text-main/60">Тональность:</span> {summary.tone}</div>
                 {summary.insights.length > 0 && (
                   <div>
@@ -423,12 +508,36 @@ export function DocumentPreview({ session, onClose, onContinue, onTagsChange, on
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5">
+      <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5 flex flex-col justify-between">
         <p className="text-[15px] text-text-main/80 leading-[1.8] whitespace-pre-wrap text-pretty" >
           {session.content || (
             <span className="text-text-main/60 italic">{t('archive_no_content')}</span>
           )}
         </p>
+
+        {relatedNotes.length > 0 && (
+          <div className="mt-8 pt-5 border-t border-border-subtle/40">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-text-main/55 mb-3 flex items-center gap-1.5">
+              <span>Связанные записи</span>
+            </h4>
+            <div className="space-y-2">
+              {relatedNotes.map((note) => (
+                <button
+                  key={note.documentId}
+                  onClick={() => void handleSelectRelatedNote(note.documentId)}
+                  className="w-full text-left p-3 rounded-xl border border-border-subtle/40 hover:border-brand-soft/30 bg-surface-card hover:bg-brand-soft/[0.02] transition-all cursor-pointer flex justify-between items-center gap-4 group"
+                >
+                  <span className="text-sm text-text-main/80 group-hover:text-brand-soft font-medium truncate">
+                    {note.title}
+                  </span>
+                  <span className="text-[11px] font-mono text-text-main/40 whitespace-nowrap bg-surface-elevated px-1.5 py-0.5 rounded border border-border-subtle/50">
+                    [#{note.documentId.slice(0, 4)} · {note.date}]
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Actions */}
