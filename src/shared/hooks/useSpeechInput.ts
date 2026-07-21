@@ -99,7 +99,13 @@ export function useSpeechInput({ onTranscript }: UseSpeechInputProps) {
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error('[useSpeechInput] Speech recognition error', event.error);
       if (event.error !== 'aborted') {
-        showToast(t('voice_error') + ': ' + event.error, 'error');
+        let msg = t('voice_error') + ': ' + event.error;
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          msg = language === 'ru'
+            ? 'Микрофон заблокирован браузером или политикой организации'
+            : 'Microphone is blocked by the browser or organization policy';
+        }
+        showToast(msg, 'error');
       }
       setIsListening(false);
     };
