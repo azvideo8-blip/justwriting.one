@@ -136,35 +136,40 @@ export function AttachedSummaryCard({ content }: { content: string }) {
 }
 
 // Letter-style assistant turn: monogram, name, serif body framed by a persona-coloured rule.
-export function AssistantTurn({
-  name,
-  color,
-  mono,
-  children,
-  onCopy,
-  onDelete,
-  onRegenerate,
-  onFeedback,
-  variants,
-  variantIndex,
-  onSwitchVariant,
-  onCreateNote,
-  onApplyToNote,
-}: {
-  name: string;
-  color: string;
-  mono: string;
-  children: React.ReactNode;
-  onCopy?: () => void;
-  onDelete?: () => void;
-  onRegenerate?: (() => void) | undefined;
-  onFeedback?: ((value: 'up' | 'down') => void) | undefined;
-  variants?: string[] | undefined;
-  variantIndex?: number | undefined;
-  onSwitchVariant?: ((delta: number) => void) | undefined;
-  onCreateNote?: (() => void) | undefined;
-  onApplyToNote?: (() => void) | undefined;
-}) {
+export const AssistantTurn = React.memo(
+  function AssistantTurn({
+    name,
+    color,
+    mono,
+    children,
+    onCopy,
+    onDelete,
+    onRegenerate,
+    onFeedback,
+    variants,
+    variantIndex,
+    onSwitchVariant,
+    onCreateNote,
+    onApplyToNote,
+    content: _content,
+    reasoning: _reasoning,
+  }: {
+    name: string;
+    color: string;
+    mono: string;
+    children: React.ReactNode;
+    onCopy?: () => void;
+    onDelete?: () => void;
+    onRegenerate?: (() => void) | undefined;
+    onFeedback?: ((value: 'up' | 'down') => void) | undefined;
+    variants?: string[] | undefined;
+    variantIndex?: number | undefined;
+    onSwitchVariant?: ((delta: number) => void) | undefined;
+    onCreateNote?: (() => void) | undefined;
+    onApplyToNote?: (() => void) | undefined;
+    content?: string | undefined;
+    reasoning?: string | undefined;
+  }) {
   const borderStyle = { borderLeft: `2px solid ${color}40` };
   return (
     <div className="flex gap-4 w-full self-start">
@@ -270,6 +275,18 @@ export function AssistantTurn({
       </div>
     </div>
   );
+},
+(prev, next) => {
+  return (
+    prev.name === next.name &&
+    prev.color === next.color &&
+    prev.mono === next.mono &&
+    prev.variantIndex === next.variantIndex &&
+    prev.content === next.content &&
+    prev.reasoning === next.reasoning &&
+    JSON.stringify(prev.variants) === JSON.stringify(next.variants)
+  );
 }
+);
 
 export { ATTACHED_NOTE_RE, ATTACHED_NOTE_SUMMARY_RE, ATTACHED_FILE_RE };
