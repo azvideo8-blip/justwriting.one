@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Sparkles, Pencil, Check, X, AlertCircle } from 'lucide-react';
+import { Loader2, Pencil, Check, X, AlertCircle } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 import { getLocalDb, type LifeStoryEntry } from '../../../core/storage/localDb';
 import { LifeStoryService } from '../services/LifeStoryService';
@@ -10,6 +10,7 @@ interface DayItem {
   eventDate: string;
   documentId: string;
   noteTitle: string;
+  timelineSummary?: string | undefined;
   storyEntry?: LifeStoryEntry | undefined;
 }
 
@@ -20,7 +21,6 @@ export function LifeStoryTimeline() {
   const [editingDate, setEditingDate] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [editEventDate, setEditEventDate] = useState('');
-  const [generatingDate, setGeneratingDate] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -32,14 +32,16 @@ export function LifeStoryTimeline() {
       const storyEntries = await LifeStoryService.getAll();
       const storyMap = new Map(storyEntries.map(s => [s.eventDate, s]));
 
-      // Map timeline entries to event dates
-      const dayMap = new Map<string, { documentId: string; noteTitle: string }>();
+      // Map timeline entries to event dates. Reuse the note's existing AI summary
+      // directly as the day's story — no separate generation needed.
+      const dayMap = new Map<string, { documentId: string; noteTitle: string; timelineSummary?: string | undefined }>();
       for (const entry of timelineEntries) {
         const eventDate = LifeStoryService.getDefaultEventDate(entry.date);
         const doc = docMap.get(entry.documentId);
         dayMap.set(eventDate, {
           documentId: entry.documentId,
           noteTitle: doc?.title || 'Заметка без названия',
+          timelineSummary: entry.summary,
         });
       }
 
@@ -58,6 +60,7 @@ export function LifeStoryTimeline() {
         eventDate,
         documentId: info.documentId,
         noteTitle: info.noteTitle,
+        timelineSummary: info.timelineSummary,
         storyEntry: storyMap.get(eventDate),
       })).sort((a, b) => b.eventDate.localeCompare(a.eventDate));
 
@@ -123,24 +126,6 @@ export function LifeStoryTimeline() {
     }
   };
 
-  const handleGenerate = async (item: DayItem) => {
-    if (!item.documentId) {
-      showToast('Нет связанного документа для суммаризации', 'error');
-      return;
-    }
-    setGeneratingDate(item.eventDate);
-    try {
-      await LifeStoryService.generateWithAI(item.eventDate, item.documentId);
-      showToast('Описание дня сгенерировано', 'success');
-      await loadData();
-    } catch (e) {
-      reportError(e, { action: 'life_story_timeline_generate' });
-      showToast(e instanceof Error ? e.message : 'Ошибка генерации', 'error');
-    } finally {
-      setGeneratingDate(null);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center py-8">
@@ -164,14 +149,14 @@ export function LifeStoryTimeline() {
           <div className="relative border-l border-border-subtle ml-3 space-y-6">
             {days.map(item => {
               const isEditing = editingDate === item.eventDate;
-              const isGenerating = generatingDate === item.eventDate;
               const entry = item.storyEntry;
+              const hasText = Boolean(entry?.text || item.timelineSummary);
 
               return (
                 <div key={item.eventDate} className="relative pl-6">
                   {/* Timeline node */}
                   <span className="absolute -left-[6.5px] top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-surface-elevated border border-border-subtle">
-                    <span className={`h-1.5 w-1.5 rounded-full ${entry ? 'bg-brand-soft shadow-[0_0_4px_var(--brand-soft)]' : 'bg-text-main/30'}`} />
+                    <span className={`h-1.5 w-1.5 rounded-full ${hasText ? 'bg-brand-soft shadow-[0_0_4px_var(--brand-soft)]' : 'bg-text-main/30'}`} />
                   </span>
 
                   <div className="space-y-1.5">
@@ -208,16 +193,6 @@ export function LifeStoryTimeline() {
                           >
                             <Pencil size={11} />
                           </button>
-                          {item.documentId && (
-                            <button
-                              onClick={() => void handleGenerate(item)}
-                              disabled={isGenerating}
-                              className="p-1 text-text-main/40 hover:text-brand-soft hover:bg-surface-elevated rounded transition-colors disabled:opacity-50"
-                              title="Перегенерировать описание с ИИ"
-                            >
-                              {isGenerating ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-                            </button>
-                          )}
                         </div>
                       )}
                     </div>
@@ -248,24 +223,12 @@ export function LifeStoryTimeline() {
                             </Button>
                           </div>
                         </div>
-                      ) : entry ? (
-                        <span>{entry.text}</span>
+                      ) : (entry?.text || item.timelineSummary) ? (
+                        <span>{entry?.text || item.timelineSummary}</span>
                       ) : (
-                        <div className="flex items-center justify-between gap-3 text-text-main/50 italic py-0.5">
-                          <span className="flex items-center gap-1.5">
-                            <AlertCircle size={12} className="text-text-main/40" />
-                            Нет описания для этого дня
-                          </span>
-                          {item.documentId && (
-                            <Button
-                              onClick={() => void handleGenerate(item)}
-                              disabled={isGenerating}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-brand-soft/20 bg-brand-soft/5 text-brand-soft text-[10px] font-bold hover:bg-brand-soft/10 disabled:opacity-50"
-                            >
-                              {isGenerating ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
-                              Сгенерировать
-                            </Button>
-                          )}
+                        <div className="flex items-center gap-1.5 text-text-main/50 italic py-0.5">
+                          <AlertCircle size={12} className="text-text-main/40" />
+                          Нет описания для этого дня
                         </div>
                       )}
                     </div>
