@@ -68,31 +68,53 @@ export const deriveTaxonomy = onCall({
 
   let settled = false;
   try {
-    const result = await generate({
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: `Дайджест дневника:\n\n${digest}` }],
-      json: true,
-      maxTokens: 4096,
-      abortMs: 110_000,
-      model: TAXO_MODEL,
-    });
-    recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'taxonomy' }, reservation).catch(() => {});
-    settled = true;
+    let domains: { label: string; seed: string }[] = [];
+    let extraUserInstruction = '';
 
-    let txt = result.text.trim();
-    if (txt.startsWith('```')) txt = txt.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
-    let obj: unknown;
-    try { obj = JSON.parse(txt); } catch { obj = JSON.parse(repairTruncatedJson(txt)); }
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const result = await generate({
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: `Дайджест дневника:\n\n${digest}${extraUserInstruction}` }],
+        json: true,
+        maxTokens: 4096,
+        abortMs: 110_000,
+        model: TAXO_MODEL,
+      });
+      recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'taxonomy' }, reservation).catch(() => {});
+      settled = true;
 
-    const arr = z.object({ domains: z.array(domainSchema) }).safeParse(obj);
-    if (!arr.success || arr.data.domains.length === 0) {
-      console.error('[AI taxonomy] no valid domains. raw:', result.text.slice(0, 400));
-      throw new HttpsError('internal', 'Taxonomy derivation produced no domains.');
+      let txt = result.text.trim();
+      if (txt.startsWith('```')) txt = txt.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
+      let obj: unknown;
+      try { obj = JSON.parse(txt); } catch { obj = JSON.parse(repairTruncatedJson(txt)); }
+
+      const arr = z.object({ domains: z.array(domainSchema) }).safeParse(obj);
+      if (arr.success && arr.data.domains.length > 0) {
+        const candidateDomains = arr.data.domains.slice(0, 10).map(d => ({
+          label: sanitizeAiResponse(d.label),
+          seed: sanitizeAiResponse(d.seed),
+        })).filter(d => d.label.length > 0 && d.seed.length > 0);
+
+        // Check if any of them has zero Cyrillic characters in the label
+        const hasEnglishOnlyLabel = candidateDomains.some(d => !/[а-яё]/i.test(d.label));
+        if (!hasEnglishOnlyLabel) {
+          domains = candidateDomains;
+          break; // Perfect! Russian taxonomy retrieved.
+        } else if (attempt === 1) {
+          console.warn('[AI taxonomy] English labels detected on attempt 1, re-requesting...');
+          extraUserInstruction = '\n\nВАЖНО: Пожалуйста, переведи ВСЕ названия сфер (label) на русский язык. Названия сфер должны состоять только из русских слов.';
+          settled = false;
+          continue;
+        } else {
+          // Attempt 2: still has English, let's filter them out
+          domains = candidateDomains.filter(d => /[а-яё]/i.test(d.label));
+        }
+      }
     }
-    const domains = arr.data.domains.slice(0, 10).map(d => ({
-      label: sanitizeAiResponse(d.label),
-      seed: sanitizeAiResponse(d.seed),
-    })).filter(d => d.label.length > 0 && d.seed.length > 0);
+
+    if (domains.length === 0) {
+      throw new HttpsError('internal', 'Taxonomy derivation produced no domains in Russian.');
+    }
 
     return { domains };
   } catch (e) {
