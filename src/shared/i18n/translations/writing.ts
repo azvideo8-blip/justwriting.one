@@ -98,6 +98,8 @@ export const writingTranslations: Translations = {
   finish_saving: { ru: 'Заметка сохраняется...', en: 'Saving note...' },
   finish_wpm_chart: { ru: 'Скорость по времени', en: 'Speed over time' },
   finish_back: { ru: 'Вернуться', en: 'Go Back' },
+  finish_done: { ru: 'Завершить', en: 'Finish' },
+  finish_discuss_ai: { ru: 'Обсудить с ИИ', en: 'Discuss with AI' },
   finish_modal_choose_title:      { ru: 'Сохранить сессию',           en: 'Save session' },
   finish_modal_new_doc:           { ru: 'Новый документ',              en: 'New document' },
   finish_modal_new_doc_hint:      { ru: 'Начать новый текст',          en: 'Start a new text' },

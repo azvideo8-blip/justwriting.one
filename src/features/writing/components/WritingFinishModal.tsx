@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { Sparkles, Check, Loader2 } from 'lucide-react';
+import { Sparkles, Check } from 'lucide-react';
 
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '../../../core/utils/utils';
@@ -117,13 +117,13 @@ async function computeLocalEcho(content: string, docId: string): Promise<string>
       vector = res.ok && res.vectors[0] ? res.vectors[0] : undefined;
     }
     if (!vector) {
-      return 'Это перекликается с тем, о чем ты размышлял на прошлой неделе';
+      return '';
     }
 
     const timeline = await db.getAll('aiTimeline');
     const historical = timeline.filter(e => e.documentId !== docId);
     if (historical.length === 0) {
-      return 'Приятного завершения сессии!';
+      return '';
     }
 
     const { cosineSimilarity } = await import('../../ai/utils/vectorSearch');
@@ -151,7 +151,8 @@ async function computeLocalEcho(content: string, docId: string): Promise<string>
   } catch (e) {
     console.error(e);
   }
-  return 'Это перекликается с тем, о чем ты размышлял на прошлой неделе';
+  // No genuine semantic match — return nothing rather than fabricate a connection.
+  return '';
 }
 
 interface WritingFinishModalProps {
@@ -224,55 +225,29 @@ export function WritingFinishModal({
   useFocusTrap(modalRef, isOpen);
 
   const tagInputRef = React.useRef<HTMLInputElement>(null);
-  const [step, setStep] = useState<'form' | 'mood' | 'echo'>('form');
+  const [step, setStep] = useState<'form' | 'mood'>('form');
   const [saveDataState, setSaveDataState] = useState<SaveData | null>(null);
-  const [echoText, setEchoText] = useState('Анализируем недавний контекст…');
-  const [echoLoading, setEchoLoading] = useState(true);
+  const [selectedMood, setSelectedMood] = useState<string | undefined>(undefined);
+  const [echoText, setEchoText] = useState('');
+  const savedDocIdRef = useRef<string | null>(null);
 
+  // Echo ("Связь мыслей") is computed locally from the draft when we reach the
+  // mood step, and only shown when there is a genuine semantic match with past
+  // notes — otherwise nothing (no fabricated "перекликается" line).
   React.useEffect(() => {
-    if (step !== 'echo') return;
-
-    let attempts = 0;
-    const maxAttempts = 6;
-    let timerId: ReturnType<typeof setInterval>;
-
-    const poll = async () => {
-      attempts++;
+    if (step !== 'mood') return;
+    let cancelled = false;
+    setEchoText('');
+    void (async () => {
       try {
-        const { getLocalDb } = await import('../../../core/storage/localDb');
-        const db = await getLocalDb();
-        if (savedDocumentId) {
-          const summary = await db.get('aiSummaries', savedDocumentId);
-          if (summary && summary.echo) {
-            setEchoText(summary.echo);
-            setEchoLoading(false);
-            clearInterval(timerId);
-            return;
-          }
-        }
-      } catch (e) {
-        console.error(e);
+        const echo = await computeLocalEcho(content, savedDocumentId || '');
+        if (!cancelled) setEchoText(echo);
+      } catch {
+        /* no echo on error */
       }
-
-      if (attempts >= maxAttempts) {
-        clearInterval(timerId);
-        void (async () => {
-          try {
-            const fallback = await computeLocalEcho(content, savedDocumentId || '');
-            setEchoText(fallback);
-          } catch {
-            setEchoText('Это перекликается с тем, о чем ты размышлял на прошлой неделе');
-          }
-          setEchoLoading(false);
-        })();
-      }
-    };
-
-    timerId = setInterval(() => { void poll(); }, 500);
-    void poll();
-
-    return () => clearInterval(timerId);
-  }, [step, savedDocumentId, content]);
+    })();
+    return () => { cancelled = true; };
+  }, [step, content, savedDocumentId]);
 
   const [statsExpanded, setStatsExpanded] = useState(true);
   const [formExpanded, setFormExpanded] = useState(true);
@@ -283,6 +258,7 @@ export function WritingFinishModal({
     if (isOpen) {
       setStep('form');
       setSaveDataState(null);
+      setSelectedMood(undefined);
     }
   }, [isOpen]);
 
@@ -305,7 +281,6 @@ export function WritingFinishModal({
   }, [isOpen, goalReached]);
 
   const [editTitle, setEditTitle] = useState('');
-  const [justSavedDocId, setJustSavedDocId] = useState<string | null>(null);
   const titleInputValue = editTitle || title || '';
 
   const [popularWords, setPopularWords] = useState<string[]>([]);
@@ -388,20 +363,22 @@ export function WritingFinishModal({
     setStep('mood');
   };
 
-  const handleMoodSelect = (selectedMood?: string) => {
+  // Terminal action for the combined mood+echo step: saves with the chosen mood,
+  // then either closes or hops into the chat with the note attached.
+  const handleFinish = (discuss: boolean) => {
     if (!saveDataState) return;
     void execute(
       async () => {
         const docId = await onSave({ ...saveDataState, mood: selectedMood });
-        if (docId) {
-          setJustSavedDocId(docId);
-        }
+        savedDocIdRef.current = docId ?? null;
       },
       {
         successMessage: t('save_success'),
         errorMessage: t('error_save_failed'),
         onSuccess: () => {
-          setStep('echo');
+          const docId = savedDocIdRef.current;
+          onCancel();
+          if (discuss && docId) void navigate(`/ai?doc=${docId}`);
         },
       }
     );
@@ -454,71 +431,56 @@ export function WritingFinishModal({
                 <motion.button
                   key={item.key}
                   aria-label={t(item.key)}
+                  aria-pressed={selectedMood === item.emoji}
                   whileHover={reducedMotion ? {} : { scale: 1.3 }}
                   whileTap={reducedMotion ? {} : { scale: 0.85 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 15 }}
                   initial={reducedMotion ? {} : { opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0, transition: { delay: i * 0.06 } }}
                   disabled={isSaving}
-                  onClick={() => handleMoodSelect(item.emoji)}
-                  className={cn("text-4xl", isSaving && "opacity-50 cursor-not-allowed")}
+                  onClick={() => setSelectedMood(m => m === item.emoji ? undefined : item.emoji)}
+                  className={cn(
+                    "text-4xl rounded-full transition-all",
+                    selectedMood === item.emoji ? "scale-110 drop-shadow-[0_0_10px_var(--brand-soft)]" : selectedMood ? "opacity-40" : "",
+                    isSaving && "opacity-50 cursor-not-allowed"
+                  )}
                 >
                   {item.emoji}
                 </motion.button>
               ))}
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={isSaving}
-              onClick={() => handleMoodSelect(undefined)}
-              className="text-xs text-text-main/60 hover:text-text-main/60 mt-4"
-            >
-              {isSaving ? t('finish_saving') : t('mood_checkin_skip')}
-            </Button>
-          </motion.div>
-        ) : step === 'echo' ? (
-          <motion.div
-            key="echo"
-            initial={reducedMotion ? {} : { opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={reducedMotion ? {} : { opacity: 0, x: -40 }}
-            transition={slideTransition}
-            className="text-center space-y-6 py-6 flex-1 flex flex-col justify-center p-6"
-          >
-            <div className="flex flex-col items-center justify-center space-y-4">
-              <div className="w-12 h-12 rounded-full bg-brand-soft/10 border border-brand-soft/20 flex items-center justify-center">
-                {echoLoading ? <Loader2 className="animate-spin text-brand-soft" size={24} /> : <Sparkles className="text-brand-soft" size={24} />}
+
+            {/* Echo — only rendered when there's a genuine match with past notes */}
+            {echoText && (
+              <div className="flex items-center gap-2.5 text-left max-w-sm mx-auto bg-surface-base/10 border border-border-subtle/50 px-4 py-3 rounded-2xl">
+                <Sparkles className="text-brand-soft shrink-0" size={16} />
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-brand-soft/80">Связь мыслей</div>
+                  <div className="text-xs text-text-main/80 leading-relaxed italic">{echoText}</div>
+                </div>
               </div>
-              <div className="text-xl font-bold text-text-main">Связь мыслей</div>
-              <div className="text-sm text-text-main/80 leading-relaxed max-w-sm italic bg-surface-base/10 border border-border-subtle/50 px-4 py-3 rounded-2xl">
-                {echoText}
-              </div>
-            </div>
-            
-            <div className="pt-6 flex flex-col gap-2.5">
+            )}
+
+            <div className="pt-2 flex flex-col gap-2.5">
               <Button
-                variant="brand"
+                variant="primary"
                 size="md"
-                onClick={onCancel}
-                className="w-full max-w-xs mx-auto flex items-center justify-center gap-2"
+                isLoading={isSaving}
+                onClick={() => handleFinish(false)}
+                className="w-full max-w-xs mx-auto"
               >
-                Завершить
+                {isSaving ? t('finish_saving') : t('finish_done')}
               </Button>
-              {justSavedDocId && (
-                <Button
-                  variant="ghost"
-                  size="md"
-                  onClick={() => {
-                    onCancel();
-                    void navigate(`/ai?doc=${justSavedDocId}`);
-                  }}
-                  className="w-full max-w-xs mx-auto flex items-center justify-center gap-2 bg-brand-soft/10 text-brand-soft border border-brand-soft/20 hover:bg-brand-soft/20 font-bold"
-                >
-                  <Sparkles size={14} />
-                  Обсудить с ИИ
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="md"
+                disabled={isSaving}
+                onClick={() => handleFinish(true)}
+                className="w-full max-w-xs mx-auto flex items-center justify-center gap-2 bg-brand-soft/10 text-brand-soft border border-brand-soft/20 hover:bg-brand-soft/20 font-bold"
+              >
+                <Sparkles size={14} />
+                {t('finish_discuss_ai')}
+              </Button>
             </div>
           </motion.div>
         ) : isMobile ? (
