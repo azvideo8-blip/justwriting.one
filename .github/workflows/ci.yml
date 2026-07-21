@@ -67,6 +67,20 @@ jobs:
       run: npm run build && npx playwright test --project=chromium
     - name: Functions build & test
       run: cd functions && npm ci && npm run build && npm test
+    - name: Set up Java for Firebase Emulator
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+    - name: Cache Firebase Emulator
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/firebase/emulators
+        key: ${{ runner.os }}-firebase-emulators-${{ hashFiles('functions/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-firebase-emulators-
+    - name: Run rules and emulator tests
+      run: cd functions && npm run test:rules && npm run test:emulator
   deploy-functions:
     needs: build
     runs-on: ubuntu-latest
