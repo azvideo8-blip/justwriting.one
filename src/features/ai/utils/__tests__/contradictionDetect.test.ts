@@ -4,11 +4,19 @@ import type { AITimelineEntry } from '../../../../core/storage/localDb';
 
 describe('contradictionDetect', () => {
   it('detects valence changes in themes', () => {
+    // Dates are relative to "now" — the function's baseline/recent split is a
+    // rolling 7-day window, so hardcoded dates would age out and go flaky.
+    const fmt = (daysAgo: number) => {
+      const d = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
+      return d.toISOString().slice(0, 10);
+    };
     const timeline: AITimelineEntry[] = [
-      { documentId: '1', date: '2026-07-01', month: '2026-07', facts: [], themes: ['работа'], valence: 0.6 },
-      { documentId: '2', date: '2026-07-02', month: '2026-07', facts: [], themes: ['работа'], valence: 0.8 },
-      { documentId: '3', date: '2026-07-08', month: '2026-07', facts: [], themes: ['работа'], valence: -0.5 },
-      { documentId: '4', date: '2026-07-09', month: '2026-07', facts: [], themes: ['работа'], valence: -0.7 },
+      // baseline (older than 7 days): positive
+      { documentId: '1', date: fmt(9), month: fmt(9).slice(0, 7), facts: [], themes: ['работа'], valence: 0.6 },
+      { documentId: '2', date: fmt(8), month: fmt(8).slice(0, 7), facts: [], themes: ['работа'], valence: 0.8 },
+      // recent (within 7 days): negative
+      { documentId: '3', date: fmt(1), month: fmt(1).slice(0, 7), facts: [], themes: ['работа'], valence: -0.5 },
+      { documentId: '4', date: fmt(0), month: fmt(0).slice(0, 7), facts: [], themes: ['работа'], valence: -0.7 },
     ];
 
     const results = detectContradictions(timeline);
