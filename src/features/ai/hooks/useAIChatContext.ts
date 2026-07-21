@@ -864,6 +864,7 @@ export function useAIChatContext(personaId: string): {
         reportError(e, { action: '[useAIChatContext] proactive context failed' });
       }
 
+      const shownIds = new Set<string>();
       try {
         const archived = await AIDialogueService.list({ includeArchived: true });
         const personaArchived = archived.filter(d => d.personaId === personaId && d.archivedAt !== undefined && d.closingSummary !== undefined && d.closingSummary !== '');
@@ -872,12 +873,39 @@ export function useAIChatContext(personaId: string): {
           .slice(0, 3);
 
         if (recentArchived.length > 0) {
+          recentArchived.forEach(d => shownIds.add(d.id));
           const prevSessionLines = recentArchived.map(d => {
             const dateStr = new Date(d.archivedAt!).toLocaleDateString('ru-RU');
             return `- ${dateStr}: ${d.closingSummary}`;
           }).join('\n');
           const previousContextBlock = `[Предыдущие сессии с этим персонажем]\n${prevSessionLines}`;
           proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${previousContextBlock}` : previousContextBlock;
+        }
+      } catch (e) {
+        reportError(e, { action: '[useAIChatContext] same persona dialogue memory context failed' });
+      }
+
+      try {
+        const db = await getLocalDb();
+        const allEvents = await db.getAll('aiDialogueEvents');
+        const otherEvents = allEvents
+          .filter(e => !shownIds.has(e.dialogueId))
+          .sort((a, b) => b.date.localeCompare(a.date))
+          .slice(0, 5);
+
+        if (otherEvents.length > 0) {
+          const crossSessionLines = otherEvents.map(e => {
+            let dateStr = e.date;
+            try {
+              const dObj = new Date(e.date);
+              if (!isNaN(dObj.getTime())) {
+                dateStr = dObj.toLocaleDateString('ru-RU');
+              }
+            } catch { /* ignore */ }
+            return `- ${dateStr} (${e.personaName}): ${e.summary}`;
+          }).join('\n');
+          const crossContextBlock = `[Выводы прошлых разговоров]\n${crossSessionLines}`;
+          proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${crossContextBlock}` : crossContextBlock;
         }
       } catch (e) {
         reportError(e, { action: '[useAIChatContext] cross dialogue memory context failed' });
