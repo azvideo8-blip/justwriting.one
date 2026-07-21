@@ -14,6 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.55',
+    date: '2026-07-21',
+    items: [
+      { category: 'new', ru: 'Профиль переустроен в три сворачиваемых раздела: «Как я пишу», «Обо мне» (портрет, темы, двери контакта — обновляются сами) и «История моей жизни» по дням', en: 'The profile is reorganized into three collapsible sections: "How I write", "About me" (portrait, themes, contact doors — updated automatically) and a day-by-day "Story of my life"' },
+      { category: 'new', ru: 'Голосовой ввод: кнопка-микрофон рядом с play/stop надиктовывает текст прямо в редактор', en: 'Voice input: a mic button next to play/stop dictates text straight into the editor' },
+      { category: 'new', ru: '«История моей жизни» подтягивает готовое ИИ-саммари каждого дня автоматически', en: '"Story of my life" pulls each day\'s existing AI summary automatically' },
+      { category: 'improvement', ru: 'Быстрые действия ИИ в редакторе: добавлены «Благодарность» и «Достижения», убраны менее нужные «Сократить», «Теги», «Тональность»', en: 'Editor AI quick-actions: added "Gratitude" and "Achievements", removed the less-used "Shorten", "Tags", "Mood"' },
+      { category: 'improvement', ru: 'Экран завершения записи короче: «Связь мыслей» объединена с выбором настроения, и подсказка о связи показывается только при реальном совпадении с прошлыми записями', en: 'The finish screen is shorter: "Connection of thoughts" is merged into the mood check-in, and the hint only appears on a genuine match with past notes' },
+      { category: 'improvement', ru: 'Список диалогов в чате можно свернуть; из пресетов убран «Редактор»', en: 'The chat dialogue list can be collapsed; the "Editor" preset persona is removed' },
+    ],
+  },
+  {
     version: '0.7.54',
     date: '2026-07-15',
     items: [
