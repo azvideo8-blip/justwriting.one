@@ -155,6 +155,18 @@ export const AIChatMemoryService = {
     await db.clear('aiChatMemory');
   },
 
+  async deleteByDialogue(dialogueId: string): Promise<void> {
+    if (dialogueId === 'manual') return;
+    const db = await getLocalDb();
+    const tx = db.transaction('aiChatMemory', 'readwrite');
+    const index = tx.store.index('by-dialogue');
+    const keys = await index.getAllKeys(IDBKeyRange.only(dialogueId));
+    for (const key of keys) {
+      await tx.store.delete(key);
+    }
+    await tx.done;
+  },
+
   // One-time cleanup: remove exact-duplicate entries (same kind + identical
   // trimmed text), keeping the newest. Returns how many were removed.
   async cleanupDuplicates(): Promise<number> {
