@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { Square } from 'lucide-react';
+import { Square, Mic, MicOff } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useContentStore } from '../store/useContentStore';
@@ -12,6 +12,7 @@ import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { GoalPopup } from './GoalPopup';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Button } from '../../../shared/components/Button';
+import { useSpeechInput } from '../../../shared/hooks/useSpeechInput';
 
 const PLAY_PATH = "M8 5v14l11-7z";
 const PAUSE_PATH = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
@@ -46,7 +47,14 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
       wpm: s.wpm,
     }))
   );
-  
+
+  const { isListening, startListening, stopListening, hasSupport } = useSpeechInput({
+    onTranscript: (text) => {
+      const cur = useContentStore.getState().content;
+      useContentStore.getState().setContent(cur ? cur.trimEnd() + ' ' + text : text);
+    },
+  });
+
 
   const { status, seconds, wordGoal, timerDuration, sessionStartWords, sessionStartSeconds, setWordGoal, setTimerDuration } = useTimerStore(
     useShallow((s: ReturnType<typeof useTimerStore.getState>) => ({
@@ -267,6 +275,20 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
       <div className="flex items-center gap-2 ml-2 shrink-0">
         <div className="w-px h-6 bg-border-subtle" />
         <div className="flex items-center gap-1 bg-text-main/[0.04] rounded-xl px-1 py-0.5">
+        {hasSupport && (
+          <IconButton
+            onClick={isListening ? stopListening : startListening}
+            aria-label={isListening ? t('voice_stop') : t('voice_start')}
+            className={cn(
+              "w-8 h-8 flex items-center justify-center transition-colors shrink-0 rounded-lg",
+              isListening
+                ? "text-accent-danger bg-accent-danger/10 animate-pulse"
+                : "text-text-main hover:bg-text-main/5"
+            )}
+            label={isListening ? t('voice_stop') : t('voice_start')}
+            icon={isListening ? <MicOff size={14} /> : <Mic size={14} />}
+          />
+        )}
         <IconButton
           onClick={status === 'writing' ? onPause : onPlay}
           aria-label={status === 'writing' ? t('pause') : t('play')}
