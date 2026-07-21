@@ -151,7 +151,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection title="Обо мне" storageKey="profile_sec_about_me_v2" defaultOpen={true}>
+        <CollapsibleSection title="Обо мне" storageKey="profile_sec_about_me_v3" defaultOpen={false}>
           <div className="space-y-6">
             <AuthorPortrait readOnly={true} />
             <ProfileFacets readOnly={true} />
@@ -159,7 +159,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection title="История моей жизни" storageKey="profile_sec_life_story_v2" defaultOpen={true}>
+        <CollapsibleSection title="История моей жизни" storageKey="profile_sec_life_story_v3" defaultOpen={false}>
           <LifeStoryTimeline />
         </CollapsibleSection>
       </div>
