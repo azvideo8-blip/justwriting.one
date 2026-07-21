@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.56',
+    date: '2026-07-21',
+    items: [
+      { category: 'new', ru: 'На карточке темы в профиле — кнопка «✨ Обсудить»: открывает диалог с КПТ-психологом, уже заземлённый на заметки этой темы', en: 'A theme card in the profile gets a "✨ Discuss" button: opens a CBT dialogue already grounded on that theme\'s notes' },
+      { category: 'improvement', ru: 'Выводы завершённых разговоров теперь доступны любому собеседнику (блок «Выводы прошлых разговоров»), а не только той же персоне', en: 'Conclusions from finished dialogues are now available to any interlocutor ("Conclusions from past conversations"), not only the same persona' },
+      { category: 'fix', ru: 'Удаление диалога теперь стирает и его производную память — выводы удалённого разговора больше не всплывают в будущих ответах ИИ', en: 'Deleting a dialogue now also purges its derived memory — a deleted conversation\'s conclusions no longer resurface in future AI replies' },
+    ],
+  },
+  {
     version: '0.7.55',
     date: '2026-07-21',
     items: [
