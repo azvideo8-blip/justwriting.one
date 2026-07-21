@@ -167,7 +167,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
       <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
         <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider flex items-center gap-2">
           <Layers size={13} className="text-brand-soft" />
-          Темы профиля (кластеры заметок)
+          Темы профиля
         </span>
           {!readOnly && (
             <div className="flex items-center gap-1.5">
@@ -214,7 +214,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
           )}
       </div>
 
-      {judgeLog && judgeLog.entries.length > 0 && (
+      {!readOnly && judgeLog && judgeLog.entries.length > 0 && (
         <div className="border-b border-border-subtle">
           <button
             onClick={() => setJudgeLogOpen(o => !o)}
