@@ -624,7 +624,7 @@ export function AIPage() {
                 icon={<Settings size={15} />}
               />
               {volumeSettingsOpen && (
-                <div className="absolute right-0 top-full mt-1.5 p-3 w-56 bg-surface-elevated border border-border-subtle rounded-2xl shadow-xl z-30 space-y-3">
+                <div className="absolute right-0 top-full mt-1.5 p-3 w-56 bg-surface-popup border border-border-subtle rounded-2xl shadow-xl z-30 space-y-3">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-text-main/60">Объём ответа:</div>
                   <div className="flex flex-col gap-1.5">
                     {(['short', 'standard', 'detailed'] as const).map(len => {
@@ -688,7 +688,7 @@ export function AIPage() {
                 <ChevronDown size={12} className="opacity-60" />
               </button>
               {personaDropdownOpen && (
-                <div className="absolute left-0 top-full mt-1.5 py-1.5 w-64 bg-surface-elevated border border-border-subtle rounded-2xl shadow-xl z-30 max-h-80 overflow-y-auto">
+                <div className="absolute left-0 top-full mt-1.5 py-1.5 w-64 bg-surface-popup border border-border-subtle rounded-2xl shadow-xl z-30 max-h-80 overflow-y-auto">
                   {allPersonas.map(p => {
                     const v = personaVisual(p.id, p.name);
                     const on = selectedPersonaId === p.id;
