@@ -23,7 +23,7 @@ export type FacetBuildResult =
   | { ok: false; error: 'NO_EMBEDDINGS' | 'NO_CLUSTERS' | 'NO_CHUNK_TEXTS' };
 
 interface Chunk { noteId: string; vector: number[]; text: string }
-interface FacetSpec { label: string; fixedLabel: boolean; noteIds: string[]; texts: string[]; centroid: number[]; chunkCount: number; primaryNoteIds?: string[]; secondaryNoteIds?: string[] }
+interface FacetSpec { label: string; fixedLabel: boolean; noteIds: string[]; dialogueIds?: string[]; texts: string[]; centroid: number[]; chunkCount: number; primaryNoteIds?: string[]; secondaryNoteIds?: string[] }
 
 const STOPWORDS = new Set([
   'это','эта','этот','что','чтобы','когда','если','или','как','так','тоже','также','уже','ещё','еще','очень','только','просто',
@@ -61,6 +61,10 @@ export const AIProfileFacetBuilder = {
     return withFacetLock(async () => {
       const db = await getLocalDb();
 
+      const dialogueInFacetsEnabled = localStorage.getItem('ff_dialogues_in_facets') === 'true';
+      const dialogueEvents = dialogueInFacetsEnabled ? await db.getAll('aiDialogueEvents') : [];
+      const dialogueIdsSet = new Set(dialogueEvents.map(e => e.dialogueId));
+
       const embeddings = await AIEmbeddingService.getAll();
       const chunks: Chunk[] = [];
       let haveTexts = false;
@@ -72,6 +76,17 @@ export const AIProfileFacetBuilder = {
           chunks.push({ noteId: e.documentId, vector: vecs[i]!, text: texts[i] ?? '' });
         }
       }
+
+      for (const event of dialogueEvents) {
+        if (event.vector && event.vector.length > 0) {
+          chunks.push({
+            noteId: event.dialogueId,
+            vector: event.vector,
+            text: event.summary,
+          });
+        }
+      }
+
       if (chunks.length === 0) return { ok: false, error: 'NO_EMBEDDINGS' };
       if (!haveTexts) return { ok: false, error: 'NO_CHUNK_TEXTS' };
 
@@ -109,7 +124,7 @@ export const AIProfileFacetBuilder = {
         }
       }
 
-      const totalNotesForTune = new Set(chunks.map(c => c.noteId)).size;
+      const totalNotesForTune = new Set(chunks.filter(c => !dialogueIdsSet.has(c.noteId)).map(c => c.noteId)).size;
       const tuned = tuneThresholds(
         chunks.map(c => ({ noteId: c.noteId, vector: c.vector })),
         domainVecs.map(d => ({ id: d.id, vec: d.vec, threshold: taxonomy.find(ld => ld.id === d.id)?.threshold ?? DOMAIN_THRESHOLD })),
@@ -122,7 +137,7 @@ export const AIProfileFacetBuilder = {
       }
 
       const SECONDARY_BUMP = 0.03;
-      const domainData = new Map<string, { label: string; noteIds: Set<string>; primaryNoteIds: Set<string>; secondaryNoteIds: Set<string>; texts: string[]; chunkVecs: number[][] }>();
+      const domainData = new Map<string, { label: string; noteIds: Set<string>; primaryNoteIds: Set<string>; secondaryNoteIds: Set<string>; texts: string[]; chunkVecs: number[][]; dialogueIds: Set<string> }>();
       const leftover: ChunkItem[] = [];
       for (const ch of chunks) {
         const scores = domainVecs.map(d => ({
@@ -135,9 +150,13 @@ export const AIProfileFacetBuilder = {
         let assigned = false;
         if (bestPassed) {
           let dd = domainData.get(best.id);
-          if (!dd) { dd = { label: best.label, noteIds: new Set(), primaryNoteIds: new Set(), secondaryNoteIds: new Set(), texts: [], chunkVecs: [] }; domainData.set(best.id, dd); }
-          dd.noteIds.add(ch.noteId);
-          dd.primaryNoteIds.add(ch.noteId);
+          if (!dd) { dd = { label: best.label, noteIds: new Set(), primaryNoteIds: new Set(), secondaryNoteIds: new Set(), texts: [], chunkVecs: [], dialogueIds: new Set() }; domainData.set(best.id, dd); }
+          if (dialogueIdsSet.has(ch.noteId)) {
+            dd.dialogueIds.add(ch.noteId);
+          } else {
+            dd.noteIds.add(ch.noteId);
+            dd.primaryNoteIds.add(ch.noteId);
+          }
           if (ch.text) dd.texts.push(ch.text);
           dd.chunkVecs.push(ch.vector);
           assigned = true;
@@ -147,9 +166,13 @@ export const AIProfileFacetBuilder = {
             if (s.id === best.id) continue;
             if (s.sim >= s.threshold + SECONDARY_BUMP) {
               let dd = domainData.get(s.id);
-              if (!dd) { dd = { label: s.label, noteIds: new Set(), primaryNoteIds: new Set(), secondaryNoteIds: new Set(), texts: [], chunkVecs: [] }; domainData.set(s.id, dd); }
-              dd.noteIds.add(ch.noteId);
-              dd.secondaryNoteIds.add(ch.noteId);
+              if (!dd) { dd = { label: s.label, noteIds: new Set(), primaryNoteIds: new Set(), secondaryNoteIds: new Set(), texts: [], chunkVecs: [], dialogueIds: new Set() }; domainData.set(s.id, dd); }
+              if (dialogueIdsSet.has(ch.noteId)) {
+                dd.dialogueIds.add(ch.noteId);
+              } else {
+                dd.noteIds.add(ch.noteId);
+                dd.secondaryNoteIds.add(ch.noteId);
+              }
               if (ch.text) dd.texts.push(ch.text);
               dd.chunkVecs.push(ch.vector);
               assigned = true;
@@ -161,25 +184,57 @@ export const AIProfileFacetBuilder = {
         }
       }
 
-      let discovered: { centroid: number[]; noteIds: string[]; texts: string[]; chunkCount: number }[] = [];
+      let discovered: { centroid: number[]; noteIds: string[]; dialogueIds?: string[]; texts: string[]; chunkCount: number }[] = [];
       if (leftover.length > 0) {
         const noteCount = new Set(leftover.map(c => c.noteId)).size;
-        discovered = mergeSimilarClusters(clusterChunks(leftover, Math.min(suggestK(noteCount), MAX_DISCOVERED)), MERGE_THRESHOLD)
+        const rawDiscovered = mergeSimilarClusters(clusterChunks(leftover, Math.min(suggestK(noteCount), MAX_DISCOVERED)), MERGE_THRESHOLD)
           .filter(c => c.noteIds.length >= MIN_FACET_NOTES);
+        
+        discovered = rawDiscovered.map(c => {
+          const cNotes = c.noteIds.filter(id => !dialogueIdsSet.has(id));
+          const cDialogues = c.noteIds.filter(id => dialogueIdsSet.has(id));
+          return {
+            centroid: c.centroid,
+            noteIds: cNotes,
+            dialogueIds: cDialogues,
+            texts: c.texts,
+            chunkCount: c.chunkCount,
+          };
+        });
       }
 
       const specs: FacetSpec[] = [];
       for (const d of domainVecs) {
         const dd = domainData.get(d.id);
-        if (dd && dd.noteIds.size >= MIN_FACET_NOTES) {
+        if (dd && (dd.noteIds.size + dd.dialogueIds.size) >= MIN_FACET_NOTES) {
           const centroid = dd.chunkVecs.length > 0
             ? normalize(dd.chunkVecs.reduce((acc, v) => acc.map((x, i) => x + (v[i] ?? 0)), new Array(dd.chunkVecs[0]!.length).fill(0) as number[]))
             : d.vec;
-          specs.push({ label: dd.label, fixedLabel: true, noteIds: [...dd.noteIds], texts: dd.texts, centroid, chunkCount: dd.chunkVecs.length, primaryNoteIds: [...dd.primaryNoteIds], secondaryNoteIds: [...dd.secondaryNoteIds] });
+          specs.push({
+            label: dd.label,
+            fixedLabel: true,
+            noteIds: [...dd.noteIds],
+            dialogueIds: [...dd.dialogueIds],
+            texts: dd.texts,
+            centroid,
+            chunkCount: dd.chunkVecs.length,
+            primaryNoteIds: [...dd.primaryNoteIds],
+            secondaryNoteIds: [...dd.secondaryNoteIds]
+          });
         }
       }
       for (const c of discovered) {
-        specs.push({ label: '', fixedLabel: false, noteIds: c.noteIds, texts: c.texts, centroid: c.centroid, chunkCount: c.chunkCount });
+        if ((c.noteIds.length + (c.dialogueIds?.length ?? 0)) >= MIN_FACET_NOTES) {
+          specs.push({
+            label: '',
+            fixedLabel: false,
+            noteIds: c.noteIds,
+            dialogueIds: c.dialogueIds ?? [],
+            texts: c.texts,
+            centroid: c.centroid,
+            chunkCount: c.chunkCount
+          });
+        }
       }
       if (specs.length === 0) return { ok: false, error: 'NO_CLUSTERS' };
       specs.sort((a, b) => b.noteIds.length - a.noteIds.length);
@@ -240,6 +295,7 @@ export const AIProfileFacetBuilder = {
           summary,
           centroid: spec.centroid,
           noteIds: spec.noteIds,
+          dialogueIds: spec.dialogueIds ?? [],
           primaryNoteIds: spec.primaryNoteIds ?? spec.noteIds,
           secondaryNoteIds: spec.secondaryNoteIds ?? [],
           noteCount: spec.noteIds.length,

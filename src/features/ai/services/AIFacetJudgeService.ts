@@ -13,9 +13,9 @@ export interface SummaryRow {
 export function buildEvidence(
   noteIds: string[],
   summaries: SummaryRow[],
-  opts: { maxThemes?: number; maxPeople?: number } = {},
+  opts: { maxThemes?: number; maxPeople?: number; dialogueIds?: string[]; dialogueEventMap?: Map<string, { summary: string }> } = {},
 ): string {
-  const { maxThemes = 8, maxPeople = 10 } = opts;
+  const { maxThemes = 8, maxPeople = 10, dialogueIds = [], dialogueEventMap = new Map() } = opts;
   const idSet = new Set(noteIds);
   const rows = summaries.filter(s => idSet.has(s.documentId));
 
@@ -37,6 +37,20 @@ export function buildEvidence(
   if (peopleList.length) parts.push(`Люди (имя — роль): ${peopleList.join('; ')}`);
   if (topThemes.length) parts.push(`Темы: ${topThemes.join(', ')}`);
   if (insights.length) parts.push(`Инсайты: ${insights.slice(0, 6).join('; ')}`);
+
+  if (dialogueIds.length > 0) {
+    const dlgSummaries: string[] = [];
+    for (const dId of dialogueIds) {
+      const event = dialogueEventMap.get(dId);
+      if (event?.summary) {
+        dlgSummaries.push(event.summary);
+      }
+    }
+    if (dlgSummaries.length > 0) {
+      parts.push(`Выводы диалогов: ${dlgSummaries.join('; ')}`);
+    }
+  }
+
   return parts.join('\n');
 }
 
@@ -67,12 +81,14 @@ export const AIFacetJudgeService = {
     const db = await getLocalDb();
     const summaries = (await db.getAll('aiSummaries')) as SummaryRow[];
     const embeddings = await AIEmbeddingService.getAll();
+    const dialogueEvents = await db.getAll('aiDialogueEvents');
+    const dialogueEventMap = new Map(dialogueEvents.map(e => [e.dialogueId, e]));
 
     const payload = facets.map(f => ({
       facetId: f.id,
       label: f.label,
       summary: f.summary,
-      evidence: buildEvidence(f.noteIds, summaries),
+      evidence: buildEvidence(f.noteIds, summaries, { dialogueIds: f.dialogueIds ?? [], dialogueEventMap }),
     }));
 
     // Pack facets into judge calls BY SIZE — a call with several long summaries
@@ -122,7 +138,7 @@ export const AIFacetJudgeService = {
 
       // Re-judge the single corrected facet once.
       const recheck = await AIService.judgeFacets({
-        facets: [{ facetId: facet.id, label: facet.label, summary: re.summary, evidence: buildEvidence(facet.noteIds, summaries) }],
+        facets: [{ facetId: facet.id, label: facet.label, summary: re.summary, evidence: buildEvidence(facet.noteIds, summaries, { dialogueIds: facet.dialogueIds ?? [], dialogueEventMap }) }],
       });
       const passed = recheck.ok && recheck.verdicts[0]?.ok;
       if (passed) {
