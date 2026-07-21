@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader2, RefreshCw, Download } from 'lucide-react';
+import { Loader2, RefreshCw, Download, Sparkles } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { AIProfileService } from '../services/AIProfileService';
@@ -83,7 +83,12 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
   return (
     <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden">
       <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
-        <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider">Психологический портрет пользователя</span>
+        <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider flex items-center gap-2">
+          Психологический портрет
+          <span className="inline-flex items-center gap-1 normal-case tracking-normal text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-brand-soft/10 text-brand-soft/80 border border-brand-soft/20">
+            <Sparkles size={9} /> сгенерировано ИИ
+          </span>
+        </span>
         {!readOnly && (
           <div className="flex items-center gap-1.5 shrink-0">
             <Button
