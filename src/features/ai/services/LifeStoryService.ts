@@ -1,6 +1,4 @@
 import { getLocalDb, type LifeStoryEntry, type AITimelineEntry } from '../../../core/storage/localDb';
-import { LocalVersionService } from '../../../core/services/LocalVersionService';
-import { AIService } from './AIService';
 
 export const LifeStoryService = {
   async getAll(): Promise<LifeStoryEntry[]> {
@@ -62,38 +60,4 @@ export const LifeStoryService = {
       generatedAt: Date.now()
     });
   },
-
-  // Explicit AI-driven summary generation for a specific day/document
-  async generateWithAI(eventDate: string, documentId: string): Promise<string> {
-    const content = await LocalVersionService.getLatestContent(documentId);
-    if (!content || content.trim().length < 50) {
-      throw new Error('Слишком короткая запись для суммаризации (минимум 50 символов)');
-    }
-
-    const res = await AIService.summarize({ content });
-    if (!res.ok) {
-      throw new Error(typeof res.error === 'string' ? res.error : 'Не удалось получить резюме от ИИ');
-    }
-
-    const summaryText = res.summary.summary || 'Новая запись в дневнике.';
-    
-    const existing = await this.get(eventDate);
-    if (existing?.edited) {
-      // Force regeneration by gesture actually overwrites, but let's be safe and check if we are allowed.
-      // Since it's explicit gesture, we can overwrite it but flag as edited if user edited.
-    }
-
-    const sourceDocumentIds = existing 
-      ? Array.from(new Set([...existing.sourceDocumentIds, documentId]))
-      : [documentId];
-
-    await this.save({
-      eventDate,
-      text: summaryText,
-      sourceDocumentIds,
-      generatedAt: Date.now()
-    });
-
-    return summaryText;
-  }
 };
