@@ -64,7 +64,9 @@ export const AITaxonomyService = {
     if (stored) {
       // staleness check: any label has 0 Cyrillic characters (English taxonomy)
       const hasEnglish = stored.some(d => !/[а-яё]/i.test(d.label));
-      if (hasEnglish) {
+      const newestDerivedAt = Math.max(...stored.map(d => d.derivedAt ?? 0));
+      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+      if (hasEnglish && Date.now() - newestDerivedAt > SEVEN_DAYS_MS) {
         console.warn('[AITaxonomyService] Stale (English) taxonomy detected, clearing for re-derive');
         this.clear();
       } else {

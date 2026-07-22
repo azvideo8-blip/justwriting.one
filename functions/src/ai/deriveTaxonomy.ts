@@ -106,14 +106,16 @@ export const deriveTaxonomy = onCall({
           settled = false;
           continue;
         } else {
-          // Attempt 2: still has English, let's filter them out
-          domains = candidateDomains.filter(d => /[а-яё]/i.test(d.label));
+          // Attempt 2: still has English labels. Filter Russian ones; if none remain, keep candidateDomains
+          const russianOnly = candidateDomains.filter(d => /[а-яё]/i.test(d.label));
+          domains = russianOnly.length > 0 ? russianOnly : candidateDomains;
         }
       }
     }
 
     if (domains.length === 0) {
-      throw new HttpsError('internal', 'Taxonomy derivation produced no domains in Russian.');
+      console.warn('[AI taxonomy] No domains generated, returning empty domains array.');
+      return { domains: [] };
     }
 
     return { domains };
