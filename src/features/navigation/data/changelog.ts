@@ -14,6 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.58',
+    date: '2026-07-22',
+    items: [
+      { category: 'fix', ru: '«История моей жизни»: даты событий теперь определяются по тексту заметки («вчера», «сегодня»), а не сдвигаются на день назад; за один день показываются все заметки, а не только последняя', en: '"Story of my life": event dates are now inferred from the note text ("yesterday", "today") instead of being shifted back a day; a day shows all its notes, not just the last one' },
+      { category: 'new', ru: 'Отмена/повтор в редакторе: Cmd/Ctrl+Z отменяет, Cmd/Ctrl+Shift+Z повторяет — по фразам, а не по одной букве', en: 'Editor undo/redo: Cmd/Ctrl+Z undoes and Cmd/Ctrl+Shift+Z redoes — by phrase, not by single character' },
+      { category: 'new', ru: '«Режим тишины (бета)» — переключатель в настройках: убирает хром письма, ограничивает ширину колонки и гасит анимации (геймификация остаётся по умолчанию)', en: '"Silence mode (beta)" — a settings toggle that strips the writing chrome, caps the column width and quiets animations (gamification stays on by default)' },
+      { category: 'new', ru: 'Русская типографика: автозамена прямых кавычек на « », двойного дефиса на тире —, троеточия на … (можно выключить)', en: 'Russian typography: auto-replaces straight quotes with « », double dash with an em-dash —, and ... with … (can be turned off)' },
+      { category: 'fix', ru: 'Светлая тема: починены невидимые тоглы, статус-баннеры, цвета достижений и фон; исправлена ошибка в CSS, ломавшая одну из тем', en: 'Light theme: fixed invisible toggles, status banners, achievement colors and backgrounds; fixed a CSS bug that broke one of the themes' },
+      { category: 'fix', ru: 'Мелочи: контраст кнопки по WCAG, поля ввода 16px (без автозума на iOS), убрана пульсация счётчика WPM во время письма, автофокус редактора', en: 'Polish: WCAG button contrast, 16px inputs (no iOS auto-zoom), removed the WPM counter pulsing while writing, editor autofocus' },
+    ],
+  },
+  {
     version: '0.7.57',
     date: '2026-07-21',
     items: [
