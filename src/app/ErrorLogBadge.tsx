@@ -1,21 +1,18 @@
 import React, { useState } from 'react';
 import { AlertCircle, X, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useErrorLogStore, ErrorLogItem } from '../shared/errors/useErrorLogStore';
-import { useWritingSettings } from '../features/writing/contexts/WritingSettingsContext';
-import { cn } from '../core/utils/utils';
 
+// The trigger lives in the Sidebar (SidebarErrorBadge); this renders only the
+// slide-out panel, driven by the store's panelOpen flag.
 export const ErrorLogBadge: React.FC = () => {
   const entries = useErrorLogStore(s => s.entries);
   const clearLog = useErrorLogStore(s => s.clearLog);
   const dismissEntry = useErrorLogStore(s => s.dismissEntry);
-
-  const { isZenActive, zenModeEnabled, silenceMode } = useWritingSettings();
-  const [isOpen, setIsOpen] = useState(false);
+  const isOpen = useErrorLogStore(s => s.panelOpen);
+  const setIsOpen = useErrorLogStore(s => s.setPanelOpen);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
 
-  if (entries.length === 0) return null;
-
-  const isZen = isZenActive && zenModeEnabled;
+  if (!isOpen) return null;
 
   const formatErrorTime = (timestamp: number) => {
     const d = new Date(timestamp);
@@ -27,29 +24,8 @@ export const ErrorLogBadge: React.FC = () => {
     setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const errorLabel = `${entries.length} ${
-    entries.length === 1 ? 'ошибка' : entries.length < 5 ? 'ошибки' : 'ошибок'
-  }`;
-
   return (
     <>
-      {/* Badge button */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        title={errorLabel}
-        aria-label={errorLabel}
-        className={cn(
-          "fixed bottom-4 left-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full",
-          "bg-accent-danger/15 border border-accent-danger/30 text-accent-danger shadow-lg backdrop-blur-md",
-          "hover:bg-accent-danger/25 hover:border-accent-danger/50 transition-all text-xs font-medium cursor-pointer",
-          isZen ? "opacity-30 hover:opacity-100" : silenceMode ? "opacity-60 hover:opacity-100" : "opacity-100"
-        )}
-      >
-        <AlertCircle className="w-3.5 h-3.5" />
-        <span>{entries.length}</span>
-      </button>
-
       {/* Slide-out Panel */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex justify-start bg-black/40 backdrop-blur-xs animate-fadeIn">

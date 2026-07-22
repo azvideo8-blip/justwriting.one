@@ -12,6 +12,8 @@ export interface ErrorLogItem {
 
 interface ErrorLogState {
   entries: ErrorLogItem[];
+  panelOpen: boolean;
+  setPanelOpen: (open: boolean) => void;
   addError: (
     error: unknown,
     context?: Record<string, unknown>,
@@ -76,6 +78,8 @@ function extractErrorMessage(error: unknown): string {
 
 export const useErrorLogStore = create<ErrorLogState>((set, get) => ({
   entries: loadInitialEntries(),
+  panelOpen: false,
+  setPanelOpen: (open) => set({ panelOpen: open }),
 
   addError: (error, context, level = 'error', source) => {
     const message = extractErrorMessage(error);
@@ -118,7 +122,7 @@ export const useErrorLogStore = create<ErrorLogState>((set, get) => ({
   },
 
   clearLog: () => {
-    set({ entries: [] });
+    set({ entries: [], panelOpen: false });
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem(STORAGE_KEY);
