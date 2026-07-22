@@ -961,7 +961,7 @@ export function AIPage() {
                 placeholder={t('ai_write_placeholder', { name: (activePersona?.name ?? '').toLowerCase() })}
                 disabled={isLoading || dailyLimit.remaining === 0}
                 rows={1}
-                className="flex-1 min-w-0 bg-transparent py-1.5 text-[14.5px] text-text-main placeholder:text-text-main/40 outline-none disabled:opacity-40 resize-none overflow-y-auto max-h-40"
+                className="flex-1 min-w-0 bg-transparent py-1.5 text-base text-text-main placeholder:text-text-main/40 outline-none disabled:opacity-40 resize-none overflow-y-auto max-h-40"
               />
               {isLoading ? (
                 <Button

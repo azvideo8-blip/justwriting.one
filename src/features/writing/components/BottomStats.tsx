@@ -258,7 +258,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
           <div className="flex items-center gap-1.5 leading-none whitespace-nowrap">
             <div
               aria-hidden="true"
-              className={cn("w-2 h-2 rounded-full transition-all duration-500 shrink-0", getWpmColor(wpm), status === 'writing' && !reducedMotion && "animate-pulse")}
+              className={cn("w-2 h-2 rounded-full transition-all duration-500 shrink-0", getWpmColor(wpm))}
               style={{ boxShadow: status === 'writing' && wpm > 0 ? `0 0 10px ${getWpmHex(wpm)}` : 'none' }}
             />
             <span className="text-lg font-medium text-text-main tabular-nums">{wpm}</span>
