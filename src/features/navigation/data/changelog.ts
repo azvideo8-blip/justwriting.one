@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.59',
+    date: '2026-07-22',
+    items: [
+      { category: 'new', ru: 'Индикатор ошибок в боковой панели: если что-то сломалось, рядом с настройками появляется значок «N ошибок» — по клику открывается журнал со временем, источником и деталями (без консоли)', en: 'Error indicator in the sidebar: when something breaks, an "N errors" mark appears next to settings — clicking it opens a log with time, source and details (no console needed)' },
+      { category: 'fix', ru: 'Устранена ошибка 500 при построении тем профиля: сервер больше не падает, когда не удаётся получить темы на русском; убрано зацикливание фоновых повторов', en: 'Fixed the 500 error when building profile themes: the server no longer fails when it can\'t get Russian labels, and the background retry loop is gone' },
+    ],
+  },
+  {
     version: '0.7.58',
     date: '2026-07-22',
     items: [
