@@ -153,7 +153,7 @@ export const WritingEditor = React.memo(function WritingEditor({
         "transition-all duration-1000 flex flex-col",
         lifeLogEnabled ? "h-full overflow-hidden" : "space-y-4 py-4 font-serif",
         focusModeEnabled && "focus-mode-active",
-        silenceMode && "max-w-[68ch] mx-auto w-full"
+        silenceMode && "max-w-[68ch] w-full"
       )}
     >
 
