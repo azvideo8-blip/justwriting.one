@@ -49,6 +49,7 @@ export const AITimelineService = {
           tone: summary.tone,
           themes: summary.themes ?? [],
           insights: summary.insights ?? [],
+          eventDate: summary.eventDate ?? date,
         };
         if (summary.summary !== undefined) {
           timelineEntry.summary = summary.summary;

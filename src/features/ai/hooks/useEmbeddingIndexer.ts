@@ -130,10 +130,13 @@ export function useEmbeddingIndexer(): void {
             summaries.sort((a, b) => b.processedAt - a.processedAt);
             const recentContext = summaries.slice(0, 3).map(s => s.summary || s.tone).filter(Boolean).join('\n');
 
+            const noteDate = doc.lastSessionAt ? new Date(doc.lastSessionAt).toISOString().slice(0, 10) : undefined;
+
             const res = await AIService.summarize({
               content: content.slice(0, 50_000),
               mood: doc.mood,
-              recentContext
+              recentContext,
+              noteDate,
             });
 
             if (res.ok) {
@@ -154,6 +157,7 @@ export function useEmbeddingIndexer(): void {
               if (res.summary.valence !== undefined) s.valence = res.summary.valence;
               if (res.summary.arousal !== undefined) s.arousal = res.summary.arousal;
               if (res.summary.echo !== undefined) s.echo = res.summary.echo;
+              if (res.summary.eventDate !== undefined) s.eventDate = res.summary.eventDate;
               await AISummaryService.save(s);
 
               AIBackgroundBudget.spend(1);

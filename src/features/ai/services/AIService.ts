@@ -26,6 +26,7 @@ export interface AISummaryPayload {
   valence?: number;
   arousal?: number;
   echo?: string;
+  eventDate?: string;
 }
 
 function mapAIError(e: unknown): 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG' | 'SERVER_ERROR' {
@@ -97,6 +98,7 @@ export const AIService = {
     content: string;
     mood?: string | undefined;
     recentContext?: string | undefined;
+    noteDate?: string | undefined;
   }): Promise<{ ok: true; summary: AISummaryPayload } | { ok: false; error: string }> {
     const functions = getFunctions();
     const fn = httpsCallable<unknown, AISummaryPayload>(functions, 'summarizeDocument');

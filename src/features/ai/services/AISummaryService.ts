@@ -6,7 +6,7 @@ import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
 import { tryReserveSummarizeBudget } from '../utils/firestoreWriteBudget';
 
-const STRING_FIELDS = ['tone', 'echo'] as const;
+const STRING_FIELDS = ['tone', 'echo', 'eventDate'] as const;
 const ARRAY_FIELDS = ['frequentWords', 'insights', 'themes', 'extractedFacts', 'commitments'] as const;
 const STRING_FIELDS_LIST: string[] = [...STRING_FIELDS];
 const ARRAY_FIELDS_LIST: string[] = [...ARRAY_FIELDS];
@@ -58,6 +58,7 @@ async function fetchSummaryFromCloud(userId: string, documentId: string): Promis
   if (valence !== undefined) result.valence = valence;
   if (arousal !== undefined) result.arousal = arousal;
   if (echo) result.echo = echo;
+  if (typeof decrypted.eventDate === 'string') result.eventDate = decrypted.eventDate;
   const hash = decrypted.contentHash;
   if (typeof hash === 'string') result.contentHash = hash;
   return result;
@@ -105,6 +106,7 @@ export const AISummaryService = {
           tone: summary.tone,
           themes: summary.themes ?? [],
           insights: summary.insights ?? [],
+          eventDate: summary.eventDate ?? dateStr,
         };
         if (summary.summary !== undefined) {
           timelineEntry.summary = summary.summary;
