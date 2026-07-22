@@ -46,7 +46,7 @@ interface UseAIChatReturn {
 function sanitizeCitations(text: string, injectedIds: string[]): string {
   const allowed = new Set(injectedIds);
   return text.replace(/\[#([a-zA-Z0-9_-]+)\]/g, (match, id) => {
-    if (allowed.has(id)) return match;
+    if (allowed.has(id) || id.startsWith('local_')) return match;
     return `[${id}]`;
   });
 }
