@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { useWritingSettings } from '../features/writing/contexts/WritingSettingsContext';
@@ -16,6 +17,8 @@ import { LoginModalOverlay } from '../features/auth/components/LoginModalOverlay
 import { useSettings } from '../core/settings/SettingsContext';
 import { EncryptionPasswordModal } from '../features/encryption/components/EncryptionPasswordModal';
 import { useEncryptionSetup } from '../features/encryption/hooks/useEncryptionSetup';
+import { setupGlobalErrorListeners } from '../shared/errors/reportError';
+import { ErrorLogBadge } from './ErrorLogBadge';
 
 import { AppRoutes } from './AppRoutes';
 import { ConfirmDialogRenderer } from '../shared/components/ConfirmDialog';
@@ -31,6 +34,10 @@ export function AppShell() {
   const { mode: encryptionMode, check: recheckEncryption } = useEncryptionSetup();
 
   useSyncStatus(isGuest ? null : (user?.uid ?? null));
+
+  useEffect(() => {
+    setupGlobalErrorListeners();
+  }, []);
 
   const currentPath = location.pathname;
   const showZen = isZenActive && zenModeEnabled && currentPath === '/';
@@ -80,6 +87,7 @@ export function AppShell() {
       {/* [U-03] спейсер h-28 убран: pb-20 на main уже компенсирует высоту BottomNav */}
       <LoginModalOverlay open={loginModalOpen} />
       <ConfirmDialogRenderer />
+      <ErrorLogBadge />
       {encryptionMode !== 'none' && user && (
         <EncryptionPasswordModal
           mode={encryptionMode}
