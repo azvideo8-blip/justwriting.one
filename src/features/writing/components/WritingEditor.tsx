@@ -61,6 +61,10 @@ export const WritingEditor = React.memo(function WritingEditor({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (streamMode) {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y')) {
+        e.preventDefault();
+        return;
+      }
       if (e.key === 'Backspace' || e.key === 'Delete') {
         e.preventDefault();
         if (streamStatusRef.current) {
@@ -74,6 +78,34 @@ export const WritingEditor = React.memo(function WritingEditor({
       }
       if ((e.ctrlKey || e.metaKey) && (e.key === 'x' || e.key === 'c' || e.key === 'v')) {
         e.preventDefault();
+      }
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && !isPaused) {
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault();
+        const res = e.shiftKey ? useContentStore.getState().redo() : useContentStore.getState().undo();
+        if (res && textareaRef.current) {
+          const el = textareaRef.current;
+          requestAnimationFrame(() => {
+            const caret = Math.min(res.caret, el.value.length);
+            try { el.setSelectionRange(caret, caret); } catch { /* ignore */ }
+          });
+        }
+        return;
+      }
+      if (e.key === 'y' || e.key === 'Y') {
+        e.preventDefault();
+        const res = useContentStore.getState().redo();
+        if (res && textareaRef.current) {
+          const el = textareaRef.current;
+          requestAnimationFrame(() => {
+            const caret = Math.min(res.caret, el.value.length);
+            try { el.setSelectionRange(caret, caret); } catch { /* ignore */ }
+          });
+        }
+        return;
       }
     }
   };
@@ -96,7 +128,7 @@ export const WritingEditor = React.memo(function WritingEditor({
 
     if (typographyEnabled && rawValue.length >= content.length) {
       const { text: formattedText, newCursorPos } = formatRussianTypography(rawValue, cursorPos);
-      setContent(formattedText);
+      setContent(formattedText, newCursorPos);
       if (formattedText !== rawValue && textareaRef.current) {
         const el = textareaRef.current;
         requestAnimationFrame(() => {
@@ -108,7 +140,7 @@ export const WritingEditor = React.memo(function WritingEditor({
         });
       }
     } else {
-      setContent(rawValue);
+      setContent(rawValue, cursorPos);
     }
   };
 

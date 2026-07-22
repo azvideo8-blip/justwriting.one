@@ -46,6 +46,7 @@ const META_DEFAULTS: { activeSessionId: null; savedDocumentId: null; sessionStar
 function resetSession() {
   clearWordCalcTimer();
   useContentStore.setState(createContentDefaults());
+  useContentStore.getState().resetHistory();
   useTimerStore.setState(TIMER_DEFAULTS);
   useSessionMetaStore.setState(META_DEFAULTS);
 }
@@ -65,6 +66,7 @@ export function loadDraftIntoStore(draft: {
     wpm: 0,
     wordSnapshots: [],
   });
+  useContentStore.getState().resetHistory();
   useTimerStore.setState({
     _startWallMs: null,
     _accumulatedMs: 0,
