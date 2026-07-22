@@ -24,7 +24,7 @@ export function AppShell() {
   const location = useLocation();
   const { t } = useLanguage();
   const { profile, user, isGuest } = useAuthStatus();
-  const { isZenActive, zenModeEnabled } = useWritingSettings();
+  const { isZenActive, zenModeEnabled, silenceMode } = useWritingSettings();
   const { layoutMode } = useLayoutMode();
   const { loginModalOpen } = useLoginModal();
   const { openSettings } = useSettings();
@@ -53,7 +53,7 @@ export function AppShell() {
       >
         {t('skip_to_content')}
       </a>
-      <ThemeBackground />
+      <ThemeBackground silenceMode={silenceMode} />
 
       <>
         {layoutMode === 'desktop' ? (

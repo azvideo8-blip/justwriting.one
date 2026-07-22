@@ -2,9 +2,10 @@ import { useEffect, useState, useRef } from 'react';
 
 interface FlowPulseProps {
   isActive: boolean;
+  silenceMode?: boolean;
 }
 
-export function FlowPulse({ isActive }: FlowPulseProps) {
+export function FlowPulse({ isActive, silenceMode }: FlowPulseProps) {
   const [spike, setSpike] = useState(false);
   const decayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -22,16 +23,22 @@ export function FlowPulse({ isActive }: FlowPulseProps) {
   useEffect(() => {
     if (!isActive || prefersReducedMotion) return;
     const handleKey = () => {
-      setSpike(true);
-      if (decayTimerRef.current) clearTimeout(decayTimerRef.current);
-      decayTimerRef.current = setTimeout(() => setSpike(false), 800);
+      if (silenceMode) {
+        setSpike(false);
+        if (decayTimerRef.current) clearTimeout(decayTimerRef.current);
+        decayTimerRef.current = setTimeout(() => setSpike(true), 2500);
+      } else {
+        setSpike(true);
+        if (decayTimerRef.current) clearTimeout(decayTimerRef.current);
+        decayTimerRef.current = setTimeout(() => setSpike(false), 800);
+      }
     };
     window.addEventListener('keydown', handleKey);
     return () => {
       window.removeEventListener('keydown', handleKey);
       if (decayTimerRef.current) clearTimeout(decayTimerRef.current);
     };
-  }, [isActive, prefersReducedMotion]);
+  }, [isActive, prefersReducedMotion, silenceMode]);
 
   return (
     <div style={{

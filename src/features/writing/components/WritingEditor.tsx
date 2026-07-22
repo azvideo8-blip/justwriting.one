@@ -9,6 +9,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { useCaretEffects } from '../hooks/useCaretEffects';
 import { useAutoHideCursor } from '../hooks/useAutoHideCursor';
 import { getPromptOfDay } from '../utils/promptOfDay';
+import { formatRussianTypography } from '../utils/typography';
 
 interface WritingEditorProps {
   onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
@@ -29,6 +30,8 @@ export const WritingEditor = React.memo(function WritingEditor({
     typewriterScrolling,
     focusModeEnabled,
     autoHideCursor,
+    silenceMode,
+    typographyEnabled,
   } = useWritingSettings();
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -47,6 +50,14 @@ export const WritingEditor = React.memo(function WritingEditor({
 
   useCaretEffects(textareaRef, { typewriter: typewriterScrolling, focusBand: focusModeEnabled });
   useAutoHideCursor(containerRef, autoHideCursor);
+
+  React.useEffect(() => {
+    if (isPaused) return;
+    const isMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || ('ontouchstart' in window && window.innerWidth < 1024));
+    if (!isMobile && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [isPaused]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (streamMode) {
@@ -79,6 +90,28 @@ export const WritingEditor = React.memo(function WritingEditor({
     if (streamMode) e.preventDefault();
   };
 
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const rawValue = e.target.value;
+    const cursorPos = e.target.selectionStart ?? rawValue.length;
+
+    if (typographyEnabled && rawValue.length >= content.length) {
+      const { text: formattedText, newCursorPos } = formatRussianTypography(rawValue, cursorPos);
+      setContent(formattedText);
+      if (formattedText !== rawValue && textareaRef.current) {
+        const el = textareaRef.current;
+        requestAnimationFrame(() => {
+          try {
+            el.setSelectionRange(newCursorPos, newCursorPos);
+          } catch {
+            // ignore range error
+          }
+        });
+      }
+    } else {
+      setContent(rawValue);
+    }
+  };
+
   const placeholder = content.trim() === '' ? getPromptOfDay(t) : t('writing_placeholder');
 
   return (
@@ -88,13 +121,14 @@ export const WritingEditor = React.memo(function WritingEditor({
         "transition-all duration-1000 flex flex-col",
         lifeLogEnabled ? "h-full overflow-hidden" : "space-y-4 py-4 font-serif",
         focusModeEnabled && "focus-mode-active",
+        silenceMode && "max-w-[68ch] mx-auto w-full"
       )}
     >
 
       <textarea
         ref={textareaRef}
         value={content}
-        onChange={(e) => setContent(e.target.value)}
+        onChange={handleContentChange}
         onKeyDown={(e) => {
           handleKeyDown(e);
           onKeyDown?.(e);
@@ -110,7 +144,9 @@ export const WritingEditor = React.memo(function WritingEditor({
           "w-full outline-none resize-none leading-[1.8] text-text-main placeholder:text-text-main/40 flex-1 min-h-0",
           lifeLogEnabled
             ? "bg-transparent border-0 shadow-none p-4 md:p-6 overflow-y-auto custom-scrollbar"
-            : "min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-3xl border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] shadow-xl focus:shadow-2xl transition-colors custom-scrollbar"
+            : silenceMode
+              ? "min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-3xl border border-transparent shadow-none bg-transparent transition-colors custom-scrollbar"
+              : "min-h-[500px] md:min-h-[600px] p-8 md:p-12 rounded-3xl border border-border-subtle/40 backdrop-blur-sm bg-text-main/[0.02] shadow-xl focus:shadow-2xl transition-colors custom-scrollbar"
         )}
       />
       <span

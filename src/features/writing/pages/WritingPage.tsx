@@ -18,6 +18,7 @@ import { useGuestWritingSession } from '../hooks/useGuestWritingSession';
 import { useCloudWritingSession } from '../hooks/useCloudWritingSession';
 
 import { WritingSessionProvider, useWritingSessionContext } from '../contexts/WritingSessionContext';
+import { useWritingSettings } from '../contexts/WritingSettingsContext';
 import { DesktopWritingLayout } from './DesktopWritingLayout';
 import { useTimerStore } from '../store/useTimerStore';
 import { useContentStore } from '../store/useContentStore';
@@ -96,6 +97,8 @@ function WritingPageUI() {
   const labelId = session.labelId;
   const setLabelId = session.setLabelId;
 
+  const { silenceMode } = useWritingSettings();
+
   const mainContent = (() => {
     if (isMobile) {
       if (sessionStatus === 'idle')
@@ -172,7 +175,7 @@ function WritingPageUI() {
         sessionGroups={lifeLogGroups}
         savedDocumentId={savedDocumentId}
       />
-      <FlowPulse isActive={sessionStatus === 'writing'} />
+      <FlowPulse isActive={sessionStatus === 'writing'} silenceMode={silenceMode} />
       {isShortcutsModalOpen && (
         <ShortcutsModal onClose={() => setIsShortcutsModalOpen(false)} />
       )}
