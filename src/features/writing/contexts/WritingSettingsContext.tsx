@@ -11,6 +11,10 @@ export interface HeaderVisibility {
 }
 
 interface WritingSettingsContextType {
+  silenceMode: boolean;
+  setSilenceMode: (enabled: boolean) => void;
+  typographyEnabled: boolean;
+  setTypographyEnabled: (enabled: boolean) => void;
   streamMode: boolean;
   toggleStreamMode: () => void;
   zenModeEnabled: boolean;
@@ -50,6 +54,8 @@ interface WritingSettingsContextType {
 const WritingSettingsContext = createContext<WritingSettingsContextType | undefined>(undefined);
 
 export function WritingSettingsProvider({ children }: { children: React.ReactNode }) {
+  const [silenceMode, setSilenceMode] = useLocalStorage<boolean>('v1_silenceMode', false, z.boolean());
+  const [typographyEnabled, setTypographyEnabled] = useLocalStorage<boolean>('v1_typographyEnabled', true, z.boolean());
   const [streamMode, setStreamMode] = useLocalStorage<boolean>('streamMode', false, z.boolean());
   const [zenModeEnabled, setZenModeEnabled] = useLocalStorage<boolean>('v2_zenModeEnabled', true, z.boolean());
   const [editorWidth, setEditorWidth] = useLocalStorage<number>('v3_editorWidth', 68, z.number());
@@ -113,6 +119,13 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
         lastMousePos.current = { x: clientX, y: clientY };
       }
 
+      if (silenceMode) {
+        const margin = 60;
+        const isNearEdge = clientY !== undefined && clientX !== undefined &&
+          (clientY < margin || clientY > window.innerHeight - margin || clientX < margin || clientX > window.innerWidth - margin);
+        if (!isNearEdge) return;
+      }
+
       setIsZenActive(false);
       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
       zenTimerRef.current = setTimeout(() => setIsZenActive(true), 3000);
@@ -128,7 +141,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     window.addEventListener('keydown', hideUI);
     window.addEventListener('touchstart', showUI, { passive: true });
 
-    const timer = setTimeout(() => setIsZenActive(true), 300);
+    const timer = setTimeout(() => setIsZenActive(true), silenceMode ? 0 : 300);
 
     return () => {
       window.removeEventListener('mousemove', showUI);
@@ -137,7 +150,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
       clearTimeout(timer);
       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
     };
-  }, [status, zenModeEnabled, setZenSeenOnce]);
+  }, [status, zenModeEnabled, silenceMode, setZenSeenOnce]);
 
   const toggleStreamMode = useCallback(() => setStreamMode(prev => !prev), [setStreamMode]);
   const toggleVisibility = useCallback((key: keyof HeaderVisibility) => {
@@ -145,6 +158,8 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
   }, [setHeaderVisibility]);
 
   const contextValue = useMemo(() => ({
+    silenceMode, setSilenceMode,
+    typographyEnabled, setTypographyEnabled,
     streamMode, toggleStreamMode,
     zenModeEnabled, setZenModeEnabled,
     editorWidth, setEditorWidth,
@@ -163,7 +178,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     autoHideCursor, setAutoHideCursor,
     lineHeight, setLineHeight,
     aiPanelOpen, setAiPanelOpen,
-  }), [streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled, editorWidth, setEditorWidth, lifeLogEnabled, setLifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isZenActive, zenSeenOnce, status, setStatus, fontFamily, setFontFamily, fontSize, setFontSize, lifeLogPinned, setLifeLogPinned, headerVisibility, toggleVisibility, typewriterScrolling, setTypewriterScrolling, focusModeEnabled, setFocusModeEnabled, autoHideCursor, setAutoHideCursor, lineHeight, setLineHeight, aiPanelOpen, setAiPanelOpen]);
+  }), [silenceMode, setSilenceMode, typographyEnabled, setTypographyEnabled, streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled, editorWidth, setEditorWidth, lifeLogEnabled, setLifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isZenActive, zenSeenOnce, status, setStatus, fontFamily, setFontFamily, fontSize, setFontSize, lifeLogPinned, setLifeLogPinned, headerVisibility, toggleVisibility, typewriterScrolling, setTypewriterScrolling, focusModeEnabled, setFocusModeEnabled, autoHideCursor, setAutoHideCursor, lineHeight, setLineHeight, aiPanelOpen, setAiPanelOpen]);
 
   return (
     <WritingSettingsContext.Provider value={contextValue}>

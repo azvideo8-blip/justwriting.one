@@ -5,7 +5,7 @@ import { cn } from '../../../core/utils/utils';
 import { Section, ToggleRow } from './SettingsHelpers';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { Button } from '../../../shared/components/Button';
-import { Wind, Waves, Keyboard, Focus, MousePointer2, Timer, FileText, BarChart2, Gauge } from 'lucide-react';
+import { Wind, Waves, Keyboard, Focus, MousePointer2, Timer, FileText, BarChart2, Gauge, VolumeX, Quote } from 'lucide-react';
 
 export function EditorTab() {
   const { t } = useLanguage();
@@ -15,6 +15,8 @@ export function EditorTab() {
     fontSize, setFontSize,
     lineHeight, setLineHeight,
     editorWidth, setEditorWidth,
+    silenceMode, setSilenceMode,
+    typographyEnabled, setTypographyEnabled,
     zenModeEnabled, setZenModeEnabled,
     streamMode, toggleStreamMode,
     headerVisibility, toggleVisibility,
@@ -100,11 +102,13 @@ export function EditorTab() {
       )}
 
       <Section title={t('settings_zen_mode')}>
+        <ToggleRow icon={<VolumeX size={16} />} label={t('settings_silence_mode')} hint={t('settings_silence_mode_desc')} value={silenceMode} onChange={() => setSilenceMode(!silenceMode)} />
         <ToggleRow icon={<Wind size={16} />} label={t('settings_zen_mode')} hint={t('settings_zen_desc')}    value={zenModeEnabled}  onChange={() => setZenModeEnabled(!zenModeEnabled)} />
         <ToggleRow icon={<Waves size={16} />} label={t('settings_stream_mode')} hint={t('settings_stream_mode_desc')} value={streamMode}       onChange={toggleStreamMode} />
       </Section>
 
       <Section title={t('settings_writing_experience')}>
+        <ToggleRow icon={<Quote size={16} />} label={t('settings_typography')} hint={t('settings_typography_desc')} value={typographyEnabled} onChange={() => setTypographyEnabled(!typographyEnabled)} />
         <ToggleRow icon={<Keyboard size={16} />} label={t('settings_typewriter')} hint={t('settings_typewriter_desc')} value={typewriterScrolling} onChange={() => setTypewriterScrolling(!typewriterScrolling)} />
         <ToggleRow icon={<Focus size={16} />} label={t('settings_focus_mode')} hint={t('settings_focus_mode_desc')} value={focusModeEnabled} onChange={() => setFocusModeEnabled(!focusModeEnabled)} />
         <ToggleRow icon={<MousePointer2 size={16} />} label={t('settings_auto_hide_cursor')} hint={t('settings_auto_hide_cursor_desc')} value={autoHideCursor} onChange={() => setAutoHideCursor(!autoHideCursor)} />
