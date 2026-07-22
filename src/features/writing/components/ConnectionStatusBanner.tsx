@@ -57,11 +57,11 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
             "fixed left-1/2 -translate-x-1/2 z-[var(--z-overlay)] top-[calc(env(safe-area-inset-top,0px)+12px)]",
             "flex items-center gap-2 backdrop-blur-xl border font-medium whitespace-nowrap",
             isMobile
-              ? "px-3 py-1.5 rounded-xl text-xs bg-amber-500/15 border-amber-500/30 text-amber-400"
-              : "px-4 py-2 rounded-2xl text-sm bg-amber-500/10 border-amber-500/30 text-amber-400"
+              ? "px-3 py-1.5 rounded-xl text-xs bg-accent-warning/15 border-accent-warning/30 text-accent-warning"
+              : "px-4 py-2 rounded-2xl text-sm bg-accent-warning/15 border-accent-warning/30 text-accent-warning"
           )}
         >
-          <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+          <div className="w-2 h-2 rounded-full bg-accent-warning animate-pulse shrink-0" />
           <WifiOff size={16} className="shrink-0" />
           <span>{isMobile ? t('offline_compact') : t('offline_working_locally')}</span>
         </motion.div>
@@ -77,8 +77,8 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
             "fixed left-1/2 -translate-x-1/2 z-[var(--z-overlay)] top-[calc(env(safe-area-inset-top,0px)+12px)]",
             "flex items-center gap-2 backdrop-blur-xl border font-medium whitespace-nowrap",
             isMobile
-              ? "px-3 py-1.5 rounded-xl text-xs bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
-              : "px-4 py-2 rounded-2xl text-sm bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+              ? "px-3 py-1.5 rounded-xl text-xs bg-accent-success/15 border-accent-success/30 text-accent-success"
+              : "px-4 py-2 rounded-2xl text-sm bg-accent-success/15 border-accent-success/30 text-accent-success"
           )}
         >
           <Check size={16} className="shrink-0" />

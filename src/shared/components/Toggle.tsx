@@ -21,7 +21,7 @@ export function Toggle({ checked, onChange, disabled, className, ariaLabel }: To
       onClick={() => onChange(!checked)}
       className={cn(
         "w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center shrink-0",
-        checked ? "bg-text-main" : "bg-white/20",
+        checked ? "bg-text-main" : "bg-text-main/20",
         disabled && "opacity-50 cursor-not-allowed",
         className
       )}
@@ -31,7 +31,7 @@ export function Toggle({ checked, onChange, disabled, className, ariaLabel }: To
         transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 500, damping: 30 }}
         className={cn(
           "w-4 h-4 rounded-full shadow-sm",
-          checked ? "bg-surface-base" : "bg-white"
+          checked ? "bg-surface-base" : "bg-text-main/70"
         )}
       />
     </button>

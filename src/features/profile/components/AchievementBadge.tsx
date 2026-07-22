@@ -3,10 +3,10 @@ import { useLanguage } from '../../../shared/i18n';
 import { Rarity } from './Achievements';
 
 const TIER_STYLES: Record<Rarity, string> = {
-  common:    'border-border-subtle bg-surface-card text-text-main/60',
-  rare:      'border-purple-500/30 bg-purple-500/10 text-purple-400',
-  epic:      'border-cyan-500/30 bg-cyan-500/10 text-cyan-400',
-  legendary: 'border-amber-500/40 bg-amber-500/10 text-amber-400',
+  common:    'border-border-subtle bg-surface-card text-text-main/70',
+  rare:      'border-brand-soft/30 bg-brand-soft/10 text-brand-soft',
+  epic:      'border-accent-info/30 bg-accent-info/10 text-accent-info',
+  legendary: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning',
 };
 
 interface AchievementBadgeProps {

@@ -4,7 +4,7 @@ import { useTheme } from './ThemeProvider';
 
 const GRADIENT_THEMES: Record<string, { layers: { gradient: string; origin: string }[]; base: string }> = {
   spotify: {
-    base: '#121212',
+    base: '#090C0A',
     layers: [
       { gradient: 'radial-gradient(ellipse at 30% 40%, #0d2b1a 0%, transparent 65%)', origin: '30% 40%' },
       { gradient: 'radial-gradient(ellipse at 70% 60%, #0a2416 0%, transparent 65%)', origin: '70% 60%' },
@@ -12,7 +12,7 @@ const GRADIENT_THEMES: Record<string, { layers: { gradient: string; origin: stri
     ],
   },
   modern: {
-    base: '#0A0A0B',
+    base: '#050506',
     layers: [
       { gradient: 'radial-gradient(ellipse at 40% 40%, #1e1e22 0%, transparent 70%)', origin: '40% 40%' },
       { gradient: 'radial-gradient(ellipse at 60% 60%, #16161a 0%, transparent 70%)', origin: '60% 60%' },
@@ -27,9 +27,27 @@ const GRADIENT_THEMES: Record<string, { layers: { gradient: string; origin: stri
       { gradient: 'radial-gradient(ellipse at 40% 60%, color-mix(in srgb, var(--brand-primary) 30%, transparent) 0%, transparent 65%)', origin: '40% 60%' },
     ],
   },
+  notion: {
+    base: '#FAF8F5',
+    layers: [
+      { gradient: 'radial-gradient(ellipse at 40% 40%, rgba(240,237,230,0.6) 0%, transparent 70%)', origin: '40% 40%' },
+      { gradient: 'radial-gradient(ellipse at 60% 60%, rgba(229,225,215,0.4) 0%, transparent 70%)', origin: '60% 60%' },
+    ],
+  },
+  stripe: {
+    base: '#0a0514',
+    layers: [
+      { gradient: 'radial-gradient(ellipse at 35% 55%, rgba(125,79,209,0.2) 0%, transparent 65%)', origin: '35% 55%' },
+      { gradient: 'radial-gradient(ellipse at 65% 40%, rgba(74,42,138,0.2) 0%, transparent 65%)', origin: '65% 40%' },
+    ],
+  },
 };
 
-export function ThemeBackground() {
+interface ThemeBackgroundProps {
+  silenceMode?: boolean;
+}
+
+export function ThemeBackground({ silenceMode }: ThemeBackgroundProps) {
   const { resolvedThemeId } = useTheme();
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(() =>
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -54,7 +72,7 @@ export function ThemeBackground() {
   if (!(resolvedThemeId in GRADIENT_THEMES)) return null;
   const config = GRADIENT_THEMES[resolvedThemeId]!;
 
-  const shouldAnimate = !prefersReducedMotion && isVisible && isWritingPage;
+  const shouldAnimate = !prefersReducedMotion && isVisible && isWritingPage && !silenceMode;
 
   const baseStyle = { zIndex: 0, background: config.base };
   const layerStyle = (layer: { gradient: string; origin: string }, i: number, shouldAnimate: boolean) => ({
