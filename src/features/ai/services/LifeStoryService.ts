@@ -22,21 +22,18 @@ export const LifeStoryService = {
     await db.delete('lifeStory', eventDate);
   },
 
-  // Calculate default eventDate (writingDate - 1 day)
+  // Calculate default eventDate (writingDate as-is, fallback = current date)
   getDefaultEventDate(writingDateStr: string): string {
     const d = new Date(writingDateStr);
     if (isNaN(d.getTime())) {
-      const fallback = new Date();
-      fallback.setDate(fallback.getDate() - 1);
-      return fallback.toISOString().slice(0, 10);
+      return new Date().toISOString().slice(0, 10);
     }
-    d.setDate(d.getDate() - 1);
     return d.toISOString().slice(0, 10);
   },
 
   // Automatically create/update a lifeStory entry from a timeline entry
   async autoPopulateFromTimeline(timelineEntry: AITimelineEntry): Promise<void> {
-    const eventDate = this.getDefaultEventDate(timelineEntry.date);
+    const eventDate = timelineEntry.eventDate ?? timelineEntry.date ?? this.getDefaultEventDate(timelineEntry.date);
     const existing = await this.get(eventDate);
     
     if (existing?.edited) {
@@ -44,14 +41,30 @@ export const LifeStoryService = {
       return;
     }
 
-    const text = timelineEntry.summary || 
-      (timelineEntry.themes && timelineEntry.themes.length > 0 
-        ? `Размышления на темы: ${timelineEntry.themes.join(', ')}.` 
-        : 'Новая запись в дневнике.');
+    const db = await getLocalDb();
+    const allTimeline = await db.getAll('aiTimeline');
+    const sameDayEntries = allTimeline.filter(e => (e.eventDate ?? e.date) === eventDate);
+    if (!sameDayEntries.some(e => e.documentId === timelineEntry.documentId)) {
+      sameDayEntries.push(timelineEntry);
+    }
 
-    const sourceDocumentIds = existing 
-      ? Array.from(new Set([...existing.sourceDocumentIds, timelineEntry.documentId]))
-      : [timelineEntry.documentId];
+    const distinctSummaries: string[] = [];
+    for (const e of sameDayEntries) {
+      const summaryText = e.summary || 
+        (e.themes && e.themes.length > 0 
+          ? `Размышления на темы: ${e.themes.join(', ')}.` 
+          : '');
+      if (summaryText && !distinctSummaries.includes(summaryText)) {
+        distinctSummaries.push(summaryText);
+      }
+    }
+
+    const text = distinctSummaries.length > 0 ? distinctSummaries.join(' • ') : 'Новая запись в дневнике.';
+
+    const sourceDocumentIds = Array.from(new Set([
+      ...(existing?.sourceDocumentIds ?? []),
+      ...sameDayEntries.map(e => e.documentId),
+    ])).filter(Boolean);
 
     await this.save({
       eventDate,
