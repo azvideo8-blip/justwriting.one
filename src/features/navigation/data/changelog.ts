@@ -23,6 +23,9 @@ export const CHANGELOG: ChangelogRelease[] = [
       { category: 'new', ru: 'Русская типографика: автозамена прямых кавычек на « », двойного дефиса на тире —, троеточия на … (можно выключить)', en: 'Russian typography: auto-replaces straight quotes with « », double dash with an em-dash —, and ... with … (can be turned off)' },
       { category: 'fix', ru: 'Светлая тема: починены невидимые тоглы, статус-баннеры, цвета достижений и фон; исправлена ошибка в CSS, ломавшая одну из тем', en: 'Light theme: fixed invisible toggles, status banners, achievement colors and backgrounds; fixed a CSS bug that broke one of the themes' },
       { category: 'fix', ru: 'Мелочи: контраст кнопки по WCAG, поля ввода 16px (без автозума на iOS), убрана пульсация счётчика WPM во время письма, автофокус редактора', en: 'Polish: WCAG button contrast, 16px inputs (no iOS auto-zoom), removed the WPM counter pulsing while writing, editor autofocus' },
+      { category: 'fix', ru: 'Ссылки на заметки в ответах ИИ снова кликабельны, даже когда ИИ проставляет их без «#» (раньше показывались сырым текстом)', en: 'Note links in AI replies are clickable again even when the AI writes them without a "#" (they used to show as raw text)' },
+      { category: 'fix', ru: 'Устранены повторяющиеся фоновые ошибки при автоматическом построении тем профиля (дайджест ограничен по длине, добавлен кулдаун при сбое)', en: 'Fixed the repeating background errors when auto-building profile themes (the digest is length-capped and a failure cooldown was added)' },
+      { category: 'fix', ru: '«Режим тишины»: подсказка пустого редактора больше не прыгает в центр экрана', en: 'Silence mode: the empty-editor prompt no longer jumps to the center of the screen' },
     ],
   },
   {

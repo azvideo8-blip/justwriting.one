@@ -1,6 +1,12 @@
 # Changelog
 
 ## Unreleased
+- **[RU]** Цитаты заметок в ответах ИИ: детектор (`citeRegex`/`processCitations`/`sanitizeCitations`) теперь принимает и форму без `#` (`[local_…]`), гейт по `[#…]`/`local_`-префиксу — обычная скобочная проза не превращается в ссылки; промпт ретрива требует `[#id]`.
+- **[EN]** Note citations in AI replies: the detector (`citeRegex`/`processCitations`/`sanitizeCitations`) now accepts the no-`#` form (`[local_…]`), gated to `[#…]`/`local_`-prefixed ids so ordinary bracketed prose isn't linkified; the retrieval prompt asks for `[#id]`.
+- **[RU]** `deriveTaxonomy` 400-шторм устранён: `buildSummaryDigest` капит дайджест ≤50k, `deriveAndStore` пропускает дайджест короче серверного `min(20)` (400 приходил с обеих границ схемы), плюс 1-часовой localStorage-кулдаун при сбое.
+- **[EN]** `deriveTaxonomy` 400 storm fixed: `buildSummaryDigest` caps the digest at ≤50k, `deriveAndStore` skips a digest under the server's `min(20)` (the 400 came from both schema bounds), plus a 1-hour localStorage failure cooldown.
+- **[RU]** «Режим тишины»: из колонки редактора убран `mx-auto` — читательская мера 68ch сохранена, но пустая подсказка/каретка не прыгают в центр.
+- **[EN]** Silence mode: dropped `mx-auto` from the editor column — the 68ch reading measure stays, but the empty placeholder/caret no longer jump to center.
 - **[RU]** Чат: детекторы прикреплённой заметки/саммари/файла (`ATTACHED_*_RE`, `AIChatPresentational.tsx`) теперь допускают ведущий маркер цитаты `[#id · дата]\n`, поэтому инлайновая заметка снова рендерится сворачиваемой карточкой, а не сырым текстом (regression-тест `attachmentRegex.test.ts`).
 - **[EN]** Chat: the attached note/summary/file detectors (`ATTACHED_*_RE`, `AIChatPresentational.tsx`) now tolerate a leading `[#id · date]\n` citation marker, so an inline note again renders as a collapsible card instead of raw text (regression test `attachmentRegex.test.ts`).
 - **[RU]** `MarkdownRenderer` подключил `remark-gfm` — таблицы (в `overflow-x-auto`) и зачёркивание в ответах ИИ рендерятся корректно; санитайзер без `rehype-raw` сохранён.
