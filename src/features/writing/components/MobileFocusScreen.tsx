@@ -86,7 +86,7 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
-      className="fixed inset-0 bg-[var(--color-surface-base,#0b0d0c)] z-40 flex flex-col"
+      className="fixed inset-0 bg-surface-base z-40 flex flex-col"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -98,7 +98,7 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
           showTimerBriefly();
         }}
         autoFocus
-        className="flex-1 w-full py-[60px] px-7 pb-10 bg-transparent border-none outline-none resize-none text-[rgba(232,236,233,0.92)] caret-[var(--brand-primary)] touch-pan-y"
+        className="flex-1 w-full py-[60px] px-7 pb-10 bg-transparent border-none outline-none resize-none text-text-main caret-[var(--brand-primary)] touch-pan-y"
         style={textareaStyle}
       />
 
@@ -109,7 +109,7 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4 }}
-            className="absolute right-5 font-mono text-xs text-[rgba(74,81,77,1)] tracking-wider pointer-events-none tabular-nums top-[calc(env(safe-area-inset-top,0px)+16px)]"
+            className="absolute right-5 font-mono text-xs text-text-muted tracking-wider pointer-events-none tabular-nums top-[calc(env(safe-area-inset-top,0px)+16px)]"
           >
             {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
           </motion.div>
