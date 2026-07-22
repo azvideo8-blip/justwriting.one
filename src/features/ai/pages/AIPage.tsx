@@ -208,19 +208,27 @@ export function AIPage() {
 
   useEffect(() => {
     const ids = new Set<string>();
-    const citeRegex = /\[#([a-zA-Z0-9_-]+)\]/g;
+    const citeRegex = /\[#?([a-zA-Z0-9_-]+)\]/g;
     
     displayMessages.forEach(msg => {
       let match;
       const content = msg.content || '';
       citeRegex.lastIndex = 0;
       while ((match = citeRegex.exec(content)) !== null) {
-        if (match[1]) ids.add(match[1]);
+        const raw = match[0];
+        const id = match[1];
+        if (id && (raw.startsWith('[#') || id.startsWith('local_'))) {
+          ids.add(id);
+        }
       }
       if (msg.reasoning) {
         citeRegex.lastIndex = 0;
         while ((match = citeRegex.exec(msg.reasoning)) !== null) {
-          if (match[1]) ids.add(match[1]);
+          const raw = match[0];
+          const id = match[1];
+          if (id && (raw.startsWith('[#') || id.startsWith('local_'))) {
+            ids.add(id);
+          }
         }
       }
     });
@@ -229,7 +237,11 @@ export function AIPage() {
       let match;
       citeRegex.lastIndex = 0;
       while ((match = citeRegex.exec(streamingMessage)) !== null) {
-        if (match[1]) ids.add(match[1]);
+        const raw = match[0];
+        const id = match[1];
+        if (id && (raw.startsWith('[#') || id.startsWith('local_'))) {
+          ids.add(id);
+        }
       }
     }
 
@@ -265,7 +277,10 @@ export function AIPage() {
 
   const processCitations = (text: string | null | undefined): string => {
     if (!text) return '';
-    return text.replace(/\[#([a-zA-Z0-9_-]+)\]/g, (match, id) => {
+    return text.replace(/\[#?([a-zA-Z0-9_-]+)\]/g, (match, id) => {
+      if (!match.startsWith('[#') && !id.startsWith('local_')) {
+        return match;
+      }
       const info = citationMeta[id];
       if (info) {
         return `[📅 ${info.date}](#cite-${id})`;
