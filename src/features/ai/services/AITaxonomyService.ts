@@ -7,9 +7,11 @@ import { useAiLimitStore } from '../store/useAiLimitStore';
 import { reportError } from '../../../shared/errors/reportError';
 
 export const TAXONOMY_LS_KEY = 'ai_taxonomy';
+export const TAXONOMY_FAIL_COOLDOWN_LS_KEY = 'ai_taxonomy_fail_ts';
 export const DERIVED_DEFAULT_THRESHOLD = 0.47;
 export const BOOTSTRAP_MIN = 20;
 const CONTINUITY_COS = 0.8;
+const FAILURE_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
 
 export interface TaxonomyDomain extends LifeDomain {
   derivedAt: number;
@@ -70,6 +72,9 @@ export const AITaxonomyService = {
       }
     }
 
+    const lastFail = Number(localStorage.getItem(TAXONOMY_FAIL_COOLDOWN_LS_KEY) || 0);
+    if (Date.now() - lastFail < FAILURE_COOLDOWN_MS) return 'skip';
+
     // Cooldown/Limit check: require at least 5 remaining daily requests
     const { remaining } = useAiLimitStore.getState();
     if (remaining < 5) return 'skip';
@@ -79,6 +84,7 @@ export const AITaxonomyService = {
       const res = await deriveAndStore('bootstrap');
       return res === 'ok' ? 'bootstrapped' : 'skip';
     } catch (e) {
+      localStorage.setItem(TAXONOMY_FAIL_COOLDOWN_LS_KEY, String(Date.now()));
       reportError(e, { action: '[AITaxonomyService] ensureBootstrap re-derive failed' });
       return 'skip';
     } finally {
@@ -97,8 +103,9 @@ export interface SummaryLike {
   mentionedPeople?: { name: string; role: string }[];
 }
 
-export function buildSummaryDigest(summaries: SummaryLike[], maxNotes = 200): string {
+export function buildSummaryDigest(summaries: SummaryLike[], maxNotes = 200, maxChars = 50000): string {
   const blocks: string[] = [];
+  let totalLen = 0;
   for (const s of summaries.slice(0, maxNotes)) {
     const themes = (s.themes ?? []).filter(Boolean);
     const insights = (s.insights ?? []).filter(Boolean);
@@ -108,7 +115,10 @@ export function buildSummaryDigest(summaries: SummaryLike[], maxNotes = 200): st
     if (themes.length) parts.push(`Темы: ${themes.join(', ')}`);
     if (insights.length) parts.push(`Инсайты: ${insights.join('; ')}`);
     if (people.length) parts.push(`Люди: ${people.join(', ')}`);
-    blocks.push(parts.join('\n'));
+    const block = parts.join('\n');
+    if (totalLen + block.length + 5 > maxChars) break;
+    blocks.push(block);
+    totalLen += block.length + 5;
   }
   return blocks.join('\n---\n');
 }
@@ -139,29 +149,41 @@ async function deriveAndStore(origin: 'bootstrap' | 'rederive'): Promise<'ok' | 
   const summaries = await db.getAll('aiSummaries');
   if (summaries.length < BOOTSTRAP_MIN) return 'skip';
   const digest = buildSummaryDigest(summaries);
-  if (!digest) return 'skip';
+  // Server schema requires 20..60000 chars. buildSummaryDigest caps the upper
+  // bound; guard the lower one too so a sparse corpus never sends a payload that
+  // 400s (most notes may have no themes/insights/people → tiny digest).
+  if (digest.length < 20) return 'skip';
 
-  const res = await AIService.deriveTaxonomy({ digest });
-  if (!res.ok || res.domains.length === 0) return 'skip';
-  let domains = res.domains;
+  try {
+    const res = await AIService.deriveTaxonomy({ digest });
+    if (!res.ok || res.domains.length === 0) {
+      localStorage.setItem(TAXONOMY_FAIL_COOLDOWN_LS_KEY, String(Date.now()));
+      return 'skip';
+    }
+    localStorage.removeItem(TAXONOMY_FAIL_COOLDOWN_LS_KEY);
+    let domains = res.domains;
 
-  const prev = AITaxonomyService.getStored();
-  if (origin === 'rederive' && prev && prev.length > 0) {
-    const prevVecs = (await getSeedVectors(prev)).map(v => v.vec);
-    const nextVecs = (await getSeedVectors(domains.map((d, i) => ({ id: `n${i}`, label: d.label, seed: d.seed })))).map(v => v.vec);
-    domains = matchLabels(prev, domains, prevVecs, nextVecs);
+    const prev = AITaxonomyService.getStored();
+    if (origin === 'rederive' && prev && prev.length > 0) {
+      const prevVecs = (await getSeedVectors(prev)).map(v => v.vec);
+      const nextVecs = (await getSeedVectors(domains.map((d, i) => ({ id: `n${i}`, label: d.label, seed: d.seed })))).map(v => v.vec);
+      domains = matchLabels(prev, domains, prevVecs, nextVecs);
+    }
+
+    const now = Date.now();
+    AITaxonomyService.save(domains.map((d, i) => ({
+      id: `tx_${now}_${i}`,
+      label: d.label,
+      seed: d.seed,
+      threshold: DERIVED_DEFAULT_THRESHOLD,
+      derivedAt: now,
+      noteCountAtDerive: summaries.length,
+      source: 'derived',
+      origin,
+    })));
+    return 'ok';
+  } catch (e) {
+    localStorage.setItem(TAXONOMY_FAIL_COOLDOWN_LS_KEY, String(Date.now()));
+    throw e;
   }
-
-  const now = Date.now();
-  AITaxonomyService.save(domains.map((d, i) => ({
-    id: `tx_${now}_${i}`,
-    label: d.label,
-    seed: d.seed,
-    threshold: DERIVED_DEFAULT_THRESHOLD,
-    derivedAt: now,
-    noteCountAtDerive: summaries.length,
-    source: 'derived',
-    origin,
-  })));
-  return 'ok';
 }
