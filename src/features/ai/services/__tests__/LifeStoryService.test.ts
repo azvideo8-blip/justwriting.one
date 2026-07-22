@@ -3,31 +3,29 @@ import { LifeStoryService } from '../LifeStoryService';
 
 describe('LifeStoryService', () => {
   describe('getDefaultEventDate', () => {
-    it('should correctly default to writingDate - 1 day', () => {
+    it('should default to writingDate as-is', () => {
       const writingDateStr = '2026-07-17';
       const eventDate = LifeStoryService.getDefaultEventDate(writingDateStr);
-      expect(eventDate).toBe('2026-07-16');
+      expect(eventDate).toBe('2026-07-17');
     });
 
-    it('should handle month boundaries correctly', () => {
+    it('should preserve month boundaries correctly', () => {
       const writingDateStr = '2026-07-01';
       const eventDate = LifeStoryService.getDefaultEventDate(writingDateStr);
-      expect(eventDate).toBe('2026-06-30');
+      expect(eventDate).toBe('2026-07-01');
     });
 
-    it('should handle year boundaries correctly', () => {
+    it('should preserve year boundaries correctly', () => {
       const writingDateStr = '2026-01-01';
       const eventDate = LifeStoryService.getDefaultEventDate(writingDateStr);
-      expect(eventDate).toBe('2025-12-31');
+      expect(eventDate).toBe('2026-01-01');
     });
 
-    it('should fallback to yesterday when date is invalid', () => {
+    it('should fallback to current date when date is invalid', () => {
       const invalidDateStr = 'not-a-date';
       const eventDate = LifeStoryService.getDefaultEventDate(invalidDateStr);
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const expected = yesterday.toISOString().slice(0, 10);
-      expect(eventDate).toBe(expected);
+      const today = new Date().toISOString().slice(0, 10);
+      expect(eventDate).toBe(today);
     });
   });
 });
