@@ -16,7 +16,7 @@ const variantStyles: Record<ButtonVariant, string> = {
   secondary: 'bg-surface-elevated text-text-main border border-border-subtle hover:bg-surface-card',
   ghost: 'text-text-main/60 hover:text-text-main hover:bg-text-main/8',
   danger: 'text-accent-danger border border-accent-danger/30 hover:bg-accent-danger/10',
-  brand: 'bg-brand-primary text-bg-base hover:brightness-110',
+  brand: 'bg-brand-primary text-white hover:brightness-110',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
@@ -32,7 +32,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       type="button"
       disabled={disabled || isLoading}
       className={cn(
-        'font-medium transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50 inline-flex items-center justify-center gap-2',
+        'font-medium transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-soft inline-flex items-center justify-center gap-2',
         variantStyles[variant],
         sizeStyles[size],
         className,

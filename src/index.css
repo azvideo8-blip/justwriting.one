@@ -107,6 +107,8 @@
   .theme-modern {
     color-scheme: dark;
     --bg-base: #050506;
+    --bg-surface: #0a0a0c;
+    --bg-elevated: #121214;
     --text-main: #FAFAFA;
     --text-muted: #A1A1AA;
     --text-subtle: rgba(161, 161, 170, 0.85);
@@ -131,6 +133,8 @@
   .theme-notion {
     color-scheme: light;
     --bg-base: #FAF8F5;
+    --bg-surface: #F0EDE6;
+    --bg-elevated: #E5E1D7;
     --text-main: #1A1412;
     --text-muted: #6B625E;
     --text-subtle: rgba(107, 98, 94, 0.85);
@@ -154,6 +158,8 @@
   .theme-spotify {
     color-scheme: dark;
     --bg-base: #090C0A;
+    --bg-surface: #131915;
+    --bg-elevated: #1C2620;
     --text-main: #EBF5EF;
     --text-muted: #8AA393;
     --text-subtle: rgba(138, 163, 147, 0.85);
@@ -177,11 +183,13 @@
   .theme-stripe {
     color-scheme: dark;
     --bg-base: #0a0514;
+    --bg-surface: #120924;
+    --bg-elevated: #171026;
     --text-main: rgba(255, 255, 255, 0.9);
     --border-light: rgba(255, 255, 255, 0.12);
     --surface-card: rgba(255, 255, 255, 0.06);
     --surface-elevated: rgba(255, 255, 255, 0.08);
-    --surface-popup: #171026
+    --surface-popup: #171026;
     --accent-success: #34d399;
     --accent-warning: #fbbf24;
     --accent-danger: #f87171;

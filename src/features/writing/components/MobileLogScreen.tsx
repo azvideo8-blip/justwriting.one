@@ -142,7 +142,7 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
             placeholder={t('lifelog_search_placeholder')}
             inputMode="search"
             enterKeyHint="search"
-            className="py-2 px-3 pl-8 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-[var(--color-text-main,var(--text-main))] outline-none font-sans"
+            className="py-2 px-3 pl-8 bg-white/[0.04] border border-white/[0.08] rounded-lg text-base text-[var(--color-text-main,var(--text-main))] outline-none font-sans"
           />
         </div>
       </div>

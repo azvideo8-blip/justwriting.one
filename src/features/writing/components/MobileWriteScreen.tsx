@@ -246,7 +246,7 @@ export function MobileWriteScreen({
               placeholder={t('topbar_title_placeholder')}
               inputMode="text"
               enterKeyHint="done"
-              className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-[var(--text-muted)] text-center font-sans"
+              className="flex-1 bg-transparent border-none outline-none text-base font-medium text-[var(--text-muted)] text-center font-sans"
             />
 
             <div className="text-[10px] font-mono text-[var(--text-subtle)] tracking-[0.06em] uppercase min-w-[60px] text-right tabular-nums">
