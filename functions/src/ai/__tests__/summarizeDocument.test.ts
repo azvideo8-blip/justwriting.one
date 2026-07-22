@@ -175,8 +175,34 @@ describe('summarizeDocument', () => {
       arousal: 0.7,
       echo: 'Это перекликается с прошлой неделей.',
     });
+    expect(result.eventDate).toBeDefined();
     expect(generate).toHaveBeenCalledOnce();
     expect(recordUsage).toHaveBeenCalledOnce();
+  });
+
+  it('correctly passes noteDate and extracts inferred eventDate', async () => {
+    vi.mocked(generate).mockResolvedValue({
+      text: JSON.stringify({
+        summary: 'Вчера вез Вику в школу',
+        tone: 'нейтральный',
+        frequentWords: ['школа'],
+        insights: [],
+        themes: ['семья'],
+        extractedFacts: [],
+        eventDate: '2026-07-21',
+      }),
+      tokensIn: 100,
+      tokensOut: 50,
+      model: 'test-model',
+    });
+
+    const result = await summarizeDocument(
+      makeRequest({ content: validContent, noteDate: '2026-07-22' }, { uid: UID })
+    );
+
+    expect(result.eventDate).toBe('2026-07-21');
+    const promptArg = vi.mocked(generate).mock.calls[0]![0]!.system;
+    expect(promptArg).toContain('Запись написана 2026-07-22');
   });
 
   it('filters out non-Cyrillic (reasoning-leak) array items', async () => {

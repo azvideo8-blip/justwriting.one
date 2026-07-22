@@ -124,6 +124,7 @@ export interface AIDocumentSummary {
   arousal?: number;
   echo?: string;
   contentHash?: string;
+  eventDate?: string;
 }
 
 export interface AITimelineEntry {
@@ -137,6 +138,7 @@ export interface AITimelineEntry {
   valence?: number;
   arousal?: number;
   insights?: string[];
+  eventDate?: string; // YYYY-MM-DD inferred event date
 }
 
 export interface AIMonthlyDigest {
