@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { PenLine, History, User as UserIcon, LogIn, Settings, Sparkles, Bug, CloudOff } from 'lucide-react';
+import { PenLine, History, User as UserIcon, LogIn, Settings, Sparkles, Bug, CloudOff, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
@@ -10,6 +10,7 @@ import { useLoginModal } from '../../../app/useLoginModal';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { APP_VERSION } from '../../../version';
 import { useSyncStatus } from '../../settings/hooks/useSyncStatus';
+import { useErrorLogStore } from '../../../shared/errors/useErrorLogStore';
 
 interface SidebarNavItemProps {
   icon: ReactNode;
@@ -139,6 +140,8 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
   const { openLoginModal } = useLoginModal();
   const expanded = hovered;
   const syncStatus = useSyncStatus(user?.uid ?? null);
+  const errorCount = useErrorLogStore(s => s.entries.length);
+  const openErrorPanel = useErrorLogStore(s => s.setPanelOpen);
   // Guests have no cloud sync relationship at all, so isFirestoreConnected
   // staying false for them isn't a "cloud unavailable" problem — gate on
   // being an actual authenticated user, same as AppTab's settings row.
@@ -239,6 +242,30 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
             </span>
             {!expanded && (
               <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            )}
+          </button>
+        )}
+
+        {errorCount > 0 && (
+          <button
+            onClick={() => openErrorPanel(true)}
+            className={cn(
+              "relative flex items-center gap-3 rounded-xl transition-colors duration-200 text-left w-full overflow-hidden px-3 py-2",
+              "text-accent-danger/80 hover:text-accent-danger hover:bg-accent-danger/10"
+            )}
+            title={`${errorCount} ${errorCount === 1 ? 'ошибка' : errorCount < 5 ? 'ошибки' : 'ошибок'}`}
+          >
+            <AlertCircle size={18} className="shrink-0" />
+            <span className={cn(
+              "text-xs font-medium whitespace-nowrap overflow-hidden transition-[opacity,max-width,margin-left] duration-300",
+              expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
+            )}>
+              {`${errorCount} ${errorCount === 1 ? 'ошибка' : errorCount < 5 ? 'ошибки' : 'ошибок'}`}
+            </span>
+            {!expanded && (
+              <span className="absolute top-1 right-1 min-w-[14px] h-[14px] px-1 rounded-full bg-accent-danger text-surface-card text-[9px] font-bold flex items-center justify-center">
+                {errorCount > 9 ? '9+' : errorCount}
+              </span>
             )}
           </button>
         )}
