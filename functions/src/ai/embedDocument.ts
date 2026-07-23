@@ -4,14 +4,14 @@ import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest, refundGlobalRequ
 import { embed } from '../shared/aiProvider';
 
 const inputSchema = z.object({
-  content: z.string().min(1).max(50_000),
+  content: z.string().min(1).max(200_000),
 });
 
 // Small overlapping chunks so a brief mention inside a long note still produces
 // a strongly-matching vector (one mean-pooled vector per note diluted those).
 const CHUNK_CHAR_LIMIT = 1_000;
 const CHUNK_OVERLAP = 150;
-const MAX_CHUNKS = 40;
+const MAX_CHUNKS = 200;
 
 function chunkText(text: string): string[] {
   if (text.length <= CHUNK_CHAR_LIMIT) return [text];
