@@ -1,6 +1,8 @@
 name: CI
 
 on:
+  push:
+    branches: [ main ]
   pull_request:
     branches: [ main, master ]
 
@@ -84,21 +86,26 @@ jobs:
   deploy-functions:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true && github.base_ref == 'main'
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event.pull_request.merged == true && github.base_ref == 'main')
     steps:
     - uses: actions/checkout@v4
+    - uses: dorny/paths-filter@v3
+      id: changes
+      with:
+        filters: |
+          functions:
+            - 'functions/**'
     - name: Use Node.js
+      if: steps.changes.outputs.functions == 'true'
       uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
-    - run: npm ci
-    - run: cd functions && npm ci && npm run build
+    - name: Install & build functions
+      if: steps.changes.outputs.functions == 'true'
+      run: npm ci && cd functions && npm ci && npm run build
     - name: Deploy functions
+      if: steps.changes.outputs.functions == 'true'
       run: npx firebase deploy --only functions --token ${{ secrets.FIREBASE_TOKEN }}
-    - name: Rollback on failure
-      if: failure()
-      run: |
-        echo "Deploy failed — rolling back to previous functions version"
-        npx firebase functions:delete chatWithAI editWithAI summarizeDocument validateCustomPrompt getAILimit getAIUsageStats setUserRole setAIModel resetUserLimit embedDocument summarizeFacet rerankNotes --token ${{ secrets.FIREBASE_TOKEN }} --force || true
-        echo "Rollback attempted. Check Firebase console for previous versions."
