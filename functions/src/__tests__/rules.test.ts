@@ -362,11 +362,14 @@ describe('firestore.rules — anonymizedTelemetry', () => {
     await assertFails(db.doc('anonymizedTelemetry/tel-1').delete());
   });
 
-  it('allows deleting telemetry by admin (via custom claim)', async () => {
+  it('denies deleting telemetry even by admin (immutable; cleanup via admin SDK)', async () => {
+    // The rule is `allow update, delete: if false` — anonymizedTelemetry is
+    // immutable from any client, including an admin. Server-side cleanup runs
+    // through the admin SDK, which bypasses security rules.
     const dbAdmin = testEnv.authenticatedContext('admin-user', { role: 'admin' }).firestore();
     const dbUser = testEnv.authenticatedContext('user-a').firestore();
     await dbUser.doc('anonymizedTelemetry/tel-1').set(validTelemetry);
-    await assertSucceeds(dbAdmin.doc('anonymizedTelemetry/tel-1').delete());
+    await assertFails(dbAdmin.doc('anonymizedTelemetry/tel-1').delete());
   });
 
   it('denies deleting telemetry by user with admin role in document but no custom claim', async () => {
