@@ -104,7 +104,7 @@ export async function getIndexCoverage(): Promise<IndexCoverage> {
   const current = embeddings.filter(isFresh);
   const lastProcessedAt = current.length > 0 ? Math.max(...current.map(e => e.processedAt)) : null;
   const stale = await findStaleDocuments();
-  const unsynced = embeddings.filter(e => !e.cloudSyncedAt).length;
+  const unsynced = embeddings.filter(e => !e.cloudSyncedAt && !e.cloudSkipped).length;
   return {
     totalDocs: documents.length,
     indexed: current.length,

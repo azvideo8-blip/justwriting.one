@@ -176,6 +176,8 @@ export interface AIDocumentEmbedding {
   /** Set when the embedding has been successfully written to the cloud. Absent
    *  = local-only (e.g. saved while E2E was locked); a later sync pass uploads it. */
   cloudSyncedAt?: number;
+  /** Set when the embedding exceeds cloud payload size limits (1MB) and is skipped. */
+  cloudSkipped?: boolean;
   /** Legacy single mean-pooled vector (schemaV 1, pre-chunking). Read-only fallback. */
   vector?: number[];
 }

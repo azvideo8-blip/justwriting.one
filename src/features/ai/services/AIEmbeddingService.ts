@@ -20,8 +20,14 @@ const ENCRYPT_FIELDS = ['vectorsJson', 'chunkTextsJson', 'model', 'contentHash']
 const DECRYPT_FIELDS = ['vectorsJson', 'chunkTextsJson', 'vectorJson', 'model', 'contentHash'];
 const ARRAY_FIELDS: string[] = [];
 
-async function saveEmbeddingToCloud(userId: string, emb: AIDocumentEmbedding): Promise<void> {
-  const payload = {
+const MAX_CLOUD_EMBEDDING_BYTES = 1_000_000;
+
+export function isOversizedError(msg: string): boolean {
+  return /exceeds the maximum allowed size|exceeds.*1,?048,?576|invalid-argument.*size|document.*too large/i.test(msg);
+}
+
+export async function saveEmbeddingToCloud(userId: string, emb: AIDocumentEmbedding): Promise<{ skipped: boolean }> {
+  let payload: Record<string, unknown> = {
     documentId: emb.documentId,
     vectorsJson: JSON.stringify(emb.vectors),
     chunkTextsJson: JSON.stringify(emb.chunkTexts ?? []),
@@ -31,9 +37,25 @@ async function saveEmbeddingToCloud(userId: string, emb: AIDocumentEmbedding): P
     processedAt: emb.processedAt,
     schemaV: emb.schemaV ?? null,
   };
-  const encrypted = await maybeEncrypt(payload, ENCRYPT_FIELDS, ARRAY_FIELDS, userId);
+  let encrypted = await maybeEncrypt(payload, ENCRYPT_FIELDS, ARRAY_FIELDS, userId);
+  let size = new TextEncoder().encode(JSON.stringify(encrypted)).length;
+
+  if (size > MAX_CLOUD_EMBEDDING_BYTES && emb.chunkTexts && emb.chunkTexts.length > 0) {
+    payload = {
+      ...payload,
+      chunkTextsJson: JSON.stringify([]),
+    };
+    encrypted = await maybeEncrypt(payload, ENCRYPT_FIELDS, ARRAY_FIELDS, userId);
+    size = new TextEncoder().encode(JSON.stringify(encrypted)).length;
+  }
+
+  if (size > MAX_CLOUD_EMBEDDING_BYTES) {
+    return { skipped: true };
+  }
+
   const { db, mod } = await getClient();
   await mod.setDoc(mod.doc(db, 'users', userId, 'embeddings', emb.documentId), encrypted, { merge: true });
+  return { skipped: false };
 }
 
 function parseVectors(decrypted: Record<string, unknown>): number[][] {
@@ -109,14 +131,17 @@ export const AIEmbeddingService = {
     const uid = getAuth().currentUser?.uid;
     if (uid && tryReserveWriteBudget()) {
       try {
-        await saveEmbeddingToCloud(uid, emb);
-        await db.put('aiEmbeddings', { ...emb, cloudSyncedAt: Date.now() });
+        const { skipped } = await saveEmbeddingToCloud(uid, emb);
+        if (skipped) {
+          await db.put('aiEmbeddings', { ...emb, cloudSkipped: true });
+        } else {
+          await db.put('aiEmbeddings', { ...emb, cloudSyncedAt: Date.now() });
+        }
       } catch (e) {
-        // ENCRYPT_REQUIRED = E2E locked (no session key). Expected for background
-        // indexing while locked — the embedding stays local (cloudSyncedAt unset)
-        // and a later syncPendingToCloud() pass uploads it. Don't alarm.
         const msg = e instanceof Error ? e.message : String(e);
-        if (!msg.includes('ENCRYPT_REQUIRED')) {
+        if (isOversizedError(msg)) {
+          await db.put('aiEmbeddings', { ...emb, cloudSkipped: true });
+        } else if (!msg.includes('ENCRYPT_REQUIRED')) {
           reportError(e, { action: 'ai_embedding_cloud_save' });
         }
       }
@@ -133,7 +158,7 @@ export const AIEmbeddingService = {
     const uid = getAuth().currentUser?.uid;
     const db = await getLocalDb();
     const all = await db.getAll('aiEmbeddings');
-    const pending = all.filter(e => !e.cloudSyncedAt);
+    const pending = all.filter(e => !e.cloudSyncedAt && !e.cloudSkipped);
     if (!uid || pending.length === 0) return { synced: 0, pending: pending.length, locked: false, budgetExhausted: false };
 
     let synced = 0;
@@ -143,15 +168,22 @@ export const AIEmbeddingService = {
         return { synced, pending: pending.length, locked: false, budgetExhausted: true };
       }
       try {
-        await saveEmbeddingToCloud(uid, emb);
-        await db.put('aiEmbeddings', { ...emb, cloudSyncedAt: Date.now() });
-        synced++;
+        const { skipped } = await saveEmbeddingToCloud(uid, emb);
+        if (skipped) {
+          await db.put('aiEmbeddings', { ...emb, cloudSkipped: true });
+        } else {
+          await db.put('aiEmbeddings', { ...emb, cloudSyncedAt: Date.now() });
+          synced++;
+        }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        if (msg.includes('ENCRYPT_REQUIRED')) {
+        if (isOversizedError(msg)) {
+          await db.put('aiEmbeddings', { ...emb, cloudSkipped: true });
+        } else if (msg.includes('ENCRYPT_REQUIRED')) {
           return { synced, pending: pending.length, locked: true, budgetExhausted: false };
+        } else {
+          reportError(e, { action: 'ai_embedding_cloud_sync', docId: emb.documentId });
         }
-        reportError(e, { action: 'ai_embedding_cloud_sync', docId: emb.documentId });
       }
       if (i < pending.length - 1) await sleep(SYNC_PACE_MS);
     }
