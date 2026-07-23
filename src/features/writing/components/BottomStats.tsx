@@ -20,11 +20,7 @@ const PAUSE_PATH = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
 function PlayPauseIcon({ isPlaying, size = 14 }: { isPlaying: boolean; size?: number }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
-      <motion.path
-        initial={false}
-        animate={{ d: isPlaying ? PAUSE_PATH : PLAY_PATH }}
-        transition={{ duration: 0.2, ease: "easeInOut" }}
-      />
+      <path d={isPlaying ? PAUSE_PATH : PLAY_PATH} />
     </svg>
   );
 }
