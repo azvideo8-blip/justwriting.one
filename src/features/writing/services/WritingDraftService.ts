@@ -150,7 +150,7 @@ export const WritingDraftService = {
       Object.entries(encrypted).filter(([k, v]) => v !== undefined && DRAFT_CLOUD_FIELDS.has(k))
     );
     try {
-      await setDoc(docRef, { ...clean, updatedAt: serverTimestamp() }, { merge: true });
+      await setDoc(docRef, { ...clean, updatedAt: serverTimestamp() });
     } catch (e) {
       if (ac.signal.aborted) return;
       reportError(e, { action: 'saveToFirestore', userId: draft.userId });

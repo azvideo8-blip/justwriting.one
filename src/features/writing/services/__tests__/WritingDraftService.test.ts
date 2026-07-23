@@ -202,13 +202,17 @@ describe('WritingDraftService', () => {
       expect(vi.mocked(getClient)).not.toHaveBeenCalled();
     });
 
-    it('aborts previous controller and writes to firestore', async () => {
+    it('aborts previous controller and writes to firestore with full document overwrite (no merge: true)', async () => {
       vi.mocked(isProfileLoaded).mockReturnValue(true);
-      const { setDoc, serverTimestamp } = makeFirestoreClient();
+      const { setDoc, serverTimestamp, docRef } = makeFirestoreClient();
       vi.mocked(maybeEncrypt).mockResolvedValue({ content: 'enc', userId: mockUserId, title: 'T' });
       const draft = { userId: mockUserId, content: 'hello', title: 'T', updatedAt: 1000 };
       await WritingDraftService.saveToFirestore(draft as unknown as LocalDraft);
-      expect(setDoc).toHaveBeenCalled();
+      expect(setDoc).toHaveBeenCalledWith(
+        docRef,
+        expect.objectContaining({ content: 'enc', userId: mockUserId, title: 'T' })
+      );
+      expect(setDoc).not.toHaveBeenCalledWith(expect.anything(), expect.anything(), { merge: true });
       expect(serverTimestamp).toHaveBeenCalled();
     });
 
