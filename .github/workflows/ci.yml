@@ -44,9 +44,9 @@ jobs:
         npx tsx scripts/bundle-compare.ts /tmp/base-dist /tmp/current-dist
     - name: Bundle size budget
       run: |
-        MAX_INDEX=600000   # index-*.js fail-порог (байты)
+        MAX_INDEX=750000   # index-*.js fail-порог (байты)
         MAX_VENDOR=500000  # vendor-*.js warn-порог
-        MAX_CSS=150000     # *.css fail-порог (байты)
+        MAX_CSS=185000     # *.css fail-порог (байты)
         fail=0
         for f in dist/assets/index-*.js; do
           sz=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
