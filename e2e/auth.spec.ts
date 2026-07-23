@@ -12,6 +12,9 @@ test.describe('Login Page', () => {
     await page.fill('input[type="email"]', 'invalid@example.com');
     await page.fill('input[type="password"]', 'wrongpassword');
     await page.click('button[type="submit"]');
-    await expect(page.locator('text=Invalid').or(page.locator('text=Неверный'))).toBeVisible();
+    // Assert an error is surfaced (role=alert), not a specific message: the exact
+    // Firebase error code varies by environment (App Check enforcement in CI can
+    // change auth/invalid-credential into a generic error).
+    await expect(page.locator('[role="alert"]')).toBeVisible();
   });
 });
