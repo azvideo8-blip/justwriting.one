@@ -18,7 +18,7 @@ jobs:
         node-version: '20'
         cache: 'npm'
     - run: npm ci
-    - run: npm audit --audit-level=high
+    - run: npm audit --omit=dev --audit-level=high  # gate on shipped (prod) deps; dev tooling CVEs (firebase-tools etc.) don't reach users
     - run: npm run typecheck
     - run: npm run lint
     - run: npm run test:ci
