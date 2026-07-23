@@ -114,7 +114,7 @@ export const AIFacetJudgeService = {
     const results = await Promise.all(chunks.map(c => AIService.judgeFacets({ facets: c })));
     const verdicts = results.flatMap(r => (r.ok ? r.verdicts : []));
     if (verdicts.length === 0 && results.every(r => !r.ok)) {
-      throw new Error('judge_call_failed');
+      return { judged: 0, corrected: 0, log: [] };
     }
 
     let corrected = 0;

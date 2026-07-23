@@ -94,8 +94,10 @@ export const judgeFacets = onCall({
 
     const arr = z.object({ verdicts: z.array(verdictSchema) }).safeParse(obj);
     if (!arr.success) {
-      console.error('[AI judge] no valid verdicts. raw:', result.text.slice(0, 400));
-      throw new HttpsError('internal', 'Judge produced no verdicts.');
+      // Empty/unparseable model output is a soft failure too (background quality
+      // pass) — return empty verdicts (200) instead of a 500 so the client no-ops.
+      console.warn('[AI judge] no valid verdicts (soft failure, empty):', result.text.slice(0, 400));
+      return { verdicts: [] };
     }
     const verdicts = arr.data.verdicts.map(v => ({
       facetId: v.facetId,
@@ -108,11 +110,12 @@ export const judgeFacets = onCall({
     await refundBulkLimit(uid);
     if (!settled) await refundGlobalRequest(reservation);
     const msg = String((e as { message?: string })?.message ?? e);
-    if (!(e instanceof HttpsError)) console.error('[AI judge] failed:', msg);
+    if (e instanceof HttpsError) throw e;
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
       throw new HttpsError('resource-exhausted', 'AI service temporarily unavailable.');
     }
-    if (e instanceof HttpsError) throw e;
-    throw new HttpsError('internal', 'Facet judging failed.');
+    // Upstream timeouts (e.g. "body read timeout") or parse issues: soft failure (200 OK empty verdicts)
+    console.warn('[AI judge] soft failure (returning empty verdicts):', msg);
+    return { verdicts: [] };
   }
 });
