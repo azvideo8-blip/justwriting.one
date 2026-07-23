@@ -65,10 +65,39 @@ export async function indexDocument(documentId: string, force = false): Promise<
     return 'skip';
   }
 
+  if (content.length > 200_000) {
+    await AIEmbeddingService.save({
+      documentId,
+      vectors: [],
+      chunkTexts: [],
+      model: CURRENT_EMBED_MODEL,
+      dim: CURRENT_EMBED_DIM,
+      contentHash: hash,
+      processedAt: Date.now(),
+      schemaV: CURRENT_EMBED_SCHEMA,
+      cloudSkipped: true,
+    });
+    return 'skip';
+  }
+
   const result = await AIService.embed({ content });
   if (!result.ok) {
     if (result.error === 'DAILY_LIMIT') return 'daily';
     if (result.error === 'RATE_LIMIT') return 'rate';
+    if (result.error === 'TOO_LONG' || result.error === 'INVALID_ARGUMENT') {
+      await AIEmbeddingService.save({
+        documentId,
+        vectors: [],
+        chunkTexts: [],
+        model: CURRENT_EMBED_MODEL,
+        dim: CURRENT_EMBED_DIM,
+        contentHash: hash,
+        processedAt: Date.now(),
+        schemaV: CURRENT_EMBED_SCHEMA,
+        cloudSkipped: true,
+      });
+      return 'skip';
+    }
     return 'error';
   }
 
