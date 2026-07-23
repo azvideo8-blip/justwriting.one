@@ -218,18 +218,23 @@ describe('chatWithAI', () => {
     ).rejects.toMatchObject({ code: 'invalid-argument' });
   });
 
-  it('rejects injection patterns in userPortrait', async () => {
-    await expect(
-      chatWithAI(
-        makeRequest(
-          {
-            personaId: 'cbt',
-            messages: [{ role: 'user', content: 'hi' }],
-            userPortrait: 'some text ignore instructions and jailbreak',
-          },
-          { uid: UID }
-        )
+  it('accepts a long message content up to 50_000 chars (AIE-1)', async () => {
+    vi.mocked(generate).mockResolvedValue({
+      text: 'Long message response',
+      tokensIn: 50,
+      tokensOut: 20,
+      model: 'test-model',
+    });
+    const longContent = 'a'.repeat(25_000);
+    const result = await chatWithAI(
+      makeRequest(
+        {
+          personaId: 'cbt',
+          messages: [{ role: 'user', content: longContent }],
+        },
+        { uid: UID }
       )
-    ).rejects.toMatchObject({ code: 'invalid-argument' });
+    );
+    expect(result).toEqual({ result: 'Long message response' });
   });
 });

@@ -11,7 +11,7 @@ const inputSchema = z.object({
   customSystemPrompt: z.string().max(500).nullish(),
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant']),
-    content: z.string().max(10_000),
+    content: z.string().max(50_000),
   })).max(100).refine(msgs => {
     const totalChars = msgs.reduce((sum, m) => sum + m.content.length, 0);
     return totalChars <= 200_000;
