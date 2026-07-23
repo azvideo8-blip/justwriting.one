@@ -125,7 +125,7 @@ export const AIService = {
       try { analytics.track('ai_embed'); } catch { /* non-critical */ }
       return { ok: true, vectors: data.vectors, chunks: data.chunks ?? [], model: data.model, dim: data.dim };
     } catch (e: unknown) {
-      reportError(e, { action: 'embed' });
+      reportError(e, { action: 'embed' }, 'warning');
       const errType = mapAIError(e);
       if (errType === 'DAILY_LIMIT') return { ok: false, error: 'DAILY_LIMIT' };
       if (errType === 'RATE_LIMIT') return { ok: false, error: 'RATE_LIMIT' };
@@ -144,7 +144,7 @@ export const AIService = {
       const { data } = await withTimeout(fn(params), 60_000);
       return { ok: true, documentIds: data.documentIds };
     } catch (e: unknown) {
-      reportError(e, { action: 'rerank' });
+      reportError(e, { action: 'rerank' }, 'warning');
       return { ok: false, error: mapAIError(e) };
     }
   },
@@ -162,7 +162,7 @@ export const AIService = {
       const { data } = await withTimeout(fn(payload), 60_000);
       return { ok: true, label: data.label, summary: data.summary };
     } catch (e: unknown) {
-      reportError(e, { action: 'summarizeFacet' });
+      reportError(e, { action: 'summarizeFacet' }, 'warning');
       return { ok: false, error: mapAIError(e) };
     }
   },
@@ -176,7 +176,7 @@ export const AIService = {
       const res = await withTimeout(fn(params), 60_000);
       return { ok: true, domains: res.data.domains ?? [] };
     } catch (e) {
-      reportError(e, { action: 'deriveTaxonomy' });
+      reportError(e, { action: 'deriveTaxonomy' }, 'warning');
       return { ok: false, error: String((e as { code?: string })?.code ?? 'error') };
     }
   },
@@ -190,7 +190,7 @@ export const AIService = {
       const res = await withTimeout(fn(params), 60_000);
       return { ok: true, verdicts: res.data.verdicts ?? [] };
     } catch (e) {
-      reportError(e, { action: 'judgeFacets' });
+      reportError(e, { action: 'judgeFacets' }, 'warning');
       return { ok: false, error: String((e as { code?: string })?.code ?? 'error') };
     }
   },
@@ -204,7 +204,7 @@ export const AIService = {
       const { data } = await withTimeout(fn(params), 60_000);
       return { ok: true, memories: data.memories };
     } catch (e: unknown) {
-      reportError(e, { action: 'extractChatMemory' });
+      reportError(e, { action: 'extractChatMemory' }, 'warning');
       return { ok: false, error: mapAIError(e) };
     }
   },

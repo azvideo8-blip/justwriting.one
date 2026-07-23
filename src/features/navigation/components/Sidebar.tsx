@@ -140,7 +140,9 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
   const { openLoginModal } = useLoginModal();
   const expanded = hovered;
   const syncStatus = useSyncStatus(user?.uid ?? null);
-  const errorCount = useErrorLogStore(s => s.entries.length);
+  // Red badge counts only hard errors; 'warning'-level background hiccups
+  // (transient AI/network) stay in the log panel without raising the alarm.
+  const errorCount = useErrorLogStore(s => s.entries.filter(e => e.level === 'error').length);
   const openErrorPanel = useErrorLogStore(s => s.setPanelOpen);
   // Guests have no cloud sync relationship at all, so isFirestoreConnected
   // staying false for them isn't a "cloud unavailable" problem — gate on
