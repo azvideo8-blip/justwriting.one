@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.60',
+    date: '2026-07-23',
+    items: [
+      { category: 'fix', ru: 'Чат больше не отклоняет длинные сообщения и заметки (лимит одного сообщения поднят с 10 000 до 50 000 символов)', en: 'Chat no longer rejects long messages and notes (single-message limit raised from 10,000 to 50,000 characters)' },
+      { category: 'fix', ru: 'Длинные заметки (до 200 000 символов) корректно попадают в ИИ-индекс; слишком большие больше не застревают в бесконечной синхронизации', en: 'Long notes (up to 200,000 characters) are indexed by the AI correctly; oversized ones no longer get stuck retrying sync forever' },
+      { category: 'fix', ru: 'Черновики снова синхронизируются в облако (устранена ошибка прав доступа при сохранении)', en: 'Drafts sync to the cloud again (fixed a permission error on save)' },
+      { category: 'fix', ru: 'Фоновые сбои ИИ (арбитр тем, таймауты, эмбеддинги) больше не спамят красными ошибками — они показываются как предупреждения, а красный индикатор загорается только на реальных ошибках', en: 'Background AI hiccups (theme judge, timeouts, embeddings) no longer spam red errors — they show as warnings, and the red badge lights up only for real errors' },
+      { category: 'fix', ru: 'Убрана консольная ошибка при переключении иконки воспроизведения/паузы', en: 'Fixed a console error when toggling the play/pause icon' },
+    ],
+  },
+  {
     version: '0.7.59',
     date: '2026-07-22',
     items: [
