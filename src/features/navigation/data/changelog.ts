@@ -14,6 +14,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.61',
+    date: '2026-07-24',
+    items: [
+      { category: 'new', ru: 'Полное удаление аккаунта: теперь можно удалить свой аккаунт и все связанные данные', en: 'Full account deletion: you can now delete your account and all associated data' },
+      { category: 'improvement', ru: 'При выходе из аккаунта все локальные данные стираются — на общем устройстве следующий человек не увидит ваши заметки', en: 'Signing out now clears all local data — on a shared device the next person can\'t see your notes' },
+      { category: 'fix', ru: 'После обновления приложения устаревшая вкладка больше не показывает белый экран — страница сама перезагружается', en: 'After an app update, a stale tab no longer shows a blank screen — the page reloads itself' },
+      { category: 'improvement', ru: 'Усилены шифрование и требования к паролю (минимум 8 символов), улучшена приватность журналов', en: 'Strengthened encryption and password requirements (8-character minimum), improved log privacy' },
+    ],
+  },
+  {
     version: '0.7.60',
     date: '2026-07-23',
     items: [
