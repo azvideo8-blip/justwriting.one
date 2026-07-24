@@ -3,6 +3,8 @@ import { User } from 'firebase/auth';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { reportError } from '../../../shared/errors/reportError';
+import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
+
 
 export type DraftSaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export type DraftErrorKind = 'quota' | 'unknown' | null;
@@ -119,6 +121,12 @@ export function useSyncUnloadSave(
       if (user && contentState.content.trim() && (timerState_.status === 'writing' || timerState_.status === 'paused')) {
         try {
           const key = `draft-${user.uid}`;
+          const { getEncryptionEnabled } = useEncryptionStore.getState();
+          if (getEncryptionEnabled(user.uid)) {
+            // SEC-56: E2E is enabled — skip writing unencrypted draft to localStorage and clean legacy key
+            localStorage.removeItem(key);
+            return;
+          }
           localStorage.setItem(key, JSON.stringify({
             content: contentState.content,
             title: contentState.title,
@@ -135,6 +143,7 @@ export function useSyncUnloadSave(
           reportError(e, { action: 'autosave_beforeunload', userId: user.uid }, 'warning');
         }
       }
+
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);

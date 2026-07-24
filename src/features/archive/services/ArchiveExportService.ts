@@ -189,7 +189,8 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
   } else {
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const blobUrl = URL.createObjectURL(blob);
-    const win = window.open(blobUrl, '_blank');
+    const win = window.open(blobUrl, '_blank', 'noopener,noreferrer');
+
     if (!win) {
       console.warn('Popup blocked — falling back to html download');
       void downloadBlob(html, 'text/html;charset=utf-8', getFilename(session, 'html', s));

@@ -55,7 +55,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     let str = translations[key]?.[language] ?? key;
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
-        str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
+        str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), () => String(v));
       });
     }
     return str;
@@ -81,8 +81,9 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       ?? (fallbackKey ? translations[fallbackKey]?.[language] : undefined)
       ?? translations[key]?.[language] 
       ?? key;
-    return str.replace('{count}', String(count));
+    return str.replace('{count}', () => String(count));
   }, [language]);
+
 
   const tpFn = useCallback((key: string, count: number) => tp(key, count), [tp]);
 

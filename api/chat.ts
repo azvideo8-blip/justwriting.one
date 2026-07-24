@@ -401,21 +401,38 @@ async function streamOpenRouterReasoning(
     res.status(500).end('Internal server error');
     return;
   }
-  const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: 'system', content: system }, ...messages],
-      stream: true,
-      max_tokens: 16384,
-      reasoning: { effort: 'high' },
-      stream_options: { include_usage: true },
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120_000);
+  let upstream: Response;
+  try {
+    upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      signal: controller.signal,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'system', content: system }, ...messages],
+        stream: true,
+        max_tokens: 16384,
+        reasoning: { effort: 'high' },
+        stream_options: { include_usage: true },
+      }),
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    await refundGlobalRequest(reservation);
+    if (isInternalCall) {
+      await refundInternalDailyLimit(uid);
+    } else {
+      await refundDailyLimit(uid);
+    }
+    res.status(504).end('UPSTREAM_TIMEOUT');
+    return;
+  }
+
 
   if (!upstream.ok || !upstream.body) {
     await refundGlobalRequest(reservation);
@@ -556,6 +573,7 @@ const inputSchema = z.object({
   documentContent: z.string().max(50_000).nullish(),
   documentMood: z.string().max(50).nullish(),
   userPortrait: z.string().max(10_000).nullish(),
+  memoryContext: z.string().max(20_000).nullish(),
 
   responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
   reasoning: z.boolean().nullish(),
@@ -635,7 +653,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(429).json({ error: 'GLOBAL_LIMIT' }); return;
   }
 
-  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength, reasoning } = parsed.data;
+  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, memoryContext, responseLength, reasoning } = parsed.data;
 
   // Injection guard for custom prompts
   if (personaId === 'custom' && customSystemPrompt) {
@@ -667,6 +685,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: 'Bad Request' }); return;
   }
 
+  if (memoryContext && hasInjectionAttempt(memoryContext)) {
+    if (isInternalCall) {
+      await refundInternalDailyLimit(uid);
+    } else {
+      await refundDailyLimit(uid);
+    }
+    await refundGlobalRequest(reservation);
+    res.status(400).json({ error: 'Bad Request' }); return;
+  }
+
   if (userPortrait && hasInjectionAttempt(userPortrait)) {
     if (isInternalCall) {
       await refundInternalDailyLimit(uid);
@@ -689,7 +717,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const sanitizedCustomPrompt = customSystemPrompt ? sanitizeAiInput(customSystemPrompt) : undefined;
   const sanitizedPortrait = userPortrait ? sanitizeAiInput(userPortrait) : undefined;
-  let systemPrompt = buildChatSystemPrompt({ personaId, customSystemPrompt: sanitizedCustomPrompt, userPortrait: sanitizedPortrait, responseLength, reasoning, documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
+  const sanitizedMemory = memoryContext ? sanitizeAiInput(memoryContext) : undefined;
+  let systemPrompt = buildChatSystemPrompt({ personaId, customSystemPrompt: sanitizedCustomPrompt, userPortrait: sanitizedPortrait, memoryContext: sanitizedMemory, responseLength, reasoning, documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
 
   // OPT-5: Context is now in system prompt, no fake user/assistant turn
   const providerMessages = messages.map(m => ({ role: m.role, content: sanitizeAiInput(m.content) }));

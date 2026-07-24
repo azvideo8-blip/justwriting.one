@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/chat.ts": {
+      "maxDuration": 120
+    }
+  },
   "rewrites": [
     { "source": "/assets/(.*)\\.map", "destination": "/404" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
@@ -23,8 +28,9 @@
       ]
     },
     {
-      "source": "/([^.]*)",
+      "source": "/((?:[^.]*|index\\.html))",
       "headers": [
+
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
         {
           "key": "Strict-Transport-Security",

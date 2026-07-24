@@ -9,7 +9,12 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     res.status(405).json({ error: 'Method Not Allowed' });
     return;
   }
+  if (req.body && JSON.stringify(req.body).length > 10_000) {
+    res.status(413).json({ error: 'Payload Too Large' });
+    return;
+  }
   // Body shape is `{ "csp-report": {...} }`; Vercel parses JSON bodies.
+
   const report = (req.body as { 'csp-report'?: unknown })?.['csp-report'] ?? req.body;
   console.warn('[csp-report]', JSON.stringify(report));
   res.status(204).end();

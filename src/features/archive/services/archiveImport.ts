@@ -68,12 +68,6 @@ async function readFileContent(file: File): Promise<string | null> {
 }
 
 
-/**
- * Imports a note file into local storage and, for signed-in users, best-effort
- * syncs it to the cloud (falling back to the sync queue on failure) — the same
- * guarantee normal writing-session saves get from cleanupDraftsAfterSave.
- * Imports bypass that path entirely, so without this they'd be local-only forever.
- */
 export async function importNoteFile(
   file: File,
   userId: string,
@@ -105,3 +99,41 @@ export async function importNoteFile(
 
   return { success: true };
 }
+
+const MAX_BATCH_COUNT = 20;
+
+export async function importBatchFiles(
+  files: File[],
+  userId: string,
+  isSignedIn: boolean
+): Promise<{ successCount: number; failureCount: number }> {
+  if (files.length > MAX_BATCH_COUNT) {
+    throw new Error(`BATCH_LIMIT_EXCEEDED: Maximum ${MAX_BATCH_COUNT} files allowed per import.`);
+  }
+
+  let successCount = 0;
+  let failureCount = 0;
+
+  for (const file of files) {
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!ext || !['txt', 'md', 'docx'].includes(ext)) {
+      failureCount += 1;
+      continue;
+    }
+
+    try {
+      const res = await importNoteFile(file, userId, isSignedIn);
+      if (res.success) {
+        successCount += 1;
+      } else {
+        failureCount += 1;
+      }
+    } catch {
+      failureCount += 1;
+    }
+  }
+
+  return { successCount, failureCount };
+}
+
+

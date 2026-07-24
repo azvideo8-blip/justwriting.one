@@ -328,7 +328,11 @@ service cloud.firestore {
              (!('sentAt' in data) || (data.sentAt is string && data.sentAt.size() <= 50));
     }
 
-    // TICKET-055: Anonymized telemetry — create for authenticated, read for admin only
+    // TICKET-055: Anonymized telemetry — create for authenticated, read for admin only.
+    // SEC-54 (unbounded writes) is NOT fixed by binding the doc id to the uid: the id is a
+    // deliberately anonymous `getOrCreateTelemetryId()`, so that rule rejects every write and
+    // de-anonymises the collection. Proper fix = rate-limited Cloud Function write. See
+    // docs/security-batch-4-tickets.md.
     match /anonymizedTelemetry/{telemetryId} {
       allow read: if isAdmin();
       allow create: if isAuthenticated() && isValidTelemetry(request.resource.data);
@@ -336,3 +340,4 @@ service cloud.firestore {
     }
   }
 }
+
