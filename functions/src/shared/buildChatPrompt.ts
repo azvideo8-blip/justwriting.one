@@ -10,8 +10,9 @@ export function buildChatSystemPrompt(params: {
   reasoning?: boolean | null | undefined;
   documentContent?: string | null | undefined;
   documentMood?: string | null | undefined;
+  memoryContext?: string | null | undefined;
 }): string {
-  const { personaId, customSystemPrompt, userPortrait, responseLength, reasoning, documentContent, documentMood } = params;
+  const { personaId, customSystemPrompt, userPortrait, responseLength, reasoning, documentContent, documentMood, memoryContext } = params;
 
   // AX-11: Reasoning is now a separate boolean flag, decoupled from length.
   let reasoningPrefix = '';
@@ -56,8 +57,14 @@ export function buildChatSystemPrompt(params: {
     base = `${base}\n\n---\n[Портрет пользователя (личность, темы, контекст)]\n${userPortrait}`;
   }
 
+  // AG-MIND-A2: Memory context (voice map & first-seen dates)
+  if (memoryContext) {
+    base = `${base}\n\n---\n[Память о пользователе (слова и первые упоминания)]\n${memoryContext}`;
+  }
+
   return reasoningPrefix + base;
 }
+
 
 export function sanitizeAiInputShared(content: string): string {
   let sanitized = content.slice(0, 50_000);
