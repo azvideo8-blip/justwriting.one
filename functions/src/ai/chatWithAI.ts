@@ -83,6 +83,10 @@ export const chatWithAI = onCall({
     throw new HttpsError('invalid-argument', 'Disallowed patterns detected in user portrait.');
   }
 
+  if (documentMood && hasInjectionAttempt(documentMood)) {
+    throw new HttpsError('invalid-argument', 'Disallowed patterns detected in document mood.');
+  }
+
   // Per-user daily limit and cooldown — checked BEFORE reserving global slot
   // to avoid leaking a global slot on per-user rejection.
   if (!isInternalCall) {

@@ -39,7 +39,7 @@ export const app = initializeApp(firebaseConfig);
 // in Firebase Console → App Check → Apps.
 const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY as string | undefined;
 
-if (import.meta.env.VITE_APPCHECK_DEBUG_TOKEN) {
+if (import.meta.env.DEV && import.meta.env.VITE_APPCHECK_DEBUG_TOKEN) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
 }

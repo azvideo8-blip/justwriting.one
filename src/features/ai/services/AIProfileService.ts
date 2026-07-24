@@ -76,7 +76,7 @@ export const AIProfileService = {
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (msg.includes('ENCRYPT_REQUIRED')) {
-          console.warn('[AIProfileService] Cloud save skipped: E2E locked. Portrait saved locally.');
+          if (import.meta.env.DEV) console.warn('[AIProfileService] Cloud save skipped: E2E locked. Portrait saved locally.');
           return;
         }
         
@@ -135,7 +135,7 @@ export const AIProfileService = {
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (msg.includes('LOCKED') || msg.includes('session key not available')) {
-          console.warn('[AIProfileService] Cloud fetch skipped: E2E locked.');
+          if (import.meta.env.DEV) console.warn('[AIProfileService] Cloud fetch skipped: E2E locked.');
           return null;
         }
         throw e;
@@ -339,11 +339,11 @@ ${activeSections.communication_prefs}
       const { remaining } = useAiLimitStore.getState();
       if (remaining < 5) return;
 
-      console.warn('[AIProfileService] Triggering auto-generation of psychological portrait...');
+      if (import.meta.env.DEV) console.warn('[AIProfileService] Triggering auto-generation of psychological portrait...');
       const result = await this.generate();
 
       if (result.ok) {
-        console.warn('[AIProfileService] Psychological portrait auto-generated successfully!');
+        if (import.meta.env.DEV) console.warn('[AIProfileService] Psychological portrait auto-generated successfully!');
       }
     } catch (e) {
       console.error('[AIProfileService] Failed to auto-generate portrait:', e);

@@ -37,6 +37,8 @@ AES-256-GCM encryption with PBKDF2 key derivation:
 6. Session key held in memory (useEncryptionStore) while vault is unlocked
 7. **Auto-lock:** CryptoKey is automatically cleared after 15 minutes of inactivity or on tab visibility change. `secureClear` zeros sensitive byte arrays after use. CryptoKey objects cannot be zeroed from JavaScript (platform limitation — cleared on GC).
 8. **Legacy vault unlock:** On `OperationError` (wrong password), the vault returns `false` — encryption is NOT silently enabled without a valid data key.
+9. **Device Key Vault (SEC-15):** Optional "remember on device" caches non-extractable AES keys in IndexedDB via WebCrypto API. While keys cannot be read directly via JavaScript, any same-origin script executing in the browser origin could trigger decryption. Users opting into device key caching are informed of this threat model.
+10. **Signup Salt & Key Handling (SEC-16):** Temporary enrollment parameters (`encryptionSalt`, `encryptedDataKey`) held in `sessionStorage` during registration are cleared immediately upon account creation or tab closure.
 
 ## Cloud Functions Security
 

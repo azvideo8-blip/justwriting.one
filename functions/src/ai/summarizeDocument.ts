@@ -93,6 +93,10 @@ export const summarizeDocument = onCall({
     throw new HttpsError('invalid-argument', 'Disallowed patterns in recentContext.');
   }
 
+  if (mood && hasInjectionAttempt(mood)) {
+    throw new HttpsError('invalid-argument', 'Disallowed patterns in mood.');
+  }
+
   // Bulk daily limit check
   const allowed = await checkAndIncrementBulkLimit(uid);
   if (!allowed) {

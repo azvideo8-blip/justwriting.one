@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, checkAndIncrementBulkLimit, refundBulkLimit } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, checkAndIncrementBulkLimit, refundBulkLimit, hasInjectionAttempt } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 const JUDGE_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
@@ -58,11 +58,16 @@ export const judgeFacets = onCall({
   const parsed = inputSchema.safeParse(request.data);
   if (!parsed.success) throw new HttpsError('invalid-argument', 'Invalid payload.');
 
+  if (parsed.data.facets.some(f => hasInjectionAttempt(f.label) || hasInjectionAttempt(f.summary) || hasInjectionAttempt(f.evidence))) {
+    throw new HttpsError('invalid-argument', 'Disallowed patterns detected in facets.');
+  }
+
   // Bulk daily limit check
   const allowed = await checkAndIncrementBulkLimit(uid);
   if (!allowed) {
     throw new HttpsError('resource-exhausted', 'Daily bulk operations limit reached.');
   }
+
 
   const facetsText = parsed.data.facets.map((f, i) =>
     `ФАСЕТ ${i + 1} [id=${sanitizeAiInput(f.facetId)}] «${sanitizeAiInput(f.label)}»\nОПИСАНИЕ: ${sanitizeAiInput(f.summary)}\nФАКТЫ: ${sanitizeAiInput(f.evidence)}`,
