@@ -1,6 +1,18 @@
 # Changelog
 
 ## Unreleased
+- **[RU]** Приватность данных: выход из аккаунта стирает все локальные данные (IndexedDB, кэш ключей шифрования, `localStorage`/`sessionStorage`) — на общем устройстве следующий пользователь не видит чужих заметок; добавлено полное удаление аккаунта (Cloud Function `deleteAccount`, GDPR Art. 17) и каскадное удаление AI-производных при удалении документа.
+- **[EN]** Data privacy: sign-out now wipes all local data (IndexedDB, encryption key cache, `localStorage`/`sessionStorage`) so the next user on a shared device can't see prior notes; added full account deletion (Cloud Function `deleteAccount`, GDPR Art. 17) and cascade-deletion of AI derivatives when a document is deleted.
+- **[RU]** Укрепление против инъекций: кастомный промпт перенесён ПОСЛЕ защитных инструкций (`<custom_persona>`), валидатор промптов ужесточён (строгий JSON-вердикт), добавлены санитайзеры маркеров/делимитеров и паттерны против извлечения системного промпта.
+- **[EN]** Injection hardening: the custom prompt moved AFTER the safety guards (`<custom_persona>`), the prompt validator tightened to a strict JSON verdict, plus marker/delimiter sanitizers and system-prompt-extraction patterns.
+- **[RU]** Крипто/пароли: PBKDF2 300k→600k (с миграцией при разблокировке), единый минимум пароля 8 символов, экспоненциальный backoff при неудачной разблокировке хранилища, лимит размера DOCX-импорта.
+- **[EN]** Crypto/passwords: PBKDF2 300k→600k (migrated on unlock), unified 8-char password minimum, exponential backoff on failed vault unlock, DOCX import size cap.
+- **[RU]** Приватность логов: из трейсов Langfuse убран сырой текст заметок/чатов, UID хешируется (SHA-256); экранирование `lang` в HTML-экспорте, системные шрифты вместо внешних Google Fonts.
+- **[EN]** Log privacy: raw note/chat text removed from Langfuse traces, UID hashed (SHA-256); `lang` escaped in HTML export, system fonts instead of external Google Fonts.
+- **[RU]** Надёжность: устаревшая вкладка с «протухшим» ленивым чанком после деплоя (`Failed to fetch dynamically imported module`) автоматически перезагружается один раз (`vite:preloadError`) вместо белого экрана.
+- **[EN]** Reliability: a stale tab hitting a rehashed lazy chunk after a deploy (`Failed to fetch dynamically imported module`) now auto-reloads once (`vite:preloadError`) instead of white-screening.
+- **[RU]** Инфраструктура памяти ИИ (внутреннее, в чат пока не подключено): реестр тем (`aiThemeLedger`, IndexedDB v16, first-seen индекс + дословные цитаты) и локальный лексикон с гейтом достаточности сигнала — заготовка под датирование мыслей и «язык заметок».
+- **[EN]** AI memory infrastructure (internal, not yet wired into chat): a theme ledger (`aiThemeLedger`, IndexedDB v16, first-seen index + verbatim quotes) and a local lexicon with a signal-sufficiency gate — groundwork for dating thoughts and speaking in the user's own words.
 - **[RU]** Цитаты заметок в ответах ИИ: детектор (`citeRegex`/`processCitations`/`sanitizeCitations`) теперь принимает и форму без `#` (`[local_…]`), гейт по `[#…]`/`local_`-префиксу — обычная скобочная проза не превращается в ссылки; промпт ретрива требует `[#id]`.
 - **[EN]** Note citations in AI replies: the detector (`citeRegex`/`processCitations`/`sanitizeCitations`) now accepts the no-`#` form (`[local_…]`), gated to `[#…]`/`local_`-prefixed ids so ordinary bracketed prose isn't linkified; the retrieval prompt asks for `[#id]`.
 - **[RU]** `deriveTaxonomy` 400-шторм устранён: `buildSummaryDigest` капит дайджест ≤50k, `deriveAndStore` пропускает дайджест короче серверного `min(20)` (400 приходил с обеих границ схемы), плюс 1-часовой localStorage-кулдаун при сбое.
