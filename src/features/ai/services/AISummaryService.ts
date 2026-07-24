@@ -119,7 +119,19 @@ export const AISummaryService = {
         }
         await db.put('aiTimeline', timelineEntry);
 
+        // Enqueue theme touch for background processing (AG-MIND-W1a-fix)
+        if ((summary.themes?.length ?? 0) > 0) {
+          try {
+            const { enqueuePendingThemeTouch } = await import('./AIThemeLedgerService');
+            enqueuePendingThemeTouch(summary.documentId);
+          } catch (e) {
+            console.warn('[AISummaryService] Failed to enqueue Theme Ledger touch:', e);
+          }
+        }
+
+
         // Upsert commitments
+
         if (summary.commitments && summary.commitments.length > 0) {
           try {
             const { AICommitmentService } = await import('./AICommitmentService');

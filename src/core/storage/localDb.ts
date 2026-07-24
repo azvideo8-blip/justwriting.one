@@ -260,7 +260,29 @@ export interface AIPortrait {
   generatedAtDelta: number;
 }
 
+export interface ThemeEvidence {
+  noteId: string;
+  eventDate: string;
+  sentence: string;
+}
+
+export interface ThemeRecord {
+  id: string;
+  theme: string;
+  themeVector: number[];
+  firstSeenAt: string;                 // eventDate of first note, NOT creation date
+  evidence: ThemeEvidence[];           // first+last+top-N(~3), with cap
+  count: number;
+  lastReinforcedAt: string;            // eventDate of most recent note
+  emotionalWeight: number;             // clamp01(max(|valence|, arousal))
+  pinned?: boolean;
+  sensitivity?: 'normal' | 'sensitive';
+  tier: 'active' | 'archived';         // Stage 1 — always 'active'
+  supersededBy?: string;               // Stage 3 reconcile field
+}
+
 interface JustWritingDB extends DBSchema {
+
   documents: {
     key: string;
     value: LocalDocument;
@@ -348,7 +370,16 @@ interface JustWritingDB extends DBSchema {
     key: string;
     value: AIPortrait;
   };
+  aiThemeLedger: {
+    key: string;
+    value: ThemeRecord;
+    indexes: {
+      'by-tier': string;
+      'by-lastReinforcedAt': string;
+    };
+  };
 }
+
 
 let dbInstance: IDBPDatabase<JustWritingDB> | null = null;
 let dbOpenPromise: Promise<IDBPDatabase<JustWritingDB>> | null = null;
@@ -363,6 +394,26 @@ export function resetDbInstance(): void {
   dbOpenPromise = null;
 }
 
+export async function clearAllLocalStores(): Promise<void> {
+  try {
+    const db = await getLocalDb();
+    const names = Array.from(db.objectStoreNames);
+    if (names.length > 0) {
+      const tx = db.transaction(names, 'readwrite');
+      for (const name of names) {
+        void tx.objectStore(name).clear();
+      }
+
+      await tx.done;
+    }
+  } catch (e) {
+    console.warn('[localDb] Failed to clear all object stores:', e);
+  } finally {
+    resetDbInstance();
+  }
+}
+
+
 interface DatabaseWithClosed {
   closed?: boolean;
 }
@@ -376,7 +427,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   if (dbOpenPromise) return dbOpenPromise;
 
   const currentGeneration = dbGeneration;
-  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 15, {
+  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 16, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const docStore = db.createObjectStore('documents', { keyPath: 'id' });
@@ -474,7 +525,15 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
           eventStore.createIndex('by-date', 'date');
         }
       }
+      if (oldVersion < 16) {
+        if (!db.objectStoreNames.contains('aiThemeLedger')) {
+          const themeStore = db.createObjectStore('aiThemeLedger', { keyPath: 'id' });
+          themeStore.createIndex('by-tier', 'tier');
+          themeStore.createIndex('by-lastReinforcedAt', 'lastReinforcedAt');
+        }
+      }
     },
+
     blocked() { console.warn('[localDb] Database upgrade blocked — close other tabs and reload.'); },
     blocking() {
       console.warn('[localDb] Another tab is trying to upgrade — closing this connection.');
