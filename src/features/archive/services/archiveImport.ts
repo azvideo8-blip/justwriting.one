@@ -35,22 +35,38 @@ export function parseImportFile(fileName: string, rawContent: string): ParsedImp
   return { title, content, tags, wordCount };
 }
 
+const MAX_DOCX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB limit (SEC-40)
+
 async function readFileContent(file: File): Promise<string | null> {
   const extension = file.name.split('.').pop()?.toLowerCase();
   if (extension === 'docx') {
+    if (file.size > MAX_DOCX_SIZE_BYTES) {
+      throw new Error('DOCX_TOO_LARGE: File size exceeds 10MB limit.');
+    }
     const arrayBuffer = await file.arrayBuffer();
     const mammothMod = await import('mammoth');
     const mammoth = (mammothMod.default ?? mammothMod) as unknown as {
       convertToMarkdown: (input: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }>;
     };
-    const result = await mammoth.convertToMarkdown({ arrayBuffer });
+
+    // 15-second timeout to prevent infinite zip/xml parsing hangs
+    const parsePromise = mammoth.convertToMarkdown({ arrayBuffer });
+    const timeoutPromise = new Promise<{ value: string }>((_, reject) =>
+      setTimeout(() => reject(new Error('DOCX_PARSE_TIMEOUT')), 15_000)
+    );
+
+    const result = await Promise.race([parsePromise, timeoutPromise]);
     return result.value;
   }
   if (extension === 'txt' || extension === 'md') {
+    if (file.size > MAX_DOCX_SIZE_BYTES) {
+      throw new Error('FILE_TOO_LARGE: File size exceeds 10MB limit.');
+    }
     return file.text();
   }
   return null;
 }
+
 
 /**
  * Imports a note file into local storage and, for signed-in users, best-effort

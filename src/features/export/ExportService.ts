@@ -40,14 +40,14 @@ export class ExportService {
 
       const printContent = `
         <!DOCTYPE html>
-        <html>
+        <html lang="en">
         <head>
           <meta charset="UTF-8" />
           <title>${safeTitle}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
             body {
-              font-family: 'Inter', system-ui, sans-serif;
+              font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
               font-size: 14px;
               line-height: 1.7;
               color: #1c1917;

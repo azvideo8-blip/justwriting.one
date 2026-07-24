@@ -10,9 +10,13 @@ import { generate } from '../shared/aiProvider';
 const inputSchema = z.object({
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant']),
-    content: z.string().max(10_000),
-  })).min(1).max(50),
+    content: z.string().max(5_000),
+  })).min(1).max(30).refine(
+    msgs => msgs.reduce((sum, m) => sum + m.content.length, 0) <= 50_000,
+    'Total messages content exceeds 50K characters',
+  ),
 });
+
 
 const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
@@ -100,8 +104,9 @@ export const extractChatMemory = onCall({
     }
 
     memories = (Array.isArray(memories) ? memories : []).filter(m =>
-      m && typeof m.text === 'string' && typeof m.kind === 'string' && VALID_KINDS.includes(m.kind),
+      m && typeof m.text === 'string' && typeof m.kind === 'string' && VALID_KINDS.includes(m.kind) && !hasInjectionAttempt(m.text),
     );
+
 
     return { memories };
   } catch (e) {

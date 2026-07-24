@@ -321,7 +321,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // Defensive clamps — never exceed the API schema limits (documentContent
       // 50K, userPortrait 100K), or the request 400s before reaching the model.
       if (searchContext && searchContext.length > 49_000) searchContext = searchContext.slice(0, 49_000);
-      const safePortrait = userPortrait && userPortrait.length > 99_000 ? userPortrait.slice(0, 99_000) : userPortrait;
+      const safePortrait = userPortrait && userPortrait.length > 9_500 ? userPortrait.slice(0, 9_500) : userPortrait;
+
       const customSystemPrompt = customPersona;
       const effectivePersonaId = customPersona ? 'custom' : personaId;
 

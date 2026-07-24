@@ -22,6 +22,9 @@ const LATIN_PATTERNS = [
   /\[INST\]/i,
   /<developer>/i,
   /<end_of_turn>/i,
+  /repeat\s+.*(system|initial)\s+prompt/i,
+  /output\s+your\s+instructions/i,
+  /reveal\s+your\s+system\s+prompt/i,
 ];
 
 // Patterns written for Cyrillic/Russian phrases. Checked against the
@@ -30,7 +33,11 @@ const LATIN_PATTERNS = [
 const CYRILLIC_PATTERNS = [
   /новые\s+инструкции/i,
   /забудь\s+(вс[её]|свои|преды|инструк)/i,
+  /выведи\s+.*(системный|свой)\s+промпт/i,
+  /покажи\s+.*(системный\s+промпт|свои\s+инструкции)/i,
+  /напиши\s+свои\s+системные\s+инструкции/i,
 ];
+
 
 // Flat list kept for compatibility with any lingering direct reference.
 export const INJECTION_PATTERNS = [...LATIN_PATTERNS, ...CYRILLIC_PATTERNS];

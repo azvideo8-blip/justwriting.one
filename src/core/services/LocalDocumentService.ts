@@ -1,4 +1,6 @@
 import { getLocalDb, LocalDocument, randomUUID } from '../storage/localDb';
+import { reportError } from '../../shared/errors/reportError';
+
 
 export const LocalDocumentService = {
   async createDocument(
@@ -104,7 +106,93 @@ export const LocalDocumentService = {
       tx.done,
     ]);
     if (doc) await LocalDocumentService._updateProfile(doc.guestId);
+
+    // SEC-41: Cascade delete AI derivatives for deleted document
+    await LocalDocumentService.cascadeDeleteAIDerivatives(id);
   },
+
+  async cascadeDeleteAIDerivatives(documentId: string): Promise<void> {
+    try {
+      const db = await getLocalDb();
+
+      // 1. Delete aiSummaries, aiEmbeddings, aiTimeline
+      await Promise.all([
+        db.delete('aiSummaries', documentId).catch(() => {}),
+        db.delete('aiEmbeddings', documentId).catch(() => {}),
+        db.delete('aiTimeline', documentId).catch(() => {}),
+      ]);
+
+      // 2. Delete aiDialogues & related aiChatMemory
+      try {
+        const dialogues = await db.getAllFromIndex('aiDialogues', 'by-document', documentId);
+        for (const d of dialogues) {
+          try {
+            const memories = await db.getAllFromIndex('aiChatMemory', 'by-dialogue', d.id);
+            for (const m of memories) {
+              await db.delete('aiChatMemory', m.id).catch(() => {});
+            }
+          } catch { /* ignore */ }
+          await db.delete('aiDialogues', d.id).catch(() => {});
+        }
+      } catch { /* ignore */ }
+
+      // 3. Delete aiCommitments
+      try {
+        const commitments = await db.getAll('aiCommitments');
+        for (const c of commitments) {
+          if (c.documentId === documentId) {
+            await db.delete('aiCommitments', c.id).catch(() => {});
+          }
+        }
+      } catch { /* ignore */ }
+
+      // 4. Delete aiThreads
+      try {
+        const threads = await db.getAll('aiThreads');
+        for (const t of threads) {
+          if ((t as { documentId?: string }).documentId === documentId) {
+            await db.delete('aiThreads', t.id).catch(() => {});
+          }
+        }
+      } catch { /* ignore */ }
+
+      // 5. Clean lifeStory entries
+      try {
+        const lifeEntries = await db.getAll('lifeStory');
+        for (const entry of lifeEntries) {
+          if (entry.sourceDocumentIds?.includes(documentId)) {
+            const updatedSources = entry.sourceDocumentIds.filter(sid => sid !== documentId);
+            if (updatedSources.length === 0) {
+              await db.delete('lifeStory', entry.eventDate).catch(() => {});
+            } else {
+              await db.put('lifeStory', { ...entry, sourceDocumentIds: updatedSources }).catch(() => {});
+            }
+          }
+        }
+      } catch { /* ignore */ }
+
+
+      // 6. Clean aiThemeLedger evidence & records
+      try {
+        const themeRecords = await db.getAll('aiThemeLedger');
+        for (const record of themeRecords) {
+          const hasEvidence = record.evidence.some(e => e.noteId === documentId);
+          if (hasEvidence) {
+            const filteredEv = record.evidence.filter(e => e.noteId !== documentId);
+            const newCount = Math.max(0, record.count - 1);
+            if (filteredEv.length === 0 || newCount === 0) {
+              await db.delete('aiThemeLedger', record.id).catch(() => {});
+            } else {
+              await db.put('aiThemeLedger', { ...record, evidence: filteredEv, count: newCount }).catch(() => {});
+            }
+          }
+        }
+      } catch { /* ignore */ }
+    } catch (e) {
+      reportError(e, { action: 'cascadeDeleteAIDerivatives', documentId });
+    }
+  },
+
 
   async updateTags(id: string, tags: string[]): Promise<void> {
     const db = await getLocalDb();

@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkAndIncrementLimit, refundDailyLimit, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt, getLangfuse } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkAndIncrementLimit, refundDailyLimit, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt, getLangfuse, hashUid } from '../shared/aiUtils';
+
 import { validateInternalCallRestrictions, getMaxTokens, type InternalCallType } from '../shared/aiPolicy';
 import { generate, getActiveModel } from '../shared/aiProvider';
 import { PRESET_PERSONA_IDS, type PersonaId } from '../shared/prompts';
@@ -18,7 +19,8 @@ const inputSchema = z.object({
   }, 'Total messages content exceeds 200K characters'),
   documentContent: z.string().max(50_000).nullish(),
   documentMood: z.string().max(50).nullish(),
-  userPortrait: z.string().max(100_000).nullish(),
+  userPortrait: z.string().max(10_000).nullish(),
+
   responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
   reasoning: z.boolean().nullish(),
   callType: z.enum(['auto_name', 'follow_up', 'query_expand']).nullish() as z.ZodType<InternalCallType | null>,
@@ -126,8 +128,8 @@ export const chatWithAI = onCall({
 
   const lf = getLangfuse();
   const activeModel = await getActiveModel();
-  const trace = lf?.trace({ name: 'chatWithAI', userId: uid, metadata: { personaId } });
-  const generation = trace?.generation({ name: activeModel, model: activeModel, input: providerMessages });
+  const trace = lf?.trace({ name: 'chatWithAI', userId: hashUid(uid), metadata: { personaId, messageCount: providerMessages.length } });
+  const generation = trace?.generation({ name: activeModel, model: activeModel });
 
   let gen;
   try {
@@ -136,7 +138,7 @@ export const chatWithAI = onCall({
     console.error('[chatWithAI] AI request failed:', e);
     if (!isInternalCall) await refundDailyLimit(uid);
     await refundGlobalRequest(reservation);
-    generation?.end({ output: String(e), level: 'ERROR' });
+    generation?.end({ level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});
     throw new HttpsError('internal', 'AI request failed.');
   }
@@ -144,9 +146,10 @@ export const chatWithAI = onCall({
   const isReasoningMode = reasoning === true;
   const text = sanitizeAiResponse(gen.text, isReasoningMode);
 
-  generation?.end({ output: text, usage: { promptTokens: gen.tokensIn, completionTokens: gen.tokensOut } });
+  generation?.end({ usage: { promptTokens: gen.tokensIn, completionTokens: gen.tokensOut } });
   recordUsage(uid, gen.tokensIn, gen.tokensOut, { model: gen.model, fn: 'chat' }, reservation).catch(e => console.error('[AI chat] usage record failed:', e));
   if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   return { result: text };
+
 });

@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt, getLangfuse, checkAndIncrementBulkLimit, refundBulkLimit } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt, getLangfuse, checkAndIncrementBulkLimit, refundBulkLimit, hashUid } from '../shared/aiUtils';
+
 import { generate } from '../shared/aiProvider';
 
 // Repairs a JSON string that was truncated mid-output (reasoning models can
@@ -136,8 +137,9 @@ export const summarizeDocument = onCall({
 
   const lf = getLangfuse();
   const activeModel = SUMMARY_MODEL;
-  const trace = lf?.trace({ name: 'summarizeDocument', userId: uid });
-  const generation = trace?.generation({ name: activeModel, model: activeModel, input: prompt });
+  const trace = lf?.trace({ name: 'summarizeDocument', userId: hashUid(uid) });
+  const generation = trace?.generation({ name: activeModel, model: activeModel });
+
 
   let text: string;
   let tokensIn = 0;
