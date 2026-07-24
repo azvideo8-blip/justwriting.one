@@ -310,7 +310,7 @@ describe('firestore.rules — drafts', () => {
 });
 
 describe('firestore.rules — anonymizedTelemetry', () => {
-  // S-10: valid payload matching TelemetryService.maybeSendTelemetry shape
+  // SEC-54: anonymizedTelemetry is create/update/delete=false for clients (Admin SDK via sendTelemetry Cloud Function writes)
   const validTelemetry = {
     telemetryId: 'tel-1',
     activeTheme: 'amethyst',
@@ -321,65 +321,11 @@ describe('firestore.rules — anonymizedTelemetry', () => {
     sentAt: new Date().toISOString(),
   };
 
-  it('allows authenticated user to create valid telemetry', async () => {
+  it('denies direct client creation of telemetry (writes routed via sendTelemetry Cloud Function)', async () => {
     const db = testEnv.authenticatedContext('user-a').firestore();
-    await assertSucceeds(
+    await assertFails(
       db.doc('anonymizedTelemetry/tel-1').set(validTelemetry)
     );
-  });
-
-  it('denies telemetry with extra fields', async () => {
-    const db = testEnv.authenticatedContext('user-a').firestore();
-    await assertFails(
-      db.doc('anonymizedTelemetry/tel-1').set({
-        ...validTelemetry,
-        extraField: 'malicious',
-      })
-    );
-  });
-
-  it('denies telemetry with oversized string field', async () => {
-    const db = testEnv.authenticatedContext('user-a').firestore();
-    await assertFails(
-      db.doc('anonymizedTelemetry/tel-1').set({
-        ...validTelemetry,
-        activeTheme: 'x'.repeat(200),
-      })
-    );
-  });
-
-  it('denies updating telemetry (create-only)', async () => {
-    const db = testEnv.authenticatedContext('user-a').firestore();
-    await db.doc('anonymizedTelemetry/tel-1').set(validTelemetry);
-    await assertFails(
-      db.doc('anonymizedTelemetry/tel-1').update({ sentAt: 'modified' })
-    );
-  });
-
-  it('denies deleting telemetry by non-admin', async () => {
-    const db = testEnv.authenticatedContext('user-a').firestore();
-    await db.doc('anonymizedTelemetry/tel-1').set(validTelemetry);
-    await assertFails(db.doc('anonymizedTelemetry/tel-1').delete());
-  });
-
-  it('denies deleting telemetry even by admin (immutable; cleanup via admin SDK)', async () => {
-    // The rule is `allow update, delete: if false` — anonymizedTelemetry is
-    // immutable from any client, including an admin. Server-side cleanup runs
-    // through the admin SDK, which bypasses security rules.
-    const dbAdmin = testEnv.authenticatedContext('admin-user', { role: 'admin' }).firestore();
-    const dbUser = testEnv.authenticatedContext('user-a').firestore();
-    await dbUser.doc('anonymizedTelemetry/tel-1').set(validTelemetry);
-    await assertFails(dbAdmin.doc('anonymizedTelemetry/tel-1').delete());
-  });
-
-  it('denies deleting telemetry by user with admin role in document but no custom claim', async () => {
-    await testEnv.withSecurityRulesDisabled(async (context) => {
-      await context.firestore().doc('users/fake-admin-doc').set({ uid: 'fake-admin-doc', role: 'admin' });
-      await context.firestore().doc('anonymizedTelemetry/tel-1').set(validTelemetry);
-    });
-
-    const dbFakeAdmin = testEnv.authenticatedContext('fake-admin-doc').firestore();
-    await assertFails(dbFakeAdmin.doc('anonymizedTelemetry/tel-1').delete());
   });
 
   it('denies unauthenticated telemetry creation', async () => {
@@ -388,7 +334,35 @@ describe('firestore.rules — anonymizedTelemetry', () => {
       db.doc('anonymizedTelemetry/tel-1').set(validTelemetry)
     );
   });
+
+  it('allows admin to read anonymizedTelemetry', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().doc('anonymizedTelemetry/tel-1').set(validTelemetry);
+    });
+
+    const dbAdmin = testEnv.authenticatedContext('admin-user', { role: 'admin' }).firestore();
+    await assertSucceeds(dbAdmin.doc('anonymizedTelemetry/tel-1').get());
+  });
+
+  it('denies non-admin from reading anonymizedTelemetry', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().doc('anonymizedTelemetry/tel-1').set(validTelemetry);
+    });
+
+    const dbUser = testEnv.authenticatedContext('user-a').firestore();
+    await assertFails(dbUser.doc('anonymizedTelemetry/tel-1').get());
+  });
+
+  it('denies deleting telemetry even by admin', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().doc('anonymizedTelemetry/tel-1').set(validTelemetry);
+    });
+
+    const dbAdmin = testEnv.authenticatedContext('admin-user', { role: 'admin' }).firestore();
+    await assertFails(dbAdmin.doc('anonymizedTelemetry/tel-1').delete());
+  });
 });
+
 
 describe('firestore.rules — aiDailyLimit', () => {
   it('denies client access to aiDailyLimit (admin SDK only)', async () => {
