@@ -67,7 +67,8 @@ export const embedDocument = onCall({
     const result = await embed(chunks);
 
     if (result.vectors.length !== chunks.length) {
-      throw new HttpsError('internal', `Embedding count mismatch: got ${result.vectors.length} for ${chunks.length} chunks.`);
+      console.error(`[AI embed] count mismatch: got ${result.vectors.length} for ${chunks.length} chunks.`);
+      throw new HttpsError('internal', 'Embedding failed.');
     }
 
     recordUsage(uid, result.tokens, 0, { model: result.model, fn: 'embed' }, reservation).catch(e =>

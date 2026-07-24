@@ -50,6 +50,8 @@ export async function saveGuestDraftToStorage(draft: GuestDraftData): Promise<vo
   }
 }
 
+const GUEST_DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 export async function loadGuestDraftFromStorage(): Promise<GuestDraftData | null> {
   let idbDraft: GuestDraftData | null = null;
   try {
@@ -75,6 +77,8 @@ export async function loadGuestDraftFromStorage(): Promise<GuestDraftData | null
     } catch { /* ignore cleanup */ }
   }
 
+  let resultDraft: GuestDraftData | null = null;
+
   if (idbDraft && lsDraft) {
     const idbTs = idbDraft.updatedAt ?? idbDraft.timestamp ?? 0;
     const lsTs = lsDraft.updatedAt ?? lsDraft.timestamp ?? 0;
@@ -87,10 +91,8 @@ export async function loadGuestDraftFromStorage(): Promise<GuestDraftData | null
         reportError(e, { action: 'loadGuestDraft_ls_sync' }, 'warning');
       }
     }
-    return winner;
-  }
-
-  if (lsDraft && !idbDraft) {
+    resultDraft = winner;
+  } else if (lsDraft && !idbDraft) {
     try {
       const db = await getLocalDb();
       if (db.objectStoreNames.contains('drafts')) {
@@ -99,11 +101,22 @@ export async function loadGuestDraftFromStorage(): Promise<GuestDraftData | null
     } catch (e) {
       reportError(e, { action: 'loadGuestDraft_ls_restore' }, 'warning');
     }
-    return lsDraft;
+    resultDraft = lsDraft;
+  } else {
+    resultDraft = idbDraft;
   }
 
-  return idbDraft;
+  if (resultDraft) {
+    const ts = resultDraft.updatedAt ?? resultDraft.timestamp;
+    if (typeof ts === 'number' && ts > 1_000_000_000_000 && Date.now() - ts > GUEST_DRAFT_TTL_MS) {
+      await deleteGuestDraftFromStorage();
+      return null;
+    }
+  }
+
+  return resultDraft;
 }
+
 
 export async function deleteGuestDraftFromStorage(): Promise<void> {
   try {

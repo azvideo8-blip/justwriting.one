@@ -13,7 +13,8 @@ import { validateInternalCallRestrictions, getMaxTokens } from '../src/shared/ai
 // Must match the database the Cloud Functions and frontend use (shared/firestore.ts,
 // VITE_FIREBASE_FIRESTORE_DATABASE_ID). Bare getFirestore() targets "(default)", which
 // is a different, empty database — that mismatch hid usage stats and broke limit resets.
-const FIRESTORE_DATABASE_ID = 'ai-studio-26638cb9-0855-4980-84cb-072afd2a063d';
+const FIRESTORE_DATABASE_ID = process.env.FIRESTORE_DATABASE_ID
+  ?? 'ai-studio-26638cb9-0855-4980-84cb-072afd2a063d';
 const db = () => getFirestore(FIRESTORE_DATABASE_ID);
 
 function envInt(name: string, fallback: number): number {
@@ -666,6 +667,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (userPortrait && hasInjectionAttempt(userPortrait)) {
+    if (isInternalCall) {
+      await refundInternalDailyLimit(uid);
+    } else {
+      await refundDailyLimit(uid);
+    }
+    await refundGlobalRequest(reservation);
+    res.status(400).json({ error: 'Bad Request' }); return;
+  }
+
+  if (documentMood && hasInjectionAttempt(documentMood)) {
     if (isInternalCall) {
       await refundInternalDailyLimit(uid);
     } else {

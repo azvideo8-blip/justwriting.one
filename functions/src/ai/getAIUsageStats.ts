@@ -2,7 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getDb } from '../shared/firestore';
 import { TIER_LIMITS, DAILY_LIMIT } from '../shared/aiUtils';
 import { z } from 'zod';
-import type { Timestamp } from 'firebase-admin/firestore';
+import type { Timestamp, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 
 const inputSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(val => {
@@ -10,7 +10,7 @@ const inputSchema = z.object({
     return (m ?? 0) >= 1 && (m ?? 0) <= 12 && (d ?? 0) >= 1 && (d ?? 0) <= 31;
   }, 'Invalid date: month must be 1-12, day must be 1-31'),
   // When provided, returns per-request events for that user instead of aggregated stats
-  targetUid: z.string().min(1).max(128).optional(),
+  targetUid: z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/).optional(),
 });
 
 export const getAIUsageStats = onCall({
@@ -20,11 +20,14 @@ export const getAIUsageStats = onCall({
     throw new HttpsError('unauthenticated', 'Registration required.');
   }
 
-  const db = getDb();
-  const callerDoc = await db.doc(`users/${request.auth.uid}`).get();
-  if (!callerDoc.exists || callerDoc.data()?.role !== 'admin') {
+  const isCallerAdmin = request.auth.token.role === 'admin' ||
+    (await getDb().doc(`users/${request.auth.uid}`).get()).data()?.role === 'admin';
+  if (!isCallerAdmin) {
     throw new HttpsError('permission-denied', 'Admin access required.');
   }
+
+  const db = getDb();
+
 
   const parsed = inputSchema.safeParse(request.data);
   if (!parsed.success) {
@@ -62,12 +65,13 @@ export const getAIUsageStats = onCall({
   const collectionRef = db.collectionGroup('daily').where('date', '==', date);
   const results: { uid: string; requests: number; promptTokens: number; completionTokens: number }[] = [];
   const totals = { requests: 0, promptTokens: 0, completionTokens: 0 };
-  let lastDoc: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+  let lastDoc: QueryDocumentSnapshot | null = null;
   let hasMore = true;
 
   while (hasMore) {
     let q = collectionRef.limit(500);
-    if (lastDoc) q = q.startAfter(lastDoc);
+    if (lastDoc !== null) q = q.startAfter(lastDoc);
+
     const snapshot = await q.get();
     if (snapshot.empty) break;
 

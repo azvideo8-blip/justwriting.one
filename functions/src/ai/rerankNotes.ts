@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, checkAndIncrementBulkLimit, refundBulkLimit } from '../shared/aiUtils';
+import { sanitizeAiInput, recordUsage, tryReserveGlobalRequest, refundGlobalRequest, checkAndIncrementBulkLimit, refundBulkLimit, hasInjectionAttempt } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 
 // Reranking is search infrastructure, not a user conversation — like embedDocument
@@ -33,6 +33,11 @@ export const rerankNotes = onCall({
     throw new HttpsError('invalid-argument', 'Invalid payload.');
   }
   const { query, candidates, maxResults = 5 } = parsed.data;
+
+  if (hasInjectionAttempt(query)) {
+    throw new HttpsError('invalid-argument', 'Disallowed patterns in query.');
+  }
+
 
   // S-7: Validate documentId with strict regex — no injection check (it's an ID, not content)
   const DOC_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;

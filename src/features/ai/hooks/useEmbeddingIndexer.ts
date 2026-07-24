@@ -68,27 +68,28 @@ export function useEmbeddingIndexer(): void {
     if (resummarizeTimerRef.current) clearTimeout(resummarizeTimerRef.current);
     resummarizeTimerRef.current = setTimeout(() => {
       void AIProfileFacetService.resummarizeDirty().then(r => {
-        console.warn(`[useEmbeddingIndexer] resummarized ${r.count} dirty facets`);
+        if (import.meta.env.DEV) console.warn(`[useEmbeddingIndexer] resummarized ${r.count} dirty facets`);
         dirtyCountRef.current = 0;
         // Fill in any pending LLM summaries from a recent build.
         void AIProfileFacetService.summarizePending().then(sp => {
-          if (sp.done > 0) console.warn(`[useEmbeddingIndexer] summarized ${sp.done} pending facets`);
+          if (sp.done > 0 && import.meta.env.DEV) console.warn(`[useEmbeddingIndexer] summarized ${sp.done} pending facets`);
         }).catch(e => reportError(e, { action: '[useEmbeddingIndexer] summarizePending failed' }));
         if (r.count > 0) {
           // Judge the (re)written summaries and auto-correct confabulations
           // BEFORE regenerating the portrait, so the portrait reads corrected
           // facets. Best-effort: portrait regen runs regardless.
           void AIFacetJudgeService.review()
-            .then(j => { if (j.corrected > 0) console.warn(`[useEmbeddingIndexer] judge corrected ${j.corrected}/${j.judged} facets`); })
+            .then(j => { if (j.corrected > 0 && import.meta.env.DEV) console.warn(`[useEmbeddingIndexer] judge corrected ${j.corrected}/${j.judged} facets`); })
             .catch(e => reportError(e, { action: '[useEmbeddingIndexer] facet judge failed' }))
             .finally(() => {
               void import('../services/AIProfileService').then(({ AIProfileService }) => {
                 void AIProfileService.generate()
-                  .then(() => console.warn('[useEmbeddingIndexer] auto-regenerated portrait successfully'))
+                  .then(() => { if (import.meta.env.DEV) console.warn('[useEmbeddingIndexer] auto-regenerated portrait successfully'); })
                   .catch(e => reportError(e, { action: '[useEmbeddingIndexer] auto portrait generation failed' }));
               });
             });
         }
+
       }).catch(e => {
         reportError(e, { action: '[useEmbeddingIndexer] resummarize failed' });
       });

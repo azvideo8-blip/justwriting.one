@@ -47,6 +47,14 @@ export const summarizeFacet = onCall({
     throw new HttpsError('invalid-argument', 'Disallowed patterns in notes.');
   }
 
+  if (parsed.data.correction && hasInjectionAttempt(parsed.data.correction)) {
+    throw new HttpsError('invalid-argument', 'Disallowed patterns in correction.');
+  }
+
+  if (parsed.data.focus && hasInjectionAttempt(parsed.data.focus)) {
+    throw new HttpsError('invalid-argument', 'Disallowed patterns in focus.');
+  }
+
   // Bulk daily limit check
   const allowed = await checkAndIncrementBulkLimit(uid);
   if (!allowed) {
@@ -60,8 +68,9 @@ export const summarizeFacet = onCall({
 
   const correction = parsed.data.correction ? sanitizeAiInput(parsed.data.correction) : '';
   const systemWithCorrection = correction
-    ? `${system}\nОБЯЗАТЕЛЬНО УЧТИ ПОПРАВКУ (она важнее прежнего текста): ${correction}`
+    ? `${system}\nДополнительный контекст: ${correction}`
     : system;
+
 
   const reservation = await tryReserveGlobalRequest(2048);
   if (!reservation) {

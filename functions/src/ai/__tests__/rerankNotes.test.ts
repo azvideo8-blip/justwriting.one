@@ -34,6 +34,7 @@ vi.mock('../../shared/aiProvider', () => ({
 
 vi.mock('../../shared/aiUtils', () => ({
   sanitizeAiInput: vi.fn((s: string) => s),
+  hasInjectionAttempt: vi.fn(() => false),
   recordUsage: vi.fn().mockResolvedValue(undefined),
   tryReserveGlobalRequest: vi.fn().mockResolvedValue(true),
   refundGlobalRequest: vi.fn().mockResolvedValue(undefined),
