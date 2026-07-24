@@ -77,9 +77,11 @@ export const TelemetryService = {
 
       const user = getAuth().currentUser;
       if (user) {
-        const { db: fsDb, mod } = await getClient();
-        await mod.setDoc(mod.doc(fsDb, 'anonymizedTelemetry', payload.telemetryId), payload);
+        const { getFunctions, httpsCallable } = await import('firebase/functions');
+        const sendTelemetryFn = httpsCallable(getFunctions(), 'sendTelemetry');
+        await sendTelemetryFn(payload);
       }
+
 
       localStorage.setItem(TELEMETRY_LAST_SEND_KEY, String(now));
     } catch {

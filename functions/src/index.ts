@@ -25,4 +25,6 @@ export { extractChatMemory } from './ai/extractChatMemory';
 export { validateCustomPrompt } from './ai/validateCustomPrompt';
 export { getAIUsageStats } from './ai/getAIUsageStats';
 export { deleteAccount } from './auth/deleteAccount';
+export { sendTelemetry } from './telemetry/sendTelemetry';
+
 
