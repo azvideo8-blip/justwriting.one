@@ -38,6 +38,19 @@ if (sentryDsn && sentryDsn.startsWith('https://')) {
   });
 }
 
+const PRELOAD_RELOAD_KEY = 'jw:preload-reload';
+
+// Recover from stale lazy-chunk loads after a deploy rehashed bundles.
+// SW nav is network-first, so a reload fetches the fresh index + new chunks.
+window.addEventListener('vite:preloadError', (e) => {
+  e.preventDefault(); // suppress the unhandled throw
+  if (sessionStorage.getItem(PRELOAD_RELOAD_KEY)) return; // already tried once — avoid reload loop
+  sessionStorage.setItem(PRELOAD_RELOAD_KEY, '1');
+  const payload = (e as unknown as { payload?: unknown })?.payload ?? e;
+  reportError(payload, { action: 'vite_preload_error_reload' }, 'warning');
+  location.reload();
+});
+
 window.addEventListener('unhandledrejection', (event) => {
   reportError(event.reason, { source: 'unhandledrejection' });
 });
@@ -51,3 +64,14 @@ createRoot(document.getElementById('root')!).render(
     </BrowserRouter>
   </StrictMode>,
 );
+
+// Clear the reload guard only after a stable uptime, so a genuinely broken
+// deploy that re-fails immediately keeps the guard and does NOT reload-loop.
+// After this window, a later stale-chunk event in the same session can heal.
+setTimeout(() => {
+  try {
+    sessionStorage.removeItem(PRELOAD_RELOAD_KEY);
+  } catch {
+    // Ignore storage errors
+  }
+}, 10_000);
