@@ -78,10 +78,12 @@ export const AIService = {
     documentContent?: string | undefined;
     documentMood?: string | undefined;
     userPortrait?: string | null | undefined;
+    memoryContext?: string | null | undefined;
     responseLength?: 'short' | 'standard' | 'detailed' | undefined;
     reasoning?: boolean | undefined;
     callType?: 'auto_name' | 'follow_up' | 'query_expand' | undefined;
   }): Promise<AIResult> {
+
     const functions = getFunctions();
     const fn = httpsCallable<unknown, { result: string }>(functions, 'chatWithAI');
     try {
@@ -118,6 +120,15 @@ export const AIService = {
   async embed(params: {
     content: string;
   }): Promise<{ ok: true; vectors: number[][]; chunks: string[]; model: string; dim: number } | { ok: false; error: string }> {
+    // Server schema is content: z.string().min(1).max(200_000). Callers (search
+    // queries, chat memory, facet seeds, theme strings) can legitimately produce
+    // empty/oversized text; without this guard every such case became a 400
+    // invalid-argument round-trip. Guard once here instead of at 9 call sites.
+    const content = params.content?.trim() ?? '';
+    if (content === '') return { ok: false, error: 'EMPTY_CONTENT' };
+    if (content.length > 200_000) return { ok: false, error: 'CONTENT_TOO_LARGE' };
+    params = { ...params, content };
+
     const functions = getFunctions();
     const fn = httpsCallable<unknown, { vectors: number[][]; chunks: string[]; model: string; dim: number }>(functions, 'embedDocument');
     try {
