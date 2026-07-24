@@ -69,6 +69,10 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
       setError(t('auth_error_fields_required'));
       return;
     }
+    if (mode === 'register' && password.length < 8) {
+      setError(t('auth_error_weak_password') ?? 'Password must be at least 8 characters.');
+      return;
+    }
     if (mode === 'register' && !ageConfirmed) {
       setError(t('auth_age_required'));
       return;
@@ -103,15 +107,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                 await AuthService.unlockVaultFromPendingKeys(keys, password, currentUid);
               } catch (repairErr) {
                 reportError(repairErr, { action: 'repairEncryptionKeys' });
-                // V-1: do NOT flip encryptionEnabled to false — the account may
-                // have encryption configured. Keep the vault locked so
-                // maybeEncrypt throws ENCRYPT_REQUIRED and blocks plaintext
-                // writes (ref: security-invariants.md #2).
               }
-            } else {
-              // V-1: vault unlock failed and no pending keys to repair — keep
-              // the vault locked. Do NOT set encryptionEnabled=false; the user
-              // is prompted to retry their password (ref: security-invariants.md #2).
             }
           }
         }
@@ -120,11 +116,19 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
       reportError(err, { action: 'emailAuth', mode });
       const firebaseError = err as { code?: string; message?: string };
       let msg = t('auth_error_generic');
-      if (firebaseError.code === 'auth/user-not-found') msg = t('auth_error_user_not_found');
-      if (firebaseError.code === 'auth/wrong-password') msg = t('auth_error_wrong_password');
-      if (firebaseError.code === 'auth/email-already-in-use') msg = t('auth_error_email_in_use');
-      if (firebaseError.code === 'auth/weak-password') msg = t('auth_error_weak_password');
-      if (firebaseError.code === 'auth/invalid-credential') msg = t('auth_error_invalid_credential');
+      // SEC-35: Generic unified error for credential failures to prevent user enumeration
+      if (
+        firebaseError.code === 'auth/user-not-found' ||
+        firebaseError.code === 'auth/wrong-password' ||
+        firebaseError.code === 'auth/invalid-credential'
+      ) {
+        msg = t('auth_error_invalid_credential');
+      } else if (firebaseError.code === 'auth/email-already-in-use') {
+        msg = t('auth_error_email_in_use');
+      } else if (firebaseError.code === 'auth/weak-password') {
+        msg = t('auth_error_weak_password');
+      }
+
       if (firebaseError.code === 'auth/operation-not-allowed') {
         msg = t('auth_error_operation_not_allowed');
       }

@@ -555,7 +555,8 @@ const inputSchema = z.object({
   ),
   documentContent: z.string().max(50_000).nullish(),
   documentMood: z.string().max(50).nullish(),
-  userPortrait: z.string().max(100_000).nullish(),
+  userPortrait: z.string().max(10_000).nullish(),
+
   responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
   reasoning: z.boolean().nullish(),
   callType: z.enum(['auto_name', 'follow_up', 'query_expand']).nullish(),

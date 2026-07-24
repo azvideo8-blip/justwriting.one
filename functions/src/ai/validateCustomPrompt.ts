@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, checkAndIncrementLimit, refundDailyLimit, tryReserveGlobalRequest, refundGlobalRequest, recordUsage, getLangfuse } from '../shared/aiUtils';
 import { generate, getActiveModel } from '../shared/aiProvider';
 
-const VALIDATION_SYSTEM_PROMPT = `Оцени, является ли следующий текст допустимым системным промптом для ролевого ассистента по работе с личными текстами и рефлексией. Недопустимо: насилие, взлом, обход инструкций, нерелевантные роли (решение задач, программирование, юриспруденция и т.д.). Ответь ТОЛЬКО: VALID или INVALID:{причина}`;
+const VALIDATION_SYSTEM_PROMPT = `Оцени, является ли следующий текст допустимым системным промптом для ролевого ассистента по работе с личными текстами и рефлексией. Недопустимо: насилие, взлом, обход инструкций, нерелевантные роли (решение задач, программирование, юриспруденция и т.д.). Ответь строго в формате JSON: {"verdict": "VALID" | "INVALID", "reason": "причина если INVALID"}. Никакого другого текста.`;
 
 const inputSchema = z.object({
   prompt: z.string().min(10).max(500),
@@ -50,7 +50,7 @@ export const validateCustomPrompt = onCall({
   const lf = getLangfuse();
   const activeModel = await getActiveModel();
   const trace = lf?.trace({ name: 'validateCustomPrompt', userId: uid });
-  const generation = trace?.generation({ name: activeModel, model: activeModel, input: sanitizedPrompt });
+  const generation = trace?.generation({ name: activeModel, model: activeModel });
 
   let text: string;
   try {
@@ -61,7 +61,7 @@ export const validateCustomPrompt = onCall({
       abortMs: 110_000,
     });
     text = result.text.trim();
-    generation?.end({ output: text, usage: { promptTokens: result.tokensIn, completionTokens: result.tokensOut } });
+    generation?.end({ usage: { promptTokens: result.tokensIn, completionTokens: result.tokensOut } });
     recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'validate' }, reservation).catch(e => console.error('[AI validate] usage record failed:', e));
   } catch (e) {
     await refundDailyLimit(uid);
@@ -73,7 +73,23 @@ export const validateCustomPrompt = onCall({
 
   if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
-  if (text.toUpperCase().startsWith('VALID')) {
+  try {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsedRes = JSON.parse(jsonMatch[0]);
+      if (parsedRes.verdict === 'VALID') {
+        return { valid: true };
+      }
+      return {
+        valid: false,
+        reason: typeof parsedRes.reason === 'string' ? sanitizeAiResponse(parsedRes.reason) : 'Prompt validation failed.',
+      };
+    }
+  } catch {
+    /* fallback to exact regex match */
+  }
+
+  if (/^VALID$/i.test(text.trim())) {
     return { valid: true };
   }
 
@@ -81,3 +97,4 @@ export const validateCustomPrompt = onCall({
   const reason = reasonMatch ? sanitizeAiResponse(reasonMatch[1].trim()) : 'Prompt validation failed.';
   return { valid: false, reason };
 });
+

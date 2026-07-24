@@ -28,18 +28,37 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
   useFocusTrap(modalRef, true);
   useModalEscape(true, onClose);
 
+  const attemptCountRef = useRef(0);
+  const [backoffSeconds, setBackoffSeconds] = useState(0);
+
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password) return;
+    if (!password || loading || backoffSeconds > 0) return;
     setLoading(true);
     setError(null);
 
     try {
       await unlockVault(uid, password);
+      attemptCountRef.current = 0;
       showToast(t('unlock_success'), 'success');
       onUnlocked();
     } catch (e) {
       if (e instanceof WrongPasswordError) {
+        attemptCountRef.current += 1;
+        const attempts = attemptCountRef.current;
+        if (attempts >= 3) {
+          const backoff = Math.min(30, Math.pow(2, attempts - 3) * 2);
+          setBackoffSeconds(backoff);
+          const interval = setInterval(() => {
+            setBackoffSeconds(prev => {
+              if (prev <= 1) {
+                clearInterval(interval);
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+        }
         setError(t('unlock_wrong_password'));
       } else {
         reportError(e, { action: 'unlockEncryption', uid });
@@ -49,6 +68,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
       setLoading(false);
     }
   };
+
 
   return (
     <AnimatePresence>
@@ -100,12 +120,13 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
             <div className="flex gap-2">
               <Button
                 type="submit"
-                disabled={loading || !password}
+                disabled={loading || !password || backoffSeconds > 0}
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-[var(--brand-primary)]"
               >
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <Lock size={14} />}
-                {t('unlock_submit')}
+                {backoffSeconds > 0 ? `${backoffSeconds}s...` : t('unlock_submit')}
               </Button>
+
               <Button
                 type="button"
                 onClick={onClose}

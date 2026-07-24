@@ -117,15 +117,14 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
   const locOpts = getLocale();
   const untitled = s.untitled;
   const html = `<!DOCTYPE html>
-<html lang="${locOpts}">
+<html lang="${escapeHtml(locOpts)}">
 <head>
   <meta charset="utf-8">
   <title>${escapeHtml(session.title || untitled)}</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: 'Lora', Georgia, serif;
+      font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
       font-size: 13pt;
       line-height: 1.8;
       color: #1a1a1a;
@@ -134,10 +133,11 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
       margin: 0 auto;
     }
     h1 { font-size: 22pt; font-weight: 500; margin-bottom: 8pt; letter-spacing: -0.02em; }
-    .meta { font-family: 'Inter', sans-serif; font-size: 9pt; color: #888; margin-bottom: 24pt; letter-spacing: 0.04em; text-transform: uppercase; }
+    .meta { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 9pt; color: #888; margin-bottom: 24pt; letter-spacing: 0.04em; text-transform: uppercase; }
     .divider { border: none; border-top: 1px solid #e0e0e0; margin: 20pt 0; }
     .content { white-space: pre-wrap; word-break: break-word; }
-    .tags { font-family: 'Inter', sans-serif; font-size: 9pt; color: #aaa; margin-top: 20pt; }
+    .tags { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 9pt; color: #aaa; margin-top: 20pt; }
+
     @media print { body { padding: 0; } }
   </style>
 </head>

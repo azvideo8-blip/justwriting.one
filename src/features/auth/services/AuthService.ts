@@ -21,8 +21,38 @@ async function signInWithEmail(email: string, password: string) {
 }
 
 async function signOut() {
+  const currentUid = auth.currentUser?.uid;
+  try {
+    const { clearAllLocalStores } = await import('../../../core/storage/localDb');
+    await clearAllLocalStores();
+  } catch (e) {
+    reportError(e, { action: 'signOut_clearLocalDb' });
+  }
+
+  try {
+    const { clearDeviceKey } = await import('../../../core/crypto/keyVaultCache');
+    await clearDeviceKey(currentUid);
+  } catch (e) {
+    reportError(e, { action: 'signOut_clearDeviceKey' });
+  }
+
+  try {
+    const { useEncryptionStore } = await import('../../../core/crypto/useEncryptionStore');
+    useEncryptionStore.getState().setKey(null);
+  } catch (e) {
+    reportError(e, { action: 'signOut_clearSessionKey' });
+  }
+
+  try {
+    localStorage.clear();
+    sessionStorage.clear();
+  } catch {
+    /* ignore */
+  }
+
   return firebaseSignOut(auth);
 }
+
 
 async function sendPasswordReset(email: string) {
   return sendPasswordResetEmail(auth, email);
@@ -124,6 +154,19 @@ async function unlockVaultFromPendingKeys(keys: { encryptionSalt: string; encryp
   return true;
 }
 
+async function deleteAccount(): Promise<void> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('No authenticated user');
+
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const { app } = await import('../../../core/firebase/client');
+  const functions = getFunctions(app, 'europe-west1');
+  const deleteAccountFn = httpsCallable(functions, 'deleteAccount');
+
+  await deleteAccountFn();
+  await signOut();
+}
+
 export const AuthService = {
   signUpWithEmail,
   signInWithEmail,
@@ -135,4 +178,6 @@ export const AuthService = {
   getCurrentUser,
   unlockVaultFromProfile,
   unlockVaultFromPendingKeys,
+  deleteAccount,
 };
+
