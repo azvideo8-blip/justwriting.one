@@ -61,13 +61,15 @@ export const MarkdownRenderer = React.memo(
             a: ({ href, children }) => {
               if (href && href.startsWith('#cite-')) {
                 const id = href.replace('#cite-', '');
-                const isUnknown = children != null && String(children).includes('?');
+                // Always clickable: whether the citation resolves is decided by
+                // onCitationClick (it looks the document up and no-ops if missing).
+                // Disabling on missing *display metadata* left dead icons for notes
+                // that actually exist when the metadata fetch lagged or failed once.
                 return (
                   <button
                     type="button"
                     onClick={() => onCitationClick?.(id)}
-                    disabled={isUnknown}
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs font-medium cursor-pointer align-baseline select-none"
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30 transition-colors text-xs font-medium cursor-pointer align-baseline select-none"
                   >
                     {children}
                   </button>
