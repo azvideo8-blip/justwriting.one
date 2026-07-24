@@ -32,6 +32,32 @@ export interface GenerateResult {
   model: string;
 }
 
+export function isTransientError(err: unknown, didTimeout = false): boolean {
+  if (didTimeout) return false;
+  if (!err) return false;
+
+  const msg = err instanceof Error ? err.message : String(err);
+  const causeMsg =
+    err instanceof Error && err.cause
+      ? err.cause instanceof Error
+        ? err.cause.message
+        : String(err.cause)
+      : '';
+  const fullText = `${msg} ${causeMsg}`;
+
+  const patterns = [
+    'ECONNRESET',
+    'ETIMEDOUT',
+    'ECONNREFUSED',
+    'EPIPE',
+    'terminated',
+    'socket hang up',
+    'fetch failed',
+  ];
+
+  return patterns.some(p => fullText.includes(p));
+}
+
 export async function generate(params: GenerateParams): Promise<GenerateResult> {
   return generateOpenRouter(params);
 }
@@ -42,7 +68,7 @@ async function generateOpenRouter(params: GenerateParams): Promise<GenerateResul
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error('OPENROUTER_API_KEY not set');
 
-  const activeModel = params.model ?? await getActiveModel();
+  const activeModel = params.model ?? (await getActiveModel());
 
   const oaMessages: { role: string; content: string }[] = [];
   if (system) oaMessages.push({ role: 'system', content: system });
@@ -53,23 +79,37 @@ async function generateOpenRouter(params: GenerateParams): Promise<GenerateResul
     messages: oaMessages,
     max_tokens: maxTokens ?? 4096,
   };
-  // NOTE: response_format:{type:'json_object'} is intentionally never sent —
-  // confirmed via live testing that OpenRouter's free gpt-oss-20b route
-  // returns an empty content field when combined with json_object, even
-  // though finish_reason is "stop" (not a truncation). Callers already
-  // instruct strict JSON in their system prompts and repair truncated output.
-  // gpt-oss models mandate a reasoning pass they can't skip; keep it on low
-  // effort so it stays a few tokens instead of eating the max_tokens budget
-  // before any content is written (see docs/reasoning-mode.md history).
+
   if (activeModel.startsWith('openai/gpt-oss')) body.reasoning = { effort: 'low' };
 
-  // Retry transient upstream errors (502/503/504) with a short backoff —
-  // OpenRouter's routed providers occasionally return these.
+  // Retry transient upstream errors (502/503/504 and network errors like ECONNRESET)
+  // with a short backoff while respecting an overall time deadline.
   const MAX_ATTEMPTS = 3;
+  const totalAbortMs = abortMs ?? 110_000;
+  const deadline = Date.now() + totalAbortMs;
+  const MIN_REMAINING_MS = 10_000;
+
   let res!: Response;
+  let lastError: unknown = null;
+
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const remainingMs = deadline - Date.now();
+    if (attempt > 1 && remainingMs < MIN_REMAINING_MS) {
+      console.warn(
+        `[aiProvider] skipping retry attempt ${attempt}: insufficient remaining budget (${remainingMs}ms)`
+      );
+      if (lastError) throw lastError;
+      break;
+    }
+
+    const perAttemptTimeoutMs = Math.min(totalAbortMs, Math.max(1, remainingMs));
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), abortMs ?? 110_000);
+    let didTimeout = false;
+    const timeout = setTimeout(() => {
+      didTimeout = true;
+      controller.abort();
+    }, perAttemptTimeoutMs);
+
     try {
       res = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
         method: 'POST',
@@ -80,42 +120,59 @@ async function generateOpenRouter(params: GenerateParams): Promise<GenerateResul
         body: JSON.stringify(body),
         signal: controller.signal,
       });
+    } catch (err: unknown) {
+      lastError = err;
+      if (didTimeout) {
+        throw err;
+      }
+
+      const isTransient = isTransientError(err, didTimeout);
+      if (isTransient && attempt < MAX_ATTEMPTS) {
+        const remainingAfterErr = deadline - Date.now();
+        if (remainingAfterErr >= MIN_REMAINING_MS) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          console.warn(`[aiProvider] attempt ${attempt} transient network error: ${errMsg}`);
+          await new Promise(r => setTimeout(r, 500 * attempt));
+          continue;
+        }
+      }
+
+      throw err;
     } finally {
       clearTimeout(timeout);
     }
 
     if (res.ok) break;
 
-    const transient = res.status === 502 || res.status === 503 || res.status === 504;
-    if (transient && attempt < MAX_ATTEMPTS) {
-      const errBody = await res.text().catch(() => '');
-      console.warn(`[aiProvider] attempt ${attempt} transient ${res.status}: ${errBody.slice(0, 200)}`);
-      await new Promise(r => setTimeout(r, 500 * attempt));
-      continue;
+    const transientStatus = res.status === 502 || res.status === 503 || res.status === 504;
+    if (transientStatus && attempt < MAX_ATTEMPTS) {
+      const remainingAfterErr = deadline - Date.now();
+      if (remainingAfterErr >= MIN_REMAINING_MS) {
+        const errBody = await res.text().catch(() => '');
+        console.warn(`[aiProvider] attempt ${attempt} transient ${res.status}: ${errBody.slice(0, 200)}`);
+        await new Promise(r => setTimeout(r, 500 * attempt));
+        continue;
+      }
     }
+
     const errText = await res.text().catch(() => '');
     throw new Error(`OpenRouter ${res.status}: ${errText.slice(0, 300)}`);
   }
 
   // fetch() resolves as soon as the HEADERS arrive; for a non-streaming
   // completion the body only lands once the model has finished generating.
-  // So this timer bounds the whole generation, not a slow socket — 30s was
-  // far too tight and timed out every long chat/summary. Give it the same
-  // budget as the request itself.
   let jsonTimerId: ReturnType<typeof setTimeout>;
   const jsonTimeout = new Promise<never>((_, reject) => {
-    jsonTimerId = setTimeout(() => reject(new Error('body read timeout')), abortMs ?? 110_000);
+    jsonTimerId = setTimeout(() => reject(new Error('body read timeout')), totalAbortMs);
   });
-  const data = await Promise.race([
+  const data = (await Promise.race([
     res.json().finally(() => clearTimeout(jsonTimerId!)),
     jsonTimeout,
-  ]) as {
+  ])) as {
     choices?: { message?: { content?: string } }[];
     usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
 
-  // Reasoning (when requested) lands in a separate `reasoning` field which we
-  // intentionally drop here — only the final answer in `content` is returned.
   const text = data.choices?.[0]?.message?.content ?? '';
   return {
     text,
@@ -140,32 +197,80 @@ async function embedOpenRouter(texts: string[]): Promise<EmbedResult> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error('OPENROUTER_API_KEY not set');
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60_000);
-  let res: Response;
-  try {
-    // No `dimensions` override — OpenRouter's embeddings endpoint doesn't
-    // document support for truncating output size, so we take the model's
-    // native dimension (Qwen3 Embedding 8B: 4096) and store whatever comes
-    // back; embeddingIndexer.ts freshness-checks on (model, dim) so this is
-    // safe to change.
-    res = await fetch(`${OPENROUTER_BASE_URL}/embeddings`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: OPENROUTER_EMBED_MODEL,
-        input: texts,
-      }),
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
+  const MAX_ATTEMPTS = 3;
+  const totalAbortMs = 60_000;
+  const deadline = Date.now() + totalAbortMs;
+  const MIN_REMAINING_MS = 10_000;
 
-  if (!res.ok) {
+  let res!: Response;
+  let lastError: unknown = null;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const remainingMs = deadline - Date.now();
+    if (attempt > 1 && remainingMs < MIN_REMAINING_MS) {
+      console.warn(
+        `[aiProvider embed] skipping retry attempt ${attempt}: insufficient remaining budget (${remainingMs}ms)`
+      );
+      if (lastError) throw lastError;
+      break;
+    }
+
+    const perAttemptTimeoutMs = Math.min(totalAbortMs, Math.max(1, remainingMs));
+    const controller = new AbortController();
+    let didTimeout = false;
+    const timeout = setTimeout(() => {
+      didTimeout = true;
+      controller.abort();
+    }, perAttemptTimeoutMs);
+
+    try {
+      res = await fetch(`${OPENROUTER_BASE_URL}/embeddings`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: OPENROUTER_EMBED_MODEL,
+          input: texts,
+        }),
+        signal: controller.signal,
+      });
+    } catch (err: unknown) {
+      lastError = err;
+      if (didTimeout) {
+        throw err;
+      }
+
+      const isTransient = isTransientError(err, didTimeout);
+      if (isTransient && attempt < MAX_ATTEMPTS) {
+        const remainingAfterErr = deadline - Date.now();
+        if (remainingAfterErr >= MIN_REMAINING_MS) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          console.warn(`[aiProvider embed] attempt ${attempt} transient network error: ${errMsg}`);
+          await new Promise(r => setTimeout(r, 500 * attempt));
+          continue;
+        }
+      }
+
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (res.ok) break;
+
+    const transientStatus = res.status === 502 || res.status === 503 || res.status === 504;
+    if (transientStatus && attempt < MAX_ATTEMPTS) {
+      const remainingAfterErr = deadline - Date.now();
+      if (remainingAfterErr >= MIN_REMAINING_MS) {
+        const errBody = await res.text().catch(() => '');
+        console.warn(`[aiProvider embed] attempt ${attempt} transient ${res.status}: ${errBody.slice(0, 200)}`);
+        await new Promise(r => setTimeout(r, 500 * attempt));
+        continue;
+      }
+    }
+
     const errText = await res.text().catch(() => '');
     throw new Error(`OpenRouter embed ${res.status}: ${errText.slice(0, 300)}`);
   }
@@ -174,10 +279,10 @@ async function embedOpenRouter(texts: string[]): Promise<EmbedResult> {
   const jsonTimeout = new Promise<never>((_, reject) => {
     jsonTimerId = setTimeout(() => reject(new Error('body read timeout')), 30_000);
   });
-  const data = await Promise.race([
+  const data = (await Promise.race([
     res.json().finally(() => clearTimeout(jsonTimerId!)),
     jsonTimeout,
-  ]) as {
+  ])) as {
     data?: { embedding?: number[] }[];
     usage?: { total_tokens?: number };
   };
