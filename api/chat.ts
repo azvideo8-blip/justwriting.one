@@ -423,6 +423,9 @@ async function streamOpenRouterReasoning(
     });
   } catch (err) {
     clearTimeout(timeoutId);
+    // Log the cause: this path answers a flat 504, so without this an upstream
+    // reset (ECONNRESET) is indistinguishable from our own abort in the logs.
+    console.error('[api/chat] upstream request failed:', err);
     await refundGlobalRequest(reservation);
     if (isInternalCall) {
       await refundInternalDailyLimit(uid);

@@ -22,7 +22,7 @@ export function selectWithMMR<T>(
 
   // Select the highest raw score item first
   const first = remaining.shift();
-  if (!first) return [];
+  if (first === undefined) return [];
   selected.push(first);
 
   while (selected.length < limit && remaining.length > 0) {
@@ -50,7 +50,7 @@ export function selectWithMMR<T>(
 
     if (bestIndex >= 0) {
       const chosen = remaining.splice(bestIndex, 1)[0];
-      if (chosen) {
+      if (chosen !== undefined) {
         selected.push(chosen);
       }
     } else {

@@ -1,5 +1,4 @@
 import { getAuth } from 'firebase/auth';
-import { getClient } from '../../core/firebase/firestoreClient';
 import { getLocalDb } from '../../core/storage/localDb';
 
 // Re-import from bridge to avoid core→features layer violation
