@@ -59,6 +59,7 @@ export async function streamChat(params: {
   documentContent?: string | undefined;
   documentMood?: string | undefined;
   userPortrait?: string | null | undefined;
+  memoryContext?: string | null | undefined;
   responseLength?: 'short' | 'standard' | 'detailed' | undefined;
   reasoning?: boolean | undefined;
   signal?: AbortSignal | undefined;
@@ -93,11 +94,13 @@ export async function streamChat(params: {
       documentContent: params.documentContent,
       documentMood: params.documentMood,
       userPortrait: params.userPortrait,
+      memoryContext: params.memoryContext,
       responseLength: params.responseLength,
       reasoning: params.reasoning,
     }),
     signal: params.signal ?? null,
   });
+
 
   if (response.status === 404) {
     _streamUnavailableUntil = Date.now() + 60_000;
@@ -194,6 +197,7 @@ export async function callableChat(params: {
   messages: AIMessage[];
   documentContent?: string | undefined;
   userPortrait?: string | null | undefined;
+  memoryContext?: string | null | undefined;
   responseLength?: 'short' | 'standard' | 'detailed' | undefined;
   reasoning?: boolean | undefined;
   callType?: 'auto_name' | 'follow_up' | 'query_expand' | undefined;
@@ -204,10 +208,12 @@ export async function callableChat(params: {
     messages: params.messages.map(({ role, content }) => ({ role, content })),
     documentContent: params.documentContent,
     userPortrait: params.userPortrait,
+    memoryContext: params.memoryContext,
     responseLength: params.responseLength,
     reasoning: params.reasoning,
     callType: params.callType,
   });
+
 
   if (!result.ok) {
     if (result.error === 'DAILY_LIMIT') throw new Error('DAILY_LIMIT');

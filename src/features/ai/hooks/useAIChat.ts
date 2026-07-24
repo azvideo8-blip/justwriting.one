@@ -299,7 +299,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       const isFirstTurn = baseMessages.filter(m => m.type !== 'system').length === 0;
 
-      const { userPortrait, customPersona, searchContext: rawSearchContext, injectedDocumentIds } = await context.buildContext({
+      const { userPortrait, customPersona, searchContext: rawSearchContext, memoryContext, injectedDocumentIds } = await context.buildContext({
         text,
         attached: effectiveAttached ? (
           effectiveAttached.documentId !== undefined
@@ -331,7 +331,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       let fullText: string;
 
       if (Date.now() < _streamUnavailableUntil) {
-        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, responseLength: effectiveResponseLength, reasoning: effectiveReasoning });
+        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, responseLength: effectiveResponseLength, reasoning: effectiveReasoning });
       } else {
         try {
           fullText = await streamChat({
@@ -341,8 +341,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             documentContent: searchContext,
             documentMood: mood,
             userPortrait: safePortrait,
+            memoryContext,
             responseLength: effectiveResponseLength,
             reasoning: effectiveReasoning,
+
             signal: controller.signal,
             onChunk: (partial, reasoning) => {
               const cleanPartial = sanitizeCitations(partial, injectedDocumentIds || []);

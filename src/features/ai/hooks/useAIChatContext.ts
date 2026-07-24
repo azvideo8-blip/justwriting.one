@@ -20,6 +20,7 @@ import { looksLikeNoteSearch } from '../utils/aiChatTransport';
 import { cosineSimilarity, topKMultiWithChunkIndex } from '../utils/vectorSearch';
 import { AIDialogueService } from '../services/AIDialogueService';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
+import { AIMemoryAssembler } from '../services/AIMemoryAssembler';
 
 function formatDateYYYYMMDD(timestamp: number | undefined): string {
   if (!timestamp) return 'unknown-date';
@@ -54,8 +55,10 @@ export interface ChatContextResult {
   customPersona: string | undefined; // customSystemPrompt
   searchContext: string | undefined;
   documentMood: string | undefined;
+  memoryContext?: string | null;
   injectedDocumentIds?: string[];
 }
+
 
 export function useAIChatContext(personaId: string): {
   buildContext(params: {
@@ -961,13 +964,26 @@ export function useAIChatContext(personaId: string): {
       }
     }
 
+    let memoryContext: string | null = null;
+    try {
+      memoryContext = await AIMemoryAssembler.assembleMemoryContext({
+        attachedDocumentId: params.attached?.documentId ?? null,
+        attachedContent: params.attached?.content ?? null,
+      });
+    } catch {
+      /* ignore assembler errors */
+    }
+
+
     return {
       userPortrait,
       customPersona: customSystemPrompt,
       searchContext,
       documentMood: mood,
+      memoryContext,
       injectedDocumentIds: [...new Set(injectedDocumentIds)],
     };
+
   };
 
   return {
