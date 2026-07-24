@@ -285,7 +285,10 @@ export function AIPage() {
       if (info) {
         return `[📅 ${info.date}](#cite-${id})`;
       }
-      return `[📅 ?](#cite-${id})`;
+      // No metadata yet (still loading, or the lookup failed once and the effect
+      // won't re-run). Keep the citation clickable — handleCitationClick resolves
+      // the document itself — and just omit the date.
+      return `[📅](#cite-${id})`;
     });
   };
 
