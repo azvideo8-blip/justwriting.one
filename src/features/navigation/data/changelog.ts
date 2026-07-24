@@ -14,6 +14,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.62',
+    date: '2026-07-24',
+    items: [
+      { category: 'fix', ru: 'Чат с ИИ больше не падает с ошибкой, если связь с провайдером оборвалась на середине запроса — попытка повторяется автоматически', en: 'AI chat no longer fails when the connection to the provider drops mid-request — it retries automatically' },
+      { category: 'fix', ru: 'Ссылка на заметку в ответе ИИ снова кликабельна, даже если её дата и заголовок не успели подгрузиться', en: 'A note link in an AI reply is clickable again, even when its date and title have not loaded yet' },
+      { category: 'fix', ru: 'Устранены фоновые ошибки индексации при пустом поисковом запросе и слишком длинных заметках', en: 'Fixed background indexing errors on empty search queries and overly long notes' },
+      { category: 'fix', ru: 'Устранены обрывы соединения с базой данных из-за слишком строгой политики безопасности', en: 'Fixed database connection drops caused by an overly strict security policy' },
+    ],
+  },
+  {
     version: '0.7.61',
     date: '2026-07-24',
     items: [
