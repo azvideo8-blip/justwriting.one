@@ -229,7 +229,16 @@ export function useEmbeddingIndexer(): void {
         }
       }
 
+      // Process pending Theme Ledger touches in background
+      try {
+        const { AIThemeLedgerService } = await import('../services/AIThemeLedgerService');
+        await AIThemeLedgerService.processPendingThemeTouches();
+      } catch (e) {
+        reportError(e, { action: '[useEmbeddingIndexer] theme ledger pending touch failed' });
+      }
+
       // Best-effort: bootstrap personal taxonomy once enough summaries exist.
+
       void (async () => {
         try {
           const bootstrapRes = await AITaxonomyService.ensureBootstrap();
