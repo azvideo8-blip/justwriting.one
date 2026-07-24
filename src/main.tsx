@@ -29,8 +29,11 @@ if (sentryDsn && sentryDsn.startsWith('https://')) {
     replaysOnErrorSampleRate: 1.0,
     beforeSend(event) {
       if (event.request?.data) delete event.request.data;
+      if (event.request?.headers) delete event.request.headers;
+      if (event.request?.cookies) delete event.request.cookies;
       return event;
     },
+
     ignoreErrors: [
       'ResizeObserver loop',
       'Network request failed',

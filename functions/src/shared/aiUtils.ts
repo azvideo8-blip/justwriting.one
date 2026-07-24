@@ -226,6 +226,7 @@ export interface GlobalReservation {
   date: string;
   shardId: string;
   allowance: number;
+  refunded?: boolean;
 }
 
 // Atomically check and reserve a slot in the project-wide daily cap.
@@ -277,8 +278,10 @@ export async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalR
 
 // Day-safe, shard-specific refund. Clamps shard requests to >= 0.
 export async function refundGlobalRequest(res: GlobalReservation | null | undefined): Promise<void> {
-  if (!res || !res.date || !res.shardId) return;
+  if (!res || !res.date || !res.shardId || res.refunded) return;
+  res.refunded = true;
   const db = getDb();
+
 
   try {
     await db.runTransaction(async tx => {
