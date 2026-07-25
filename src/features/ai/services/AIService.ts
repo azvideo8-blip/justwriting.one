@@ -219,4 +219,50 @@ export const AIService = {
       return { ok: false, error: mapAIError(e) };
     }
   },
+
+  async summarizeBeliefCluster(params: {
+    evidence: { id: string; date: string; snippet?: string }[];
+    firstSeenAt: string;
+    correctionHint?: string;
+  }): Promise<{ ok: true; belief: string } | { ok: false; error: string }> {
+    const functions = getFunctions();
+    const fn = httpsCallable<unknown, { belief: string }>(functions, 'summarizeBeliefCluster');
+    try {
+      const { data } = await withTimeout(fn(params), 60_000);
+      return { ok: true, belief: data.belief };
+    } catch (e: unknown) {
+      // No chat() fallback here on purpose: this is background consolidation, and
+      // this.chat() without a callType spends the user's INTERACTIVE daily quota
+      // (plus the cooldown). A background pass must never eat the allowance the
+      // user needs to actually talk to the AI — failing soft and retrying on the
+      // next idle pass is the correct degradation.
+      reportError(e, { action: 'summarizeBeliefCluster' }, 'warning');
+      return { ok: false, error: mapAIError(e) };
+    }
+  },
+
+  async judgeBeliefCandidate(params: {
+    belief: string;
+    evidence: { id: string; date: string; snippet?: string }[];
+  }): Promise<{ ok: true; passed: boolean; reason: string; correctiveHint?: string } | { ok: false; error: string }> {
+    const functions = getFunctions();
+    const fn = httpsCallable<unknown, { passed: boolean; reason: string; correctiveHint?: string }>(functions, 'judgeBeliefCandidate');
+    try {
+      const { data } = await withTimeout(fn(params), 60_000);
+      const hint = data.correctiveHint ?? undefined;
+      return {
+        ok: true,
+        passed: data.passed,
+        reason: data.reason,
+        ...(hint ? { correctiveHint: hint } : {}),
+      };
+    } catch (e: unknown) {
+      // No chat() fallback: same reason as summarizeBeliefCluster — a background
+      // judge must not spend the user's interactive chat quota. Failing soft also
+      // keeps the fail-open guarantee intact: no verdict means the belief is not
+      // published and the raw units stay queryable.
+      reportError(e, { action: 'judgeBeliefCandidate' }, 'warning');
+      return { ok: false, error: mapAIError(e) };
+    }
+  },
 };
