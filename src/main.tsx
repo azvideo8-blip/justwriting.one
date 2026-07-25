@@ -45,11 +45,23 @@ const PRELOAD_RELOAD_KEY = 'jw:preload-reload';
 
 // Recover from stale lazy-chunk loads after a deploy rehashed bundles.
 // SW nav is network-first, so a reload fetches the fresh index + new chunks.
+// Deliberately NOT calling e.preventDefault(): that tells Vite to swallow the
+// error, which makes the failed import *resolve* instead of reject. Our lazy
+// routes are `import(...).then(m => ({ default: m.Page }))`, so the mapper then
+// runs with m === undefined and throws "Cannot read properties of undefined
+// (reading 'WritingPage')" — a misleading error that hides the real cause (the
+// chunk never loaded) and, once the reload guard has tripped, leaves the app
+// broken with no recovery. Letting the real error propagate keeps the signature
+// honest and lets the error boundary render.
 window.addEventListener('vite:preloadError', (e) => {
-  e.preventDefault(); // suppress the unhandled throw
-  if (sessionStorage.getItem(PRELOAD_RELOAD_KEY)) return; // already tried once — avoid reload loop
-  sessionStorage.setItem(PRELOAD_RELOAD_KEY, '1');
   const payload = (e as unknown as { payload?: unknown })?.payload ?? e;
+  if (sessionStorage.getItem(PRELOAD_RELOAD_KEY)) {
+    // Reloading once did not fix it — usually the network is down rather than
+    // the chunk being stale. Report it and let the error surface.
+    reportError(payload, { action: 'vite_preload_error_after_reload' }, 'warning');
+    return;
+  }
+  sessionStorage.setItem(PRELOAD_RELOAD_KEY, '1');
   reportError(payload, { action: 'vite_preload_error_reload' }, 'warning');
   location.reload();
 });
