@@ -237,6 +237,14 @@ export function useEmbeddingIndexer(): void {
         reportError(e, { action: '[useEmbeddingIndexer] theme ledger pending touch failed' });
       }
 
+      // Process W3 Consolidation pass in background
+      try {
+        const { AIConsolidationService } = await import('../services/AIConsolidationService');
+        await AIConsolidationService.processConsolidationPass();
+      } catch (e) {
+        reportError(e, { action: '[useEmbeddingIndexer] consolidation pass failed' });
+      }
+
       // Best-effort: bootstrap personal taxonomy once enough summaries exist.
 
       void (async () => {
