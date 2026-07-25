@@ -29,10 +29,6 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.token.role == 'admin';
     }
 
-    function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
-    }
-
     function isValidUserCreate(data) {
       return data.keys().hasAll(['uid', 'email']) &&
              data.keys().hasOnly([
@@ -77,31 +73,6 @@ service cloud.firestore {
              (!changedKeys.hasAny(['privacyVersion']) || data.privacyVersion is number) &&
              (!changedKeys.hasAny(['aiPortrait']) || (data.aiPortrait is string && data.aiPortrait.size() <= 100000)) &&
              (!changedKeys.hasAny(['_encrypted']) || data._encrypted is bool);
-    }
-
-    function isValidSession(data) {
-      return data.keys().hasAll(['userId', 'content', 'duration', 'createdAt']) &&
-              data.keys().hasOnly([
-                'userId', 'content', 'duration', 'createdAt', 'title',
-                'wordCount', 'charCount', 'wpm', 'tags', 'pinnedThoughts',
-                'sessionType', 'sessionStartTime', 'goalReached', 'updatedAt',
-                '_aiProcessed', '_aiAction', '_aiProcessedAt', '_aiResultText',
-                'authorName', 'authorPhoto', 'nickname', 'isPublic',
-                '_encrypted'
-              ]) &&
-              data.userId == request.auth.uid &&
-              data.content is string && data.content.size() <= 700000 &&
-             data.duration is number && data.duration >= 0 &&
-             data.createdAt is timestamp &&
-              (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
-               (!('pinnedThoughts' in data) || (data.pinnedThoughts is list && data.pinnedThoughts.size() <= 20)) &&
-               (!('tags' in data) || (data.tags is list && data.tags.size() <= 10)) &&
-               (!('_aiResultText' in data) || data._aiResultText is string) &&
-               (!('isPublic' in data) || data.isPublic is bool) &&
-               (!('authorName' in data) || (data.authorName is string && data.authorName.size() <= 200)) &&
-               (!('authorPhoto' in data) || (data.authorPhoto is string && data.authorPhoto.size() <= 500)) &&
-               (!('nickname' in data) || (data.nickname is string && data.nickname.size() <= 100)) &&
-               (!('_encrypted' in data) || data._encrypted is bool);
     }
 
     function isValidDraft(data) {
@@ -310,24 +281,6 @@ service cloud.firestore {
     }
 
     // S-10: Telemetry validation.
-    // Field set derived from src/core/services/TelemetryService.ts:
-    //   maybeSendTelemetry writes payload via setDoc.
-    //   Payload fields: telemetryId, activeTheme, notesCountBucket,
-    //   averageWordCount, reasoningRatio, doorRatios, sentAt
-    function isValidTelemetry(data) {
-      return data.keys().hasOnly([
-               'telemetryId', 'activeTheme', 'notesCountBucket', 'averageWordCount',
-               'reasoningRatio', 'doorRatios', 'sentAt'
-             ]) &&
-             data.telemetryId is string && data.telemetryId.size() > 0 && data.telemetryId.size() <= 100 &&
-             (!('activeTheme' in data) || (data.activeTheme is string && data.activeTheme.size() <= 100)) &&
-             (!('notesCountBucket' in data) || (data.notesCountBucket is string && data.notesCountBucket.size() <= 20)) &&
-             (!('averageWordCount' in data) || (data.averageWordCount is number && data.averageWordCount >= 0)) &&
-             (!('reasoningRatio' in data) || (data.reasoningRatio is number && data.reasoningRatio >= 0 && data.reasoningRatio <= 1)) &&
-             (!('doorRatios' in data) || data.doorRatios is map || data.doorRatios == null) &&
-             (!('sentAt' in data) || (data.sentAt is string && data.sentAt.size() <= 50));
-    }
-
     // SEC-54: Anonymized telemetry — read for admin only, writes routed via rate-limited sendTelemetry Cloud Function (Admin SDK).
     match /anonymizedTelemetry/{telemetryId} {
       allow read: if isAdmin();
