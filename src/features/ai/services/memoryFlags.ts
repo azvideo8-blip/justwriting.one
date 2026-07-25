@@ -11,6 +11,8 @@ export interface MemoryFeatureFlags {
   ff_memory_assembler_portrait: boolean;
 }
 
+const STORAGE_KEY = 'justwriting_memory_flags';
+
 const DEFAULT_FLAGS: MemoryFeatureFlags = {
   ff_memory_assembler_shadow: true,
   ff_memory_assembler_chat_memory: false,
@@ -19,7 +21,32 @@ const DEFAULT_FLAGS: MemoryFeatureFlags = {
   ff_memory_assembler_portrait: false,
 };
 
-let currentFlags: MemoryFeatureFlags = { ...DEFAULT_FLAGS };
+function loadStoredFlags(): MemoryFeatureFlags {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as Partial<MemoryFeatureFlags>;
+        return { ...DEFAULT_FLAGS, ...parsed };
+      }
+    }
+  } catch {
+    /* fallback to default */
+  }
+  return { ...DEFAULT_FLAGS };
+}
+
+let currentFlags: MemoryFeatureFlags = loadStoredFlags();
+
+function saveStoredFlags(flags: MemoryFeatureFlags): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(flags));
+    }
+  } catch {
+    /* ignore storage write failures */
+  }
+}
 
 export const MemoryFlagsService = {
   getFlags(): MemoryFeatureFlags {
@@ -28,9 +55,21 @@ export const MemoryFlagsService = {
 
   setFlag<K extends keyof MemoryFeatureFlags>(key: K, value: boolean): void {
     currentFlags[key] = value;
+    saveStoredFlags(currentFlags);
   },
 
   resetFlags(): void {
     currentFlags = { ...DEFAULT_FLAGS };
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    } catch {
+      /* ignore */
+    }
+  },
+
+  reloadFlags(): void {
+    currentFlags = loadStoredFlags();
   },
 };

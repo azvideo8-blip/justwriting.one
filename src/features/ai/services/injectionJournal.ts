@@ -1,6 +1,8 @@
+import { getLocalDb } from '../../../core/storage/localDb';
+
 export interface EvaluatedCandidateRecord {
   id: string;
-  category: 'safety' | 'attached_note' | 'persona' | 'portrait' | 'voice' | 'first_seen' | 'quote' | 'retrieval' | 'thread';
+  category: 'safety' | 'attached_note' | 'persona' | 'portrait' | 'voice' | 'first_seen' | 'quote' | 'retrieval' | 'thread' | 'turn1';
   band: 'mandatory' | 'competitive';
   textSnippet: string;
   charLength: number;
@@ -25,13 +27,22 @@ export interface JournalEntry {
   timestamp: number;
   dialogueId?: string | null | undefined;
   candidates: EvaluatedCandidateRecord[];
-
   mandatoryInjected: string[];
   competitiveInjected: string[];
   shadowComparison?: ShadowComparisonRecord;
 }
 
-const MAX_JOURNAL_ENTRIES = 100;
+export interface JournalStats {
+  totalTurns: number;
+  medianOverlap: number;
+  p90Overlap: number;
+  mandatoryDropsCount: number;
+  wouldHaveDroppedByCategory: Record<string, number>;
+  p90BudgetUsage: number;
+  maxBudget: number;
+}
+
+const MAX_JOURNAL_ENTRIES = 200;
 const journalBuffer: JournalEntry[] = [];
 
 /** Computes character/word overlap ratio between legacy and W2 strings in [0, 1]. */
@@ -54,6 +65,29 @@ export function calculateOverlapRatio(strA: string | null, strB: string | null):
   return union > 0 ? common / union : 0;
 }
 
+async function persistEntryToDb(entry: JournalEntry): Promise<void> {
+  try {
+    const db = await getLocalDb();
+    await db.put('aiInjectionJournal', entry as unknown as Record<string, unknown>);
+
+    // Ring-buffer eviction: check total count
+    const all = await db.getAllFromIndex('aiInjectionJournal', 'by-timestamp');
+    if (all.length > MAX_JOURNAL_ENTRIES) {
+      const toDeleteCount = all.length - MAX_JOURNAL_ENTRIES;
+      const oldestToDelete = all.slice(0, toDeleteCount);
+      const tx = db.transaction('aiInjectionJournal', 'readwrite');
+      for (const item of oldestToDelete) {
+        if (item.id) {
+          void tx.store.delete(item.id as string);
+        }
+      }
+      await tx.done;
+    }
+  } catch {
+    /* Non-blocking write fallback */
+  }
+}
+
 export const InjectionJournal = {
   logEntry(entry: Omit<JournalEntry, 'id' | 'timestamp'>): JournalEntry {
     const fullEntry: JournalEntry = {
@@ -67,7 +101,24 @@ export const InjectionJournal = {
       journalBuffer.pop();
     }
 
+    // Non-blocking IDB write
+    void persistEntryToDb(fullEntry);
+
     return fullEntry;
+  },
+
+  async loadEntriesFromDb(): Promise<JournalEntry[]> {
+    try {
+      const db = await getLocalDb();
+      const records = await db.getAllFromIndex('aiInjectionJournal', 'by-timestamp');
+      const sorted = (records as unknown as JournalEntry[]).sort((a, b) => b.timestamp - a.timestamp);
+      
+      journalBuffer.length = 0;
+      journalBuffer.push(...sorted.slice(0, MAX_JOURNAL_ENTRIES));
+      return [...journalBuffer];
+    } catch {
+      return [...journalBuffer];
+    }
   },
 
   getEntries(limit = 20): JournalEntry[] {
@@ -76,9 +127,76 @@ export const InjectionJournal = {
 
   clearJournal(): void {
     journalBuffer.length = 0;
+    void (async () => {
+      try {
+        const db = await getLocalDb();
+        await db.clear('aiInjectionJournal');
+      } catch {
+        /* ignore */
+      }
+    })();
   },
 
   getLatestEntry(): JournalEntry | null {
     return journalBuffer[0] ?? null;
+  },
+
+  getStats(maxBudget = 6_000): JournalStats {
+    const entries = [...journalBuffer];
+    if (entries.length === 0) {
+      return {
+        totalTurns: 0,
+        medianOverlap: 1.0,
+        p90Overlap: 1.0,
+        mandatoryDropsCount: 0,
+        wouldHaveDroppedByCategory: {},
+        p90BudgetUsage: 0,
+        maxBudget,
+      };
+    }
+
+    const overlaps: number[] = [];
+    const budgetUsages: number[] = [];
+    let mandatoryDropsCount = 0;
+    const wouldHaveDroppedByCategory: Record<string, number> = {};
+
+    for (const entry of entries) {
+      if (entry.shadowComparison) {
+        overlaps.push(entry.shadowComparison.overlapRatio);
+      }
+
+      const mandatoryChars = entry.mandatoryInjected.reduce((acc, s) => acc + s.length, 0);
+      const competitiveChars = entry.competitiveInjected.reduce((acc, s) => acc + s.length, 0);
+      budgetUsages.push(mandatoryChars + competitiveChars);
+
+      for (const cand of entry.candidates) {
+        if (!cand.selected) {
+          if (cand.band === 'mandatory') {
+            mandatoryDropsCount++;
+          }
+          wouldHaveDroppedByCategory[cand.category] = (wouldHaveDroppedByCategory[cand.category] || 0) + 1;
+        }
+      }
+    }
+
+    overlaps.sort((a, b) => a - b);
+    budgetUsages.sort((a, b) => a - b);
+
+    const medianIndex = Math.floor(overlaps.length * 0.5);
+    const p90Index = Math.floor(overlaps.length * 0.9);
+
+    const medianOverlap = overlaps[medianIndex] ?? 1.0;
+    const p90Overlap = overlaps[p90Index] ?? 1.0;
+    const p90BudgetUsage = budgetUsages[p90Index] ?? 0;
+
+    return {
+      totalTurns: entries.length,
+      medianOverlap,
+      p90Overlap,
+      mandatoryDropsCount,
+      wouldHaveDroppedByCategory,
+      p90BudgetUsage,
+      maxBudget,
+    };
   },
 };

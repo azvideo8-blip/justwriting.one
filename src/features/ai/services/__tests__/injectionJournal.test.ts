@@ -31,8 +31,8 @@ describe('InjectionJournal & Overlap Metrics', () => {
     expect(latest?.competitiveInjected).toEqual(['voice text']);
   });
 
-  it('caps journal buffer size to 100 entries', () => {
-    for (let i = 0; i < 110; i++) {
+  it('caps journal buffer size to 200 entries', () => {
+    for (let i = 0; i < 215; i++) {
       InjectionJournal.logEntry({
         dialogueId: `dlg-${i}`,
         candidates: [],
@@ -41,9 +41,8 @@ describe('InjectionJournal & Overlap Metrics', () => {
       });
     }
 
-    const entries = InjectionJournal.getEntries(200);
-    expect(entries.length).toBe(100);
-    expect(entries[0]!.dialogueId).toBe('dlg-109');
-
+    const entries = InjectionJournal.getEntries(300);
+    expect(entries.length).toBe(200);
+    expect(entries[0]!.dialogueId).toBe('dlg-214');
   });
 });

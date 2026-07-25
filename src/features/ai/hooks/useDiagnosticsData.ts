@@ -15,7 +15,7 @@ import { getAuth } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { reportError } from '../../../shared/errors/reportError';
 
-export type Tab = 'stats' | 'sync' | 'db' | 'users' | 'ai_usage' | 'ai_profile' | 'queue';
+export type Tab = 'stats' | 'sync' | 'db' | 'users' | 'ai_usage' | 'ai_profile' | 'queue' | 'memory_assembler';
 
 export interface AIUsageRow {
   uid: string;

@@ -101,6 +101,8 @@ describe('AG-MIND-W2 Full Memory Assembler', () => {
 
     // 2. Cutover active (shadow mode false)
     MemoryFlagsService.setFlag('ff_memory_assembler_shadow', false);
+    MemoryFlagsService.setFlag('ff_memory_assembler_portrait', true);
+    MemoryFlagsService.setFlag('ff_memory_assembler_chat_memory', true);
     const cutoverResult = await AIMemoryAssembler.assembleMemoryContext({
       userPortrait: 'Independent analytical thinker',
     });
