@@ -378,6 +378,13 @@ interface JustWritingDB extends DBSchema {
       'by-lastReinforcedAt': string;
     };
   };
+  aiInjectionJournal: {
+    key: string;
+    value: Record<string, unknown>;
+    indexes: {
+      'by-timestamp': number;
+    };
+  };
 }
 
 
@@ -427,7 +434,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   if (dbOpenPromise) return dbOpenPromise;
 
   const currentGeneration = dbGeneration;
-  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 16, {
+  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 17, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const docStore = db.createObjectStore('documents', { keyPath: 'id' });
@@ -530,6 +537,12 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
           const themeStore = db.createObjectStore('aiThemeLedger', { keyPath: 'id' });
           themeStore.createIndex('by-tier', 'tier');
           themeStore.createIndex('by-lastReinforcedAt', 'lastReinforcedAt');
+        }
+      }
+      if (oldVersion < 17) {
+        if (!db.objectStoreNames.contains('aiInjectionJournal')) {
+          const journalStore = db.createObjectStore('aiInjectionJournal', { keyPath: 'id' });
+          journalStore.createIndex('by-timestamp', 'timestamp');
         }
       }
     },

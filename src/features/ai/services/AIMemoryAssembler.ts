@@ -8,7 +8,7 @@ import { sanitizeAiInputShared } from '../../../shared/ai/buildChatPrompt';
 
 export interface MemoryCandidateItem {
   id: string;
-  category: 'safety' | 'attached_note' | 'persona' | 'portrait' | 'voice' | 'first_seen' | 'quote' | 'retrieval' | 'thread';
+  category: 'safety' | 'attached_note' | 'persona' | 'portrait' | 'voice' | 'first_seen' | 'quote' | 'retrieval' | 'thread' | 'turn1';
   band: 'mandatory' | 'competitive';
   text: string;
   source?: string;
@@ -20,21 +20,22 @@ export interface MemoryCandidateItem {
 }
 
 export interface W2MemoryAssemblerParams {
-  query?: string | null;
-  attachedDocumentId?: string | null;
-  attachedContent?: string | null;
-  userPortrait?: string | null;
-  documentContent?: string | null; // RAG / search context
-  personaId?: string | null;
-  customSystemPrompt?: string | null;
-  dialogueId?: string | null;
-  globalBudgetChars?: number; // Default 6,000 chars
+  query?: string | null | undefined;
+  attachedDocumentId?: string | null | undefined;
+  attachedContent?: string | null | undefined;
+  userPortrait?: string | null | undefined;
+  proactiveBlock?: string | null | undefined;
+  documentContent?: string | null | undefined; // RAG / search context
+  personaId?: string | null | undefined;
+  customSystemPrompt?: string | null | undefined;
+  dialogueId?: string | null | undefined;
+  globalBudgetChars?: number | undefined; // Default 6,000 chars
 }
 
 export const AIMemoryAssembler = {
   /**
    * Assembles memory context using W2 two-band architecture with MMR ranking,
-   * category floors/caps, and shadow mode logging to InjectionJournal.
+   * category floors/caps, shadow mode logging to InjectionJournal, and per-block cutovers.
    * Hard Invariant: 0 new LLM or embedding calls on the hot path.
    */
   async assembleMemoryContext(params?: W2MemoryAssemblerParams): Promise<string | null> {
@@ -57,7 +58,37 @@ export const AIMemoryAssembler = {
     }
 
     // --- 2. Collect Competitive Candidates ---
-    // A. Voice Candidate (W4)
+    // A. User Portrait (Self-Model) - Floor: 600 chars
+    if (params?.userPortrait) {
+      competitiveItems.push({
+        id: 'comp-portrait',
+        category: 'portrait',
+        band: 'competitive',
+        text: `[Портрет пользователя]: ${params.userPortrait}`,
+        source: 'userPortrait',
+        count: 5,
+        emotionalWeight: 0.7,
+        lastReinforcedAt: now,
+        floorChars: 600,
+      });
+    }
+
+    // B. Turn-1 Proactive Block - Floor: 400 chars
+    if (params?.proactiveBlock) {
+      competitiveItems.push({
+        id: 'comp-turn1',
+        category: 'turn1',
+        band: 'competitive',
+        text: params.proactiveBlock,
+        source: 'proactiveBlock',
+        count: 3,
+        emotionalWeight: 0.6,
+        lastReinforcedAt: now,
+        floorChars: 400,
+      });
+    }
+
+    // C. Voice Candidate (W4) - Floor: 200 chars
     try {
       const voiceMap = await AILexiconService.getVoiceMap();
       if (voiceMap && voiceMap.formattedPromptSnippet && voiceMap.terms.length > 0) {
@@ -75,10 +106,10 @@ export const AIMemoryAssembler = {
         });
       }
     } catch {
-      /* ignore */
+      /* ignore producer failure */
     }
 
-    // B. Theme Ledger Candidates (W1)
+    // D. Theme Ledger Candidates (W1) - Floor: 100 chars
     try {
       const activeRecords = await AIThemeLedgerService.getActive();
       if (activeRecords.length > 0) {
@@ -115,25 +146,10 @@ export const AIMemoryAssembler = {
         }
       }
     } catch {
-      /* ignore */
+      /* ignore producer failure */
     }
 
-    // C. User Portrait (Self-Model)
-    if (params?.userPortrait) {
-      competitiveItems.push({
-        id: 'comp-portrait',
-        category: 'portrait',
-        band: 'competitive',
-        text: `[Портрет пользователя]: ${params.userPortrait}`,
-        source: 'userPortrait',
-        count: 5,
-        emotionalWeight: 0.7,
-        lastReinforcedAt: now,
-        floorChars: 600,
-      });
-    }
-
-    // D. Retrieval Context (RAG)
+    // E. Retrieval Context (RAG) - Cap: 4,000 chars
     if (params?.documentContent) {
       competitiveItems.push({
         id: 'comp-retrieval',
@@ -179,7 +195,7 @@ export const AIMemoryAssembler = {
       scoredCompetitive.push({ item, salience, sim, rawScore });
     }
 
-    // --- 4. Budget Allocation (Mandatory First, Floors, then MMR) ---
+    // --- 4. Budget Allocation (Mandatory First, Category Floors, then MMR) ---
     let usedBudget = mandatoryItems.reduce((acc, m) => acc + m.text.length, 0);
     const selectedCompetitive: MemoryCandidateItem[] = [];
 
@@ -215,33 +231,65 @@ export const AIMemoryAssembler = {
           selected: true,
         });
       } else {
-        evaluatedRecords.push({
-          id: item.id,
-          category: item.category,
-          band: 'competitive',
-          textSnippet: item.text.slice(0, 100),
-          charLength: item.text.length,
-          salience: entry.salience,
-          similarity: entry.sim,
-          rawScore: entry.rawScore,
-          selected: false,
-          droppedReason: 'budget_exceeded',
-        });
+        // Check if item has a floor that can be satisfied
+        if (item.floorChars && usedBudget + item.floorChars <= globalBudget) {
+          const truncated = textToAdd.slice(0, item.floorChars);
+          usedBudget += truncated.length;
+          selectedCompetitive.push({ ...item, text: truncated });
+
+          evaluatedRecords.push({
+            id: item.id,
+            category: item.category,
+            band: 'competitive',
+            textSnippet: truncated.slice(0, 100),
+            charLength: truncated.length,
+            salience: entry.salience,
+            similarity: entry.sim,
+            rawScore: entry.rawScore,
+            selected: true,
+          });
+        } else {
+          evaluatedRecords.push({
+            id: item.id,
+            category: item.category,
+            band: 'competitive',
+            textSnippet: item.text.slice(0, 100),
+            charLength: item.text.length,
+            salience: entry.salience,
+            similarity: entry.sim,
+            rawScore: entry.rawScore,
+            selected: false,
+            droppedReason: 'budget_exceeded',
+          });
+        }
       }
     }
 
-    // Combine final selected lines
+    // Combine final selected lines for W2 assembled output
     const selectedMandatoryLines = mandatoryItems.map(m => sanitizeAiInputShared(m.text));
     const selectedCompetitiveLines = selectedCompetitive.map(c => sanitizeAiInputShared(c.text));
 
     const w2Result = [...selectedMandatoryLines, ...selectedCompetitiveLines].join('\n') || null;
 
-    // --- 5. Compute Legacy Output for Shadow Comparison ---
+    // --- 5. Compute Legacy Baseline Output (Actual Live Injections) ---
+    // Production injected: userPortrait + proactiveBlock + thin collector lines (voice, first_seen, quote)
+    const legacyParts: string[] = [];
+    if (params?.userPortrait) {
+      legacyParts.push(`[Портрет пользователя]: ${params.userPortrait}`);
+    }
+    if (params?.proactiveBlock) {
+      legacyParts.push(params.proactiveBlock);
+    }
+
     const legacyVoice = competitiveItems.find(i => i.category === 'voice')?.text;
     const legacyFirstSeen = competitiveItems.find(i => i.category === 'first_seen')?.text;
     const legacyQuote = competitiveItems.find(i => i.category === 'quote')?.text;
-    const legacyLines = [legacyVoice, legacyFirstSeen, legacyQuote].filter(Boolean) as string[];
-    const legacyResult = legacyLines.length > 0 ? legacyLines.join('\n') : null;
+    const legacyThinLines = [legacyVoice, legacyFirstSeen, legacyQuote].filter(Boolean) as string[];
+    if (legacyThinLines.length > 0) {
+      legacyParts.push(legacyThinLines.join('\n'));
+    }
+
+    const legacyResult = legacyParts.length > 0 ? legacyParts.join('\n') : null;
 
     // --- 6. Shadow Logging to InjectionJournal ---
     const overlapRatio = calculateOverlapRatio(legacyResult, w2Result);
@@ -255,16 +303,39 @@ export const AIMemoryAssembler = {
         w2Result,
         overlapRatio,
         wouldHaveAdded: selectedCompetitiveLines.filter(line => !legacyResult?.includes(line)),
-        wouldHaveDropped: legacyLines.filter(line => !w2Result?.includes(line)),
+        wouldHaveDropped: legacyParts.filter(line => !w2Result?.includes(line)),
       },
     });
 
-    // --- 7. Cutover Logic ---
-    // If shadow mode is active, return legacyResult (or null if none)
+    // --- 7. Shadow Mode & Per-Block Cutover Return Logic ---
     if (flags.ff_memory_assembler_shadow) {
-      return legacyResult;
+      // In shadow mode, return legacy thin collector output for memoryContext
+      return legacyThinLines.join('\n') || null;
     }
 
-    return w2Result;
+    // Cutover mode: assemble output based on active block flags
+    const cutoverLines: string[] = [...selectedMandatoryLines];
+
+    for (const c of selectedCompetitive) {
+      if (c.category === 'portrait' && flags.ff_memory_assembler_portrait) {
+        cutoverLines.push(sanitizeAiInputShared(c.text));
+      } else if (c.category === 'turn1' && flags.ff_memory_assembler_turn1) {
+        cutoverLines.push(sanitizeAiInputShared(c.text));
+      } else if (c.category === 'retrieval' && flags.ff_memory_assembler_retrieval) {
+        cutoverLines.push(sanitizeAiInputShared(c.text));
+      } else if (
+        (c.category === 'voice' || c.category === 'first_seen' || c.category === 'quote') &&
+        // Gate on the block's own flag only. `|| !flags.ff_memory_assembler_shadow`
+        // used to be OR'd in here, but this loop is only reached after an early
+        // return when shadow is on — so that term was always true and the
+        // chat_memory flag gated nothing, leaving block 1 of the cutover with no
+        // working rollback.
+        flags.ff_memory_assembler_chat_memory
+      ) {
+        cutoverLines.push(sanitizeAiInputShared(c.text));
+      }
+    }
+
+    return cutoverLines.join('\n') || null;
   },
 };

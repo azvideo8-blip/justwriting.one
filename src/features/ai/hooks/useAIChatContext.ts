@@ -21,6 +21,7 @@ import { cosineSimilarity, topKMultiWithChunkIndex } from '../utils/vectorSearch
 import { AIDialogueService } from '../services/AIDialogueService';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import { AIMemoryAssembler } from '../services/AIMemoryAssembler';
+import { MemoryFlagsService } from '../services/memoryFlags';
 
 function formatDateYYYYMMDD(timestamp: number | undefined): string {
   if (!timestamp) return 'unknown-date';
@@ -967,18 +968,29 @@ export function useAIChatContext(personaId: string): {
     let memoryContext: string | null = null;
     try {
       memoryContext = await AIMemoryAssembler.assembleMemoryContext({
+        query: text,
         attachedDocumentId: params.attached?.documentId ?? null,
         attachedContent: params.attached?.content ?? null,
+        userPortrait,
+        proactiveBlock: searchContext,
+        dialogueId: params.dialogueId ?? null,
       });
     } catch {
       /* ignore assembler errors */
     }
 
+    const currentFlags = MemoryFlagsService.getFlags();
+    const effectivePortrait = (!currentFlags.ff_memory_assembler_shadow && currentFlags.ff_memory_assembler_portrait)
+      ? null
+      : (userPortrait ?? null);
+    const effectiveSearchContext = (!currentFlags.ff_memory_assembler_shadow && currentFlags.ff_memory_assembler_turn1)
+      ? undefined
+      : (searchContext ?? undefined);
 
     return {
-      userPortrait,
+      userPortrait: effectivePortrait,
       customPersona: customSystemPrompt,
-      searchContext,
+      searchContext: effectiveSearchContext,
       documentMood: mood,
       memoryContext,
       injectedDocumentIds: [...new Set(injectedDocumentIds)],

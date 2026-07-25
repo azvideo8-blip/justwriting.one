@@ -19,6 +19,7 @@ import { QueueExplorer } from '../components/QueueExplorer';
 import { FacetDiagnostics } from '../components/FacetDiagnostics';
 import { ContactDoors } from '../components/ContactDoors';
 import { AuthorPortrait } from '../components/AuthorPortrait';
+import { MemoryAssemblerDiagnostics } from '../components/MemoryAssemblerDiagnostics';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { useToast } from '../../../shared/components/Toast';
@@ -246,6 +247,15 @@ function RebuildTimelineButton() {
           )}
         >
           Профиль AI
+        </Button>
+        <Button
+          onClick={() => setActiveTab('memory_assembler')}
+          className={cn(
+            "px-4 py-2 rounded-xl text-xs font-bold transition-[color,background-color,box-shadow] duration-200",
+            activeTab === 'memory_assembler' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
+          )}
+        >
+          Сборщик памяти
         </Button>
         <Button
           onClick={() => setActiveTab('stats')}
@@ -629,6 +639,11 @@ function RebuildTimelineButton() {
               </Button>
             </div>
           </div>
+        )}
+
+        {/* Tab 7: Memory Assembler */}
+        {activeTab === 'memory_assembler' && (
+          <MemoryAssemblerDiagnostics />
         )}
 
         {/* Tab 7: Stats */}
