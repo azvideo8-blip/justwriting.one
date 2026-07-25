@@ -2,7 +2,7 @@ import { getLocalDb } from '../../../core/storage/localDb';
 
 export interface EvaluatedCandidateRecord {
   id: string;
-  category: 'safety' | 'attached_note' | 'persona' | 'portrait' | 'voice' | 'first_seen' | 'quote' | 'retrieval' | 'thread' | 'turn1';
+  category: 'safety' | 'attached_note' | 'persona' | 'portrait' | 'voice' | 'first_seen' | 'quote' | 'retrieval' | 'thread' | 'turn1' | 'belief';
   band: 'mandatory' | 'competitive';
   textSnippet: string;
   charLength: number;

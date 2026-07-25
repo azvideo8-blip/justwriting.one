@@ -158,6 +158,7 @@ export function MemoryAssemblerDiagnostics() {
                   {flagKey === 'ff_memory_assembler_retrieval' && 'Блок 2: Поиск RAG'}
                   {flagKey === 'ff_memory_assembler_turn1' && 'Блок 3: Turn-1 контекст'}
                   {flagKey === 'ff_memory_assembler_portrait' && 'Блок 4: Портрет пользователя'}
+                  {flagKey === 'ff_memory_assembler_beliefs' && 'Блок 5: Убеждения W3 (Beliefs)'}
                 </div>
               </div>
 

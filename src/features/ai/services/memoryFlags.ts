@@ -9,6 +9,8 @@ export interface MemoryFeatureFlags {
   ff_memory_assembler_turn1: boolean;
   /** Cutover user portrait to W2 assembler. */
   ff_memory_assembler_portrait: boolean;
+  /** Cutover consolidated beliefs (W3) to W2 assembler. */
+  ff_memory_assembler_beliefs: boolean;
 }
 
 const STORAGE_KEY = 'justwriting_memory_flags';
@@ -19,6 +21,7 @@ const DEFAULT_FLAGS: MemoryFeatureFlags = {
   ff_memory_assembler_retrieval: false,
   ff_memory_assembler_turn1: false,
   ff_memory_assembler_portrait: false,
+  ff_memory_assembler_beliefs: false,
 };
 
 function loadStoredFlags(): MemoryFeatureFlags {
