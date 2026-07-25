@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.63',
+    date: '2026-07-25',
+    items: [
+      { category: 'fix', ru: 'Фоновая работа ИИ больше не расходует ваш дневной лимит на разговоры с ассистентом', en: 'Background AI work no longer uses up your daily limit for conversations with the assistant' },
+      { category: 'improvement', ru: 'Обновлены зависимости с уязвимостями безопасности', en: 'Updated dependencies with security vulnerabilities' },
+      { category: 'improvement', ru: 'Продолжается работа над долговременной памятью ИИ: ассистент учится сворачивать похожие записи в устойчивые выводы и проверять их на точность перед тем, как им доверять', en: 'Work continues on the AI long-term memory: the assistant is learning to fold similar entries into stable conclusions and verify them for accuracy before relying on them' },
+    ],
+  },
+  {
     version: '0.7.62',
     date: '2026-07-24',
     items: [
