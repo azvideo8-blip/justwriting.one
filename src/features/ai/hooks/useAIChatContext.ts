@@ -51,6 +51,8 @@ async function getDocDate(docId: string): Promise<string> {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+import { extractFirstSeenDates } from '../utils/dateGuard';
+
 export interface ChatContextResult {
   userPortrait: string | null;
   customPersona: string | undefined; // customSystemPrompt
@@ -58,6 +60,7 @@ export interface ChatContextResult {
   documentMood: string | undefined;
   memoryContext?: string | null;
   injectedDocumentIds?: string[];
+  allowedFirstSeenDates?: string[];
 }
 
 
@@ -987,6 +990,11 @@ export function useAIChatContext(personaId: string): {
       ? undefined
       : (searchContext ?? undefined);
 
+    const allowedFirstSeenDates = [
+      ...extractFirstSeenDates(memoryContext),
+      ...extractFirstSeenDates(searchContext),
+    ];
+
     return {
       userPortrait: effectivePortrait,
       customPersona: customSystemPrompt,
@@ -994,6 +1002,7 @@ export function useAIChatContext(personaId: string): {
       documentMood: mood,
       memoryContext,
       injectedDocumentIds: [...new Set(injectedDocumentIds)],
+      allowedFirstSeenDates: [...new Set(allowedFirstSeenDates)],
     };
 
   };

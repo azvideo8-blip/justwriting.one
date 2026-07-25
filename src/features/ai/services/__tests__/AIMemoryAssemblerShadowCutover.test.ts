@@ -4,6 +4,7 @@ import { AILexiconService } from '../AILexiconService';
 import { AIThemeLedgerService } from '../AIThemeLedgerService';
 import { MemoryFlagsService } from '../memoryFlags';
 import { InjectionJournal } from '../injectionJournal';
+import { extractFirstSeenDates } from '../../utils/dateGuard';
 
 vi.mock('../AILexiconService', () => ({
   AILexiconService: {
@@ -107,6 +108,35 @@ describe('AG-MIND-W2 Shadow & Cutover Test Suite', () => {
     MemoryFlagsService.setFlag('ff_memory_assembler_chat_memory', false);
     const disabled = await AIMemoryAssembler.assembleMemoryContext({});
     expect(disabled ?? '').not.toContain('прокрастинация');
+  });
+
+  it("Seam: the assembler's first-seen line is parseable by the W8a date guard", async () => {
+    // The guard recovers its allowed dates by re-parsing the assembler's RENDERED
+    // text. Unit tests on either side use hand-copied strings, so changing the
+    // assembler's template would leave them green while production silently lost
+    // every allowed date — and an empty allowed set makes the guard strip EVERY
+    // first-seen date from replies. This test fails instead.
+    vi.mocked(AILexiconService.getVoiceMap).mockResolvedValue(null);
+    vi.mocked(AIThemeLedgerService.getActive).mockResolvedValue([
+      {
+        id: 'th-1',
+        theme: 'выгорание',
+        themeVector: [],
+        firstSeenAt: '2026-07-12',
+        evidence: [],
+        count: 4,
+        lastReinforcedAt: '2026-09-01',
+        emotionalWeight: 0.7,
+        tier: 'active',
+      },
+    ] as unknown as Awaited<ReturnType<typeof AIThemeLedgerService.getActive>>);
+
+    MemoryFlagsService.setFlag('ff_memory_assembler_shadow', false);
+    MemoryFlagsService.setFlag('ff_memory_assembler_chat_memory', true);
+
+    const rendered = await AIMemoryAssembler.assembleMemoryContext({});
+    expect(rendered).toContain('2026-07-12');
+    expect(extractFirstSeenDates(rendered)).toContain('2026-07-12');
   });
 
   it('Mandatory band (attached note) is never dropped under any budget pressure', async () => {
