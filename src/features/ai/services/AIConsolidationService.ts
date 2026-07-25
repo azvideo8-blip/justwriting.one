@@ -25,6 +25,25 @@ export interface AIBelief {
   isArchived?: boolean;
 }
 
+export interface RejectedBeliefRecord {
+  id: string;
+  timestamp: number;
+  clusterSize: number;
+  firstSeenAt: string;
+  reason: string;
+  /**
+   * Why nothing was published. 'judge_rejected' means the judge returned a
+   * verdict and it was a fail — the only signal that says anything about judge
+   * calibration. 'evaluation_failed' means we never got a verdict (provider or
+   * quota failure), which must NOT be counted as a rejection: a flaky upstream
+   * would otherwise read as "the judge is too strict".
+   */
+  kind: 'judge_rejected' | 'evaluation_failed';
+  rewriteAttempted: boolean;
+  rejectedTextSnippet: string;
+  unitIds: string[];
+}
+
 export interface MemoryUnit {
   id: string;
   type: 'chat_memory' | 'summary' | 'timeline';
@@ -73,6 +92,58 @@ export const AIConsolidationService = {
   },
 
   /**
+   * Saves a rejected candidate log to IndexedDB `aiBeliefRejections` (capped at 200).
+   */
+  async saveRejection(rejection: RejectedBeliefRecord): Promise<void> {
+    try {
+      const db = await getLocalDb();
+      await db.put('aiBeliefRejections', rejection as unknown as Record<string, unknown>);
+
+      // Ring-buffer eviction: cap at 200 records
+      const all = await db.getAllFromIndex('aiBeliefRejections', 'by-timestamp');
+      if (all.length > 200) {
+        const toDeleteCount = all.length - 200;
+        const oldestToDelete = all.slice(0, toDeleteCount);
+        const tx = db.transaction('aiBeliefRejections', 'readwrite');
+        for (const item of oldestToDelete) {
+          if (item.id) {
+            void tx.store.delete(item.id as string);
+          }
+        }
+        await tx.done;
+      }
+    } catch {
+      /* ignore IDB rejection log errors */
+    }
+  },
+
+  /**
+   * Retrieves all logged rejections from IndexedDB `aiBeliefRejections`.
+   */
+  async getAllRejections(limit = 100): Promise<RejectedBeliefRecord[]> {
+    try {
+      const db = await getLocalDb();
+      const records = await db.getAllFromIndex('aiBeliefRejections', 'by-timestamp');
+      const sorted = (records as unknown as RejectedBeliefRecord[]).sort((a, b) => b.timestamp - a.timestamp);
+      return sorted.slice(0, limit);
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Clears the `aiBeliefRejections` log store.
+   */
+  async clearRejections(): Promise<void> {
+    try {
+      const db = await getLocalDb();
+      await db.clear('aiBeliefRejections');
+    } catch {
+      /* ignore clear error */
+    }
+  },
+
+  /**
    * Gathers candidate episodic memory units (chat memory, timeline, AI summaries)
    * filtering out already consolidated unit IDs.
    */
@@ -82,9 +153,7 @@ export const AIConsolidationService = {
     const consolidatedUnitIds = new Set<string>();
 
     for (const b of publishedBeliefs) {
-      if (b.judgeVerdict !== 'REJECTED') {
-        for (const uId of b.unitIds) consolidatedUnitIds.add(uId);
-      }
+      for (const uId of b.unitIds) consolidatedUnitIds.add(uId);
     }
 
     const now = Date.now();
@@ -201,7 +270,7 @@ export const AIConsolidationService = {
   /**
    * Evaluates a candidate belief against evidence using AI Judge before publishing.
    * Enforces fail-open behavior: on failure, 1 rewrite attempt is made. If re-judge fails,
-   * candidate is NOT published into aiBeliefs.
+   * candidate is NOT published into aiBeliefs and rejection is logged to aiBeliefRejections.
    */
   async consolidateAndJudgeCluster(
     cluster: MemoryClusterCandidate,
@@ -212,11 +281,8 @@ export const AIConsolidationService = {
       snippet: u.text,
     }));
 
-    // Count the calls that actually reached the provider, so the governor is
-    // charged for work done rather than work attempted. A failing upstream (or a
-    // missing callable) must not be able to drain the shared daily budget and
-    // starve threads / digests / portrait generation.
     let llmCalls = 0;
+    let rewriteAttempted = false;
 
     // 1. Initial LLM Summarization into Belief Candidate
     const initialRes = await AIService.summarizeBeliefCluster({
@@ -246,6 +312,7 @@ export const AIConsolidationService = {
       finalReason = initialJudgeRes.reason;
     } else if (initialJudgeRes.ok) {
       // Attempt 1 Rewrite with corrective hint
+      rewriteAttempted = true;
       const correctiveHint = initialJudgeRes.correctiveHint ?? initialJudgeRes.reason ?? 'Учти все условия и не делай ложных обобщений.';
       const rewriteRes = await AIService.summarizeBeliefCluster({
         evidence: evidenceList,
@@ -265,13 +332,31 @@ export const AIConsolidationService = {
         if (recheckRes.ok && recheckRes.passed) {
           verdict = 'REWRITTEN_PASSED';
           finalReason = recheckRes.reason;
+        } else if (recheckRes.ok) {
+          finalReason = recheckRes.reason;
+        } else {
+          finalReason = initialJudgeRes.reason;
         }
+      } else {
+        finalReason = initialJudgeRes.reason;
       }
     }
 
     // 3. Fail-Open Enforcement
     if (verdict === 'REJECTED') {
-      // Do NOT publish distortion to aiBeliefs. Episodic raw units stay uncompressed.
+      // Do NOT publish distortion to aiBeliefs. Log to capped rejection store instead.
+      const rejectionRecord: RejectedBeliefRecord = {
+        id: `rej-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: Date.now(),
+        clusterSize: cluster.units.length,
+        firstSeenAt: cluster.earliestDate,
+        reason: finalReason ?? (initialJudgeRes.ok ? (initialJudgeRes.reason || 'Judge rejection') : 'Summarization or judge failure'),
+        kind: initialJudgeRes.ok ? 'judge_rejected' : 'evaluation_failed',
+        rewriteAttempted,
+        rejectedTextSnippet: candidateBeliefText.slice(0, 300),
+        unitIds: cluster.units.map(u => u.id),
+      };
+      await this.saveRejection(rejectionRecord);
       return { belief: null, llmCalls };
     }
 
@@ -298,29 +383,40 @@ export const AIConsolidationService = {
    * Process background consolidation pass under governor budget (`AIBackgroundBudget`).
    * Never runs on the chat hot path!
    */
-  async processConsolidationPass(): Promise<number> {
-    const units = await this.gatherMemoryUnits();
-    if (units.length < 2) return 0;
+  async processConsolidationPass(): Promise<{ processedClusters: number; publishedBeliefs: number; totalLlmCalls: number }> {
+    let processedClusters = 0;
+    let publishedBeliefs = 0;
+    let totalLlmCalls = 0;
 
-    const clusters = this.clusterMemoryUnits(units);
-    let processedCount = 0;
-
-    for (const cluster of clusters) {
-      // Each cluster requires 2 LLM calls (1 summary + 1 judge), up to 3 if rewritten
-      if (!AIBackgroundBudget.canSpend(2)) {
-        break;
+    try {
+      const units = await this.gatherMemoryUnits();
+      if (units.length < 2) {
+        return { processedClusters, publishedBeliefs, totalLlmCalls };
       }
 
-      const { belief, llmCalls } = await this.consolidateAndJudgeCluster(cluster);
-      // Charge for calls that actually happened. Charging up-front meant a failing
-      // provider drained the whole shared daily budget for zero work; it also
-      // under-charged the rewrite path, which costs 4 calls rather than 2.
-      if (llmCalls > 0) AIBackgroundBudget.spend(llmCalls);
-      if (belief) {
-        processedCount++;
+      const clusters = this.clusterMemoryUnits(units);
+
+      for (const cluster of clusters) {
+        // Governor Budget Check (budget cost: 2 LLM calls per candidate)
+        if (!AIBackgroundBudget.canSpend(2)) {
+          break;
+        }
+
+        const res = await this.consolidateAndJudgeCluster(cluster);
+        if (res.llmCalls > 0) {
+          AIBackgroundBudget.spend(res.llmCalls);
+          totalLlmCalls += res.llmCalls;
+        }
+
+        processedClusters++;
+        if (res.belief) {
+          publishedBeliefs++;
+        }
       }
+    } catch {
+      /* ignore background pass errors */
     }
 
-    return processedCount;
+    return { processedClusters, publishedBeliefs, totalLlmCalls };
   },
 };
