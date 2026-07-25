@@ -385,6 +385,15 @@ interface JustWritingDB extends DBSchema {
       'by-timestamp': number;
     };
   };
+  aiBeliefs: {
+    key: string;
+    value: Record<string, unknown>;
+    indexes: {
+      'by-firstSeenAt': string;
+      'by-createdAt': number;
+      'by-verdict': string;
+    };
+  };
 }
 
 
@@ -434,7 +443,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   if (dbOpenPromise) return dbOpenPromise;
 
   const currentGeneration = dbGeneration;
-  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 17, {
+  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 18, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const docStore = db.createObjectStore('documents', { keyPath: 'id' });
@@ -543,6 +552,14 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
         if (!db.objectStoreNames.contains('aiInjectionJournal')) {
           const journalStore = db.createObjectStore('aiInjectionJournal', { keyPath: 'id' });
           journalStore.createIndex('by-timestamp', 'timestamp');
+        }
+      }
+      if (oldVersion < 18) {
+        if (!db.objectStoreNames.contains('aiBeliefs')) {
+          const beliefStore = db.createObjectStore('aiBeliefs', { keyPath: 'id' });
+          beliefStore.createIndex('by-firstSeenAt', 'firstSeenAt');
+          beliefStore.createIndex('by-createdAt', 'createdAt');
+          beliefStore.createIndex('by-verdict', 'judgeVerdict');
         }
       }
     },
