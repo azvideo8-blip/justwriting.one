@@ -25,6 +25,7 @@ import {
   API_MSG_CAP,
   _streamUnavailableUntil
 } from '../utils/aiChatTransport';
+import { sanitizeFirstSeenDates } from '../utils/dateGuard';
 export { API_MSG_CAP };
 
 interface UseAIChatReturn {
@@ -299,7 +300,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       const isFirstTurn = baseMessages.filter(m => m.type !== 'system').length === 0;
 
-      const { userPortrait, customPersona, searchContext: rawSearchContext, memoryContext, injectedDocumentIds } = await context.buildContext({
+      const {
+        userPortrait,
+        customPersona,
+        searchContext: rawSearchContext,
+        memoryContext,
+        injectedDocumentIds,
+        allowedFirstSeenDates
+      } = await context.buildContext({
         text,
         attached: effectiveAttached ? (
           effectiveAttached.documentId !== undefined
@@ -347,8 +355,16 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
             signal: controller.signal,
             onChunk: (partial, reasoning) => {
-              const cleanPartial = sanitizeCitations(partial, injectedDocumentIds || []);
-              const cleanReasoning = reasoning ? sanitizeCitations(reasoning, injectedDocumentIds || []) : null;
+              const cleanPartial = sanitizeFirstSeenDates(
+                sanitizeCitations(partial, injectedDocumentIds || []),
+                allowedFirstSeenDates || []
+              );
+              const cleanReasoning = reasoning
+                ? sanitizeFirstSeenDates(
+                    sanitizeCitations(reasoning, injectedDocumentIds || []),
+                    allowedFirstSeenDates || []
+                  )
+                : null;
               setStreamingMessage(cleanPartial);
               setStreamingReasoning(cleanReasoning);
             },
@@ -379,8 +395,22 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
                 ? answerMatch[1]!.trim()
                 : (mdAnswerMatch ? mdAnswerMatch[1]!.trim() : fullText);
 
-              if (cleanReasoning) setStreamingReasoning(sanitizeCitations(cleanReasoning, injectedDocumentIds || []));
-              if (cleanAnswer) setStreamingMessage(sanitizeCitations(cleanAnswer, injectedDocumentIds || []));
+              if (cleanReasoning) {
+                setStreamingReasoning(
+                  sanitizeFirstSeenDates(
+                    sanitizeCitations(cleanReasoning, injectedDocumentIds || []),
+                    allowedFirstSeenDates || []
+                  )
+                );
+              }
+              if (cleanAnswer) {
+                setStreamingMessage(
+                  sanitizeFirstSeenDates(
+                    sanitizeCitations(cleanAnswer, injectedDocumentIds || []),
+                    allowedFirstSeenDates || []
+                  )
+                );
+              }
             }
           } else {
             throw e;
@@ -407,7 +437,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       // RSN-4: Clean reasoning tags before saving; persist reasoning separately
       // so the collapsible "ход мысли" survives in dialogue history.
-      const sanitizedFullText = sanitizeCitations(fullText, injectedDocumentIds || []);
+      const sanitizedFullText = sanitizeFirstSeenDates(
+        sanitizeCitations(fullText, injectedDocumentIds || []),
+        allowedFirstSeenDates || []
+      );
       const savedText = effectiveReasoning ? extractAnswer(sanitizedFullText) : sanitizedFullText;
       const savedReasoning = effectiveReasoning ? extractReasoning(sanitizedFullText) : undefined;
       await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning);
