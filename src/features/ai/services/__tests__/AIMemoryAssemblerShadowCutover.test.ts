@@ -165,4 +165,34 @@ describe('AG-MIND-W2 Shadow & Cutover Test Suite', () => {
     expect(stats.mandatoryDropsCount).toBe(0);
     expect(stats.wouldHaveDroppedByCategory['portrait']).toBe(1);
   });
+
+  it('Stats: no shadow samples reads as "no data", not as perfect overlap', () => {
+    const stats = InjectionJournal.getStats(6000);
+
+    // An empty journal previously returned 1.0 here, i.e. a flawless score with
+    // zero evidence — the go/no-go bar must never be read off an empty sample.
+    expect(stats.totalTurns).toBe(0);
+    expect(stats.medianOverlap).toBeNull();
+    expect(stats.p90Overlap).toBeNull();
+  });
+
+  it('Stats: p90 budget is indexed against its own sample, not the overlap sample', () => {
+    // Ten turns with budget usage 10..100 chars and NO shadowComparison, so the
+    // overlaps array stays empty while budgetUsages has ten entries. Sharing one
+    // index across both arrays made p90 budget read position 0 — the smallest
+    // value — and understated usage against the go/no-go budget criterion.
+    for (let i = 1; i <= 10; i++) {
+      InjectionJournal.logEntry({
+        dialogueId: `budget-${i}`,
+        candidates: [],
+        mandatoryInjected: [],
+        competitiveInjected: ['x'.repeat(i * 10)],
+      });
+    }
+
+    const stats = InjectionJournal.getStats(6000);
+    expect(stats.totalTurns).toBe(10);
+    expect(stats.medianOverlap).toBeNull(); // no shadow samples at all
+    expect(stats.p90BudgetUsage).toBe(100); // floor(10 * 0.9) -> index 9 -> 100 chars
+  });
 });

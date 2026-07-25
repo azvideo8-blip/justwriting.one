@@ -44,6 +44,7 @@ export function MemoryAssemblerDiagnostics() {
 
   const isGoNoGoMet =
     stats.totalTurns >= 100 &&
+    stats.medianOverlap !== null &&
     stats.medianOverlap >= 0.8 &&
     stats.mandatoryDropsCount === 0 &&
     stats.p90BudgetUsage <= stats.maxBudget;
@@ -85,13 +86,15 @@ export function MemoryAssemblerDiagnostics() {
         <div className="p-4 bg-surface-card/40 border border-border-subtle rounded-2xl space-y-1">
           <span className="text-xs font-medium text-text-main/60">Всего сессий в логе</span>
           <div className="text-xl font-bold text-text-main">{stats.totalTurns} / 100</div>
-          <div className="text-[10px] text-text-main/50">Порог готовности $\ge 100$ сессий</div>
+          <div className="text-[10px] text-text-main/50">Порог готовности ≥ 100 сессий</div>
         </div>
 
         <div className="p-4 bg-surface-card/40 border border-border-subtle rounded-2xl space-y-1">
           <span className="text-xs font-medium text-text-main/60">Median Overlap Ratio</span>
-          <div className="text-xl font-bold text-text-main">{(stats.medianOverlap * 100).toFixed(1)}%</div>
-          <div className="text-[10px] text-text-main/50">Порог готовности $\ge 80.0\%$</div>
+          <div className="text-xl font-bold text-text-main">
+            {stats.medianOverlap === null ? '—' : `${(stats.medianOverlap * 100).toFixed(1)}%`}
+          </div>
+          <div className="text-[10px] text-text-main/50">Порог готовности ≥ 80.0%</div>
         </div>
 
         <div className="p-4 bg-surface-card/40 border border-border-subtle rounded-2xl space-y-1">

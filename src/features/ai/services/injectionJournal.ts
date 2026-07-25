@@ -34,8 +34,9 @@ export interface JournalEntry {
 
 export interface JournalStats {
   totalTurns: number;
-  medianOverlap: number;
-  p90Overlap: number;
+  /** null when no turn has produced a shadow comparison yet — "no data", NOT "perfect overlap". */
+  medianOverlap: number | null;
+  p90Overlap: number | null;
   mandatoryDropsCount: number;
   wouldHaveDroppedByCategory: Record<string, number>;
   p90BudgetUsage: number;
@@ -146,8 +147,8 @@ export const InjectionJournal = {
     if (entries.length === 0) {
       return {
         totalTurns: 0,
-        medianOverlap: 1.0,
-        p90Overlap: 1.0,
+        medianOverlap: null,
+        p90Overlap: null,
         mandatoryDropsCount: 0,
         wouldHaveDroppedByCategory: {},
         p90BudgetUsage: 0,
@@ -182,12 +183,13 @@ export const InjectionJournal = {
     overlaps.sort((a, b) => a - b);
     budgetUsages.sort((a, b) => a - b);
 
-    const medianIndex = Math.floor(overlaps.length * 0.5);
-    const p90Index = Math.floor(overlaps.length * 0.9);
-
-    const medianOverlap = overlaps[medianIndex] ?? 1.0;
-    const p90Overlap = overlaps[p90Index] ?? 1.0;
-    const p90BudgetUsage = budgetUsages[p90Index] ?? 0;
+    // Index each percentile against ITS OWN array. `overlaps` only grows on turns
+    // that produced a shadow comparison, while `budgetUsages` grows on every turn,
+    // so a shared index read budget usage from too low a position and understated
+    // p90 — one of the four go/no-go criteria.
+    const medianOverlap = overlaps[Math.floor(overlaps.length * 0.5)] ?? null;
+    const p90Overlap = overlaps[Math.floor(overlaps.length * 0.9)] ?? null;
+    const p90BudgetUsage = budgetUsages[Math.floor(budgetUsages.length * 0.9)] ?? 0;
 
     return {
       totalTurns: entries.length,
