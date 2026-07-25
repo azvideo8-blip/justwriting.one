@@ -90,8 +90,8 @@ export function extractFirstSeenDates(text: string | null | undefined): string[]
   const dates: string[] = [];
   const lines = text.split('\n');
   for (const line of lines) {
-    if (/впервые/i.test(line)) {
-      const matches = line.matchAll(/\b(\d{4}-\d{2}-\d{2})\b/g);
+    if (/впервые|убеждение/i.test(line)) {
+      const matches = line.matchAll(/\b(\d{4}-\d{2}(?:-\d{2})?)\b/g);
       for (const m of matches) {
         if (m[1]) dates.push(m[1]);
       }

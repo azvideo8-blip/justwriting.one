@@ -1,5 +1,6 @@
 import { AILexiconService } from './AILexiconService';
 import { AIThemeLedgerService } from './AIThemeLedgerService';
+import { AIConsolidationService } from './AIConsolidationService';
 import { computeSalience } from './salience';
 import { selectWithMMR, textJaccardSimilarity } from '../utils/mmr';
 import { MemoryFlagsService } from './memoryFlags';
@@ -8,7 +9,7 @@ import { sanitizeAiInputShared } from '../../../shared/ai/buildChatPrompt';
 
 export interface MemoryCandidateItem {
   id: string;
-  category: 'safety' | 'attached_note' | 'persona' | 'portrait' | 'voice' | 'first_seen' | 'quote' | 'retrieval' | 'thread' | 'turn1';
+  category: 'safety' | 'attached_note' | 'persona' | 'portrait' | 'voice' | 'first_seen' | 'quote' | 'retrieval' | 'thread' | 'turn1' | 'belief';
   band: 'mandatory' | 'competitive';
   text: string;
   source?: string;
@@ -162,6 +163,29 @@ export const AIMemoryAssembler = {
         lastReinforcedAt: now,
         capChars: 4_000,
       });
+    }
+
+    // F. Consolidated Semantic Beliefs (W3) - Floor: 400 chars
+    try {
+      const allBeliefs = await AIConsolidationService.getAllBeliefs();
+      const validBeliefs = allBeliefs.filter(b => b.judgeVerdict !== 'REJECTED' && !b.isArchived);
+      for (const b of validBeliefs) {
+        const evidenceRefs = b.evidence.map(e => `[#${e.id}]`).join(', ');
+        const text = `[Убеждение] «${b.belief}» (впервые записал ${b.firstSeenAt}, доказательства: ${evidenceRefs})`;
+        competitiveItems.push({
+          id: `comp-belief-${b.id}`,
+          category: 'belief',
+          band: 'competitive',
+          text,
+          source: 'AIConsolidationService',
+          count: b.clusterSize,
+          emotionalWeight: 0.7,
+          lastReinforcedAt: b.updatedAt,
+          floorChars: 400,
+        });
+      }
+    } catch {
+      /* ignore producer failure */
     }
 
     // --- 3. Score & Rank Competitive Candidates ---
@@ -325,13 +349,10 @@ export const AIMemoryAssembler = {
         cutoverLines.push(sanitizeAiInputShared(c.text));
       } else if (
         (c.category === 'voice' || c.category === 'first_seen' || c.category === 'quote') &&
-        // Gate on the block's own flag only. `|| !flags.ff_memory_assembler_shadow`
-        // used to be OR'd in here, but this loop is only reached after an early
-        // return when shadow is on — so that term was always true and the
-        // chat_memory flag gated nothing, leaving block 1 of the cutover with no
-        // working rollback.
         flags.ff_memory_assembler_chat_memory
       ) {
+        cutoverLines.push(sanitizeAiInputShared(c.text));
+      } else if (c.category === 'belief' && flags.ff_memory_assembler_beliefs) {
         cutoverLines.push(sanitizeAiInputShared(c.text));
       }
     }
