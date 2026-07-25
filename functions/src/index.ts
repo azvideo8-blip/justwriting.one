@@ -23,6 +23,8 @@ export { deriveTaxonomy } from './ai/deriveTaxonomy';
 export { judgeFacets } from './ai/judgeFacets';
 export { extractChatMemory } from './ai/extractChatMemory';
 export { validateCustomPrompt } from './ai/validateCustomPrompt';
+export { summarizeBeliefCluster } from './ai/summarizeBeliefCluster';
+export { judgeBeliefCandidate } from './ai/judgeBeliefCandidate';
 export { getAIUsageStats } from './ai/getAIUsageStats';
 export { deleteAccount } from './auth/deleteAccount';
 export { sendTelemetry } from './telemetry/sendTelemetry';
