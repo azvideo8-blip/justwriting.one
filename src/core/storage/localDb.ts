@@ -394,6 +394,13 @@ interface JustWritingDB extends DBSchema {
       'by-verdict': string;
     };
   };
+  aiBeliefRejections: {
+    key: string;
+    value: Record<string, unknown>;
+    indexes: {
+      'by-timestamp': number;
+    };
+  };
 }
 
 
@@ -443,7 +450,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   if (dbOpenPromise) return dbOpenPromise;
 
   const currentGeneration = dbGeneration;
-  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 18, {
+  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 19, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const docStore = db.createObjectStore('documents', { keyPath: 'id' });
@@ -560,6 +567,12 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
           beliefStore.createIndex('by-firstSeenAt', 'firstSeenAt');
           beliefStore.createIndex('by-createdAt', 'createdAt');
           beliefStore.createIndex('by-verdict', 'judgeVerdict');
+        }
+      }
+      if (oldVersion < 19) {
+        if (!db.objectStoreNames.contains('aiBeliefRejections')) {
+          const rejStore = db.createObjectStore('aiBeliefRejections', { keyPath: 'id' });
+          rejStore.createIndex('by-timestamp', 'timestamp');
         }
       }
     },

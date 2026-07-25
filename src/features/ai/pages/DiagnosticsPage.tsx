@@ -20,6 +20,7 @@ import { FacetDiagnostics } from '../components/FacetDiagnostics';
 import { ContactDoors } from '../components/ContactDoors';
 import { AuthorPortrait } from '../components/AuthorPortrait';
 import { MemoryAssemblerDiagnostics } from '../components/MemoryAssemblerDiagnostics';
+import { BeliefsDiagnostics } from '../components/BeliefsDiagnostics';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { useToast } from '../../../shared/components/Toast';
@@ -256,6 +257,15 @@ function RebuildTimelineButton() {
           )}
         >
           Сборщик памяти
+        </Button>
+        <Button
+          onClick={() => setActiveTab('beliefs')}
+          className={cn(
+            "px-4 py-2 rounded-xl text-xs font-bold transition-[color,background-color,box-shadow] duration-200",
+            activeTab === 'beliefs' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
+          )}
+        >
+          Убеждения (W3)
         </Button>
         <Button
           onClick={() => setActiveTab('stats')}
@@ -644,6 +654,11 @@ function RebuildTimelineButton() {
         {/* Tab 7: Memory Assembler */}
         {activeTab === 'memory_assembler' && (
           <MemoryAssemblerDiagnostics />
+        )}
+
+        {/* Tab 8: Beliefs (MIND W3) */}
+        {activeTab === 'beliefs' && (
+          <BeliefsDiagnostics />
         )}
 
         {/* Tab 7: Stats */}

@@ -177,7 +177,8 @@ describe('AG-MIND-W3-consolidation — Episodic to Semantic Belief Consolidation
     AIBackgroundBudget.spend(60);
 
     const processed = await AIConsolidationService.processConsolidationPass();
-    expect(processed).toBe(0);
+    expect(processed.processedClusters).toBe(0);
+    expect(processed.publishedBeliefs).toBe(0);
     expect(AIService.summarizeBeliefCluster).not.toHaveBeenCalled();
   });
 
