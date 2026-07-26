@@ -20,7 +20,7 @@ import { looksLikeNoteSearch } from '../utils/aiChatTransport';
 import { cosineSimilarity, topKMultiWithChunkIndex } from '../utils/vectorSearch';
 import { AIDialogueService } from '../services/AIDialogueService';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
-import { AIMemoryAssembler } from '../services/AIMemoryAssembler';
+import { AIMemoryAssembler, extractDocumentIdsFromText } from '../services/AIMemoryAssembler';
 import { MemoryFlagsService } from '../services/memoryFlags';
 
 function formatDateYYYYMMDD(timestamp: number | undefined): string {
@@ -995,13 +995,21 @@ export function useAIChatContext(personaId: string): {
       ...extractFirstSeenDates(searchContext),
     ];
 
+    const memoryDocIds = extractDocumentIdsFromText(memoryContext);
+    const searchDocIds = extractDocumentIdsFromText(searchContext);
+    const allInjectedDocIds = [
+      ...injectedDocumentIds,
+      ...memoryDocIds,
+      ...searchDocIds,
+    ];
+
     return {
       userPortrait: effectivePortrait,
       customPersona: customSystemPrompt,
       searchContext: effectiveSearchContext,
       documentMood: mood,
       memoryContext,
-      injectedDocumentIds: [...new Set(injectedDocumentIds)],
+      injectedDocumentIds: [...new Set(allInjectedDocIds)],
       allowedFirstSeenDates: [...new Set(allowedFirstSeenDates)],
     };
 

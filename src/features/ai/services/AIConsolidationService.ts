@@ -1,8 +1,23 @@
-import { getLocalDb, type AIChatMemory } from '../../../core/storage/localDb';
+import { getLocalDb, type AIChatMemory, type AIDocumentEmbedding, type AIDocumentSummary } from '../../../core/storage/localDb';
 import { AIBackgroundBudget } from './AIBackgroundBudget';
 import { computeSalience } from './salience';
 import { textJaccardSimilarity } from '../utils/mmr';
+import { cosineSimilarity } from '../utils/vectorSearch';
 import { AIService } from './AIService';
+
+/**
+ * Cosine similarity threshold for vector-based belief clustering.
+ * Tuned on qwen3-embedding-8b / Gemini embeddings:
+ * - >=0.78 indicates high semantic overlap (e.g., "не могу заставить себя начать" vs "опять залип и потерял день").
+ * - <0.70 reflects general domain noise (e.g., shared words like "день" or "заметка" in different contexts).
+ * Sampled across existing notes/summaries to ensure distinct thoughts do not merge.
+ */
+export const COSINE_CLUSTERING_THRESHOLD = 0.78;
+
+/**
+ * Fallback Jaccard word-overlap threshold when vector embeddings are missing.
+ */
+export const FALLBACK_JACCARD_THRESHOLD = 0.35;
 
 export interface AIBeliefEvidence {
   id: string;
@@ -50,6 +65,9 @@ export interface MemoryUnit {
   text: string;
   date: string;
   salience: number;
+  vector?: number[] | undefined;
+  /** Document this unit derives from, when it has one. Chat-memory units have none. */
+  docId?: string | undefined;
 }
 
 export interface MemoryClusterCandidate {
@@ -147,6 +165,11 @@ export const AIConsolidationService = {
    * Gathers candidate episodic memory units (chat memory, timeline, AI summaries)
    * filtering out already consolidated unit IDs.
    */
+  /**
+   * Gathers candidate episodic memory units (chat memory, timeline, AI summaries)
+   * filtering out already consolidated unit IDs.
+   * Attaches pre-computed vectors from IDB `aiEmbeddings` when available (0 network calls).
+   */
   async gatherMemoryUnits(): Promise<MemoryUnit[]> {
     const units: MemoryUnit[] = [];
     const publishedBeliefs = await this.getAllBeliefs();
@@ -160,6 +183,19 @@ export const AIConsolidationService = {
 
     try {
       const db = await getLocalDb();
+
+      // Look up stored vectors from aiEmbeddings (0 network calls)
+      const embeddingsMap = new Map<string, number[]>();
+      try {
+        const allEmbeddings = (await db.getAll('aiEmbeddings')) as AIDocumentEmbedding[];
+        for (const emb of allEmbeddings) {
+          if (emb.documentId && Array.isArray(emb.vectors) && emb.vectors.length > 0 && emb.vectors[0] !== undefined) {
+            embeddingsMap.set(emb.documentId, emb.vectors[0]);
+          }
+        }
+      } catch {
+        /* ignore IDB embedding read errors */
+      }
 
       // 1. Chat memory units
       const chatMemories = await db.getAll('aiChatMemory');
@@ -181,6 +217,7 @@ export const AIConsolidationService = {
       for (const t of timelineDocs as Array<{ documentId: string; date?: string; facts?: string[] }>) {
         if (!t.facts) continue;
         const date = t.date ?? new Date().toISOString().slice(0, 10);
+        const vec = embeddingsMap.get(t.documentId);
         for (let i = 0; i < t.facts.length; i++) {
           const factId = `timeline-${t.documentId}-${i}`;
           if (consolidatedUnitIds.has(factId)) continue;
@@ -190,24 +227,35 @@ export const AIConsolidationService = {
             text: t.facts[i]!,
             date,
             salience: computeSalience({ count: 1, emotionalWeight: 0.5, lastReinforcedAt: Date.parse(date) || now }, now),
+            vector: vec,
+            docId: t.documentId,
           });
         }
       }
 
       // 3. AI Summaries
       const summaries = await db.getAll('aiSummaries');
-      for (const s of summaries as Array<{ documentId: string; summary?: string; createdAt?: number }>) {
+      for (const s of summaries as AIDocumentSummary[]) {
         if (!s.summary) continue;
         const sumId = `summary-${s.documentId}`;
         if (consolidatedUnitIds.has(sumId)) continue;
-        const ts = s.createdAt ?? now;
-        const date = new Date(ts).toISOString().slice(0, 10);
+        // The stored field is processedAt (when we summarised it); the previous
+        // cast claimed a `createdAt` that does not exist, so this was always
+        // undefined and every summary unit was dated TODAY — which propagated
+        // into the cluster's earliestDate and therefore into a belief's
+        // firstSeenAt, the one date the whole feature is built on.
+        // eventDate is what the note is *about* (LIFE-1) and wins when present.
+        const ts = s.processedAt ?? now;
+        const date = s.eventDate ?? new Date(ts).toISOString().slice(0, 10);
+        const vec = embeddingsMap.get(s.documentId);
         units.push({
           id: sumId,
           type: 'summary',
           text: s.summary,
           date,
-          salience: computeSalience({ count: 3, emotionalWeight: 0.7, lastReinforcedAt: ts }, now),
+          salience: computeSalience({ count: 3, emotionalWeight: 0.7, lastReinforcedAt: Date.parse(date) || ts }, now),
+          vector: vec,
+          docId: s.documentId,
         });
       }
     } catch {
@@ -218,10 +266,15 @@ export const AIConsolidationService = {
   },
 
   /**
-   * Clusters memory units by textual similarity into candidate clusters,
-   * sorted by salience descending so most valuable work is processed first.
+   * Clusters memory units by vector similarity (cosine similarity) into candidate clusters,
+   * falling back to text Jaccard similarity if vector embeddings are missing for either unit.
+   * Sorted by salience descending so most valuable work is processed first.
+   * Hard Invariant: 0 new embedding or network calls on the consolidation path.
    */
-  clusterMemoryUnits(units: MemoryUnit[], similarityThreshold = 0.35): MemoryClusterCandidate[] {
+  clusterMemoryUnits(
+    units: MemoryUnit[],
+    similarityThreshold = COSINE_CLUSTERING_THRESHOLD,
+  ): MemoryClusterCandidate[] {
     if (units.length < 2) return [];
 
     const assigned = new Set<string>();
@@ -238,8 +291,33 @@ export const AIConsolidationService = {
         const u2 = units[j]!;
         if (assigned.has(u2.id)) continue;
 
-        const sim = textJaccardSimilarity(u1.text, u2.text);
-        if (sim >= similarityThreshold) {
+        // Vectors are stored per DOCUMENT, so every unit from the same note carries
+        // the identical vector — cosine between them is always 1.0 and says nothing
+        // about whether they are about the same thing. Without this guard every
+        // multi-fact note self-clusters and gets sent to consolidation as one
+        // incoherent cluster, burning LLM calls and filling the rejection log with
+        // noise that masks the real calibration signal. Compare those pairs by text.
+        const sameDocument = Boolean(u1.docId && u2.docId && u1.docId === u2.docId);
+
+        let isMatch = false;
+        if (
+          !sameDocument &&
+          u1.vector &&
+          u2.vector &&
+          u1.vector.length > 0 &&
+          u1.vector.length === u2.vector.length
+        ) {
+          const cosSim = cosineSimilarity(u1.vector, u2.vector);
+          isMatch = cosSim >= similarityThreshold;
+        } else {
+          // Fallback to text Jaccard similarity if vectors are unavailable
+          const fallbackThreshold =
+            similarityThreshold < 0.5 ? similarityThreshold : FALLBACK_JACCARD_THRESHOLD;
+          const jaccardSim = textJaccardSimilarity(u1.text, u2.text);
+          isMatch = jaccardSim >= fallbackThreshold;
+        }
+
+        if (isMatch) {
           currentCluster.push(u2);
           assigned.add(u2.id);
         }

@@ -1,64 +1,94 @@
 # Changelog
 
-## Unreleased
-- **[RU]** Программная проверка дат «первого упоминания» (W8a): раньше ИИ был лишь проинструктирован называть, когда мысль появилась впервые, но ничто не мешало ему назвать дату, которой не было. Теперь ответ сверяется со списком дат, реально переданных в этом ходе (по месяцу и году, чтобы естественные формы вроде «в июле 2026» проходили); неподтверждённая дата убирается, предложение остаётся. Даты в цитатах заметок и обычной прозе не затрагиваются. Тот же принцип, что у защиты ссылок `[#id]`.
-- **[EN]** Programmatic guard for first-seen dates (W8a): the AI was only *instructed* to say when a thought first appeared, with nothing stopping it from naming a date that never existed. Replies are now checked against the dates actually injected that turn (matched on month+year so natural forms like "в июле 2026" pass); an unverified date is removed and the sentence kept. Dates inside quoted notes and ordinary prose are left alone. Same principle as the existing `[#id]` citation guard.
-- **[RU]** Консолидация памяти (W3, внутреннее): близкие единицы памяти сворачиваются в «убеждения» с доказательствами и датой первого появления (стор `aiBeliefs`, IndexedDB v18). Каждый кандидат проходит судью против собственных доказательств до публикации — при провале одна попытка переписать, затем повторная проверка; **направление отказа — к сырью**: непрошедшее убеждение не публикуется, исходные единицы остаются доступными. Память деградирует к менее сжатой, но честной форме, никогда — к непроверенному обобщению. Добавлены Cloud Functions `summarizeBeliefCluster` и `judgeBeliefCandidate`.
-- **[EN]** Memory consolidation (W3, internal): related memory units are folded into "beliefs" carrying their evidence and first-seen date (`aiBeliefs` store, IndexedDB v18). Every candidate is judged against its own evidence before publication — one rewrite on failure, then a re-judge; **failure falls open to the raw units**: an unproven belief is not published and its sources stay queryable. Memory degrades to a less-compressed but honest form, never to an unverified generalisation. Adds the `summarizeBeliefCluster` and `judgeBeliefCandidate` Cloud Functions.
-- **[RU]** Фоновая работа ИИ больше не расходует пользовательскую квоту чата: убран фолбэк, при котором сорвавшийся фоновый вызов переотправлялся через обычный чат и списывал дневной лимит на разговоры. Плюс фоновый бюджет теперь списывается за фактически сделанные вызовы, а не авансом — сбой провайдера больше не может выесть весь дневной бюджет и оставить без работы дайджесты, портрет и темы.
-- **[EN]** Background AI work no longer spends the user's chat quota: removed a fallback that re-issued a failed background call through the regular chat path, consuming the daily conversation limit. The background budget is also charged for calls that actually happened rather than up front, so a provider failure can no longer drain the whole daily budget and starve digests, portrait and theme work.
-- **[RU]** Инструментовка сборщика памяти (W2, внутреннее): сборщик считает, что он *инжектнул бы*, и сравнивает с тем, что реально ушло в промпт; журнал переживает перезагрузку (IndexedDB v17), флаги — в localStorage, во вкладке диагностики «Сборщик памяти» видны агрегаты. Поведение для пользователя не меняется — режим наблюдения включён, переключение блоков выключено.
-- **[EN]** Memory assembler instrumentation (W2, internal): the assembler records what it *would* have injected and compares it against what actually reached the prompt; the journal survives reloads (IndexedDB v17), flags live in localStorage, and a «Сборщик памяти» diagnostics tab shows the aggregates. No user-visible change — shadow mode is on, per-block cutover is off.
-- **[RU]** Безопасность: `react-router-dom` обновлён до 7.18.1 (закрыт открытый редирект через `<Link>`/`useNavigate` и DoS на матчинге маршрутов). Аудит зависимостей в CI теперь падает на любой новой уязвимости, кроме одной задокументированной неприменимой.
-- **[EN]** Security: `react-router-dom` upgraded to 7.18.1 (fixes the open redirect via `<Link>`/`useNavigate` and a route-matching DoS). The CI dependency audit now fails on any new advisory except one documented non-applicable exception.
-- **[RU]** Чистка: удалены мёртвые правила Firestore (`isValidSession`, `isValidTelemetry`, `isValidEmail`) и осиротевшая функция `getAILimit`.
-- **[EN]** Cleanup: removed dead Firestore rules (`isValidSession`, `isValidTelemetry`, `isValidEmail`) and the orphaned `getAILimit` function.
-- **[RU]** Чат ИИ переживает обрыв соединения с провайдером: `aiProvider` теперь ретраит и **брошенные** сетевые ошибки (`ECONNRESET`, `terminated`, `socket hang up`), а не только ответы 502/503/504 — раньше обрыв TLS-сокета пролетал мимо цикла ретраев и превращался в 500 «AI request failed». Ретрай уважает общий дедлайн вызова (не вылезает за таймаут функции) и никогда не повторяет собственный таймаут.
-- **[EN]** AI chat survives an upstream connection reset: `aiProvider` now retries **thrown** network errors (`ECONNRESET`, `terminated`, `socket hang up`), not just 502/503/504 responses — a reset TLS socket previously bypassed the retry loop and surfaced as a 500 "AI request failed". Retries respect the call's overall deadline (never exceeding the function timeout) and never repeat our own timeout.
-- **[RU]** Цитата на существующую заметку могла отрисоваться мёртвой иконкой: кликабельность больше не зависит от косметических метаданных (дата/заголовок), которые подгружались один раз и при сбое не перезапрашивались; без них цитата рисуется как `📅` вместо `📅 ?`.
-- **[EN]** A citation pointing at an existing note could render as a dead icon: clickability no longer depends on cosmetic metadata (date/title) that was fetched once and never retried on failure; without it the citation now renders as `📅` instead of `📅 ?`.
-- **[RU]** Устранён шторм 400-х от `embedDocument`: `AIService.embed` отсекает пустой и превышающий 200k контент до сетевого вызова — пустые поисковые запросы, фасет-семена и строки тем больше не уходят на сервер заведомо невалидными.
-- **[EN]** Fixed a 400 storm from `embedDocument`: `AIService.embed` rejects empty and over-200k content before the network call — empty search queries, facet seeds and theme strings no longer hit the server as knowingly invalid payloads.
-- **[RU]** CSP больше не блокирует `cleardot.gif` с `www.google.com` — эту картинку грузит сам транспорт Firestore WebChannel как пробу связи; блокировка вносила вклад в переподключения и заваливала эндпоинт CSP-репортов.
-- **[EN]** CSP no longer blocks `cleardot.gif` from `www.google.com` — the Firestore WebChannel transport itself loads it as a connectivity probe; blocking it contributed to reconnect churn and flooded the CSP report endpoint.
-- **[RU]** Инфраструктура памяти ИИ (внутреннее): примитив `salience` (recency × частота с лог-демпфером × эмоц. вес, все константы в `salienceConfig`) и полный сборщик контекста — обязательная полоса (кризисные ресурсы, прикреплённая заметка, персона) не вытесняется никаким бюджетом, конкурентная ранжируется `sim × salience × MMR` с гарантированными полами категорий; журнал инжекта и фичефлаги для по-блочного включения.
-- **[EN]** AI memory infrastructure (internal): the `salience` primitive (recency × log-damped frequency × emotional weight, all constants in `salienceConfig`) and the full context assembler — the mandatory band (crisis resources, attached note, persona) is never evicted by any budget, the competitive band is ranked by `sim × salience × MMR` with guaranteed per-category floors; injection journal and feature flags for block-by-block rollout.
-- **[RU]** Приватность данных: выход из аккаунта стирает все локальные данные (IndexedDB, кэш ключей шифрования, `localStorage`/`sessionStorage`) — на общем устройстве следующий пользователь не видит чужих заметок; добавлено полное удаление аккаунта (Cloud Function `deleteAccount`, GDPR Art. 17) и каскадное удаление AI-производных при удалении документа.
-- **[EN]** Data privacy: sign-out now wipes all local data (IndexedDB, encryption key cache, `localStorage`/`sessionStorage`) so the next user on a shared device can't see prior notes; added full account deletion (Cloud Function `deleteAccount`, GDPR Art. 17) and cascade-deletion of AI derivatives when a document is deleted.
-- **[RU]** Укрепление против инъекций: кастомный промпт перенесён ПОСЛЕ защитных инструкций (`<custom_persona>`), валидатор промптов ужесточён (строгий JSON-вердикт), добавлены санитайзеры маркеров/делимитеров и паттерны против извлечения системного промпта.
-- **[EN]** Injection hardening: the custom prompt moved AFTER the safety guards (`<custom_persona>`), the prompt validator tightened to a strict JSON verdict, plus marker/delimiter sanitizers and system-prompt-extraction patterns.
-- **[RU]** Крипто/пароли: PBKDF2 300k→600k (с миграцией при разблокировке), единый минимум пароля 8 символов, экспоненциальный backoff при неудачной разблокировке хранилища, лимит размера DOCX-импорта.
-- **[EN]** Crypto/passwords: PBKDF2 300k→600k (migrated on unlock), unified 8-char password minimum, exponential backoff on failed vault unlock, DOCX import size cap.
-- **[RU]** Приватность логов: из трейсов Langfuse убран сырой текст заметок/чатов, UID хешируется (SHA-256); экранирование `lang` в HTML-экспорте, системные шрифты вместо внешних Google Fonts.
-- **[EN]** Log privacy: raw note/chat text removed from Langfuse traces, UID hashed (SHA-256); `lang` escaped in HTML export, system fonts instead of external Google Fonts.
-- **[RU]** Надёжность: устаревшая вкладка с «протухшим» ленивым чанком после деплоя (`Failed to fetch dynamically imported module`) автоматически перезагружается один раз (`vite:preloadError`) вместо белого экрана.
-- **[EN]** Reliability: a stale tab hitting a rehashed lazy chunk after a deploy (`Failed to fetch dynamically imported module`) now auto-reloads once (`vite:preloadError`) instead of white-screening.
-- **[RU]** Инфраструктура памяти ИИ (внутреннее, в чат пока не подключено): реестр тем (`aiThemeLedger`, IndexedDB v16, first-seen индекс + дословные цитаты) и локальный лексикон с гейтом достаточности сигнала — заготовка под датирование мыслей и «язык заметок».
-- **[EN]** AI memory infrastructure (internal, not yet wired into chat): a theme ledger (`aiThemeLedger`, IndexedDB v16, first-seen index + verbatim quotes) and a local lexicon with a signal-sufficiency gate — groundwork for dating thoughts and speaking in the user's own words.
-- **[RU]** Цитаты заметок в ответах ИИ: детектор (`citeRegex`/`processCitations`/`sanitizeCitations`) теперь принимает и форму без `#` (`[local_…]`), гейт по `[#…]`/`local_`-префиксу — обычная скобочная проза не превращается в ссылки; промпт ретрива требует `[#id]`.
-- **[EN]** Note citations in AI replies: the detector (`citeRegex`/`processCitations`/`sanitizeCitations`) now accepts the no-`#` form (`[local_…]`), gated to `[#…]`/`local_`-prefixed ids so ordinary bracketed prose isn't linkified; the retrieval prompt asks for `[#id]`.
-- **[RU]** `deriveTaxonomy` 400-шторм устранён: `buildSummaryDigest` капит дайджест ≤50k, `deriveAndStore` пропускает дайджест короче серверного `min(20)` (400 приходил с обеих границ схемы), плюс 1-часовой localStorage-кулдаун при сбое.
-- **[EN]** `deriveTaxonomy` 400 storm fixed: `buildSummaryDigest` caps the digest at ≤50k, `deriveAndStore` skips a digest under the server's `min(20)` (the 400 came from both schema bounds), plus a 1-hour localStorage failure cooldown.
-- **[RU]** «Режим тишины»: из колонки редактора убран `mx-auto` — читательская мера 68ch сохранена, но пустая подсказка/каретка не прыгают в центр.
-- **[EN]** Silence mode: dropped `mx-auto` from the editor column — the 68ch reading measure stays, but the empty placeholder/caret no longer jump to center.
-- **[RU]** Чат: детекторы прикреплённой заметки/саммари/файла (`ATTACHED_*_RE`, `AIChatPresentational.tsx`) теперь допускают ведущий маркер цитаты `[#id · дата]\n`, поэтому инлайновая заметка снова рендерится сворачиваемой карточкой, а не сырым текстом (regression-тест `attachmentRegex.test.ts`).
-- **[EN]** Chat: the attached note/summary/file detectors (`ATTACHED_*_RE`, `AIChatPresentational.tsx`) now tolerate a leading `[#id · date]\n` citation marker, so an inline note again renders as a collapsible card instead of raw text (regression test `attachmentRegex.test.ts`).
-- **[RU]** `MarkdownRenderer` подключил `remark-gfm` — таблицы (в `overflow-x-auto`) и зачёркивание в ответах ИИ рендерятся корректно; санитайзер без `rehype-raw` сохранён.
-- **[EN]** `MarkdownRenderer` enables `remark-gfm` — GFM tables (in `overflow-x-auto`) and strikethrough in AI replies render correctly; the no-`rehype-raw` sanitizer is preserved.
-- **[RU]** Всплывающие панели в шапке чата переведены на непрозрачный токен `bg-surface-popup` (был полупрозрачный `surface-elevated`), убрано просвечивание; переключатель «Рассуждения» снова читается.
-- **[EN]** Chat-header popovers switched to the opaque `bg-surface-popup` token (was translucent `surface-elevated`), removing show-through; the "Reasoning" toggle is legible again.
-- **[RU]** Профиль: «Обо мне» и «История моей жизни» свёрнуты по умолчанию (ключи `_v3`), развёрнут только «Как я пишу»; заголовок тем сокращён до «Темы профиля», «Журнал судьи» скрыт вне диагностики (`!readOnly`).
-- **[EN]** Profile: "About me" and "Story of my life" collapsed by default (keys `_v3`), only "How I write" open; themes heading trimmed to "Profile themes", judge log hidden outside diagnostics (`!readOnly`).
-- **[RU]** История жизни: в `AITimelineEntry` добавлено поле `insights` (заполняется в `AISummaryService`/`AITimelineService`); день показывается полным текстом со стрелкой-разворотом, факты и инсайты — отдельными списками.
-- **[EN]** Life story: added `insights` to `AITimelineEntry` (populated in `AISummaryService`/`AITimelineService`); each day shows full text with an expand chevron, facts and insights as separate lists.
-- **[RU]** Аудит облачных AI-функций: валидация входа (инъекции/`documentId`) перенесена ПЕРЕД списанием bulk-лимита в `summarizeFacet`/`rerankNotes`/`extractChatMemory` — отклонённый запрос больше не сжигает дневную bulk-квоту.
-- **[EN]** Cloud AI functions audit: input validation (injection/`documentId`) moved BEFORE the bulk-limit increment in `summarizeFacet`/`rerankNotes`/`extractChatMemory` — a rejected request no longer burns the daily bulk quota.
-- **[RU]** Учёт бюджета: убран двойной refund bulk-лимита и ошибочный возврат уже сведённой (`recordUsage`) глобальной резервации на путях плохого JSON/схемы в `judgeFacets`/`deriveTaxonomy` (флаг `settled`); в `embedDocument` устранён двойной refund при несовпадении числа векторов — проектный cost-guard больше не занижает реально потраченные токены.
-- **[EN]** Budget accounting: fixed a double bulk-limit refund and a wrong refund of the already-settled (`recordUsage`) global reservation on bad-JSON/schema paths in `judgeFacets`/`deriveTaxonomy` (`settled` flag); removed the double refund on a vector-count mismatch in `embedDocument` — the project cost-guard no longer under-counts genuinely spent tokens.
-- **[RU]** Аудит слоя хранения: локальное сохранение версии теперь атомарно — чтение документа и запись новой версии в ОДНОЙ IndexedDB-транзакции (`saveVersionToLocal`), что убирает кросс-таб гонку, стиравшую свежий `linkedCloudId` и переиспользовавшую номер версии (при фиксированном облачном id `v${n}` это вело к перезаписи версии).
-- **[EN]** Storage-layer audit: local version save is now atomic — the document read and the new-version write happen in ONE IndexedDB transaction (`saveVersionToLocal`), removing a cross-tab race that reverted a fresh `linkedCloudId` and reused a version number (which, given the fixed cloud id `v${n}`, could overwrite a version).
-- **[RU]** Облачный синк: `addCloudCopy` для отстающего устройства больше не откатывает облачный `currentVersion`/метаданные назад (гейт `local >= cloud`); `syncDocument` не чистит очередь, когда синк был no-op из-за занятого лока (правка не терялась до след. сохранения); при гонке двух вкладок дубль облачного дока не осиротеет (adopt-winner); пустой расшифрованный контент версии больше не подменяется base64-шифртекстом при загрузке.
-- **[EN]** Cloud sync: a behind device's `addCloudCopy` no longer rolls the cloud `currentVersion`/metadata backward (`local >= cloud` gate); `syncDocument` no longer clears the queue when the sync was a lock-held no-op (the pending edit is retried); a two-tab race no longer orphans a duplicate cloud doc (adopt-winner); an empty decrypted version no longer falls back to its base64 ciphertext on download.
+## 2026-07-25 (v0.7.63)
+- **[RU]** Программная проверка дат «первого упоминания» (W8a): ответ ИИ сверяется со списком дат, реально переданных в этом ходе (по месяцу и году); неподтверждённая дата убирается, предложение остаётся. Даты в цитатах заметок и обычной прозе не затрагиваются.
+- **[EN]** Programmatic guard for first-seen dates (W8a): reply is checked against dates actually injected that turn (matched on month+year); an unverified date is removed and the sentence kept. Dates inside quoted notes and ordinary prose are left alone.
+- **[RU]** Консолидация памяти и наблюдаемость AI-Судьи (W3): близкие единицы памяти сворачиваются в семантические «убеждения» с доказательствами и датой первого появления (`aiBeliefs`, IndexedDB v18). Каждый кандидат проходит проверку перед публикацией. Добавлен журнал отбракованных искажений (`aiBeliefRejections`, IndexedDB v19), вкладка «Убеждения (W3)» в диагностике и связывание evidence unit ID с реальными ID заметок (`[#id]`).
+- **[EN]** Memory consolidation & AI Judge observability (W3): related memory units fold into semantic "beliefs" with evidence and first-seen date (`aiBeliefs`, IndexedDB v18). Candidates are judged before publication. Added rejection log (`aiBeliefRejections`, IndexedDB v19), "Beliefs (W3)" diagnostics tab, and mapping evidence unit IDs to genuine note IDs (`[#id]`).
+- **[RU]** Подключение чтения убеждений в чат (W3 read-path): опубликованные убеждения подаются в сборщик памяти (`AIMemoryAssembler`) под фиче-флагом `ff_memory_assembler_beliefs` (по умолчанию выключен) с гарантированным полом 400 символов, защитой от вытеснения RAG-поиском и доказательствами.
+- **[EN]** Connecting belief read-path to chat (W3 read-path): published beliefs reach the memory assembler (`AIMemoryAssembler`) behind `ff_memory_assembler_beliefs` feature flag (default false) with a 400-char category floor, RAG protection, and citations.
+- **[RU]** Фоновая работа ИИ больше не расходует пользовательскую квоту чата: убран фолбэк, при котором сорвавшийся фоновый вызов переотправлялся через обычный чат. Фоновый бюджет списывается только за фактически сделанные вызовы.
+- **[EN]** Background AI work no longer spends the user's chat quota: removed fallback re-issuing failed background calls through regular chat. Background budget charged only for calls that actually happened.
+- **[RU]** Безопасность и чистка: `react-router-dom` обновлён до 7.18.1 (закрыт открытый редирект и DoS), аудит зависимостей в CI с документально разрешённым списком, удалены мёртвые правила Firestore (`isValidSession`, `isValidTelemetry`, `isValidEmail`) и осиротевшая функция `getAILimit`.
+- **[EN]** Security & cleanup: `react-router-dom` upgraded to 7.18.1 (fixes open redirect and DoS), CI dependency audit with documented allowlist, removed dead Firestore rules (`isValidSession`, `isValidTelemetry`, `isValidEmail`) and orphaned `getAILimit` function.
+
+## 2026-07-24 (v0.7.62)
+- **[RU]** Чат ИИ переживает обрыв соединения с провайдером: `aiProvider` теперь ретраит и сетевые ошибки (`ECONNRESET`, `terminated`, `socket hang up`) с уважением общего таймаута функции.
+- **[EN]** AI chat survives an upstream connection reset: `aiProvider` now retries network errors (`ECONNRESET`, `terminated`, `socket hang up`) while respecting function timeout.
+- **[RU]** Цитата на существующую заметку больше не рендерится мёртвой иконкой: кликабельность не зависит от косметических метаданных (дата/заголовок), без них цитата рисуется как `📅`.
+- **[EN]** A citation pointing at an existing note no longer renders as a dead icon: clickability no longer depends on cosmetic metadata; without it the citation renders as `📅`.
+- **[RU]** Устранён шторм 400-х от `embedDocument`: `AIService.embed` отсекает пустой и превышающий 200k контент до сетевого вызова.
+- **[EN]** Fixed 400 storm from `embedDocument`: `AIService.embed` rejects empty and over-200k content before network call.
+- **[RU]** CSP больше не блокирует `cleardot.gif` с `www.google.com` (проба связи Firestore WebChannel).
+- **[EN]** CSP no longer blocks `cleardot.gif` from `www.google.com` (Firestore WebChannel connectivity probe).
+
+## 2026-07-24 (v0.7.61)
+- **[RU]** Приватность и удаление данных: добавлено полное удаление аккаунта (Cloud Function `deleteAccount`, GDPR Art. 17). При выходе из аккаунта стираются все локальные данные (IndexedDB, кэш ключей шифрования, `localStorage`/`sessionStorage`).
+- **[EN]** Data privacy & deletion: added full account deletion (Cloud Function `deleteAccount`, GDPR Art. 17). Sign-out wipes all local data (IndexedDB, key cache, `localStorage`/`sessionStorage`).
+- **[RU]** Криптография и пароли: PBKDF2 300k → 600k (с миграцией при разблокировке), единый минимум пароля 8 символов, экспоненциальный backoff при неудачной разблокировке хранилища, E2E-шифрование черновиков.
+- **[EN]** Crypto & passwords: PBKDF2 300k → 600k (migrated on unlock), 8-character password minimum, exponential backoff on failed vault unlock, E2E draft encryption.
+- **[RU]** Надежность деплоя: страница автоматически перезагружается при протухшем ленивом чанке (`vite:preloadError`) вместо белого экрана.
+- **[EN]** Deploy reliability: auto-reloads page on stale lazy-chunk fetch error (`vite:preloadError`) instead of white-screening.
+- **[RU]** Приватность логов: сырой текст заметок/чатов убран из Langfuse трейсов, UID хешируется (SHA-256).
+- **[EN]** Log privacy: raw note/chat text removed from Langfuse traces, UID hashed (SHA-256).
+
+## 2026-07-23 (v0.7.60)
+- **[RU]** Лимиты контента в чате: лимит сообщения поднят до 50 000 символов, контент до 200 000 символов корректно индексируется ИИ.
+- **[EN]** Chat content limits: single-message limit raised to 50,000 chars, content up to 200,000 chars indexed cleanly.
+- **[RU]** Черновики снова синхронизируются в облако (исправлена ошибка прав доступа в Firestore).
+- **[EN]** Drafts sync to the cloud again (fixed Firestore save permission error).
+- **[RU]** Гигиена ошибок: фоновые сбои ИИ логируются как предупреждения (жёлтый баннер), только критические ошибки зажигают красный индикатор.
+- **[EN]** Error hygiene: background AI hiccups log as warnings (yellow banner), only hard errors trigger red badge.
+- **[RU]** Убрана консольная ошибка при переключении иконки воспроизведения/паузы.
+- **[EN]** Fixed console error when toggling play/pause icon.
+
+## 2026-07-22 (v0.7.59)
+- **[RU]** Индикатор ошибок в боковой панели: отображает количество зафиксированных ошибок и позволяет открыть детальный журнал с временем и источником без использования консоли браузера.
+- **[EN]** Error indicator in the sidebar: displays error counts and opens a detailed log with timestamp and source without needing browser console.
+- **[RU]** Устранена ошибка 500 при построении тем профиля и зацикливание фоновых повторов.
+- **[EN]** Fixed 500 error when building profile themes and removed background retry loop.
+
+## 2026-07-22 (v0.7.58)
+- **[RU]** «История моей жизни»: даты событий определяются по тексту заметок («вчера», «сегодня»), за один день выводятся все заметки.
+- **[EN]** "Story of my life": event dates inferred from note text ("yesterday", "today"), showing all notes per day.
+- **[RU]** Отмена/повтор в редакторе: Cmd/Ctrl+Z отменяет, Cmd/Ctrl+Shift+Z повторяет по фразам.
+- **[EN]** Editor undo/redo: Cmd/Ctrl+Z undoes and Cmd/Ctrl+Shift+Z redoes by phrase.
+- **[RU]** «Режим тишины (бета)»: переключатель в настройках для отсечения лишнего оформления, мера 68ch и укрощение анимаций.
+- **[EN]** "Silence mode (beta)": settings toggle to strip writing chrome, 68ch measure and quiet animations.
+- **[RU]** Русская типографика: автозамена кавычек « », тире —, троеточия …
+- **[EN]** Russian typography: auto-replace straight quotes with « », double dash with —, ... with …
+- **[RU]** Светлая тема и адаптивность: исправлены цвета тоглов, статус-баннеров и достижений, WCAG-контраст кнопок, 16px поля ввода на iOS.
+- **[EN]** Light theme & responsiveness: fixed toggle/banner/achievement colors, WCAG button contrast, 16px inputs on iOS.
+- **[RU]** Ссылки на заметки без `#` (`[local_...]`) корректно становятся кликабельными.
+- **[EN]** Note links without `#` (`[local_...]`) correctly become clickable.
+
+## 2026-07-21 (v0.7.57)
+- **[RU]** Превью заметки: добавлены блоки «Связанные записи» и «Что заметил ИИ» (темы, факты, инсайты).
+- **[EN]** Note preview: added "Related notes" block and "What AI noticed" block (themes, facts, insights).
+- **[RU]** Повышена точность RAG-поиска заметок для чата (отсечение нерелевантных заметок с низкой схожестью).
+- **[EN]** Precise RAG note retrieval for chat (pruning low-similarity irrelevant notes).
+- **[RU]** Ускорен рендер стриминга длинных диалогов (перерисовывается только активное сообщение).
+- **[EN]** Faster streaming render for long dialogues (only active message re-renders).
+- **[RU]** Усилена безопасность: отдельный лимит внутренних AI-вызовов, единый санитайзер промптов на клиенте и сервере, админ-права по токену.
+- **[EN]** Security hardening: separate quota for internal AI calls, unified prompt sanitizer, admin token claims.
+
+## 2026-07-21 (v0.7.56)
+- **[RU]** Карточки тем профиля: кнопка «✨ Обсудить» открывает диалог с КПТ-психологом, заземлённый на заметки темы.
+- **[EN]** Profile theme cards: "✨ Discuss" button opens CBT dialogue grounded on notes.
+- **[RU]** Кросс-диалоговая память: выводы завершённых разговоров доступны всем собеседникам (блок «Выводы прошлых разговоров»).
+- **[EN]** Cross-dialogue memory: conclusions from finished dialogues available to all interlocutors ("Conclusions from past conversations").
+- **[RU]** Удаление диалога каскадно стирает его производную память.
+- **[EN]** Deleting a dialogue cascade-purges its derived memory.
+
+## 2026-07-21 (v0.7.55)
+- **[RU]** Профиль перестроен в 3 сворачиваемых раздела: «Как я пишу», «Обо мне» и «История моей жизни» по дням.
+- **[EN]** Profile reorganized into 3 collapsible sections: "How I write", "About me", and "Story of my life" by day.
+- **[RU]** Голосовой ввод: надиктовывание текста кнопкой-микрофоном прямо в редактор.
+- **[EN]** Voice input: dictating text via mic button straight into the editor.
+- **[RU]** Быстрые действия ИИ в редакторе: добавлены «Благодарность» и «Достижения».
+- **[EN]** Editor AI quick-actions: added "Gratitude" and "Achievements".
+- **[RU]** Прикреплённая заметка в чате снова рендерится сворачиваемой карточкой; таблицы Markdown в ответах ИИ рендерятся корректно.
+- **[EN]** Attached note renders as collapsible card; Markdown tables in AI replies render correctly.
 
 ## 2026-07-15 (v0.7.54)
 - **[RU]** AI-панель редактора: результаты кешируются по действию (`results: Record<AIAction,string>`) — переключение между действиями не вызывает модель повторно, есть кнопка пересчёта (force); «Применить» теперь **дописывает** результат вниз с пометкой (`ai_from_ai`, напр. «Резюме от ИИ:») вместо перезаписи; «Продолжить» вливается без пометки; подсказка «нет текста» поднята над кнопками; индикаторы кеша на кнопках.
