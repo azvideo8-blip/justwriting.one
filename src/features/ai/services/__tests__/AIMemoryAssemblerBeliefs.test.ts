@@ -16,41 +16,41 @@ describe('AG-MIND-W3-readpath AIMemoryAssembler Beliefs Integration', () => {
     id: 'belief-1',
     belief: 'Пользователь отдает преимущество утреннему кодированию.',
     evidence: [
-      { id: 'u1', date: '2026-07-01', snippet: 'Пишу код в 7 утра.' },
-      { id: 'u2', date: '2026-07-05', snippet: 'Утренний код идет быстрее.' },
+      { id: 'summary-doc1', date: '2026-07-01', snippet: 'Пишу код в 7 утра.' },
+      { id: 'timeline-doc2-0', date: '2026-07-05', snippet: 'Утренний код идет быстрее.' },
     ],
     firstSeenAt: '2026-07-01',
     clusterSize: 12,
     createdAt: Date.now() - 1000,
     updatedAt: Date.now() - 1000,
     judgeVerdict: 'PASSED',
-    unitIds: ['u1', 'u2'],
+    unitIds: ['summary-doc1', 'timeline-doc2-0'],
     isArchived: false,
   };
 
   const mockBeliefRejected: AIBelief = {
     id: 'belief-rejected',
     belief: 'Искажение: пользователь ненавидит программирование.',
-    evidence: [{ id: 'u3', date: '2026-07-02', snippet: 'Устал от багов.' }],
+    evidence: [{ id: 'summary-doc3', date: '2026-07-02', snippet: 'Устал от багов.' }],
     firstSeenAt: '2026-07-02',
     clusterSize: 1,
     createdAt: Date.now() - 500,
     updatedAt: Date.now() - 500,
     judgeVerdict: 'REJECTED',
-    unitIds: ['u3'],
+    unitIds: ['summary-doc3'],
     isArchived: false,
   };
 
   const mockBeliefArchived: AIBelief = {
     id: 'belief-archived',
     belief: 'Устаревшее убеждение.',
-    evidence: [{ id: 'u4', date: '2025-01-01', snippet: 'Старая мысль.' }],
+    evidence: [{ id: 'summary-doc4', date: '2025-01-01', snippet: 'Старая мысль.' }],
     firstSeenAt: '2025-01-01',
     clusterSize: 2,
     createdAt: Date.now() - 2000,
     updatedAt: Date.now() - 2000,
     judgeVerdict: 'PASSED',
-    unitIds: ['u4'],
+    unitIds: ['summary-doc4'],
     isArchived: true,
   };
 
@@ -75,7 +75,7 @@ describe('AG-MIND-W3-readpath AIMemoryAssembler Beliefs Integration', () => {
     }
   });
 
-  it('Requirement 1 & 2: With flag on & shadow off, published belief reaches context with [#id] evidence', async () => {
+  it('Requirement 1 & 2: With flag on & shadow off, published belief maps to real document IDs [#doc1], [#doc2]', async () => {
     await AIConsolidationService.saveBelief(mockBeliefPassed);
     await AIConsolidationService.saveBelief(mockBeliefRejected);
     await AIConsolidationService.saveBelief(mockBeliefArchived);
@@ -89,12 +89,42 @@ describe('AG-MIND-W3-readpath AIMemoryAssembler Beliefs Integration', () => {
 
     expect(context).not.toBeNull();
     expect(context).toContain('[Убеждение] «Пользователь отдает преимущество утреннему кодированию.»');
-    expect(context).toContain('доказательства: [#u1], [#u2]');
+    // Summary & timeline evidence unit IDs mapped to real document IDs!
+    expect(context).toContain('доказательства: [#doc1], [#doc2]');
+    expect(context).not.toContain('[#summary-doc1]');
+    expect(context).not.toContain('[#timeline-doc2-0]');
     expect(context).toContain('2026-07-01');
 
     // Rejected and Archived beliefs must NEVER be injected!
     expect(context).not.toContain('Искажение: пользователь ненавидит программирование.');
     expect(context).not.toContain('Устаревшее убеждение.');
+  });
+
+  it('Belief built from chat-memory-only units emits no unresolvable [#id] citation', async () => {
+    const chatMemoryBelief: AIBelief = {
+      id: 'belief-chat-mem',
+      belief: 'Пользователь любит ночные прогулки.',
+      evidence: [{ id: 'mem-uuid-12345', date: '2026-07-10', snippet: 'Гуляю ночью.' }],
+      firstSeenAt: '2026-07-10',
+      clusterSize: 3,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      judgeVerdict: 'PASSED',
+      unitIds: ['mem-uuid-12345'],
+      isArchived: false,
+    };
+
+    await AIConsolidationService.saveBelief(chatMemoryBelief);
+
+    MemoryFlagsService.setFlag('ff_memory_assembler_shadow', false);
+    MemoryFlagsService.setFlag('ff_memory_assembler_beliefs', true);
+
+    const context = await AIMemoryAssembler.assembleMemoryContext();
+    expect(context).not.toBeNull();
+    expect(context).toContain('[Убеждение] «Пользователь любит ночные прогулки.» (впервые записал 2026-07-10)');
+    // No unresolvable chat-memory UUID citations!
+    expect(context).not.toContain('доказательства:');
+    expect(context).not.toContain('[#mem-uuid-12345]');
   });
 
   it('Requirement 3 & 4: Competitive floor (400 chars) protects belief from large retrieval eviction', async () => {
@@ -121,13 +151,13 @@ describe('AG-MIND-W3-readpath AIMemoryAssembler Beliefs Integration', () => {
     const thinBelief: AIBelief = {
       id: 'belief-thin',
       belief: 'Тонкое наблюдение.',
-      evidence: [{ id: 'u20', date: '2026-07-01', snippet: 'Одно соображение.' }],
+      evidence: [{ id: 'summary-doc20', date: '2026-07-01', snippet: 'Одно соображение.' }],
       firstSeenAt: '2026-07-01',
       clusterSize: 2,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       judgeVerdict: 'PASSED',
-      unitIds: ['u20'],
+      unitIds: ['summary-doc20'],
       isArchived: false,
     };
 
@@ -155,13 +185,13 @@ describe('AG-MIND-W3-readpath AIMemoryAssembler Beliefs Integration', () => {
     const datedBelief: AIBelief = {
       id: 'belief-date-seam',
       belief: 'Пользователь впервые перешел на антигравитацию.',
-      evidence: [{ id: 'u30', date: '2026-07-12', snippet: 'Старт антигравитации.' }],
+      evidence: [{ id: 'summary-doc30', date: '2026-07-12', snippet: 'Старт антигравитации.' }],
       firstSeenAt: '2026-07-12',
       clusterSize: 5,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       judgeVerdict: 'PASSED',
-      unitIds: ['u30'],
+      unitIds: ['summary-doc30'],
       isArchived: false,
     };
 

@@ -33,6 +33,32 @@ export interface W2MemoryAssemblerParams {
   globalBudgetChars?: number | undefined; // Default 6,000 chars
 }
 
+export function extractDocumentIdFromEvidenceId(evidenceId: string): string | null {
+  if (!evidenceId || typeof evidenceId !== 'string') return null;
+
+  const summaryMatch = evidenceId.match(/^summary-(.+)$/);
+  if (summaryMatch && summaryMatch[1]) {
+    return summaryMatch[1];
+  }
+
+  const timelineMatch = evidenceId.match(/^timeline-(.+)-\d+$/);
+  if (timelineMatch && timelineMatch[1]) {
+    return timelineMatch[1];
+  }
+
+  return null;
+}
+
+export function extractDocumentIdsFromText(text: string | null | undefined): string[] {
+  if (!text) return [];
+  const matches = text.matchAll(/\[#([a-zA-Z0-9_-]+)\]/g);
+  const ids: string[] = [];
+  for (const m of matches) {
+    if (m[1]) ids.push(m[1]);
+  }
+  return [...new Set(ids)];
+}
+
 export const AIMemoryAssembler = {
   /**
    * Assembles memory context using W2 two-band architecture with MMR ranking,
@@ -170,8 +196,17 @@ export const AIMemoryAssembler = {
       const allBeliefs = await AIConsolidationService.getAllBeliefs();
       const validBeliefs = allBeliefs.filter(b => b.judgeVerdict !== 'REJECTED' && !b.isArchived);
       for (const b of validBeliefs) {
-        const evidenceRefs = b.evidence.map(e => `[#${e.id}]`).join(', ');
-        const text = `[Убеждение] «${b.belief}» (впервые записал ${b.firstSeenAt}, доказательства: ${evidenceRefs})`;
+        const docIds = [...new Set(
+          b.evidence
+            .map(e => extractDocumentIdFromEvidenceId(e.id))
+            .filter((id): id is string => Boolean(id))
+        )];
+
+        const evidenceRefs = docIds.length > 0
+          ? `, доказательства: ${docIds.map(id => `[#${id}]`).join(', ')}`
+          : '';
+
+        const text = `[Убеждение] «${b.belief}» (впервые записал ${b.firstSeenAt}${evidenceRefs})`;
         competitiveItems.push({
           id: `comp-belief-${b.id}`,
           category: 'belief',
