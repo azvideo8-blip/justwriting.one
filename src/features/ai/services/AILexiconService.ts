@@ -62,8 +62,11 @@ export const AILexiconService = {
     const db = await getLocalDb();
     const summaries = await db.getAll('aiSummaries');
 
-    // Collect summary dates and filter valid summaries with frequentWords
-    const validSummaries = summaries.filter(s => Array.isArray(s.frequentWords) && s.frequentWords.length > 0);
+    // Collect summary dates and filter valid summaries with authorPhrases or frequentWords
+    const validSummaries = summaries.filter(s =>
+      (Array.isArray(s.authorPhrases) && s.authorPhrases.length > 0) ||
+      (Array.isArray(s.frequentWords) && s.frequentWords.length > 0)
+    );
     const summaryDates = validSummaries.map(s => s.eventDate ?? s.processedAt);
 
     // B3 signal gate check (overall dataset must have >= minCount summaries across >= minUniqueMonths)
@@ -86,7 +89,12 @@ export const AILexiconService = {
         ? rawDate.slice(0, 7)
         : new Date(rawDate).toISOString().slice(0, 7);
 
-      for (const rawWord of summary.frequentWords) {
+      // Prefer authorPhrases if available; fall back to frequentWords for pre-v2 summaries
+      const wordsToProcess = (Array.isArray(summary.authorPhrases) && summary.authorPhrases.length > 0)
+        ? summary.authorPhrases
+        : summary.frequentWords;
+
+      for (const rawWord of wordsToProcess) {
         const normalized = rawWord.toLowerCase().trim().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
         if (!normalized || normalized.length < 2 || STOP_WORDS.has(normalized)) {
           continue;

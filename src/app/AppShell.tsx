@@ -22,11 +22,13 @@ import { ErrorLogBadge } from './ErrorLogBadge';
 
 import { AppRoutes } from './AppRoutes';
 import { ConfirmDialogRenderer } from '../shared/components/ConfirmDialog';
+import { useAdminStatus } from '../features/auth/hooks/useAdminStatus';
 
 export function AppShell() {
   const location = useLocation();
   const { t } = useLanguage();
-  const { profile, user, isGuest } = useAuthStatus();
+  const { user, isGuest } = useAuthStatus();
+  const { isAdmin } = useAdminStatus();
   const { isZenActive, zenModeEnabled, silenceMode } = useWritingSettings();
   const { layoutMode } = useLayoutMode();
   const { loginModalOpen } = useLoginModal();
@@ -41,7 +43,6 @@ export function AppShell() {
 
   const currentPath = location.pathname;
   const showZen = isZenActive && zenModeEnabled && currentPath === '/';
-  const isAdmin = profile?.role === 'admin';
   // The AI chat manages its own full-height layout; on desktop it must fill the
   // viewport edge-to-edge (only clearing the fixed nav rail) instead of inheriting
   // the padded, scrolling <main> used by the other pages.

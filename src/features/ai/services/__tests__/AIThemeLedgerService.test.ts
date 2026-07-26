@@ -303,5 +303,26 @@ describe('AIThemeLedgerService (C2-scaffold / Theme Ledger)', () => {
     });
   });
 
-});
+  it("End-to-end: the model's quote reaches the ledger, not just the helper", async () => {
+    // The helper accepted a quote argument, but touchThemes never passed one and
+    // TouchThemesParams had no such field — so the model's quotableSentence sat
+    // in aiSummaries while the ledger kept picking evidence by keyword count,
+    // the exact heuristic prompt v2 replaced. Unit tests calling the helper
+    // directly could not see that; this drives the real write path.
+    const noteContent = 'Утро было тяжёлым. Когда всё валится, я перестаю чувствовать руль. Потом стало легче.';
+    const modelQuote = 'Когда всё валится, я перестаю чувствовать руль.';
 
+    await AIThemeLedgerService.touchThemes({
+      documentId: 'doc-quote-e2e',
+      themes: ['контроль'],
+      eventDate: '2026-07-12',
+      noteContent,
+      quotableSentence: modelQuote,
+    });
+
+    const records = await AIThemeLedgerService.getAll();
+    const record = records.find(r => r.theme === 'контроль');
+    expect(record).toBeDefined();
+    expect(record?.evidence[0]?.sentence).toBe(modelQuote);
+  });
+});

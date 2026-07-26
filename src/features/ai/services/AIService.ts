@@ -18,7 +18,9 @@ export interface AISummaryPayload {
   summary?: string;
   tone: string;
   frequentWords: string[];
+  authorPhrases?: string[];
   insights: string[];
+  quotableSentence?: string;
   themes: string[];
   extractedFacts: string[];
   mentionedPeople?: { name: string; role: string }[];
@@ -27,6 +29,7 @@ export interface AISummaryPayload {
   arousal?: number;
   echo?: string;
   eventDate?: string;
+  promptVersion?: number;
 }
 
 function mapAIError(e: unknown): 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG' | 'SERVER_ERROR' {

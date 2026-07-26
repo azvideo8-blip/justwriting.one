@@ -14,6 +14,7 @@ import { UserProfile } from '../../../types';
 import { getAuth } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { reportError } from '../../../shared/errors/reportError';
+import { useAdminStatus } from '../../auth/hooks/useAdminStatus';
 
 export type Tab = 'stats' | 'sync' | 'db' | 'users' | 'ai_usage' | 'ai_profile' | 'queue' | 'memory_assembler' | 'beliefs';
 
@@ -188,6 +189,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     }
   }, []);
 
+  const { isAdmin, isStaleToken, error: adminError } = useAdminStatus();
+
   const fetchData = useCallback(async () => {
     if (activeTab !== 'users') {
       setLoadingData(false);
@@ -199,21 +202,29 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       setUsers(usersData);
     } catch (err) {
       reportError(err);
-      showToast('Не удалось загрузить данные', 'error');
+      if (isStaleToken && adminError) {
+        showToast(adminError, 'error');
+      } else {
+        showToast('Не удалось загрузить данные администратора. Убедитесь, что сессия активна.', 'error');
+      }
     } finally {
       setLoadingData(false);
     }
-  }, [activeTab, showToast]);
+  }, [activeTab, isStaleToken, adminError, showToast]);
 
   useEffect(() => {
     if (authLoading) return;
-    if (profile?.role === 'admin') {
+    if (isStaleToken && adminError) {
+      showToast(adminError, 'error');
+      return;
+    }
+    if (isAdmin) {
       void fetchData();
       if (activeTab === 'ai_usage') { void fetchAIUsage(); }
       if (activeTab === 'ai_profile') void loadAIProfileData();
       if (activeTab === 'stats') void loadSystemStats();
     }
-  }, [activeTab, authLoading, profile, fetchData, fetchAIUsage, loadAIProfileData, loadSystemStats]);
+  }, [activeTab, authLoading, isAdmin, isStaleToken, adminError, showToast, fetchData, fetchAIUsage, loadAIProfileData, loadSystemStats]);
 
   const handleImportAllFromCloud = async () => {
     if (!navigator.onLine) {
