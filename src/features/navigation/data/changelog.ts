@@ -17,6 +17,8 @@ export const CHANGELOG: ChangelogRelease[] = [
     version: '0.7.63',
     date: '2026-07-25',
     items: [
+      { category: 'improvement', ru: 'Ассистент точнее подхватывает ваши формулировки: цитату из заметки теперь выбирает он сам, а не поиск по совпадающим словам, и сохраняет ваши оговорки («выматывает, когда нет контроля») вместо того, чтобы их выпрямлять', en: 'The assistant picks up your wording more precisely: it now chooses the quote from a note itself instead of matching words, and keeps your qualifiers ("draining when I have no control") instead of flattening them' },
+      { category: 'fix', ru: 'Админские экраны больше не показывают ошибку доступа: права проверяются по актуальному токену, а при устаревшем он обновляется автоматически', en: 'Admin screens no longer show a permission error: access is checked against the current token, and a stale one is refreshed automatically' },
       { category: 'fix', ru: 'Фоновая работа ИИ больше не расходует ваш дневной лимит на разговоры с ассистентом', en: 'Background AI work no longer uses up your daily limit for conversations with the assistant' },
       { category: 'improvement', ru: 'Если ассистент говорит, когда мысль появилась у вас впервые, дата теперь проверяется по вашим записям — назвать дату «из головы» он больше не может', en: 'When the assistant says when a thought first appeared, the date is now verified against your notes — it can no longer state a date it made up' },
       { category: 'improvement', ru: 'Обновлены зависимости с уязвимостями безопасности', en: 'Updated dependencies with security vulnerabilities' },

@@ -114,7 +114,9 @@ export interface AIDocumentSummary {
   summary?: string;
   tone: string;
   frequentWords: string[];
+  authorPhrases?: string[];
   insights: string[];
+  quotableSentence?: string;
   themes: string[];
   extractedFacts: string[];
   mentionedPeople?: { name: string; role: string }[];
@@ -125,6 +127,7 @@ export interface AIDocumentSummary {
   echo?: string;
   contentHash?: string;
   eventDate?: string;
+  promptVersion?: number;
 }
 
 export interface AITimelineEntry {

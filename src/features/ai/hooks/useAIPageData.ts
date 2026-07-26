@@ -10,7 +10,7 @@ import { TelemetryService } from '../../../core/services/TelemetryService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { useAIChat } from '../hooks/useAIChat';
 import { useDailyLimit } from '../hooks/useDailyLimit';
-import { useProfile } from '../../auth/contexts/ProfileContext';
+import { useAdminStatus } from '../../auth/hooks/useAdminStatus';
 import { personaVisual, usePersonaRole } from '../constants/personaVisuals';
 import { reportError } from '../../../shared/errors/reportError';
 import { lemmatizeRussianName } from '../utils/temporalQueryParser';
@@ -41,7 +41,6 @@ export const CHAT_FOLLOW_UPS = [
 export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const { showToast } = useToast();
   const { confirm: confirmDialog, alert: alertDialog, prompt: promptDialog } = useConfirmDialog();
-  const { profile } = useProfile();
 
   const [inputText, setInputText] = useState('');
   const [responseLength, setResponseLength] = useState<ResponseLength>('standard');
@@ -122,9 +121,11 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     handleFileUpload,
   } = attachmentManager;
 
+  const { isAdmin } = useAdminStatus();
+
   useEffect(() => {
-    useAiLimitStore.getState().setAdmin(profile?.role === 'admin');
-  }, [profile?.role]);
+    useAiLimitStore.getState().setAdmin(isAdmin);
+  }, [isAdmin]);
 
   const handleNewDialogue = useCallback(() => {
     setActiveDialogueId(null);

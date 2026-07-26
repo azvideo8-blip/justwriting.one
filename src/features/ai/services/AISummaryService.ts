@@ -6,8 +6,8 @@ import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
 import { tryReserveSummarizeBudget } from '../utils/firestoreWriteBudget';
 
-const STRING_FIELDS = ['tone', 'echo', 'eventDate'] as const;
-const ARRAY_FIELDS = ['frequentWords', 'insights', 'themes', 'extractedFacts', 'commitments'] as const;
+const STRING_FIELDS = ['tone', 'echo', 'eventDate', 'quotableSentence'] as const;
+const ARRAY_FIELDS = ['frequentWords', 'authorPhrases', 'insights', 'themes', 'extractedFacts', 'commitments'] as const;
 const STRING_FIELDS_LIST: string[] = [...STRING_FIELDS];
 const ARRAY_FIELDS_LIST: string[] = [...ARRAY_FIELDS];
 
@@ -33,6 +33,7 @@ async function fetchSummaryFromCloud(userId: string, documentId: string): Promis
   const tone = typeof decrypted.tone === 'string' ? decrypted.tone : '';
   const echo = typeof decrypted.echo === 'string' ? decrypted.echo : '';
   const frequentWords = Array.isArray(decrypted.frequentWords) ? decrypted.frequentWords.map(String) : [];
+  const authorPhrases = Array.isArray(decrypted.authorPhrases) ? decrypted.authorPhrases.map(String) : undefined;
   const insights = Array.isArray(decrypted.insights) ? decrypted.insights.map(String) : [];
   const themes = Array.isArray(decrypted.themes) ? decrypted.themes.map(String) : [];
   const extractedFacts = Array.isArray(decrypted.extractedFacts) ? decrypted.extractedFacts.map(String) : [];
@@ -54,6 +55,9 @@ async function fetchSummaryFromCloud(userId: string, documentId: string): Promis
     mentionedPeople,
     processedAt,
   };
+  if (authorPhrases) result.authorPhrases = authorPhrases;
+  if (typeof decrypted.quotableSentence === 'string') result.quotableSentence = decrypted.quotableSentence;
+  if (typeof decrypted.promptVersion === 'number') result.promptVersion = decrypted.promptVersion;
   if (commitments.length > 0) result.commitments = commitments;
   if (valence !== undefined) result.valence = valence;
   if (arousal !== undefined) result.arousal = arousal;

@@ -34,15 +34,43 @@ function repairTruncatedJson(raw: string): string {
   return out;
 }
 
-const SUMMARY_SYSTEM_PROMPT = `Проанализируй личную заметку и верни JSON. Отвечай СТРОГО на русском языке.
+export function validateVerbatimQuote(sanitizedContent: string, candidateQuote?: string): string | undefined {
+  if (!candidateQuote || typeof candidateQuote !== 'string') return undefined;
+  const quote = candidateQuote.trim();
+  if (!quote) return undefined;
+
+  if (sanitizedContent.includes(quote)) {
+    return quote;
+  }
+
+  const normalize = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/ё/g, 'е')
+      .replace(/[«»“”"']/g, '"')
+      .replace(/[—–-]/g, '-');
+
+  const normContent = normalize(sanitizedContent);
+  const normQuote = normalize(quote);
+
+  if (normContent.includes(normQuote)) {
+    return quote;
+  }
+
+  return undefined;
+}
+
+export const SUMMARY_SYSTEM_PROMPT = `Проанализируй личную заметку и верни JSON. Отвечай СТРОГО на русском языке.
 
 Поля:
 - summary: 1–2 предложения от третьего лица о чём эта запись и какова её главная суть («Автор размышляет о...»).
 - tone: одно слово из списка: нейтральный / задумчивый / тревожный / вдохновляющий / радостный / грустный / злой / усталый / ностальгический / противоречивый / благодарный / растерянный.
 - frequentWords: 3–6 самых значимых слов из текста (существительные или глаголы, не стоп-слова, не «я», «это», «что»).
+- authorPhrases: 0–4 характерных авторских слова, идиомы или словечка («залипание», «тупёжка», «дранч»), отражающих уникальный язык и лексику автора в этой заметке. Если в тексте нет необычной/характерной авторской лексики, верни пустой массив [].
 - insights: ключевые мысли или внутренние наблюдения, которые звучат в тексте — только то, что реально написано.
+- quotableSentence: одна дословная яркая или ключевая цитата (предложение) из текста заметки. Верни ДОСЛОВНО как в оригинальном тексте, без изменений.
 - themes: 1–3 основные темы.
-- extractedFacts: конкретные факты ПРОШЕДШЕГО или НАСТОЯЩЕГО времени, которые буквально написаны в тексте. НЕ включай планы, намерения, мечты, гипотезы или события будущего времени. Если факт неточный или косвенный — не включай. Лучше меньше, но достоверно.
+- extractedFacts: конкретные факты ПРОШЕДШЕГО или НАСТОЯЩЕГО времени, которые буквально написаны в тексте. Обязательно сохраняй условия, оговорки и квалификаторы («иногда», «при условии», «но только если»), если они были в оригинале. НЕ включай планы, намерения, мечты, гипотезы или события будущего времени. Если факт неточный или косвенный — не включай. Лучше меньше, но достоверно.
 - mentionedPeople: объекты { name, role } для реальных людей, упомянутых по имени. role — отношение к автору (жена/муж/партнёр/дочь/сын/мать/отец/брат/сестра/друг/коллега/терапевт/итд). Не выдумывай роли. Если роль неизвестна — "неизвестно". Если людей нет — [].
 - commitments: список планов, обещаний или намерений автора на будущее от первого лица (например, «позвонить маме», «начать бегать с понедельника»). Массив строк. Если планов/намерений в тексте нет — [].
 - valence: оценка эмоционального тона заметки, число от -1 (очень негативный) до 1 (очень позитивный).
@@ -175,7 +203,9 @@ export const summarizeDocument = onCall({
     summary?: string;
     tone: string;
     frequentWords: string[];
+    authorPhrases?: string[];
     insights: string[];
+    quotableSentence?: string;
     themes: string[];
     extractedFacts: string[];
     mentionedPeople?: { name: string; role: string }[];
@@ -232,11 +262,15 @@ export const summarizeDocument = onCall({
 
   const rawSummary = sanitizeAiResponse(parsed_json.summary ?? '');
   const rawEcho = sanitizeAiResponse(parsed_json.echo ?? '');
+  const validatedQuote = validateVerbatimQuote(sanitizedContent, parsed_json.quotableSentence);
+
   return {
     summary: isUsable(rawSummary) ? rawSummary : undefined,
     tone: sanitizeAiResponse(parsed_json.tone ?? 'нейтральный'),
     frequentWords: (parsed_json.frequentWords ?? []).map((s) => sanitizeAiResponse(s)).filter(isUsable),
+    authorPhrases: (parsed_json.authorPhrases ?? []).map((s) => sanitizeAiResponse(s)).filter(isUsable),
     insights: (parsed_json.insights ?? []).map((s) => sanitizeAiResponse(s)).filter(isUsable),
+    quotableSentence: validatedQuote ? sanitizeAiResponse(validatedQuote) : undefined,
     themes: (parsed_json.themes ?? []).map((s) => sanitizeAiResponse(s)).filter(isUsable),
     extractedFacts: (parsed_json.extractedFacts ?? []).map((s) => sanitizeAiResponse(s)).filter(isUsable),
     mentionedPeople: (parsed_json.mentionedPeople ?? []).map(p => ({
@@ -248,5 +282,6 @@ export const summarizeDocument = onCall({
     arousal: typeof parsed_json.arousal === 'number' ? parsed_json.arousal : undefined,
     echo: isUsable(rawEcho) ? rawEcho : undefined,
     eventDate: validEventDate,
+    promptVersion: 2,
   };
 });

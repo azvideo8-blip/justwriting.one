@@ -121,8 +121,8 @@ describe('AISummaryService', () => {
       expect(mockPut).toHaveBeenCalledWith('aiSummaries', dummySummary);
       expect(mockMaybeEncrypt).toHaveBeenCalledWith(
         expect.objectContaining({ documentId: 'doc-123' }),
-        ['tone', 'echo', 'eventDate'],
-        ['frequentWords', 'insights', 'themes', 'extractedFacts', 'commitments'],
+        ['tone', 'echo', 'eventDate', 'quotableSentence'],
+        ['frequentWords', 'authorPhrases', 'insights', 'themes', 'extractedFacts', 'commitments'],
         'test-user-123',
       );
       expect(mockSetDoc).toHaveBeenCalled();

@@ -51,12 +51,26 @@ export function calculateEmotionalWeight(valence?: number, arousal?: number): nu
 
 /**
  * Extracts a verbatim sentence from note text matching the theme, or falls back to excerpt.
+ * Uses quotableSentence if provided and passes exact client substring check against noteContent.
  */
-export function extractVerbatimSentence(noteContent: string, theme: string): string {
+export function extractVerbatimSentence(
+  noteContent: string,
+  theme: string,
+  quotableSentence?: string
+): string {
   if (!noteContent || !noteContent.trim()) {
     return theme;
   }
   const cleanContent = noteContent.trim();
+
+  // Client re-check (M2): use candidate quote only if it is an exact includes of noteContent
+  if (quotableSentence && typeof quotableSentence === 'string') {
+    const candidate = quotableSentence.trim();
+    if (candidate && cleanContent.includes(candidate)) {
+      return candidate;
+    }
+  }
+
   const sentences = cleanContent.match(/[^.!?;\n]+[.!?;\n]*/g)?.map(s => s.trim()).filter(Boolean) ?? [];
 
   if (sentences.length === 0) {
@@ -91,6 +105,14 @@ export interface TouchThemesParams {
   valence?: number | undefined;
   arousal?: number | undefined;
   noteContent?: string | undefined;
+  /**
+   * The model-chosen verbatim quote from the summary (prompt v2). Used as the
+   * theme's evidence sentence when it re-checks as an exact substring of the
+   * note; otherwise the old word-overlap heuristic runs. Without this the
+   * quote never leaves aiSummaries and the ledger keeps quoting by keyword
+   * count — the heuristic step A exists to replace.
+   */
+  quotableSentence?: string | undefined;
 }
 
 export const AIThemeLedgerService = {
@@ -99,7 +121,7 @@ export const AIThemeLedgerService = {
    * Atomic read-modify-write within an IndexedDB transaction + theme vector caching.
    */
   async touchThemes(params: TouchThemesParams): Promise<void> {
-    const { documentId, themes, eventDate, valence, arousal, noteContent } = params;
+    const { documentId, themes, eventDate, valence, arousal, noteContent, quotableSentence } = params;
     if (themes.length === 0) return;
 
     try {
@@ -153,7 +175,7 @@ export const AIThemeLedgerService = {
           }
           vectorByNorm.set(normalizedTheme, vec);
         }
-        resolved.push({ cleanedTheme, themeVector: vec, sentence: extractVerbatimSentence(effectiveContent, cleanedTheme) });
+        resolved.push({ cleanedTheme, themeVector: vec, sentence: extractVerbatimSentence(effectiveContent, cleanedTheme, quotableSentence) });
       }
 
       // Pass 2 (IDB transaction ONLY — no non-IDB awaits inside): atomic RMW.
@@ -264,6 +286,7 @@ export const AIThemeLedgerService = {
               eventDate,
               valence: summary.valence,
               arousal: summary.arousal,
+              quotableSentence: summary.quotableSentence,
             });
           }
           processed.push(docId);
