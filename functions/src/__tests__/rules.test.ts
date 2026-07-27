@@ -307,6 +307,61 @@ describe('firestore.rules — drafts', () => {
     });
     await assertFails(dbIntruder.doc('drafts/user-a').get());
   });
+
+  // The tests above send a shape this file invented, never the one the client
+  // actually produces. With E2E encryption on, maybeEncrypt() turns the whole
+  // pinnedThoughts array into a ciphertext STRING, which the original
+  // `is list` check rejected — every autosave failed with permission-denied
+  // while these tests stayed green.
+  it('allows an encrypted draft whose pinnedThoughts is a ciphertext string', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await assertSucceeds(
+      db.doc('drafts/user-a').set({
+        userId: 'user-a',
+        content: 'ciphertext-blob',
+        title: '',
+        pinnedThoughts: 'ciphertext-blob-for-the-whole-array',
+        _encrypted: true,
+        updatedAt: Date.now(),
+      })
+    );
+  });
+
+  it('still accepts a plaintext pinnedThoughts list', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await assertSucceeds(
+      db.doc('drafts/user-a').set({
+        userId: 'user-a',
+        content: 'Draft text',
+        pinnedThoughts: ['a thought', 'another'],
+        updatedAt: Date.now(),
+      })
+    );
+  });
+
+  it('denies a pinnedThoughts string when the draft is not marked encrypted', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await assertFails(
+      db.doc('drafts/user-a').set({
+        userId: 'user-a',
+        content: 'Draft text',
+        pinnedThoughts: 'not a list and not encrypted',
+        updatedAt: Date.now(),
+      })
+    );
+  });
+
+  it('denies a plaintext pinnedThoughts list over the item cap', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await assertFails(
+      db.doc('drafts/user-a').set({
+        userId: 'user-a',
+        content: 'Draft text',
+        pinnedThoughts: Array.from({ length: 21 }, (_, i) => `thought ${i}`),
+        updatedAt: Date.now(),
+      })
+    );
+  });
 });
 
 describe('firestore.rules — anonymizedTelemetry', () => {
