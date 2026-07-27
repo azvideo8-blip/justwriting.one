@@ -190,6 +190,11 @@ export const useContentStore = create<ContentState>((set, get) => ({
       cancelAnimationFrame(_wordCalcRaf);
       _wordCalcRaf = null;
     }
+    // REQUIRED: the cancelled RAF callback is what normally clears this flag.
+    // Leaving it set makes setContent skip scheduling forever (word count / WPM
+    // freeze after the first undo/redo). Stats are computed synchronously below,
+    // so any pending scheduled recalc is moot anyway.
+    _wordCalcIsScheduled = false;
     const state = get();
     const content = state.content;
     if (!content) {
