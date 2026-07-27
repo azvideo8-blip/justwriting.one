@@ -78,7 +78,7 @@ export function extractVerbatimSentence(
   }
 
   const themeWords = theme.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-  let bestSentence: string = sentences[0] ?? cleanContent.slice(0, 150);
+  let bestSentence = '';
   let bestScore = 0;
 
   for (const sentence of sentences) {
@@ -95,7 +95,9 @@ export function extractVerbatimSentence(
     }
   }
 
-  return bestSentence;
+  // No theme word occurred anywhere: return no quote rather than attributing an
+  // unrelated opening sentence to this theme. The assembler skips empty evidence.
+  return bestScore > 0 ? bestSentence : '';
 }
 
 export interface TouchThemesParams {
