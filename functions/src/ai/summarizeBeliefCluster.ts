@@ -80,6 +80,7 @@ export const summarizeBeliefCluster = onCall({
     throw new HttpsError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
+  let settled = false;
   try {
     const evidenceText = evidence
       .map((e, i) => `Фрагмент ${i + 1} [#${sanitizeAiInput(e.id)} · ${sanitizeAiInput(e.date)}]:\n${sanitizeAiInput(e.snippet ?? '')}`)
@@ -106,12 +107,13 @@ export const summarizeBeliefCluster = onCall({
     recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'summarizeBeliefCluster' }, reservation).catch(e =>
       console.error('[summarizeBeliefCluster] usage record failed:', e)
     );
+    settled = true;
 
     const cleanBelief = sanitizeAiResponse(result.text.trim());
     return { belief: cleanBelief };
   } catch (e) {
     await refundBulkLimit(uid);
-    await refundGlobalRequest(reservation);
+    if (!settled) await refundGlobalRequest(reservation);
     console.error('[summarizeBeliefCluster] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
