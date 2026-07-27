@@ -1,4 +1,4 @@
-import { deriveMasterKey, unwrapDataKey, wrapDataKey, encryptContent, toBase64, fromBase64, SALT_LENGTH, setSessionKey } from '../crypto/encrypt';
+import { deriveMasterKey, unwrapDataKeyWithPassword, wrapDataKey, encryptContent, toBase64, fromBase64, SALT_LENGTH, setSessionKey } from '../crypto/encrypt';
 import { setEncryptionEnabled } from '../crypto/cryptoHelpers';
 import {
   saveEncryptionMeta,
@@ -35,11 +35,12 @@ export async function migrateFromLegacy(
   const encryptionSalt = String(profileData.encryptionSalt);
   const encryptedDataKey = String(profileData.encryptedDataKey);
   const oldSalt = fromBase64(encryptionSalt);
-  const oldMasterKey = await deriveMasterKey(firebasePassword, oldSalt);
 
   let dataKey: CryptoKey;
   try {
-    dataKey = await unwrapDataKey(encryptedDataKey, oldMasterKey);
+    // Legacy vaults predate the SEC-36 iteration raise by definition — this
+    // path would otherwise reject every correct password it was built for.
+    ({ dataKey } = await unwrapDataKeyWithPassword(encryptedDataKey, firebasePassword, oldSalt));
   } catch {
     throw new Error('LEGACY_MIGRATION_WRONG_PASSWORD');
   }

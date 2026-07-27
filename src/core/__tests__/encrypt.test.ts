@@ -11,7 +11,10 @@ import {
   SALT_LENGTH,
 } from '../crypto/encrypt';
 
-describe('encrypt module', () => {
+// PBKDF2 at 600k iterations is deliberately expensive; under the 5s default
+// these tests sit right on the edge and fail whenever another crypto suite runs
+// in parallel and competes for CPU. The slowness is the feature, not a hang.
+describe('encrypt module', { timeout: 60_000 }, () => {
   it('toBase64 / fromBase64 roundtrip', () => {
     const bytes = new Uint8Array([0, 1, 2, 255, 128, 42]);
     const b64 = toBase64(bytes);
