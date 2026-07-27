@@ -80,6 +80,11 @@ const HOMOGLYPH_MAP: Record<string, string> = {
   'А': 'A', 'В': 'B', 'Е': 'E', 'К': 'K', 'М': 'M',
   'Н': 'H', 'О': 'O', 'Р': 'P', 'С': 'C', 'Т': 'T',
   'Х': 'X', 'У': 'Y',
+  // Greek lookalikes (the comment above always claimed Greek coverage; these were
+  // missing, so a Greek-omicron "ignore previous" bypassed every LATIN_PATTERN).
+  'ο': 'o', 'α': 'a', 'ι': 'i', 'ν': 'v', 'ρ': 'p', 'υ': 'u', 'κ': 'k', 'τ': 't',
+  'Α': 'A', 'Β': 'B', 'Ε': 'E', 'Η': 'H', 'Ι': 'I', 'Κ': 'K', 'Μ': 'M',
+  'Ν': 'N', 'Ο': 'O', 'Ρ': 'P', 'Τ': 'T', 'Υ': 'Y', 'Χ': 'X',
 };
 
 function foldLatinHomoglyphs(text: string): string {
