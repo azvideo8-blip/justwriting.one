@@ -73,6 +73,25 @@ describe('useContentStore Undo/Redo (UNDO-1)', () => {
     expect(useContentStore.getState().future).toHaveLength(0);
   });
 
+  it('schedules recalc after recalcStats cancels pending RAF (word-count freeze fix)', () => {
+    const store = useContentStore.getState();
+
+    // Seed content — schedules a RAF recalc.
+    store.setContent('hello world', 11);
+
+    // Simulate what undo/redo does: cancel the pending RAF and recompute now.
+    store.recalcStats();
+    expect(useContentStore.getState().wordCount).toBe(2);
+
+    // Longer content — must schedule a NEW recalc despite the cancelled one.
+    store.setContent('hello world this is longer content', 34);
+    vi.advanceTimersByTime(16);
+
+    // Without the fix _wordCalcIsScheduled stays true and the new recalc
+    // is never scheduled, so wordCount remains at the stale value (2).
+    expect(useContentStore.getState().wordCount).toBe(6);
+  });
+
   it('resets history on resetSession and loadDraftIntoStore', () => {
     const store = useContentStore.getState();
 
