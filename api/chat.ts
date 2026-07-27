@@ -270,7 +270,8 @@ const ADMIN_DAILY_LIMIT = (() => {
   return Number.isNaN(n) ? 20 : n;
 })();
 
-async function userDailyLimit(uid: string): Promise<number> {
+async function userDailyLimit(uid: string, claimRole?: unknown): Promise<number> {
+  if (claimRole === 'admin') return ADMIN_DAILY_LIMIT;
   try {
     const snap = await db().doc(`users/${uid}`).get();
     if (snap.data()?.role === 'admin') return ADMIN_DAILY_LIMIT;
@@ -279,7 +280,10 @@ async function userDailyLimit(uid: string): Promise<number> {
 }
 
 // LX-2a: Admins get effectively no limit — skip checkAndIncrementLimit entirely.
-async function isAdmin(uid: string): Promise<boolean> {
+// Prefer the verified token claim (the source firestore.rules trusts); fall back to
+// the Firestore field so a just-promoted admin works before their token refreshes.
+async function isAdmin(uid: string, claimRole?: unknown): Promise<boolean> {
+  if (claimRole === 'admin') return true;
   try {
     const snap = await db().doc(`users/${uid}`).get();
     return snap.data()?.role === 'admin';
@@ -289,9 +293,9 @@ async function isAdmin(uid: string): Promise<boolean> {
 const COOLDOWN_MS = 10_000;
 
 // LX-2a: Admins skip the per-user limit.
-async function checkAndIncrementLimit(uid: string, reasoning?: boolean | null): Promise<boolean> {
+async function checkAndIncrementLimit(uid: string, reasoning?: boolean | null, claimRole?: unknown): Promise<boolean> {
   // Admins bypass the per-user limit
-  if (await isAdmin(uid)) return true;
+  if (await isAdmin(uid, claimRole)) return true;
 
   const fs = db();
   const now = Date.now();
@@ -300,7 +304,7 @@ async function checkAndIncrementLimit(uid: string, reasoning?: boolean | null): 
   const dailyRef = fs.doc(`aiDailyLimit/${uid}`);
 
   // TICKET-049: Reasoning mode gets reduced limit (5 instead of 10)
-  const baseLimit = await userDailyLimit(uid);
+  const baseLimit = await userDailyLimit(uid, claimRole);
   const limit = reasoning ? Math.min(baseLimit, 5) : baseLimit;
 
   return fs.runTransaction(async (tx) => {
@@ -593,9 +597,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const idToken = auth.slice(7);
 
   let uid: string;
+  let claimRole: unknown;
   try {
     const decoded = await getAuth().verifyIdToken(idToken);
     uid = decoded.uid;
+    claimRole = decoded.role;
   } catch {
     res.status(401).json({ error: 'Unauthorized' }); return;
   }
@@ -640,7 +646,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const allowed = await checkAndIncrementInternalLimit(uid);
     if (!allowed) { res.status(429).json({ error: 'DAILY_LIMIT' }); return; }
   } else {
-    const allowed = await checkAndIncrementLimit(uid, parsed.data.reasoning);
+    const allowed = await checkAndIncrementLimit(uid, parsed.data.reasoning, claimRole);
     if (!allowed) { res.status(429).json({ error: 'DAILY_LIMIT' }); return; }
   }
 

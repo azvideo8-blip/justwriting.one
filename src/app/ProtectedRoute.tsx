@@ -1,13 +1,15 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
+import { useAdminStatus } from '../features/auth/hooks/useAdminStatus';
 import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
 import { useLanguage } from '../shared/i18n';
 import { LogIn, Loader2 } from 'lucide-react';
 import { Button } from '../shared/components/Button';
 
 export function ProtectedRoute({ children, requireAdmin }: { children: React.ReactNode; requireAdmin?: boolean }) {
-  const { isAuthenticated, profile, loading } = useAuthStatus();
+  const { isAuthenticated, loading } = useAuthStatus();
+  const { isAdmin, loading: adminLoading } = useAdminStatus();
   const { openLoginModal } = useLoginModal();
   const { t } = useLanguage();
 
@@ -35,7 +37,10 @@ export function ProtectedRoute({ children, requireAdmin }: { children: React.Rea
     );
   }
 
-  if (requireAdmin && !profile) {
+  // Admin is decided by the verified token claim (same source as firestore.rules),
+  // not by the client-visible profile field — useAdminStatus also silently
+  // refreshes a token whose claim is missing before deciding.
+  if (requireAdmin && adminLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 size={24} className="animate-spin text-text-main/60" />
@@ -43,7 +48,7 @@ export function ProtectedRoute({ children, requireAdmin }: { children: React.Rea
     );
   }
 
-  if (requireAdmin && profile?.role !== 'admin') {
+  if (requireAdmin && !isAdmin) {
     return <Navigate to="/" replace />;
   }
 
