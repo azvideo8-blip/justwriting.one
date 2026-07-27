@@ -172,7 +172,17 @@ export const AIConsolidationService = {
    */
   async gatherMemoryUnits(): Promise<MemoryUnit[]> {
     const units: MemoryUnit[] = [];
-    const publishedBeliefs = await this.getAllBeliefs();
+    // The dedup source must be reliable. getAllBeliefs() returns [] on an IDB
+    // failure, which is indistinguishable from "no beliefs yet" — proceeding on
+    // that would make every unit look unconsolidated and republish duplicate
+    // beliefs. On a read failure, yield no candidates and retry next pass.
+    let publishedBeliefs: AIBelief[];
+    try {
+      const beliefsDb = await getLocalDb();
+      publishedBeliefs = (await beliefsDb.getAll('aiBeliefs')) as unknown as AIBelief[];
+    } catch {
+      return [];
+    }
     const consolidatedUnitIds = new Set<string>();
 
     for (const b of publishedBeliefs) {
@@ -189,8 +199,13 @@ export const AIConsolidationService = {
       try {
         const allEmbeddings = (await db.getAll('aiEmbeddings')) as AIDocumentEmbedding[];
         for (const emb of allEmbeddings) {
-          if (emb.documentId && Array.isArray(emb.vectors) && emb.vectors.length > 0 && emb.vectors[0] !== undefined) {
-            embeddingsMap.set(emb.documentId, emb.vectors[0]);
+          // Mirror relatedNotes.ts: fall back to the legacy schemaV-1 single vector,
+          // otherwise those notes cluster by Jaccard instead of cosine.
+          const vec = (Array.isArray(emb.vectors) && emb.vectors.length > 0 && emb.vectors[0] !== undefined)
+            ? emb.vectors[0]
+            : (Array.isArray(emb.vector) && emb.vector.length > 0 ? emb.vector : undefined);
+          if (emb.documentId && vec) {
+            embeddingsMap.set(emb.documentId, vec);
           }
         }
       } catch {
