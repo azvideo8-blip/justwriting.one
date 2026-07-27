@@ -3,7 +3,12 @@ import { getLocalDb, clearAllLocalStores } from '../../../../core/storage/localD
 import { AIConsolidationService, type MemoryClusterCandidate } from '../AIConsolidationService';
 import { AIService } from '../AIService';
 
-describe('AG-MIND-W3-obs AIConsolidationService Observability', () => {
+// The ring-buffer test writes 200+ records one at a time, and saveRejection
+// re-scans the store on every write, so this suite is legitimately slow. Under
+// the 5s default it times out whenever another heavy suite competes for CPU —
+// and a half-finished run leaks records into the next test, which then fails
+// for a reason that has nothing to do with it.
+describe('AG-MIND-W3-obs AIConsolidationService Observability', { timeout: 60_000 }, () => {
   beforeEach(async () => {
     await clearAllLocalStores();
     vi.clearAllMocks();

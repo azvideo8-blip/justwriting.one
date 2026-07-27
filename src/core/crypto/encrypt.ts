@@ -1,4 +1,13 @@
-const PBKDF2_ITERATIONS = 600_000;
+export const PBKDF2_ITERATIONS = 600_000;
+
+/**
+ * Iteration count used before the SEC-36 raise to 600k. Vaults created then have
+ * their data key wrapped with a master key derived at THIS count, so deriving at
+ * 600k yields a different key and the correct password looks wrong. Unlock must
+ * try the current count first and fall back to this one — dropping it locks
+ * every existing user out of their own notes.
+ */
+export const LEGACY_PBKDF2_ITERATIONS = 300_000;
 
 const SALT_LENGTH = 16;
 const IV_LENGTH = 12;
@@ -28,7 +37,11 @@ function secureClear(buf: Uint8Array): void {
   buf.fill(0);
 }
 
-export async function deriveMasterKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
+export async function deriveMasterKey(
+  password: string,
+  salt: Uint8Array,
+  iterations: number = PBKDF2_ITERATIONS,
+): Promise<CryptoKey> {
   const encoder = new TextEncoder();
   const passwordBytes = encoder.encode(password);
   try {
@@ -40,7 +53,7 @@ export async function deriveMasterKey(password: string, salt: Uint8Array): Promi
       ['deriveKey'],
     );
     return await crypto.subtle.deriveKey(
-      { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+      { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
       keyMaterial,
       { name: 'AES-KW', length: 256 },
       false,
@@ -62,6 +75,30 @@ export async function generateDataKey(): Promise<CryptoKey> {
 export async function wrapDataKey(dataKey: CryptoKey, masterKey: CryptoKey): Promise<string> {
   const wrapped = await crypto.subtle.wrapKey('raw', dataKey, masterKey, 'AES-KW');
   return toBase64(new Uint8Array(wrapped));
+}
+
+/**
+ * Unwraps the data key with a password, tolerating vaults wrapped before the
+ * SEC-36 iteration raise. Tries the current count, then the legacy one; reports
+ * which was used so callers can re-wrap at the stronger setting.
+ */
+export async function unwrapDataKeyWithPassword(
+  wrappedKey: string,
+  password: string,
+  salt: Uint8Array,
+  // Overridable so tests can exercise the fallback with cheap counts. PBKDF2 at
+  // 600k is slow by design; running it for real in the test suite saturates the
+  // CPU and makes unrelated tests time out.
+  currentIterations: number = PBKDF2_ITERATIONS,
+  legacyIterations: number = LEGACY_PBKDF2_ITERATIONS,
+): Promise<{ dataKey: CryptoKey; usedLegacyIterations: boolean }> {
+  try {
+    const masterKey = await deriveMasterKey(password, salt, currentIterations);
+    return { dataKey: await unwrapDataKey(wrappedKey, masterKey), usedLegacyIterations: false };
+  } catch {
+    const legacyKey = await deriveMasterKey(password, salt, legacyIterations);
+    return { dataKey: await unwrapDataKey(wrappedKey, legacyKey), usedLegacyIterations: true };
+  }
 }
 
 export async function unwrapDataKey(wrappedKey: string, masterKey: CryptoKey): Promise<CryptoKey> {

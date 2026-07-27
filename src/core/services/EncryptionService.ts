@@ -1,4 +1,4 @@
-import { deriveMasterKey, generateDataKey, wrapDataKey, unwrapDataKey, encryptContent, decryptContent, setSessionKey, getSessionKey, clearSessionKey, isVaultUnlocked } from '../crypto/encrypt';
+import { deriveMasterKey, generateDataKey, wrapDataKey, unwrapDataKeyWithPassword, encryptContent, decryptContent, setSessionKey, getSessionKey, clearSessionKey, isVaultUnlocked } from '../crypto/encrypt';
 import { setEncryptionEnabled } from '../crypto/cryptoHelpers';
 import {
   saveEncryptionMeta,
@@ -66,11 +66,13 @@ export async function unlockVault(userId: string, password: string): Promise<voi
   if (!meta) throw new Error('Encryption not configured');
 
   const salt = saltFromBase64(meta.salt);
-  const masterKey = await deriveMasterKey(password, salt);
 
   let dataKey: CryptoKey;
   try {
-    dataKey = await unwrapDataKey(meta.wrappedDataKey, masterKey);
+    // Tries the current PBKDF2 count, then the pre-SEC-36 one. Without the
+    // fallback a vault wrapped at 300k reports WrongPasswordError for the
+    // correct password — the user is locked out of their own notes.
+    ({ dataKey } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, password, salt));
   } catch {
     throw new WrongPasswordError();
   }
@@ -93,11 +95,12 @@ export async function changePassword(userId: string, currentPassword: string, ne
   if (!meta) throw new Error('Encryption not configured');
 
   const oldSalt = saltFromBase64(meta.salt);
-  const oldMasterKey = await deriveMasterKey(currentPassword, oldSalt);
 
   let dataKey: CryptoKey;
   try {
-    dataKey = await unwrapDataKey(meta.wrappedDataKey, oldMasterKey);
+    // Same fallback as unlockVault: changing the password on a legacy vault
+    // must not be blocked by the iteration raise either.
+    ({ dataKey } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, currentPassword, oldSalt));
   } catch {
     throw new WrongPasswordError();
   }

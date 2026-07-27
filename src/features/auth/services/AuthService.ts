@@ -8,7 +8,7 @@ import {
   EmailAuthProvider,
 } from 'firebase/auth';
 import { auth } from '../../../core/firebase/auth';
-import { deriveMasterKey, unwrapDataKey, setSessionKey, fromBase64, decryptContent } from '../../../core/crypto/encrypt';
+import { unwrapDataKeyWithPassword, setSessionKey, fromBase64, decryptContent } from '../../../core/crypto/encrypt';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
 
@@ -106,9 +106,11 @@ async function unlockVaultFromProfile(profileData: VaultProfileData, password: s
       return false;
     }
     const salt = fromBase64(meta.salt);
-    const masterKey = await deriveMasterKey(password, salt);
     try {
-      const dataKey = await unwrapDataKey(meta.wrappedDataKey, masterKey);
+      // Falls back to the pre-SEC-36 iteration count: vaults wrapped at 300k
+      // cannot be opened with a key derived at 600k, and the user just sees
+      // "wrong password" for a password that is correct.
+      const { dataKey } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, password, salt);
       if (meta.verification) {
         const isValid = await verifyKey(dataKey, meta.verification);
         if (!isValid) return false;
@@ -127,9 +129,8 @@ async function unlockVaultFromProfile(profileData: VaultProfileData, password: s
 
   if (profileData.encryptionSalt && profileData.encryptedDataKey) {
     const salt = fromBase64(profileData.encryptionSalt);
-    const masterKey = await deriveMasterKey(password, salt);
     try {
-      const dataKey = await unwrapDataKey(profileData.encryptedDataKey, masterKey);
+      const { dataKey } = await unwrapDataKeyWithPassword(profileData.encryptedDataKey, password, salt);
       setSessionKey(dataKey);
       setEncryptionEnabled(userId, true);
       return true;
@@ -147,8 +148,7 @@ async function unlockVaultFromProfile(profileData: VaultProfileData, password: s
 
 async function unlockVaultFromPendingKeys(keys: { encryptionSalt: string; encryptedDataKey: string }, password: string, userId: string): Promise<boolean> {
   const salt = fromBase64(keys.encryptionSalt);
-  const masterKey = await deriveMasterKey(password, salt);
-  const dataKey = await unwrapDataKey(keys.encryptedDataKey, masterKey);
+  const { dataKey } = await unwrapDataKeyWithPassword(keys.encryptedDataKey, password, salt);
   setSessionKey(dataKey);
   setEncryptionEnabled(userId, true);
   return true;
