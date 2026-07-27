@@ -88,7 +88,16 @@ service cloud.firestore {
              data.content is string && data.content.size() <= 100000 &&
              (data.updatedAt is number || data.updatedAt is timestamp) &&
              (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
-             (!('pinnedThoughts' in data) || (data.pinnedThoughts is list && data.pinnedThoughts.size() <= 20)) &&
+             // When E2E encryption is on, maybeEncrypt() JSON-stringifies the whole
+             // array and encrypts it (cryptoHelpers.ts), so it arrives as an opaque
+             // string — the item count is not observable server-side. Accept both
+             // shapes: a plaintext list capped by items, or a ciphertext capped by
+             // size. Rejecting the string form silently broke every draft save for
+             // encrypted users with permission-denied.
+             (!('pinnedThoughts' in data) ||
+               (data.pinnedThoughts is list && data.pinnedThoughts.size() <= 20) ||
+               (('_encrypted' in data) && data._encrypted == true &&
+                data.pinnedThoughts is string && data.pinnedThoughts.size() <= 50000)) &&
              (!('tags' in data) || (data.tags is list && data.tags.size() <= 10)) &&
              (!('_encrypted' in data) || data._encrypted is bool) &&
              (!('seconds' in data) || data.seconds is number) &&
