@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef, useMemo } from 'react';
 import type { RefObject } from 'react';
 import type { User } from 'firebase/auth';
 import { useTimerStore } from '../store/useTimerStore';
+import { useContentStore } from '../store/useContentStore';
 import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus, type DraftErrorKind } from './useDraftCore';
 
 export interface DraftData {
@@ -59,6 +60,22 @@ export function useDraftManager(
     const interval = setInterval(() => void doAutosave(), 30_000);
     return () => { clearTimeout(timeout); clearInterval(interval); };
   }, [doAutosave, timerStatus]);
+
+  // Mirror of the authenticated debounce in useDraftAutosave: without it a guest is
+  // only saved by the 30s interval above, so a crash mid-sentence can cost half a
+  // minute of writing. A flat delay is enough here because this path writes to
+  // IndexedDB only — the authenticated path uses 5s on mobile to protect the
+  // Firestore quota, which does not apply to guests.
+  const content = useContentStore(s => s.content);
+  const title = useContentStore(s => s.title);
+  useEffect(() => {
+    if (timerStatus !== 'writing' && timerStatus !== 'paused') return;
+    // Nothing written yet: the 3s timeout above already persists the session row,
+    // so firing here too would just duplicate that write on every session start.
+    if (!content) return;
+    const timeout = setTimeout(() => void doAutosave(), 1_000);
+    return () => clearTimeout(timeout);
+  }, [content, title, timerStatus, doAutosave]);
 
   useVisibilitySave(doAutosave, () => getDraftData().content);
 

@@ -178,11 +178,15 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
 
       await cleanupDraftsAfterSave(userId, isGuest, docIdToSync);
 
+      // Reset AFTER cleanup succeeds (so content survives a cleanup failure), but
+      // BEFORE the refreshes below: those await, and an autosave firing in that gap
+      // would read the still-populated stores and write the just-deleted draft back
+      // to IndexedDB — resurrecting it as a phantom "unsaved draft".
+      resetSession();
+
       await refreshDocuments();
       await refreshLifeLog();
 
-      // Reset session AFTER cleanup succeeds — prevents content loss if cleanup throws
-      resetSession();
       return docIdToSync ?? null;
     } catch (e) {
       reportError(e, { action: 'writingActions/save' });
