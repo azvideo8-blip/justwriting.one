@@ -97,6 +97,40 @@ describe('restoreAIDataFromCloud', () => {
     expect(localStore.aiEmbeddings.get('doc-1')).toBeDefined();
   });
 
+  // It came from the cloud, so it is already there. Leaving it unmarked makes
+  // the sync loop treat every restored record as pending and upload them all.
+  it('marks a restored embedding as already in the cloud', async () => {
+    embeddingDocs.push({ id: 'doc-1', data: () => ({}) });
+
+    await restoreAIDataFromCloud('user-a');
+
+    expect(localStore.aiEmbeddings.get('doc-1')).toMatchObject({ cloudSyncedAt: expect.any(Number) });
+  });
+
+  // Repairs records restored before that flag was set — otherwise they keep
+  // being re-uploaded on every pass.
+  it('marks an existing local embedding whose content the cloud already holds', async () => {
+    localStore.aiEmbeddings.set('local_new', { documentId: 'local_new', contentHash: 'h1', vectors: [[1]] });
+    embeddingDocs.push({ id: 'old_dead_id', data: () => ({}) });
+    decodeCloudEmbedding.mockResolvedValueOnce({ documentId: 'old_dead_id', contentHash: 'h1' } as never);
+
+    const res = await restoreAIDataFromCloud('user-a');
+
+    expect(res.markedSynced).toBe(1);
+    expect(localStore.aiEmbeddings.get('local_new')).toMatchObject({ cloudSyncedAt: expect.any(Number) });
+  });
+
+  it('does not mark a local embedding the cloud does not have', async () => {
+    localStore.aiEmbeddings.set('local_new', { documentId: 'local_new', contentHash: 'h-not-in-cloud', vectors: [[1]] });
+    embeddingDocs.push({ id: 'other', data: () => ({}) });
+    decodeCloudEmbedding.mockResolvedValueOnce({ documentId: 'other', contentHash: 'h1' } as never);
+
+    const res = await restoreAIDataFromCloud('user-a');
+
+    expect(res.markedSynced).toBe(0);
+    expect(localStore.aiEmbeddings.get('local_new')).not.toHaveProperty('cloudSyncedAt');
+  });
+
   // A restore must never overwrite analysis newer than the cloud copy — the
   // cloud lags local by design (writes are budgeted and paced).
   it('leaves records that already exist locally untouched', async () => {

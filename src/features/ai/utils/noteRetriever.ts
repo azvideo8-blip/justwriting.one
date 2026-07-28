@@ -156,13 +156,19 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
 
   let filteredEmbeddings = opts?.allEmbeddings ?? await AIEmbeddingService.getAll();
   const db = await getLocalDb();
-  if (opts?.minTime !== undefined || opts?.maxTime !== undefined || opts?.ignoredDocIds !== undefined) {
+  {
+    // Always restrict to embeddings that still belong to a local note. Analysis
+    // restored from the cloud can outnumber the notes (older records from
+    // earlier local-id generations), and an orphan competing in the ranking
+    // takes a slot from a real note and resolves to nothing.
+    const hasTimeFilter = opts?.minTime !== undefined || opts?.maxTime !== undefined;
     const allowed = new Set<string>();
     const docs = await db.getAll('documents');
     for (const doc of docs) {
       if (opts?.ignoredDocIds?.has(doc.id)) continue;
       const ts = doc.lastSessionAt;
-      if (ts && (opts.minTime === undefined || ts >= opts.minTime) && (opts.maxTime === undefined || ts <= opts.maxTime)) {
+      if (!hasTimeFilter) { allowed.add(doc.id); continue; }
+      if (ts && (opts?.minTime === undefined || ts >= opts.minTime) && (opts?.maxTime === undefined || ts <= opts.maxTime)) {
         allowed.add(doc.id);
       }
     }
@@ -402,13 +408,19 @@ export async function searchNotesMulti(
 
   const db = await getLocalDb();
   let filteredEmbeddings = opts?.allEmbeddings ?? await AIEmbeddingService.getAll();
-  if (opts?.minTime !== undefined || opts?.maxTime !== undefined || opts?.ignoredDocIds !== undefined) {
+  {
+    // Always restrict to embeddings that still belong to a local note. Analysis
+    // restored from the cloud can outnumber the notes (older records from
+    // earlier local-id generations), and an orphan competing in the ranking
+    // takes a slot from a real note and resolves to nothing.
+    const hasTimeFilter = opts?.minTime !== undefined || opts?.maxTime !== undefined;
     const allowed = new Set<string>();
     const docs = await db.getAll('documents');
     for (const doc of docs) {
       if (opts?.ignoredDocIds?.has(doc.id)) continue;
       const ts = doc.lastSessionAt;
-      if (ts && (opts.minTime === undefined || ts >= opts.minTime) && (opts.maxTime === undefined || ts <= opts.maxTime)) {
+      if (!hasTimeFilter) { allowed.add(doc.id); continue; }
+      if (ts && (opts?.minTime === undefined || ts >= opts.minTime) && (opts?.maxTime === undefined || ts <= opts.maxTime)) {
         allowed.add(doc.id);
       }
     }
