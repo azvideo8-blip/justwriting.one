@@ -48,6 +48,7 @@ export const writingTranslations: Translations = {
   editor_pin_thought: { ru: 'Закрепить мысль', en: 'Pin thought' },
   editor_saving: { ru: 'Сохранение...', en: 'Saving...' },
   editor_saved: { ru: 'Сохранено', en: 'Saved' },
+  editor_cloud_stale: { ru: 'Только локально', en: 'Local only' },
   editor_save_error: { ru: 'Ошибка сохранения', en: 'Save error' },
   editor_highlight: { ru: 'Выделить', en: 'Highlight' },
 

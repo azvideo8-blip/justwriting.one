@@ -134,4 +134,114 @@ describe('useDraftAutosave', () => {
 
     expect(result.current.saveStatus).toBe('error');
   });
+
+  /**
+   * Mirrors production: a local-only save reports remoteOk=true because no
+   * remote save was attempted (`!shouldRemoteSave || ...` in draftPersistence).
+   * Mocking persistDraft flat makes the local path masquerade as a remote one,
+   * which hides both regressions covered below.
+   */
+  function mockPersistByMode(remoteError?: unknown) {
+    vi.mocked(persistDraft).mockImplementation(async (_draft, options) => {
+      if (!(options?.remote ?? true)) return { localOk: true, remoteOk: true };
+      return { localOk: true, remoteOk: false, remoteError };
+    });
+  }
+
+  it('sets status to cloud-stale after 3 consecutive remote failures', async () => {
+    mockPersistByMode();
+
+    const { result } = renderHook(() => useDraftAutosave(mockUser, initialData));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+    expect(result.current.saveStatus).toBe('saved'); // < 3 failures
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+    expect(result.current.saveStatus).toBe('saved');
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+    expect(result.current.saveStatus).toBe('cloud-stale');
+  });
+
+  it('a local-only autosave between remote failures does not reset the count', async () => {
+    mockPersistByMode();
+
+    const { result, rerender } = renderHook(
+      ({ data }) => useDraftAutosave(mockUser, data),
+      { initialProps: { data: initialData } }
+    );
+
+    // The real pattern: the user keeps typing, so the debounced local save
+    // fires between the 30s remote attempts.
+    for (let i = 0; i < 3; i++) {
+      await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+      rerender({ data: { ...initialData, content: `typing ${i}`, wordCount: 3 + i } });
+      await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+    }
+
+    expect(result.current.saveStatus).toBe('cloud-stale');
+  });
+
+  it('resets remote fail count on success', async () => {
+    vi.mocked(persistDraft)
+      .mockResolvedValueOnce({ localOk: true, remoteOk: false })
+      .mockResolvedValueOnce({ localOk: true, remoteOk: false })
+      .mockResolvedValueOnce({ localOk: true, remoteOk: true });
+
+    const { result } = renderHook(() => useDraftAutosave(mockUser, initialData));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+
+    // 3rd attempt is success
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+    expect(result.current.saveStatus).toBe('saved');
+  });
+
+  it('immediately sets cloud-stale on permanent error and stops the interval', async () => {
+    mockPersistByMode({ code: 'permission-denied' });
+
+    const { result } = renderHook(() => useDraftAutosave(mockUser, initialData));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+    expect(result.current.saveStatus).toBe('cloud-stale');
+
+    vi.mocked(persistDraft).mockClear();
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+    expect(persistDraft).not.toHaveBeenCalled();
+  });
+
+  it('keeps warning instead of reverting to "saved" once the cloud is known stale', async () => {
+    mockPersistByMode({ code: 'permission-denied' });
+
+    const { result, rerender } = renderHook(
+      ({ data }) => useDraftAutosave(mockUser, data),
+      { initialProps: { data: initialData } }
+    );
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+    expect(result.current.saveStatus).toBe('cloud-stale');
+
+    // The user writes on. The cloud copy is still stale and — because the
+    // interval was stopped — will not be retried, so the indicator must not
+    // go back to claiming everything is saved.
+    rerender({ data: { ...initialData, content: 'still writing' } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(result.current.saveStatus).toBe('cloud-stale');
+  });
+
+  it('does not let the stale warning fade out on its own', async () => {
+    mockPersistByMode({ code: 'permission-denied' });
+
+    const { result } = renderHook(() => useDraftAutosave(mockUser, initialData));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+    expect(result.current.saveStatus).toBe('cloud-stale');
+
+    // The user stops typing: no local save, and the remote interval is stopped.
+    // Nothing will re-assert the warning, so it must not time out to a blank
+    // indicator — that reads as "all good" while the cloud copy is stale.
+    await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+    expect(result.current.saveStatus).toBe('cloud-stale');
+  });
 });

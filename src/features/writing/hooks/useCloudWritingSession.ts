@@ -3,13 +3,14 @@ import { UserProfile } from '../../../types';
 import { useBaseWritingSession, BaseSessionReturn } from './useBaseWritingSession';
 import { useSessionPersistence } from './useSessionPersistence';
 import { useDraftSession } from './useDraftSession';
+import type { DraftSaveStatus } from './useDraftCore';
 
 export interface CloudSessionReturn extends BaseSessionReturn {
   userId: string;
   isGuest: false;
   hasDraft: boolean;
   setHasDraft: (v: boolean) => void;
-  saveStatus: 'idle' | 'saving' | 'saved' | 'error';
+  saveStatus: DraftSaveStatus;
   lastSavedAt: number | null;
   isOnline: boolean;
   handleCancel: () => Promise<void>;

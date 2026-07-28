@@ -129,10 +129,10 @@ export const WritingDraftService = {
     }
   },
 
-  saveToFirestore: async (draft: LocalDraft) => {
-    if (!draft.userId) return;
+  saveToFirestore: async (draft: LocalDraft): Promise<boolean> => {
+    if (!draft.userId) return false;
     if (!isProfileLoaded(draft.userId)) {
-      return;
+      return false;
     }
     const oldAc = _abortControllers.get(draft.userId);
     if (oldAc) {
@@ -141,7 +141,7 @@ export const WritingDraftService = {
     const ac = new AbortController();
     _abortControllers.set(draft.userId, ac);
     const { db, mod } = await getClient();
-    if (ac.signal.aborted) return;
+    if (ac.signal.aborted) return true;
     const { doc, setDoc, serverTimestamp } = mod;
     const docRef = doc(db, 'drafts', draft.userId);
     const draftRecord: Record<string, unknown> = { ...draft };
@@ -151,10 +151,11 @@ export const WritingDraftService = {
     );
     try {
       await setDoc(docRef, { ...clean, updatedAt: serverTimestamp() });
+      return true;
     } catch (e) {
-      if (ac.signal.aborted) return;
+      if (ac.signal.aborted) return true;
       reportError(e, { action: 'saveToFirestore', userId: draft.userId });
-      throw new Error('Draft save aborted');
+      throw e;
     } finally {
       if (_abortControllers.get(draft.userId) === ac) {
         _abortControllers.delete(draft.userId);

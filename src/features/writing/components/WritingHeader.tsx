@@ -22,7 +22,7 @@ interface WritingHeaderProps {
   onStop?: () => void;
   onPlay?: () => void;
   onPause?: () => void;
-  saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
+  saveStatus?: 'idle' | 'saving' | 'saved' | 'cloud-stale' | 'error';
 }
 
 export const WritingHeader = React.memo(function WritingHeader({
@@ -207,6 +207,18 @@ export const WritingHeader = React.memo(function WritingHeader({
                       />
                     </motion.svg>
                     {t('editor_saved')}
+                  </motion.span>
+                )}
+                {saveStatus === 'cloud-stale' && (
+                  <motion.span
+                    key="cloud-stale"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="flex items-center gap-1 font-mono text-label text-accent-warning tracking-widest uppercase ml-3"
+                  >
+                    {t('editor_cloud_stale')}
                   </motion.span>
                 )}
               </AnimatePresence>

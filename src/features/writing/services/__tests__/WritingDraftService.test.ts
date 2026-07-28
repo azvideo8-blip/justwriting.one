@@ -191,15 +191,19 @@ describe('WritingDraftService', () => {
   describe('saveToFirestore', () => {
     it('does nothing if no userId', async () => {
       makeFirestoreClient();
-      await WritingDraftService.saveToFirestore({ userId: '', content: '', updatedAt: 0 } as unknown as LocalDraft);
+      const wrote = await WritingDraftService.saveToFirestore({ userId: '', content: '', updatedAt: 0 } as unknown as LocalDraft);
       expect(vi.mocked(getClient)).not.toHaveBeenCalled();
+      // Reports "did not write" so the caller can't record a stale cloud copy
+      // as a successful save.
+      expect(wrote).toBe(false);
     });
 
     it('does nothing if profile not loaded', async () => {
       vi.mocked(isProfileLoaded).mockReturnValue(false);
       makeFirestoreClient();
-      await WritingDraftService.saveToFirestore({ userId: mockUserId, content: '', updatedAt: 0 } as unknown as LocalDraft);
+      const wrote = await WritingDraftService.saveToFirestore({ userId: mockUserId, content: '', updatedAt: 0 } as unknown as LocalDraft);
       expect(vi.mocked(getClient)).not.toHaveBeenCalled();
+      expect(wrote).toBe(false);
     });
 
     it('aborts previous controller and writes to firestore with full document overwrite (no merge: true)', async () => {
@@ -216,12 +220,15 @@ describe('WritingDraftService', () => {
       expect(serverTimestamp).toHaveBeenCalled();
     });
 
-    it('throws if setDoc fails and signal is not aborted', async () => {
+    it('rethrows the original error if setDoc fails and signal is not aborted', async () => {
       vi.mocked(isProfileLoaded).mockReturnValue(true);
       const { setDoc } = makeFirestoreClient();
-      vi.mocked(setDoc).mockRejectedValue(new Error('network'));
+      const original = Object.assign(new Error('denied'), { code: 'permission-denied' });
+      vi.mocked(setDoc).mockRejectedValue(original);
       const draft = { userId: mockUserId, content: 'hello', updatedAt: 1000 };
-      await expect(WritingDraftService.saveToFirestore(draft as unknown as LocalDraft)).rejects.toThrow('Draft save aborted');
+      // The error must survive intact: the caller classifies permanent vs
+      // transient failures by `code`, which the old generic wrapper discarded.
+      await expect(WritingDraftService.saveToFirestore(draft as unknown as LocalDraft)).rejects.toBe(original);
     });
 
     it('does not throw if signal was aborted', async () => {
@@ -231,10 +238,11 @@ describe('WritingDraftService', () => {
       const draft = { userId: mockUserId, content: 'hello', updatedAt: 1000 };
       const p1 = WritingDraftService.saveToFirestore(draft as unknown as LocalDraft);
       const p2 = WritingDraftService.saveToFirestore(draft as unknown as LocalDraft);
-      await expect(p2).resolves.toBeUndefined();
+      await expect(p2).resolves.toBe(true);
       // p1 either resolves early because of abort check, or completes before abort
-      // either way it should not throw
-      await expect(p1).resolves.toBeUndefined();
+      // either way it should not throw. An aborted save counts as success: a
+      // newer save superseded it, so the cloud copy is not stale.
+      await expect(p1).resolves.toBe(true);
     });
   });
 

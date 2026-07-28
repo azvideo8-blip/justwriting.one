@@ -6,18 +6,34 @@ import { reportError } from '../../../shared/errors/reportError';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 
 
-export type DraftSaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+export type DraftSaveStatus = 'idle' | 'saving' | 'saved' | 'cloud-stale' | 'error';
 export type DraftErrorKind = 'quota' | 'unknown' | null;
+
+/** What a save reports back. Omitting `remoteOk` means "no remote save was attempted". */
+export interface DraftSaveOutcome {
+  localOk?: boolean;
+  remoteOk?: boolean;
+  remoteError?: unknown;
+}
 
 interface UseDraftCoreOptions {
   userId: string | null;
   onError?: (err: unknown, action: string) => void;
 }
 
+const PERMANENT_ERRORS = new Set(['permission-denied', 'unauthenticated', 'invalid-argument', 'failed-precondition']);
+
 export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
   const [saveStatus, setSaveStatus] = useState<DraftSaveStatus>('idle');
   const [saveErrorKind, setSaveErrorKind] = useState<DraftErrorKind>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const [remotePermanentError, setRemotePermanentError] = useState(false);
+  // Refs, not state: wrapSave reads and writes these within a single call, so
+  // they must be current immediately rather than after the next render.
+  const remoteFailCountRef = useRef(0);
+  // Sticky. Only a remote save that actually succeeded clears it — a local-only
+  // save carries no information about the cloud copy and must not reset it.
+  const cloudStaleRef = useRef(false);
   const isMountedRef = useRef(true);
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
@@ -37,15 +53,20 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
     }
   }, []);
 
-  const markSaved = useCallback(() => {
+  const markSaved = useCallback((isCloudStale = false) => {
     if (isMountedRef.current) {
-      setSaveStatus('saved');
+      setSaveStatus(isCloudStale ? 'cloud-stale' : 'saved');
       setLastSavedAt(Date.now());
       setSaveErrorKind(null);
       if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
-      statusTimerRef.current = setTimeout(() => {
-        if (isMountedRef.current) setSaveStatus('idle');
-      }, 1000);
+      // "Saved" is transient — it confirms one write and fades. The stale
+      // warning is a standing condition, so it must not fade back to a blank
+      // indicator that reads as "everything is fine".
+      if (!isCloudStale) {
+        statusTimerRef.current = setTimeout(() => {
+          if (isMountedRef.current) setSaveStatus('idle');
+        }, 1000);
+      }
     }
   }, []);
 
@@ -64,13 +85,32 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
     }
   }, [onError, userId]);
 
-  const wrapSave = useCallback(async (saveFn: () => Promise<void>, action: string) => {
+  const wrapSave = useCallback(async (saveFn: () => Promise<DraftSaveOutcome | void>, action: string) => {
     if (savingRef.current) return false;
     savingRef.current = true;
     try {
       markSaving();
-      await saveFn();
-      markSaved();
+      const res = await saveFn();
+
+      // A local-only save resolves with no remote information at all. It must
+      // fall through both branches: it neither proves the cloud copy is current
+      // nor that it is stale, so it leaves the sticky flag exactly as it was.
+      if (res && res.remoteOk === false) {
+        const code = (res.remoteError as { code?: unknown } | undefined)?.code;
+        const isPermanent = typeof code === 'string' && PERMANENT_ERRORS.has(code);
+        if (isPermanent) setRemotePermanentError(true);
+
+        remoteFailCountRef.current += 1;
+        if (isPermanent || remoteFailCountRef.current >= 3) {
+          cloudStaleRef.current = true;
+        }
+      } else if (res && res.remoteOk === true) {
+        remoteFailCountRef.current = 0;
+        cloudStaleRef.current = false;
+        setRemotePermanentError(false);
+      }
+
+      markSaved(cloudStaleRef.current);
       return true;
     } catch (err) {
       markError(err, action);
@@ -84,6 +124,7 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
     saveStatus,
     saveErrorKind,
     lastSavedAt,
+    remotePermanentError,
     isMountedRef,
     savingRef,
     markSaving,
