@@ -4,7 +4,12 @@ import { getAuth } from 'firebase/auth';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
-import { tryReserveSummarizeBudget } from '../utils/firestoreWriteBudget';
+import {
+  tryReserveSummarizeBudget,
+  isGlobalWriteFailure,
+  blockCloudWritesToday,
+  areCloudWritesBlockedToday,
+} from '../utils/firestoreWriteBudget';
 
 const STRING_FIELDS = ['tone', 'echo', 'eventDate', 'quotableSentence'] as const;
 const ARRAY_FIELDS = ['frequentWords', 'authorPhrases', 'insights', 'themes', 'extractedFacts', 'commitments'] as const;
@@ -199,8 +204,11 @@ export const AISummaryService = {
     }
 
     const uid = getAuth().currentUser?.uid;
-    if (uid && tryReserveSummarizeBudget()) {
+    if (uid && !areCloudWritesBlockedToday() && tryReserveSummarizeBudget()) {
       await saveSummaryToCloud(uid, summary).catch(e => {
+        // Quota or rule rejection applies to every summary, not this one — stop
+        // writing for the day rather than reporting it once per note.
+        if (isGlobalWriteFailure(e)) blockCloudWritesToday();
         reportError(e, { action: 'ai_summary_cloud_save' });
       });
     }

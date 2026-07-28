@@ -4,7 +4,12 @@ import { getAuth } from 'firebase/auth';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
-import { tryReserveWriteBudget } from '../utils/firestoreWriteBudget';
+import {
+  tryReserveWriteBudget,
+  isGlobalWriteFailure,
+  blockCloudWritesToday,
+  areCloudWritesBlockedToday,
+} from '../utils/firestoreWriteBudget';
 
 // Gentle pacing between consecutive Firestore writes in a bulk sync loop —
 // this is a DAILY total quota, so pacing alone can't prevent exhausting it,
@@ -171,6 +176,9 @@ export const AIEmbeddingService = {
     const all = await db.getAll('aiEmbeddings');
     const pending = all.filter(e => !e.cloudSyncedAt && !e.cloudSkipped);
     if (!uid || pending.length === 0) return { synced: 0, pending: pending.length, locked: false, budgetExhausted: false };
+    if (areCloudWritesBlockedToday()) {
+      return { synced: 0, pending: pending.length, locked: false, budgetExhausted: true };
+    }
 
     let synced = 0;
     for (let i = 0; i < pending.length; i++) {
@@ -192,6 +200,13 @@ export const AIEmbeddingService = {
           await db.put('aiEmbeddings', { ...emb, cloudSkipped: true });
         } else if (msg.includes('ENCRYPT_REQUIRED')) {
           return { synced, pending: pending.length, locked: true, budgetExhausted: false };
+        } else if (isGlobalWriteFailure(e)) {
+          // Quota or rule rejection: every remaining write fails the same way.
+          // Marching through the rest spends quota on certain failures and,
+          // since none get marked synced, the next pass repeats the whole list.
+          blockCloudWritesToday();
+          reportError(e, { action: 'ai_embedding_cloud_sync_blocked', docId: emb.documentId });
+          return { synced, pending: pending.length, locked: false, budgetExhausted: true };
         } else {
           reportError(e, { action: 'ai_embedding_cloud_sync', docId: emb.documentId });
         }
