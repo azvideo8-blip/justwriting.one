@@ -12,6 +12,8 @@ import { decodeCloudEmbedding } from './AIEmbeddingService';
 export interface AIRestoreResult {
   summaries: number;
   embeddings: number;
+  /** Local records the cloud already holds, marked so they are not re-uploaded. */
+  markedSynced: number;
   failed: number;
   skippedLocked: boolean;
 }
@@ -30,7 +32,7 @@ export interface AIRestoreResult {
  * already there: a restore must not clobber work newer than the cloud copy.
  */
 export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreResult> {
-  const result: AIRestoreResult = { summaries: 0, embeddings: 0, failed: 0, skippedLocked: false };
+  const result: AIRestoreResult = { summaries: 0, embeddings: 0, markedSynced: 0, failed: 0, skippedLocked: false };
   if (!userId) return result;
 
   // With E2E on but the vault locked, every decrypt throws. Restoring now would
@@ -62,14 +64,42 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
   }
 
   try {
+    // Records already in the cloud must not be queued for upload. Anything
+    // whose content hash the cloud already holds is present there under SOME
+    // key — re-attach re-keys locally and the hash finds it again after a wipe,
+    // so uploading it again buys nothing and costs a burst of multi-hundred-KB
+    // vector writes. Missing this is how the daily write quota went twice in
+    // one day.
+    const localEmbeddings = await db.getAll('aiEmbeddings');
+    const needsRepair = localEmbeddings.some(
+      e => e.cloudSyncedAt === undefined && e.cloudSkipped !== true && Boolean(e.contentHash),
+    );
+    const cloudHashes = new Set<string>();
+
     const snap = await mod.getDocs(mod.collection(fs, 'users', userId, 'embeddings'));
     for (const d of snap.docs) {
-      if (existingEmbeddings.has(d.id)) continue;
+      const alreadyLocal = existingEmbeddings.has(d.id);
+      // Decoding an already-local record is pure CPU, no extra quota — worth it
+      // only when there is something to repair.
+      if (alreadyLocal && !needsRepair) continue;
       try {
-        await db.put('aiEmbeddings', await decodeCloudEmbedding(d.data() as Record<string, unknown>, d.id));
-        result.embeddings++;
+        const decoded = await decodeCloudEmbedding(d.data() as Record<string, unknown>, d.id);
+        if (decoded.contentHash) cloudHashes.add(decoded.contentHash);
+        if (!alreadyLocal) {
+          await db.put('aiEmbeddings', { ...decoded, cloudSyncedAt: Date.now() });
+          result.embeddings++;
+        }
       } catch {
         result.failed++;
+      }
+    }
+
+    if (needsRepair && cloudHashes.size > 0) {
+      for (const e of await db.getAll('aiEmbeddings')) {
+        if (e.cloudSyncedAt || e.cloudSkipped || !e.contentHash) continue;
+        if (!cloudHashes.has(e.contentHash)) continue;
+        await db.put('aiEmbeddings', { ...e, cloudSyncedAt: Date.now() });
+        result.markedSynced++;
       }
     }
   } catch (e) {
