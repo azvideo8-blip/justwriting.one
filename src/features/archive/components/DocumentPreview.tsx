@@ -256,12 +256,14 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
   const exportUnavailableMessage = language === 'ru'
     ? 'Заметка зашифрована или недоступна — экспортировать нечего.'
     : 'This note is locked or unreadable — there is nothing to export.';
-  const runExport = (fn: () => void) => {
+  // PDF and DOCX exporters are async; typing this as `() => void` made passing
+  // them a no-misused-promises error.
+  const runExport = (fn: () => void | Promise<void>) => {
     if (!isExportable(session)) {
       showToast(exportUnavailableMessage, 'error');
       return;
     }
-    fn();
+    void fn();
   };
 
   const exportFormats = [

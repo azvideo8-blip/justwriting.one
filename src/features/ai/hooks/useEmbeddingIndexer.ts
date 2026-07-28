@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react';
+import { getAuth } from 'firebase/auth';
 import { findStaleDocuments, indexDocument, findStaleSummaries, sha256Hex } from '../utils/embeddingIndexer';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
@@ -9,6 +10,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { AIBackgroundBudget } from '../services/AIBackgroundBudget';
 import { AISummaryService } from '../services/AISummaryService';
 import { AIService } from '../services/AIService';
+import { restoreAIDataFromCloud } from '../services/AIRestoreService';
 import { getLocalDb, type AIDocumentSummary } from '../../../core/storage/localDb';
 
 const BATCH_SIZE = 3;
@@ -55,6 +57,7 @@ export function useEmbeddingIndexer(): void {
   const resummarizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyCountRef = useRef(0);
   const wordCloudTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restoredRef = useRef(false);
 
   const scheduleWordCloudRebuild = useCallback(() => {
     if (wordCloudTimerRef.current) clearTimeout(wordCloudTimerRef.current);
@@ -104,6 +107,23 @@ export function useEmbeddingIndexer(): void {
 
     runningRef.current = true;
     try {
+      // Pull existing analysis home BEFORE any staleness scan. Both scans read
+      // local stores only, so after a signOut wipe they would classify every
+      // note as never-analysed and pay the LLM again for summaries and
+      // embeddings that are sitting in Firestore. Once per session; a locked
+      // vault leaves the flag unset so the next pass retries.
+      if (!restoredRef.current) {
+        try {
+          const uid = getAuth().currentUser?.uid;
+          if (uid) {
+            const restored = await restoreAIDataFromCloud(uid);
+            if (!restored.skippedLocked) restoredRef.current = true;
+          }
+        } catch (e) {
+          reportError(e, { action: 'indexer_restoreFromCloud' });
+        }
+      }
+
       // Note summarization runs FIRST so it gets first claim on the shared
       // background budget — facets, threads, taxonomy and the monthly digest
       // all draw from the same daily pool and used to starve fresh notes.

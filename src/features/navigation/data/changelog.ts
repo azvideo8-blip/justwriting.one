@@ -14,6 +14,21 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.64',
+    date: '2026-07-28',
+    items: [
+      { category: 'fix', ru: 'Разбор заметок снова сохраняется в облако. Из-за слишком узкого правила доступа часть анализа переставала выгружаться — при переустановке или выходе из аккаунта его приходилось бы считать заново', en: 'Note analysis is saved to the cloud again. An overly narrow access rule stopped part of it from uploading — after a reinstall or a sign-out it would have had to be recomputed from scratch' },
+      { category: 'fix', ru: 'Анализ заметок восстанавливается из облака автоматически. Раньше выход из аккаунта стирал его вместе с локальными данными, и приложение начинало разбор с нуля', en: 'AI analysis is restored from the cloud automatically. Signing out used to erase it along with local data, and the app would start the analysis over' },
+      { category: 'fix', ru: 'Выход из аккаунта теперь предупреждает, что локальные копии будут удалены и восстановятся при следующем входе', en: 'Signing out now warns that local copies will be deleted and restored on your next sign-in' },
+      { category: 'fix', ru: 'Черновик снова сохраняется в облако при включённом шифровании, а индикатор больше не пишет «Сохранено», когда облачная копия не обновилась — появился отдельный статус «Только локально»', en: 'Drafts are saved to the cloud again with encryption on, and the indicator no longer says "Saved" when the cloud copy is stale — a separate "Local only" state was added' },
+      { category: 'fix', ru: 'Заметки, зашифрованные до повышения стойкости шифрования, снова открываются вашим обычным паролем', en: 'Notes encrypted before the encryption-strength upgrade open with your usual password again' },
+      { category: 'fix', ru: 'Удаление аккаунта снова срабатывает — запрос не доходил до сервера', en: 'Account deletion works again — the request never reached the server' },
+      { category: 'fix', ru: 'Человек, которого вы попросили игнорировать, снова исключается из контекста всегда, а не только когда вы называете его по имени', en: 'A person you asked to ignore is excluded from context on every turn again, not only when you mention them by name' },
+      { category: 'fix', ru: 'Экспорт заметки больше не отдаёт пустой файл, если текст не удалось прочитать, и такие заметки не попадают в резервную копию', en: 'Exporting a note no longer produces an empty file when its text could not be read, and such notes stay out of the backup' },
+      { category: 'improvement', ru: 'В журнале ошибок появилась кнопка «Копировать» — весь журнал одним нажатием', en: 'The error log gained a "Copy" button that puts the whole log on the clipboard' },
+    ],
+  },
+  {
     version: '0.7.63',
     date: '2026-07-25',
     items: [

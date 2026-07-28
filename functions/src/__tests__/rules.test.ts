@@ -218,6 +218,55 @@ describe('firestore.rules — summaries (S-11)', () => {
     );
   });
 
+  // The fixture above is a shape this file invented. The client spreads the
+  // whole AIDocumentSummary and encrypts it, which is what actually hits the
+  // rule — and what the old field list rejected, silently stopping every
+  // summary from reaching the cloud.
+  it('allows the encrypted shape the client actually sends', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await assertSucceeds(
+      db.doc('users/user-a/summaries/doc-1').set({
+        documentId: 'doc-1',
+        tone: 'ciphertext',
+        echo: 'ciphertext',
+        eventDate: 'ciphertext',
+        quotableSentence: 'ciphertext',
+        contentHash: 'ciphertext',
+        frequentWords: 'ciphertext-of-the-whole-array',
+        authorPhrases: 'ciphertext-of-the-whole-array',
+        insights: 'ciphertext-of-the-whole-array',
+        themes: 'ciphertext-of-the-whole-array',
+        extractedFacts: 'ciphertext-of-the-whole-array',
+        commitments: 'ciphertext-of-the-whole-array',
+        mentionedPeople: [{ name: 'Alice', role: 'friend' }],
+        processedAt: Date.now(),
+        valence: 0.4,
+        arousal: 0.2,
+        promptVersion: 2,
+        _encrypted: true,
+      }, { merge: true })
+    );
+  });
+
+  it('allows the plaintext v2 fields when encryption is off', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await assertSucceeds(
+      db.doc('users/user-a/summaries/doc-1').set({
+        ...validSummary,
+        authorPhrases: ['по-моему'],
+        quotableSentence: 'A sentence.',
+        commitments: ['do the thing'],
+        valence: -0.3,
+        arousal: 0.8,
+        echo: 'echo',
+        eventDate: '2026-07-28',
+        contentHash: 'abc123',
+        promptVersion: 2,
+        summary: 'A short summary.',
+      }, { merge: true })
+    );
+  });
+
   it('denies cross-user summary write', async () => {
     const dbIntruder = testEnv.authenticatedContext('user-b').firestore();
     await assertFails(
@@ -225,12 +274,14 @@ describe('firestore.rules — summaries (S-11)', () => {
     );
   });
 
+  // The cap was raised from 500 to 5000 because `tone` is encrypted before it
+  // is sent, and the ciphertext of a 500-char tone is well past 500 chars.
   it('denies summary with oversized tone field', async () => {
     const db = testEnv.authenticatedContext('user-a').firestore();
     await assertFails(
       db.doc('users/user-a/summaries/doc-1').set({
         ...validSummary,
-        tone: 'x'.repeat(600),
+        tone: 'x'.repeat(5001),
       }, { merge: true })
     );
   });
@@ -247,6 +298,33 @@ describe('firestore.rules — embeddings (S-11)', () => {
     processedAt: Date.now(),
     schemaV: 2,
   };
+
+  // qwen3-embedding-8b returns 4096 dims, so a multi-chunk note produces a
+  // ciphertext far past the old 500k cap while still under the size the client
+  // is willing to send — the gap showed up as permission-denied on sync.
+  it('accepts an embedding at the size the client is willing to send', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await assertSucceeds(
+      db.doc('users/user-a/embeddings/doc-big').set({
+        ...validEmbedding,
+        vectorsJson: 'x'.repeat(700_000),
+        dim: 4096,
+        model: 'ciphertext',
+        contentHash: 'ciphertext',
+        _encrypted: true,
+      }, { merge: true })
+    );
+  });
+
+  it('still denies an embedding past the client-side size limit', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await assertFails(
+      db.doc('users/user-a/embeddings/doc-huge').set({
+        ...validEmbedding,
+        vectorsJson: 'x'.repeat(1_000_001),
+      }, { merge: true })
+    );
+  });
 
   it('allows owner to write a valid embedding', async () => {
     const db = testEnv.authenticatedContext('user-a').firestore();
@@ -272,12 +350,14 @@ describe('firestore.rules — embeddings (S-11)', () => {
     );
   });
 
+  // Cap raised to 1,000,000 to match MAX_CLOUD_EMBEDDING_BYTES on the client;
+  // the "still denies" case above covers the boundary.
   it('denies embedding with oversized vectorsJson', async () => {
     const db = testEnv.authenticatedContext('user-a').firestore();
     await assertFails(
       db.doc('users/user-a/embeddings/doc-1').set({
         ...validEmbedding,
-        vectorsJson: 'x'.repeat(500001),
+        vectorsJson: 'x'.repeat(1_000_001),
       }, { merge: true })
     );
   });
