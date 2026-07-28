@@ -34,6 +34,10 @@ export const AIProfileFacetSummarizer = {
         }
 
         const excerpts = texts.slice(0, MAX_EXCERPTS).map(t => ({ title: '(фрагмент)', excerpt: t.slice(0, EXCERPT_CHARS) }));
+        // Keep `dirty` set when an actual summarization attempt failed, so the stale
+        // summary is retried later. Clearing it unconditionally stranded the facet
+        // with a summary that no longer reflects its notes.
+        let resummarized = excerpts.length === 0;
         if (excerpts.length > 0) {
           const focus = f.label;
           let res = await AIService.summarizeFacet({ notes: excerpts, focus });
@@ -46,10 +50,11 @@ export const AIProfileFacetSummarizer = {
             if (res.label && !f.label.startsWith('Отношения')) f.label = res.label;
             AIBackgroundBudget.spend(1);
             summarizedCount++;
+            resummarized = true;
           }
         }
 
-        f.dirty = false;
+        f.dirty = !resummarized;
         f.updatedAt = Date.now();
         await db.put('aiProfileFacets', f);
         await new Promise(r => setTimeout(r, LLM_DELAY_MS));
