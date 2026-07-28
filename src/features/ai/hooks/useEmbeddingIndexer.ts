@@ -10,7 +10,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { AIBackgroundBudget } from '../services/AIBackgroundBudget';
 import { AISummaryService } from '../services/AISummaryService';
 import { AIService } from '../services/AIService';
-import { restoreAIDataFromCloud } from '../services/AIRestoreService';
+import { restoreAIDataFromCloud, reattachOrphanedAnalysis } from '../services/AIRestoreService';
 import { getLocalDb, type AIDocumentSummary } from '../../../core/storage/localDb';
 
 const BATCH_SIZE = 3;
@@ -122,6 +122,15 @@ export function useEmbeddingIndexer(): void {
         } catch (e) {
           reportError(e, { action: 'indexer_restoreFromCloud' });
         }
+      }
+
+      // Runs every pass, not once: notes are downloaded from the cloud one at a
+      // time, so a note that arrives later still has to find its analysis. Cheap
+      // when there is nothing orphaned — it returns before hashing anything.
+      try {
+        await reattachOrphanedAnalysis();
+      } catch (e) {
+        reportError(e, { action: 'indexer_reattachAnalysis' });
       }
 
       // Note summarization runs FIRST so it gets first claim on the shared
