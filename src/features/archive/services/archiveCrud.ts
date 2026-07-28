@@ -142,11 +142,18 @@ export async function deleteArchiveSession(
   session: ArchiveSession,
   userId: string
 ): Promise<void> {
-  await StorageService.deleteDocument(
-    userId,
-    session._isLocal ? session.id : undefined,
-    session._hasCloudCopy ? (session._linkedCloudId || session.id) : undefined
-  );
+  const localId = session._isLocal ? session.id : undefined;
+  let cloudId = session._hasCloudCopy ? (session._linkedCloudId || session.id) : undefined;
+  // The snapshot above was captured when the confirm dialog opened; a background
+  // sync can link a cloud copy in between. Trusting the stale flag deletes only the
+  // local copy and orphans the cloud document, which then reappears in the archive.
+  if (localId && !cloudId) {
+    try {
+      const fresh = await LocalDocumentService.getDocument(localId);
+      if (fresh?.linkedCloudId) cloudId = fresh.linkedCloudId;
+    } catch { /* fall back to the snapshot */ }
+  }
+  await StorageService.deleteDocument(userId, localId, cloudId);
   await AISummaryService.delete(session.id);
   await AIEmbeddingService.delete(session.id);
 }
