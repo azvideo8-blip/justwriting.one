@@ -19,6 +19,7 @@ interface LoadedSession extends Session {
   _firstSessionAt?: number | undefined;
   _locked?: boolean | undefined;
   _decryptionError?: boolean | undefined;
+  _contentError?: boolean | undefined;
   _hasPendingSync?: boolean | undefined;
 }
 

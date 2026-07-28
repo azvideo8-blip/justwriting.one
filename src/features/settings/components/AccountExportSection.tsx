@@ -60,7 +60,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
         nickname: user?.displayName ?? null,
         email: user?.email ?? null,
       };
-      const exportableSessions = sessions.filter(s => !s._locked && !s._decryptionError);
+      const exportableSessions = sessions.filter(s => !s._locked && !s._decryptionError && !s._contentError);
       const skippedCount = sessions.length - exportableSessions.length;
       const exportData = {
         exportedAt: new Date().toISOString(),
