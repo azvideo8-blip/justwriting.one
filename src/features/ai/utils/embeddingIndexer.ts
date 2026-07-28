@@ -26,7 +26,7 @@ export async function sha256Hex(text: string): Promise<string> {
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function getLatestContent(documentId: string): Promise<string | null> {
+export async function getLatestContent(documentId: string): Promise<string | null> {
   const db = await getLocalDb();
   const versions = await db.getAllFromIndex('versions', 'by-document', documentId);
   if (versions.length === 0) return null;
