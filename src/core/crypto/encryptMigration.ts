@@ -1,6 +1,7 @@
 import { getSessionKey } from './encrypt';
 import { maybeEncrypt } from './cryptoHelpers';
 import { getClient } from '../firebase/firestoreClient';
+import { tryReserveBulkWriteBudget, areCloudWritesBlockedToday, isGlobalWriteFailure, blockCloudWritesToday } from '../firebase/writeBudget';
 import type { DocumentReference, WriteBatch, FieldValue } from 'firebase/firestore';
 import { reportError } from '../../shared/errors/reportError';
 
@@ -76,7 +77,15 @@ async function flushPending(batch: WriteBatch, ops: PendingOp[]): Promise<string
     }
     keys.push(op.checkKey);
   }
-  await batch.commit();
+  try {
+    await batch.commit();
+  } catch (e) {
+    if (isGlobalWriteFailure(e)) {
+      blockCloudWritesToday();
+      throw new VaultLockedError(); // repurpose or create a new error to bubble up cleanly
+    }
+    throw e;
+  }
   return keys;
 }
 
@@ -105,6 +114,9 @@ async function _encryptAllExistingNotesInner(
   signal?: AbortSignal,
 ): Promise<MigrationProgress> {
   if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
+  if (areCloudWritesBlockedToday()) {
+    return { total: 0, processed: 0, encrypted: 0, errors: 0 };
+  }
   const key = getSessionKey();
   if (!key) throw new Error('Not unlocked');
 
@@ -138,6 +150,7 @@ async function _encryptAllExistingNotesInner(
           if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
           // V-2: abort early if vault locked mid-run instead of erroring on every doc.
           if (!getSessionKey()) throw new VaultLockedError();
+          if (!tryReserveBulkWriteBudget()) break;
           try {
             const ck = `v_${documentId}_${v.id}`;
             if (checkpoint.has(ck) || v.data()._encrypted) {
@@ -191,6 +204,7 @@ async function _encryptAllExistingNotesInner(
       if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
       // V-2: abort early if vault locked mid-run instead of erroring on every doc.
       if (!getSessionKey()) throw new VaultLockedError();
+      if (!tryReserveBulkWriteBudget()) break;
       try {
         const ck = `d_${d.id}`;
         if (checkpoint.has(ck) || d.data()._encrypted) {

@@ -8,7 +8,7 @@ import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { getIndexCoverage, indexPending, reindexAll, type IndexCoverage } from '../utils/embeddingIndexer';
 import { searchNotes, type RetrievedNote } from '../utils/noteRetriever';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
-import { getWriteBudgetStatus } from '../utils/firestoreWriteBudget';
+import { getWriteBudgetStatus } from '../../../core/firebase/writeBudget';
 import { reportError } from '../../../shared/errors/reportError';
 
 export function EmbeddingDiagnostics() {

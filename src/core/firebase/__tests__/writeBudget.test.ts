@@ -3,7 +3,7 @@ import {
   isGlobalWriteFailure,
   blockCloudWritesToday,
   areCloudWritesBlockedToday,
-} from '../firestoreWriteBudget';
+} from '../writeBudget';
 
 describe('global cloud-write failures', () => {
   beforeEach(() => localStorage.clear());

@@ -29,6 +29,10 @@ export interface UserProfile {
   encryptionSalt?: string | undefined;
   encryptedDataKey?: string | undefined;
   encryptionMeta?: EncryptionMeta | undefined;
+  privacyAcceptedAt?: Timestamp | Date | number | undefined;
+  privacyVersion?: number | undefined;
+  aiPortrait?: string | undefined;
+  _encrypted?: boolean | undefined;
 }
 
 export type AchievementTier = 'common' | 'rare' | 'legendary';

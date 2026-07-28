@@ -9,7 +9,7 @@ import {
   isGlobalWriteFailure,
   blockCloudWritesToday,
   areCloudWritesBlockedToday,
-} from '../utils/firestoreWriteBudget';
+} from '../../../core/firebase/writeBudget';
 
 // Gentle pacing between consecutive Firestore writes in a bulk sync loop —
 // this is a DAILY total quota, so pacing alone can't prevent exhausting it,
