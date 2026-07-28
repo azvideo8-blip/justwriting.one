@@ -251,7 +251,8 @@ export function MobileWriteScreen({
 
             <div className="text-[10px] font-mono text-[var(--text-subtle)] tracking-[0.06em] uppercase min-w-[60px] text-right tabular-nums">
               {saveStatus === 'saving' ? t('save_status_saving') :
-               saveStatus === 'saved'  ? t('save_status_saved')  : ''}
+               saveStatus === 'saved'  ? t('save_status_saved')  :
+               saveStatus === 'cloud-stale' ? <span className="text-[var(--accent-warning)]">{t('editor_cloud_stale')}</span> : ''}
             </div>
           </motion.div>
         )}

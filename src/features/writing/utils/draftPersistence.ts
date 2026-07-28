@@ -10,6 +10,7 @@ import { logger } from '../../../shared/errors/logger';
 export interface DraftPersistResult {
   localOk: boolean;
   remoteOk: boolean;
+  remoteError?: unknown;
 }
 
 export function buildLocalDraft(
@@ -57,13 +58,14 @@ export async function persistDraft(
     WritingDraftService.saveToLocal(draft),
     shouldRemoteSave
       ? WritingDraftService.saveToFirestore(draft)
-      : Promise.resolve(),
+      : Promise.resolve(true),
   ];
 
   const [localResult, remoteResult] = await Promise.allSettled(promises);
 
   const localOk = localResult.status === 'fulfilled';
-  const remoteOk = !shouldRemoteSave || remoteResult.status === 'fulfilled';
+  const remoteOk = !shouldRemoteSave || (remoteResult.status === 'fulfilled' && remoteResult.value === true);
+  const remoteError = remoteResult.status === 'rejected' ? remoteResult.reason : undefined;
 
   if (localOk) {
     await WritingDraftService.clearLegacyDraft(draft.userId);
@@ -73,8 +75,8 @@ export async function persistDraft(
     logger.error('draftPersistence', 'Local save failed', { reason: String(localResult.reason) });
   }
   if (shouldRemoteSave && !remoteOk) {
-    logger.warn('draftPersistence', 'Firestore save failed (will retry on next change)', { reason: String(remoteResult.reason) });
+    logger.warn('draftPersistence', 'Firestore save failed (will retry on next change)', { reason: String(remoteError || 'Did not write') });
   }
 
-  return { localOk, remoteOk };
+  return { localOk, remoteOk, remoteError };
 }

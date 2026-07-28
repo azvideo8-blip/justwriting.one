@@ -6,6 +6,7 @@ import {
   saveGuestDraftToStorage,
 } from '../services/GuestDraftService';
 import { useDraftManager, DraftData } from './useDraftManager';
+import type { DraftSaveStatus } from './useDraftCore';
 import { useDraftSession } from './useDraftSession';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
@@ -16,7 +17,7 @@ export interface GuestSessionReturn extends ReturnType<typeof useBaseWritingSess
   isGuest: true;
   hasDraft: boolean;
   setHasDraft: (v: boolean) => void;
-  saveStatus: 'idle' | 'saving' | 'saved' | 'error';
+  saveStatus: DraftSaveStatus;
   saveErrorKind: 'quota' | 'unknown' | null;
   lastSavedAt: number | null;
   isOnline: boolean;

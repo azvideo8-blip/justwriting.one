@@ -21,7 +21,7 @@ export function useDraftAutosave(
   }
 ) {
   const userId = user?.uid ?? null;
-  const { saveStatus, lastSavedAt, wrapSave } = useDraftCore({ userId });
+  const { saveStatus, lastSavedAt, remotePermanentError, wrapSave } = useDraftCore({ userId });
   const draftDataRef = useRef(draftData);
   const { layoutMode } = useLayoutMode();
 
@@ -40,6 +40,9 @@ export function useDraftAutosave(
     if (!result.localOk) {
       throw new Error('Local save failed');
     }
+    // Deliberately returns nothing: `remote: false` makes persistDraft report
+    // remoteOk=true (nothing was attempted, so nothing failed). Passing that up
+    // would clear the cloud-stale flag on every keystroke pause.
   }, [user]);
 
   const doAutosaveRemote = useCallback(async () => {
@@ -50,9 +53,10 @@ export function useDraftAutosave(
 
     const draft = buildLocalDraft(user, current);
     const result = await persistDraft(draft, { remote: true });
-    if (!result.localOk && !result.remoteOk) {
-      throw new Error('Both local and remote save failed');
+    if (!result.localOk) {
+      throw new Error('Local save failed');
     }
+    return result;
   }, [user]);
 
   const doForceSave = useCallback(async () => {
@@ -64,9 +68,10 @@ export function useDraftAutosave(
 
     const draft = buildLocalDraft(user, current);
     const result = await persistDraft(draft, { remote: true });
-    if (!result.localOk && !result.remoteOk) {
-      throw new Error('Both local and remote save failed');
+    if (!result.localOk) {
+      throw new Error('Local save failed');
     }
+    return result;
   }, [user]);
 
   const wrappedAutosaveLocal = useCallback(async () => {
@@ -96,12 +101,12 @@ export function useDraftAutosave(
 
   // Interval safety net: save to cloud (remote) every 30s even if the user types continuously.
   useEffect(() => {
-    if (!user) return;
+    if (!user || remotePermanentError) return;
     const currentStatus = useTimerStore.getState().status;
     if (currentStatus !== 'writing' && currentStatus !== 'paused') return;
     const interval = setInterval(() => void wrappedAutosaveRemote(), 30_000);
     return () => clearInterval(interval);
-  }, [user, wrappedAutosaveRemote, draftData.status]);
+  }, [user, wrappedAutosaveRemote, draftData.status, remotePermanentError]);
 
   return { saveStatus: saveStatus as DraftSaveStatus, lastSavedAt };
 }

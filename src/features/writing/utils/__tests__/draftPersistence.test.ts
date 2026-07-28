@@ -5,7 +5,7 @@ import { WritingDraftService } from '../../services/WritingDraftService';
 vi.mock('../../services/WritingDraftService', () => ({
   WritingDraftService: {
     saveToLocal: vi.fn().mockResolvedValue(undefined),
-    saveToFirestore: vi.fn().mockResolvedValue(undefined),
+    saveToFirestore: vi.fn().mockResolvedValue(true),
     clearLegacyDraft: vi.fn().mockResolvedValue(undefined),
   },
 }));
@@ -79,10 +79,20 @@ describe('persistDraft', () => {
   it('localOk=true when saveToLocal resolves', async () => {
     const result = await persistDraft({ userId: 'u1' } as any);
     expect(result.localOk).toBe(true);
+    expect(result.remoteOk).toBe(true);
   });
 
   it('remoteOk=false when saveToFirestore rejects, localOk still true', async () => {
-    (WritingDraftService.saveToFirestore as any).mockRejectedValueOnce(new Error('fail'));
+    const mockError = new Error('fail');
+    (WritingDraftService.saveToFirestore as any).mockRejectedValueOnce(mockError);
+    const result = await persistDraft({ userId: 'u1' } as any);
+    expect(result.localOk).toBe(true);
+    expect(result.remoteOk).toBe(false);
+    expect(result.remoteError).toBe(mockError);
+  });
+
+  it('remoteOk=false when saveToFirestore returns false', async () => {
+    (WritingDraftService.saveToFirestore as any).mockResolvedValueOnce(false);
     const result = await persistDraft({ userId: 'u1' } as any);
     expect(result.localOk).toBe(true);
     expect(result.remoteOk).toBe(false);
