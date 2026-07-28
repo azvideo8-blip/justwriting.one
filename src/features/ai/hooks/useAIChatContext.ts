@@ -164,6 +164,18 @@ export function useAIChatContext(personaId: string): {
       } catch { /* ignore */ }
     }
 
+    // Global exclusion: a person marked 'ignored' must stay out of the model's
+    // context on EVERY turn, not only when this message happens to name them.
+    // The loop above only sees names present in `text`, so without this pass a
+    // generic question still retrieves their notes.
+    try {
+      for (const person of await db.getAll('aiPeopleIndex')) {
+        if (person.status !== 'ignored') continue;
+        ignoredNames.add(person.key);
+        person.noteIds?.forEach(id => ignoredDocumentIds.add(id));
+      }
+    } catch { /* ignore */ }
+
     let turnEmb: number[] | undefined;
     if (text.trim().length > 0) {
       try {
