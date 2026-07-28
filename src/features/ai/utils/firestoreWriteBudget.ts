@@ -82,3 +82,31 @@ export function getSummarizeBudgetStatus(): { used: number; cap: number } {
   const state = readStateSummarize();
   return { used: state.count, cap: DAILY_CAP_SUMMARIZE };
 }
+
+// Firestore answers resource-exhausted (project daily write quota) and
+// permission-denied (a rule that rejects this record shape) identically for
+// every document in a bulk loop — they are properties of the project or the
+// schema, not of the row being written. Continuing the loop after one burns
+// quota on writes that cannot succeed, and since nothing gets marked synced the
+// next pass repeats the whole list. The free-tier database cannot exceed its
+// quota even with billing enabled, so the only lever is not spending it.
+const STORAGE_KEY_BLOCKED = 'firestore_cloud_writes_blocked';
+
+export function isGlobalWriteFailure(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  if (typeof code === 'string') {
+    const c = code.replace(/^firestore\//, '');
+    if (c === 'resource-exhausted' || c === 'permission-denied') return true;
+  }
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  return /resource-exhausted|Quota limit exceeded|Missing or insufficient permissions/i.test(msg);
+}
+
+/** Stop all background cloud writes for the rest of today (Pacific quota day). */
+export function blockCloudWritesToday(): void {
+  try { localStorage.setItem(STORAGE_KEY_BLOCKED, todayKey()); } catch { /* fail open */ }
+}
+
+export function areCloudWritesBlockedToday(): boolean {
+  try { return localStorage.getItem(STORAGE_KEY_BLOCKED) === todayKey(); } catch { return false; }
+}
