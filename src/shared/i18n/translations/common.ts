@@ -49,6 +49,10 @@ export const commonTranslations: Translations = {
   error_nickname_failed:{ ru: 'Не удалось обновить никнейм.', en: 'Failed to update nickname.' },
   error_export_failed:  { ru: 'Не удалось экспортировать.', en: 'Failed to export.' },
   error_signout_failed: { ru: 'Не удалось выйти из аккаунта.', en: 'Failed to sign out.' },
+  signout_wipes_local: {
+    ru: 'При выходе с устройства удаляются все локальные копии — заметки и анализ ИИ. Ничего не теряется: всё восстановится из облака при следующем входе, но это займёт время.',
+    en: 'Signing out deletes every local copy from this device — notes and AI analysis. Nothing is lost: it is restored from the cloud on your next sign-in, but that takes a while.',
+  },
   error_labels_failed:  { ru: 'Не удалось обновить ярлыки.', en: 'Failed to update labels.' },
   error_continue_session: { ru: 'Ошибка при продолжении сессии', en: 'Error continuing session' },
   error_reload: { ru: 'Перезагрузить', en: 'Reload' },

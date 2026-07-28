@@ -5,7 +5,6 @@ import { AuthService } from '../../../app/AuthService';
 import { useLanguage } from '../../../shared/i18n';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAuthStatus } from '../../../app/useAuthStatus';
-import { useTimerStore } from '../../writing/store/useTimerStore';
 import { resetAndClear } from '../../writing/store/storeActions';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { Section } from './SettingsHelpers';
@@ -166,7 +165,11 @@ export function AccountTab({ userId }: AccountTabProps) {
           <AccountExportSection userId={userId} />
 
           {showSignOutConfirm ? (
-            <div className="flex gap-2">
+            <div className="space-y-3">
+              <p className="text-xs text-text-main/60 leading-relaxed">
+                {t('signout_wipes_local')}
+              </p>
+              <div className="flex gap-2">
               <Button
                 onClick={() => {
                   setShowSignOutConfirm(false);
@@ -186,19 +189,14 @@ export function AccountTab({ userId }: AccountTabProps) {
               >
                 {t('common_cancel')}
               </Button>
+              </div>
             </div>
           ) : (
             <Button
               onClick={() => {
-                const s = useTimerStore.getState();
-                if (s.status === 'writing' || s.status === 'paused') {
-                  setShowSignOutConfirm(true);
-                  return;
-                }
-                void execute(
-                  () => AuthService.signOut(),
-                  { errorMessage: t('error_signout_failed') }
-                );
+                // Always confirm: signing out wipes every local store (SEC-29),
+                // which is not something to discover afterwards.
+                setShowSignOutConfirm(true);
               }}
               className="w-full px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-accent-danger hover:border-accent-danger/30 transition-colors text-left"
             >

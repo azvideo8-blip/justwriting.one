@@ -77,11 +77,15 @@ function parseVectors(decrypted: Record<string, unknown>): number[][] {
   return [];
 }
 
-async function fetchEmbeddingFromCloud(userId: string, documentId: string): Promise<AIDocumentEmbedding | undefined> {
-  const { db, mod } = await getClient();
-  const snap = await mod.getDoc(mod.doc(db, 'users', userId, 'embeddings', documentId));
-  if (!snap.exists()) return undefined;
-  const data = snap.data() as Record<string, unknown>;
+/**
+ * Decodes one cloud embedding payload. Exported so the bulk restore decodes
+ * with exactly this logic — including the legacy single-vector format — rather
+ * than growing a second parser that drifts from it.
+ */
+export async function decodeCloudEmbedding(
+  data: Record<string, unknown>,
+  documentId: string,
+): Promise<AIDocumentEmbedding> {
   const decrypted = await maybeDecrypt(data, DECRYPT_FIELDS, ARRAY_FIELDS);
   const docId = typeof decrypted.documentId === 'string' ? decrypted.documentId : documentId;
   const vectors = parseVectors(decrypted);
@@ -98,6 +102,13 @@ async function fetchEmbeddingFromCloud(userId: string, documentId: string): Prom
     } catch { /* ignore */ }
   }
   return base;
+}
+
+async function fetchEmbeddingFromCloud(userId: string, documentId: string): Promise<AIDocumentEmbedding | undefined> {
+  const { db, mod } = await getClient();
+  const snap = await mod.getDoc(mod.doc(db, 'users', userId, 'embeddings', documentId));
+  if (!snap.exists()) return undefined;
+  return decodeCloudEmbedding(snap.data() as Record<string, unknown>, documentId);
 }
 
 export const AIEmbeddingService = {

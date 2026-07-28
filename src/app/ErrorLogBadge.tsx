@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertCircle, X, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { AlertCircle, X, Trash2, ChevronDown, ChevronRight, Copy, Check } from 'lucide-react';
 import { useErrorLogStore, ErrorLogItem } from '../shared/errors/useErrorLogStore';
 
 // The trigger lives in the Sidebar (SidebarErrorBadge); this renders only the
@@ -11,8 +11,39 @@ export const ErrorLogBadge: React.FC = () => {
   const isOpen = useErrorLogStore(s => s.panelOpen);
   const setIsOpen = useErrorLogStore(s => s.setPanelOpen);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+  const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
+
+  const buildReport = (): string =>
+    entries
+      .map((e: ErrorLogItem) => {
+        const time = new Date(e.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const repeats = e.count > 1 ? ` (x${e.count})` : '';
+        const ctx = e.context ? `\n  ${JSON.stringify(e.context)}` : '';
+        return `[${time}] ${e.level.toUpperCase()} ${e.source ?? ''}${repeats}: ${e.message}${ctx}`.trim();
+      })
+      .join('\n');
+
+  const copyAll = async () => {
+    const text = buildReport();
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Clipboard API needs a secure context and permission; fall back to a
+      // hidden textarea so copying still works rather than failing silently.
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch { /* nothing else to try */ }
+      document.body.removeChild(ta);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   const formatErrorTime = (timestamp: number) => {
     const d = new Date(timestamp);
@@ -41,6 +72,16 @@ export const ErrorLogBadge: React.FC = () => {
                 <h3 className="font-semibold text-text-main text-sm">Журнал ошибок ({entries.length})</h3>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void copyAll()}
+                  disabled={entries.length === 0}
+                  className="flex items-center gap-1 text-xs text-text-muted hover:text-text-main px-2 py-1 rounded-lg hover:bg-surface-elevated transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                  title="Скопировать весь журнал"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copied ? 'Скопировано' : 'Копировать'}</span>
+                </button>
                 <button
                   type="button"
                   onClick={clearLog}

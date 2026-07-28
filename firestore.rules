@@ -215,19 +215,40 @@ service cloud.firestore {
     //   maybeEncrypt, which may add _encrypted:true.
     //   Summary fields: documentId, tone, frequentWords, insights, themes,
     //   extractedFacts, mentionedPeople, processedAt, _encrypted
+    // Field set derived from AIDocumentSummary (localDb.ts) and what
+    // saveSummaryToCloud actually sends: it spreads the whole record, so every
+    // optional field reaches Firestore. maybeEncrypt turns the STRING_FIELDS
+    // into ciphertext and JSON-stringifies each ARRAY_FIELD into a single
+    // ciphertext string, so encrypted arrays arrive as strings and the item
+    // count is not observable server-side — accept both shapes, capping the
+    // ciphertext by size instead. Omitting a field the client sends denies the
+    // whole write, which is how summaries silently stopped syncing.
     function isValidSummary(data) {
       return data.keys().hasOnly([
-               'documentId', 'tone', 'frequentWords', 'insights', 'themes',
-               'extractedFacts', 'mentionedPeople', 'processedAt', '_encrypted'
+               'documentId', 'summary', 'tone', 'frequentWords', 'authorPhrases',
+               'insights', 'quotableSentence', 'themes', 'extractedFacts',
+               'mentionedPeople', 'processedAt', 'commitments', 'valence',
+               'arousal', 'echo', 'contentHash', 'eventDate', 'promptVersion',
+               '_encrypted'
              ]) &&
              (!('documentId' in data) || data.documentId is string) &&
-             (!('tone' in data) || (data.tone is string && data.tone.size() <= 500)) &&
-             (!('frequentWords' in data) || (data.frequentWords is list && data.frequentWords.size() <= 50)) &&
-             (!('insights' in data) || (data.insights is list && data.insights.size() <= 50)) &&
-             (!('themes' in data) || (data.themes is list && data.themes.size() <= 50)) &&
-             (!('extractedFacts' in data) || (data.extractedFacts is list && data.extractedFacts.size() <= 50)) &&
+             (!('summary' in data) || (data.summary is string && data.summary.size() <= 20000)) &&
+             (!('tone' in data) || (data.tone is string && data.tone.size() <= 5000)) &&
+             (!('echo' in data) || (data.echo is string && data.echo.size() <= 5000)) &&
+             (!('eventDate' in data) || (data.eventDate is string && data.eventDate.size() <= 500)) &&
+             (!('quotableSentence' in data) || (data.quotableSentence is string && data.quotableSentence.size() <= 5000)) &&
+             (!('contentHash' in data) || (data.contentHash is string && data.contentHash.size() <= 500)) &&
+             (!('frequentWords' in data) || (data.frequentWords is list && data.frequentWords.size() <= 50) || (data.frequentWords is string && data.frequentWords.size() <= 20000)) &&
+             (!('authorPhrases' in data) || (data.authorPhrases is list && data.authorPhrases.size() <= 20) || (data.authorPhrases is string && data.authorPhrases.size() <= 20000)) &&
+             (!('insights' in data) || (data.insights is list && data.insights.size() <= 50) || (data.insights is string && data.insights.size() <= 20000)) &&
+             (!('themes' in data) || (data.themes is list && data.themes.size() <= 50) || (data.themes is string && data.themes.size() <= 20000)) &&
+             (!('extractedFacts' in data) || (data.extractedFacts is list && data.extractedFacts.size() <= 50) || (data.extractedFacts is string && data.extractedFacts.size() <= 20000)) &&
+             (!('commitments' in data) || (data.commitments is list && data.commitments.size() <= 50) || (data.commitments is string && data.commitments.size() <= 20000)) &&
              (!('mentionedPeople' in data) || (data.mentionedPeople is list && data.mentionedPeople.size() <= 100)) &&
              (!('processedAt' in data) || data.processedAt is number) &&
+             (!('valence' in data) || data.valence is number) &&
+             (!('arousal' in data) || data.arousal is number) &&
+             (!('promptVersion' in data) || data.promptVersion is number) &&
              (!('_encrypted' in data) || data._encrypted is bool);
     }
 
@@ -246,12 +267,18 @@ service cloud.firestore {
                'contentHash', 'processedAt', 'schemaV', '_encrypted'
              ]) &&
              (!('documentId' in data) || data.documentId is string) &&
-             (!('vectorsJson' in data) || (data.vectorsJson is string && data.vectorsJson.size() <= 500000)) &&
-             (!('vectorJson' in data) || (data.vectorJson is string && data.vectorJson.size() <= 500000)) &&
-             (!('chunkTextsJson' in data) || (data.chunkTextsJson is string && data.chunkTextsJson.size() <= 500000)) &&
-             (!('model' in data) || (data.model is string && data.model.size() <= 200)) &&
-             (!('dim' in data) || (data.dim is number && data.dim >= 0 && data.dim <= 4096)) &&
-             (!('contentHash' in data) || (data.contentHash is string && data.contentHash.size() <= 200)) &&
+             // Caps match MAX_CLOUD_EMBEDDING_BYTES in AIEmbeddingService, which
+             // is what the client refuses to send. A tighter cap here just turns
+             // "too big, skip it" into a permission-denied the client cannot see
+             // coming — at 4096 dims a multi-chunk note passed the old 500k limit.
+             (!('vectorsJson' in data) || (data.vectorsJson is string && data.vectorsJson.size() <= 1000000)) &&
+             (!('vectorJson' in data) || (data.vectorJson is string && data.vectorJson.size() <= 1000000)) &&
+             (!('chunkTextsJson' in data) || (data.chunkTextsJson is string && data.chunkTextsJson.size() <= 1000000)) &&
+             // model and contentHash are encrypted, so the ciphertext is well
+             // longer than the plaintext model name or sha256 hex.
+             (!('model' in data) || (data.model is string && data.model.size() <= 1000)) &&
+             (!('dim' in data) || (data.dim is number && data.dim >= 0 && data.dim <= 8192)) &&
+             (!('contentHash' in data) || (data.contentHash is string && data.contentHash.size() <= 1000)) &&
              (!('processedAt' in data) || data.processedAt is number) &&
              (!('schemaV' in data) || data.schemaV is number || data.schemaV == null) &&
              (!('_encrypted' in data) || data._encrypted is bool);

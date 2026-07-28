@@ -22,12 +22,14 @@ async function saveSummaryToCloud(userId: string, summary: AIDocumentSummary): P
   await mod.setDoc(mod.doc(db, 'users', userId, 'summaries', summary.documentId), encrypted, { merge: true });
 }
 
-async function fetchSummaryFromCloud(userId: string, documentId: string): Promise<AIDocumentSummary | undefined> {
-  const { db, mod } = await getClient();
-  const docRef = mod.doc(db, 'users', userId, 'summaries', documentId);
-  const snap = await mod.getDoc(docRef);
-  if (!snap.exists()) return undefined;
-  const data = snap.data() as Record<string, unknown>;
+/**
+ * Decodes one cloud summary payload. Exported so the bulk restore decodes with
+ * exactly this logic instead of growing a second parser that drifts from it.
+ */
+export async function decodeCloudSummary(
+  data: Record<string, unknown>,
+  documentId: string,
+): Promise<AIDocumentSummary> {
   const decrypted = await maybeDecrypt(data, STRING_FIELDS_LIST, ARRAY_FIELDS_LIST);
   const docId = typeof decrypted.documentId === 'string' ? decrypted.documentId : documentId;
   const tone = typeof decrypted.tone === 'string' ? decrypted.tone : '';
@@ -66,6 +68,13 @@ async function fetchSummaryFromCloud(userId: string, documentId: string): Promis
   const hash = decrypted.contentHash;
   if (typeof hash === 'string') result.contentHash = hash;
   return result;
+}
+
+async function fetchSummaryFromCloud(userId: string, documentId: string): Promise<AIDocumentSummary | undefined> {
+  const { db, mod } = await getClient();
+  const snap = await mod.getDoc(mod.doc(db, 'users', userId, 'summaries', documentId));
+  if (!snap.exists()) return undefined;
+  return decodeCloudSummary(snap.data() as Record<string, unknown>, documentId);
 }
 
 export const AISummaryService = {
