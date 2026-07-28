@@ -5,6 +5,7 @@ import { maybeEncrypt, maybeDecrypt, isProfileLoaded } from '../../../core/crypt
 import { reportError } from '../../../shared/errors/reportError';
 import { withTimeout } from '../../../shared/utils/withTimeout';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+import { DRAFT_CLOUD_FIELDS } from '../../../core/firebase/cloudFields';
 
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const _abortControllers = new Map<string, AbortController>();
@@ -13,12 +14,6 @@ const _abortControllers = new Map<string, AbortController>();
 // draft carries extra transient state (e.g. `status`) that the rule rejects via
 // hasOnly(), so only schema fields are sent to the cloud. `updatedAt` is set
 // separately with a server timestamp.
-const DRAFT_CLOUD_FIELDS = new Set([
-  'userId', 'content', 'title', 'pinnedThoughts', 'tags', '_encrypted',
-  'seconds', 'wpm', 'wordCount', 'initialWordCount', 'activeSessionId',
-  'sessionStartTime', 'accumulatedDuration', 'totalPauseSeconds',
-  'savedDocumentId', 'labelId',
-]);
 
 function isDraftExpired(draft: LocalDraft): boolean {
   const updated = toTimestampMs(draft.updatedAt) ?? 0;
@@ -147,7 +142,7 @@ export const WritingDraftService = {
     const draftRecord: Record<string, unknown> = { ...draft };
     const encrypted = await maybeEncrypt(draftRecord, ['content'], ['pinnedThoughts'], draft.userId);
     const clean = Object.fromEntries(
-      Object.entries(encrypted).filter(([k, v]) => v !== undefined && DRAFT_CLOUD_FIELDS.has(k))
+      Object.entries(encrypted).filter(([k, v]) => v !== undefined && (k in DRAFT_CLOUD_FIELDS))
     );
     try {
       await setDoc(docRef, { ...clean, updatedAt: serverTimestamp() });

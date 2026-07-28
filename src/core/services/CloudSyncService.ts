@@ -9,6 +9,7 @@ import { reportError } from '../../shared/errors/reportError';
 import { withTimeout as withTimeoutBase } from '../../shared/utils/withTimeout';
 import { isFirestoreConnected } from '../firebase/firestore';
 import { getClient } from '../firebase/firestoreClient';
+import { tryReserveBulkWriteBudget, areCloudWritesBlockedToday, isGlobalWriteFailure, blockCloudWritesToday } from '../firebase/writeBudget';
 import pLimit from 'p-limit';
 import { SaveDocumentData } from './storageTypes';
 import { ConflictResolver } from './ConflictResolver';
@@ -100,6 +101,9 @@ export const CloudSyncService = {
     if (!isFirestoreConnected) {
       throw new Error('Not connected to cloud. Changes saved locally.');
     }
+    if (areCloudWritesBlockedToday()) {
+      return '';
+    }
     const db = await getLocalDb();
     const lockKey = `lock_cloud_${localDocumentId}`;
 
@@ -134,6 +138,7 @@ export const CloudSyncService = {
           const missing = localVersions.filter(v => !cloudNums.has(v.version));
           const limiter = pLimit(3);
           await Promise.all(missing.map((ver) => limiter(async () => {
+            if (!tryReserveBulkWriteBudget()) return;
             const idx = localVersions.findIndex(v => v.id === ver.id);
             const prevContent = idx <= 0 ? '' : (localVersions[idx - 1]?.content ?? '');
             const startedAt = ver.sessionStartedAt != null
@@ -204,6 +209,7 @@ export const CloudSyncService = {
 
         const limiter = pLimit(3);
         await Promise.all(versions.map((ver, i) => limiter(async () => {
+          if (!tryReserveBulkWriteBudget()) return;
           const prevContent = i === 0 ? '' : (versions[i - 1]?.content ?? '');
           const startedAt = ver.sessionStartedAt != null
             ? new Date(ver.sessionStartedAt)
@@ -253,6 +259,9 @@ export const CloudSyncService = {
           mood: localDoc.mood,
         }));
       } catch (e) {
+        if (isGlobalWriteFailure(e)) {
+          blockCloudWritesToday();
+        }
         if (cloudId) {
           try { await DocumentService.deleteDocument(userId, cloudId); } catch (cleanupErr) { reportError(cleanupErr, { action: 'addCloudCopy_cleanup', cloudId }); }
         }

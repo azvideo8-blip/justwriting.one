@@ -9,7 +9,7 @@ import {
   isGlobalWriteFailure,
   blockCloudWritesToday,
   areCloudWritesBlockedToday,
-} from '../utils/firestoreWriteBudget';
+} from '../../../core/firebase/writeBudget';
 
 const STRING_FIELDS = ['tone', 'echo', 'eventDate', 'quotableSentence'] as const;
 const ARRAY_FIELDS = ['frequentWords', 'authorPhrases', 'insights', 'themes', 'extractedFacts', 'commitments'] as const;

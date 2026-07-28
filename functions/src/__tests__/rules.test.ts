@@ -2,6 +2,14 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { initializeTestEnvironment, assertSucceeds, assertFails, type TestEnvironment } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import {
+  SUMMARY_CLOUD_FIELDS,
+  EMBEDDING_CLOUD_FIELDS,
+  DRAFT_CLOUD_FIELDS,
+  USER_PROFILE_CLOUD_FIELDS,
+  DOCUMENT_CLOUD_FIELDS,
+  VERSION_CLOUD_FIELDS,
+} from '../../../src/core/firebase/cloudFields';
 
 let testEnv: TestEnvironment;
 
@@ -516,5 +524,140 @@ describe('firestore.rules — aiGlobalDaily', () => {
     await assertFails(
       db.doc('aiGlobalDaily/2026-06-26').set({ requests: 0 })
     );
+  });
+});
+
+describe('firestore.rules — contract', () => {
+  it('has matching field sets for all collections', () => {
+    const rules = readFileSync(resolve(__dirname, '../../../firestore.rules'), 'utf8');
+
+    function extractHasOnly(funcName: string): Set<string> {
+      // Take the first hasOnly() after the declaration rather than trying to
+      // capture the body: a rule comment containing braces (isValidEmbedding
+      // mentions `setDoc({merge:true})`) truncates any non-greedy body match
+      // before the field list, and the failure looks like a missing rule.
+      const declIndex = rules.search(new RegExp(`function\\s+${funcName}\\s*\\(`));
+      if (declIndex === -1) throw new Error(`Function ${funcName} not found in rules`);
+      const body = rules.slice(declIndex);
+      const hasOnlyMatch = body.match(/hasOnly\(\s*\[(.*?)\]\s*\)/s);
+      if (!hasOnlyMatch) throw new Error(`hasOnly list not found in ${funcName}`);
+      const fieldsStr = hasOnlyMatch[1];
+      const fields = fieldsStr.match(/'(.*?)'/g)?.map(s => s.replace(/'/g, '')) ?? [];
+      return new Set(fields);
+    }
+
+    const testContract = (funcName: string, cloudFields: object) => {
+      const ruleFields = extractHasOnly(funcName);
+      const codeFields = new Set(Object.keys(cloudFields));
+      
+      const missingInRules = [...codeFields].filter(f => !ruleFields.has(f));
+      const missingInCode = [...ruleFields].filter(f => !codeFields.has(f));
+      
+      expect(missingInRules, `${funcName}: missing in rules (but sent by client)`).toEqual([]);
+      expect(missingInCode, `${funcName}: missing in client code (but allowed by rules)`).toEqual([]);
+    };
+
+    testContract('isValidSummary', SUMMARY_CLOUD_FIELDS);
+    testContract('isValidEmbedding', EMBEDDING_CLOUD_FIELDS);
+    testContract('isValidDraft', DRAFT_CLOUD_FIELDS);
+    testContract('isValidUserCreate', USER_PROFILE_CLOUD_FIELDS);
+    testContract('isValidDocumentUpdate', DOCUMENT_CLOUD_FIELDS);
+    testContract('isValidVersion', VERSION_CLOUD_FIELDS);
+  });
+});
+
+describe('firestore.rules — maximal documents', () => {
+  const db = () => testEnv.authenticatedContext('user-a').firestore();
+  const ts = new Date().getTime();
+
+  // Fixtures are BUILT FROM the cloud-field constants, never hand-written: a
+  // hand-written maximal document drifts from the constant the moment a field
+  // is added, which is the drift this whole contract exists to stop.
+  const VALUE: Record<string, unknown> = {
+    // ids / plain strings
+    documentId: 'doc-1', userId: 'user-a', uid: 'user-a', title: 't',
+    email: 'test@example.com', nickname: 'n', summary: 's', tone: 'neutral',
+    quotableSentence: 'q', echo: 'e', contentHash: 'h', eventDate: '2026-07-28',
+    labelId: 'l', activeSessionId: 'sess', savedDocumentId: 'doc-1', mood: 'm',
+    model: 'm', content: 'c', aiPortrait: 'p', encryptionSalt: 's',
+    encryptedDataKey: 'k',
+    // json-encoded blobs
+    vectorsJson: '[]', vectorJson: '[]', chunkTextsJson: '[]',
+    // numbers
+    processedAt: ts, updatedAt: ts, valence: 0, arousal: 0, promptVersion: 1,
+    seconds: 1, wpm: 1, wordCount: 1, initialWordCount: 1, sessionStartTime: ts,
+    accumulatedDuration: 1, totalPauseSeconds: 1, dim: 1, schemaV: 1,
+    version: 1, wordsAdded: 1, charsAdded: 1, duration: 1, goalWords: 1,
+    goalTime: 1, currentVersion: 1, sessionsCount: 1, totalWords: 1,
+    totalDuration: 1, totalWordCount: 1, streakDays: 1, avgWpm: 1,
+    avgSessionWords: 1, privacyVersion: 1,
+    // booleans
+    goalReached: true, _encrypted: true,
+    // lists
+    tags: ['tag'], pinnedThoughts: ['p'], frequentWords: ['a'],
+    authorPhrases: ['b'], insights: ['c'], themes: ['e'], extractedFacts: ['f'],
+    commitments: ['h'], labels: [], earnedAchievements: [],
+    mentionedPeople: [{ name: 'Alice', role: 'friend' }],
+    // timestamps / maps
+    savedAt: new Date(), sessionStartedAt: new Date(), firstSessionAt: new Date(),
+    lastSessionAt: new Date(), privacyAcceptedAt: new Date(), encryptionMeta: {},
+  };
+
+  function build(fields: object, opts?: { cipher?: string[]; omit?: string[]; over?: Record<string, unknown> }) {
+    const out: Record<string, unknown> = {};
+    for (const key of Object.keys(fields)) {
+      if (opts?.omit?.includes(key)) continue;
+      if (!(key in VALUE)) throw new Error(`No test value for field "${key}" — add one to VALUE`);
+      // maybeEncrypt JSON-stringifies each array field into one ciphertext
+      // string, so encrypted arrays arrive as strings, not lists.
+      out[key] = opts?.cipher?.includes(key) ? 'ciphertext' : VALUE[key];
+    }
+    return { ...out, ...(opts?.over ?? {}) };
+  }
+
+  // Mirrors the field lists in the services that call maybeEncrypt.
+  const SUMMARY_CIPHER = ['tone', 'echo', 'eventDate', 'quotableSentence',
+    'frequentWords', 'authorPhrases', 'insights', 'themes', 'extractedFacts', 'commitments'];
+
+  it('allows maximal summary (plaintext)', async () => {
+    await assertSucceeds(db().doc('users/user-a/summaries/doc-1')
+      .set(build(SUMMARY_CLOUD_FIELDS, { omit: ['_encrypted'] })));
+  });
+
+  it('allows maximal summary (encrypted)', async () => {
+    await assertSucceeds(db().doc('users/user-a/summaries/doc-2')
+      .set(build(SUMMARY_CLOUD_FIELDS, { cipher: SUMMARY_CIPHER })));
+  });
+
+  it('allows maximal embedding', async () => {
+    await assertSucceeds(db().doc('users/user-a/embeddings/doc-1')
+      .set(build(EMBEDDING_CLOUD_FIELDS, { cipher: ['vectorsJson', 'chunkTextsJson', 'model', 'contentHash'] })));
+  });
+
+  it('allows maximal draft (plaintext)', async () => {
+    await assertSucceeds(db().doc('drafts/user-a')
+      .set(build(DRAFT_CLOUD_FIELDS, { omit: ['_encrypted'] })));
+  });
+
+  it('allows maximal draft (encrypted)', async () => {
+    await assertSucceeds(db().doc('drafts/user-a')
+      .set(build(DRAFT_CLOUD_FIELDS, { cipher: ['content', 'pinnedThoughts'] })));
+  });
+
+  it('allows maximal user profile', async () => {
+    const dbC = testEnv.authenticatedContext('user-c').firestore();
+    await assertSucceeds(dbC.doc('users/user-c')
+      .set(build(USER_PROFILE_CLOUD_FIELDS, { over: { uid: 'user-c' } })));
+  });
+
+  it('allows maximal document update', async () => {
+    const ref = db().doc('users/user-a/documents/doc-max');
+    await assertSucceeds(ref.set({ userId: 'user-a', title: 't' }));
+    await assertSucceeds(ref.set(build(DOCUMENT_CLOUD_FIELDS)));
+  });
+
+  it('allows maximal version', async () => {
+    await assertSucceeds(db().doc('users/user-a/documents/doc-max/versions/v1')
+      .set(build(VERSION_CLOUD_FIELDS, { cipher: ['content'] })));
   });
 });

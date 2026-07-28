@@ -83,6 +83,37 @@ export function getSummarizeBudgetStatus(): { used: number; cap: number } {
   return { used: state.count, cap: DAILY_CAP_SUMMARIZE };
 }
 
+const DAILY_CAP_BULK = 500;
+const STORAGE_KEY_BULK = 'bulk_cloud_write_budget';
+
+function readStateBulk(): BudgetState {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_BULK);
+    if (!raw) return { date: todayKey(), count: 0 };
+    const parsed = JSON.parse(raw) as BudgetState;
+    if (parsed.date !== todayKey()) return { date: todayKey(), count: 0 };
+    return parsed;
+  } catch {
+    return { date: todayKey(), count: 0 };
+  }
+}
+
+export function tryReserveBulkWriteBudget(): boolean {
+  const state = readStateBulk();
+  if (state.count + 1 > DAILY_CAP_BULK) return false;
+  try {
+    localStorage.setItem(STORAGE_KEY_BULK, JSON.stringify({ date: state.date, count: state.count + 1 }));
+  } catch {
+    // fail open
+  }
+  return true;
+}
+
+export function getBulkWriteBudgetStatus(): { used: number; cap: number } {
+  const state = readStateBulk();
+  return { used: state.count, cap: DAILY_CAP_BULK };
+}
+
 // Firestore answers resource-exhausted (project daily write quota) and
 // permission-denied (a rule that rejects this record shape) identically for
 // every document in a bulk loop — they are properties of the project or the
