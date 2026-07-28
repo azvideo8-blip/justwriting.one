@@ -42,6 +42,32 @@ export function useAdminStatus(): AdminStatus {
         hasClaim = tokenResult.claims.role === 'admin';
       }
 
+      // 3. Still no claim. A refresh only re-issues what already exists, so a
+      // claim that was never granted stays absent forever — the state a first
+      // admin promoted directly in the console is in. Ask the server to derive
+      // it from the (server-controlled) profile field, then refresh again.
+      if (!hasClaim && isProfileAdmin) {
+        try {
+          const { getFunctions, httpsCallable } = await import('firebase/functions');
+          // Default region (us-central1) — syncMyAdminClaim declares none, like
+          // every other callable here except deleteAccount.
+          const sync = httpsCallable<unknown, { changed: boolean; isAdmin: boolean }>(
+            getFunctions(),
+            'syncMyAdminClaim',
+          );
+          const { data } = await sync({});
+          if (data.isAdmin) {
+            await authUser.getIdToken(true);
+            tokenResult = await authUser.getIdTokenResult();
+            hasClaim = tokenResult.claims.role === 'admin';
+          }
+        } catch {
+          // Offline, App Check, not deployed yet — fall through to the
+          // stale-token branch, which tells the user something they can act on.
+          // A generic "could not check permissions" would be a downgrade.
+        }
+      }
+
       if (hasClaim) {
         setIsAdmin(true);
         setIsStaleToken(false);

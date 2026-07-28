@@ -160,7 +160,10 @@ async function deleteAccount(): Promise<void> {
 
   const { getFunctions, httpsCallable } = await import('firebase/functions');
   const { app } = await import('../../../core/firebase/client');
-  const functions = getFunctions(app, 'europe-west1');
+  // deleteAccount declares no region, so it deploys to us-central1 like every
+  // other callable here. Pinning europe-west1 made this fail with
+  // functions/not-found — account deletion never reached the server.
+  const functions = getFunctions(app);
   const deleteAccountFn = httpsCallable(functions, 'deleteAccount');
 
   await deleteAccountFn();
