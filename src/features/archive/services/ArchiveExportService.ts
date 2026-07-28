@@ -82,6 +82,14 @@ async function downloadBlob(content: string | Blob, type: string, filename: stri
   setTimeout(() => URL.revokeObjectURL(url), 100);
 }
 
+// A locked / undecryptable / unreadable session carries content: '' — exporting it
+// would produce a file with a header and no text. Mirrors the flag check the bulk
+// export already does (ExportAllService).
+export function isExportable(session: ArchiveSession): boolean {
+  const f = session as ArchiveSession & { _locked?: boolean; _decryptionError?: boolean; _contentError?: boolean };
+  return !f._locked && !f._decryptionError && !f._contentError;
+}
+
 export function exportAsTxt(session: ArchiveSession, s: ExportStrings): void {
   const content = [
     buildHeader(session, s),

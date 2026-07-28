@@ -5,9 +5,10 @@ import { format } from 'date-fns';
 import { Label } from '../../../types';
 import { ArchiveSession } from '../types';
 import { useLanguage } from '../../../shared/i18n';
+import { useToast } from '../../../shared/components/Toast';
 import { cn } from '../../../core/utils/utils';
 import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
-import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx, ExportStrings } from '../services/ArchiveExportService';
+import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx, ExportStrings, isExportable } from '../services/ArchiveExportService';
 import { InlineTags } from './InlineTags';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
@@ -42,6 +43,7 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
   }, [propSession]);
 
   const { t, language } = useLanguage();
+  const { showToast } = useToast();
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
   const [labelPopupOpen, setLabelPopupOpen] = useState(false);
@@ -249,11 +251,24 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
     untitled: t('export_untitled'),
     untitledFilename: t('export_filename_default'),
   };
+  // Refuse to export a note whose text could not be read (vault locked, decryption
+  // or storage failure) — otherwise the user silently downloads an empty file.
+  const exportUnavailableMessage = language === 'ru'
+    ? 'Заметка зашифрована или недоступна — экспортировать нечего.'
+    : 'This note is locked or unreadable — there is nothing to export.';
+  const runExport = (fn: () => void) => {
+    if (!isExportable(session)) {
+      showToast(exportUnavailableMessage, 'error');
+      return;
+    }
+    fn();
+  };
+
   const exportFormats = [
-    { label: 'TXT', action: () => exportAsTxt(session, exportStrings) },
-    { label: 'Markdown (.md)', action: () => exportAsMd(session, exportStrings) },
-    { label: 'PDF', action: () => exportAsPdf(session, exportStrings) },
-    { label: 'DOCX — Word', action: () => exportAsDocx(session, exportStrings) },
+    { label: 'TXT', action: () => runExport(() => exportAsTxt(session, exportStrings)) },
+    { label: 'Markdown (.md)', action: () => runExport(() => exportAsMd(session, exportStrings)) },
+    { label: 'PDF', action: () => runExport(() => exportAsPdf(session, exportStrings)) },
+    { label: 'DOCX — Word', action: () => runExport(() => exportAsDocx(session, exportStrings)) },
   ];
 
   const handleCreateLabel = () => {
