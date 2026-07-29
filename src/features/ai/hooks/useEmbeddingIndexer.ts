@@ -19,6 +19,11 @@ const RESUMMARIZE_DEBOUNCE_MS = 60_000;
 const BACKOFF_MS: Record<string, number> = {
   DAILY_LIMIT: 300_000,
   RATE_LIMIT: 60_000,
+  // The provider is down or timing out (internal / deadline-exceeded / body
+  // read timeout). That is a property of the service, not of this note, so
+  // retrying the next one immediately just repeats the failure — which is how
+  // a provider outage turned into a stream of identical errors every pass.
+  SERVER_ERROR: 300_000,
 };
 const IDLE_TIMEOUT_MS = 5_000;
 const POLL_INTERVAL_MS = 120_000;
@@ -203,6 +208,10 @@ export function useEmbeddingIndexer(): void {
                 backoffUntilRef.current = Date.now() + BACKOFF_MS['RATE_LIMIT']!;
                 break;
               }
+              if (res.error === 'SERVER_ERROR') {
+                backoffUntilRef.current = Date.now() + BACKOFF_MS['SERVER_ERROR']!;
+                break;
+              }
             }
           }
         }
@@ -224,6 +233,12 @@ export function useEmbeddingIndexer(): void {
           }
           if (result === 'rate') {
             backoffUntilRef.current = Date.now() + BACKOFF_MS['RATE_LIMIT']!;
+            break;
+          }
+          // 'error' is what indexDocument returns for a provider failure, and
+          // it never backed off — the next pass retried the same batch.
+          if (result === 'error') {
+            backoffUntilRef.current = Date.now() + BACKOFF_MS['SERVER_ERROR']!;
             break;
           }
           if (result === 'ok') {
