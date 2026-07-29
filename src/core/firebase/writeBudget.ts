@@ -8,7 +8,13 @@
 // bursting hundreds of writes in one go and starving the user's own note saves
 // for the rest of the day. See docs/optimisation 05.07.2026 for the incident
 // this guards against (2026-07-05 Firestore free-tier write quota exhaustion).
-const DAILY_CAP = 300;
+//
+// 2026-07-29: 300 was far too high. The quota is denominated in write UNITS,
+// which scale with document size, and an embedding at 4096 dimensions is
+// hundreds of KB — roughly fifty of them consume the entire 40k daily
+// allowance on their own. The cap counts documents, so it has to be set for
+// the size of THIS document, not for a typical one.
+const DAILY_CAP = 25;
 const STORAGE_KEY = 'embed_cloud_write_budget';
 
 interface BudgetState {

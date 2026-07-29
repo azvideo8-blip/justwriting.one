@@ -31,10 +31,22 @@ export function isOversizedError(msg: string): boolean {
   return /exceeds the maximum allowed size|exceeds.*1,?048,?576|invalid-argument.*size|document.*too large/i.test(msg);
 }
 
+/**
+ * Firestore's free-tier quota is measured in write UNITS, which scale with
+ * document size — not in documents. At 4096 dimensions a full-precision float
+ * serialises as ~20 characters ("-0.019052172876211"), so a multi-chunk note
+ * produces a 400-900 KB document and roughly fifty of them exhaust the whole
+ * day. Six decimals is far beyond what cosine similarity can distinguish on a
+ * normalised vector and roughly halves the payload.
+ */
+function roundVectors(vectors: number[][]): number[][] {
+  return vectors.map(chunk => chunk.map(v => Math.round(v * 1e6) / 1e6));
+}
+
 export async function saveEmbeddingToCloud(userId: string, emb: AIDocumentEmbedding): Promise<{ skipped: boolean }> {
   let payload: Record<string, unknown> = {
     documentId: emb.documentId,
-    vectorsJson: JSON.stringify(emb.vectors),
+    vectorsJson: JSON.stringify(roundVectors(emb.vectors)),
     chunkTextsJson: JSON.stringify(emb.chunkTexts ?? []),
     model: emb.model,
     dim: emb.dim,
