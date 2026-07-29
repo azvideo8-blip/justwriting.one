@@ -2,6 +2,7 @@ import { getLocalDb, randomUUID, ThemeRecord, ThemeEvidence } from '../../../cor
 import { AIService } from './AIService';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
+import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 
 export const THEME_MATCH_THRESHOLD = 0.82;
 export const MAX_EVIDENCE_COUNT = 3;
@@ -260,6 +261,15 @@ export const AIThemeLedgerService = {
       }
 
       await tx.done;
+      
+      if (resolved.length > 0) {
+        useActivityLogStore.getState().addActivity(
+          `Тема затронута: ${resolved.map(r => r.cleanedTheme).join(', ')}`,
+          { action: 'touchThemes', documentId, themes: resolved.map(r => r.cleanedTheme) },
+          'info',
+          'ai'
+        );
+      }
     } catch (e) {
       reportError(e, { action: 'ai_theme_ledger_touch', documentId });
     }

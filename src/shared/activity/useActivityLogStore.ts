@@ -1,47 +1,73 @@
 import { create } from 'zustand';
 
-export interface ErrorLogItem {
+export type ActivityLevel = 'error' | 'warning' | 'info' | 'success';
+
+export interface ActivityLogItem {
   id: string;
   time: number;
   message: string;
   context?: Record<string, unknown> | undefined;
-  level: 'error' | 'warning';
+  level: ActivityLevel;
   source?: string | undefined;
   count: number;
 }
 
-interface ErrorLogState {
-  entries: ErrorLogItem[];
+interface ActivityLogState {
+  entries: ActivityLogItem[];
   panelOpen: boolean;
   setPanelOpen: (open: boolean) => void;
+  addActivity: (
+    messageOrError: unknown,
+    context?: Record<string, unknown>,
+    level?: ActivityLevel,
+    source?: string
+  ) => void;
+  // Legacy alias for compatibility, eventually remove
   addError: (
     error: unknown,
     context?: Record<string, unknown>,
-    level?: 'error' | 'warning',
+    level?: ActivityLevel,
     source?: string
   ) => void;
   clearLog: () => void;
   dismissEntry: (id: string) => void;
 }
 
-const STORAGE_KEY = 'error_log_v1';
-const MAX_MEMORY_ENTRIES = 50;
-const MAX_STORAGE_ENTRIES = 20;
+const STORAGE_KEY = 'activity_log_v1';
+const MAX_MEMORY_ENTRIES = 200;
+const MAX_STORAGE_ENTRIES = 50;
 const DEDUPE_WINDOW_MS = 10_000;
 
-function loadInitialEntries(): ErrorLogItem[] {
+function loadInitialEntries(): ActivityLogItem[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
+    // Also try to migrate old error log if new one doesn't exist
+    if (!raw) {
+      const oldRaw = localStorage.getItem('error_log_v1');
+      if (!oldRaw) return [];
+      const parsed = JSON.parse(oldRaw) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed.slice(0, MAX_STORAGE_ENTRIES).map(item => ({
+          id: String(item.id || `act_${Date.now()}`),
+          time: typeof item.time === 'number' ? item.time : Date.now(),
+          message: String(item.message || 'Unknown error'),
+          context: item.context && typeof item.context === 'object' ? item.context : undefined,
+          level: (item.level === 'warning' || item.level === 'info' || item.level === 'success') ? item.level : 'error',
+          source: item.source ? String(item.source) : undefined,
+          count: typeof item.count === 'number' && item.count > 0 ? item.count : 1,
+        }));
+      }
+      return [];
+    }
     const parsed = JSON.parse(raw) as unknown;
     if (Array.isArray(parsed)) {
       return parsed.slice(0, MAX_STORAGE_ENTRIES).map(item => ({
-        id: String(item.id || `err_${Date.now()}`),
+        id: String(item.id || `act_${Date.now()}`),
         time: typeof item.time === 'number' ? item.time : Date.now(),
-        message: String(item.message || 'Unknown error'),
+        message: String(item.message || 'Unknown event'),
         context: item.context && typeof item.context === 'object' ? item.context : undefined,
-        level: item.level === 'warning' ? 'warning' : 'error',
+        level: (item.level === 'warning' || item.level === 'info' || item.level === 'success') ? item.level : 'error',
         source: item.source ? String(item.source) : undefined,
         count: typeof item.count === 'number' && item.count > 0 ? item.count : 1,
       }));
@@ -52,7 +78,7 @@ function loadInitialEntries(): ErrorLogItem[] {
   return [];
 }
 
-function saveEntries(entries: ErrorLogItem[]): void {
+function saveEntries(entries: ActivityLogItem[]): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, MAX_STORAGE_ENTRIES)));
@@ -61,28 +87,28 @@ function saveEntries(entries: ErrorLogItem[]): void {
   }
 }
 
-function extractErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message || error.name || 'Error';
-  if (typeof error === 'string') return error;
-  if (error && typeof error === 'object') {
-    const msg = (error as { message?: unknown; reason?: unknown }).message ?? (error as { reason?: unknown }).reason;
+function extractMessage(errorOrMessage: unknown): string {
+  if (errorOrMessage instanceof Error) return errorOrMessage.message || errorOrMessage.name || 'Error';
+  if (typeof errorOrMessage === 'string') return errorOrMessage;
+  if (errorOrMessage && typeof errorOrMessage === 'object') {
+    const msg = (errorOrMessage as { message?: unknown; reason?: unknown }).message ?? (errorOrMessage as { reason?: unknown }).reason;
     if (typeof msg === 'string') return msg;
     try {
-      return JSON.stringify(error);
+      return JSON.stringify(errorOrMessage);
     } catch {
-      return String(error);
+      return String(errorOrMessage);
     }
   }
-  return String(error ?? 'Unknown error');
+  return String(errorOrMessage ?? 'Unknown event');
 }
 
-export const useErrorLogStore = create<ErrorLogState>((set, get) => ({
+export const useActivityLogStore = create<ActivityLogState>((set, get) => ({
   entries: loadInitialEntries(),
   panelOpen: false,
   setPanelOpen: (open) => set({ panelOpen: open }),
 
-  addError: (error, context, level = 'error', source) => {
-    const message = extractErrorMessage(error);
+  addActivity: (messageOrError, context, level = 'info', source) => {
+    const message = extractMessage(messageOrError);
     const now = Date.now();
     const current = get().entries;
     const first = current[0];
@@ -94,7 +120,7 @@ export const useErrorLogStore = create<ErrorLogState>((set, get) => ({
     const isRecent = first && now - first.time <= DEDUPE_WINDOW_MS;
 
     if (first && isSameMessage && isSameSource && isRecent) {
-      const updated: ErrorLogItem = {
+      const updated: ActivityLogItem = {
         ...first,
         time: now,
         count: first.count + 1,
@@ -106,8 +132,8 @@ export const useErrorLogStore = create<ErrorLogState>((set, get) => ({
       return;
     }
 
-    const newItem: ErrorLogItem = {
-      id: `err_${now}_${Math.random().toString(36).slice(2, 7)}`,
+    const newItem: ActivityLogItem = {
+      id: `act_${now}_${Math.random().toString(36).slice(2, 7)}`,
       time: now,
       message,
       context,
@@ -119,6 +145,10 @@ export const useErrorLogStore = create<ErrorLogState>((set, get) => ({
     const nextEntries = [newItem, ...current].slice(0, MAX_MEMORY_ENTRIES);
     set({ entries: nextEntries });
     saveEntries(nextEntries);
+  },
+
+  addError: (error, context, level = 'error', source) => {
+    get().addActivity(error, context, level, source);
   },
 
   clearLog: () => {

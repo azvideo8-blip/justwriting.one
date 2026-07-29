@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/react';
-import { useErrorLogStore } from './useErrorLogStore';
+import { useActivityLogStore } from '../activity/useActivityLogStore';
 
 type ErrorContext = Record<string, string | number | boolean | null | undefined>;
 
@@ -17,7 +17,7 @@ export function reportError(
         : typeof context.action === 'string'
           ? context.action
           : undefined;
-    useErrorLogStore.getState().addError(error, context, level, source);
+    useActivityLogStore.getState().addError(error, context, level, source);
   } catch {
     // Avoid error log store failure interrupting reportError
   }

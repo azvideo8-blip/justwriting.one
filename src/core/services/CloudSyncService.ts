@@ -13,6 +13,7 @@ import { tryReserveBulkWriteBudget, areCloudWritesBlockedToday, isGlobalWriteFai
 import pLimit from 'p-limit';
 import { SaveDocumentData } from './storageTypes';
 import { ConflictResolver } from './ConflictResolver';
+import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 
 const CLOUD_SYNC_TIMEOUT = 30_000;
 const LOCK_TTL_MS = 30_000;
@@ -26,6 +27,45 @@ function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): P
 }
 
 export const CloudSyncService = {
+  async restoreMissingDocuments(userId: string): Promise<{ restored: number; hasMore: boolean }> {
+    if (areCloudWritesBlockedToday()) {
+      return { restored: 0, hasMore: true };
+    }
+
+    const cloudDocs = await DocumentService.getUserDocuments(userId);
+    if (!cloudDocs.length) return { restored: 0, hasMore: false };
+
+    cloudDocs.sort((a, b) => {
+      const aTime = a.lastSessionAt?.getTime() ?? 0;
+      const bTime = b.lastSessionAt?.getTime() ?? 0;
+      return bTime - aTime;
+    });
+
+    const localDocs = await LocalStorageService.getGuestDocuments(userId);
+    const localCloudIds = new Set(localDocs.map(d => d.linkedCloudId).filter(Boolean));
+
+    let restored = 0;
+    let hasMore = false;
+
+    for (const doc of cloudDocs) {
+      if (localCloudIds.has(doc.id)) continue;
+      
+      if (!tryReserveBulkWriteBudget()) {
+        hasMore = true;
+        break;
+      }
+
+      try {
+        await CloudSyncService.addLocalCopy(userId, doc.id);
+        restored++;
+      } catch (err) {
+        reportError(err, { action: 'restoreMissingDocuments_doc', cloudId: doc.id });
+      }
+    }
+
+    return { restored, hasMore };
+  },
+
   async addLocalCopy(userId: string, cloudDocumentId: string): Promise<string> {
     const allLocal = await LocalStorageService.getGuestDocuments(userId);
     const existing = allLocal.find(d => d.linkedCloudId === cloudDocumentId);
@@ -86,6 +126,13 @@ export const CloudSyncService = {
       });
 
       await LocalStorageService.updateLinkedCloudId(localId, cloudDocumentId);
+      
+      useActivityLogStore.getState().addActivity(
+        'Заметка загружена из облака',
+        { action: 'addLocalCopy', documentId: localId, cloudDocumentId },
+        'success',
+        'sync'
+      );
     } catch (e) {
       reportError(e, { action: 'addLocalCopy', cloudDocumentId });
       try { await LocalStorageService.deleteDocument(localId); } catch (cleanupErr) {
@@ -280,6 +327,14 @@ export const CloudSyncService = {
       }
       await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId);
       await LocalStorageService.migrateDocumentOwner(localDocumentId, userId);
+      
+      useActivityLogStore.getState().addActivity(
+        'Заметка сохранена в облако',
+        { action: 'addCloudCopy', documentId: localDocumentId, cloudDocumentId: cloudId },
+        'success',
+        'sync'
+      );
+      
       return cloudId;
     } finally {
       try {
@@ -381,6 +436,13 @@ export const CloudSyncService = {
           currentVersion: newVersion,
           mood: data.mood,
         });
+        
+        useActivityLogStore.getState().addActivity(
+          'Изменения сохранены в облако',
+          { action: 'syncVersionToCloud', documentId, newVersion },
+          'success',
+          'sync'
+        );
       }
     } catch (e) {
       reportError(e, { action: 'syncVersionToCloud', documentId, linkedCloudId });

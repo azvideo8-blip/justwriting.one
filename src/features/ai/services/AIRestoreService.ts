@@ -8,6 +8,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { logger } from '../../../shared/errors/logger';
 import { decodeCloudSummary } from './AISummaryService';
 import { decodeCloudEmbedding } from './AIEmbeddingService';
+import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 
 export interface AIRestoreResult {
   summaries: number;
@@ -108,6 +109,12 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
 
   if (result.summaries || result.embeddings || result.failed) {
     logger.info('AIRestoreService', 'Restored AI data from cloud', { ...result });
+    useActivityLogStore.getState().addActivity(
+      `Анализ восстановлен из облака (сводок: ${result.summaries}, эмбеддингов: ${result.embeddings})`,
+      { action: 'restoreAIDataFromCloud', ...result },
+      'info',
+      'ai'
+    );
   }
   return result;
 }
@@ -190,6 +197,12 @@ export async function reattachOrphanedAnalysis(): Promise<ReattachResult> {
 
   if (out.summaries || out.embeddings) {
     logger.info('AIRestoreService', 'Re-attached orphaned analysis by content hash', { ...out });
+    useActivityLogStore.getState().addActivity(
+      `Анализ привязан к заметкам (сводок: ${out.summaries}, эмбеддингов: ${out.embeddings})`,
+      { action: 'reattachOrphanedAnalysis', ...out },
+      'info',
+      'ai'
+    );
   }
   return out;
 }

@@ -12,6 +12,8 @@ import { AISummaryService } from '../services/AISummaryService';
 import { AIService } from '../services/AIService';
 import { restoreAIDataFromCloud, reattachOrphanedAnalysis } from '../services/AIRestoreService';
 import { getLocalDb, type AIDocumentSummary } from '../../../core/storage/localDb';
+import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
+import { CloudSyncService } from '../../../core/services/CloudSyncService';
 
 const BATCH_SIZE = 3;
 const DEBOUNCE_MS = 30_000;
@@ -121,8 +123,20 @@ export function useEmbeddingIndexer(): void {
         try {
           const uid = getAuth().currentUser?.uid;
           if (uid) {
-            const restored = await restoreAIDataFromCloud(uid);
-            if (!restored.skippedLocked) restoredRef.current = true;
+            const { restored, hasMore } = await CloudSyncService.restoreMissingDocuments(uid);
+            if (restored > 0) {
+              useActivityLogStore.getState().addActivity(
+                `Восстановлено заметок из облака: ${restored}`,
+                { action: 'restoreMissingDocuments', restored, hasMore },
+                'info',
+                'sync'
+              );
+            }
+            const aiRestored = await restoreAIDataFromCloud(uid);
+            // If the bulk budget wasn't enough to restore all docs, we shouldn't mark restoredRef as true yet, 
+            // so we try again next pass to get the rest. Wait, restoreAIDataFromCloud fetches all summaries/embeddings in one go.
+            // If hasMore is true, we should probably keep trying on next passes? The ticket says:
+            if (!aiRestored.skippedLocked && !hasMore) restoredRef.current = true;
           }
         } catch (e) {
           reportError(e, { action: 'indexer_restoreFromCloud' });
@@ -194,22 +208,27 @@ export function useEmbeddingIndexer(): void {
               if (res.summary.echo !== undefined) s.echo = res.summary.echo;
               if (res.summary.eventDate !== undefined) s.eventDate = res.summary.eventDate;
               await AISummaryService.save(s);
+              
+              useActivityLogStore.getState().addActivity(
+                'Заметка проанализирована',
+                { action: 'note_summarized', documentId: docId },
+                'success',
+                'ai'
+              );
 
               AIBackgroundBudget.spend(1);
               count++;
               // Gentle spacing between real summarize calls
               await new Promise(r => setTimeout(r, 150));
             } else {
-              if (res.error === 'DAILY_LIMIT') {
-                backoffUntilRef.current = Date.now() + BACKOFF_MS['DAILY_LIMIT']!;
-                break;
-              }
-              if (res.error === 'RATE_LIMIT') {
-                backoffUntilRef.current = Date.now() + BACKOFF_MS['RATE_LIMIT']!;
-                break;
-              }
-              if (res.error === 'SERVER_ERROR') {
-                backoffUntilRef.current = Date.now() + BACKOFF_MS['SERVER_ERROR']!;
+              if (res.error === 'DAILY_LIMIT' || res.error === 'RATE_LIMIT' || res.error === 'SERVER_ERROR') {
+                useActivityLogStore.getState().addActivity(
+                  `Пауза фоновой активности (${res.error})`,
+                  { action: 'indexer_backoff', reason: res.error, type: 'summarize' },
+                  'warning',
+                  'ai'
+                );
+                backoffUntilRef.current = Date.now() + BACKOFF_MS[res.error]!;
                 break;
               }
             }
@@ -227,21 +246,24 @@ export function useEmbeddingIndexer(): void {
 
         for (const docId of batch) {
           const result = await indexDocument(docId);
-          if (result === 'daily') {
-            backoffUntilRef.current = Date.now() + BACKOFF_MS['DAILY_LIMIT']!;
-            break;
-          }
-          if (result === 'rate') {
-            backoffUntilRef.current = Date.now() + BACKOFF_MS['RATE_LIMIT']!;
-            break;
-          }
-          // 'error' is what indexDocument returns for a provider failure, and
-          // it never backed off — the next pass retried the same batch.
-          if (result === 'error') {
-            backoffUntilRef.current = Date.now() + BACKOFF_MS['SERVER_ERROR']!;
+          if (result === 'daily' || result === 'rate' || result === 'error') {
+            const errKey = result === 'daily' ? 'DAILY_LIMIT' : result === 'rate' ? 'RATE_LIMIT' : 'SERVER_ERROR';
+            useActivityLogStore.getState().addActivity(
+              `Пауза фоновой активности (${errKey})`,
+              { action: 'indexer_backoff', reason: errKey, type: 'embed' },
+              'warning',
+              'ai'
+            );
+            backoffUntilRef.current = Date.now() + BACKOFF_MS[errKey]!;
             break;
           }
           if (result === 'ok') {
+            useActivityLogStore.getState().addActivity(
+              'Эмбеддинг вычислен',
+              { action: 'embedding_computed', documentId: docId },
+              'success',
+              'ai'
+            );
             incrementIndexerDailyUsage();
             void AIProfileFacetService.incrementalUpdate(docId).then(async () => {
               scheduleResummarize();
