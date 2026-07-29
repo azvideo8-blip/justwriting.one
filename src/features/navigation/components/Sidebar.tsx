@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react';
-import { PenLine, History, User as UserIcon, LogIn, Settings, Sparkles, Bug, CloudOff, AlertCircle } from 'lucide-react';
+import { useState, useEffect, type ReactNode } from 'react';
+import { PenLine, History, User as UserIcon, LogIn, Settings, Sparkles, Bug, CloudOff, AlertCircle, CheckCircle2, Activity } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
@@ -10,7 +10,10 @@ import { useLoginModal } from '../../../app/useLoginModal';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { APP_VERSION } from '../../../version';
 import { useSyncStatus } from '../../settings/hooks/useSyncStatus';
-import { useErrorLogStore } from '../../../shared/errors/useErrorLogStore';
+import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
+
+/** How long after the newest entry the badge stays green. */
+const RECENT_ACTIVITY_MS = 10_000;
 
 interface SidebarNavItemProps {
   icon: ReactNode;
@@ -140,10 +143,29 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
   const { openLoginModal } = useLoginModal();
   const expanded = hovered;
   const syncStatus = useSyncStatus(user?.uid ?? null);
-  // Red badge counts only hard errors; 'warning'-level background hiccups
-  // (transient AI/network) stay in the log panel without raising the alarm.
-  const errorCount = useErrorLogStore(s => s.entries.filter(e => e.level === 'error').length);
-  const openErrorPanel = useErrorLogStore(s => s.setPanelOpen);
+  
+  const entries = useActivityLogStore(s => s.entries);
+  const openActivityPanel = useActivityLogStore(s => s.setPanelOpen);
+  const errorCount = entries.filter(e => e.level === 'error').length;
+  const mostRecentTime = entries[0]?.time;
+
+  // Driven by a timer, not by Date.now() during render: read at render time the
+  // green state only re-evaluates when something unrelated re-renders the
+  // sidebar, so the badge would sit green long after the work finished.
+  // Both transitions happen inside timers so the effect never calls setState
+  // synchronously; the "on" tick is imperceptible.
+  const [isRecent, setIsRecent] = useState(false);
+  useEffect(() => {
+    const elapsed = mostRecentTime === undefined ? Infinity : Date.now() - mostRecentTime;
+    if (elapsed >= RECENT_ACTIVITY_MS) {
+      const off = setTimeout(() => setIsRecent(false), 0);
+      return () => clearTimeout(off);
+    }
+    const on = setTimeout(() => setIsRecent(true), 0);
+    const off = setTimeout(() => setIsRecent(false), RECENT_ACTIVITY_MS - elapsed);
+    return () => { clearTimeout(on); clearTimeout(off); };
+  }, [mostRecentTime]);
+
   // Guests have no cloud sync relationship at all, so isFirestoreConnected
   // staying false for them isn't a "cloud unavailable" problem — gate on
   // being an actual authenticated user, same as AppTab's settings row.
@@ -248,29 +270,56 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
           </button>
         )}
 
-        {errorCount > 0 && (
-          <button
-            onClick={() => openErrorPanel(true)}
-            className={cn(
-              "relative flex items-center gap-3 rounded-xl transition-colors duration-200 text-left w-full overflow-hidden px-3 py-2",
-              "text-accent-danger/80 hover:text-accent-danger hover:bg-accent-danger/10"
-            )}
-            title={`${errorCount} ${errorCount === 1 ? 'ошибка' : errorCount < 5 ? 'ошибки' : 'ошибок'}`}
-          >
-            <AlertCircle size={18} className="shrink-0" />
-            <span className={cn(
-              "text-xs font-medium whitespace-nowrap overflow-hidden transition-[opacity,max-width,margin-left] duration-300",
-              expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
-            )}>
-              {`${errorCount} ${errorCount === 1 ? 'ошибка' : errorCount < 5 ? 'ошибки' : 'ошибок'}`}
-            </span>
-            {!expanded && (
-              <span className="absolute top-1 right-1 min-w-[14px] h-[14px] px-1 rounded-full bg-accent-danger text-surface-card text-[9px] font-bold flex items-center justify-center">
-                {errorCount > 9 ? '9+' : errorCount}
+        {entries.length > 0 && (() => {
+          let badgeColor = "text-text-main/60 hover:text-text-main";
+          let badgeBg = "hover:bg-surface-elevated";
+          let icon = <Activity size={18} className="shrink-0" />;
+          let label = "Журнал";
+          let dotColor = "";
+          let dotText = "";
+
+          if (errorCount > 0) {
+            badgeColor = "text-accent-danger/80 hover:text-accent-danger";
+            badgeBg = "hover:bg-accent-danger/10";
+            icon = <AlertCircle size={18} className="shrink-0" />;
+            label = `${errorCount} ${errorCount === 1 ? 'ошибка' : errorCount < 5 ? 'ошибки' : 'ошибок'}`;
+            dotColor = "bg-accent-danger text-surface-card";
+            dotText = errorCount > 9 ? '9+' : String(errorCount);
+          } else if (isRecent) {
+            badgeColor = "text-accent-success/80 hover:text-accent-success";
+            badgeBg = "hover:bg-accent-success/10";
+            icon = <CheckCircle2 size={18} className="shrink-0" />;
+            label = "Активность";
+            dotColor = "bg-accent-success";
+          }
+
+          return (
+            <button
+              onClick={() => openActivityPanel(true)}
+              className={cn(
+                "relative flex items-center gap-3 rounded-xl transition-colors duration-200 text-left w-full overflow-hidden px-3 py-2",
+                badgeColor, badgeBg
+              )}
+              title={label}
+            >
+              {icon}
+              <span className={cn(
+                "text-xs font-medium whitespace-nowrap overflow-hidden transition-[opacity,max-width,margin-left] duration-300",
+                expanded ? "opacity-100 max-w-[160px] ml-0" : "opacity-0 max-w-0 ml-[-4px]"
+              )}>
+                {label}
               </span>
-            )}
-          </button>
-        )}
+              {!expanded && dotColor && (
+                <span className={cn(
+                  "absolute top-1 right-1 min-w-[14px] h-[14px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center",
+                  dotColor
+                )}>
+                  {dotText}
+                </span>
+              )}
+            </button>
+          );
+        })()}
 
         {isGuest && (
         <SidebarActionItem

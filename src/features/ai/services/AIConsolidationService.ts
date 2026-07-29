@@ -4,6 +4,7 @@ import { computeSalience } from './salience';
 import { textJaccardSimilarity } from '../utils/mmr';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { AIService } from './AIService';
+import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 
 /**
  * Cosine similarity threshold for vector-based belief clustering.
@@ -450,6 +451,14 @@ export const AIConsolidationService = {
         unitIds: cluster.units.map(u => u.id),
       };
       await this.saveRejection(rejectionRecord);
+      
+      useActivityLogStore.getState().addActivity(
+        'Убеждение отклонено (судья не пропустил)',
+        { action: 'belief_rejected', clusterSize: cluster.units.length, reason: finalReason },
+        'warning',
+        'ai'
+      );
+      
       return { belief: null, llmCalls };
     }
 
@@ -469,6 +478,14 @@ export const AIConsolidationService = {
     };
 
     await this.saveBelief(publishedBelief);
+    
+    useActivityLogStore.getState().addActivity(
+      'Убеждение опубликовано',
+      { action: 'belief_published', beliefId: publishedBelief.id, clusterSize: publishedBelief.clusterSize },
+      'success',
+      'ai'
+    );
+    
     return { belief: publishedBelief, llmCalls };
   },
 

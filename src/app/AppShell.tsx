@@ -18,7 +18,7 @@ import { useSettings } from '../core/settings/SettingsContext';
 import { EncryptionPasswordModal } from '../features/encryption/components/EncryptionPasswordModal';
 import { useEncryptionSetup } from '../features/encryption/hooks/useEncryptionSetup';
 import { setupGlobalErrorListeners } from '../shared/errors/reportError';
-import { ErrorLogBadge } from './ErrorLogBadge';
+import { ActivityLogBadge } from './ActivityLogBadge';
 
 import { AppRoutes } from './AppRoutes';
 import { ConfirmDialogRenderer } from '../shared/components/ConfirmDialog';
@@ -88,7 +88,7 @@ export function AppShell() {
       {/* [U-03] спейсер h-28 убран: pb-20 на main уже компенсирует высоту BottomNav */}
       <LoginModalOverlay open={loginModalOpen} />
       <ConfirmDialogRenderer />
-      <ErrorLogBadge />
+      <ActivityLogBadge />
       {encryptionMode !== 'none' && user && (
         <EncryptionPasswordModal
           mode={encryptionMode}

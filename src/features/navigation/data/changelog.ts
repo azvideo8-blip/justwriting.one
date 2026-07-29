@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.65',
+    date: '2026-07-29',
+    items: [
+      { category: 'new', ru: 'Заметки восстанавливаются из облака сами — больше не нужно скачивать каждую вручную после выхода из аккаунта', en: 'Notes are restored from the cloud automatically — no more downloading each one by hand after signing out' },
+      { category: 'new', ru: 'Журнал ошибок стал журналом активности: видно и то, что происходит успешно — обработка заметки, восстановление, построение поискового индекса. Значок зелёный, когда идёт фоновая работа', en: 'The error log is now an activity log: successful work is visible too — note processing, restores, search index building. The badge turns green while background work runs' },
+      { category: 'new', ru: 'В журнале появилась кнопка «Копировать» — весь журнал одним нажатием', en: 'The log gained a "Copy" button that puts everything on the clipboard at once' },
+      { category: 'fix', ru: 'Резко снижен расход облачной квоты на поисковый индекс: координаты сохраняются короче, а суточный лимит выставлен под реальный размер записи. Именно это дважды за сутки исчерпывало квоту', en: 'Sharply reduced the cloud quota spent on the search index: coordinates are stored more compactly and the daily cap now matches the real size of a record. This is what exhausted the quota twice in one day' },
+      { category: 'fix', ru: 'Когда ИИ-провайдер недоступен, фоновая обработка делает паузу вместо того, чтобы повторять те же запросы каждые полминуты', en: 'When the AI provider is unavailable, background processing pauses instead of retrying the same requests every half minute' },
+    ],
+  },
+  {
     version: '0.7.64',
     date: '2026-07-28',
     items: [
