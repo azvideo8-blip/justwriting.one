@@ -368,7 +368,7 @@ export const AIConsolidationService = {
    */
   async consolidateAndJudgeCluster(
     cluster: MemoryClusterCandidate,
-  ): Promise<{ belief: AIBelief | null; llmCalls: number }> {
+  ): Promise<{ belief: AIBelief | null; llmCalls: number; serviceFailed?: boolean }> {
     const evidenceList: AIBeliefEvidence[] = cluster.units.map(u => ({
       id: u.id,
       date: u.date,
@@ -385,7 +385,11 @@ export const AIConsolidationService = {
     });
 
     if (!initialRes.ok || !initialRes.belief) {
-      return { belief: null, llmCalls };
+      // A service failure is a property of the provider, not of this cluster:
+      // every remaining cluster would hit the same 60s function timeout. Report
+      // it so the pass stops instead of retrying the whole list each minute.
+      const serviceFailed = !initialRes.ok && initialRes.error === 'SERVER_ERROR';
+      return { belief: null, llmCalls, serviceFailed };
     }
     llmCalls++;
 
@@ -493,15 +497,16 @@ export const AIConsolidationService = {
    * Process background consolidation pass under governor budget (`AIBackgroundBudget`).
    * Never runs on the chat hot path!
    */
-  async processConsolidationPass(): Promise<{ processedClusters: number; publishedBeliefs: number; totalLlmCalls: number }> {
+  async processConsolidationPass(): Promise<{ processedClusters: number; publishedBeliefs: number; totalLlmCalls: number; serviceFailed: boolean }> {
     let processedClusters = 0;
     let publishedBeliefs = 0;
     let totalLlmCalls = 0;
+    let serviceFailed = false;
 
     try {
       const units = await this.gatherMemoryUnits();
       if (units.length < 2) {
-        return { processedClusters, publishedBeliefs, totalLlmCalls };
+        return { processedClusters, publishedBeliefs, totalLlmCalls, serviceFailed };
       }
 
       const clusters = this.clusterMemoryUnits(units);
@@ -513,6 +518,10 @@ export const AIConsolidationService = {
         }
 
         const res = await this.consolidateAndJudgeCluster(cluster);
+        if (res.serviceFailed === true) {
+          serviceFailed = true;
+          break;
+        }
         if (res.llmCalls > 0) {
           AIBackgroundBudget.spend(res.llmCalls);
           totalLlmCalls += res.llmCalls;
@@ -527,6 +536,6 @@ export const AIConsolidationService = {
       /* ignore background pass errors */
     }
 
-    return { processedClusters, publishedBeliefs, totalLlmCalls };
+    return { processedClusters, publishedBeliefs, totalLlmCalls, serviceFailed };
   },
 };

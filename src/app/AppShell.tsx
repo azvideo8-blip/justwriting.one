@@ -33,7 +33,7 @@ export function AppShell() {
   const { layoutMode } = useLayoutMode();
   const { loginModalOpen } = useLoginModal();
   const { openSettings } = useSettings();
-  const { mode: encryptionMode, check: recheckEncryption } = useEncryptionSetup();
+  const { mode: encryptionMode, check: recheckEncryption, dismiss: dismissEncryption } = useEncryptionSetup();
 
   useSyncStatus(isGuest ? null : (user?.uid ?? null));
 
@@ -94,6 +94,7 @@ export function AppShell() {
           mode={encryptionMode}
           userId={user.uid}
           onDone={() => void recheckEncryption()}
+          onClose={dismissEncryption}
         />
       )}
     </AppLayout>
