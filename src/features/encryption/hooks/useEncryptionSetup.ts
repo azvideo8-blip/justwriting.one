@@ -6,6 +6,7 @@ import { loadDeviceKey, clearDeviceKey } from '../../../core/crypto/keyVaultCach
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { hasEncryptionMeta, getEncryptionMeta } from '../../../core/services/EncryptionMetaService';
 import { hasLegacyEncryption } from '../../../core/services/LegacyKeyMigration';
+import { reportError } from '../../../shared/errors/reportError';
 
 export type EncryptionModalMode = 'none' | 'setup' | 'unlock' | 'migrate' | 'change';
 
@@ -14,6 +15,7 @@ export function useEncryptionSetup(): {
   isLegacy: boolean;
   loading: boolean;
   check: () => Promise<void>;
+  dismiss: () => void;
 } {
   const { user, profile } = useAuthStatus();
   const [mode, setMode] = useState<EncryptionModalMode>('none');
@@ -87,12 +89,15 @@ export function useEncryptionSetup(): {
       } else {
         setMode('none');
       }
-    } catch {
-      if (legacy) {
-        setMode('migrate');
-      } else {
-        setMode('none');
-      }
+    } catch (e) {
+      // We could not read encryptionMeta, so we do NOT know whether this vault
+      // has already been migrated. Offering migration here is fail-dangerous:
+      // a Firestore read failure (quota exhausted, connection dropped) used to
+      // present an irreversible re-wrap prompt to a user whose vault was fine,
+      // with no way to dismiss it. Migration must require a positive signal
+      // that the new metadata is absent — never the absence of an answer.
+      reportError(e, { action: 'encryptionSetup_metaReadFailed', userId: user.uid }, 'warning');
+      setMode('none');
     }
     setLoading(false);
   }, [user, profile]);
@@ -118,5 +123,11 @@ export function useEncryptionSetup(): {
     }
   }, [isVaultUnlockedVal, check]);
 
-  return { mode, isLegacy, loading, check };
+  // Lets the caller dismiss the prompt. Every mode here is recoverable from
+  // elsewhere in the UI (the note view offers unlock, settings offer setup and
+  // migration), and a modal with no exit is a trap — a wrong `migrate` verdict
+  // used to lock the whole app behind an irreversible action.
+  const dismiss = useCallback(() => setMode('none'), []);
+
+  return { mode, isLegacy, loading, check, dismiss };
 }

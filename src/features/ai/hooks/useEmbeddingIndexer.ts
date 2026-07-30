@@ -306,7 +306,19 @@ export function useEmbeddingIndexer(): void {
       // Process W3 Consolidation pass in background
       try {
         const { AIConsolidationService } = await import('../services/AIConsolidationService');
-        await AIConsolidationService.processConsolidationPass();
+        const pass = await AIConsolidationService.processConsolidationPass();
+        if (pass.serviceFailed) {
+          // The callable is timing out. Without this the pass ran on every idle
+          // tick and every cluster spent a full 60s function timeout, which is
+          // what filled the log with a 504 a minute.
+          useActivityLogStore.getState().addActivity(
+            'Пауза фоновой активности (SERVER_ERROR)',
+            { action: 'indexer_backoff', reason: 'SERVER_ERROR', type: 'consolidation' },
+            'warning',
+            'ai',
+          );
+          backoffUntilRef.current = Date.now() + BACKOFF_MS['SERVER_ERROR']!;
+        }
       } catch (e) {
         reportError(e, { action: '[useEmbeddingIndexer] consolidation pass failed' });
       }
