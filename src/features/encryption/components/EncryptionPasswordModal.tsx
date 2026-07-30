@@ -102,8 +102,12 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
       if (err instanceof WrongPasswordError) {
         setError(t('unlock_wrong_password'));
       } else {
+        // Unlock needs the salt and wrapped key from the cloud profile. When
+        // that read fails the password is fine — saying "something went wrong"
+        // reads as "your password stopped working", which is the exact panic
+        // the PBKDF2 lockout caused. Name the real cause instead.
         reportError(err, { action: 'unlockVault', userId });
-        setError(t('error_generic_action'));
+        setError(t('unlock_cloud_unreachable'));
       }
     } finally {
       setLoading(false);
