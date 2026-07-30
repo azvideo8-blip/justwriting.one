@@ -32,7 +32,7 @@ export interface DiagnosticItem {
   cloudWords?: number | undefined;
   inQueue: boolean;
   queueItemId?: string | undefined;
-  status: 'synced' | 'pending' | 'mismatch' | 'local_only' | 'cloud_only' | 'cloud_missing';
+  status: 'synced' | 'pending' | 'mismatch' | 'local_only' | 'cloud_only' | 'cloud_missing' | 'cloud_unknown';
   cloudEncrypted?: boolean | undefined;
   date?: number | undefined;
 }
@@ -47,6 +47,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [items, setItems] = useState<DiagnosticItem[]>([]);
+  const [cloudUnavailable, setCloudUnavailable] = useState(false);
   const [queueCount, setQueueCount] = useState(0);
 
   const [processedDocs, setProcessedDocs] = useState<Record<string, boolean>>({});
@@ -65,14 +66,21 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
   const fetchData = useCallback(async () => {
     if (!userId || userId.startsWith('guest_')) return;
     setLoading(true);
+    let cloudReadFailed = false;
+    setCloudUnavailable(false);
     try {
       const [localDocs, cloudDocs, queue] = await Promise.all([
         getLocalDb().then(db => db.getAll('documents')).catch(e => {
           reportError(e, { action: '[SyncDiagnostics] Local docs fetch failed' });
           return [];
         }),
+        // A failed read must not look like an empty cloud: every linked note
+        // would be reported as "Cloud Copy Lost" next to an Unlink button, and
+        // unlinking on that false reading destroys the only mapping back to a
+        // cloud copy that is actually still there.
         DocumentService.getUserDocuments(userId).catch(e => {
           reportError(e, { action: '[SyncDiagnostics] Cloud fetch failed' });
+          cloudReadFailed = true;
           return [];
         }),
         getLocalDb().then(db => db.getAll('syncQueue')).catch(e => {
@@ -80,6 +88,8 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
           return [];
         }),
       ]);
+
+      setCloudUnavailable(cloudReadFailed);
 
       const filteredQueue = queue.filter(item => !item.id.startsWith('migrated_') && !item.id.startsWith('lock_cloud_'));
       setQueueCount(filteredQueue.length);
@@ -107,7 +117,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
               status = 'synced';
             }
           } else {
-            status = 'cloud_missing';
+            status = cloudReadFailed ? 'cloud_unknown' : 'cloud_missing';
           }
         }
 
@@ -398,6 +408,13 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
             Cloud Only
           </span>
         );
+      case 'cloud_unknown':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-accent-warning/10 text-accent-warning border border-accent-warning/20">
+            <AlertTriangle size={10} />
+            Облако недоступно
+          </span>
+        );
       case 'cloud_missing':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-accent-danger/10 text-accent-danger border border-accent-danger/20">
@@ -409,7 +426,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
   };
 
   return {
-    loading, syncingId, items, queueCount,
+    loading, syncingId, items, queueCount, cloudReadFailed: cloudUnavailable,
     processedDocs, processingDocId, readSummary, setReadSummary,
     hasEncryption,
     fetchData, handleSyncItem, handleDownloadItem, handleUnlinkItem,

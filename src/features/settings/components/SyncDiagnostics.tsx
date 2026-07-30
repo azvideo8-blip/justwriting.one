@@ -18,7 +18,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
     loading, syncingId, items, queueCount,
     processedDocs, processingDocId, readSummary, setReadSummary,
     hasEncryption,
-    fetchData, handleSyncItem, handleDownloadItem, handleUnlinkItem,
+    fetchData, handleSyncItem, handleDownloadItem, handleUnlinkItem, cloudReadFailed,
     handleEncryptItem, handleClearQueueItem, handleSyncAllQueue,
     handleProcessDocument, handleReadSummary,
     getStatusBadge,
@@ -190,6 +190,8 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       {item.status === 'cloud_missing' && (
                         <Button
                           onClick={() => void handleUnlinkItem(item)}
+                          disabled={cloudReadFailed}
+                          title={cloudReadFailed ? 'Облако недоступно — связь рвать нельзя, пока не ясно, есть ли копия' : undefined}
                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-accent-danger/10 hover:bg-accent-danger/20 text-accent-danger text-xs font-semibold border border-accent-danger/20 transition-colors min-h-[44px]"
                         >
                           <Link2Off size={14} />
@@ -362,8 +364,9 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             {item.status === 'cloud_missing' && (
                               <Button
                                 onClick={() => void handleUnlinkItem(item)}
-                                className="flex items-center gap-1 px-2 py-1 rounded bg-accent-danger/10 hover:bg-accent-danger/20 text-accent-danger text-label font-semibold border border-accent-danger/20 transition-colors"
-                                title="Cloud document has been deleted. Unlink local document to allow re-upload."
+                                disabled={cloudReadFailed}
+                                className="flex items-center gap-1 px-2 py-1 rounded bg-accent-danger/10 hover:bg-accent-danger/20 text-accent-danger text-label font-semibold border border-accent-danger/20 transition-colors disabled:opacity-40"
+                                title={cloudReadFailed ? 'Облако недоступно — рвать связь нельзя, пока не ясно, есть ли копия' : 'Cloud document has been deleted. Unlink local document to allow re-upload.'}
                               >
                                 <Link2Off size={10} />
                                 Unlink
