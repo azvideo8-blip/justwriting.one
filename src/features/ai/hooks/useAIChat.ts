@@ -266,6 +266,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         }
         context.setAttachedNote(note);
       }
+      // A note carried over from the dialogue's link is NOT something the user
+      // attached in this turn. Labelling it as attached made the assistant say
+      // "in the note you attached…" about a note the user never sent.
+      const stickyAttached = !attached && !!context.getAttachedNote();
       const effectiveAttached = attached ?? context.getAttachedNote() ?? undefined;
 
       // For attached notes the last user message goes to the API as a short
@@ -345,6 +349,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         isFirstTurn,
         dialogueId: effectiveDialogueId,
         forcedSearchQuery,
+        attachedIsSticky: stickyAttached,
       });
 
       // Inject today's date so the model can reason about "вчера", "на этой неделе" etc.

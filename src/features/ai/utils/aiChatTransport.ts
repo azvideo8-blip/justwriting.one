@@ -338,6 +338,14 @@ export function extractAnswer(text: string): string {
     .replace(/<\/answer>/gi, '')
     .trim();
   if (!stripped && text.trim()) {
+    // Nothing survived the strip, so the model produced reasoning and no answer
+    // — usually a stream that died before the answer began. Returning the raw
+    // text here published the chain of thought AS the answer, and since
+    // extractReasoning reads the same text, the user saw the same half-finished
+    // deliberation twice. An empty answer is honest; the caller shows the
+    // reasoning block and the fact that the reply did not arrive.
+    const onlyReasoning = /<reasoning>|<think>|ХОД МЫСЛИ:/i.test(text);
+    if (onlyReasoning) return '';
     return text
       .replace(/^ХОД МЫСЛИ:\s*$/gim, '')
       .replace(/^ОТВЕТ:\s*$/gim, '')
