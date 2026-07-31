@@ -551,6 +551,11 @@ export function useAIChatContext(personaId: string): {
           }
         } catch (e) {
           reportError(e, { action: '[useAIChatContext] aggregate query failed' });
+          // Without a block the model falls back to counting the top-K notes
+          // below and states a number — the ledger being unreadable must not
+          // turn into a confident count, or into "you never wrote about this".
+          searchContext = (searchContext ?? '') +
+            `\n\n[ТОЧНАЯ СТАТИСТИКА ПО ВСЕЙ БАЗЕ ЗАМЕТОК НЕДОСТУПНА]\nНе удалось прочитать реестр тем. Скажи, что не можешь сейчас посчитать точно, и не называй никаких чисел — ни своих, ни выведенных из примеров записей ниже.`;
         }
       }
 
