@@ -171,8 +171,10 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
     filteredEmbeddings = filteredEmbeddings.filter(e => allowed.has(e.documentId));
   }
 
-  if (filteredEmbeddings.length === 0) return [];
-
+  // No early return on an empty embedding store. The keyword search below reads
+  // the notes' own text and needs no vectors at all — bailing here made the
+  // entire archive invisible to search whenever the embeddings were missing,
+  // and reported it as "nothing matched" rather than "the index is not built".
   const vectorMatches = topKMultiWithChunkIndex(
     queryVec,
     filteredEmbeddings.map(e => ({
@@ -357,7 +359,7 @@ export async function searchNotesMulti(
   queries: string[],
   maxResults = 5,
   opts?: { queryVector?: number[] | undefined; allEmbeddings?: EmbeddingEntry[] | undefined; minTime?: number | undefined; maxTime?: number | undefined; ignoredDocIds?: Set<string> | undefined },
-): Promise<{ notes: RetrievedNote[]; failed: boolean }> {
+): Promise<{ notes: RetrievedNote[]; failed: boolean; degraded?: boolean }> {
   if (queries.length === 0) return { notes: [], failed: false };
 
   try {
@@ -424,7 +426,11 @@ export async function searchNotesMulti(
     filteredEmbeddings = filteredEmbeddings.filter(e => allowed.has(e.documentId));
   }
 
-  if (filteredEmbeddings.length === 0) return { notes: [], failed: false };
+  // Same as the single-query path: an empty embedding store must not skip the
+  // keyword search. This return is why a library of 120 notes answered nothing
+  // to every question — semantic and keyword alike — while reporting it as an
+  // empty archive.
+  const semanticUnavailable = filteredEmbeddings.length === 0;
 
   // Single vector search with combined embedding
   const vectorMatches = topKMultiWithChunkIndex(
@@ -506,6 +512,10 @@ export async function searchNotesMulti(
   const vectorScoreMap = new Map(vectorMatches.map(m => [m.id, m.score]));
 
   const filterByRelevanceFloor = (idList: string[]): string[] => {
+    // The floor is a vector-similarity floor. With no embeddings every score is
+    // 0, so applying it would throw away the keyword matches that are the only
+    // results left — the floor is meaningless when there is nothing to score.
+    if (semanticUnavailable) return idList;
     return idList.filter(id => {
       if (exactTitleIds.has(id) || matchedIds.has(id)) return true;
       const score = vectorScoreMap.get(id) ?? 0;
@@ -525,12 +535,12 @@ export async function searchNotesMulti(
     const fallbackIds = ordered.slice(0, maxResults);
     const results = await loadNotes(fallbackIds, scoreMap, chunkIndexMap);
     putCache(cacheKey, results);
-    return { notes: results, failed: false };
+    return { notes: results, failed: false, degraded: semanticUnavailable };
   }
 
   if (filteredTopIds.length === 0) {
     putCache(cacheKey, []);
-    return { notes: [], failed: false };
+    return { notes: [], failed: false, degraded: semanticUnavailable };
   }
 
   // Build rerank cards from LOCAL summaries
@@ -597,7 +607,7 @@ export async function searchNotesMulti(
 
     // TICKET-047: Cache results
     putCache(cacheKey, results);
-    return { notes: results, failed: false };
+    return { notes: results, failed: false, degraded: semanticUnavailable };
   } catch (e) {
     reportError(e, { action: 'noteRetriever/searchNotesMulti' });
     return { notes: [], failed: true };

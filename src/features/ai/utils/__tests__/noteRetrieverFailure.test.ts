@@ -41,3 +41,17 @@ describe('searchNotesMulti — a failed search is not an empty archive', () => {
     expect(result.notes).toEqual([]);
   });
 });
+
+// The archive was invisible to search whenever the embedding index was empty:
+// both paths returned before the keyword search that needs no vectors at all.
+describe('searchNotesMulti — no embeddings must not mean no results', () => {
+  it('still runs the keyword search and reports the index as degraded', async () => {
+    vi.spyOn(AIService, 'embed').mockResolvedValue({ ok: true, vectors: [[0.1, 0.2, 0.3]] } as never);
+    vi.spyOn(AIEmbeddingService, 'getAll').mockResolvedValue([]);
+
+    const result = await searchNotesMulti(['про Сашу', 'Саша'], 5);
+
+    expect(result.failed).toBe(false);
+    expect(result.degraded).toBe(true);
+  });
+});
