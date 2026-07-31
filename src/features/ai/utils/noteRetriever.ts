@@ -237,10 +237,18 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
 
   const filteredTopIds = filterByRelevanceFloor(topIds);
 
-  if (topScore >= RERANK_THRESHOLD || hasExactTitle) {
+  // A candidate whose text literally contains the name or the quoted phrase is
+  // stronger evidence than anything a reranker can add, and the rerank is a
+  // network round-trip to the model. Checking locally first is both faster and
+  // better ordered — this is what made a search for a person take seconds.
+  const literalIds = await findLiteralMatches(query, filteredTopIds);
+
+  if (topScore >= RERANK_THRESHOLD || hasExactTitle || literalIds.size > 0) {
     const scoreMap = new Map(fused.map(f => [f.id, f.score]));
-    const fallbackIds = filteredTopIds.slice(0, maxResults);
-    return loadNotes(fallbackIds, scoreMap, chunkIndexMap);
+    const ordered = [...filteredTopIds].sort(
+      (a, b) => (literalIds.has(b) ? 1 : 0) - (literalIds.has(a) ? 1 : 0),
+    );
+    return loadNotes(ordered.slice(0, maxResults), scoreMap, chunkIndexMap);
   }
 
   if (filteredTopIds.length === 0) {
@@ -501,20 +509,9 @@ export async function searchNotesMulti(
 
   // T-3: local high-confidence signal — an exact quote or named-entity hit in a
   // candidate's content. Collect the matching ids so we can lift them, not just bypass.
-  const matchedIds = new Set<string>();
-  const quotes = extractQuotes(queries[0]!);
-  const entities = extractNamedEntities(queries[0]!);
-  if (quotes.length > 0 || entities.length > 0) {
-    for (const id of topIds) {
-      let content = '';
-      try { content = await LocalVersionService.getLatestContent(id); } catch { /* ignore */ }
-      if (!content) continue;
-      const lc = content.toLowerCase();
-      if (quotes.some(q => lc.includes(q)) || entities.some(e => lc.includes(e))) {
-        matchedIds.add(id);
-      }
-    }
-  }
+  // Same local check as the single-query path, stem-aware so «про Сашу» matches
+  // a note that says «Саша».
+  const matchedIds = await findLiteralMatches(queries[0]!, topIds);
 
   const exactTitleIds = await getExactTitleMatchIds(queries[0]!, topIds);
   const vectorScoreMap = new Map(vectorMatches.map(m => [m.id, m.score]));
@@ -623,6 +620,35 @@ export async function searchNotesMulti(
     reportError(e, { action: 'noteRetriever/searchNotesMulti' });
     return { notes: [], failed: true };
   }
+}
+
+/**
+ * Candidates whose text literally contains a quoted phrase or a name from the
+ * query. Local, so it costs nothing next to the cloud rerank it lets us skip.
+ *
+ * Names are matched by stem: the query says «про Сашу» while the note says
+ * «Саша» or «Сашей», so a plain includes() of the query word finds nothing.
+ * Dropping the final letter covers Russian case endings without dragging in a
+ * morphology library.
+ */
+async function findLiteralMatches(query: string, ids: string[]): Promise<Set<string>> {
+  const hits = new Set<string>();
+  const quotes = extractQuotes(query);
+  const needles = extractNamedEntities(query)
+    .map(e => (e.length >= 4 ? e.slice(0, -1) : e))
+    .filter(stem => stem.length >= 3);
+  if (quotes.length === 0 && needles.length === 0) return hits;
+
+  for (const id of ids.slice(0, 10)) {
+    let content = '';
+    try { content = await LocalVersionService.getLatestContent(id); } catch { /* ignore */ }
+    if (!content) continue;
+    const lc = content.toLowerCase();
+    if (quotes.some(q => lc.includes(q)) || needles.some(n => lc.includes(n))) {
+      hits.add(id);
+    }
+  }
+  return hits;
 }
 
 function extractQuotes(text: string): string[] {

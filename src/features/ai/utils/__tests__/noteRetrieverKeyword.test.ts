@@ -56,3 +56,37 @@ describe('searchNotes — a keyword-only match survives the relevance floor', ()
     expect(results.map(r => r.documentId)).toContain(NOTE_ID);
   });
 });
+
+// A name search used to pay for a cloud rerank round-trip on every query. A
+// candidate whose text literally contains the name is stronger evidence than
+// anything the reranker adds — and the check is local.
+describe('searchNotes — a literal name match skips the cloud rerank', () => {
+  const NOTE_ID = 'local_vika_note';
+
+  it('does not call rerank when the note literally contains the name', async () => {
+    vi.spyOn(AIEmbeddingService, 'getAll').mockResolvedValue([] as never);
+    vi.spyOn(AIService, 'embed').mockResolvedValue({ ok: true, vectors: [[0, 1, 0]] } as never);
+    const rerank = vi.spyOn(AIService, 'rerank').mockResolvedValue({ ok: false, error: 'x' } as never);
+
+    const results = await searchNotes('поищи про Вику', 5);
+
+    expect(results.map(r => r.documentId)).toContain(NOTE_ID);
+    expect(rerank).not.toHaveBeenCalled();
+  });
+
+  it('matches the name through its case ending', async () => {
+    // The query says «Вику», the note says «Вику»/«Вика» — a plain substring
+    // check on the query word finds nothing once the endings differ.
+    vi.spyOn(LocalVersionService, 'getLatestContent').mockImplementation(async (id: string) =>
+      id === NOTE_ID ? 'Вчера Вика первый раз поехала в лагерь.' : 'Ничего общего.',
+    );
+    vi.spyOn(AIEmbeddingService, 'getAll').mockResolvedValue([] as never);
+    vi.spyOn(AIService, 'embed').mockResolvedValue({ ok: true, vectors: [[0, 1, 0]] } as never);
+    const rerank = vi.spyOn(AIService, 'rerank').mockResolvedValue({ ok: false, error: 'x' } as never);
+
+    const results = await searchNotes('поищи про Вику', 5);
+
+    expect(results.map(r => r.documentId)).toContain(NOTE_ID);
+    expect(rerank).not.toHaveBeenCalled();
+  });
+});
