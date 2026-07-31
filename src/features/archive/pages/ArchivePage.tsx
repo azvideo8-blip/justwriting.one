@@ -65,7 +65,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const {
     loading, error, cloudLoadFailed, fetchSessions, sessions,
     handleDeleteSession, handleTagsChange, handleTitleChange, handleDateChange, handleLabelChange,
-    previewSession, setPreviewSession, deleteConfirm, setDeleteConfirm,
+    previewSession, setPreviewSession, openPreview, deleteConfirm, setDeleteConfirm,
     allTags, filteredByFilters, filteredSessions, searchQuery, setSearchQuery,
     selectedDate, setSelectedDate, selectedMonth: _selectedMonth, setSelectedMonth,
     selectedTags, setSelectedTags, selectedLabels, toggleLabel,
@@ -274,7 +274,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 <Button onClick={() => void fetchSessions()} className="underline text-accent-danger/70 hover:text-accent-danger">{t('retry')}</Button>
               </div>
             )}
-            {!searchQuery && <OnThisDayCard sessions={filteredByFilters} onOpen={s => setPreviewSession(s)} />}
+            {!searchQuery && <OnThisDayCard sessions={filteredByFilters} onOpen={s => void openPreview(s)} />}
             </div>
             <div className="mt-4 flex-1 min-h-0 pr-1">
               <ArchiveNoteList
@@ -282,7 +282,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 groupedSessions={groupedSessions} sortedDates={sortedDates} dateLocale={dateLocale}
                 labels={profileLabels} userId={userId} searchQuery={searchQuery}
                 isGroupedByDate={isGroupedByDate}
-                onOpen={s => setPreviewSession(s)} onDelete={s => setDeleteConfirm(s)}
+                onOpen={s => void openPreview(s)} onDelete={s => setDeleteConfirm(s)}
                 onTagsChange={(s, tags) => void handleTagsChange(s, tags)} onTitleChange={(s, title) => void handleTitleChange(s, title)}
                 onDateChange={(s, date) => void handleDateChange(s, date)} onLabelChange={(s, label) => void handleLabelChange(s, label)}
                 onStorageChange={() => void fetchSessions()} t={t} language={language} entriesLabel={entriesLabel}

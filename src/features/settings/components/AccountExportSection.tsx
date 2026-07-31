@@ -4,7 +4,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAuthStatus } from '../../../app/useAuthStatus';
-import { loadAllSessions } from '../../../core/services/UnifiedSessionLoader';
+import { loadAllSessions, hydrateSessionContent } from '../../../core/services/UnifiedSessionLoader';
 import { exportAllAsZip } from '../../export/ExportAllService';
 import { ExportStrings } from '../../archive/services/ArchiveExportService';
 import { Section } from './SettingsHelpers';
@@ -26,11 +26,16 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
   const handleExportAll = async () => {
     setLoading(true);
     try {
-      const { sessions } = await loadAllSessions(userId, user);
-      if (sessions.length === 0) {
+      const { sessions: listed } = await loadAllSessions(userId, user);
+      if (listed.length === 0) {
         showToast(t('settings_export_all_empty'), 'error');
         return;
       }
+      // The archive list leaves cloud-only notes without their text. A backup
+      // must carry the text, so fetch it here — this is the one place the reads
+      // are worth paying for, and without it every such note is written out as
+      // an empty file and counted as exported.
+      const sessions = await hydrateSessionContent(listed, user?.uid ?? userId);
       const strings: ExportStrings = {
         date: t('export_header_date'),
         words: t('export_header_words'),
@@ -55,12 +60,13 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
   const handleExportJson = async () => {
     setJsonLoading(true);
     try {
-      const { sessions } = await loadAllSessions(userId, user);
+      const { sessions: listed } = await loadAllSessions(userId, user);
+      const sessions = await hydrateSessionContent(listed, user?.uid ?? userId);
       const profileData: Record<string, unknown> = {
         nickname: user?.displayName ?? null,
         email: user?.email ?? null,
       };
-      const exportableSessions = sessions.filter(s => !s._locked && !s._decryptionError && !s._contentError);
+      const exportableSessions = sessions.filter(s => !s._locked && !s._decryptionError && !s._contentError && !s._contentNotLoaded);
       const skippedCount = sessions.length - exportableSessions.length;
       const exportData = {
         exportedAt: new Date().toISOString(),
