@@ -14,6 +14,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.66',
+    date: '2026-07-31',
+    items: [
+      { category: 'fix', ru: 'Заметки, потерявшие связь с облачной копией, находят её снова сами — по времени начала записи. Без этого каждая такая заметка выгрузилась бы в облако второй раз и скачалась бы обратно как отдельная копия', en: 'Notes that lost the link to their cloud copy find it again on their own, by the time the writing session started. Without this each of them would have been uploaded to the cloud a second time and downloaded back as a separate copy' },
+      { category: 'fix', ru: 'Резко снижен расход облачной квоты на чтения: фоновое восстановление перестало перечитывать весь список заметок каждые две минуты, а панель синхронизации — перезапрашивать всё после каждого нажатия. Именно чтения, а не записи, исчерпали суточный лимит', en: 'Sharply reduced the cloud quota spent on reads: the background restore no longer re-lists every note every two minutes, and the sync panel no longer refetches everything after each click. It was reads, not writes, that exhausted the daily limit' },
+      { category: 'fix', ru: 'Черновик больше не выгружается в облако каждые полминуты, когда в нём ничего не менялось', en: 'The draft is no longer uploaded to the cloud every half minute when nothing in it changed' },
+      { category: 'fix', ru: 'ИИ снова ищет по всему архиву. Половина распознавания просьбы «поищи» никогда не срабатывала из-за границы слова, которая рядом с кириллицей не совпадает, а прикреплённая заметка выключала поиск до конца разговора', en: 'The AI searches the whole archive again. Half the "search my notes" detection never fired because of a word boundary that never matches next to Cyrillic, and an attached note switched the search off for the rest of the conversation' },
+      { category: 'fix', ru: 'В ответах больше не встречаются служебные идентификаторы заметок вместо ссылок', en: 'Replies no longer show internal note identifiers instead of links' },
+      { category: 'fix', ru: 'Сбой чтения больше нигде не выдаётся за ответ: недоступное облако, исчерпанный лимит и незагруженный текст показываются как «неизвестно», а не как «ничего нет». Резервная копия из-за этого больше не может получиться пустой', en: 'A failed read is no longer passed off as an answer anywhere: an unreachable cloud, a spent limit and not-yet-loaded text are shown as "unknown" rather than "nothing there". A backup can no longer come out empty because of it' },
+      { category: 'improvement', ru: 'Длинные ответы ИИ разбиты на абзацы, а не идут сплошным полотном', en: 'Long AI replies are broken into paragraphs instead of running as one solid block' },
+    ],
+  },
+  {
     version: '0.7.65',
     date: '2026-07-29',
     items: [
