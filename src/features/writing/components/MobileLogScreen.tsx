@@ -35,7 +35,7 @@ function formatDuration(minutes: number, t: (key: string) => string): string {
 export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileLogScreenProps) {
   const { t } = useLanguage();
   const { openSettings } = useSettings();
-  const { sessionGroups, loading, refresh } = useLifeLog(userId, isGuest);
+  const { sessionGroups, loading, cloudUnknown, refresh } = useLifeLog(userId, isGuest);
   const [query, setQuery] = useState('');
   const [previewSession, setPreviewSession] = useState<Session | null>(null);
 
@@ -159,7 +159,9 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
           <div className="flex flex-col items-center py-12 px-6 gap-2">
             <div className="text-2xl mb-1">✦</div>
             <div className="text-sm text-[var(--color-text-muted,var(--text-muted))] text-center">
-              {query ? t('log_no_results') : t('log_empty')}
+              {cloudUnknown 
+                ? <span className="text-accent-danger font-medium">{t('sync_cloud_unknown') || 'Облако недоступно'}</span>
+                : query ? t('log_no_results') : t('log_empty')}
             </div>
           </div>
         ) : (

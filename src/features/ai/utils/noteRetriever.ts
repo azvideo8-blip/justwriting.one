@@ -71,13 +71,9 @@ async function getMiniSearch(): Promise<MiniSearch> {
 
 /** BM25 keyword search via MiniSearch with prefix + fuzzy support. */
 async function keywordSearch(query: string, topN: number): Promise<{ id: string; score: number }[]> {
-  try {
-    const ms = await getMiniSearch();
-    const results = ms.search(query);
-    return results.slice(0, topN).map(r => ({ id: r.id as string, score: r.score }));
-  } catch {
-    return [];
-  }
+  const ms = await getMiniSearch();
+  const results = ms.search(query);
+  return results.slice(0, topN).map(r => ({ id: r.id as string, score: r.score }));
 }
 
 /** Reciprocal Rank Fusion: combine two ranked lists into one.
@@ -361,29 +357,30 @@ export async function searchNotesMulti(
   queries: string[],
   maxResults = 5,
   opts?: { queryVector?: number[] | undefined; allEmbeddings?: EmbeddingEntry[] | undefined; minTime?: number | undefined; maxTime?: number | undefined; ignoredDocIds?: Set<string> | undefined },
-): Promise<RetrievedNote[]> {
-  if (queries.length === 0) return [];
+): Promise<{ notes: RetrievedNote[]; failed: boolean }> {
+  if (queries.length === 0) return { notes: [], failed: false };
 
-  // TICKET-047: Check cache before any network calls
-  cleanCache();
-  const cacheKey = [...queries].sort().join('\x00');
-  const cached = getCached(cacheKey);
-  if (cached) {
-    const ids = cached.map(c => c.documentId);
-    const scoreMap = new Map(cached.map(c => [c.documentId, c.score]));
-    const chunkIndexMap = new Map(cached.map(c => [c.documentId, c.chunkIndex]));
-    const cleanChunkIdx = new Map<string, number>();
-    for (const [id, idx] of chunkIndexMap.entries()) {
-      if (idx !== undefined) cleanChunkIdx.set(id, idx);
+  try {
+    // TICKET-047: Check cache before any network calls
+    cleanCache();
+    const cacheKey = [...queries].sort().join('\x00');
+    const cached = getCached(cacheKey);
+    if (cached) {
+      const ids = cached.map(c => c.documentId);
+      const scoreMap = new Map(cached.map(c => [c.documentId, c.score]));
+      const chunkIndexMap = new Map(cached.map(c => [c.documentId, c.chunkIndex]));
+      const cleanChunkIdx = new Map<string, number>();
+      for (const [id, idx] of chunkIndexMap.entries()) {
+        if (idx !== undefined) cleanChunkIdx.set(id, idx);
+      }
+      return { notes: await loadNotes(ids, scoreMap, cleanChunkIdx), failed: false };
     }
-    return loadNotes(ids, scoreMap, cleanChunkIdx);
-  }
 
-  if (queries.length === 1) {
-    const results = await searchNotes(queries[0]!, maxResults, opts);
-    putCache(cacheKey, results);
-    return results;
-  }
+    if (queries.length === 1) {
+      const results = await searchNotes(queries[0]!, maxResults, opts);
+      putCache(cacheKey, results);
+      return { notes: results, failed: false };
+    }
 
   // OPT-1: Reuse pre-computed query vector if provided
   let queryVec = opts?.queryVector;
@@ -400,11 +397,11 @@ export async function searchNotesMulti(
     const embedResult = await AIService.embed({ content: combinedQuery });
     if (!embedResult.ok) {
       reportError(embedResult.error, { action: 'search_notes_multi_embed' });
-      return [];
+      return { notes: [], failed: true };
     }
     queryVec = embedResult.vectors[0];
   }
-  if (!queryVec) return [];
+  if (!queryVec) return { notes: [], failed: true };
 
   const db = await getLocalDb();
   let filteredEmbeddings = opts?.allEmbeddings ?? await AIEmbeddingService.getAll();
@@ -427,7 +424,7 @@ export async function searchNotesMulti(
     filteredEmbeddings = filteredEmbeddings.filter(e => allowed.has(e.documentId));
   }
 
-  if (filteredEmbeddings.length === 0) return [];
+  if (filteredEmbeddings.length === 0) return { notes: [], failed: false };
 
   // Single vector search with combined embedding
   const vectorMatches = topKMultiWithChunkIndex(
@@ -528,12 +525,12 @@ export async function searchNotesMulti(
     const fallbackIds = ordered.slice(0, maxResults);
     const results = await loadNotes(fallbackIds, scoreMap, chunkIndexMap);
     putCache(cacheKey, results);
-    return results;
+    return { notes: results, failed: false };
   }
 
   if (filteredTopIds.length === 0) {
     putCache(cacheKey, []);
-    return [];
+    return { notes: [], failed: false };
   }
 
   // Build rerank cards from LOCAL summaries
@@ -598,9 +595,13 @@ export async function searchNotesMulti(
   const scoreMap = new Map(fused.map(f => [f.id, f.score]));
   const results = await loadNotes(finalIds, scoreMap, chunkIndexMap);
 
-  // TICKET-047: Cache results
-  putCache(cacheKey, results);
-  return results;
+    // TICKET-047: Cache results
+    putCache(cacheKey, results);
+    return { notes: results, failed: false };
+  } catch (e) {
+    reportError(e, { action: 'noteRetriever/searchNotesMulti' });
+    return { notes: [], failed: true };
+  }
 }
 
 function extractQuotes(text: string): string[] {

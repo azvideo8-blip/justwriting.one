@@ -89,13 +89,9 @@ export const AIConsolidationService = {
    * Retrieves all published beliefs from IndexedDB `aiBeliefs`.
    */
   async getAllBeliefs(): Promise<AIBelief[]> {
-    try {
-      const db = await getLocalDb();
-      const records = await db.getAll('aiBeliefs');
-      return (records as unknown as AIBelief[]).sort((a, b) => b.createdAt - a.createdAt);
-    } catch {
-      return [];
-    }
+    const db = await getLocalDb();
+    const records = await db.getAll('aiBeliefs');
+    return (records as unknown as AIBelief[]).sort((a, b) => b.createdAt - a.createdAt);
   },
 
   /**
@@ -140,14 +136,10 @@ export const AIConsolidationService = {
    * Retrieves all logged rejections from IndexedDB `aiBeliefRejections`.
    */
   async getAllRejections(limit = 100): Promise<RejectedBeliefRecord[]> {
-    try {
-      const db = await getLocalDb();
-      const records = await db.getAllFromIndex('aiBeliefRejections', 'by-timestamp');
-      const sorted = (records as unknown as RejectedBeliefRecord[]).sort((a, b) => b.timestamp - a.timestamp);
-      return sorted.slice(0, limit);
-    } catch {
-      return [];
-    }
+    const db = await getLocalDb();
+    const records = await db.getAllFromIndex('aiBeliefRejections', 'by-timestamp');
+    const sorted = (records as unknown as RejectedBeliefRecord[]).sort((a, b) => b.timestamp - a.timestamp);
+    return sorted.slice(0, limit);
   },
 
   /**

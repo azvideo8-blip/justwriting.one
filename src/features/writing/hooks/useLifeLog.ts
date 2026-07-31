@@ -19,6 +19,7 @@ interface UseLifeLogReturn {
   unifiedDocuments: LifeLogDocument[];
   summary: DailySummary;
   loading: boolean;
+  cloudUnknown: boolean;
   refresh: () => Promise<void>;
 }
 
@@ -26,6 +27,7 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [unifiedDocuments, setUnifiedDocuments] = useState<LifeLogDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cloudUnknown, setCloudUnknown] = useState(false);
   const { t, language } = useLanguage();
   const mountedRef = useRef(true);
   const startOfToday = useStartOfToday();
@@ -34,19 +36,33 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
+    setCloudUnknown(false);
     try {
+      let localDocs: Awaited<ReturnType<typeof LocalDocumentService.getGuestDocuments>> = [];
+      let didFail = false;
+      try {
+        localDocs = await LocalDocumentService.getGuestDocuments(userId);
+      } catch (e) {
+        reportError(e, { action: 'lifeLog/fetchLocalDocs' });
+        didFail = true;
+      }
+
       if (isGuest) {
-        const localDocs = await LocalDocumentService.getGuestDocuments(userId);
         if (!mountedRef.current) return;
+        setCloudUnknown(didFail);
         setDocuments([]);
         setUnifiedDocuments(localDocs.map(d => localDocToLifeLog(d, false)));
       } else {
-        const [cloudDocs, localDocs] = await Promise.all([
-          DocumentService.getUserDocuments(userId).catch(e => { reportError(e, { action: 'lifeLog/fetchCloudDocs' }); return [] as Document[]; }),
-          LocalDocumentService.getGuestDocuments(userId).catch(e => { reportError(e, { action: 'lifeLog/fetchLocalDocs' }); return []; }),
-        ]);
+        let cloudDocs: Document[] = [];
+        try {
+          cloudDocs = await DocumentService.getUserDocuments(userId);
+        } catch (e) {
+          reportError(e, { action: 'lifeLog/fetchCloudDocs' });
+          didFail = true;
+        }
 
         if (!mountedRef.current) return;
+        setCloudUnknown(didFail);
         setDocuments(cloudDocs);
         setUnifiedDocuments(mergeUnifiedDocuments(localDocs, cloudDocs));
       }
@@ -77,6 +93,7 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
     unifiedDocuments,
     summary,
     loading,
+    cloudUnknown,
     refresh: fetchSessions,
   };
 }

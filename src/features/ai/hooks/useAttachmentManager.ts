@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect, type ChangeEvent } from 'react';
 import { API_MSG_CAP } from './useAIChat';
+import { reportError } from '../../../shared/errors/reportError';
 
 interface AttachmentManagerParams {
   prepareAttachment: (docId: string) => Promise<{ title: string; content: string; lastSessionAt?: number | undefined } | null>;
@@ -52,9 +53,13 @@ export function useAttachmentManager({
   }, [inputText, setInputText]);
 
   const handleDocSelect = useCallback(async (documentId: string) => {
-    const prepared = await prepareAttachment(documentId);
-    if (prepared) {
-      setPendingAttachments(prev => [...prev, { documentId, title: prepared.title, content: prepared.content, lastSessionAt: prepared.lastSessionAt }]);
+    try {
+      const prepared = await prepareAttachment(documentId);
+      if (prepared) {
+        setPendingAttachments(prev => [...prev, { documentId, title: prepared.title, content: prepared.content, lastSessionAt: prepared.lastSessionAt }]);
+      }
+    } catch (e) {
+      reportError(e, { action: 'useAttachmentManager/prepareAttachment', documentId });
     }
   }, [prepareAttachment]);
 

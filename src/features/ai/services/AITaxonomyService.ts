@@ -31,7 +31,8 @@ export const AITaxonomyService = {
     try {
       const parsed = JSON.parse(raw) as StoredTaxonomy;
       return Array.isArray(parsed.domains) && parsed.domains.length > 0 ? parsed.domains : null;
-    } catch {
+    } catch (e) {
+      reportError(e, { action: 'AITaxonomyService/getTaxonomy' });
       return null;
     }
   },

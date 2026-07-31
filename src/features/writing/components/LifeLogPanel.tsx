@@ -130,7 +130,7 @@ export function LifeLogPanel({
   const { t, language } = useLanguage();
   const { execute } = useServiceAction();
   const { isGuest } = useAuthStatus();
-  const { sessionGroups, summary, loading, refresh, unifiedDocuments } = useLifeLog(userId, isGuest);
+  const { sessionGroups, summary, loading, cloudUnknown, refresh, unifiedDocuments } = useLifeLog(userId, isGuest);
 
   const sevenDayData = useMemo(() => {
     const today = new Date();
@@ -334,9 +334,14 @@ export function LifeLogPanel({
                     </div>
                   );
                 })}
-                {filteredGroups.length === 0 && (
+                {filteredGroups.length === 0 && !cloudUnknown && (
                   <div className="px-4 py-8 text-center text-sm text-text-subtle">
                     {t('lifelog_empty')}
+                  </div>
+                )}
+                {cloudUnknown && (
+                  <div className="px-4 py-8 text-center text-sm">
+                    <span className="text-accent-danger font-medium">{t('sync_cloud_unknown') || 'Облако недоступно'}</span>
                   </div>
                 )}
               </div>
