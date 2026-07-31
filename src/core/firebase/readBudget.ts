@@ -54,7 +54,27 @@ export function canSpendReadBudget(): boolean {
   return state.count < DAILY_READ_CAP;
 }
 
-/** 
+/**
+ * Firestore's free tier is denominated in read UNITS, and a unit covers a slice
+ * of a document, not a document. A note record is one unit; an embedding record
+ * carries its chunk vectors and is hundreds of KB, so it costs dozens. Charging
+ * one per document made the budget understate the real spend by that factor,
+ * which is how a "15,000 read" cap sat happily under a blown 50,000-unit quota.
+ *
+ * Pass the payload size when the documents are large and the cost is charged in
+ * 4 KiB slices instead.
+ */
+export function estimateReadUnits(docs: { data: () => unknown }[]): number {
+  let units = 0;
+  for (const d of docs) {
+    let bytes = 0;
+    try { bytes = JSON.stringify(d.data() ?? {}).length; } catch { bytes = 4096; }
+    units += Math.max(1, Math.ceil(bytes / 4096));
+  }
+  return units;
+}
+
+/**
  * Spends the read budget based on the actual documents returned by the query.
  * Call this AFTER a bulk read.
  */

@@ -86,7 +86,7 @@ vi.mock('../AIEmbeddingService', () => ({
   decodeCloudEmbedding: (d: Record<string, unknown>, id: string) => decodeCloudEmbedding(d, id),
 }));
 
-import { restoreAIDataFromCloud, reattachOrphanedAnalysis } from '../AIRestoreService';
+import { restoreAIDataFromCloud, reattachOrphanedAnalysis, requestEmbeddingRestore } from '../AIRestoreService';
 
 describe('restoreAIDataFromCloud', () => {
   beforeEach(() => {
@@ -100,6 +100,21 @@ describe('restoreAIDataFromCloud', () => {
     embeddingDocs.length = 0;
     getSessionKey.mockReturnValue({} as CryptoKey);
     getEncryptionEnabled.mockReturnValue(true);
+    localStorage.clear();
+    // Pulling embeddings is opt-in: the collection costs more read units than a
+    // whole free day. These cases exercise the restore itself, so they opt in.
+    requestEmbeddingRestore();
+  });
+
+  it('does not touch the embeddings collection unless it was asked to', async () => {
+    localStorage.clear();
+    summaryDocs.push({ id: 'doc-1', data: () => ({ tone: 'calm' }) });
+    embeddingDocs.push({ id: 'doc-1', data: () => ({ vectorsJson: '[[1,2,3]]', contentHash: 'h1' }) });
+
+    const result = await restoreAIDataFromCloud('user_1');
+
+    expect(result.summaries).toBe(1);
+    expect(result.embeddings).toBe(0);
   });
 
   it('pulls summaries and embeddings that are missing locally', async () => {

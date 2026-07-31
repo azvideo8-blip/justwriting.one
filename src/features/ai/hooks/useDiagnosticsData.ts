@@ -16,6 +16,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAdminStatus } from '../../auth/hooks/useAdminStatus';
 import { getReadBudgetStatus, areCloudReadsBlockedToday } from '../../../core/firebase/readBudget';
+import { requestEmbeddingRestore } from '../services/AIRestoreService';
 
 export type Tab = 'stats' | 'sync' | 'db' | 'users' | 'ai_usage' | 'ai_profile' | 'queue' | 'memory_assembler' | 'beliefs';
 
@@ -258,6 +259,13 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     }
   };
 
+  // Deliberately manual — see AIRestoreService: walking the embeddings
+  // collection costs more read units than a whole free day.
+  const handleRequestEmbeddingRestore = () => {
+    requestEmbeddingRestore();
+    showToast('Индекс будет догружаться частями в фоне, по мере дневного лимита чтений', 'success');
+  };
+
   const handleSyncAllToCloud = async () => {
     if (!navigator.onLine) {
       showToast('Данная функция работает только при подключении к сети', 'error');
@@ -428,6 +436,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     fetchAIUsage,
     handleImportAllFromCloud,
     handleSyncAllToCloud,
+    handleRequestEmbeddingRestore,
     handleExportProfile,
     handleGeneratePortrait,
     handleResetCounter,

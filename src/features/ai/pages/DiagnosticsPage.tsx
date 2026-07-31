@@ -65,6 +65,7 @@ export function DiagnosticsPage() {
     fetchAIUsage,
     handleImportAllFromCloud,
     handleSyncAllToCloud,
+    handleRequestEmbeddingRestore,
     handleResetCounter,
     handleResetUserLimit,
     handleClearMemory,
@@ -309,6 +310,20 @@ function RebuildTimelineButton() {
                 >
                   {bulkSyncing ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
                   Загрузить всё в облако
+                </Button>
+              </div>
+
+              <div className="p-5 rounded-2xl border border-border-subtle bg-surface-base/5 space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-text-main">Смысловой индекс из облака</h3>
+                  <p className="text-xs text-text-main/60 mt-1">Скачивает готовые эмбеддинги вместо пересчёта. Дорого по квоте чтений: записи весят сотни килобайт, поэтому загрузка идёт частями и может занять несколько дней. Обычно не нужна — индекс всё равно достраивается сам.</p>
+                </div>
+                <Button
+                  onClick={() => handleRequestEmbeddingRestore()}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border-subtle text-text-main text-xs font-semibold hover:bg-surface-base/10 transition-colors min-h-[38px]"
+                >
+                  <Download size={13} />
+                  Восстановить индекс из облака
                 </Button>
               </div>
 
