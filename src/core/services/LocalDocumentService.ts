@@ -239,6 +239,17 @@ export const LocalDocumentService = {
     await tx.done;
   },
 
+  // Deliberate unlink: drops the link AND records that it was intentional, so
+  // the re-link pass leaves this note alone.
+  async unlinkFromCloud(id: string): Promise<void> {
+    const db = await getLocalDb();
+    const tx = db.transaction('documents', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
+    await tx.store.put({ ...existing, linkedCloudId: '', localOnly: true });
+    await tx.done;
+  },
+
   async updateLabelId(id: string, labelId: string | undefined): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction('documents', 'readwrite');

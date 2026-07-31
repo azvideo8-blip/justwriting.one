@@ -15,6 +15,7 @@ vi.mock('../../firebase/writeBudget', () => ({
 describe('CloudSyncService', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    localStorage.clear();
   });
 
   afterEach(() => {
@@ -61,6 +62,90 @@ describe('CloudSyncService', () => {
       const result = await CloudSyncService.restoreMissingDocuments('user_1');
       expect(result).toEqual({ restored: 2, hasMore: false });
       expect(addLocalCopySpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('re-links an unlinked local note instead of downloading a second copy', async () => {
+      vi.mocked(WriteBudget.areCloudWritesBlockedToday).mockReturnValue(false);
+      vi.mocked(WriteBudget.tryReserveBulkWriteBudget).mockReturnValue(true);
+
+      vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([
+        { id: 'cloud_1', firstSessionAt: new Date(1000), lastSessionAt: new Date(2000) } as any,
+      ]);
+      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+        { id: 'local_1', firstSessionAt: 1000 } as any,
+      ]);
+      const updateLink = vi.spyOn(LocalStorageService, 'updateLinkedCloudId').mockResolvedValue(undefined);
+      const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockResolvedValue('local_9');
+
+      const result = await CloudSyncService.restoreMissingDocuments('user_1');
+
+      expect(updateLink).toHaveBeenCalledWith('local_1', 'cloud_1');
+      expect(addLocalCopySpy).not.toHaveBeenCalled();
+      expect(result).toEqual({ restored: 0, hasMore: false });
+    });
+  });
+
+  describe('relinkOrphanedDocuments', () => {
+    const cloudDoc = (id: string, startMs: number) =>
+      ({ id, firstSessionAt: new Date(startMs), lastSessionAt: new Date(startMs) }) as any;
+
+    it('does not read the cloud when there is nothing to re-link', async () => {
+      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+        { id: 'local_1', firstSessionAt: 1000, linkedCloudId: 'cloud_1' } as any,
+      ]);
+      const cloudRead = vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([]);
+
+      expect(await CloudSyncService.relinkOrphanedDocuments('user_1')).toBe(0);
+      expect(cloudRead).not.toHaveBeenCalled();
+    });
+
+    it('leaves a deliberately unlinked note alone', async () => {
+      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+        { id: 'local_1', firstSessionAt: 1000, localOnly: true } as any,
+      ]);
+      const cloudRead = vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([]);
+
+      expect(await CloudSyncService.relinkOrphanedDocuments('user_1')).toBe(0);
+      expect(cloudRead).not.toHaveBeenCalled();
+    });
+
+    it('skips ambiguous matches rather than guessing', async () => {
+      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+        { id: 'local_1', firstSessionAt: 1000 } as any,
+        { id: 'local_2', firstSessionAt: 1000 } as any,
+        { id: 'local_3', firstSessionAt: 3000 } as any,
+      ]);
+      vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([
+        cloudDoc('cloud_1', 1000),
+        cloudDoc('cloud_2', 1000),
+        cloudDoc('cloud_3', 3000),
+      ]);
+      const updateLink = vi.spyOn(LocalStorageService, 'updateLinkedCloudId').mockResolvedValue(undefined);
+
+      expect(await CloudSyncService.relinkOrphanedDocuments('user_1')).toBe(1);
+      expect(updateLink).toHaveBeenCalledTimes(1);
+      expect(updateLink).toHaveBeenCalledWith('local_3', 'cloud_3');
+    });
+
+    it('never hands a cloud copy to two local notes', async () => {
+      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+        { id: 'local_1', firstSessionAt: 1000, linkedCloudId: 'cloud_1' } as any,
+        { id: 'local_2', firstSessionAt: 1000 } as any,
+      ]);
+      vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([cloudDoc('cloud_1', 1000)]);
+      const updateLink = vi.spyOn(LocalStorageService, 'updateLinkedCloudId').mockResolvedValue(undefined);
+
+      expect(await CloudSyncService.relinkOrphanedDocuments('user_1')).toBe(0);
+      expect(updateLink).not.toHaveBeenCalled();
+    });
+
+    it('propagates a failed cloud read instead of reporting "nothing matched"', async () => {
+      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+        { id: 'local_1', firstSessionAt: 1000 } as any,
+      ]);
+      vi.spyOn(DocumentService, 'getUserDocuments').mockRejectedValue(new Error('unavailable'));
+
+      await expect(CloudSyncService.relinkOrphanedDocuments('user_1')).rejects.toThrow('unavailable');
     });
   });
 });
