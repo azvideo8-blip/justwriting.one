@@ -10,15 +10,32 @@ export const CONTEXT_WINDOW = 14;
 // Detect "search my notes" intent. Regex-based (not a fixed phrase list) so
 // follow-ups like "а где про Сашу пишу?" also trigger. Avoids the imperative
 // "напиши …" (write-for-me) by requiring a word boundary before пиш/писа.
+//
+// `\b` is ASCII-only: it never matches beside a Cyrillic letter, so every
+// pattern below that used it was dead — `/\b(найди|поищи)\b/` is false for
+// "найди про Сашу" AND for "a найди b". Half the intent detection has never
+// fired; "просканируй всё" reached the model with no search at all, and
+// "поищи в заметках" only worked because another pattern matched "заметк".
+// LB/RB are the Cyrillic-safe boundaries the temporal patterns already use.
+const LB = '(?:^|[^а-яёА-ЯЁa-zA-Z0-9])';
+const RB = '(?![а-яёА-ЯЁa-zA-Z0-9])';
+// A search verb alone is too broad to act on — "покажи мне картинку" is not a
+// search. It has to point at something to look for.
+const SEARCH_TARGET = '(про|о\\s|об\\s|что|где|когда|как|вс[ёея]|весь|всю|всех|мо[ий])';
+
 export const NOTE_SEARCH_PATTERNS: RegExp[] = [
-  /заметк|\bзапис|дневник/i,
+  new RegExp(`заметк|${LB}запис|дневник`, 'i'),
   /что годится в пост/i,
-  /\b(найди|найти|поищи|поиск|ищу|напомни|вспомни|посмотри|посмотреть|проверь|перепроверь|глянь|собери|подбери|покажи)\b/i,
+  new RegExp(
+    `${LB}(найди|найти|поищи|поиск|ищу|напомни|вспомни|посмотри|посмотреть|проверь|перепроверь|глянь|собери|подбери|покажи|просканируй|сканируй|пробеги|пересмотри|поройся|прошерсти)`
+    + `.{0,20}${SEARCH_TARGET}`,
+    'i',
+  ),
   // question word + writing/telling verb: "где про Сашу пишу", "о чём я писал"
-  /(что|где|когда|о\s*ч[её]м|про\s+ко|про\s+что|сколько|как часто).{0,40}\b(пиш|писа|говорил|упомина|вспомина|расска|отмеча)/i,
+  new RegExp(`(что|где|когда|о\\s*ч[её]м|про\\s+ко|про\\s+что|сколько|как часто).{0,40}${LB}(пиш|писа|говорил|упомина|вспомина|расска|отмеча)`, 'i'),
   // "… про X пишу/писал"
-  /\b(пиш[уеёя]|писа[лнв])\b.{0,30}\bпро\b/i,
-  /что (я )?(обычно |часто |вообще )?(про|о)\b/i,
+  new RegExp(`${LB}(пиш[уеёя]|писа[лнв])${RB}.{0,30}${LB}про${RB}`, 'i'),
+  new RegExp(`что (я )?(обычно |часто |вообще )?(про|о)${RB}`, 'i'),
   /что у меня про|что есть про/i,
   /(?:^|[^а-яёА-ЯЁa-zA-Z0-9])(в|за|про)\s+(январ|феврал|март|апрел|ма[йе]|июн|июл|август|сентябр|октябр|ноябр|декабр)/i,
   /(?:^|[^а-яёА-ЯЁa-zA-Z0-9])(прошл|этой?|следующ)\s+(недел|месяц|год)/i,
@@ -27,6 +44,49 @@ export const NOTE_SEARCH_PATTERNS: RegExp[] = [
 
 export function looksLikeNoteSearch(text: string): boolean {
   return NOTE_SEARCH_PATTERNS.some(re => re.test(text));
+}
+
+// "разбери/прочитай/посмотри" + "заметк/запис" — an analysis request. On its own
+// this does NOT mean the attached note: "посмотри в моих заметках про Сашу" is a
+// search. What separates them is the target, not the verb.
+const ANALYSIS_INTENT = [/(заметк|запис|аскез)/i, /(разбер|разбор|проанализ|анализ|прочит|посмотр|глян)/i];
+const ARCHIVE_SCOPE = new RegExp(
+  `${LB}(в|во|по)\\s+(мо[а-яё]+\\s+)?(всех?\\s+)?(заметк|запис|дневник|архив|баз)`
+  + `|${LB}(везде|целиком|полностью)${RB}`
+  + `|${LB}вс[еюяё]х?${RB}\\s*(мо[а-яё]+\\s*)?(заметк|запис|дневник|баз|архив)`,
+  'i',
+);
+
+export function looksLikeNoteAnalysis(text: string): boolean {
+  return ANALYSIS_INTENT.every(re => re.test(text));
+}
+
+const AGGREGATE_PATTERNS: RegExp[] = [
+  /сколько раз/i,
+  /как часто/i,
+  new RegExp(`${LB}(статистик|динамик|тенденц|закономерн|паттерн|чаще всего)`, 'i'),
+  new RegExp(`(вс[ею]|каждую|всю базу|целиком|полностью).{0,30}${LB}(замет|запис)`, 'i'),
+  new RegExp(`${LB}(замет|запис).{0,30}(вс[ею]|каждую|всю базу|целиком|полностью)`, 'i'),
+];
+
+export function looksLikeAggregateQuery(text: string): boolean {
+  return AGGREGATE_PATTERNS.some(re => re.test(text));
+}
+
+/**
+ * Whether to run the full-archive search for this turn.
+ *
+ * An attached note used to switch the search off unconditionally, so once
+ * anything was attached — by hand or by the auto-attacher — no later message
+ * could reach the archive, and the model answered "I only have the two notes in
+ * front of me". Now the search is suppressed only for an analysis request aimed
+ * at the attached note itself ("разбери эту заметку"); an analysis request that
+ * names the archive ("посмотри в моих заметках про X") searches.
+ */
+export function shouldRunFullSearch(text: string, hasAttachment: boolean): boolean {
+  if (!looksLikeNoteSearch(text)) return false;
+  if (!hasAttachment) return true;
+  return !looksLikeNoteAnalysis(text) || ARCHIVE_SCOPE.test(text);
 }
 
 // A chat message sent to the API is capped at 10K chars. Small messages pass

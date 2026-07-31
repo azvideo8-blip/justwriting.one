@@ -13,15 +13,30 @@ import { detectRisk } from '../utils/riskDetect';
 import { analyzeDoors, aggregateDoors, doorLabel } from '../utils/contactDoors';
 import { parseTemporalQuery, MONTHS_MAP, lemmatizeRussianName, type TemporalQuery } from '../utils/temporalQueryParser';
 import { AITimelineService } from '../services/AITimelineService';
+import { AIThemeLedgerService } from '../services/AIThemeLedgerService';
 import { AIMonthlyDigestService } from '../services/AIMonthlyDigestService';
 import { AIPeopleService } from '../services/AIPeopleService';
 import { relativeDate } from '../../../core/utils/dateUtils';
-import { looksLikeNoteSearch } from '../utils/aiChatTransport';
+import { looksLikeNoteSearch, shouldRunFullSearch, looksLikeAggregateQuery } from '../utils/aiChatTransport';
 import { cosineSimilarity, topKMultiWithChunkIndex } from '../utils/vectorSearch';
 import { AIDialogueService } from '../services/AIDialogueService';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import { AIMemoryAssembler, extractDocumentIdsFromText } from '../services/AIMemoryAssembler';
 import { MemoryFlagsService } from '../services/memoryFlags';
+
+// How much the search actually covered. Without it the model has no idea
+// whether the notes in front of it are the whole archive or a handful, and it
+// guesses — which is how "I only see the two you sent" gets said about a search
+// over the entire corpus.
+async function getCorpusStats(db: Awaited<ReturnType<typeof getLocalDb>>): Promise<{ total: number; from: string; to: string }> {
+  const docs = await db.getAll('documents');
+  const dates = docs.map(d => d.lastSessionAt || d.firstSessionAt || 0).filter(Boolean).sort((a, b) => a - b);
+  return {
+    total: docs.length,
+    from: formatDateYYYYMMDD(dates[0]),
+    to: formatDateYYYYMMDD(dates[dates.length - 1]),
+  };
+}
 
 function formatDateYYYYMMDD(timestamp: number | undefined): string {
   if (!timestamp) return 'unknown-date';
@@ -72,6 +87,7 @@ export function useAIChatContext(personaId: string): {
     messageHistory: AIMessage[];
     isFirstTurn: boolean;
     dialogueId?: string | null;
+    forcedSearchQuery?: string | undefined;
   }): Promise<ChatContextResult>;
   resetSession(): void;
   setAttachedNote(note: { content: string; documentId?: string } | null): void;
@@ -124,8 +140,9 @@ export function useAIChatContext(personaId: string): {
     messageHistory: AIMessage[];
     isFirstTurn: boolean;
     dialogueId?: string | null;
+    forcedSearchQuery?: string | undefined;
   }): Promise<ChatContextResult> => {
-    const { text, attached, mood, isFirstTurn, dialogueId } = params;
+    const { text, attached, mood, isFirstTurn, dialogueId, forcedSearchQuery } = params;
     const injectedDocumentIds: string[] = [];
     const db = await getLocalDb();
 
@@ -205,7 +222,10 @@ export function useAIChatContext(personaId: string): {
     // 2. Hydrate searchContext
     const noteAnalysisIntent = /(заметк|запис|аскез)/i.test(text) && /(разбер|разбор|проанализ|анализ|прочит|посмотр|глян)/i.test(text);
     const noteIntentNoText = !attached?.content && noteAnalysisIntent;
-    const explicitSearch = attached ? false : looksLikeNoteSearch(text);
+    
+    // The forced turn: use the provided query and force the search
+    const explicitSearch = forcedSearchQuery ? true : shouldRunFullSearch(text, !!attached);
+    const effectiveQuery = forcedSearchQuery ?? text;
 
     let searchContext: string | undefined;
 
@@ -253,14 +273,13 @@ export function useAIChatContext(personaId: string): {
 
       if (shouldRunFacets) {
         try {
-          let facets = facetsCacheRef.current.facets;
-          if (!facets) {
-            facets = await AIProfileFacetService.getAll();
-            facetsCacheRef.current = { facets };
+          if (!facetsCacheRef.current.facets) {
+            facetsCacheRef.current.facets = await AIProfileFacetService.getAll();
           }
+          const facets = facetsCacheRef.current.facets;
 
           if (facets.length > 0) {
-            const searchQuery = explicitSearch ? text : lastSearchQueryRef.current;
+            const searchQuery = explicitSearch ? effectiveQuery : lastSearchQueryRef.current;
             const queryEmbResult = await AIService.embed({ content: searchQuery });
             queryEmb = queryEmbResult.ok && queryEmbResult.vectors[0] ? queryEmbResult.vectors[0] : undefined;
 
@@ -292,6 +311,7 @@ export function useAIChatContext(personaId: string): {
 
       let handledByTemporal = false;
       let skipSemantic = false;
+      let searchFailed = false;
       let allNotes: RetrievedNote[] = [];
 
       const isComparison = /(?:^|[^а-яёА-ЯЁa-zA-Z0-9])(?:vs|сравни|противо|по сравнению|разниц|отличи)(?![а-яёА-ЯЁa-zA-Z0-9])/i.test(text);
@@ -408,14 +428,14 @@ export function useAIChatContext(personaId: string): {
             timelineFacts = entries.flatMap(e => e.facts).join('; ');
           }
 
-          const searchQuery = explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`;
-          const notes = await searchNotesMulti([searchQuery], 5, { minTime: sMin, maxTime: sMax });
-          const notesText = notes.map(n => `[#${n.documentId} · ${formatDateYYYYMMDD(n.lastSessionAt)}] Заметка "${n.title}": ${n.content.slice(0, 1000)}`).join('\n\n');
+          const searchQuery = explicitSearch ? effectiveQuery : `${lastSearchQueryRef.current}\n${text}`;
+          const notesResult = await searchNotesMulti([searchQuery], 5, { minTime: sMin, maxTime: sMax });
+          const notesText = notesResult.notes.map(n => `[#${n.documentId} · ${formatDateYYYYMMDD(n.lastSessionAt)}] Заметка "${n.title}": ${n.content.slice(0, 1000)}`).join('\n\n');
 
           return `=== ПЕРИОД ${label} (${scope.rawText}) ===\n` +
                  (digestNarrative ? `${digestNarrative}\n` : '') +
                  (timelineFacts ? `События: ${timelineFacts}\n\n` : '') +
-                 `Релевантные заметки:\n${notesText || '(нет заметок)'}\n`;
+                 `Релевантные заметки:\n${notesResult.failed ? '[ОШИБКА ПОИСКА: не удалось выполнить поиск, скажите пользователю, что поиск сейчас недоступен]' : (notesText || '(нет заметок)')}\n`;
         };
 
         const blockA = await getScopeBlock(scopeA, 'А');
@@ -496,10 +516,48 @@ export function useAIChatContext(personaId: string): {
         } catch { /* ignore */ }
       }
 
+      if (looksLikeAggregateQuery(effectiveQuery)) {
+        try {
+          const activeThemes = await AIThemeLedgerService.getActive();
+          const queryLower = effectiveQuery.toLowerCase();
+          
+          let localQueryEmb = queryEmb;
+          if (!localQueryEmb) {
+            const embResult = await AIService.embed({ content: effectiveQuery });
+            localQueryEmb = embResult.ok && embResult.vectors[0] ? embResult.vectors[0] : undefined;
+          }
+
+          const scoredThemes = activeThemes.map(t => {
+            let score = 0;
+            if (localQueryEmb && t.themeVector?.length > 0) {
+              score = cosineSimilarity(localQueryEmb, t.themeVector);
+            }
+            if (queryLower.includes(t.theme.toLowerCase())) {
+              score += 0.2;
+            }
+            return { ...t, score };
+          })
+          .filter(t => t.score > 0.7)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 5);
+
+          if (scoredThemes.length > 0) {
+            const themeStats = scoredThemes.map(t => {
+              return `- Тема "${t.theme}": упоминалась ${t.count} раз. Впервые: ${new Date(t.firstSeenAt).toLocaleDateString('ru-RU')}, последний раз: ${new Date(t.lastReinforcedAt).toLocaleDateString('ru-RU')}.\n  Контекст: ${t.evidence.map(e => e.sentence).join('; ')}`;
+            }).join('\n\n');
+            searchContext = (searchContext ?? '') + `\n\n[ТОЧНАЯ СТАТИСТИКА ПО ВСЕЙ БАЗЕ ЗАМЕТОК, НЕ ТРЕБУЕТ ОЦЕНОК]\n${themeStats}\n(Используй только эти точные цифры для ответа на вопросы о частоте или количестве. Не пытайся экстраполировать количество на основе найденных ниже примеров записей.)`;
+          } else {
+            searchContext = (searchContext ?? '') + `\n\n[ТОЧНАЯ СТАТИСТИКА ПО ВСЕЙ БАЗЕ ЗАМЕТОК, НЕ ТРЕБУЕТ ОЦЕНОК]\nВ базе нет точных данных (ledger) по запрашиваемой теме. Честно сообщи пользователю, что точной статистики нет (не пытайся угадывать число по отдельным заметкам ниже).`;
+          }
+        } catch (e) {
+          reportError(e, { action: '[useAIChatContext] aggregate query failed' });
+        }
+      }
+
       if (explicitSearch || stickySearch) {
         const db = await getLocalDb();
         const candidateNames = [...new Set([
-          ...text.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [],
+          ...effectiveQuery.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [],
           ...lastSearchNamesRef.current,
         ])];
 
@@ -528,7 +586,7 @@ export function useAIChatContext(personaId: string): {
         }
 
         if (!skipSemantic) {
-          const searchQuery = explicitSearch ? text : `${lastSearchQueryRef.current}\n${text}`;
+          const searchQuery = explicitSearch ? effectiveQuery : `${lastSearchQueryRef.current}\n${text}`;
           try {
             let searchQueries = [searchQuery];
             const expansionEnabled = import.meta.env.VITE_AI_QUERY_EXPANSION === 'true';
@@ -555,7 +613,10 @@ export function useAIChatContext(personaId: string): {
               allEmbeddings = await AIEmbeddingService.getAll();
             }
 
-            const notes = await searchNotesMulti(searchQueries, 10, { queryVector: queryEmb, allEmbeddings, minTime, maxTime, ignoredDocIds: ignoredDocumentIds });
+            const searchResult = await searchNotesMulti(searchQueries, 10, { queryVector: queryEmb, allEmbeddings, minTime, maxTime, ignoredDocIds: ignoredDocumentIds });
+            const notes = searchResult.notes;
+            if (searchResult.failed) searchFailed = true;
+
             const nameSearchIds = new Set<string>();
             const nameSearchEmb = candidateNames.length > 0 ? (allEmbeddings ?? await AIEmbeddingService.getAll()) : [];
             const nameRegexes = candidateNames.map(name =>
@@ -606,7 +667,7 @@ export function useAIChatContext(personaId: string): {
                   documentId: n.documentId,
                   card: `${n.title}\n${n.content.slice(0, 400)}`,
                 }));
-                const rr = await AIService.rerank({ query: text, candidates, maxResults: 8 });
+                const rr = await AIService.rerank({ query: effectiveQuery, candidates, maxResults: 8 });
                 if (rr.ok && rr.documentIds.length > 0) {
                   const rerankOrder = new Map(rr.documentIds.map((id, i) => [id, i]));
                   allNotes.sort((a, b) => {
@@ -621,6 +682,7 @@ export function useAIChatContext(personaId: string): {
               }
             }
           } catch (e) {
+            searchFailed = true;
             reportError(e, { action: '[useAIChatContext] note search failed' });
           }
         }
@@ -679,18 +741,29 @@ export function useAIChatContext(personaId: string): {
               parts.push(`[#${n.documentId} · ${yyyymmdd}]\nЗаметка ${noteIdx}${datePart}: "${n.title}"\n${summaryPrefix}${snippet}`);
               totalChars += snippet.length + summaryPrefix.length;
             }
+            const corpus = await getCorpusStats(db);
             const noteBlock = (
               `\n\nРезультаты поиска по архиву заметок (запрос: "${text}"). ` +
+              `Искал по ВСЕЙ базе: ${corpus.total} заметок, ${corpus.from} — ${corpus.to}. ` +
               `Найдено заметок: ${allNotes.length} (отобрано ${noteIdx} по релевантности). ` +
               `Это наиболее релевантные заметки по запросу. Если ответа в них нет — так и скажи, не домысливай. ` +
               `При ссылке на заметку ОБЯЗАТЕЛЬНО используй синтаксис [#id] (например, [#${allNotes[0]?.documentId || 'local_123'}]).\n\n` +
               parts.join('\n\n')
             );
             searchContext = (searchContext ?? '') + noteBlock;
-          } else if (!searchContext && !handledByTemporal) {
-            searchContext =
-              `Автоматический поиск по архиву заметок пользователя по запросу "${text}" не нашёл заметок. ` +
-              `КАТЕГОРИЧЕСКИ не выдумывай содержание его заметок и не приписывай ему того, чего нет.`;
+          } else if (searchFailed) {
+            searchContext = (searchContext ?? '') +
+              `\n\n[СИСТЕМНОЕ СООБЩЕНИЕ: Поиск по базе не удался из-за технической ошибки. Сообщи пользователю "Я не смог выполнить поиск по вашим заметкам из-за технической ошибки." и КАТЕГОРИЧЕСКИ не делай выводов о том, есть ли у него такие заметки.]`;
+          } else if (!handledByTemporal) {
+            // Appended, not assigned: with a note attached this used to be
+            // skipped entirely, so a search that ran and found nothing left no
+            // trace — and the model fell back to "I have no access to your
+            // archive", the exact claim this block exists to prevent.
+            const corpus = await getCorpusStats(db);
+            searchContext = (searchContext ?? '') +
+              `\n\n[Поиск по ВСЕЙ базе (${corpus.total} заметок, ${corpus.from} — ${corpus.to}) по запросу "${text}" ` +
+              `не нашёл подходящих заметок. Скажи, что по этому запросу в базе ничего не нашлось (НЕ «нет доступа»), ` +
+              `предложи переформулировать. КАТЕГОРИЧЕСКИ не выдумывай содержание его заметок и не приписывай ему того, чего нет.]`;
           }
         } catch (e) {
           reportError(e, { action: '[useAIChatContext] note formatting/budgeting failed' });

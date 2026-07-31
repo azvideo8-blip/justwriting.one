@@ -17,11 +17,11 @@ const LATIN_PATTERNS = [
   /ignore\s+previous/i,
   /ignore\s+instructions/i,
   /jailbreak/i,
-  /\bDAN\b/i,
+  /(?<=^|[^а-яёА-ЯЁa-zA-Z0-9])DAN(?=$|[^а-яёА-ЯЁa-zA-Z0-9])/i,
   /you\s+are\s+now/i,
   /forget\s+your/i,
   /(^|\n)\s*system\s*:/i,
-  /as\s+an\s+AI\b/i,
+  /as\s+an\s+AI(?=$|[^а-яёА-ЯЁa-zA-Z0-9])/i,
   /(^|\n)\s*developer\s*:/i,
   /<\|im_start\|>/i,
   /\[INST\]/i,
@@ -144,7 +144,7 @@ export function sanitizeAiResponse(response: string, keepReasoning = false): str
     cleaned = cleaned.replace(/[⺀-⻿　-ヿ㐀-䶿一-鿿豈-﫿]/g, '');
     // Strip citation artifacts that gpt-oss appends to factual sentences
     // (e.g. "30 000 рублейreferences" or "степень awarded").
-    cleaned = cleaned.replace(/([а-яёА-ЯЁ\d])(references?|sources?|citations?|awarded)\b/gi, '$1');
+    cleaned = cleaned.replace(/([а-яёА-ЯЁ\d])(references?|sources?|citations?|awarded)(?=$|[^а-яёА-ЯЁa-zA-Z0-9])/gi, '$1');
     // Collapse any double-spaces created by the strips above.
     cleaned = cleaned.replace(/  +/g, ' ').trim();
   }
@@ -313,19 +313,34 @@ export async function refundGlobalRequest(res: GlobalReservation | null | undefi
 // AI_ADMIN_DAILY_LIMIT (default 20 — experiment), everyone else keeps DAILY_LIMIT (10).
 export const ADMIN_DAILY_LIMIT = envInt('AI_ADMIN_DAILY_LIMIT', 20);
 
-// LX-2a: Check if a user is an admin (role from users/{uid}).
-export async function isAdmin(uid: string): Promise<boolean> {
+const userRoleCache = new Map<string, { role: string; ts: number }>();
+const ROLE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+async function getUserRole(uid: string): Promise<string | undefined> {
+  const now = Date.now();
+  const cached = userRoleCache.get(uid);
+  if (cached && now - cached.ts < ROLE_CACHE_TTL_MS) {
+    return cached.role;
+  }
   try {
     const snap = await getDb().doc(`users/${uid}`).get();
-    return snap.data()?.role === 'admin';
-  } catch { return false; }
+    const role = snap.data()?.role as string | undefined;
+    userRoleCache.set(uid, { role: role ?? '', ts: now });
+    return role;
+  } catch {
+    return undefined;
+  }
+}
+
+// LX-2a: Check if a user is an admin (role from users/{uid}).
+export async function isAdmin(uid: string): Promise<boolean> {
+  const role = await getUserRole(uid);
+  return role === 'admin';
 }
 
 export async function getUserDailyLimit(uid: string): Promise<number> {
-  try {
-    const snap = await getDb().doc(`users/${uid}`).get();
-    if (snap.data()?.role === 'admin') return ADMIN_DAILY_LIMIT;
-  } catch { /* fall through to default */ }
+  const role = await getUserRole(uid);
+  if (role === 'admin') return ADMIN_DAILY_LIMIT;
   return DAILY_LIMIT;
 }
 

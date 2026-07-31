@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import fs from 'fs';
+import path from 'path';
 import {
   parseMonthYear,
   extractFirstSeenDates,
@@ -10,6 +12,25 @@ import {
 describe('AG-MIND-W8a dateGuard', () => {
   beforeEach(() => {
     resetStrippedDatesCount();
+  });
+
+  describe('Cyrillic-safe boundary guard (AG-SEARCH-3)', () => {
+    it('fails if \b is used next to Cyrillic characters in dateGuard.ts', () => {
+      const filePath = path.resolve(__dirname, '../dateGuard.ts');
+      const content = fs.readFileSync(filePath, 'utf-8');
+      
+      // Look for \b adjacent to Cyrillic characters in the file content
+      expect(content).not.toMatch(/\\b[а-яёА-ЯЁ]/);
+      expect(content).not.toMatch(/[а-яёА-ЯЁ]\\b/);
+    });
+
+    it('fails if \b is used next to Cyrillic characters in aiChatTransport.ts', () => {
+      const filePath = path.resolve(__dirname, '../aiChatTransport.ts');
+      const content = fs.readFileSync(filePath, 'utf-8');
+      
+      expect(content).not.toMatch(/\\b[а-яёА-ЯЁ]/);
+      expect(content).not.toMatch(/[а-яёА-ЯЁ]\\b/);
+    });
   });
 
   describe('parseMonthYear', () => {

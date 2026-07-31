@@ -68,7 +68,7 @@ export const AIDialogueService = {
     return all.sort((a, b) => b.updatedAt - a.updatedAt);
   },
 
-  async appendMessage(id: string, userMsg: string, assistantMsg: string, reasoning?: string): Promise<void> {
+  async appendMessage(id: string, userMsg: string, assistantMsg: string, reasoning?: string, searchRequest?: string | null): Promise<void> {
     const MAX_MSG_LENGTH = 100_000;
     const truncate = (s: string) => s.length > MAX_MSG_LENGTH ? s.slice(0, MAX_MSG_LENGTH) + '\n[...truncated]' : s;
     const db = await getLocalDb();
@@ -78,7 +78,7 @@ export const AIDialogueService = {
     const now = Date.now();
     existing.messages.push(
       { role: 'user', content: truncate(userMsg) },
-      { role: 'assistant', content: truncate(assistantMsg), ...(reasoning ? { reasoning: truncate(reasoning) } : {}) },
+      { role: 'assistant', content: truncate(assistantMsg), ...(reasoning ? { reasoning: truncate(reasoning) } : {}), ...(searchRequest ? { searchRequest: truncate(searchRequest) } : {}) },
     );
     existing.updatedAt = now;
     await tx.store.put(existing);

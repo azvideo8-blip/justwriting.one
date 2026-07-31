@@ -64,7 +64,7 @@ describe('INJECTION_PATTERNS (server-side)', () => {
     /ignore\s+previous/i,
     /ignore\s+instructions/i,
     /jailbreak/i,
-    /\bDAN\b/i,
+    /(?<=^|[^а-яёА-ЯЁa-zA-Z0-9])DAN(?=$|[^а-яёА-ЯЁa-zA-Z0-9])/i,
     /you\s+are\s+now/i,
     /forget\s+your/i,
     /новые\s+инструкции/i,

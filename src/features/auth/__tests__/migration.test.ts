@@ -29,6 +29,7 @@ const { cloudDocs, cloudVersions, MockDocumentService, MockVersionService } = vi
       return id;
     }),
     getDocument: vi.fn(async (_userId: string, id: string) => cloudDocs.get(id) ?? null),
+    getUserDocuments: vi.fn(async () => [...cloudDocs.values()]),
     updateDocumentAfterSession: vi.fn(async (_userId: string, id: string, data: Record<string, unknown>) => {
       const doc = cloudDocs.get(id);
       if (doc) cloudDocs.set(id, { ...doc, ...data });

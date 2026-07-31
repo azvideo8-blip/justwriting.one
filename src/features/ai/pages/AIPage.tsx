@@ -21,6 +21,7 @@ import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { cn } from '../../../core/utils/utils';
 import { Monogram, threadPreview, AttachedNoteCard, AttachedFileCard, AttachedSummaryCard, AssistantTurn, ATTACHED_NOTE_RE, ATTACHED_NOTE_SUMMARY_RE, ATTACHED_FILE_RE } from '../components/AIChatPresentational';
 import { CRISIS_RESOURCES } from '../utils/riskDetect';
+import { CITATION_RE, isRecognisedCitation } from '../shared/citationPatterns';
 import { useAIPageData } from '../hooks/useAIPageData';
 import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
@@ -84,7 +85,7 @@ export function AIPage() {
     dailyLimit,
     loadCustomPersonas,
     handleSendMessage, handleNewDialogue, handleArchive, handleUnarchive, handleDelete, handleExport,
-    handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload,
+    handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload, triggerForcedSearch,
     handleSetResponseLength, handleSetReasoning, handleRenameDialogue, handleClearTemporalScope,
     handleConfirmConsent, consentNames,
     responseLength,
@@ -208,7 +209,7 @@ export function AIPage() {
 
   useEffect(() => {
     const ids = new Set<string>();
-    const citeRegex = /\[#?([a-zA-Z0-9_-]+)\]/g;
+    const citeRegex = new RegExp(CITATION_RE.source, CITATION_RE.flags);
     
     displayMessages.forEach(msg => {
       let match;
@@ -217,7 +218,7 @@ export function AIPage() {
       while ((match = citeRegex.exec(content)) !== null) {
         const raw = match[0];
         const id = match[1];
-        if (id && (raw.startsWith('[#') || id.startsWith('local_'))) {
+        if (id && isRecognisedCitation(raw, id)) {
           ids.add(id);
         }
       }
@@ -226,7 +227,7 @@ export function AIPage() {
         while ((match = citeRegex.exec(msg.reasoning)) !== null) {
           const raw = match[0];
           const id = match[1];
-          if (id && (raw.startsWith('[#') || id.startsWith('local_'))) {
+          if (id && isRecognisedCitation(raw, id)) {
             ids.add(id);
           }
         }
@@ -239,7 +240,7 @@ export function AIPage() {
       while ((match = citeRegex.exec(streamingMessage)) !== null) {
         const raw = match[0];
         const id = match[1];
-        if (id && (raw.startsWith('[#') || id.startsWith('local_'))) {
+        if (id && isRecognisedCitation(raw, id)) {
           ids.add(id);
         }
       }
@@ -277,8 +278,9 @@ export function AIPage() {
 
   const processCitations = (text: string | null | undefined): string => {
     if (!text) return '';
-    return text.replace(/\[#?([a-zA-Z0-9_-]+)\]/g, (match, id) => {
-      if (!match.startsWith('[#') && !id.startsWith('local_')) {
+    return text.replace(CITATION_RE, (match, g1, g2) => {
+      const id = g2 || g1 || '';
+      if (!isRecognisedCitation(match, id)) {
         return match;
       }
       const info = citationMeta[id];
@@ -757,6 +759,23 @@ export function AIPage() {
                     content={msg.content}
                     reasoning={msg.reasoning}
                   >
+                    {msg.searchRequest && (
+                      <button
+                        type="button"
+                        onClick={() => void triggerForcedSearch(msg.searchRequest!)}
+                        disabled={isLoading || dailyLimit.remaining === 0}
+                        className={cn(
+                          "mb-3 px-3 py-2 rounded-xl border text-[13px] font-medium flex items-center gap-2 w-fit max-w-[85%] text-left shadow-sm transition-colors",
+                          isLoading || dailyLimit.remaining === 0
+                            ? "bg-surface-card border-border-subtle text-text-main/50 cursor-default"
+                            : "bg-surface-card border-brand-soft/30 text-text-main hover:border-brand-soft/60 hover:bg-brand-soft/5 cursor-pointer"
+                        )}
+                      >
+                        <span className="text-sm">🔍</span>
+                        <span className="opacity-80">Поискать в заметках:</span>
+                        <span className="font-semibold truncate">„{msg.searchRequest}“</span>
+                      </button>
+                    )}
                     {msg.reasoning && (
                       <details className="mb-3 rounded-xl border border-border-subtle bg-surface-card/50 overflow-hidden">
                         <summary className="px-4 py-2 text-xs font-medium text-text-main/60 cursor-pointer hover:text-text-main transition-colors select-none">

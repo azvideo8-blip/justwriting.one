@@ -54,7 +54,8 @@ describe('local bypass pre-pass (T-3)', () => {
     });
 
     // Perform search with exact quote in quotes
-    const results = await searchNotesMulti(['хочу обсудить «выгорание на работе»'], 5);
+    const result = await searchNotesMulti(['хочу обсудить «выгорание на работе»'], 5);
+    const results = result.notes;
     
     expect(results.length).toBeGreaterThan(0);
     expect(results[0]?.documentId).toBe('doc_quote_match');
@@ -91,7 +92,8 @@ describe('local bypass pre-pass (T-3)', () => {
     });
 
     // Perform search with a capitalized named entity >= 3 chars
-    const results = await searchNotesMulti(['Расскажи про Санкт-Петербург'], 5);
+    const result = await searchNotesMulti(['Расскажи про Санкт-Петербург'], 5);
+    const results = result.notes;
     
     expect(results.length).toBeGreaterThan(0);
     expect(results[0]?.documentId).toBe('doc_entity_match');
