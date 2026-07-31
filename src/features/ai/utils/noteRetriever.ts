@@ -219,9 +219,17 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
   const exactTitleIds = await getExactTitleMatchIds(query, topIds);
   const vectorScoreMap = new Map(vectorMatches.map(m => [m.id, m.score]));
 
+  // A keyword hit carries its own evidence: the word is in the note. The floor
+  // is a VECTOR-similarity floor, and a note the vector search never returned
+  // has no score at all — scoring it 0 and dropping it deleted every
+  // keyword-only match, which is exactly what a search for a person's name is.
+  // It made the BM25 half of the hybrid search decorative: it could only
+  // re-order what the vectors had already found.
+  const keywordIds = new Set(keywordMatches.map(m => m.id));
+
   const filterByRelevanceFloor = (idList: string[]): string[] => {
     return idList.filter(id => {
-      if (exactTitleIds.has(id)) return true;
+      if (exactTitleIds.has(id) || keywordIds.has(id)) return true;
       const score = vectorScoreMap.get(id) ?? 0;
       return score >= RESURFACE_FLOOR;
     });
@@ -516,8 +524,11 @@ export async function searchNotesMulti(
     // 0, so applying it would throw away the keyword matches that are the only
     // results left — the floor is meaningless when there is nothing to score.
     if (semanticUnavailable) return idList;
+    // Same as the single-query path: a keyword hit is evidence in itself and
+    // must not be judged by a vector score it never had.
+    const keywordIds = new Set(mergedKeyword.map(m => m.id));
     return idList.filter(id => {
-      if (exactTitleIds.has(id) || matchedIds.has(id)) return true;
+      if (exactTitleIds.has(id) || matchedIds.has(id) || keywordIds.has(id)) return true;
       const score = vectorScoreMap.get(id) ?? 0;
       return score >= RESURFACE_FLOOR;
     });
