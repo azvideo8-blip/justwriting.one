@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.68',
+    date: '2026-07-31',
+    items: [
+      { category: 'fix', ru: 'Загрузка смыслового индекса из облака больше не выедает дневной лимит обращений к базе и не запирает приложение до полуночи. Индекс достраивается сам, локально; загрузка из облака переехала в отдельную кнопку в диагностике', en: 'Pulling the semantic index from the cloud no longer eats the daily database limit and locks the app out until midnight. The index is rebuilt locally on its own; the cloud download moved to a button in diagnostics' },
+      { category: 'fix', ru: 'Счётчик обращений к базе перестал занижать расход: он считал документ за единицу, хотя лимит зависит от размера, а записи индекса весят сотни килобайт', en: 'The database usage counter stopped understating the cost: it charged one unit per document, while the limit depends on size and index records are hundreds of kilobytes' },
+    ],
+  },
+  {
     version: '0.7.67',
     date: '2026-07-31',
     items: [
