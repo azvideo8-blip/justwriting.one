@@ -88,6 +88,7 @@ export function useAIChatContext(personaId: string): {
     isFirstTurn: boolean;
     dialogueId?: string | null;
     forcedSearchQuery?: string | undefined;
+    attachedIsSticky?: boolean | undefined;
   }): Promise<ChatContextResult>;
   resetSession(): void;
   setAttachedNote(note: { content: string; documentId?: string } | null): void;
@@ -141,8 +142,9 @@ export function useAIChatContext(personaId: string): {
     isFirstTurn: boolean;
     dialogueId?: string | null;
     forcedSearchQuery?: string | undefined;
+    attachedIsSticky?: boolean | undefined;
   }): Promise<ChatContextResult> => {
-    const { text, attached, mood, isFirstTurn, dialogueId, forcedSearchQuery } = params;
+    const { text, attached, mood, isFirstTurn, dialogueId, forcedSearchQuery, attachedIsSticky } = params;
     const injectedDocumentIds: string[] = [];
     const db = await getLocalDb();
 
@@ -235,7 +237,10 @@ export function useAIChatContext(personaId: string): {
       } else {
         const yyyymmdd = attached.documentId ? (await getDocDate(attached.documentId)) : formatDateYYYYMMDD(Date.now());
         const docId = attached.documentId || 'attached-note';
-        searchContext = `[#${docId} · ${yyyymmdd}]\n[Прикрепленная заметка]\n${attached.content}`;
+        const label = attachedIsSticky
+          ? '[Заметка, к которой привязан этот диалог — пользователь НЕ присылал её сейчас, не говори «присланная/прикреплённая заметка»]'
+          : '[Прикрепленная заметка]';
+        searchContext = `[#${docId} · ${yyyymmdd}]\n${label}\n${attached.content}`;
       }
       
       if (attached.documentId) {
@@ -312,6 +317,7 @@ export function useAIChatContext(personaId: string): {
       let handledByTemporal = false;
       let skipSemantic = false;
       let searchFailed = false;
+      let semanticIndexMissing = false;
       let allNotes: RetrievedNote[] = [];
 
       const isComparison = /(?:^|[^а-яёА-ЯЁa-zA-Z0-9])(?:vs|сравни|противо|по сравнению|разниц|отличи)(?![а-яёА-ЯЁa-zA-Z0-9])/i.test(text);
@@ -621,6 +627,7 @@ export function useAIChatContext(personaId: string): {
             const searchResult = await searchNotesMulti(searchQueries, 10, { queryVector: queryEmb, allEmbeddings, minTime, maxTime, ignoredDocIds: ignoredDocumentIds });
             const notes = searchResult.notes;
             if (searchResult.failed) searchFailed = true;
+            if (searchResult.degraded) semanticIndexMissing = true;
 
             const nameSearchIds = new Set<string>();
             const nameSearchEmb = candidateNames.length > 0 ? (allEmbeddings ?? await AIEmbeddingService.getAll()) : [];
@@ -768,7 +775,10 @@ export function useAIChatContext(personaId: string): {
             searchContext = (searchContext ?? '') +
               `\n\n[Поиск по ВСЕЙ базе (${corpus.total} заметок, ${corpus.from} — ${corpus.to}) по запросу "${text}" ` +
               `не нашёл подходящих заметок. Скажи, что по этому запросу в базе ничего не нашлось (НЕ «нет доступа»), ` +
-              `предложи переформулировать. КАТЕГОРИЧЕСКИ не выдумывай содержание его заметок и не приписывай ему того, чего нет.]`;
+              `предложи переформулировать. КАТЕГОРИЧЕСКИ не выдумывай содержание его заметок и не приписывай ему того, чего нет.` +
+              (semanticIndexMissing
+                ? ` ВАЖНО: смысловой индекс заметок сейчас не построен, поэтому искал только по совпадению слов — предупреди об этом и предложи попробовать другие формулировки и точные слова из записей.]`
+                : `]`);
           }
         } catch (e) {
           reportError(e, { action: '[useAIChatContext] note formatting/budgeting failed' });
