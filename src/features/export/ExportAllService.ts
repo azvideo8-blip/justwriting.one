@@ -9,6 +9,10 @@ interface LockedFlags {
   _locked?: boolean;
   _decryptionError?: boolean;
   _contentError?: boolean;
+  // Never exported: its text was never fetched, so writing it now produces an
+  // empty file for a note that is intact in the cloud. Callers hydrate first
+  // (hydrateSessionContent); this is the backstop if one forgets.
+  _contentNotLoaded?: boolean;
 }
 
 export interface ExportAllResult {
@@ -27,7 +31,7 @@ export async function exportAllAsZip(
 
   for (const session of sessions) {
     const flags = session as LockedFlags;
-    if (flags._locked || flags._decryptionError || flags._contentError) {
+    if (flags._locked || flags._decryptionError || flags._contentError || flags._contentNotLoaded) {
       skipped++;
       continue;
     }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { User } from 'firebase/auth';
-import { loadAllSessions } from '../../../core/services/UnifiedSessionLoader';
+import { loadAllSessions, loadSessionContent } from '../../../core/services/UnifiedSessionLoader';
 import { ArchiveSession } from '../types';
 import { updateArchiveField, deleteArchiveSession } from '../services/archiveCrud';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
@@ -53,6 +53,18 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
     }
     prevVaultUnlockedRef.current = isVaultUnlocked;
   }, [isVaultUnlocked, fetchSessions]);
+
+  // Opening a cloud-only note is where its text is finally fetched: the list
+  // skips that read for every note, so without this the preview shows a note
+  // that is intact in the cloud as blank.
+  const openPreview = useCallback(async (session: ArchiveSession) => {
+    setPreviewSession(session);
+    if (!session._contentNotLoaded || !user) return;
+    const flags = await loadSessionContent(user.uid, session.id);
+    if (!mountedRef.current) return;
+    setSessions(prev => prev.map(s => s.id === session.id ? { ...s, ...flags } : s));
+    setPreviewSession(prev => prev && prev.id === session.id ? { ...prev, ...flags } : prev);
+  }, [user]);
 
   const updateSession = (id: string, patch: Partial<ArchiveSession>) => {
     setSessions(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s));
@@ -112,7 +124,7 @@ export function useArchiveSessions(user: User | null, userId: string, t: (key: s
   return {
     sessions, loading, error, cloudLoadFailed, fetchSessions,
     handleDeleteSession, handleTagsChange, handleTitleChange, handleDateChange, handleLabelChange,
-    previewSession, setPreviewSession,
+    previewSession, setPreviewSession, openPreview,
     deleteConfirm, setDeleteConfirm,
   };
 }
