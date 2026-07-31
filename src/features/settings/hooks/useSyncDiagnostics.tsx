@@ -8,6 +8,7 @@ import { LocalDocumentService } from '../../../core/services/LocalDocumentServic
 import { DocumentService } from '../../../core/services/DocumentService';
 import { SyncService } from '../../../core/services/SyncService';
 import { StorageService } from '../../../core/services/StorageService';
+import { VersionService } from '../../../core/services/VersionService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { toDate } from '../../../core/utils/dateUtils';
 import { useLanguage } from '../../../shared/i18n';
@@ -243,6 +244,16 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
     }
     setSyncingId(item.id);
     try {
+      // The encryption state is probed here, for this one note, rather than for
+      // every note on load — that probe was a read per note on every panel open.
+      // Doing it before the write also stops a needless re-encrypt of a document
+      // that is already encrypted, which is what the missing badge invited.
+      const latest = await VersionService.getLatestVersion(userId, item.cloudId);
+      if ((latest as unknown as { _encrypted?: boolean } | null)?._encrypted) {
+        setItems(prev => prev.map(i => i.id === item.id ? { ...i, cloudEncrypted: true } : i));
+        showToast('Уже зашифровано в облаке', 'success');
+        return;
+      }
       const res = await encryptSingleDocument(userId, item.cloudId);
       showToast(`Encrypted ${res.encrypted} versions in the cloud`, 'success');
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, cloudEncrypted: true } : i));
