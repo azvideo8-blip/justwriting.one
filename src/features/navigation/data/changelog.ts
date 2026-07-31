@@ -14,27 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
-    version: '0.7.68',
+    version: '0.7.66',
     date: '2026-07-31',
     items: [
       { category: 'fix', ru: 'Загрузка смыслового индекса из облака больше не выедает дневной лимит обращений к базе и не запирает приложение до полуночи. Индекс достраивается сам, локально; загрузка из облака переехала в отдельную кнопку в диагностике', en: 'Pulling the semantic index from the cloud no longer eats the daily database limit and locks the app out until midnight. The index is rebuilt locally on its own; the cloud download moved to a button in diagnostics' },
       { category: 'fix', ru: 'Счётчик обращений к базе перестал занижать расход: он считал документ за единицу, хотя лимит зависит от размера, а записи индекса весят сотни килобайт', en: 'The database usage counter stopped understating the cost: it charged one unit per document, while the limit depends on size and index records are hundreds of kilobytes' },
-    ],
-  },
-  {
-    version: '0.7.67',
-    date: '2026-07-31',
-    items: [
       { category: 'fix', ru: 'Поиск по заметкам снова находит по именам и словам. Заметка, найденная по слову, а не по смыслу, отбрасывалась как нерелевантная — поэтому «поищи про Вику» не возвращало ничего, хотя имя написано в заметке', en: 'Note search finds names and words again. A note found by a word rather than by meaning was discarded as irrelevant — which is why "поищи про Вику" returned nothing even with the name written in the note' },
       { category: 'fix', ru: 'Анализ заметок снова восстанавливается из облака: запрос за эмбеддингами читал всю коллекцию разом и каждый раз упирался в ограничение базы, поэтому смысловой индекс не мог восстановиться никогда', en: 'AI analysis is restored from the cloud again: the embeddings query read the whole collection at once and hit the database limit every time, so the semantic index could never be rebuilt' },
       { category: 'fix', ru: 'ИИ больше не говорит «в прикреплённой тобой заметке», если вы ничего не прикрепляли — так подписывалась заметка, к которой привязан сам диалог', en: 'The AI no longer says "in the note you attached" when you attached nothing — that was the note the dialogue itself is linked to' },
       { category: 'fix', ru: 'Если ответ оборвался, показывается пустой ответ, а не ход мысли вместо него — раньше рассуждение выводилось дважды и на полуслове', en: 'When a reply is cut off, the answer is empty instead of the chain of thought standing in for it — it used to be shown twice and mid-sentence' },
-    ],
-  },
-  {
-    version: '0.7.66',
-    date: '2026-07-31',
-    items: [
       { category: 'fix', ru: 'Заметки, потерявшие связь с облачной копией, находят её снова сами — по времени начала записи. Без этого каждая такая заметка выгрузилась бы в облако второй раз и скачалась бы обратно как отдельная копия', en: 'Notes that lost the link to their cloud copy find it again on their own, by the time the writing session started. Without this each of them would have been uploaded to the cloud a second time and downloaded back as a separate copy' },
       { category: 'fix', ru: 'Резко снижен расход облачной квоты на чтения: фоновое восстановление перестало перечитывать весь список заметок каждые две минуты, а панель синхронизации — перезапрашивать всё после каждого нажатия. Именно чтения, а не записи, исчерпали суточный лимит', en: 'Sharply reduced the cloud quota spent on reads: the background restore no longer re-lists every note every two minutes, and the sync panel no longer refetches everything after each click. It was reads, not writes, that exhausted the daily limit' },
       { category: 'fix', ru: 'Черновик больше не выгружается в облако каждые полминуты, когда в нём ничего не менялось', en: 'The draft is no longer uploaded to the cloud every half minute when nothing in it changed' },
