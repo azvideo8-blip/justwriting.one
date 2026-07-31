@@ -42,9 +42,25 @@ vi.mock('../../../../core/firebase/firestoreClient', () => ({
     db: {},
     mod: {
       collection: (_db: unknown, _u: string, _uid: string, name: string) => name,
-      getDocs: async (name: string) => ({
-        docs: name === 'summaries' ? summaryDocs : embeddingDocs,
+      // The embeddings collection is read one page at a time (a single getDocs
+      // over it exceeds Firestore's 128 MiB query limit), so the mock has to
+      // honour orderBy/startAfter/limit rather than hand back everything.
+      orderBy: () => ({ kind: 'orderBy' }),
+      limit: (n: number) => ({ kind: 'limit', n }),
+      startAfter: (cursor: { id: string }) => ({ kind: 'startAfter', cursor }),
+      query: (name: string, ...constraints: { kind: string; n?: number; cursor?: { id: string } }[]) => ({
+        name,
+        limit: constraints.find(c => c.kind === 'limit')?.n,
+        after: constraints.find(c => c.kind === 'startAfter')?.cursor?.id,
       }),
+      getDocs: async (target: string | { name: string; limit?: number; after?: string }) => {
+        if (typeof target === 'string') {
+          return { docs: target === 'summaries' ? summaryDocs : embeddingDocs };
+        }
+        const all = target.name === 'summaries' ? summaryDocs : embeddingDocs;
+        const start = target.after ? all.findIndex(d => d.id === target.after) + 1 : 0;
+        return { docs: all.slice(start, start + (target.limit ?? all.length)) };
+      },
     },
   })),
 }));

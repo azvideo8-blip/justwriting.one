@@ -82,8 +82,28 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
     const cloudHashes = new Set<string>();
 
     if (canSpendReadBudget()) {
-      const snap = await mod.getDocs(mod.collection(fs, 'users', userId, 'embeddings'));
-      spendReadBudget(snap.docs.length || 1, 'AIRestoreService.restoreAIData_embeddings');
+      // Paged, not one getDocs over the whole collection. An embedding document
+      // holds its chunk vectors, so the collection runs to hundreds of MB and
+      // the query died on Firestore's 128 MiB limit — meaning embeddings could
+      // never be restored at all, on any device, and semantic search stayed
+      // permanently empty. Ordered by document id so the cursor is stable.
+      const PAGE = 20;
+      const docsPage: { id: string; data: () => unknown }[] = [];
+      let cursor: unknown = undefined;
+      for (;;) {
+        const col = mod.collection(fs, 'users', userId, 'embeddings');
+        const pageQuery = cursor
+          ? mod.query(col, mod.orderBy('__name__'), mod.startAfter(cursor), mod.limit(PAGE))
+          : mod.query(col, mod.orderBy('__name__'), mod.limit(PAGE));
+        const pageSnap = await mod.getDocs(pageQuery);
+        if (pageSnap.docs.length === 0) break;
+        spendReadBudget(pageSnap.docs.length, 'AIRestoreService.restoreAIData_embeddings');
+        docsPage.push(...pageSnap.docs);
+        cursor = pageSnap.docs[pageSnap.docs.length - 1];
+        if (pageSnap.docs.length < PAGE) break;
+        if (!canSpendReadBudget()) break;
+      }
+      const snap = { docs: docsPage };
       for (const d of snap.docs) {
         const alreadyLocal = existingEmbeddings.has(d.id);
         // Decoding an already-local record is pure CPU, no extra quota — worth it
