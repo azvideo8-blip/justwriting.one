@@ -191,16 +191,21 @@ export async function recordUsage(
     }, { merge: true });
   }
   
-  // Per-request event for admin breakdown view
-  const eventRef = db.collection(`aiUsage/${uid}/events`).doc();
-  batch.set(eventRef, {
-    date,
-    ts: FieldValue.serverTimestamp(),
-    tokensIn,
-    tokensOut,
-    model: options?.model ?? 'unknown',
-    fn: options?.fn ?? 'unknown',
-  });
+  // Per-request event for the admin breakdown view. Off by default: it creates a
+  // NEW document per AI call, with no TTL and no cleanup, in a project whose
+  // daily quota the background passes already compete for. The daily aggregate
+  // above answers "how much was spent"; this only answers "by which call".
+  if (process.env.AI_USAGE_EVENTS === 'true') {
+    const eventRef = db.collection(`aiUsage/${uid}/events`).doc();
+    batch.set(eventRef, {
+      date,
+      ts: FieldValue.serverTimestamp(),
+      tokensIn,
+      tokensOut,
+      model: options?.model ?? 'unknown',
+      fn: options?.fn ?? 'unknown',
+    });
+  }
   await batch.commit();
 }
 
@@ -248,8 +253,11 @@ export async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalR
     let chosenShardId = '';
     let chosenData = null;
     
-    // Bounded search: check up to 3 shards to find one with capacity.
-    const attempts = 3;
+    // Bounded search: a random shard, and one fallback if it is full. This runs
+    // on every AI call, so each extra attempt is a read per call across the
+    // whole day's background work; with 10 shards and a per-shard limit, one
+    // fallback is enough to route around a hot shard.
+    const attempts = 2;
     const baseShard = Math.floor(Math.random() * NUM_SHARDS);
     for (let i = 0; i < attempts; i++) {
       const sId = ((baseShard + i) % NUM_SHARDS).toString();
