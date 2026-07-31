@@ -2,9 +2,11 @@ import { DocumentService } from './DocumentService';
 import { VersionService } from './VersionService';
 import { LocalStorageService } from './LocalStorageService';
 import { LocalVersionService } from './LocalVersionService';
-import { getLocalDb } from '../storage/localDb';
+import { getLocalDb, type LocalDocument } from '../storage/localDb';
+import { Document } from '../../types';
 import { toDate } from '../utils/dateUtils';
-import { maybeEncrypt, maybeDecrypt, type VersionEncryptPayload } from '../crypto/cryptoHelpers';
+import { maybeEncrypt, maybeDecrypt, type VersionEncryptPayload, getEncryptionEnabled } from '../crypto/cryptoHelpers';
+import { getSessionKey } from '../crypto/encrypt';
 import { reportError } from '../../shared/errors/reportError';
 import { withTimeout as withTimeoutBase } from '../../shared/utils/withTimeout';
 import { isFirestoreConnected } from '../firebase/firestore';
@@ -32,6 +34,20 @@ export const CloudSyncService = {
       return { restored: 0, hasMore: true };
     }
 
+    if (getEncryptionEnabled(userId) && !getSessionKey()) {
+      return { restored: 0, hasMore: false };
+    }
+
+    const lastListingTs = parseInt(localStorage.getItem('last_restore_listing_ts') || '0', 10);
+    if (Date.now() - lastListingTs < 30 * 60 * 1000) {
+      return { restored: 0, hasMore: false };
+    }
+    
+    // We update the timestamp only if we are actually going to list.
+    // However, if write budget blocks us after, we might want to try again sooner?
+    // The requirement says "refuse to re-list more often than every 30 minutes".
+    localStorage.setItem('last_restore_listing_ts', Date.now().toString());
+
     const cloudDocs = await DocumentService.getUserDocuments(userId);
     if (!cloudDocs.length) return { restored: 0, hasMore: false };
 
@@ -42,6 +58,7 @@ export const CloudSyncService = {
     });
 
     const localDocs = await LocalStorageService.getGuestDocuments(userId);
+    await relinkOrphaned(localDocs, cloudDocs);
     const localCloudIds = new Set(localDocs.map(d => d.linkedCloudId).filter(Boolean));
 
     let restored = 0;
@@ -64,6 +81,24 @@ export const CloudSyncService = {
     }
 
     return { restored, hasMore };
+  },
+
+  /**
+   * Restores links a lost/failed cloud read destroyed (a note read as
+   * "Cloud Copy Lost" and unlinked). Must run before anything uploads or
+   * downloads: an unlinked note is re-uploaded as a NEW cloud document and
+   * re-downloaded as a SECOND local copy, so the cost of skipping it is
+   * duplicates, not just a missing badge.
+   *
+   * Reads the cloud only when there is something to re-link, and throws rather
+   * than returning 0 when that read fails — "could not ask" must never reach a
+   * caller as "nothing matched".
+   */
+  async relinkOrphanedDocuments(userId: string): Promise<number> {
+    const localDocs = await LocalStorageService.getGuestDocuments(userId);
+    if (!localDocs.some(isRelinkCandidate)) return 0;
+    const cloudDocs = await DocumentService.getUserDocuments(userId);
+    return relinkOrphaned(localDocs, cloudDocs);
   },
 
   async addLocalCopy(userId: string, cloudDocumentId: string): Promise<string> {
@@ -479,3 +514,59 @@ export const CloudSyncService = {
     await mod.setDoc(mod.doc(db, 'users', userId), encrypted, { merge: true });
   },
 };
+
+function isRelinkCandidate(doc: LocalDocument): boolean {
+  return !doc.linkedCloudId && !doc.localOnly && !!doc.firstSessionAt;
+}
+
+/**
+ * Pairs unlinked local notes back to their cloud copies on `firstSessionAt` —
+ * the one field both copy directions carry over verbatim (addCloudCopy and
+ * addLocalCopy each pass it straight into createDocument) and that only an
+ * explicit date edit changes, which writes both sides together.
+ *
+ * Only unambiguous 1:1 matches are linked: two notes sharing a start timestamp
+ * are left for the owner rather than guessed at. Mutates `localDocs` in place
+ * so a caller that already holds the array sees the new links.
+ */
+async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[]): Promise<number> {
+  const candidates = localDocs.filter(isRelinkCandidate);
+  if (candidates.length === 0) return 0;
+
+  const takenCloudIds = new Set(localDocs.map(d => d.linkedCloudId).filter(Boolean));
+  const localsByStart = new Map<number, LocalDocument[]>();
+  for (const doc of candidates) {
+    const group = localsByStart.get(doc.firstSessionAt);
+    if (group) group.push(doc); else localsByStart.set(doc.firstSessionAt, [doc]);
+  }
+
+  const cloudByStart = new Map<number, Document[]>();
+  for (const cloudDoc of cloudDocs) {
+    if (takenCloudIds.has(cloudDoc.id)) continue;
+    const start = toDate(cloudDoc.firstSessionAt)?.getTime();
+    if (start == null || isNaN(start) || !localsByStart.has(start)) continue;
+    const group = cloudByStart.get(start);
+    if (group) group.push(cloudDoc); else cloudByStart.set(start, [cloudDoc]);
+  }
+
+  let relinked = 0;
+  for (const [start, locals] of localsByStart) {
+    const cloudMatches = cloudByStart.get(start);
+    const local = locals[0];
+    const cloudDoc = cloudMatches?.[0];
+    if (locals.length !== 1 || cloudMatches?.length !== 1 || !local || !cloudDoc) continue;
+    await LocalStorageService.updateLinkedCloudId(local.id, cloudDoc.id);
+    local.linkedCloudId = cloudDoc.id;
+    relinked++;
+  }
+
+  if (relinked > 0) {
+    useActivityLogStore.getState().addActivity(
+      `Заметки заново связаны с облачными копиями: ${relinked}`,
+      { action: 'relinkOrphanedDocuments', relinked },
+      'success',
+      'sync'
+    );
+  }
+  return relinked;
+}

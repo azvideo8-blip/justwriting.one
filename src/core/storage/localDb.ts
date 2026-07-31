@@ -15,6 +15,10 @@ export interface LocalDocument {
   tags: string[];
   labelId?: string | undefined;
   linkedCloudId?: string | undefined;
+  // Set only by an explicit Unlink. Distinguishes "the owner wants this note to
+  // stay on the device" from "the link was lost", which the re-link pass would
+  // otherwise restore right back.
+  localOnly?: boolean | undefined;
   mood?: string | undefined;
   aiProcessed?: boolean | undefined;
 }
@@ -79,7 +83,7 @@ export interface AIDialogue {
   personaName: string;
   personaEmoji: string;
   documentId?: string | undefined;
-  messages: { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' | undefined; reasoning?: string | undefined; variants?: string[] | undefined; variantIndex?: number | undefined }[];
+  messages: { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' | undefined; reasoning?: string | undefined; variants?: string[] | undefined; variantIndex?: number | undefined; searchRequest?: string | undefined }[];
   createdAt: number;
   updatedAt: number;
   archivedAt?: number | undefined;

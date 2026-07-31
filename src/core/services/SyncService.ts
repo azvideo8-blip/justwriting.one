@@ -57,6 +57,12 @@ export const SyncService = {
     try {
       await _drainPendingQueue(userId);
 
+      // Re-link first. A note whose link was lost still has its cloud copy, and
+      // uploading it "unlinked" creates a second cloud document. Deliberately
+      // not caught: if the cloud can't be read we must not upload blind, and
+      // both callers surface the rejection to the user.
+      await CloudSyncService.relinkOrphanedDocuments(userId);
+
       const localDocs = await LocalDocumentService.getGuestDocuments(userId);
       const unlinked = localDocs.filter(d => !d.linkedCloudId);
 
@@ -186,6 +192,18 @@ async function _drainPendingQueue(userId: string): Promise<void> {
 
   // 3. Process document/version tasks
   if (docTasks.length > 0) {
+    // Same rule as syncAllUnlinked: never upload a note whose link may only be
+    // missing. If the check itself can't run, leave the queue alone and retry
+    // on the next pass — a stuck task is recoverable, a duplicate cloud doc is
+    // not.
+    try {
+      await CloudSyncService.relinkOrphanedDocuments(userId);
+    } catch (e) {
+      logger.error('drainPendingQueue', 'Skipping uploads: could not verify cloud links', { reason: String(e) });
+      if (syncedIds.length > 0) await _clearQueueItems(syncedIds);
+      return;
+    }
+
     const documentIds = [...new Set(docTasks.map(p => p.documentId))];
     const pendingByDoc = new Map<string, typeof docTasks>();
     for (const p of docTasks) {
@@ -206,10 +224,12 @@ async function _drainPendingQueue(userId: string): Promise<void> {
     }
   }
 
-  if (syncedIds.length > 0) {
-    const cleanupDb = await getLocalDb();
-    const tx = cleanupDb.transaction('syncQueue', 'readwrite');
-    await Promise.all(syncedIds.map(id => tx.store.delete(id)));
-    await tx.done;
-  }
+  if (syncedIds.length > 0) await _clearQueueItems(syncedIds);
+}
+
+async function _clearQueueItems(ids: string[]): Promise<void> {
+  const db = await getLocalDb();
+  const tx = db.transaction('syncQueue', 'readwrite');
+  await Promise.all(ids.map(id => tx.store.delete(id)));
+  await tx.done;
 }
