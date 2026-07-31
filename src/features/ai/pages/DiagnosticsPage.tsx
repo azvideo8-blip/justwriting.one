@@ -683,7 +683,13 @@ function RebuildTimelineButton() {
                   { label: 'Кастомных персон создано', value: stats.customPersonas },
                   { label: 'Памяти диалогов (DLG-1)', value: stats.memories },
                   { label: 'Лимит ИИ за сутки', value: `${dailyLimit.used} / ${dailyLimit.limit} запросов` },
-                  { label: 'Чтений БД за сутки (App)', value: `${readBudgetStatus.used} / ${readBudgetStatus.cap}${readsBlocked ? ` (Блок)` : ''}` }
+                  { label: 'Чтений БД за сутки (App)', value: `${readBudgetStatus.used} / ${readBudgetStatus.cap}${readsBlocked ? ` (Блок)` : ''}` },
+                  // Who spent them, largest first. A total alone says the quota
+                  // went somewhere; this says where, which is the whole reason
+                  // the counter exists.
+                  ...Object.entries(readBudgetStatus.callers)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([caller, count]) => ({ label: `  └ ${caller}`, value: String(count) })),
                 ].map((r, i) => (
                   <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-border-subtle bg-surface-base/5">
                     <span className="text-xs text-text-main/60 font-medium">{r.label}</span>
