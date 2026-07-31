@@ -14,7 +14,7 @@ import { restoreAIDataFromCloud, reattachOrphanedAnalysis } from '../services/AI
 import { getLocalDb, type AIDocumentSummary } from '../../../core/storage/localDb';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 import { CloudSyncService } from '../../../core/services/CloudSyncService';
-
+import { areCloudReadsBlockedToday, canSpendReadBudget } from '../../../core/firebase/readBudget';
 const BATCH_SIZE = 3;
 const DEBOUNCE_MS = 30_000;
 const RESUMMARIZE_DEBOUNCE_MS = 60_000;
@@ -64,7 +64,6 @@ export function useEmbeddingIndexer(): void {
   const resummarizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyCountRef = useRef(0);
   const wordCloudTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const restoredRef = useRef(false);
 
   const scheduleWordCloudRebuild = useCallback(() => {
     if (wordCloudTimerRef.current) clearTimeout(wordCloudTimerRef.current);
@@ -119,24 +118,32 @@ export function useEmbeddingIndexer(): void {
       // note as never-analysed and pay the LLM again for summaries and
       // embeddings that are sitting in Firestore. Once per session; a locked
       // vault leaves the flag unset so the next pass retries.
-      if (!restoredRef.current) {
+      if (localStorage.getItem('ai_restore_done_date') !== new Date().toISOString().slice(0, 10)) {
         try {
           const uid = getAuth().currentUser?.uid;
           if (uid) {
-            const { restored, hasMore } = await CloudSyncService.restoreMissingDocuments(uid);
-            if (restored > 0) {
+            if (areCloudReadsBlockedToday() || !canSpendReadBudget()) {
               useActivityLogStore.getState().addActivity(
-                `Восстановлено заметок из облака: ${restored}`,
-                { action: 'restoreMissingDocuments', restored, hasMore },
-                'info',
+                `Пауза фоновой активности (Лимит чтения БД)`,
+                { action: 'indexer_backoff', reason: 'READ_BUDGET', type: 'restore' },
+                'warning',
                 'sync'
               );
+            } else {
+              const { restored, hasMore } = await CloudSyncService.restoreMissingDocuments(uid);
+              if (restored > 0) {
+                useActivityLogStore.getState().addActivity(
+                  `Восстановлено заметок из облака: ${restored}`,
+                  { action: 'restoreMissingDocuments', restored, hasMore },
+                  'info',
+                  'sync'
+                );
+              }
+              const aiRestored = await restoreAIDataFromCloud(uid);
+              if (!aiRestored.skippedLocked && !hasMore) {
+                localStorage.setItem('ai_restore_done_date', new Date().toISOString().slice(0, 10));
+              }
             }
-            const aiRestored = await restoreAIDataFromCloud(uid);
-            // If the bulk budget wasn't enough to restore all docs, we shouldn't mark restoredRef as true yet, 
-            // so we try again next pass to get the rest. Wait, restoreAIDataFromCloud fetches all summaries/embeddings in one go.
-            // If hasMore is true, we should probably keep trying on next passes? The ticket says:
-            if (!aiRestored.skippedLocked && !hasMore) restoredRef.current = true;
           }
         } catch (e) {
           reportError(e, { action: 'indexer_restoreFromCloud' });

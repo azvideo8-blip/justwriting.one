@@ -4,7 +4,7 @@ import { handleFirestoreError, OperationType } from '../errors/firestore-errors'
 import { computeWordDelta } from './DiffService';
 import { reportError } from '../../shared/errors/reportError';
 import { versionDbSchema } from '../firebase/schemas/firestoreSchemas';
-
+import { assertReadBudget, spendReadBudget } from '../firebase/readBudget';
 export const VersionService = {
   async addVersion(
     userId: string,
@@ -64,10 +64,12 @@ export const VersionService = {
   },
 
   async getVersions(userId: string, documentId: string): Promise<Version[]> {
+    assertReadBudget('VersionService.getVersions');
     try {
       const { db, mod } = await getClient();
       const { collection, getDocs } = mod;
       const snap = await getDocs(collection(db, 'users', userId, 'documents', documentId, 'versions'));
+      spendReadBudget(snap.docs.length || 1, 'VersionService.getVersions');
       const versions = snap.docs
         .map(d => {
           const parsed = versionDbSchema.safeParse({ id: d.id, ...d.data() });
@@ -89,11 +91,13 @@ export const VersionService = {
   },
 
   async getLatestContent(userId: string, documentId: string): Promise<string> {
+    assertReadBudget('VersionService.getLatestContent');
     try {
       const { db, mod } = await getClient();
       const { collection, getDocs, query, orderBy, limit } = mod;
       const q = query(collection(db, 'users', userId, 'documents', documentId, 'versions'), orderBy('version', 'desc'), limit(1));
       const snap = await getDocs(q);
+      spendReadBudget(1, 'VersionService.getLatestContent');
       if (snap.docs.length === 0) return '';
       const raw = snap.docs[0];
       if (!raw) return '';
@@ -111,11 +115,13 @@ export const VersionService = {
   },
 
   async getLatestVersion(userId: string, documentId: string): Promise<Version | null> {
+    assertReadBudget('VersionService.getLatestVersion');
     try {
       const { db, mod } = await getClient();
       const { collection, getDocs, query, orderBy, limit } = mod;
       const q = query(collection(db, 'users', userId, 'documents', documentId, 'versions'), orderBy('version', 'desc'), limit(1));
       const snap = await getDocs(q);
+      spendReadBudget(1, 'VersionService.getLatestVersion');
       if (snap.docs.length === 0) return null;
       const raw = snap.docs[0];
       if (!raw) return null;
