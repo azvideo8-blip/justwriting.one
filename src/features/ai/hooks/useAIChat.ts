@@ -474,8 +474,19 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         sanitizeCitations(fullText, injectedDocumentIds || []),
         allowedFirstSeenDates || []
       );
-      const savedText = effectiveReasoning ? extractAnswer(sanitizedFullText) : sanitizedFullText;
-      const savedReasoning = effectiveReasoning ? extractReasoning(sanitizedFullText) : undefined;
+      let savedText = effectiveReasoning ? extractAnswer(sanitizedFullText) : sanitizedFullText;
+      let savedReasoning = effectiveReasoning ? extractReasoning(sanitizedFullText) : undefined;
+
+      // In reasoning mode the answer arrives after a marker. When none of them
+      // ever appears, the model spent its whole output budget deliberating and
+      // was cut off — publishing that as the reply showed the user a page of
+      // "Мы получили два запроса… Я должен…" ending mid-word. Keep the
+      // deliberation where it belongs and say plainly that no answer came.
+      const hasAnswerSection = /<answer>|<\/think>|<\/reasoning>|^ОТВЕТ:\s*$/im.test(sanitizedFullText);
+      if (effectiveReasoning && !hasAnswerSection && sanitizedFullText.trim()) {
+        savedReasoning = sanitizedFullText.trim();
+        savedText = 'Ответ не дошёл: я потратил весь лимит на рассуждение и оборвался на полуслове. Ход мысли сохранён ниже. Попробуй переспросить короче или выключить режим рассуждений.';
+      }
       await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning, searchReq);
       // Link the dialogue to the attached note so it stays grounded after reload.
       if (attached?.documentId && attached.documentId.startsWith('local_')) {

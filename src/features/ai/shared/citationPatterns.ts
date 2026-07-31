@@ -27,8 +27,16 @@ export function isRecognisedCitation(rawMatch: string, id: string, injectedIds?:
   return rawMatch.startsWith('[#') || id.startsWith('local_');
 }
 
+// The prompt used to show the marker with a placeholder query, and the model
+// copied it verbatim — producing a chip that offered to search for the words
+// "краткий запрос". A placeholder is not a query.
+const MARKER_PLACEHOLDERS = new Set(['краткий запрос', 'запрос', 'query', 'краткий запрос сюда']);
+
 export function extractSearchRequest(text: string): string | null {
   SEARCH_MARKER_RE.lastIndex = 0;
   const match = SEARCH_MARKER_RE.exec(text);
-  return match ? match[1]!.trim() : null;
+  if (!match) return null;
+  const query = match[1]!.trim();
+  if (!query || MARKER_PLACEHOLDERS.has(query.toLowerCase())) return null;
+  return query;
 }

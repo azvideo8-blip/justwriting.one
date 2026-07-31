@@ -135,3 +135,16 @@ describe('ids that are not local_<uuid>', () => {
       .toBe('Шкала [1.5] осталась.');
   });
 });
+
+describe('search marker placeholders', () => {
+  it('ignores the placeholder the prompt used to show', () => {
+    // The model copied the example verbatim, and the UI offered to search the
+    // archive for the words "краткий запрос".
+    expect(extractSearchRequest('Ответ.\n[[ПОИСК: краткий запрос]]')).toBeNull();
+    expect(extractSearchRequest('Ответ.\n[[ПОИСК: query]]')).toBeNull();
+  });
+
+  it('still returns a real query', () => {
+    expect(extractSearchRequest('Ответ.\n[[ПОИСК: отношения с отцом]]')).toBe('отношения с отцом');
+  });
+});
