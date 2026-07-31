@@ -46,7 +46,7 @@ interface UseAIChatReturn {
   clearError: () => void;
 }
 
-function sanitizeCitations(text: string, injectedIds: string[]): string {
+export function sanitizeCitations(text: string, injectedIds: string[]): string {
   const allowed = new Set(injectedIds);
   const UNRECOGNISED_MARKER = '\uE000';
 
@@ -58,7 +58,14 @@ function sanitizeCitations(text: string, injectedIds: string[]): string {
     return UNRECOGNISED_MARKER;
   });
 
-  // Clean up punctuation and whitespace around the removed citation
+  // Clean up punctuation and whitespace around the removed citation.
+  // A list of references ("Источники: [#a], [#b].") loses its separator with the
+  // item, whichever position it held — otherwise dropping the first leaves
+  // "Источники:, [#b]." and dropping the last leaves "[#a],.". These two must
+  // run before the generic punctuation rule below, which would eat the wrong
+  // comma first.
+  cleaned = cleaned.replace(new RegExp(`${UNRECOGNISED_MARKER}\\s*,\\s*(?=\\[#)`, 'g'), '');
+  cleaned = cleaned.replace(new RegExp(`,\\s*${UNRECOGNISED_MARKER}(?=\\s*(?:[.,;:?!]|$))`, 'gm'), '');
   cleaned = cleaned.replace(new RegExp(`\\s*${UNRECOGNISED_MARKER}\\s*([.,;:?!])`, 'g'), '$1');
   cleaned = cleaned.replace(new RegExp(`,\\s*${UNRECOGNISED_MARKER}`, 'g'), '');
   cleaned = cleaned.replace(new RegExp(`(-|\\*)\\s*${UNRECOGNISED_MARKER}`, 'g'), '$1');
