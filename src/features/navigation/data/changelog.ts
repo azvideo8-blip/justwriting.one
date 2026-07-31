@@ -14,6 +14,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.67',
+    date: '2026-07-31',
+    items: [
+      { category: 'fix', ru: 'Поиск по заметкам снова находит по именам и словам. Заметка, найденная по слову, а не по смыслу, отбрасывалась как нерелевантная — поэтому «поищи про Вику» не возвращало ничего, хотя имя написано в заметке', en: 'Note search finds names and words again. A note found by a word rather than by meaning was discarded as irrelevant — which is why "поищи про Вику" returned nothing even with the name written in the note' },
+      { category: 'fix', ru: 'Анализ заметок снова восстанавливается из облака: запрос за эмбеддингами читал всю коллекцию разом и каждый раз упирался в ограничение базы, поэтому смысловой индекс не мог восстановиться никогда', en: 'AI analysis is restored from the cloud again: the embeddings query read the whole collection at once and hit the database limit every time, so the semantic index could never be rebuilt' },
+      { category: 'fix', ru: 'ИИ больше не говорит «в прикреплённой тобой заметке», если вы ничего не прикрепляли — так подписывалась заметка, к которой привязан сам диалог', en: 'The AI no longer says "in the note you attached" when you attached nothing — that was the note the dialogue itself is linked to' },
+      { category: 'fix', ru: 'Если ответ оборвался, показывается пустой ответ, а не ход мысли вместо него — раньше рассуждение выводилось дважды и на полуслове', en: 'When a reply is cut off, the answer is empty instead of the chain of thought standing in for it — it used to be shown twice and mid-sentence' },
+    ],
+  },
+  {
     version: '0.7.66',
     date: '2026-07-31',
     items: [

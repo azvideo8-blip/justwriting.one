@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.67 — 2026-07-31
+- **[RU]** Поиск по заметкам снова находит людей и слова. Порог релевантности сравнивал каждую найденную заметку с векторной оценкой — а у заметки, которую нашли по слову, а не по смыслу, такой оценки нет вовсе, она считалась нулевой, и заметка выбрасывалась. Из-за этого поиск по имени — «поищи про Вику», «что я писал про Дашу» — не возвращал ничего, хотя имя написано в заметке прямым текстом: словесная половина поиска могла только переставлять то, что уже нашёл смысловой поиск, но не добавлять своё.
+- **[EN]** Note search finds people and words again. The relevance floor judged every candidate by its vector score — and a note found by a word rather than by meaning has no such score at all, so it counted as zero and the note was discarded. Searching by name — "поищи про Вику", "что я писал про Дашу" — returned nothing even with the name written in the note: the keyword half of the search could only re-order what the semantic half had already found, never add to it.
+
 ## 0.7.66 — 2026-07-31
 - **[RU]** Исчерпанный дневной бюджет чтений больше не выглядит как пустое облако. Ограничитель, добавленный ради экономии квоты, при израсходованном лимите молча возвращал пустой список документов и пустой текст версий — то есть ровно то же, что при сбое чтения: диагностика синхронизации показала бы «облачная копия потеряна» на каждой связанной заметке рядом с кнопкой отвязки. Теперь чтение прерывается ошибкой, и все, кто его вызывает, показывают «неизвестно», а не «ничего нет».
 - **[EN]** A spent daily read budget no longer looks like an empty cloud. The limiter added to save quota was returning an empty document list and empty version text once the budget ran out — indistinguishable from a failed read, which would have shown "cloud copy lost" on every linked note next to an unlink button. The read now aborts with an error, and every caller reports "unknown" rather than "nothing there".
