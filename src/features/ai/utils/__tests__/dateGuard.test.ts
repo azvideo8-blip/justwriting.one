@@ -127,3 +127,39 @@ describe('AG-MIND-W8a dateGuard', () => {
     });
   });
 });
+
+// The guard used to split the reply on sentence boundaries and rejoin the
+// pieces with a single space, which deleted every blank line, heading and list
+// break in the answer — the whole reply arrived as one paragraph, and no
+// renderer spacing or prompt instruction could bring the structure back.
+describe('sanitizeFirstSeenDates preserves the shape of the reply', () => {
+  const REPLY = [
+    'Андрей, вот что я собрал.',
+    '',
+    '### Первая неделя июля',
+    '',
+    '2 июля ты защитил первую часть.',
+    'Утро было раздражённым.',
+    '',
+    '- пункт один',
+    '- пункт два',
+  ].join('\n');
+
+  it('returns text with no first-seen date completely untouched', () => {
+    expect(sanitizeFirstSeenDates(REPLY, [])).toBe(REPLY);
+  });
+
+  it('keeps the blank lines and list breaks', () => {
+    const out = sanitizeFirstSeenDates(REPLY, ['2026-07']);
+    expect(out).toContain('\n\n### Первая неделя июля\n\n');
+    expect(out).toContain('\n- пункт один\n- пункт два');
+  });
+
+  it('still strips an unvalidated first-seen date, and only that sentence', () => {
+    const text = 'Первый абзац.\n\nЭта мысль впервые появилась в марте 2026 года.\n\nПоследний абзац.';
+    const out = sanitizeFirstSeenDates(text, ['2026-07']);
+    expect(out).not.toContain('марте 2026');
+    expect(out).toContain('Первый абзац.\n\n');
+    expect(out).toContain('\n\nПоследний абзац.');
+  });
+});
