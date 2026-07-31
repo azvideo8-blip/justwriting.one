@@ -23,6 +23,7 @@ import { AIDialogueService } from '../services/AIDialogueService';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import { AIMemoryAssembler, extractDocumentIdsFromText } from '../services/AIMemoryAssembler';
 import { MemoryFlagsService } from '../services/memoryFlags';
+import { setAIStage } from '../store/useAIStageStore';
 
 // How much the search actually covered. Without it the model has no idea
 // whether the notes in front of it are the whole archive or a handful, and it
@@ -198,6 +199,7 @@ export function useAIChatContext(personaId: string): {
     let turnEmb: number[] | undefined;
     if (text.trim().length > 0) {
       try {
+        setAIStage('query');
         const res = await AIService.embed({ content: text });
         turnEmb = res.ok && res.vectors[0] ? res.vectors[0] : undefined;
       } catch { /* ignore */ }
@@ -435,6 +437,7 @@ export function useAIChatContext(personaId: string): {
           }
 
           const searchQuery = explicitSearch ? effectiveQuery : `${lastSearchQueryRef.current}\n${text}`;
+          setAIStage('search');
           const notesResult = await searchNotesMulti([searchQuery], 5, { minTime: sMin, maxTime: sMax });
           const notesText = notesResult.notes.map(n => `[#${n.documentId} · ${formatDateYYYYMMDD(n.lastSessionAt)}] Заметка "${n.title}": ${n.content.slice(0, 1000)}`).join('\n\n');
 
@@ -491,6 +494,7 @@ export function useAIChatContext(personaId: string): {
         skipSemantic = true;
         try {
           const digests = await AIMonthlyDigestService.getRecent(3);
+          setAIStage('timeline');
           const timelines = await AITimelineService.getMostRecent(10);
           const sortedDigests = [...digests].reverse();
           const digestLines = sortedDigests.map(d => `${d.month}: ${d.narrative}`).join('\n');
@@ -631,6 +635,7 @@ export function useAIChatContext(personaId: string): {
               allEmbeddings = await AIEmbeddingService.getAll();
             }
 
+            setAIStage('search');
             const searchResult = await searchNotesMulti(searchQueries, 10, { queryVector: queryEmb, allEmbeddings, minTime, maxTime, ignoredDocIds: ignoredDocumentIds });
             const notes = searchResult.notes;
             if (searchResult.failed) searchFailed = true;
@@ -686,6 +691,7 @@ export function useAIChatContext(personaId: string): {
                   documentId: n.documentId,
                   card: `${n.title}\n${n.content.slice(0, 400)}`,
                 }));
+                setAIStage('rank');
                 const rr = await AIService.rerank({ query: effectiveQuery, candidates, maxResults: 8 });
                 if (rr.ok && rr.documentIds.length > 0) {
                   const rerankOrder = new Map(rr.documentIds.map((id, i) => [id, i]));
@@ -750,6 +756,7 @@ export function useAIChatContext(personaId: string): {
                   : n.content;
               }
               noteIdx++;
+              setAIStage('summaries');
               const noteSummary = await db.get('aiSummaries', n.documentId);
               const summaryPrefix = noteSummary?.summary ? `[Суть: ${noteSummary.summary}]\n` : '';
               
@@ -1077,6 +1084,7 @@ export function useAIChatContext(personaId: string): {
 
     let memoryContext: string | null = null;
     try {
+      setAIStage('memory');
       memoryContext = await AIMemoryAssembler.assembleMemoryContext({
         query: text,
         attachedDocumentId: params.attached?.documentId ?? null,

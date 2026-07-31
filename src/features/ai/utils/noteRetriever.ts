@@ -5,6 +5,7 @@ import { LocalVersionService } from '../../../core/services/LocalVersionService'
 import { topKMultiWithChunkIndex } from '../utils/vectorSearch';
 import MiniSearch from 'minisearch';
 import { reportError } from '../../../shared/errors/reportError';
+import { setAIStage } from '../store/useAIStageStore';
 
 export interface RetrievedNote {
   documentId: string;
@@ -277,6 +278,7 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
 
   // Rerank via the dedicated rerankNotes endpoint
   const fallbackIds = filteredTopIds.slice(0, maxResults);
+  setAIStage('rank');
   const rr = await AIService.rerank({
     query,
     candidates: cards,
@@ -601,6 +603,7 @@ export async function searchNotesMulti(
 
   // TICKET-044: Single rerank call using original query
   const fallbackIds = filteredTopIds.slice(0, maxResults);
+  setAIStage('rank');
   const rr = await AIService.rerank({
     query: queries[0]!,
     candidates: cards,

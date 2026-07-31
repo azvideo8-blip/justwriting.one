@@ -22,6 +22,7 @@ import { cn } from '../../../core/utils/utils';
 import { Monogram, threadPreview, AttachedNoteCard, AttachedFileCard, AttachedSummaryCard, AssistantTurn, ATTACHED_NOTE_RE, ATTACHED_NOTE_SUMMARY_RE, ATTACHED_FILE_RE } from '../components/AIChatPresentational';
 import { CRISIS_RESOURCES } from '../utils/riskDetect';
 import { CITATION_RE, isRecognisedCitation } from '../shared/citationPatterns';
+import { useAIStageStore, AI_STAGE_LABEL } from '../store/useAIStageStore';
 import { useAIPageData } from '../hooks/useAIPageData';
 import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
@@ -1132,9 +1133,14 @@ export function AIPage() {
   );
 }
 
-// UXFIX-2: Animated thinking indicator with seconds counter
+// UXFIX-2: Animated activity indicator with seconds counter.
+// Says what is actually happening. Most of the wait is spent searching notes and
+// reading their summaries — the model is not involved yet — so a flat "думает…"
+// was both wrong and uninformative on exactly the searches that take longest.
 function ThinkingIndicator({ name }: { name: string }) {
   const [seconds, setSeconds] = useState(0);
+  const stage = useAIStageStore(s => s.stage);
+  const activity = stage ? AI_STAGE_LABEL[stage] : 'готовит ответ';
 
   useEffect(() => {
     const start = Date.now();
@@ -1151,7 +1157,7 @@ function ThinkingIndicator({ name }: { name: string }) {
         <span className="w-1.5 h-1.5 rounded-full bg-text-main/40 animate-pulse" style={{ animationDelay: '150ms' }} />
         <span className="w-1.5 h-1.5 rounded-full bg-text-main/40 animate-pulse" style={{ animationDelay: '300ms' }} />
       </span>
-      <span className="text-sm">{name} думает… {seconds}с</span>
+      <span className="text-sm">{name} {activity}… {seconds}с</span>
     </div>
   );
 }
