@@ -4,12 +4,42 @@ import { getClient } from '../../../core/firebase/firestoreClient';
 import { sha256Hex, getLatestContent } from '../utils/embeddingIndexer';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { getEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
-import { canSpendReadBudget, spendReadBudget } from '../../../core/firebase/readBudget';
+import { canSpendReadBudget, spendReadBudget, estimateReadUnits } from '../../../core/firebase/readBudget';
 import { reportError } from '../../../shared/errors/reportError';
 import { logger } from '../../../shared/errors/logger';
 import { decodeCloudSummary } from './AISummaryService';
 import { decodeCloudEmbedding } from './AIEmbeddingService';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
+
+const EMBED_RESTORE_FLAG = 'ai_embed_restore_requested';
+const EMBED_RESTORE_CURSOR = 'ai_embed_restore_cursor';
+
+/** Opt in to pulling the semantic index back from the cloud. Deliberately
+ *  manual: the collection costs more read units than a whole free day. */
+export function requestEmbeddingRestore(): void {
+  try { localStorage.setItem(EMBED_RESTORE_FLAG, '1'); } catch { /* ignore */ }
+}
+
+export function isEmbeddingRestoreRequested(): boolean {
+  try { return localStorage.getItem(EMBED_RESTORE_FLAG) === '1'; } catch { return false; }
+}
+
+function clearEmbeddingRestoreRequest(): void {
+  try {
+    localStorage.removeItem(EMBED_RESTORE_FLAG);
+    localStorage.removeItem(EMBED_RESTORE_CURSOR);
+  } catch { /* ignore */ }
+}
+
+/** Where the last run stopped, so a budget-limited restore resumes tomorrow
+ *  instead of paying for the same pages again. */
+function getEmbeddingRestoreCursor(): string {
+  try { return localStorage.getItem(EMBED_RESTORE_CURSOR) ?? ''; } catch { return ''; }
+}
+
+function setEmbeddingRestoreCursor(id: string): void {
+  try { localStorage.setItem(EMBED_RESTORE_CURSOR, id); } catch { /* ignore */ }
+}
 
 export interface AIRestoreResult {
   summaries: number;
@@ -53,7 +83,7 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
   try {
     if (canSpendReadBudget()) {
       const snap = await mod.getDocs(mod.collection(fs, 'users', userId, 'summaries'));
-      spendReadBudget(snap.docs.length || 1, 'AIRestoreService.restoreAIData_summaries');
+      spendReadBudget(estimateReadUnits(snap.docs) || 1, 'AIRestoreService.restoreAIData_summaries');
       for (const d of snap.docs) {
         if (existingSummaries.has(d.id)) continue;
         try {
@@ -81,26 +111,32 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
     );
     const cloudHashes = new Set<string>();
 
-    if (canSpendReadBudget()) {
-      // Paged, not one getDocs over the whole collection. An embedding document
-      // holds its chunk vectors, so the collection runs to hundreds of MB and
-      // the query died on Firestore's 128 MiB limit — meaning embeddings could
-      // never be restored at all, on any device, and semantic search stayed
-      // permanently empty. Ordered by document id so the cursor is stable.
-      const PAGE = 20;
+    // NOT part of the automatic pass. An embedding record carries its chunk
+    // vectors — hundreds of KB, dozens of read units each — so walking this
+    // collection costs more than the entire free daily read quota and locks the
+    // user out of their own notes for the rest of the day. Embeddings are a
+    // cache of a deterministic computation: the indexer rebuilds a missing one
+    // locally, at its own daily pace, for zero Firestore reads. Restoring them
+    // is a deliberate, user-initiated action (requestEmbeddingRestore) and
+    // resumes across days from a stored cursor.
+    if (isEmbeddingRestoreRequested() && canSpendReadBudget()) {
+      const PAGE = 5;
       const docsPage: { id: string; data: () => unknown }[] = [];
       let cursor: unknown = undefined;
+      const startAfterId = getEmbeddingRestoreCursor();
       for (;;) {
         const col = mod.collection(fs, 'users', userId, 'embeddings');
-        const pageQuery = cursor
-          ? mod.query(col, mod.orderBy('__name__'), mod.startAfter(cursor), mod.limit(PAGE))
+        const after = cursor ?? (startAfterId || undefined);
+        const pageQuery = after
+          ? mod.query(col, mod.orderBy('__name__'), mod.startAfter(after), mod.limit(PAGE))
           : mod.query(col, mod.orderBy('__name__'), mod.limit(PAGE));
         const pageSnap = await mod.getDocs(pageQuery);
-        if (pageSnap.docs.length === 0) break;
-        spendReadBudget(pageSnap.docs.length, 'AIRestoreService.restoreAIData_embeddings');
+        if (pageSnap.docs.length === 0) { clearEmbeddingRestoreRequest(); break; }
+        spendReadBudget(estimateReadUnits(pageSnap.docs), 'AIRestoreService.restoreAIData_embeddings');
         docsPage.push(...pageSnap.docs);
         cursor = pageSnap.docs[pageSnap.docs.length - 1];
-        if (pageSnap.docs.length < PAGE) break;
+        setEmbeddingRestoreCursor(pageSnap.docs[pageSnap.docs.length - 1]!.id);
+        if (pageSnap.docs.length < PAGE) { clearEmbeddingRestoreRequest(); break; }
         if (!canSpendReadBudget()) break;
       }
       const snap = { docs: docsPage };
