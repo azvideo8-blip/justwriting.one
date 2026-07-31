@@ -134,10 +134,19 @@ export function sanitizeFirstSeenDates(text: string, allowedDates: string[]): st
     }
   }
 
-  // Split into sentence blocks preserving separators
-  const sentences = text.split(/(?<=[.!?\n])\s+/);
+  // Split into sentence blocks, CAPTURING the separators so they can be put
+  // back byte for byte. Without the capture group the whitespace was consumed
+  // and the pieces rejoined with a single space, which flattened every blank
+  // line, heading and list break in the reply — the whole answer arrived as one
+  // paragraph no matter what the model formatted, and no renderer spacing or
+  // prompt instruction could undo it. The guard only ever needs to touch
+  // sentences that carry a first-seen date; everything else must come out
+  // exactly as it went in.
+  const parts = text.split(/((?<=[.!?\n])\s+)/);
 
-  const processedSentences = sentences.map(sentence => {
+  const processedParts = parts.map((sentence, i) => {
+    // Odd indices are the captured separators — pass them through untouched.
+    if (i % 2 === 1) return sentence;
     // Only inspect sentences that contain first-seen phrasing
     if (!FIRST_SEEN_PHRASING_REGEX.test(sentence)) {
       return sentence;
@@ -190,5 +199,5 @@ export function sanitizeFirstSeenDates(text: string, allowedDates: string[]): st
     return sentence;
   });
 
-  return processedSentences.join(' ');
+  return processedParts.join('');
 }
