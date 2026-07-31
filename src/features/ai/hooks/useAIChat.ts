@@ -26,6 +26,7 @@ import {
   _streamUnavailableUntil
 } from '../utils/aiChatTransport';
 import { sanitizeFirstSeenDates } from '../utils/dateGuard';
+import { CITATION_RE, isRecognisedCitation, extractSearchRequest } from '../shared/citationPatterns';
 export { API_MSG_CAP };
 
 interface UseAIChatReturn {
@@ -39,6 +40,7 @@ interface UseAIChatReturn {
   prepareAttachment: (documentId: string) => Promise<{ title: string; content: string; lastSessionAt?: number | undefined } | null>;
   stop: () => void;
   regenerateLast: () => Promise<void>;
+  triggerForcedSearch: (query: string) => Promise<void>;
   crisisActive: boolean;
   dismissCrisis: () => void;
   clearError: () => void;
@@ -46,10 +48,27 @@ interface UseAIChatReturn {
 
 function sanitizeCitations(text: string, injectedIds: string[]): string {
   const allowed = new Set(injectedIds);
-  return text.replace(/\[#([a-zA-Z0-9_-]+)\]/g, (match, id) => {
-    if (allowed.has(id)) return match;
-    return `[${id}]`;
+  const UNRECOGNISED_MARKER = '\uE000';
+
+  let cleaned = text.replace(CITATION_RE, (match, g1, g2) => {
+    const id = g2 || g1 || '';
+    if (isRecognisedCitation(match, id, allowed)) {
+      return match.startsWith('[#') ? match : `[#${id}]`;
+    }
+    return UNRECOGNISED_MARKER;
   });
+
+  // Clean up punctuation and whitespace around the removed citation
+  cleaned = cleaned.replace(new RegExp(`\\s*${UNRECOGNISED_MARKER}\\s*([.,;:?!])`, 'g'), '$1');
+  cleaned = cleaned.replace(new RegExp(`,\\s*${UNRECOGNISED_MARKER}`, 'g'), '');
+  cleaned = cleaned.replace(new RegExp(`(-|\\*)\\s*${UNRECOGNISED_MARKER}`, 'g'), '$1');
+  cleaned = cleaned.replace(new RegExp(`\\s*${UNRECOGNISED_MARKER}\\s*`, 'g'), ' ');
+  cleaned = cleaned.replace(/ ([.,;:?!])/g, '$1');
+  cleaned = cleaned.replace(/ {2,}/g, ' ');
+  cleaned = cleaned.replace(/\(\s*\)/g, '');
+  cleaned = cleaned.replace(/\[\s*\]/g, '');
+
+  return cleaned.trim();
 }
 
 export function useAIChat(dialogueId: string | null, personaId: string, responseLength?: 'short' | 'standard' | 'detailed', reasoning?: boolean): UseAIChatReturn {
@@ -161,8 +180,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   // so the model reads the whole note while the chat message stays small (just a
   // "[Прикреплена заметка: …]" marker plus any text the user typed). The note body
   // is never put into the message itself (that would trip the 10K per-message cap).
-  const sendMessage = useCallback(async (text: string, attached?: { content: string; documentId?: string; inline?: boolean }, mood?: string): Promise<string | null> => {
-    if (!text.trim()) return null;
+  const sendMessage = useCallback(async (text: string, attached?: { content: string; documentId?: string; inline?: boolean }, mood?: string, forcedSearchQuery?: string): Promise<string | null> => {
+    if (!text.trim() && !forcedSearchQuery) return null;
     // R-1: Synchronous re-entrancy guard — prevents two calls in the same tick
     // from both proceeding past the isLoading check (state isn't committed yet).
     if (sendingRef.current) return null;
@@ -198,8 +217,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
     // Build API messages from the ORIGINAL dialogue before the optimistic update.
     const allMessages: AIMessage[] = dialogue
-      ? [...dialogue.messages, { role: 'user' as const, content: text, type: 'chat' as const }]
-      : [{ role: 'user' as const, content: text, type: 'chat' as const }];
+      ? (text.trim() ? [...dialogue.messages, { role: 'user' as const, content: text, type: 'chat' as const }] : [...dialogue.messages])
+      : (text.trim() ? [{ role: 'user' as const, content: text, type: 'chat' as const }] : []);
 
     // Resolve persona name/emoji early for the optimistic display.
     const preset = PRESET_PERSONAS.find(p => p.id === personaId);
@@ -222,7 +241,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         personaName,
         personaEmoji,
         documentId: undefined,
-        messages: [{ role: 'user', content: text, type: 'chat' }],
+        messages: text.trim() ? [{ role: 'user', content: text, type: 'chat' }] : [],
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -294,7 +313,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       }
 
       const baseMessages = currentDialogue.messages;
-      const sourceForApi: AIMessage[] = [...baseMessages, { role: 'user' as const, content: text, type: 'chat' as const }];
+      const sourceForApi: AIMessage[] = text.trim() ? [...baseMessages, { role: 'user' as const, content: text, type: 'chat' as const }] : [...baseMessages];
       const apiMessages = pruneMessages(sourceForApi.filter(m => m.type !== 'system'))
         .map(m => ({ ...m, content: toApiContent(m.content) }));
 
@@ -318,6 +337,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         messageHistory: apiMessages,
         isFirstTurn,
         dialogueId: effectiveDialogueId,
+        forcedSearchQuery,
       });
 
       // Inject today's date so the model can reason about "вчера", "на этой неделе" etc.
@@ -437,13 +457,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       // RSN-4: Clean reasoning tags before saving; persist reasoning separately
       // so the collapsible "ход мысли" survives in dialogue history.
+      const searchReq = extractSearchRequest(fullText);
       const sanitizedFullText = sanitizeFirstSeenDates(
         sanitizeCitations(fullText, injectedDocumentIds || []),
         allowedFirstSeenDates || []
       );
       const savedText = effectiveReasoning ? extractAnswer(sanitizedFullText) : sanitizedFullText;
       const savedReasoning = effectiveReasoning ? extractReasoning(sanitizedFullText) : undefined;
-      await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning);
+      await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning, searchReq);
       // Link the dialogue to the attached note so it stays grounded after reload.
       if (attached?.documentId && attached.documentId.startsWith('local_')) {
         await AIDialogueService.setDocumentId(currentDialogue.id, attached.documentId);
@@ -512,18 +533,24 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       const content = await LocalVersionService.getLatestContent(documentId);
       if (!content) return null;
       return { title: doc.title || 'Без названия', content, lastSessionAt: doc.lastSessionAt };
-    } catch {
-      return null;
+    } catch (e) {
+      reportError(e, { action: 'prepareAttachment', documentId });
+      throw new Error('Не удалось загрузить документ (ошибка доступа к БД).');
     }
   }, []);
 
   // Attach + send in one step (used when opening chat from a note / facet draft).
   // The note text goes via documentContent; the message is just the marker.
   const attachDocument = useCallback(async (documentId: string) => {
-    const prepared = await prepareAttachment(documentId);
-    if (!prepared) { setError('Не удалось прикрепить документ'); return; }
-    const marker = `[Прикреплена заметка: "${prepared.title}"]`;
-    await sendMessage(marker, { content: prepared.content });
+    try {
+      const prepared = await prepareAttachment(documentId);
+      if (!prepared) { setError('Не удалось прикрепить документ'); return; }
+      const marker = `[Прикреплена заметка: "${prepared.title}"]`;
+      await sendMessage(marker, { content: prepared.content });
+    } catch (e) {
+      reportError(e, { action: 'attachDocument_failed', documentId });
+      setError('Не удалось загрузить документ из-за ошибки доступа');
+    }
   }, [prepareAttachment, sendMessage]);
 
   const stop = useCallback(() => {
@@ -579,5 +606,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     }
   }, [isLoading, dialogueId, dialogue, sendMessage]);
 
-  return { dialogue, isLoading, streamingMessage, streamingReasoning, error, sendMessage, attachDocument, prepareAttachment, stop, regenerateLast, crisisActive, dismissCrisis, clearError };
+  const triggerForcedSearch = useCallback(async (query: string) => {
+    await sendMessage('', undefined, undefined, query);
+  }, [sendMessage]);
+
+  return { dialogue, isLoading, streamingMessage, streamingReasoning, error, sendMessage, attachDocument, prepareAttachment, stop, regenerateLast, triggerForcedSearch, crisisActive, dismissCrisis, clearError };
 }

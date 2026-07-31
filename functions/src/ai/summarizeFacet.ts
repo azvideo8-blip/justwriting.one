@@ -94,7 +94,7 @@ export const summarizeFacet = onCall({
 
     const text = result.text.trim();
     // Reasoning-model leakage markers + English — these must never reach a card.
-    const META = /мы (имеем|должны)|нужно (определить|проанализ)|проанализир|\bwe need\b|the (user|notes|theme)|given notes|<think>|похоже,?\s*что|возможно,?\s*(это|жен)|в заметке\s*\d|из заметок|предложени[яй] от третьего/i;
+    const META = /мы (имеем|должны)|нужно (определить|проанализ)|проанализир|(?<=^|[^а-яёА-ЯЁa-zA-Z0-9])we need(?=$|[^а-яёА-ЯЁa-zA-Z0-9])|the (user|notes|theme)|given notes|<think>|похоже,?\s*что|возможно,?\s*(это|жен)|в заметке\s*\d|из заметок|предложени[яй] от третьего/i;
     const cyr = (s: string) => (s.match(/[а-яё]/gi) ?? []).length;
 
     // XML tag extraction (robust to preamble/reasoning). Fallback to legacy

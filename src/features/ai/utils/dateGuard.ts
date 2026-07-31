@@ -91,7 +91,7 @@ export function extractFirstSeenDates(text: string | null | undefined): string[]
   const lines = text.split('\n');
   for (const line of lines) {
     if (/впервые|убеждение/i.test(line)) {
-      const matches = line.matchAll(/\b(\d{4}-\d{2}(?:-\d{2})?)\b/g);
+      const matches = line.matchAll(new RegExp(`${LB}(\\d{4}-\\d{2}(?:-\\d{2})?)${RB}`, 'g'));
       for (const m of matches) {
         if (m[1]) dates.push(m[1]);
       }
@@ -100,17 +100,20 @@ export function extractFirstSeenDates(text: string | null | undefined): string[]
   return [...new Set(dates)];
 }
 
-const FIRST_SEEN_PHRASING_REGEX = /(?:впервые\s+(?:записал|записала|записал\(а\)|появил|появилась|появился|появилось|связал|связала|упомянул|упомянула|сформулировал|сформулировала|отметил|отметила|звучит|встретил|встретилась|встретилось|возникл|проявил|мысль)|впервые\b)/i;
+const LB = '(?<=^|[^а-яёА-ЯЁa-zA-Z0-9])';
+const RB = '(?=$|[^а-яёА-ЯЁa-zA-Z0-9])';
 
-const RUSSIAN_MONTH_DATE_REGEX = /(?:\b(?:от|с|в|на)\s+)?(?:\d{1,2}\s+)?(?:января|январе|февраля|феврале|марта|марте|апреля|апреле|мая|мае|июня|июне|июля|июле|августа|августе|сентября|сентябре|октября|октябре|ноября|ноябре|декабря|декабре|январь|февраль|март|апрель|май|июнь|июль|август|сентябрь|октябрь|ноябрь|декабрь)\s+\d{4}(?:\s*года|\s*г\.)?/gi;
-const ISO_DATE_REGEX = /\s*\(?\s*\b\d{4}-\d{2}(?:-\d{2})?\b\s*\)?/gi;
-const NUMERIC_DATE_REGEX = /\s*\(?\s*\b\d{1,2}\.\d{2}\.\d{4}\b\s*\)?/gi;
+const FIRST_SEEN_PHRASING_REGEX = new RegExp(`(?:впервые\\s+(?:записал|записала|записал\\(а\\)|появил|появилась|появился|появилось|связал|связала|упомянул|упомянула|сформулировал|сформулировала|отметил|отметила|звучит|встретил|встретилась|встретилось|возникл|проявил|мысль)|впервые${RB})`, 'i');
+
+const RUSSIAN_MONTH_DATE_REGEX = new RegExp(`(?:${LB}(?:от|с|в|на)\\s+)?(?:\\d{1,2}\\s+)?(?:января|январе|февраля|феврале|марта|марте|апреля|апреле|мая|мае|июня|июне|июля|июле|августа|августе|сентября|сентябре|октября|октябре|ноября|ноябре|декабря|декабре|январь|февраль|март|апрель|май|июнь|июль|август|сентябрь|октябрь|ноябрь|декабрь)\\s+\\d{4}(?:\\s*года|\\s*г\\.)?`, 'gi');
+const ISO_DATE_REGEX = new RegExp(`\\s*\\(?\\s*${LB}\\d{4}-\\d{2}(?:-\\d{2})?${RB}\\s*\\)?`, 'gi');
+const NUMERIC_DATE_REGEX = new RegExp(`\\s*\\(?\\s*${LB}\\d{1,2}\\.\\d{2}\\.\\d{4}${RB}\\s*\\)?`, 'gi');
 
 function cleanStrippedSentence(sentence: string): string {
   return sentence
     .replace(/\s+/g, ' ')
     .replace(/\s+([.,!?])/g, '$1')
-    .replace(/\b(?:в|от|с|на)\s+([.,!?])/gi, '$1')
+    .replace(new RegExp(`${LB}(?:в|от|с|на)\\s+([.,!?])`, 'gi'), '$1')
     .replace(/\s*\(\s*\)/g, '')
     .trim();
 }
