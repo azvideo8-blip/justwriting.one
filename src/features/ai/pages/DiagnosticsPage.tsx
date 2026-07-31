@@ -69,6 +69,8 @@ export function DiagnosticsPage() {
     handleResetUserLimit,
     handleClearMemory,
     handleCollapseVersions,
+    readBudgetStatus,
+    readsBlocked,
   } = useDiagnosticsData(profile, authLoading, activeTab);
 
   const handleDownloadDiagnostics = async () => {
@@ -680,9 +682,10 @@ function RebuildTimelineButton() {
                   { label: 'Диалогов ИИ записано', value: stats.dialogues },
                   { label: 'Кастомных персон создано', value: stats.customPersonas },
                   { label: 'Памяти диалогов (DLG-1)', value: stats.memories },
-                  { label: 'Лимит ИИ за сутки', value: `${dailyLimit.used} / ${dailyLimit.limit} запросов` }
-                ].map(r => (
-                  <div key={r.label} className="flex items-center justify-between p-4 rounded-xl border border-border-subtle bg-surface-base/5">
+                  { label: 'Лимит ИИ за сутки', value: `${dailyLimit.used} / ${dailyLimit.limit} запросов` },
+                  { label: 'Чтений БД за сутки (App)', value: `${readBudgetStatus.used} / ${readBudgetStatus.cap}${readsBlocked ? ` (Блок)` : ''}` }
+                ].map((r, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-border-subtle bg-surface-base/5">
                     <span className="text-xs text-text-main/60 font-medium">{r.label}</span>
                     <span className="text-xs font-mono font-bold text-text-main">{r.value}</span>
                   </div>

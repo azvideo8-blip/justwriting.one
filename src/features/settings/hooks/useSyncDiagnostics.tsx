@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Cloud, HardDrive, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { AIService } from '../../../core/services/AIService';
 import { AISummaryService } from '../../../core/services/AISummaryService';
@@ -8,7 +8,6 @@ import { LocalDocumentService } from '../../../core/services/LocalDocumentServic
 import { DocumentService } from '../../../core/services/DocumentService';
 import { SyncService } from '../../../core/services/SyncService';
 import { StorageService } from '../../../core/services/StorageService';
-import { VersionService } from '../../../core/services/VersionService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { toDate } from '../../../core/utils/dateUtils';
 import { useLanguage } from '../../../shared/i18n';
@@ -160,17 +159,8 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
 
       const builtItems = Array.from(itemsMap.values());
 
-      // Determine cloud encryption state per item
-      await Promise.all(builtItems.map(async (item) => {
-        if (item.hasCloud && item.cloudId) {
-          try {
-            const latest = await VersionService.getLatestVersion(userId, item.cloudId);
-            item.cloudEncrypted = !!(latest as unknown as { _encrypted?: boolean })?._encrypted;
-          } catch (e) {
-            reportError(e, { action: '[SyncDiagnostics] Encryption check failed' });
-          }
-        }
-      }));
+      // Encryption probes are deferred to when the user explicitly requests them
+      // to avoid O(N) reads on every page load.
 
       setItems(builtItems.sort((a, b) => b.title.localeCompare(a.title)));
 
@@ -183,7 +173,10 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
     }
   }, [userId, t, showToast, loadAIStatus]);
 
+  const hasFetched = useRef(false);
   useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
     void fetchData();
   }, [fetchData]);
 
@@ -201,7 +194,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         await StorageService.addCloudCopy(userId, item.localId, hasEncryption);
       }
       showToast(t('storage_uploaded_cloud') || 'Sync completed', 'success');
-      await fetchData();
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'synced', hasCloud: true, cloudId: item.localId, inQueue: false } : i));
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Sync failed' });
       showToast(t('error_generic_action') || 'Sync failed', 'error');
@@ -216,7 +209,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
     try {
       await StorageService.addLocalCopy(userId, item.cloudId);
       showToast('Downloaded copy to device', 'success');
-      await fetchData();
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, hasLocal: true, status: 'synced', localId: item.cloudId } : i));
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Download failed' });
       showToast(t('error_generic_action') || 'Download failed', 'error');
@@ -231,9 +224,9 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
     if (!ok) return;
     setSyncingId(item.id);
     try {
-      await LocalDocumentService.updateLinkedCloudId(item.localId, '');
+      await LocalDocumentService.unlinkFromCloud(item.localId);
       showToast('Unlinked from cloud copy', 'success');
-      await fetchData();
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'local_only', cloudId: undefined, hasCloud: false } : i));
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Unlink failed' });
       showToast(t('error_generic_action') || 'Unlink failed', 'error');
@@ -252,7 +245,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
     try {
       const res = await encryptSingleDocument(userId, item.cloudId);
       showToast(`Encrypted ${res.encrypted} versions in the cloud`, 'success');
-      await fetchData();
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, cloudEncrypted: true } : i));
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Encryption failed' });
       showToast('Encryption failed. Make sure your vault is unlocked.', 'error');
@@ -268,7 +261,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       const db = await getLocalDb();
       await db.delete('syncQueue', item.queueItemId);
       showToast('Cleared task from sync queue', 'success');
-      await fetchData();
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, inQueue: false, queueItemId: undefined, status: i.hasCloud ? (i.localVersion !== i.cloudVersion ? 'mismatch' : 'synced') : 'local_only' } : i));
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Clear queue item failed' });
       showToast(t('error_generic_action') || 'Clear queue item failed', 'error');

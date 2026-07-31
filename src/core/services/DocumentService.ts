@@ -5,7 +5,7 @@ import { toTimestampMs } from '../utils/dateUtils';
 import { reportError } from '../../shared/errors/reportError';
 import { documentDbSchema } from '../firebase/schemas/firestoreSchemas';
 import { documentFromDb } from './mappers';
-
+import { assertReadBudget, spendReadBudget } from '../firebase/readBudget';
 export const DocumentService = {
   async createDocument(
     userId: string,
@@ -56,10 +56,12 @@ export const DocumentService = {
   },
 
   async getUserDocuments(userId: string): Promise<Document[]> {
+    assertReadBudget('DocumentService.getUserDocuments');
     try {
       const { db, mod } = await getClient();
       const { collection, getDocs } = mod;
       const snap = await getDocs(collection(db, 'users', userId, 'documents'));
+      spendReadBudget(snap.docs.length || 1, 'DocumentService.getUserDocuments');
       const docs = snap.docs
         .map(d => {
         const parsed = documentDbSchema.safeParse({ id: d.id, ...d.data() });

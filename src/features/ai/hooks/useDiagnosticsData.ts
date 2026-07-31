@@ -15,6 +15,7 @@ import { getAuth } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAdminStatus } from '../../auth/hooks/useAdminStatus';
+import { getReadBudgetStatus, areCloudReadsBlockedToday } from '../../../core/firebase/readBudget';
 
 export type Tab = 'stats' | 'sync' | 'db' | 'users' | 'ai_usage' | 'ai_profile' | 'queue' | 'memory_assembler' | 'beliefs';
 
@@ -433,5 +434,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     handleResetUserLimit,
     handleClearMemory,
     handleCollapseVersions,
+    readBudgetStatus: getReadBudgetStatus(),
+    readsBlocked: areCloudReadsBlockedToday(),
   };
 }

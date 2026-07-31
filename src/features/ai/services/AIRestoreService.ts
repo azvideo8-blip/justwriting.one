@@ -4,6 +4,7 @@ import { getClient } from '../../../core/firebase/firestoreClient';
 import { sha256Hex, getLatestContent } from '../utils/embeddingIndexer';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { getEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
+import { canSpendReadBudget, spendReadBudget } from '../../../core/firebase/readBudget';
 import { reportError } from '../../../shared/errors/reportError';
 import { logger } from '../../../shared/errors/logger';
 import { decodeCloudSummary } from './AISummaryService';
@@ -50,14 +51,17 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
   const existingEmbeddings = new Set((await db.getAllKeys('aiEmbeddings')).map(String));
 
   try {
-    const snap = await mod.getDocs(mod.collection(fs, 'users', userId, 'summaries'));
-    for (const d of snap.docs) {
-      if (existingSummaries.has(d.id)) continue;
-      try {
-        await db.put('aiSummaries', await decodeCloudSummary(d.data() as Record<string, unknown>, d.id));
-        result.summaries++;
-      } catch {
-        result.failed++;
+    if (canSpendReadBudget()) {
+      const snap = await mod.getDocs(mod.collection(fs, 'users', userId, 'summaries'));
+      spendReadBudget(snap.docs.length || 1, 'AIRestoreService.restoreAIData_summaries');
+      for (const d of snap.docs) {
+        if (existingSummaries.has(d.id)) continue;
+        try {
+          await db.put('aiSummaries', await decodeCloudSummary(d.data() as Record<string, unknown>, d.id));
+          result.summaries++;
+        } catch {
+          result.failed++;
+        }
       }
     }
   } catch (e) {
@@ -77,21 +81,24 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
     );
     const cloudHashes = new Set<string>();
 
-    const snap = await mod.getDocs(mod.collection(fs, 'users', userId, 'embeddings'));
-    for (const d of snap.docs) {
-      const alreadyLocal = existingEmbeddings.has(d.id);
-      // Decoding an already-local record is pure CPU, no extra quota — worth it
-      // only when there is something to repair.
-      if (alreadyLocal && !needsRepair) continue;
-      try {
-        const decoded = await decodeCloudEmbedding(d.data() as Record<string, unknown>, d.id);
-        if (decoded.contentHash) cloudHashes.add(decoded.contentHash);
-        if (!alreadyLocal) {
-          await db.put('aiEmbeddings', { ...decoded, cloudSyncedAt: Date.now() });
-          result.embeddings++;
+    if (canSpendReadBudget()) {
+      const snap = await mod.getDocs(mod.collection(fs, 'users', userId, 'embeddings'));
+      spendReadBudget(snap.docs.length || 1, 'AIRestoreService.restoreAIData_embeddings');
+      for (const d of snap.docs) {
+        const alreadyLocal = existingEmbeddings.has(d.id);
+        // Decoding an already-local record is pure CPU, no extra quota — worth it
+        // only when there is something to repair.
+        if (alreadyLocal && !needsRepair) continue;
+        try {
+          const decoded = await decodeCloudEmbedding(d.data() as Record<string, unknown>, d.id);
+          if (decoded.contentHash) cloudHashes.add(decoded.contentHash);
+          if (!alreadyLocal) {
+            await db.put('aiEmbeddings', { ...decoded, cloudSyncedAt: Date.now() });
+            result.embeddings++;
+          }
+        } catch {
+          result.failed++;
         }
-      } catch {
-        result.failed++;
       }
     }
 
