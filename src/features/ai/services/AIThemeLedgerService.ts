@@ -17,8 +17,8 @@ export function enqueuePendingThemeTouch(documentId: string): void {
       list.push(documentId);
       localStorage.setItem(PENDING_THEME_TOUCHES_KEY, JSON.stringify(list));
     }
-  } catch {
-    /* ignore storage failure */
+  } catch (e) {
+    reportError(e, { action: 'AIThemeLedgerService/touchDocument' });
   }
 }
 
@@ -26,7 +26,8 @@ export function getPendingThemeTouches(): string[] {
   try {
     const raw = localStorage.getItem(PENDING_THEME_TOUCHES_KEY);
     return raw ? (JSON.parse(raw) as string[]) : [];
-  } catch {
+  } catch (e) {
+    reportError(e, { action: 'AIThemeLedgerService/getPendingTouches' });
     return [];
   }
 }
@@ -317,32 +318,17 @@ export const AIThemeLedgerService = {
   },
 
   async getAll(): Promise<ThemeRecord[]> {
-    try {
-      const db = await getLocalDb();
-      return await db.getAll('aiThemeLedger');
-    } catch (e) {
-      reportError(e, { action: 'ai_theme_ledger_get_all' });
-      return [];
-    }
+    const db = await getLocalDb();
+    return await db.getAll('aiThemeLedger');
   },
 
   async getActive(): Promise<ThemeRecord[]> {
-    try {
-      const db = await getLocalDb();
-      return await db.getAllFromIndex('aiThemeLedger', 'by-tier', 'active');
-    } catch (e) {
-      reportError(e, { action: 'ai_theme_ledger_get_active' });
-      return [];
-    }
+    const db = await getLocalDb();
+    return await db.getAllFromIndex('aiThemeLedger', 'by-tier', 'active');
   },
 
   async get(id: string): Promise<ThemeRecord | undefined> {
-    try {
-      const db = await getLocalDb();
-      return await db.get('aiThemeLedger', id);
-    } catch (e) {
-      reportError(e, { action: 'ai_theme_ledger_get', id });
-      return undefined;
-    }
+    const db = await getLocalDb();
+    return await db.get('aiThemeLedger', id);
   },
 };

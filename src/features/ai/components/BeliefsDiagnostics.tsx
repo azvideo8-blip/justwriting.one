@@ -8,16 +8,20 @@ export function BeliefsDiagnostics() {
   const [beliefs, setBeliefs] = useState<AIBelief[]>([]);
   const [rejections, setRejections] = useState<RejectedBeliefRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const refreshData = async () => {
     setLoading(true);
     try {
+      setError(null);
       const [pubBeliefs, rejRecords] = await Promise.all([
         AIConsolidationService.getAllBeliefs(),
         AIConsolidationService.getAllRejections(100),
       ]);
       setBeliefs(pubBeliefs);
       setRejections(rejRecords);
+    } catch {
+      setError('Не удалось загрузить данные. Возможно, ошибка доступа к IndexedDB.');
     } finally {
       setLoading(false);
     }
@@ -77,6 +81,13 @@ export function BeliefsDiagnostics() {
           </Button>
         </div>
       </div>
+
+      {error && (
+        <div className="bg-status-error/10 text-status-error p-4 rounded-2xl flex items-start gap-3 border border-status-error/20">
+          <ShieldAlert className="w-5 h-5 mt-0.5 shrink-0" />
+          <p className="text-sm font-medium">{error}</p>
+        </div>
+      )}
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

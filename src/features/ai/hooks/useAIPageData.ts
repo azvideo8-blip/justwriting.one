@@ -94,6 +94,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     crisisActive,
     dismissCrisis,
     clearError,
+    triggerForcedSearch,
   } = useAIChat(activeDialogueId, selectedPersonaId, responseLength, reasoning);
 
   const attachmentManager = useAttachmentManager({
@@ -215,7 +216,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     }, 0);
     if (linkedDocId) void prepareAttachment(linkedDocId).then(p => {
       if (p) setPendingAttachments([{ documentId: linkedDocId, title: p.title, content: p.content }]);
-    });
+    }).catch(e => reportError(e, { action: 'useAIPageData/prepareAttachment', documentId: linkedDocId }));
   }, [loadDialogues, loadCustomPersonas, linkedDocId, prepareAttachment, setPendingAttachments]);
 
   const draftFacetHandledRef = useRef(false);
@@ -253,8 +254,12 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
 
         const notes: { documentId: string; title: string; content: string; lastSessionAt?: number | undefined }[] = [];
         for (const noteId of sortedIds) {
-          const p = await prepareAttachment(noteId);
-          if (p) notes.push({ documentId: noteId, title: p.title, content: p.content, lastSessionAt: p.lastSessionAt });
+          try {
+            const p = await prepareAttachment(noteId);
+            if (p) notes.push({ documentId: noteId, title: p.title, content: p.content, lastSessionAt: p.lastSessionAt });
+          } catch (e) {
+            reportError(e, { action: 'useAIPageData/prepareAttachment', documentId: noteId });
+          }
         }
         setPendingAttachments(notes);
       } catch (e) {
@@ -272,8 +277,12 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
         const index = await searchNotes(term, 1);
         if (index[0]) {
           const docId = index[0].documentId;
-          const p = await prepareAttachment(docId);
-          if (p) attaches = [{ documentId: docId, title: p.title, content: p.content, lastSessionAt: p.lastSessionAt }];
+          try {
+            const p = await prepareAttachment(docId);
+            if (p) attaches = [{ documentId: docId, title: p.title, content: p.content, lastSessionAt: p.lastSessionAt }];
+          } catch (e) {
+            console.error(e, { action: 'useAIPageData/prepareAttachment', documentId: docId });
+          }
         }
       } catch { /* ignore fallback */ }
     }
@@ -559,7 +568,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     dailyLimit,
     loadDialogues, loadCustomPersonas,
     handleSendMessage, handleNewDialogue, handleArchive, handleUnarchive, handleDelete, handleExport,
-    handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload,
+    handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload, triggerForcedSearch,
     allPersonas, openPersonaDetail,
     activeDialogue, displayMessages,
     activePersona, activeRole, headerVisual,
