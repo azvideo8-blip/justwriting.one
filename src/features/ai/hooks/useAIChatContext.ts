@@ -573,7 +573,7 @@ export function useAIChatContext(personaId: string): {
         ])];
 
         if (temporalQuery.type === 'person') {
-          skipSemantic = true;
+          const beforePerson = allNotes.length;
           try {
             const matchedPeople = await AIPeopleService.search(temporalQuery.personName!);
             const noteIds = [...new Set(matchedPeople.flatMap(p => p.noteIds))];
@@ -594,6 +594,13 @@ export function useAIChatContext(personaId: string): {
           } catch (e) {
             reportError(e, { action: '[useAIChatContext] temporal query person failed' });
           }
+          // The people index is a shortcut, not an authority. It is built by a
+          // background pass, so it is empty on a fresh device and incomplete
+          // until that pass catches up — and skipping the note search on its
+          // say-so answered "ничего не нашлось" to "что я писал про Сашу" while
+          // the name sat in dozens of notes that a keyword search finds at once.
+          // Skip the general search only when the index actually knew the person.
+          skipSemantic = allNotes.length > beforePerson;
         }
 
         if (!skipSemantic) {

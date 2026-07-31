@@ -113,3 +113,25 @@ describe('CITATION_RE', () => {
     expect(found).toEqual(['[#id1]', '[id2]', '[[ПОИСК: q]]']);
   });
 });
+
+// Imported notes are keyed by their source timestamp, not by local_<uuid>.
+describe('ids that are not local_<uuid>', () => {
+  const IMPORTED = ['1720194283.716586'];
+
+  it('keeps a citation of an imported note that was injected', () => {
+    expect(sanitizeCitations('Ты писал [#1720194283.716586].', IMPORTED))
+      .toBe('Ты писал [#1720194283.716586].');
+  });
+
+  it('removes one that was not injected instead of printing the id', () => {
+    expect(sanitizeCitations('Ты писал [#1720194283.716586].', ['local_aaa']))
+      .toBe('Ты писал.');
+  });
+
+  it('does not mistake a decimal in brackets for an id', () => {
+    // The dot is only allowed in ids long enough to be one, so ordinary
+    // notation survives.
+    expect(sanitizeCitations('Шкала [1.5] осталась.', ['local_aaa']))
+      .toBe('Шкала [1.5] осталась.');
+  });
+});

@@ -1,5 +1,11 @@
 export const SEARCH_MARKER_RE = /\[\[ПОИСК:\s*([^\]]+?)\]\]/gi;
-export const CITATION_RE = /\[\[ПОИСК:\s*([^\]]+?)\]\]|\[#?([a-zA-Z0-9_-]+)\]/gi;
+
+// Document ids are not all `local_<uuid>`: imported notes are keyed by their
+// source timestamp, e.g. `1720194283.716586`. Without the dot those citations
+// matched nothing at all — neither cleaned up nor turned into a chip — so the
+// raw id was printed into the reply as text. The 8-character minimum keeps
+// ordinary bracketed numbers like [1.5] from being mistaken for an id.
+export const CITATION_RE = /\[\[ПОИСК:\s*([^\]]+?)\]\]|\[#?((?:[a-zA-Z0-9_.-]{8,}|[a-zA-Z0-9_-]+))\]/gi;
 
 /**
  * Two stages ask this, and they have different authorities.
