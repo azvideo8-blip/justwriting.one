@@ -231,6 +231,45 @@ describe('WritingDraftService', () => {
       await expect(WritingDraftService.saveToFirestore(draft as unknown as LocalDraft)).rejects.toBe(original);
     });
 
+    it('skips the write when nothing but the clock changed', async () => {
+      vi.mocked(isProfileLoaded).mockReturnValue(true);
+      const { setDoc } = makeFirestoreClient();
+      vi.mocked(maybeEncrypt).mockImplementation(async (d: Record<string, unknown>) => d);
+      const uid = 'user_unchanged';
+      const base = { userId: uid, content: 'hello', title: 'T', wordCount: 1 };
+
+      await WritingDraftService.saveToFirestore({ ...base, seconds: 30, updatedAt: 1000 } as unknown as LocalDraft);
+      expect(setDoc).toHaveBeenCalledTimes(1);
+
+      // The 30s cloud autosave firing again on an untouched draft: only the
+      // elapsed counters moved, so this must not reach Firestore.
+      const wrote = await WritingDraftService.saveToFirestore(
+        { ...base, seconds: 60, totalPauseSeconds: 12, updatedAt: 31_000 } as unknown as LocalDraft
+      );
+      expect(setDoc).toHaveBeenCalledTimes(1);
+      // Still reported as current — the cloud copy is not stale.
+      expect(wrote).toBe(true);
+
+      await WritingDraftService.saveToFirestore(
+        { ...base, content: 'hello world', seconds: 90, updatedAt: 61_000 } as unknown as LocalDraft
+      );
+      expect(setDoc).toHaveBeenCalledTimes(2);
+    });
+
+    it('writes again after the draft is deleted and retyped identically', async () => {
+      vi.mocked(isProfileLoaded).mockReturnValue(true);
+      makeLocalDb();
+      const { setDoc } = makeFirestoreClient();
+      vi.mocked(maybeEncrypt).mockImplementation(async (d: Record<string, unknown>) => d);
+      const uid = 'user_retyped';
+      const draft = { userId: uid, content: 'again', updatedAt: 1000 } as unknown as LocalDraft;
+
+      await WritingDraftService.saveToFirestore(draft);
+      await WritingDraftService.deleteDraft(uid);
+      await WritingDraftService.saveToFirestore(draft);
+      expect(setDoc).toHaveBeenCalledTimes(2);
+    });
+
     it('does not throw if signal was aborted', async () => {
       vi.mocked(isProfileLoaded).mockReturnValue(true);
       makeFirestoreClient();

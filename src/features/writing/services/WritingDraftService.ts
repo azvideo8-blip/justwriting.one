@@ -9,6 +9,25 @@ import { DRAFT_CLOUD_FIELDS } from '../../../core/firebase/cloudFields';
 
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const _abortControllers = new Map<string, AbortController>();
+// Signature of what was last actually written to the cloud, per user.
+const _lastCloudSignature = new Map<string, string>();
+
+// Fields worth a Firestore write. The elapsed-time counters (seconds, wpm,
+// accumulatedDuration, totalPauseSeconds, updatedAt) are deliberately absent:
+// they change on their own while the writer sits still, so including them made
+// the 30s cloud autosave rewrite the entire draft — full note content — every
+// 30 seconds of an open session, typing or not. The local IndexedDB draft still
+// carries exact timings; the cloud copy is the cross-device fallback, and its
+// timer can lag until the text next changes.
+const DRAFT_SIGNIFICANT_FIELDS = [
+  'content', 'title', 'pinnedThoughts', 'tags', 'labelId',
+  'wordCount', 'initialWordCount', 'activeSessionId', 'savedDocumentId', 'sessionStartTime',
+] as const;
+
+function draftSignature(draft: LocalDraft): string {
+  const record = draft as unknown as Record<string, unknown>;
+  return JSON.stringify(DRAFT_SIGNIFICANT_FIELDS.map(k => record[k] ?? null));
+}
 
 // Fields allowed by the `drafts/{uid}` Firestore rule (isValidDraft). The local
 // draft carries extra transient state (e.g. `status`) that the rule rejects via
@@ -129,6 +148,12 @@ export const WritingDraftService = {
     if (!isProfileLoaded(draft.userId)) {
       return false;
     }
+    // Nothing worth writing changed since the last successful write. Reported as
+    // success: the cloud copy IS current, which is what the caller's staleness
+    // flag asks about.
+    const signature = draftSignature(draft);
+    if (_lastCloudSignature.get(draft.userId) === signature) return true;
+
     const oldAc = _abortControllers.get(draft.userId);
     if (oldAc) {
       oldAc.abort();
@@ -146,6 +171,7 @@ export const WritingDraftService = {
     );
     try {
       await setDoc(docRef, { ...clean, updatedAt: serverTimestamp() });
+      _lastCloudSignature.set(draft.userId, signature);
       return true;
     } catch (e) {
       if (ac.signal.aborted) return true;
@@ -162,6 +188,8 @@ export const WritingDraftService = {
     if (!userId) return;
     _abortControllers.get(userId)?.abort();
     _abortControllers.delete(userId);
+    // The next draft must be written even if it opens with identical text.
+    _lastCloudSignature.delete(userId);
     try { sessionStorage.setItem(STORAGE_KEYS.DRAFT_DELETED(userId), Date.now().toString()); } catch (e) { reportError(e, { action: 'deleteDraft_sessionStorageWrite', userId }); }
     try {
       const localDb = await getLocalDb();
