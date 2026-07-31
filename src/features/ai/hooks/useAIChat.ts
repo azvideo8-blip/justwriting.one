@@ -27,6 +27,7 @@ import {
 } from '../utils/aiChatTransport';
 import { sanitizeFirstSeenDates } from '../utils/dateGuard';
 import { CITATION_RE, isRecognisedCitation, extractSearchRequest } from '../shared/citationPatterns';
+import { setAIStage } from '../store/useAIStageStore';
 export { API_MSG_CAP };
 
 interface UseAIChatReturn {
@@ -352,6 +353,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         attachedIsSticky: stickyAttached,
       });
 
+      setAIStage('answer');
       // Inject today's date so the model can reason about "вчера", "на этой неделе" etc.
       const todayRu = new Date().toLocaleDateString('ru-RU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       let searchContext = rawSearchContext
@@ -541,6 +543,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     } finally {
       sendingRef.current = false;
       setIsLoading(false);
+      setAIStage(null);
     }
     // context excluded intentionally: buildContext reads current personaId, and personaId
     // is already a dep here, so sendMessage is recreated with a fresh context on persona change.
