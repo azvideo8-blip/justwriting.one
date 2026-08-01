@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+- **[RU]** Отправленное сообщение видно сразу, а не только когда ИИ ответил. Диалог создавался пустым и подменял собой то, что вы только что напечатали, — и всё время ожидания на экране висело «Начните диалог», а вашего текста не было нигде.
+- **[EN]** A sent message shows up immediately instead of only when the AI replies. The dialogue was created empty and replaced what you had just typed, so for the whole wait the screen said "start a dialogue" and your own text was nowhere.
+- **[RU]** Поиск по имени больше не подмешивает заметки, в которых этого имени нет. Они попадали в выдачу по слабому совпадению, и ИИ честно писал «в этом фрагменте упоминаний нет» — лучше их просто не показывать.
+- **[EN]** A search by name no longer mixes in notes that never mention it. They reached the results on a weak match and the AI dutifully wrote "no mentions in this fragment" — better not to show them at all.
+- **[RU]** Плашка с фильтром поиска называет себя понятнее — «Ищет только про …» — и объясняет в подсказке, откуда взялась и как её снять. И она больше не цепляется за случайное слово с заглавной буквы: имя закрепляется фильтром, только если о таком человеке правда есть заметки.
+- **[EN]** The search-filter chip now says what it does — "searching only …" — and its tooltip explains where it came from and how to clear it. It also no longer latches onto a random capitalised word: a name becomes a filter only when the notes actually mention that person.
+- **[RU]** Сбой потоковой передачи с переходом на запасной путь больше не пишется в журнал как ошибка: ответ при этом приходит.
+- **[EN]** A streaming failure that falls back to the secondary path is no longer logged as an error: the answer still arrives.
+
 ## 0.7.67 — 2026-08-01
 - **[RU]** История версий заметки в облаке больше не растёт без предела. Каждая сессия письма сохраняет полную копию текста, и старые снимки не удалялись никогда — на базе, чей суточный предел нельзя поднять даже с оплатой, это рано или поздно упирается в потолок. Теперь при появлении новой версии лишние старые убираются: остаются самая первая — как начало заметки — и два десятка последних. Выгрузка при этом больше не отправляет обратно то, что было убрано: иначе очистка отменяла бы сама себя и платила за это квотой при каждой синхронизации.
 - **[EN]** A note's cloud version history no longer grows without limit. Every writing session stores a full copy of the text and old snapshots were never removed — on a database whose daily ceiling cannot be raised even with billing, that eventually becomes the ceiling. When a new version arrives the surplus old ones are trimmed, keeping the very first (the note's origin) and the last twenty. Sync no longer sends the trimmed ones back: otherwise the cleanup would undo itself and pay quota for it on every sync.

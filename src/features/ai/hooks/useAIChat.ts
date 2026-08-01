@@ -47,6 +47,29 @@ interface UseAIChatReturn {
   clearError: () => void;
 }
 
+/**
+ * A dialogue-wide scope narrows every later search in that conversation, so a
+ * wrong one quietly makes every following answer worse with no way to tell why.
+ * The person parser fires on any capitalised word after "про" — an ordinary noun
+ * opening a sentence became a permanent "Только про Точки" filter. Pin a person
+ * scope only to someone the notes actually mention.
+ */
+async function isKnownPerson(name: string): Promise<boolean> {
+  try {
+    const db = await getLocalDb();
+    const person = await db.get('aiPeopleIndex', name.toLowerCase());
+    return !!person && (person.noteIds?.length ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function scopeWorthPinning(scope: ReturnType<typeof parseTemporalQuery>): Promise<boolean> {
+  if (scope.type === 'none') return false;
+  if (scope.type !== 'person') return true;
+  return isKnownPerson(scope.personName ?? '');
+}
+
 export function sanitizeCitations(text: string, injectedIds: string[]): string {
   const allowed = new Set(injectedIds);
   const UNRECOGNISED_MARKER = '\uE000';
@@ -311,14 +334,22 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         });
         effectiveDialogueId = currentDialogue.id;
         const parsedScope = parseTemporalQuery(text);
-        if (parsedScope.type !== 'none') {
+        if (await scopeWorthPinning(parsedScope)) {
           currentDialogue.temporalScope = parsedScope;
           await AIDialogueService.setTemporalScope(currentDialogue.id, parsedScope);
         }
-        setDialogue(currentDialogue);
+        // Show the freshly created dialogue WITH the message the user just sent.
+        // The stored record is deliberately empty — appendMessage writes the
+        // user turn together with the answer — but handing that empty record to
+        // the UI wiped the optimistic message, so from here until the model
+        // replied the screen showed "Начните диалог" and the user's own text was
+        // nowhere. That is the whole wait, half a minute of it.
+        setDialogue(text.trim()
+          ? { ...currentDialogue, messages: [{ role: 'user', content: text, type: 'chat' }] }
+          : currentDialogue);
       } else {
         const parsedScope = parseTemporalQuery(text);
-        if (parsedScope.type !== 'none') {
+        if (await scopeWorthPinning(parsedScope)) {
           currentDialogue.temporalScope = parsedScope;
           await AIDialogueService.setTemporalScope(currentDialogue.id, parsedScope);
         }
@@ -406,7 +437,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         } catch (e: unknown) {
           // Don't fall back to the callable if the user aborted on purpose.
           if (controller.signal.aborted) throw new Error('ABORTED');
-          reportError(e, { action: 'Streaming chat failed, falling back to callable chat' });
+          // A handled fallback, not a failure: the callable path runs next and
+          // usually answers. Logged as a warning so a provider hiccup does not
+          // sit in the log looking like something broke.
+          reportError(e, { action: 'Streaming chat failed, falling back to callable chat' }, 'warning');
           const errMsg = e instanceof Error ? e.message : '';
           if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED' && errMsg !== 'GLOBAL_LIMIT') {
             // Note: streaming already consumed a daily limit slot via checkAndIncrementLimit.

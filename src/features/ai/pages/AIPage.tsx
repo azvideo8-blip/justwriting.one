@@ -553,11 +553,11 @@ export function AIPage() {
                 <button
                   type="button"
                   onClick={() => void handleClearTemporalScope()}
-                  title="ИИ ищет только в заметках за этот период. Нажми ✕, чтобы искать по всем."
+                  title={`В этом диалоге ИИ ищет только в заметках ${formatScopeLabel(dialogue.temporalScope)} — так он понял ваш первый вопрос. Нажмите ✕, чтобы искать по всему архиву.`}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30 border border-brand-soft/30 transition-all font-medium cursor-pointer"
                 >
                   <Filter size={11} className="shrink-0" />
-                  Только {formatScopeLabel(dialogue.temporalScope)}
+                  Ищет только {formatScopeLabel(dialogue.temporalScope)}
                   <X size={12} className="opacity-70" />
                 </button>
               </div>
