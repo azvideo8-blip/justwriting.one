@@ -45,6 +45,7 @@ export const ConflictResolver = {
       documentId: forkedDocId,
       type: 'document' as const,
       createdAt: Date.now(),
+      ownerId: userId,
     });
     return { forked: true };
   },

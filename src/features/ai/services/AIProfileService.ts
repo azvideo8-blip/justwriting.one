@@ -90,6 +90,7 @@ export const AIProfileService = {
               documentId: uid,
               type: 'portrait' as const,
               createdAt: Date.now(),
+              ownerId: uid,
             });
           }
         } catch (queueErr) {
