@@ -154,8 +154,19 @@ export const AIService = {
   }): Promise<{ ok: true; documentIds: string[] } | { ok: false; error: string }> {
     const functions = getFunctions();
     const fn = httpsCallable<unknown, { documentIds: string[] }>(functions, 'rerankNotes');
+    // The endpoint caps the query at 2 000 characters and a card at 4 000, and
+    // rejects the whole call with "Invalid payload" when either is over. The
+    // query grows on its own — a sticky search appends the previous query to the
+    // new message — and a card carries a full summary plus an excerpt, so both
+    // limits were being crossed in ordinary use and the search silently lost its
+    // reranking. Clamp here, where the contract is known.
+    const clamped = {
+      ...params,
+      query: params.query.slice(0, 2_000),
+      candidates: params.candidates.map(c => ({ ...c, card: c.card.slice(0, 4_000) })),
+    };
     try {
-      const { data } = await withTimeout(fn(params), 60_000);
+      const { data } = await withTimeout(fn(clamped), 60_000);
       return { ok: true, documentIds: data.documentIds };
     } catch (e: unknown) {
       reportError(e, { action: 'rerank' }, 'warning');

@@ -111,7 +111,17 @@ export const AIFacetJudgeService = {
       curLen += len;
     }
     if (cur.length > 0) chunks.push(cur);
-    const results = await Promise.all(chunks.map(c => AIService.judgeFacets({ facets: c })));
+    // Sequential, and it stops on the first service-level failure. Firing every
+    // chunk at once meant one dead endpoint produced one failure per chunk —
+    // fifteen in a row in the log — each spending a request, its quota and its
+    // Firestore accounting writes on a call that could not succeed. Whether the
+    // service is up is a property of the service, not of the chunk.
+    const results: Awaited<ReturnType<typeof AIService.judgeFacets>>[] = [];
+    for (const c of chunks) {
+      const r = await AIService.judgeFacets({ facets: c });
+      results.push(r);
+      if (!r.ok && (r.error === 'SERVER_ERROR' || r.error === 'RATE_LIMIT' || r.error === 'DAILY_LIMIT')) break;
+    }
     const verdicts = results.flatMap(r => (r.ok ? r.verdicts : []));
     if (verdicts.length === 0 && results.every(r => !r.ok)) {
       return { judged: 0, corrected: 0, log: [] };
