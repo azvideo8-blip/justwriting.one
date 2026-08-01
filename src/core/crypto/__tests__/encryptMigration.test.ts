@@ -296,15 +296,23 @@ describe('encryptAllExistingNotes', () => {
 
     const mockWriteBudget = await import('../../firebase/writeBudget');
     let calls = 0;
-    vi.spyOn(mockWriteBudget, 'tryReserveBulkWriteBudget').mockImplementation(() => {
+    // Restored explicitly, not via restoreAllMocks: getSessionKey and maybeEncrypt
+    // are spied once at the top of this file and every other test depends on them.
+    // clearAllMocks does not undo an implementation, so without this the budget
+    // stays dead for whatever test is added after this one.
+    const budgetSpy = vi.spyOn(mockWriteBudget, 'tryReserveBulkWriteBudget').mockImplementation(() => {
       calls++;
       return calls <= 1; // Allows only the first call
     });
 
-    const progress = await encryptAllExistingNotes(userId);
-    expect(progress.encrypted).toBe(1); // Only the first one gets encrypted
-    expect(progress.incomplete).toBe(true);
-    expect(localStorage.getItem(`encryptionMigration_${userId}_checkpoint`)).not.toBeNull(); // Checkpoint is preserved
+    try {
+      const progress = await encryptAllExistingNotes(userId);
+      expect(progress.encrypted).toBe(1); // Only the first one gets encrypted
+      expect(progress.incomplete).toBe(true);
+      expect(localStorage.getItem(`encryptionMigration_${userId}_checkpoint`)).not.toBeNull(); // Checkpoint is preserved
+    } finally {
+      budgetSpy.mockRestore();
+    }
   });
 });
 

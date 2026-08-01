@@ -81,7 +81,11 @@ export function usePrivacyCheck() {
 
   useEffect(() => {
     if (authState === 'loading') return;
-    
+    // The effect now re-runs on an account switch, and getDoc is async: without
+    // this flag a late answer about the previous uid would raise the modal for
+    // whoever is signed in by then.
+    let cancelled = false;
+
     const check = async () => {
       if (!user) {
         setShowPrivacy(false);
@@ -98,6 +102,7 @@ export function usePrivacyCheck() {
         const { db, mod } = await getClient();
         const { doc, getDoc } = mod;
         const snap = await getDoc(doc(db, 'users', user.uid));
+        if (cancelled) return;
         if (snap.exists() && snap.data()?.privacyAcceptedAt) {
           localStorage.setItem(`privacy_accepted_${user.uid}`, 'true');
           setShowPrivacy(false);
@@ -105,10 +110,11 @@ export function usePrivacyCheck() {
         }
         setShowPrivacy(true);
       } catch {
-        setShowPrivacy(true);
+        if (!cancelled) setShowPrivacy(true);
       }
     };
     void check();
+    return () => { cancelled = true; };
   }, [user, authState]);
 
   return { showPrivacy, setShowPrivacy };
