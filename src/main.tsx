@@ -31,6 +31,18 @@ if (sentryDsn && sentryDsn.startsWith('https://')) {
       if (event.request?.data) delete event.request.data;
       if (event.request?.headers) delete event.request.headers;
       if (event.request?.cookies) delete event.request.cookies;
+
+      // The context keys are scrubbed by reportError, but the error MESSAGE was
+      // not — and messages are built with template literals, so anything a
+      // caller interpolates leaves the device verbatim. That is a promise this
+      // app makes about the user's notes, so the guarantee cannot rest on every
+      // future caller remembering. Anything in quotes is dropped: it is the
+      // shape user-derived fragments are interpolated in, and no diagnostic
+      // value is lost — the sentence around it still identifies the site.
+      for (const ex of event.exception?.values ?? []) {
+        if (ex.value) ex.value = ex.value.replace(/"[^"]*"|«[^»]*»/g, '"[скрыто]"');
+      }
+      if (event.message) event.message = event.message.replace(/"[^"]*"|«[^»]*»/g, '"[скрыто]"');
       return event;
     },
 

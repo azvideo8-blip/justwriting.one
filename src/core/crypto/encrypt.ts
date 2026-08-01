@@ -110,7 +110,12 @@ export async function unwrapDataKey(wrappedKey: string, masterKey: CryptoKey): P
       masterKey,
       'AES-KW',
       { name: 'AES-GCM', length: 256 },
-      true,
+      // Non-extractable: nothing needs the raw bytes. keyVaultCache only called
+      // exportKey to re-import a downgraded copy for storage, and it skips that
+      // branch when the key already cannot be exported. Defence in depth — an
+      // XSS that reached this key could otherwise export it and decrypt the
+      // whole vault offline.
+      false,
       ['encrypt', 'decrypt'],
     );
   } finally {
