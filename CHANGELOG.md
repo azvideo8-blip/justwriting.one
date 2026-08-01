@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.67 — 2026-08-01
 - **[RU]** Плашка «Ищет только про…» убрана вместе с механизмом. Она закрепляла период или имя из первого вопроса на весь диалог, и дальше любой вопрос, где период не назван, молча отвечался внутри старых рамок. Пользы это не давало: область поиска и так разбирается в каждом сообщении отдельно, а продолжение темы держится своим механизмом на несколько ходов вперёд. Оставался только способ незаметно испортить все последующие ответы.
 - **[EN]** The "searching only …" chip is gone along with the mechanism behind it. It pinned a period or a name from the first question to the whole dialogue, so any later question that named no period was silently answered inside the old frame. It added nothing: scope is parsed per message anyway, and follow-ups keep their thread through a separate mechanism. All it could do was quietly spoil every later answer.
 - **[RU]** Отправленное сообщение видно сразу, а не только когда ИИ ответил. Диалог создавался пустым и подменял собой то, что вы только что напечатали, — и всё время ожидания на экране висело «Начните диалог», а вашего текста не было нигде.
@@ -11,8 +11,6 @@
 - **[EN]** The search-filter chip now says what it does — "searching only …" — and its tooltip explains where it came from and how to clear it. It also no longer latches onto a random capitalised word: a name becomes a filter only when the notes actually mention that person.
 - **[RU]** Сбой потоковой передачи с переходом на запасной путь больше не пишется в журнал как ошибка: ответ при этом приходит.
 - **[EN]** A streaming failure that falls back to the secondary path is no longer logged as an error: the answer still arrives.
-
-## 0.7.67 — 2026-08-01
 - **[RU]** История версий заметки в облаке больше не растёт без предела. Каждая сессия письма сохраняет полную копию текста, и старые снимки не удалялись никогда — на базе, чей суточный предел нельзя поднять даже с оплатой, это рано или поздно упирается в потолок. Теперь при появлении новой версии лишние старые убираются: остаются самая первая — как начало заметки — и два десятка последних. Выгрузка при этом больше не отправляет обратно то, что было убрано: иначе очистка отменяла бы сама себя и платила за это квотой при каждой синхронизации.
 - **[EN]** A note's cloud version history no longer grows without limit. Every writing session stores a full copy of the text and old snapshots were never removed — on a database whose daily ceiling cannot be raised even with billing, that eventually becomes the ceiling. When a new version arrives the surplus old ones are trimmed, keeping the very first (the note's origin) and the last twenty. Sync no longer sends the trimmed ones back: otherwise the cleanup would undo itself and pay quota for it on every sync.
 - **[RU]** Когда сервис ИИ не отвечает, приложение так и говорит, вместо «произошла ошибка». Раньше любой сбой провайдера выглядел одинаково с ошибкой в самом приложении, и понять, дело в заметках, в аккаунте или в чужом сервере, было невозможно. Теперь сбой на стороне модели отличается от нашей собственной ошибки, и в тексте сказано, что запрос уже повторяли и что имеет смысл попробовать через минуту.
