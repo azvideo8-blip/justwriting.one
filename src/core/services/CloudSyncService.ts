@@ -217,7 +217,12 @@ export const CloudSyncService = {
             withTimeout(VersionService.getVersions(userId, cloudId)),
           ]);
           const cloudNums = new Set(cloudVersions.map(v => v.version));
-          const missing = localVersions.filter(v => !cloudNums.has(v.version));
+          // Only versions NEWER than the newest the cloud holds. The cloud trims
+          // old snapshots (pruneOldVersions), so an older version being absent
+          // there is housekeeping, not a gap: re-uploading it would undo the
+          // trim and pay the write quota to do it, every sync, forever.
+          const newestCloud = cloudVersions.reduce((max, v) => Math.max(max, v.version ?? 0), 0);
+          const missing = localVersions.filter(v => !cloudNums.has(v.version) && v.version > newestCloud);
           const limiter = pLimit(3);
           await Promise.all(missing.map((ver) => limiter(async () => {
             if (!tryReserveBulkWriteBudget()) return;
