@@ -246,7 +246,14 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
 
   if (topScore >= RERANK_THRESHOLD || hasExactTitle || literalIds.size > 0) {
     const scoreMap = new Map(fused.map(f => [f.id, f.score]));
-    const ordered = [...filteredTopIds].sort(
+    // Once some candidates contain the term verbatim, a candidate that does not
+    // and has no real semantic score is noise: it reached the list on a weak
+    // fusion rank. Handing it over anyway made the assistant list notes and then
+    // admit "в этом фрагменте упоминаний нет" — worse than not showing them.
+    const relevant = literalIds.size > 0
+      ? filteredTopIds.filter(id => literalIds.has(id) || (vectorScoreMap.get(id) ?? 0) >= RESURFACE_FLOOR)
+      : filteredTopIds;
+    const ordered = [...relevant].sort(
       (a, b) => (literalIds.has(b) ? 1 : 0) - (literalIds.has(a) ? 1 : 0),
     );
     return loadNotes(ordered.slice(0, maxResults), scoreMap, chunkIndexMap);
