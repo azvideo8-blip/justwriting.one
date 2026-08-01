@@ -17,6 +17,9 @@ export const CHANGELOG: ChangelogRelease[] = [
     version: '0.7.67',
     date: '2026-08-01',
     items: [
+      { category: 'fix', ru: 'Отправленное сообщение видно сразу, а не только когда ИИ ответил', en: 'A sent message shows up immediately instead of only when the AI replies' },
+      { category: 'fix', ru: 'Поиск по имени больше не подмешивает заметки, в которых этого имени нет', en: 'A search by name no longer mixes in notes that never mention it' },
+      { category: 'improvement', ru: 'Убрана плашка «Ищет только про…»: она закрепляла период или имя из первого вопроса на весь диалог и молча отвечала на все следующие вопросы в старых рамках. Область поиска и так разбирается в каждом сообщении отдельно', en: 'Removed the "searching only …" chip: it pinned a period or name from the first question to the whole dialogue and silently answered every later question inside that frame. Scope is parsed per message anyway' },
       { category: 'fix', ru: 'История версий в облаке больше не растёт без предела: у заметки остаются первая версия и два десятка последних, а синхронизация не отправляет удалённые обратно', en: 'Cloud version history no longer grows without limit: a note keeps its first version and the last twenty, and sync does not send the trimmed ones back' },
       { category: 'improvement', ru: 'Когда сервис ИИ недоступен, приложение говорит именно это, а не «произошла ошибка»', en: 'When the AI service is unavailable the app says exactly that, instead of "an error occurred"' },
       { category: 'fix', ru: 'Длинные ответы больше не приходят сплошным полотном: страж дат стирал все пустые строки, заголовки и списки уже после того, как модель их расставила', en: 'Long replies no longer arrive as one solid block: the date guard erased every blank line, heading and list after the model had put them there' },
