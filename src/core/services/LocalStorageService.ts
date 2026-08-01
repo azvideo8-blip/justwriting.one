@@ -59,7 +59,7 @@ export const LocalStorageService = {
     // Profile totals are an aggregate: recomputed after the fact, never a reason
     // to hold the note's own write open.
     try {
-      await LocalDocumentService.recomputeProfileTotals(userId);
+      await LocalDocumentService._updateProfile(userId);
     } catch (e) {
       reportError(e, { action: 'saveNew_profileTotals', userId });
     }

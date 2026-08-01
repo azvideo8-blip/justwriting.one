@@ -3,63 +3,11 @@ import { HardDrive } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
-import { getOrCreateGuestId, getLocalDb } from '../../../core/storage/localDb';
+import { getOrCreateGuestId } from '../../../core/storage/localDb';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { SyncService } from '../../../core/services/SyncService';
+import { migrateDocuments } from '../services/migrateDocuments';
 import { Button } from '../../../shared/components/Button';
-
-async function migrateDocuments(userId: string): Promise<number> {
-  const guestId = getOrCreateGuestId();
-  const db = await getLocalDb();
-  const hasDrafts = db.objectStoreNames.contains('drafts');
-  const tx = db.transaction(
-    hasDrafts ? ['documents', 'versions', 'drafts'] : ['documents', 'versions'],
-    'readwrite',
-  );
-  const docStore = tx.objectStore('documents');
-  const verStore = tx.objectStore('versions');
-  const draftStore = hasDrafts ? tx.objectStore('drafts') : null;
-
-  const guestDocs = await docStore.index('by-guest').getAll(guestId);
-
-  // D-3: migrate guest draft to user draft (don't clobber existing user draft).
-  const draftPuts: Promise<unknown>[] = [];
-  if (draftStore) {
-    const guestDraft = await draftStore.get('guest_draft');
-    if (guestDraft) {
-      const existingUserDraft = await draftStore.get(userId);
-      if (!existingUserDraft) {
-        draftPuts.push(draftStore.put({ ...guestDraft, userId }));
-      }
-    }
-  }
-
-  if (guestDocs.length === 0) {
-    await Promise.all([...draftPuts, tx.done]);
-    return 0;
-  }
-
-  const verIndex = verStore.index('by-document');
-  const versionPuts: Promise<string>[] = [];
-  for (const doc of guestDocs) {
-    let cursor = await verIndex.openCursor(doc.id);
-    while (cursor) {
-      if (cursor.value.guestId === guestId) {
-        versionPuts.push(verStore.put({ ...cursor.value, guestId: userId }));
-      }
-      cursor = await cursor.continue();
-    }
-  }
-
-  await Promise.all([
-    ...guestDocs.map(doc => docStore.put({ ...doc, guestId: userId })),
-    ...versionPuts,
-    ...draftPuts,
-    tx.done,
-  ]);
-
-  return guestDocs.length;
-}
 
 interface MigrationPromptProps {
   userId: string;

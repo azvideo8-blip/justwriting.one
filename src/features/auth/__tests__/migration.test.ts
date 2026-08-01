@@ -87,46 +87,17 @@ import { SyncService } from '../../../core/services/SyncService';
 import { StorageService } from '../../../core/services/StorageService';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// migrateDocuments() extracted for direct testing
-// (identical logic to the private function in MigrationPrompt.tsx)
+// The REAL migrateDocuments, not a copy of it. This file used to hold its own
+// re-implementation; it drifted from production and went on passing while the
+// code it claimed to cover was broken. Production derives the guest id from
+// localStorage, so the wrapper just plants it there.
 // ─────────────────────────────────────────────────────────────────────────────
+import { migrateDocuments as realMigrateDocuments } from '../services/migrateDocuments';
+
 async function migrateDocuments(guestId: string, userId: string): Promise<number> {
-  const db = await getLocalDb();
-  const guestDocs = await db.getAllFromIndex('documents', 'by-guest', guestId);
-  if (guestDocs.length === 0) return 0;
-
-  const guestVersions = await db.getAll('versions');
-  const versionsToMigrate = guestVersions.filter(v => v.guestId === guestId);
-
-  const hasDrafts = db.objectStoreNames.contains('drafts');
-  const tx = db.transaction(
-    hasDrafts ? ['documents', 'versions', 'drafts'] : ['documents', 'versions'],
-    'readwrite',
-  );
-  const docStore = tx.objectStore('documents');
-  const verStore = tx.objectStore('versions');
-
-  // D-3: migrate guest draft to user draft (don't clobber existing user draft)
-  const draftPuts: Promise<unknown>[] = [];
-  if (hasDrafts) {
-    const draftStore = tx.objectStore('drafts');
-    const guestDraft = await draftStore.get(guestId);
-    if (guestDraft) {
-      const existingUserDraft = await draftStore.get(userId);
-      if (!existingUserDraft) {
-        draftPuts.push(draftStore.put({ ...guestDraft, userId }));
-      }
-    }
-  }
-
-  await Promise.all([
-    ...guestDocs.map(doc => docStore.put({ ...doc, guestId: userId })),
-    ...versionsToMigrate.map(ver => verStore.put({ ...ver, guestId: userId })),
-    ...draftPuts,
-    tx.done,
-  ]);
-
-  return guestDocs.length;
+  localStorage.setItem('jw_guest_id', guestId);
+  sessionStorage.setItem('jw_guest_id', guestId);
+  return realMigrateDocuments(userId);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -665,10 +636,12 @@ describe('GROUP F — Draft migration (D-3)', () => {
       { title: 'Doc', versions: [{ content: 'hello', wordCount: 1 }] },
     ]);
 
-    // Seed a guest draft
+    // Seed a guest draft under the key GuestDraftService actually writes.
+    // A8: reading it by guestId instead found nothing, so the unsaved text on
+    // screen at sign-in was left behind.
     const db = await getLocalDb();
     const guestDraft = {
-      userId: GUEST_ID,
+      userId: 'guest_draft',
       title: 'Untitled',
       content: 'Guest draft content',
       seconds: 30,
@@ -694,7 +667,7 @@ describe('GROUP F — Draft migration (D-3)', () => {
     const db = await getLocalDb();
     // Seed both guest and user drafts
     await db.put('drafts', {
-      userId: GUEST_ID,
+      userId: 'guest_draft',
       title: 'Guest',
       content: 'Guest content',
       seconds: 10,
