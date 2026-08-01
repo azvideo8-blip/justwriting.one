@@ -25,7 +25,7 @@ async function migrateDocuments(userId: string): Promise<number> {
   // D-3: migrate guest draft to user draft (don't clobber existing user draft).
   const draftPuts: Promise<unknown>[] = [];
   if (draftStore) {
-    const guestDraft = await draftStore.get(guestId);
+    const guestDraft = await draftStore.get('guest_draft');
     if (guestDraft) {
       const existingUserDraft = await draftStore.get(userId);
       if (!existingUserDraft) {
