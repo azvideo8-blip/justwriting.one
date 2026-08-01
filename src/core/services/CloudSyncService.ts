@@ -498,6 +498,7 @@ export const CloudSyncService = {
         documentId,
         type: 'document' as const,
         createdAt: Date.now(),
+        ownerId: userId,
       });
       return { forked: false };
     }
@@ -510,6 +511,7 @@ export const CloudSyncService = {
           documentId,
           type: 'document' as const,
           createdAt: Date.now(),
+          ownerId: userId,
         });
       } else if (cloudDoc.currentVersion >= newVersion) {
         const localDoc = await LocalStorageService.getDocument(documentId);
@@ -581,6 +583,7 @@ export const CloudSyncService = {
           documentId,
           type: 'document' as const,
           createdAt: Date.now(),
+          ownerId: userId,
         });
       } catch (queueErr) {
         reportError(queueErr, { action: 'syncVersionToCloud_queueSync', documentId });

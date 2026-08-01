@@ -1,5 +1,6 @@
 import { getLocalDb } from '../storage/localDb';
 import { logger } from '../../shared/errors/logger';
+import { reportError } from '../../shared/errors/reportError';
 import { StorageService } from './StorageService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService } from './DocumentService';
@@ -12,6 +13,9 @@ const limit = pLimit(5);
 export const SyncService = {
   async addToQueue(documentId: string): Promise<void> {
     const db = await getLocalDb();
+    // The queue task inherits the note's owner. A task with no owner could be
+    // drained under whichever account happens to be signed in next.
+    const doc = await db.get('documents', documentId);
     const tx = db.transaction('syncQueue', 'readwrite');
     const existing = await tx.store.getAll();
     const cutoff = Date.now() - 60_000;
@@ -22,6 +26,7 @@ export const SyncService = {
         documentId,
         type: 'document' as const,
         createdAt: Date.now(),
+        ownerId: doc?.guestId,
       });
     }
     await tx.done;
@@ -137,8 +142,23 @@ async function _drainPendingQueue(userId: string): Promise<void> {
   const db = await getLocalDb();
   const queue = await db.getAll('syncQueue');
 
+  // A task belongs to the account that created it. Draining someone else's —
+  // after an account switch, a multi-tab race or a crash recovery — would upload
+  // or DELETE their cloud documents under this user. Tasks predating the owner
+  // field have no stamp and are treated as this user's: they can only have come
+  // from this device's own earlier session.
+  const foreign = queue.filter(item => item.ownerId !== undefined && item.ownerId !== userId);
+  if (foreign.length > 0) {
+    reportError(
+      new Error(`Sync queue holds ${foreign.length} task(s) belonging to another account`),
+      { action: 'drainPendingQueue_foreignOwner', count: foreign.length },
+      'warning',
+    );
+  }
+
   const pending = queue.filter(item => {
     if (item.id.startsWith('lock_cloud_')) return false;
+    if (item.ownerId !== undefined && item.ownerId !== userId) return false;
     return true;
   });
 

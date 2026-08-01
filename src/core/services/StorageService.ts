@@ -71,6 +71,7 @@ export const StorageService = {
           documentId: cloudId,
           type: 'delete' as const,
           createdAt: Date.now(),
+          ownerId: userId,
         });
       }
     }
