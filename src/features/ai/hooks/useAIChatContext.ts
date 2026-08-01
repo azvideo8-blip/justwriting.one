@@ -390,15 +390,12 @@ export function useAIChatContext(personaId: string): {
         }
       }
 
-      let temporalQuery = parseTemporalQuery(text);
-      if (temporalQuery.type === 'none' && dialogueId) {
-        try {
-          const dlg = await AIDialogueService.get(dialogueId);
-          if (dlg?.temporalScope) {
-            temporalQuery = dlg.temporalScope;
-          }
-        } catch { /* ignore */ }
-      }
+      // Scope comes from THIS message only. It used to be pinned to the whole
+      // dialogue from the first question, so a later question that named no
+      // period was silently answered from inside the old one — invisibly making
+      // every following answer worse. Follow-ups already keep their thread
+      // through the sticky search below.
+      const temporalQuery = parseTemporalQuery(text);
 
       let minTime: number | undefined;
       let maxTime: number | undefined;

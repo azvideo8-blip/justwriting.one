@@ -92,14 +92,6 @@ export interface AIDialogue {
   /** AX-11: Separate reasoning flag (decoupled from length). */
   reasoning?: boolean;
   closingSummary?: string;
-  temporalScope?: {
-    type: 'month' | 'dateRange' | 'person' | 'none' | 'recent';
-    month?: string | undefined;
-    from?: string | undefined;
-    to?: string | undefined;
-    personName?: string | undefined;
-    rawText: string;
-  } | undefined;
 }
 
 export interface AIDialogueEvent {

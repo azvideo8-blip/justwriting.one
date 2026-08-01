@@ -481,13 +481,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     await loadDialogues();
   };
 
-  const handleClearTemporalScope = useCallback(async () => {
-    const id = activeDialogueId ?? dialogue?.id;
-    if (!id) return;
-    await AIDialogueService.setTemporalScope(id, undefined);
-    await loadDialogues();
-  }, [activeDialogueId, dialogue, loadDialogues]);
-
   const activeDialogue = dialogue ?? dialogues.find(d => d.id === activeDialogueId) ?? null;
   const displayMessages = activeDialogue?.messages ?? EMPTY_MESSAGES;
 
@@ -573,7 +566,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     activeDialogue, displayMessages,
     activePersona, activeRole, headerVisual,
     convPersonaId, convPersonaName, convVisual,
-    handleSetResponseLength, handleSetReasoning, handleRenameDialogue, handleClearTemporalScope,
+    handleSetResponseLength, handleSetReasoning, handleRenameDialogue,
     handleConfirmConsent,
     consentNames,
     responseLength,

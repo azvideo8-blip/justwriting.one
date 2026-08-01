@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import type { AIDialogue } from '../../../core/storage/localDb';
 import { AIDialogueService } from '../services/AIDialogueService';
 import { PRESET_PERSONAS, AIPersonaService } from '../services/AIPersonaService';
-import { parseTemporalQuery } from '../utils/temporalQueryParser';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { useLanguage } from '../../../shared/i18n';
 import { incrementDailyUsage, setDailyLimitExhausted } from './useDailyLimit';
@@ -45,29 +44,6 @@ interface UseAIChatReturn {
   crisisActive: boolean;
   dismissCrisis: () => void;
   clearError: () => void;
-}
-
-/**
- * A dialogue-wide scope narrows every later search in that conversation, so a
- * wrong one quietly makes every following answer worse with no way to tell why.
- * The person parser fires on any capitalised word after "про" — an ordinary noun
- * opening a sentence became a permanent "Только про Точки" filter. Pin a person
- * scope only to someone the notes actually mention.
- */
-async function isKnownPerson(name: string): Promise<boolean> {
-  try {
-    const db = await getLocalDb();
-    const person = await db.get('aiPeopleIndex', name.toLowerCase());
-    return !!person && (person.noteIds?.length ?? 0) > 0;
-  } catch {
-    return false;
-  }
-}
-
-async function scopeWorthPinning(scope: ReturnType<typeof parseTemporalQuery>): Promise<boolean> {
-  if (scope.type === 'none') return false;
-  if (scope.type !== 'person') return true;
-  return isKnownPerson(scope.personName ?? '');
 }
 
 export function sanitizeCitations(text: string, injectedIds: string[]): string {
@@ -333,11 +309,6 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           reasoning: effectiveReasoning,
         });
         effectiveDialogueId = currentDialogue.id;
-        const parsedScope = parseTemporalQuery(text);
-        if (await scopeWorthPinning(parsedScope)) {
-          currentDialogue.temporalScope = parsedScope;
-          await AIDialogueService.setTemporalScope(currentDialogue.id, parsedScope);
-        }
         // Show the freshly created dialogue WITH the message the user just sent.
         // The stored record is deliberately empty — appendMessage writes the
         // user turn together with the answer — but handing that empty record to
@@ -347,12 +318,6 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         setDialogue(text.trim()
           ? { ...currentDialogue, messages: [{ role: 'user', content: text, type: 'chat' }] }
           : currentDialogue);
-      } else {
-        const parsedScope = parseTemporalQuery(text);
-        if (await scopeWorthPinning(parsedScope)) {
-          currentDialogue.temporalScope = parsedScope;
-          await AIDialogueService.setTemporalScope(currentDialogue.id, parsedScope);
-        }
       }
 
       const baseMessages = currentDialogue.messages;
