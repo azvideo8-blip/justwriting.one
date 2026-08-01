@@ -155,6 +155,7 @@ async function _encryptAllExistingNotesInner(
 
         for (const v of versionsSnap.docs) {
           if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
+          // V-2: abort early if vault locked mid-run instead of erroring on every doc.
           if (!getSessionKey()) throw new VaultLockedError();
           if (!tryReserveBulkWriteBudget()) { budgetExhausted = true; break; }
           try {
@@ -208,6 +209,7 @@ async function _encryptAllExistingNotesInner(
 
     for (const d of draftSnap.docs) {
       if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
+      // V-2: abort early if vault locked mid-run instead of erroring on every doc.
       if (!getSessionKey()) throw new VaultLockedError();
       if (!tryReserveBulkWriteBudget()) { budgetExhausted = true; break; }
       try {
