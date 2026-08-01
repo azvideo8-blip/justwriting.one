@@ -179,6 +179,7 @@ export async function streamChat(params: {
     } catch { /* default to DAILY_LIMIT */ }
     throw new Error(errorKind);
   }
+  if (response.status === 502 || response.status === 503 || response.status === 504) throw new Error('UPSTREAM');
   if (!response.ok) throw new Error('SERVER_ERROR');
 
   const reader = response.body!.getReader();
@@ -279,6 +280,7 @@ export async function callableChat(params: {
     if (result.error === 'DAILY_LIMIT') throw new Error('DAILY_LIMIT');
     if (result.error === 'AUTH_REQUIRED') throw new Error('AUTH_REQUIRED');
     if (result.error === 'RATE_LIMIT') throw new Error('RATE_LIMIT');
+    if (result.error === 'UPSTREAM') throw new Error('UPSTREAM');
     throw new Error('SERVER_ERROR');
   }
 

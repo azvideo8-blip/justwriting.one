@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, recordUsage, checkAndIncrementLimit, refundDailyLimit, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt, getLangfuse, hashUid } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, recordUsage, classifyProviderFailure, checkAndIncrementLimit, refundDailyLimit, tryReserveGlobalRequest, refundGlobalRequest, hasInjectionAttempt, getLangfuse, hashUid } from '../shared/aiUtils';
 
 import { validateInternalCallRestrictions, getMaxTokens, type InternalCallType } from '../shared/aiPolicy';
 import { generate, getActiveModel } from '../shared/aiProvider';
@@ -135,12 +135,13 @@ export const chatWithAI = onCall({
   try {
     gen = await generate({ system: systemInstruction, messages: providerMessages, maxTokens, abortMs: 110_000 });
   } catch (e) {
-    console.error('[chatWithAI] AI request failed:', e);
+    const failure = classifyProviderFailure(e);
+    console.error(`[chatWithAI] AI request failed (${failure.reason}):`, e);
     if (!isInternalCall) await refundDailyLimit(uid);
     await refundGlobalRequest(reservation);
     generation?.end({ level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});
-    throw new HttpsError('internal', 'AI request failed.');
+    throw new HttpsError(failure.code, failure.reason);
   }
 
   const isReasoningMode = reasoning === true;
