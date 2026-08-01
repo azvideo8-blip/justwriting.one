@@ -145,7 +145,7 @@ export function useAIChatContext(personaId: string): {
     forcedSearchQuery?: string | undefined;
     attachedIsSticky?: boolean | undefined;
   }): Promise<ChatContextResult> => {
-    const { text, attached, mood, isFirstTurn, dialogueId, forcedSearchQuery, attachedIsSticky } = params;
+    const { text, attached, mood, isFirstTurn, forcedSearchQuery, attachedIsSticky } = params;
     const injectedDocumentIds: string[] = [];
     const db = await getLocalDb();
 
