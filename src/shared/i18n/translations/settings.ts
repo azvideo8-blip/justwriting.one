@@ -105,6 +105,7 @@ export const settingsTranslations: Translations = {
   settings_encrypted_label:    { ru: 'зашифровано', en: 'encrypted' },
   settings_encrypt_done:       { ru: 'Зашифровано заметок: {count}', en: 'Encrypted notes: {count}' },
   settings_encrypt_errors:     { ru: 'Ошибок: {count}', en: 'Errors: {count}' },
+  settings_encrypt_budget_stop: { ru: 'Остановлено из-за суточного лимита. Возвращайтесь завтра.', en: 'Stopped due to daily limit. Come back tomorrow.' },
   settings_encryption_not_set: { ru: 'Шифрование не настроено', en: 'Encryption not configured' },
   settings_encryption_not_set_desc: { ru: 'Твои заметки хранятся в облаке в открытом виде. Настрой шифрование, чтобы защитить их сквозным шифрованием (E2EE).', en: 'Your notes are stored in the cloud in plain text. Configure encryption to protect them with end-to-end encryption (E2EE).' },
   settings_initialize_encryption: { ru: 'Настроить шифрование', en: 'Configure Encryption' },

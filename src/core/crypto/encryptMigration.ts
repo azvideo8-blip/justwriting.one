@@ -10,6 +10,8 @@ export interface MigrationProgress {
   processed: number;
   encrypted: number;
   errors: number;
+  /** Прервано дневным лимитом записей, а не доведено до конца. */
+  incomplete?: boolean;
 }
 
 const BATCH_SIZE = 400;
@@ -129,11 +131,16 @@ async function _encryptAllExistingNotesInner(
   const { collection, getDocs, query, where, doc } = mod;
 
   let hadErrors = false;
+  let budgetExhausted = false;
 
   // Document versions
   try {
     const docsSnap = await getDocs(collection(db, 'users', userId, 'documents'));
     for (const documentDoc of docsSnap.docs) {
+      // Бюджет записи кончился — дальше идти незачем. Иначе на каждый
+      // оставшийся документ уходит полное чтение подколлекции версий ради
+      // мгновенного выхода по тому же бюджету.
+      if (budgetExhausted) break;
       const documentId = documentDoc.id;
       try {
         const versionsSnap = await getDocs(collection(db, 'users', userId, 'documents', documentId, 'versions'));
@@ -148,9 +155,8 @@ async function _encryptAllExistingNotesInner(
 
         for (const v of versionsSnap.docs) {
           if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
-          // V-2: abort early if vault locked mid-run instead of erroring on every doc.
           if (!getSessionKey()) throw new VaultLockedError();
-          if (!tryReserveBulkWriteBudget()) break;
+          if (!tryReserveBulkWriteBudget()) { budgetExhausted = true; break; }
           try {
             const ck = `v_${documentId}_${v.id}`;
             if (checkpoint.has(ck) || v.data()._encrypted) {
@@ -202,9 +208,8 @@ async function _encryptAllExistingNotesInner(
 
     for (const d of draftSnap.docs) {
       if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
-      // V-2: abort early if vault locked mid-run instead of erroring on every doc.
       if (!getSessionKey()) throw new VaultLockedError();
-      if (!tryReserveBulkWriteBudget()) break;
+      if (!tryReserveBulkWriteBudget()) { budgetExhausted = true; break; }
       try {
         const ck = `d_${d.id}`;
         if (checkpoint.has(ck) || d.data()._encrypted) {
@@ -236,7 +241,12 @@ async function _encryptAllExistingNotesInner(
     reportError(e, { action: 'encryptAllExistingNotes_draftsQuery', userId });
   }
 
-  if (!hadErrors) clearCheckpoint(userId);
+  if (budgetExhausted) progress.incomplete = true;
+
+  // Чекпойнт — единственная память о проделанной работе. Снести его после
+  // обрыва по бюджету значит на следующем запуске перечитать весь архив
+  // заново: повторные заметки отсеются по _encrypted, но чтения уже потрачены.
+  if (!hadErrors && !budgetExhausted) clearCheckpoint(userId);
   return progress;
 }
 
