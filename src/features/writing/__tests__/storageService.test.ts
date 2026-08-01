@@ -56,10 +56,11 @@ vi.mock('../../../core/firebase/firestore', () => ({
 
 // ─── Subject imports (after mocks) ───────────────────────────────────────────
 
-import { resetDbInstance } from '../../../core/storage/localDb';
+import { resetDbInstance, getLocalDb } from '../../../core/storage/localDb';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { StorageService } from '../../../core/services/StorageService';
+import { LocalStorageService } from '../../../core/services/LocalStorageService';
 
 const GUEST = 'guest_storage_test';
 
@@ -554,5 +555,42 @@ describe('StorageService.saveNew — profile update', () => {
     expect(profile).not.toBeUndefined();
     expect(profile!.totalWords).toBe(50); // documentWordCount replaced
     expect(profile!.sessionsCount).toBe(2);
+  });
+});
+
+// Metadata edited while continuing a note travels in the same payload as the
+// text; writing only the counters silently discarded it on reload.
+describe('saveVersionToLocal keeps metadata', () => {
+  it('persists a title, tags and label changed during the session', async () => {
+    const db = await getLocalDb();
+    const { localId } = await LocalStorageService.saveNew('user_meta', {
+      title: 'Старый', content: 'раз', wordCount: 1, duration: 0, wpm: 0,
+      tags: ['старый'], sessionStartedAt: new Date(1000),
+    } as never);
+
+    await LocalStorageService.saveVersionToLocal(db, localId, {
+      title: 'Новый', content: 'раз два', wordCount: 2, duration: 0, wpm: 0,
+      tags: ['новый'], labelId: 'label_1', sessionStartedAt: new Date(2000),
+    } as never, Date.now());
+
+    const doc = await db.get('documents', localId);
+    expect(doc!.title).toBe('Новый');
+    expect(doc!.tags).toEqual(['новый']);
+    expect(doc!.labelId).toBe('label_1');
+  });
+
+  it('does not wipe an existing title when the payload has none', async () => {
+    const db = await getLocalDb();
+    const { localId } = await LocalStorageService.saveNew('user_meta2', {
+      title: 'Держится', content: 'раз', wordCount: 1, duration: 0, wpm: 0,
+      tags: [], sessionStartedAt: new Date(1000),
+    } as never);
+
+    await LocalStorageService.saveVersionToLocal(db, localId, {
+      title: '', content: 'раз два', wordCount: 2, duration: 0, wpm: 0,
+      sessionStartedAt: new Date(2000),
+    } as never, Date.now());
+
+    expect((await db.get('documents', localId))!.title).toBe('Держится');
   });
 });

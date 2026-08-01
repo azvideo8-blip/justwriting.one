@@ -7,30 +7,63 @@ import { SaveDocumentData } from './storageTypes';
 
 export const LocalStorageService = {
   async saveNew(userId: string, data: SaveDocumentData): Promise<{ localId: string }> {
-    const localId = await LocalDocumentService.createDocument(userId, {
-      title: data.title,
-      tags: data.tags,
-      labelId: data.labelId,
-    });
-    await LocalVersionService.addVersion(userId, localId, {
+    const db = await getLocalDb();
+    const localId = `local_${randomUUID()}`;
+    const versionId = `ver_${randomUUID()}`;
+    const now = Date.now();
+    const diff = computeWordDelta('', data.content);
+    const totalWords = data.documentWordCount ?? data.wordCount;
+
+    const docObj = {
+      id: localId,
+      guestId: userId,
+      title: data.title || '',
+      currentVersion: 1,
+      totalWords,
+      totalDuration: data.duration,
+      sessionsCount: 1,
+      firstSessionAt: now,
+      lastSessionAt: now,
+      tags: data.tags ?? [],
+      labelId: data.labelId ?? undefined,
+      mood: data.mood,
+    };
+    const verObj = {
+      id: versionId,
+      documentId: localId,
+      guestId: userId,
+      version: 1,
       content: data.content,
-      previousContent: '',
       wordCount: data.wordCount,
+      wordsAdded: diff.wordsAdded,
+      charsAdded: diff.charsAdded,
       duration: data.duration,
       wpm: data.wpm,
-      versionNumber: 1,
       goalWords: data.goalWords,
       goalTime: data.goalTime,
-      goalReached: data.goalReached,
-      sessionStartedAt: data.sessionStartedAt,
+      goalReached: data.goalReached ?? false,
+      savedAt: now,
+      sessionStartedAt: data.sessionStartedAt.getTime(),
       mood: data.mood,
-    });
-    await LocalDocumentService.updateAfterSession(localId, {
-      totalWords: data.documentWordCount ?? data.wordCount,
-      totalDuration: data.duration,
-      currentVersion: 1,
-      mood: data.mood,
-    });
+    };
+    // Document and its first version in ONE transaction. As three separate
+    // writes, a crash in between left either a note with no versions (opens
+    // empty) or a note whose counters say it is empty while the text exists —
+    // and the first save is exactly when a new user is most likely to close the
+    // tab. Continuation already does this atomically; the first save must too.
+    const tx = db.transaction(['documents', 'versions'], 'readwrite');
+    await tx.objectStore('documents').put(docObj);
+    await tx.objectStore('versions').put(verObj);
+    await tx.done;
+
+    // Profile totals are an aggregate: recomputed after the fact, never a reason
+    // to hold the note's own write open.
+    try {
+      await LocalDocumentService.recomputeProfileTotals(userId);
+    } catch (e) {
+      reportError(e, { action: 'saveNew_profileTotals', userId });
+    }
+
     return { localId };
   },
 
@@ -83,6 +116,13 @@ export const LocalStorageService = {
 
       await docStore.put({
         ...existing,
+        // Metadata edited during the session travels in the same payload as the
+        // text and must be persisted in the same write. Only counters were
+        // written before, so a title or tag changed while continuing a note was
+        // silently discarded on reload.
+        title: data.title || existing.title,
+        tags: data.tags ?? existing.tags,
+        labelId: data.labelId ?? existing.labelId,
         totalWords,
         totalDuration: data.duration,
         currentVersion: newVersion,
