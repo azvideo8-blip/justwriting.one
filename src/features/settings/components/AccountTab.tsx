@@ -6,7 +6,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { resetAndClear } from '../../writing/store/storeActions';
-import { useServiceAction } from '../../../shared/hooks/useServiceAction';
+import { useToast } from '../../../shared/components/Toast';
 import { Section } from './SettingsHelpers';
 import { AccountProfileSection } from './AccountProfileSection';
 import { AccountVaultSection } from './AccountVaultSection';
@@ -21,9 +21,12 @@ interface AccountTabProps {
 export function AccountTab({ userId }: AccountTabProps) {
   const { t } = useLanguage();
   const { isAuthenticated } = useAuthStatus();
-  const { execute } = useServiceAction();
+  const { showToast } = useToast();
 
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  // Set when sign-out refuses because a wipe would destroy data that exists
+  // nowhere else. Holds the counts so the dialog can say what is at stake.
+  const [unsynced, setUnsynced] = useState<{ localOnly: number; pending: number; drafts: number; total: number } | null>(null);
   const [isSecurityExpanded, setIsSecurityExpanded] = useState(false);
 
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -169,15 +172,31 @@ export function AccountTab({ userId }: AccountTabProps) {
               <p className="text-xs text-text-main/60 leading-relaxed">
                 {t('signout_wipes_local')}
               </p>
+              {unsynced && (
+                <p className="text-xs text-accent-danger leading-relaxed">
+                  Не всё в облаке. На устройстве останется без копии: заметок — {unsynced.localOnly},
+                  несохранённых правок — {unsynced.pending}, черновиков — {unsynced.drafts}.
+                  Их восстановить будет неоткуда. Сначала выгрузите или экспортируйте их — кнопка экспорта выше.
+                  Если всё равно выходить, нажмите «Да, выйти» ещё раз: локальные данные будут удалены.
+                </p>
+              )}
               <div className="flex gap-2">
               <Button
                 onClick={() => {
-                  setShowSignOutConfirm(false);
-                  resetAndClear();
-                  void execute(
-                    () => AuthService.signOut(),
-                    { errorMessage: t('error_signout_failed') }
-                  );
+                  void (async () => {
+                    try {
+                      await AuthService.signOut({ force: unsynced !== null });
+                      setShowSignOutConfirm(false);
+                      resetAndClear();
+                    } catch (e) {
+                      const data = (e as { name?: string; data?: typeof unsynced }).data;
+                      if ((e as { name?: string }).name === 'UnsyncedLocalDataError' && data) {
+                        setUnsynced(data);
+                        return;
+                      }
+                      showToast(t('error_signout_failed'), 'error');
+                    }
+                  })();
                 }}
                 className="flex-1 px-4 py-3 rounded-xl border border-accent-danger/40 text-sm text-accent-danger hover:bg-accent-danger/10 transition-colors text-left"
               >

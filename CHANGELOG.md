@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+- **[RU]** Выход из аккаунта больше не уничтожает то, чего нет в облаке. Он очищал все локальные хранилища безусловно — и заметка, написанная офлайн, невыгруженная правка или незаконченный черновик исчезали навсегда, при том что рядом было написано «ничего не теряется, всё восстановится из облака». Теперь выход останавливается и показывает, сколько записей есть только на этом устройстве; удалить их можно, но осознанно и вторым нажатием.
+- **[EN]** Signing out no longer destroys what the cloud does not have. It cleared every local store unconditionally, so a note written offline, an edit still queued, or an unfinished draft was gone for good — under a line promising that nothing is lost and everything comes back from the cloud. Sign-out now stops and shows how many records exist only on this device; wiping them is still possible, but deliberately and on a second press.
+
 ## 0.7.67 — 2026-08-01
 - **[RU]** Плашка «Ищет только про…» убрана вместе с механизмом. Она закрепляла период или имя из первого вопроса на весь диалог, и дальше любой вопрос, где период не назван, молча отвечался внутри старых рамок. Пользы это не давало: область поиска и так разбирается в каждом сообщении отдельно, а продолжение темы держится своим механизмом на несколько ходов вперёд. Оставался только способ незаметно испортить все последующие ответы.
 - **[EN]** The "searching only …" chip is gone along with the mechanism behind it. It pinned a period or a name from the first question to the whole dialogue, so any later question that named no period was silently answered inside the old frame. It added nothing: scope is parsed per message anyway, and follow-ups keep their thread through a separate mechanism. All it could do was quietly spoil every later answer.

@@ -20,8 +20,25 @@ async function signInWithEmail(email: string, password: string) {
   return signInWithEmailAndPassword(auth, email, password);
 }
 
-async function signOut() {
+/**
+ * Signing out clears every local store — correct on a shared machine, and safe
+ * only while the cloud holds a copy of everything. It used to do that
+ * unconditionally, so a local-only note, a queued edit or an unfinished draft
+ * was destroyed by an ordinary "Выйти", under a UI promising the opposite.
+ *
+ * The refusal lives here rather than in the two call sites: an invariant that
+ * depends on every caller remembering is not an invariant. `force` is the
+ * user's explicit "выйти и удалить локальные данные".
+ */
+async function signOut(opts?: { force?: boolean }) {
   const currentUid = auth.currentUser?.uid;
+
+  if (!opts?.force) {
+    const { countUnsyncedLocalData, UnsyncedLocalDataError } = await import('./unsyncedLocalData');
+    const unsynced = await countUnsyncedLocalData(currentUid);
+    if (unsynced.total > 0) throw new UnsyncedLocalDataError(unsynced);
+  }
+
   try {
     const { clearAllLocalStores } = await import('../../../core/storage/localDb');
     await clearAllLocalStores();
