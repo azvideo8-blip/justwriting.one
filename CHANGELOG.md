@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- **[RU]** Плашка «Ищет только про…» убрана вместе с механизмом. Она закрепляла период или имя из первого вопроса на весь диалог, и дальше любой вопрос, где период не назван, молча отвечался внутри старых рамок. Пользы это не давало: область поиска и так разбирается в каждом сообщении отдельно, а продолжение темы держится своим механизмом на несколько ходов вперёд. Оставался только способ незаметно испортить все последующие ответы.
+- **[EN]** The "searching only …" chip is gone along with the mechanism behind it. It pinned a period or a name from the first question to the whole dialogue, so any later question that named no period was silently answered inside the old frame. It added nothing: scope is parsed per message anyway, and follow-ups keep their thread through a separate mechanism. All it could do was quietly spoil every later answer.
 - **[RU]** Отправленное сообщение видно сразу, а не только когда ИИ ответил. Диалог создавался пустым и подменял собой то, что вы только что напечатали, — и всё время ожидания на экране висело «Начните диалог», а вашего текста не было нигде.
 - **[EN]** A sent message shows up immediately instead of only when the AI replies. The dialogue was created empty and replaced what you had just typed, so for the whole wait the screen said "start a dialogue" and your own text was nowhere.
 - **[RU]** Поиск по имени больше не подмешивает заметки, в которых этого имени нет. Они попадали в выдачу по слабому совпадению, и ИИ честно писал «в этом фрагменте упоминаний нет» — лучше их просто не показывать.

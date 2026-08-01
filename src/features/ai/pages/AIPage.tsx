@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles, Square, X, RotateCcw, Brain, Filter, PanelLeftClose, PanelLeftOpen, Settings, ChevronDown } from 'lucide-react';
+import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles, Square, X, RotateCcw, Brain, PanelLeftClose, PanelLeftOpen, Settings, ChevronDown } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
 import { DocumentPickerModal } from '../components/DocumentPickerModal';
@@ -28,28 +28,6 @@ import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 // import type { AITimelineEntry } from '../../../core/storage/localDb';
-import type { TemporalQuery } from '../utils/temporalQueryParser';
-
-const formatScopeLabel = (scope: TemporalQuery | null | undefined): string => {
-  if (!scope) return '';
-  if (scope.type === 'month') {
-    const [yyyy, mm] = scope.month!.split('-');
-    const months = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
-    const monthName = months[parseInt(mm!, 10) - 1] || 'месяц';
-    return `${monthName} ${yyyy}`;
-  }
-  if (scope.type === 'dateRange') {
-    const formatDate = (s: string) => {
-      const d = new Date(s);
-      return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-    };
-    return `${formatDate(scope.from!)} – ${formatDate(scope.to!)}`;
-  }
-  if (scope.type === 'person') {
-    return `про ${scope.personName}`;
-  }
-  return scope.rawText;
-};
 
 export function AIPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -87,7 +65,7 @@ export function AIPage() {
     loadCustomPersonas,
     handleSendMessage, handleNewDialogue, handleArchive, handleUnarchive, handleDelete, handleExport,
     handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload, triggerForcedSearch,
-    handleSetResponseLength, handleSetReasoning, handleRenameDialogue, handleClearTemporalScope,
+    handleSetResponseLength, handleSetReasoning, handleRenameDialogue,
     handleConfirmConsent, consentNames,
     responseLength,
     reasoning,
@@ -548,20 +526,6 @@ export function AIPage() {
                 {activeRole && !isRenaming && <span className="text-xs font-medium shrink-0" style={{ color: headerVisual.color }}>{activeRole}</span>}
               </div>
             </div>
-            {dialogue?.temporalScope && (
-              <div className="ml-3 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => void handleClearTemporalScope()}
-                  title={`В этом диалоге ИИ ищет только в заметках ${formatScopeLabel(dialogue.temporalScope)} — так он понял ваш первый вопрос. Нажмите ✕, чтобы искать по всему архиву.`}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30 border border-brand-soft/30 transition-all font-medium cursor-pointer"
-                >
-                  <Filter size={11} className="shrink-0" />
-                  Ищет только {formatScopeLabel(dialogue.temporalScope)}
-                  <X size={12} className="opacity-70" />
-                </button>
-              </div>
-            )}
             <div className="flex-1" />
             <IconButton onClick={() => setMemoryOpen(true)} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_memory_title')} label={t('ai_memory_title')} icon={<Brain size={15} />} />
             <div ref={volumeSettingsRef} className="relative">
