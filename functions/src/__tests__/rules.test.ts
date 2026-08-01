@@ -385,6 +385,21 @@ describe('firestore.rules — drafts', () => {
     await assertSucceeds(db.doc('drafts/user-a').get());
   });
 
+  // Admin read used to be allowed here while update and delete were owner-only.
+  // A compromised admin claim could then read every user's drafts; support work
+  // goes through the Admin SDK, which is audited, so the client path has no
+  // reason to reach another user's draft.
+  it('denies an admin reading another user\'s draft', async () => {
+    const dbOwner = testEnv.authenticatedContext('user-a').firestore();
+    await dbOwner.doc('drafts/user-a').set({
+      userId: 'user-a',
+      content: 'Draft text',
+      updatedAt: Date.now(),
+    });
+    const dbAdmin = testEnv.authenticatedContext('admin-1', { role: 'admin' }).firestore();
+    await assertFails(dbAdmin.doc('drafts/user-a').get());
+  });
+
   it('denies reading another user\'s draft', async () => {
     const dbOwner = testEnv.authenticatedContext('user-a').firestore();
     const dbIntruder = testEnv.authenticatedContext('user-b').firestore();
