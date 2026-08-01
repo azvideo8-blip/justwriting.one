@@ -5,6 +5,8 @@ import { DocumentService } from '../DocumentService';
 import { LocalStorageService } from '../LocalStorageService';
 import * as WriteBudget from '../../firebase/writeBudget';
 
+vi.mock('../../firebase/firestore', () => ({ isFirestoreConnected: true }));
+
 vi.mock('../../firebase/writeBudget', () => ({
   areCloudWritesBlockedToday: vi.fn(),
   tryReserveBulkWriteBudget: vi.fn(),
@@ -147,5 +149,41 @@ describe('CloudSyncService', () => {
 
       await expect(CloudSyncService.relinkOrphanedDocuments('user_1')).rejects.toThrow('unavailable');
     });
+  });
+});
+
+// The cloud trims old snapshots (pruneOldVersions). An older version missing
+// there is housekeeping, not a gap — re-uploading it would undo the trim and
+// pay the write quota to do it on every sync, forever.
+describe('addCloudCopy — pruned history is not re-uploaded', () => {
+  it('uploads only versions newer than the newest the cloud holds', async () => {
+    vi.mocked(WriteBudget.areCloudWritesBlockedToday).mockReturnValue(false);
+    vi.mocked(WriteBudget.tryReserveBulkWriteBudget).mockReturnValue(true);
+
+    const { LocalVersionService } = await import('../LocalVersionService');
+    const { VersionService } = await import('../VersionService');
+    const { DocumentService } = await import('../DocumentService');
+
+    vi.spyOn(LocalStorageService, 'getDocument').mockResolvedValue({
+      id: 'local_1', linkedCloudId: 'cloud_1', currentVersion: 12,
+      totalWords: 10, totalDuration: 0, sessionsCount: 1,
+    } as never);
+    vi.spyOn(DocumentService, 'getDocument').mockResolvedValue({ id: 'cloud_1', currentVersion: 12 } as never);
+    // The cloud kept 11 and 12; 1..10 were trimmed. The local copy still has all.
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue(
+      [11, 12].map(v => ({ id: `v${v}`, version: v })) as never,
+    );
+    vi.spyOn(LocalVersionService, 'getVersions').mockResolvedValue(
+      Array.from({ length: 12 }, (_, i) => ({
+        id: `v${i + 1}`, version: i + 1, content: 'x', wordCount: 1,
+        duration: 0, wpm: 0, savedAt: 1, sessionStartedAt: 1,
+      })) as never,
+    );
+    const addVersion = vi.spyOn(VersionService, 'addVersion').mockResolvedValue(undefined as never);
+    vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockResolvedValue(undefined as never);
+
+    await CloudSyncService.addCloudCopy('user_1', 'local_1');
+
+    expect(addVersion).not.toHaveBeenCalled();
   });
 });

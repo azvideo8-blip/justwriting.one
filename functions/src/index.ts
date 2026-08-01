@@ -29,5 +29,6 @@ export { judgeBeliefCandidate } from './ai/judgeBeliefCandidate';
 export { getAIUsageStats } from './ai/getAIUsageStats';
 export { deleteAccount } from './auth/deleteAccount';
 export { sendTelemetry } from './telemetry/sendTelemetry';
+export { pruneOldVersions } from './maintenance/pruneVersions';
 
 
