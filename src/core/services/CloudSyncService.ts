@@ -28,6 +28,21 @@ function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): P
   return withTimeoutBase(promise, ms, 'Sync timeout');
 }
 
+/**
+ * The highest version number the cloud can honestly claim after a partial
+ * upload: the last one in an unbroken run from the oldest. Taking the maximum
+ * instead would let a gap hide — versions 1 and 3 uploaded, 2 skipped, and the
+ * document reports v3 while v2 does not exist.
+ */
+export function highestContiguousVersion(allVersions: number[], uploaded: Set<number>): number {
+  let highest = 0;
+  for (const v of [...allVersions].sort((a, b) => a - b)) {
+    if (!uploaded.has(v)) break;
+    highest = v;
+  }
+  return highest;
+}
+
 export const CloudSyncService = {
   async restoreMissingDocuments(userId: string): Promise<{ restored: number; hasMore: boolean }> {
     if (areCloudWritesBlockedToday()) {
@@ -217,6 +232,7 @@ export const CloudSyncService = {
             withTimeout(VersionService.getVersions(userId, cloudId)),
           ]);
           const cloudNums = new Set(cloudVersions.map(v => v.version));
+          let budgetExhausted = false;
           // Only versions NEWER than the newest the cloud holds. The cloud trims
           // old snapshots (pruneOldVersions), so an older version being absent
           // there is housekeeping, not a gap: re-uploading it would undo the
@@ -225,7 +241,7 @@ export const CloudSyncService = {
           const missing = localVersions.filter(v => !cloudNums.has(v.version) && v.version > newestCloud);
           const limiter = pLimit(3);
           await Promise.all(missing.map((ver) => limiter(async () => {
-            if (!tryReserveBulkWriteBudget()) return;
+            if (!tryReserveBulkWriteBudget()) { budgetExhausted = true; return; }
             const idx = localVersions.findIndex(v => v.id === ver.id);
             const prevContent = idx <= 0 ? '' : (localVersions[idx - 1]?.content ?? '');
             const startedAt = ver.sessionStartedAt != null
@@ -264,6 +280,17 @@ export const CloudSyncService = {
               _encrypted,
             }));
           })));
+          // A run that ran out of write budget left versions behind. Advancing
+          // currentVersion anyway told the cloud it holds text it never received,
+          // and returning the id cleared the queue — so the gap became permanent
+          // and the activity log said the note was saved. Report incomplete
+          // instead: the link stays (the document exists, so a retry must not
+          // create a second one) and the queue keeps the work.
+          if (budgetExhausted) {
+            reportError(new Error('Cloud sync incomplete: write budget exhausted'),
+              { action: 'addCloudCopy_incomplete', documentId: localDocumentId }, 'warning');
+            return '';
+          }
           // Don't roll cloud metadata backward when the cloud copy is ahead of
           // this (behind) device — otherwise currentVersion regresses and a later
           // save can reuse a version number, overwriting a version via setDoc(`v${n}`).
@@ -283,6 +310,8 @@ export const CloudSyncService = {
       }
 
       const versions = await LocalVersionService.getVersions(localDocumentId);
+      const uploadedVersions = new Set<number>();
+      let incomplete = false;
       let cloudId: string | null = null;
 
       try {
@@ -335,12 +364,19 @@ export const CloudSyncService = {
             savedAt: ver.savedAt ? new Date(ver.savedAt) : undefined,
             _encrypted,
           }));
+          uploadedVersions.add(ver.version);
         })));
+
+        // What the cloud can honestly claim to hold. When the write budget ran
+        // out mid-way, saying `localDoc.currentVersion` would advertise text
+        // that never arrived — and the note would look fully backed up.
+        const contiguous = highestContiguousVersion(versions.map(v => v.version), uploadedVersions);
+        incomplete = uploadedVersions.size < versions.length;
 
         await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
           totalWords: localDoc.totalWords,
           totalDuration: localDoc.totalDuration,
-          currentVersion: localDoc.currentVersion,
+          currentVersion: incomplete ? contiguous : localDoc.currentVersion,
           sessionsCount: localDoc.sessionsCount,
           lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
           mood: localDoc.mood,
@@ -365,9 +401,24 @@ export const CloudSyncService = {
         catch (cleanupErr) { reportError(cleanupErr, { action: 'addCloudCopy_dupCleanup', cloudId }); }
         return freshLocal.linkedCloudId;
       }
+      // The link is set even when the upload is incomplete: the cloud document
+      // exists, and a retry that did not know about it would create a second one.
       await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId);
       await LocalStorageService.migrateDocumentOwner(localDocumentId, userId);
-      
+
+      if (incomplete) {
+        reportError(new Error('Cloud sync incomplete: write budget exhausted'),
+          { action: 'addCloudCopy_incomplete', documentId: localDocumentId, uploaded: uploadedVersions.size, total: versions.length }, 'warning');
+        useActivityLogStore.getState().addActivity(
+          `Заметка выгружена частично (версий: ${uploadedVersions.size} из ${versions.length}) — остальное уйдёт позже`,
+          { action: 'addCloudCopy_incomplete', documentId: localDocumentId, cloudDocumentId: cloudId },
+          'warning',
+          'sync'
+        );
+        // Empty id: callers leave the queue item in place, so the rest is retried.
+        return '';
+      }
+
       useActivityLogStore.getState().addActivity(
         'Заметка сохранена в облако',
         { action: 'addCloudCopy', documentId: localDocumentId, cloudDocumentId: cloudId },
