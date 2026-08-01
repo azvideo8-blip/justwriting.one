@@ -116,7 +116,11 @@ export function StorageIcons({
         case 'delete-cloud':
           await StorageService.removeCloudCopy(userId, doc.cloudId!);
           if (doc.localId) {
-            await LocalDocumentService.updateLinkedCloudId(doc.localId, '');
+            // Deliberate removal from the cloud: record the intent, do not just
+            // drop the link. `updateLinkedCloudId(id, '')` leaves the note looking
+            // like one whose link was LOST, and the re-link pass restores it —
+            // putting back the copy the user just asked to delete.
+            await LocalDocumentService.unlinkFromCloud(doc.localId);
           }
           showToast(t('storage_deleted_cloud'), 'success');
           break;
