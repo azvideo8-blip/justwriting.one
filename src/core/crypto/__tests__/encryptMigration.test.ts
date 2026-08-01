@@ -277,6 +277,35 @@ describe('encryptAllExistingNotes', () => {
     expect(progress.encrypted).toBe(1);
     expect(progress.errors).toBe(0);
   });
+
+  it('stops and sets incomplete flag when bulk write budget is exhausted', async () => {
+    const versionDocs = [
+      { id: 'ver1', data: { content: 'hello', _encrypted: false } },
+      { id: 'ver2', data: { content: 'hello', _encrypted: false } },
+    ];
+
+    mockGetDocs.mockImplementation(async (queryOrCol: any) => {
+      if (queryOrCol.path === 'users/user123/documents/doc1/versions') {
+        return createMockSnapshot(versionDocs);
+      }
+      if (queryOrCol.path === 'users/user123/documents') {
+        return createMockSnapshot([{ id: 'doc1', data: {} }]);
+      }
+      return createMockSnapshot([]);
+    });
+
+    const mockWriteBudget = await import('../../firebase/writeBudget');
+    let calls = 0;
+    vi.spyOn(mockWriteBudget, 'tryReserveBulkWriteBudget').mockImplementation(() => {
+      calls++;
+      return calls <= 1; // Allows only the first call
+    });
+
+    const progress = await encryptAllExistingNotes(userId);
+    expect(progress.encrypted).toBe(1); // Only the first one gets encrypted
+    expect(progress.incomplete).toBe(true);
+    expect(localStorage.getItem(`encryptionMigration_${userId}_checkpoint`)).not.toBeNull(); // Checkpoint is preserved
+  });
 });
 
 describe('encryptSingleDocument', () => {
