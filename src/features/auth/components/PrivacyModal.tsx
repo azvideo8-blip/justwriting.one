@@ -4,6 +4,7 @@ import { Shield } from 'lucide-react';
 import { auth } from '../../../core/firebase/auth';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { Button } from '../../../shared/components/Button';
+import { useAuthStatus } from '../../../app/useAuthStatus';
 
 interface PrivacyModalProps {
   onAccepted: () => void;
@@ -76,14 +77,22 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
 
 export function usePrivacyCheck() {
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const { user, authState } = useAuthStatus();
 
   useEffect(() => {
+    if (authState === 'loading') return;
+    
     const check = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
+      if (!user) {
+        setShowPrivacy(false);
+        return;
+      }
 
       const cached = localStorage.getItem(`privacy_accepted_${user.uid}`);
-      if (cached === 'true') return;
+      if (cached === 'true') {
+        setShowPrivacy(false);
+        return;
+      }
 
       try {
         const { db, mod } = await getClient();
@@ -91,6 +100,7 @@ export function usePrivacyCheck() {
         const snap = await getDoc(doc(db, 'users', user.uid));
         if (snap.exists() && snap.data()?.privacyAcceptedAt) {
           localStorage.setItem(`privacy_accepted_${user.uid}`, 'true');
+          setShowPrivacy(false);
           return;
         }
         setShowPrivacy(true);
@@ -99,7 +109,7 @@ export function usePrivacyCheck() {
       }
     };
     void check();
-  }, []);
+  }, [user, authState]);
 
   return { showPrivacy, setShowPrivacy };
 }
