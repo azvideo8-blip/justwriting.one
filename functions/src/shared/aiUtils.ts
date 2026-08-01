@@ -155,6 +155,26 @@ export function sanitizeAiResponse(response: string, keepReasoning = false): str
   });
 }
 
+/**
+ * Why an AI call failed, from the provider error the request threw.
+ *
+ * Everything used to be re-thrown as HttpsError('internal'), so a provider
+ * outage was indistinguishable from a bug in our own request — the client could
+ * not tell the user anything more useful than "something went wrong", and could
+ * not decide whether retrying made sense. aiProvider has already retried the
+ * transient cases by the time we get here.
+ */
+export function classifyProviderFailure(err: unknown): { code: 'unavailable' | 'internal'; reason: string } {
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  if (/OpenRouter 5\d\d/i.test(msg)) return { code: 'unavailable', reason: 'UPSTREAM_ERROR' };
+  if (/body read timeout|aborted|timeout|ETIMEDOUT|ECONNRESET|ENOTFOUND|EAI_AGAIN|fetch failed/i.test(msg)) {
+    return { code: 'unavailable', reason: 'UPSTREAM_TIMEOUT' };
+  }
+  if (/OpenRouter 4\d\d/i.test(msg)) return { code: 'internal', reason: 'BAD_REQUEST' };
+  if (/OPENROUTER_API_KEY not set/i.test(msg)) return { code: 'internal', reason: 'MISCONFIGURED' };
+  return { code: 'internal', reason: 'UNKNOWN' };
+}
+
 export async function recordUsage(
   uid: string,
   tokensIn: number,

@@ -12,7 +12,7 @@ export type AIAction = 'accents' | 'ideas' | 'summarize' | 'continue' | 'gratitu
 export type AIMessage = { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' | undefined };
 export type AIResult =
   | { ok: true; text: string }
-  | { ok: false; error: 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG' | 'SERVER_ERROR' };
+  | { ok: false; error: 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG' | 'UPSTREAM' | 'SERVER_ERROR' };
 
 export interface AISummaryPayload {
   summary?: string;
@@ -32,7 +32,7 @@ export interface AISummaryPayload {
   promptVersion?: number;
 }
 
-function mapAIError(e: unknown): 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG' | 'SERVER_ERROR' {
+function mapAIError(e: unknown): 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG' | 'UPSTREAM' | 'SERVER_ERROR' {
   const code = (e as { code?: string }).code;
   const message = (e as { message?: string }).message ?? '';
   if (code === 'functions/unauthenticated') return 'AUTH_REQUIRED';
@@ -42,6 +42,10 @@ function mapAIError(e: unknown): 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' 
     return 'RATE_LIMIT';
   }
   if (code === 'functions/invalid-argument') return 'TOO_LONG';
+  // The model provider failed, not us. Worth its own code: it is the one cause
+  // where retrying in a minute is the right advice, and where the user should
+  // not wonder whether something is wrong with their notes or their account.
+  if (code === 'functions/unavailable') return 'UPSTREAM';
   return 'SERVER_ERROR';
 }
 

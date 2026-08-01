@@ -538,6 +538,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       else if (msg === 'GLOBAL_LIMIT') { setError('Лимит приложения исчерпан — попробуйте позже'); }
       else if (msg === 'AUTH_REQUIRED') setError('Требуется регистрация');
       else if (msg === 'EMPTY_RESPONSE') setError('ИИ не ответил — сервис временно недоступен (возможно, исчерпан лимит). Попробуйте позже.');
+      else if (msg === 'UPSTREAM') setError('Модель сейчас не отвечает — это сбой на стороне сервиса ИИ, а не в ваших заметках. Мы уже повторили запрос несколько раз. Попробуйте ещё раз через минуту.');
       else setError('Произошла ошибка при отправке сообщения');
       return null;
     } finally {
