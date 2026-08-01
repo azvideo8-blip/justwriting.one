@@ -14,6 +14,23 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.68',
+    date: '2026-08-01',
+    items: [
+      { category: 'fix', ru: 'Выход из аккаунта больше не уничтожает то, чего нет в облаке: он останавливается и показывает, сколько записей есть только на этом устройстве', en: 'Signing out no longer destroys what the cloud does not have: it stops and shows how many records exist on this device only' },
+      { category: 'fix', ru: 'Выгрузка в облако не сообщает об успехе, пропустив версии: при исчерпании дневного лимита заметка честно остаётся в очереди и дозагрузится позже', en: 'A cloud upload does not report success after skipping versions: when the daily limit runs out the note honestly stays queued and finishes later' },
+      { category: 'fix', ru: 'Заметка, которую не удалось расшифровать, больше не сохраняется на устройство шифротекстом вместо текста', en: 'A note that could not be decrypted is no longer stored on the device as ciphertext in place of its text' },
+      { category: 'fix', ru: 'Заметка, намеренно убранная из облака, больше не возвращается при следующей синхронизации', en: 'A note deliberately removed from the cloud no longer comes back on the next sync' },
+      { category: 'fix', ru: 'Первое сохранение заметки записывается целиком или не записывается вовсе: обрыв между записями больше не оставляет заметку без версий или со счётчиками, по которым она выглядит пустой', en: 'The first save of a note is written whole or not at all: a break between writes no longer leaves a note with no versions, or with counters that make it look empty' },
+      { category: 'fix', ru: 'Заголовок, теги и метка, изменённые во время продолжения заметки, больше не пропадают при перезагрузке', en: 'A title, tags or label changed while continuing a note no longer vanish on reload' },
+      { category: 'fix', ru: 'Отложенная синхронизация больше не может выполниться под чужим аккаунтом после смены пользователя', en: 'A queued sync can no longer run under someone else’s account after a user switch' },
+      { category: 'fix', ru: 'Незаконченный черновик больше не теряется при входе в аккаунт', en: 'An unfinished draft is no longer lost when signing in' },
+      { category: 'fix', ru: 'Перенос локальных заметок в аккаунт говорит, сколько не ушло в облако, и сам повторяет выгрузку позже — раньше о неудаче молчали, а повторять её было некому', en: 'Moving local notes into an account says how many did not reach the cloud and retries them later — the failure used to be silent, and nothing would retry it' },
+      { category: 'fix', ru: 'Шифрование архива не рапортует об успехе, упершись в дневной лимит: отметка о проделанной работе сохраняется, продолжение идёт с того же места', en: 'Encrypting the archive does not report success after hitting the daily limit: the record of what was done is kept and the next run resumes where it stopped' },
+      { category: 'fix', ru: 'Согласие с политикой конфиденциальности снова спрашивают у тех, кто его не давал: проверка выполнялась до восстановления входа в аккаунт', en: 'The privacy policy is asked about again for anyone who never accepted it: the check ran before the session was restored' },
+    ],
+  },
+  {
     version: '0.7.67',
     date: '2026-08-01',
     items: [
