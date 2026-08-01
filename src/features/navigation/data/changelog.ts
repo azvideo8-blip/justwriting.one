@@ -14,8 +14,8 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
-    version: '0.7.66',
-    date: '2026-07-31',
+    version: '0.7.67',
+    date: '2026-08-01',
     items: [
       { category: 'fix', ru: 'История версий в облаке больше не растёт без предела: у заметки остаются первая версия и два десятка последних, а синхронизация не отправляет удалённые обратно', en: 'Cloud version history no longer grows without limit: a note keeps its first version and the last twenty, and sync does not send the trimmed ones back' },
       { category: 'improvement', ru: 'Когда сервис ИИ недоступен, приложение говорит именно это, а не «произошла ошибка»', en: 'When the AI service is unavailable the app says exactly that, instead of "an error occurred"' },
@@ -26,6 +26,12 @@ export const CHANGELOG: ChangelogRelease[] = [
       { category: 'improvement', ru: 'Поиск по имени стал быстрее: если имя встречается в заметке буквально, результат отдаётся сразу, без обращения к облаку за переранжированием. И имена теперь сопоставляются с учётом падежа — «про Сашу» находит «Саша» и «Сашей»', en: 'Searching by name is faster: when the name appears in the note verbatim the result is returned straight away, with no cloud round-trip for reranking. Names are also matched through case endings — "про Сашу" finds "Саша" and "Сашей"' },
       { category: 'fix', ru: 'Поиск по имени наконец ищет по заметкам: «что я писал про Сашу» опрашивало только указатель людей и при пустом ответе не запускало обычный поиск вовсе — теперь указатель это подсказка, а не приговор', en: 'Searching by name finally searches the notes: "что я писал про Сашу" asked only the people index and, when it came back empty, never ran the ordinary search — the index is now a hint, not a verdict' },
       { category: 'fix', ru: 'Ссылки на импортированные заметки больше не попадают в ответ идентификатором: их id содержит точку, которую шаблон ссылок не допускал', en: 'Citations of imported notes no longer land in the reply as an identifier: their ids contain a dot the citation pattern did not allow' },
+    ],
+  },
+  {
+    version: '0.7.66',
+    date: '2026-07-31',
+    items: [
       { category: 'fix', ru: 'Загрузка смыслового индекса из облака больше не выедает дневной лимит обращений к базе и не запирает приложение до полуночи. Индекс достраивается сам, локально; загрузка из облака переехала в отдельную кнопку в диагностике', en: 'Pulling the semantic index from the cloud no longer eats the daily database limit and locks the app out until midnight. The index is rebuilt locally on its own; the cloud download moved to a button in diagnostics' },
       { category: 'fix', ru: 'Счётчик обращений к базе перестал занижать расход: он считал документ за единицу, хотя лимит зависит от размера, а записи индекса весят сотни килобайт', en: 'The database usage counter stopped understating the cost: it charged one unit per document, while the limit depends on size and index records are hundreds of kilobytes' },
       { category: 'fix', ru: 'Поиск по заметкам снова находит по именам и словам. Заметка, найденная по слову, а не по смыслу, отбрасывалась как нерелевантная — поэтому «поищи про Вику» не возвращало ничего, хотя имя написано в заметке', en: 'Note search finds names and words again. A note found by a word rather than by meaning was discarded as irrelevant — which is why "поищи про Вику" returned nothing even with the name written in the note' },
