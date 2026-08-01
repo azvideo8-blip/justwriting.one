@@ -5,7 +5,7 @@ import { LocalVersionService } from './LocalVersionService';
 import { getLocalDb, type LocalDocument } from '../storage/localDb';
 import { Document } from '../../types';
 import { toDate } from '../utils/dateUtils';
-import { maybeEncrypt, maybeDecrypt, type VersionEncryptPayload, getEncryptionEnabled } from '../crypto/cryptoHelpers';
+import { maybeEncrypt, maybeDecrypt, DecryptionError, type VersionEncryptPayload, getEncryptionEnabled } from '../crypto/cryptoHelpers';
 import { getSessionKey } from '../crypto/encrypt';
 import { reportError } from '../../shared/errors/reportError';
 import { withTimeout as withTimeoutBase } from '../../shared/utils/withTimeout';
@@ -137,19 +137,34 @@ export const CloudSyncService = {
 
     try {
       let prevContent = '';
+      // Versions whose ciphertext could not be turned back into text. The local
+      // store holds PLAINTEXT, so a failed decrypt must never be written to it:
+      // `ver.content` is Base64 ciphertext, and saving it made the note read as
+      // gibberish that the app cannot tell from real writing — it would reach
+      // search, export, backups and the AI context.
+      const corruptedVersions: number[] = [];
+      const latestVersionNo = versions.reduce((max, v) => Math.max(max, v.version ?? 1), 0);
+
       for (const ver of versions) {
         let startedAt = toDate(ver.sessionStartedAt) ?? toDate(ver.savedAt) ?? new Date();
         if (isNaN(startedAt.getTime())) startedAt = new Date();
 
         const verRecord: Record<string, unknown> = { ...ver };
-        let verContent = '';
+        let verContent: string | null = null;
         try {
           const decryptedVer = await maybeDecrypt(verRecord, ['content'], []);
-          verContent = typeof decryptedVer.content === 'string' ? decryptedVer.content : (ver.content ?? '');
+          // A non-string here means the payload is not what we think it is —
+          // treated as corrupt rather than falling back to the raw field.
+          verContent = typeof decryptedVer.content === 'string' ? decryptedVer.content : null;
         } catch (decErr) {
           if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
-          // Skip corrupted version but continue importing others
-          verContent = ver.content ?? '';
+          if (!(decErr instanceof DecryptionError)) throw decErr;
+          verContent = null;
+        }
+
+        if (verContent === null) {
+          corruptedVersions.push(ver.version ?? 1);
+          continue;
         }
 
         await LocalVersionService.addVersion(userId, localId, {
@@ -166,6 +181,28 @@ export const CloudSyncService = {
           savedAt: ver.savedAt ? toDate(ver.savedAt) ?? undefined : undefined,
         });
         prevContent = verContent;
+      }
+
+      // The newest version is what the note IS. If it could not be read, importing
+      // the rest would show older text as if it were current — worse than not
+      // having the note here at all, because nothing tells the user. The catch
+      // below deletes the half-built local document and rethrows.
+      if (corruptedVersions.includes(latestVersionNo)) {
+        throw new Error(`DECRYPT_FAILED_LATEST: cloud document ${cloudDocumentId} version ${latestVersionNo}`);
+      }
+
+      if (corruptedVersions.length > 0) {
+        reportError(
+          new Error(`Skipped ${corruptedVersions.length} unreadable version(s) while importing a note`),
+          { action: 'addLocalCopy_corruptedVersions', cloudDocumentId, versions: corruptedVersions.join(',') },
+          'warning',
+        );
+        useActivityLogStore.getState().addActivity(
+          `Часть истории заметки не читается и пропущена (версий: ${corruptedVersions.length})`,
+          { action: 'addLocalCopy_corruptedVersions', cloudDocumentId },
+          'warning',
+          'sync',
+        );
       }
 
       await LocalStorageService.updateDocument(localId, {
