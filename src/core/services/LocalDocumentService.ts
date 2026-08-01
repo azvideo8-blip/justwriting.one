@@ -370,4 +370,25 @@ export const LocalDocumentService = {
 
     return { docsFixed, profileFixed };
   },
+
+  /** Recomputes the profile aggregate from the documents themselves. Cheap at
+   *  this scale and always consistent, unlike incremental deltas that drift
+   *  whenever a write in the middle of a sequence fails. */
+  async recomputeProfileTotals(guestId: string): Promise<void> {
+    const db = await getLocalDb();
+    const docs = await db.getAllFromIndex('documents', 'by-guest', guestId);
+    const totals = docs.reduce(
+      (acc, d) => ({
+        totalWords: acc.totalWords + (d.totalWords || 0),
+        totalDuration: acc.totalDuration + (d.totalDuration || 0),
+        sessionsCount: acc.sessionsCount + (d.sessionsCount || 0),
+        lastSessionAt: Math.max(acc.lastSessionAt, d.lastSessionAt || 0),
+      }),
+      { totalWords: 0, totalDuration: 0, sessionsCount: 0, lastSessionAt: 0 },
+    );
+    const tx = db.transaction('profile', 'readwrite');
+    const existing = await tx.store.get(guestId);
+    await tx.store.put({ ...(existing ?? { guestId }), ...totals });
+    await tx.done;
+  },
 };
