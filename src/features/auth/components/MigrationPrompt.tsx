@@ -27,8 +27,11 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
         try {
           const { synced, failed } = await SyncService.syncAllUnlinked(userId);
           if (synced > 0) onCloudSynced?.(synced);
-          if (failed > 0 && import.meta.env.DEV) {
-            console.warn(`Migration: ${synced} synced, ${failed} failed`);
+          // Заметки перенесены в аккаунт локально в любом случае; в облако —
+          // не все. Молчать об этом нельзя: человек закрывает окно с мыслью,
+          // что копия в облаке есть.
+          if (failed > 0) {
+            showToast(t('migration_cloud_pending', { count: failed }), 'error');
           }
         } catch (e) {
           reportError(e, { action: 'migrateCloudSync', userId });

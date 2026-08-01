@@ -55,6 +55,7 @@ export const authTranslations: Translations = {
   migration_keep_local:         { ru: 'Оставить локальными',                 en: 'Keep local' },
   migration_success_local:      { ru: 'Перемещено записей: {count}',         en: 'Records moved: {count}' },
   migration_synced_cloud:       { ru: 'Синхронизировано с облаком: {count}', en: 'Synced to cloud: {count}' },
+  migration_cloud_pending:      { ru: 'В облако пока не ушло: {count}. Заметки сохранены на устройстве, попробуем позже.', en: 'Not yet uploaded: {count}. Saved on this device, we will retry later.' },
 
   admin_title: { ru: 'Панель управления', en: 'Control Panel' },
   admin_tab_users: { ru: 'Пользователи', en: 'Users' },

@@ -78,13 +78,25 @@ export const SyncService = {
       ));
 
       let synced = 0;
-      let failed = 0;
-      for (const r of results) {
+      const failedIds: string[] = [];
+      results.forEach((r, i) => {
         if (r.status === 'fulfilled') synced++;
-        else failed++;
+        else failedIds.push(unlinked[i]!.id);
+      });
+
+      // Ставим упавшую выгрузку в очередь: иначе её никто не повторит. Эту
+      // функцию зовут только перенос гостевых заметок и ручная кнопка в
+      // диагностике, автоматического прохода по несвязанным заметкам нет, и
+      // заметка молча остаётся только локальной.
+      for (const id of failedIds) {
+        try {
+          await SyncService.addToQueue(id);
+        } catch (e) {
+          reportError(e, { action: 'syncAllUnlinked_queueFailed', documentId: id });
+        }
       }
 
-      return { synced, failed };
+      return { synced, failed: failedIds.length };
     } finally {
       _syncInProgress.delete(userId);  // [A-08] delete instead of set(false)
     }
