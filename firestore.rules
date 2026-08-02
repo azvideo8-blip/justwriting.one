@@ -177,6 +177,10 @@ service cloud.firestore {
              (!('tags' in data) || (data.tags is list && data.tags.size() <= 10)) &&
              (!('labelId' in data) || data.labelId is string || data.labelId == null) &&
              (!('uuid' in data) || (data.uuid is string && data.uuid.size() <= 36)) &&
+             // uuid is immutable: once set, it cannot be changed.  The migration
+             // manifest keys on uuid; a changed identity would orphan the entry.
+             // Setting uuid on a doc that never had one is allowed (backfill).
+             (!('uuid' in data) || !('uuid' in resource.data) || data.uuid == resource.data.uuid) &&
              (!('totalWords' in data) || (data.totalWords is number && data.totalWords >= 0)) &&
              (!('totalDuration' in data) || (data.totalDuration is number && data.totalDuration >= 0)) &&
              (!('currentVersion' in data) || (data.currentVersion is number && data.currentVersion >= 0)) &&

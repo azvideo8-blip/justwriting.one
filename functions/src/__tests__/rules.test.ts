@@ -194,6 +194,72 @@ describe('firestore.rules — document updates (S-12)', () => {
       dbIntruder.doc('users/user-a/documents/doc-1').update({ title: 'hacked' })
     );
   });
+
+  // uuid is immutable: once set, it cannot be changed.  The migration
+  // manifest keys on uuid; a changed identity would orphan the manifest
+  // entry.
+  it('denies changing an existing document uuid', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await db.doc('users/user-a/documents/doc-1').set({
+      userId: 'user-a',
+      title: 'My note',
+      uuid: 'original-uuid',
+      currentVersion: 1,
+      totalWords: 100,
+      totalDuration: 60,
+      sessionsCount: 1,
+      firstSessionAt: new Date(),
+      lastSessionAt: new Date(),
+    });
+    await assertFails(
+      db.doc('users/user-a/documents/doc-1').update({
+        uuid: 'different-uuid',
+      })
+    );
+  });
+
+  // Setting uuid on a document that never had one is allowed — this is how
+  // backfill works for notes created before C1.1.
+  it('allows setting uuid on a document that has none', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await db.doc('users/user-a/documents/doc-1').set({
+      userId: 'user-a',
+      title: 'My note',
+      currentVersion: 1,
+      totalWords: 100,
+      totalDuration: 60,
+      sessionsCount: 1,
+      firstSessionAt: new Date(),
+      lastSessionAt: new Date(),
+    });
+    await assertSucceeds(
+      db.doc('users/user-a/documents/doc-1').update({
+        uuid: 'newly-assigned-uuid',
+      })
+    );
+  });
+
+  // Writing the same uuid that already exists is a no-op and must be allowed.
+  it('allows writing the same uuid (idempotent)', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await db.doc('users/user-a/documents/doc-1').set({
+      userId: 'user-a',
+      title: 'My note',
+      uuid: 'keep-me',
+      currentVersion: 1,
+      totalWords: 100,
+      totalDuration: 60,
+      sessionsCount: 1,
+      firstSessionAt: new Date(),
+      lastSessionAt: new Date(),
+    });
+    await assertSucceeds(
+      db.doc('users/user-a/documents/doc-1').update({
+        uuid: 'keep-me',
+        title: 'Updated title',
+      })
+    );
+  });
 });
 
 // S-11: summaries + embeddings validation
