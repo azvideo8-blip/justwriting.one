@@ -26,7 +26,22 @@ try {
   raw = e.stdout?.toString() ?? '';
 }
 
-const report = JSON.parse(raw || '{}');
+// Пустой stdout значит, что команда не отработала, а не что уязвимостей нет.
+// execFileSync кидает и при найденных уязвимостях (отчёт на stdout), и при
+// настоящем сбое — нет сети, недоступен реестр. Различать обязательно: это
+// первый гейт в CI, и «проверить не смогли» не равно «проверили, чисто».
+if (!raw.trim()) {
+  console.error('prod-audit: npm audit не дал вывода — проверка не выполнена, а не пройдена.');
+  process.exit(1);
+}
+
+let report;
+try {
+  report = JSON.parse(raw);
+} catch (e) {
+  console.error('prod-audit: не удалось разобрать вывод npm audit:', e instanceof Error ? e.message : e);
+  process.exit(1);
+}
 const blocking = new Set();
 const allowed = new Set();
 
