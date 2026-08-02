@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, Loader2, FileJson } from 'lucide-react';
+import { Download, Loader2, FileJson, Database } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
@@ -11,6 +11,7 @@ import { Section } from './SettingsHelpers';
 import { Button } from '../../../shared/components/Button';
 import { saveAs } from 'file-saver';
 import { APP_VERSION } from '../../../version';
+import { exportMigrationManifest } from '../services/migrationExport';
 
 interface AccountExportSectionProps {
   userId: string;
@@ -22,6 +23,10 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
   const { user } = useAuthStatus();
   const [loading, setLoading] = useState(false);
   const [jsonLoading, setJsonLoading] = useState(false);
+  const [migrationLoading, setMigrationLoading] = useState(false);
+  const [migrationResult, setMigrationResult] = useState<{
+    documents: number; versions: number; verbatim: number; skipped: number;
+  } | null>(null);
 
   const handleExportAll = async () => {
     setLoading(true);
@@ -101,6 +106,28 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
     }
   };
 
+  const handleMigrationExport = async () => {
+    setMigrationLoading(true);
+    setMigrationResult(null);
+    try {
+      const manifest = await exportMigrationManifest();
+      const verbatimTotal = Object.values(manifest.counters.verbatim).reduce((a, b) => a + b, 0);
+      const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
+      saveAs(blob, `justwriting-export-${new Date().toISOString().slice(0, 10)}.json`);
+      setMigrationResult({
+        documents: manifest.counters.documents,
+        versions: manifest.counters.versions,
+        verbatim: verbatimTotal,
+        skipped: manifest.skipped.length,
+      });
+    } catch (err) {
+      reportError(err, { action: 'migrationExport' });
+      showToast(t('error_generic_action'), 'error');
+    } finally {
+      setMigrationLoading(false);
+    }
+  };
+
   return (
     <Section title={t('settings_export_all_title')}>
       <div className="p-4 rounded-xl border border-border-subtle space-y-3">
@@ -139,6 +166,40 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
             </>
           )}
         </Button>
+        <Button
+          onClick={() => void handleMigrationExport()}
+          disabled={migrationLoading}
+          data-testid="migration-export-btn"
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors disabled:opacity-50"
+        >
+          {migrationLoading ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              {t('settings_migration_export_progress')}
+            </>
+          ) : (
+            <>
+              <Database size={16} className="text-text-main/60" />
+              {t('settings_migration_export_button')}
+            </>
+          )}
+        </Button>
+        {migrationResult && (
+          <div className="text-xs text-text-main/60 leading-relaxed space-y-1">
+            <div>
+              {t('settings_migration_export_done', {
+                documents: String(migrationResult.documents),
+                versions: String(migrationResult.versions),
+                verbatim: String(migrationResult.verbatim),
+              })}
+            </div>
+            {migrationResult.skipped > 0 && (
+              <div className="text-red-500">
+                {t('settings_migration_export_skipped', { count: String(migrationResult.skipped) })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </Section>
   );
