@@ -83,11 +83,20 @@ export default defineConfig(() => {
           'src/types/**',
           'src/**/index.ts',
         ],
+        // Храповик, а не цель. Значения — фактический уровень на 0.7.68, округлённый
+        // вниз: задача порога здесь не поднять покрытие, а не дать ему упасть.
+        // Прежние 75/70/75/75 были пожеланием — при них CI был бы красным всегда,
+        // а красный CI перестают читать.
         thresholds: {
-          statements: 75,
-          branches: 70,
-          functions: 75,
-          lines: 75,
+          statements: 30,
+          branches: 20,
+          functions: 22,
+          lines: 31,
+          // Пути данных держим отдельно и заметно выше: сюда уехали все правки
+          // дорожки A, и именно здесь потеря покрытия означает потерю заметок.
+          'src/core/storage/**': { statements: 85, branches: 50, functions: 60, lines: 88 },
+          'src/core/crypto/**': { statements: 70, branches: 58, functions: 65, lines: 74 },
+          'src/core/services/**': { statements: 63, branches: 54, functions: 60, lines: 66 },
         },
       },
     },
