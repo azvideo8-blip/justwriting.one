@@ -289,6 +289,21 @@ export const LocalDocumentService = {
     await LocalDocumentService._updateProfile(newOwnerId);
   },
 
+  /** Проставляет uuid заметкам, созданным до C1.1. Идемпотентно: заметку с уже
+   *  заполненным uuid не трогает. Локальная операция — облако не читается, чтобы
+   *  проход не стоил квоты чтений. */
+  async backfillDocumentUuids(guestId: string): Promise<number> {
+    const db = await getLocalDb();
+    const docs = await db.getAllFromIndex('documents', 'by-guest', guestId);
+    const missing = docs.filter(d => !d.uuid);
+    if (missing.length === 0) return 0;
+
+    const tx = db.transaction('documents', 'readwrite');
+    await Promise.all(missing.map(d => tx.store.put({ ...d, uuid: randomUUID() })));
+    await tx.done;
+    return missing.length;
+  },
+
   async _updateProfile(guestId: string): Promise<void> {
     const db = await getLocalDb();
     const docs = await LocalDocumentService.getGuestDocuments(guestId);
