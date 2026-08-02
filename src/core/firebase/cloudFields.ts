@@ -5,7 +5,7 @@ import type { UserProfile, Document } from '../../shared/types/common';
 // Cloud Payloads
 //
 
-export type CloudSummaryPayload = AIDocumentSummary & { _encrypted?: boolean };
+export type CloudSummaryPayload = Omit<AIDocumentSummary, 'documentUuid'> & { _encrypted?: boolean };
 
 export type CloudDraftPayload = LocalDraft & { _encrypted?: boolean };
 

@@ -271,7 +271,7 @@ export async function exportMigrationManifest(): Promise<MigrationManifest> {
   const verbatimCounters: Record<string, number> = {};
   for (const { store, keyPath } of VERBATIM_STORES) {
     if (doneStores.has(store)) continue;
-    if (!db.objectStoreNames.contains(store)) continue;   // схема младше этого клиента
+    if (!db.objectStoreNames.contains(store as never)) continue;   // схема младше этого клиента
     try {
       const all = await db.getAll(store as never);
       for (const raw of all) {
