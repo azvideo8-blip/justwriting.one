@@ -662,6 +662,8 @@ describe('firestore.rules — maximal documents', () => {
     labelId: 'l', activeSessionId: 'sess', savedDocumentId: 'doc-1', mood: 'm',
     // C1: canonical note id. 36 chars — the rules cap uuid at that length.
     uuid: '11111111-1111-4111-8111-111111111111',
+    // Same id carried on a summary/embedding, so a restored one finds its note.
+    documentUuid: '11111111-1111-4111-8111-111111111111',
     model: 'm', content: 'c', aiPortrait: 'p', encryptionSalt: 's',
     encryptedDataKey: 'k',
     // json-encoded blobs

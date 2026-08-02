@@ -234,13 +234,19 @@ service cloud.firestore {
     // ciphertext by size instead. Omitting a field the client sends denies the
     // whole write, which is how summaries silently stopped syncing.
     function isValidSummary(data) {
+      // documentUuid: the note's canonical id (C1). It has to survive the round
+      // trip through the cloud — a summary restored on another device finds its
+      // note by this field. Without it the restore falls back to matching by a
+      // hash of the text, and two notes with identical text take each other's
+      // analysis.
       return data.keys().hasOnly([
-               'documentId', 'summary', 'tone', 'frequentWords', 'authorPhrases',
+               'documentId', 'documentUuid', 'summary', 'tone', 'frequentWords', 'authorPhrases',
                'insights', 'quotableSentence', 'themes', 'extractedFacts',
                'mentionedPeople', 'processedAt', 'commitments', 'valence',
                'arousal', 'echo', 'contentHash', 'eventDate', 'promptVersion',
                '_encrypted'
              ]) &&
+             (!('documentUuid' in data) || (data.documentUuid is string && data.documentUuid.size() <= 36)) &&
              (!('documentId' in data) || data.documentId is string) &&
              (!('summary' in data) || (data.summary is string && data.summary.size() <= 20000)) &&
              (!('tone' in data) || (data.tone is string && data.tone.size() <= 5000)) &&
@@ -273,9 +279,12 @@ service cloud.firestore {
       // single-vector `vectorJson` field (see AIEmbeddingService.parseVectors),
       // so it must stay in hasOnly or re-embedding a legacy doc would be denied.
       return data.keys().hasOnly([
-               'documentId', 'vectorsJson', 'vectorJson', 'chunkTextsJson', 'model', 'dim',
+               'documentId', 'documentUuid', 'vectorsJson', 'vectorJson', 'chunkTextsJson', 'model', 'dim',
                'contentHash', 'processedAt', 'schemaV', '_encrypted'
              ]) &&
+             // Same as for summaries: the canonical note id must survive the
+             // round trip, or a restored embedding cannot find its note.
+             (!('documentUuid' in data) || (data.documentUuid is string && data.documentUuid.size() <= 36)) &&
              (!('documentId' in data) || data.documentId is string) &&
              // Caps match MAX_CLOUD_EMBEDDING_BYTES in AIEmbeddingService, which
              // is what the client refuses to send. A tighter cap here just turns

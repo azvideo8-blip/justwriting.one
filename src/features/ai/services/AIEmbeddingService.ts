@@ -46,6 +46,7 @@ function roundVectors(vectors: number[][]): number[][] {
 export async function saveEmbeddingToCloud(userId: string, emb: AIDocumentEmbedding): Promise<{ skipped: boolean }> {
   let payload: Record<string, unknown> = {
     documentId: emb.documentId,
+    ...(emb.documentUuid ? { documentUuid: emb.documentUuid } : {}),
     vectorsJson: JSON.stringify(roundVectors(emb.vectors)),
     chunkTextsJson: JSON.stringify(emb.chunkTexts ?? []),
     model: emb.model,
@@ -111,6 +112,8 @@ export async function decodeCloudEmbedding(
   const contentHash = typeof decrypted.contentHash === 'string' ? decrypted.contentHash : '';
   const processedAt = typeof decrypted.processedAt === 'number' ? decrypted.processedAt : Date.now();
   const base: AIDocumentEmbedding = { documentId: docId, vectors, model, dim, contentHash, processedAt };
+  // Замыкает круг: восстановленный эмбеддинг знает каноничный id своей заметки.
+  if (typeof decrypted.documentUuid === 'string') base.documentUuid = decrypted.documentUuid;
   if (typeof decrypted.schemaV === 'number') base.schemaV = decrypted.schemaV;
   if (typeof decrypted.chunkTextsJson === 'string') {
     try {
@@ -162,16 +165,19 @@ export const AIEmbeddingService = {
     const uid = getAuth().currentUser?.uid;
     if (uid && tryReserveWriteBudget()) {
       try {
-        const { skipped } = await saveEmbeddingToCloud(uid, emb);
+        // withUuid везде, а не emb: иначе запись обратно затирает documentUuid,
+        // проставленный строкой выше, и привязка по каноничному id теряется
+        // ровно тогда, когда выгрузка удалась.
+        const { skipped } = await saveEmbeddingToCloud(uid, withUuid);
         if (skipped) {
-          await db.put('aiEmbeddings', { ...emb, cloudSkipped: true });
+          await db.put('aiEmbeddings', { ...withUuid, cloudSkipped: true });
         } else {
-          await db.put('aiEmbeddings', { ...emb, cloudSyncedAt: Date.now() });
+          await db.put('aiEmbeddings', { ...withUuid, cloudSyncedAt: Date.now() });
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (isOversizedError(msg)) {
-          await db.put('aiEmbeddings', { ...emb, cloudSkipped: true });
+          await db.put('aiEmbeddings', { ...withUuid, cloudSkipped: true });
         } else if (!msg.includes('ENCRYPT_REQUIRED')) {
           reportError(e, { action: 'ai_embedding_cloud_save' });
         }

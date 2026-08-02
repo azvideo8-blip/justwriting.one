@@ -5,7 +5,7 @@ import type { UserProfile, Document } from '../../shared/types/common';
 // Cloud Payloads
 //
 
-export type CloudSummaryPayload = Omit<AIDocumentSummary, 'documentUuid'> & { _encrypted?: boolean };
+export type CloudSummaryPayload = AIDocumentSummary & { _encrypted?: boolean };
 
 export type CloudDraftPayload = LocalDraft & { _encrypted?: boolean };
 
@@ -16,6 +16,9 @@ export type CloudUserProfilePayload = Omit<UserProfile, 'role'> & { _encrypted?:
 
 export interface CloudEmbeddingPayload {
   documentId: string;
+  /** Канонический id заметки (C1). Обязан пережить круг через облако: без него
+   *  восстановленный эмбеддинг ищет свою заметку сшивкой по хешу текста. */
+  documentUuid?: string;
   vectorsJson: string;
   vectorJson?: string;
   chunkTextsJson: string;
@@ -62,6 +65,7 @@ export interface CloudVersionPayload {
 
 export const SUMMARY_CLOUD_FIELDS = {
   documentId: true,
+  documentUuid: true,
   summary: true,
   tone: true,
   frequentWords: true,
@@ -84,6 +88,7 @@ export const SUMMARY_CLOUD_FIELDS = {
 
 export const EMBEDDING_CLOUD_FIELDS = {
   documentId: true,
+  documentUuid: true,
   vectorsJson: true,
   vectorJson: true,
   chunkTextsJson: true,
