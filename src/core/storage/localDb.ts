@@ -3,6 +3,12 @@ import { reportError } from '../../shared/errors/reportError';
 
 export interface LocalDocument {
   id: string;
+  /** Канонический идентификатор заметки: генерируется клиентом один раз и не
+   *  меняется никогда. Локальный id и linkedCloudId — адреса в двух разных
+   *  хранилищах; uuid — само имя заметки, о котором договариваются обе стороны.
+   *  По нему ключуются производные ИИ и манифест переноса. Необязателен, пока
+   *  не заполнен у всех заметок (см. C1.2). */
+  uuid?: string | undefined;
   guestId: string;
   title: string;
   currentVersion: number;

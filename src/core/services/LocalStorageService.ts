@@ -16,6 +16,7 @@ export const LocalStorageService = {
 
     const docObj = {
       id: localId,
+      uuid: randomUUID(),
       guestId: userId,
       title: data.title || '',
       currentVersion: 1,
