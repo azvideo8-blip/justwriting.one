@@ -14,6 +14,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.69',
+    date: '2026-08-02',
+    items: [
+      { category: 'fix', ru: 'Пропавшая связь больше не выглядит как поломка приложения: обрыв сети отличается от отказа сервиса и от нашей собственной ошибки, и в интерфейсе о нём так и сказано', en: 'A lost connection no longer looks like a broken app: a network drop is told apart from a service failure and from a fault of our own, and the interface says so' },
+      { category: 'fix', ru: 'Вошедшему в аккаунт больше не сообщают, что нужно зарегистрироваться: ключ сессии обновляется и запрос повторяется, а если не вышло — сказано, что не удалось подтвердить сессию', en: 'Someone signed in is no longer told to sign up: the session key is refreshed and the request retried, and if that fails the message says the session could not be confirmed' },
+      { category: 'fix', ru: 'Недоступный ИИ-сервис больше не порождает очередь одинаковых неудач — перебор останавливается на первом отказе, как и было задумано', en: 'An unreachable AI service no longer produces a queue of identical failures — the pass stops at the first refusal, as it was meant to' },
+      { category: 'fix', ru: 'Предупреждения снова видны: в рабочей сборке они не попадали ни в консоль, ни в журнал, хотя ими логируются сбои удаления черновика и облачной синхронизации', en: 'Warnings are visible again: in the production build they reached neither the console nor the journal, though that is how a failed draft deletion or cloud sync is logged' },
+    ],
+  },
+  {
     version: '0.7.68',
     date: '2026-08-01',
     items: [
