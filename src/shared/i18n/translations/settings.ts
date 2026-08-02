@@ -127,6 +127,16 @@ export const settingsTranslations: Translations = {
   settings_export_all_done: { ru: 'Экспортировано заметок: {count}', en: 'Exported notes: {count}' },
   settings_export_all_skipped: { ru: 'Пропущено (заблокировано): {count}', en: 'Skipped (locked): {count}' },
   settings_export_all_empty: { ru: 'Нет заметок для экспорта', en: 'No notes to export' },
+  settings_migration_export_button: { ru: 'Выгрузить все данные', en: 'Export all data' },
+  settings_migration_export_progress: { ru: 'Готовлю выгрузку...', en: 'Preparing export...' },
+  settings_migration_export_done: {
+    ru: 'Выгружено: {documents} заметок, {versions} версий, {verbatim} записей',
+    en: 'Exported: {documents} documents, {versions} versions, {verbatim} records',
+  },
+  settings_migration_export_skipped: {
+    ru: 'Пропущено записей: {count}',
+    en: 'Skipped records: {count}',
+  },
   settings_all_editor_settings: { ru: 'Все настройки редактора →', en: 'All editor settings →' },
   settings_encryption_management: { ru: 'Настройки шифрования и аккаунта →', en: 'Encryption & Account settings →' },
   settings_typewriter: { ru: 'Пишущая машинка', en: 'Typewriter scrolling' },
