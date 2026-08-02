@@ -53,6 +53,7 @@ export const userProfileDbSchema = z.object({
 
 export const documentDbSchema = z.object({
   id: z.string(),
+  uuid: z.string().optional(),
   userId: z.string().default(''),
   title: z.string().default(''),
   currentVersion: z.number().nonnegative().default(0),

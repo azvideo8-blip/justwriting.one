@@ -5,6 +5,7 @@ import { toDate } from '../utils/dateUtils';
 export function documentFromDb(dbDoc: DocumentDb): Document {
   return {
     id: dbDoc.id,
+    uuid: dbDoc.uuid,
     userId: dbDoc.userId,
     title: dbDoc.title,
     currentVersion: dbDoc.currentVersion,

@@ -594,3 +594,84 @@ describe('saveVersionToLocal keeps metadata', () => {
     expect((await db.get('documents', localId))!.title).toBe('Держится');
   });
 });
+
+// ─── C1.3: uuid travels to/from the cloud ──────────────────────────────────
+
+describe('C1.3: uuid in cloud sync', () => {
+  it('addCloudCopy passes the local document uuid to DocumentService.createDocument', async () => {
+    const { localId } = await StorageService.saveNew(GUEST, BASE_DATA);
+    const localDoc = await LocalDocumentService.getDocument(localId);
+    expect(localDoc!.uuid).toMatch(/^[0-9a-f-]{36}$/i);
+
+    await StorageService.addCloudCopy(GUEST, localId);
+
+    expect(MockDocumentService.createDocument).toHaveBeenCalledWith(
+      GUEST,
+      expect.objectContaining({ uuid: localDoc!.uuid }),
+    );
+  });
+
+  it('addLocalCopy preserves the cloud document uuid on the local copy', async () => {
+    const cloudId = 'cloud_uuid_test';
+    const cloudUuid = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+    cloudDocs.set(cloudId, {
+      id: cloudId,
+      userId: GUEST,
+      title: 'Cloud With UUID',
+      totalWords: 2,
+      totalDuration: 10,
+      currentVersion: 1,
+      sessionsCount: 1,
+      firstSessionAt: new Date(1000),
+      lastSessionAt: new Date(2000),
+      uuid: cloudUuid,
+    });
+    cloudVersions.set(cloudId, [{
+      id: 'ver_cloud_uuid',
+      documentId: cloudId,
+      version: 1,
+      content: 'hello',
+      wordCount: 1,
+      duration: 5,
+      wpm: 12,
+      sessionStartedAt: new Date(1000),
+      savedAt: new Date(2000),
+    }]);
+
+    const localId = await StorageService.addLocalCopy(GUEST, cloudId);
+    const doc = await LocalDocumentService.getDocument(localId);
+    expect(doc!.uuid).toBe(cloudUuid);
+  });
+
+  it('addLocalCopy does not overwrite a local uuid when the cloud doc has none', async () => {
+    const cloudId = 'cloud_no_uuid';
+    cloudDocs.set(cloudId, {
+      id: cloudId,
+      userId: GUEST,
+      title: 'Cloud No UUID',
+      totalWords: 1,
+      totalDuration: 5,
+      currentVersion: 1,
+      sessionsCount: 1,
+      firstSessionAt: new Date(1000),
+      lastSessionAt: new Date(2000),
+      // no uuid
+    });
+    cloudVersions.set(cloudId, [{
+      id: 'ver_cloud_nouuid',
+      documentId: cloudId,
+      version: 1,
+      content: 'text',
+      wordCount: 1,
+      duration: 5,
+      wpm: 12,
+      sessionStartedAt: new Date(1000),
+      savedAt: new Date(2000),
+    }]);
+
+    const localId = await StorageService.addLocalCopy(GUEST, cloudId);
+    const doc = await LocalDocumentService.getDocument(localId);
+    // A uuid was generated locally (createDocument always assigns one now)
+    expect(doc!.uuid).toMatch(/^[0-9a-f-]{36}$/i);
+  });
+});
