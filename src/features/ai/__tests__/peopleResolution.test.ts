@@ -2,6 +2,12 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { AIPeopleService } from '../services/AIPeopleService';
 import { lemmatizeRussianName } from '../utils/temporalQueryParser';
+// Imported at the top on purpose. As a dynamic import inside the test body, the
+// cost of loading the whole retrieval tree was charged to that test's 5s budget,
+// and under coverage instrumentation with parallel workers it landed at
+// 5040-5070ms — a timeout that fails only sometimes, which is worse than one
+// that always does. vi.mock is hoisted, so a static import is still mocked.
+import { searchNotes } from '../utils/noteRetriever';
 
 vi.mock('../services/AIService', () => ({
   AIService: {
@@ -73,7 +79,6 @@ describe('people resolution & consent (MEM-2)', () => {
 
     expect(ignoredDocIds.has('doc_ignored')).toBe(true);
 
-    const { searchNotes } = await import('../utils/noteRetriever');
     const results = await searchNotes('Иван', 5, {
       ignoredDocIds,
     });
