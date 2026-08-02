@@ -213,7 +213,7 @@ export async function reattachOrphanedAnalysis(): Promise<ReattachResult> {
   // uuid → document, for primary matching.
   const docsByUuid = new Map<string, { id: string; uuid: string }>();
   for (const d of docs) {
-    if (d.uuid) docsByUuid.set(d.uuid, d);
+    if (d.uuid) docsByUuid.set(d.uuid, { id: d.id, uuid: d.uuid });
   }
 
   // Separate orphans into those with uuid and those without.
