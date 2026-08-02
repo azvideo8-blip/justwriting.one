@@ -18,6 +18,22 @@ export default defineConfig(() => {
       ? { clientPort: 443, protocol: 'wss' as const }
       : true)
     : false;
+
+  const VENDOR_CHUNKS: Record<string, string[]> = {
+    'vendor-firebase-core': ['firebase'],
+    'vendor-firebase-firestore': ['@firebase/firestore'],
+    'vendor-motion': ['motion'],
+    'vendor-charts': ['recharts'],
+    'vendor-docx': ['docx'],
+    'vendor-router': ['react-router-dom'],
+    'vendor-markdown': ['react-markdown', 'rehype-sanitize'],
+    'vendor-ui': ['lucide-react', 'clsx', 'tailwind-merge'],
+    'vendor-ai': ['ai', '@ai-sdk/openai'],
+    'vendor-sentry': ['@sentry/react'],
+    'vendor-analytics': ['posthog-js'],
+    'vendor-virtuoso': ['react-virtuoso'],
+  };
+
   return {
     plugins,
     define: {
@@ -39,20 +55,17 @@ export default defineConfig(() => {
       chunkSizeWarningLimit: 300,
       rollupOptions: {
         output: {
-          manualChunks: {
-            'vendor-react': ['react', 'react-dom'],
-            'vendor-firebase-core': ['firebase/app', 'firebase/auth'],
-            'vendor-firebase-firestore': ['firebase/firestore'],
-            'vendor-motion': ['motion/react'],
-            'vendor-charts': ['recharts'],
-            'vendor-docx': ['docx'],
-            'vendor-router': ['react-router-dom'],
-            'vendor-markdown': ['react-markdown', 'rehype-sanitize'],
-            'vendor-ui': ['lucide-react', 'clsx', 'tailwind-merge'],
-            'vendor-ai': ['ai', '@ai-sdk/openai'],
-            'vendor-sentry': ['@sentry/react'],
-            'vendor-analytics': ['posthog-js'],
-            'vendor-virtuoso': ['react-virtuoso'],
+          manualChunks(id: string) {
+            // Форма со списком сопоставляет ТОЧНЫЙ идентификатор, а приложение
+            // импортирует react-dom/client, react-dom (createPortal) и
+            // react/jsx-runtime — ни один не равен 'react-dom'. Поэтому чанк
+            // vendor-react получался пустым, а сам react-dom (523 кБ исходника)
+            // всё это время лежал в общем index.
+            if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'vendor-react';
+            for (const [name, mods] of Object.entries(VENDOR_CHUNKS)) {
+              if (mods.some(m => id.includes(`node_modules/${m}/`))) return name;
+            }
+            return undefined;
           },
         },
       },
