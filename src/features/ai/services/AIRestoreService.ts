@@ -188,18 +188,16 @@ export interface ReattachResult {
 }
 
 /**
- * Re-keys restored analysis onto the notes it belongs to, matching on content hash.
+ * Re-keys restored analysis onto the notes it belongs to.
+ *
+ * Primary path: match by documentUuid (canonical uuid set at save time).
+ * Fallback: match by content hash for records created before uuid existed.
  *
  * Analysis is keyed by the LOCAL document id (`local_<uuid>`), which is minted
  * per device. Downloading a note from the cloud mints a new one, and cloud
  * documents carry no record of the old id, so after a local wipe every restored
  * summary and embedding points at an id that will never exist again — present
  * in storage, attached to nothing.
- *
- * The content hash is the stable link: it is the same sha256 the indexer uses
- * for its freshness check, computed over the same latest-version text. Equal
- * hashes mean identical text, so adopting across a re-key cannot mis-attribute
- * analysis to a different note.
  */
 export async function reattachOrphanedAnalysis(): Promise<ReattachResult> {
   const out: ReattachResult = { summaries: 0, embeddings: 0 };
@@ -212,22 +210,87 @@ export async function reattachOrphanedAnalysis(): Promise<ReattachResult> {
   ]);
 
   const docIds = new Set(docs.map(d => d.id));
-  const orphanSummaries = new Map<string, AIDocumentSummary>();
+  // uuid → document, for primary matching.
+  const docsByUuid = new Map<string, { id: string; uuid: string }>();
+  for (const d of docs) {
+    if (d.uuid) docsByUuid.set(d.uuid, d);
+  }
+
+  // Separate orphans into those with uuid and those without.
+  const orphanSummariesByUuid = new Map<string, AIDocumentSummary[]>();
+  const orphanSummariesByHash = new Map<string, AIDocumentSummary>();
   for (const s of summaries) {
-    if (!docIds.has(s.documentId) && s.contentHash) orphanSummaries.set(s.contentHash, s);
+    if (docIds.has(s.documentId)) continue;
+    if (s.documentUuid) {
+      const list = orphanSummariesByUuid.get(s.documentUuid) ?? [];
+      list.push(s);
+      orphanSummariesByUuid.set(s.documentUuid, list);
+    } else if (s.contentHash) {
+      orphanSummariesByHash.set(s.contentHash, s);
+    }
   }
-  const orphanEmbeddings = new Map<string, AIDocumentEmbedding>();
+
+  const orphanEmbeddingsByUuid = new Map<string, AIDocumentEmbedding[]>();
+  const orphanEmbeddingsByHash = new Map<string, AIDocumentEmbedding>();
   for (const e of embeddings) {
-    if (!docIds.has(e.documentId) && e.contentHash) orphanEmbeddings.set(e.contentHash, e);
+    if (docIds.has(e.documentId)) continue;
+    if (e.documentUuid) {
+      const list = orphanEmbeddingsByUuid.get(e.documentUuid) ?? [];
+      list.push(e);
+      orphanEmbeddingsByUuid.set(e.documentUuid, list);
+    } else if (e.contentHash) {
+      orphanEmbeddingsByHash.set(e.contentHash, e);
+    }
   }
-  if (orphanSummaries.size === 0 && orphanEmbeddings.size === 0) return out;
+
+  if (
+    orphanSummariesByUuid.size === 0 && orphanSummariesByHash.size === 0 &&
+    orphanEmbeddingsByUuid.size === 0 && orphanEmbeddingsByHash.size === 0
+  ) return out;
 
   const hasSummary = new Set(summaries.map(s => s.documentId));
   const hasEmbedding = new Set(embeddings.map(e => e.documentId));
 
   for (const doc of docs) {
-    const needsSummary = !hasSummary.has(doc.id) && orphanSummaries.size > 0;
-    const needsEmbedding = !hasEmbedding.has(doc.id) && orphanEmbeddings.size > 0;
+    if (!doc.uuid) continue;
+    const needsSummary = !hasSummary.has(doc.id);
+    const needsEmbedding = !hasEmbedding.has(doc.id);
+    if (!needsSummary && !needsEmbedding) continue;
+
+    // ── primary: match by documentUuid ────────────────────────────────
+    if (needsSummary) {
+      const candidates = orphanSummariesByUuid.get(doc.uuid);
+      if (candidates?.length) {
+        const orphan = candidates.shift()!;
+        const adopted: AIDocumentSummary = { ...orphan, documentId: doc.id };
+        await db.put('aiSummaries', adopted);
+        await db.delete('aiSummaries', orphan.documentId);
+        if (candidates.length === 0) orphanSummariesByUuid.delete(doc.uuid);
+        await rebuildTimelineEntry(db, doc, adopted);
+        out.summaries++;
+      }
+    }
+
+    if (needsEmbedding) {
+      const candidates = orphanEmbeddingsByUuid.get(doc.uuid);
+      if (candidates?.length) {
+        const orphan = candidates.shift()!;
+        await db.put('aiEmbeddings', { ...orphan, documentId: doc.id });
+        await db.delete('aiEmbeddings', orphan.documentId);
+        if (candidates.length === 0) orphanEmbeddingsByUuid.delete(doc.uuid);
+        out.embeddings++;
+      }
+    }
+  }
+
+  // ── fallback: match by content hash for records without documentUuid ─
+  // This path is for records created before uuid was available. The risk
+  // "two notes with identical text" remains for these legacy records.
+  for (const doc of docs) {
+    if (orphanSummariesByHash.size === 0 && orphanEmbeddingsByHash.size === 0) break;
+
+    const needsSummary = !hasSummary.has(doc.id) && orphanSummariesByHash.size > 0;
+    const needsEmbedding = !hasEmbedding.has(doc.id) && orphanEmbeddingsByHash.size > 0;
     if (!needsSummary && !needsEmbedding) continue;
 
     const content = await getLatestContent(doc.id);
@@ -235,31 +298,30 @@ export async function reattachOrphanedAnalysis(): Promise<ReattachResult> {
     const hash = await sha256Hex(content);
 
     if (needsSummary) {
-      const orphan = orphanSummaries.get(hash);
+      const orphan = orphanSummariesByHash.get(hash);
       if (orphan) {
         const adopted: AIDocumentSummary = { ...orphan, documentId: doc.id };
         await db.put('aiSummaries', adopted);
         await db.delete('aiSummaries', orphan.documentId);
-        // Claimed — two notes with identical text must not both take it.
-        orphanSummaries.delete(hash);
+        orphanSummariesByHash.delete(hash);
         await rebuildTimelineEntry(db, doc, adopted);
         out.summaries++;
       }
     }
 
     if (needsEmbedding) {
-      const orphan = orphanEmbeddings.get(hash);
+      const orphan = orphanEmbeddingsByHash.get(hash);
       if (orphan) {
         await db.put('aiEmbeddings', { ...orphan, documentId: doc.id });
         await db.delete('aiEmbeddings', orphan.documentId);
-        orphanEmbeddings.delete(hash);
+        orphanEmbeddingsByHash.delete(hash);
         out.embeddings++;
       }
     }
   }
 
   if (out.summaries || out.embeddings) {
-    logger.info('AIRestoreService', 'Re-attached orphaned analysis by content hash', { ...out });
+    logger.info('AIRestoreService', 'Re-attached orphaned analysis', { ...out });
     useActivityLogStore.getState().addActivity(
       `Анализ привязан к заметкам (сводок: ${out.summaries}, эмбеддингов: ${out.embeddings})`,
       { action: 'reattachOrphanedAnalysis', ...out },

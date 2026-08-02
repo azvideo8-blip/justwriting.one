@@ -113,6 +113,8 @@ export interface AIDialogueEvent {
 
 export interface AIDocumentSummary {
   documentId: string;
+  /** Canonical document uuid, set at save time for future reattach by uuid. */
+  documentUuid?: string;
   summary?: string;
   tone: string;
   frequentWords: string[];
@@ -167,6 +169,8 @@ export interface AIPeopleIndexEntry {
 
 export interface AIDocumentEmbedding {
   documentId: string;
+  /** Canonical document uuid, set at save time for future reattach by uuid. */
+  documentUuid?: string;
   /** One vector per chunk of the note (chunked schema, schemaV >= 2). */
   vectors: number[][];
   /** Chunk texts aligned with `vectors` (schemaV >= 3). Used to assign chunks to

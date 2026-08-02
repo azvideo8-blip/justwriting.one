@@ -105,10 +105,10 @@ export const AISummaryService = {
 
   async save(summary: AIDocumentSummary): Promise<void> {
     const db = await getLocalDb();
-    await db.put('aiSummaries', summary);
-
-    // Look up doc to get lastSessionAt
+    // Populate documentUuid from the document for future reattach by uuid.
     const doc = await db.get('documents', summary.documentId);
+    const withUuid = doc?.uuid ? { ...summary, documentUuid: doc.uuid } : summary;
+    await db.put('aiSummaries', withUuid);
     if (doc?.lastSessionAt) {
       const d = new Date(doc.lastSessionAt);
       if (!isNaN(d.getTime())) {
