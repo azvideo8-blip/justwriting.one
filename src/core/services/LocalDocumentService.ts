@@ -5,7 +5,7 @@ import { reportError } from '../../shared/errors/reportError';
 export const LocalDocumentService = {
   async createDocument(
     guestId: string,
-    data: { title: string; tags?: string[] | undefined; labelId?: string | undefined; firstSessionAt?: number | undefined; lastSessionAt?: number | undefined }
+    data: { title: string; tags?: string[] | undefined; labelId?: string | undefined; uuid?: string | undefined; firstSessionAt?: number | undefined; lastSessionAt?: number | undefined }
   ): Promise<string> {
     const db = await getLocalDb();
     const id = `local_${randomUUID()}`;
@@ -13,6 +13,7 @@ export const LocalDocumentService = {
 
     await db.put('documents', {
       id,
+      uuid: randomUUID(),
       guestId,
       title: data.title || '',
       currentVersion: 0,

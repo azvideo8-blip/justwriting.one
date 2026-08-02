@@ -24,7 +24,7 @@ export interface MigrationManifest {
 export interface MigrationDocument {
   uuid: string;
   localId: string;
-  linkedCloudId?: string;
+  linkedCloudId?: string | undefined;
   title: string;
   currentVersion: number;
   totalWords: number;
@@ -33,8 +33,8 @@ export interface MigrationDocument {
   firstSessionAt: number;
   lastSessionAt: number;
   tags: string[];
-  labelId?: string;
-  mood?: string;
+  labelId?: string | undefined;
+  mood?: string | undefined;
   versions: MigrationVersion[];
 }
 
@@ -47,12 +47,12 @@ export interface MigrationVersion {
   charsAdded: number;
   duration: number;
   wpm: number;
-  goalWords?: number;
-  goalTime?: number;
-  goalReached?: boolean;
+  goalWords?: number | undefined;
+  goalTime?: number | undefined;
+  goalReached?: boolean | undefined;
   savedAt: number;
   sessionStartedAt: number;
-  mood?: string;
+  mood?: string | undefined;
 }
 
 export interface MigrationDraft {

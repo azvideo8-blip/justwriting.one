@@ -3,7 +3,7 @@ import 'fake-indexeddb/auto';
 import { getLocalDb, resetDbInstance, type LocalDocument, type LocalVersion } from '../../../../core/storage/localDb';
 import { exportMigrationManifest } from '../migrationExport';
 
-async function clear() {
+async function _clear() {
   const db = await getLocalDb();
   const names = Array.from(db.objectStoreNames);
   for (const name of names) {
@@ -144,7 +144,7 @@ describe('migrationExport', () => {
     // Monkey-patch getAll to throw for 'documents'
     const originalGetAll = db.getAll.bind(db);
     let callCount = 0;
-    (db as unknown as { getAll: (name: string) => unknown[] }).getAll = (name: string) => {
+    (db as unknown as { getAll: (name: string) => Promise<unknown[]> }).getAll = (name: string) => {
       if (name === 'documents') {
         callCount++;
         throw new Error('IndexedDB read failure');
