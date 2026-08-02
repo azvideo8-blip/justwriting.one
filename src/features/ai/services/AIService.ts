@@ -235,7 +235,7 @@ export const AIService = {
   },
 
   async deriveTaxonomy(params: { digest: string }): Promise<
-    { ok: true; domains: { label: string; seed: string }[] } | { ok: false; error: string }
+    { ok: true; domains: { label: string; seed: string }[] } | { ok: false; error: AIErrorCode }
   > {
     const functions = getFunctions();
     try {
@@ -251,7 +251,7 @@ export const AIService = {
   },
 
   async judgeFacets(params: { facets: { facetId: string; label: string; summary: string; evidence: string }[] }): Promise<
-    { ok: true; verdicts: { facetId: string; ok: boolean; issues: string[]; hint: string }[] } | { ok: false; error: string }
+    { ok: true; verdicts: { facetId: string; ok: boolean; issues: string[]; hint: string }[] } | { ok: false; error: AIErrorCode }
   > {
     const functions = getFunctions();
     try {
