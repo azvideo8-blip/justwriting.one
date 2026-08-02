@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { buildEvidence, type SummaryRow, AIFacetJudgeService } from '../AIFacetJudgeService';
+import { AIProfileFacetService } from '../AIProfileFacetService';
 
 const judgeMock = vi.fn();
 const summarizeMock = vi.fn();
@@ -84,5 +85,23 @@ describe('AIFacetJudgeService.review', () => {
     expect(summarizeMock).not.toHaveBeenCalled();
     expect(putMock).not.toHaveBeenCalled();
     expect(res.corrected).toBe(0);
+  });
+
+  it('stops chunk iteration when judgeFacets returns NETWORK (not one call per chunk)', async () => {
+    // CHUNK_MAX = 3, so 4 facets produce 2 chunks. If the loop doesn't stop,
+    // judgeFacets is called twice — once per chunk.
+    const facets = Array.from({ length: 4 }, (_, i) => ({
+      id: `f${i + 1}`, label: `facet${i + 1}`, summary: 's', noteIds: ['n1'],
+    }));
+    vi.mocked(AIProfileFacetService.getAll).mockResolvedValue(facets as Awaited<ReturnType<typeof AIProfileFacetService.getAll>>);
+
+    judgeMock
+      .mockResolvedValueOnce({ ok: false, error: 'NETWORK' })
+      .mockResolvedValueOnce({ ok: true, verdicts: [] });
+
+    const res = await AIFacetJudgeService.review();
+    // The loop must stop after the first failure — one call, not two.
+    expect(judgeMock).toHaveBeenCalledTimes(1);
+    expect(res.judged).toBe(0);
   });
 });
