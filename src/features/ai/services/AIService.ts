@@ -10,9 +10,13 @@ const GEN_TIMEOUT_MS = 115_000;
 
 export type AIAction = 'accents' | 'ideas' | 'summarize' | 'continue' | 'gratitude' | 'achievements';
 export type AIMessage = { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' | undefined };
+export type AIErrorCode =
+  | 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG'
+  | 'UPSTREAM' | 'SERVER_ERROR' | 'NETWORK';
+
 export type AIResult =
   | { ok: true; text: string }
-  | { ok: false; error: 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG' | 'UPSTREAM' | 'SERVER_ERROR' };
+  | { ok: false; error: AIErrorCode };
 
 export interface AISummaryPayload {
   summary?: string;
@@ -32,9 +36,20 @@ export interface AISummaryPayload {
   promptVersion?: number;
 }
 
-function mapAIError(e: unknown): 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG' | 'UPSTREAM' | 'SERVER_ERROR' {
+function mapAIError(e: unknown): AIErrorCode {
   const code = (e as { code?: string }).code;
   const message = (e as { message?: string }).message ?? '';
+  // Связь оборвалась, а не сервис сломался. Раньше всё это попадало в
+  // SERVER_ERROR и писалось в журнал уровнем error, так что день с отвалившимся
+  // прокси выглядел как день с поломанным приложением.
+  //
+  // 'internal' с сообщением ровно 'internal' — это SDK, не наша функция:
+  // chatWithAI бросает internal только с причиной (UNKNOWN / BAD_REQUEST /
+  // MISCONFIGURED), а judgeFacets не бросает его ни на одном пути.
+  if (code === 'functions/deadline-exceeded') return 'NETWORK';
+  if (code === 'functions/internal' && message.trim().toLowerCase() === 'internal') return 'NETWORK';
+  if (message === 'Timeout' || (e as { isTimeout?: boolean }).isTimeout) return 'NETWORK';
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'NETWORK';
   if (code === 'functions/unauthenticated') return 'AUTH_REQUIRED';
   if (code === 'functions/resource-exhausted') {
     const errData = (e as { details?: { errorType?: string } }).details;
@@ -62,8 +77,10 @@ export const AIService = {
       try { analytics.track('ai_action', { action }); } catch { /* non-critical */ }
       return { ok: true, text: data.result };
     } catch (e: unknown) {
-      reportError(e, { action: 'process', aiAction: action });
-      return { ok: false, error: mapAIError(e) };
+      const code = mapAIError(e);
+      reportError(e, { action: 'process', aiAction: action, aiError: code },
+        code === 'NETWORK' ? 'warning' : 'error');
+      return { ok: false, error: code };
     }
   },
 
@@ -98,8 +115,10 @@ export const AIService = {
       try { analytics.track('ai_chat', { personaId: params.personaId }); } catch { /* non-critical */ }
       return { ok: true, text: data.result };
     } catch (e: unknown) {
-      reportError(e, { action: 'chat', personaId: params.personaId });
-      return { ok: false, error: mapAIError(e) };
+      const code = mapAIError(e);
+      reportError(e, { action: 'chat', personaId: params.personaId, aiError: code },
+        code === 'NETWORK' ? 'warning' : 'error');
+      return { ok: false, error: code };
     }
   },
 
@@ -116,11 +135,12 @@ export const AIService = {
       try { analytics.track('ai_summarize'); } catch { /* non-critical */ }
       return { ok: true, summary: data };
     } catch (e: unknown) {
-      reportError(e, { action: 'summarize' });
-      const errType = mapAIError(e);
-      if (errType === 'DAILY_LIMIT') return { ok: false, error: 'DAILY_LIMIT' };
-      if (errType === 'RATE_LIMIT') return { ok: false, error: 'RATE_LIMIT' };
-      return { ok: false, error: errType };
+      const code = mapAIError(e);
+      reportError(e, { action: 'summarize', aiError: code },
+        code === 'NETWORK' ? 'warning' : 'error');
+      if (code === 'DAILY_LIMIT') return { ok: false, error: 'DAILY_LIMIT' };
+      if (code === 'RATE_LIMIT') return { ok: false, error: 'RATE_LIMIT' };
+      return { ok: false, error: code };
     }
   },
 
