@@ -1,4 +1,5 @@
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getAuth } from 'firebase/auth';
 import { reportError } from '../../../shared/errors/reportError';
 import { withTimeout } from '../../../shared/utils/withTimeout';
 import { analytics } from '../../../core/analytics/analytics';
@@ -64,6 +65,17 @@ function mapAIError(e: unknown): AIErrorCode {
   return 'SERVER_ERROR';
 }
 
+/** Один повтор после принудительного обновления токена. Отказ авторизации при
+ *  живом пользователе почти всегда значит, что обновление токена не прошло по
+ *  сети, а что человек не зарегистрирован: securetoken отвалился, вызов ушёл
+ *  без действующего токена, функция отказала. */
+async function retryAfterTokenRefresh<T>(call: () => Promise<T>): Promise<T> {
+  const user = getAuth().currentUser;
+  if (!user) throw new Error('NOT_SIGNED_IN');
+  await user.getIdToken(true);
+  return call();
+}
+
 export const AIService = {
   async process(
     content: string,
@@ -116,6 +128,12 @@ export const AIService = {
       return { ok: true, text: data.result };
     } catch (e: unknown) {
       const code = mapAIError(e);
+      if (code === 'AUTH_REQUIRED' && getAuth().currentUser) {
+        try {
+          const { data } = await retryAfterTokenRefresh(() => withTimeout(fn(params), GEN_TIMEOUT_MS));
+          return { ok: true, text: data.result };
+        } catch { /* второй отказ — сообщаем честно ниже */ }
+      }
       reportError(e, { action: 'chat', personaId: params.personaId, aiError: code },
         code === 'NETWORK' ? 'warning' : 'error');
       return { ok: false, error: code };

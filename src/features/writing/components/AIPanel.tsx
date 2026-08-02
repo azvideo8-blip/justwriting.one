@@ -9,6 +9,7 @@ import { useAiLimitStore } from '../../ai/store/useAiLimitStore';
 import { useContentStore } from '../store/useContentStore';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Button } from '../../../shared/components/Button';
+import { getAuth } from 'firebase/auth';
 
 const AI_ACTIONS: { action: AIAction; icon: React.ReactNode; labelKey: string }[] = [
   { action: 'accents', icon: <Highlighter size={14} />, labelKey: 'ai_action_accents' },
@@ -71,7 +72,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
       consumeRequest(); // count editor AI edits against the same daily limit as chat
     } else {
       const errorMap: Record<string, string> = {
-        AUTH_REQUIRED: t('ai_error_auth'),
+        AUTH_REQUIRED: getAuth().currentUser ? t('ai_error_session') : t('ai_error_auth'),
         DAILY_LIMIT: t('ai_error_rate_limit'),
         RATE_LIMIT: t('ai_error_rate_limit'),
         TOO_LONG: t('ai_error_too_long'),
