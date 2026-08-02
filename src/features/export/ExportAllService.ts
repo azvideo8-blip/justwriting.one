@@ -1,4 +1,3 @@
-import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { ArchiveSession } from '../archive/types';
@@ -24,6 +23,9 @@ export async function exportAllAsZip(
   sessions: ArchiveSession[],
   s: ExportStrings,
 ): Promise<ExportAllResult> {
+  // jszip грузится по требованию: 95 кБ ради кнопки, которую в большинстве
+  // сессий не нажимают, не должны лежать в общем чанке.
+  const { default: JSZip } = await import('jszip');
   const zip = new JSZip();
   const usedNames = new Set<string>();
   let exported = 0;
