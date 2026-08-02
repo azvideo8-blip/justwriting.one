@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.70',
+    date: '2026-08-03',
+    items: [
+      { category: 'new', ru: 'В настройках появилась выгрузка всех данных одним файлом — вместе с тем, что жило только в браузере: диалогами с ИИ, памятью чата, портретом автора, гранями профиля и историей жизни. С контрольными суммами, списком непрочитанного и продолжением с места обрыва', en: 'Settings now offer a full export in one file — including what lived in the browser alone: AI dialogues, chat memory, the author portrait, profile facets and life story. With checksums, a list of what could not be read, and resuming where it stopped' },
+      { category: 'fix', ru: 'Анализ заметки больше не может достаться другой заметке с таким же текстом: у заметки появился постоянный идентификатор, общий для устройства и облака, и сводки с векторами находят её по нему, а не сличением текста', en: 'A note’s analysis can no longer end up on a different note with the same text: a note now has a permanent id shared between device and cloud, and summaries and vectors find it by that instead of by comparing text' },
+      { category: 'improvement', ru: 'Приложение легче обновляется: библиотека сборки архивов грузится только при самой выгрузке, а редко меняющийся код вынесен отдельно — после обновления браузер докачивает заметно меньше', en: 'The app updates more lightly: the archive library loads only when an export runs, and rarely-changing code is split away, so the browser re-downloads noticeably less after each update' },
+    ],
+  },
+  {
     version: '0.7.69',
     date: '2026-08-02',
     items: [
