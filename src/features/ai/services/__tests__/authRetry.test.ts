@@ -2,12 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const callable = vi.fn();
 const getIdToken = vi.fn();
+let currentUser: { uid: string; getIdToken: typeof getIdToken } | null = { uid: 'u1', getIdToken };
 vi.mock('firebase/functions', () => ({
   getFunctions: () => ({}),
   httpsCallable: () => callable,
 }));
 vi.mock('firebase/auth', () => ({
-  getAuth: () => ({ currentUser: { uid: 'u1', getIdToken } }),
+  getAuth: () => ({ currentUser }),
 }));
 vi.mock('../../../../shared/errors/reportError', () => ({
   reportError: vi.fn(),
@@ -23,6 +24,7 @@ describe('chat retries once after token refresh on AUTH_REQUIRED', () => {
     callable.mockReset();
     getIdToken.mockReset();
     getIdToken.mockResolvedValue('fresh-token');
+    currentUser = { uid: 'u1', getIdToken };
   });
 
   it('refreshes token and retries on AUTH_REQUIRED when user is signed in', async () => {
@@ -54,11 +56,7 @@ describe('chat retries once after token refresh on AUTH_REQUIRED', () => {
   });
 
   it('does not retry when there is no current user', async () => {
-    // Temporarily override getAuth to return no user.
-    const { getAuth: _getAuth } = await import('firebase/auth');
-    const mod = await import('firebase/auth');
-    // Replace the mock for this test only.
-    vi.mocked(mod).getAuth = () => ({ currentUser: null }) as ReturnType<typeof mod.getAuth>;
+    currentUser = null;
 
     callable.mockRejectedValueOnce(Object.assign(new Error('unauthenticated'), { code: 'functions/unauthenticated' }));
 
@@ -68,8 +66,5 @@ describe('chat retries once after token refresh on AUTH_REQUIRED', () => {
     expect(callable).toHaveBeenCalledTimes(1);
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toBe('AUTH_REQUIRED');
-
-    // Restore.
-    vi.mocked(mod).getAuth = _getAuth;
   });
 });
