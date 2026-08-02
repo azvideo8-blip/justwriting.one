@@ -52,8 +52,8 @@ export const setUserRole = onCall({
 
       tx.update(targetRef, { role });
     });
-  } catch (e: any) {
-    const msg = e?.message ?? '';
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : '';
     if (msg === 'PERMISSION_DENIED') throw new HttpsError('permission-denied', 'Only admins can assign roles.');
     if (msg === 'NOT_FOUND') throw new HttpsError('not-found', 'Target user does not exist.');
     throw new HttpsError('internal', 'Transaction failed.');

@@ -64,7 +64,7 @@ jobs:
     - name: E2E Tests
       run: npm run build && npx playwright test --project=chromium
     - name: Functions build & test
-      run: cd functions && npm ci && npm run build && npm test
+      run: cd functions && npm ci && npm run lint && npm run build && npm test
     - name: Set up Java for Firebase Emulator
       uses: actions/setup-java@v4
       with:
