@@ -38,21 +38,6 @@ jobs:
       run: |
         echo "=== Bundle size report ==="
         ls -lh dist/assets/*.js | awk '{print $5, $9}' | sort -rn | head -15
-    - name: Bundle size comparison
-      run: |
-        # Save current build
-        mkdir -p /tmp/current-dist
-        cp -r dist/assets/* /tmp/current-dist/
-        # Build base branch
-        git fetch origin main
-        git checkout origin/main -- .
-        npm ci
-        npm run build
-        mkdir -p /tmp/base-dist
-        cp -r dist/assets/* /tmp/base-dist/
-        # Compare
-        git checkout -- .
-        npx tsx scripts/bundle-compare.ts /tmp/base-dist /tmp/current-dist
     - name: Bundle size budget
       run: |
         MAX_INDEX=750000   # index-*.js fail-порог (байты)
@@ -94,6 +79,51 @@ jobs:
           ${{ runner.os }}-firebase-emulators-
     - name: Run rules and emulator tests
       run: cd functions && npm run test:rules && npm run test:emulator
+  # Сравнение размера бандла живёт отдельно от гейтов корректности намеренно.
+  # Раньше оно стояло в середине job build и переключало checkout на main
+  # (git checkout <ref> -- . перезаписывает индекс, поэтому git checkout -- .
+  # возвращал base повторно). Всё, что шло после, — бюджет размера, E2E,
+  # функции, правила Firestore — проверяло main вместо PR.
+  bundle-size:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    env:
+      VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+      VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+      VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+      VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+      VITE_FIREBASE_FIRESTORE_DATABASE_ID: ${{ secrets.VITE_FIREBASE_FIRESTORE_DATABASE_ID }}
+      VITE_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_RECAPTCHA_SITE_KEY }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Build PR
+      run: |
+        npm ci
+        npm run build
+        mkdir -p /tmp/current-dist
+        cp -r dist/assets/* /tmp/current-dist/
+
+    - name: Build base in a separate worktree
+      run: |
+        git worktree add /tmp/base "origin/${{ github.base_ref }}"
+        cd /tmp/base
+        npm ci
+        npm run build
+        mkdir -p /tmp/base-dist
+        cp -r /tmp/base/dist/assets/* /tmp/base-dist/
+
+    - name: Compare
+      run: npx tsx scripts/bundle-compare.ts /tmp/base-dist /tmp/current-dist
+
   # Functions are deployed manually (`firebase deploy --only functions`) until the
   # VPS + Supabase migration retires Firebase. No auto-deploy job: a Firebase CI
   # service account would be infra built for a backend that's being removed.
