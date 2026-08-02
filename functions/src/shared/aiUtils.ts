@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getDb } from './firestore';
 import DOMPurify from 'isomorphic-dompurify';
@@ -105,7 +106,6 @@ let _langfuse: Langfuse | null = null;
 
 export function hashUid(uid: string): string {
   if (!uid) return 'anonymous';
-  const { createHash } = require('crypto');
   return createHash('sha256').update(uid).digest('hex').slice(0, 16);
 }
 
@@ -141,6 +141,7 @@ export function sanitizeAiResponse(response: string, keepReasoning = false): str
     // internal thinking sometimes bleeds into content field).
     // Ranges: CJK Unified (4E00-9FFF), Extension A (3400-4DBF), Compat (F900-FAFF),
     // Radicals (2E80-2EFF), Symbols (3000-303F), Kana (3040-30FF).
+    // eslint-disable-next-line no-irregular-whitespace
     cleaned = cleaned.replace(/[⺀-⻿　-ヿ㐀-䶿一-鿿豈-﫿]/g, '');
     // Strip citation artifacts that gpt-oss appends to factual sentences
     // (e.g. "30 000 рублейreferences" or "степень awarded").

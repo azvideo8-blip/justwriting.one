@@ -4,7 +4,6 @@ import { sanitizeAiInput, sanitizeAiResponse, recordUsage, classifyProviderFailu
 
 import { validateInternalCallRestrictions, getMaxTokens, type InternalCallType } from '../shared/aiPolicy';
 import { generate, getActiveModel } from '../shared/aiProvider';
-import { PRESET_PERSONA_IDS, type PersonaId } from '../shared/prompts';
 import { buildChatSystemPrompt } from '../shared/buildChatPrompt';
 
 const inputSchema = z.object({
