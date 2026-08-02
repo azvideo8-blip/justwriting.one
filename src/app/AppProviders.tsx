@@ -14,7 +14,7 @@ import { ReactNode, useEffect, useRef } from 'react';
 import { PrivacyModal, usePrivacyCheck } from '../features/auth/components/PrivacyModal';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { getOrCreateGuestId } from '../core/storage/localDb';
-import { getAuth } from 'firebase/auth';
+
 import { LocalDocumentService } from '../core/services/LocalDocumentService';
 import { useEmbeddingIndexer } from '../features/ai/hooks/useEmbeddingIndexer';
 import { useOnlineStatus } from '../shared/hooks/useOnlineStatus';
@@ -36,17 +36,23 @@ function AuthAwareSettingsProvider({ children }: { children: ReactNode }) {
 }
 
 function PrivacyGuard({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuthStatus();
+  const { user, isAuthenticated } = useAuthStatus();
   const { showPrivacy, setShowPrivacy } = usePrivacyCheck();
   useEmbeddingIndexer();
 
   // One-time backfill: give canonical uuids to notes created before C1.1.
+  // Uses useAuthStatus() so the effect fires once auth resolves —
+  // getAuth().currentUser is null on mount (Firebase restores session async),
+  // which caused backfill to run with a guest id, missing the auth user's docs.
+  const backfillRanForRef = useRef<string | null>(null);
   useEffect(() => {
-    const userId = getAuth().currentUser?.uid ?? getOrCreateGuestId();
+    const userId = user?.uid ?? getOrCreateGuestId();
+    if (backfillRanForRef.current === userId) return;
+    backfillRanForRef.current = userId;
     LocalDocumentService.backfillDocumentUuids(userId).catch(e =>
       reportError(e, { action: 'backfillDocumentUuids' })
     );
-  }, []);
+  }, [user]);
 
   return (
     <>
