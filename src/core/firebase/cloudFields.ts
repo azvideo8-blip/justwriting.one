@@ -138,6 +138,7 @@ export const USER_PROFILE_CLOUD_FIELDS = {
 
 export const DOCUMENT_CLOUD_FIELDS = {
   userId: true,
+  uuid: true,
   title: true,
   tags: true,
   labelId: true,

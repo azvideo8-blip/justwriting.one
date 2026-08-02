@@ -1,0 +1,26 @@
+[Unit]
+Description=JustWriting API server
+After=network.target
+
+[Service]
+Type=simple
+User=justwriting
+Group=justwriting
+WorkingDirectory=/opt/justwriting
+ExecStart=/usr/bin/node api/server.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Environment variables — edit /opt/justwriting/.env, not this file.
+EnvironmentFile=-/opt/justwriting/.env
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/justwriting/data
+
+[Install]
+WantedBy=multi-user.target
