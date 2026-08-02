@@ -15,6 +15,7 @@ import { AIService } from '../../../core/services/AIService';
 import { useToast } from '../../../shared/components/Toast';
 import { Button } from '../../../shared/components/Button';
 import { reportError } from '../../../shared/errors/reportError';
+import { getAuth } from 'firebase/auth';
 
 const GridItem = memo<ComponentPropsWithoutRef<'div'>>(
   ({ className, children, style, ...props }) => (
@@ -103,7 +104,7 @@ export function ArchiveNoteList({
         AIProfileService.generate().catch(e => reportError(e, { action: 'archive_summary_portrait' }));
       } else {
         const errMap: Record<string, string> = {
-          AUTH_REQUIRED: t('ai_error_auth'),
+          AUTH_REQUIRED: getAuth().currentUser ? t('ai_error_session') : t('ai_error_auth'),
           DAILY_LIMIT: t('ai_error_rate_limit'),
           RATE_LIMIT: t('ai_error_rate_limit'),
           TOO_LONG: t('ai_error_too_long'),
