@@ -26,7 +26,12 @@ jobs:
     - name: Use Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        # Must match the runtime the functions actually deploy to — "nodejs22"
+        # in firebase.json. On Node 20 the functions suite testing under jsdom
+        # dies inside undici ("webidl.util.markAsUncloneable is not a
+        # function"), so CI was testing the backend on a Node major that
+        # production never runs.
+        node-version: '22'
         cache: 'npm'
     - run: npm ci
     - run: node scripts/prod-audit.mjs  # gate on shipped (prod) deps; fails on any high/critical advisory except the documented N/A exceptions in the script
@@ -104,7 +109,7 @@ jobs:
         fetch-depth: 0
     - uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: '22'   # тот же мажор, что и в job build
         cache: 'npm'
 
     - name: Build PR
