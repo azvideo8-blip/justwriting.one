@@ -178,4 +178,76 @@ describe('migrationExport', () => {
     expect(manifest.skipped.some(s => s.id === 'no_uuid' && s.reason.includes('missing uuid'))).toBe(true);
     expect(manifest.counters.documents).toBe(0);
   });
+
+  // ── G1: verbatim export of browser-only stores ───────────────────────
+
+  it('includes browser-only stores (aiDialogues) in verbatim with correct store and key', async () => {
+    const db = await getLocalDb();
+    await db.put('aiDialogues', {
+      id: 'dlg-1',
+      title: 'Test Dialogue',
+      personaId: 'p1',
+      personaName: 'Helper',
+      personaEmoji: '🤖',
+      messages: [],
+      createdAt: 1000,
+      updatedAt: 2000,
+    });
+
+    const manifest = await exportMigrationManifest();
+    const entry = manifest.verbatim.find(v => v.store === 'aiDialogues' && v.key === 'dlg-1');
+    expect(entry).toBeDefined();
+    expect(entry!.payload).toMatchObject({ id: 'dlg-1', title: 'Test Dialogue' });
+  });
+
+  it('verbatim counter matches actual record count', async () => {
+    const db = await getLocalDb();
+    await db.put('aiDialogues', {
+      id: 'dlg-1', title: 'A', personaId: 'p1', personaName: 'H', personaEmoji: '🤖',
+      messages: [], createdAt: 1, updatedAt: 1,
+    });
+    await db.put('aiDialogues', {
+      id: 'dlg-2', title: 'B', personaId: 'p1', personaName: 'H', personaEmoji: '🤖',
+      messages: [], createdAt: 2, updatedAt: 2,
+    });
+
+    const manifest = await exportMigrationManifest();
+    expect(manifest.counters.verbatim['aiDialogues']).toBe(2);
+    expect(manifest.verbatim.filter(v => v.store === 'aiDialogues')).toHaveLength(2);
+  });
+
+  it('failed verbatim store read produces skipped entry, not silence', async () => {
+    const db = await getLocalDb();
+    // Put a record so the store is non-empty
+    await db.put('aiDialogues', {
+      id: 'dlg-1', title: 'X', personaId: 'p1', personaName: 'H', personaEmoji: '🤖',
+      messages: [], createdAt: 1, updatedAt: 1,
+    });
+
+    // Monkey-patch getAll to throw for 'aiDialogues'
+    const originalGetAll = db.getAll.bind(db);
+    (db as unknown as { getAll: (name: string) => Promise<unknown[]> }).getAll = (name: string) => {
+      if (name === 'aiDialogues') throw new Error('verbatim read boom');
+      return originalGetAll(name as never);
+    };
+
+    const manifest = await exportMigrationManifest();
+    expect(manifest.skipped.some(s => s.store === 'aiDialogues' && s.reason.includes('verbatim read boom'))).toBe(true);
+    expect(manifest.verbatim.filter(v => v.store === 'aiDialogues')).toHaveLength(0);
+  });
+
+  it('syncQueue does not appear in verbatim even with records', async () => {
+    const db = await getLocalDb();
+    await db.put('syncQueue', {
+      id: 'sq-1',
+      documentId: 'd1',
+      type: 'document',
+      createdAt: 1000,
+    });
+
+    const manifest = await exportMigrationManifest();
+    expect(manifest.verbatim.some(v => v.store === 'syncQueue')).toBe(false);
+    // syncQueue is not in any typed block either
+    expect(manifest.counters.verbatim['syncQueue']).toBeUndefined();
+  });
 });
