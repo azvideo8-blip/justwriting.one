@@ -1,6 +1,15 @@
 import fs from 'fs';
 import path from 'path';
 
+/** Имя чанка без хэша содержимого: index-CSCSaN6_.js → index.js.
+ *  Без этого изменившийся чанк получает новое имя, не находит себе пару в базе
+ *  и уходит в «новый» — а к новым порог не применяется, поэтому оба гейта
+ *  (index > 5%, vendor > 10%) не срабатывали никогда. */
+export function stripHash(name: string): string {
+  const ext = path.extname(name);
+  return name.slice(0, -ext.length).replace(/-[A-Za-z0-9_-]{8,}$/, '') + ext;
+}
+
 interface ChunkReport {
   name: string;
   size: number;
@@ -28,7 +37,7 @@ function compareChunks(base: ChunkReport[], current: ChunkReport[]) {
   const changes: { name: string; diff: number; percent: string; baseSize: number; currentSize: number }[] = [];
 
   for (const cur of current) {
-    const baseChunk = base.find(b => b.name === cur.name);
+    const baseChunk = base.find(b => stripHash(b.name) === stripHash(cur.name));
     if (baseChunk) {
       const diff = cur.size - baseChunk.size;
       const percent = baseChunk.size === 0 ? '0.0' : ((diff / baseChunk.size) * 100).toFixed(1);
@@ -55,7 +64,7 @@ function compareChunks(base: ChunkReport[], current: ChunkReport[]) {
 
   // Removed chunks
   for (const b of base) {
-    if (!current.find(c => c.name === b.name)) {
+    if (!current.find(c => stripHash(c.name) === stripHash(b.name))) {
       changes.push({
         name: b.name,
         diff: -b.size,
@@ -69,60 +78,63 @@ function compareChunks(base: ChunkReport[], current: ChunkReport[]) {
   return changes;
 }
 
-// CLI
-const [,, baseDir, currentDir] = process.argv;
+// CLI — guarded so importing stripHash for tests doesn't run the CLI.
+import { fileURLToPath } from 'url';
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const [,, baseDir, currentDir] = process.argv;
 
-if (!baseDir || !currentDir) {
-  console.error('Usage: npx tsx scripts/bundle-compare.ts <base-dir> <current-dir>');
-  process.exit(1);
-}
-
-if (!fs.existsSync(baseDir)) {
-  console.error(`Base directory not found: ${baseDir}`);
-  process.exit(1);
-}
-
-if (!fs.existsSync(currentDir)) {
-  console.error(`Current directory not found: ${currentDir}`);
-  process.exit(1);
-}
-
-const base = getChunks(baseDir);
-const current = getChunks(currentDir);
-const changes = compareChunks(base, current);
-
-if (changes.length === 0) {
-  console.log('No significant bundle size changes.');
-  process.exit(0);
-}
-
-console.log('\n=== Bundle Size Changes ===\n');
-
-for (const { name, diff, percent, baseSize, currentSize } of changes) {
-  const sign = diff > 0 ? '📈' : '📉';
-  const diffStr = diff > 0 ? `+${formatBytes(diff)}` : formatBytes(Math.abs(diff));
-  console.log(`${sign} ${name}`);
-  console.log(`   ${formatBytes(baseSize)} → ${formatBytes(currentSize)} (${diffStr}, ${percent})`);
-}
-
-// Exit with error if index chunk grew > 5%
-const indexChange = changes.find(c => c.name.startsWith('index-'));
-if (indexChange && indexChange.percent !== 'new' && indexChange.percent !== 'removed') {
-  const percentValue = parseFloat(indexChange.percent);
-  if (percentValue > 5) {
-    console.error('\n❌ index chunk grew > 5%');
+  if (!baseDir || !currentDir) {
+    console.error('Usage: npx tsx scripts/bundle-compare.ts <base-dir> <current-dir>');
     process.exit(1);
   }
-}
 
-// Exit with error if vendor chunk grew > 10%
-const vendorChange = changes.find(c => c.name.startsWith('vendor-'));
-if (vendorChange && vendorChange.percent !== 'new' && vendorChange.percent !== 'removed') {
-  const percentValue = parseFloat(vendorChange.percent);
-  if (percentValue > 10) {
-    console.error('\n❌ vendor chunk grew > 10%');
+  if (!fs.existsSync(baseDir)) {
+    console.error(`Base directory not found: ${baseDir}`);
     process.exit(1);
   }
-}
 
-console.log('\n✅ Bundle size changes within acceptable limits.');
+  if (!fs.existsSync(currentDir)) {
+    console.error(`Current directory not found: ${currentDir}`);
+    process.exit(1);
+  }
+
+  const base = getChunks(baseDir);
+  const current = getChunks(currentDir);
+  const changes = compareChunks(base, current);
+
+  if (changes.length === 0) {
+    console.log('No significant bundle size changes.');
+    process.exit(0);
+  }
+
+  console.log('\n=== Bundle Size Changes ===\n');
+
+  for (const { name, diff, percent, baseSize, currentSize } of changes) {
+    const sign = diff > 0 ? '📈' : '📉';
+    const diffStr = diff > 0 ? `+${formatBytes(diff)}` : formatBytes(Math.abs(diff));
+    console.log(`${sign} ${name}`);
+    console.log(`   ${formatBytes(baseSize)} → ${formatBytes(currentSize)} (${diffStr}, ${percent})`);
+  }
+
+  // Exit with error if index chunk grew > 5%
+  const indexChange = changes.find(c => c.name.startsWith('index-'));
+  if (indexChange && indexChange.percent !== 'new' && indexChange.percent !== 'removed') {
+    const percentValue = parseFloat(indexChange.percent);
+    if (percentValue > 5) {
+      console.error('\n❌ index chunk grew > 5%');
+      process.exit(1);
+    }
+  }
+
+  // Exit with error if vendor chunk grew > 10%
+  const vendorChange = changes.find(c => c.name.startsWith('vendor-'));
+  if (vendorChange && vendorChange.percent !== 'new' && vendorChange.percent !== 'removed') {
+    const percentValue = parseFloat(vendorChange.percent);
+    if (percentValue > 10) {
+      console.error('\n❌ vendor chunk grew > 10%');
+      process.exit(1);
+    }
+  }
+
+  console.log('\n✅ Bundle size changes within acceptable limits.');
+}
