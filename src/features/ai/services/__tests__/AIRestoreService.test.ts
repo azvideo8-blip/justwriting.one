@@ -226,8 +226,8 @@ describe('reattachOrphanedAnalysis', () => {
     latestContent.clear();
   });
 
-  const addNote = (id: string, text: string, lastSessionAt?: number) => {
-    localStore.documents.set(id, { id, lastSessionAt: lastSessionAt ?? Date.parse('2026-07-01') });
+  const addNote = (id: string, text: string, lastSessionAt?: number, uuid?: string) => {
+    localStore.documents.set(id, { id, uuid, lastSessionAt: lastSessionAt ?? Date.parse('2026-07-01') });
     latestContent.set(id, text);
   };
 
@@ -345,5 +345,63 @@ describe('reattachOrphanedAnalysis', () => {
     const res = await reattachOrphanedAnalysis();
 
     expect(res.summaries).toBe(0);
+  });
+
+  // ── G4: uuid-first matching ─────────────────────────────────────────
+
+  it('matches two notes with identical text by uuid, not by hash', async () => {
+    addNote('local_a', 'same text', undefined, 'uuid-a');
+    addNote('local_b', 'same text', undefined, 'uuid-b');
+    localStore.aiSummaries.set('orphan_a', {
+      documentId: 'orphan_a',
+      documentUuid: 'uuid-a',
+      contentHash: 'hash-of:same text',
+      tone: 'calm', themes: [], extractedFacts: [], insights: [],
+    });
+    localStore.aiSummaries.set('orphan_b', {
+      documentId: 'orphan_b',
+      documentUuid: 'uuid-b',
+      contentHash: 'hash-of:same text',
+      tone: 'excited', themes: [], extractedFacts: [], insights: [],
+    });
+
+    const res = await reattachOrphanedAnalysis();
+
+    expect(res.summaries).toBe(2);
+    expect(localStore.aiSummaries.get('local_a')).toMatchObject({ tone: 'calm' });
+    expect(localStore.aiSummaries.get('local_b')).toMatchObject({ tone: 'excited' });
+    expect(localStore.aiSummaries.has('orphan_a')).toBe(false);
+    expect(localStore.aiSummaries.has('orphan_b')).toBe(false);
+  });
+
+  it('falls back to contentHash when documentUuid is absent', async () => {
+    addNote('local_new', 'the note text', undefined, 'uuid-new');
+    localStore.aiSummaries.set('local_dead', {
+      documentId: 'local_dead',
+      // no documentUuid — legacy record
+      contentHash: 'hash-of:the note text',
+      tone: 'calm', themes: [], extractedFacts: [], insights: [],
+    });
+
+    const res = await reattachOrphanedAnalysis();
+
+    expect(res.summaries).toBe(1);
+    expect(localStore.aiSummaries.get('local_new')).toMatchObject({ documentId: 'local_new', tone: 'calm' });
+  });
+
+  it('does not fall back to hash when documentUuid is set but has no match', async () => {
+    addNote('local_new', 'the note text', undefined, 'uuid-new');
+    localStore.aiSummaries.set('local_dead', {
+      documentId: 'local_dead',
+      documentUuid: 'uuid-nonexistent',
+      contentHash: 'hash-of:the note text',
+      tone: 'calm', themes: [], extractedFacts: [], insights: [],
+    });
+
+    const res = await reattachOrphanedAnalysis();
+
+    // documentUuid is set but doesn't match any doc → not adopted via hash either
+    expect(res.summaries).toBe(0);
+    expect(localStore.aiSummaries.has('local_dead')).toBe(true);
   });
 });

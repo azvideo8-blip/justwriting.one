@@ -154,7 +154,10 @@ export const AIEmbeddingService = {
 
   async save(emb: AIDocumentEmbedding): Promise<void> {
     const db = await getLocalDb();
-    await db.put('aiEmbeddings', emb);
+    // Populate documentUuid from the document for future reattach by uuid.
+    const doc = await db.get('documents', emb.documentId);
+    const withUuid = doc?.uuid ? { ...emb, documentUuid: doc.uuid } : emb;
+    await db.put('aiEmbeddings', withUuid);
 
     const uid = getAuth().currentUser?.uid;
     if (uid && tryReserveWriteBudget()) {
