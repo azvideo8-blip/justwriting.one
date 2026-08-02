@@ -56,7 +56,7 @@ vi.mock('../../../../core/crypto/cryptoHelpers', () => ({
   maybeDecrypt: mockMaybeDecrypt,
 }));
 
-import { AISummaryService } from '../AISummaryService';
+import { AISummaryService, decodeCloudSummary } from '../AISummaryService';
 
 describe('AISummaryService', () => {
   const dummySummary = {
@@ -160,5 +160,35 @@ describe('AISummaryService', () => {
       const map = await AISummaryService.hasAll();
       expect(map).toEqual({ 'doc-123': true });
     });
+  });
+});
+
+// G4 задумывался ради этого случая: сводка, восстановленная на другом
+// устройстве, должна найти свою заметку по каноничному id. Поле объявлялось
+// локально, но в облако не уходило — firestore.rules ограничивает набор полей
+// через hasOnly, а тип облачной записи исключал его через Omit. Значит
+// восстановленная сводка приезжала без uuid и подбиралась сшивкой по хешу
+// текста — ровно то, что G4 и должен был убрать.
+describe('documentUuid survives the round trip through the cloud', () => {
+  it('is read back off a cloud summary', async () => {
+    mockMaybeDecrypt.mockImplementation(async (d: Record<string, unknown>) => d);
+
+    const decoded = await decodeCloudSummary(
+      { documentId: 'doc-1', documentUuid: 'uuid-1', tone: 'calm', processedAt: 1 },
+      'doc-1',
+    );
+
+    expect(decoded.documentUuid).toBe('uuid-1');
+  });
+
+  it('is absent when the cloud record has none, rather than invented', async () => {
+    mockMaybeDecrypt.mockImplementation(async (d: Record<string, unknown>) => d);
+
+    const decoded = await decodeCloudSummary(
+      { documentId: 'doc-1', tone: 'calm', processedAt: 1 },
+      'doc-1',
+    );
+
+    expect(decoded.documentUuid).toBeUndefined();
   });
 });

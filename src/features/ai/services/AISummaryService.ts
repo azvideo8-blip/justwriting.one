@@ -72,6 +72,9 @@ export async function decodeCloudSummary(
   if (typeof decrypted.eventDate === 'string') result.eventDate = decrypted.eventDate;
   const hash = decrypted.contentHash;
   if (typeof hash === 'string') result.contentHash = hash;
+  // Круг замыкается здесь: сводка, восстановленная на другом устройстве, знает
+  // каноничный id своей заметки и не подбирается по хешу текста.
+  if (typeof decrypted.documentUuid === 'string') result.documentUuid = decrypted.documentUuid;
   return result;
 }
 
@@ -205,7 +208,7 @@ export const AISummaryService = {
 
     const uid = getAuth().currentUser?.uid;
     if (uid && !areCloudWritesBlockedToday() && tryReserveSummarizeBudget()) {
-      await saveSummaryToCloud(uid, summary).catch(e => {
+      await saveSummaryToCloud(uid, withUuid).catch(e => {
         // Quota or rule rejection applies to every summary, not this one — stop
         // writing for the day rather than reporting it once per note.
         if (isGlobalWriteFailure(e)) blockCloudWritesToday();
