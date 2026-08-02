@@ -660,6 +660,8 @@ describe('firestore.rules — maximal documents', () => {
     email: 'test@example.com', nickname: 'n', summary: 's', tone: 'neutral',
     quotableSentence: 'q', echo: 'e', contentHash: 'h', eventDate: '2026-07-28',
     labelId: 'l', activeSessionId: 'sess', savedDocumentId: 'doc-1', mood: 'm',
+    // C1: canonical note id. 36 chars — the rules cap uuid at that length.
+    uuid: '11111111-1111-4111-8111-111111111111',
     model: 'm', content: 'c', aiPortrait: 'p', encryptionSalt: 's',
     encryptedDataKey: 'k',
     // json-encoded blobs
