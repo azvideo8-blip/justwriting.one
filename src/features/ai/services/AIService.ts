@@ -206,7 +206,9 @@ export const AIService = {
       return { ok: true, domains: res.data.domains ?? [] };
     } catch (e) {
       reportError(e, { action: 'deriveTaxonomy' }, 'warning');
-      return { ok: false, error: String((e as { code?: string })?.code ?? 'error') };
+      // Сырой код Firebase здесь бесполезен: вызывающая сторона сравнивает его с
+      // нормализованными кодами, и сравнение не совпадало никогда.
+      return { ok: false, error: mapAIError(e) };
     }
   },
 
@@ -220,7 +222,9 @@ export const AIService = {
       return { ok: true, verdicts: res.data.verdicts ?? [] };
     } catch (e) {
       reportError(e, { action: 'judgeFacets' }, 'warning');
-      return { ok: false, error: String((e as { code?: string })?.code ?? 'error') };
+      // Из-за сырого кода Firebase остановка перебора в AIFacetJudgeService не
+      // срабатывала ни разу: недоступный сервис давал по ошибке на каждую порцию.
+      return { ok: false, error: mapAIError(e) };
     }
   },
 
