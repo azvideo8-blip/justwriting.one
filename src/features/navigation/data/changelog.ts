@@ -14,6 +14,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.7.71',
+    date: '2026-08-03',
+    items: [
+      { category: 'fix', ru: 'Срочное исправление: 0.7.70 не запускалась. Разделение кода на файлы развело по разным файлам взаимно связанные части библиотеки базы данных, и приложение падало на старте. Разделение вернули к прежнему виду; отложенная загрузка библиотеки архивов сохранилась', en: 'Emergency fix: 0.7.70 did not start. Code splitting put mutually-referencing parts of the database library into separate files and the app crashed on load. The splitting is back to what it was; the deferred archive library is kept' },
+    ],
+  },
+  {
     version: '0.7.70',
     date: '2026-08-03',
     items: [
