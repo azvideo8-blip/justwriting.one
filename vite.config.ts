@@ -19,20 +19,7 @@ export default defineConfig(() => {
       : true)
     : false;
 
-  const VENDOR_CHUNKS: Record<string, string[]> = {
-    'vendor-firebase-core': ['firebase'],
-    'vendor-firebase-firestore': ['@firebase/firestore'],
-    'vendor-motion': ['motion'],
-    'vendor-charts': ['recharts'],
-    'vendor-docx': ['docx'],
-    'vendor-router': ['react-router-dom'],
-    'vendor-markdown': ['react-markdown', 'rehype-sanitize'],
-    'vendor-ui': ['lucide-react', 'clsx', 'tailwind-merge'],
-    'vendor-ai': ['ai', '@ai-sdk/openai'],
-    'vendor-sentry': ['@sentry/react'],
-    'vendor-analytics': ['posthog-js'],
-    'vendor-virtuoso': ['react-virtuoso'],
-  };
+
 
   return {
     plugins,
@@ -55,17 +42,26 @@ export default defineConfig(() => {
       chunkSizeWarningLimit: 300,
       rollupOptions: {
         output: {
-          manualChunks(id: string) {
-            // Форма со списком сопоставляет ТОЧНЫЙ идентификатор, а приложение
-            // импортирует react-dom/client, react-dom (createPortal) и
-            // react/jsx-runtime — ни один не равен 'react-dom'. Поэтому чанк
-            // vendor-react получался пустым, а сам react-dom (523 кБ исходника)
-            // всё это время лежал в общем index.
-            if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'vendor-react';
-            for (const [name, mods] of Object.entries(VENDOR_CHUNKS)) {
-              if (mods.some(m => id.includes(`node_modules/${m}/`))) return name;
-            }
-            return undefined;
+          // ВНИМАНИЕ: не переводить обратно на разбиение по путям node_modules.
+          // Так делал H1 (0.7.70): vendor-react наполнялся, index худел до
+          // 487 кБ — и прод падал с "Cannot access 'vp' before initialization"
+          // внутри vendor-firebase-firestore. Разрезание по каталогам развело
+          // по разным чанкам модули firebase, которые ссылаются друг на друга,
+          // и получился цикл: чанк исполняется раньше того, от чего зависит.
+          // Форма со списком режет по точкам входа, и такого цикла не даёт.
+          manualChunks: {
+            'vendor-firebase-core': ['firebase/app', 'firebase/auth'],
+            'vendor-firebase-firestore': ['firebase/firestore'],
+            'vendor-motion': ['motion/react'],
+            'vendor-charts': ['recharts'],
+            'vendor-docx': ['docx'],
+            'vendor-router': ['react-router-dom'],
+            'vendor-markdown': ['react-markdown', 'rehype-sanitize'],
+            'vendor-ui': ['lucide-react', 'clsx', 'tailwind-merge'],
+            'vendor-ai': ['ai', '@ai-sdk/openai'],
+            'vendor-sentry': ['@sentry/react'],
+            'vendor-analytics': ['posthog-js'],
+            'vendor-virtuoso': ['react-virtuoso'],
           },
         },
       },

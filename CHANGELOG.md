@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.7.71 — 2026-08-03
+- **[RU]** Срочное исправление: 0.7.70 не запускалась. Разделение кода на файлы, сделанное ради более лёгких обновлений, развело по разным файлам части библиотеки базы данных, которые ссылаются друг на друга, — и приложение падало на старте с ошибкой инициализации. Разделение вернули к прежнему виду. Отложенная загрузка библиотеки архивов при этом сохранилась, так что первая загрузка всё равно легче, чем в 0.7.69.
+- **[EN]** Emergency fix: 0.7.70 did not start. The code splitting introduced for lighter updates put mutually-referencing parts of the database library into separate files, and the app crashed on load with an initialisation error. The splitting is back to what it was. The deferred archive library is kept, so the first load is still lighter than in 0.7.69.
+
 ## 0.7.70 — 2026-08-03
 - **[RU]** В настройках появилась выгрузка всех данных одним файлом. Забирает не только заметки со всеми версиями и черновики, но и то, что жило только в браузере и ни в какую облачную копию не попадало: диалоги с ИИ, память чата, портрет автора, грани профиля, историю жизни, ленту и реестр тем. Шифротекст переносится как есть и пароля не спрашивает, к каждой записи считается контрольная сумма, а всё, что не удалось прочитать, попадает в отдельный список — прерванная выгрузка продолжается с того же места, а не начинается заново.
 - **[EN]** Settings now offer a full export of everything in one file. It takes not only notes with every version and drafts, but also what lived in the browser alone and reached no cloud copy: AI dialogues, chat memory, the author portrait, profile facets, life story, timeline and theme ledger. Ciphertext is carried as-is and needs no password, every record is checksummed, and anything unreadable goes into a separate list — an interrupted export resumes where it stopped instead of starting over.
