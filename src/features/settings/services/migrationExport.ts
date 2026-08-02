@@ -3,6 +3,44 @@ import { getLocalDb, type LocalDocument, type LocalVersion, type LocalDraft, typ
 const MANIFEST_VERSION = 1;
 const CURSOR_KEY = 'migration_export_cursor';
 
+/** Хранилища, которые переносятся дословно. Их содержимое нигде на сервере не
+ *  разбирается по полям — от них требуется пережить круг «выгрузили → залили»
+ *  без потерь, а не лечь в типизированную схему. Заводить под каждое свой
+ *  интерфейс значит писать двадцать блоков ради данных, которые никто не
+ *  читает по частям. */
+const VERBATIM_STORES: { store: string; keyPath: string }[] = [
+  { store: 'aiDialogues', keyPath: 'id' },
+  { store: 'aiDialogueEvents', keyPath: 'dialogueId' },
+  { store: 'aiChatMemory', keyPath: 'id' },
+  { store: 'aiCommitments', keyPath: 'id' },
+  { store: 'aiThreads', keyPath: 'id' },
+  { store: 'aiTimeline', keyPath: 'documentId' },
+  { store: 'aiBeliefs', keyPath: 'id' },
+  { store: 'aiBeliefRejections', keyPath: 'id' },
+  { store: 'aiPeopleIndex', keyPath: 'key' },
+  { store: 'aiPortrait', keyPath: 'id' },
+  { store: 'aiProfileFacets', keyPath: 'id' },
+  { store: 'aiThemeLedger', keyPath: 'id' },
+  { store: 'aiMonthlyDigest', keyPath: 'month' },
+  { store: 'aiDomainVectors', keyPath: 'cacheKey' },
+  { store: 'aiPersonas', keyPath: 'id' },
+  { store: 'aiInjectionJournal', keyPath: 'id' },
+  { store: 'lifeStory', keyPath: 'eventDate' },
+  { store: 'profile', keyPath: 'guestId' },
+];
+
+// syncQueue и pending_sessions НЕ входят в VERBATIM_STORES: это очередь
+// незавершённой работы этого устройства, а не данные пользователя. Переносить
+// её на новый бэкенд нельзя — задачи ссылаются на идентификаторы Firestore,
+// которых там не будет.
+
+export interface VerbatimRecord {
+  store: string;
+  key: string;
+  /** Запись как есть. Шифротекст не расшифровывается, поля не переименовываются. */
+  payload: unknown;
+}
+
 export interface MigrationManifest {
   version: number;
   exportedAt: string;
@@ -10,12 +48,14 @@ export interface MigrationManifest {
   drafts: MigrationDraft[];
   aiSummaries: AIDocumentSummary[];
   aiEmbeddings: AIDocumentEmbedding[];
+  verbatim: VerbatimRecord[];
   counters: {
     documents: number;
     versions: number;
     drafts: number;
     aiSummaries: number;
     aiEmbeddings: number;
+    verbatim: Record<string, number>;
   };
   checksums: Record<string, string>;  // version id → sha-256 hex
   skipped: { store: string; id: string; reason: string }[];
@@ -99,7 +139,10 @@ export async function exportMigrationManifest(): Promise<MigrationManifest> {
   const doneStores = new Set<string>();
   if (cursor) {
     // Mark everything before the cursor's store as done.
-    const order = ['documents', 'drafts', 'aiSummaries', 'aiEmbeddings'] as const;
+    const order = [
+      'documents', 'drafts', 'aiSummaries', 'aiEmbeddings',
+      ...VERBATIM_STORES.map(v => v.store),
+    ] as const;
     for (const s of order) {
       if (s === cursor.store) break;
       doneStores.add(s);
@@ -223,6 +266,33 @@ export async function exportMigrationManifest(): Promise<MigrationManifest> {
     }
   }
 
+  // ── хранилища, переносимые дословно ───────────────────────────────────
+  const verbatim: VerbatimRecord[] = [];
+  const verbatimCounters: Record<string, number> = {};
+  for (const { store, keyPath } of VERBATIM_STORES) {
+    if (doneStores.has(store)) continue;
+    if (!db.objectStoreNames.contains(store)) continue;   // схема младше этого клиента
+    try {
+      const all = await db.getAll(store as never);
+      for (const raw of all) {
+        try {
+          const key = String((raw as Record<string, unknown>)[keyPath] ?? '');
+          verbatim.push({ store, key, payload: raw });
+          checksums[`${store}:${key}`] = await sha256Hex(JSON.stringify(raw));
+        } catch (e) {
+          // Не смогли прочитать запись — это НЕ «записи нет». Молчаливое
+          // превращение сбоя чтения в отсутствие данных — худший класс ошибок
+          // в этом проекте, и здесь он стоил бы всей памяти ИИ.
+          skipped.push({ store, id: '?', reason: String(e) });
+        }
+      }
+      verbatimCounters[store] = all.length;
+      setCursor(store, String((all.at(-1) as Record<string, unknown>)?.[keyPath] ?? ''));
+    } catch (e) {
+      skipped.push({ store, id: '*', reason: String(e) });
+    }
+  }
+
   clearCursor();
 
   // ── version counts (from the exported versions, not document metadata) ─
@@ -235,12 +305,14 @@ export async function exportMigrationManifest(): Promise<MigrationManifest> {
     drafts,
     aiSummaries,
     aiEmbeddings,
+    verbatim,
     counters: {
       documents: documents.length,
       versions: versionCount,
       drafts: drafts.length,
       aiSummaries: aiSummaries.length,
       aiEmbeddings: aiEmbeddings.length,
+      verbatim: verbatimCounters,
     },
     checksums,
     skipped,
