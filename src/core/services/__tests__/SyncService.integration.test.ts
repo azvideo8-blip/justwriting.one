@@ -46,23 +46,51 @@ describe('SyncService Integration', () => {
     localStorage.removeItem('auto_sync_enabled');
   });
 
-  it('syncPending skips when already in progress', async () => {
+  // Два await подряд не создают одновременности: первый вызов освобождает
+  // защёлку до начала второго, и проверяемая ветка не выполняется вообще.
+  // Второй вызов должен уйти, пока первый ещё в работе.
+  it('syncPending skips a second run while the first is still going', async () => {
     localStorage.setItem('auto_sync_enabled', 'true');
-    await SyncService.syncPending(userId);
-    await SyncService.syncPending(userId);
+    const db = await getLocalDb();
+    await db.put('syncQueue', {
+      id: 'delete_cloud_slow', documentId: 'cloud_slow', type: 'delete' as const,
+      createdAt: Date.now(), ownerId: userId,
+    } as never);
+
+    let started = 0;
+    let release: () => void = () => {};
+    const gate = new Promise<void>(res => { release = res; });
+    vi.spyOn(CloudSyncService, 'removeCloudCopy').mockImplementation(async () => {
+      started++;
+      await gate;
+    });
+
+    const first = SyncService.syncPending(userId);
+    await Promise.resolve();
+    await SyncService.syncPending(userId);   // должен выйти сразу
+    release();
+    await first;
+
+    expect(started).toBe(1);
     localStorage.removeItem('auto_sync_enabled');
   });
 
-  it('expired queue items are cleaned up during sync', async () => {
+  // Просроченные задачи НЕ удаляются, и это намеренно: задача, которая падает
+  // сутками, должна продолжать попытки, а не исчезать вместе с невыгруженной
+  // заметкой. Тест раньше назывался «expired queue items are cleaned up» и
+  // проверял, что db.put сработал.
+  it('keeps a day-old queue item instead of dropping it', async () => {
+    localStorage.setItem('auto_sync_enabled', 'true');
     const db = await getLocalDb();
     await db.put('syncQueue', {
-      id: 'sync_doc_old',
-      documentId: 'doc_old',
-      type: 'document' as const,
-      createdAt: Date.now() - 25 * 60 * 60 * 1000,
-    });
-    const countBefore = await SyncService.getPendingCount();
-    expect(countBefore).toBe(1);
+      id: 'sync_doc_old', documentId: 'doc_old', type: 'document' as const,
+      createdAt: Date.now() - 25 * 60 * 60 * 1000, ownerId: userId,
+    } as never);
+
+    await SyncService.syncPending(userId);
+
+    expect(await db.get('syncQueue', 'sync_doc_old')).toBeTruthy();
+    localStorage.removeItem('auto_sync_enabled');
   });
 
   it('drains delete and portrait tasks from syncQueue', async () => {
