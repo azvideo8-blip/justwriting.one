@@ -1,24 +1,60 @@
 -- rls.test.sql — Negative tests for RLS policies.
--- Run with: psql -f rls.test.sql (requires two test users in auth.users).
--- Each section attempts to read/modify another user's data; expects 0 rows
--- or a permission error.
+-- Run with:
+--   psql -f supabase/tests/_auth_setup.sql \
+--        -f supabase/migrations/0001_schema.sql \
+--        -f supabase/migrations/0002_rls.sql \
+--        -f supabase/migrations/0003_local_store_records.sql \
+--        -f supabase/tests/rls.test.sql
 --
--- NOTE: these tests require a running Supabase/Postgres instance with auth
--- set up.  They were NOT run during this ticket — see report.
 -- Each case is wrapped in a DO block that RAISEs EXCEPTION on unexpected
--- success, so psql -f will exit non-zero if any check fails.
+-- success, so psql will exit non-zero if any check fails.
 
 -- ============================================================
--- Setup: two test users.  Replace UUIDs with actual auth.users ids.
+-- Setup: two test users + seed data for Bob
 -- ============================================================
--- INSERT INTO auth.users (id, email) VALUES
---   ('00000000-0000-0000-0000-000000000001', 'alice@test.com'),
---   ('00000000-0000-0000-0000-000000000002', 'bob@test.com');
+INSERT INTO auth.users (id, email) VALUES
+  ('00000000-0000-0000-0000-000000000001', 'alice@test.com'),
+  ('00000000-0000-0000-0000-000000000002', 'bob@test.com')
+ON CONFLICT DO NOTHING;
 
--- Helper: set the JWT to impersonate a user.
--- Uncomment and run the INSERT above first, then uncomment these.
--- SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
--- SET role = 'authenticated';
+-- Seed Bob's data so negative tests have something to attempt to read.
+INSERT INTO public.users (uid, email, nickname) VALUES
+  ('00000000-0000-0000-0000-000000000001', 'alice@test.com', 'Alice'),
+  ('00000000-0000-0000-0000-000000000002', 'bob@test.com', 'Bob')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.documents (uuid, user_id, title) VALUES
+  ('bob-doc-001', '00000000-0000-0000-0000-000000000002', 'Bob''s secret')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.versions (document_uuid, user_id, version, content, word_count) VALUES
+  ('bob-doc-001', '00000000-0000-0000-0000-000000000002', 1, 'secret content', 2)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.drafts (user_id, content) VALUES
+  ('00000000-0000-0000-0000-000000000002', 'Bob''s draft')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.ai_summaries (document_id, user_id) VALUES
+  ('bob-doc-001', '00000000-0000-0000-0000-000000000002')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.ai_embeddings (document_id, user_id) VALUES
+  ('bob-doc-001', '00000000-0000-0000-0000-000000000002')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.ai_usage (uid, date, data) VALUES
+  ('00000000-0000-0000-0000-000000000002', '2026-01-01', '{"tokens": 100}')
+ON CONFLICT DO NOTHING;
+
+-- Seed local_store_records for Bob
+INSERT INTO public.local_store_records (user_id, store, key, payload) VALUES
+  ('00000000-0000-0000-0000-000000000002', 'aiDialogues', 'dlg-1', '{"id":"dlg-1"}')
+ON CONFLICT DO NOTHING;
+
+-- Impersonate Alice (non-admin authenticated user).
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+SET role = 'authenticated';
 
 -- ============================================================
 -- users: Alice cannot read Bob's profile (non-admin)
@@ -364,4 +400,69 @@ BEGIN
     WHEN insufficient_privilege THEN NULL;
     WHEN others THEN NULL;
   END;
+END $$;
+
+-- ============================================================
+-- local_store_records: Alice cannot read Bob's records
+-- ============================================================
+DO $$
+DECLARE cnt int;
+BEGIN
+  SELECT count(*) INTO cnt
+    FROM public.local_store_records
+   WHERE user_id = '00000000-0000-0000-0000-000000000002';
+  IF cnt > 0 THEN
+    RAISE EXCEPTION 'FAIL: Alice read Bob''s local_store_records (% rows)', cnt;
+  END IF;
+END $$;
+
+-- ============================================================
+-- local_store_records: Alice cannot insert for Bob
+-- ============================================================
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.local_store_records (user_id, store, key, payload)
+    VALUES ('00000000-0000-0000-0000-000000000002', 'test', 'k', '{}');
+    RAISE EXCEPTION 'FAIL: Alice inserted local_store_record for Bob';
+  EXCEPTION
+    WHEN insufficient_privilege THEN NULL;
+    WHEN others THEN NULL;
+  END;
+END $$;
+
+-- ============================================================
+-- local_store_records: Alice cannot update Bob's records
+-- ============================================================
+DO $$
+DECLARE affected int;
+BEGIN
+  UPDATE public.local_store_records SET payload = '{"hacked":true}'
+   WHERE user_id = '00000000-0000-0000-0000-000000000002';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected > 0 THEN
+    RAISE EXCEPTION 'FAIL: Alice updated Bob''s local_store_records (% rows)', affected;
+  END IF;
+END $$;
+
+-- ============================================================
+-- local_store_records: Alice cannot delete Bob's records
+-- ============================================================
+DO $$
+DECLARE affected int;
+BEGIN
+  DELETE FROM public.local_store_records
+   WHERE user_id = '00000000-0000-0000-0000-000000000002';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected > 0 THEN
+    RAISE EXCEPTION 'FAIL: Alice deleted Bob''s local_store_records (% rows)', affected;
+  END IF;
+END $$;
+
+-- ============================================================
+-- Summary: count passed checks
+-- ============================================================
+DO $$
+BEGIN
+  RAISE NOTICE 'All RLS checks passed.';
 END $$;

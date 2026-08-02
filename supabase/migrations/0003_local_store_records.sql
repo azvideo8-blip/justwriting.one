@@ -5,7 +5,7 @@
 -- когда-нибудь понадобится серверу, оно выделится в свою таблицу отдельной
 -- миграцией.
 create table if not exists public.local_store_records (
-  user_id  uuid not null references auth.users(id) on delete cascade,
+  user_id  text not null,
   store    text not null,
   key      text not null,
   payload  jsonb not null,
@@ -16,6 +16,10 @@ create table if not exists public.local_store_records (
 alter table public.local_store_records enable row level security;
 
 -- RLS: owner-only CRUD, no admin exception.
+-- user_id is text to match auth.uid()::text and the public.users.uid column type.
+-- In real Supabase, auth.uid() returns uuid and implicit casting handles the
+-- comparison with text columns.  Here we keep text for consistency with the
+-- rest of the public schema.
 create policy "local_store_records_select_own"
   on public.local_store_records for select
   using (auth.uid() = user_id);
