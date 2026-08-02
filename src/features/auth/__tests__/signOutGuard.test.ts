@@ -113,4 +113,41 @@ describe('signOut', () => {
     });
     expect(cleared).not.toHaveBeenCalled();
   });
+
+  // A1: force sign-out proceeds even with unsynced data
+  it('force sign-out clears data even when unsynced data exists', async () => {
+    const db = await getLocalDb();
+    await db.put('documents', note('local_f') as never);
+
+    const cleared = vi.fn();
+    const firebaseSignOutFn = vi.fn();
+    vi.doMock('../../../core/storage/localDb', async () => ({
+      ...(await vi.importActual<typeof import('../../../core/storage/localDb')>('../../../core/storage/localDb')),
+      clearAllLocalStores: cleared,
+    }));
+    vi.doMock('firebase/auth', () => ({
+      signOut: firebaseSignOutFn,
+      createUserWithEmailAndPassword: vi.fn(),
+      signInWithEmailAndPassword: vi.fn(),
+      EmailAuthProvider: { credential: vi.fn() },
+      updatePassword: vi.fn(),
+      reauthenticateWithCredential: vi.fn(),
+      sendPasswordResetEmail: vi.fn(),
+    }));
+    vi.doMock('../../../core/firebase/auth', () => ({
+      auth: { currentUser: { uid: USER } },
+    }));
+    vi.doMock('../../../core/crypto/keyVaultCache', () => ({
+      clearDeviceKey: vi.fn(),
+    }));
+    vi.doMock('../../../core/crypto/useEncryptionStore', () => ({
+      useEncryptionStore: { getState: () => ({ setKey: vi.fn() }) },
+    }));
+
+    const { AuthService } = await import('../services/AuthService');
+    await AuthService.signOut({ force: true });
+
+    expect(cleared).toHaveBeenCalled();
+    expect(firebaseSignOutFn).toHaveBeenCalled();
+  });
 });

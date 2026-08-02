@@ -97,6 +97,7 @@ export default defineConfig(() => {
           'src/core/storage/**': { statements: 85, branches: 50, functions: 60, lines: 88 },
           'src/core/crypto/**': { statements: 70, branches: 58, functions: 65, lines: 74 },
           'src/core/services/**': { statements: 63, branches: 54, functions: 60, lines: 66 },
+          'src/features/auth/services/**': { statements: 53, branches: 46, functions: 55, lines: 54 },
         },
       },
     },
