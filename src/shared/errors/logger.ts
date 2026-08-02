@@ -10,8 +10,11 @@ function log(level: LogLevel, context: string, message: string, data?: Record<st
     else console.info(`[${context}] ${message}`, data ?? '');
   }
 
-  if (level === 'error') {
-    reportError(new Error(message), { context, ...data });
+  // warn в проде раньше не делал ничего: консоль только в DEV, до отчётов
+  // доходили лишь error. Через warn логируются сбои удаления черновика и
+  // облачной синхронизации — как раз то, что нужно видеть.
+  if (level === 'error' || level === 'warn') {
+    reportError(new Error(message), { context, ...data }, level === 'warn' ? 'warning' : 'error');
   }
 }
 
