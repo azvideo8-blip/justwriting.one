@@ -139,10 +139,12 @@ export const CloudSyncService = {
     // local uuid when the cloud copy has none (backfill will assign one later).
     if (cloudDoc.uuid) {
       const db = await getLocalDb();
-      const localDoc = await db.get('documents', localId);
+      const tx = db.transaction('documents', 'readwrite');
+      const localDoc = await tx.store.get(localId);
       if (localDoc) {
-        await db.put('documents', { ...localDoc, uuid: cloudDoc.uuid });
+        await tx.store.put({ ...localDoc, uuid: cloudDoc.uuid });
       }
+      await tx.done;
     }
 
     try {
