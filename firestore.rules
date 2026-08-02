@@ -151,7 +151,8 @@ service cloud.firestore {
              data.userId == request.auth.uid &&
              data.title is string && data.title.size() <= 200 &&
              (!('tags' in data) || (data.tags is list && data.tags.size() <= 10)) &&
-             (!('labelId' in data) || data.labelId is string || data.labelId == null);
+             (!('labelId' in data) || data.labelId is string || data.labelId == null) &&
+             (!('uuid' in data) || (data.uuid is string && data.uuid.size() <= 36));
     }
 
     // S-12: hasOnly + type checks for document updates.
@@ -168,13 +169,14 @@ service cloud.firestore {
       // set at creation (DocumentService.createDocument). `userId` is pinned to
       // the auth uid so it cannot be tampered to another user's id (S-12).
       return data.keys().hasOnly([
-               'userId', 'title', 'tags', 'labelId', 'totalWords', 'totalDuration',
+               'userId', 'uuid', 'title', 'tags', 'labelId', 'totalWords', 'totalDuration',
                'currentVersion', 'mood', 'sessionsCount', 'firstSessionAt', 'lastSessionAt'
              ]) &&
              data.userId == request.auth.uid &&
              (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
              (!('tags' in data) || (data.tags is list && data.tags.size() <= 10)) &&
              (!('labelId' in data) || data.labelId is string || data.labelId == null) &&
+             (!('uuid' in data) || (data.uuid is string && data.uuid.size() <= 36)) &&
              (!('totalWords' in data) || (data.totalWords is number && data.totalWords >= 0)) &&
              (!('totalDuration' in data) || (data.totalDuration is number && data.totalDuration >= 0)) &&
              (!('currentVersion' in data) || (data.currentVersion is number && data.currentVersion >= 0)) &&

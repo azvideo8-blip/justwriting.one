@@ -85,6 +85,7 @@ export interface SessionPayload extends SessionCore {
 
 export interface Document {
   id: string;
+  uuid?: string | undefined;
   userId: string;
   title: string;
   currentVersion: number;

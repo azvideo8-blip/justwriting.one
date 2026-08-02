@@ -10,6 +10,7 @@ export const DocumentService = {
   async createDocument(
     userId: string,
     data: Pick<Document, 'title' | 'tags' | 'labelId'> & {
+      uuid?: string | undefined;
       firstSessionAt?: Date | undefined;
       lastSessionAt?: Date | undefined;
     }
@@ -18,7 +19,7 @@ export const DocumentService = {
       const { db, mod } = await getClient();
       const { collection, addDoc, Timestamp } = mod;
       const now = Timestamp.now();
-      const ref = await addDoc(collection(db, 'users', userId, 'documents'), {
+      const payload: Record<string, unknown> = {
         userId,
         title: data.title,
         currentVersion: 0,
@@ -29,7 +30,9 @@ export const DocumentService = {
         lastSessionAt: data.lastSessionAt ? Timestamp.fromDate(data.lastSessionAt) : now,
         tags: data.tags ?? [],
         labelId: data.labelId ?? null,
-      });
+      };
+      if (data.uuid) payload.uuid = data.uuid;
+      const ref = await addDoc(collection(db, 'users', userId, 'documents'), payload);
       return ref.id;
     } catch (e) {
       handleFirestoreError(e, OperationType.WRITE, `users/${userId}/documents`);

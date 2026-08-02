@@ -135,6 +135,16 @@ export const CloudSyncService = {
       lastSessionAt: lastSessionMs ?? undefined,
     });
 
+    // Accept canonical uuid from the cloud doc if present; don't overwrite a
+    // local uuid when the cloud copy has none (backfill will assign one later).
+    if (cloudDoc.uuid) {
+      const db = await getLocalDb();
+      const localDoc = await db.get('documents', localId);
+      if (localDoc) {
+        await db.put('documents', { ...localDoc, uuid: cloudDoc.uuid });
+      }
+    }
+
     try {
       let prevContent = '';
       // Versions whose ciphertext could not be turned back into text. The local
@@ -356,6 +366,7 @@ export const CloudSyncService = {
           title: localDoc.title,
           tags: localDoc.tags,
           labelId: localDoc.labelId ?? undefined,
+          uuid: localDoc.uuid,
           firstSessionAt: localDoc.firstSessionAt ? new Date(localDoc.firstSessionAt) : undefined,
           lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
         }));
