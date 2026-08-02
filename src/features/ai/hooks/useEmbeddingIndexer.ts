@@ -26,6 +26,9 @@ const BACKOFF_MS: Record<string, number> = {
   // retrying the next one immediately just repeats the failure — which is how
   // a provider outage turned into a stream of identical errors every pass.
   SERVER_ERROR: 300_000,
+  // Связи нет — пауза, как и при недоступном сервисе. Без этого фоновый проход
+  // продолжал долбить мёртвую сеть каждые два минуты и писать по ошибке за проход.
+  NETWORK: 300_000,
 };
 const IDLE_TIMEOUT_MS = 5_000;
 const POLL_INTERVAL_MS = 120_000;
@@ -228,7 +231,7 @@ export function useEmbeddingIndexer(): void {
               // Gentle spacing between real summarize calls
               await new Promise(r => setTimeout(r, 150));
             } else {
-              if (res.error === 'DAILY_LIMIT' || res.error === 'RATE_LIMIT' || res.error === 'SERVER_ERROR') {
+              if (res.error === 'DAILY_LIMIT' || res.error === 'RATE_LIMIT' || res.error === 'SERVER_ERROR' || res.error === 'NETWORK') {
                 useActivityLogStore.getState().addActivity(
                   `Пауза фоновой активности (${res.error})`,
                   { action: 'indexer_backoff', reason: res.error, type: 'summarize' },

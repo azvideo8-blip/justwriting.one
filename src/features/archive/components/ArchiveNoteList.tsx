@@ -108,6 +108,7 @@ export function ArchiveNoteList({
           RATE_LIMIT: t('ai_error_rate_limit'),
           TOO_LONG: t('ai_error_too_long'),
           SERVER_ERROR: t('ai_error_server'),
+          NETWORK: t('ai_error_offline'),
         };
         showToast(errMap[res.error] ?? t('ai_error_server'), 'error');
       }

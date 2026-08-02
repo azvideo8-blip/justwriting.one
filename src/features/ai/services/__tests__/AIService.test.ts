@@ -75,4 +75,47 @@ describe('AIService', () => {
       }
     });
   });
+
+  // N2: mapAIError distinguishes network failures from application errors.
+  // The third case is the most important: 'internal' with a specific message
+  // (UNKNOWN / BAD_REQUEST / MISCONFIGURED) is our function failing, NOT a
+  // transport issue — downgrading it to NETWORK would hide real bugs.
+  describe('mapAIError maps transport failures to NETWORK', () => {
+    beforeEach(() => callable.mockReset());
+
+    it('deadline-exceeded → NETWORK', async () => {
+      callable.mockRejectedValueOnce(Object.assign(new Error('deadline-exceeded'), { code: 'functions/deadline-exceeded' }));
+      const res = await AIService.judgeFacets({ facets: [] });
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.error).toBe('NETWORK');
+    });
+
+    it('internal with message "internal" → NETWORK', async () => {
+      callable.mockRejectedValueOnce(Object.assign(new Error('internal'), { code: 'functions/internal' }));
+      const res = await AIService.judgeFacets({ facets: [] });
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.error).toBe('NETWORK');
+    });
+
+    it('internal with message "UNKNOWN" → SERVER_ERROR, not NETWORK', async () => {
+      callable.mockRejectedValueOnce(Object.assign(new Error('UNKNOWN'), { code: 'functions/internal' }));
+      const res = await AIService.judgeFacets({ facets: [] });
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.error).toBe('SERVER_ERROR');
+    });
+
+    it('unauthenticated → AUTH_REQUIRED', async () => {
+      callable.mockRejectedValueOnce(Object.assign(new Error('unauthenticated'), { code: 'functions/unauthenticated' }));
+      const res = await AIService.judgeFacets({ facets: [] });
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.error).toBe('AUTH_REQUIRED');
+    });
+
+    it('unavailable → UPSTREAM', async () => {
+      callable.mockRejectedValueOnce(Object.assign(new Error('unavailable'), { code: 'functions/unavailable' }));
+      const res = await AIService.judgeFacets({ facets: [] });
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.error).toBe('UPSTREAM');
+    });
+  });
 });
