@@ -29,7 +29,12 @@ const server = http.createServer((req, res) => {
 
   // GET /ready — readiness: "dependencies available, send traffic"
   if (method === 'GET' && url === '/ready') {
-    return json(res, 200, { status: 'ready' });
+    // Пока проверять нечего: Supabase не подключён, а Firestore этот рантайм
+    // ставится ради того, чтобы перестать использовать. Поэтому готовность
+    // сейчас означает ровно то же, что и живость. Когда появится Supabase,
+    // сюда должна прийти проверка соединения с ним — до тех пор балансировщик
+    // по /ready ничего осмысленного не узнаёт, и в README про это сказано.
+    return json(res, 200, { status: 'ready', checks: [] });
   }
 
   // POST /api/chat — placeholder

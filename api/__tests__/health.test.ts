@@ -52,18 +52,24 @@ describe('API health endpoints', () => {
     expect(typeof res.body.uptime).toBe('number');
   });
 
-  it('/ready returns 200 when dependencies are available', async () => {
-    mockListCollections.mockResolvedValueOnce([]);
+  it('/ready reports readiness with an empty list of checks', async () => {
     const res = await get('/ready');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ready');
+    // Пустой список — это заявление, а не заглушка: проверять пока нечего,
+    // Supabase не подключён. Когда он появится, список перестанет быть пустым
+    // и этот тест придётся переписать — так и задумано.
+    expect(res.body.checks).toEqual([]);
   });
 
-  it('/ready returns 503 when Firestore is down', async () => {
-    mockListCollections.mockRejectedValueOnce(new Error('Firestore unavailable'));
+  it('/ready no longer depends on Firestore', async () => {
+    // K1 убрал эту зависимость: рантайм ставится ради ухода с Firebase, и
+    // готовность к трафику не может определяться доступностью того, от чего
+    // уходим. Тест остался бы зелёным сам по себе, поэтому проверяем факт —
+    // недоступный Firestore не влияет на ответ.
+    mockListCollections.mockRejectedValue(new Error('Firestore unavailable'));
     const res = await get('/ready');
-    expect(res.status).toBe(503);
-    expect(res.body.status).toBe('not_ready');
-    expect(String(res.body.error)).toContain('Firestore unavailable');
+    expect(res.status).toBe(200);
+    expect(mockListCollections).not.toHaveBeenCalled();
   });
 });
