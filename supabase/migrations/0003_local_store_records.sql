@@ -5,7 +5,7 @@
 -- когда-нибудь понадобится серверу, оно выделится в свою таблицу отдельной
 -- миграцией.
 create table if not exists public.local_store_records (
-  user_id  text not null,
+  user_id  uuid not null,
   store    text not null,
   key      text not null,
   payload  jsonb not null,

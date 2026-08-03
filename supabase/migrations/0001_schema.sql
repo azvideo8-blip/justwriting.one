@@ -7,7 +7,7 @@
 -- Allowed fields derived from isValidUserCreate / isValidUserUpdate
 -- ============================================================
 create table if not exists public.users (
-  uid         text primary key,                          -- == auth.uid
+  uid         uuid primary key,                          -- == auth.uid
   email       text not null,
   nickname    text check (nickname is null or length(nickname) <= 100),
   encryption_salt     text,
@@ -36,7 +36,7 @@ create table if not exists public.users (
 create table if not exists public.documents (
   id                bigint generated always as identity primary key,
   uuid              text unique not null,                 -- C1 canonical id
-  user_id           text not null references public.users(uid) on delete cascade,
+  user_id           uuid not null references public.users(uid) on delete cascade,
   title             text not null default '' check (length(title) <= 200),
   current_version   integer not null default 0 check (current_version >= 0),
   total_words       integer not null default 0 check (total_words >= 0),
@@ -59,7 +59,7 @@ create index if not exists idx_documents_user on public.documents(user_id);
 create table if not exists public.versions (
   id                bigint generated always as identity primary key,
   document_uuid     text not null references public.documents(uuid) on delete cascade,
-  user_id           text not null references public.users(uid) on delete cascade,
+  user_id           uuid not null references public.users(uid) on delete cascade,
   version           integer not null check (version >= 0),
   content           text not null check (length(content) <= 700000),
   word_count        integer not null default 0 check (word_count >= 0),
@@ -86,7 +86,7 @@ create unique index if not exists idx_versions_doc_ver on public.versions(docume
 -- Audit finding: read ONLY by owner (no admin read).
 -- ============================================================
 create table if not exists public.drafts (
-  user_id              text primary key references public.users(uid) on delete cascade,
+  user_id              uuid primary key references public.users(uid) on delete cascade,
   title                text check (title is null or length(title) <= 200),
   content              text not null check (length(content) <= 100000),
   seconds              real,
@@ -110,7 +110,7 @@ create table if not exists public.drafts (
 -- ============================================================
 create table if not exists public.ai_summaries (
   document_id      text not null,                       -- references document uuid
-  user_id          text not null references public.users(uid) on delete cascade,
+  user_id          uuid not null references public.users(uid) on delete cascade,
   summary          text check (summary is null or length(summary) <= 20000),
   tone             text check (tone is null or length(tone) <= 5000),
   frequent_words   jsonb,
@@ -138,7 +138,7 @@ create table if not exists public.ai_summaries (
 -- ============================================================
 create table if not exists public.ai_embeddings (
   document_id      text not null,
-  user_id          text not null references public.users(uid) on delete cascade,
+  user_id          uuid not null references public.users(uid) on delete cascade,
   vectors_json     text check (vectors_json is null or length(vectors_json) <= 1000000),
   vector_json      text check (vector_json is null or length(vector_json) <= 1000000),
   chunk_texts_json text check (chunk_texts_json is null or length(chunk_texts_json) <= 1000000),
@@ -156,7 +156,7 @@ create table if not exists public.ai_embeddings (
 -- ai_daily_limit  (Firestore: /aiDailyLimit/{uid}) — admin SDK only
 -- ============================================================
 create table if not exists public.ai_daily_limit (
-  uid       text primary key references public.users(uid) on delete cascade,
+  uid       uuid primary key references public.users(uid) on delete cascade,
   data      jsonb,
   updated_at timestamptz default now()
 );
@@ -165,7 +165,7 @@ create table if not exists public.ai_daily_limit (
 -- ai_cooldown  (Firestore: /aiCooldown/{uid}) — admin SDK only
 -- ============================================================
 create table if not exists public.ai_cooldown (
-  uid       text primary key references public.users(uid) on delete cascade,
+  uid       uuid primary key references public.users(uid) on delete cascade,
   data      jsonb,
   updated_at timestamptz default now()
 );
@@ -174,7 +174,7 @@ create table if not exists public.ai_cooldown (
 -- ai_usage  (Firestore: /aiUsage/{uid}/daily/{date}) — admin writes, user reads own
 -- ============================================================
 create table if not exists public.ai_usage (
-  uid   text not null references public.users(uid) on delete cascade,
+  uid   uuid not null references public.users(uid) on delete cascade,
   date  text not null,
   data  jsonb,
   primary key (uid, date)
@@ -203,3 +203,23 @@ create table if not exists public.anonymized_telemetry (
 create table if not exists public.connection_test (
   id text primary key default 'ping'
 );
+
+-- ============================================================
+-- Triggers
+-- ============================================================
+create or replace function public.protect_user_columns()
+returns trigger as $$
+begin
+  if new.role is distinct from old.role then
+    raise exception 'role is server-controlled';
+  end if;
+  if new.uid is distinct from old.uid then
+    raise exception 'uid is immutable';
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger users_protect_columns
+  before update on public.users
+  for each row execute function public.protect_user_columns();

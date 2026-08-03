@@ -2,10 +2,7 @@
 -- Provides auth.users table and auth.uid()/auth.role() functions
 -- that mirror Supabase's behavior.
 --
--- auth.uid() returns text (not uuid) to match public.users.uid and
--- the user_id columns in the public schema.  In real Supabase,
--- implicit casting handles the comparison; here we make the types
--- match directly.
+-- auth.uid() returns uuid.
 
 create schema if not exists auth;
 
@@ -15,8 +12,8 @@ create table if not exists auth.users (
 );
 
 create or replace function auth.uid()
-returns text as $$
-  select coalesce(current_setting('request.jwt.claims', true)::jsonb ->> 'sub', '');
+returns uuid as $$
+  select nullif(current_setting('request.jwt.claims', true)::jsonb ->> 'sub', '')::uuid;
 $$ language sql stable;
 
 create or replace function auth.role()
