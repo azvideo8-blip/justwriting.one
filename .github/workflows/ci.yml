@@ -91,6 +91,32 @@ jobs:
   # (git checkout <ref> -- . перезаписывает индекс, поэтому git checkout -- .
   # возвращал base повторно). Всё, что шло после, — бюджет размера, E2E,
   # функции, правила Firestore — проверяло main вместо PR.
+  
+  rls:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+    - uses: actions/checkout@v4
+    - name: Apply schema and run RLS tests
+      env:
+        PGPASSWORD: postgres
+      run: |
+        psql -h localhost -U postgres -v ON_ERROR_STOP=1 \
+          -f supabase/tests/_auth_setup.sql \
+          -f supabase/migrations/0001_schema.sql \
+          -f supabase/migrations/0002_rls.sql \
+          -f supabase/migrations/0003_local_store_records.sql \
+          -f supabase/tests/rls.test.sql
+
   bundle-size:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
