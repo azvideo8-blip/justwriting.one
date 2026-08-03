@@ -102,15 +102,20 @@ END $$;
 -- documents: Alice cannot insert a document for Bob
 -- ============================================================
 DO $$
+DECLARE ok boolean;
 BEGIN
   BEGIN
     INSERT INTO public.documents (uuid, user_id, title)
     VALUES ('test-uuid', '00000000-0000-0000-0000-000000000002', 'stolen');
-    RAISE EXCEPTION 'FAIL: Alice inserted document for Bob';
+    ok := false;
   EXCEPTION
-    WHEN insufficient_privilege THEN NULL; -- expected
-    WHEN others THEN NULL; -- RLS may raise different codes
+    WHEN insufficient_privilege THEN ok := true;
+    WHEN check_violation THEN ok := true;
+    WHEN others THEN ok := true;
   END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: Alice inserted document for Bob';
+  END IF;
 END $$;
 
 -- ============================================================
@@ -159,15 +164,20 @@ END $$;
 -- versions: Alice cannot insert a version for Bob
 -- ============================================================
 DO $$
+DECLARE ok boolean;
 BEGIN
   BEGIN
     INSERT INTO public.versions (document_uuid, user_id, version, content, word_count)
     VALUES ('bob-doc-uuid', '00000000-0000-0000-0000-000000000002', 1, 'stolen', 1);
-    RAISE EXCEPTION 'FAIL: Alice inserted version for Bob';
+    ok := false;
   EXCEPTION
-    WHEN insufficient_privilege THEN NULL;
-    WHEN others THEN NULL;
+    WHEN insufficient_privilege THEN ok := true;
+    WHEN check_violation THEN ok := true;
+    WHEN others THEN ok := true;
   END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: Alice inserted version for Bob';
+  END IF;
 END $$;
 
 -- ============================================================
@@ -244,15 +254,20 @@ END $$;
 -- ai_summaries: Alice cannot insert for Bob
 -- ============================================================
 DO $$
+DECLARE ok boolean;
 BEGIN
   BEGIN
     INSERT INTO public.ai_summaries (document_id, user_id)
     VALUES ('x', '00000000-0000-0000-0000-000000000002');
-    RAISE EXCEPTION 'FAIL: Alice inserted summary for Bob';
+    ok := false;
   EXCEPTION
-    WHEN insufficient_privilege THEN NULL;
-    WHEN others THEN NULL;
+    WHEN insufficient_privilege THEN ok := true;
+    WHEN check_violation THEN ok := true;
+    WHEN others THEN ok := true;
   END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: Alice inserted summary for Bob';
+  END IF;
 END $$;
 
 -- ============================================================
@@ -273,15 +288,20 @@ END $$;
 -- ai_embeddings: Alice cannot insert for Bob
 -- ============================================================
 DO $$
+DECLARE ok boolean;
 BEGIN
   BEGIN
     INSERT INTO public.ai_embeddings (document_id, user_id)
     VALUES ('x', '00000000-0000-0000-0000-000000000002');
-    RAISE EXCEPTION 'FAIL: Alice inserted embedding for Bob';
+    ok := false;
   EXCEPTION
-    WHEN insufficient_privilege THEN NULL;
-    WHEN others THEN NULL;
+    WHEN insufficient_privilege THEN ok := true;
+    WHEN check_violation THEN ok := true;
+    WHEN others THEN ok := true;
   END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: Alice inserted embedding for Bob';
+  END IF;
 END $$;
 
 -- ============================================================
@@ -326,15 +346,20 @@ END $$;
 -- ai_usage: Alice cannot write
 -- ============================================================
 DO $$
+DECLARE ok boolean;
 BEGIN
   BEGIN
     INSERT INTO public.ai_usage (uid, date, data)
     VALUES ('00000000-0000-0000-0000-000000000001', '2026-01-01', '{}');
-    RAISE EXCEPTION 'FAIL: client inserted into ai_usage';
+    ok := false;
   EXCEPTION
-    WHEN insufficient_privilege THEN NULL;
-    WHEN others THEN NULL;
+    WHEN insufficient_privilege THEN ok := true;
+    WHEN check_violation THEN ok := true;
+    WHEN others THEN ok := true;
   END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: client inserted into ai_usage';
+  END IF;
 END $$;
 
 -- ============================================================
@@ -365,15 +390,20 @@ END $$;
 -- anonymized_telemetry: client cannot insert
 -- ============================================================
 DO $$
+DECLARE ok boolean;
 BEGIN
   BEGIN
     INSERT INTO public.anonymized_telemetry (id, data)
     VALUES ('x', '{}');
-    RAISE EXCEPTION 'FAIL: client inserted into anonymized_telemetry';
+    ok := false;
   EXCEPTION
-    WHEN insufficient_privilege THEN NULL;
-    WHEN others THEN NULL;
+    WHEN insufficient_privilege THEN ok := true;
+    WHEN check_violation THEN ok := true;
+    WHEN others THEN ok := true;
   END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: client inserted into anonymized_telemetry';
+  END IF;
 END $$;
 
 -- ============================================================
@@ -392,14 +422,19 @@ END $$;
 -- connection_test: client cannot write
 -- ============================================================
 DO $$
+DECLARE ok boolean;
 BEGIN
   BEGIN
     INSERT INTO public.connection_test (id) VALUES ('evil');
-    RAISE EXCEPTION 'FAIL: client inserted into connection_test';
+    ok := false;
   EXCEPTION
-    WHEN insufficient_privilege THEN NULL;
-    WHEN others THEN NULL;
+    WHEN insufficient_privilege THEN ok := true;
+    WHEN check_violation THEN ok := true;
+    WHEN others THEN ok := true;
   END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: client inserted into connection_test';
+  END IF;
 END $$;
 
 -- ============================================================
@@ -420,15 +455,61 @@ END $$;
 -- local_store_records: Alice cannot insert for Bob
 -- ============================================================
 DO $$
+DECLARE ok boolean;
 BEGIN
   BEGIN
     INSERT INTO public.local_store_records (user_id, store, key, payload)
     VALUES ('00000000-0000-0000-0000-000000000002', 'test', 'k', '{}');
-    RAISE EXCEPTION 'FAIL: Alice inserted local_store_record for Bob';
+    ok := false;
   EXCEPTION
-    WHEN insufficient_privilege THEN NULL;
-    WHEN others THEN NULL;
+    WHEN insufficient_privilege THEN ok := true;
+    WHEN check_violation THEN ok := true;
+    WHEN others THEN ok := true;
   END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: Alice inserted local_store_record for Bob';
+  END IF;
+END $$;
+
+-- ============================================================
+-- versions: Alice cannot insert a version for Bob's document (I3)
+-- ============================================================
+DO $$
+DECLARE ok boolean;
+BEGIN
+  BEGIN
+    -- Alice inserts a version, setting user_id to herself, but document_uuid to Bob's
+    INSERT INTO public.versions (document_uuid, user_id, version, content, word_count)
+    VALUES ('bob-doc-001', '00000000-0000-0000-0000-000000000001', 2, 'stolen', 1);
+    ok := false;
+  EXCEPTION
+    WHEN insufficient_privilege THEN ok := true;
+    WHEN check_violation THEN ok := true;
+    WHEN others THEN ok := true;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: Alice inserted version for Bob''s document';
+  END IF;
+END $$;
+
+-- ============================================================
+-- users: Alice cannot change her own role to admin (I4)
+-- ============================================================
+DO $$
+DECLARE ok boolean;
+BEGIN
+  BEGIN
+    UPDATE public.users SET role = 'admin'
+     WHERE uid = '00000000-0000-0000-0000-000000000001';
+    ok := false;
+  EXCEPTION
+    WHEN insufficient_privilege THEN ok := true;
+    WHEN check_violation THEN ok := true;
+    WHEN others THEN ok := true;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: Alice made herself admin';
+  END IF;
 END $$;
 
 -- ============================================================
