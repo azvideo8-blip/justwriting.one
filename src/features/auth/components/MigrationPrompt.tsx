@@ -69,7 +69,10 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
             {t('migration_found_title')}
           </h2>
           <p className="text-sm text-text-main/60 mb-6">
-            {t('migration_found_hint', { count: docCount })}
+            {/* Гость мог не сохранить ни одной заметки, но иметь черновик — окно
+                показывают и ему. Общий текст в этом случае читается как
+                «У тебя 0 локальных записей», то есть предлагает перенести ничто. */}
+            {docCount > 0 ? t('migration_found_hint', { count: docCount }) : t('migration_found_draft_hint')}
           </p>
 
           <div className="flex flex-col gap-2">
