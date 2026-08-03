@@ -81,8 +81,12 @@ export function MobileNoteActionsSheet({
     setLoadingAction('upload');
     try {
       if (doc.hasPendingSync) {
-        await SyncService.syncDocument(userId, doc.localId, true);
-        showToast(t('storage_uploaded_cloud'), 'success');
+        const ok = await SyncService.syncDocument(userId, doc.localId, true);
+        if (ok) {
+          showToast(t('storage_uploaded_cloud'), 'success');
+        } else {
+          showToast(t('error_generic_action'), 'error');
+        }
       } else {
         const cloudId = await StorageService.addCloudCopy(userId, doc.localId, true);
         if (cloudId) {

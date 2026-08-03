@@ -189,13 +189,18 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
     }
     setSyncingId(item.id);
     try {
+      let ok = true;
       if (item.status === 'pending' || item.status === 'mismatch') {
-        await SyncService.syncDocument(userId, item.localId, hasEncryption);
+        ok = await SyncService.syncDocument(userId, item.localId, hasEncryption);
       } else {
-        await StorageService.addCloudCopy(userId, item.localId, hasEncryption);
+        ok = !!(await StorageService.addCloudCopy(userId, item.localId, hasEncryption));
       }
-      showToast(t('storage_uploaded_cloud') || 'Sync completed', 'success');
-      setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'synced', hasCloud: true, cloudId: item.localId, inQueue: false } : i));
+      if (ok) {
+        showToast(t('storage_uploaded_cloud') || 'Sync completed', 'success');
+        setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'synced', hasCloud: true, cloudId: item.localId, inQueue: false } : i));
+      } else {
+        showToast(t('error_generic_action') || 'Sync failed', 'error');
+      }
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Sync failed' });
       showToast(t('error_generic_action') || 'Sync failed', 'error');
