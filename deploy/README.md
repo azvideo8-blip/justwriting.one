@@ -27,7 +27,10 @@ sudo chown justwriting:justwriting /opt/justwriting/data
 sudo cp -r dist/* /var/www/justwriting/
 
 # 3. Copy API code
-sudo cp api/server.ts /opt/justwriting/
+# Поскольку код написан на TypeScript (api/server.ts), его нужно скомпилировать.
+# Здесь предполагается, что сборка бэкенда производится локально или в CI.
+# Например: npx tsc api/server.ts
+sudo cp api/server.js /opt/justwriting/
 sudo npm --prefix /opt/justwriting install express firebase-admin
 
 # 4. Environment
@@ -58,7 +61,7 @@ sudo systemctl start justwriting
 # Process alive
 curl -f http://localhost:3000/health
 
-# Dependencies available
+# Server ready (проверяет только то, что процесс поднялся, т.к. зависимость от Firestore убрана до подключения Supabase)
 curl -f http://localhost:3000/ready
 
 # nginx serving the SPA
@@ -71,6 +74,10 @@ curl -sD - https://yourdomain.com/sw.js | grep -i cache-control
 curl -I https://yourdomain.com/assets/index.js.map  # → 404
 ```
 
+## API Limitations
+
+`/api/chat` в данный момент возвращает 501 Not Implemented. Это нормальное поведение. Настоящая реализация появится позже, когда будет куда ходить, поэтому не ожидайте работающего чата из коробки на данном этапе.
+
 ## Environment variables
 
 | Name | Required | Description |
@@ -79,6 +86,6 @@ curl -I https://yourdomain.com/assets/index.js.map  # → 404
 | `FIREBASE_SERVICE_ACCOUNT` | yes | JSON service account key (one line) |
 | `FIRESTORE_DATABASE_ID` | yes | Firestore database id (not "(default)") |
 | `PORT` | no | API listen port, default 3000 |
-| `OPENAI_API_KEY` | yes | For /api/chat endpoint |
+| `OPENROUTER_API_KEY` | yes | For /api/chat endpoint |
 | `SENTRY_DSN` | no | Error tracking |
 | `POSTHOG_API_KEY` | no | Analytics |

@@ -1,21 +1,5 @@
 import http from 'node:http';
-import { initializeApp, getApps, cert, applicationDefault } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-
 // ── Firebase Admin init (lazy) ─────────────────────────────────────────
-const FIRESTORE_DATABASE_ID = process.env.FIRESTORE_DATABASE_ID ?? undefined;
-
-function getDb() {
-  if (!getApps().length) {
-    const projectId = process.env.FIREBASE_PROJECT_ID;
-    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-      initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
-    } else {
-      initializeApp({ credential: applicationDefault(), ...(projectId ? { projectId } : {}) });
-    }
-  }
-  return getFirestore(FIRESTORE_DATABASE_ID!);
-}
 
 // ── Helpers ────────────────────────────────────────────────────────────
 function json(res: http.ServerResponse, status: number, body: unknown) {
@@ -45,13 +29,7 @@ const server = http.createServer((req, res) => {
 
   // GET /ready — readiness: "dependencies available, send traffic"
   if (method === 'GET' && url === '/ready') {
-    try {
-      const db = getDb();
-      await db.listCollections();
-      return json(res, 200, { status: 'ready' });
-    } catch (e) {
-      return json(res, 503, { status: 'not_ready', error: String(e) });
-    }
+    return json(res, 200, { status: 'ready' });
   }
 
   // POST /api/chat — placeholder
