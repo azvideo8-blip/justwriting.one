@@ -92,11 +92,18 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
   );
 }
 
-export async function checkGuestDocuments(): Promise<{ guestId: string; docs: import('../../../core/storage/localDb').LocalDocument[] } | null> {
+export async function checkGuestDocuments(): Promise<{ guestId: string; docs: import('../../../core/storage/localDb').LocalDocument[]; hasDraft: boolean } | null> {
   const guestId = getOrCreateGuestId();
   try {
     const localDocs = await LocalDocumentService.getGuestDocuments(guestId);
-    if (localDocs.length > 0) return { guestId, docs: localDocs };
+    
+    // Незаконченный черновик — тоже работа, которую надо перенести. Без этой
+    // проверки человек, писавший в гостевом режиме и не сохранивший заметку,
+    // не увидит окна переноса вовсе, и текст останется на прежнем аккаунте.
+    const db = await getLocalDb();
+    const hasDraft = db.objectStoreNames.contains('drafts') && !!(await db.get('drafts', 'guest_draft'));
+    
+    if (localDocs.length > 0 || hasDraft) return { guestId, docs: localDocs, hasDraft };
   } catch (e) {
     reportError(e, { action: 'checkGuestDocuments' });
   }
