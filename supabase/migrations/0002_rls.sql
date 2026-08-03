@@ -63,20 +63,20 @@ create policy "documents_delete_own"
 -- ============================================================
 create policy "versions_select_own"
   on public.versions for select
-  using (user_id = auth.uid());
+  using (user_id = auth.uid() and exists (select 1 from public.documents d where d.uuid = document_uuid and d.user_id = auth.uid()));
 
 create policy "versions_insert_own"
   on public.versions for insert
-  with check (user_id = auth.uid());
+  with check (user_id = auth.uid() and exists (select 1 from public.documents d where d.uuid = document_uuid and d.user_id = auth.uid()));
 
 create policy "versions_update_own"
   on public.versions for update
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (user_id = auth.uid() and exists (select 1 from public.documents d where d.uuid = document_uuid and d.user_id = auth.uid()))
+  with check (user_id = auth.uid() and exists (select 1 from public.documents d where d.uuid = document_uuid and d.user_id = auth.uid()));
 
 create policy "versions_delete_own"
   on public.versions for delete
-  using (user_id = auth.uid());
+  using (user_id = auth.uid() and exists (select 1 from public.documents d where d.uuid = document_uuid and d.user_id = auth.uid()));
 
 -- ============================================================
 -- drafts  (firestore.rules L137–145)
@@ -106,20 +106,20 @@ create policy "drafts_delete_own"
 -- ============================================================
 create policy "ai_summaries_select_own"
   on public.ai_summaries for select
-  using (user_id = auth.uid());
+  using (user_id = auth.uid() and exists (select 1 from public.documents d where d.uuid = document_id and d.user_id = auth.uid()));
 
 create policy "ai_summaries_insert_own"
   on public.ai_summaries for insert
-  with check (user_id = auth.uid());
+  with check (user_id = auth.uid() and exists (select 1 from public.documents d where d.uuid = document_id and d.user_id = auth.uid()));
 
 create policy "ai_summaries_update_own"
   on public.ai_summaries for update
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (user_id = auth.uid() and exists (select 1 from public.documents d where d.uuid = document_id and d.user_id = auth.uid()))
+  with check (user_id = auth.uid() and exists (select 1 from public.documents d where d.uuid = document_id and d.user_id = auth.uid()));
 
 create policy "ai_summaries_delete_own"
   on public.ai_summaries for delete
-  using (user_id = auth.uid());
+  using (user_id = auth.uid() and exists (select 1 from public.documents d where d.uuid = document_id and d.user_id = auth.uid()));
 
 -- ============================================================
 -- ai_embeddings  (firestore.rules L297–301)
@@ -127,20 +127,20 @@ create policy "ai_summaries_delete_own"
 -- ============================================================
 create policy "ai_embeddings_select_own"
   on public.ai_embeddings for select
-  using (user_id = auth.uid());
+  using (user_id = auth.uid() and exists (select 1 from public.documents d where d.uuid = document_id and d.user_id = auth.uid()));
 
 create policy "ai_embeddings_insert_own"
   on public.ai_embeddings for insert
-  with check (user_id = auth.uid());
+  with check (user_id = auth.uid() and exists (select 1 from public.documents d where d.uuid = document_id and d.user_id = auth.uid()));
 
 create policy "ai_embeddings_update_own"
   on public.ai_embeddings for update
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  using (user_id = auth.uid() and exists (select 1 from public.documents d where d.uuid = document_id and d.user_id = auth.uid()))
+  with check (user_id = auth.uid() and exists (select 1 from public.documents d where d.uuid = document_id and d.user_id = auth.uid()));
 
 create policy "ai_embeddings_delete_own"
   on public.ai_embeddings for delete
-  using (user_id = auth.uid());
+  using (user_id = auth.uid() and exists (select 1 from public.documents d where d.uuid = document_id and d.user_id = auth.uid()));
 
 -- ============================================================
 -- ai_daily_limit  (firestore.rules L304–306)
