@@ -96,8 +96,12 @@ export function QueueExplorer({ userId }: { userId: string }) {
     }
     setSyncingRow(item.id);
     try {
-      await SyncService.syncDocument(userId, item.documentId);
-      showToast('Заметка синхронизирована', 'success');
+      const ok = await SyncService.syncDocument(userId, item.documentId);
+      if (ok) {
+        showToast('Заметка синхронизирована', 'success');
+      } else {
+        showToast('Ошибка синхронизации', 'error');
+      }
     } catch (e) {
       reportError(e, { action: 'queue_sync_item' });
       showToast('Ошибка синхронизации', 'error');
