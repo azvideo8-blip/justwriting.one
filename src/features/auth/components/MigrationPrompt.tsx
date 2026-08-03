@@ -3,7 +3,7 @@ import { HardDrive } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
-import { getOrCreateGuestId } from '../../../core/storage/localDb';
+import { getOrCreateGuestId, getLocalDb } from '../../../core/storage/localDb';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { SyncService } from '../../../core/services/SyncService';
 import { migrateDocuments } from '../services/migrateDocuments';
