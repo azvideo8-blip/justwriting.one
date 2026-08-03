@@ -55,7 +55,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
       }
       void checkGuestDocuments().then(result => {
         if (result) {
-          setMigrationDocCount(result.docs.length);
+          setMigrationDocCount(result.docs.length + (result.hasDraft ? 1 : 0));
           setMigrationUserId(u.uid);
         }
       });

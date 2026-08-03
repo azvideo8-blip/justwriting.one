@@ -31,7 +31,7 @@ export function LoginModalOverlay({ open }: { open: boolean }) {
 
     const result = await checkGuestDocuments();
     if (result) {
-      setLocalDocCount(result.docs.length);
+      setLocalDocCount(result.docs.length + (result.hasDraft ? 1 : 0));
       setLoggedInUserId(u.uid);
       setShowMigrationPrompt(true);
     }
