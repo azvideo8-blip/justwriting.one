@@ -374,9 +374,10 @@ function RebuildTimelineButton() {
 
         {/* Tab 5: AI Stats */}
         {activeTab === 'ai_usage' && (() => {
-          // Pricing per token (USD) — active chat model is hardcoded to DeepSeek
-          // v4 Flash via OpenRouter (see functions/src/shared/aiProvider.ts).
-          const activePricing = { in: 0.09 / 1_000_000, out: 0.18 / 1_000_000 };
+          // Pricing per token (RUB) — active chat model is hardcoded to DeepSeek
+          // v4 Flash via RouterAI (see functions/src/shared/aiProvider.ts), which
+          // bills in roubles: 10₽/1M in, 20₽/1M out.
+          const activePricing = { in: 10 / 1_000_000, out: 20 / 1_000_000 };
 
           function calcCost(tokensIn: number, tokensOut: number) {
             return tokensIn * activePricing.in + tokensOut * activePricing.out;
@@ -410,7 +411,7 @@ function RebuildTimelineButton() {
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
                   <h3 className="text-sm font-semibold text-text-main">Статистика AI</h3>
-                  <p className="text-[11px] text-text-main/50">Активная модель: DeepSeek v4 Flash (OpenRouter) · $0.09 / $0.18 за 1M токенов</p>
+                  <p className="text-[11px] text-text-main/50">Активная модель: DeepSeek v4 Flash (RouterAI) · 10₽ / 20₽ за 1M токенов</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <input
@@ -542,7 +543,7 @@ function RebuildTimelineButton() {
                             <td className="py-2.5 px-4 text-right text-text-main/60">{row.requests}</td>
                             <td className="py-2.5 px-4 text-right text-text-main/60">{row.promptTokens.toLocaleString()}</td>
                             <td className="py-2.5 px-4 text-right text-text-main/60">{row.completionTokens.toLocaleString()}</td>
-                            <td className="py-2.5 px-4 text-right font-mono text-text-main/80">${cost.toFixed(4)}</td>
+                            <td className="py-2.5 px-4 text-right font-mono text-text-main/80">{cost.toFixed(2)}₽</td>
                             <td className="py-2.5 px-4 text-center" onClick={e => e.stopPropagation()}>
                               <Button
                                 onClick={() => void handleResetUserLimit(row.uid, displayName)}
@@ -609,7 +610,7 @@ function RebuildTimelineButton() {
                         <td className="py-3 px-4 text-right">{filtered.reduce((s, r) => s + r.requests, 0)}</td>
                         <td className="py-3 px-4 text-right">{filtered.reduce((s, r) => s + r.promptTokens, 0).toLocaleString()}</td>
                         <td className="py-3 px-4 text-right">{filtered.reduce((s, r) => s + r.completionTokens, 0).toLocaleString()}</td>
-                        <td className="py-3 px-4 text-right font-mono">${totalCost.toFixed(4)}</td>
+                        <td className="py-3 px-4 text-right font-mono">{totalCost.toFixed(2)}₽</td>
                         <td className="py-3 px-4"></td>
                       </tr>
                     </tfoot>

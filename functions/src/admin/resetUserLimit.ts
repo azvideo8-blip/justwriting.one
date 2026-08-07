@@ -9,16 +9,17 @@ const schema = z.object({
 });
 
 const MAX_DAILY_REQUESTS_SAFETY = 10000;
-const MAX_DAILY_COST_SAFETY = 5.0; // USD safety limit to prevent runaways
+const MAX_DAILY_COST_SAFETY = 400; // RUB safety limit to prevent runaways (was $5)
 
-// DeepSeek v4 Flash (OpenRouter) catalog pricing is $0.09/$0.18 per 1M tokens,
-// but a live billed request (2026-07-04, routed to the "DigitalOcean" backend)
-// came in ~25% above that ($0.112/$0.224) — OpenRouter can route the same
-// model slug to different backend providers at different rates. This is a
-// safety cap, so round up rather than use the optimistic catalog rate.
-// Verify at https://openrouter.ai/deepseek/deepseek-v4-flash
-const COST_IN = 0.00000012;
-const COST_OUT = 0.00000024;
+// DeepSeek v4 Flash on RouterAI is priced in roubles: 10₽/1M in, 20₽/1M out.
+// Denominated in roubles here so no FX rate has to be guessed — RouterAI bills
+// in roubles, and an invented rate would silently shift where this cap fires.
+// The OpenRouter era used USD ($0.12/$0.24 per 1M, padded above catalog because
+// OpenRouter re-routed the same slug to backends at different rates); RouterAI
+// publishes one rate per model, so the padding is no longer needed.
+// Verify at https://routerai.ru/models
+const COST_IN = 10 / 1_000_000;
+const COST_OUT = 20 / 1_000_000;
 
 export const resetUserLimit = onCall({
   enforceAppCheck: true,
@@ -58,7 +59,7 @@ export const resetUserLimit = onCall({
   if (totalRequests >= MAX_DAILY_REQUESTS_SAFETY || totalCost >= MAX_DAILY_COST_SAFETY) {
     throw new HttpsError(
       'resource-exhausted',
-      `Safety limits exceeded. Total requests: ${totalRequests}/${MAX_DAILY_REQUESTS_SAFETY}, Total cost: $${totalCost.toFixed(2)}/$${MAX_DAILY_COST_SAFETY}. Reset blocked.`
+      `Safety limits exceeded. Total requests: ${totalRequests}/${MAX_DAILY_REQUESTS_SAFETY}, Total cost: ${totalCost.toFixed(2)}₽/${MAX_DAILY_COST_SAFETY}₽. Reset blocked.`
     );
   }
 
