@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+- **[RU]** ИИ-функции переведены на другого поставщика — RouterAI вместо OpenRouter, который недоступен из России. Модель осталась той же, и векторы заметок, по которым ищется смысл, остались совместимы, так что переиндексация не потребовалась. Заодно пришлось явно попросить модель не рассуждать: новый поставщик по умолчанию сначала думает вслух, и этот внутренний монолог съедает бюджет ответа — при коротком лимите ответ приходил бы пустым.
+- **[EN]** AI features moved to a different provider — RouterAI instead of OpenRouter, which is unreachable from Russia. The model is the same and note vectors stayed compatible, so no re-indexing was needed. The model also had to be told explicitly not to reason: the new provider thinks aloud by default, and that inner monologue eats the answer's budget — under a short limit the reply would have come back empty.
+- **[RU]** В политике конфиденциальности, оферте и окне о приватности назван тот поставщик ИИ, которому на самом деле уходит текст. Прежнее имя осталось бы от старого поставщика и вводило бы в заблуждение ровно в том месте, где важна точность.
+- **[EN]** The privacy policy, terms of service and privacy dialog now name the AI provider the text actually goes to. The old name would have been left over from the previous provider and misleading in exactly the place where precision matters.
 
 ## 0.7.71 — 2026-08-03
 - **[RU]** Срочное исправление: 0.7.70 не запускалась. Разделение кода на файлы, сделанное ради более лёгких обновлений, развело по разным файлам части библиотеки базы данных, которые ссылаются друг на друга, — и приложение падало на старте с ошибкой инициализации. Разделение вернули к прежнему виду. Отложенная загрузка библиотеки архивов при этом сохранилась, так что первая загрузка всё равно легче, чем в 0.7.69.
