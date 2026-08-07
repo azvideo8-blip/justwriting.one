@@ -140,10 +140,14 @@ if (getApps().length === 0) {
   });
 }
 
-// OpenRouter is the sole AI provider.
+// RouterAI is the sole AI provider — OpenAI-compatible, so only the base URL
+// moves. Kept in one const because the streaming path below fetches it directly
+// rather than going through the SDK client. See functions/src/shared/aiProvider.ts
+// for why the env names still say OPENROUTER.
+const AI_BASE_URL = process.env.AI_BASE_URL ?? 'https://routerai.ru/api/v1';
 const ACTIVE_CHAT_MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash';
 const openrouterOptions: { baseURL: string; apiKey?: string } = {
-  baseURL: 'https://openrouter.ai/api/v1',
+  baseURL: AI_BASE_URL,
 };
 if (process.env.OPENROUTER_API_KEY) {
   openrouterOptions.apiKey = process.env.OPENROUTER_API_KEY;
@@ -376,9 +380,12 @@ async function recordUsage(
 // OpenRouter's /chat/completions directly, reading both channels and
 // synthesizing the plain-text section markers the client parser expects
 // ("ХОД МЫСЛИ:" / "ОТВЕТ:"). If the active model emits no reasoning, we just
-// stream the answer (no empty reasoning section). OpenRouter only emits
-// reasoning when explicitly requested via `reasoning: {effort}` — unlike
-// Fireworks, which always emitted it for reasoning-capable models.
+// stream the answer (no empty reasoning section). Provider behaviour here has
+// flipped twice: Fireworks always emitted reasoning for capable models,
+// OpenRouter only on explicit `reasoning: {effort}`, and RouterAI is back to
+// emitting it by default — which is why the non-reasoning path now has to ask
+// for silence rather than rely on it. Measured on RouterAI, the chain-of-thought
+// arrives under `reasoning`, not `reasoning_content`; both are read below.
 type OrDelta = { reasoning_content?: string; reasoning?: string; content?: string };
 type OrChunk = {
   usage?: { prompt_tokens?: number; completion_tokens?: number };
@@ -409,7 +416,7 @@ async function streamOpenRouterReasoning(
   const timeoutId = setTimeout(() => controller.abort(), 120_000);
   let upstream: Response;
   try {
-    upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    upstream = await fetch(`${AI_BASE_URL}/chat/completions`, {
       signal: controller.signal,
       method: 'POST',
       headers: {
@@ -760,11 +767,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  // This is the non-reasoning branch — reasoning mode returned above via
+  // streamOpenRouterReasoning. RouterAI reasons by default, so silence has to be
+  // requested: without this the model spends maxOutputTokens thinking and the user
+  // watches an empty stream. See functions/src/shared/aiProvider.ts for the
+  // measurements behind picking reasoningEffort over the `reasoning` object.
   const result = streamText({
     model: chatModel,
     system: systemPrompt,
     messages: providerMessages,
     maxOutputTokens,
+    providerOptions: { openai: { reasoningEffort: 'none' } },
     onFinish: async ({ totalUsage }) => {
       try {
         await recordUsage(uid, totalUsage?.inputTokens ?? 0, totalUsage?.outputTokens ?? 0, activeModel, reservation);

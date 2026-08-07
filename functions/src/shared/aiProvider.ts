@@ -1,6 +1,14 @@
-// OpenRouter is the sole AI provider.
+// RouterAI is the sole AI provider: an OpenAI-compatible gateway, billed in
+// roubles and reachable from Russia (OpenRouter is not). The wire format is
+// unchanged, so only the base URL moves.
+//
+// ponytail: the OPENROUTER_* env names are kept as-is. They are bound by name in
+// twelve `secrets: ['OPENROUTER_API_KEY']` declarations across functions/src/ai/*,
+// and renaming a Firebase secret means re-setting and redeploying every one of
+// them — on a Firebase deployment that the VPS migration retires. The VPS AI
+// proxy gets provider-neutral AI_* names instead.
 const ACTIVE_CHAT_MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash';
-const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
+const OPENROUTER_BASE_URL = process.env.AI_BASE_URL ?? 'https://routerai.ru/api/v1';
 const OPENROUTER_EMBED_MODEL = process.env.OPENROUTER_EMBED_MODEL ?? 'qwen/qwen3-embedding-8b';
 
 export async function getActiveModel(): Promise<string> {
@@ -80,7 +88,22 @@ async function generateOpenRouter(params: GenerateParams): Promise<GenerateResul
     max_tokens: maxTokens ?? 4096,
   };
 
-  if (activeModel.startsWith('openai/gpt-oss')) body.reasoning = { effort: 'low' };
+  // Every caller of generate() wants an answer, not a chain of thought: these are
+  // summaries, judgements, taxonomies and extractions. On OpenRouter that needed no
+  // saying, because it only emitted reasoning when asked. RouterAI reasons by
+  // DEFAULT, and the reasoning is billed and counts against max_tokens — a request
+  // with a tight budget spends all of it thinking and returns empty content. So the
+  // absence of reasoning now has to be stated explicitly.
+  //
+  // `reasoning_effort: 'none'` is the switch that works. `reasoning: {effort:'low'}`
+  // does NOT — measured against deepseek-v4-flash it produced *more* reasoning than
+  // the default (374 tokens vs 61), and `reasoning: {exclude:true}` only hides the
+  // tokens while still paying for them.
+  if (activeModel.startsWith('openai/gpt-oss')) {
+    body.reasoning = { effort: 'low' };
+  } else {
+    body.reasoning_effort = 'none';
+  }
 
   // Retry transient upstream errors (502/503/504 and network errors like ECONNRESET)
   // with a short backoff while respecting an overall time deadline.

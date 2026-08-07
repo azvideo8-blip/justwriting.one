@@ -86,6 +86,7 @@ curl -I https://yourdomain.com/assets/index.js.map  # → 404
 | `FIREBASE_SERVICE_ACCOUNT` | yes | JSON service account key (one line) |
 | `FIRESTORE_DATABASE_ID` | yes | Firestore database id (not "(default)") |
 | `PORT` | no | API listen port, default 3000 |
-| `OPENROUTER_API_KEY` | yes | For /api/chat endpoint |
+| `OPENROUTER_API_KEY` | yes | AI provider key (a RouterAI key — the name is legacy) |
+| `AI_BASE_URL` | no | Provider base URL, default `https://routerai.ru/api/v1` |
 | `SENTRY_DSN` | no | Error tracking |
 | `POSTHOG_API_KEY` | no | Analytics |

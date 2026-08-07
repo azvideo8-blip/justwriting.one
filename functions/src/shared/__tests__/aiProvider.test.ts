@@ -131,6 +131,26 @@ describe('AG-AI-RETRY: aiProvider transient network error retry', () => {
     expect(result.text).toBe('Recovered from 502');
   });
 
+  it('asks for no reasoning, and sends it to the configured provider', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: 'ok' } }],
+    }), { status: 200 }));
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await generate({ messages: [{ role: 'user', content: 'hi' }], abortMs: 30_000 });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://routerai.ru/api/v1/chat/completions');
+
+    // RouterAI reasons by default and bills it against max_tokens, so a request
+    // that does not say "none" can burn its whole budget thinking and come back
+    // with empty content.
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect(body.reasoning_effort).toBe('none');
+    expect(body.reasoning).toBeUndefined();
+  });
+
   it('retries embed OpenRouter on transient network error', async () => {
     const fetchMock = vi.fn()
       .mockRejectedValueOnce(new Error('connect ETIMEDOUT'))

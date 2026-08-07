@@ -8,6 +8,7 @@
 // Model mirrors api/chat.ts:143.
 
 const MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash';
+const BASE_URL = process.env.AI_BASE_URL ?? 'https://routerai.ru/api/v1';
 const KEY = process.env.OPENROUTER_API_KEY;
 if (!KEY) { console.error('OPENROUTER_API_KEY not set'); process.exit(2); }
 
@@ -52,7 +53,7 @@ async function ask(question) {
     ],
     temperature: 0,
   };
-  const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+  const r = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
