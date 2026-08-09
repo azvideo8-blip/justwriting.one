@@ -15,32 +15,31 @@ const GLOBAL_DAILY_LIMIT = parseInt(process.env.AI_TIER_RPD ?? '10000', 10);
 const GLOBAL_TOKEN_LIMIT = parseInt(process.env.AI_TIER_TPD ?? '25000000', 10);
 
 async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalReservation | null> {
-  const client = await pool.connect();
+  const date = today();
   try {
-    await client.query('BEGIN');
-    const date = today();
-    const res = await client.query(
-      `INSERT INTO ai_global_daily (day, call_count)
+    const res = await pool.query(
+      `INSERT INTO ai_global_daily (date, call_count)
        VALUES ($1, 1)
-       ON CONFLICT (day) DO UPDATE SET call_count = ai_global_daily.call_count + 1
-       RETURNING call_count, coalesce(tokens, 0) as tokens`,
-      [date],
+       ON CONFLICT (date) DO UPDATE SET call_count = ai_global_daily.call_count + 1
+         WHERE ai_global_daily.call_count < $2
+       RETURNING call_count, coalesce(tokens, 0) AS tokens`,
+      [date, GLOBAL_DAILY_LIMIT],
     );
-    const count = Number(res.rows[0]?.call_count ?? 1);
-    const tokens = Number(res.rows[0]?.tokens ?? 0);
-    if (count > GLOBAL_DAILY_LIMIT || tokens + allowance > GLOBAL_TOKEN_LIMIT) {
-      await client.query('ROLLBACK');
+    if (res.rows.length === 0) {
       return null;
     }
-    await client.query('COMMIT');
-    // Encode the row-key as shardId so refund can find it
+    const tokens = Number(res.rows[0]?.tokens ?? 0);
+    if (tokens + allowance > GLOBAL_TOKEN_LIMIT) {
+      await pool.query(
+        `UPDATE ai_global_daily SET call_count = GREATEST(0, call_count - 1) WHERE date = $1`,
+        [date],
+      );
+      return null;
+    }
     return { date, shardId: '0', allowance };
   } catch (e) {
-    await client.query('ROLLBACK');
     console.error('[postgresAiContext] tryReserveGlobalRequest error', e);
     return null;
-  } finally {
-    client.release();
   }
 }
 
@@ -49,7 +48,7 @@ async function refundGlobalRequest(res: GlobalReservation | null | undefined): P
   res.refunded = true;
   try {
     await pool.query(
-      `UPDATE ai_global_daily SET call_count = GREATEST(0, call_count - 1) WHERE day = $1`,
+      `UPDATE ai_global_daily SET call_count = GREATEST(0, call_count - 1) WHERE date = $1`,
       [res.date],
     );
   } catch (e) {
@@ -85,9 +84,9 @@ async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<boolea
     const limit = reasoning ? Math.min(baseLimit, 5) : baseLimit;
 
     const res = await client.query(
-      `INSERT INTO ai_daily_limit (uid, day, call_count)
-       VALUES ($1, $2, 1)
-       ON CONFLICT (uid, day) DO UPDATE SET call_count = ai_daily_limit.call_count + 1
+      `INSERT INTO ai_daily_limit (uid, day, kind, call_count)
+       VALUES ($1, $2, 'chat', 1)
+       ON CONFLICT (uid, day, kind) DO UPDATE SET call_count = ai_daily_limit.call_count + 1
        RETURNING call_count`,
       [uid, date],
     );
@@ -111,7 +110,7 @@ async function refundDailyLimit(uid: string): Promise<void> {
   try {
     const date = today();
     await pool.query(
-      `UPDATE ai_daily_limit SET call_count = GREATEST(0, call_count - 1) WHERE uid = $1 AND day = $2`,
+      `UPDATE ai_daily_limit SET call_count = GREATEST(0, call_count - 1) WHERE uid = $1 AND day = $2 AND kind = 'chat'`,
       [uid, date],
     );
   } catch (e) {
@@ -122,27 +121,26 @@ async function refundDailyLimit(uid: string): Promise<void> {
 async function getDailyLimitCount(uid: string): Promise<{ used: number; date: string }> {
   const date = today();
   const res = await pool.query(
-    `SELECT call_count FROM ai_daily_limit WHERE uid = $1 AND day = $2`,
+    `SELECT call_count FROM ai_daily_limit WHERE uid = $1 AND day = $2 AND kind = 'chat'`,
     [uid, date],
   );
   return { used: Number(res.rows[0]?.call_count ?? 0), date };
 }
 
-// ── Bulk limit (reuse per-user table with a separate counter) ────────────────
+// ── Bulk limit (reuse per-user table with a separate kind) ────────────────────
 const BULK_LIMIT = parseInt(process.env.AI_BULK_DAILY_LIMIT ?? '50', 10);
 
 async function checkAndIncrementBulkLimit(uid: string): Promise<boolean> {
-  const bulkUid = `bulk:${uid}`;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const date = today();
     const res = await client.query(
-      `INSERT INTO ai_daily_limit (uid, day, call_count)
-       VALUES ($1, $2, 1)
-       ON CONFLICT (uid, day) DO UPDATE SET call_count = ai_daily_limit.call_count + 1
+      `INSERT INTO ai_daily_limit (uid, day, kind, call_count)
+       VALUES ($1, $2, 'bulk', 1)
+       ON CONFLICT (uid, day, kind) DO UPDATE SET call_count = ai_daily_limit.call_count + 1
        RETURNING call_count`,
-      [bulkUid, date],
+      [uid, date],
     );
     const count = Number(res.rows[0]?.call_count ?? 1);
     if (count > BULK_LIMIT) {
@@ -162,11 +160,10 @@ async function checkAndIncrementBulkLimit(uid: string): Promise<boolean> {
 
 async function refundBulkLimit(uid: string): Promise<void> {
   try {
-    const bulkUid = `bulk:${uid}`;
     const date = today();
     await pool.query(
-      `UPDATE ai_daily_limit SET call_count = GREATEST(0, call_count - 1) WHERE uid = $1 AND day = $2`,
-      [bulkUid, date],
+      `UPDATE ai_daily_limit SET call_count = GREATEST(0, call_count - 1) WHERE uid = $1 AND day = $2 AND kind = 'bulk'`,
+      [uid, date],
     );
   } catch (e) {
     console.error('[postgresAiContext] refundBulkLimit error', e);
@@ -216,7 +213,7 @@ async function recordUsage(
       [uid, tokensIn, tokensOut],
     );
     await client.query(
-      `UPDATE ai_global_daily SET tokens = coalesce(tokens, 0) + $1 WHERE day = current_date::text`,
+      `UPDATE ai_global_daily SET tokens = coalesce(tokens, 0) + $1 WHERE date = current_date::text`,
       [tokensIn + tokensOut],
     );
     await client.query('COMMIT');
@@ -241,4 +238,3 @@ export const postgresAiContext: AiContext = {
   refundBulkLimit,
   checkAndIncrementLimit,
 };
-

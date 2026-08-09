@@ -10,8 +10,8 @@ export async function reserveGlobalDaily(): Promise<boolean> {
     await client.query('BEGIN');
     const today = new Date().toISOString().split('T')[0];
     const res = await client.query(
-      `INSERT INTO ai_global_daily (day, call_count) VALUES ($1, 1)
-       ON CONFLICT (day) DO UPDATE SET call_count = ai_global_daily.call_count + 1
+      `INSERT INTO ai_global_daily (date, call_count) VALUES ($1, 1)
+       ON CONFLICT (date) DO UPDATE SET call_count = ai_global_daily.call_count + 1
        RETURNING call_count;`,
       [today]
     );
@@ -39,8 +39,8 @@ export async function reserveUserDaily(uid: string, limit = 100): Promise<boolea
     await client.query('BEGIN');
     const today = new Date().toISOString().split('T')[0];
     const res = await client.query(
-      `INSERT INTO ai_daily_limit (uid, day, call_count) VALUES ($1, $2, 1)
-       ON CONFLICT (uid, day) DO UPDATE SET call_count = ai_daily_limit.call_count + 1
+      `INSERT INTO ai_daily_limit (uid, day, kind, call_count) VALUES ($1, $2, 'chat', 1)
+       ON CONFLICT (uid, day, kind) DO UPDATE SET call_count = ai_daily_limit.call_count + 1
        RETURNING call_count;`,
       [uid, today]
     );
