@@ -35,6 +35,16 @@ export default defineConfig(() => {
     },
     server: {
       hmr: serverHmr,
+      // Dev only. callAi() fetches /api/<name> relative to the page, which in
+      // production nginx routes to the Node service. Locally there is nothing on
+      // that path, so point it at the service: run it yourself, or tunnel to the
+      // VPS and set VITE_DEV_API_TARGET.
+      proxy: {
+        '/api': {
+          target: process.env.VITE_DEV_API_TARGET ?? 'http://127.0.0.1:3111',
+          changeOrigin: true,
+        },
+      },
     },
     build: {
       target: 'es2022',
@@ -80,6 +90,10 @@ export default defineConfig(() => {
         '**/functions/lib/**',
         '**/functions/src/**',
         'e2e/**',
+        // Свалка со старыми копиями тестов: не часть приложения, импорты в них
+        // не резолвятся. Держим вне прогона, чтобы не красить сборку.
+        'old_tests/**',
+        'scratch/**',
       ],
       coverage: {
         provider: 'istanbul',

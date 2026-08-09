@@ -2,12 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { usePrivacyCheck } from '../components/PrivacyModal';
 
-const mockGetDoc = vi.fn();
-vi.mock('../../../core/firebase/firestoreClient', () => ({
-  getClient: async () => ({
-    db: {},
-    mod: { doc: (_db: unknown, ...p: string[]) => ({ path: p.join('/') }), getDoc: mockGetDoc },
-  }),
+// Mock the data facade, not a provider. The hook reads
+// DataProvider.getProfile(); mocking the old firestoreClient left the real
+// provider in place, so the read never resolved to anything and this file's
+// other two cases passed by asserting on absence.
+const mockGetProfile = vi.fn();
+vi.mock('../../../core/data', () => ({
+  DataProvider: {
+    getProfile: (...args: unknown[]) => mockGetProfile(...args),
+    updateProfile: vi.fn(),
+  },
 }));
 
 let authStatus: { user: { uid: string } | null; authState: string } = { user: null, authState: 'loading' };
@@ -23,7 +27,7 @@ describe('usePrivacyCheck waits for the restored session', () => {
     vi.clearAllMocks();
     localStorage.clear();
     authStatus = { user: null, authState: 'loading' };
-    mockGetDoc.mockResolvedValue({ exists: () => false, data: () => ({}) });
+    mockGetProfile.mockResolvedValue(null);
   });
 
   it('asks a user who only appears after mount', async () => {
@@ -42,13 +46,13 @@ describe('usePrivacyCheck waits for the restored session', () => {
 
     const { result } = renderHook(() => usePrivacyCheck());
 
-    await waitFor(() => expect(mockGetDoc).not.toHaveBeenCalled());
+    await waitFor(() => expect(mockGetProfile).not.toHaveBeenCalled());
     expect(result.current.showPrivacy).toBe(false);
   });
 
   it('ignores a late answer about the account that just got switched away', async () => {
     let release: (v: unknown) => void = () => {};
-    mockGetDoc.mockReturnValueOnce(new Promise(res => { release = res; }));
+    mockGetProfile.mockReturnValueOnce(new Promise(res => { release = res; }));
     authStatus = { user: { uid: 'u1' }, authState: 'authenticated' };
 
     const { result, rerender } = renderHook(() => usePrivacyCheck());
@@ -60,7 +64,7 @@ describe('usePrivacyCheck waits for the restored session', () => {
     // Let the late answer land before asserting — waiting for `false` alone
     // would pass simply by checking too early.
     await act(async () => {
-      release({ exists: () => false, data: () => ({}) });
+      release(null);
       await new Promise(r => setTimeout(r, 0));
     });
 

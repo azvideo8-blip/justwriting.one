@@ -35,6 +35,25 @@ describe('DocumentService', () => {
         currentVersion: 0
       }));
     });
+
+    it('creates document using provided dates', async () => {
+      vi.mocked(DataProvider.createDocument).mockResolvedValue('new_doc_id');
+      const first = new Date(1700000000000);
+      const last = new Date(1700000005000);
+
+      await DocumentService.createDocument('u1', {
+        title: 'Test',
+        tags: ['a'],
+        labelId: 'lbl',
+        firstSessionAt: first,
+        lastSessionAt: last,
+      });
+
+      expect(DataProvider.createDocument).toHaveBeenCalledWith('u1', expect.objectContaining({
+        firstSessionAt: 1700000000000,
+        lastSessionAt: 1700000005000,
+      }));
+    });
   });
 
   describe('getDocument', () => {
@@ -52,6 +71,14 @@ describe('DocumentService', () => {
       const doc = await DocumentService.getDocument('u1', 'doc_missing');
       expect(doc).toBeNull();
     });
+
+    it('returns null for corrupted doc', async () => {
+      vi.mocked(DataProvider.getDocument).mockResolvedValue({
+        id: 'doc_corrupted', title: 'Test', currentVersion: 'invalid' as unknown as number, totalWords: 10, totalDuration: 10, sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 2000, tags: [], labelId: null
+      });
+      const doc = await DocumentService.getDocument('u1', 'doc_corrupted');
+      expect(doc).toBeNull();
+    });
   });
 
   describe('getUserDocuments', () => {
@@ -64,6 +91,22 @@ describe('DocumentService', () => {
       expect(docs).toHaveLength(2);
       expect(docs[0]?.id).toBe('doc2'); // latest session first
       expect(docs[1]?.id).toBe('doc1');
+    });
+
+    it('returns empty array if no documents', async () => {
+      vi.mocked(DataProvider.getUserDocuments).mockResolvedValue([]);
+      const docs = await DocumentService.getUserDocuments('u1');
+      expect(docs).toHaveLength(0);
+    });
+
+    it('omits corrupted docs', async () => {
+      vi.mocked(DataProvider.getUserDocuments).mockResolvedValue([
+        { id: 'doc_valid', title: 'Doc1', currentVersion: 1, totalWords: 10, totalDuration: 10, sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 1000, tags: [], labelId: null },
+        { id: 'doc_corrupted', title: 'Doc2', currentVersion: 'invalid' as unknown as number, totalWords: 10, totalDuration: 10, sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 2000, tags: [], labelId: null }
+      ]);
+      const docs = await DocumentService.getUserDocuments('u1');
+      expect(docs).toHaveLength(1);
+      expect(docs[0]?.id).toBe('doc_valid');
     });
   });
 
