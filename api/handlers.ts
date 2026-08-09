@@ -1,20 +1,20 @@
 // api/handlers.ts
 import { postgresAiContext } from './postgresAiContext';
-import { AiError } from '../functions/src/shared/aiContext';
+import { AiError } from './ai/context';
 
-import { chatWithAILogic } from '../functions/src/ai/chatWithAI.logic';
-import { editWithAILogic } from '../functions/src/ai/editWithAI.logic';
-import { embedDocumentLogic } from '../functions/src/ai/embedDocument.logic';
-import { extractChatMemoryLogic } from '../functions/src/ai/extractChatMemory.logic';
-import { getAIUsageStatsLogic } from '../functions/src/ai/getAIUsageStats.logic';
-import { judgeBeliefCandidateLogic } from '../functions/src/ai/judgeBeliefCandidate.logic';
-import { judgeFacetsLogic } from '../functions/src/ai/judgeFacets.logic';
-import { rerankNotesLogic } from '../functions/src/ai/rerankNotes.logic';
-import { summarizeBeliefClusterLogic } from '../functions/src/ai/summarizeBeliefCluster.logic';
-import { summarizeDocumentLogic } from '../functions/src/ai/summarizeDocument.logic';
-import { summarizeFacetLogic } from '../functions/src/ai/summarizeFacet.logic';
-import { validateCustomPromptLogic } from '../functions/src/ai/validateCustomPrompt.logic';
-import { deriveTaxonomyLogic } from '../functions/src/ai/deriveTaxonomy.logic';
+import { chatWithAILogic } from './ai/chatWithAI.logic';
+import { editWithAILogic } from './ai/editWithAI.logic';
+import { embedDocumentLogic } from './ai/embedDocument.logic';
+import { extractChatMemoryLogic } from './ai/extractChatMemory.logic';
+import { getAIUsageStatsLogic } from './ai/getAIUsageStats.logic';
+import { judgeBeliefCandidateLogic } from './ai/judgeBeliefCandidate.logic';
+import { judgeFacetsLogic } from './ai/judgeFacets.logic';
+import { rerankNotesLogic } from './ai/rerankNotes.logic';
+import { summarizeBeliefClusterLogic } from './ai/summarizeBeliefCluster.logic';
+import { summarizeDocumentLogic } from './ai/summarizeDocument.logic';
+import { summarizeFacetLogic } from './ai/summarizeFacet.logic';
+import { validateCustomPromptLogic } from './ai/validateCustomPrompt.logic';
+import { deriveTaxonomyLogic } from './ai/deriveTaxonomy.logic';
 
 type LogicFn = (
   ctx: typeof postgresAiContext,

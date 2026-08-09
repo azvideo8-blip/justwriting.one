@@ -3,8 +3,8 @@
 // Uses the tables created in supabase/migrations/0004_ai_counters.sql and 0005_ai_global_daily_tokens.sql.
 
 import { Pool } from 'pg';
-import type { AiContext, GlobalReservation } from '../functions/src/shared/aiContext';
-import { DAILY_LIMIT } from '../functions/src/shared/aiUtils';
+import type { AiContext, GlobalReservation } from './ai/context';
+import { DAILY_LIMIT } from './ai/pure';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 

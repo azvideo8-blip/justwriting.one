@@ -1,0 +1,227 @@
+// api/ai/pure.ts
+//
+// The AI helpers that touch no Firestore, copied out of
+// functions/src/shared/aiUtils.ts for the VPS service.
+//
+// Why a copy rather than an import: the root package is "type": "module" and
+// functions/ is CommonJS, so importing across that boundary fails at load time —
+// Node cannot detect named exports of a transpiled-TS CJS module, and the whole
+// service exits on boot with "does not provide an export named …" while tsc is
+// perfectly happy. Verified by experiment: the same file under functions/ fails,
+// the same file inside the root package loads.
+//
+// The duplication is deliberate and short-lived. functions/ is deleted once the
+// client moves to this service, and it takes its copy with it.
+
+import { createHash } from 'crypto';
+import DOMPurify from 'isomorphic-dompurify';
+import { Langfuse } from 'langfuse';
+import { sanitizeAiInputShared } from './buildChatPrompt';
+
+export const MAX_AI_CONTENT_LENGTH = 50_000;
+
+// Mirror of src/shared/ai/injectionPatterns.ts — keep in sync.
+// After migration to Supabase, both sides will import from a single shared package.
+
+// Patterns written for Latin-script phrases. Checked against a homoglyph-
+// folded copy of the input (see foldLatinHomoglyphs below) so that visually
+// identical Cyrillic/Greek lookalikes (e.g. Cyrillic "i" in "ignore previous")
+// don't bypass them.
+const LATIN_PATTERNS = [
+  /ignore\s+previous/i,
+  /ignore\s+instructions/i,
+  /jailbreak/i,
+  /(?<=^|[^а-яёА-ЯЁa-zA-Z0-9])DAN(?=$|[^а-яёА-ЯЁa-zA-Z0-9])/i,
+  /you\s+are\s+now/i,
+  /forget\s+your/i,
+  /(^|\n)\s*system\s*:/i,
+  /as\s+an\s+AI(?=$|[^а-яёА-ЯЁa-zA-Z0-9])/i,
+  /(^|\n)\s*developer\s*:/i,
+  /<\|im_start\|>/i,
+  /\[INST\]/i,
+  /<developer>/i,
+  /<end_of_turn>/i,
+  /repeat\s+.*(system|initial)\s+prompt/i,
+  /output\s+your\s+instructions/i,
+  /reveal\s+your\s+system\s+prompt/i,
+];
+
+// Patterns written for Cyrillic/Russian phrases. Checked against the
+// ORIGINAL (non-folded) text — folding to Latin would break these, since
+// they need to match real Cyrillic letters.
+const CYRILLIC_PATTERNS = [
+  /новые\s+инструкции/i,
+  /забудь\s+(вс[её]|свои|преды|инструк)/i,
+  /выведи\s+.*(системный|свой)\s+промпт/i,
+  /покажи\s+.*(системный\s+промпт|свои\s+инструкции)/i,
+  /напиши\s+свои\s+системные\s+инструкции/i,
+];
+
+
+// Flat list kept for compatibility with any lingering direct reference.
+export const INJECTION_PATTERNS = [...LATIN_PATTERNS, ...CYRILLIC_PATTERNS];
+
+// Zero-width/invisible Unicode code points an attacker can splice into a
+// phrase to dodge a regex without changing how the text visibly renders.
+// Expressed as numeric code points on purpose (not a regex literal, not a
+// \u-escape string) — see the unicode note at the top of this prompt.
+const ZERO_WIDTH_CODE_POINTS = new Set<number>([
+  0x200B, 0x200C, 0x200D, 0xFEFF, 0x00AD, // zero-width space/joiners, BOM, soft hyphen
+  0x2028, 0x2029, 0x202F, 0x205F,          // line/paragraph separators, narrow/medium math space
+]);
+function isInvisibleCodePoint(code: number): boolean {
+  return ZERO_WIDTH_CODE_POINTS.has(code) || (code >= 0x2000 && code <= 0x200A); // general punctuation space block
+}
+function stripInvisible(text: string): string {
+  let out = '';
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0;
+    if (!isInvisibleCodePoint(code)) out += ch;
+  }
+  return out;
+}
+
+// Cyrillic/Greek letters visually identical to a Latin letter in most fonts —
+// used to spoof a Latin-script phrase (jailbreak, ignore previous, etc.) past
+// a regex expecting real Latin letters. Deliberately a small, explicit map
+// (not a general Unicode confusables table) — covers only letters that could
+// plausibly stand in for a letter appearing in LATIN_PATTERNS above. These are
+// ordinary printable Cyrillic letters (not invisible characters) — fine to
+// type as normal literal characters, unlike ZERO_WIDTH_CODE_POINTS above.
+const HOMOGLYPH_MAP: Record<string, string> = {
+  'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p', 'с': 'c',
+  'х': 'x', 'у': 'y', 'і': 'i', 'ѕ': 's', 'һ': 'h',
+  'А': 'A', 'В': 'B', 'Е': 'E', 'К': 'K', 'М': 'M',
+  'Н': 'H', 'О': 'O', 'Р': 'P', 'С': 'C', 'Т': 'T',
+  'Х': 'X', 'У': 'Y',
+  // Greek lookalikes (the comment above always claimed Greek coverage; these were
+  // missing, so a Greek-omicron "ignore previous" bypassed every LATIN_PATTERN).
+  'ο': 'o', 'α': 'a', 'ι': 'i', 'ν': 'v', 'ρ': 'p', 'υ': 'u', 'κ': 'k', 'τ': 't',
+  'Α': 'A', 'Β': 'B', 'Ε': 'E', 'Η': 'H', 'Ι': 'I', 'Κ': 'K', 'Μ': 'M',
+  'Ν': 'N', 'Ο': 'O', 'Ρ': 'P', 'Τ': 'T', 'Υ': 'Y', 'Χ': 'X',
+};
+
+function foldLatinHomoglyphs(text: string): string {
+  let out = '';
+  for (const ch of text) {
+    out += HOMOGLYPH_MAP[ch] ?? ch;
+  }
+  return out;
+}
+
+export function hasInjectionAttempt(text: string): boolean {
+  const stripped = stripInvisible(text);
+  const latinFolded = foldLatinHomoglyphs(stripped);
+  return LATIN_PATTERNS.some(p => p.test(latinFolded)) || CYRILLIC_PATTERNS.some(p => p.test(stripped));
+}
+
+let _langfuse: Langfuse | null = null;
+
+export function hashUid(uid: string): string {
+  if (!uid) return 'anonymous';
+  return createHash('sha256').update(uid).digest('hex').slice(0, 16);
+}
+
+export function getLangfuse(): Langfuse | null {
+
+  const secretKey = process.env.LANGFUSE_SECRET_KEY;
+  const publicKey = process.env.LANGFUSE_PUBLIC_KEY;
+  if (!secretKey || !publicKey) return null;
+  if (!_langfuse) {
+    _langfuse = new Langfuse({ secretKey, publicKey, flushAt: 1, fetchRetryCount: 1 });
+  }
+  return _langfuse;
+}
+
+export function sanitizeAiInput(content: string): string {
+  return sanitizeAiInputShared(content);
+}
+
+// Strips ALL HTML tags and attributes from AI responses using DOMPurify.
+// Also strips reasoning artifacts (//<reasoning>, <reasoning>, thinking text)
+// that reasoning models like DeepSeek may leak into responses.
+// RSN-3: In reasoning mode, keep <reasoning>/<answer> text content.
+export function sanitizeAiResponse(response: string, keepReasoning = false): string {
+  let cleaned = response;
+  if (!keepReasoning) {
+    // OPT-8: Strip reasoning blocks that reasoning models leak into output
+    cleaned = cleaned.replace(/\/\/<reasoning>[\s\S]*?<\/reasoning>/gi, '');
+    cleaned = cleaned.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '');
+    cleaned = cleaned.replace(/\/\/<reasoning>[\s\S]*$/gi, '');
+    cleaned = cleaned.replace(/<reasoning>[\s\S]*$/gi, '');
+    cleaned = cleaned.replace(/^\/\/<reasoning>/gim, '');
+    // Strip CJK characters leaked from model reasoning chains (gpt-oss/DeepSeek
+    // internal thinking sometimes bleeds into content field).
+    // Ranges: CJK Unified (4E00-9FFF), Extension A (3400-4DBF), Compat (F900-FAFF),
+    // Radicals (2E80-2EFF), Symbols (3000-303F), Kana (3040-30FF).
+    // eslint-disable-next-line no-irregular-whitespace
+    cleaned = cleaned.replace(/[⺀-⻿　-ヿ㐀-䶿一-鿿豈-﫿]/g, '');
+    // Strip citation artifacts that gpt-oss appends to factual sentences
+    // (e.g. "30 000 рублейreferences" or "степень awarded").
+    cleaned = cleaned.replace(/([а-яёА-ЯЁ\d])(references?|sources?|citations?|awarded)(?=$|[^а-яёА-ЯЁa-zA-Z0-9])/gi, '$1');
+    // Collapse any double-spaces created by the strips above.
+    cleaned = cleaned.replace(/  +/g, ' ').trim();
+  }
+  return DOMPurify.sanitize(cleaned, {
+    ALLOWED_TAGS: keepReasoning ? ['reasoning', 'answer'] : [],
+    ALLOWED_ATTR: [],
+    ALLOW_DATA_ATTR: false,
+  });
+}
+
+/**
+ * Why an AI call failed, from the provider error the request threw.
+ *
+ * Everything used to be re-thrown as HttpsError('internal'), so a provider
+ * outage was indistinguishable from a bug in our own request — the client could
+ * not tell the user anything more useful than "something went wrong", and could
+ * not decide whether retrying made sense. aiProvider has already retried the
+ * transient cases by the time we get here.
+ */
+export function classifyProviderFailure(err: unknown): { code: 'unavailable' | 'internal'; reason: string } {
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  if (/OpenRouter 5\d\d/i.test(msg)) return { code: 'unavailable', reason: 'UPSTREAM_ERROR' };
+  if (/body read timeout|aborted|timeout|ETIMEDOUT|ECONNRESET|ENOTFOUND|EAI_AGAIN|fetch failed/i.test(msg)) {
+    return { code: 'unavailable', reason: 'UPSTREAM_TIMEOUT' };
+  }
+  if (/OpenRouter 4\d\d/i.test(msg)) return { code: 'internal', reason: 'BAD_REQUEST' };
+  if (/OPENROUTER_API_KEY not set/i.test(msg)) return { code: 'internal', reason: 'MISCONFIGURED' };
+  return { code: 'internal', reason: 'UNKNOWN' };
+}
+
+export const DAILY_LIMIT = (() => {
+  const raw = process.env.AI_DAILY_LIMIT;
+  if (!raw) return 10;
+  const parsed = parseInt(raw, 10);
+  return Number.isNaN(parsed) ? 10 : parsed;
+})();
+
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = parseInt(raw, 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+// Project-wide daily request/token budget guard for the OpenRouter chat model.
+// Override via env. Keep these numbers in sync with the mirror in api/chat.ts.
+export const TIER_LIMITS = {
+  requestsPerDay: envInt('AI_TIER_RPD', 10_000),
+  tokensPerDay: envInt('AI_TIER_TPD', 25_000_000),
+  requestsPerMinute: envInt('AI_TIER_RPM', 1_000),
+  tokensPerMinute: envInt('AI_TIER_TPM', 1_000_000),
+};
+
+
+// Per-user daily cap with an admin bump: users with role 'admin' get
+// AI_ADMIN_DAILY_LIMIT (default 20 — experiment), everyone else keeps DAILY_LIMIT (10).
+export const ADMIN_DAILY_LIMIT = envInt('AI_ADMIN_DAILY_LIMIT', 20);
+
+// ── Bulk Daily limit ─────────────────────────────────────────────────────────
+export const BULK_DAILY_LIMIT = (() => {
+  const raw = process.env.AI_BULK_DAILY_LIMIT;
+  if (!raw) return 50;
+  const parsed = parseInt(raw, 10);
+  return Number.isNaN(parsed) ? 50 : parsed;
+})();
+
