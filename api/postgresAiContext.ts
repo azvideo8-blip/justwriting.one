@@ -1,6 +1,6 @@
 // api/postgresAiContext.ts
 // Postgres-backed implementation of AiContext for the VPS service.
-// Uses the tables created in supabase/migrations/0004_ai_counters.sql.
+// Uses the tables created in supabase/migrations/0004_ai_counters.sql and 0005_ai_global_daily_tokens.sql.
 
 import { Pool } from 'pg';
 import type { AiContext, GlobalReservation } from '../functions/src/shared/aiContext';
@@ -12,6 +12,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 // ── Global daily cap ─────────────────────────────────────────────────────────
 const GLOBAL_DAILY_LIMIT = parseInt(process.env.AI_TIER_RPD ?? '10000', 10);
+const GLOBAL_TOKEN_LIMIT = parseInt(process.env.AI_TIER_TPD ?? '25000000', 10);
 
 async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalReservation | null> {
   const client = await pool.connect();
@@ -22,11 +23,12 @@ async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalReservat
       `INSERT INTO ai_global_daily (day, call_count)
        VALUES ($1, 1)
        ON CONFLICT (day) DO UPDATE SET call_count = ai_global_daily.call_count + 1
-       RETURNING call_count`,
+       RETURNING call_count, coalesce(tokens, 0) as tokens`,
       [date],
     );
     const count = Number(res.rows[0]?.call_count ?? 1);
-    if (count > GLOBAL_DAILY_LIMIT) {
+    const tokens = Number(res.rows[0]?.tokens ?? 0);
+    if (count > GLOBAL_DAILY_LIMIT || tokens + allowance > GLOBAL_TOKEN_LIMIT) {
       await client.query('ROLLBACK');
       return null;
     }
@@ -57,12 +59,31 @@ async function refundGlobalRequest(res: GlobalReservation | null | undefined): P
 
 // ── Per-user daily limit ─────────────────────────────────────────────────────
 const PER_USER_LIMIT = parseInt(process.env.AI_DAILY_LIMIT ?? String(DAILY_LIMIT), 10);
+const ADMIN_DAILY_LIMIT = parseInt(process.env.AI_ADMIN_DAILY_LIMIT ?? '20', 10);
 
-async function checkDailyLimit(uid: string, _reasoning?: boolean): Promise<boolean> {
+async function isAdmin(uid: string): Promise<boolean> {
+  try {
+    const { rows } = await pool.query('SELECT role FROM users WHERE uid = $1', [uid]);
+    return rows[0]?.role === 'admin';
+  } catch (e) {
+    console.error('[postgresAiContext] isAdmin error', e);
+    return false;
+  }
+}
+
+async function getUserDailyLimit(uid: string): Promise<number> {
+  if (await isAdmin(uid)) return ADMIN_DAILY_LIMIT;
+  return PER_USER_LIMIT;
+}
+
+async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<boolean> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const date = today();
+    const baseLimit = await getUserDailyLimit(uid);
+    const limit = reasoning ? Math.min(baseLimit, 5) : baseLimit;
+
     const res = await client.query(
       `INSERT INTO ai_daily_limit (uid, day, call_count)
        VALUES ($1, $2, 1)
@@ -71,7 +92,7 @@ async function checkDailyLimit(uid: string, _reasoning?: boolean): Promise<boole
       [uid, date],
     );
     const count = Number(res.rows[0]?.call_count ?? 1);
-    if (count > PER_USER_LIMIT) {
+    if (count > limit) {
       await client.query('ROLLBACK');
       return false;
     }
@@ -107,22 +128,10 @@ async function getDailyLimitCount(uid: string): Promise<{ used: number; date: st
   return { used: Number(res.rows[0]?.call_count ?? 0), date };
 }
 
-async function getUserDailyLimit(_uid: string): Promise<number> {
-  return PER_USER_LIMIT;
-}
-
-async function isAdmin(_uid: string): Promise<boolean> {
-  // VPS has no Firestore role store; honour JWT role from the session instead.
-  // Admins are not granted elevated limits on VPS until this is wired to Supabase users table.
-  return false;
-}
-
 // ── Bulk limit (reuse per-user table with a separate counter) ────────────────
 const BULK_LIMIT = parseInt(process.env.AI_BULK_DAILY_LIMIT ?? '50', 10);
 
 async function checkAndIncrementBulkLimit(uid: string): Promise<boolean> {
-  // Use a separate column-level key: uid + '_bulk' + day. Quick approach: use
-  // the same table with uid prefixed so we don't need a schema change.
   const bulkUid = `bulk:${uid}`;
   const client = await pool.connect();
   try {
@@ -164,27 +173,59 @@ async function refundBulkLimit(uid: string): Promise<void> {
   }
 }
 
+const COOLDOWN_MS = 10000;
+
 async function checkAndIncrementLimit(
   uid: string,
   reasoning?: boolean,
 ): Promise<true | 'DAILY_LIMIT' | 'RATE_LIMIT'> {
-  // No cooldown tracking on VPS for now — only daily limit.
-  const _ = reasoning; // unused; reasoning restriction is policy, not enforced here
-  const ok = await checkDailyLimit(uid);
+  const { rows } = await pool.query(
+    `INSERT INTO ai_cooldown (uid, updated_at) VALUES ($1, now())
+     ON CONFLICT (uid) DO UPDATE SET updated_at = now()
+       WHERE ai_cooldown.updated_at < now() - ($2 || ' milliseconds')::interval
+     RETURNING uid`,
+    [uid, String(COOLDOWN_MS)],
+  );
+  if (rows.length === 0) return 'RATE_LIMIT';
+
+  const ok = await checkDailyLimit(uid, reasoning);
   return ok ? true : 'DAILY_LIMIT';
 }
 
 async function recordUsage(
   uid: string,
-  _tokensIn: number,
-  _tokensOut: number,
-  opts?: { model?: string; fn?: string },
+  tokensIn: number,
+  tokensOut: number,
+  _opts?: { model?: string; fn?: string },
   _res?: GlobalReservation | null,
 ): Promise<void> {
-  // NOT IMPLEMENTED. Token usage is not recorded anywhere, so the global token
-  // cap can never fire and the admin usage table stays empty. Warn rather than
-  // log, so the gap is visible in production output instead of blending into it.
-  console.warn(`[postgresAiContext] recordUsage is a stub — usage NOT recorded (uid=${uid}, fn=${opts?.fn ?? 'unknown'})`);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO ai_usage (uid, date, data)
+         VALUES ($1, current_date::text,
+                 jsonb_build_object('promptTokens', $2::int,
+                                    'completionTokens', $3::int,
+                                    'requests', 1))
+       ON CONFLICT (uid, date) DO UPDATE SET data =
+         jsonb_set(jsonb_set(jsonb_set(ai_usage.data,
+           '{promptTokens}',     to_jsonb(coalesce((ai_usage.data->>'promptTokens')::int, 0)     + $2::int)),
+           '{completionTokens}', to_jsonb(coalesce((ai_usage.data->>'completionTokens')::int, 0) + $3::int)),
+           '{requests}',         to_jsonb(coalesce((ai_usage.data->>'requests')::int, 0)         + 1))`,
+      [uid, tokensIn, tokensOut],
+    );
+    await client.query(
+      `UPDATE ai_global_daily SET tokens = coalesce(tokens, 0) + $1 WHERE day = current_date::text`,
+      [tokensIn + tokensOut],
+    );
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 export const postgresAiContext: AiContext = {
@@ -200,3 +241,4 @@ export const postgresAiContext: AiContext = {
   refundBulkLimit,
   checkAndIncrementLimit,
 };
+
