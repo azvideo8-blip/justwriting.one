@@ -64,11 +64,14 @@ export function canSpendReadBudget(): boolean {
  * Pass the payload size when the documents are large and the cost is charged in
  * 4 KiB slices instead.
  */
-export function estimateReadUnits(docs: { data: () => unknown }[]): number {
+export function estimateReadUnits(docs: { data?: () => unknown; [key: string]: unknown }[]): number {
   let units = 0;
   for (const d of docs) {
     let bytes = 0;
-    try { bytes = JSON.stringify(d.data() ?? {}).length; } catch { bytes = 4096; }
+    try { 
+      const payload = typeof d.data === 'function' ? d.data() : d;
+      bytes = JSON.stringify(payload ?? {}).length; 
+    } catch { bytes = 4096; }
     units += Math.max(1, Math.ceil(bytes / 4096));
   }
   return units;

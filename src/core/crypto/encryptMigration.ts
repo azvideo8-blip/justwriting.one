@@ -1,8 +1,7 @@
 import { getSessionKey } from './encrypt';
 import { maybeEncrypt } from './cryptoHelpers';
-import { getClient } from '../firebase/firestoreClient';
+import { DataProvider } from '../data';
 import { tryReserveBulkWriteBudget, areCloudWritesBlockedToday, isGlobalWriteFailure, blockCloudWritesToday } from '../firebase/writeBudget';
-import type { DocumentReference, WriteBatch, FieldValue } from 'firebase/firestore';
 import { reportError } from '../../shared/errors/reportError';
 
 export interface MigrationProgress {
@@ -55,40 +54,34 @@ function clearCheckpoint(userId: string) {
 }
 
 interface PendingOp {
-  ref: DocumentReference;
+  type: 'version' | 'draft';
+  userId: string;
+  documentId?: string;
+  versionId?: string;
+  draftId?: string;
   data: Record<string, unknown>;
   checkKey: string;
-  useSet?: boolean;
 }
 
-function makeFlush(pending: PendingOp[], newBatch: () => WriteBatch, onFlushed?: (keys: string[]) => void) {
+function makeFlush(pending: PendingOp[], onFlushed?: (keys: string[]) => void) {
   return async () => {
     if (pending.length === 0) return;
-    const keys = await flushPending(newBatch(), pending.splice(0, pending.length));
-    onFlushed?.(keys);
+    const ops = pending.splice(0, pending.length);
+    await flushPending(ops);
+    onFlushed?.(ops.map(o => o.checkKey));
   };
 }
 
-async function flushPending(batch: WriteBatch, ops: PendingOp[]): Promise<string[]> {
-  const keys: string[] = [];
-  for (const op of ops) {
-    if (op.useSet) {
-      batch.set(op.ref, op.data, { merge: true });
-    } else {
-      batch.update(op.ref, op.data as Record<string, FieldValue | Partial<unknown> | undefined>);
-    }
-    keys.push(op.checkKey);
-  }
+async function flushPending(ops: PendingOp[]): Promise<void> {
   try {
-    await batch.commit();
+    await DataProvider.executeMigrationBatch(ops);
   } catch (e) {
     if (isGlobalWriteFailure(e)) {
       blockCloudWritesToday();
-      throw new VaultLockedError(); // repurpose or create a new error to bubble up cleanly
+      throw new VaultLockedError();
     }
     throw e;
   }
-  return keys;
 }
 
 // [A-09] добавлен signal для отмены: предотвращает частичное шифрование при закрытии вкладки
@@ -127,55 +120,53 @@ async function _encryptAllExistingNotesInner(
 
   const checkpoint = loadCheckpoint(userId);
 
-  const { db, mod } = await getClient();
-  const { collection, getDocs, query, where, doc } = mod;
-
   let hadErrors = false;
   let budgetExhausted = false;
 
   // Document versions
   try {
-    const docsSnap = await getDocs(collection(db, 'users', userId, 'documents'));
-    for (const documentDoc of docsSnap.docs) {
+    const docs = await DataProvider.getUserDocuments(userId);
+    for (const documentDoc of docs) {
       // Бюджет записи кончился — дальше идти незачем. Иначе на каждый
       // оставшийся документ уходит полное чтение подколлекции версий ради
       // мгновенного выхода по тому же бюджету.
       if (budgetExhausted) break;
-      const documentId = documentDoc.id;
+      const documentId = documentDoc.id as string;
       try {
-        const versionsSnap = await getDocs(collection(db, 'users', userId, 'documents', documentId, 'versions'));
-        progress.total += versionsSnap.docs.length;
+        const versions = await DataProvider.getVersions(userId, documentId);
+        progress.total += versions.length;
         report();
 
         const pending: PendingOp[] = [];
-        const flush = makeFlush(pending, () => mod.writeBatch(db), (keys) => {
+        const flush = makeFlush(pending, (keys) => {
           for (const k of keys) checkpoint.add(k);
           saveCheckpoint(userId, checkpoint);
         });
 
-        for (const v of versionsSnap.docs) {
+        for (const v of versions) {
           if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
           // V-2: abort early if vault locked mid-run instead of erroring on every doc.
           if (!getSessionKey()) throw new VaultLockedError();
           if (!tryReserveBulkWriteBudget()) { budgetExhausted = true; break; }
           try {
-            const ck = `v_${documentId}_${v.id}`;
-            if (checkpoint.has(ck) || v.data()._encrypted) {
+            const versionId = v.id as string;
+            const ck = `v_${documentId}_${versionId}`;
+            if (checkpoint.has(ck) || v._encrypted) {
               checkpoint.add(ck);
               progress.processed++;
               report();
               continue;
             }
-            const encrypted = await maybeEncrypt(v.data() as Record<string, unknown>, ['content'], [], true);
-            const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
-            pending.push({ ref: doc(db, 'users', userId, 'documents', documentId, 'versions', v.id), data: clean, checkKey: ck });
+            const encrypted = await maybeEncrypt(v as Record<string, unknown>, ['content'], [], true);
+            const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined)) as Record<string, unknown>;
+            pending.push({ type: 'version', userId, documentId, versionId, data: clean, checkKey: ck });
             if (pending.length >= BATCH_SIZE) await flush();
              progress.encrypted++;
            } catch (e) {
              if (e instanceof DOMException && e.name === 'AbortError') throw e;
              progress.errors++;
              hadErrors = true;
-             reportError(e, { action: 'encryptAllExistingNotes_version', versionId: v.id, documentId });
+             reportError(e, { action: 'encryptAllExistingNotes_version', versionId: String(v.id), documentId });
            }
           progress.processed++;
           report();
@@ -197,32 +188,33 @@ async function _encryptAllExistingNotesInner(
 
   // Drafts
   try {
-    const draftSnap = await getDocs(query(collection(db, 'drafts'), where('userId', '==', userId)));
-    progress.total += draftSnap.docs.length;
+    const drafts = await DataProvider.getMigrationDrafts(userId);
+    progress.total += drafts.length;
     report();
 
     const pending: PendingOp[] = [];
-    const flush = makeFlush(pending, () => mod.writeBatch(db), (keys) => {
+    const flush = makeFlush(pending, (keys) => {
       for (const k of keys) checkpoint.add(k);
       saveCheckpoint(userId, checkpoint);
     });
 
-    for (const d of draftSnap.docs) {
+    for (const d of drafts) {
       if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
       // V-2: abort early if vault locked mid-run instead of erroring on every doc.
       if (!getSessionKey()) throw new VaultLockedError();
       if (!tryReserveBulkWriteBudget()) { budgetExhausted = true; break; }
       try {
-        const ck = `d_${d.id}`;
-        if (checkpoint.has(ck) || d.data()._encrypted) {
+        const draftId = d.id as string;
+        const ck = `d_${draftId}`;
+        if (checkpoint.has(ck) || d.data._encrypted) {
           checkpoint.add(ck);
           progress.processed++;
           report();
           continue;
         }
-        const encrypted = await maybeEncrypt(d.data() as Record<string, unknown>, ['content'], ['pinnedThoughts'], true);
-        const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
-        pending.push({ ref: doc(db, 'drafts', d.id), data: clean, checkKey: ck, useSet: true });
+        const encrypted = await maybeEncrypt(d.data as Record<string, unknown>, ['content'], ['pinnedThoughts'], true);
+        const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined)) as Record<string, unknown>;
+        pending.push({ type: 'draft', userId, draftId, data: clean, checkKey: ck });
         if (pending.length >= BATCH_SIZE) await flush();
          progress.encrypted++;
        } catch (e) {
@@ -259,37 +251,33 @@ export async function encryptSingleDocument(
   const key = getSessionKey();
   if (!key) throw new Error('Not unlocked');
 
-  const { db, mod } = await getClient();
-  const { collection, getDocs, doc } = mod;
-
   const result = { processed: 0, encrypted: 0, errors: 0 };
 
   try {
-    const versionsSnap = await getDocs(collection(db, 'users', userId, 'documents', documentId, 'versions'));
+    const versions = await DataProvider.getVersions(userId, documentId);
     const pending: PendingOp[] = [];
-    const flush = makeFlush(pending, () => mod.writeBatch(db));
+    const flush = makeFlush(pending);
 
-    for (const v of versionsSnap.docs) {
+    for (const v of versions) {
       // V-2: abort early if vault locked mid-run instead of erroring on every doc.
       if (!getSessionKey()) throw new VaultLockedError();
       try {
-        if (v.data()._encrypted) {
+        const versionId = v.id as string;
+        if (v._encrypted) {
           result.processed++;
           continue;
         }
-        const encrypted = await maybeEncrypt(v.data() as Record<string, unknown>, ['content'], [], true);
-        const clean = Object.fromEntries(Object.entries(encrypted).filter(([, val]) => val !== undefined));
+        const encrypted = await maybeEncrypt(v as Record<string, unknown>, ['content'], [], true);
+        const clean = Object.fromEntries(Object.entries(encrypted).filter(([, val]) => val !== undefined)) as Record<string, unknown>;
         pending.push({
-          ref: doc(db, 'users', userId, 'documents', documentId, 'versions', v.id),
-          data: clean,
-          checkKey: `v_${documentId}_${v.id}`,
+          type: 'version', userId, documentId, versionId, data: clean, checkKey: `v_${documentId}_${versionId}`
         });
         if (pending.length >= BATCH_SIZE) await flush();
         result.encrypted++;
       } catch (e) {
         if (e instanceof VaultLockedError) throw e;
         result.errors++;
-        reportError(e, { action: 'encryptSingleDocument_version', versionId: v.id, documentId });
+        reportError(e, { action: 'encryptSingleDocument_version', versionId: String(v.id), documentId });
       }
       result.processed++;
     }

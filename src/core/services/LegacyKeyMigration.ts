@@ -6,7 +6,7 @@ import {
   ENCRYPTION_META_VERSION,
   VERIFICATION_PLAINTEXT,
 } from './EncryptionMetaService';
-import { getClient } from '../firebase/firestoreClient';
+import { DataProvider } from '../data';
 
 export function hasLegacyEncryption(profile: { encryptionSalt?: string | undefined; encryptedDataKey?: string | undefined } | null): boolean {
   return !!(profile?.encryptionSalt && profile?.encryptedDataKey);
@@ -22,12 +22,8 @@ export async function migrateFromLegacy(
   firebasePassword: string,
   newEncryptionPassword: string,
 ): Promise<void> {
-  const { db, mod } = await getClient();
-  const { doc, getDoc } = mod;
-  const profileSnap = await getDoc(doc(db, 'users', userId));
-  if (!profileSnap.exists()) throw new Error('User profile not found');
-
-  const profileData = profileSnap.data();
+  const profileData = await DataProvider.getProfile(userId);
+  if (!profileData) throw new Error('User profile not found');
   if (!profileData.encryptionSalt || !profileData.encryptedDataKey) {
     throw new Error('No legacy encryption data found');
   }
@@ -57,12 +53,7 @@ export async function migrateFromLegacy(
     verification,
   });
 
-  // Clean up legacy encryption fields so the old password can no longer derive the dataKey
-  const { setDoc } = mod;
-  await setDoc(doc(db, 'users', userId), {
-    encryptionSalt: null,
-    encryptedDataKey: null,
-  }, { merge: true });
+  // Clean up legacy encryption fields is already handled inside saveEncryptionMeta
 
   setSessionKey(dataKey);
   setEncryptionEnabled(userId, true);

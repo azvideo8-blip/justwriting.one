@@ -10,7 +10,7 @@ import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { useToast } from '../../../shared/components/Toast';
 import { MigrationPrompt, checkGuestDocuments } from '../components/MigrationPrompt';
 import { clearSessionKey } from '../../../core/crypto/encrypt';
-import { getClient } from '../../../core/firebase/firestoreClient';
+import { DataProvider } from '../../../core/data';
 import { reportError } from '../../../shared/errors/reportError';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { Button } from '../../../shared/components/Button';
@@ -88,21 +88,17 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
       } else {
         await AuthService.signInWithEmail(email, password);
 
-        const { db, mod } = await getClient();
-        const { doc, getDoc } = mod;
         const currentUid = AuthService.getCurrentUserId();
         if (!currentUid) throw new Error('Not authenticated after sign-in');
-        const profileSnap = await getDoc(doc(db, 'users', currentUid));
-        if (profileSnap.exists()) {
-          const profileData = profileSnap.data();
+        const profileData = await DataProvider.getProfile(currentUid);
+        if (profileData) {
           const unlocked = await AuthService.unlockVaultFromProfile(profileData, password, currentUid);
           if (!unlocked) {
             const pendingRaw = sessionStorage.getItem(`pending_keys_${currentUid}`);
             if (pendingRaw) {
               try {
                 const keys = JSON.parse(pendingRaw);
-                const { setDoc } = mod;
-                await setDoc(doc(db, 'users', currentUid), keys, { merge: true });
+                await DataProvider.updateProfile(currentUid, keys);
                 sessionStorage.removeItem(`pending_keys_${currentUid}`);
                 await AuthService.unlockVaultFromPendingKeys(keys, password, currentUid);
               } catch (repairErr) {

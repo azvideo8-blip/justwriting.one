@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, useMemo, ReactNode } from 'react';
-import { getClient } from '../../../core/firebase/firestoreClient';
+import { DataProvider } from '../../../core/data';
 import { UserProfile } from '../../../types';
 import { userProfileDbSchema } from '../../../core/firebase/schemas/firestoreSchemas';
 import { setEncryptionEnabled, setProfileLoaded } from '../../../core/crypto/cryptoHelpers';
@@ -32,20 +32,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     if (!user) return;
 
     let cancelled = false;
-    let unsubscribe: (() => void) | null = null;
 
-    void (async () => {
-      try {
-        const { db, mod } = await getClient();
-        const { onSnapshot, doc, setDoc, getDoc } = mod;
-        if (cancelled) return;
-
-      const userDoc = doc(db, 'users', user.uid);
-      unsubscribe = onSnapshot(userDoc, (snap) => {
-        if (cancelled) return;
-        void (async () => {
-          if (snap.exists()) {
-            const data = snap.data();
+    const unsubscribe = DataProvider.subscribeToProfile(user.uid, (data) => {
+      if (cancelled) return;
+      void (async () => {
+        try {
+          if (data) {
             if (typeof data === 'object' && data != null && 'uid' in data) {
               const parsed = userProfileDbSchema.safeParse(data);
               if (parsed.success) {
@@ -56,34 +48,21 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
               } else {
                 if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, parsed.error.flatten());
                 setProfile(null);
-                // V-1: profile parse failed — can't determine if encryption is
-                // configured. Do NOT flip encryptionEnabled to false; keep the
-                // vault locked so maybeEncrypt blocks plaintext writes
-                // (ref: security-invariants.md #2).
                 setProfileLoaded(user.uid, true);
               }
             } else {
               if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, data);
               setProfile(null);
-              // V-1: profile data shape invalid — same invariant as above.
-              // Do NOT set encryptionEnabled=false (ref: security-invariants.md #2).
               setProfileLoaded(user.uid, true);
             }
           } else {
-            // V-1: no profile doc exists — confirmed brand-new user with no
-            // encryption config. Safe to set false (ref: security-invariants.md #2).
+            // No profile doc exists. Create it.
             setEncryptionEnabled(user.uid, false);
             if (creationAttemptedRef.current) return;
             creationAttemptedRef.current = true;
 
-            try {
-              const existingSnap = await getDoc(userDoc);
-              if (existingSnap.exists()) {
-                creationAttemptedRef.current = false;
-                return;
-              }
-            } catch (e) {
-              reportError(e, { action: 'checkProfileExists', uid: user.uid });
+            const existingProfile = await DataProvider.getProfile(user.uid);
+            if (existingProfile) {
               creationAttemptedRef.current = false;
               return;
             }
@@ -98,33 +77,31 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
               console.warn('Creating initial user profile:', JSON.stringify(initialProfile));
             }
 
-            void setDoc(userDoc, initialProfile, { merge: true }).then(() => {
+            try {
+              await DataProvider.updateProfile(user.uid, initialProfile as unknown as Record<string, unknown>);
               creationAttemptedRef.current = false;
               if (!cancelled && !profileSetBySnapshotRef.current) {
                 setProfile(initialProfile);
                 setProfileLoaded(user.uid, true);
               }
-            }).catch(err => {
+            } catch (err) {
               reportError(err, { action: 'createUserProfile', uid: user.uid });
               creationAttemptedRef.current = false;
               if (!cancelled) {
                 setProfile(null);
                 setProfileLoaded(user.uid, true);
               }
-            });
+            }
           }
-        })();
-      }, (err) => {
-        reportError(err, { action: 'profileSnapshot', uid: user.uid });
-      });
-      } catch (e) {
-        reportError(e, { action: 'profileContext_init', uid: user.uid });
-      }
-    })();
+        } catch (e) {
+          reportError(e, { action: 'profileContext_init', uid: user.uid });
+        }
+      })();
+    });
 
     return () => {
       cancelled = true;
-      unsubscribe?.();
+      unsubscribe();
     };
   }, [user]);
 

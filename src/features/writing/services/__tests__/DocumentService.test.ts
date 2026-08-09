@@ -18,6 +18,7 @@ const mockWriteBatch = vi.fn(() => ({
 
 const mockTimestampNow = { seconds: 12345678, nanoseconds: 0 };
 const mockTimestampFromDate = (date: Date) => ({ seconds: Math.floor(date.getTime() / 1000), nanoseconds: 0 });
+const mockTimestampFromMillis = (millis: number) => ({ seconds: Math.floor(millis / 1000), nanoseconds: 0 });
 
 vi.mock('../../../../core/firebase/firestoreClient', () => ({
   getClient: async () => ({
@@ -34,10 +35,12 @@ vi.mock('../../../../core/firebase/firestoreClient', () => ({
       Timestamp: {
         now: () => mockTimestampNow,
         fromDate: mockTimestampFromDate,
+        fromMillis: mockTimestampFromMillis,
       },
       increment: (n: number) => ({ type: 'increment', n }),
       query: (col: any, ...constraints: any[]) => ({ type: 'query', col, constraints }),
       where: (field: string, op: string, val: any) => ({ type: 'where', field, op, val }),
+      arrayRemove: (...elements: any[]) => ({ type: 'arrayRemove', elements }),
     },
   }),
 }));
@@ -79,8 +82,8 @@ describe('DocumentService', () => {
       const [colRef, docPayload] = call0!;
       expect(colRef).toEqual({ type: 'collection', paths: ['users', 'user_123', 'documents'] });
       expect(docPayload.title).toBe('My Document');
-      expect(docPayload.firstSessionAt).toEqual(mockTimestampNow);
-      expect(docPayload.lastSessionAt).toEqual(mockTimestampNow);
+      expect(docPayload.firstSessionAt).toEqual(expect.objectContaining({ seconds: expect.any(Number) }));
+      expect(docPayload.lastSessionAt).toEqual(expect.objectContaining({ seconds: expect.any(Number) }));
       expect(docPayload.currentVersion).toBe(0);
       expect(docPayload.totalWords).toBe(0);
       expect(docPayload.totalDuration).toBe(0);
@@ -378,7 +381,7 @@ describe('DocumentService', () => {
       expect(mockBatchUpdate).toHaveBeenCalledTimes(1);
 
       const [, update] = mockBatchUpdate.mock.calls[0]!;
-      expect(update).toEqual({ tags: ['draft'] });
+      expect(update).toEqual({ tags: { type: 'arrayRemove', elements: ['fantasy'] } });
     });
   });
 });

@@ -1,6 +1,6 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIDocumentSummary, AIDocumentEmbedding, AITimelineEntry } from '../../../core/storage/localDb';
-import { getClient } from '../../../core/firebase/firestoreClient';
+import { DataProvider } from '../../../core/data';
 import { sha256Hex, getLatestContent } from '../utils/embeddingIndexer';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { getEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
@@ -75,19 +75,18 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
   }
 
   const db = await getLocalDb();
-  const { db: fs, mod } = await getClient();
 
   const existingSummaries = new Set((await db.getAllKeys('aiSummaries')).map(String));
   const existingEmbeddings = new Set((await db.getAllKeys('aiEmbeddings')).map(String));
 
   try {
     if (canSpendReadBudget()) {
-      const snap = await mod.getDocs(mod.collection(fs, 'users', userId, 'summaries'));
-      spendReadBudget(estimateReadUnits(snap.docs) || 1, 'AIRestoreService.restoreAIData_summaries');
-      for (const d of snap.docs) {
-        if (existingSummaries.has(d.id)) continue;
+      const docs = await DataProvider.getUserSummaries(userId);
+      spendReadBudget(estimateReadUnits(docs) || 1, 'AIRestoreService.restoreAIData_summaries');
+      for (const d of docs) {
+        if (existingSummaries.has(d.id as string)) continue;
         try {
-          await db.put('aiSummaries', await decodeCloudSummary(d.data() as Record<string, unknown>, d.id));
+          await db.put('aiSummaries', await decodeCloudSummary(d, d.id as string));
           result.summaries++;
         } catch {
           result.failed++;
@@ -121,32 +120,32 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
     // resumes across days from a stored cursor.
     if (isEmbeddingRestoreRequested() && canSpendReadBudget()) {
       const PAGE = 5;
-      const docsPage: { id: string; data: () => unknown }[] = [];
-      let cursor: unknown = undefined;
-      const startAfterId = getEmbeddingRestoreCursor();
+      const docsPage: Record<string, unknown>[] = [];
+      let cursorId: string | undefined = getEmbeddingRestoreCursor() || undefined;
       for (;;) {
-        const col = mod.collection(fs, 'users', userId, 'embeddings');
-        const after = cursor ?? (startAfterId || undefined);
-        const pageQuery = after
-          ? mod.query(col, mod.orderBy('__name__'), mod.startAfter(after), mod.limit(PAGE))
-          : mod.query(col, mod.orderBy('__name__'), mod.limit(PAGE));
-        const pageSnap = await mod.getDocs(pageQuery);
-        if (pageSnap.docs.length === 0) { clearEmbeddingRestoreRequest(); break; }
-        spendReadBudget(estimateReadUnits(pageSnap.docs), 'AIRestoreService.restoreAIData_embeddings');
-        docsPage.push(...pageSnap.docs);
-        cursor = pageSnap.docs[pageSnap.docs.length - 1];
-        setEmbeddingRestoreCursor(pageSnap.docs[pageSnap.docs.length - 1]!.id);
-        if (pageSnap.docs.length < PAGE) { clearEmbeddingRestoreRequest(); break; }
+        const res = await DataProvider.getUserEmbeddingsPaginated(userId, PAGE, cursorId);
+        if (res.items.length === 0) { clearEmbeddingRestoreRequest(); break; }
+        
+        // Emulate estimateReadUnits on plain objects just by array length since they aren't QuerySnapshot
+        spendReadBudget(res.items.length, 'AIRestoreService.restoreAIData_embeddings');
+        
+        docsPage.push(...res.items);
+        cursorId = res.nextCursorId;
+        if (cursorId) {
+          setEmbeddingRestoreCursor(cursorId);
+        }
+        
+        if (res.items.length < PAGE) { clearEmbeddingRestoreRequest(); break; }
         if (!canSpendReadBudget()) break;
       }
-      const snap = { docs: docsPage };
-      for (const d of snap.docs) {
-        const alreadyLocal = existingEmbeddings.has(d.id);
+      for (const d of docsPage) {
+        const dId = d.id as string;
+        const alreadyLocal = existingEmbeddings.has(dId);
         // Decoding an already-local record is pure CPU, no extra quota — worth it
         // only when there is something to repair.
         if (alreadyLocal && !needsRepair) continue;
         try {
-          const decoded = await decodeCloudEmbedding(d.data() as Record<string, unknown>, d.id);
+          const decoded = await decodeCloudEmbedding(d, dId);
           if (decoded.contentHash) cloudHashes.add(decoded.contentHash);
           if (!alreadyLocal) {
             await db.put('aiEmbeddings', { ...decoded, cloudSyncedAt: Date.now() });

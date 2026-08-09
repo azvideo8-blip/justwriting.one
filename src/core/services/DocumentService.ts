@@ -1,6 +1,5 @@
-import { getClient } from '../firebase/firestoreClient';
+import { DataProvider } from '../data';
 import { Document } from '../../types';
-import { handleFirestoreError, OperationType } from '../errors/firestore-errors';
 import { toTimestampMs } from '../utils/dateUtils';
 import { reportError } from '../../shared/errors/reportError';
 import { documentDbSchema } from '../firebase/schemas/firestoreSchemas';
@@ -15,72 +14,48 @@ export const DocumentService = {
       lastSessionAt?: Date | undefined;
     }
   ): Promise<string> {
-    try {
-      const { db, mod } = await getClient();
-      const { collection, addDoc, Timestamp } = mod;
-      const now = Timestamp.now();
-      const payload: Record<string, unknown> = {
-        userId,
-        title: data.title,
-        currentVersion: 0,
-        totalWords: 0,
-        totalDuration: 0,
-        sessionsCount: 0,
-        firstSessionAt: data.firstSessionAt ? Timestamp.fromDate(data.firstSessionAt) : now,
-        lastSessionAt: data.lastSessionAt ? Timestamp.fromDate(data.lastSessionAt) : now,
-        tags: data.tags ?? [],
-        labelId: data.labelId ?? null,
-      };
-      if (data.uuid) payload.uuid = data.uuid;
-      const ref = await addDoc(collection(db, 'users', userId, 'documents'), payload);
-      return ref.id;
-    } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, `users/${userId}/documents`);
-      throw e;
-    }
+    const payload: Record<string, unknown> = {
+      title: data.title,
+      currentVersion: 0,
+      totalWords: 0,
+      totalDuration: 0,
+      sessionsCount: 0,
+      firstSessionAt: data.firstSessionAt ? data.firstSessionAt.getTime() : Date.now(),
+      lastSessionAt: data.lastSessionAt ? data.lastSessionAt.getTime() : Date.now(),
+      tags: data.tags ?? [],
+      labelId: data.labelId ?? null,
+    };
+    if (data.uuid) payload.uuid = data.uuid;
+    return DataProvider.createDocument(userId, payload);
   },
 
   async getDocument(userId: string, documentId: string): Promise<Document | null> {
-    try {
-      const { db, mod } = await getClient();
-      const { doc, getDoc } = mod;
-      const snap = await getDoc(doc(db, 'users', userId, 'documents', documentId));
-      if (!snap.exists()) return null;
-      const parsed = documentDbSchema.safeParse({ id: snap.id, ...snap.data() });
-      if (!parsed.success) {
-        reportError(parsed.error, { action: 'getDocument_parse', docId: documentId });
-        return null;
-      }
-      return documentFromDb(parsed.data);
-    } catch (e) {
-      handleFirestoreError(e, OperationType.GET, `users/${userId}/documents/${documentId}`);
-      throw e;
+    const data = await DataProvider.getDocument(userId, documentId);
+    if (!data) return null;
+    const parsed = documentDbSchema.safeParse({ id: documentId, ...data });
+    if (!parsed.success) {
+      reportError(parsed.error, { action: 'getDocument_parse', docId: documentId });
+      return null;
     }
+    return documentFromDb(parsed.data);
   },
 
   async getUserDocuments(userId: string): Promise<Document[]> {
     assertReadBudget('DocumentService.getUserDocuments');
-    try {
-      const { db, mod } = await getClient();
-      const { collection, getDocs } = mod;
-      const snap = await getDocs(collection(db, 'users', userId, 'documents'));
-      spendReadBudget(snap.docs.length || 1, 'DocumentService.getUserDocuments');
-      const docs = snap.docs
-        .map(d => {
-        const parsed = documentDbSchema.safeParse({ id: d.id, ...d.data() });
+    const records = await DataProvider.getUserDocuments(userId);
+    spendReadBudget(records.length || 1, 'DocumentService.getUserDocuments');
+    const docs = records
+      .map(d => {
+        const parsed = documentDbSchema.safeParse({ id: d.id, ...d });
         if (!parsed.success) {
-          reportError(parsed.error, { action: 'getUserDocuments_parse', docId: d.id });
+          reportError(parsed.error, { action: 'getUserDocuments_parse', docId: d.id as string });
           return null;
         }
         return documentFromDb(parsed.data);
-        })
-        .filter((d): d is Document => d !== null);
-      docs.sort((a, b) => (toTimestampMs(b.lastSessionAt) ?? 0) - (toTimestampMs(a.lastSessionAt) ?? 0));
-      return docs;
-    } catch (e) {
-      handleFirestoreError(e, OperationType.GET, `users/${userId}/documents`);
-      throw e;
-    }
+      })
+      .filter((d): d is Document => d !== null);
+    docs.sort((a, b) => (toTimestampMs(b.lastSessionAt) ?? 0) - (toTimestampMs(a.lastSessionAt) ?? 0));
+    return docs;
   },
 
   async updateDocumentAfterSession(
@@ -95,176 +70,50 @@ export const DocumentService = {
       lastSessionAt?: Date | undefined;
     }
   ): Promise<void> {
-    try {
-      const { db, mod } = await getClient();
-      const { doc, updateDoc, Timestamp, increment, deleteField } = mod;
-      const updateData: Record<string, number | string | boolean | ReturnType<typeof increment> | ReturnType<typeof Timestamp.now> | ReturnType<typeof deleteField>> = {
-        totalWords: data.totalWords,
-        totalDuration: data.totalDuration,
-        currentVersion: data.currentVersion,
-      };
-      if (data.mood) updateData.mood = data.mood; else updateData.mood = deleteField();
-      if (data.sessionsCount !== undefined) {
-        updateData.sessionsCount = data.sessionsCount;
-      } else {
-        updateData.sessionsCount = increment(1);
-      }
-      if (data.lastSessionAt !== undefined) {
-        updateData.lastSessionAt = Timestamp.fromDate(data.lastSessionAt);
-      } else {
-        updateData.lastSessionAt = Timestamp.now();
-      }
-      await updateDoc(doc(db, 'users', userId, 'documents', documentId), updateData);
-    } catch (e) {
-      handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents/${documentId}`);
-      throw e;
-    }
+    const payload: Parameters<typeof DataProvider.updateDocumentSessionStats>[2] = {
+      totalWords: data.totalWords,
+      totalDuration: data.totalDuration,
+      currentVersion: data.currentVersion,
+      mood: data.mood ?? null,
+    };
+    if (data.sessionsCount !== undefined) payload.sessionsCount = data.sessionsCount;
+    if (data.lastSessionAt !== undefined) payload.lastSessionAt = data.lastSessionAt;
+    
+    await DataProvider.updateDocumentSessionStats(userId, documentId, payload);
   },
 
   async updateTags(userId: string, documentId: string, tags: string[]): Promise<void> {
-    try {
-      const { db, mod } = await getClient();
-      const { doc, updateDoc } = mod;
-      await updateDoc(doc(db, 'users', userId, 'documents', documentId), { tags });
-    } catch (e) {
-      handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents/${documentId}`);
-      throw e;
-    }
+    await DataProvider.updateDocument(userId, documentId, { tags });
   },
 
   async updateTitle(userId: string, documentId: string, title: string): Promise<void> {
-    try {
-      const { db, mod } = await getClient();
-      const { doc, updateDoc } = mod;
-      await updateDoc(doc(db, 'users', userId, 'documents', documentId), { title });
-    } catch (e) {
-      handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents/${documentId}`);
-      throw e;
-    }
+    await DataProvider.updateDocument(userId, documentId, { title });
   },
 
   async updateDate(userId: string, documentId: string, firstSessionAt: Date, lastSessionAt: Date): Promise<void> {
-    try {
-      const { db, mod } = await getClient();
-      const { doc, updateDoc, Timestamp } = mod;
-      await updateDoc(doc(db, 'users', userId, 'documents', documentId), {
-        firstSessionAt: Timestamp.fromDate(firstSessionAt),
-        lastSessionAt: Timestamp.fromDate(lastSessionAt),
-      });
-    } catch (e) {
-      handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents/${documentId}`);
-      throw e;
-    }
+    await DataProvider.updateDocument(userId, documentId, {
+      firstSessionAt: firstSessionAt.getTime(),
+      lastSessionAt: lastSessionAt.getTime(),
+    });
   },
 
   async updateLabelId(userId: string, documentId: string, labelId: string | undefined): Promise<void> {
-    try {
-      const { db, mod } = await getClient();
-      const { doc, updateDoc } = mod;
-      await updateDoc(doc(db, 'users', userId, 'documents', documentId), { labelId: labelId ?? null });
-    } catch (e) {
-      handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents/${documentId}`);
-      throw e;
-    }
+    await DataProvider.updateDocument(userId, documentId, { labelId: labelId ?? null });
   },
 
   async deleteDocument(userId: string, documentId: string): Promise<void> {
-    try {
-      const { db, mod } = await getClient();
-      const { doc, collection, getDocs, writeBatch, getDoc } = mod;
-      const ref = doc(db, 'users', userId, 'documents', documentId);
-
-      let localId: string | undefined;
-      try {
-        const docSnap = await getDoc(ref);
-        if (docSnap.exists()) {
-          const docData = docSnap.data() as Record<string, unknown>;
-          if (typeof docData?.id === 'string') {
-            localId = docData.id;
-          }
-        }
-      } catch (err) {
-        // Fall back to deleting using cloud documentId if doc reading fails
-        reportError(err, { action: 'deleteDocument_fetchLocalId', userId, documentId });
-      }
-
-      const versionsSnap = await getDocs(collection(ref, 'versions'));
-      const versionRefs = versionsSnap.docs.map(v => v.ref);
-      for (let i = 0; i < versionRefs.length; i += 499) {
-        const batch = writeBatch(db);
-        versionRefs.slice(i, i + 499).forEach(r => batch.delete(r));
-        await batch.commit();
-      }
-      const finalBatch = writeBatch(db);
-      finalBatch.delete(ref);
-      const { doc: docRef } = mod;
-      const targetId = localId || documentId;
-      finalBatch.delete(docRef(db, 'users', userId, 'summaries', targetId));
-      finalBatch.delete(docRef(db, 'users', userId, 'embeddings', targetId));
-      await finalBatch.commit();
-    } catch (e) {
-      handleFirestoreError(e, OperationType.DELETE, `users/${userId}/documents/${documentId}`);
-      throw e;
-    }
+    await DataProvider.deleteDocument(userId, documentId);
   },
 
   async clearLabelFromAllDocs(userId: string, labelId: string): Promise<void> {
-    try {
-      const { db, mod } = await getClient();
-      const { collection, getDocs, writeBatch, query, where } = mod;
-      const q = query(collection(db, 'users', userId, 'documents'), where('labelId', '==', labelId));
-      const snap = await getDocs(q);
-      const matching = snap.docs;
-      for (let i = 0; i < matching.length; i += 499) {
-        const batch = writeBatch(db);
-        matching.slice(i, i + 499).forEach(d => batch.update(d.ref, { labelId: null }));
-        await batch.commit();
-      }
-    } catch (e) {
-      handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents`);
-      throw e;
-    }
+    await DataProvider.clearLabelFromAllDocs(userId, labelId);
   },
 
   async renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void> {
-    try {
-      const { db, mod } = await getClient();
-      const { collection, getDocs, writeBatch, query, where } = mod;
-      const q = query(collection(db, 'users', userId, 'documents'), where('tags', 'array-contains', oldTag));
-      const snap = await getDocs(q);
-      const matching = snap.docs;
-      for (let i = 0; i < matching.length; i += 499) {
-        const batch = writeBatch(db);
-        matching.slice(i, i + 499).forEach(d => {
-          const tags: string[] = d.data().tags ?? [];
-          batch.update(d.ref, { tags: tags.map(t => t === oldTag ? newTag : t) });
-        });
-        await batch.commit();
-      }
-    } catch (e) {
-      handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents`);
-      throw e;
-    }
+    await DataProvider.renameTagInAllDocs(userId, oldTag, newTag);
   },
 
   async removeTagFromAllDocs(userId: string, tag: string): Promise<void> {
-    try {
-      const { db, mod } = await getClient();
-      const { collection, getDocs, writeBatch, query, where } = mod;
-      const q = query(collection(db, 'users', userId, 'documents'), where('tags', 'array-contains', tag));
-      const snap = await getDocs(q);
-      const matching = snap.docs;
-      for (let i = 0; i < matching.length; i += 499) {
-        const batch = writeBatch(db);
-        matching.slice(i, i + 499).forEach(d => {
-          const tags: string[] = d.data().tags ?? [];
-          batch.update(d.ref, { tags: tags.filter(t => t !== tag) });
-        });
-        await batch.commit();
-      }
-    } catch (e) {
-      handleFirestoreError(e, OperationType.UPDATE, `users/${userId}/documents`);
-      throw e;
-    }
+    await DataProvider.removeTagFromAllDocs(userId, tag);
   },
 };

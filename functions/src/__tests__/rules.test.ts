@@ -96,6 +96,35 @@ describe('firestore.rules — user documents', () => {
     await assertFails(db.doc('users/user-a/documents/doc-1').get());
   });
 
+  // MIG2 regression: the data facade briefly wrote session times as epoch
+  // milliseconds. isValidDocumentUpdate type-checks them as `timestamp`, so every
+  // save at the end of a writing session — updateDocumentAfterSession writes
+  // lastSessionAt — would have been refused in production.
+  //
+  // Nothing caught it. Unit tests do not run rules at all, and every case in this
+  // file passes `new Date()`, which the SDK turns into a Timestamp, so a raw
+  // number was never once attempted.
+  //
+  // Note the asymmetry this test pins down: only the UPDATE validator checks the
+  // type. isValidDocumentCreate has no such check, so a create with numbers is
+  // accepted and the document is only rejected later, when it is edited.
+  it('denies updating a document with numeric session times', async () => {
+    const db = testEnv.authenticatedContext('user-a').firestore();
+    await db.doc('users/user-a/documents/doc-upd').set({
+      userId: 'user-a',
+      title: 'My note',
+      currentVersion: 1,
+      totalWords: 100,
+      totalDuration: 60,
+      sessionsCount: 1,
+      firstSessionAt: new Date(),
+      lastSessionAt: new Date(),
+    });
+    await assertFails(
+      db.doc('users/user-a/documents/doc-upd').update({ lastSessionAt: Date.now() }),
+    );
+  });
+
   it('prevents client from setting role field on user creation', async () => {
     const db = testEnv.authenticatedContext('user-a').firestore();
     await assertFails(

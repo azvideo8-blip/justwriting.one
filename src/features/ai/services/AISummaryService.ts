@@ -1,7 +1,7 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIDocumentSummary, AITimelineEntry } from '../../../core/storage/localDb';
 import { getCurrentUser } from '../../../core/auth';
-import { getClient } from '../../../core/firebase/firestoreClient';
+import { DataProvider } from '../../../core/data';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
 import {
@@ -23,8 +23,7 @@ async function saveSummaryToCloud(userId: string, summary: AIDocumentSummary): P
     ARRAY_FIELDS_LIST,
     userId,
   );
-  const { db, mod } = await getClient();
-  await mod.setDoc(mod.doc(db, 'users', userId, 'summaries', summary.documentId), encrypted, { merge: true });
+  await DataProvider.saveSummary(userId, summary.documentId, encrypted);
 }
 
 /**
@@ -79,10 +78,9 @@ export async function decodeCloudSummary(
 }
 
 async function fetchSummaryFromCloud(userId: string, documentId: string): Promise<AIDocumentSummary | undefined> {
-  const { db, mod } = await getClient();
-  const snap = await mod.getDoc(mod.doc(db, 'users', userId, 'summaries', documentId));
-  if (!snap.exists()) return undefined;
-  return decodeCloudSummary(snap.data() as Record<string, unknown>, documentId);
+  const data = await DataProvider.getSummary(userId, documentId);
+  if (!data) return undefined;
+  return decodeCloudSummary(data as Record<string, unknown>, documentId);
 }
 
 export const AISummaryService = {

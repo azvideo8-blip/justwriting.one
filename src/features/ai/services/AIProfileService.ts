@@ -1,7 +1,7 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import { AIService } from './AIService';
 import { getCurrentUser } from '../../../core/auth';
-import { getClient } from '../../../core/firebase/firestoreClient';
+import { DataProvider } from '../../../core/data';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { CloudSyncService } from '../../../core/services/CloudSyncService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
@@ -71,8 +71,7 @@ export const AIProfileService = {
           [],
           uid,
         );
-        const { db, mod } = await getClient();
-        await mod.setDoc(mod.doc(db, 'users', uid), encrypted, { merge: true });
+        await DataProvider.updateProfile(uid, encrypted);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (msg.includes('ENCRYPT_REQUIRED')) {
@@ -122,16 +121,12 @@ export const AIProfileService = {
     const uid = getCurrentUser()?.uid;
     if (uid) {
       try {
-        const { db, mod } = await getClient();
-        const snap = await mod.getDoc(mod.doc(db, 'users', uid));
-        if (snap.exists()) {
-          const data = snap.data() as Record<string, unknown>;
-          if (data.aiPortrait) {
-            const decrypted = await maybeDecrypt(data, ['aiPortrait'], []);
-            const portrait = typeof decrypted.aiPortrait === 'string' ? decrypted.aiPortrait : '';
-            localStorage.setItem(PORTRAIT_LS_KEY, portrait);
-            return portrait;
-          }
+        const profile = await DataProvider.getProfile(uid);
+        if (profile && profile.aiPortrait) {
+          const decrypted = await maybeDecrypt(profile, ['aiPortrait'], []);
+          const portrait = typeof decrypted.aiPortrait === 'string' ? decrypted.aiPortrait : '';
+          localStorage.setItem(PORTRAIT_LS_KEY, portrait);
+          return portrait;
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Shield } from 'lucide-react';
 import { getCurrentUser } from '../../../core/auth';
-import { getClient } from '../../../core/firebase/firestoreClient';
+import { DataProvider } from '../../../core/data';
 import { Button } from '../../../shared/components/Button';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 
@@ -18,13 +18,10 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
     const user = getCurrentUser();
     if (!user) return;
 
-    const { db, mod } = await getClient();
-    const { doc, setDoc, serverTimestamp } = mod;
-    const userDoc = doc(db, 'users', user.uid);
-    await setDoc(userDoc, {
-      privacyAcceptedAt: serverTimestamp(),
+    await DataProvider.updateProfile(user.uid, {
+      privacyAcceptedAt: new Date(),
       privacyVersion: 1,
-    }, { merge: true });
+    } as Record<string, unknown>);
 
     localStorage.setItem(`privacy_accepted_${user.uid}`, 'true');
     onAccepted();
@@ -99,11 +96,9 @@ export function usePrivacyCheck() {
       }
 
       try {
-        const { db, mod } = await getClient();
-        const { doc, getDoc } = mod;
-        const snap = await getDoc(doc(db, 'users', user.uid));
+        const profile = await DataProvider.getProfile(user.uid);
         if (cancelled) return;
-        if (snap.exists() && snap.data()?.privacyAcceptedAt) {
+        if (profile?.privacyAcceptedAt) {
           localStorage.setItem(`privacy_accepted_${user.uid}`, 'true');
           setShowPrivacy(false);
           return;

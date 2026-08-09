@@ -1,4 +1,4 @@
-import { getClient } from '../../../core/firebase/firestoreClient';
+import { DataProvider } from '../../../core/data';
 import { handleFirestoreError, OperationType } from '../../../core/errors/firestore-errors';
 import { ProfileService } from '../../../core/services/ProfileServiceRef';
 import { UserProfile } from '../../../types';
@@ -7,11 +7,8 @@ import { reportError } from '../../../shared/errors/reportError';
 export const AdminUserService = {
   async getUsers(limitCount: number = 50) {
     try {
-      const { db, mod } = await getClient();
-      const { query, collection, limit, getDocs } = mod;
-      const q = query(collection(db, 'users'), limit(limitCount));
-      const snap = await getDocs(q);
-      return snap.docs.map(d => ({ uid: d.id, ...d.data() })) as UserProfile[];
+      const docs = await DataProvider.getUsers(limitCount);
+      return docs.map(d => ({ uid: d.id, ...d })) as UserProfile[];
     } catch (err) {
       reportError(err, { action: 'getUsers' });
       handleFirestoreError(err, OperationType.LIST, 'users');

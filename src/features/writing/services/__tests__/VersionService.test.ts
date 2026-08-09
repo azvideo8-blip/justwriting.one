@@ -6,6 +6,7 @@ const mockSetDoc = vi.fn();
 const mockGetDocs = vi.fn();
 const mockTimestampNow = { seconds: 12345678, nanoseconds: 0 };
 const mockTimestampFromDate = (date: Date) => ({ seconds: Math.floor(date.getTime() / 1000), nanoseconds: 0 });
+const mockTimestampFromMillis = (millis: number) => ({ seconds: Math.floor(millis / 1000), nanoseconds: 0 });
 
 vi.mock('../../../../core/firebase/firestoreClient', () => ({
   getClient: async () => ({
@@ -19,6 +20,7 @@ vi.mock('../../../../core/firebase/firestoreClient', () => ({
       Timestamp: {
         now: () => mockTimestampNow,
         fromDate: mockTimestampFromDate,
+        fromMillis: mockTimestampFromMillis,
       },
       query: (col: any, ...constraints: any[]) => ({ type: 'query', col, constraints }),
       orderBy: (field: string, dir: string) => ({ type: 'orderBy', field, dir }),
@@ -63,8 +65,8 @@ describe('VersionService', () => {
     goalWords: 100,
     goalTime: 600,
     goalReached: false,
-    savedAt: { seconds: 12345678, nanoseconds: 0 },
-    sessionStartedAt: { seconds: 1700000000, nanoseconds: 0 },
+    savedAt: 12345678000,
+    sessionStartedAt: 1700000000000,
     mood: 'focused',
   };
 
@@ -98,8 +100,8 @@ describe('VersionService', () => {
         goalWords: 100,
         goalTime: 600,
         goalReached: false,
-        savedAt: mockTimestampNow,
-        sessionStartedAt: mockTimestampFromDate(dummyVersionData.sessionStartedAt),
+        savedAt: expect.objectContaining({ seconds: expect.any(Number) }),
+        sessionStartedAt: mockTimestampFromMillis(1700000000000),
         mood: 'focused',
       });
     });

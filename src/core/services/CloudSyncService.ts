@@ -10,7 +10,7 @@ import { getSessionKey } from '../crypto/encrypt';
 import { reportError } from '../../shared/errors/reportError';
 import { withTimeout as withTimeoutBase } from '../../shared/utils/withTimeout';
 import { isFirestoreConnected } from '../firebase/firestore';
-import { getClient } from '../firebase/firestoreClient';
+import { DataProvider } from '../data';
 import { tryReserveBulkWriteBudget, areCloudWritesBlockedToday, isGlobalWriteFailure, blockCloudWritesToday } from '../firebase/writeBudget';
 import pLimit from 'p-limit';
 import { SaveDocumentData } from './storageTypes';
@@ -619,8 +619,7 @@ export const CloudSyncService = {
       [],
       userId,
     );
-    const { db, mod } = await getClient();
-    await mod.setDoc(mod.doc(db, 'users', userId), encrypted, { merge: true });
+    await DataProvider.updateProfile(userId, encrypted);
   },
 };
 

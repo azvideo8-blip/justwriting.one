@@ -51,6 +51,8 @@ function makeFirestoreClient(overrides: Record<string, unknown> = {}) {
   const deleteDoc = vi.fn().mockResolvedValue(undefined);
   const serverTimestamp = vi.fn(() => ({ seconds: Date.now() / 1000, nanoseconds: 0 }));
   const doc = vi.fn(() => docRef);
+  const mockTimestampFromDate = (date: Date) => ({ seconds: Math.floor(date.getTime() / 1000), nanoseconds: 0 });
+  const mockTimestampFromMillis = (millis: number) => ({ seconds: Math.floor(millis / 1000), nanoseconds: 0 });
 
   vi.mocked(getClient).mockResolvedValue({
     db: {} as unknown,
@@ -60,6 +62,10 @@ function makeFirestoreClient(overrides: Record<string, unknown> = {}) {
       setDoc,
       deleteDoc,
       serverTimestamp,
+      Timestamp: {
+        fromDate: mockTimestampFromDate,
+        fromMillis: mockTimestampFromMillis,
+      },
       ...overrides,
     },
   } as unknown as Awaited<ReturnType<typeof getClient>>);

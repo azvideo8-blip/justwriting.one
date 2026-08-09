@@ -1,4 +1,4 @@
-import { getClient } from '../../../core/firebase/firestoreClient';
+import { DataProvider } from '../../../core/data';
 import { getLocalDb, LocalDraft } from '../../../core/storage/localDb';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
 import { maybeEncrypt, maybeDecrypt, isProfileLoaded } from '../../../core/crypto/cryptoHelpers';
@@ -68,12 +68,9 @@ export const WritingDraftService = {
         return null;
       })(),
       withTimeout((async () => {
-        const { db, mod } = await getClient();
-        const { doc, getDoc } = mod;
-        const docRef = doc(db, 'drafts', userId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const decrypted: unknown = await maybeDecrypt(docSnap.data() as Record<string, unknown>, ['content'], ['pinnedThoughts']);
+        const draftData = await DataProvider.getDraft(userId);
+        if (draftData) {
+          const decrypted: unknown = await maybeDecrypt(draftData, ['content'], ['pinnedThoughts']);
           return decrypted as LocalDraft;
         }
         return null;
@@ -160,17 +157,13 @@ export const WritingDraftService = {
     }
     const ac = new AbortController();
     _abortControllers.set(draft.userId, ac);
-    const { db, mod } = await getClient();
-    if (ac.signal.aborted) return true;
-    const { doc, setDoc, serverTimestamp } = mod;
-    const docRef = doc(db, 'drafts', draft.userId);
-    const draftRecord: Record<string, unknown> = { ...draft };
+    const draftRecord = draft as unknown as Record<string, unknown>;
     const encrypted = await maybeEncrypt(draftRecord, ['content'], ['pinnedThoughts'], draft.userId);
     const clean = Object.fromEntries(
       Object.entries(encrypted).filter(([k, v]) => v !== undefined && (k in DRAFT_CLOUD_FIELDS))
     );
     try {
-      await setDoc(docRef, { ...clean, updatedAt: serverTimestamp() });
+      await DataProvider.saveDraft(draft.userId, clean);
       _lastCloudSignature.set(draft.userId, signature);
       return true;
     } catch (e) {
@@ -203,9 +196,7 @@ export const WritingDraftService = {
       localStorage.removeItem(STORAGE_KEYS.DRAFT(userId));
     } catch (e) { reportError(e, { action: 'deleteDraft_legacyLocalStorage', userId }); }
     try {
-      const { db, mod } = await getClient();
-      const { doc, deleteDoc } = mod;
-      await deleteDoc(doc(db, 'drafts', userId));
+      await DataProvider.deleteDraft(userId);
     } catch (err) {
       reportError(err, { action: 'deleteDraft_cloud', userId });
     }

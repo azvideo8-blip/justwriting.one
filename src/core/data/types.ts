@@ -1,0 +1,83 @@
+export type ProviderRecord = Record<string, unknown>;
+
+export interface IDataProvider {
+  // --- Document Operations ---
+  createDocument(userId: string, data: ProviderRecord): Promise<string>;
+  getDocument(userId: string, documentId: string): Promise<ProviderRecord | null>;
+  getUserDocuments(userId: string): Promise<ProviderRecord[]>;
+  updateDocument(userId: string, documentId: string, data: ProviderRecord): Promise<void>;
+  updateDocumentSessionStats(
+    userId: string, 
+    documentId: string, 
+    stats: {
+      totalWords: number;
+      totalDuration: number;
+      currentVersion: number;
+      mood?: string | null;      // null implies field deletion
+      sessionsCount?: number;    // undefined implies incrementing by 1
+      lastSessionAt?: Date;      // undefined implies using the current server time
+    }
+  ): Promise<void>;
+  deleteDocument(userId: string, documentId: string): Promise<void>;
+  clearLabelFromAllDocs(userId: string, labelId: string): Promise<void>;
+  renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void>;
+  removeTagFromAllDocs(userId: string, tag: string): Promise<void>;
+
+  // --- Version Operations ---
+  addVersion(userId: string, documentId: string, versionId: string, data: ProviderRecord): Promise<void>;
+  getVersions(userId: string, documentId: string): Promise<ProviderRecord[]>;
+  getLatestVersion(userId: string, documentId: string): Promise<ProviderRecord | null>;
+  updateVersion(userId: string, documentId: string, versionId: string, data: ProviderRecord): Promise<void>;
+  updateVersionsBatch(userId: string, documentId: string, updates: { versionId: string; data: ProviderRecord }[]): Promise<void>;
+  deleteVersionsBatch(userId: string, documentId: string, versionIds: string[]): Promise<void>;
+
+  // --- Profile & Admin Operations ---
+  getProfile(userId: string): Promise<ProviderRecord | null>;
+  updateProfile(userId: string, data: ProviderRecord): Promise<void>;
+  subscribeToProfile(userId: string, onUpdate: (data: ProviderRecord | null) => void): () => void;
+  getUsers(limitCount: number): Promise<ProviderRecord[]>;
+
+  // --- Writing Draft Operations ---
+  getDraft(userId: string): Promise<ProviderRecord | null>;
+  saveDraft(userId: string, data: ProviderRecord): Promise<void>;
+  updateDraft(userId: string, data: ProviderRecord): Promise<void>;
+  deleteDraft(userId: string): Promise<void>;
+
+  // --- AI Summary Operations ---
+  getSummary(userId: string, documentId: string): Promise<ProviderRecord | null>;
+  saveSummary(userId: string, documentId: string, data: ProviderRecord): Promise<void>;
+  getUserSummaries(userId: string): Promise<ProviderRecord[]>;
+
+  // --- AI Embedding Operations ---
+  getEmbedding(userId: string, documentId: string): Promise<ProviderRecord | null>;
+  saveEmbedding(userId: string, documentId: string, data: ProviderRecord): Promise<void>;
+  getUserEmbeddingsPaginated(userId: string, limitCount: number, cursorId?: string): Promise<{ items: ProviderRecord[]; nextCursorId?: string; readCount: number }>;
+  getEmbeddingsPage(userId: string, limitCount: number, startAfterId?: string): Promise<ProviderRecord[]>;
+
+  // --- AI Profile & Restore ---
+  getAIProfile(userId: string): Promise<ProviderRecord | null>;
+  saveAIProfile(userId: string, data: ProviderRecord): Promise<void>;
+
+  // --- Encryption Meta & Legacy Keys ---
+  getEncryptionMeta(userId: string): Promise<ProviderRecord | null>;
+  saveEncryptionMeta(userId: string, data: ProviderRecord): Promise<void>;
+  hasLegacyKey(userId: string): Promise<boolean>;
+
+  // --- Sync ---
+  applySyncChanges(userId: string, changes: {
+    docsToUpdate: Array<{ id: string; data: ProviderRecord }>;
+    docsToDelete: string[];
+    versionsToUpdate: Array<{ documentId: string; versionId: string; data: ProviderRecord }>;
+  }): Promise<void>;
+
+  // --- Migration ---
+  getMigrationDrafts(userId: string): Promise<{ id: string; data: ProviderRecord }[]>;
+  executeMigrationBatch(ops: {
+    type: 'version' | 'draft';
+    userId: string;
+    documentId?: string;
+    versionId?: string;
+    draftId?: string;
+    data: ProviderRecord;
+  }[]): Promise<void>;
+}
