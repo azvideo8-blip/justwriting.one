@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import type { AiContext } from './aiContext';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getDb } from './firestore';
 import DOMPurify from 'isomorphic-dompurify';
@@ -518,3 +519,21 @@ export async function refundBulkLimit(uid: string): Promise<void> {
     tx.update(ref, { count: next });
   }).catch(e => console.error('[AI] refundBulkLimit failed:', e));
 }
+
+// ── Firestore AiContext implementation ───────────────────────────────────────
+// Wraps existing Firestore functions into the shared AiContext interface so
+// Cloud Functions can pass this to .logic.ts files unchanged.
+export const firestoreAiContext: AiContext = {
+  recordUsage,
+  tryReserveGlobalRequest,
+  refundGlobalRequest,
+  checkDailyLimit,
+  refundDailyLimit,
+  getDailyLimitCount,
+  getUserDailyLimit,
+  isAdmin,
+  checkAndIncrementBulkLimit,
+  refundBulkLimit,
+  checkAndIncrementLimit,
+};
+

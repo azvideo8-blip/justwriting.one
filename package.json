@@ -20,6 +20,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^3.0.66",
     "@sentry/react": "^10.46.0",
+    "@types/pg": "^8.21.0",
     "ai": "^6.0.191",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -35,6 +36,7 @@
     "minisearch": "^7.2.0",
     "motion": "^12.23.24",
     "p-limit": "^7.3.0",
+    "pg": "^8.23.0",
     "posthog-js": "^1.376.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

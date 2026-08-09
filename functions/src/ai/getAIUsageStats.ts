@@ -1,101 +1,16 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { getDb } from '../shared/firestore';
-import { TIER_LIMITS, DAILY_LIMIT } from '../shared/aiUtils';
-import { z } from 'zod';
-import type { Timestamp, QueryDocumentSnapshot } from 'firebase-admin/firestore';
-
-const inputSchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(val => {
-    const [, m, d] = val.split('-').map(Number);
-    return (m ?? 0) >= 1 && (m ?? 0) <= 12 && (d ?? 0) >= 1 && (d ?? 0) <= 31;
-  }, 'Invalid date: month must be 1-12, day must be 1-31'),
-  // When provided, returns per-request events for that user instead of aggregated stats
-  targetUid: z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/).optional(),
-});
+import { firestoreAiContext } from '../shared/aiUtils';
+import { AiError } from '../shared/aiContext';
+import { getAIUsageStatsLogic } from './getAIUsageStats.logic';
 
 export const getAIUsageStats = onCall({
   enforceAppCheck: true,
 }, async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Registration required.');
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Registration required.');
+  try {
+    return await getAIUsageStatsLogic(firestoreAiContext, request.auth.uid, request.data);
+  } catch (e) {
+    if (e instanceof AiError) throw new HttpsError(e.code as any, e.message);
+    throw e;
   }
-
-  const isCallerAdmin = request.auth.token.role === 'admin' ||
-    (await getDb().doc(`users/${request.auth.uid}`).get()).data()?.role === 'admin';
-  if (!isCallerAdmin) {
-    throw new HttpsError('permission-denied', 'Admin access required.');
-  }
-
-  const db = getDb();
-
-
-  const parsed = inputSchema.safeParse(request.data);
-  if (!parsed.success) {
-    throw new HttpsError('invalid-argument', 'Invalid arguments.');
-  }
-
-  const { date, targetUid } = parsed.data;
-
-  // ── Per-user event breakdown ──────────────────────────────────────────────
-  if (targetUid) {
-    const eventsSnap = await db
-      .collection(`aiUsage/${targetUid}/events`)
-      .where('date', '==', date)
-      .limit(200)
-      .get();
-
-    const events = eventsSnap.docs
-      .map(d => {
-        const data = d.data();
-        return {
-          id: d.id,
-          ts: (data.ts as Timestamp)?.toMillis?.() ?? 0,
-          tokensIn: (data.tokensIn as number) ?? 0,
-          tokensOut: (data.tokensOut as number) ?? 0,
-          model: (data.model as string) ?? 'unknown',
-          fn: (data.fn as string) ?? 'unknown',
-        };
-      })
-      .sort((a, b) => b.ts - a.ts);
-
-    return { events };
-  }
-
-  // ── Aggregated daily stats (all users) ────────────────────────────────────
-  const collectionRef = db.collectionGroup('daily').where('date', '==', date);
-  const results: { uid: string; requests: number; promptTokens: number; completionTokens: number }[] = [];
-  const totals = { requests: 0, promptTokens: 0, completionTokens: 0 };
-  let lastDoc: QueryDocumentSnapshot | null = null;
-  let hasMore = true;
-
-  while (hasMore) {
-    let q = collectionRef.limit(500);
-    if (lastDoc !== null) q = q.startAfter(lastDoc);
-
-    const snapshot = await q.get();
-    if (snapshot.empty) break;
-
-    snapshot.forEach(doc => {
-      const parentPath = doc.ref.parent.parent;
-      if (!parentPath) return;
-      const uid = parentPath.id;
-      const data = doc.data();
-      const requests = (data.requests as number) ?? 0;
-      const promptTokens = (data.promptTokens as number) ?? 0;
-      const completionTokens = (data.completionTokens as number) ?? 0;
-      results.push({ uid, requests, promptTokens, completionTokens });
-      totals.requests += requests;
-      totals.promptTokens += promptTokens;
-      totals.completionTokens += completionTokens;
-      lastDoc = doc;
-    });
-
-    hasMore = snapshot.size === 500;
-  }
-
-  return {
-    stats: results,
-    totals,
-    limits: { ...TIER_LIMITS, perUserDaily: DAILY_LIMIT },
-  };
 });

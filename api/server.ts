@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { handle as dispatch } from './dispatcher';
 // ── Firebase Admin init (lazy) ─────────────────────────────────────────
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -37,9 +38,11 @@ const server = http.createServer((req, res) => {
     return json(res, 200, { status: 'ready', checks: [] });
   }
 
-  // POST /api/chat — placeholder
-  if (method === 'POST' && url === '/api/chat') {
-    return json(res, 501, { error: 'Not yet implemented on VPS' });
+  // POST /api/* — route to AI dispatcher
+  if (method === 'POST' && url.startsWith('/api/')) {
+    // Delegate to dispatcher which handles auth, rate limiting, and AI handlers
+    await dispatch(req, res);
+    return;
   }
 
   // POST /api/csp-report — CSP violation sink
