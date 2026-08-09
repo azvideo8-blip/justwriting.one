@@ -1,6 +1,6 @@
 export * from './types';
-import { FirestoreDataProvider } from './firestoreDataProvider';
+import { SupabaseDataProvider } from './supabaseDataProvider';
 import { IDataProvider } from './types';
 
 // Export a singleton instance
-export const DataProvider: IDataProvider = FirestoreDataProvider;
+export const DataProvider: IDataProvider = SupabaseDataProvider;
