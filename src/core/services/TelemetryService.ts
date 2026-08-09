@@ -76,9 +76,8 @@ export const TelemetryService = {
 
       const user = getCurrentUser();
       if (user) {
-        const { getFunctions, httpsCallable } = await import('firebase/functions');
-        const sendTelemetryFn = httpsCallable(getFunctions(), 'sendTelemetry');
-        await sendTelemetryFn(payload);
+        const { callAi } = await import('../ai/callAi');
+        await callAi('sendTelemetry', payload);
       }
 
 

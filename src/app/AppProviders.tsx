@@ -18,7 +18,7 @@ import { getOrCreateGuestId } from '../core/storage/localDb';
 import { LocalDocumentService } from '../core/services/LocalDocumentService';
 import { useEmbeddingIndexer } from '../features/ai/hooks/useEmbeddingIndexer';
 import { useOnlineStatus } from '../shared/hooks/useOnlineStatus';
-import { onConnectionChange } from '../core/firebase/firestore';
+
 import { SyncService } from '../core/services/SyncService';
 import { STORAGE_KEYS } from '../shared/constants/storageKeys';
 import { reportError } from '../shared/errors/reportError';
@@ -69,17 +69,7 @@ function SyncManager() {
   const { user } = useAuthStatus();
   const isBrowserOnline = useOnlineStatus();
   const prevBrowserOnline = useRef(isBrowserOnline);
-  const prevFirestoreConnected = useRef(false);
 
-  // Firestore connection recovery
-  useEffect(() => {
-    return onConnectionChange((connected) => {
-      if (connected && !prevFirestoreConnected.current && user && localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) !== 'false') {
-        SyncService.syncPending(user.uid).catch(e => reportError(e, { action: 'sync_manager_firestore_recovery' }));
-      }
-      prevFirestoreConnected.current = connected;
-    });
-  }, [user]);
 
   // Browser online recovery
   useEffect(() => {

@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const callable = vi.fn();
-vi.mock('firebase/functions', () => ({
-  getFunctions: () => ({}),
-  httpsCallable: () => callable,
+const { mockCallAi } = vi.hoisted(() => ({ mockCallAi: vi.fn() }));
+vi.mock('../../../../core/ai/callAi', () => ({
+  callAi: mockCallAi,
 }));
 vi.mock('../../../../shared/errors/reportError', () => ({
   reportError: vi.fn(),
@@ -35,10 +34,10 @@ describe('AIService', () => {
   // normalised codes ('SERVER_ERROR', 'RATE_LIMIT', 'DAILY_LIMIT'), so the
   // break condition never fired and every chunk got its own failure.
   describe('judgeFacets reports a normalised error code', () => {
-    beforeEach(() => callable.mockReset());
+    beforeEach(() => mockCallAi.mockReset());
 
     it('maps a transport failure to a code the caller actually checks', async () => {
-      callable.mockRejectedValueOnce(Object.assign(new Error('internal'), { code: 'functions/internal' }));
+      mockCallAi.mockRejectedValueOnce(Object.assign(new Error('internal'), { code: 'functions/internal' }));
       const res = await AIService.judgeFacets({ facets: [] });
       expect(res.ok).toBe(false);
       if (!res.ok) {
@@ -50,7 +49,7 @@ describe('AIService', () => {
     });
 
     it('maps deadline-exceeded to a normalised code', async () => {
-      callable.mockRejectedValueOnce(Object.assign(new Error('deadline-exceeded'), { code: 'functions/deadline-exceeded' }));
+      mockCallAi.mockRejectedValueOnce(Object.assign(new Error('deadline-exceeded'), { code: 'functions/deadline-exceeded' }));
       const res = await AIService.judgeFacets({ facets: [] });
       expect(res.ok).toBe(false);
       if (!res.ok) {
@@ -62,10 +61,10 @@ describe('AIService', () => {
   });
 
   describe('deriveTaxonomy reports a normalised error code', () => {
-    beforeEach(() => callable.mockReset());
+    beforeEach(() => mockCallAi.mockReset());
 
     it('maps a transport failure to a normalised code', async () => {
-      callable.mockRejectedValueOnce(Object.assign(new Error('internal'), { code: 'functions/internal' }));
+      mockCallAi.mockRejectedValueOnce(Object.assign(new Error('internal'), { code: 'functions/internal' }));
       const res = await AIService.deriveTaxonomy({ digest: 'test' });
       expect(res.ok).toBe(false);
       if (!res.ok) {
@@ -81,38 +80,38 @@ describe('AIService', () => {
   // (UNKNOWN / BAD_REQUEST / MISCONFIGURED) is our function failing, NOT a
   // transport issue — downgrading it to NETWORK would hide real bugs.
   describe('mapAIError maps transport failures to NETWORK', () => {
-    beforeEach(() => callable.mockReset());
+    beforeEach(() => mockCallAi.mockReset());
 
     it('deadline-exceeded → NETWORK', async () => {
-      callable.mockRejectedValueOnce(Object.assign(new Error('deadline-exceeded'), { code: 'functions/deadline-exceeded' }));
+      mockCallAi.mockRejectedValueOnce(Object.assign(new Error('deadline-exceeded'), { code: 'functions/deadline-exceeded' }));
       const res = await AIService.judgeFacets({ facets: [] });
       expect(res.ok).toBe(false);
       if (!res.ok) expect(res.error).toBe('NETWORK');
     });
 
     it('internal with message "internal" → NETWORK', async () => {
-      callable.mockRejectedValueOnce(Object.assign(new Error('internal'), { code: 'functions/internal' }));
+      mockCallAi.mockRejectedValueOnce(Object.assign(new Error('internal'), { code: 'functions/internal' }));
       const res = await AIService.judgeFacets({ facets: [] });
       expect(res.ok).toBe(false);
       if (!res.ok) expect(res.error).toBe('NETWORK');
     });
 
     it('internal with message "UNKNOWN" → SERVER_ERROR, not NETWORK', async () => {
-      callable.mockRejectedValueOnce(Object.assign(new Error('UNKNOWN'), { code: 'functions/internal' }));
+      mockCallAi.mockRejectedValueOnce(Object.assign(new Error('UNKNOWN'), { code: 'functions/internal' }));
       const res = await AIService.judgeFacets({ facets: [] });
       expect(res.ok).toBe(false);
       if (!res.ok) expect(res.error).toBe('SERVER_ERROR');
     });
 
     it('unauthenticated → AUTH_REQUIRED', async () => {
-      callable.mockRejectedValueOnce(Object.assign(new Error('unauthenticated'), { code: 'functions/unauthenticated' }));
+      mockCallAi.mockRejectedValueOnce(Object.assign(new Error('unauthenticated'), { code: 'functions/unauthenticated' }));
       const res = await AIService.judgeFacets({ facets: [] });
       expect(res.ok).toBe(false);
       if (!res.ok) expect(res.error).toBe('AUTH_REQUIRED');
     });
 
     it('unavailable → UPSTREAM', async () => {
-      callable.mockRejectedValueOnce(Object.assign(new Error('unavailable'), { code: 'functions/unavailable' }));
+      mockCallAi.mockRejectedValueOnce(Object.assign(new Error('unavailable'), { code: 'functions/unavailable' }));
       const res = await AIService.judgeFacets({ facets: [] });
       expect(res.ok).toBe(false);
       if (!res.ok) expect(res.error).toBe('UPSTREAM');

@@ -9,9 +9,9 @@ import { maybeEncrypt, maybeDecrypt, DecryptionError, type VersionEncryptPayload
 import { getSessionKey } from '../crypto/encrypt';
 import { reportError } from '../../shared/errors/reportError';
 import { withTimeout as withTimeoutBase } from '../../shared/utils/withTimeout';
-import { isFirestoreConnected } from '../firebase/firestore';
+
 import { DataProvider } from '../data';
-import { tryReserveBulkWriteBudget, areCloudWritesBlockedToday, isGlobalWriteFailure, blockCloudWritesToday } from '../firebase/writeBudget';
+
 import pLimit from 'p-limit';
 import { SaveDocumentData } from './storageTypes';
 import { ConflictResolver } from './ConflictResolver';
@@ -28,26 +28,11 @@ function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): P
   return withTimeoutBase(promise, ms, 'Sync timeout');
 }
 
-/**
- * The highest version number the cloud can honestly claim after a partial
- * upload: the last one in an unbroken run from the oldest. Taking the maximum
- * instead would let a gap hide — versions 1 and 3 uploaded, 2 skipped, and the
- * document reports v3 while v2 does not exist.
- */
-export function highestContiguousVersion(allVersions: number[], uploaded: Set<number>): number {
-  let highest = 0;
-  for (const v of [...allVersions].sort((a, b) => a - b)) {
-    if (!uploaded.has(v)) break;
-    highest = v;
-  }
-  return highest;
-}
+
 
 export const CloudSyncService = {
   async restoreMissingDocuments(userId: string): Promise<{ restored: number; hasMore: boolean }> {
-    if (areCloudWritesBlockedToday()) {
-      return { restored: 0, hasMore: true };
-    }
+
 
     if (getEncryptionEnabled(userId) && !getSessionKey()) {
       return { restored: 0, hasMore: false };
@@ -82,10 +67,7 @@ export const CloudSyncService = {
     for (const doc of cloudDocs) {
       if (localCloudIds.has(doc.id)) continue;
       
-      if (!tryReserveBulkWriteBudget()) {
-        hasMore = true;
-        break;
-      }
+
 
       try {
         await CloudSyncService.addLocalCopy(userId, doc.id);
@@ -244,12 +226,10 @@ export const CloudSyncService = {
   },
 
   async addCloudCopy(userId: string, localDocumentId: string, _encryptionRequired = true): Promise<string> {
-    if (!isFirestoreConnected) {
+    if (!navigator.onLine) {
       throw new Error('Not connected to cloud. Changes saved locally.');
     }
-    if (areCloudWritesBlockedToday()) {
-      return '';
-    }
+
     const db = await getLocalDb();
     const lockKey = `lock_cloud_${localDocumentId}`;
 
@@ -290,7 +270,7 @@ export const CloudSyncService = {
           const missing = localVersions.filter(v => !cloudNums.has(v.version) && v.version > newestCloud);
           const limiter = pLimit(3);
           await Promise.all(missing.map((ver) => limiter(async () => {
-            if (!tryReserveBulkWriteBudget()) { budgetExhausted = true; return; }
+
             const idx = localVersions.findIndex(v => v.id === ver.id);
             const prevContent = idx <= 0 ? '' : (localVersions[idx - 1]?.content ?? '');
             const startedAt = ver.sessionStartedAt != null
@@ -335,11 +315,7 @@ export const CloudSyncService = {
           // and the activity log said the note was saved. Report incomplete
           // instead: the link stays (the document exists, so a retry must not
           // create a second one) and the queue keeps the work.
-          if (budgetExhausted) {
-            reportError(new Error('Cloud sync incomplete: write budget exhausted'),
-              { action: 'addCloudCopy_incomplete', documentId: localDocumentId }, 'warning');
-            return '';
-          }
+
           // Don't roll cloud metadata backward when the cloud copy is ahead of
           // this (behind) device — otherwise currentVersion regresses and a later
           // save can reuse a version number, overwriting a version via setDoc(`v${n}`).
@@ -359,8 +335,7 @@ export const CloudSyncService = {
       }
 
       const versions = await LocalVersionService.getVersions(localDocumentId);
-      const uploadedVersions = new Set<number>();
-      let incomplete = false;
+
       let cloudId: string | null = null;
 
       try {
@@ -375,7 +350,7 @@ export const CloudSyncService = {
 
         const limiter = pLimit(3);
         await Promise.all(versions.map((ver, i) => limiter(async () => {
-          if (!tryReserveBulkWriteBudget()) return;
+
           const prevContent = i === 0 ? '' : (versions[i - 1]?.content ?? '');
           const startedAt = ver.sessionStartedAt != null
             ? new Date(ver.sessionStartedAt)
@@ -414,27 +389,19 @@ export const CloudSyncService = {
             savedAt: ver.savedAt ? new Date(ver.savedAt) : undefined,
             _encrypted,
           }));
-          uploadedVersions.add(ver.version);
-        })));
 
-        // What the cloud can honestly claim to hold. When the write budget ran
-        // out mid-way, saying `localDoc.currentVersion` would advertise text
-        // that never arrived — and the note would look fully backed up.
-        const contiguous = highestContiguousVersion(versions.map(v => v.version), uploadedVersions);
-        incomplete = uploadedVersions.size < versions.length;
+        })));
 
         await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
           totalWords: localDoc.totalWords,
           totalDuration: localDoc.totalDuration,
-          currentVersion: incomplete ? contiguous : localDoc.currentVersion,
+          currentVersion: localDoc.currentVersion,
           sessionsCount: localDoc.sessionsCount,
           lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
           mood: localDoc.mood,
         }));
       } catch (e) {
-        if (isGlobalWriteFailure(e)) {
-          blockCloudWritesToday();
-        }
+
         if (cloudId) {
           try { await DocumentService.deleteDocument(userId, cloudId); } catch (cleanupErr) { reportError(cleanupErr, { action: 'addCloudCopy_cleanup', cloudId }); }
         }
@@ -456,18 +423,7 @@ export const CloudSyncService = {
       await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId);
       await LocalStorageService.migrateDocumentOwner(localDocumentId, userId);
 
-      if (incomplete) {
-        reportError(new Error('Cloud sync incomplete: write budget exhausted'),
-          { action: 'addCloudCopy_incomplete', documentId: localDocumentId, uploaded: uploadedVersions.size, total: versions.length }, 'warning');
-        useActivityLogStore.getState().addActivity(
-          `Заметка выгружена частично (версий: ${uploadedVersions.size} из ${versions.length}) — остальное уйдёт позже`,
-          { action: 'addCloudCopy_incomplete', documentId: localDocumentId, cloudDocumentId: cloudId },
-          'warning',
-          'sync'
-        );
-        // Empty id: callers leave the queue item in place, so the rest is retried.
-        return '';
-      }
+
 
       useActivityLogStore.getState().addActivity(
         'Заметка сохранена в облако',
@@ -504,7 +460,7 @@ export const CloudSyncService = {
     newVersion: number,
     prevContent: string
   ): Promise<{ forked: boolean }> {
-    if (!isFirestoreConnected) {
+    if (!navigator.onLine) {
       const syncDb = await getLocalDb();
       await syncDb.put('syncQueue', {
         id: `sync_${documentId}`,

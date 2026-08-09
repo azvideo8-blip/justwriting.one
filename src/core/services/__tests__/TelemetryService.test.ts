@@ -1,17 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const mockSendTelemetry = vi.fn().mockResolvedValue({ data: { success: true } });
-const mockHttpsCallable = vi.fn().mockReturnValue(mockSendTelemetry);
-
-vi.mock('firebase/auth', () => ({
-  getAuth: () => ({ currentUser: { uid: 'user-1' } }),
+const { mockCallAi } = vi.hoisted(() => ({
+  mockCallAi: vi.fn().mockResolvedValue({ success: true }),
 }));
 
-vi.mock('firebase/functions', () => ({
-  getFunctions: vi.fn().mockReturnValue({ app: 'mockApp' }),
-  httpsCallable: (...args: unknown[]) => mockHttpsCallable(...args),
+vi.mock('../../auth', () => ({
+  getCurrentUser: () => ({ uid: 'user-1' }),
 }));
 
+vi.mock('../../ai/callAi', () => ({
+  callAi: mockCallAi,
+}));
 
 vi.mock('../../storage/localDb', () => ({
   getLocalDb: () => Promise.resolve({
@@ -34,21 +33,18 @@ describe('TelemetryService', () => {
   it('calls sendTelemetry callable function when interval has passed and user is signed in', async () => {
     await TelemetryService.maybeSendTelemetry();
 
-    expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'sendTelemetry');
-    expect(mockSendTelemetry).toHaveBeenCalledWith(
-      expect.objectContaining({
-        telemetryId: expect.any(String),
-        notesCountBucket: '0-10',
-        averageWordCount: 150,
-        reasoningRatio: 0.5,
-      })
-    );
+    expect(mockCallAi).toHaveBeenCalledWith('sendTelemetry', expect.objectContaining({
+      telemetryId: expect.any(String),
+      notesCountBucket: '0-10',
+      averageWordCount: 150,
+      reasoningRatio: 0.5,
+    }));
   });
 
   it('skips sending telemetry if send interval (14 days) has not passed', async () => {
     localStorage.setItem('telemetry_last_send', String(Date.now()));
     await TelemetryService.maybeSendTelemetry();
 
-    expect(mockSendTelemetry).not.toHaveBeenCalled();
+    expect(mockCallAi).not.toHaveBeenCalled();
   });
 });

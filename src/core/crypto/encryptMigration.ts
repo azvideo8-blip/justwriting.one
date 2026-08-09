@@ -1,7 +1,7 @@
 import { getSessionKey } from './encrypt';
 import { maybeEncrypt } from './cryptoHelpers';
 import { DataProvider } from '../data';
-import { tryReserveBulkWriteBudget, areCloudWritesBlockedToday, isGlobalWriteFailure, blockCloudWritesToday } from '../firebase/writeBudget';
+
 import { reportError } from '../../shared/errors/reportError';
 
 export interface MigrationProgress {
@@ -73,15 +73,7 @@ function makeFlush(pending: PendingOp[], onFlushed?: (keys: string[]) => void) {
 }
 
 async function flushPending(ops: PendingOp[]): Promise<void> {
-  try {
-    await DataProvider.executeMigrationBatch(ops);
-  } catch (e) {
-    if (isGlobalWriteFailure(e)) {
-      blockCloudWritesToday();
-      throw new VaultLockedError();
-    }
-    throw e;
-  }
+  await DataProvider.executeMigrationBatch(ops);
 }
 
 // [A-09] добавлен signal для отмены: предотвращает частичное шифрование при закрытии вкладки
@@ -109,9 +101,7 @@ async function _encryptAllExistingNotesInner(
   signal?: AbortSignal,
 ): Promise<MigrationProgress> {
   if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
-  if (areCloudWritesBlockedToday()) {
-    return { total: 0, processed: 0, encrypted: 0, errors: 0 };
-  }
+
   const key = getSessionKey();
   if (!key) throw new Error('Not unlocked');
 
@@ -121,16 +111,13 @@ async function _encryptAllExistingNotesInner(
   const checkpoint = loadCheckpoint(userId);
 
   let hadErrors = false;
-  let budgetExhausted = false;
+
 
   // Document versions
   try {
     const docs = await DataProvider.getUserDocuments(userId);
     for (const documentDoc of docs) {
-      // Бюджет записи кончился — дальше идти незачем. Иначе на каждый
-      // оставшийся документ уходит полное чтение подколлекции версий ради
-      // мгновенного выхода по тому же бюджету.
-      if (budgetExhausted) break;
+
       const documentId = documentDoc.id as string;
       try {
         const versions = await DataProvider.getVersions(userId, documentId);
@@ -147,7 +134,7 @@ async function _encryptAllExistingNotesInner(
           if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
           // V-2: abort early if vault locked mid-run instead of erroring on every doc.
           if (!getSessionKey()) throw new VaultLockedError();
-          if (!tryReserveBulkWriteBudget()) { budgetExhausted = true; break; }
+
           try {
             const versionId = v.id as string;
             const ck = `v_${documentId}_${versionId}`;
@@ -202,7 +189,7 @@ async function _encryptAllExistingNotesInner(
       if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
       // V-2: abort early if vault locked mid-run instead of erroring on every doc.
       if (!getSessionKey()) throw new VaultLockedError();
-      if (!tryReserveBulkWriteBudget()) { budgetExhausted = true; break; }
+
       try {
         const draftId = d.id as string;
         const ck = `d_${draftId}`;
@@ -235,12 +222,12 @@ async function _encryptAllExistingNotesInner(
     reportError(e, { action: 'encryptAllExistingNotes_draftsQuery', userId });
   }
 
-  if (budgetExhausted) progress.incomplete = true;
+
 
   // Чекпойнт — единственная память о проделанной работе. Снести его после
   // обрыва по бюджету значит на следующем запуске перечитать весь архив
   // заново: повторные заметки отсеются по _encrypted, но чтения уже потрачены.
-  if (!hadErrors && !budgetExhausted) clearCheckpoint(userId);
+  if (!hadErrors) clearCheckpoint(userId);
   return progress;
 }
 

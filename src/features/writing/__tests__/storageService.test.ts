@@ -49,10 +49,7 @@ vi.mock('../../../core/crypto/cryptoHelpers', () => ({
   maybeDecrypt: vi.fn(async (doc: Record<string, unknown>) => doc),
 }));
 
-vi.mock('../../../core/firebase/firestore', () => ({
-  isFirestoreConnected: true,
-  onConnectionChange: vi.fn(),
-}));
+// Removed firestore mock
 
 // ─── Subject imports (after mocks) ───────────────────────────────────────────
 
@@ -508,11 +505,9 @@ describe('StorageService.saveVersion — offline queue', () => {
     const { localId } = await StorageService.saveNew(GUEST, BASE_DATA);
     await LocalDocumentService.updateLinkedCloudId(localId, 'cloud_offline_123');
 
-    // Mock Firestore as disconnected
-    vi.doMock('../../../core/firebase/firestore', () => ({
-      isFirestoreConnected: false,
-      onConnectionChange: vi.fn(),
-    }));
+    // Mock navigator.onLine as disconnected
+    const originalOnLine = navigator.onLine;
+    Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
 
     const result = await StorageService.saveVersion(GUEST, localId, {
       ...BASE_DATA,
@@ -527,6 +522,9 @@ describe('StorageService.saveVersion — offline queue', () => {
     const queue = await db.getAll('syncQueue');
     const docQueue = queue.filter(q => q.documentId === localId);
     expect(docQueue.length).toBeGreaterThan(0);
+    
+    // Restore navigator.onLine
+    Object.defineProperty(navigator, 'onLine', { value: originalOnLine, configurable: true });
   });
 });
 

@@ -21,26 +21,25 @@ vi.spyOn(cryptoHelpers, 'maybeEncrypt').mockImplementation(async (doc, fields, a
   return result;
 });
 
-const mockGetDocs = vi.fn();
-const mockWriteBatchCommit = vi.fn().mockResolvedValue(undefined);
-const mockWriteBatch = vi.fn(() => ({
-  set: vi.fn(),
-  update: vi.fn(),
-  commit: mockWriteBatchCommit,
+const {
+  mockGetUserDocuments,
+  mockGetVersions,
+  mockGetMigrationDrafts,
+  mockExecuteMigrationBatch
+} = vi.hoisted(() => ({
+  mockGetUserDocuments: vi.fn(),
+  mockGetVersions: vi.fn(),
+  mockGetMigrationDrafts: vi.fn(),
+  mockExecuteMigrationBatch: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('../../firebase/firestoreClient', () => ({
-  getClient: async () => ({
-    db: {} as any,
-    mod: {
-      collection: (db: any, ...paths: string[]) => ({ path: paths.join('/') }),
-      getDocs: mockGetDocs,
-      query: (col: any, ..._constraints: any[]) => col,
-      where: (field: string, op: string, value: any) => ({ field, op, value }),
-      doc: (db: any, ...paths: string[]) => ({ path: paths.join('/'), id: paths[paths.length - 1] }),
-      writeBatch: mockWriteBatch,
-    },
-  }),
+vi.mock('../../data', () => ({
+  DataProvider: {
+    getUserDocuments: mockGetUserDocuments,
+    getVersions: mockGetVersions,
+    getMigrationDrafts: mockGetMigrationDrafts,
+    executeMigrationBatch: mockExecuteMigrationBatch,
+  },
 }));
 
 describe('encryptAllExistingNotes', () => {
@@ -51,36 +50,10 @@ describe('encryptAllExistingNotes', () => {
     localStorage.clear();
   });
 
-  const createMockSnapshot = (docs: any[]) => ({
-    docs: docs.map(d => ({
-      id: d.id,
-      data: () => d.data,
-    })),
-  });
-
   it('encrypts all unencrypted documents', async () => {
-    const userDocList = [
-      { id: 'doc1', data: {} },
-    ];
-    const versionDocs = [
-      { id: 'ver1', data: { content: 'world', _encrypted: false } },
-    ];
-    const draftDocs = [
-      { id: 'draft1', data: { content: 'test', _encrypted: false } },
-    ];
-
-    mockGetDocs.mockImplementation(async (queryOrCol: any) => {
-      if (queryOrCol.path === 'users/user123/documents') {
-        return createMockSnapshot(userDocList);
-      }
-      if (queryOrCol.path === 'users/user123/documents/doc1/versions') {
-        return createMockSnapshot(versionDocs);
-      }
-      if (queryOrCol.path === 'drafts') {
-        return createMockSnapshot(draftDocs);
-      }
-      return createMockSnapshot([]);
-    });
+    mockGetUserDocuments.mockResolvedValue([{ id: 'doc1' }]);
+    mockGetVersions.mockImplementation(async (_u, docId) => docId === 'doc1' ? [{ id: 'ver1', content: 'world', _encrypted: false }] : []);
+    mockGetMigrationDrafts.mockResolvedValue([{ id: 'draft1', data: { content: 'test', _encrypted: false } }]);
 
     const progressCallback = vi.fn();
     const progress = await encryptAllExistingNotes(userId, progressCallback);
@@ -93,7 +66,8 @@ describe('encryptAllExistingNotes', () => {
   });
 
   it('skips already encrypted documents', async () => {
-    mockGetDocs.mockResolvedValue(createMockSnapshot([]));
+    mockGetUserDocuments.mockResolvedValue([]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
 
     const progress = await encryptAllExistingNotes(userId);
     expect(progress.total).toBe(0);
@@ -103,7 +77,8 @@ describe('encryptAllExistingNotes', () => {
   });
 
   it('resumes from checkpoint on retry', async () => {
-    mockGetDocs.mockResolvedValue(createMockSnapshot([]));
+    mockGetUserDocuments.mockResolvedValue([]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
 
     localStorage.setItem(`encryptionMigration_${userId}_checkpoint`, JSON.stringify(['s_sess1']));
 
@@ -114,7 +89,8 @@ describe('encryptAllExistingNotes', () => {
   });
 
   it('aborts when signal is aborted', async () => {
-    mockGetDocs.mockResolvedValue(createMockSnapshot([]));
+    mockGetUserDocuments.mockResolvedValue([]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
 
     const controller = new AbortController();
     controller.abort();
@@ -123,19 +99,9 @@ describe('encryptAllExistingNotes', () => {
   });
 
   it('handles individual document encryption failure gracefully', async () => {
-    const versionDocs = [
-      { id: 'ver1', data: { content: 'hello', _encrypted: false } },
-    ];
-
-    mockGetDocs.mockImplementation(async (queryOrCol: any) => {
-      if (queryOrCol.path === 'users/user123/documents/doc1/versions') {
-        return createMockSnapshot(versionDocs);
-      }
-      if (queryOrCol.path === 'users/user123/documents') {
-        return createMockSnapshot([{ id: 'doc1', data: {} }]);
-      }
-      return createMockSnapshot([]);
-    });
+    mockGetUserDocuments.mockResolvedValue([{ id: 'doc1' }]);
+    mockGetVersions.mockResolvedValue([{ id: 'ver1', content: 'hello', _encrypted: false }]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
 
     vi.spyOn(cryptoHelpers, 'maybeEncrypt').mockRejectedValueOnce(new Error('Crypt error'));
 
@@ -147,44 +113,23 @@ describe('encryptAllExistingNotes', () => {
   });
 
   it('V-2: passes required=true as 4th arg to maybeEncrypt', async () => {
-    const versionDocs = [
-      { id: 'ver1', data: { content: 'hello', _encrypted: false } },
-    ];
-
-    mockGetDocs.mockImplementation(async (queryOrCol: any) => {
-      if (queryOrCol.path === 'users/user123/documents/doc1/versions') {
-        return createMockSnapshot(versionDocs);
-      }
-      if (queryOrCol.path === 'users/user123/documents') {
-        return createMockSnapshot([{ id: 'doc1', data: {} }]);
-      }
-      return createMockSnapshot([]);
-    });
+    mockGetUserDocuments.mockResolvedValue([{ id: 'doc1' }]);
+    mockGetVersions.mockResolvedValue([{ id: 'ver1', content: 'hello', _encrypted: false }]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
 
     const spy = vi.spyOn(cryptoHelpers, 'maybeEncrypt');
     await encryptAllExistingNotes(userId);
 
     expect(spy).toHaveBeenCalled();
     for (const call of spy.mock.calls) {
-      // 4th arg (index 3) must be `true` (required)
       expect(call[3]).toBe(true);
     }
   });
 
   it('V-2: aborts with VaultLockedError when getSessionKey returns null mid-run', async () => {
-    const versionDocs = [
-      { id: 'ver1', data: { content: 'hello', _encrypted: false } },
-    ];
-
-    mockGetDocs.mockImplementation(async (queryOrCol: any) => {
-      if (queryOrCol.path === 'users/user123/documents/doc1/versions') {
-        return createMockSnapshot(versionDocs);
-      }
-      if (queryOrCol.path === 'users/user123/documents') {
-        return createMockSnapshot([{ id: 'doc1', data: {} }]);
-      }
-      return createMockSnapshot([]);
-    });
+    mockGetUserDocuments.mockResolvedValue([{ id: 'doc1' }]);
+    mockGetVersions.mockResolvedValue([{ id: 'ver1', content: 'hello', _encrypted: false }]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
 
     // Simulate vault locking mid-run: key present for initial check, null after.
     let callCount = 0;
@@ -202,19 +147,9 @@ describe('encryptAllExistingNotes', () => {
   });
 
   it('handles checkpoint save failure without throwing', async () => {
-    const versionDocs = [
-      { id: 'ver1', data: { content: 'hello', _encrypted: false } },
-    ];
-
-    mockGetDocs.mockImplementation(async (queryOrCol: any) => {
-      if (queryOrCol.path === 'users/user123/documents/doc1/versions') {
-        return createMockSnapshot(versionDocs);
-      }
-      if (queryOrCol.path === 'users/user123/documents') {
-        return createMockSnapshot([{ id: 'doc1', data: {} }]);
-      }
-      return createMockSnapshot([]);
-    });
+    mockGetUserDocuments.mockResolvedValue([{ id: 'doc1' }]);
+    mockGetVersions.mockResolvedValue([{ id: 'ver1', content: 'hello', _encrypted: false }]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
 
     vi.spyOn(localStorage, 'setItem').mockImplementationOnce(() => {
       throw new Error('quota exceeded');
@@ -226,28 +161,19 @@ describe('encryptAllExistingNotes', () => {
   });
 
   it('saves checkpoint after batch flush and clears it on completion', async () => {
-    const versionDocs = [
-      { id: 'ver1', data: { content: 'hello', _encrypted: false } },
-    ];
-
-    mockGetDocs.mockImplementation(async (queryOrCol: any) => {
-      if (queryOrCol.path === 'users/user123/documents/doc1/versions') {
-        return createMockSnapshot(versionDocs);
-      }
-      if (queryOrCol.path === 'users/user123/documents') {
-        return createMockSnapshot([{ id: 'doc1', data: {} }]);
-      }
-      return createMockSnapshot([]);
-    });
+    mockGetUserDocuments.mockResolvedValue([{ id: 'doc1' }]);
+    mockGetVersions.mockResolvedValue([{ id: 'ver1', content: 'hello', _encrypted: false }]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
 
     await encryptAllExistingNotes(userId);
 
-    expect(mockWriteBatchCommit).toHaveBeenCalled();
+    expect(mockExecuteMigrationBatch).toHaveBeenCalled();
     expect(localStorage.getItem(`encryptionMigration_${userId}_checkpoint`)).toBeNull();
   });
 
   it('returns zero progress when no documents exist', async () => {
-    mockGetDocs.mockResolvedValue(createMockSnapshot([]));
+    mockGetUserDocuments.mockResolvedValue([]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
 
     const progress = await encryptAllExistingNotes(userId);
     expect(progress.total).toBe(0);
@@ -259,60 +185,13 @@ describe('encryptAllExistingNotes', () => {
   it('handles corrupted checkpoint data gracefully', async () => {
     localStorage.setItem(`encryptionMigration_${userId}_checkpoint`, 'not-valid-json{{{');
 
-    const versionDocs = [
-      { id: 'ver1', data: { content: 'hello', _encrypted: false } },
-    ];
-
-    mockGetDocs.mockImplementation(async (queryOrCol: any) => {
-      if (queryOrCol.path === 'users/user123/documents/doc1/versions') {
-        return createMockSnapshot(versionDocs);
-      }
-      if (queryOrCol.path === 'users/user123/documents') {
-        return createMockSnapshot([{ id: 'doc1', data: {} }]);
-      }
-      return createMockSnapshot([]);
-    });
+    mockGetUserDocuments.mockResolvedValue([{ id: 'doc1' }]);
+    mockGetVersions.mockResolvedValue([{ id: 'ver1', content: 'hello', _encrypted: false }]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
 
     const progress = await encryptAllExistingNotes(userId);
     expect(progress.encrypted).toBe(1);
     expect(progress.errors).toBe(0);
-  });
-
-  it('stops and sets incomplete flag when bulk write budget is exhausted', async () => {
-    const versionDocs = [
-      { id: 'ver1', data: { content: 'hello', _encrypted: false } },
-      { id: 'ver2', data: { content: 'hello', _encrypted: false } },
-    ];
-
-    mockGetDocs.mockImplementation(async (queryOrCol: any) => {
-      if (queryOrCol.path === 'users/user123/documents/doc1/versions') {
-        return createMockSnapshot(versionDocs);
-      }
-      if (queryOrCol.path === 'users/user123/documents') {
-        return createMockSnapshot([{ id: 'doc1', data: {} }]);
-      }
-      return createMockSnapshot([]);
-    });
-
-    const mockWriteBudget = await import('../../firebase/writeBudget');
-    let calls = 0;
-    // Restored explicitly, not via restoreAllMocks: getSessionKey and maybeEncrypt
-    // are spied once at the top of this file and every other test depends on them.
-    // clearAllMocks does not undo an implementation, so without this the budget
-    // stays dead for whatever test is added after this one.
-    const budgetSpy = vi.spyOn(mockWriteBudget, 'tryReserveBulkWriteBudget').mockImplementation(() => {
-      calls++;
-      return calls <= 1; // Allows only the first call
-    });
-
-    try {
-      const progress = await encryptAllExistingNotes(userId);
-      expect(progress.encrypted).toBe(1); // Only the first one gets encrypted
-      expect(progress.incomplete).toBe(true);
-      expect(localStorage.getItem(`encryptionMigration_${userId}_checkpoint`)).not.toBeNull(); // Checkpoint is preserved
-    } finally {
-      budgetSpy.mockRestore();
-    }
   });
 });
 
@@ -324,20 +203,12 @@ describe('encryptSingleDocument', () => {
     localStorage.clear();
   });
 
-  const createMockSnapshot = (docs: any[]) => ({
-    docs: docs.map(d => ({
-      id: d.id,
-      data: () => d.data,
-    })),
-  });
-
   it('encrypts all unencrypted versions of a single document', async () => {
     const versionDocs = [
-      { id: 'ver1', data: { content: 'hello', _encrypted: false } },
-      { id: 'ver2', data: { content: 'world', _encrypted: false } },
+      { id: 'ver1', content: 'hello', _encrypted: false },
+      { id: 'ver2', content: 'world', _encrypted: false },
     ];
-
-    mockGetDocs.mockResolvedValue(createMockSnapshot(versionDocs));
+    mockGetVersions.mockResolvedValue(versionDocs);
 
     const result = await encryptSingleDocument(userId, 'doc1');
     expect(result.processed).toBe(2);
@@ -347,10 +218,9 @@ describe('encryptSingleDocument', () => {
 
   it('skips already encrypted versions', async () => {
     const versionDocs = [
-      { id: 'ver1', data: { content: 'encrypted_val', _encrypted: true } },
+      { id: 'ver1', content: 'encrypted_val', _encrypted: true },
     ];
-
-    mockGetDocs.mockResolvedValue(createMockSnapshot(versionDocs));
+    mockGetVersions.mockResolvedValue(versionDocs);
 
     const result = await encryptSingleDocument(userId, 'doc1');
     expect(result.processed).toBe(1);
@@ -360,10 +230,9 @@ describe('encryptSingleDocument', () => {
 
   it('handles individual version encryption failure', async () => {
     const versionDocs = [
-      { id: 'ver1', data: { content: 'hello', _encrypted: false } },
+      { id: 'ver1', content: 'hello', _encrypted: false },
     ];
-
-    mockGetDocs.mockResolvedValue(createMockSnapshot(versionDocs));
+    mockGetVersions.mockResolvedValue(versionDocs);
     vi.spyOn(cryptoHelpers, 'maybeEncrypt').mockRejectedValueOnce(new Error('Crypt error'));
 
     const result = await encryptSingleDocument(userId, 'doc1');
@@ -373,8 +242,7 @@ describe('encryptSingleDocument', () => {
   });
 
   it('throws when versions query fails', async () => {
-    mockGetDocs.mockRejectedValue(new Error('Firestore error'));
-
+    mockGetVersions.mockRejectedValue(new Error('Firestore error'));
     await expect(encryptSingleDocument(userId, 'doc1')).rejects.toThrow('Firestore error');
   });
 });

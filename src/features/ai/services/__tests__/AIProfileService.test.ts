@@ -37,21 +37,15 @@ vi.mock('../../../../core/storage/localDb', () => ({
   }),
 }));
 
-vi.mock('../../../../core/firebase/firestoreClient', () => ({
-  getClient: async () => ({
-    db: {} as any,
-    mod: {
-      doc: (db: any, ...path: string[]) => ({ type: 'doc', path }),
-      setDoc: mockSetDoc,
-      getDoc: mockGetDoc,
-    },
-  }),
+vi.mock('../../../../core/data', () => ({
+  DataProvider: {
+    updateProfile: mockSetDoc,
+    getProfile: mockGetDoc,
+  },
 }));
 
-vi.mock('firebase/auth', () => ({
-  getAuth: () => ({
-    currentUser: mockCurrentUser,
-  }),
+vi.mock('../../../../core/auth', () => ({
+  getCurrentUser: () => mockCurrentUser,
 }));
 
 vi.mock('../../../../core/crypto/cryptoHelpers', () => ({
@@ -144,10 +138,7 @@ describe('AIProfileService', () => {
     });
 
     it('fetches from Firestore and decrypts if not in localStorage', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ aiPortrait: 'encrypted-portrait' }),
-      });
+      mockGetDoc.mockResolvedValue({ aiPortrait: 'encrypted-portrait' });
 
       const res = await AIProfileService.getPortrait();
       expect(res).toBe('encrypted-portrait');
@@ -155,9 +146,7 @@ describe('AIProfileService', () => {
     });
 
     it('returns null if not found anywhere', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => false,
-      });
+      mockGetDoc.mockResolvedValue(null);
 
       const res = await AIProfileService.getPortrait();
       expect(res).toBeNull();

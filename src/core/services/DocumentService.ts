@@ -2,9 +2,9 @@ import { DataProvider } from '../data';
 import { Document } from '../../types';
 import { toTimestampMs } from '../utils/dateUtils';
 import { reportError } from '../../shared/errors/reportError';
-import { documentDbSchema } from '../firebase/schemas/firestoreSchemas';
+import { documentDbSchema } from '../data/schemas';
 import { documentFromDb } from './mappers';
-import { assertReadBudget, spendReadBudget } from '../firebase/readBudget';
+
 export const DocumentService = {
   async createDocument(
     userId: string,
@@ -41,9 +41,7 @@ export const DocumentService = {
   },
 
   async getUserDocuments(userId: string): Promise<Document[]> {
-    assertReadBudget('DocumentService.getUserDocuments');
     const records = await DataProvider.getUserDocuments(userId);
-    spendReadBudget(records.length || 1, 'DocumentService.getUserDocuments');
     const docs = records
       .map(d => {
         const parsed = documentDbSchema.safeParse({ id: d.id, ...d });

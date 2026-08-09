@@ -38,6 +38,9 @@ describe('API health endpoints', () => {
   beforeAll(async () => {
     const mod = await import('../server');
     server = mod.default;
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', () => resolve());
+    });
     const addr = server.address();
     const port = typeof addr === 'object' && addr ? addr.port : 3000;
     baseUrl = `http://127.0.0.1:${port}`;

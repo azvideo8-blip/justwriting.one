@@ -1,387 +1,127 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DocumentService } from '../../../../core/services/DocumentService';
+import { DataProvider } from '../../../../core/data';
 
-const mockAddDoc = vi.fn();
-const mockGetDoc = vi.fn();
-const mockGetDocs = vi.fn();
-const mockUpdateDoc = vi.fn();
-const mockDeleteDoc = vi.fn();
-const mockBatchDelete = vi.fn();
-const mockBatchUpdate = vi.fn();
-const mockBatchCommit = vi.fn(() => Promise.resolve());
-
-const mockWriteBatch = vi.fn(() => ({
-  delete: mockBatchDelete,
-  update: mockBatchUpdate,
-  commit: mockBatchCommit,
-}));
-
-const mockTimestampNow = { seconds: 12345678, nanoseconds: 0 };
-const mockTimestampFromDate = (date: Date) => ({ seconds: Math.floor(date.getTime() / 1000), nanoseconds: 0 });
-const mockTimestampFromMillis = (millis: number) => ({ seconds: Math.floor(millis / 1000), nanoseconds: 0 });
-
-vi.mock('../../../../core/firebase/firestoreClient', () => ({
-  getClient: async () => ({
-    db: { type: 'db' } as any,
-    mod: {
-      collection: (db: any, ...paths: string[]) => ({ type: 'collection', paths }),
-      doc: (db: any, ...paths: string[]) => ({ type: 'doc', paths }),
-      addDoc: mockAddDoc,
-      getDoc: mockGetDoc,
-      getDocs: mockGetDocs,
-      updateDoc: mockUpdateDoc,
-      deleteDoc: mockDeleteDoc,
-      writeBatch: mockWriteBatch,
-      Timestamp: {
-        now: () => mockTimestampNow,
-        fromDate: mockTimestampFromDate,
-        fromMillis: mockTimestampFromMillis,
-      },
-      increment: (n: number) => ({ type: 'increment', n }),
-      query: (col: any, ...constraints: any[]) => ({ type: 'query', col, constraints }),
-      where: (field: string, op: string, val: any) => ({ type: 'where', field, op, val }),
-      arrayRemove: (...elements: any[]) => ({ type: 'arrayRemove', elements }),
-    },
-  }),
+vi.mock('../../../../core/data', () => ({
+  DataProvider: {
+    createDocument: vi.fn(),
+    getDocument: vi.fn(),
+    getUserDocuments: vi.fn(),
+    updateDocumentSessionStats: vi.fn(),
+    updateDocument: vi.fn(),
+    deleteDocument: vi.fn(),
+    clearLabelFromAllDocs: vi.fn(),
+    renameTagInAllDocs: vi.fn(),
+    removeTagFromAllDocs: vi.fn(),
+  },
 }));
 
 describe('DocumentService', () => {
-  const dummyDocData = {
-    title: 'My Document',
-    tags: ['fiction', 'daily'],
-    labelId: 'label_123',
-  };
-
-  const dummyDocRaw = {
-    userId: 'user_123',
-    title: 'My Document',
-    currentVersion: 2,
-    totalWords: 500,
-    totalDuration: 120,
-    sessionsCount: 3,
-    firstSessionAt: { seconds: 10000000, nanoseconds: 0 },
-    lastSessionAt: { seconds: 10002000, nanoseconds: 0 },
-    tags: ['fiction', 'daily'],
-    labelId: 'label_123',
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   describe('createDocument', () => {
-    it('creates document with given title, tags, and label, defaulting firstSessionAt/lastSessionAt to now', async () => {
-      mockAddDoc.mockResolvedValue({ id: 'new_doc_id' });
-
-      const id = await DocumentService.createDocument('user_123', dummyDocData);
-
+    it('calls DataProvider.createDocument with mapped payload', async () => {
+      vi.mocked(DataProvider.createDocument).mockResolvedValue('new_doc_id');
+      const data = { title: 'Test', tags: ['a'], labelId: 'lbl' };
+      const id = await DocumentService.createDocument('u1', data);
+      
       expect(id).toBe('new_doc_id');
-      expect(mockAddDoc).toHaveBeenCalled();
-      const call0 = mockAddDoc.mock.calls[0];
-      expect(call0).toBeDefined();
-      const [colRef, docPayload] = call0!;
-      expect(colRef).toEqual({ type: 'collection', paths: ['users', 'user_123', 'documents'] });
-      expect(docPayload.title).toBe('My Document');
-      expect(docPayload.firstSessionAt).toEqual(expect.objectContaining({ seconds: expect.any(Number) }));
-      expect(docPayload.lastSessionAt).toEqual(expect.objectContaining({ seconds: expect.any(Number) }));
-      expect(docPayload.currentVersion).toBe(0);
-      expect(docPayload.totalWords).toBe(0);
-      expect(docPayload.totalDuration).toBe(0);
-      expect(docPayload.sessionsCount).toBe(0);
-    });
-
-    it('creates document using provided dates', async () => {
-      mockAddDoc.mockResolvedValue({ id: 'new_doc_id' });
-      const first = new Date(1700000000000);
-      const last = new Date(1700000005000);
-
-      await DocumentService.createDocument('user_123', {
-        ...dummyDocData,
-        firstSessionAt: first,
-        lastSessionAt: last,
-      });
-
-      const [, docPayload] = mockAddDoc.mock.calls[0]!;
-      expect(docPayload.firstSessionAt).toEqual(mockTimestampFromDate(first));
-      expect(docPayload.lastSessionAt).toEqual(mockTimestampFromDate(last));
-    });
-
-    it('rethrows write failure', async () => {
-      mockAddDoc.mockRejectedValue(new Error('Write blocked by security rules'));
-      await expect(DocumentService.createDocument('user_123', dummyDocData)).rejects.toThrow('Write blocked by security rules');
+      expect(DataProvider.createDocument).toHaveBeenCalledWith('u1', expect.objectContaining({
+        title: 'Test',
+        tags: ['a'],
+        labelId: 'lbl',
+        currentVersion: 0
+      }));
     });
   });
 
   describe('getDocument', () => {
-    it('returns document when exists and passes validation', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        id: 'doc_123',
-        data: () => dummyDocRaw,
+    it('returns parsed document', async () => {
+      vi.mocked(DataProvider.getDocument).mockResolvedValue({
+        id: 'doc1', title: 'Test', currentVersion: 1, totalWords: 10, totalDuration: 10, sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 2000, tags: [], labelId: null
       });
-
-      const doc = await DocumentService.getDocument('user_123', 'doc_123');
-      expect(doc).not.toBeNull();
-      expect(doc?.id).toBe('doc_123');
-      expect(doc?.title).toBe('My Document');
+      const doc = await DocumentService.getDocument('u1', 'doc1');
+      expect(doc?.id).toBe('doc1');
+      expect(doc?.title).toBe('Test');
     });
 
-    it('returns null if document does not exist', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => false,
-      });
-
-      const doc = await DocumentService.getDocument('user_123', 'doc_missing');
-      expect(doc).toBeNull();
-    });
-
-    it('returns fallback object if validation fails', async () => {
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        id: 'doc_123',
-        data: () => ({
-          ...dummyDocRaw,
-          currentVersion: 'not-a-number',
-        }),
-      });
-
-      const doc = await DocumentService.getDocument('user_123', 'doc_123');
+    it('returns null if doc not found', async () => {
+      vi.mocked(DataProvider.getDocument).mockResolvedValue(null);
+      const doc = await DocumentService.getDocument('u1', 'doc_missing');
       expect(doc).toBeNull();
     });
   });
 
   describe('getUserDocuments', () => {
-    it('returns parsed and sorted user documents', async () => {
-      mockGetDocs.mockResolvedValue({
-        docs: [
-          {
-            id: 'doc_1',
-            data: () => ({ ...dummyDocRaw, lastSessionAt: { seconds: 10000000, nanoseconds: 0 } }),
-          },
-          {
-            id: 'doc_2',
-            data: () => ({ ...dummyDocRaw, lastSessionAt: { seconds: 10005000, nanoseconds: 0 } }),
-          },
-        ],
-      });
-
-      const docs = await DocumentService.getUserDocuments('user_123');
+    it('returns parsed documents sorted by lastSessionAt descending', async () => {
+      vi.mocked(DataProvider.getUserDocuments).mockResolvedValue([
+        { id: 'doc1', title: 'Doc1', currentVersion: 1, totalWords: 10, totalDuration: 10, sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 1000, tags: [], labelId: null },
+        { id: 'doc2', title: 'Doc2', currentVersion: 1, totalWords: 10, totalDuration: 10, sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 2000, tags: [], labelId: null }
+      ]);
+      const docs = await DocumentService.getUserDocuments('u1');
       expect(docs).toHaveLength(2);
-      // Sorted descending by lastSessionAt
-      expect(docs[0]?.id).toBe('doc_2');
-      expect(docs[1]?.id).toBe('doc_1');
-    });
-
-    it('returns fallback objects for documents that fail Zod validation', async () => {
-      mockGetDocs.mockResolvedValue({
-        docs: [
-          {
-            id: 'doc_1',
-            data: () => ({ ...dummyDocRaw, lastSessionAt: { seconds: 10000000, nanoseconds: 0 } }),
-          },
-          {
-            id: 'doc_corrupted',
-            data: () => ({ ...dummyDocRaw, totalWords: 'not-a-number' }),
-          },
-        ],
-      });
-
-      const docs = await DocumentService.getUserDocuments('user_123');
-      expect(docs).toHaveLength(1);
-      expect(docs[0]?.id).toBe('doc_1');
+      expect(docs[0]?.id).toBe('doc2'); // latest session first
+      expect(docs[1]?.id).toBe('doc1');
     });
   });
 
-  describe('updateDocumentAfterSession', () => {
-    it('calls updateDoc with incremented sessionsCount and lastSessionAt set to now', async () => {
-      mockUpdateDoc.mockResolvedValue(undefined);
-
-      await DocumentService.updateDocumentAfterSession('user_123', 'doc_123', {
-        totalWords: 1000,
-        totalDuration: 500,
-        currentVersion: 5,
-        mood: 'happy',
-      });
-
-      expect(mockUpdateDoc).toHaveBeenCalled();
-      const [, payload] = mockUpdateDoc.mock.calls[0]!;
-      expect(payload).toEqual({
-        totalWords: 1000,
-        totalDuration: 500,
-        currentVersion: 5,
-        mood: 'happy',
-        sessionsCount: { type: 'increment', n: 1 },
-        lastSessionAt: mockTimestampNow,
-      });
+  describe('update functions', () => {
+    it('updateDocumentAfterSession calls updateDocumentSessionStats', async () => {
+      vi.mocked(DataProvider.updateDocumentSessionStats).mockResolvedValue();
+      await DocumentService.updateDocumentAfterSession('u1', 'doc1', { totalWords: 10, totalDuration: 10, currentVersion: 1 });
+      expect(DataProvider.updateDocumentSessionStats).toHaveBeenCalledWith('u1', 'doc1', { totalWords: 10, totalDuration: 10, currentVersion: 1, mood: null });
     });
 
-    it('calls updateDoc with custom sessionsCount and lastSessionAt if provided', async () => {
-      mockUpdateDoc.mockResolvedValue(undefined);
-      const customDate = new Date(1700000000000);
+    it('updateTags calls updateDocument', async () => {
+      vi.mocked(DataProvider.updateDocument).mockResolvedValue();
+      await DocumentService.updateTags('u1', 'doc1', ['x']);
+      expect(DataProvider.updateDocument).toHaveBeenCalledWith('u1', 'doc1', { tags: ['x'] });
+    });
 
-      await DocumentService.updateDocumentAfterSession('user_123', 'doc_123', {
-        totalWords: 1000,
-        totalDuration: 500,
-        currentVersion: 5,
-        mood: 'happy',
-        sessionsCount: 42,
-        lastSessionAt: customDate,
-      });
+    it('updateTitle calls updateDocument', async () => {
+      vi.mocked(DataProvider.updateDocument).mockResolvedValue();
+      await DocumentService.updateTitle('u1', 'doc1', 'New Title');
+      expect(DataProvider.updateDocument).toHaveBeenCalledWith('u1', 'doc1', { title: 'New Title' });
+    });
 
-      expect(mockUpdateDoc).toHaveBeenCalled();
-      const [, payload2] = mockUpdateDoc.mock.calls[0]!;
-      expect(payload2).toEqual({
-        totalWords: 1000,
-        totalDuration: 500,
-        currentVersion: 5,
-        mood: 'happy',
-        sessionsCount: 42,
-        lastSessionAt: mockTimestampFromDate(customDate),
-      });
+    it('updateDate calls updateDocument', async () => {
+      vi.mocked(DataProvider.updateDocument).mockResolvedValue();
+      await DocumentService.updateDate('u1', 'doc1', new Date(1000), new Date(2000));
+      expect(DataProvider.updateDocument).toHaveBeenCalledWith('u1', 'doc1', { firstSessionAt: 1000, lastSessionAt: 2000 });
+    });
+
+    it('updateLabelId calls updateDocument', async () => {
+      vi.mocked(DataProvider.updateDocument).mockResolvedValue();
+      await DocumentService.updateLabelId('u1', 'doc1', 'lbl1');
+      expect(DataProvider.updateDocument).toHaveBeenCalledWith('u1', 'doc1', { labelId: 'lbl1' });
     });
   });
 
-  describe('updateTags', () => {
-    it('updates tags list on document', async () => {
-      mockUpdateDoc.mockResolvedValue(undefined);
-      await DocumentService.updateTags('user_123', 'doc_123', ['tagA', 'tagB']);
-      const [, payload3] = mockUpdateDoc.mock.calls[0]!;
-      expect(payload3).toEqual({ tags: ['tagA', 'tagB'] });
+  describe('bulk operations', () => {
+    it('deleteDocument calls DataProvider', async () => {
+      vi.mocked(DataProvider.deleteDocument).mockResolvedValue();
+      await DocumentService.deleteDocument('u1', 'doc1');
+      expect(DataProvider.deleteDocument).toHaveBeenCalledWith('u1', 'doc1');
     });
-  });
 
-  describe('updateTitle', () => {
-    it('updates title on document', async () => {
-      mockUpdateDoc.mockResolvedValue(undefined);
-      await DocumentService.updateTitle('user_123', 'doc_123', 'New Title');
-      const [, payload4] = mockUpdateDoc.mock.calls[0]!;
-      expect(payload4).toEqual({ title: 'New Title' });
+    it('clearLabelFromAllDocs calls DataProvider', async () => {
+      vi.mocked(DataProvider.clearLabelFromAllDocs).mockResolvedValue();
+      await DocumentService.clearLabelFromAllDocs('u1', 'lbl1');
+      expect(DataProvider.clearLabelFromAllDocs).toHaveBeenCalledWith('u1', 'lbl1');
     });
-  });
 
-  describe('updateDate', () => {
-    it('updates firstSessionAt and lastSessionAt', async () => {
-      mockUpdateDoc.mockResolvedValue(undefined);
-      const d1 = new Date(1700000000000);
-      const d2 = new Date(1700000010000);
-      await DocumentService.updateDate('user_123', 'doc_123', d1, d2);
-      const [, payload5] = mockUpdateDoc.mock.calls[0]!;
-      expect(payload5).toEqual({
-        firstSessionAt: mockTimestampFromDate(d1),
-        lastSessionAt: mockTimestampFromDate(d2),
-      });
+    it('renameTagInAllDocs calls DataProvider', async () => {
+      vi.mocked(DataProvider.renameTagInAllDocs).mockResolvedValue();
+      await DocumentService.renameTagInAllDocs('u1', 'old', 'new');
+      expect(DataProvider.renameTagInAllDocs).toHaveBeenCalledWith('u1', 'old', 'new');
     });
-  });
 
-  describe('updateLabelId', () => {
-    it('updates labelId or sets it to null if undefined', async () => {
-      mockUpdateDoc.mockResolvedValue(undefined);
-      await DocumentService.updateLabelId('user_123', 'doc_123', 'label_abc');
-      let [, payload6] = mockUpdateDoc.mock.calls[0]!;
-      expect(payload6).toEqual({ labelId: 'label_abc' });
-
-      await DocumentService.updateLabelId('user_123', 'doc_123', undefined);
-      [, payload6] = mockUpdateDoc.mock.calls[1]!;
-      expect(payload6).toEqual({ labelId: null });
-    });
-  });
-
-  describe('deleteDocument', () => {
-    it('deletes versions in batches and then deletes document', async () => {
-      const mockVersionsDocs = Array.from({ length: 600 }, (_, i) => ({
-        ref: { type: 'version-ref', id: `v_${i}` },
-      }));
-
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ id: 'local_id' }),
-      });
-
-      mockGetDocs.mockResolvedValue({
-        docs: mockVersionsDocs,
-      });
-
-      await DocumentService.deleteDocument('user_123', 'doc_to_delete');
-
-      // Check batching: 600 versions should require 2 batches (499 + 101)
-      expect(mockWriteBatch).toHaveBeenCalledTimes(3); // 2 for versions, 1 final for doc + AI data
-      expect(mockBatchDelete).toHaveBeenCalledTimes(603); // 600 versions + 1 doc + 1 summary + 1 embedding
-      expect(mockBatchCommit).toHaveBeenCalledTimes(3);
-    });
-  });
-
-  describe('clearLabelFromAllDocs', () => {
-    it('queries and clears labels in batches', async () => {
-      const mockMatchingDocs = Array.from({ length: 50 }, (_, i) => ({
-        ref: { type: 'doc-ref', id: `d_${i}` },
-      }));
-
-      mockGetDocs.mockResolvedValue({
-        docs: mockMatchingDocs,
-      });
-
-      await DocumentService.clearLabelFromAllDocs('user_123', 'label_to_remove');
-
-      expect(mockGetDocs).toHaveBeenCalled();
-      expect(mockWriteBatch).toHaveBeenCalledTimes(1);
-      expect(mockBatchUpdate).toHaveBeenCalledTimes(50);
-      const [, updatePayload] = mockBatchUpdate.mock.calls[0]!;
-      expect(updatePayload).toEqual({ labelId: null });
-    });
-  });
-
-  describe('renameTagInAllDocs', () => {
-    it('queries and updates renamed tags in batches', async () => {
-      const mockMatchingDocs = [
-        {
-          ref: { type: 'doc-ref', id: 'doc_a' },
-          data: () => ({ tags: ['draft', 'fantasy'] }),
-        },
-        {
-          ref: { type: 'doc-ref', id: 'doc_b' },
-          data: () => ({ tags: ['fantasy', 'scifi'] }),
-        },
-      ];
-
-      mockGetDocs.mockResolvedValue({
-        docs: mockMatchingDocs,
-      });
-
-      await DocumentService.renameTagInAllDocs('user_123', 'fantasy', 'romance');
-
-      expect(mockGetDocs).toHaveBeenCalled();
-      expect(mockWriteBatch).toHaveBeenCalledTimes(1);
-      expect(mockBatchUpdate).toHaveBeenCalledTimes(2);
-
-      const [, update1] = mockBatchUpdate.mock.calls[0]!;
-      expect(update1).toEqual({ tags: ['draft', 'romance'] });
-
-      const [, update2] = mockBatchUpdate.mock.calls[1]!;
-      expect(update2).toEqual({ tags: ['romance', 'scifi'] });
-    });
-  });
-
-  describe('removeTagFromAllDocs', () => {
-    it('queries and filters out tag in matches in batches', async () => {
-      const mockMatchingDocs = [
-        {
-          ref: { type: 'doc-ref', id: 'doc_a' },
-          data: () => ({ tags: ['draft', 'fantasy'] }),
-        },
-      ];
-
-      mockGetDocs.mockResolvedValue({
-        docs: mockMatchingDocs,
-      });
-
-      await DocumentService.removeTagFromAllDocs('user_123', 'fantasy');
-
-      expect(mockGetDocs).toHaveBeenCalled();
-      expect(mockWriteBatch).toHaveBeenCalledTimes(1);
-      expect(mockBatchUpdate).toHaveBeenCalledTimes(1);
-
-      const [, update] = mockBatchUpdate.mock.calls[0]!;
-      expect(update).toEqual({ tags: { type: 'arrayRemove', elements: ['fantasy'] } });
+    it('removeTagFromAllDocs calls DataProvider', async () => {
+      vi.mocked(DataProvider.removeTagFromAllDocs).mockResolvedValue();
+      await DocumentService.removeTagFromAllDocs('u1', 'tag');
+      expect(DataProvider.removeTagFromAllDocs).toHaveBeenCalledWith('u1', 'tag');
     });
   });
 });

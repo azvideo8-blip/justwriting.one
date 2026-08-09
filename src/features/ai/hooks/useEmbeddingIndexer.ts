@@ -14,7 +14,7 @@ import { restoreAIDataFromCloud, reattachOrphanedAnalysis } from '../services/AI
 import { getLocalDb, type AIDocumentSummary } from '../../../core/storage/localDb';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 import { CloudSyncService } from '../../../core/services/CloudSyncService';
-import { areCloudReadsBlockedToday, canSpendReadBudget } from '../../../core/firebase/readBudget';
+
 const BATCH_SIZE = 3;
 const DEBOUNCE_MS = 30_000;
 const RESUMMARIZE_DEBOUNCE_MS = 60_000;
@@ -125,27 +125,18 @@ export function useEmbeddingIndexer(): void {
         try {
           const uid = getCurrentUser()?.uid;
           if (uid) {
-            if (areCloudReadsBlockedToday() || !canSpendReadBudget()) {
+            const { restored, hasMore } = await CloudSyncService.restoreMissingDocuments(uid);
+            if (restored > 0) {
               useActivityLogStore.getState().addActivity(
-                `Пауза фоновой активности (Лимит чтения БД)`,
-                { action: 'indexer_backoff', reason: 'READ_BUDGET', type: 'restore' },
-                'warning',
+                `Восстановлено заметок из облака: ${restored}`,
+                { action: 'restoreMissingDocuments', restored, hasMore },
+                'info',
                 'sync'
               );
-            } else {
-              const { restored, hasMore } = await CloudSyncService.restoreMissingDocuments(uid);
-              if (restored > 0) {
-                useActivityLogStore.getState().addActivity(
-                  `Восстановлено заметок из облака: ${restored}`,
-                  { action: 'restoreMissingDocuments', restored, hasMore },
-                  'info',
-                  'sync'
-                );
-              }
-              const aiRestored = await restoreAIDataFromCloud(uid);
-              if (!aiRestored.skippedLocked && !hasMore) {
-                localStorage.setItem('ai_restore_done_date', new Date().toISOString().slice(0, 10));
-              }
+            }
+            const aiRestored = await restoreAIDataFromCloud(uid);
+            if (!aiRestored.skippedLocked && !hasMore) {
+              localStorage.setItem('ai_restore_done_date', new Date().toISOString().slice(0, 10));
             }
           }
         } catch (e) {

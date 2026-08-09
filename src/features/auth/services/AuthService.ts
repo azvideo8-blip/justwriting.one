@@ -151,15 +151,8 @@ async function deleteAccount(): Promise<void> {
   const user = getCurrentUser();
   if (!user) throw new Error('No authenticated user');
 
-  const { getFunctions, httpsCallable } = await import('firebase/functions');
-  const { app } = await import('../../../core/firebase/client');
-  // deleteAccount declares no region, so it deploys to us-central1 like every
-  // other callable here. Pinning europe-west1 made this fail with
-  // functions/not-found — account deletion never reached the server.
-  const functions = getFunctions(app);
-  const deleteAccountFn = httpsCallable(functions, 'deleteAccount');
-
-  await deleteAccountFn();
+  const { callAi } = await import('../../../core/ai/callAi');
+  await callAi('deleteAccount', {});
   await signOut();
 }
 

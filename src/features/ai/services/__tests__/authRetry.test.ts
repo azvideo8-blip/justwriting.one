@@ -1,59 +1,59 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const callable = vi.fn();
-const getIdToken = vi.fn();
-let currentUser: { uid: string } | null = { uid: 'u1' };
-vi.mock('firebase/functions', () => ({
-  getFunctions: () => ({}),
-  httpsCallable: () => callable,
+const { mockCallAi, mockGetIdToken, mockReportError } = vi.hoisted(() => ({
+  mockCallAi: vi.fn(),
+  mockGetIdToken: vi.fn(),
+  mockReportError: vi.fn(),
 }));
-// Прослойка core/auth, а не firebase/auth: обновление токена теперь отдельная
-// функция getIdToken(force), а не метод объекта пользователя.
+
+let currentUser: { uid: string } | null = { uid: 'u1' };
+
+vi.mock('../../../../core/ai/callAi', () => ({
+  callAi: mockCallAi,
+}));
+
 vi.mock('../../../../core/auth', () => ({
   getCurrentUser: () => currentUser,
-  getIdToken: (force?: boolean) => getIdToken(force),
+  getIdToken: mockGetIdToken,
 }));
+
 vi.mock('../../../../shared/errors/reportError', () => ({
-  reportError: vi.fn(),
+  reportError: mockReportError,
 }));
 
 import { AIService } from '../AIService';
 
-// N3: when chat fails with AUTH_REQUIRED and the user is signed in, the token
-// has probably expired silently (securetoken was down, call went out without a
-// valid token, function refused). One forced refresh + retry is the right fix.
 describe('chat retries once after token refresh on AUTH_REQUIRED', () => {
   beforeEach(() => {
-    callable.mockReset();
-    getIdToken.mockReset();
-    getIdToken.mockResolvedValue('fresh-token');
+    mockCallAi.mockReset();
+    mockGetIdToken.mockReset();
+    mockGetIdToken.mockResolvedValue('fresh-token');
     currentUser = { uid: 'u1' };
   });
 
   it('refreshes token and retries on AUTH_REQUIRED when user is signed in', async () => {
-    callable
+    mockCallAi
       .mockRejectedValueOnce(Object.assign(new Error('unauthenticated'), { code: 'functions/unauthenticated' }))
-      .mockResolvedValueOnce({ data: { result: 'hello' } });
+      .mockResolvedValueOnce({ result: 'hello' });
 
     const res = await AIService.chat({ personaId: 'p1', messages: [] });
 
-    expect(getIdToken).toHaveBeenCalledWith(true);
-    expect(getIdToken).toHaveBeenCalledTimes(1);
-    expect(callable).toHaveBeenCalledTimes(2);
+    expect(mockGetIdToken).toHaveBeenCalledWith(true);
+    expect(mockGetIdToken).toHaveBeenCalledTimes(1);
+    expect(mockCallAi).toHaveBeenCalledTimes(2);
     expect(res.ok).toBe(true);
     if (res.ok) expect(res.text).toBe('hello');
   });
 
   it('does not retry a second time on consecutive AUTH_REQUIRED', async () => {
-    callable
+    mockCallAi
       .mockRejectedValueOnce(Object.assign(new Error('unauthenticated'), { code: 'functions/unauthenticated' }))
       .mockRejectedValueOnce(Object.assign(new Error('unauthenticated'), { code: 'functions/unauthenticated' }));
 
     const res = await AIService.chat({ personaId: 'p1', messages: [] });
 
-    // getIdToken called once for the first retry; the second failure is final.
-    expect(getIdToken).toHaveBeenCalledTimes(1);
-    expect(callable).toHaveBeenCalledTimes(2);
+    expect(mockGetIdToken).toHaveBeenCalledTimes(1);
+    expect(mockCallAi).toHaveBeenCalledTimes(2);
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toBe('AUTH_REQUIRED');
   });
@@ -61,12 +61,12 @@ describe('chat retries once after token refresh on AUTH_REQUIRED', () => {
   it('does not retry when there is no current user', async () => {
     currentUser = null;
 
-    callable.mockRejectedValueOnce(Object.assign(new Error('unauthenticated'), { code: 'functions/unauthenticated' }));
+    mockCallAi.mockRejectedValueOnce(Object.assign(new Error('unauthenticated'), { code: 'functions/unauthenticated' }));
 
     const res = await AIService.chat({ personaId: 'p1', messages: [] });
 
-    expect(getIdToken).not.toHaveBeenCalled();
-    expect(callable).toHaveBeenCalledTimes(1);
+    expect(mockGetIdToken).not.toHaveBeenCalled();
+    expect(mockCallAi).toHaveBeenCalledTimes(1);
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toBe('AUTH_REQUIRED');
   });

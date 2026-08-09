@@ -5,7 +5,19 @@ import { maybeEncrypt, maybeDecrypt, isProfileLoaded } from '../../../core/crypt
 import { reportError } from '../../../shared/errors/reportError';
 import { withTimeout } from '../../../shared/utils/withTimeout';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
-import { DRAFT_CLOUD_FIELDS } from '../../../core/firebase/cloudFields';
+const DRAFT_CLOUD_FIELDS: Record<string, boolean> = {
+  content: true,
+  title: true,
+  pinnedThoughts: true,
+  tags: true,
+  labelId: true,
+  wordCount: true,
+  initialWordCount: true,
+  activeSessionId: true,
+  savedDocumentId: true,
+  sessionStartTime: true,
+  updatedAt: true,
+};
 
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const _abortControllers = new Map<string, AbortController>();

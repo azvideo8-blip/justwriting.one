@@ -2,14 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { isOversizedError, saveEmbeddingToCloud } from '../AIEmbeddingService';
 import type { AIDocumentEmbedding } from '../../../../core/storage/localDb';
 
-vi.mock('../../../../core/firebase/firestoreClient', () => ({
-  getClient: vi.fn().mockResolvedValue({
-    db: {},
-    mod: {
-      doc: vi.fn(),
-      setDoc: vi.fn().mockResolvedValue(undefined),
-    },
-  }),
+vi.mock('../../../../core/data', () => ({
+  DataProvider: {
+    saveEmbedding: vi.fn().mockResolvedValue(undefined),
+  },
 }));
 
 vi.mock('../../../../core/crypto/cryptoHelpers', () => ({

@@ -1,19 +1,20 @@
-// Client-side daily cap on Firestore writes from the embedding background-sync
-// path (AIEmbeddingService.save/syncPendingToCloud). This project's Firestore
-// runs on a free-tier sandbox database with a hard daily write-operation quota
-// shared by the WHOLE app (notes, versions, embeddings — everything). A single
-// note write is small and unavoidable; the real risk is THIS path — re-syncing
-// embeddings after an embedding-model/dimension change (which marks every
-// existing embedding stale) or a manual "reindex all" / "sync to cloud" click —
-// bursting hundreds of writes in one go and starving the user's own note saves
-// for the rest of the day. See docs/optimisation 05.07.2026 for the incident
-// this guards against (2026-07-05 Firestore free-tier write quota exhaustion).
+// Client-side burst guard on cloud writes from the bulk paths — the embedding
+// background sync (AIEmbeddingService.save/syncPendingToCloud), the encryption
+// migration, and "sync everything" in CloudSyncService.
 //
-// 2026-07-29: 300 was far too high. The quota is denominated in write UNITS,
-// which scale with document size, and an embedding at 4096 dimensions is
-// hundreds of KB — roughly fifty of them consume the entire 40k daily
-// allowance on their own. The cap counts documents, so it has to be set for
-// the size of THIS document, not for a typical one.
+// Written against the Firestore free-tier daily write quota, which is gone with
+// the move to self-hosted Postgres. What it prevents is not gone: a re-index or
+// one "sync to cloud" click firing hundreds of writes at once. On Firestore that
+// starved the user's own note saves for the rest of the day (2026-07-05
+// incident). On our own server it is load rather than billing — smaller, but
+// still what makes the app unresponsive exactly while it does bulk work.
+//
+// The cap counts documents and was sized for THIS path: an embedding at 4096
+// dimensions is hundreds of KB, so a few dozen of them are not a typical few
+// dozen writes.
+//
+// Moved out of core/firebase/ because it never had anything to do with Firebase
+// beyond the quota it was once sized against.
 const DAILY_CAP = 25;
 const STORAGE_KEY = 'embed_cloud_write_budget';
 

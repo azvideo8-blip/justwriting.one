@@ -2,8 +2,8 @@ import { DataProvider } from '../data';
 import { Version } from '../../types';
 import { computeWordDelta } from './DiffService';
 import { reportError } from '../../shared/errors/reportError';
-import { versionDbSchema } from '../firebase/schemas/firestoreSchemas';
-import { assertReadBudget, spendReadBudget } from '../firebase/readBudget';
+import { versionDbSchema } from '../data/schemas';
+
 export const VersionService = {
   async addVersion(
     userId: string,
@@ -55,9 +55,7 @@ export const VersionService = {
   },
 
   async getVersions(userId: string, documentId: string): Promise<Version[]> {
-    assertReadBudget('VersionService.getVersions');
     const records = await DataProvider.getVersions(userId, documentId);
-    spendReadBudget(records.length || 1, 'VersionService.getVersions');
     const versions = records
       .map(d => {
         const parsed = versionDbSchema.safeParse({ id: d.id, ...d });
@@ -74,9 +72,7 @@ export const VersionService = {
   },
 
   async getLatestContent(userId: string, documentId: string): Promise<string> {
-    assertReadBudget('VersionService.getLatestContent');
     const raw = await DataProvider.getLatestVersion(userId, documentId);
-    spendReadBudget(1, 'VersionService.getLatestContent');
     if (!raw) return '';
     const parsed = versionDbSchema.safeParse({ id: raw.id, ...raw });
     if (!parsed.success) {
@@ -87,9 +83,7 @@ export const VersionService = {
   },
 
   async getLatestVersion(userId: string, documentId: string): Promise<Version | null> {
-    assertReadBudget('VersionService.getLatestVersion');
     const raw = await DataProvider.getLatestVersion(userId, documentId);
-    spendReadBudget(1, 'VersionService.getLatestVersion');
     if (!raw) return null;
     const parsed = versionDbSchema.safeParse({ id: raw.id, ...raw });
     if (!parsed.success) {

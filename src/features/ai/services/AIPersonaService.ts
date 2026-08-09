@@ -1,7 +1,6 @@
 import { getLocalDb, randomUUID } from '../../../core/storage/localDb';
 import type { AIPersona } from '../../../core/storage/localDb';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-
+import { callAi } from '../../../core/ai/callAi';
 export const PRESET_PERSONAS = [
   { id: 'group_psychology', name: 'Группа психологов', emoji: '\u{1FAC2}', isPreset: true },
   { id: 'cbt', name: 'КПТ-психолог', emoji: '\u{1F9E0}', isPreset: true },
@@ -50,12 +49,8 @@ export const AIPersonaService = {
   },
 
   async validate(systemPrompt: string): Promise<{ valid: boolean; reason?: string }> {
-    const functions = getFunctions();
-    const fn = httpsCallable<{ prompt: string }, { valid: boolean; reason?: string }>(
-      functions, 'validateCustomPrompt'
-    );
     try {
-      const { data } = await fn({ prompt: systemPrompt });
+      const data = await callAi<{ valid: boolean; reason?: string }>('validateCustomPrompt', { prompt: systemPrompt });
       return data;
     } catch {
       return { valid: false, reason: 'Validation request failed.' };

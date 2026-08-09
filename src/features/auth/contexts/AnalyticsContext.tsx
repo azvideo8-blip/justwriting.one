@@ -4,7 +4,7 @@ import { clearSessionKey } from '../../../core/crypto/encrypt';
 import { analytics } from '../../../core/analytics/analytics';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { reportError } from '../../../shared/errors/reportError';
-import { onConnectionChange } from '../../../core/firebase/firestore';
+
 import { useAuth } from './AuthContext';
 
 interface AnalyticsContextValue {
@@ -15,10 +15,20 @@ const AnalyticsContext = createContext<AnalyticsContextValue>({ isConnected: tru
 
 export function AnalyticsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [isConnected, setIsConnected] = useState(true);
+  // Read the initial value during state init, not from inside the effect.
+  // Setting state synchronously in an effect costs an extra render pass on every
+  // mount, and eslint rejects it.
+  const [isConnected, setIsConnected] = useState(() => navigator.onLine);
 
   useEffect(() => {
-    return onConnectionChange(setIsConnected);
+    const handleOnline = () => setIsConnected(true);
+    const handleOffline = () => setIsConnected(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   useEffect(() => {

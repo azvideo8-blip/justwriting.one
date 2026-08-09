@@ -1,5 +1,5 @@
 import { Document, Version } from '../../types';
-import { DocumentDb, VersionDb } from '../firebase/schemas/firestoreSchemas';
+import { DocumentDb, VersionDb } from '../data/schemas';
 import { toDate } from '../utils/dateUtils';
 
 export function documentFromDb(dbDoc: DocumentDb): Document {

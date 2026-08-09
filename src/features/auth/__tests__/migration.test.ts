@@ -63,10 +63,7 @@ vi.mock('../../../core/crypto/cryptoHelpers', () => ({
   maybeDecrypt: vi.fn(async (doc: Record<string, unknown>) => doc),
 }));
 
-vi.mock('../../../core/firebase/firestore', () => ({
-  isFirestoreConnected: true,
-  onConnectionChange: vi.fn(),
-}));
+// Removed firestore mock
 
 // Mock localDb — keep everything real but override getOrCreateGuestId
 vi.mock('../../../core/storage/localDb', async (importOriginal) => {

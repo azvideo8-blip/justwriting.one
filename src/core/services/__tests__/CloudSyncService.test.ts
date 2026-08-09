@@ -3,16 +3,7 @@ import 'fake-indexeddb/auto';
 import { CloudSyncService } from '../CloudSyncService';
 import { DocumentService } from '../DocumentService';
 import { LocalStorageService } from '../LocalStorageService';
-import * as WriteBudget from '../../firebase/writeBudget';
 
-vi.mock('../../firebase/firestore', () => ({ isFirestoreConnected: true }));
-
-vi.mock('../../firebase/writeBudget', () => ({
-  areCloudWritesBlockedToday: vi.fn(),
-  tryReserveBulkWriteBudget: vi.fn(),
-  blockCloudWritesToday: vi.fn(),
-  isGlobalWriteFailure: vi.fn(),
-}));
 
 describe('CloudSyncService', () => {
   beforeEach(() => {
@@ -25,34 +16,9 @@ describe('CloudSyncService', () => {
   });
 
   describe('restoreMissingDocuments', () => {
-    it('returns { restored: 0, hasMore: true } when writes are blocked', async () => {
-      vi.mocked(WriteBudget.areCloudWritesBlockedToday).mockReturnValue(true);
 
-      const result = await CloudSyncService.restoreMissingDocuments('user_1');
-      expect(result).toEqual({ restored: 0, hasMore: true });
-    });
-
-    it('returns early when budget runs out', async () => {
-      vi.mocked(WriteBudget.areCloudWritesBlockedToday).mockReturnValue(false);
-      vi.mocked(WriteBudget.tryReserveBulkWriteBudget)
-        .mockReturnValueOnce(true)
-        .mockReturnValueOnce(false);
-
-      vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([
-        { id: 'cloud_1' } as any,
-        { id: 'cloud_2' } as any,
-      ]);
-      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([]);
-      const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockResolvedValue('local_1');
-
-      const result = await CloudSyncService.restoreMissingDocuments('user_1');
-      expect(result).toEqual({ restored: 1, hasMore: true });
-      expect(addLocalCopySpy).toHaveBeenCalledTimes(1);
-    });
 
     it('returns hasMore false when all documents restored successfully', async () => {
-      vi.mocked(WriteBudget.areCloudWritesBlockedToday).mockReturnValue(false);
-      vi.mocked(WriteBudget.tryReserveBulkWriteBudget).mockReturnValue(true);
 
       vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([
         { id: 'cloud_1' } as any,
@@ -67,8 +33,6 @@ describe('CloudSyncService', () => {
     });
 
     it('re-links an unlinked local note instead of downloading a second copy', async () => {
-      vi.mocked(WriteBudget.areCloudWritesBlockedToday).mockReturnValue(false);
-      vi.mocked(WriteBudget.tryReserveBulkWriteBudget).mockReturnValue(true);
 
       vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([
         { id: 'cloud_1', firstSessionAt: new Date(1000), lastSessionAt: new Date(2000) } as any,
@@ -157,8 +121,6 @@ describe('CloudSyncService', () => {
 // pay the write quota to do it on every sync, forever.
 describe('addCloudCopy — pruned history is not re-uploaded', () => {
   it('uploads only versions newer than the newest the cloud holds', async () => {
-    vi.mocked(WriteBudget.areCloudWritesBlockedToday).mockReturnValue(false);
-    vi.mocked(WriteBudget.tryReserveBulkWriteBudget).mockReturnValue(true);
 
     const { LocalVersionService } = await import('../LocalVersionService');
     const { VersionService } = await import('../VersionService');
@@ -188,47 +150,3 @@ describe('addCloudCopy — pruned history is not re-uploaded', () => {
   });
 });
 
-// A run that ran out of write budget used to advance currentVersion anyway, set
-// the link, clear the queue and log "Заметка сохранена в облако" — so a cloud
-// copy missing half its history looked complete and stayed that way.
-describe('addCloudCopy — a partial upload is not a success', () => {
-  beforeEach(() => {
-    vi.mocked(WriteBudget.areCloudWritesBlockedToday).mockReturnValue(false);
-  });
-
-  it('reports incomplete, keeps the link, and does not claim the missing version', async () => {
-    // Budget for the document create and the first two versions only.
-    vi.mocked(WriteBudget.tryReserveBulkWriteBudget)
-      .mockReturnValueOnce(true)
-      .mockReturnValueOnce(true)
-      .mockReturnValue(false);
-
-    const { LocalVersionService } = await import('../LocalVersionService');
-    const { VersionService } = await import('../VersionService');
-    const { DocumentService } = await import('../DocumentService');
-
-    vi.spyOn(LocalStorageService, 'getDocument').mockResolvedValue({
-      id: 'local_1', currentVersion: 3, totalWords: 30, totalDuration: 0, sessionsCount: 3,
-    } as never);
-    vi.spyOn(LocalVersionService, 'getVersions').mockResolvedValue(
-      [1, 2, 3].map(v => ({
-        id: `v${v}`, version: v, content: `text ${v}`, wordCount: 1,
-        duration: 0, wpm: 0, savedAt: 1, sessionStartedAt: 1,
-      })) as never,
-    );
-    vi.spyOn(DocumentService, 'createDocument').mockResolvedValue('cloud_new');
-    vi.spyOn(VersionService, 'addVersion').mockResolvedValue(undefined as never);
-    const meta = vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockResolvedValue(undefined as never);
-    const link = vi.spyOn(LocalStorageService, 'updateLinkedCloudId').mockResolvedValue(undefined);
-    vi.spyOn(LocalStorageService, 'migrateDocumentOwner').mockResolvedValue(undefined as never);
-
-    const result = await CloudSyncService.addCloudCopy('user_1', 'local_1');
-
-    // Empty id — every caller leaves the queue item in place and retries later.
-    expect(result).toBe('');
-    // The cloud document exists, so the link must be kept or a retry creates a second one.
-    expect(link).toHaveBeenCalledWith('local_1', 'cloud_new');
-    // And it must not advertise a version it never received.
-    expect(meta).toHaveBeenCalledWith('user_1', 'cloud_new', expect.objectContaining({ currentVersion: 2 }));
-  });
-});

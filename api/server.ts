@@ -63,8 +63,10 @@ const server = http.createServer((req, res) => {
 
 // ── Start ──────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
-server.listen(PORT, () => {
-  console.warn(`[justwriting] API listening on :${PORT}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  server.listen(PORT, () => {
+    console.warn(`[justwriting] API listening on :${PORT}`);
+  });
+}
 
 export default server;

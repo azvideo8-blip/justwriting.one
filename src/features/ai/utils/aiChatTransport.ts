@@ -1,6 +1,4 @@
 import { getCurrentUser, getIdToken } from '../../../core/auth';
-import { getToken } from 'firebase/app-check';
-import { appCheck } from '../../../core/firebase/client';
 import type { AIMessage } from '../services/AIService';
 import { AIService } from '../services/AIService';
 
@@ -126,23 +124,16 @@ export async function streamChat(params: {
   onChunk: (partial: string, reasoning: string | null) => void;
 }): Promise<string> {
   const user = getCurrentUser();
-  if (!user) throw new Error('AUTH_REQUIRED');
+  if (!user) {
+    throw new Error('You must be logged in to chat with the AI.');
+  }
 
   const idToken = await getIdToken();
 
-  // /api/chat is a Vercel endpoint, not a Firebase callable — the App Check
-  // token is not attached automatically, we must send it ourselves.
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${idToken}`,
   };
-  if (appCheck) {
-    try {
-      headers['x-firebase-appcheck'] = (await getToken(appCheck)).token;
-    } catch (e) {
-      console.error('[chat] App Check token failed:', e);
-    }
-  }
 
   const response = await fetch('/api/chat', {
     method: 'POST',

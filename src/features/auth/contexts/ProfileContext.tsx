@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useMemo, ReactNode } from 'react';
 import { DataProvider } from '../../../core/data';
 import { UserProfile } from '../../../types';
-import { userProfileDbSchema } from '../../../core/firebase/schemas/firestoreSchemas';
+import { userProfileDbSchema } from '../../../core/data/schemas';
 import { setEncryptionEnabled, setProfileLoaded } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAuth } from './AuthContext';

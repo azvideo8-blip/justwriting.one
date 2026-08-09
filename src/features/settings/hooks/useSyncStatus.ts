@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
-import { onConnectionChange, isFirestoreConnected } from '../../../core/firebase/firestore';
+
 import { SyncService } from '../../../core/services/SyncService';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
@@ -52,7 +52,7 @@ function subscribePendingCount(listener: (count: number) => void): () => void {
  */
 export function useSyncStatus(userId: string | null): SyncStatusState {
   const isBrowserOnline = useOnlineStatus();
-  const [firestoreUp, setFirestoreUp] = useState(isFirestoreConnected);
+
   const [pendingCount, setPendingCount] = useState(0);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(
     () => localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) !== 'false'
@@ -61,12 +61,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
   const graceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevPendingRef = useRef(0);
 
-  // Listen for Firestore connection changes
-  useEffect(() => {
-    return onConnectionChange((connected) => {
-      setFirestoreUp(connected);
-    });
-  }, []);
+
 
   // Listen for auto_sync_enabled changes (from other tabs)
   useEffect(() => {
@@ -144,8 +139,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
     status = 'synced';
   } else if (!isBrowserOnline) {
     status = 'offline';
-  } else if (!firestoreUp) {
-    status = 'cloud_unavailable';
+
   } else if (pendingCount > 0 && showPending) {
     status = 'pending';
   }

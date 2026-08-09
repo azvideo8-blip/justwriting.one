@@ -7,7 +7,7 @@ import { LocalStorageService } from '../LocalStorageService';
 import { LocalVersionService } from '../LocalVersionService';
 import * as CryptoHelpers from '../../crypto/cryptoHelpers';
 
-vi.mock('../../firebase/firestore', () => ({ isFirestoreConnected: true }));
+// Removed firestore mock
 
 const CIPHERTEXT = 'k7Hs9x2fQ0aZ==';
 

@@ -4,7 +4,7 @@ import { DataProvider } from '../../../core/data';
 import { sha256Hex, getLatestContent } from '../utils/embeddingIndexer';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { getEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
-import { canSpendReadBudget, spendReadBudget, estimateReadUnits } from '../../../core/firebase/readBudget';
+
 import { reportError } from '../../../shared/errors/reportError';
 import { logger } from '../../../shared/errors/logger';
 import { decodeCloudSummary } from './AISummaryService';
@@ -80,17 +80,14 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
   const existingEmbeddings = new Set((await db.getAllKeys('aiEmbeddings')).map(String));
 
   try {
-    if (canSpendReadBudget()) {
-      const docs = await DataProvider.getUserSummaries(userId);
-      spendReadBudget(estimateReadUnits(docs) || 1, 'AIRestoreService.restoreAIData_summaries');
-      for (const d of docs) {
-        if (existingSummaries.has(d.id as string)) continue;
-        try {
-          await db.put('aiSummaries', await decodeCloudSummary(d, d.id as string));
-          result.summaries++;
-        } catch {
-          result.failed++;
-        }
+    const docs = await DataProvider.getUserSummaries(userId);
+    for (const d of docs) {
+      if (existingSummaries.has(d.id as string)) continue;
+      try {
+        await db.put('aiSummaries', await decodeCloudSummary(d, d.id as string));
+        result.summaries++;
+      } catch {
+        result.failed++;
       }
     }
   } catch (e) {
@@ -118,16 +115,13 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
     // locally, at its own daily pace, for zero Firestore reads. Restoring them
     // is a deliberate, user-initiated action (requestEmbeddingRestore) and
     // resumes across days from a stored cursor.
-    if (isEmbeddingRestoreRequested() && canSpendReadBudget()) {
+    if (isEmbeddingRestoreRequested()) {
       const PAGE = 5;
       const docsPage: Record<string, unknown>[] = [];
       let cursorId: string | undefined = getEmbeddingRestoreCursor() || undefined;
       for (;;) {
         const res = await DataProvider.getUserEmbeddingsPaginated(userId, PAGE, cursorId);
         if (res.items.length === 0) { clearEmbeddingRestoreRequest(); break; }
-        
-        // Emulate estimateReadUnits on plain objects just by array length since they aren't QuerySnapshot
-        spendReadBudget(res.items.length, 'AIRestoreService.restoreAIData_embeddings');
         
         docsPage.push(...res.items);
         cursorId = res.nextCursorId;
@@ -136,7 +130,6 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
         }
         
         if (res.items.length < PAGE) { clearEmbeddingRestoreRequest(); break; }
-        if (!canSpendReadBudget()) break;
       }
       for (const d of docsPage) {
         const dId = d.id as string;

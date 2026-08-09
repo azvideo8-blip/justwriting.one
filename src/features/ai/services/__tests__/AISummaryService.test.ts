@@ -34,21 +34,15 @@ vi.mock('../../../../core/storage/localDb', () => ({
   }),
 }));
 
-vi.mock('../../../../core/firebase/firestoreClient', () => ({
-  getClient: async () => ({
-    db: {} as any,
-    mod: {
-      doc: (db: any, ...path: string[]) => ({ type: 'doc', path }),
-      setDoc: mockSetDoc,
-      getDoc: mockGetDoc,
-    },
-  }),
+vi.mock('../../../../core/data', () => ({
+  DataProvider: {
+    saveSummary: mockSetDoc,
+    getSummary: mockGetDoc,
+  },
 }));
 
-vi.mock('firebase/auth', () => ({
-  getAuth: () => ({
-    currentUser: mockCurrentUser,
-  }),
+vi.mock('../../../../core/auth', () => ({
+  getCurrentUser: () => mockCurrentUser,
 }));
 
 vi.mock('../../../../core/crypto/cryptoHelpers', () => ({
@@ -88,10 +82,7 @@ describe('AISummaryService', () => {
 
     it('fetches from cloud if not available locally and user is logged in', async () => {
       mockGet.mockResolvedValue(undefined);
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ ...dummySummary, encrypted: true }),
-      });
+      mockGetDoc.mockResolvedValue({ ...dummySummary, encrypted: true });
 
       const res = await AISummaryService.get('doc-123');
       expect(res).toEqual({

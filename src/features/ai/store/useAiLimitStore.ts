@@ -68,25 +68,7 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
   },
 
   async loadLimitFromServer() {
-    const user = getCurrentUser();
-    if (!user) {
-      get().loadLimit();
-      return;
-    }
-    try {
-      const { doc, getDoc } = await import('firebase/firestore');
-      const { getDb } = await import('../../../core/firebase/firestore');
-      const db = await getDb();
-      const date = getUtcDateStr();
-      const snap = await getDoc(doc(db, 'aiDailyLimit', user.uid));
-      const data = snap.data();
-      const used = (data?.date === date) ? (data?.count ?? 0) : 0;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ count: used, date }));
-      const limit = get().isAdmin ? ADMIN_LIMIT : get().limit;
-      set({ used, limit, remaining: Math.max(0, limit - used), resetsAt: getMidnightUtc(), loaded: true });
-    } catch {
-      get().loadLimit();
-    }
+    get().loadLimit();
   },
 
   useRequest() {

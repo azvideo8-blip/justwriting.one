@@ -12,11 +12,11 @@ import { useToast } from '../../../shared/components/Toast';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { UserProfile } from '../../../types';
 import { getCurrentUser } from '../../../core/auth';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAdminStatus } from '../../auth/hooks/useAdminStatus';
-import { getReadBudgetStatus, areCloudReadsBlockedToday } from '../../../core/firebase/readBudget';
+
 import { requestEmbeddingRestore } from '../services/AIRestoreService';
+import { callAi } from '../../../core/ai/callAi';
 
 export type Tab = 'stats' | 'sync' | 'db' | 'users' | 'ai_usage' | 'ai_profile' | 'queue' | 'memory_assembler' | 'beliefs';
 
@@ -93,9 +93,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
         const usersData = await AdminUserService.getUsers(ADMIN_AI_USERS_LIMIT);
         setUsers(usersData);
       }
-      const functions = getFunctions();
-      const fn = httpsCallable<{ date: string }, AIUsageResponse>(functions, 'getAIUsageStats');
-      const { data } = await fn({ date: aiUsageDate });
+      const data = await callAi<AIUsageResponse>('getAIUsageStats', { date: aiUsageDate });
       setAiUsage(data.stats);
       setAiTotals(data.totals ?? null);
       setAiLimits(data.limits ?? null);
@@ -119,9 +117,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     setUserEventsLoading(true);
     setUserEvents([]);
     try {
-      const functions = getFunctions();
-      const fn = httpsCallable<{ date: string; targetUid: string }, AIEventsResponse>(functions, 'getAIUsageStats');
-      const { data } = await fn({ date: aiUsageDate, targetUid: uid });
+      const data = await callAi<AIEventsResponse>('getAIUsageStats', { date: aiUsageDate, targetUid: uid });
       setUserEvents(data.events ?? []);
     } catch (e) {
       reportError(e, { action: 'Failed to fetch user events' });
@@ -331,9 +327,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     }
     setResettingUid(user.uid);
     try {
-      const functions = getFunctions();
-      const fn = httpsCallable<{ targetUid: string }, { success: boolean }>(functions, 'resetUserLimit');
-      await fn({ targetUid: user.uid });
+      await callAi('resetUserLimit', { targetUid: user.uid });
       
       localStorage.removeItem('ai_daily_usage');
       useAiLimitStore.setState({ used: 0, remaining: useAiLimitStore.getState().limit });
@@ -383,9 +377,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     if (!ok) return;
     setResettingUid(targetUid);
     try {
-      const functions = getFunctions();
-      const fn = httpsCallable<{ targetUid: string }, { success: boolean }>(functions, 'resetUserLimit');
-      await fn({ targetUid });
+      await callAi('resetUserLimit', { targetUid });
       
       // LX-2b: If resetting own limit, clear client state AND sync from server
       // so the client pre-check immediately unblocks (was stuck on stale localStorage).
@@ -443,7 +435,5 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     handleResetUserLimit,
     handleClearMemory,
     handleCollapseVersions,
-    readBudgetStatus: getReadBudgetStatus(),
-    readsBlocked: areCloudReadsBlockedToday(),
   };
 }

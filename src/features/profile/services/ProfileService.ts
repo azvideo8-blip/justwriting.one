@@ -2,7 +2,7 @@ import { DataProvider } from '../../../core/data';
 import { handleFirestoreError, OperationType } from '../../../core/errors/firestore-errors';
 import { Label } from '../../../types';
 import { reportError } from '../../../shared/errors/reportError';
-import { userProfileDbSchema } from '../../../core/firebase/schemas/firestoreSchemas';
+import { userProfileDbSchema } from '../../../core/data/schemas';
 
 export const ProfileService = {
   async updateNickname(userId: string, nickname: string) {

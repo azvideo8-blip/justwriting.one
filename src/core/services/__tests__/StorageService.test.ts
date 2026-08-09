@@ -3,11 +3,7 @@ import 'fake-indexeddb/auto';
 import { StorageService } from '../StorageService';
 import { getLocalDb } from '../../storage/localDb';
 
-// Mock the Firestore modules so CloudSyncService reads fail
-vi.mock('../../firebase/firestore', () => ({
-  isFirestoreConnected: false,
-  onConnectionChange: vi.fn(() => () => {}),
-}));
+// Removed firestore mock
 
 vi.mock('../DocumentService', () => ({
   DocumentService: {

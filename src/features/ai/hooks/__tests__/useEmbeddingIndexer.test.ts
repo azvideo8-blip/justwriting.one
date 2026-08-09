@@ -41,8 +41,8 @@ vi.mock('../../../../core/storage/localDb', () => ({
     getAllFromIndex: vi.fn().mockResolvedValue([]),
   }),
 }));
-vi.mock('firebase/auth', () => ({
-  getAuth: () => ({ currentUser: { uid: 'test_user' } }),
+vi.mock('../../../../core/auth', () => ({
+  getCurrentUser: () => ({ uid: 'test_user' }),
 }));
 vi.mock('../../services/AIProfileFacetService', () => ({
   AIProfileFacetService: {

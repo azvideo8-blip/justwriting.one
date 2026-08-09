@@ -8,7 +8,7 @@ import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { getIndexCoverage, indexPending, reindexAll, type IndexCoverage } from '../utils/embeddingIndexer';
 import { searchNotes, type RetrievedNote } from '../utils/noteRetriever';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
-import { getWriteBudgetStatus } from '../../../core/firebase/writeBudget';
+
 import { reportError } from '../../../shared/errors/reportError';
 
 export function EmbeddingDiagnostics() {
@@ -187,7 +187,6 @@ export function EmbeddingDiagnostics() {
             { label: 'Не в облаке', value: coverage ? String(coverage.unsynced) : '—' },
             { label: 'Модель / размер', value: coverage ? `${coverage.model.split('/').pop()} · ${coverage.dim}` : '—' },
             { label: 'Последняя', value: coverage?.lastProcessedAt ? new Date(coverage.lastProcessedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—' },
-            { label: 'Firestore-бюджет сегодня', value: `${getWriteBudgetStatus().used} / ${getWriteBudgetStatus().cap}` },
           ].map(s => (
             <div key={s.label} className="p-2.5 rounded-xl border border-border-subtle/60 bg-surface-base/5">
               <div className="text-[9px] uppercase tracking-wider text-text-main/60 font-bold">{s.label}</div>

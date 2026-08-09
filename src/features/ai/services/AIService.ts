@@ -1,8 +1,8 @@
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getCurrentUser, getIdToken } from '../../../core/auth';
 import { reportError } from '../../../shared/errors/reportError';
 import { withTimeout } from '../../../shared/utils/withTimeout';
 import { analytics } from '../../../core/analytics/analytics';
+import { callAi } from '../../../core/ai/callAi';
 
 // Generation calls (chat/edit/summarize) let the model run up to abortMs=110s
 // server-side, inside a 120s function timeout. A 60s client timeout used to
@@ -82,10 +82,8 @@ export const AIService = {
     action: AIAction,
     opts?: { sessionId?: string; history?: AIMessage[] }
   ): Promise<AIResult> {
-    const functions = getFunctions();
-    const fn = httpsCallable<unknown, { result: string }>(functions, 'editWithAI');
     try {
-      const { data } = await withTimeout(fn({ content, action, ...opts }), GEN_TIMEOUT_MS);
+      const data = await withTimeout(callAi<{ result: string }>('editWithAI', { content, action, ...opts }), GEN_TIMEOUT_MS);
       try { analytics.track('ai_action', { action }); } catch { /* non-critical */ }
       return { ok: true, text: data.result };
     } catch (e: unknown) {
@@ -120,17 +118,15 @@ export const AIService = {
     callType?: 'auto_name' | 'follow_up' | 'query_expand' | undefined;
   }): Promise<AIResult> {
 
-    const functions = getFunctions();
-    const fn = httpsCallable<unknown, { result: string }>(functions, 'chatWithAI');
     try {
-      const { data } = await withTimeout(fn(params), GEN_TIMEOUT_MS);
+      const data = await withTimeout(callAi<{ result: string }>('chatWithAI', params), GEN_TIMEOUT_MS);
       try { analytics.track('ai_chat', { personaId: params.personaId }); } catch { /* non-critical */ }
       return { ok: true, text: data.result };
     } catch (e: unknown) {
       const code = mapAIError(e);
       if (code === 'AUTH_REQUIRED' && getCurrentUser()) {
         try {
-          const { data } = await retryAfterTokenRefresh(() => withTimeout(fn(params), GEN_TIMEOUT_MS));
+          const data = await retryAfterTokenRefresh(() => withTimeout(callAi<{ result: string }>('chatWithAI', params), GEN_TIMEOUT_MS));
           return { ok: true, text: data.result };
         } catch { /* второй отказ — сообщаем честно ниже */ }
       }
@@ -146,10 +142,8 @@ export const AIService = {
     recentContext?: string | undefined;
     noteDate?: string | undefined;
   }): Promise<{ ok: true; summary: AISummaryPayload } | { ok: false; error: string }> {
-    const functions = getFunctions();
-    const fn = httpsCallable<unknown, AISummaryPayload>(functions, 'summarizeDocument');
     try {
-      const { data } = await withTimeout(fn(params), GEN_TIMEOUT_MS);
+      const data = await withTimeout(callAi<AISummaryPayload>('summarizeDocument', params), GEN_TIMEOUT_MS);
       try { analytics.track('ai_summarize'); } catch { /* non-critical */ }
       return { ok: true, summary: data };
     } catch (e: unknown) {
@@ -174,10 +168,8 @@ export const AIService = {
     if (content.length > 200_000) return { ok: false, error: 'CONTENT_TOO_LARGE' };
     params = { ...params, content };
 
-    const functions = getFunctions();
-    const fn = httpsCallable<unknown, { vectors: number[][]; chunks: string[]; model: string; dim: number }>(functions, 'embedDocument');
     try {
-      const { data } = await withTimeout(fn(params), 60_000);
+      const data = await withTimeout(callAi<{ vectors: number[][]; chunks: string[]; model: string; dim: number }>('embedDocument', params), 60_000);
       try { analytics.track('ai_embed'); } catch { /* non-critical */ }
       return { ok: true, vectors: data.vectors, chunks: data.chunks ?? [], model: data.model, dim: data.dim };
     } catch (e: unknown) {
@@ -194,8 +186,6 @@ export const AIService = {
     candidates: { documentId: string; card: string }[];
     maxResults?: number;
   }): Promise<{ ok: true; documentIds: string[] } | { ok: false; error: string }> {
-    const functions = getFunctions();
-    const fn = httpsCallable<unknown, { documentIds: string[] }>(functions, 'rerankNotes');
     // The endpoint caps the query at 2 000 characters and a card at 4 000, and
     // rejects the whole call with "Invalid payload" when either is over. The
     // query grows on its own — a sticky search appends the previous query to the
@@ -208,7 +198,7 @@ export const AIService = {
       candidates: params.candidates.map(c => ({ ...c, card: c.card.slice(0, 4_000) })),
     };
     try {
-      const { data } = await withTimeout(fn(clamped), 60_000);
+      const data = await withTimeout(callAi<{ documentIds: string[] }>('rerankNotes', clamped), 60_000);
       return { ok: true, documentIds: data.documentIds };
     } catch (e: unknown) {
       reportError(e, { action: 'rerank' }, 'warning');
@@ -221,12 +211,10 @@ export const AIService = {
     focus?: string | null | undefined;
     correction?: string | undefined;
   }): Promise<{ ok: true; label: string; summary: string } | { ok: false; error: string }> {
-    const functions = getFunctions();
-    const fn = httpsCallable<unknown, { label: string; summary: string }>(functions, 'summarizeFacet');
     try {
       const { focus, ...rest } = params;
       const payload = { ...rest, ...(focus ? { focus } : {}) };
-      const { data } = await withTimeout(fn(payload), 60_000);
+      const data = await withTimeout(callAi<{ label: string; summary: string }>('summarizeFacet', payload), 60_000);
       return { ok: true, label: data.label, summary: data.summary };
     } catch (e: unknown) {
       reportError(e, { action: 'summarizeFacet' }, 'warning');
@@ -237,11 +225,9 @@ export const AIService = {
   async deriveTaxonomy(params: { digest: string }): Promise<
     { ok: true; domains: { label: string; seed: string }[] } | { ok: false; error: AIErrorCode }
   > {
-    const functions = getFunctions();
     try {
-      const fn = httpsCallable<unknown, { domains: { label: string; seed: string }[] }>(functions, 'deriveTaxonomy');
-      const res = await withTimeout(fn(params), 60_000);
-      return { ok: true, domains: res.data.domains ?? [] };
+      const res = await withTimeout(callAi<{ domains: { label: string; seed: string }[] }>('deriveTaxonomy', params), 60_000);
+      return { ok: true, domains: res.domains ?? [] };
     } catch (e) {
       reportError(e, { action: 'deriveTaxonomy' }, 'warning');
       // Сырой код Firebase здесь бесполезен: вызывающая сторона сравнивает его с
@@ -253,11 +239,9 @@ export const AIService = {
   async judgeFacets(params: { facets: { facetId: string; label: string; summary: string; evidence: string }[] }): Promise<
     { ok: true; verdicts: { facetId: string; ok: boolean; issues: string[]; hint: string }[] } | { ok: false; error: AIErrorCode }
   > {
-    const functions = getFunctions();
     try {
-      const fn = httpsCallable<unknown, { verdicts: { facetId: string; ok: boolean; issues: string[]; hint: string }[] }>(functions, 'judgeFacets');
-      const res = await withTimeout(fn(params), 60_000);
-      return { ok: true, verdicts: res.data.verdicts ?? [] };
+      const res = await withTimeout(callAi<{ verdicts: { facetId: string; ok: boolean; issues: string[]; hint: string }[] }>('judgeFacets', params), 60_000);
+      return { ok: true, verdicts: res.verdicts ?? [] };
     } catch (e) {
       reportError(e, { action: 'judgeFacets' }, 'warning');
       // Из-за сырого кода Firebase остановка перебора в AIFacetJudgeService не
@@ -269,10 +253,8 @@ export const AIService = {
   async extractChatMemory(params: {
     messages: { role: string; content: string }[];
   }): Promise<{ ok: true; memories: { kind: string; text: string }[] } | { ok: false; error: string }> {
-    const functions = getFunctions();
-    const fn = httpsCallable<unknown, { memories: { kind: string; text: string }[] }>(functions, 'extractChatMemory');
     try {
-      const { data } = await withTimeout(fn(params), 60_000);
+      const data = await withTimeout(callAi<{ memories: { kind: string; text: string }[] }>('extractChatMemory', params), 60_000);
       return { ok: true, memories: data.memories };
     } catch (e: unknown) {
       reportError(e, { action: 'extractChatMemory' }, 'warning');
@@ -285,10 +267,8 @@ export const AIService = {
     firstSeenAt: string;
     correctionHint?: string;
   }): Promise<{ ok: true; belief: string } | { ok: false; error: string }> {
-    const functions = getFunctions();
-    const fn = httpsCallable<unknown, { belief: string }>(functions, 'summarizeBeliefCluster');
     try {
-      const { data } = await withTimeout(fn(params), 60_000);
+      const data = await withTimeout(callAi<{ belief: string }>('summarizeBeliefCluster', params), 60_000);
       return { ok: true, belief: data.belief };
     } catch (e: unknown) {
       // No chat() fallback here on purpose: this is background consolidation, and
@@ -305,10 +285,8 @@ export const AIService = {
     belief: string;
     evidence: { id: string; date: string; snippet?: string }[];
   }): Promise<{ ok: true; passed: boolean; reason: string; correctiveHint?: string } | { ok: false; error: string }> {
-    const functions = getFunctions();
-    const fn = httpsCallable<unknown, { passed: boolean; reason: string; correctiveHint?: string }>(functions, 'judgeBeliefCandidate');
     try {
-      const { data } = await withTimeout(fn(params), 60_000);
+      const data = await withTimeout(callAi<{ passed: boolean; reason: string; correctiveHint?: string }>('judgeBeliefCandidate', params), 60_000);
       const hint = data.correctiveHint ?? undefined;
       return {
         ok: true,
