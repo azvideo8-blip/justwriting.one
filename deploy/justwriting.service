@@ -1,26 +1,40 @@
 [Unit]
-Description=JustWriting API server
-After=network.target
+Description=JustWriting API — AI endpoints and CSP reports
+After=network-online.target docker.service
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=justwriting
 Group=justwriting
-WorkingDirectory=/opt/justwriting
-ExecStart=/usr/bin/node api/server.js
+WorkingDirectory=/opt/justwriting/api
+
+# A single esbuild bundle, not the TypeScript tree. Bundling sidesteps module
+# resolution entirely, which is what cost this migration several rounds: the repo
+# root is "type": "module" while functions/ is CommonJS, and importing across
+# that boundary fails at load time with a clean tsc.
+#
+# Dependencies stay external (pg, zod, langfuse, isomorphic-dompurify) — jsdom,
+# which isomorphic-dompurify pulls in, reads files from its own package at
+# runtime and cannot be inlined.
+ExecStart=/usr/bin/node /opt/justwriting/api/server.mjs
+
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
 
-# Environment variables — edit /opt/justwriting/.env, not this file.
-EnvironmentFile=-/opt/justwriting/.env
+# Edit /opt/justwriting/api/.env, not this file.
+EnvironmentFile=/opt/justwriting/api/.env
 
-# Security hardening
+# Hardening. The service needs no write access anywhere: state lives in Postgres.
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/justwriting/data
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
 
 [Install]
 WantedBy=multi-user.target

@@ -16,15 +16,36 @@ function convertTimestampsToDb(data: ProviderRecord): ProviderRecord {
   return payload;
 }
 
+const DATE_FIELDS = [
+  'savedAt', 'sessionStartedAt', 'updatedAt', 'firstSessionAt', 'lastSessionAt',
+  'created_at', 'privacy_accepted_at', 'first_session_at', 'last_session_at',
+  'saved_at', 'session_started_at',
+];
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function convertTimestampsFromDb(data: ProviderRecord): ProviderRecord {
   const payload: ProviderRecord = { ...data, id: data.uuid || data.uid || data.document_id || data.id };
-  const dateFields = ['savedAt', 'sessionStartedAt', 'updatedAt', 'firstSessionAt', 'lastSessionAt', 'created_at', 'privacy_accepted_at', 'first_session_at', 'last_session_at', 'saved_at', 'session_started_at'];
-  for (const field of dateFields) {
+  for (const field of DATE_FIELDS) {
     if (payload[field] !== undefined && payload[field] !== null) {
       payload[field] = toMs(payload[field]);
     }
   }
+
+  // Postgres returns null for a column that was never filled; Firestore simply
+  // omitted the field. Zod treats the two differently: `.default()` and
+  // `.optional()` fire on undefined and reject null, so a note with no mood or
+  // no title came back as "expected string, received null" and failed to parse.
+  //
+  // Dropping the key restores the shape the schemas were written against. Date
+  // fields are the exception and keep their null: firestoreTimestampSchema is a
+  // union that lists null explicitly and has no .optional(), so removing the key
+  // would break them from the other side.
+  for (const key of Object.keys(payload)) {
+    if (payload[key] === null && !DATE_FIELDS.includes(key)) {
+      delete payload[key];
+    }
+  }
+
   return payload;
 }
 
@@ -35,7 +56,7 @@ export const SupabaseDataProvider: IDataProvider = {
     const { error } = await getSupabase()
       .from('documents')
       .insert({ ...payload, user_id: userId, uuid: docId, id: undefined });
-    if (error) throw error;
+    if (error != null) throw error;
     return docId;
   },
 
@@ -46,7 +67,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .eq('user_id', userId)
       .eq('uuid', documentId)
       .maybeSingle();
-    if (error) throw error;
+    if (error != null) throw error;
     if (!data) return null;
     return convertTimestampsFromDb(data);
   },
@@ -56,8 +77,8 @@ export const SupabaseDataProvider: IDataProvider = {
       .from('documents')
       .select('*')
       .eq('user_id', userId);
-    if (error) throw error;
-    return (data || []).map(convertTimestampsFromDb);
+    if (error != null) throw error;
+    return (data ?? []).map(convertTimestampsFromDb);
   },
 
   async updateDocument(userId: string, documentId: string, data: ProviderRecord): Promise<void> {
@@ -67,7 +88,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .update(payload)
       .eq('user_id', userId)
       .eq('uuid', documentId);
-    if (error) throw error;
+    if (error != null) throw error;
   },
 
   async updateDocumentSessionStats(
@@ -102,7 +123,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .update(updateData)
       .eq('user_id', userId)
       .eq('uuid', documentId);
-    if (error) throw error;
+    if (error != null) throw error;
   },
 
   async deleteDocument(userId: string, documentId: string): Promise<void> {
@@ -111,7 +132,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .delete()
       .eq('user_id', userId)
       .eq('uuid', documentId);
-    if (error) throw error;
+    if (error != null) throw error;
   },
 
   async clearLabelFromAllDocs(userId: string, labelId: string): Promise<void> {
@@ -120,12 +141,12 @@ export const SupabaseDataProvider: IDataProvider = {
       .update({ labelId: null })
       .eq('user_id', userId)
       .eq('labelId', labelId);
-    if (error) throw error;
+    if (error != null) throw error;
   },
 
   async renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void> {
     const { data } = await getSupabase().from('documents').select('uuid, tags').eq('user_id', userId).contains('tags', [oldTag]);
-    if (!data || data.length === 0) return;
+    if (data == null || data.length === 0) return;
     for (const doc of data) {
       const tags = (doc.tags || []) as string[];
       const newTags = Array.from(new Set(tags.map(t => (t === oldTag ? newTag : t))));
@@ -135,7 +156,7 @@ export const SupabaseDataProvider: IDataProvider = {
 
   async removeTagFromAllDocs(userId: string, tag: string): Promise<void> {
     const { data } = await getSupabase().from('documents').select('uuid, tags').eq('user_id', userId).contains('tags', [tag]);
-    if (!data || data.length === 0) return;
+    if (data == null || data.length === 0) return;
     for (const doc of data) {
       const tags = (doc.tags || []) as string[];
       const newTags = tags.filter(t => t !== tag);
@@ -148,7 +169,7 @@ export const SupabaseDataProvider: IDataProvider = {
     const { error } = await getSupabase()
       .from('versions')
       .upsert({ ...payload, user_id: userId, document_uuid: documentId, id: undefined });
-    if (error) throw error;
+    if (error != null) throw error;
   },
 
   async getVersions(userId: string, documentId: string): Promise<ProviderRecord[]> {
@@ -157,8 +178,8 @@ export const SupabaseDataProvider: IDataProvider = {
       .select('*')
       .eq('user_id', userId)
       .eq('document_uuid', documentId);
-    if (error) throw error;
-    return (data || []).map(convertTimestampsFromDb);
+    if (error != null) throw error;
+    return (data ?? []).map(convertTimestampsFromDb);
   },
 
   async getLatestVersion(userId: string, documentId: string): Promise<ProviderRecord | null> {
@@ -170,7 +191,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .order('version', { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (error) throw error;
+    if (error != null) throw error;
     if (!data) return null;
     return convertTimestampsFromDb(data);
   },
@@ -186,7 +207,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .eq('user_id', userId)
       .eq('document_uuid', documentId)
       .eq('version', parseInt(versionId, 10));
-    if (error) throw error;
+    if (error != null) throw error;
   },
 
   async updateVersionsBatch(userId: string, documentId: string, updates: { versionId: string; data: ProviderRecord }[]): Promise<void> {
@@ -203,7 +224,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .eq('user_id', userId)
       .eq('document_uuid', documentId)
       .in('version', vIds);
-    if (error) throw error;
+    if (error != null) throw error;
   },
 
   async getProfile(userId: string): Promise<ProviderRecord | null> {
@@ -212,7 +233,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .select('*')
       .eq('uid', userId)
       .maybeSingle();
-    if (error) throw error;
+    if (error != null) throw error;
     if (!data) return null;
     return convertTimestampsFromDb(data);
   },
@@ -223,7 +244,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .from('users')
       .update(payload)
       .eq('uid', userId);
-    if (error) throw error;
+    if (error != null) throw error;
   },
 
   subscribeToProfile(userId: string, onUpdate: (data: ProviderRecord | null) => void): () => void {
@@ -240,8 +261,8 @@ export const SupabaseDataProvider: IDataProvider = {
       .from('users')
       .select('*')
       .limit(limitCount);
-    if (error) throw error;
-    return (data || []).map(convertTimestampsFromDb);
+    if (error != null) throw error;
+    return (data ?? []).map(convertTimestampsFromDb);
   },
 
   async getDraft(userId: string): Promise<ProviderRecord | null> {
@@ -250,7 +271,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .select('*')
       .eq('user_id', userId)
       .maybeSingle();
-    if (error) throw error;
+    if (error != null) throw error;
     if (!data) return null;
     return convertTimestampsFromDb(data);
   },
@@ -261,7 +282,7 @@ export const SupabaseDataProvider: IDataProvider = {
     const { error } = await getSupabase()
       .from('drafts')
       .upsert({ ...payload, user_id: userId });
-    if (error) throw error;
+    if (error != null) throw error;
   },
 
   async updateDraft(userId: string, data: ProviderRecord): Promise<void> {
@@ -271,7 +292,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .from('drafts')
       .update(payload)
       .eq('user_id', userId);
-    if (error) throw error;
+    if (error != null) throw error;
   },
 
   async deleteDraft(userId: string): Promise<void> {
@@ -279,7 +300,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .from('drafts')
       .delete()
       .eq('user_id', userId);
-    if (error) throw error;
+    if (error != null) throw error;
   },
 
   async getSummary(userId: string, documentId: string): Promise<ProviderRecord | null> {
@@ -289,7 +310,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .eq('user_id', userId)
       .eq('document_id', documentId)
       .maybeSingle();
-    if (error) throw error;
+    if (error != null) throw error;
     if (!data) return null;
     return convertTimestampsFromDb(data);
   },
@@ -299,7 +320,7 @@ export const SupabaseDataProvider: IDataProvider = {
     const { error } = await getSupabase()
       .from('ai_summaries')
       .upsert({ ...payload, user_id: userId, document_id: documentId });
-    if (error) throw error;
+    if (error != null) throw error;
   },
 
   async getUserSummaries(userId: string): Promise<ProviderRecord[]> {
@@ -307,8 +328,8 @@ export const SupabaseDataProvider: IDataProvider = {
       .from('ai_summaries')
       .select('*')
       .eq('user_id', userId);
-    if (error) throw error;
-    return (data || []).map(convertTimestampsFromDb);
+    if (error != null) throw error;
+    return (data ?? []).map(convertTimestampsFromDb);
   },
 
   async getEmbedding(userId: string, documentId: string): Promise<ProviderRecord | null> {
@@ -318,7 +339,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .eq('user_id', userId)
       .eq('document_id', documentId)
       .maybeSingle();
-    if (error) throw error;
+    if (error != null) throw error;
     if (!data) return null;
     return convertTimestampsFromDb(data);
   },
@@ -328,7 +349,7 @@ export const SupabaseDataProvider: IDataProvider = {
     const { error } = await getSupabase()
       .from('ai_embeddings')
       .upsert({ ...payload, user_id: userId, document_id: documentId });
-    if (error) throw error;
+    if (error != null) throw error;
   },
 
   async getUserEmbeddingsPaginated(userId: string, limitCount: number, cursorId?: string): Promise<{ items: ProviderRecord[]; nextCursorId?: string; readCount: number }> {
@@ -344,10 +365,10 @@ export const SupabaseDataProvider: IDataProvider = {
     }
     
     const { data, error } = await q;
-    if (error) throw error;
+    if (error != null) throw error;
     
-    const items = (data || []).map(convertTimestampsFromDb);
-    const nextCursorId = data && data.length > 0 ? data[data.length - 1].document_id as string : undefined;
+    const items = (data ?? []).map(convertTimestampsFromDb);
+    const nextCursorId = data != null && data.length > 0 ? data[data.length - 1].document_id as string : undefined;
     return { items, ...(nextCursorId ? { nextCursorId } : {}), readCount: data?.length || 0 };
   },
 
@@ -364,8 +385,8 @@ export const SupabaseDataProvider: IDataProvider = {
     }
     
     const { data, error } = await q;
-    if (error) throw error;
-    return (data || []).map(convertTimestampsFromDb);
+    if (error != null) throw error;
+    return (data ?? []).map(convertTimestampsFromDb);
   },
 
   async getAIProfile(userId: string): Promise<ProviderRecord | null> {
@@ -393,7 +414,7 @@ export const SupabaseDataProvider: IDataProvider = {
         encrypted_data_key: null
       })
       .eq('uid', userId);
-    if (error) throw error;
+    if (error != null) throw error;
   },
 
   async hasLegacyKey(userId: string): Promise<boolean> {
@@ -425,8 +446,8 @@ export const SupabaseDataProvider: IDataProvider = {
       .from('drafts')
       .select('*')
       .eq('user_id', userId);
-    if (error) throw error;
-    return (data || []).map(d => ({ id: d.user_id as string, data: convertTimestampsFromDb(d) }));
+    if (error != null) throw error;
+    return (data ?? []).map(d => ({ id: d.user_id as string, data: convertTimestampsFromDb(d) }));
   },
 
   async executeMigrationBatch(ops: {

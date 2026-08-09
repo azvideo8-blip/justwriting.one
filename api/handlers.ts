@@ -15,6 +15,7 @@ import { summarizeDocumentLogic } from './ai/summarizeDocument.logic';
 import { summarizeFacetLogic } from './ai/summarizeFacet.logic';
 import { validateCustomPromptLogic } from './ai/validateCustomPrompt.logic';
 import { deriveTaxonomyLogic } from './ai/deriveTaxonomy.logic';
+import { sendTelemetryLogic, deleteAccountLogic } from './account';
 
 type LogicFn = (
   ctx: typeof postgresAiContext,
@@ -36,6 +37,10 @@ const LOGIC_MAP: Record<string, LogicFn> = {
   summarizeFacet: summarizeFacetLogic,
   validateCustomPrompt: validateCustomPromptLogic,
   deriveTaxonomy: deriveTaxonomyLogic,
+  // Not AI, but the client reaches them the same way and they need the same
+  // auth gate — so they live behind the same dispatcher.
+  sendTelemetry: sendTelemetryLogic,
+  deleteAccount: deleteAccountLogic,
 };
 
 const CODE_TO_HTTP: Record<string, number> = {
