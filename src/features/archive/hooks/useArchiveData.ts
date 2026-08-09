@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { format } from 'date-fns';
 import { Label } from '../../../types';
 import { useArchiveFilters } from './useArchiveFilters';
@@ -9,7 +9,7 @@ import { useArchiveWordCloud } from './useArchiveWordCloud';
 import { useArchiveGrouping } from './useArchiveGrouping';
 import { getDateLocale } from '../../../core/utils/dateUtils';
 
-export function useArchiveData(user: User | null, userId: string, t: (key: string) => string, language: string, labels?: Label[]) {
+export function useArchiveData(user: AppUser | null, userId: string, t: (key: string) => string, language: string, labels?: Label[]) {
   const sessionsData = useArchiveSessions(user, userId, t);
 
   const {

@@ -1,23 +1,14 @@
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  sendPasswordResetEmail,
-  updatePassword as firebaseUpdatePassword,
-  reauthenticateWithCredential,
-  EmailAuthProvider,
-} from 'firebase/auth';
-import { auth } from '../../../core/firebase/auth';
+import { signIn, signUp, signOutUser, sendPasswordResetEmail, getCurrentUser } from '../../../core/auth';
 import { unwrapDataKeyWithPassword, setSessionKey, fromBase64, decryptContent } from '../../../core/crypto/encrypt';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
 
 async function signUpWithEmail(email: string, password: string) {
-  return createUserWithEmailAndPassword(auth, email, password);
+  return signUp(email, password);
 }
 
 async function signInWithEmail(email: string, password: string) {
-  return signInWithEmailAndPassword(auth, email, password);
+  return signIn(email, password);
 }
 
 /**
@@ -31,7 +22,7 @@ async function signInWithEmail(email: string, password: string) {
  * user's explicit "выйти и удалить локальные данные".
  */
 async function signOut(opts?: { force?: boolean }) {
-  const currentUid = auth.currentUser?.uid;
+  const currentUid = getCurrentUser()?.uid;
 
   if (!opts?.force) {
     const { countUnsyncedLocalData, UnsyncedLocalDataError } = await import('./unsyncedLocalData');
@@ -67,35 +58,20 @@ async function signOut(opts?: { force?: boolean }) {
     /* ignore */
   }
 
-  return firebaseSignOut(auth);
+  return signOutUser();
 }
 
 
 async function sendPasswordReset(email: string) {
-  return sendPasswordResetEmail(auth, email);
+  return sendPasswordResetEmail(email);
 }
 
-async function reauthenticate(currentPassword: string) {
-  const user = auth.currentUser;
-  if (!user || !user.email) throw new Error('No authenticated user');
 
-  const credential = EmailAuthProvider.credential(user.email, currentPassword);
-  return reauthenticateWithCredential(user, credential);
-}
-
-async function updatePasswordDirect(newPassword: string) {
-  const user = auth.currentUser;
-  if (!user) throw new Error('No authenticated user');
-  return firebaseUpdatePassword(user, newPassword);
-}
 
 function getCurrentUserId(): string | null {
-  return auth.currentUser?.uid ?? null;
+  return getCurrentUser()?.uid ?? null;
 }
 
-function getCurrentUser() {
-  return auth.currentUser;
-}
 
 interface VaultProfileData {
   encryptionMeta?: unknown;
@@ -172,7 +148,7 @@ async function unlockVaultFromPendingKeys(keys: { encryptionSalt: string; encryp
 }
 
 async function deleteAccount(): Promise<void> {
-  const user = auth.currentUser;
+  const user = getCurrentUser();
   if (!user) throw new Error('No authenticated user');
 
   const { getFunctions, httpsCallable } = await import('firebase/functions');
@@ -192,8 +168,6 @@ export const AuthService = {
   signInWithEmail,
   signOut,
   sendPasswordReset,
-  reauthenticate,
-  updatePasswordDirect,
   getCurrentUserId,
   getCurrentUser,
   unlockVaultFromProfile,

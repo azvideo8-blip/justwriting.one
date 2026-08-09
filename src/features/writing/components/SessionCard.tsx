@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { Clock, Type, PenLine, ChevronDown, ChevronUp, Trash2, Share2, HardDrive, Cloud } from 'lucide-react';
-import { auth } from '../../../core/firebase/auth';
+import { getCurrentUser } from '../../../core/auth';
 import { deleteSession } from '../services/SessionDeleteService';
 import { Session, Label } from '../../../types';
 import { parseFirestoreDate, cn } from '../../../core/utils/utils';
@@ -262,7 +262,7 @@ export const SessionCard = React.memo(function SessionCard({
                 />
               )}
 
-              {(auth.currentUser?.uid === session.userId || session._isLocal) && (
+              {(getCurrentUser()?.uid === session.userId || session._isLocal) && (
                 <>
                   <Button
                     variant="ghost"
@@ -331,7 +331,7 @@ export const SessionCard = React.memo(function SessionCard({
         {!isEditing && (
           <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t relative z-10 border-border-subtle">
             <TagsSection session={session} isEditing={isEditing} />
-            {onContinue && (auth.currentUser?.uid === session.userId || session._isLocal) && (
+            {onContinue && (getCurrentUser()?.uid === session.userId || session._isLocal) && (
               <Button
                 variant="primary"
                 size="md"

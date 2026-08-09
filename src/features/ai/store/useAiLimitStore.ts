@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { getAuth } from 'firebase/auth';
+import { getCurrentUser } from '../../../core/auth';
 
 const STORAGE_KEY = 'ai_daily_usage';
 const DEFAULT_LIMIT = 10;
@@ -68,7 +68,7 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
   },
 
   async loadLimitFromServer() {
-    const user = getAuth().currentUser;
+    const user = getCurrentUser();
     if (!user) {
       get().loadLimit();
       return;

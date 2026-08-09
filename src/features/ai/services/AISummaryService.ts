@@ -1,6 +1,6 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIDocumentSummary, AITimelineEntry } from '../../../core/storage/localDb';
-import { getAuth } from 'firebase/auth';
+import { getCurrentUser } from '../../../core/auth';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
@@ -91,7 +91,7 @@ export const AISummaryService = {
     const local = await db.get('aiSummaries', documentId);
     if (local) return local;
 
-    const uid = getAuth().currentUser?.uid;
+    const uid = getCurrentUser()?.uid;
     if (uid) {
       try {
         const cloud = await fetchSummaryFromCloud(uid, documentId);
@@ -206,7 +206,7 @@ export const AISummaryService = {
       }
     }
 
-    const uid = getAuth().currentUser?.uid;
+    const uid = getCurrentUser()?.uid;
     if (uid && !areCloudWritesBlockedToday() && tryReserveSummarizeBudget()) {
       await saveSummaryToCloud(uid, withUuid).catch(e => {
         // Quota or rule rejection applies to every summary, not this one — stop

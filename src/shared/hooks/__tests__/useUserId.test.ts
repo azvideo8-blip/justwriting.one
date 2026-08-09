@@ -12,8 +12,8 @@ describe('useUserId', () => {
   });
 
   it('returns user uid when user is provided', () => {
-    const mockUser = { uid: 'user_123' } as { uid: string };
-    const { result } = renderHook(() => useUserId(mockUser as unknown as import('firebase/auth').User));
+    const mockAppUser = { uid: 'user_123' } as { uid: string };
+    const { result } = renderHook(() => useUserId(mockAppUser as unknown as { uid: string }));
     expect(result.current).toBe('user_123');
   });
 
@@ -23,7 +23,7 @@ describe('useUserId', () => {
   });
 
   it('returns guestId when user is undefined', () => {
-    const { result } = renderHook(() => useUserId(undefined as unknown as import('firebase/auth').User | null));
+    const { result } = renderHook(() => useUserId(undefined as unknown as { uid: string } | null));
     expect(result.current).toBe('guest_abc123');
   });
 });

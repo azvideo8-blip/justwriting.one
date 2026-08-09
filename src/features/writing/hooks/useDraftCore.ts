@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, type RefObject } from 'react';
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { reportError } from '../../../shared/errors/reportError';
@@ -147,7 +147,7 @@ export function useVisibilitySave(doSave: () => Promise<void>, getContent: () =>
 }
 
 export function useSyncUnloadSave(
-  user: User | null,
+  user: AppUser | null,
   draftDataRef: RefObject<{
     pinnedThoughts: string[];
     sessionStartTime?: number | undefined;

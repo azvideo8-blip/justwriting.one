@@ -1,12 +1,12 @@
 import { useEffect, useCallback, useRef } from 'react';
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { useTimerStore } from '../store/useTimerStore';
 import { buildLocalDraft, persistDraft } from '../utils/draftPersistence';
 import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus } from './useDraftCore';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 
 export function useDraftAutosave(
-  user: User | null,
+  user: AppUser | null,
   draftData: {
     title: string;
     content: string;

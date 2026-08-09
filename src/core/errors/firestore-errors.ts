@@ -1,4 +1,4 @@
-import { auth } from '../firebase/auth';
+import { getCurrentUser } from '../auth';
 import { OperationType, FirestoreErrorInfo } from '../../shared/errors/errorTypes';
 import { reportError } from '../../shared/errors/reportError';
 
@@ -9,7 +9,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
-      userId: auth.currentUser?.uid,
+      userId: getCurrentUser()?.uid,
     },
     operationType,
     path
@@ -18,7 +18,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   reportError(errInfo.error, { 
     operationType, 
     path: path || 'unknown',
-    uid: auth.currentUser?.uid
+    uid: getCurrentUser()?.uid
   });
 
   const errorCode = error instanceof Error && 'code' in error ? (error as { code: string }).code : 'unknown';

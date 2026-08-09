@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useRef } from 'react';
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { LocalDraft } from '../../../core/storage/localDb';
 import { useContentStore } from '../store/useContentStore';
@@ -47,7 +47,7 @@ export interface PersistenceActions {
 }
 
 export function useSessionPersistence(
-  user: User | null,
+  user: AppUser | null,
   profile: UserProfile | null,
   sessionState: SessionStateSlice,
   timerState: TimerStateSlice,

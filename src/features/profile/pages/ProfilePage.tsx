@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { AlertCircle } from 'lucide-react';
 import { UserProfile } from '../../../types';
 import { useNavigate } from 'react-router-dom';
@@ -26,7 +26,7 @@ import { AuthorPortrait } from '../../ai/components/AuthorPortrait';
 import { LifeStoryTimeline } from '../../ai/components/LifeStoryTimeline';
 
 interface ProfilePageProps {
-  user: User | null;
+  user: AppUser | null;
   profile: UserProfile | null;
 }
 

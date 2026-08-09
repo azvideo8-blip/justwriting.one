@@ -1,4 +1,4 @@
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { DocumentService } from '../../../core/services/DocumentService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { StorageService } from '../../../core/services/StorageService';
@@ -16,7 +16,7 @@ export async function updateArchiveField(
   session: ArchiveSession,
   field: ArchiveField,
   value: ArchiveFieldValue,
-  user: User | null,
+  user: AppUser | null,
   _userId: string
 ): Promise<{ success: boolean; cloudSyncFailed?: boolean }> {
   let cloudSyncFailed = false;

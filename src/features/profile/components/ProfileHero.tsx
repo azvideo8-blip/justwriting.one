@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { Pencil, PenLine } from 'lucide-react';
 import { UserProfile } from '../../../types';
 import { ProfileService } from '../services/ProfileService';
@@ -20,7 +20,7 @@ const QUOTE_KEYS = [
 ];
 
 interface ProfileHeroProps {
-  user: User | null;
+  user: AppUser | null;
   profile: UserProfile | null;
   isGuest: boolean;
   onStartSession: () => void;

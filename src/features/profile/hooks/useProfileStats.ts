@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { Session } from '../../../types';
 import { loadAllSessions } from '../../../core/services/UnifiedSessionLoader';
 import { calculateStreak } from '../../../core/utils/utils';
@@ -104,7 +104,7 @@ function computeKPIStats(sessions: Session[], docStats: DocLevelStats): KPIStats
   }
 }
 
-export function useProfileStats(userId: string, user: User | null) {
+export function useProfileStats(userId: string, user: AppUser | null) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [stats, setStats] = useState<DocLevelStats>(EMPTY_STATS);
   const [streak, setStreak] = useState(0);

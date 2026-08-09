@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react';
-import { getAuth } from 'firebase/auth';
+import { getCurrentUser } from '../../../core/auth';
 import { findStaleDocuments, indexDocument, findStaleSummaries, sha256Hex } from '../utils/embeddingIndexer';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
@@ -123,7 +123,7 @@ export function useEmbeddingIndexer(): void {
       // vault leaves the flag unset so the next pass retries.
       if (localStorage.getItem('ai_restore_done_date') !== new Date().toISOString().slice(0, 10)) {
         try {
-          const uid = getAuth().currentUser?.uid;
+          const uid = getCurrentUser()?.uid;
           if (uid) {
             if (areCloudReadsBlockedToday() || !canSpendReadBudget()) {
               useActivityLogStore.getState().addActivity(

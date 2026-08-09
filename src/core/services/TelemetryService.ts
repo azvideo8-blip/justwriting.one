@@ -1,4 +1,4 @@
-import { getAuth } from 'firebase/auth';
+import { getCurrentUser } from '../auth';
 import { getLocalDb } from '../../core/storage/localDb';
 
 // Re-import from bridge to avoid core→features layer violation
@@ -74,7 +74,7 @@ export const TelemetryService = {
         sentAt: new Date().toISOString(),
       };
 
-      const user = getAuth().currentUser;
+      const user = getCurrentUser();
       if (user) {
         const { getFunctions, httpsCallable } = await import('firebase/functions');
         const sendTelemetryFn = httpsCallable(getFunctions(), 'sendTelemetry');

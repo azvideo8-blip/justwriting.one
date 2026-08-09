@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef, useMemo } from 'react';
 import type { RefObject } from 'react';
-import type { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { useTimerStore } from '../store/useTimerStore';
 import { useContentStore } from '../store/useContentStore';
 import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus, type DraftErrorKind } from './useDraftCore';
@@ -83,7 +83,7 @@ export function useDraftManager(
   // localStorage fallback so closing the tab between 30s autosaves doesn't lose
   // recent typing.
   useSyncUnloadSave(
-    userId ? ({ uid: userId } as User) : null,
+    userId ? ({ uid: userId } as AppUser) : null,
     liveDraftRef as unknown as RefObject<{ pinnedThoughts: string[]; sessionStartTime?: number | undefined; activeSessionId: string | null; [key: string]: unknown }>,
   );
 

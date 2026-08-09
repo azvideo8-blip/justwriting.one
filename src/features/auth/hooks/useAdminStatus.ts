@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { getAuth, onIdTokenChanged, type User } from 'firebase/auth';
+import { getCurrentUser, onTokenChange, getIdToken, getTokenClaims } from '../../../core/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { useAuth } from '../contexts/AuthContext';
 import { useProfile } from '../contexts/ProfileContext';
 
@@ -12,7 +13,7 @@ export interface AdminStatus {
 }
 
 export function useAdminStatus(): AdminStatus {
-  const { user, loading: authLoading } = useAuth();
+  const { loading: authLoading } = useAuth();
   const { profile } = useProfile();
 
   const [isAdmin, setIsAdmin] = useState(false);
@@ -20,7 +21,7 @@ export function useAdminStatus(): AdminStatus {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const checkAdminClaim = useCallback(async (authUser: User | null, isProfileAdmin: boolean) => {
+  const checkAdminClaim = useCallback(async (authUser: AppUser | null, isProfileAdmin: boolean) => {
     if (!authUser) {
       setIsAdmin(false);
       setIsStaleToken(false);
@@ -31,15 +32,16 @@ export function useAdminStatus(): AdminStatus {
 
     try {
       setLoading(true);
+      
       // 1. Read claim from initial ID Token result
-      let tokenResult = await authUser.getIdTokenResult();
-      let hasClaim = tokenResult.claims.role === 'admin';
+      let claims = await getTokenClaims();
+      let hasClaim = claims?.role === 'admin';
 
       // 2. If profile field says admin but token claim does not, try silent refresh once
       if (!hasClaim && isProfileAdmin) {
-        await authUser.getIdToken(true);
-        tokenResult = await authUser.getIdTokenResult();
-        hasClaim = tokenResult.claims.role === 'admin';
+        await getIdToken(true);
+        claims = await getTokenClaims();
+        hasClaim = claims?.role === 'admin';
       }
 
       // 3. Still no claim. A refresh only re-issues what already exists, so a
@@ -57,9 +59,9 @@ export function useAdminStatus(): AdminStatus {
           );
           const { data } = await sync({});
           if (data.isAdmin) {
-            await authUser.getIdToken(true);
-            tokenResult = await authUser.getIdTokenResult();
-            hasClaim = tokenResult.claims.role === 'admin';
+            await getIdToken(true);
+            claims = await getTokenClaims();
+            hasClaim = claims?.role === 'admin';
           }
         } catch {
           // Offline, App Check, not deployed yet — fall through to the
@@ -98,19 +100,17 @@ export function useAdminStatus(): AdminStatus {
   }, []);
 
   const refreshAdminClaim = useCallback(async (): Promise<boolean> => {
-    const auth = getAuth();
-    const currentUser = auth.currentUser ?? user;
+    const currentUser = getCurrentUser();
     const isProfileAdmin = profile?.role === 'admin';
     return checkAdminClaim(currentUser, isProfileAdmin);
-  }, [user, profile, checkAdminClaim]);
+  }, [profile, checkAdminClaim]);
 
   useEffect(() => {
     if (authLoading) return;
     const isProfileAdmin = profile?.role === 'admin';
     let isMounted = true;
 
-    const auth = getAuth();
-    const unsubscribe = onIdTokenChanged(auth, (changedUser) => {
+    const unsubscribe = onTokenChange((changedUser) => {
       if (isMounted) {
         void checkAdminClaim(changedUser, isProfileAdmin);
       }

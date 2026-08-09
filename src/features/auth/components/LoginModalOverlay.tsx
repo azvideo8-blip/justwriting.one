@@ -4,7 +4,7 @@ const LoginPage = React.lazy(() => import('../pages/LoginPage').then(m => ({ def
 import { useLoginModal } from '../contexts/LoginModalContext';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
-import { auth } from '../../../core/firebase/auth';
+import { getCurrentUser } from '../../../core/auth';
 import { MigrationPrompt, checkGuestDocuments } from './MigrationPrompt';
 import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
 import { useModalEscape } from '../../../shared/hooks/useModalEscape';
@@ -26,7 +26,7 @@ export function LoginModalOverlay({ open }: { open: boolean }) {
   const handleAuthSuccess = useCallback(async () => {
     closeLoginModal();
 
-    const u = auth.currentUser;
+    const u = getCurrentUser();
     if (!u) return;
 
     const result = await checkGuestDocuments();

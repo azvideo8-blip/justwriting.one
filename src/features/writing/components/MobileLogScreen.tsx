@@ -7,7 +7,7 @@ import { StreakDots } from '../../../shared/components/StreakDots';
 import { SessionCard } from './SessionCard';
 import { DocumentPreview } from '../../archive/components/DocumentPreview';
 import { updateArchiveField } from '../../archive/services/archiveCrud';
-import { auth } from '../../../core/firebase/auth';
+import { getCurrentUser } from '../../../core/auth';
 import { AnimatePresence } from 'motion/react';
 import { MobilePageHeader } from '../../../shared/components/MobilePageHeader';
 import { Settings } from 'lucide-react';
@@ -41,7 +41,7 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
 
   const handleLabelChange = async (s: Session, labelId: string | undefined) => {
     try {
-      await updateArchiveField(s, 'labelId', labelId, auth.currentUser, userId);
+      await updateArchiveField(s, 'labelId', labelId, getCurrentUser(), userId);
       if (previewSession && previewSession.id === s.id) {
         setPreviewSession(prev => prev ? { ...prev, labelId } : null);
       }
@@ -201,7 +201,7 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
             onTagsChange={(s, tags) => {
               void (async () => {
                 try {
-                  await updateArchiveField(s, 'tags', tags, auth.currentUser, userId);
+                  await updateArchiveField(s, 'tags', tags, getCurrentUser(), userId);
                   setPreviewSession(prev => prev ? { ...prev, tags } : null);
                   await refresh();
                 } catch (e) {

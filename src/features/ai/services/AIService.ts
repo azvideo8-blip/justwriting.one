@@ -1,5 +1,5 @@
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { getAuth } from 'firebase/auth';
+import { getCurrentUser, getIdToken } from '../../../core/auth';
 import { reportError } from '../../../shared/errors/reportError';
 import { withTimeout } from '../../../shared/utils/withTimeout';
 import { analytics } from '../../../core/analytics/analytics';
@@ -70,9 +70,9 @@ function mapAIError(e: unknown): AIErrorCode {
  *  сети, а что человек не зарегистрирован: securetoken отвалился, вызов ушёл
  *  без действующего токена, функция отказала. */
 async function retryAfterTokenRefresh<T>(call: () => Promise<T>): Promise<T> {
-  const user = getAuth().currentUser;
+  const user = getCurrentUser();
   if (!user) throw new Error('NOT_SIGNED_IN');
-  await user.getIdToken(true);
+  await getIdToken(true);
   return call();
 }
 
@@ -128,7 +128,7 @@ export const AIService = {
       return { ok: true, text: data.result };
     } catch (e: unknown) {
       const code = mapAIError(e);
-      if (code === 'AUTH_REQUIRED' && getAuth().currentUser) {
+      if (code === 'AUTH_REQUIRED' && getCurrentUser()) {
         try {
           const { data } = await retryAfterTokenRefresh(() => withTimeout(fn(params), GEN_TIMEOUT_MS));
           return { ok: true, text: data.result };

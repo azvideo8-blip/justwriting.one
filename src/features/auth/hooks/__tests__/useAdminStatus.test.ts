@@ -3,7 +3,8 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { useAdminStatus } from '../useAdminStatus';
 import { useAuth } from '../../contexts/AuthContext';
 import { useProfile } from '../../contexts/ProfileContext';
-import { getAuth, onIdTokenChanged, type User } from 'firebase/auth';
+import { getCurrentUser, onTokenChange, getTokenClaims, getIdToken } from '../../../../core/auth';
+import type { AppUser } from '../../../../core/auth/types';
 
 vi.mock('../../contexts/AuthContext', () => ({
   useAuth: vi.fn(),
@@ -13,9 +14,11 @@ vi.mock('../../contexts/ProfileContext', () => ({
   useProfile: vi.fn(),
 }));
 
-vi.mock('firebase/auth', () => ({
-  getAuth: vi.fn(() => ({ currentUser: null })),
-  onIdTokenChanged: vi.fn(() => () => {}),
+vi.mock('../../../../core/auth', () => ({
+  getCurrentUser: vi.fn(),
+  onTokenChange: vi.fn(),
+  getTokenClaims: vi.fn(),
+  getIdToken: vi.fn(),
 }));
 
 const syncCallable = vi.fn();
@@ -27,15 +30,12 @@ vi.mock('firebase/functions', () => ({
 describe('AG-ADMIN-claim — useAdminStatus Hook', () => {
   const mockUser = {
     uid: 'user-123',
-    getIdTokenResult: vi.fn(),
-    getIdToken: vi.fn(),
-  } as unknown as User;
+  } as unknown as AppUser;
 
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(getAuth).mockReturnValue({ currentUser: mockUser } as unknown as ReturnType<typeof getAuth>);
-    vi.mocked(onIdTokenChanged).mockImplementation((_auth, callback) => {
-      // @ts-expect-error test mock callback
+    vi.mocked(getCurrentUser).mockReturnValue(mockUser);
+    vi.mocked(onTokenChange).mockImplementation((callback) => {
       callback(mockUser);
       return () => {};
     });
@@ -44,7 +44,7 @@ describe('AG-ADMIN-claim — useAdminStatus Hook', () => {
   it('Requirement 1: Returns isAdmin=true when ID token has role === admin claim', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser, loading: false } as unknown as ReturnType<typeof useAuth>);
     vi.mocked(useProfile).mockReturnValue({ profile: { role: 'admin' } } as unknown as ReturnType<typeof useProfile>);
-    vi.mocked(mockUser.getIdTokenResult).mockResolvedValue({ claims: { role: 'admin' } } as unknown as Awaited<ReturnType<typeof mockUser.getIdTokenResult>>);
+    vi.mocked(getTokenClaims).mockResolvedValue({ role: 'admin' });
 
     const { result } = renderHook(() => useAdminStatus());
 
@@ -62,12 +62,12 @@ describe('AG-ADMIN-claim — useAdminStatus Hook', () => {
     vi.mocked(useProfile).mockReturnValue({ profile: { role: 'admin' } } as unknown as ReturnType<typeof useProfile>);
 
     let refreshed = false;
-    vi.mocked(mockUser.getIdToken).mockImplementation(async (force) => {
+    vi.mocked(getIdToken).mockImplementation(async (force) => {
       if (force) refreshed = true;
       return 'fresh-token';
     });
-    vi.mocked(mockUser.getIdTokenResult).mockImplementation(async () => {
-      return { claims: refreshed ? { role: 'admin' } : {} } as unknown as Awaited<ReturnType<typeof mockUser.getIdTokenResult>>;
+    vi.mocked(getTokenClaims).mockImplementation(async () => {
+      return refreshed ? { role: 'admin' } : {};
     });
 
     const { result } = renderHook(() => useAdminStatus());
@@ -76,7 +76,7 @@ describe('AG-ADMIN-claim — useAdminStatus Hook', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    expect(mockUser.getIdToken).toHaveBeenCalledWith(true);
+    expect(getIdToken).toHaveBeenCalledWith(true);
     expect(result.current.isAdmin).toBe(true);
     expect(result.current.isStaleToken).toBe(false);
   });
@@ -85,9 +85,8 @@ describe('AG-ADMIN-claim — useAdminStatus Hook', () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser, loading: false } as unknown as ReturnType<typeof useAuth>);
     vi.mocked(useProfile).mockReturnValue({ profile: { role: 'admin' } } as unknown as ReturnType<typeof useProfile>);
 
-    // Both checks return missing claim
-    vi.mocked(mockUser.getIdTokenResult).mockResolvedValue({ claims: {} } as unknown as Awaited<ReturnType<typeof mockUser.getIdTokenResult>>);
-    vi.mocked(mockUser.getIdToken).mockResolvedValue('refreshed-but-still-user-token');
+    vi.mocked(getTokenClaims).mockResolvedValue({});
+    vi.mocked(getIdToken).mockResolvedValue('refreshed-but-still-user-token');
     syncCallable.mockResolvedValue({ data: { changed: false, isAdmin: false } });
 
     const { result } = renderHook(() => useAdminStatus());
@@ -97,6 +96,7 @@ describe('AG-ADMIN-claim — useAdminStatus Hook', () => {
     });
 
     expect(result.current.isAdmin).toBe(false);
+    // Not the generic "could not check permissions" — that tells the user nothing.
     expect(result.current.isStaleToken).toBe(true);
     expect(result.current.error).toContain('токен сессии устарел');
   });
@@ -111,11 +111,11 @@ describe('AG-ADMIN-claim — useAdminStatus Hook', () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser, loading: false } as unknown as ReturnType<typeof useAuth>);
     vi.mocked(useProfile).mockReturnValue({ profile: { role: 'admin' } } as unknown as ReturnType<typeof useProfile>);
 
-    vi.mocked(mockUser.getIdTokenResult)
-      .mockResolvedValueOnce({ claims: {} } as never)   // initial read
-      .mockResolvedValueOnce({ claims: {} } as never)   // after plain refresh
-      .mockResolvedValue({ claims: { role: 'admin' } } as never); // after sync
-    vi.mocked(mockUser.getIdToken).mockResolvedValue('token');
+    vi.mocked(getTokenClaims)
+      .mockResolvedValueOnce({} as never)   // initial read
+      .mockResolvedValueOnce({} as never)   // after plain refresh
+      .mockResolvedValue({ role: 'admin' } as never); // after sync
+    vi.mocked(getIdToken).mockResolvedValue('token');
     syncCallable.mockResolvedValue({ data: { changed: true, isAdmin: true } });
 
     const { result } = renderHook(() => useAdminStatus());
@@ -133,8 +133,8 @@ describe('AG-ADMIN-claim — useAdminStatus Hook', () => {
   it('falls back to the actionable stale-token message when the sync call fails', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser, loading: false } as unknown as ReturnType<typeof useAuth>);
     vi.mocked(useProfile).mockReturnValue({ profile: { role: 'admin' } } as unknown as ReturnType<typeof useProfile>);
-    vi.mocked(mockUser.getIdTokenResult).mockResolvedValue({ claims: {} } as never);
-    vi.mocked(mockUser.getIdToken).mockResolvedValue('token');
+    vi.mocked(getTokenClaims).mockResolvedValue({});
+    vi.mocked(getIdToken).mockResolvedValue('token');
     syncCallable.mockRejectedValue(new Error('offline'));
 
     const { result } = renderHook(() => useAdminStatus());
@@ -143,7 +143,6 @@ describe('AG-ADMIN-claim — useAdminStatus Hook', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    // Not the generic "could not check permissions" — that tells the user nothing.
     expect(result.current.isStaleToken).toBe(true);
     expect(result.current.error).toContain('токен сессии устарел');
   });
@@ -151,7 +150,7 @@ describe('AG-ADMIN-claim — useAdminStatus Hook', () => {
   it('does not call the server when the profile field is not admin', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser, loading: false } as unknown as ReturnType<typeof useAuth>);
     vi.mocked(useProfile).mockReturnValue({ profile: { role: 'user' } } as unknown as ReturnType<typeof useProfile>);
-    vi.mocked(mockUser.getIdTokenResult).mockResolvedValue({ claims: {} } as never);
+    vi.mocked(getTokenClaims).mockResolvedValue({});
 
     const { result } = renderHook(() => useAdminStatus());
 
@@ -166,7 +165,7 @@ describe('AG-ADMIN-claim — useAdminStatus Hook', () => {
   it('Requirement 4: Returns isAdmin=false, isStaleToken=false when neither profile nor claim is admin', async () => {
     vi.mocked(useAuth).mockReturnValue({ user: mockUser, loading: false } as unknown as ReturnType<typeof useAuth>);
     vi.mocked(useProfile).mockReturnValue({ profile: { role: 'user' } } as unknown as ReturnType<typeof useProfile>);
-    vi.mocked(mockUser.getIdTokenResult).mockResolvedValue({ claims: {} } as unknown as Awaited<ReturnType<typeof mockUser.getIdTokenResult>>);
+    vi.mocked(getTokenClaims).mockResolvedValue({});
 
     const { result } = renderHook(() => useAdminStatus());
 

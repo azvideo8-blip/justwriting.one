@@ -1,4 +1,4 @@
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { Session, Document } from '../../../types';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { DocumentService } from '../../../core/services/DocumentService';
@@ -34,7 +34,7 @@ interface LoadResult {
   cloudLoadFailed: boolean;
 }
 
-export async function loadAllSessions(userId: string, user: User | null): Promise<LoadResult> {
+export async function loadAllSessions(userId: string, user: AppUser | null): Promise<LoadResult> {
   const allSessions: LoadedSession[] = [];
   const seenIds = new Set<string>();
   let cloudLoadFailed = false;

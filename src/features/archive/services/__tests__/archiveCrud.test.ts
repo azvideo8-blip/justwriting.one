@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { updateArchiveField, deleteArchiveSession } from '../archiveCrud';
 import { ArchiveSession } from '../../types';
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../../core/auth/types';
 
 vi.mock('../../../../core/services/DocumentService', () => ({
   DocumentService: {
@@ -44,7 +44,7 @@ import { DocumentService } from '../../../../core/services/DocumentService';
 import { SyncService } from '../../../../core/services/SyncService';
 import { CloudSyncService } from '../../../../core/services/CloudSyncService';
 
-const mockUser = { uid: 'user1' } as unknown as User;
+const mockUser = { uid: 'user1' } as unknown as AppUser;
 
 function makeSession(overrides: Partial<ArchiveSession> = {}): ArchiveSession {
   return {

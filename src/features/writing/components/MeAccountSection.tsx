@@ -1,5 +1,5 @@
 import React from 'react';
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { SettingRow } from './MeScreenHelpers';
@@ -7,7 +7,7 @@ import { useSettings } from '../../../core/settings/SettingsContext';
 import { Button } from '../../../shared/components/Button';
 
 interface MeAccountSectionProps {
-  user: User | null;
+  user: AppUser | null;
   onSignOut: () => void;
   onSignIn: () => void;
 }

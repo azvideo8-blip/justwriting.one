@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { loadAllSessions, loadSessionContent } from '../../../core/services/UnifiedSessionLoader';
 import { ArchiveSession } from '../types';
 import { updateArchiveField, deleteArchiveSession } from '../services/archiveCrud';
@@ -8,7 +8,7 @@ import { logger } from '../../../shared/errors/logger';
 import { useToast } from '../../../shared/components/Toast';
 import { rebuildWordCloud } from './useArchiveWordCloud';
 
-export function useArchiveSessions(user: User | null, userId: string, t: (key: string) => string) {
+export function useArchiveSessions(user: AppUser | null, userId: string, t: (key: string) => string) {
   const [sessions, setSessions] = useState<ArchiveSession[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -1,4 +1,4 @@
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { LocalDraft } from '../../../core/storage/localDb';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { getLocalStorageUsageKB } from '../../../shared/lib/localStorageUtils';
@@ -14,7 +14,7 @@ export interface DraftPersistResult {
 }
 
 export function buildLocalDraft(
-  user: User,
+  user: AppUser,
   draftData: {
     title: string;
     content: string;

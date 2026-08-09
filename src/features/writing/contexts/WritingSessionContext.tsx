@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useRef, useState, useEffect } from 'react';
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { UserProfile, Session } from '../../../types';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTimerStore } from '../store/useTimerStore';
@@ -23,7 +23,7 @@ import { reportError } from '../../../shared/errors/reportError';
 export interface WritingSessionContextValue {
   session: AnySessionReturn;
   profile: UserProfile | null;
-  user: User | null;
+  user: AppUser | null;
   flow: {
     setupMode: SetupMode;
     setSetupMode: (mode: SetupMode) => void;
@@ -84,7 +84,7 @@ export function WritingSessionProvider({
 }: {
   session: AnySessionReturn;
   profile: UserProfile | null;
-  user: User | null;
+  user: AppUser | null;
   children: React.ReactNode;
 }) {
   const location = useLocation();

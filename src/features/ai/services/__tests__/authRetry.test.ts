@@ -2,13 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const callable = vi.fn();
 const getIdToken = vi.fn();
-let currentUser: { uid: string; getIdToken: typeof getIdToken } | null = { uid: 'u1', getIdToken };
+let currentUser: { uid: string } | null = { uid: 'u1' };
 vi.mock('firebase/functions', () => ({
   getFunctions: () => ({}),
   httpsCallable: () => callable,
 }));
-vi.mock('firebase/auth', () => ({
-  getAuth: () => ({ currentUser }),
+// Прослойка core/auth, а не firebase/auth: обновление токена теперь отдельная
+// функция getIdToken(force), а не метод объекта пользователя.
+vi.mock('../../../../core/auth', () => ({
+  getCurrentUser: () => currentUser,
+  getIdToken: (force?: boolean) => getIdToken(force),
 }));
 vi.mock('../../../../shared/errors/reportError', () => ({
   reportError: vi.fn(),
@@ -24,7 +27,7 @@ describe('chat retries once after token refresh on AUTH_REQUIRED', () => {
     callable.mockReset();
     getIdToken.mockReset();
     getIdToken.mockResolvedValue('fresh-token');
-    currentUser = { uid: 'u1', getIdToken };
+    currentUser = { uid: 'u1' };
   });
 
   it('refreshes token and retries on AUTH_REQUIRED when user is signed in', async () => {

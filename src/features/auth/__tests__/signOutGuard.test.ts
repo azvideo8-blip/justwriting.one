@@ -95,13 +95,10 @@ describe('signOut', () => {
       ...(await vi.importActual<typeof import('../../../core/storage/localDb')>('../../../core/storage/localDb')),
       clearAllLocalStores: cleared,
     }));
-    vi.doMock('../../../core/firebase/auth', () => ({
-      auth: { currentUser: { uid: USER } },
-      signOut: vi.fn(),
-      createUserWithEmailAndPassword: vi.fn(),
-      signInWithEmailAndPassword: vi.fn(),
-      EmailAuthProvider: {},
-      updatePassword: vi.fn(),
+    vi.doMock('../../../core/auth', () => ({
+      getCurrentUserId: () => USER,
+      getCurrentUser: () => ({ uid: USER }),
+      signOutUser: vi.fn(),
     }));
 
     const { AuthService } = await import('../services/AuthService');
@@ -125,17 +122,10 @@ describe('signOut', () => {
       ...(await vi.importActual<typeof import('../../../core/storage/localDb')>('../../../core/storage/localDb')),
       clearAllLocalStores: cleared,
     }));
-    vi.doMock('firebase/auth', () => ({
-      signOut: firebaseSignOutFn,
-      createUserWithEmailAndPassword: vi.fn(),
-      signInWithEmailAndPassword: vi.fn(),
-      EmailAuthProvider: { credential: vi.fn() },
-      updatePassword: vi.fn(),
-      reauthenticateWithCredential: vi.fn(),
-      sendPasswordResetEmail: vi.fn(),
-    }));
-    vi.doMock('../../../core/firebase/auth', () => ({
-      auth: { currentUser: { uid: USER } },
+    vi.doMock('../../../core/auth', () => ({
+      getCurrentUserId: () => USER,
+      getCurrentUser: () => ({ uid: USER }),
+      signOutUser: firebaseSignOutFn,
     }));
     vi.doMock('../../../core/crypto/keyVaultCache', () => ({
       clearDeviceKey: vi.fn(),

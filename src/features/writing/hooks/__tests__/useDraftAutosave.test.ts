@@ -4,7 +4,7 @@ import { useDraftAutosave } from '../useDraftAutosave';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useContentStore } from '../../store/useContentStore';
 import { persistDraft } from '../../utils/draftPersistence';
-import type { User } from 'firebase/auth';
+import type { AppUser } from '../../../../core/auth/types';
 
 vi.mock('../../utils/draftPersistence', () => ({
   buildLocalDraft: vi.fn((user, current) => ({ ...current, userId: user.uid })),
@@ -12,7 +12,7 @@ vi.mock('../../utils/draftPersistence', () => ({
 }));
 
 describe('useDraftAutosave', () => {
-  const mockUser = { uid: 'user123' } as User;
+  const mockUser = { uid: 'user123' } as AppUser;
   const initialData = {
     title: 'Autosave Title',
     content: 'Some draft text',

@@ -1,11 +1,12 @@
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
-import { auth } from '../../../core/firebase/auth';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChange } from '../../../core/auth';
+
+import type { AppUser } from '../../../core/auth/types';
 
 type AuthState = 'loading' | 'authenticated' | 'guest';
 
 interface AuthContextValue {
-  user: User | null;
+  user: AppUser | null;
   authState: AuthState;
   isAuthenticated: boolean;
   isGuest: boolean;
@@ -21,11 +22,11 @@ const AuthContext = createContext<AuthContextValue>({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [authState, setAuthState] = useState<AuthState>('loading');
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
+    const unsubscribe = onAuthStateChange((u) => {
       setUser(u);
       setAuthState(u ? 'authenticated' : 'guest');
     });

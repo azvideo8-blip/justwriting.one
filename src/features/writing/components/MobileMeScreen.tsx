@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { UserProfile } from '../../../types';
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { getOrCreateGuestId, LocalProfile } from '../../../core/storage/localDb';
 import { MeAccountSection } from './MeAccountSection';
@@ -25,7 +25,7 @@ import { LoadingSkeleton } from '../../../shared/components/LoadingSkeleton';
 import { useProfileStats } from '../../profile/hooks/useProfileStats';
 
 interface MobileMeScreenProps {
-  user: User | null;
+  user: AppUser | null;
   profile: UserProfile | null;
   onSignOut: () => void;
   onSignIn: () => void;

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { UserProfile } from '../../../types';
 import { calculateStreak } from '../../../core/utils/utils';
 import { useLocalStorage } from '../../../shared/hooks/useLocalStorage';
@@ -34,7 +34,7 @@ const ArchiveSidebar = lazy(() =>
 );
 
 interface ArchiveViewProps {
-  user: User | null;
+  user: AppUser | null;
   profile: UserProfile | null;
 }
 

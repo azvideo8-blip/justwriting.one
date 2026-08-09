@@ -4,7 +4,7 @@ import { X, Search } from 'lucide-react';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { getLocalDb, getOrCreateGuestId } from '../../../core/storage/localDb';
 import { useLanguage } from '../../../shared/i18n';
-import { getAuth } from 'firebase/auth';
+import { getCurrentUser } from '../../../core/auth';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Input } from '../../../shared/components/Input';
@@ -36,7 +36,7 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
     setLoaded(true);
     void (async () => {
       try {
-        const guestId = getAuth().currentUser?.uid ?? getOrCreateGuestId();
+        const guestId = getCurrentUser()?.uid ?? getOrCreateGuestId();
         const allDocs = await LocalDocumentService.getGuestDocuments(guestId);
         const db = await getLocalDb();
         // Build a latest-version-per-document map in one bulk read instead of an

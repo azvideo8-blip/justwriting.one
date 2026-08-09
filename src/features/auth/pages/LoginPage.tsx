@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AlertCircle, AlertTriangle, Mail, Lock, UserPlus, LogIn, X, ShieldAlert } from 'lucide-react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../../../core/firebase/auth';
+
+import { onAuthStateChange } from '../../../core/auth';
 import { AuthService } from '../services/AuthService';
 import { useLanguage } from '../../../shared/i18n';
 import { SeoHead } from '../../../shared/i18n/SeoHead';
@@ -43,7 +43,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
   const [ageConfirmed, setAgeConfirmed] = useState(false);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
+    const unsub = onAuthStateChange((u) => {
       if (!u) {
         clearSessionKey();
         return;
@@ -81,10 +81,10 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
     setError(null);
     try {
       if (mode === 'register') {
-        const cred = await AuthService.signUpWithEmail(email, password);
+        const user = await AuthService.signUpWithEmail(email, password);
 
         // V-1: brand-new registration — confirmed no encryption exists yet.
-        setEncryptionEnabled(cred.user.uid, false);
+        setEncryptionEnabled(user.uid, false);
       } else {
         await AuthService.signInWithEmail(email, password);
 

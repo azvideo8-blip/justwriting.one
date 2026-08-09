@@ -11,7 +11,7 @@ import { LocalVersionService } from '../../../core/services/LocalVersionService'
 import { useToast } from '../../../shared/components/Toast';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { UserProfile } from '../../../types';
-import { getAuth } from 'firebase/auth';
+import { getCurrentUser } from '../../../core/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAdminStatus } from '../../auth/hooks/useAdminStatus';
@@ -145,7 +145,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
 
       const db = await getLocalDb();
       const summaries = await db.getAll('aiSummaries');
-      const uid = getAuth().currentUser?.uid ?? getOrCreateGuestId();
+      const uid = getCurrentUser()?.uid ?? getOrCreateGuestId();
       const localDocs = await LocalDocumentService.getGuestDocuments(uid);
 
       const logs = summaries.map(s => {
@@ -166,7 +166,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
 
   const loadSystemStats = useCallback(async () => {
     try {
-      const uid = getAuth().currentUser?.uid ?? getOrCreateGuestId();
+      const uid = getCurrentUser()?.uid ?? getOrCreateGuestId();
       const localDocs = await LocalDocumentService.getGuestDocuments(uid);
       const db = await getLocalDb();
       const dialogues = await db.getAll('aiDialogues');
@@ -233,7 +233,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       showToast('Данная функция работает только при подключении к сети', 'error');
       return;
     }
-    const user = getAuth().currentUser;
+    const user = getCurrentUser();
     if (!user) return;
     setBulkImporting(true);
     try {
@@ -271,7 +271,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       showToast('Данная функция работает только при подключении к сети', 'error');
       return;
     }
-    const user = getAuth().currentUser;
+    const user = getCurrentUser();
     if (!user) return;
     setBulkSyncing(true);
     try {
@@ -324,7 +324,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   };
 
   const handleResetCounter = async () => {
-    const user = getAuth().currentUser;
+    const user = getCurrentUser();
     if (!user) {
       showToast('Пользователь не авторизован', 'error');
       return;
@@ -364,7 +364,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     const ok = await confirmDialog({ title: 'Схлопнуть версии?', message: 'Оставить только последнюю версию у каждой заметки. Текст не меняется, удаляются лишь старые снимки. Действие необратимо.' });
     if (!ok) return;
     try {
-      const uid = getAuth().currentUser?.uid ?? getOrCreateGuestId();
+      const uid = getCurrentUser()?.uid ?? getOrCreateGuestId();
       const docs = await LocalDocumentService.getGuestDocuments(uid);
       let removed = 0;
       for (const d of docs) {
@@ -389,7 +389,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       
       // LX-2b: If resetting own limit, clear client state AND sync from server
       // so the client pre-check immediately unblocks (was stuck on stale localStorage).
-      const currentUser = getAuth().currentUser;
+      const currentUser = getCurrentUser();
       if (currentUser && currentUser.uid === targetUid) {
         localStorage.removeItem('ai_daily_usage');
         useAiLimitStore.setState({ used: 0, remaining: useAiLimitStore.getState().limit, loaded: false });

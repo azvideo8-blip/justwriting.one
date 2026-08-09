@@ -1,6 +1,6 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIDocumentEmbedding } from '../../../core/storage/localDb';
-import { getAuth } from 'firebase/auth';
+import { getCurrentUser } from '../../../core/auth';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
@@ -137,7 +137,7 @@ export const AIEmbeddingService = {
     const local = await db.get('aiEmbeddings', documentId);
     if (local) return local;
 
-    const uid = getAuth().currentUser?.uid;
+    const uid = getCurrentUser()?.uid;
     if (uid) {
       // Cloud is best-effort: a read can throw on permissions, offline, or a
       // LOCKED decrypt (E2E session key absent). Never let that break callers —
@@ -162,7 +162,7 @@ export const AIEmbeddingService = {
     const withUuid = doc?.uuid ? { ...emb, documentUuid: doc.uuid } : emb;
     await db.put('aiEmbeddings', withUuid);
 
-    const uid = getAuth().currentUser?.uid;
+    const uid = getCurrentUser()?.uid;
     if (uid && tryReserveWriteBudget()) {
       try {
         // withUuid везде, а не emb: иначе запись обратно затирает documentUuid,
@@ -192,7 +192,7 @@ export const AIEmbeddingService = {
    *  whole app — see tryReserveWriteBudget. Stops early if E2E is locked or
    *  the daily write budget is spent; the rest retry on a later pass/day. */
   async syncPendingToCloud(): Promise<{ synced: number; pending: number; locked: boolean; budgetExhausted: boolean }> {
-    const uid = getAuth().currentUser?.uid;
+    const uid = getCurrentUser()?.uid;
     const db = await getLocalDb();
     const all = await db.getAll('aiEmbeddings');
     const pending = all.filter(e => !e.cloudSyncedAt && !e.cloudSkipped);

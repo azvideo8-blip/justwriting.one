@@ -1,4 +1,4 @@
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { UserProfile } from '../../../types';
 import { useBaseWritingSession, BaseSessionReturn } from './useBaseWritingSession';
 import { useSessionPersistence } from './useSessionPersistence';
@@ -26,7 +26,7 @@ export interface CloudSessionReturn extends BaseSessionReturn {
   discardDraft: () => Promise<void>;
 }
 
-export function useCloudWritingSession(user: User, profile: UserProfile | null): CloudSessionReturn {
+export function useCloudWritingSession(user: AppUser, profile: UserProfile | null): CloudSessionReturn {
   const base = useBaseWritingSession();
   const draft = useDraftSession(user.uid, false);
 

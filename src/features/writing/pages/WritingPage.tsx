@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User } from 'firebase/auth';
+import type { AppUser } from '../../../core/auth/types';
 import { UserProfile } from '../../../types';
 import { GoalToast } from '../../../shared/components/GoalToast';
 import { SeoHead } from '../../../shared/i18n/SeoHead';
@@ -26,11 +26,11 @@ import { useContentStore } from '../store/useContentStore';
 export type { AnySessionReturn } from '../hooks/useWritingActions';
 
 interface WritingViewProps {
-  user: User | null;
+  user: AppUser | null;
   profile: UserProfile | null;
 }
 
-function AuthenticatedWritingPage({ user, profile }: { user: User; profile: UserProfile | null }) {
+function AuthenticatedWritingPage({ user, profile }: { user: AppUser; profile: UserProfile | null }) {
   const session = useCloudWritingSession(user, profile);
   return (
     <WritingSessionProvider session={session} profile={profile} user={user}>

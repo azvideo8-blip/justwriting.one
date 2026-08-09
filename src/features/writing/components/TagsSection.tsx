@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Plus } from 'lucide-react';
-import { auth } from '../../../core/firebase/auth';
+import { getCurrentUser } from '../../../core/auth';
 import { Session } from '../../../types';
 import { useLanguage } from '../../../shared/i18n';
 import { useSessionTags } from '../hooks/useSessionTags';
@@ -37,7 +37,7 @@ export function TagsSection({ session, isEditing: _isEditing }: TagsSectionProps
             className="group/tag flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors bg-surface-base text-text-main/60 hover:bg-white/10"
           >
             #{tag}
-            {auth.currentUser?.uid === session.userId && (
+            {getCurrentUser()?.uid === session.userId && (
               <IconButton
                 icon={<X size={10} />}
                 label={t('session_remove_tag')}

@@ -1,16 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../../core/firebase/auth', () => ({
-  auth: { currentUser: null },
-}));
-
-vi.mock('firebase/auth', () => ({
-  signOut: vi.fn(),
-  createUserWithEmailAndPassword: vi.fn(),
-  signInWithEmailAndPassword: vi.fn(),
-  EmailAuthProvider: { credential: vi.fn() },
-  updatePassword: vi.fn(),
-  reauthenticateWithCredential: vi.fn(),
+// Мокается прослойка, а не firebase/auth: тест не должен знать, какой провайдер
+// внутри — ради этого core/auth и заведён. Мок самого firebase/auth здесь ещё и
+// не работал бы: провайдер зовёт getAuth() на верхнем уровне модуля, так что
+// неполный мок роняет загрузку файла целиком, а не отдельный тест.
+vi.mock('../../../core/auth', () => ({
+  getCurrentUser: vi.fn(() => null),
+  signIn: vi.fn(),
+  signUp: vi.fn(),
+  signOutUser: vi.fn(),
   sendPasswordResetEmail: vi.fn(),
 }));
 

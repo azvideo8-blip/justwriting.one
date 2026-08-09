@@ -22,7 +22,7 @@ import { readingTimeMinutes } from '../../../shared/utils/readingTime';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { getOrCreateGuestId } from '../../../core/storage/localDb';
-import { getAuth } from 'firebase/auth';
+import { getCurrentUser } from '../../../core/auth';
 
 const STOP_WORDS = new Set([
   'это','что','как','так','все','они','она','он','мы','вы','я','его','её','их',
@@ -51,7 +51,7 @@ async function buildCorpusDf(): Promise<{ df: Map<string, number>; N: number }> 
   if (corpusCache && Date.now() - corpusCache.timestamp < CORPUS_TTL_MS) {
     return { df: corpusCache.df, N: corpusCache.N };
   }
-  const uid = getAuth().currentUser?.uid ?? getOrCreateGuestId();
+  const uid = getCurrentUser()?.uid ?? getOrCreateGuestId();
   const docs = await LocalDocumentService.getGuestDocuments(uid);
   const df = new Map<string, number>();
   for (const doc of docs) {

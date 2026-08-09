@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Shield } from 'lucide-react';
-import { auth } from '../../../core/firebase/auth';
+import { getCurrentUser } from '../../../core/auth';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { Button } from '../../../shared/components/Button';
 import { useAuthStatus } from '../../../app/useAuthStatus';
@@ -15,7 +15,7 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
 
   const handleAccept = async () => {
     if (!checked) return;
-    const user = auth.currentUser;
+    const user = getCurrentUser();
     if (!user) return;
 
     const { db, mod } = await getClient();

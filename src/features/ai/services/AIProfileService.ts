@@ -1,6 +1,6 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import { AIService } from './AIService';
-import { getAuth } from 'firebase/auth';
+import { getCurrentUser } from '../../../core/auth';
 import { getClient } from '../../../core/firebase/firestoreClient';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { CloudSyncService } from '../../../core/services/CloudSyncService';
@@ -62,7 +62,7 @@ export const AIProfileService = {
       console.error('[AIProfileService] Failed to save portrait to IDB:', e);
     }
 
-    const uid = getAuth().currentUser?.uid;
+    const uid = getCurrentUser()?.uid;
     if (uid) {
       try {
         const encrypted = await maybeEncrypt(
@@ -119,7 +119,7 @@ export const AIProfileService = {
     const local = localStorage.getItem(PORTRAIT_LS_KEY);
     if (local) return local;
 
-    const uid = getAuth().currentUser?.uid;
+    const uid = getCurrentUser()?.uid;
     if (uid) {
       try {
         const { db, mod } = await getClient();
